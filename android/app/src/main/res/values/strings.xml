@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">bittasker</string>
+    <string name="title_activity_main">bittasker</string>
+    <string name="package_name">com.bittasker.app</string>
+    <string name="custom_url_scheme">com.bittasker.app</string>
+</resources>

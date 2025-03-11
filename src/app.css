@@ -1,12 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --k-color-ios-primary-shade: 219, 119, 0; /* Using primary-600 color #DB7700 in RGB */
-}
-
-.active:bg-ios-primary-shade:active {
-  --tw-bg-opacity: 1;
-  background-color: rgb(var(--k-color-ios-primary-shade));
-}
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+@plugin "daisyui";

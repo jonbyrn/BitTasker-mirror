@@ -1,0 +1,51 @@
+---
+description: This is the entire project details and design philosophy along with the tech stack and rules.
+globs: *ts, *.svelte, *.js, *.html
+alwaysApply: false
+---
+# business-logic
+
+- This is an online marketplace for hiring freelancers.
+- The unique selling point of this marketplace is that it is a marketplace based on crypto. Which means that the user can pay the freelancers in crypto.
+- We are aiming to create a simple and intuitive app UI that is easy to use for both the freelancers and the clients.
+- This is a hybrid app that is built with Sveltekit and Capacitor.
+
+# Design philosophy
+
+- We are aiming to create a minimalistic and modern UI.
+- To properly support mobile devices and their respected platforms we are using latest version of Daisy UI.
+- We are using the Sveltekit framework to build the app. So the frontend is written in Svelte 5 Runes.
+- With this same codebase we will support multiple platforms like Android, iOS, and Web.
+- We are using Tailwind CSS for styling.
+- We will also use Storybook for component development.
+
+# Tech stack
+
+- Sveltekit
+- Svelte 5 Runes
+- Daisy UI
+- Capacitor
+- Tailwind CSS
+- Storybook
+- TypeScript
+- Vite
+- Vitest
+- Bun
+
+# Rules
+
+- All new components should go in src/lib/components and be named like example-component.svelte unless otherwise specified.
+- All new pages go in src/lib/routes
+- All new utils go in src/lib/utils
+- All new stories go in src/lib/stories
+- All the state management should go in src/lib/states
+- We are also using vitest for testing.
+- Ignore /node_modules and follow .cursorignore file for other files to ignore.
+
+# Project structure
+
+- src/lib/components
+- src/lib/routes
+- src/lib/utils
+- src/lib/stories
+- src/lib/states
