@@ -8,6 +8,9 @@
 	},
 	"scripts": {
 		"dev": "vite dev",
+		"dev:app": "vite dev --host --port 3000",
+		"ios": "npx cap run --live-reload ios",
+		"android": "npx cap run --live-reload android",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -62,9 +65,12 @@
 	},
 	"dependencies": {
 		"@capacitor/android": "^7.0.1",
+		"@capacitor/app": "^7.0.0",
 		"@capacitor/cli": "^7.0.1",
 		"@capacitor/core": "^7.0.1",
 		"@capacitor/geolocation": "^7.1.1",
-		"@capacitor/ios": "^7.0.1"
+		"@capacitor/ios": "^7.0.1",
+		"@capacitor/preferences": "^7.0.0",
+		"@capacitor/status-bar": "^7.0.0"
 	}
 }

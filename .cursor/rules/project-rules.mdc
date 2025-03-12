@@ -15,6 +15,7 @@ alwaysApply: false
 - We are aiming to create a minimalistic and modern UI.
 - To properly support mobile devices and their respected platforms we are using latest version of Daisy UI.
 - We are using the Sveltekit framework to build the app. So the frontend is written in Svelte 5 Runes.
+- In svelte 5 there is not on:click event it's changed to onclick. Same goes for other on: events. Always use $state() to create reactive variables.
 - With this same codebase we will support multiple platforms like Android, iOS, and Web.
 - We are using Tailwind CSS for styling.
 - We will also use Storybook for component development.
@@ -34,7 +35,7 @@ alwaysApply: false
 
 # Rules
 
-- All new components should go in src/lib/components and be named like example-component.svelte unless otherwise specified.
+- All new components should go in src/lib/components and be named like ExampleComponent.svelte unless otherwise specified.
 - All new pages go in src/lib/routes
 - All new utils go in src/lib/utils
 - All new stories go in src/lib/stories
