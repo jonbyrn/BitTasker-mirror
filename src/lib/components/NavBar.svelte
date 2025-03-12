@@ -1,5 +1,21 @@
 <script lang="ts">
 	import { darkMode } from '$lib/states/theme';
+	import { t } from '$lib/states/i18n';
+	import { setLocale } from '$lib/states/i18n';
+	import type { Locales } from '$lib/states/i18n';
+
+	const languages: { code: Locales; name: string }[] = [
+		{ code: 'en', name: 'English' },
+		{ code: 'es', name: 'Español' }
+	];
+
+	const handleLanguageChange = async (code: Locales) => {
+		try {
+			await setLocale(code);
+		} catch (error) {
+			console.error('Error changing language:', error);
+		}
+	};
 </script>
 
 <div class="navbar bg-base-100 fixed top-0 z-50 shadow-md">
@@ -26,9 +42,23 @@
 				tabindex="0"
 				class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-4 w-52 rounded-xl p-2 shadow"
 			>
-				<li><a href="/">Home</a></li>
+				<li><a href="/">{$t('navbar.home')}</a></li>
 				<li>
-					<a href="/how-it-works">How It Works</a>
+					<a href="/how-it-works">{$t('navbar.how_it_works')}</a>
+				</li>
+				<li>
+					<details class="dropdown">
+						<summary>{$t('navbar.language')}</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+							{#each languages as { code, name }}
+								<li>
+									<button class="text-left" onclick={() => handleLanguageChange(code)}>
+										{name}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</details>
 				</li>
 				<li class="absolute top-0 right-0 m-2">
 					<label class="swap swap-rotate">
@@ -37,7 +67,7 @@
 							type="checkbox"
 							class="hidden"
 							checked={$darkMode}
-							onchange={() => $darkMode = !$darkMode}
+							onchange={() => ($darkMode = !$darkMode)}
 						/>
 
 						<!-- sun icon -->
@@ -69,16 +99,35 @@
 	</div>
 	<div class="navbar-center hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
-			<li><a href="/">Home</a></li>
+			<li><a href="/">{$t('navbar.home')}</a></li>
 			<li>
-				<a href="/how-it-works">How It Works</a>
+				<a href="/how-it-works">{$t('navbar.how_it_works')}</a>
+			</li>
+			<li>
+				<details class="dropdown">
+					<summary>{$t('navbar.language')}</summary>
+					<ul class="menu dropdown-content bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
+						{#each languages as { code, name }}
+							<li>
+								<button class="text-left" onclick={() => handleLanguageChange(code)}>
+									{name}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</details>
 			</li>
 		</ul>
 	</div>
 	<div class="navbar-end">
 		<label class="swap swap-rotate h-0 w-0 overflow-hidden pr-4 lg:h-auto lg:w-auto">
 			<!-- this hidden checkbox controls the state -->
-			<input type="checkbox" class="hidden" checked={$darkMode} onchange={() => $darkMode = !$darkMode} />
+			<input
+				type="checkbox"
+				class="hidden"
+				checked={$darkMode}
+				onchange={() => ($darkMode = !$darkMode)}
+			/>
 
 			<!-- sun icon -->
 			<svg
@@ -103,6 +152,6 @@
 			</svg>
 		</label>
 
-		<a href="/auth" class="btn btn-primary">Start Now</a>
+		<a href="/auth" class="btn btn-primary">{$t('navbar.start_now')}</a>
 	</div>
 </div>

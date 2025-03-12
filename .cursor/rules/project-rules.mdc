@@ -46,7 +46,7 @@ alwaysApply: false
 # Project structure
 
 - src/lib/components
-- src/lib/routes
+- src/routes
 - src/lib/utils
-- src/lib/stories
+- src/stories
 - src/lib/states
