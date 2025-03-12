@@ -1,12 +1,5 @@
 <script lang="ts">
-	const { theme, setTheme } = $props<{
-		theme: string | null;
-		setTheme: (theme: string) => Promise<void>;
-	}>();
-
-	async function toggleTheme() {
-		await setTheme(theme === 'light' ? 'dark' : 'light');
-	}
+	import { darkMode } from '$lib/states/theme';
 </script>
 
 <div class="navbar bg-base-100 fixed top-0 z-50 shadow-md">
@@ -31,7 +24,7 @@
 			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 			<ul
 				tabindex="0"
-				class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow"
+				class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-4 w-52 rounded-xl p-2 shadow"
 			>
 				<li><a href="/">Home</a></li>
 				<li>
@@ -43,8 +36,8 @@
 						<input
 							type="checkbox"
 							class="hidden"
-							checked={theme === 'dark'}
-							onchange={toggleTheme}
+							checked={$darkMode}
+							onchange={() => $darkMode = !$darkMode}
 						/>
 
 						<!-- sun icon -->
@@ -85,7 +78,7 @@
 	<div class="navbar-end">
 		<label class="swap swap-rotate h-0 w-0 overflow-hidden pr-4 lg:h-auto lg:w-auto">
 			<!-- this hidden checkbox controls the state -->
-			<input type="checkbox" class="hidden" checked={theme === 'dark'} onchange={toggleTheme} />
+			<input type="checkbox" class="hidden" checked={$darkMode} onchange={() => $darkMode = !$darkMode} />
 
 			<!-- sun icon -->
 			<svg
