@@ -10,7 +10,7 @@ export default {
 		'homepage.hero.title': 'Bittasker',
 		'homepage.hero.description':
 			'The first crypto-powered freelance marketplace. Connect with talented freelancers and pay securely with cryptocurrency.',
-		'homepage.hero.cta': 'How it works',
+		'homepage.hero.cta': "Here's How it works",
 		'homepage.features.title': 'Why Choose Bittasker?',
 		'homepage.features.crypto.title': 'Crypto Payments',
 		'homepage.features.crypto.description':
