@@ -1,17 +1,22 @@
 <script lang="ts">
 	import { getContext } from 'svelte';
+	import { goto } from '$app/navigation';
+	import {  mockLogin } from '$lib/stores/auth';
 	const page = getContext('page');
 	let isLogin = $state(true);
-	let email = $state('');
-	let password = $state('');
+	let email = $state('user@example.com');
+	let password = $state('password');
 	let confirmPassword = $state('');
 	let name = $state('');
 
-	function handleSubmit(e: Event) {
+	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (isLogin) {
 			// Handle login
 			console.log('Login:', { email, password });
+			await mockLogin(email, password);
+
+			goto('/dashboard');
 		} else {
 			// Handle signup
 			console.log('Signup:', { name, email, password });
