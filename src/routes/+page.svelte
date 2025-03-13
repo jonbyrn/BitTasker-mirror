@@ -93,7 +93,7 @@
 		<div class="mx-auto max-w-3xl text-center">
 			<h2 class="mb-4 text-3xl font-bold">{$t('homepage.cta.title')}</h2>
 			<p class="mb-6">{$t('homepage.cta.description')}</p>
-			<a href="/signup" class="btn btn-secondary">{$t('homepage.cta.button')}</a>
+			<a href="/auth" class="btn btn-secondary">{$t('homepage.cta.button')}</a>
 		</div>
 	</div>
 </div>
