@@ -10,7 +10,7 @@ export function verifyIdentity() {
         maxAttempts: 2,
         useFallback: true
     })
-        .then(async () => {
+        .then(() => {
             goto('profile');
         })
         .catch((err: any) => {
@@ -25,4 +25,12 @@ export function createPasskey(email: string) {
         server: 'com.bittasker.app'
     });
     verifyIdentity();
+}
+
+export async function getCredentials() {
+    const credentials = await NativeBiometric.getCredentials({
+        server: "com.bittasker.app",
+    });
+
+    return credentials;
 }
