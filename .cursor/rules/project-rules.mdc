@@ -1,52 +1,946 @@
----
-description: This is the entire project details and design philosophy along with the tech stack and rules.
-globs: *ts, *.svelte, *.js, *.html
-alwaysApply: false
----
-# business-logic
+# BitTasker Technical Specifications
 
-- This is an online marketplace for hiring freelancers.
-- The unique selling point of this marketplace is that it is a marketplace based on crypto. Which means that the user can pay the freelancers in crypto.
-- We are aiming to create a simple and intuitive app UI that is easy to use for both the freelancers and the clients.
-- This is a hybrid app that is built with Sveltekit and Capacitor.
+*Note: The official name of the application is "BitTasker" (capital 'B', capital 'T', no space). Please ensure all documentation, code, and marketing materials use this spelling consistently.*
 
-# Design philosophy
+## Overview
+BitTasker is a gig economy platform inspired by Airtasker, designed to connect people seeking services (task hirers) with professionals offering those services (task doers). The platform facilitates the entire process from task posting, bidding, hiring, communication, scheduling, payment, to reviews.
 
-- We are aiming to create a minimalistic and modern UI.
-- To properly support mobile devices and their respected platforms we are using latest version of Daisy UI.
-- We are using the Sveltekit framework to build the app. So the frontend is written in Svelte 5 Runes.
-- In svelte 5 there is not on:click event it's changed to onclick. Same goes for other on: events. Always use $state() to create reactive variables.
-- With this same codebase we will support multiple platforms like Android, iOS, and Web.
-- We are using Tailwind CSS for styling.
-- We will also use Storybook for component development.
+### Key Differentiators
+- **Bitcoin Integration**: Native support for Bitcoin payments through Liquid, Lightning, and on-chain transactions
+- **Decentralized Identity**: Integration with Nostr for secure, user-owned identity management
+- **Multi-Language Support**: Automatic translation for global accessibility
+- **Gamification**: Level-based system to incentivize platform engagement
+- **Dynamic Fee Structure**: Reduced fees for repeat hirings and active users
 
-# Tech stack
+## Technical Architecture
 
-- Sveltekit
-- Svelte 5 Runes
-- Daisy UI
-- Capacitor
-- Tailwind CSS
-- Storybook
-- TypeScript
-- Vite
-- Vitest
-- Bun
+### Platform Components
+1. **Mobile Applications**
+   - iOS and Android apps built with SvelteKit
+   - Capacitor for native device capability access
+   - Single codebase for web and mobile platforms
+   - Progressive enhancement for device-specific features
 
-# Rules
+2. **Web Application**
+   - SvelteKit frontend framework
+   - Responsive design for mobile and desktop
+   - Progressive Web App (PWA) capabilities
 
-- All new components should go in src/lib/components and be named like ExampleComponent.svelte unless otherwise specified.
-- All new pages go in src/lib/routes
-- All new utils go in src/lib/utils
-- All new stories go in src/lib/stories
-- All the state management should go in src/lib/states
-- We are also using vitest for testing.
-- Ignore /node_modules and follow .cursorignore file for other files to ignore.
+3. **Backend Services**
+   - API Layer (Node.js with Express or Fastify)
+   - Database (PostgreSQL for relational data)
+   - Caching Layer (Redis)
+   - Search Engine (Elasticsearch or MeiliSearch)
+   - Task Scheduling (Bull or similar)
 
-# Project structure
+4. **Blockchain Integration**
+   - Bitcoin Wallet Services
+   - Liquid Network Integration
+   - Lightning Network Integration
+   - Bitcoin On-chain Transaction Support
 
-- src/lib/components
-- src/routes
-- src/lib/utils
-- src/stories
-- src/lib/states
+5. **Decentralized Components**
+   - Nostr Protocol Integration for identity and messaging
+   - Public Key Infrastructure for E2E encryption
+
+6. **Infrastructure**
+   - Containerized using Docker
+   - Kubernetes for orchestration
+   - CDN for static assets
+   - Edge computing for geographically distributed services
+
+### Data Models
+
+#### Core Entities
+- **User**
+  - Basic profile information
+  - Preference settings
+  - Authentication credentials
+  - Bitcoin wallet information
+  - Nostr public keys
+  - Gamification stats
+  - Location data
+  - E2EE encrypted user credentials
+  - Comprehensive key backup and recovery system
+
+- **Task**
+  - Description and requirements
+  - Category and skills needed
+  - Location (physical or remote)
+  - Budget range
+  - Time frame
+  - Status (open, in progress, completed, etc.)
+  - Associated bids
+  - Attachments
+  - Boosting option for task hirers (pay portion of task doer's fee)
+
+- **Bid**
+  - Price quote
+  - Estimated completion time
+  - Proposed approach
+  - Provider's information
+  - Status (pending, accepted, rejected)
+
+- **Calendar/Schedule**
+  - Task doer availability
+  - Booked appointments
+  - Recurring availability patterns
+
+- **Transaction**
+  - Payment amount
+  - Payment method
+  - Status
+  - Fee calculation
+  - Transaction hash (for crypto payments)
+  - Whitelisted Bitcoin addresses for off-platform transfers
+  - Withdrawal notifications and reminders
+
+- **Review**
+  - Rating (1-5 stars)
+  - Written feedback
+  - Response to feedback
+  - Dispute information (if applicable)
+
+## Feature Specifications
+
+### User Management
+
+#### Authentication & Identity
+- **Implementation**: Integrate Nostr protocol for decentralized identity
+- **Features**:
+  - Self-sovereign identity management
+  - Multiple authentication methods (email, social logins)
+  - Password-less authentication options
+  - Key management for encryption and payments
+  - Account recovery mechanisms
+  - E2EE encrypted user credentials
+  - Comprehensive key backup and recovery system
+  - Identity re-verification requirement for Bitcoin transactions
+  - No phone-based authentication
+
+#### Profile Management
+- **Implementation**: Comprehensive profile system with verification
+- **Features**:
+  - Personal and professional information
+  - Service/skill tags with verification options
+  - Portfolio/Work examples
+  - Identity verification system (KYC options)
+  - Availability calendar integration
+  - Pricing for standard services
+  - Location and service area definition
+  - Multiple profile pictures
+  - Optional promotional video integration
+  - AI-assisted profile creation from user descriptions
+
+#### Skill Verification & Professional Teams
+- **Implementation**: Third-party certification and credential verification system
+- **Features**:
+  - Professional certification verification
+  - Skill endorsement by other users
+  - Credential display on profiles
+  - Formation of professional teams with complementary skills
+  - Team management and task distribution
+  - Team profiles and collective ratings
+
+### Task Management
+
+#### Task Creation
+- **Implementation**: Intuitive task posting interface
+- **Features**:
+  - Detailed description with rich text and media
+  - Location specification (including map integration)
+  - Budget setting (with Bitcoin and fiat options)
+  - Scheduling requirements
+  - Skill/expertise requirements
+  - Task categorization
+  - Privacy settings
+  - Template system for recurring tasks
+  - Boosting option for task hirers (pay portion of task doer's fee)
+
+#### Task Discovery
+- **Implementation**: Advanced search and recommendation engine
+- **Features**:
+  - Location-based task discovery
+  - Category browsing
+  - Skill-based filtering
+  - Price range filtering
+  - Availability matching
+  - Sponsored results placement
+  - Personalized recommendations based on history
+  - Saved searches and notifications
+
+#### Bidding System
+- **Implementation**: Transparent and competitive bidding platform
+- **Features**:
+  - Custom pricing proposals
+  - Negotiation capabilities
+  - Bid comparison tools
+  - Provider credentials highlight
+  - Previous work showcase
+  - Automated bid suggestions based on market rates
+  - Bid withdrawal mechanism
+  - Counter-offer system
+
+#### Recurring Tasks & Service Packages
+- **Implementation**: Streamlined system for regular service needs
+- **Features**:
+  - Template creation for recurring tasks
+  - Scheduling options (weekly, monthly, etc.)
+  - Service package creation with bundle pricing
+  - Pre-defined service bundles for common needs
+  - Package customization options
+  - Automatic task generation based on schedule
+
+### Communication
+
+#### Chat System
+- **Implementation**: End-to-end encrypted messaging with translation
+- **Features**:
+  - Real-time messaging
+  - Automatic translation of messages
+  - Common response templates
+  - File and media sharing
+  - Voice messages with auto transcription and translation
+  - Read receipts
+  - Message search
+  - Chat history
+
+#### Notification System
+- **Implementation**: Multi-channel notification framework
+- **Features**:
+  - Push notifications
+  - Email notifications
+  - In-app notification center
+  - Notification preferences
+  - Real-time status updates
+
+### Payment System
+
+#### Bitcoin Wallet
+- **Implementation**: Integrated non-custodial Bitcoin wallet
+- **Features**:
+  - Support for Bitcoin, Lightning, and Liquid network
+  - USDT on Liquid support
+  - Transaction history
+  - Multiple address management
+  - Hardware wallet connectivity
+  - Balance display in multiple currencies
+  - Fee estimation
+  - Payment requests
+  - Whitelisted Bitcoin addresses for off-platform transfers
+  - Withdrawal notifications and reminders
+  - Identity re-verification for sending Bitcoin
+
+#### Payment Processing
+- **Implementation**: Secure escrow-based payment system
+- **Features**:
+  - Milestone-based payments
+  - Escrow services
+  - Automatic release conditions
+  - Fee calculation based on user levels
+  - Refund mechanisms
+  - Dispute resolution process
+  - Currency conversion
+  - Payment receipts and invoicing
+  - Multiple payment method options (Fiat, USDT, Bitcoin)
+  - Customizable payment splits between methods (e.g., 80% Fiat/20% Bitcoin)
+  - Real-time Bitcoin/USD currency converter for pricing transparency
+
+#### Task Insurance
+- **Implementation**: Optional coverage for high-value services
+- **Features**:
+  - Risk assessment for different task categories
+  - Premium calculation based on task value
+  - Claims processing workflow
+  - Coverage verification
+  - Insurance partner integration
+  - Dispute resolution process for claims
+  - Default policies for cancellations and refunds
+
+### Scheduling
+
+#### Calendar System
+- **Implementation**: Integrated calendar with third-party sync
+- **Features**:
+  - Task doer availability settings
+  - Booking integration
+  - Calendar synchronization (Google, Apple, etc.)
+  - Appointment reminders
+  - Recurring availability patterns
+  - Time zone management
+  - Conflict detection
+  - Buffer time settings
+
+#### Booking Process
+- **Implementation**: Streamlined booking workflow
+- **Features**:
+  - Instant booking for pre-priced services
+  - Request for slot reservation
+  - Confirmation process
+  - Rescheduling capabilities
+  - Cancellation policies
+  - Automated follow-up
+
+#### Time Tracking
+- **Implementation**: Built-in system for hourly-based tasks
+- **Features**:
+  - Start/stop functionality for tracking worked hours
+  - Manual time entry for offline work
+  - Activity verification options
+  - Break tracking
+  - Automatic payment calculation based on tracked time
+  - Reporting and visualization of time spent
+
+### Gamification
+
+#### Level System
+- **Implementation**: Progressive achievement structure
+- **Features**:
+  - Experience points for completed actions
+  - Level progression with clear requirements
+  - Monthly activity maintenance requirements
+  - Visual indicators of level status
+  - Profile badges and recognition
+  - Historical statistics tracking
+
+#### Rewards Program
+- **Implementation**: Incentive structure for platform engagement
+- **Features**:
+  - Fee discounts based on level
+  - Increased visibility in search results
+  - Featured profile placement
+  - Advanced features unlocking
+  - Referral bonuses
+  - Special access to high-value tasks
+
+### Localization
+
+#### Translation System
+- **Implementation**: Real-time content translation
+- **Features**:
+  - UI translation for all supported languages
+  - Chat message translation
+  - Task description translation
+  - Reviews and feedback translation
+  - Currency conversion
+  - Local regulation compliance
+  - Cultural consideration in recommendations
+
+#### Regional Adaptations
+- **Implementation**: Region-specific functionality
+- **Features**:
+  - Local payment methods
+  - Regional categories and skills
+  - Cultural considerations in UI/UX
+  - Regional pricing suggestions
+
+### Trust & Safety
+
+#### Review System
+- **Implementation**: Comprehensive feedback mechanism
+- **Features**:
+  - Multi-dimensional ratings
+  - Detailed written reviews
+  - Photo/video evidence option
+  - Review verification
+  - Response capabilities
+  - Review aggregation and statistics
+  - Dispute process for unfair reviews
+  - AI-powered review summarization for task hirers
+  - Sentiment analysis of review content
+
+#### Safety Measures
+- **Implementation**: Abuse prevention and conflict resolution
+- **Features**:
+  - Identity verification options
+  - Background check integration (where legal)
+  - Insurance options
+  - Dispute resolution process
+  - Emergency contact system
+  - Reporting mechanisms
+  - User blocking capabilities
+  - Fraud detection algorithms
+
+#### Reputation Portability
+- **Implementation**: Integration with other reputation systems via Nostr
+- **Features**:
+  - Nostr-based reputation scoring
+  - Import/export of reputation data
+  - Verification of external credentials
+  - Cross-platform reputation aggregation
+  - Public attestation of skills and work history
+  - Cryptographic verification of credentials
+
+## User Interface
+
+#### Role Switching
+- **Implementation**: Intuitive UI for toggling between task hirer and task doer modes
+- **Features**:
+  - One-click role switching capability
+  - Contextual dashboard changes based on active role
+  - Role-specific navigation and action items
+  - Visual indicators of current role
+  - Unified inbox across roles
+  - Personalized onboarding for each role
+  - Quick access to most-used features by role
+
+## Business & Professional Tools
+
+#### Business Accounts
+- **Implementation**: Enhanced accounts for companies and organizations
+- **Features**:
+  - Multiple user accounts under one business entity
+  - Role-based permissions for team members
+  - Centralized billing and payment management
+  - Task assignment and delegation capabilities
+  - Company-level analytics and reporting
+  - Enterprise-grade security options
+
+#### Analytics Dashboard
+- **Implementation**: Comprehensive data visualization for service providers
+- **Features**:
+  - Performance metrics and statistics
+  - Earning trends and projections
+  - Customer demographics and insights
+  - Competitive market analysis
+  - Optimization suggestions
+  - Exportable reports for business planning
+
+#### Administration System
+- **Implementation**: Comprehensive platform management tools
+- **Features**:
+  - User management with search and filtering
+  - Platform usage statistics and reporting
+  - Support ticket system with categorization
+  - Dispute resolution workflow
+  - Content moderation tools
+  - System health monitoring
+  - Fee and payment management
+  - Verification process oversight
+
+#### API Integration
+- **Implementation**: Developer access for third-party integration
+- **Features**:
+  - Comprehensive REST API
+  - Webhook support for real-time events
+  - Authentication and authorization
+  - Rate limiting and usage tracking
+  - Developer documentation and SDK
+  - Sandbox environment for testing
+  - Integrated Zapier, Make.com, and n8n integrations
+
+## Community Engagement
+
+#### Skill Marketplace
+- **Implementation**: Educational platform for service providers
+- **Features**:
+  - Course creation and publishing
+  - Skill certification programs
+  - Peer review system
+  - Learning path recommendations
+  - Achievement tracking
+
+#### Task Collaboration
+- **Implementation**: Tools for multi-provider complex projects
+- **Features**:
+  - Task division and assignment
+  - Progress tracking and coordination
+  - Shared resources and documentation
+  - Real-time collaboration tools
+  - Payment distribution system
+  - Joint client communication
+
+## Advanced Technology
+
+#### Smart Contract Automation
+- **Implementation**: Advanced transaction automation using Liquid
+- **Features**:
+  - Milestone-based payment release
+  - Multi-signature approval flows
+  - Time-locked escrow contracts
+  - Conditional execution based on deliverables
+  - Automated dispute resolution triggers
+  - Contract templates for common scenarios
+
+#### Predictive Pricing
+- **Implementation**: AI-driven pricing recommendation engine
+- **Features**:
+  - Market rate analysis
+  - Demand-based pricing suggestions
+  - Competitive positioning recommendations
+  - Seasonal adjustment factors
+  - Location-based price optimization
+  - Client-specific pricing strategies
+
+## Development Roadmap
+
+### Phase 1: Foundation
+- Core application architecture
+- Nostr integration
+- User authentication and profile management
+- Basic task posting and discovery
+- Simple bidding system
+- Initial Bitcoin wallet integration
+- Fundamental chat functionality
+- End-to-end encryption
+
+### Phase 2: Core Functionality
+- Enhanced task management
+- Complete payment system with escrow
+- Calendar and scheduling system
+- Review and rating implementation
+- Basic gamification framework
+- API stabilization
+
+### Phase 3: Advanced Features
+- Advanced search and recommendation
+- Complete localization system
+- Enhanced Bitcoin features (Lightning, Liquid)
+- Referral system implementation
+
+### Phase 4: Scalability & Refinement
+- Performance optimization
+- Analytics integration
+- Enhanced security measures
+- Advanced gamification
+- Sponsored listings system
+- Third-party integrations
+
+## Technical Implementation Details
+
+### Frontend Technologies
+- **Web**: SvelteKit, TailwindCSS, DaisyUI
+- **Mobile**: SvelteKit with Capacitor
+- **State Management**: Native Svelte stores
+- **API Communication**: Fetch API with custom middleware
+- **Localization**: i18n with dynamic loading
+- **UI Components**: Custom component library with Storybook
+- **Theming**: DaisyUI theme configuration with Bitcoin orange (#FF9315) as primary color
+- **Display Modes**: Support for both light and dark modes with user preference persistence
+
+### Backend Technologies
+- **API Framework**: Node.js (Express/Fastify)
+- **Database**: PostgreSQL with TimescaleDB for time-series data
+- **Caching**: Redis
+- **Search**: Elasticsearch/MeiliSearch
+- **File Storage**: S3-compatible object storage
+- **Real-time Communication**: WebSockets/Socket.io
+- **Job Processing**: Bull with Redis
+
+### Bitcoin & Blockchain
+- **Wallet Implementation**: BitcoinJS, LDK (Lightning Development Kit)
+- **Liquid Integration**: Liquid SDK
+- **Transaction Monitoring**: Bitcoin node with Electrum Server
+- **Key Management**: Secure enclave integration for mobile
+- **Smart Contract**: Simplicity for Liquid functionality
+
+### Nostr Integration
+- **Protocol Libraries**: nostr-tools, nostr-relay
+- **Identity Management**: NIP-01 for basic protocol
+- **Encryption**: NIP-04 for encrypted direct messages
+- **Event Handling**: Custom event subscription system
+- **Relay Management**: Multiple relay support with fallback
+
+### Security Measures
+- **Authentication**: Multi-factor, Passkeys (WebAuthn)
+- **Encryption**: AES-256 for data at rest, TLS 1.3 for transit
+- **API Security**: Rate limiting, CSRF protection, JWT with short expiry
+- **Wallet Security**: Hierarchical Deterministic wallets, optional multi-sig
+- **Code Security**: Regular audits, dependency scanning, SAST/DAST
+- **Infrastructure**: Zero-trust architecture, least privilege principle
+
+## Testing Infrastructure
+- **Unit Testing**: Vitest for fast, ESM-native unit testing
+- **Component Testing**: Testing Library for Svelte component testing
+- **Integration Testing**: Playwright for browser-based integration tests
+- **E2E Testing**: Playwright for cross-browser end-to-end testing
+- **Performance Testing**: Lighthouse CI for performance metrics
+- **Security Testing**: OWASP ZAP for automated security scanning
+- **Snapshot Testing**: Visual regression testing with Storybook and Chromatic
+- **Test Data Generation**: Faker.js for generating test data
+- **Coverage Reporting**: Vitest coverage with C8/V8 engine
+
+### CI/CD Pipeline
+- **Build Automation**: Gitea Actions and CI
+- **Test Automation**: Pre-commit hooks and branch protection
+- **Deployment**: Automated staging and production pipelines
+- **Quality Gates**: Mandatory test passing, coverage thresholds, and performance benchmarks
+- **Environment Management**: Containerized test environments
+- **Test Parallelization**: Split test suites for faster CI runs
+- **Notification System**: Build status alerts and test failure notifications
+- **Test Result Reporting**: Visual dashboard for test metrics
+- **Scheduled Tests**: Regular security and performance audits
+- **Artifact Management**: Versioned test snapshots and reports
+
+### Build Process
+- **Development Build**:
+  - Lint checks
+  - Type checking
+  - Unit tests
+  - Hot module replacement
+  - Development server
+- **Staging Build**:
+  - All development build steps
+  - Integration tests
+  - E2E tests on critical paths
+  - Bundle analysis
+  - Performance benchmarking
+- **Production Build**:
+  - All staging build steps
+  - Full E2E test suite
+  - Security scanning
+  - Accessibility audit
+  - Bundle optimization
+  - Static asset optimization
+  - Deployment artifact generation
+
+## AI Implementation TODO List
+
+### Phase 1: Foundation Setup
+
+#### 1. Nostr Backend Infrastructure
+- [ ] Set up Nostr relays for data persistence 
+- [ ] Implement NIP-01 event kinds for core data models (tasks, bids, profiles, etc.)
+- [ ] Develop custom event types for BitTasker-specific functionality
+- [ ] Create subscription management system for real-time updates
+- [ ] Implement caching layer for frequently accessed Nostr events
+
+#### 2. User Identity & Authentication
+- [ ] Implement Nostr key pair generation and management
+- [ ] Create secure local storage for private keys
+- [ ] Develop user onboarding flow with Nostr identity creation
+- [ ] Implement NIP-05 verification for user identity validation
+- [ ] Create backup and recovery system for Nostr keys
+
+#### 3. Core Frontend Framework
+- [ ] Set up SvelteKit project structure with TailwindCSS and DaisyUI
+- [ ] Implement responsive layouts for mobile and desktop
+- [ ] Create base component library with Storybook documentation
+- [ ] Set up Capacitor for native mobile builds
+- [ ] Implement client-side state management with Svelte stores
+
+#### 4. Bitcoin Wallet Integration
+- [ ] Implement basic Bitcoin wallet functionality
+- [ ] Set up secure key management for wallet
+- [ ] Create transaction history visualization
+- [ ] Implement escrow-based payment system
+- [ ] Add support for multiple address types
+- [ ] Develop whitelisted address management
+- [ ] Create withdrawal notification system
+- [ ] Implement identity re-verification for Bitcoin transactions
+
+#### 5. Testing Framework Setup
+- [ ] Set up Vitest for unit testing
+- [ ] Configure Testing Library for component testing
+- [ ] Implement Playwright for integration and E2E testing
+- [ ] Configure mock service worker for API testing
+- [ ] Set up test data generation utilities
+- [ ] Implement Storybook snapshot testing
+- [ ] Configure coverage reporting
+- [ ] Create test documentation and guidelines
+- [ ] Set up testing Gitea Actions workflow
+- [ ] Create pre-commit hooks for test validation
+
+#### 6. User Interface & Experience
+- [ ] Design and implement responsive mobile-first interface
+- [ ] Create unified design system
+- [ ] Implement accessibility features
+- [ ] Design task creation workflow
+- [ ] Create provider profile presentation
+- [ ] Integrate language switching capability
+- [ ] Design notifications experience
+- [ ] Create custom admin dashboard
+- [ ] Implement intuitive task hirer/task doer role switching interface
+
+#### 7. Pricing & Payments
+- [ ] Set up fee calculation structure
+- [ ] Implement milestone-based payment system
+- [ ] Create escrow system for payments
+- [ ] Develop refund and dispute resolution flow
+- [ ] Integrate multiple payment methods
+- [ ] Create payment splitting mechanism
+- [ ] Develop invoice generation system
+- [ ] Implement real-time Bitcoin/USD currency converter
+
+#### 8. Review & Rating
+- [ ] Design multi-dimensional rating system
+- [ ] Create review submission interface
+- [ ] Implement review moderation system
+- [ ] Design review aggregation and display
+- [ ] Create review response capability
+- [ ] Implement review statistics
+- [ ] Develop AI-powered review summarization for task hirers
+
+### Phase 2: Core Functionality Development
+
+#### 9. Task Management via Nostr
+- [ ] Design Nostr event schema for task representation
+- [ ] Implement task creation, update, and deletion flows
+- [ ] Create task discovery and search functionality using Nostr filters
+- [ ] Develop task status tracking through Nostr events
+- [ ] Implement file/image attachments with encryption
+
+#### 10. Bidding System
+- [ ] Design Nostr event schema for bids
+- [ ] Implement bid submission and management
+- [ ] Create bid comparison and selection interfaces
+- [ ] Develop notification system for bid activities
+- [ ] Implement bid status tracking and updates
+
+#### 11. Messaging & Chat System
+- [ ] Implement NIP-04 for encrypted direct messaging
+- [ ] Create real-time chat interface with websocket connections
+- [ ] Integrate translation API for cross-language communication
+- [ ] Develop message templates for common responses
+- [ ] Create attachments and media sharing capability
+
+#### 12. Calendar & Scheduling
+- [ ] Design Nostr event schema for availability and bookings
+- [ ] Implement calendar visualization for availability
+- [ ] Create booking request and confirmation workflow
+- [ ] Develop integration with device native calendars
+- [ ] Implement notification system for appointments
+- [ ] Implement recurring task scheduling functionality
+- [ ] Create time tracking system for hourly-based work
+
+### Phase 3: Advanced Features
+
+#### 13. Lightning & Liquid Integration
+- [ ] Implement Lightning Network payment channels
+- [ ] Create Liquid Network transaction capabilities
+- [ ] Develop atomic swap functionality for cross-chain operations
+- [ ] Implement escrow mechanics using timelocks
+- [ ] Create multi-signature wallet options for security
+
+#### 14. Localization Framework
+- [ ] Set up i18n infrastructure for UI translation
+- [ ] Implement language detection and selection
+- [ ] Create translation caching for performance
+- [ ] Develop currency conversion for multi-region support
+
+#### 15. Review & Reputation System
+- [ ] Design Nostr event schema for reviews and ratings
+- [ ] Implement review submission and display
+- [ ] Create aggregated rating calculations
+- [ ] Develop dispute resolution workflow
+- [ ] Implement verification indicators for reviews
+
+#### 16. Gamification Implementation
+- [ ] Design level progression system
+- [ ] Implement user activity tracking
+- [ ] Create visual indicators for user levels
+- [ ] Develop fee calculation based on user levels
+- [ ] Implement referral tracking and rewards
+
+#### 17. Professional Enhancement Features
+- [ ] Design credential verification system
+- [ ] Implement skill verification and endorsement
+- [ ] Create professional team formation capabilities
+- [ ] Develop service package creation interface
+- [ ] Implement recurring task management
+- [ ] Create time tracking for hourly services
+
+#### 18. Business Tools
+- [ ] Design and implement business accounts
+- [ ] Create analytics dashboard for professionals
+- [ ] Implement automated invoice generation
+- [ ] Develop service package creation tools
+- [ ] Create API endpoints for business integrations
+
+### Phase 4: Optimization & Integration
+
+#### 19. Performance Optimization
+- [ ] Implement efficient Nostr event caching strategies
+- [ ] Create progressive loading patterns for data-heavy pages
+- [ ] Optimize image and video handling and compression
+- [ ] Implement service worker for offline capabilities
+- [ ] Create prefetching strategies for common user paths
+
+#### 20. Security Enhancements
+- [ ] Conduct comprehensive security audit
+- [ ] Implement additional encryption for sensitive data
+- [ ] Create rate limiting for API requests
+- [ ] Develop fraud detection algorithms
+- [ ] Implement safety reporting system
+
+#### 21. Advanced Trust Features
+- [ ] Implement task insurance options
+- [ ] Create reputation portability system
+- [ ] Develop cross-platform verification
+- [ ] Implement enhanced dispute resolution
+- [ ] Create blockchain-based attestation system
+
+#### 22. Community Features
+- [ ] Design and implement skill marketplace
+- [ ] Implement task collaboration tools
+- [ ] Create knowledge sharing platform
+
+#### 23. Voice & Advanced Technology
+- [ ] Develop smart contract automation for payments
+- [ ] Create predictive pricing engine
+
+#### 24. Analytics & Documentation
+- [ ] Set up privacy-preserving analytics
+- [ ] Create performance monitoring system
+- [ ] Implement error tracking and reporting
+- [ ] Develop user feedback collection mechanisms
+- [ ] Create administrative dashboard for key metrics
+- [ ] Create comprehensive API documentation
+- [ ] Implement automated testing for core features
+- [ ] Develop user documentation and help center
+- [ ] Create system architecture documentation
+- [ ] Implement continuous integration pipeline
+
+#### 25. Test Automation & CI/CD
+- [ ] Implement comprehensive CI/CD pipeline
+- [ ] Create automated performance testing workflow
+- [ ] Set up security testing automation
+- [ ] Implement test parallelization for faster builds
+- [ ] Configure test reporting dashboards
+- [ ] Set up scheduled penetration testing
+- [ ] Create automated accessibility testing
+- [ ] Implement visual regression testing pipeline
+- [ ] Configure multi-environment test matrix
+- [ ] Develop test result notification system
+
+## Development Considerations
+
+### Maximizing Nostr Usage
+- Use Nostr events as the primary data store whenever possible
+- Leverage multiple relays for redundancy and performance
+- Utilize NIP-04 for all private communications
+- Implement client-side filtering and processing of Nostr events
+- Use ephemeral events for temporary data to reduce relay load
+
+### Cost Efficiency Strategies
+- Implement efficient caching to minimize relay queries
+- Use serverless functions for any non-Nostr backend requirements
+- Leverage client-side processing to reduce server dependencies
+- Implement progressive enhancement for feature availability
+- Use CDN for static assets with aggressive caching
+- Choose lightweight, efficient libraries with minimal dependencies
+- Utilize WebAssembly for computation-heavy tasks
+
+### Minimalist Backend Approach
+- Avoid traditional databases when Nostr can provide the functionality
+- Use edge functions for necessary server-side operations
+- Implement client-side encryption to reduce need for secure backend
+- Utilize browser's IndexedDB for local data persistence
+- Create peer-to-peer connections when feasible to reduce server load
+
+### Testing Strategy
+- Implement test-driven development for critical components
+- Maintain minimum 80% code coverage for core modules
+- Create isolated tests with proper mocking of external dependencies
+- Focus on behavior-driven tests that validate user experiences
+- Use property-based testing for complex algorithms
+- Implement contract tests for Nostr integrations
+- Prioritize tests for critical payment and security functionality
+- Use snapshot testing for UI components to prevent regressions
+- Automate accessibility testing in the CI pipeline
+- Regularly perform load testing on Nostr relay integrations
+
+## Documentation References
+
+### Bitcoin Development
+- [Bitcoin Developer Documentation](https://developer.bitcoin.org/)
+- [Lightning Network Specifications](https://github.com/lightning/bolts)
+- [Liquid Network Documentation](https://docs.liquid.net/)
+- [LDK Documentation](https://lightningdevkit.org/)
+
+### Nostr Protocol
+- [Nostr Protocol Specification](https://github.com/nostr-protocol/nostr)
+- [NIPs (Nostr Implementation Possibilities)](https://github.com/nostr-protocol/nips)
+- [Nostr Development Kit](https://github.com/nostr-dev-kit/ndk)
+
+### Web & Mobile Development
+- [SvelteKit Documentation](https://kit.svelte.dev/docs)
+- [DaisyUI Documentation](https://daisyui.com/docs)
+- [Capacitor Documentation](https://capacitorjs.com/docs)
+- [TailwindCSS Documentation](https://tailwindcss.com/docs)
+- [IndexedDB for Client-side Storage](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
+
+### Security & Encryption
+- [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+- [OWASP Security Practices](https://owasp.org/www-project-web-security-testing-guide/)
+- [Public Key Cryptography Standards](https://www.rfc-editor.org/rfc/rfc8017)
+
+### Localization & Internationalization
+- [Mozilla L10n Guide](https://developer.mozilla.org/en-US/docs/Mozilla/Localization)
+- [i18next Documentation](https://www.i18next.com/)
+- [Google Translate API](https://cloud.google.com/translate/docs)
+
+### Payment Processing
+- [Payment Request API](https://developer.mozilla.org/en-US/docs/Web/API/Payment_Request_API)
+- [Escrow System Design Patterns](https://www.sciencedirect.com/science/article/pii/S2405844018323363)
+
+## Recommended Additional Features
+
+### Advanced User Experience
+1. **Biometric Authentication**: Implement fingerprint and facial recognition for secure and convenient access
+2. **Task Simulation**: Interactive previews of how tasks will be performed before hiring
+4. **Offline Mode**: Full functionality when internet connection is limited or unavailable
+5. **Contextual AI Assistant**: Task-specific AI helper for both service providers and clients
+
+### Financial Innovations
+1. **Multi-Signature Custody**: Advanced security options for high-value transactions
+2. **Provider Financing**: Short-term loans or advances based on confirmed upcoming work
+3. **Subscription-Based Service Plans**: Recurring payment models for regular service providers
+4. **Group Funding**: Allow multiple clients to jointly fund larger community projects
+5. **Customizable Payment Schedules**: Flexible payment timing options beyond standard milestones
+
+### Network Effects
+1. **Service Provider Guilds**: Allow professionals to form official guilds with shared standards
+2. **Cross-Platform Identity**: Integration with other professional networks and marketplaces
+3. **Expert Verification System**: Third-party verification of specialized skills and qualifications
+4. **Referral Marketplace**: Platform for service providers to trade referrals with commission structures
+5. **Local Business Integration**: Connect with local businesses for special rates on materials and tools
+
+### Intelligence & Optimization
+1. **Smart Task Routing**: AI-based assignment of tasks to optimal service providers
+2. **Seasonal Demand Prediction**: Forecasting tools for service providers to prepare for busy periods
+3. **Customer Lifetime Value Optimization**: Tools to help providers maximize long-term client relationships
+4. **Service Territory Optimization**: Help providers plan efficient service areas and routes
+5. **Dynamic Pricing Tools**: Adjust rates based on demand, urgency, and market conditions
+
+### Security & Trust Enhancements
+1. **Real-Time Identity Verification**: On-demand verification for high-security situations
+2. **Secure Document Exchange**: Encrypted sharing of sensitive documents with expiration
+3. **Blockchain-Verified Credentials**: Immutable record of qualifications and certifications
+4. **Task Insurance Marketplace**: Competitive options for insuring various task types
+5. **Trust Score Portability**: Import and leverage trust metrics from external platforms
+
+### Specialized Verticals
+1. **Emergency Services Marketplace**: Platform section dedicated to urgent or emergency tasks
+2. **Professional Development Tracking**: Progress tracking for service providers building skills
+3. **Equipment Rental Integration**: Connect providers with necessary equipment through partners
+4. **Regulatory Compliance Dashboard**: Help service providers navigate local regulations and requirements
+5. **Specialized Industry Solutions**: Tailored workflows for industries like construction, healthcare, and education
+
+### Enterprise & Business Features
+1. **White-Label Solutions**: Customizable platform versions for enterprise clients
+2. **Corporate Account Management**: Specialized tools for companies managing multiple service needs
+3. **Service Provider Teams API**: Allow external organizations to manage teams through API
+4. **Corporate Billing Integration**: Connect with enterprise accounting and procurement systems
+5. **Department-Specific Budgeting**: Tools for enterprises to manage department service budgets
+
+### Privacy & Data Control
+1. **Anonymous Hiring Option**: Privacy-focused hiring without revealing personal details
+2. **Selective Information Sharing**: Granular control over what information is shared with whom
+3. **Personal Data Export**: Comprehensive export of all user data in portable formats
+4. **Temporary Access Controls**: Time-limited access to personal information for specific tasks
+5. **Customizable Privacy Settings**: Advanced controls for information visibility
+
+## Development Considerations
+
+### Testing Strategy
+- Implement test-driven development for critical components
+- Maintain minimum 80% code coverage for core modules
+- Create isolated tests with proper mocking of external dependencies
+- Focus on behavior-driven tests that validate user experiences
+- Use property-based testing for complex algorithms
+- Implement contract tests for Nostr integrations
+- Prioritize tests for critical payment and security functionality
+- Use snapshot testing for UI components to prevent regressions
+- Automate accessibility testing in the CI pipeline
+- Regularly perform load testing on Nostr relay integrations
