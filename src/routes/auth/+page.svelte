@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { NativeBiometric } from 'capacitor-native-biometric';
 	import { isValidEmail } from '$lib/utils/helpers/validators';
-	import { createPasskey, verifyIdentity } from '$lib/services/auth';
+	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
 
 	let isLogin = $state(true);
 	let isPasskey = $state(false);

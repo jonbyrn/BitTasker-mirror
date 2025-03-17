@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { NativeBiometric } from 'capacitor-native-biometric';
+import type { Credentials } from '$lib/types/auth';
 
 export function verifyIdentity() {
     NativeBiometric.verifyIdentity({
@@ -23,14 +24,13 @@ export function createPasskey(email: string) {
         username: email,
         password: '',
         server: 'com.bittasker.app'
-    });
+    } as Credentials);
     verifyIdentity();
 }
 
-export async function getCredentials() {
+export async function getCredentials(): Promise<Credentials> {
     const credentials = await NativeBiometric.getCredentials({
         server: "com.bittasker.app",
-    });
-
+    }) as Credentials;
     return credentials;
 }

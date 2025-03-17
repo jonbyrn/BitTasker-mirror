@@ -1,17 +1,27 @@
-import tailwindcss from '@tailwindcss/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { storybookTest } from '@storybook/experimental-addon-test/vitest-plugin';
-const dirname =
-	typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
+import tailwindcss from '@tailwindcss/vite';
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	test: {
+		globals: true,
+		environment: 'jsdom',
+		setupFiles: ['./vitest-setup-client.ts'],
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'json', 'html'],
+			exclude: ['node_modules/**']
+		},
+		deps: {
+			optimizer: {
+				web: {
+					include: ['@storybook/sveltekit']
+				}
+			}
+		},
 		workspace: [
 			{
 				extends: './vite.config.ts',
@@ -20,9 +30,8 @@ export default defineConfig({
 					name: 'client',
 					environment: 'jsdom',
 					clearMocks: true,
-					include: ['src/**/*.svelte.{test,spec}.{js,ts}'],
-					exclude: ['src/lib/server/**'],
-					setupFiles: ['./vitest-setup-client.ts']
+					include: ['src/**/*.{test,spec}.{js,ts}'],
+					exclude: ['src/lib/server/**']
 				}
 			},
 			{
@@ -35,27 +44,15 @@ export default defineConfig({
 				}
 			},
 			{
-				extends: true,
-				plugins: [
-					// The plugin will run tests for the stories defined in your Storybook config
-					// See options at: https://storybook.js.org/docs/writing-tests/test-addon#storybooktest
-					storybookTest({
-						configDir: path.join(dirname, '.storybook')
-					})
-				],
+				extends: './vite.config.ts',
 				test: {
 					name: 'storybook',
+					environment: 'jsdom',
 					browser: {
 						enabled: true,
 						headless: true,
-						provider: 'playwright',
-						instances: [
-							{
-								browser: 'chromium'
-							}
-						]
-					},
-					setupFiles: ['.storybook/vitest.setup.ts']
+						provider: 'playwright'
+					}
 				}
 			}
 		]
