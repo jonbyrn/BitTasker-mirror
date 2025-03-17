@@ -7,7 +7,7 @@
 		"node": ">=20.0.0"
 	},
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "vite dev --host --port 3000",
 		"dev:app": "vite dev --host --port 3000",
 		"ios": "npx cap run --live-reload ios",
 		"android": "npx cap run --live-reload android",
@@ -70,6 +70,7 @@
 		"@capacitor/core": "^7.0.1",
 		"@capacitor/ios": "^7.0.1",
 		"@capacitor/preferences": "^7.0.0",
-		"@capacitor/status-bar": "^7.0.0"
+		"@capacitor/status-bar": "^7.0.0",
+		"capacitor-native-biometric": "^4.2.2"
 	}
 }
