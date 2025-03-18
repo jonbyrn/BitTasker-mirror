@@ -69,30 +69,48 @@
 
 	// Handle Facebook login
 	const handleLogin = () => {
-		if (!isInitialized) {
-			console.log('error', {
-				provider: 'facebook',
-				error: 'Facebook SDK not initialized'
-			});
-			return;
-		}
+		try {
+			if (!isInitialized) {
+				throw new Error('Facebook SDK not initialized');
+			}
 
-		isLoading = true;
+			isLoading = true;
 
-		(window as any).FB.login(
-			(response: FacebookLoginResponse) => {
-				isLoading = false;
-				if (response.status === 'connected') {
-					handleSuccessfulLogin(response);
-				} else {
-					console.log('error', {
-						provider: 'facebook',
-						error: 'User cancelled login or did not fully authorize'
-					});
+			(window as any).FB.login(
+				(response: FacebookLoginResponse) => {
+					isLoading = false;
+					
+					if (!response) {
+						throw new Error('No response received from Facebook');
+					}
+
+					switch (response.status) {
+						case 'connected':
+							handleSuccessfulLogin(response);
+							break;
+						case 'not_authorized':
+							throw new Error('User has not authorized the app');
+						case 'unknown':
+							throw new Error('Login status unknown, please try again');
+						default:
+							throw new Error(`Unexpected response status: ${response.status}`);
+					}
+				},
+				{ 
+					scope: 'public_profile,email',
+					return_scopes: true // This helps us know which permissions were granted
 				}
-			},
-			{ scope: 'public_profile,email' }
-		);
+			).catch((error: Error) => {
+				throw new Error(`Facebook API error: ${error.message}`);
+			});
+		} catch (error) {
+			isLoading = false;
+			console.error('Facebook login error:', {
+				provider: 'facebook',
+				error: error instanceof Error ? error.message : 'Unknown error occurred',
+				timestamp: new Date().toISOString(),
+			});
+		}
 	};
 
 	onMount(() => {
