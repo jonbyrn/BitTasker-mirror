@@ -1,6 +1,6 @@
 <script lang="ts">
 	let password = $state('');
-	
+
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 	}

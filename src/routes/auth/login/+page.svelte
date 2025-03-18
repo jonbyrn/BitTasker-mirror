@@ -11,7 +11,7 @@
 	let isBiometricAvailable = $state(false);
 
 	onMount(async () => {
-        // TOOD: Only check biometric availability on mobile
+		// TOOD: Only check biometric availability on mobile
 		const result = await NativeBiometric.isAvailable();
 		if (result.isAvailable) isBiometricAvailable = true;
 	});
@@ -21,10 +21,10 @@
 
 		if (!isValidEmail(email)) return console.error('email validation failed');
 
-			// Handle login
-			console.log('Login:', { email, password });
-		
-        if (isPasskey) {
+		// Handle login
+		console.log('Login:', { email, password });
+
+		if (isPasskey) {
 			createPasskey(email);
 		}
 	}
@@ -33,9 +33,7 @@
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">
-				Login to Bittasker
-			</h2>
+			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to Bittasker</h2>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<div class="form-control">
@@ -68,9 +66,7 @@
 					</div>
 				{/if}
 
-				<button type="submit" class="btn btn-primary w-full">
-					Login
-				</button>
+				<button type="submit" class="btn btn-primary w-full"> Login </button>
 			</form>
 
 			<div class="divider">OR</div>
@@ -95,12 +91,12 @@
 				</button>
 			{/if}
 
-            <Google />
+			<Google />
 
 			<div class="mt-4 text-center">
 				<a class="link link-primary" href="/auth/register" data-sveltekit-reload="off">
 					Don't have an account? Sign up
-                </a>
+				</a>
 			</div>
 		</div>
 	</div>

@@ -57,7 +57,7 @@
 				iterations: 100000
 			});
 
-            console.log({res});
+			console.log({ res });
 		} catch (err) {
 			error = (err as Error)?.message || 'An error occurred during signup';
 		} finally {
@@ -69,9 +69,7 @@
 <div class="bg-base-200 flex min-h-screen flex-col items-center justify-center p-4">
 	<div class="card bg-base-100 w-96 shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">
-				Sign up to Bittasker
-			</h2>
+			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Sign up to Bittasker</h2>
 
 			<!-- Name Input -->
 			<div class="form-control space-y-2">

@@ -8,7 +8,7 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
-	
+
 	// Add Google auth types
 	interface Window {
 		google: {
@@ -16,7 +16,7 @@ declare global {
 				id: {
 					initialize: (config: {
 						client_id: string;
-						callback: (response: {credential: string}) => void;
+						callback: (response: { credential: string }) => void;
 						auto_select?: boolean;
 						cancel_on_tap_outside?: boolean;
 					}) => void;
@@ -27,4 +27,4 @@ declare global {
 	}
 }
 
-export { };
+export {};
