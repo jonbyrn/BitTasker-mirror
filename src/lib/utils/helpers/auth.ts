@@ -89,3 +89,15 @@ export async function decryptNostrPrivateKeyWithRecovery(
         throw new Error('Failed to decrypt Nostr private key with recovery password');
     }
 }
+
+export async function generateLoginChallenge() {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    const challenge = Array.from(array)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    return {
+        challenge,
+        message: `Sign this message to login: ${challenge}`
+    };
+}
