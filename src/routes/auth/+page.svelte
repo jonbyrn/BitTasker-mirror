@@ -42,10 +42,6 @@
 	}
 </script>
 
-<svelte:head>
-	<script src="https://unpkg.com/window.nostr.js/dist/window.nostr.js"></script>
-</svelte:head>
-
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">

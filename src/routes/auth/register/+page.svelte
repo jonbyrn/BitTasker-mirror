@@ -135,6 +135,7 @@
 				{#if passwordError}
 					<span class="text-error text-sm">{passwordError}</span>
 				{/if}
+				<!-- TODO: Implement better UI for password requirements -->
 				<!-- <div class="mt-1 text-sm text-gray-600">
 					Password must:
 					<ul class="list-inside list-disc">

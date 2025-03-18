@@ -7,17 +7,22 @@ declare global {
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
-		
-		// Add Google auth types
-		interface Window {
-		  google: {
+	}
+	
+	// Add Google auth types
+	interface Window {
+		google: {
 			accounts: {
-			  id: {
-				initialize: (config: any) => void;
-				prompt: () => void;
-			  };
+				id: {
+					initialize: (config: {
+						client_id: string;
+						callback: (response: {credential: string}) => void;
+						auto_select?: boolean;
+						cancel_on_tap_outside?: boolean;
+					}) => void;
+					prompt: () => void;
+				};
 			};
-		  };
 		};
 	}
 }
