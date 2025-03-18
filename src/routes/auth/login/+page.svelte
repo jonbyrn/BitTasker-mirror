@@ -7,6 +7,7 @@
 	import { mockLogin } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import Facebook from '$lib/components/AuthProviders/Facebook.svelte';
+	import X from '$lib/components/AuthProviders/X.svelte';
 
 	let isPasskey = $state(false);
 	let email = $state('');
@@ -101,6 +102,7 @@
 
             <Google />
             <Facebook />
+            <X />
 
 			<div class="mt-4 text-center">
 				<a class="link link-primary" href="/auth/register" data-sveltekit-reload="off">
