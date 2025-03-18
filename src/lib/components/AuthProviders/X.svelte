@@ -1,32 +1,68 @@
 <script lang="ts">
     import type { XUser, XAuthResponse } from '$lib/types/x';
     import { onMount } from 'svelte';
+    import createAxiosInstance from '$lib/api/axios';
 
     // X API configuration
-    const X_CLIENT_ID = import.meta.env.VITE_X_CLIENT_ID; // TODO: Add your X Client ID
-    const X_REDIRECT_URI = import.meta.env.VITE_X_REDIRECT_URI; // TODO: Add your redirect URI
+    const X_CLIENT_ID = import.meta.env.VITE_X_CLIENT_ID;
+    const X_CLIENT_SECRET = import.meta.env.VITE_X_CLIENT_SECRET;
+    const X_REDIRECT_URI = 'https://ba43-196-117-119-182.ngrok-free.app/auth/login';
+    // const X_REDIRECT_URI = import.meta.env.VITE_X_REDIRECT_URI;
 
     let isInitialized = $state(false);
     let isLoading = $state(false);
 
-    // Initialize X auth state
-    const initXAuth = () => {
-        // Check if we have a code from X redirect
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const state = urlParams.get('state');
+    // Create axios instance for X API
+    const xApi = createAxiosInstance({
+        baseURL: 'https://api.twitter.com/2',
+        headers: {
+            'Accept': 'application/json'
+        }
+    });
 
-        if (code && state) {
-            handleCallback(code, state);
+    // Fetch user data using access token
+    const fetchUserData = async (accessToken: string): Promise<XUser> => {
+        try {
+            const response = await xApi.get('/users/me', {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching user data:', error);
+            throw new Error('Failed to fetch user data');
+        }
+    };
+    
+    // Exchange authorization code for tokens
+    const exchangeCodeForTokens = async (code: string): Promise<XAuthResponse> => {
+        const codeVerifier = sessionStorage.getItem('x_code_verifier');
+        if (!codeVerifier) {
+            throw new Error('Code verifier not found');
         }
 
-        isInitialized = true;
-    };
+        const params = new URLSearchParams({
+            client_id: X_CLIENT_ID,
+            client_secret: X_CLIENT_SECRET,
+            code_verifier: codeVerifier,
+            code,
+            grant_type: 'authorization_code',
+            redirect_uri: X_REDIRECT_URI
+        });
 
-    // Generate random state for CSRF protection
-    const generateState = () => {
-        return crypto.getRandomValues(new Uint8Array(16))
-            .reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
+        try {
+            const response = await xApi.post('/oauth2/token', params.toString(), {
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Authorization': 'Basic ' + btoa(`${X_CLIENT_ID}:${X_CLIENT_SECRET}`)
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error exchanging code for tokens:', error);
+            throw new Error('Failed to exchange code for tokens');
+        }
     };
 
     // Handle X OAuth callback
@@ -56,50 +92,24 @@
         }
     };
 
-    // Exchange authorization code for tokens
-    const exchangeCodeForTokens = async (code: string): Promise<XAuthResponse> => {
-        const codeVerifier = sessionStorage.getItem('x_code_verifier');
-        if (!codeVerifier) {
-            throw new Error('Code verifier not found');
+    // Initialize X auth state
+    const initXAuth = () => {
+        // Check if we have a code from X redirect
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const state = urlParams.get('state');
+
+        if (code && state) {
+            handleCallback(code, state);
         }
 
-        const params = new URLSearchParams({
-            client_id: X_CLIENT_ID,
-            code_verifier: codeVerifier,
-            code,
-            grant_type: 'authorization_code',
-            redirect_uri: X_REDIRECT_URI
-        });
-
-        const response = await fetch('https://api.twitter.com/2/oauth2/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params.toString()
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to exchange code for tokens');
-        }
-
-        return response.json();
+        isInitialized = true;
     };
 
-    // Fetch user data using access token
-    const fetchUserData = async (accessToken: string): Promise<XUser> => {
-        const response = await fetch('https://api.twitter.com/2/users/me', {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to fetch user data');
-        }
-
-        return response.json();
+    // Generate random state for CSRF protection
+    const generateState = () => {
+        return crypto.getRandomValues(new Uint8Array(16))
+            .reduce((str, byte) => str + byte.toString(16).padStart(2, '0'), '');
     };
 
     // Generate PKCE code challenge
