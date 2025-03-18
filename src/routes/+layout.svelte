@@ -5,7 +5,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	const { children } = $props();
 	import { darkMode, setDarkMode } from '$lib/states/theme';
-	import { deviceInfo } from '$lib/states/deviceInfo';
+	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/states/deviceInfo';
 
 	$effect(() => {
 		setDarkMode($darkMode);
@@ -27,6 +27,9 @@
 				$darkMode = e.matches;
 			}
 		});
+
+		getDeviceInfo();
+		getOnboardingCompleted();
 	});
 </script>
 
