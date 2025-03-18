@@ -40,7 +40,7 @@
 }
 
 @plugin "daisyui/theme" {
-    name: "dustynigh";
+    name: "dustynight";
     default: true;
     prefersdark: true;
     color-scheme: "dark";

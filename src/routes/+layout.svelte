@@ -5,6 +5,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	const { children } = $props();
 	import { darkMode, setDarkMode } from '$lib/states/theme';
+	import { deviceInfo } from '$lib/states/deviceInfo';
 
 	$effect(() => {
 		setDarkMode($darkMode);
@@ -29,7 +30,9 @@
 	});
 </script>
 
-<main class="pt-16" data-theme={$darkMode ? 'dustynigh' : 'yellowsnow'}>
-	<NavBar />
+<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main">
+	{#if $deviceInfo?.platform === 'web'}
+		<NavBar />
+	{/if}
 	{@render children()}
 </main>

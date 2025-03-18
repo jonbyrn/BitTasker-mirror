@@ -80,7 +80,16 @@ export default {
 		'auth.form.or': 'OR',
 		'auth.form.google': 'Continue with Google',
 		'auth.form.switch_to_signup': "Don't have an account? Sign up",
-		'auth.form.switch_to_login': 'Already have an account? Login'
+		'auth.form.switch_to_login': 'Already have an account? Login',
+		'onboarding.slide1.title': 'Welcome to Bittasker',
+		'onboarding.slide1.description':
+			'Your personal task management solution that helps you stay organized and productive.',
+		'onboarding.slide2.title': 'Create and Manage Tasks',
+		'onboarding.slide2.description': 'Easily create, organize, and track your tasks in one place.',
+		'onboarding.slide3.title': 'Stay Productive',
+		'onboarding.slide3.description':
+			'Set priorities, deadlines, and never miss an important task again.',
+		'onboarding.get_started': 'Get started'
 	},
 	es: {
 		'navbar.home': 'Inicio',
@@ -162,6 +171,16 @@ export default {
 		'auth.form.or': 'O',
 		'auth.form.google': 'Continuar con Google',
 		'auth.form.switch_to_signup': '¿No tienes una cuenta? Regístrate',
-		'auth.form.switch_to_login': '¿Ya tienes una cuenta? Inicia sesión'
+		'auth.form.switch_to_login': '¿Ya tienes una cuenta? Inicia sesión',
+		'onboarding.slide1.title': 'Bienvenido a Bittasker',
+		'onboarding.slide1.description':
+			'Tu solución personal de gestión de tareas que te ayuda a mantenerte organizado y productivo.',
+		'onboarding.slide2.title': 'Crea y Gestiona Tareas',
+		'onboarding.slide2.description':
+			'Crea, organiza y realiza un seguimiento de tus tareas en un solo lugar.',
+		'onboarding.slide3.title': 'Mantente Productivo',
+		'onboarding.slide3.description':
+			'Establece prioridades, fechas límite y nunca más te pierdas una tarea importante.',
+		'onboarding.get_started': 'Comenzar'
 	}
 };
