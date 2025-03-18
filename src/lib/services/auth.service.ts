@@ -1,5 +1,5 @@
+import type { NostrRegistrationData, ApiResponse } from '$lib/types/auth';
 import createAxiosInstance from '$lib/api/axios';
-import type { NostrRegistrationData, ApiResponse } from '$lib/types/auth.types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PATH = '/api/v1/auth';

@@ -6,6 +6,9 @@ import tailwindcss from '@tailwindcss/vite';
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
+	server: {
+		allowedHosts: true
+	},
 	test: {
 		globals: true,
 		environment: 'jsdom',

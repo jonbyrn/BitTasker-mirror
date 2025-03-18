@@ -5,8 +5,6 @@
 	import { browser } from '$app/environment';
 	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import { encryptNostrPrivateKeyWithPassword, generateLoginChallenge } from '$lib/utils/helpers/auth';
-	import { registerWithNostr } from '$lib/services/auth.service';
-	import type { NostrRegistrationData } from '$lib/types/auth.types';
 
 	const ndk = new NDK({ explicitRelayUrls: [PUBLIC_NOSTR_RELAY_URL] });
 

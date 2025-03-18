@@ -7,6 +7,18 @@ declare global {
 		// interface PageData {}
 		// interface PageState {}
 		// interface Platform {}
+		
+		// Add Google auth types
+		interface Window {
+		  google: {
+			accounts: {
+			  id: {
+				initialize: (config: any) => void;
+				prompt: () => void;
+			  };
+			};
+		  };
+		};
 	}
 }
 
