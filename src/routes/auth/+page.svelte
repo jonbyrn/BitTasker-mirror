@@ -11,7 +11,19 @@
 	let password = $state('password');
 	let confirmPassword = $state('');
 	let name = $state('');
+	let isBiometricAvailable = $state(false);
 
+	onMount(async () => {
+		const result = await NativeBiometric.isAvailable();
+		if (result.isAvailable) isBiometricAvailable = true;
+	});
+	function handlePasskey() {
+		if (isLogin) {
+			verifyIdentity();
+		} else if (!isPasskey) {
+			isPasskey = true;
+		}
+	}
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 
