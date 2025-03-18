@@ -11,10 +11,28 @@
 	});
 </script>
 
-{#if $deviceInfo?.platform === 'web'}
+{#if $deviceInfo !== null && $deviceInfo?.platform !== 'web'}
+	<div class="min-h-[90vh]">
+		<OnboardingSlider />
+	</div>
+{:else}
 	<div class="min-h-screen">
 		<!-- Hero Section -->
-		<div class="hero bg-base-200 min-h-[70vh]">
+		<div class="hero bg-base-200 glow-effect min-h-[70vh]">
+			<div class="glow-container">
+				<div
+					class="glow-blur glow-primary top-[20%] left-[10%] h-[20vw] w-[20vw]"
+					style="animation-delay: -2s;"
+				></div>
+				<div
+					class="glow-blur glow-secondary right-[15%] bottom-[25%] h-[18vw] w-[18vw]"
+					style="animation-delay: -5s;"
+				></div>
+				<div
+					class="glow-blur glow-accent top-[10%] right-[30%] h-[15vw] w-[15vw]"
+					style="opacity: 0.2; animation-delay: -8s;"
+				></div>
+			</div>
 			<div class="hero-content text-center">
 				<div class="max-w-md">
 					<h1 class="text-5xl font-bold">{$t('homepage.hero.title')}</h1>
@@ -98,16 +116,22 @@
 		</div>
 
 		<!-- CTA Section -->
-		<div class="bg-primary text-primary-content px-4 py-12">
-			<div class="mx-auto max-w-3xl text-center">
+		<div class="bg-primary text-primary-content glow-effect px-4 py-12">
+			<div class="glow-container">
+				<div
+					class="glow-blur glow-accent top-[30%] left-[20%] h-[15vw] w-[15vw]"
+					style="opacity: 0.3; animation-delay: -3s;"
+				></div>
+				<div
+					class="glow-blur glow-primary right-[25%] bottom-[30%] h-[12vw] w-[12vw]"
+					style="opacity: 0.25; animation-delay: -7s;"
+				></div>
+			</div>
+			<div class="relative z-10 mx-auto max-w-3xl text-center">
 				<h2 class="mb-4 text-3xl font-bold">{$t('homepage.cta.title')}</h2>
 				<p class="mb-6">{$t('homepage.cta.description')}</p>
 				<a href="/auth" class="btn btn-secondary">{$t('homepage.cta.button')}</a>
 			</div>
 		</div>
-	</div>
-{:else}
-	<div class="min-h-[90vh]">
-		<OnboardingSlider />
 	</div>
 {/if}
