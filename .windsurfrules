@@ -21,6 +21,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Use latest version of Daisy UI, Tailwind CSS for styling.
 - Always use Sveltekit 5 with Runes.
 - In svelte 5 there is not on:click event it's changed to onclick. Same goes for other on: events. 
+- In svelte 5 'createEventDispatcher' is deprecated, pass functions as props to the component.
 - Always use $state() to create reactive variables.
 - With this same codebase we will support multiple platforms like Android, iOS, and Web.
 - We will also use Storybook for component development.

@@ -6,6 +6,7 @@
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 	import { mockLogin } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
+	import Facebook from '$lib/components/AuthProviders/Facebook.svelte';
 
 	let isPasskey = $state(false);
 	let email = $state('');
@@ -98,7 +99,8 @@
 				</button>
 			{/if}
 
-			<Google />
+            <Google />
+            <Facebook />
 
 			<div class="mt-4 text-center">
 				<a class="link link-primary" href="/auth/register" data-sveltekit-reload="off">
