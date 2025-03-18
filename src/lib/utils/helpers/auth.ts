@@ -1,38 +1,32 @@
 import { NativeBiometric } from 'capacitor-native-biometric';
-import {
-	encrypt,
-	decrypt,
-	deriveKeyFromPassword,
-	generateEncryptionKeyFromToken,
-	exportKey
-} from '$lib/utils/helpers/crypto';
+import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, exportKey } from '$lib/utils/helpers/crypto';
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
 import type { Credentials, EncryptedKeyData } from '$lib/types/auth';
 
-export async function encryptNostrPrivateKeyWithToken(
-	nostrPrivateKey: string,
-	accessToken: string
+export async function encryptNostrPrivateKeyWithUserId(
+    nostrPrivateKey: string,
+    userId: string
 ): Promise<EncryptedKeyData> {
-	// Generate encryption key from access token
-	const accessTokenKey = await generateEncryptionKeyFromToken(accessToken);
-
-	// Encrypt with access token
-	const accessTokenEncryption = await encrypt(nostrPrivateKey, accessTokenKey);
-
-	// Export access token key for storage
-	const exportedAccessTokenKey = await exportKey(accessTokenKey);
-
-	// Store the exported key securely using biometrics
-	await NativeBiometric.setCredentials({
-		username: 'nostr_key',
-		password: exportedAccessTokenKey,
-		server: 'com.bittasker.app'
-	} as Credentials);
-
-	return {
-		data: accessTokenEncryption.encrypted,
-		iv: accessTokenEncryption.iv
-	};
+    // Generate encryption key from user ID
+    const userIdKey = await generateEncryptionKeyFromUserId(userId);
+    
+    // Encrypt with user ID key
+    const userIdEncryption = await encrypt(nostrPrivateKey, userIdKey);
+    
+    // Export user ID key for storage
+    const exportedUserIdKey = await exportKey(userIdKey);
+    
+    // Store the exported key securely using biometrics
+    await NativeBiometric.setCredentials({
+        username: 'nostr_key',
+        password: exportedUserIdKey,
+        server: 'com.bittasker.app'
+    } as Credentials);
+    
+    return {
+        data: userIdEncryption.encrypted,
+        iv: userIdEncryption.iv
+    };
 }
 
 export async function encryptNostrPrivateKeyWithPassword(
@@ -57,20 +51,20 @@ export async function encryptNostrPrivateKeyWithPassword(
 	};
 }
 
-export async function decryptNostrPrivateKeyWithAccessToken(
-	encryptedData: EncryptedKeyData,
-	accessToken: string
+export async function decryptNostrPrivateKeyWithUserId(
+    encryptedData: EncryptedKeyData,
+    userId: string
 ): Promise<string> {
-	try {
-		// Generate encryption key from access token
-		const key = await generateEncryptionKeyFromToken(accessToken);
-
-		// Decrypt using the helper function
-		return await decrypt(encryptedData.data, encryptedData.iv, key);
-	} catch (error) {
-		console.log('Decryption error:', error);
-		throw new Error('Failed to decrypt Nostr private key with access token');
-	}
+    try {
+        // Generate encryption key from user ID
+        const key = await generateEncryptionKeyFromUserId(userId);
+        
+        // Decrypt using the helper function
+        return await decrypt(encryptedData.data, encryptedData.iv, key);
+    } catch (error) {
+        console.log('Decryption error:', error);
+        throw new Error('Failed to decrypt Nostr private key with user ID');
+    }
 }
 
 export async function decryptNostrPrivateKeyWithRecovery(

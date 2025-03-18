@@ -52,6 +52,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Store encrypted keys using secure storage (NativeBiometric when available for mobile platform)
 - Never expose private keys or encryption keys in plaintext
 - Check Capacitor plugins availability on the platform before using them
+- Always update test files according to changes in the code if needed
 
 ### Project Structure
 
