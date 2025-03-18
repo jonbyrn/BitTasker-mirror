@@ -1,0 +1,16 @@
+node_modules
+npm-debug.log
+build
+.DS_Store
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+README.md
+.vscode
+coverage
+storybook-static
+android
+ios
+capacitor.config.ts 

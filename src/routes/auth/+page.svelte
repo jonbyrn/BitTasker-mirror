@@ -1,9 +1,12 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
+	import { onMount } from 'svelte';
+	import { NativeBiometric } from 'capacitor-native-biometric';
+	import { isValidEmail } from '$lib/utils/helpers/validators';
+	import { createPasskey, verifyIdentity } from '$lib/services/auth';
 	import { goto } from '$app/navigation';
 	import {  mockLogin } from '$lib/stores/auth';
-	const page = getContext('page');
 	let isLogin = $state(true);
+	let isPasskey = $state(false);
 	let email = $state('user@example.com');
 	let password = $state('password');
 	let confirmPassword = $state('');
@@ -11,9 +14,14 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
+
+		if (!isValidEmail(email)) return console.error('email validation failed');
+
 		if (isLogin) {
 			// Handle login
 			console.log('Login:', { email, password });
+		} else if (isPasskey) {
+			createPasskey(email);
 			await mockLogin(email, password);
 
 			goto('/dashboard');
@@ -32,7 +40,7 @@
 			</h2>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
-				{#if !isLogin}
+				{#if !isLogin && !isPasskey}
 					<div class="form-control">
 						<label class="label" for="name">
 							<span class="label-text">Full Name</span>
@@ -62,34 +70,35 @@
 					/>
 				</div>
 
-				<div class="form-control">
-					<label class="label" for="password">
-						<span class="label-text">Password</span>
-					</label>
-					<input
-						type="password"
-						id="password"
-						bind:value={password}
-						placeholder="Enter your password"
-						class="input input-bordered w-full"
-						required
-					/>
-				</div>
-
-				{#if !isLogin}
+				{#if !isPasskey}
 					<div class="form-control">
-						<label class="label" for="confirmPassword">
-							<span class="label-text">Confirm Password</span>
+						<label class="label" for="password">
+							<span class="label-text">Password</span>
 						</label>
 						<input
 							type="password"
-							id="confirmPassword"
-							bind:value={confirmPassword}
-							placeholder="Confirm your password"
+							id="password"
+							bind:value={password}
+							placeholder="Enter your password"
 							class="input input-bordered w-full"
 							required
 						/>
 					</div>
+					{#if !isLogin}
+						<div class="form-control">
+							<label class="label" for="confirmPassword">
+								<span class="label-text">Confirm Password</span>
+							</label>
+							<input
+								type="password"
+								id="confirmPassword"
+								bind:value={confirmPassword}
+								placeholder="Confirm your password"
+								class="input input-bordered w-full"
+								required
+							/>
+						</div>
+					{/if}
 				{/if}
 
 				<button type="submit" class="btn btn-primary w-full">
@@ -98,6 +107,30 @@
 			</form>
 
 			<div class="divider">OR</div>
+
+			{#if isBiometricAvailable && !isPasskey}
+				<button class="btn btn-outline w-full" onclick={handlePasskey}>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="size-6"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
+						/>
+					</svg>
+					{#if isLogin}
+						Continue with Biometric
+					{:else}
+						Add Passkey
+					{/if}
+				</button>
+			{/if}
 
 			<button class="btn btn-outline w-full">
 				<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5" viewBox="0 0 48 48">
