@@ -71,13 +71,10 @@
 		"@capacitor/ios": "^7.0.1",
 		"@capacitor/preferences": "^7.0.0",
 		"@capacitor/status-bar": "^7.0.0",
-		"@nostr-connect/connect": "^0.4.0",
 		"@nostr-dev-kit/ndk": "^2.12.2",
 		"@nostr-dev-kit/ndk-svelte": "^2.4.5",
 		"axios": "^1.8.3",
 		"capacitor-native-biometric": "^4.2.2",
-		"crypto-browserify": "^3.12.1",
-		"nostr-login": "^1.7.11",
 		"nostr-tools": "^2.11.0"
 	}
 }
