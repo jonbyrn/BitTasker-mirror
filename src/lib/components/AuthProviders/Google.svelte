@@ -1,5 +1,10 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
+	import { bytesToHex } from '@noble/hashes/utils';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { encryptNostrPrivateKeyWithUserId } from '$lib/utils/helpers/auth';
+	import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
 
 	const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
@@ -7,53 +12,68 @@
 	let name = $state('');
 	let googleAuthInitialized = $state(false);
 
-	async function encryptCredentials(credential: string, key: CryptoKey): Promise<string> {
-		const encoder = new TextEncoder();
-		const data = encoder.encode(credential);
-
-		const iv = crypto.getRandomValues(new Uint8Array(12));
-		const encryptedData = await crypto.subtle.encrypt(
-			{
-				name: 'AES-GCM',
-				iv
-			},
-			key,
-			data
-		);
-
-		// Combine IV and encrypted data
-		const result = new Uint8Array(iv.length + encryptedData.byteLength);
-		result.set(iv);
-		result.set(new Uint8Array(encryptedData), iv.length);
-
-		return btoa(String.fromCharCode(...result));
-	}
-
 	async function handleGoogleCallback(response: any) {
 		console.log('Google callback response:', response);
 		if (!response?.credential) return;
 
 		try {
-			// Decode the JWT token to get user info
+			const authResponse = await authenticateWithGoogle(response.credential);
+			console.log('Google auth response:', authResponse);
+			
+			// User exists, handle successful login
 			const payload = JSON.parse(atob(response.credential.split('.')[1]));
-			console.log('Google payload:', payload);
-
-			// Create a secure key using Web Crypto API
-			const encoder = new TextEncoder();
-			const keyMaterial = encoder.encode(response.credential);
-			const key = await crypto.subtle.importKey('raw', keyMaterial, { name: 'PBKDF2' }, false, [
-				'deriveKey'
-			]);
-
-			// Store encrypted credentials securely
-			const encryptedCreds = await encryptCredentials(response.credential, key);
-			localStorage.setItem('auth_token', encryptedCreds);
-
-			// Update user state with Google profile info
 			email = payload.email;
 			name = payload.name;
-		} catch (error) {
-			console.error('Google auth error:', error);
+			
+			// Redirect to dashboard or home
+			goto('/dashboard');
+		} catch (error: any) {
+			if (error.response?.status === 401) {
+				// User doesn't exist, proceed with registration
+				console.log('New user, proceeding with registration');
+				
+				// Decode the JWT token to get user info
+				const payload = JSON.parse(atob(response.credential.split('.')[1]));
+				
+				// Generate Nostr keypair
+				const privateKey = generateSecretKey();
+				const publicKey = getPublicKey(privateKey);
+				const privateKeyHex = bytesToHex(privateKey);
+				
+				// Encrypt private key using client ID as user ID
+				const { encrypted, salt } = await encryptNostrPrivateKeyWithUserId(
+					privateKeyHex,
+					response.client_id
+				);
+
+				// Register the new user
+				const registrationResult = await registerWithNostr({
+					name: payload.name,
+					email: payload.email,
+					publicKey: publicKey,
+					encryptedPrivateKey: encrypted.data,
+					iv: encrypted.iv,
+					salt: salt,
+					authTag: 'auth-tag-data',
+					iterations: 100000,
+					googleToken: response.credential // Pass the Google token for verification
+				});
+
+				console.log('Registration result:', registrationResult);
+
+				// Store necessary info and redirect to recovery page
+				localStorage.setItem('temp_registration_data', JSON.stringify({
+					email: payload.email,
+					name: payload.name,
+					publicKey: publicKey
+				}));
+
+				// Redirect to recovery page
+				// goto('/auth/recovery');
+			} else {
+				console.error('Google auth error:', error);
+				// Handle other errors
+			}
 		}
 	}
 

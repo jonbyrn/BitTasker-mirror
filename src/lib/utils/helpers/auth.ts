@@ -6,9 +6,13 @@ import type { Credentials, EncryptedKeyData } from '$lib/types/auth';
 export async function encryptNostrPrivateKeyWithUserId(
     nostrPrivateKey: string,
     userId: string
-): Promise<EncryptedKeyData> {
-    // Generate encryption key from user ID
-    const userIdKey = await generateEncryptionKeyFromUserId(userId);
+): Promise<{ encrypted: EncryptedKeyData; salt: string }> {
+    // Generate a random salt
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const saltBase64 = bytesToBase64(salt);
+    
+    // Generate encryption key from user ID and salt
+    const userIdKey = await generateEncryptionKeyFromUserId(userId, salt);
     
     // Encrypt with user ID key
     const userIdEncryption = await encrypt(nostrPrivateKey, userIdKey);
@@ -17,15 +21,18 @@ export async function encryptNostrPrivateKeyWithUserId(
     const exportedUserIdKey = await exportKey(userIdKey);
     
     // Store the exported key securely using biometrics
-    await NativeBiometric.setCredentials({
-        username: 'nostr_key',
-        password: exportedUserIdKey,
-        server: 'com.bittasker.app'
-    } as Credentials);
+    // await NativeBiometric.setCredentials({
+    //     username: 'nostr_key',
+    //     password: exportedUserIdKey,
+    //     server: 'com.bittasker.app'
+    // } as Credentials);
     
     return {
-        data: userIdEncryption.encrypted,
-        iv: userIdEncryption.iv
+        encrypted: {
+            data: userIdEncryption.encrypted,
+            iv: userIdEncryption.iv
+        },
+        salt: saltBase64
     };
 }
 
@@ -35,11 +42,12 @@ export async function encryptNostrPrivateKeyWithPassword(
 ): Promise<{ encrypted: EncryptedKeyData; salt: string }> {
 	// Generate a random salt for recovery password
 	const salt = crypto.getRandomValues(new Uint8Array(16));
+	const saltBase64 = bytesToBase64(salt);
 
 	// Derive key from recovery password
 	const recoveryKey = await deriveKeyFromPassword(recoveryPassword, salt);
 
-	// Encrypt with recovery password
+	// Encrypt with recovery password key
 	const recoveryEncryption = await encrypt(nostrPrivateKey, recoveryKey);
 
 	return {
@@ -47,17 +55,18 @@ export async function encryptNostrPrivateKeyWithPassword(
 			data: recoveryEncryption.encrypted,
 			iv: recoveryEncryption.iv
 		},
-		salt: bytesToBase64(salt)
+		salt: saltBase64
 	};
 }
 
 export async function decryptNostrPrivateKeyWithUserId(
     encryptedData: EncryptedKeyData,
+    salt: string,
     userId: string
 ): Promise<string> {
     try {
-        // Generate encryption key from user ID
-        const key = await generateEncryptionKeyFromUserId(userId);
+        // Generate encryption key from user ID and salt
+        const key = await generateEncryptionKeyFromUserId(userId, base64ToBytes(salt));
         
         // Decrypt using the helper function
         return await decrypt(encryptedData.data, encryptedData.iv, key);

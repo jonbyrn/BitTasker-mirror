@@ -31,10 +31,13 @@ describe('Nostr Key Encryption', () => {
             mockUserId
         );
         
-        expect(encryptedData).toHaveProperty('data');
-        expect(encryptedData).toHaveProperty('iv');
-        expect(typeof encryptedData.data).toBe('string');
-        expect(typeof encryptedData.iv).toBe('string');
+        expect(encryptedData).toHaveProperty('encrypted');
+        expect(encryptedData).toHaveProperty('salt');
+        expect(encryptedData.encrypted).toHaveProperty('data');
+        expect(encryptedData.encrypted).toHaveProperty('iv');
+        expect(typeof encryptedData.salt).toBe('string');
+        expect(typeof encryptedData.encrypted.data).toBe('string');
+        expect(typeof encryptedData.encrypted.iv).toBe('string');
     });
 
     it('should encrypt Nostr private key with recovery password', async () => {
@@ -53,8 +56,12 @@ describe('Nostr Key Encryption', () => {
     it('should decrypt Nostr private key with user ID', async () => {
         vi.mocked(NativeBiometric.getCredentials).mockResolvedValue(mockCredentials);
         
-        const mockEncryptedData = await encryptNostrPrivateKeyWithUserId(mockNostrPrivateKey, mockUserId);
-        const decryptedKey = await decryptNostrPrivateKeyWithUserId(mockEncryptedData, mockUserId);
+        const encryptionResult = await encryptNostrPrivateKeyWithUserId(mockNostrPrivateKey, mockUserId);
+        const decryptedKey = await decryptNostrPrivateKeyWithUserId(
+            encryptionResult.encrypted,
+            encryptionResult.salt,
+            mockUserId
+        );
         expect(decryptedKey).toBe(mockNostrPrivateKey);
     });
     

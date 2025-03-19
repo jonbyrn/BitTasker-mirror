@@ -1,9 +1,10 @@
 <script lang="ts">
-    import NDK, { NDKNip07Signer, type NDKUser } from '@nostr-dev-kit/ndk';
     import { browser } from '$app/environment';
+	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
+    import NDK, { NDKNip07Signer, type NDKUser } from '@nostr-dev-kit/ndk';
 
     const NOSTR_RELAYS = [
-        `${import.meta.env.VITE_PUBLIC_NOSTR_RELAY_URL}`,
+        PUBLIC_NOSTR_RELAY_URL,
         'wss://relay.nostr.band',
         'wss://relay.damus.io',
         'wss://purplepag.es'
@@ -21,7 +22,6 @@
     if (browser) {
         ndk.connect()
             .then(() => {
-                console.log('Connected to Nostr relays');
                 isInitialized = true;
             })
             .catch((err) => {

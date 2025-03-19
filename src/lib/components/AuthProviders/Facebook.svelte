@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 
 	// Facebook SDK configuration
-	const FB_APP_ID = ''; // TODO: Add your Facebook App ID
+	const FB_APP_ID = import.meta.env.VITE_FACEBOOK_APP_ID;
 	const FB_VERSION = 'v19.0';
 
 	let isInitialized = $state(false);

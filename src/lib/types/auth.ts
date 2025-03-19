@@ -22,18 +22,19 @@ export interface EncryptedKeyData {
 }
 
 export interface NostrRegistrationData {
-	email: string;
 	name: string;
+	email: string;
 	publicKey: string;
 	encryptedPrivateKey: string;
 	iv: string;
 	salt: string;
 	authTag: string;
 	iterations: number;
+	googleToken?: string; // Optional Google token for social registration
 }
 
 export interface ApiResponse<T> {
 	data: T;
-	status: number;
-	message?: string;
+	message: string;
+	credential?: string; // For Google auth responses
 }

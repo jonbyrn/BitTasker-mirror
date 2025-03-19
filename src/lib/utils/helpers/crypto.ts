@@ -5,28 +5,31 @@ const TOKEN_SALT = new Uint8Array([
 	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
 ]);
 
-export async function generateEncryptionKeyFromUserId(userId: string): Promise<CryptoKey> {
-    const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        encoder.encode(userId),
-        'PBKDF2',
-        false,
-        ['deriveKey']
-    );
+export async function generateEncryptionKeyFromUserId(
+	userId: string,
+	salt: Uint8Array
+): Promise<CryptoKey> {
+	const encoder = new TextEncoder();
+	const keyMaterial = await crypto.subtle.importKey(
+		'raw',
+		encoder.encode(userId),
+		{ name: 'PBKDF2' },
+		false,
+		['deriveKey']
+	);
 
-    return await crypto.subtle.deriveKey(
-        {
-            name: 'PBKDF2',
-            salt: TOKEN_SALT, // We can keep using the same salt
-            iterations: 100000,
-            hash: 'SHA-256'
-        },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-    );
+	return crypto.subtle.deriveKey(
+		{
+			name: 'PBKDF2',
+			salt: salt,
+			iterations: 100000,
+			hash: 'SHA-256'
+		},
+		keyMaterial,
+		{ name: 'AES-GCM', length: 256 },
+		true,
+		['encrypt', 'decrypt']
+	);
 }
 
 export async function exportKey(key: CryptoKey): Promise<string> {
