@@ -18,7 +18,7 @@
 	};
 </script>
 
-<div class="navbar bg-base-100 fixed top-0 z-50 shadow-md">
+<div class="navbar bg-base-100/80 absolute top-0 z-50 shadow-md backdrop-blur-2xl">
 	<div class="navbar-start">
 		<div class="dropdown">
 			<div tabindex="0" role="button" class="btn btn-ghost lg:hidden">

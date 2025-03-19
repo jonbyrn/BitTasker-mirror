@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { darkMode, setDarkMode } from '$lib/states/theme';
+	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/states/deviceInfo';
 	import NavBar from '$lib/components/NavBar.svelte';
 	import '../app.css';
 
@@ -27,10 +28,15 @@
 				$darkMode = e.matches;
 			}
 		});
+
+		getDeviceInfo();
+		getOnboardingCompleted();
 	});
 </script>
 
-<main class="pt-16" data-theme={$darkMode ? 'dustynigh' : 'yellowsnow'}>
-	<NavBar />
+<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main">
+	{#if $deviceInfo?.platform === 'web'}
+		<NavBar />
+	{/if}
 	{@render children()}
 </main>

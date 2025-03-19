@@ -80,7 +80,23 @@ export default {
 		'auth.form.or': 'OR',
 		'auth.form.google': 'Continue with Google',
 		'auth.form.switch_to_signup': "Don't have an account? Sign up",
-		'auth.form.switch_to_login': 'Already have an account? Login'
+		'auth.form.switch_to_login': 'Already have an account? Login',
+		'onboarding.slide1.title': 'Sign Up',
+		'onboarding.slide1.description':
+			'Create your account using your email or connect your Bitcoin wallet directly.',
+		'onboarding.slide2.title': 'Create Profile',
+		'onboarding.slide2.description':
+			'Build your professional profile with skills, experience, and portfolio.',
+		'onboarding.slide3.title': 'Post or Find Tasks',
+		'onboarding.slide3.description':
+			'Clients post projects, freelancers find opportunities that match their skills.',
+		'onboarding.slide4.title': 'Complete Work',
+		'onboarding.slide4.description':
+			'Use our platform to communicate, share files, and track progress.',
+		'onboarding.slide5.title': 'Get Paid',
+		'onboarding.slide5.description':
+			'Secure Bitcoin payments through our smart contract escrow system.',
+		'onboarding.get_started': 'Get started'
 	},
 	es: {
 		'navbar.home': 'Inicio',
@@ -162,6 +178,22 @@ export default {
 		'auth.form.or': 'O',
 		'auth.form.google': 'Continuar con Google',
 		'auth.form.switch_to_signup': '¿No tienes una cuenta? Regístrate',
-		'auth.form.switch_to_login': '¿Ya tienes una cuenta? Inicia sesión'
+		'auth.form.switch_to_login': '¿Ya tienes una cuenta? Inicia sesión',
+		'onboarding.slide1.title': 'Registrarse',
+		'onboarding.slide1.description':
+			'Crea tu cuenta usando tu correo electrónico o conecta tu billetera de Bitcoin directamente.',
+		'onboarding.slide2.title': 'Crear Perfil',
+		'onboarding.slide2.description':
+			'Construye tu perfil profesional con habilidades, experiencia y portafolio.',
+		'onboarding.slide3.title': 'Publicar o Buscar Tareas',
+		'onboarding.slide3.description':
+			'Los clientes publican proyectos, los freelancers encuentran oportunidades que coincidan con sus habilidades.',
+		'onboarding.slide4.title': 'Completar Trabajo',
+		'onboarding.slide4.description':
+			'Usa nuestra plataforma para comunicarte, compartir archivos y seguir el progreso.',
+		'onboarding.slide5.title': 'Recibir Pago',
+		'onboarding.slide5.description':
+			'Pagos seguros en Bitcoin a través de nuestro sistema de depósito en garantía con contratos inteligentes.',
+		'onboarding.get_started': 'Comenzar'
 	}
 };

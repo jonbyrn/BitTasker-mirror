@@ -3,6 +3,65 @@
 @plugin '@tailwindcss/typography';
 @plugin "daisyui";
 
+/* Glow animations */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes float-glow {
+  0% { transform: translateY(0) translateX(0); }
+  33% { transform: translateY(-8px) translateX(8px); }
+  66% { transform: translateY(4px) translateX(-4px); }
+  100% { transform: translateY(0) translateX(0); }
+}
+
+.glow-effect {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.glow-container {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.glow-blur {
+  position: absolute;
+  border-radius: 100%;
+  filter: blur(100px);
+  opacity: 0.4;
+  animation: pulse-glow 5s infinite ease-in-out, float-glow 20s infinite ease-in-out;
+}
+
+.glow-primary {
+  background-color: var(--color-primary);
+}
+
+.glow-secondary {
+  background-color: var(--color-secondary);
+}
+
+.glow-accent {
+  background-color: var(--color-accent);
+}
+
+/* Dark mode specific adjustments */
+:root[data-theme="dustynight"] .glow-blur {
+  opacity: 0.15;
+  filter: blur(120px);
+}
+
+/* Light mode adjustments */
+:root[data-theme="yellowsnow"] .glow-blur {
+  opacity: 0.2;
+  filter: blur(100px);
+}
+
 @plugin "daisyui/theme" {
 	name: 'yellowsnow';
 	default: false;
@@ -39,36 +98,36 @@
 }
 
 @plugin "daisyui/theme" {
-	name: 'dustynigh';
-	default: true;
-	prefersdark: true;
-	color-scheme: 'dark';
-	--color-base-100: oklch(14% 0 0);
-	--color-base-200: oklch(20% 0 0);
-	--color-base-300: oklch(21% 0.006 56.043);
-	--color-base-content: oklch(97% 0 0);
-	--color-primary: #ff9315;
-	--color-primary-content: oklch(27% 0.077 45.635);
-	--color-secondary: oklch(82% 0.12 346.018);
-	--color-secondary-content: oklch(28% 0.109 3.907);
-	--color-accent: oklch(86% 0.022 252.894);
-	--color-accent-content: oklch(12% 0.042 264.695);
-	--color-neutral: oklch(26% 0 0);
-	--color-neutral-content: oklch(98% 0 0);
-	--color-info: oklch(74% 0.16 232.661);
-	--color-info-content: oklch(29% 0.066 243.157);
-	--color-success: oklch(84% 0.238 128.85);
-	--color-success-content: oklch(27% 0.072 132.109);
-	--color-warning: oklch(85% 0.199 91.936);
-	--color-warning-content: oklch(28% 0.066 53.813);
-	--color-error: oklch(71% 0.194 13.428);
-	--color-error-content: oklch(27% 0.105 12.094);
-	--radius-selector: 0.25rem;
-	--radius-field: 2rem;
-	--radius-box: 2rem;
-	--size-selector: 0.25rem;
-	--size-field: 0.25rem;
-	--border: 1px;
-	--depth: 1;
-	--noise: 1;
+    name: "dustynight";
+    default: true;
+    prefersdark: true;
+    color-scheme: "dark";
+    --color-base-100: oklch(14% 0 0);
+    --color-base-200: oklch(20% 0 0);
+    --color-base-300: oklch(21% 0.006 56.043);
+    --color-base-content: oklch(97% 0 0);
+    --color-primary: #FF9315;
+    --color-primary-content: oklch(27% 0.077 45.635);
+    --color-secondary: oklch(82% 0.12 346.018);
+    --color-secondary-content: oklch(28% 0.109 3.907);
+    --color-accent: oklch(86% 0.022 252.894);
+    --color-accent-content: oklch(12% 0.042 264.695);
+    --color-neutral: oklch(26% 0 0);
+    --color-neutral-content: oklch(98% 0 0);
+    --color-info: oklch(74% 0.16 232.661);
+    --color-info-content: oklch(29% 0.066 243.157);
+    --color-success: oklch(84% 0.238 128.85);
+    --color-success-content: oklch(27% 0.072 132.109);
+    --color-warning: oklch(85% 0.199 91.936);
+    --color-warning-content: oklch(28% 0.066 53.813);
+    --color-error: oklch(71% 0.194 13.428);
+    --color-error-content: oklch(27% 0.105 12.094);
+    --radius-selector: 0.25rem;
+    --radius-field: 2rem;
+    --radius-box: 2rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 1;
+    --noise: 1;
 }
