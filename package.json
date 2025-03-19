@@ -77,6 +77,7 @@
 		"@nostr-dev-kit/ndk-svelte": "^2.4.5",
 		"axios": "^1.8.3",
 		"capacitor-native-biometric": "^4.2.2",
+		"date-fns": "^4.1.0",
 		"nostr-tools": "^2.11.0",
 		"swiper": "^11.2.5"
 	}

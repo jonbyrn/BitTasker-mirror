@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	// Using Svelte 5 runes
 	let searchQuery = $state('');
 	let selectedCategory = $state('All');
@@ -88,7 +88,7 @@
 	);
 
 	// Function to handle applying for a task
-	function applyForTask(taskId) {
+	function applyForTask(taskId: number) {
 		alert(`Applied for task #${taskId}`);
 		// Implementation would connect to your backend
 	}
@@ -123,7 +123,7 @@
 							name="category"
 							class="radio radio-sm radio-primary"
 							checked={selectedCategory === category}
-							on:change={() => (selectedCategory = category)}
+							onchange={() => (selectedCategory = category)}
 						/>
 						<span class="label-text">{category}</span>
 					</label>
@@ -143,7 +143,7 @@
 							name="status"
 							class="radio radio-sm radio-primary"
 							checked={selectedStatus === status}
-							on:change={() => (selectedStatus = status)}
+							onchange={() => (selectedStatus = status)}
 						/>
 						<span class="label-text">{status}</span>
 					</label>
@@ -196,7 +196,7 @@
 									<div class="font-medium">{task.budget}</div>
 									<div class="text-base-content/70 text-sm">Due: {task.dueDate}</div>
 								</div>
-								<button class="btn btn-primary btn-sm" on:click={() => applyForTask(task.id)}>
+								<button class="btn btn-primary btn-sm" onclick={() => applyForTask(task.id)}>
 									Apply Now
 								</button>
 							</div>

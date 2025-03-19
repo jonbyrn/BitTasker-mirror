@@ -7,7 +7,7 @@ export interface User {
   id: string;
   email: string;
   name?: string;
-  [key: string]: any; // For additional user properties
+  [key: string]: unknown; // For additional user properties
 }
 
 // Define auth state interface
