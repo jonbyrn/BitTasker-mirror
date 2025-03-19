@@ -3,11 +3,12 @@
 	import { NativeBiometric } from 'capacitor-native-biometric';
 	import { isValidEmail } from '$lib/utils/helpers/validators';
 	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
-
+	import { goto } from '$app/navigation';
+	import {  mockLogin } from '$lib/stores/auth';
 	let isLogin = $state(true);
 	let isPasskey = $state(false);
-	let email = $state('');
-	let password = $state('');
+	let email = $state('user@example.com');
+	let password = $state('password');
 	let confirmPassword = $state('');
 	let name = $state('');
 	let isBiometricAvailable = $state(false);
@@ -16,7 +17,6 @@
 		const result = await NativeBiometric.isAvailable();
 		if (result.isAvailable) isBiometricAvailable = true;
 	});
-
 	function handlePasskey() {
 		if (isLogin) {
 			verifyIdentity();
@@ -24,8 +24,7 @@
 			isPasskey = true;
 		}
 	}
-
-	function handleSubmit(e: Event) {
+	async function handleSubmit(e: Event) {
 		e.preventDefault();
 
 		if (!isValidEmail(email)) return console.error('email validation failed');
@@ -35,6 +34,9 @@
 			console.log('Login:', { email, password });
 		} else if (isPasskey) {
 			createPasskey(email);
+			await mockLogin(email, password);
+
+			goto('/dashboard');
 		} else {
 			// Handle signup
 			console.log('Signup:', { name, email, password });
