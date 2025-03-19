@@ -1,11 +1,12 @@
 <script lang="ts">
-	import '../app.css';
-	import NavBar from '$lib/components/NavBar.svelte';
 	import { onMount } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
-	const { children } = $props();
 	import { darkMode, setDarkMode } from '$lib/states/theme';
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/states/deviceInfo';
+	import NavBar from '$lib/components/NavBar.svelte';
+	import '../app.css';
+
+	const { children } = $props();
 
 	$effect(() => {
 		setDarkMode($darkMode);

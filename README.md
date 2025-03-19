@@ -1,11 +1,13 @@
 # BitTasker Technical Specifications
 
-*Note: The official name of the application is "BitTasker" (capital 'B', capital 'T', no space). Please ensure all documentation, code, and marketing materials use this spelling consistently.*
+_Note: The official name of the application is "BitTasker" (capital 'B', capital 'T', no space). Please ensure all documentation, code, and marketing materials use this spelling consistently._
 
 ## Overview
+
 BitTasker is a gig economy platform inspired by Airtasker, designed to connect people seeking services (task hirers) with professionals offering those services (task doers). The platform facilitates the entire process from task posting, bidding, hiring, communication, scheduling, payment, to reviews.
 
 ### Key Differentiators
+
 - **Bitcoin Integration**: Native support for Bitcoin payments through Liquid, Lightning, and on-chain transactions
 - **Decentralized Identity**: Integration with Nostr for secure, user-owned identity management
 - **Multi-Language Support**: Automatic translation for global accessibility
@@ -15,18 +17,22 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Technical Architecture
 
 ### Platform Components
+
 1. **Mobile Applications**
+
    - iOS and Android apps built with SvelteKit
    - Capacitor for native device capability access
    - Single codebase for web and mobile platforms
    - Progressive enhancement for device-specific features
 
 2. **Web Application**
+
    - SvelteKit frontend framework
    - Responsive design for mobile and desktop
    - Progressive Web App (PWA) capabilities
 
 3. **Backend Services**
+
    - API Layer (Node.js with Express or Fastify)
    - Database (PostgreSQL for relational data)
    - Caching Layer (Redis)
@@ -34,12 +40,14 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
    - Task Scheduling (Bull or similar)
 
 4. **Blockchain Integration**
+
    - Bitcoin Wallet Services
    - Liquid Network Integration
    - Lightning Network Integration
    - Bitcoin On-chain Transaction Support
 
 5. **Decentralized Components**
+
    - Nostr Protocol Integration for identity and messaging
    - Public Key Infrastructure for E2E encryption
 
@@ -52,7 +60,9 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Data Models
 
 #### Core Entities
+
 - **User**
+
   - Basic profile information
   - Preference settings
   - Authentication credentials
@@ -64,6 +74,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Comprehensive key backup and recovery system
 
 - **Task**
+
   - Description and requirements
   - Category and skills needed
   - Location (physical or remote)
@@ -75,6 +86,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Boosting option for task hirers (pay portion of task doer's fee)
 
 - **Bid**
+
   - Price quote
   - Estimated completion time
   - Proposed approach
@@ -82,11 +94,13 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Status (pending, accepted, rejected)
 
 - **Calendar/Schedule**
+
   - Task doer availability
   - Booked appointments
   - Recurring availability patterns
 
 - **Transaction**
+
   - Payment amount
   - Payment method
   - Status
@@ -106,6 +120,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### User Management
 
 #### Authentication & Identity
+
 - **Implementation**: Integrate Nostr protocol for decentralized identity
 - **Features**:
   - Self-sovereign identity management
@@ -119,6 +134,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - No phone-based authentication
 
 #### Profile Management
+
 - **Implementation**: Comprehensive profile system with verification
 - **Features**:
   - Personal and professional information
@@ -133,6 +149,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - AI-assisted profile creation from user descriptions
 
 #### Skill Verification & Professional Teams
+
 - **Implementation**: Third-party certification and credential verification system
 - **Features**:
   - Professional certification verification
@@ -145,6 +162,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Task Management
 
 #### Task Creation
+
 - **Implementation**: Intuitive task posting interface
 - **Features**:
   - Detailed description with rich text and media
@@ -158,6 +176,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Boosting option for task hirers (pay portion of task doer's fee)
 
 #### Task Discovery
+
 - **Implementation**: Advanced search and recommendation engine
 - **Features**:
   - Location-based task discovery
@@ -170,6 +189,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Saved searches and notifications
 
 #### Bidding System
+
 - **Implementation**: Transparent and competitive bidding platform
 - **Features**:
   - Custom pricing proposals
@@ -182,6 +202,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Counter-offer system
 
 #### Recurring Tasks & Service Packages
+
 - **Implementation**: Streamlined system for regular service needs
 - **Features**:
   - Template creation for recurring tasks
@@ -194,6 +215,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Communication
 
 #### Chat System
+
 - **Implementation**: End-to-end encrypted messaging with translation
 - **Features**:
   - Real-time messaging
@@ -206,6 +228,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Chat history
 
 #### Notification System
+
 - **Implementation**: Multi-channel notification framework
 - **Features**:
   - Push notifications
@@ -217,6 +240,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Payment System
 
 #### Bitcoin Wallet
+
 - **Implementation**: Integrated non-custodial Bitcoin wallet
 - **Features**:
   - Support for Bitcoin, Lightning, and Liquid network
@@ -232,6 +256,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Identity re-verification for sending Bitcoin
 
 #### Payment Processing
+
 - **Implementation**: Secure escrow-based payment system
 - **Features**:
   - Milestone-based payments
@@ -247,6 +272,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Real-time Bitcoin/USD currency converter for pricing transparency
 
 #### Task Insurance
+
 - **Implementation**: Optional coverage for high-value services
 - **Features**:
   - Risk assessment for different task categories
@@ -260,6 +286,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Scheduling
 
 #### Calendar System
+
 - **Implementation**: Integrated calendar with third-party sync
 - **Features**:
   - Task doer availability settings
@@ -272,6 +299,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Buffer time settings
 
 #### Booking Process
+
 - **Implementation**: Streamlined booking workflow
 - **Features**:
   - Instant booking for pre-priced services
@@ -282,6 +310,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Automated follow-up
 
 #### Time Tracking
+
 - **Implementation**: Built-in system for hourly-based tasks
 - **Features**:
   - Start/stop functionality for tracking worked hours
@@ -294,6 +323,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Gamification
 
 #### Level System
+
 - **Implementation**: Progressive achievement structure
 - **Features**:
   - Experience points for completed actions
@@ -304,6 +334,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Historical statistics tracking
 
 #### Rewards Program
+
 - **Implementation**: Incentive structure for platform engagement
 - **Features**:
   - Fee discounts based on level
@@ -316,6 +347,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Localization
 
 #### Translation System
+
 - **Implementation**: Real-time content translation
 - **Features**:
   - UI translation for all supported languages
@@ -327,6 +359,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Cultural consideration in recommendations
 
 #### Regional Adaptations
+
 - **Implementation**: Region-specific functionality
 - **Features**:
   - Local payment methods
@@ -337,6 +370,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Trust & Safety
 
 #### Review System
+
 - **Implementation**: Comprehensive feedback mechanism
 - **Features**:
   - Multi-dimensional ratings
@@ -350,6 +384,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Sentiment analysis of review content
 
 #### Safety Measures
+
 - **Implementation**: Abuse prevention and conflict resolution
 - **Features**:
   - Identity verification options
@@ -362,6 +397,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Fraud detection algorithms
 
 #### Reputation Portability
+
 - **Implementation**: Integration with other reputation systems via Nostr
 - **Features**:
   - Nostr-based reputation scoring
@@ -374,6 +410,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## User Interface
 
 #### Role Switching
+
 - **Implementation**: Intuitive UI for toggling between task hirer and task doer modes
 - **Features**:
   - One-click role switching capability
@@ -387,6 +424,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Business & Professional Tools
 
 #### Business Accounts
+
 - **Implementation**: Enhanced accounts for companies and organizations
 - **Features**:
   - Multiple user accounts under one business entity
@@ -397,6 +435,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Enterprise-grade security options
 
 #### Analytics Dashboard
+
 - **Implementation**: Comprehensive data visualization for service providers
 - **Features**:
   - Performance metrics and statistics
@@ -407,6 +446,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Exportable reports for business planning
 
 #### Administration System
+
 - **Implementation**: Comprehensive platform management tools
 - **Features**:
   - User management with search and filtering
@@ -419,6 +459,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Verification process oversight
 
 #### API Integration
+
 - **Implementation**: Developer access for third-party integration
 - **Features**:
   - Comprehensive REST API
@@ -432,6 +473,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Community Engagement
 
 #### Skill Marketplace
+
 - **Implementation**: Educational platform for service providers
 - **Features**:
   - Course creation and publishing
@@ -441,6 +483,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Achievement tracking
 
 #### Task Collaboration
+
 - **Implementation**: Tools for multi-provider complex projects
 - **Features**:
   - Task division and assignment
@@ -453,6 +496,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Advanced Technology
 
 #### Smart Contract Automation
+
 - **Implementation**: Advanced transaction automation using Liquid
 - **Features**:
   - Milestone-based payment release
@@ -463,6 +507,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
   - Contract templates for common scenarios
 
 #### Predictive Pricing
+
 - **Implementation**: AI-driven pricing recommendation engine
 - **Features**:
   - Market rate analysis
@@ -475,6 +520,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Development Roadmap
 
 ### Phase 1: Foundation
+
 - Core application architecture
 - Nostr integration
 - User authentication and profile management
@@ -485,6 +531,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - End-to-end encryption
 
 ### Phase 2: Core Functionality
+
 - Enhanced task management
 - Complete payment system with escrow
 - Calendar and scheduling system
@@ -493,12 +540,14 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - API stabilization
 
 ### Phase 3: Advanced Features
+
 - Advanced search and recommendation
 - Complete localization system
 - Enhanced Bitcoin features (Lightning, Liquid)
 - Referral system implementation
 
 ### Phase 4: Scalability & Refinement
+
 - Performance optimization
 - Analytics integration
 - Enhanced security measures
@@ -509,6 +558,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Technical Implementation Details
 
 ### Frontend Technologies
+
 - **Web**: SvelteKit, TailwindCSS, DaisyUI
 - **Mobile**: SvelteKit with Capacitor
 - **State Management**: Native Svelte stores
@@ -519,6 +569,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Display Modes**: Support for both light and dark modes with user preference persistence
 
 ### Backend Technologies
+
 - **API Framework**: Node.js (Express/Fastify)
 - **Database**: PostgreSQL with TimescaleDB for time-series data
 - **Caching**: Redis
@@ -528,6 +579,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Job Processing**: Bull with Redis
 
 ### Bitcoin & Blockchain
+
 - **Wallet Implementation**: BitcoinJS, LDK (Lightning Development Kit)
 - **Liquid Integration**: Liquid SDK
 - **Transaction Monitoring**: Bitcoin node with Electrum Server
@@ -535,6 +587,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Smart Contract**: Simplicity for Liquid functionality
 
 ### Nostr Integration
+
 - **Protocol Libraries**: nostr-tools, nostr-relay
 - **Identity Management**: NIP-01 for basic protocol
 - **Encryption**: NIP-04 for encrypted direct messages
@@ -542,6 +595,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Relay Management**: Multiple relay support with fallback
 
 ### Security Measures
+
 - **Authentication**: Multi-factor, Passkeys (WebAuthn)
 - **Encryption**: AES-256 for data at rest, TLS 1.3 for transit
 - **API Security**: Rate limiting, CSRF protection, JWT with short expiry
@@ -550,6 +604,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Infrastructure**: Zero-trust architecture, least privilege principle
 
 ## Testing Infrastructure
+
 - **Unit Testing**: Vitest for fast, ESM-native unit testing
 - **Component Testing**: Testing Library for Svelte component testing
 - **Integration Testing**: Playwright for browser-based integration tests
@@ -561,6 +616,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Coverage Reporting**: Vitest coverage with C8/V8 engine
 
 ### CI/CD Pipeline
+
 - **Build Automation**: Gitea Actions and CI
 - **Test Automation**: Pre-commit hooks and branch protection
 - **Deployment**: Automated staging and production pipelines
@@ -573,6 +629,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Artifact Management**: Versioned test snapshots and reports
 
 ### Build Process
+
 - **Development Build**:
   - Lint checks
   - Type checking
@@ -599,13 +656,15 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Phase 1: Foundation Setup
 
 #### 1. Nostr Backend Infrastructure
-- [ ] Set up Nostr relays for data persistence 
+
+- [ ] Set up Nostr relays for data persistence
 - [ ] Implement NIP-01 event kinds for core data models (tasks, bids, profiles, etc.)
 - [ ] Develop custom event types for BitTasker-specific functionality
 - [ ] Create subscription management system for real-time updates
 - [ ] Implement caching layer for frequently accessed Nostr events
 
 #### 2. User Identity & Authentication
+
 - [ ] Implement Nostr key pair generation and management
 - [ ] Create secure local storage for private keys
 - [ ] Develop user onboarding flow with Nostr identity creation
@@ -613,6 +672,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create backup and recovery system for Nostr keys
 
 #### 3. Core Frontend Framework
+
 - [ ] Set up SvelteKit project structure with TailwindCSS and DaisyUI
 - [ ] Implement responsive layouts for mobile and desktop
 - [ ] Create base component library with Storybook documentation
@@ -620,6 +680,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement client-side state management with Svelte stores
 
 #### 4. Bitcoin Wallet Integration
+
 - [ ] Implement basic Bitcoin wallet functionality
 - [ ] Set up secure key management for wallet
 - [ ] Create transaction history visualization
@@ -630,6 +691,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement identity re-verification for Bitcoin transactions
 
 #### 5. Testing Framework Setup
+
 - [ ] Set up Vitest for unit testing
 - [ ] Configure Testing Library for component testing
 - [ ] Implement Playwright for integration and E2E testing
@@ -642,6 +704,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create pre-commit hooks for test validation
 
 #### 6. User Interface & Experience
+
 - [ ] Design and implement responsive mobile-first interface
 - [ ] Create unified design system
 - [ ] Implement accessibility features
@@ -653,6 +716,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement intuitive task hirer/task doer role switching interface
 
 #### 7. Pricing & Payments
+
 - [ ] Set up fee calculation structure
 - [ ] Implement milestone-based payment system
 - [ ] Create escrow system for payments
@@ -663,6 +727,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement real-time Bitcoin/USD currency converter
 
 #### 8. Review & Rating
+
 - [ ] Design multi-dimensional rating system
 - [ ] Create review submission interface
 - [ ] Implement review moderation system
@@ -674,6 +739,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Phase 2: Core Functionality Development
 
 #### 9. Task Management via Nostr
+
 - [ ] Design Nostr event schema for task representation
 - [ ] Implement task creation, update, and deletion flows
 - [ ] Create task discovery and search functionality using Nostr filters
@@ -681,6 +747,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement file/image attachments with encryption
 
 #### 10. Bidding System
+
 - [ ] Design Nostr event schema for bids
 - [ ] Implement bid submission and management
 - [ ] Create bid comparison and selection interfaces
@@ -688,6 +755,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement bid status tracking and updates
 
 #### 11. Messaging & Chat System
+
 - [ ] Implement NIP-04 for encrypted direct messaging
 - [ ] Create real-time chat interface with websocket connections
 - [ ] Integrate translation API for cross-language communication
@@ -695,6 +763,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create attachments and media sharing capability
 
 #### 12. Calendar & Scheduling
+
 - [ ] Design Nostr event schema for availability and bookings
 - [ ] Implement calendar visualization for availability
 - [ ] Create booking request and confirmation workflow
@@ -706,6 +775,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Phase 3: Advanced Features
 
 #### 13. Lightning & Liquid Integration
+
 - [ ] Implement Lightning Network payment channels
 - [ ] Create Liquid Network transaction capabilities
 - [ ] Develop atomic swap functionality for cross-chain operations
@@ -713,12 +783,14 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create multi-signature wallet options for security
 
 #### 14. Localization Framework
+
 - [ ] Set up i18n infrastructure for UI translation
 - [ ] Implement language detection and selection
 - [ ] Create translation caching for performance
 - [ ] Develop currency conversion for multi-region support
 
 #### 15. Review & Reputation System
+
 - [ ] Design Nostr event schema for reviews and ratings
 - [ ] Implement review submission and display
 - [ ] Create aggregated rating calculations
@@ -726,6 +798,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement verification indicators for reviews
 
 #### 16. Gamification Implementation
+
 - [ ] Design level progression system
 - [ ] Implement user activity tracking
 - [ ] Create visual indicators for user levels
@@ -733,6 +806,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement referral tracking and rewards
 
 #### 17. Professional Enhancement Features
+
 - [ ] Design credential verification system
 - [ ] Implement skill verification and endorsement
 - [ ] Create professional team formation capabilities
@@ -741,6 +815,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create time tracking for hourly services
 
 #### 18. Business Tools
+
 - [ ] Design and implement business accounts
 - [ ] Create analytics dashboard for professionals
 - [ ] Implement automated invoice generation
@@ -750,6 +825,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ### Phase 4: Optimization & Integration
 
 #### 19. Performance Optimization
+
 - [ ] Implement efficient Nostr event caching strategies
 - [ ] Create progressive loading patterns for data-heavy pages
 - [ ] Optimize image and video handling and compression
@@ -757,6 +833,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create prefetching strategies for common user paths
 
 #### 20. Security Enhancements
+
 - [ ] Conduct comprehensive security audit
 - [ ] Implement additional encryption for sensitive data
 - [ ] Create rate limiting for API requests
@@ -764,6 +841,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement safety reporting system
 
 #### 21. Advanced Trust Features
+
 - [ ] Implement task insurance options
 - [ ] Create reputation portability system
 - [ ] Develop cross-platform verification
@@ -771,15 +849,18 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Create blockchain-based attestation system
 
 #### 22. Community Features
+
 - [ ] Design and implement skill marketplace
 - [ ] Implement task collaboration tools
 - [ ] Create knowledge sharing platform
 
 #### 23. Voice & Advanced Technology
+
 - [ ] Develop smart contract automation for payments
 - [ ] Create predictive pricing engine
 
 #### 24. Analytics & Documentation
+
 - [ ] Set up privacy-preserving analytics
 - [ ] Create performance monitoring system
 - [ ] Implement error tracking and reporting
@@ -792,6 +873,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [ ] Implement continuous integration pipeline
 
 #### 25. Test Automation & CI/CD
+
 - [ ] Implement comprehensive CI/CD pipeline
 - [ ] Create automated performance testing workflow
 - [ ] Set up security testing automation
@@ -806,6 +888,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Development Considerations
 
 ### Maximizing Nostr Usage
+
 - Use Nostr events as the primary data store whenever possible
 - Leverage multiple relays for redundancy and performance
 - Utilize NIP-04 for all private communications
@@ -813,6 +896,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Use ephemeral events for temporary data to reduce relay load
 
 ### Cost Efficiency Strategies
+
 - Implement efficient caching to minimize relay queries
 - Use serverless functions for any non-Nostr backend requirements
 - Leverage client-side processing to reduce server dependencies
@@ -822,6 +906,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Utilize WebAssembly for computation-heavy tasks
 
 ### Minimalist Backend Approach
+
 - Avoid traditional databases when Nostr can provide the functionality
 - Use edge functions for necessary server-side operations
 - Implement client-side encryption to reduce need for secure backend
@@ -829,6 +914,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Create peer-to-peer connections when feasible to reduce server load
 
 ### Testing Strategy
+
 - Implement test-driven development for critical components
 - Maintain minimum 80% code coverage for core modules
 - Create isolated tests with proper mocking of external dependencies
@@ -843,17 +929,20 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Documentation References
 
 ### Bitcoin Development
+
 - [Bitcoin Developer Documentation](https://developer.bitcoin.org/)
 - [Lightning Network Specifications](https://github.com/lightning/bolts)
 - [Liquid Network Documentation](https://docs.liquid.net/)
 - [LDK Documentation](https://lightningdevkit.org/)
 
 ### Nostr Protocol
+
 - [Nostr Protocol Specification](https://github.com/nostr-protocol/nostr)
 - [NIPs (Nostr Implementation Possibilities)](https://github.com/nostr-protocol/nips)
 - [Nostr Development Kit](https://github.com/nostr-dev-kit/ndk)
 
 ### Web & Mobile Development
+
 - [SvelteKit Documentation](https://kit.svelte.dev/docs)
 - [DaisyUI Documentation](https://daisyui.com/docs)
 - [Capacitor Documentation](https://capacitorjs.com/docs)
@@ -861,28 +950,33 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - [IndexedDB for Client-side Storage](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
 
 ### Security & Encryption
+
 - [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
 - [OWASP Security Practices](https://owasp.org/www-project-web-security-testing-guide/)
 - [Public Key Cryptography Standards](https://www.rfc-editor.org/rfc/rfc8017)
 
 ### Localization & Internationalization
+
 - [Mozilla L10n Guide](https://developer.mozilla.org/en-US/docs/Mozilla/Localization)
 - [i18next Documentation](https://www.i18next.com/)
 - [Google Translate API](https://cloud.google.com/translate/docs)
 
 ### Payment Processing
+
 - [Payment Request API](https://developer.mozilla.org/en-US/docs/Web/API/Payment_Request_API)
 - [Escrow System Design Patterns](https://www.sciencedirect.com/science/article/pii/S2405844018323363)
 
 ## Recommended Additional Features
 
 ### Advanced User Experience
+
 1. **Biometric Authentication**: Implement fingerprint and facial recognition for secure and convenient access
 2. **Task Simulation**: Interactive previews of how tasks will be performed before hiring
-4. **Offline Mode**: Full functionality when internet connection is limited or unavailable
-5. **Contextual AI Assistant**: Task-specific AI helper for both service providers and clients
+3. **Offline Mode**: Full functionality when internet connection is limited or unavailable
+4. **Contextual AI Assistant**: Task-specific AI helper for both service providers and clients
 
 ### Financial Innovations
+
 1. **Multi-Signature Custody**: Advanced security options for high-value transactions
 2. **Provider Financing**: Short-term loans or advances based on confirmed upcoming work
 3. **Subscription-Based Service Plans**: Recurring payment models for regular service providers
@@ -890,6 +984,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 5. **Customizable Payment Schedules**: Flexible payment timing options beyond standard milestones
 
 ### Network Effects
+
 1. **Service Provider Guilds**: Allow professionals to form official guilds with shared standards
 2. **Cross-Platform Identity**: Integration with other professional networks and marketplaces
 3. **Expert Verification System**: Third-party verification of specialized skills and qualifications
@@ -897,6 +992,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 5. **Local Business Integration**: Connect with local businesses for special rates on materials and tools
 
 ### Intelligence & Optimization
+
 1. **Smart Task Routing**: AI-based assignment of tasks to optimal service providers
 2. **Seasonal Demand Prediction**: Forecasting tools for service providers to prepare for busy periods
 3. **Customer Lifetime Value Optimization**: Tools to help providers maximize long-term client relationships
@@ -904,6 +1000,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 5. **Dynamic Pricing Tools**: Adjust rates based on demand, urgency, and market conditions
 
 ### Security & Trust Enhancements
+
 1. **Real-Time Identity Verification**: On-demand verification for high-security situations
 2. **Secure Document Exchange**: Encrypted sharing of sensitive documents with expiration
 3. **Blockchain-Verified Credentials**: Immutable record of qualifications and certifications
@@ -911,6 +1008,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 5. **Trust Score Portability**: Import and leverage trust metrics from external platforms
 
 ### Specialized Verticals
+
 1. **Emergency Services Marketplace**: Platform section dedicated to urgent or emergency tasks
 2. **Professional Development Tracking**: Progress tracking for service providers building skills
 3. **Equipment Rental Integration**: Connect providers with necessary equipment through partners
@@ -918,6 +1016,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 5. **Specialized Industry Solutions**: Tailored workflows for industries like construction, healthcare, and education
 
 ### Enterprise & Business Features
+
 1. **White-Label Solutions**: Customizable platform versions for enterprise clients
 2. **Corporate Account Management**: Specialized tools for companies managing multiple service needs
 3. **Service Provider Teams API**: Allow external organizations to manage teams through API
@@ -925,6 +1024,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 5. **Department-Specific Budgeting**: Tools for enterprises to manage department service budgets
 
 ### Privacy & Data Control
+
 1. **Anonymous Hiring Option**: Privacy-focused hiring without revealing personal details
 2. **Selective Information Sharing**: Granular control over what information is shared with whom
 3. **Personal Data Export**: Comprehensive export of all user data in portable formats
@@ -934,6 +1034,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Development Considerations
 
 ### Testing Strategy
+
 - Implement test-driven development for critical components
 - Maintain minimum 80% code coverage for core modules
 - Create isolated tests with proper mocking of external dependencies
