@@ -166,7 +166,7 @@
 
 		<form onsubmit={handleSubmit} class="space-y-6">
 			<!-- Title -->
-			<div class="form-control w-full">
+			<div class="w-full">
 				<label for="title" class="label">
 					<span class="label-text">Task Title</span>
 				</label>
@@ -178,32 +178,28 @@
 					placeholder="Enter a clear title for your task"
 				/>
 				{#if errors.title}
-					<label class="label">
-						<span class="label-text-alt text-error">{errors.title}</span>
-					</label>
+					<span class="label-text-alt text-error">{errors.title}</span>
 				{/if}
 			</div>
 
 			<!-- Description -->
-			<div class="form-control w-full">
-				<label for="description" class="label">
-					<span class="label-text">Description</span>
-				</label>
-				<textarea
+			<div class="w-full">
+				<label for="description">
+					<span class="label">Description</span>
+					<textarea
 					id="description"
 					bind:value={description}
-					class="textarea textarea-bordered h-32 {errors.description ? 'textarea-error' : ''}"
+					class="textarea textarea-bordered h-32 w-full {errors.description ? 'textarea-error' : ''}"
 					placeholder="Describe your task in detail"
-				></textarea>
+					></textarea>
+				</label>
 				{#if errors.description}
-					<label class="label">
-						<span class="label-text-alt text-error">{errors.description}</span>
-					</label>
+					<span class="label-text-alt text-error">{errors.description}</span>
 				{/if}
 			</div>
 
 			<!-- Category -->
-			<div class="form-control w-full">
+			<div class="w-full">
 				<label for="category" class="label">
 					<span class="label-text">Category</span>
 				</label>
@@ -218,14 +214,12 @@
 					{/each}
 				</select>
 				{#if errors.category}
-					<label class="label">
-						<span class="label-text-alt text-error">{errors.category}</span>
-					</label>
+					<span class="label-text-alt text-error">{errors.category}</span>
 				{/if}
 			</div>
 
 			<!-- Location -->
-			<div class="form-control w-full">
+			<div class="w-full">
 				<div class="mb-2 flex items-center">
 					<label for="isRemote" class="label cursor-pointer justify-start">
 						<input
@@ -250,16 +244,14 @@
 						placeholder="Enter the task location"
 					/>
 					{#if errors.location}
-						<label class="label">
-							<span class="label-text-alt text-error">{errors.location}</span>
-						</label>
+						<span class="label-text-alt text-error">{errors.location}</span>
 					{/if}
 				{/if}
 			</div>
 
 			<!-- Budget -->
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				<div class="form-control w-full">
+				<div class="w-full">
 					<label for="budget" class="label">
 						<span class="label-text">Budget</span>
 					</label>
@@ -273,13 +265,11 @@
 						step="0.00000001"
 					/>
 					{#if errors.budget}
-						<label class="label">
-							<span class="label-text-alt text-error">{errors.budget}</span>
-						</label>
+						<span class="label-text-alt text-error">{errors.budget}</span>
 					{/if}
 				</div>
 
-				<div class="form-control w-full">
+				<div class="w-full">
 					<label for="currencyType" class="label">
 						<span class="label-text">Currency</span>
 					</label>
@@ -292,7 +282,7 @@
 			</div>
 
 			<!-- Deadline -->
-			<div class="form-control w-full">
+			<div class="w-full">
 				<label for="deadline" class="label">
 					<span class="label-text">Deadline</span>
 				</label>
@@ -303,33 +293,31 @@
 					class="input input-bordered w-full {errors.deadline ? 'input-error' : ''}"
 				/>
 				{#if errors.deadline}
-					<label class="label">
-						<span class="label-text-alt text-error">{errors.deadline}</span>
-					</label>
+					<span class="label-text-alt text-error">{errors.deadline}</span>
 				{/if}
 			</div>
 
 			<!-- Skills -->
-			<div class="form-control w-full">
-				<label class="label">
-					<span class="label-text">Required Skills</span>
-				</label>
-				<div class="flex gap-2">
-					<input
+			<div class="w-full">
+				<label>
+					<span class="label">Required Skills</span>
+					<div class="flex gap-2">
+						<input
 						type="text"
 						bind:value={newSkill}
 						class="input input-bordered w-full"
 						placeholder="Enter a required skill"
-					/>
-					<button
+						/>
+						<button
 						type="button"
 						class="btn btn-primary"
 						onclick={addSkill}
 						disabled={!newSkill.trim()}
-					>
+						>
 						Add
 					</button>
 				</div>
+			</label>
 
 				{#if skills.length > 0}
 					<div class="mt-4 flex flex-wrap gap-2">
@@ -350,16 +338,16 @@
 			</div>
 
 			<!-- Attachments -->
-			<div class="form-control w-full">
-				<label class="label">
-					<span class="label-text">Attachments</span>
-				</label>
-				<input
+			<div class="w-full">
+				<label>
+					<span class="label">Attachments</span>
+					<input
 					type="file"
 					class="file-input file-input-bordered w-full"
 					onchange={handleFileUpload}
 					multiple
-				/>
+					/>
+				</label>
 
 				{#if attachments.length > 0}
 					<div class="mt-4 space-y-2">
@@ -379,7 +367,7 @@
 				{/if}
 			</div>
 
-			<div class="form-control mt-6">
+			<div class="mt-6">
 				<button
 					type="submit"
 					class="btn btn-primary w-full {isSubmitting ? 'loading' : ''}"

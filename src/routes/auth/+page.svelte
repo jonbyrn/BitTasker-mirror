@@ -32,6 +32,8 @@
 		if (isLogin) {
 			// Handle login
 			console.log('Login:', { email, password });
+			mockLogin(email, password);
+			goto('/dashboard');
 		} else if (isPasskey) {
 			createPasskey(email);
 			await mockLogin(email, password);
@@ -170,7 +172,6 @@
 				<button onclick={() => (isLogin = !isLogin)} class="link link-primary">
 					{isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
 				</button>
-				<a class="link link-primary" href="/dashboard" data-sveltekit-reload="off"> Dashboard </a>
 			</div>
 		</div>
 	</div>

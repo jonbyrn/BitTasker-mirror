@@ -182,25 +182,25 @@
 	<div class="tabs tabs-boxed mb-6">
 		<button
 			class="tab {activeTab === 'balance' ? 'tab-active' : ''}"
-			on:click={() => (activeTab = 'balance')}
+			onclick={() => (activeTab = 'balance')}
 		>
 			Balance
 		</button>
 		<button
 			class="tab {activeTab === 'receive' ? 'tab-active' : ''}"
-			on:click={() => (activeTab = 'receive')}
+			onclick={() => (activeTab = 'receive')}
 		>
 			Receive
 		</button>
 		<button
 			class="tab {activeTab === 'send' ? 'tab-active' : ''}"
-			on:click={() => (activeTab = 'send')}
+			onclick={() => (activeTab = 'send')}
 		>
 			Send
 		</button>
 		<button
 			class="tab {activeTab === 'transactions' ? 'tab-active' : ''}"
-			on:click={() => (activeTab = 'transactions')}
+			onclick={() => (activeTab = 'transactions')}
 		>
 			Transactions
 		</button>
@@ -221,7 +221,7 @@
 
 			<!-- Quick Actions -->
 			<div class="grid grid-cols-2 gap-4">
-				<button class="btn btn-outline btn-primary" on:click={() => (activeTab = 'receive')}>
+				<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'receive')}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="mr-2 h-5 w-5"
@@ -238,7 +238,7 @@
 					</svg>
 					Receive
 				</button>
-				<button class="btn btn-outline btn-primary" on:click={() => (activeTab = 'send')}>
+				<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'send')}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="mr-2 h-5 w-5"
@@ -300,7 +300,7 @@
 						</table>
 					</div>
 					<div class="mt-4 text-center">
-						<button class="btn btn-ghost btn-sm" on:click={() => (activeTab = 'transactions')}>
+						<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'transactions')}>
 							View all transactions
 						</button>
 					</div>
@@ -322,7 +322,7 @@
 				{#each wallet.addresses as address}
 					<button
 						class="tab {selectedAddress.type === address.type ? 'tab-active' : ''}"
-						on:click={() => selectAddress(address.type)}
+						onclick={() => selectAddress(address.type)}
 					>
 						{address.type}
 					</button>
@@ -339,7 +339,7 @@
 						</div>
 						<button
 							class="btn btn-ghost btn-sm"
-							on:click={() => copyToClipboard(selectedAddress.address)}
+							onclick={() => copyToClipboard(selectedAddress.address)}
 						>
 							{#if copiedAddress}
 								<svg
@@ -375,7 +375,7 @@
 
 					<!-- QR Code Toggle -->
 					<div class="mt-4">
-						<button class="btn btn-primary btn-block" on:click={toggleQR}>
+						<button class="btn btn-primary btn-block" onclick={toggleQR}>
 							{showQR ? 'Hide QR Code' : 'Show QR Code'}
 						</button>
 					</div>
@@ -522,19 +522,19 @@
 						<div class="btn-group w-full">
 							<button
 								class="btn flex-1 {sendNetworkFee === 'low' ? 'btn-active' : ''}"
-								on:click={() => (sendNetworkFee = 'low')}
+								onclick={() => (sendNetworkFee = 'low')}
 							>
 								Low
 							</button>
 							<button
 								class="btn flex-1 {sendNetworkFee === 'medium' ? 'btn-active' : ''}"
-								on:click={() => (sendNetworkFee = 'medium')}
+								onclick={() => (sendNetworkFee = 'medium')}
 							>
 								Medium
 							</button>
 							<button
 								class="btn flex-1 {sendNetworkFee === 'high' ? 'btn-active' : ''}"
-								on:click={() => (sendNetworkFee = 'high')}
+								onclick={() => (sendNetworkFee = 'high')}
 							>
 								High
 							</button>
@@ -562,7 +562,7 @@
 					</div>
 
 					<div class="mt-6">
-						<button class="btn btn-primary btn-block" on:click={sendTransaction}>
+						<button class="btn btn-primary btn-block" onclick={sendTransaction}>
 							Send Bitcoin
 						</button>
 					</div>
@@ -619,7 +619,12 @@
 										{:else if tx.confirmations === 0}
 											<div class="badge badge-warning">Pending</div>
 										{:else}
-											<div class="badge badge-success">{tx.confirmations} confirmations</div>
+											<div class="indicator">
+												<span class="indicator-item badge badge-xs">
+													{tx.confirmations}
+												</span>
+												<div class="badge badge-success">Confirmations</div>
+											</div>
 										{/if}
 									</td>
 									<td>
