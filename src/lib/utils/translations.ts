@@ -81,14 +81,21 @@ export default {
 		'auth.form.google': 'Continue with Google',
 		'auth.form.switch_to_signup': "Don't have an account? Sign up",
 		'auth.form.switch_to_login': 'Already have an account? Login',
-		'onboarding.slide1.title': 'Welcome to Bittasker',
+		'onboarding.slide1.title': 'Sign Up',
 		'onboarding.slide1.description':
-			'Your personal task management solution that helps you stay organized and productive.',
-		'onboarding.slide2.title': 'Create and Manage Tasks',
-		'onboarding.slide2.description': 'Easily create, organize, and track your tasks in one place.',
-		'onboarding.slide3.title': 'Stay Productive',
+			'Create your account using your email or connect your Bitcoin wallet directly.',
+		'onboarding.slide2.title': 'Create Profile',
+		'onboarding.slide2.description':
+			'Build your professional profile with skills, experience, and portfolio.',
+		'onboarding.slide3.title': 'Post or Find Tasks',
 		'onboarding.slide3.description':
-			'Set priorities, deadlines, and never miss an important task again.',
+			'Clients post projects, freelancers find opportunities that match their skills.',
+		'onboarding.slide4.title': 'Complete Work',
+		'onboarding.slide4.description':
+			'Use our platform to communicate, share files, and track progress.',
+		'onboarding.slide5.title': 'Get Paid',
+		'onboarding.slide5.description':
+			'Secure Bitcoin payments through our smart contract escrow system.',
 		'onboarding.get_started': 'Get started'
 	},
 	es: {
@@ -172,15 +179,21 @@ export default {
 		'auth.form.google': 'Continuar con Google',
 		'auth.form.switch_to_signup': '¿No tienes una cuenta? Regístrate',
 		'auth.form.switch_to_login': '¿Ya tienes una cuenta? Inicia sesión',
-		'onboarding.slide1.title': 'Bienvenido a Bittasker',
+		'onboarding.slide1.title': 'Registrarse',
 		'onboarding.slide1.description':
-			'Tu solución personal de gestión de tareas que te ayuda a mantenerte organizado y productivo.',
-		'onboarding.slide2.title': 'Crea y Gestiona Tareas',
+			'Crea tu cuenta usando tu correo electrónico o conecta tu billetera de Bitcoin directamente.',
+		'onboarding.slide2.title': 'Crear Perfil',
 		'onboarding.slide2.description':
-			'Crea, organiza y realiza un seguimiento de tus tareas en un solo lugar.',
-		'onboarding.slide3.title': 'Mantente Productivo',
+			'Construye tu perfil profesional con habilidades, experiencia y portafolio.',
+		'onboarding.slide3.title': 'Publicar o Buscar Tareas',
 		'onboarding.slide3.description':
-			'Establece prioridades, fechas límite y nunca más te pierdas una tarea importante.',
+			'Los clientes publican proyectos, los freelancers encuentran oportunidades que coincidan con sus habilidades.',
+		'onboarding.slide4.title': 'Completar Trabajo',
+		'onboarding.slide4.description':
+			'Usa nuestra plataforma para comunicarte, compartir archivos y seguir el progreso.',
+		'onboarding.slide5.title': 'Recibir Pago',
+		'onboarding.slide5.description':
+			'Pagos seguros en Bitcoin a través de nuestro sistema de depósito en garantía con contratos inteligentes.',
 		'onboarding.get_started': 'Comenzar'
 	}
 };

@@ -31,6 +31,10 @@
 		| 'onboarding.slide2.description'
 		| 'onboarding.slide3.title'
 		| 'onboarding.slide3.description'
+		| 'onboarding.slide4.title'
+		| 'onboarding.slide4.description'
+		| 'onboarding.slide5.title'
+		| 'onboarding.slide5.description'
 		| 'onboarding.get_started';
 
 	const slides = [
@@ -38,19 +42,31 @@
 			id: 1,
 			titleKey: 'onboarding.slide1.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide1.description' as OnboardingTranslationKey,
-			image: '/onboarding/welcome.svg'
+			image: '/onboarding/signup.svg'
 		},
 		{
 			id: 2,
 			titleKey: 'onboarding.slide2.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide2.description' as OnboardingTranslationKey,
-			image: '/onboarding/tasks.svg'
+			image: '/onboarding/profile.svg'
 		},
 		{
 			id: 3,
 			titleKey: 'onboarding.slide3.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide3.description' as OnboardingTranslationKey,
-			image: '/onboarding/productive.svg'
+			image: '/onboarding/tasks.svg'
+		},
+		{
+			id: 4,
+			titleKey: 'onboarding.slide4.title' as OnboardingTranslationKey,
+			descriptionKey: 'onboarding.slide4.description' as OnboardingTranslationKey,
+			image: '/onboarding/work.svg'
+		},
+		{
+			id: 5,
+			titleKey: 'onboarding.slide5.title' as OnboardingTranslationKey,
+			descriptionKey: 'onboarding.slide5.description' as OnboardingTranslationKey,
+			image: '/onboarding/payment.svg'
 		}
 	];
 
@@ -61,12 +77,12 @@
 	const getStarted = async () => {
 		await Preferences.set({ key: 'onboardingCompleted', value: 'true' });
 		onboardingCompleted.set(true);
-		goto('/auth');
+		goto('/auth/login');
 	};
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: 'onboardingCompleted' });
 		if (value === 'true') {
-			goto('/auth');
+			goto('/auth/login');
 		}
 	});
 </script>
@@ -136,13 +152,12 @@
 			<swiper-slide>
 				<div class="relative flex h-[90vh] flex-col items-center justify-evenly px-6 py-12">
 					<div class="flex flex-col items-center justify-evenly">
-						<div class="bg-primary mb-8 h-64 w-64 rounded-lg flex items-center justify-center">
-							<!-- <img
+						<div class="bg-primary mb-8 flex h-64 w-64 items-center justify-center rounded-lg">
+							<img
 								src={slide.image}
 								alt={$t(slide.titleKey)}
 								class="h-full w-full object-contain"
-							/> -->
-							<h1 class="text-4xl font-bold text-white">{slide.id}</h1>
+							/>
 						</div>
 						<h2 class="text-primary mb-4 text-center text-2xl font-bold">{$t(slide.titleKey)}</h2>
 						<p class="text-center">{$t(slide.descriptionKey)}</p>
