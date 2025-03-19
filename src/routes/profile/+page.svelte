@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getCredentials } from '$lib/services/auth';
+	import { getCredentials } from '$lib/utils/helpers/biometrics';
 	import { NativeBiometric } from 'capacitor-native-biometric';
 
 	let user = $state({});
