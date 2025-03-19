@@ -42,7 +42,6 @@
 		"@tailwindcss/vite": "^4.0.0",
 		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "^5.2.4",
-		"@types/swiper": "^5.4.3",
 		"@vitest/browser": "^3.0.8",
 		"@vitest/coverage-v8": "^3.0.8",
 		"daisyui": "^5.0.0",
@@ -78,7 +77,8 @@
 		"axios": "^1.8.3",
 		"capacitor-native-biometric": "^4.2.2",
 		"date-fns": "^4.1.0",
+		"iconify-icon": "^2.3.0",
 		"nostr-tools": "^2.11.0",
-		"swiper": "^11.2.5"
+		"swiper": "^11.2.6"
 	}
 }

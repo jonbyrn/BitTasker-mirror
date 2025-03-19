@@ -752,6 +752,33 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- User Stats Card -->
+				<div class="card bg-base-100 shadow-xl">
+					<div class="card-body p-4">
+						<h2 class="card-title text-lg">Your Stats</h2>
+						<div class="divider my-2"></div>
+						<div class="stats stats-vertical shadow">
+							<div class="stat">
+								<div class="stat-title">Tasks Completed</div>
+								<div class="stat-value">12</div>
+								<div class="stat-desc">↗︎ 4 (30%)</div>
+							</div>
+
+							<div class="stat">
+								<div class="stat-title">Success Rate</div>
+								<div class="stat-value">92%</div>
+								<div class="stat-desc">↗︎ 6%</div>
+							</div>
+
+							<div class="stat">
+								<div class="stat-title">Level</div>
+								<div class="stat-value">3</div>
+								<div class="stat-desc">Silver Member</div>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

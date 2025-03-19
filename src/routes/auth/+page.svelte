@@ -4,7 +4,7 @@
 	import { isValidEmail } from '$lib/utils/helpers/validators';
 	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
 	import { goto } from '$app/navigation';
-	import {  mockLogin } from '$lib/stores/auth';
+	import { mockLogin } from '$lib/stores/auth';
 	let isLogin = $state(true);
 	let isPasskey = $state(false);
 	let email = $state('user@example.com');
@@ -170,6 +170,7 @@
 				<button onclick={() => (isLogin = !isLogin)} class="link link-primary">
 					{isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
 				</button>
+				<a class="link link-primary" href="/dashboard" data-sveltekit-reload="off"> Dashboard </a>
 			</div>
 		</div>
 	</div>

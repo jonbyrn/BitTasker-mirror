@@ -34,7 +34,7 @@
 	});
 </script>
 
-<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main">
+<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main" class="select-none">
 	{#if $deviceInfo?.platform === 'web'}
 		<NavBar />
 	{/if}

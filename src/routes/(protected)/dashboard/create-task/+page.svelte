@@ -84,7 +84,8 @@
 	}
 
 	// Submit the form
-	async function handleSubmit() {
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
 		if (!validateForm()) return;
 
 		isSubmitting = true;
@@ -163,7 +164,7 @@
 			</div>
 		{/if}
 
-		<form on:submit|preventDefault={handleSubmit} class="space-y-6">
+		<form onsubmit={handleSubmit} class="space-y-6">
 			<!-- Title -->
 			<div class="form-control w-full">
 				<label for="title" class="label">
@@ -323,7 +324,7 @@
 					<button
 						type="button"
 						class="btn btn-primary"
-						on:click={addSkill}
+						onclick={addSkill}
 						disabled={!newSkill.trim()}
 					>
 						Add
@@ -338,7 +339,7 @@
 								<button
 									type="button"
 									class="btn btn-ghost btn-xs btn-circle"
-									on:click={() => removeSkill(skill)}
+									onclick={() => removeSkill(skill)}
 								>
 									✕
 								</button>
@@ -356,7 +357,7 @@
 				<input
 					type="file"
 					class="file-input file-input-bordered w-full"
-					on:change={handleFileUpload}
+					onchange={handleFileUpload}
 					multiple
 				/>
 
@@ -368,7 +369,7 @@
 								<button
 									type="button"
 									class="btn btn-error btn-sm btn-circle"
-									on:click={() => removeAttachment(index)}
+									onclick={() => removeAttachment(index)}
 								>
 									✕
 								</button>

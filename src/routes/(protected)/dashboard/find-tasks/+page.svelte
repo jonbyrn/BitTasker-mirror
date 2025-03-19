@@ -203,20 +203,18 @@
 </script>
 
 <div class="mx-auto max-w-5xl">
-	<div class="bg-base-100 mb-6 rounded-lg p-6 shadow-lg">
-		<h2 class="mb-4 text-2xl font-bold">Find Tasks</h2>
-
+	<div class="bg-base-100 mb-6 rounded-lg p-2 shadow-lg md:p-6">
 		<!-- Search and Filters -->
 		<div class="mb-6">
 			<div class="form-control mb-4">
-				<div class="input-group w-full">
+				<div class="w-full">
 					<input
 						type="text"
 						placeholder="Search tasks..."
-						class="input input-bordered flex-grow"
+						class="input input-bordered w-10/12"
 						bind:value={searchQuery}
 					/>
-					<button class="btn btn-primary">
+					<button aria-label="Search" class="btn btn-square">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-5 w-5"
@@ -235,40 +233,37 @@
 				</div>
 			</div>
 
-			<div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-				<div class="form-control">
-					<label class="label">
-						<span class="label-text">Category</span>
-					</label>
-					<select class="select select-bordered w-full" bind:value={selectedCategory}>
-						{#each categories as category}
-							<option value={category}>{category}</option>
-						{/each}
-					</select>
-				</div>
-
-				<div class="form-control">
-					<label class="label">
-						<span class="label-text">Remote Only</span>
-					</label>
-					<label class="label cursor-pointer justify-start gap-2">
-						<input
-							type="checkbox"
-							bind:checked={showRemoteOnly}
-							class="checkbox checkbox-primary"
-						/>
-						<span class="label-text">Show remote tasks only</span>
+			<div class="mb-4 flex flex-col gap-4 md:flex-row">
+				<div>
+					<label class="select">
+						<span class="label">Category</span>
+						<select bind:value={selectedCategory}>
+							{#each categories as category}
+								<option value={category}>{category}</option>
+							{/each}
+						</select>
 					</label>
 				</div>
 
-				<div class="form-control">
-					<label class="label">
-						<span class="label-text">Budget Range (BTC)</span>
+				<div>
+					<label class="select">
+						<span class="label">Sort By</span>
+						<select bind:value={sortBy} class="text-sm">
+							<option value="newest">Newest First</option>
+							<option value="oldest">Oldest First</option>
+							<option value="budget_high">Highest Budget</option>
+							<option value="budget_low">Lowest Budget</option>
+						</select>
 					</label>
+				</div>
+			</div>
+			<div>
+				<label>
+					<span class="label hidden">Budget Range (BTC)</span>
 					<div class="flex gap-2">
 						<input
 							type="number"
-							placeholder="Min"
+							placeholder="Min BTC"
 							class="input input-bordered w-full"
 							bind:value={minBudget}
 							min="0"
@@ -276,30 +271,22 @@
 						/>
 						<input
 							type="number"
-							placeholder="Max"
+							placeholder="Max BTC"
 							class="input input-bordered w-full"
 							bind:value={maxBudget}
 							min="0"
 							step="0.0001"
 						/>
 					</div>
-				</div>
-
-				<div class="form-control">
-					<label class="label">
-						<span class="label-text">Sort By</span>
-					</label>
-					<select class="select select-bordered w-full" bind:value={sortBy}>
-						<option value="newest">Newest First</option>
-						<option value="oldest">Oldest First</option>
-						<option value="budget_high">Highest Budget</option>
-						<option value="budget_low">Lowest Budget</option>
-					</select>
-				</div>
+				</label>
 			</div>
+			<div class="mt-4 flex flex-col justify-between gap-4 md:flex-row">
+				<label class="fieldset-label">
+					<input type="checkbox" bind:checked={showRemoteOnly} class="checkbox" />
+					Remote only
+				</label>
 
-			<div class="flex justify-end">
-				<button class="btn btn-outline" on:click={clearFilters}> Clear Filters </button>
+				<button class="btn" onclick={clearFilters}> Clear Filters </button>
 			</div>
 		</div>
 
@@ -350,11 +337,11 @@
 								{/each}
 							</div>
 
-							<div class="card-actions flex items-center justify-between">
+							<div class="card-actions flex items-center justify-between gap-6">
 								<div class="flex items-center gap-2">
-									<div class="avatar placeholder">
-										<div class="bg-neutral text-neutral-content w-8 rounded-full">
-											<span>{task.postedBy.name.charAt(0)}</span>
+									<div class="avatar">
+										<div class="border-base-100 w-8 rounded-full border">
+											<span class="text-center">{task.postedBy.name.charAt(0)}</span>
 										</div>
 									</div>
 									<div>
@@ -381,7 +368,7 @@
 									</div>
 								</div>
 
-								<button class="btn btn-primary" on:click={() => bidOnTask(task.id)}>
+								<button class="btn btn-primary w-full md:w-auto" onclick={() => bidOnTask(task.id)}>
 									Bid on Task
 								</button>
 							</div>
@@ -407,7 +394,7 @@
 				</svg>
 				<h3 class="mt-4 text-lg font-semibold">No tasks found</h3>
 				<p class="text-base-content/60 mt-1">Try adjusting your filters or search criteria</p>
-				<button class="btn btn-primary mt-4" on:click={clearFilters}>Clear Filters</button>
+				<button class="btn btn-primary mt-4" onclick={clearFilters}>Clear Filters</button>
 			</div>
 		{/if}
 	</div>
