@@ -1,0 +1,54 @@
+# Store Management Rules
+
+## File Structure
+- All types must be defined in `src/lib/types/` directory
+- Store files should be placed in `src/lib/states/` directory
+- Use `.store.ts` suffix for store files
+- Each store should have its own directory in types folder (e.g., `types/user/`, `types/task/`)
+
+## Store Implementation
+- Use Svelte's built-in store system with `writable`
+- Create custom store factories using closure pattern
+- Export the store instance, not the implementation details
+- Always maintain immutability in store updates
+- Provide type definitions for all store values and actions
+
+## Store Factory Pattern
+```typescript
+const createCustomStore = () => {
+    const { subscribe, set, update } = writable<StoreType>(initialState);
+    
+    return {
+        subscribe,  // Required for store contract
+        set,       // Optional, expose if needed
+        update,    // Optional, expose if needed
+        // Custom actions that encapsulate state updates
+        customAction: (param: ParamType) => 
+            update(state => ({
+                ...state,
+                // Update logic here
+            }))
+    };
+};
+```
+
+## Type Management
+- Define interfaces/types in separate files under `types/` directory
+- Group related types in subdirectories (e.g., `user/profile.ts`, `user/settings.ts`)
+- Export all types from an index file in each subdirectory
+- Use descriptive names for type files (e.g., `profile.ts`, not `types.ts`)
+
+## Store Usage
+- Import stores using $lib alias: `import { userStore } from '$lib/states/user.store'`
+- Subscribe to stores using Svelte's auto-subscription or `$` prefix
+- Use store actions instead of direct state manipulation
+- Handle store cleanup in onDestroy if manual subscriptions are used
+
+## Best Practices
+- Keep stores focused and single-responsibility
+- Use derived stores for computed values
+- Implement reset/cleanup methods for stores
+- Document complex store actions
+- Use TypeScript for better type safety
+- Follow immutable update patterns
+- Avoid direct state mutations

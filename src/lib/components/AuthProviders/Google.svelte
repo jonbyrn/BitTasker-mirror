@@ -1,34 +1,59 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import type { ApiResponse, AuthResponse, NostrRegistrationData } from '$lib/types/auth';
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
+	import { user, authState } from '$lib/states/user.store';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { encryptNostrPrivateKeyWithUserId } from '$lib/utils/helpers/auth';
+	import { encryptNostrPrivateKeyWithUserId, decryptNostrPrivateKeyWithUserId } from '$lib/utils/helpers/auth';
 	import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
 
 	const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
-	let email = $state('');
-	let name = $state('');
 	let googleAuthInitialized = $state(false);
 
 	async function handleGoogleCallback(response: any) {
-		console.log('Google callback response:', response);
 		if (!response?.credential) return;
 
 		try {
-			const authResponse = await authenticateWithGoogle(response.credential);
-			console.log('Google auth response:', authResponse);
-			
+			const res = await authenticateWithGoogle(response.credential) as ApiResponse<AuthResponse>;
+			const { user: userData } = res.data;
+
 			// User exists, handle successful login
-			const payload = JSON.parse(atob(response.credential.split('.')[1]));
-			email = payload.email;
-			name = payload.name;
-			
-			// Redirect to dashboard or home
-			goto('/dashboard');
+			const { email, name, nostrKey } = userData;
+
+			try {
+				// Decrypt the user's Nostr private key
+				const decryptedPrivateKey = await decryptNostrPrivateKeyWithUserId(
+					{
+						data: nostrKey.encryptedPrivateKey,
+						iv: nostrKey.iv
+					},
+					nostrKey.salt,
+					response.client_id
+				);
+
+				// Only update user store and grant access if decryption succeeds
+				user.updateProfile({
+					id: response.client_id,
+					email,
+					name,
+					publicKey: nostrKey.publicKey,
+					privateKey: decryptedPrivateKey,
+					createdAt: new Date(userData.createdAt),
+					updatedAt: new Date(userData.updatedAt)
+				});
+				
+				goto('/');
+			} catch (decryptError) {
+				console.error('Failed to decrypt Nostr private key:', decryptError);
+				// Set error state and prevent login
+				authState.setError('Failed to decrypt user credentials. Please try again or contact support.');
+				// TODO: Could redirect to a help page or show an error modal
+				return;
+			}
 		} catch (error: any) {
-			if (error.response?.status === 401) {
+			if (error.response?.status === 404) {
 				// User doesn't exist, proceed with registration
 				console.log('New user, proceeding with registration');
 				
@@ -46,33 +71,25 @@
 					response.client_id
 				);
 
-				// Register the new user
+				// Register user with encrypted Nostr keys
 				const registrationResult = await registerWithNostr({
-					name: payload.name,
 					email: payload.email,
-					publicKey: publicKey,
+					name: payload.name,
+					publicKey,
 					encryptedPrivateKey: encrypted.data,
 					iv: encrypted.iv,
-					salt: salt,
+					salt,
 					authTag: 'auth-tag-data',
-					iterations: 100000,
-					googleToken: response.credential // Pass the Google token for verification
-				});
+					iterations: 100000
+				} as NostrRegistrationData);
 
 				console.log('Registration result:', registrationResult);
 
-				// Store necessary info and redirect to recovery page
-				localStorage.setItem('temp_registration_data', JSON.stringify({
-					email: payload.email,
-					name: payload.name,
-					publicKey: publicKey
-				}));
-
-				// Redirect to recovery page
-				// goto('/auth/recovery');
+				// Redirect to recovery page with email
+				goto('/auth/recover?email=' + encodeURIComponent(payload.email));
 			} else {
-				console.error('Google auth error:', error);
-				// Handle other errors
+				console.error('Authentication error:', error);
+				authState.setError('Authentication failed. Please try again.');
 			}
 		}
 	}

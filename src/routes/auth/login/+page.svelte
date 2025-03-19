@@ -9,10 +9,10 @@
 	import Facebook from '$lib/components/AuthProviders/Facebook.svelte';
 	import XTwitter from '$lib/components/AuthProviders/X.svelte';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
+	import { goto } from '$app/navigation';
 
 	let isPasskey = $state(false);
 	let email = $state('');
-	let password = $state('');
 	let isBiometricAvailable = $state(false);
 
 	onMount(async () => {
@@ -26,8 +26,7 @@
 
 		if (!isValidEmail(email)) return console.error('email validation failed');
 
-		// Handle login
-		console.log('Login:', { email, password });
+		goto('/auth/recover?email=' + encodeURIComponent(email));
 
 		// Create passkey if enabled
 		if (isPasskey) {
@@ -59,22 +58,6 @@
 						required
 					/>
 				</div>
-
-				{#if !isPasskey}
-					<div class="form-control">
-						<label class="label" for="password">
-							<span class="label-text">Password</span>
-						</label>
-						<input
-							type="password"
-							id="password"
-							bind:value={password}
-							placeholder="Enter your password"
-							class="input input-bordered w-full"
-							required
-						/>
-					</div>
-				{/if}
 
 				<button type="submit" class="btn btn-primary w-full"> Login </button>
 			</form>

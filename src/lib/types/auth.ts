@@ -33,6 +33,43 @@ export interface NostrRegistrationData {
 	googleToken?: string; // Optional Google token for social registration
 }
 
+export interface NostrKeyData {
+	id: number;
+	userId: number;
+	publicKey: string;
+	encryptedPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
+	createdAt: string;
+	updatedAt: string;
+	deletedAt: string | null;
+	deleted: boolean;
+}
+
+export interface UserAuthData {
+	id: number;
+	email: string;
+	name: string;
+	password: string | null;
+	isEmailVerified: boolean;
+	lastLoginAt: string;
+	status: 'ACTIVE' | 'INACTIVE';
+	userRole: 'CLIENT' | 'ADMIN';
+	createdAt: string;
+	updatedAt: string;
+	deletedAt: string | null;
+	deleted: boolean;
+	nostrKey: NostrKeyData;
+}
+
+export interface AuthResponse {
+    user: UserAuthData;
+    access_token: string;
+}
+
+// Generic API response wrapper
 export interface ApiResponse<T> {
 	data: T;
 	message: string;

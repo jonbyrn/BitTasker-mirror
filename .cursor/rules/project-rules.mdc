@@ -17,6 +17,109 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - **Gamification**: Level-based system to incentivize platform engagement
 - **Dynamic Fee Structure**: Reduced fees for repeat hirings and active users
 
+## Development Rules
+
+### Design Philosophy
+
+- Minimalistic and modern UI.
+- Mobile-first responsive design
+- Use latest version of Daisy UI, Tailwind CSS for styling.
+- Always use Sveltekit 5 with Runes.
+- In svelte 5 there is not on:click event it's changed to onclick. Same goes for other on: events. 
+- In svelte 5 'createEventDispatcher' is deprecated, pass functions as props to the component.
+- Always use $state() to create reactive variables.
+- With this same codebase we will support multiple platforms like Android, iOS, and Web.
+- We will also use Storybook for component development.
+- Prefer Functional Programming over OOP
+- Pure functions and immutable data structures
+- Separation of concerns and single responsibility principle
+- Client-side e2e using Web Crypto API
+
+### Development Tools
+
+- Sveltekit with static adapter
+- Svelte 5 with Runes
+- TypeScript
+- Daisy UI
+- Tailwind CSS
+- Web Crypto API
+- Vitest
+- Storybook
+- npm
+
+### Security Rules
+
+- All cryptographic operations must use Web Crypto API
+- No server-side operations (static adapter requirement)
+- Sensitive data must be encrypted before storage
+- Use dual encryption for critical data (sub user id + recovery password)
+- Implement proper key derivation for passwords
+- Store encrypted keys using secure storage (NativeBiometric when available for mobile platform)
+- Never expose private keys or encryption keys in plaintext
+- Check Capacitor plugins availability on the platform before using them
+- Always update test files according to changes in the code if needed
+
+### Project Structure
+
+src/
+├── lib/
+│   ├── components/      # Reusable UI components
+│   ├── services/        # Business logic and API services
+│   ├── types/           # TypeScript type definitions
+│   ├── states/          # State management, stores, and context
+│   └── tests/           # Unit and integration tests
+│   ├── utils/           # Utility functions, helpers, constanst, enums
+│       ├── helpers/            # Helper functions
+│       ├── contancts/          # JSON constant data
+│       ├── enums/              # Enumerations
+├── routes/             # SvelteKit routes and pages
+└── stories/           # Storybook component stories
+
+### Naming Conventions
+
+- Use camelCase for variable names
+- Use PascalCase for component names
+- Use kebab-case for routes names
+- Use snake_case for assets
+- File Naming and Location:
+  - Components: src/lib/components/ExampleComponent.svelte
+  - Services: src/lib/services/example.service.ts
+  - Utils: src/lib/utils/exampleUtil.ts
+  - Types: src/lib/types/exampleTypes.ts
+  - Tests: src/lib/tests/example.test.ts
+  - States: src/lib/states/example.store.ts
+
+### Code Style
+
+- Use TypeScript for type safety
+- Use proper type assertions for external data
+- Implement proper error handling
+- Export interfaces for public types
+- Prefer const over let
+- Use early returns to reduce nesting
+- Document complex functions with JSDoc
+- Test both success and failure cases
+- Mock external dependencies (e.g., NativeBiometric)
+- Use descriptive test names
+- Pure functions
+- Immutable data
+- No side effects in business logic
+- Composition over inheritance
+- Imports order:
+  - Types imports
+  - Named imports
+  - Default imports
+
+### Ignored Files
+- /node_modules
+- .env
+- .env.*
+- !.env.example
+- .DS_Store
+- *.pem
+- *.log
+- Follow .windsurfignore for additional files
+
 ## Technical Architecture
 
 ### Platform Components
