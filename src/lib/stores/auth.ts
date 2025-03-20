@@ -7,7 +7,7 @@ export interface User {
   id: string;
   email: string;
   name?: string;
-  [key: string]: any; // For additional user properties
+  [key: string]: unknown; // For additional user properties
 }
 
 // Define auth state interface
@@ -156,6 +156,9 @@ export async function mockLogin(email: string, password: string): Promise<LoginR
     } else {
       throw new Error('Invalid email or password');
     }
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   } finally {
     authLoading.set(false);
   }
