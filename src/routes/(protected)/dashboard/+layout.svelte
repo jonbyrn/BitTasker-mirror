@@ -2,15 +2,7 @@
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import { deviceInfo } from '$lib/states/deviceInfo';
 	import { page } from '$app/stores';
-
-	// Dashboard sections
-	const sections = [
-		{ id: '', label: 'My Tasks' }, // Default section
-		{ id: 'create-task', label: 'Create Task' },
-		{ id: 'find-tasks', label: 'Find Tasks' },
-		{ id: 'wallet', label: 'Wallet' },
-		{ id: 'profile', label: 'Profile' }
-	];
+	import { sections } from '$lib/utils/consts';
 
 	// Dashboard state
 	let activeSection = $state('');

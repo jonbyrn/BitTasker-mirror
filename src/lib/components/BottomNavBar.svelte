@@ -1,15 +1,7 @@
 <script lang="ts">
 	import 'iconify-icon';
 	import { page } from '$app/stores';
-
-	const sections = [
-		{ id: '', label: 'My Tasks', icon: 'mdi:home' },
-		{ id: 'create-task', label: 'Create', icon: 'ic:baseline-create' },
-		{ id: 'find-tasks', label: 'Find', icon: 'mdi:magnify' },
-		{ id: 'wallet', label: 'Wallet', icon: 'mdi:wallet' },
-		{ id: 'profile', label: 'Profile', icon: 'mdi:account' }
-	];
-
+	import { sections } from '$lib/utils/consts';
 	let currentSection = $state('');
 
 	$effect(() => {
