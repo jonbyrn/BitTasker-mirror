@@ -1,23 +1,29 @@
 <script lang="ts">
-	import type { ApiResponse, AuthResponse, NostrRegistrationData } from '$lib/types/auth';
+	import type { NostrRegistrationData } from '$lib/types/auth';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { user, authState } from '$lib/states/user.store';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { encryptNostrPrivateKeyWithUserId, decryptNostrPrivateKeyWithUserId } from '$lib/utils/helpers/auth';
 	import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
+	import { SocialLogin } from '@capgo/capacitor-social-login';
+	import { Capacitor } from '@capacitor/core';
+	import {
+		encryptNostrPrivateKeyWithUserId,
+		decryptNostrPrivateKeyWithUserId
+	} from '$lib/utils/helpers/auth';
 
 	const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
+	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);
 
 	async function handleGoogleCallback(response: any) {
 		if (!response?.credential) return;
 
 		try {
-			const res = await authenticateWithGoogle(response.credential) as ApiResponse<AuthResponse>;
-			const { user: userData } = res.data;
+			const res = await authenticateWithGoogle(response.credential);
+			const { user: userData } = res;
 
 			// User exists, handle successful login
 			const { email, name, nostrKey } = userData;
@@ -43,12 +49,14 @@
 					createdAt: new Date(userData.createdAt),
 					updatedAt: new Date(userData.updatedAt)
 				});
-				
-				goto('/');
+
+				goto('/profile');
 			} catch (decryptError) {
 				console.error('Failed to decrypt Nostr private key:', decryptError);
 				// Set error state and prevent login
-				authState.setError('Failed to decrypt user credentials. Please try again or contact support.');
+				authState.setError(
+					'Failed to decrypt user credentials. Please try again or contact support.'
+				);
 				// TODO: Could redirect to a help page or show an error modal
 				return;
 			}
@@ -56,15 +64,15 @@
 			if (error.response?.status === 404) {
 				// User doesn't exist, proceed with registration
 				console.log('New user, proceeding with registration');
-				
+
 				// Decode the JWT token to get user info
 				const payload = JSON.parse(atob(response.credential.split('.')[1]));
-				
+
 				// Generate Nostr keypair
 				const privateKey = generateSecretKey();
 				const publicKey = getPublicKey(privateKey);
 				const privateKeyHex = bytesToHex(privateKey);
-				
+
 				// Encrypt private key using client ID as user ID
 				const { encrypted, salt } = await encryptNostrPrivateKeyWithUserId(
 					privateKeyHex,
@@ -94,8 +102,48 @@
 		}
 	}
 
-	function initializeGoogleAuth() {
-		if (!browser || !window.google) return;
+	async function handleNativeGoogleLogin() {
+		try {
+			const result = await SocialLogin.login({
+				provider: 'google',
+				options: {
+					scopes: ['email', 'profile']
+					// forceRefreshToken: true // if you need refresh token
+				}
+			});
+			console.log('Google login result:', result);
+
+			if (result?.result && 'accessToken' in result.result && result.result.accessToken?.token) {
+				await handleGoogleCallback({
+					credential: result.result.accessToken.token
+				});
+			}
+		} catch (error) {
+			console.error('Native Google login error:', error);
+		}
+	}
+
+	async function initializeGoogleAuth() {
+		if (!browser) return;
+
+		if (isNative) {
+			await SocialLogin.initialize({
+				// google: {
+				// 	webClientId: GOOGLE_CLIENT_ID
+				// },
+				google: {
+					webClientId: GOOGLE_CLIENT_ID, // Use Web Client ID for all platforms
+					iOSClientId: 'IOS_CLIENT_ID', // for iOS
+					mode: 'offline' // replaces grantOfflineAccess
+				}
+			}).then(() => {
+				console.log('Google login initialized');
+				googleAuthInitialized = true;
+			});
+			return;
+		}
+
+		if (!window.google) return;
 
 		window.google.accounts.id.initialize({
 			client_id: GOOGLE_CLIENT_ID,
@@ -108,18 +156,27 @@
 	}
 
 	if (browser) {
-		// Load Google Identity Services
-		const script = document.createElement('script');
-		script.src = 'https://accounts.google.com/gsi/client';
-		script.async = true;
-		script.defer = true;
-		script.onload = initializeGoogleAuth;
-		document.head.appendChild(script);
+		if (!isNative) {
+			// Load Google Identity Services only for web
+			const script = document.createElement('script');
+			script.src = 'https://accounts.google.com/gsi/client';
+			script.async = true;
+			script.defer = true;
+			script.onload = initializeGoogleAuth;
+			document.head.appendChild(script);
+		} else {
+			// Initialize directly for native platforms
+			initializeGoogleAuth();
+		}
 	}
 
 	const handleGoogleSignIn = () => {
 		if (!browser || !googleAuthInitialized) return;
-		window.google.accounts.id.prompt();
+		if (isNative) {
+			handleNativeGoogleLogin();
+		} else {
+			window.google.accounts.id.prompt();
+		}
 	};
 </script>
 

@@ -1,6 +1,14 @@
+import type { Credentials } from '$lib/types/auth';
 import { goto } from '$app/navigation';
 import { NativeBiometric } from 'capacitor-native-biometric';
-import type { Credentials } from '$lib/types/auth';
+import { Capacitor } from '@capacitor/core';
+
+export const checkBiometricAvailability = async () => {
+	const isNative = Capacitor.isNativePlatform();
+	if (!isNative) return false;
+	const result = await NativeBiometric.isAvailable();
+	return result.isAvailable;
+};
 
 export function verifyIdentity() {
 	NativeBiometric.verifyIdentity({
@@ -11,7 +19,8 @@ export function verifyIdentity() {
 		maxAttempts: 2,
 		useFallback: true
 	})
-		.then(() => {
+		.then((user) => {
+			console.log(user);
 			goto('profile');
 		})
 		.catch((err: any) => {

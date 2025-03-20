@@ -29,7 +29,7 @@ export const registerWithNostr = async (
  * @throws 400 - Bad Request or missing required encryption data
  * @throws 409 - Email already in use
  */
-export const authenticateWithGoogle = async (credential: string): Promise<ApiResponse<any>> => {
+export const authenticateWithGoogle = async (credential: string): Promise<any> => {
 	const response = await authApi.post(`${API_PATH}/google/login`, { access_token: credential });
 	return response.data;
 };

@@ -1,10 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
 
-// Use a consistent salt for token-based encryption
-const TOKEN_SALT = new Uint8Array([
-	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
-]);
-
 export async function generateEncryptionKeyFromUserId(
 	userId: string,
 	salt: Uint8Array
@@ -49,7 +44,9 @@ export async function deriveKeyFromPassword(
 	password: string,
 	salt: Uint8Array
 ): Promise<CryptoKey> {
+	try {
 	const encoder = new TextEncoder();
+	console.log(crypto.subtle);
 	const keyMaterial = await crypto.subtle.importKey(
 		'raw',
 		encoder.encode(password),
@@ -70,6 +67,10 @@ export async function deriveKeyFromPassword(
 		true,
 		['encrypt', 'decrypt']
 	);
+	} catch (err) {
+		console.error('Failed to derive key from password:', err);
+		throw new Error('Failed to derive key from password');
+	}
 }
 
 export async function encrypt(

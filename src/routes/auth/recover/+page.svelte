@@ -1,27 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { registerWithNostr } from '$lib/services/auth.service';
 	import { validatePassword } from '$lib/utils/helpers/validators';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
-	import { page } from '$app/state';
+	import { App } from '@capacitor/app';
 	
-	const  email = page.url.searchParams.get('email') || '';
-	
+	const email = page.url.searchParams.get('email') || '';
+
 	let name = $state('');
-	let password = $state('');
-	let confirmPassword = $state('');
+	let password = $state('123qweASD!');
+	let confirmPassword = $state('123qweASD!');
 	let isLoading = $state(false);
 	let error = $state('');
 	let passwordError = $state('');
 
-	onMount(() => {
-	});
-
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
-		
+
 		try {
 			isLoading = true;
 			error = '';
@@ -43,6 +40,7 @@
 			const pk = getPublicKey(sk);
 			const npriv = bytesToHex(sk);
 			const { encrypted, salt } = await encryptNostrPrivateKeyWithPassword(npriv, password);
+			console.log({ encrypted, salt });
 
 			const res = await registerWithNostr({
 				name,
@@ -67,11 +65,25 @@
 
 <div class="bg-base-200 flex min-h-screen flex-col items-center justify-center gap-4 px-4">
 	<div class="alert alert-warning w-full max-w-md">
-		<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current inline-block" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-			<div class="inline-block">
-				<h3 class="font-bold">Important Security Notice</h3>
-				<p class="text-sm">This password will be used to encrypt your account recovery key. If you lose this password, there will be no way to recover your account. Please store it securely.</p>
-			</div>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			class="inline-block h-6 w-6 shrink-0 stroke-current"
+			fill="none"
+			viewBox="0 0 24 24"
+			><path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+			/></svg
+		>
+		<div class="inline-block">
+			<h3 class="font-bold">Important Security Notice</h3>
+			<p class="text-sm">
+				This password will be used to encrypt your account recovery key. If you lose this password,
+				there will be no way to recover your account. Please store it securely.
+			</p>
+		</div>
 	</div>
 
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
@@ -80,11 +92,29 @@
 
 			{#if error}
 				<div class="alert alert-error mb-4">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+						><path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/></svg
+					>
 					<span>{error}</span>
 				</div>
 			{/if}
 
+			<div>
+				<label for="email" class="rounded-full border px-2 py-1">{email}</label>
+				<p class="text-sm text-center">
+					<span class="font-bold">Current Domain: </span>
+					{page.url}
+				</p>
+			</div>
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<div class="form-control space-y-1">
 					<label class="label" for="password">
@@ -119,7 +149,7 @@
 
 				<div class="alert alert-info">
 					<div class="flex items-start gap-3">
-						<ul class="list-disc list-inside text-sm whitespace-nowrap">
+						<ul class="list-inside list-disc text-sm whitespace-nowrap">
 							<li>Use at least 8 characters</li>
 							<li>Include numbers and special characters</li>
 							<li>Avoid using personal information</li>

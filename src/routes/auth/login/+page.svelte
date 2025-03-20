@@ -1,24 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { NativeBiometric } from 'capacitor-native-biometric';
+	import { goto } from '$app/navigation';
 	import { isValidEmail } from '$lib/utils/helpers/validators';
-	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
+	import { checkBiometricAvailability, verifyIdentity } from '$lib/utils/helpers/biometrics';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 	import { mockLogin } from '$lib/stores/auth';
 	import { goto } from '$app/navigation';
 	import Facebook from '$lib/components/AuthProviders/Facebook.svelte';
 	import XTwitter from '$lib/components/AuthProviders/X.svelte';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
-	import { goto } from '$app/navigation';
 
-	let isPasskey = $state(false);
 	let email = $state('');
 	let isBiometricAvailable = $state(false);
 
 	onMount(async () => {
-		// TOOD: Only check biometric availability on mobile
-		const result = await NativeBiometric.isAvailable();
-		if (result.isAvailable) isBiometricAvailable = true;
+		isBiometricAvailable = await checkBiometricAvailability();
 	});
 
 	const handleSubmit = async (e: Event) => {
@@ -64,7 +60,7 @@
 
 			<div class="divider">OR</div>
 
-			{#if isBiometricAvailable && !isPasskey}
+			{#if isBiometricAvailable}
 				<button class="btn btn-outline w-full" onclick={verifyIdentity}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

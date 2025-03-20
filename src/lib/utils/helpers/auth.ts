@@ -1,7 +1,8 @@
-import { NativeBiometric } from 'capacitor-native-biometric';
-import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, exportKey } from '$lib/utils/helpers/crypto';
-import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
 import type { Credentials, EncryptedKeyData } from '$lib/types/auth';
+import { checkBiometricAvailability } from './biometrics';
+import { NativeBiometric } from 'capacitor-native-biometric';
+import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
+import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, exportKey } from '$lib/utils/helpers/crypto';
 
 export async function encryptNostrPrivateKeyWithUserId(
     nostrPrivateKey: string,
@@ -21,11 +22,14 @@ export async function encryptNostrPrivateKeyWithUserId(
     const exportedUserIdKey = await exportKey(userIdKey);
     
     // Store the exported key securely using biometrics
-    // await NativeBiometric.setCredentials({
-    //     username: 'nostr_key',
-    //     password: exportedUserIdKey,
-    //     server: 'com.bittasker.app'
-    // } as Credentials);
+    const isBiometricAvailable = await checkBiometricAvailability();
+    if (isBiometricAvailable) {
+        await NativeBiometric.setCredentials({
+            username: 'nostr_key',
+            password: exportedUserIdKey,
+            server: 'com.bittasker.app'
+        } as Credentials);
+    }
     
     return {
         encrypted: {
@@ -46,9 +50,20 @@ export async function encryptNostrPrivateKeyWithPassword(
 
 	// Derive key from recovery password
 	const recoveryKey = await deriveKeyFromPassword(recoveryPassword, salt);
-
 	// Encrypt with recovery password key
 	const recoveryEncryption = await encrypt(nostrPrivateKey, recoveryKey);
+    // Export recovery key for storage
+    const exportedRecoveryKey = await exportKey(recoveryKey);
+
+    // Store the exported key securely using biometrics
+    const isBiometricAvailable = await checkBiometricAvailability();
+    if (isBiometricAvailable) {
+        await NativeBiometric.setCredentials({
+            username: 'recovery_key',
+            password: exportedRecoveryKey,
+            server: 'com.bittasker.app'
+        } as Credentials);
+    }
 
 	return {
 		encrypted: {
