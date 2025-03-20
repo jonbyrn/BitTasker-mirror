@@ -156,6 +156,9 @@ export async function mockLogin(email: string, password: string): Promise<LoginR
     } else {
       throw new Error('Invalid email or password');
     }
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
   } finally {
     authLoading.set(false);
   }
