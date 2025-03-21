@@ -1,104 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-
-	// Mock data for tasks - in a real implementation, this would come from an API
-	let tasks = [
-		{
-			id: '1',
-			title: 'Fix leaking roof',
-			description: 'My roof is leaking and needs to be fixed ASAP.',
-			category: 'Home Maintenance',
-			location: 'San Francisco, CA',
-			isRemote: false,
-			budget: '0.0015',
-			currencyType: 'BTC',
-			deadline: '2023-12-25',
-			skills: ['Roofing', 'Carpentry'],
-			postedBy: {
-				id: 'user1',
-				name: 'Alex Smith',
-				rating: 4.8,
-				completedTasks: 15
-			},
-			createdAt: '2023-12-01'
-		},
-		{
-			id: '2',
-			title: 'Website design for small business',
-			description: 'Need a professional to design a modern website for my bakery.',
-			category: 'IT & Technology',
-			location: '',
-			isRemote: true,
-			budget: '0.005',
-			currencyType: 'BTC',
-			deadline: '2024-01-15',
-			skills: ['Web Design', 'UI/UX', 'JavaScript'],
-			postedBy: {
-				id: 'user2',
-				name: 'Maria Garcia',
-				rating: 4.6,
-				completedTasks: 8
-			},
-			createdAt: '2023-12-05'
-		},
-		{
-			id: '3',
-			title: 'Personal Shopping Assistant',
-			description: 'Looking for someone to help me pick out a new wardrobe.',
-			category: 'Personal Assistant',
-			location: 'New York, NY',
-			isRemote: false,
-			budget: '0.00075',
-			currencyType: 'BTC',
-			deadline: '2023-12-20',
-			skills: ['Fashion', 'Shopping', 'Styling'],
-			postedBy: {
-				id: 'user3',
-				name: 'John Doe',
-				rating: 4.2,
-				completedTasks: 3
-			},
-			createdAt: '2023-12-07'
-		},
-		{
-			id: '4',
-			title: 'Move furniture to new apartment',
-			description: 'Need help moving furniture from my old apartment to the new one nearby.',
-			category: 'Delivery',
-			location: 'Austin, TX',
-			isRemote: false,
-			budget: '0.002',
-			currencyType: 'BTC',
-			deadline: '2023-12-18',
-			skills: ['Heavy Lifting', 'Moving', 'Driving'],
-			postedBy: {
-				id: 'user4',
-				name: 'Sarah Johnson',
-				rating: 4.9,
-				completedTasks: 22
-			},
-			createdAt: '2023-12-03'
-		},
-		{
-			id: '5',
-			title: 'Translate business documents',
-			description: 'Need a professional translator for business documents from English to Spanish.',
-			category: 'Professional Services',
-			location: '',
-			isRemote: true,
-			budget: '0.0025',
-			currencyType: 'LBTC',
-			deadline: '2024-01-05',
-			skills: ['Translation', 'Spanish', 'Business'],
-			postedBy: {
-				id: 'user5',
-				name: 'Robert Wilson',
-				rating: 4.7,
-				completedTasks: 17
-			},
-			createdAt: '2023-12-08'
-		}
-	];
+	import { tasks2 as tasks } from '$lib/utils/consts';
 
 	// Filter states
 	let searchQuery = '';
@@ -195,11 +96,6 @@
 		// In a real implementation, this would navigate to a bid creation page
 		console.log(`Bidding on task: ${taskId}`);
 	}
-
-	onMount(() => {
-		// In a real implementation, this would fetch tasks from an API
-		console.log('TaskList component mounted');
-	});
 </script>
 
 <div class="mx-auto max-w-5xl">

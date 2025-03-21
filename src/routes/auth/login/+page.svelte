@@ -4,8 +4,6 @@
 	import { isValidEmail } from '$lib/utils/helpers/validators';
 	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
-	import { mockLogin } from '$lib/stores/auth';
-	import { goto } from '$app/navigation';
 
 	let isPasskey = $state(false);
 	let email = $state('');
@@ -18,7 +16,7 @@
 		if (result.isAvailable) isBiometricAvailable = true;
 	});
 
-	const handleSubmit = async (e: Event) => {
+	function handleSubmit(e: Event) {
 		e.preventDefault();
 
 		if (!isValidEmail(email)) return console.error('email validation failed');
@@ -26,14 +24,9 @@
 		// Handle login
 		console.log('Login:', { email, password });
 
-		// Create passkey if enabled
 		if (isPasskey) {
 			createPasskey(email);
 		}
-
-		// Mock login
-		await mockLogin(email, password);
-		goto('/dashboard');
 	}
 </script>
 

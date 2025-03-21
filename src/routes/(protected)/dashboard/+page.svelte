@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { formatDistanceToNow } from 'date-fns';
+	import { tasks } from '$lib/utils/consts';
 	let selectedCategory = $state('All Categories');
 	let searchQuery = $state('');
 
@@ -13,94 +14,6 @@
 		'Delivery',
 		'Tutoring & Education',
 		'Events & Lifestyle'
-	];
-
-	// Task listing data
-	const tasks = [
-		{
-			id: '1',
-			title: 'WordPress Website Migration & Optimization',
-			description:
-				'Need help migrating my WordPress site to a new host and optimizing it for speed and SEO.',
-			category: 'IT & Technology',
-			budget: 150,
-			currency: 'USD',
-			location: 'Remote',
-			postedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-			deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-			bids: 3,
-			status: 'open'
-		},
-		{
-			id: '2',
-			title: 'Logo Design for Eco-Friendly Startup',
-			description:
-				'Looking for a creative designer to create a modern, eco-friendly logo for my new sustainable products business.',
-			category: 'Creative Services',
-			budget: 200,
-			currency: 'USD',
-			location: 'Remote',
-			postedDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-			deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
-			bids: 8,
-			status: 'open'
-		},
-		{
-			id: '3',
-			title: 'Bathroom Renovation Help',
-			description:
-				'Need an experienced handyman to help renovate my bathroom. Will require tile work, plumbing, and fixture installation.',
-			category: 'Home Maintenance',
-			budget: 1200,
-			currency: 'USD',
-			location: 'San Francisco, CA',
-			postedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-			deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-			bids: 5,
-			status: 'open'
-		},
-		{
-			id: '4',
-			title: 'Smart Contract Audit for NFT Project',
-			description:
-				'Looking for a Solidity expert to audit my NFT smart contract before deployment. Security is a priority.',
-			category: 'IT & Technology',
-			budget: 500,
-			currency: 'USD',
-			location: 'Remote',
-			postedDate: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
-			deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
-			bids: 2,
-			status: 'open'
-		},
-		{
-			id: '5',
-			title: 'Mobile App Testing for iOS and Android',
-			description:
-				'Need thorough testing of my new fitness tracking app on multiple iOS and Android devices.',
-			category: 'IT & Technology',
-			budget: 300,
-			currency: 'USD',
-			location: 'Remote',
-			postedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-			deadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
-			bids: 4,
-			status: 'open'
-		},
-		{
-			id: '6',
-			title: 'Content Writing for Crypto Blog',
-			description:
-				'Seeking an experienced writer with knowledge of cryptocurrency and blockchain to create weekly blog posts.',
-			category: 'Professional Services',
-			budget: 80,
-			currency: 'USD',
-			location: 'Remote',
-			postedDate: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-			deadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000), // 21 days from now
-			bids: 7,
-			status: 'open'
-		}
 	];
 
 	// Filter tasks by category and search query
