@@ -8,6 +8,16 @@ export function isValidEmail(email: string): boolean {
 	return emailRegex.test(email);
 }
 
+export function validateEmail(email: string): ValidationResult {
+	if (!email) {
+		return { isValid: false, error: 'Email is required' };
+	}
+	if (!isValidEmail(email)) {
+		return { isValid: false, error: 'Please enter a valid email address' };
+	}
+	return { isValid: true };
+}
+
 export function validateName(name: string): ValidationResult {
 	if (!name) {
 		return { isValid: false, error: 'Full name is required' };
@@ -33,16 +43,6 @@ export function validateName(name: string): ValidationResult {
 		};
 	}
 
-	return { isValid: true };
-}
-
-export function validateEmail(email: string): ValidationResult {
-	if (!email) {
-		return { isValid: false, error: 'Email is required' };
-	}
-	if (!isValidEmail(email)) {
-		return { isValid: false, error: 'Please enter a valid email address' };
-	}
 	return { isValid: true };
 }
 

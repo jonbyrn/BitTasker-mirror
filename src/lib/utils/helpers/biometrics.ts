@@ -1,6 +1,7 @@
 import type { Credentials } from '$lib/types/auth';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
+import { generateRandomKey } from '$lib/utils/helpers/crypto';
 
 const BIOMETRIC_SERVER_KEY = import.meta.env.VITE_BIOMETRIC_SERVER_KEY;
 const BIOMETRIC_VERIFY_OPTIONS = {
@@ -29,19 +30,23 @@ export async function verifyIdentity(): Promise<boolean> {
     }
 }
 
-export async function setBiometricKey(publicKey: string, encryptionKey: string): Promise<boolean> {
+export async function setBiometricKey(publicKey: string, encryptionData: {
+    key: string;
+    iv: string;
+    authTag: string;
+    data: string;
+}): Promise<boolean> {
     try {
-        const verified = await verifyIdentity();
-        if (!verified) return false;
-
+        // Store the encryption data as a JSON string
         await NativeBiometric.setCredentials({
             username: publicKey,
-            password: encryptionKey,
+            password: JSON.stringify(encryptionData),
             server: BIOMETRIC_SERVER_KEY
         } as Credentials);
+
         return true;
     } catch (err) {
-        console.error('Failed to set biometric key:', err);
+        console.error('Failed to store biometric key:', err);
         return false;
     }
 }
@@ -64,4 +69,33 @@ export async function getBiometricKey(publicKey: string): Promise<string | null>
         console.error('Failed to get biometric key:', err);
         return null;
     }
+}
+
+export async function getBiometricData(): Promise<Credentials | null> {
+    try {
+        const verified = await verifyIdentity();
+        if (!verified) return null;
+
+        const credentials = await NativeBiometric.getCredentials({
+            server: BIOMETRIC_SERVER_KEY
+        }) as Credentials;
+
+        return credentials;
+    } catch (err) {
+        console.error('Failed to get biometric key:', err);
+        return null;
+    }
+}
+
+
+export async function generateDeviceSignature(): Promise<string> {
+    // Generate a unique device signature using AES-GCM key
+    const key = await generateRandomKey();
+    const exported = await crypto.subtle.exportKey('raw', key);
+    const bytes = new Uint8Array(exported);
+    
+    // Convert to hex string using TextEncoder
+    return Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }

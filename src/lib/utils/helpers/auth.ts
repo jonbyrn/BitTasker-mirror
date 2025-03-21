@@ -1,7 +1,5 @@
-import { NativeBiometric } from 'capacitor-native-biometric';
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
-import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, exportKey, importKey, type EncryptedData } from '$lib/utils/helpers/crypto';
-import { getBiometricKey } from './biometrics';
+import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, importKey, type EncryptedData } from '$lib/utils/helpers/crypto';
 import { schnorr } from '@noble/curves/secp256k1';
 import { utf8ToBytes, randomBytes } from '@noble/hashes/utils';
 
@@ -11,10 +9,10 @@ export async function encryptNostrPrivateKeyWithUserId(
 ): Promise<{ encrypted: EncryptedData; salt: string }> {
     // Generate a random salt
     const salt = randomBytes(16);
-    
+
     // Generate encryption key from user ID and salt
     const userIdKey = await generateEncryptionKeyFromUserId(userId, salt);
-    
+
     // Encrypt with user ID key
     const encrypted = await encrypt(nostrPrivateKey, userIdKey);
 
@@ -30,10 +28,10 @@ export async function encryptNostrPrivateKeyWithPassword(
 ): Promise<{ encrypted: EncryptedData; salt: string }> {
     // Generate a random salt for recovery password
     const salt = randomBytes(16);
-    
+
     // Derive key from recovery password
     const recoveryKey = await deriveKeyFromPassword(recoveryPassword, salt);
-    
+
     // Encrypt with recovery password key
     const encrypted = await encrypt(nostrPrivateKey, recoveryKey);
 
@@ -52,7 +50,7 @@ export async function decryptNostrPrivateKeyWithUserId(
         // Generate encryption key from user ID
         const saltBytes = base64ToBytes(salt);
         const key = await generateEncryptionKeyFromUserId(userId, saltBytes);
-        
+
         // Decrypt using the helper function
         return await decrypt(encryptedData, key);
     } catch (error) {
@@ -78,27 +76,23 @@ export async function decryptNostrPrivateKeyWithPassword(
     }
 }
 
-export async function decryptPrivateKeyWithBiometrics(
-    publicKey: string,
-    encryptedPrivateKey: string,
-    iv: string,
-    authTag: string
-): Promise<string> {
-    // Get encryption key from biometric storage
-    const storedKey = await getBiometricKey(publicKey);
-    if (!storedKey) {
-        throw new Error('Biometric key not found');
+export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Promise<string> {
+    try {
+        // Parse the stored encryption data
+        const { key, iv, authTag, data } = JSON.parse(encryptedData);
+
+        // Import the encryption key
+        const encryptionKey = await importKey(key);
+
+        // Decrypt private key using AES-GCM
+        return await decrypt({
+            data,
+            iv,
+            authTag
+        }, encryptionKey);
+    } catch (err) {
+        throw new Error('Failed to decrypt with biometrics: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
-
-    // Import the encryption key
-    const encryptionKey = await importKey(storedKey);
-
-    // Decrypt private key using AES-GCM
-    return await decrypt({
-        data: encryptedPrivateKey,
-        iv,
-        authTag
-    }, encryptionKey);
 }
 
 export async function decryptPrivateKeyWithPassword(
@@ -132,10 +126,7 @@ export async function generateLoginChallenge() {
     };
 }
 
-export async function signLoginChallenge(
-    challenge: string,
-    privateKey: string
-): Promise<string> {
+export async function signLoginChallenge(challenge: string, privateKey: string): Promise<string> {
     // Convert hex private key to Uint8Array
     const privateKeyBytes = new Uint8Array(
         privateKey.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
@@ -146,5 +137,9 @@ export async function signLoginChallenge(
 
     // Sign challenge with Nostr private key using Schnorr signature
     const signature = schnorr.sign(messageBytes, privateKeyBytes);
-    return Buffer.from(signature).toString('hex');
+
+    // Convert signature bytes to hex string
+    return Array.from(signature)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }
