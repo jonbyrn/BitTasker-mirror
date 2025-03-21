@@ -1,120 +1,150 @@
-import type { Credentials, EncryptedKeyData } from '$lib/types/auth';
-import { checkBiometricAvailability } from './biometrics';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
-import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, exportKey } from '$lib/utils/helpers/crypto';
+import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, exportKey, importKey, type EncryptedData } from '$lib/utils/helpers/crypto';
+import { getBiometricKey } from './biometrics';
+import { schnorr } from '@noble/curves/secp256k1';
+import { utf8ToBytes, randomBytes } from '@noble/hashes/utils';
 
 export async function encryptNostrPrivateKeyWithUserId(
     nostrPrivateKey: string,
     userId: string
-): Promise<{ encrypted: EncryptedKeyData; salt: string }> {
+): Promise<{ encrypted: EncryptedData; salt: string }> {
     // Generate a random salt
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const saltBase64 = bytesToBase64(salt);
+    const salt = randomBytes(16);
     
     // Generate encryption key from user ID and salt
     const userIdKey = await generateEncryptionKeyFromUserId(userId, salt);
     
     // Encrypt with user ID key
-    const userIdEncryption = await encrypt(nostrPrivateKey, userIdKey);
-    
-    // Export user ID key for storage
-    const exportedUserIdKey = await exportKey(userIdKey);
-    
-    // Store the exported key securely using biometrics
-    const isBiometricAvailable = await checkBiometricAvailability();
-    if (isBiometricAvailable) {
-        await NativeBiometric.setCredentials({
-            username: 'nostr_key',
-            password: exportedUserIdKey,
-            server: 'com.bittasker.app'
-        } as Credentials);
-    }
-    
+    const encrypted = await encrypt(nostrPrivateKey, userIdKey);
+
     return {
-        encrypted: {
-            data: userIdEncryption.encrypted,
-            iv: userIdEncryption.iv
-        },
-        salt: saltBase64
+        encrypted,
+        salt: bytesToBase64(salt)
     };
 }
 
 export async function encryptNostrPrivateKeyWithPassword(
-	nostrPrivateKey: string,
-	recoveryPassword: string
-): Promise<{ encrypted: EncryptedKeyData; salt: string }> {
-	// Generate a random salt for recovery password
-	const salt = crypto.getRandomValues(new Uint8Array(16));
-	const saltBase64 = bytesToBase64(salt);
+    nostrPrivateKey: string,
+    recoveryPassword: string
+): Promise<{ encrypted: EncryptedData; salt: string }> {
+    // Generate a random salt for recovery password
+    const salt = randomBytes(16);
+    
+    // Derive key from recovery password
+    const recoveryKey = await deriveKeyFromPassword(recoveryPassword, salt);
+    
+    // Encrypt with recovery password key
+    const encrypted = await encrypt(nostrPrivateKey, recoveryKey);
 
-	// Derive key from recovery password
-	const recoveryKey = await deriveKeyFromPassword(recoveryPassword, salt);
-	// Encrypt with recovery password key
-	const recoveryEncryption = await encrypt(nostrPrivateKey, recoveryKey);
-    // Export recovery key for storage
-    const exportedRecoveryKey = await exportKey(recoveryKey);
-
-    // Store the exported key securely using biometrics
-    const isBiometricAvailable = await checkBiometricAvailability();
-    if (isBiometricAvailable) {
-        await NativeBiometric.setCredentials({
-            username: 'recovery_key',
-            password: exportedRecoveryKey,
-            server: 'com.bittasker.app'
-        } as Credentials);
-    }
-
-	return {
-		encrypted: {
-			data: recoveryEncryption.encrypted,
-			iv: recoveryEncryption.iv
-		},
-		salt: saltBase64
-	};
+    return {
+        encrypted,
+        salt: bytesToBase64(salt)
+    };
 }
 
 export async function decryptNostrPrivateKeyWithUserId(
-    encryptedData: EncryptedKeyData,
-    salt: string,
-    userId: string
+    encryptedData: EncryptedData,
+    userId: string,
+    salt: string
 ): Promise<string> {
     try {
-        // Generate encryption key from user ID and salt
-        const key = await generateEncryptionKeyFromUserId(userId, base64ToBytes(salt));
+        // Generate encryption key from user ID
+        const saltBytes = base64ToBytes(salt);
+        const key = await generateEncryptionKeyFromUserId(userId, saltBytes);
         
         // Decrypt using the helper function
-        return await decrypt(encryptedData.data, encryptedData.iv, key);
+        return await decrypt(encryptedData, key);
     } catch (error) {
         console.log('Decryption error:', error);
         throw new Error('Failed to decrypt Nostr private key with user ID');
     }
 }
 
-export async function decryptNostrPrivateKeyWithRecovery(
-	encryptedData: EncryptedKeyData,
-	salt: string,
-	recoveryPassword: string
+export async function decryptNostrPrivateKeyWithPassword(
+    encryptedData: EncryptedData,
+    recoveryPassword: string,
+    salt: string
 ): Promise<string> {
-	try {
-		// Derive the recovery key
-		const recoveryKey = await deriveKeyFromPassword(recoveryPassword, base64ToBytes(salt));
+    try {
+        // Derive key from recovery password
+        const saltBytes = base64ToBytes(salt);
+        const recoveryKey = await deriveKeyFromPassword(recoveryPassword, saltBytes);
 
-		// Decrypt the private key
-		return await decrypt(encryptedData.data, encryptedData.iv, recoveryKey);
-	} catch (error) {
-		throw new Error('Failed to decrypt Nostr private key with recovery password');
-	}
+        // Decrypt the private key
+        return await decrypt(encryptedData, recoveryKey);
+    } catch (error) {
+        throw new Error('Failed to decrypt Nostr private key with recovery password');
+    }
+}
+
+export async function decryptPrivateKeyWithBiometrics(
+    publicKey: string,
+    encryptedPrivateKey: string,
+    iv: string,
+    authTag: string
+): Promise<string> {
+    // Get encryption key from biometric storage
+    const storedKey = await getBiometricKey(publicKey);
+    if (!storedKey) {
+        throw new Error('Biometric key not found');
+    }
+
+    // Import the encryption key
+    const encryptionKey = await importKey(storedKey);
+
+    // Decrypt private key using AES-GCM
+    return await decrypt({
+        data: encryptedPrivateKey,
+        iv,
+        authTag
+    }, encryptionKey);
+}
+
+export async function decryptPrivateKeyWithPassword(
+    encryptedPrivateKey: string,
+    iv: string,
+    authTag: string,
+    password: string,
+    salt: string,
+    iterations: number
+): Promise<string> {
+    // Derive encryption key from password
+    const saltBytes = base64ToBytes(salt);
+    const encryptionKey = await deriveKeyFromPassword(password, saltBytes, iterations);
+
+    // Decrypt private key using AES-GCM
+    return await decrypt({
+        data: encryptedPrivateKey,
+        iv,
+        authTag
+    }, encryptionKey);
 }
 
 export async function generateLoginChallenge() {
-	const array = new Uint8Array(32);
-	crypto.getRandomValues(array);
-	const challenge = Array.from(array)
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-	return {
-		challenge,
-		message: `Sign this message to login: ${challenge}`
-	};
+    const array = randomBytes(32);
+    const challenge = Array.from(array)
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+    return {
+        challenge,
+        message: `Sign this message to login: ${challenge}`
+    };
+}
+
+export async function signLoginChallenge(
+    challenge: string,
+    privateKey: string
+): Promise<string> {
+    // Convert hex private key to Uint8Array
+    const privateKeyBytes = new Uint8Array(
+        privateKey.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+    );
+
+    // Convert challenge to bytes
+    const messageBytes = utf8ToBytes(challenge);
+
+    // Sign challenge with Nostr private key using Schnorr signature
+    const signature = schnorr.sign(messageBytes, privateKeyBytes);
+    return Buffer.from(signature).toString('hex');
 }

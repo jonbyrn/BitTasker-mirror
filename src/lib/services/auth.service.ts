@@ -1,5 +1,6 @@
 import type { NostrRegistrationData, ApiResponse } from '$lib/types/auth';
 import createAxiosInstance from '$lib/api/axios';
+import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PATH = '/api/v1/auth';
@@ -45,3 +46,59 @@ export const authenticateWithFacebook = async (credential: string): Promise<ApiR
 	const response = await authApi.post(`${API_PATH}/facebook/login`, { access_token: credential });
 	return response.data;
 };
+
+/**
+ * Register a new user with client-generated Nostr keys
+ * @param data User registration data with Nostr keys
+ * @returns Promise with void
+ */
+export async function registerWithNostrNew(data: NostrRegistrationData): Promise<void> {
+    await axios.post(`${API_URL}/auth/register`, data);
+}
+
+/**
+ * Get encrypted Nostr key for a user
+ * @param email User email
+ * @returns Promise with encrypted Nostr key data
+ */
+export async function getEncryptedNostrKey(email: string): Promise<{
+    publicKey: string;
+    encryptedPrivateKey: string;
+    iv: string;
+    salt: string;
+    authTag: string;
+    iterations: number;
+    useBiometrics: boolean;
+}> {
+    const response = await axios.get(`${API_URL}/auth/keys/${encodeURIComponent(email)}`);
+    return response.data;
+}
+
+/**
+ * Login a user with Nostr keys
+ * @param email User email
+ * @param signedChallenge Signed challenge for the user
+ * @returns Promise with login response data
+ */
+export async function loginWithNostr(email: string, signedChallenge: string): Promise<{
+    token: string;
+    publicKey: string;
+}> {
+    const response = await axios.post(`${API_URL}/auth/login`, {
+        email,
+        signedChallenge
+    });
+    return response.data;
+}
+
+/**
+ * Get login challenge for a user
+ * @param email User email
+ * @returns Promise with login challenge data
+ */
+export async function getLoginChallenge(email: string): Promise<{
+    challenge: string;
+}> {
+    const response = await axios.get(`${API_URL}/auth/challenge/${encodeURIComponent(email)}`);
+    return response.data;
+}

@@ -1,60 +1,219 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { NativeBiometric } from 'capacitor-native-biometric';
-	import { isValidEmail } from '$lib/utils/helpers/validators';
-	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
 	import { goto } from '$app/navigation';
-	import { mockLogin } from '$lib/stores/auth';
-	import { Capacitor } from '@capacitor/core';
+	import { bytesToHex } from '@noble/hashes/utils';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { isValidEmail, validatePassword } from '$lib/utils/helpers/validators';
+	import {
+		checkBiometricAvailability,
+		verifyIdentity,
+		setBiometricKey
+	} from '$lib/utils/helpers/biometrics';
+	import {
+		encrypt,
+		generateRandomKey,
+		exportKey,
+		type EncryptedData
+	} from '$lib/utils/helpers/crypto';
+	import {
+		registerWithNostr,
+		getEncryptedNostrKey,
+		getLoginChallenge,
+		loginWithNostr
+	} from '$lib/services/auth.service';
+	import {
+		decryptPrivateKeyWithBiometrics,
+		decryptPrivateKeyWithPassword,
+		signLoginChallenge
+	} from '$lib/utils/helpers/auth';
+	import { bytesToBase64 } from '$lib/utils/helpers/encoding';
 
 	let isLogin = $state(true);
-	let isPasskey = $state(false);
-	let email = $state('user@example.com');
-	let password = $state('password');
+	let email = $state('');
+	let password = $state('');
 	let confirmPassword = $state('');
 	let name = $state('');
 	let isBiometricAvailable = $state(false);
+	let useBiometrics = $state(false);
+	let isLoading = $state(false);
+	let error = $state('');
 
 	onMount(async () => {
-		try {
-			if (Capacitor.isNativePlatform()) {
-				const result = await NativeBiometric.isAvailable();
-				if (result.isAvailable) isBiometricAvailable = true;
-			}
-		} catch (error) {
-			console.error('Error:', error);
-		}
+		isBiometricAvailable = await checkBiometricAvailability();
 	});
-	function handlePasskey() {
-		if (isLogin) {
-			verifyIdentity();
-		} else if (!isPasskey) {
-			isPasskey = true;
+
+	async function handleBiometricAuth() {
+		try {
+			isLoading = true;
+			error = '';
+
+			if (isLogin) {
+				if (!isValidEmail(email)) {
+					error = 'Please enter a valid email';
+					return;
+				}
+
+				// Login with biometrics
+				const verified = await verifyIdentity();
+				if (!verified) {
+					error = 'Biometric verification failed';
+					return;
+				}
+
+				// Get encrypted key data from API
+				const keyData = await getEncryptedNostrKey(email);
+				if (!keyData.useBiometrics) {
+					error = 'This account is not set up for biometric login';
+					return;
+				}
+
+				// Decrypt private key with biometrics
+				const privateKey = await decryptPrivateKeyWithBiometrics(
+					keyData.publicKey,
+					keyData.encryptedPrivateKey,
+					keyData.iv,
+					keyData.authTag
+				);
+
+				// Get login challenge
+				const { challenge } = await getLoginChallenge(email);
+
+				// Sign challenge with private key
+				const signedChallenge = await signLoginChallenge(challenge, privateKey);
+
+				// Login with signed challenge
+				const { token } = await loginWithNostr(email, signedChallenge);
+
+				// Store token and redirect
+				localStorage.setItem('token', token);
+				goto('/dashboard');
+			} else {
+				// Register with biometrics
+				useBiometrics = true;
+				await handleSubmit();
+			}
+		} catch (err) {
+			error = 'Biometric authentication failed';
+			console.error(err);
+		} finally {
+			isLoading = false;
 		}
 	}
 	async function handleSubmit(e: Event) {
 		try {
 			e.preventDefault();
 
-			if (!isValidEmail(email)) return console.error('email validation failed');
+	async function handleSubmit(e?: Event) {
+		e?.preventDefault();
+
+		try {
+			isLoading = true;
+			error = '';
+
+			if (!isValidEmail(email)) {
+				error = 'Please enter a valid email';
+				return;
+			}
 
 			if (isLogin) {
-				// Handle login
-				console.log('Login:', { email, password });
-				await mockLogin(email, password);
-				goto('/dashboard');
-			} else if (isPasskey) {
-				createPasskey(email);
-				await mockLogin(email, password);
+				// Get encrypted key data from API
+				const keyData = await getEncryptedNostrKey(email);
+				if (keyData.useBiometrics) {
+					error = 'Please use biometric login for this account';
+					return;
+				}
 
+				// Decrypt private key with password
+				const privateKey = await decryptPrivateKeyWithPassword(
+					keyData.encryptedPrivateKey,
+					keyData.iv,
+					keyData.authTag,
+					password,
+					keyData.salt,
+					keyData.iterations
+				);
+
+				// Get login challenge
+				const { challenge } = await getLoginChallenge(email);
+
+				// Sign challenge with private key
+				const signedChallenge = await signLoginChallenge(challenge, privateKey);
+
+				// Login with signed challenge
+				const { token } = await loginWithNostr(email, signedChallenge);
+
+				// Store token and redirect
+				localStorage.setItem('token', token);
 				goto('/dashboard');
-			} else {
-				// Handle signup
-				console.log('Signup:', { name, email, password });
+				return;
 			}
-		} catch (error) {
-			alert(error);
-			console.error('Error:', error);
+
+			// Registration
+			if (!useBiometrics && (!password || password !== confirmPassword)) {
+				error = 'Passwords do not match';
+				return;
+			}
+
+			if (!useBiometrics) {
+				const passwordValidation = validatePassword(password);
+				if (!passwordValidation.isValid) {
+					error = passwordValidation.error!;
+					return;
+				}
+			}
+
+			// Generate Nostr keypair
+			const sk = generateSecretKey();
+			const pk = getPublicKey(sk);
+			const privateKeyHex = bytesToHex(sk);
+
+			let encryptedData: EncryptedData;
+			let salt: string;
+
+			if (useBiometrics) {
+				// Generate a random salt
+				const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+				salt = bytesToBase64(saltBytes);
+
+				// Biometric flow: encrypt with random key
+				const encryptionKey = await generateRandomKey();
+				encryptedData = await encrypt(privateKeyHex, encryptionKey);
+
+				const exportedKey = await exportKey(encryptionKey);
+
+				// Store encryption key with biometrics
+				const success = await setBiometricKey(pk, exportedKey);
+
+				if (!success) {
+					error = 'Failed to set up biometric authentication';
+					return;
+				}
+			} else {
+				// Password flow: encrypt with password-derived key
+				error = 'Password-based registration not yet implemented';
+				return;
+			}
+
+			// Register with API
+			await registerWithNostr({
+				name,
+				email,
+				publicKey: pk,
+				encryptedPrivateKey: encryptedData.data,
+				iv: encryptedData.iv,
+				authTag: encryptedData.authTag,
+				useBiometrics,
+				salt, // Salt is not needed but used for key derivation
+				iterations: 100000 // Default iterations for PBKDF2
+			});
+
+			// Redirect to dashboard
+			goto('/dashboard');
+		} catch (err: any) {
+			error = err.response?.data?.message || 'Registration failed';
+			console.error(err);
+		} finally {
+			isLoading = false;
 		}
 	}
 </script>
@@ -63,11 +222,30 @@
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">
-				{isLogin ? 'Login' : 'Sign Up'} to Bittasker
+				{isLogin ? 'Login' : 'Sign Up'} to BitTasker
 			</h2>
 
+			{#if error}
+				<div class="alert alert-error mb-4">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
+				</div>
+			{/if}
+
 			<form onsubmit={handleSubmit} class="space-y-4">
-				{#if !isLogin && !isPasskey}
+				{#if !isLogin}
 					<div class="form-control">
 						<label class="label" for="name">
 							<span class="label-text">Full Name</span>
@@ -76,7 +254,7 @@
 							type="text"
 							id="name"
 							bind:value={name}
-							placeholder="Enter your full name"
+							placeholder="Enter your name"
 							class="input input-bordered w-full"
 							required
 						/>
@@ -97,7 +275,7 @@
 					/>
 				</div>
 
-				{#if !isPasskey}
+				{#if !useBiometrics}
 					<div class="form-control">
 						<label class="label" for="password">
 							<span class="label-text">Password</span>
@@ -108,9 +286,10 @@
 							bind:value={password}
 							placeholder="password"
 							class="input input-bordered w-full"
-							required
+							required={!useBiometrics}
 						/>
 					</div>
+
 					{#if !isLogin}
 						<div class="form-control">
 							<label class="label" for="confirmPassword">
@@ -122,21 +301,24 @@
 								bind:value={confirmPassword}
 								placeholder="Confirm your password"
 								class="input input-bordered w-full"
-								required
+								required={!useBiometrics}
 							/>
 						</div>
 					{/if}
 				{/if}
 
-				<button type="submit" class="btn btn-primary w-full">
-					{isLogin ? 'Login' : 'Sign Up'}
+				<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+					{#if isLoading}
+						<span class="loading loading-spinner"></span>
+					{:else}
+						{isLogin ? 'Login' : 'Sign Up'}
+					{/if}
 				</button>
 			</form>
 
-			<div class="divider">OR</div>
-
-			{#if isBiometricAvailable && !isPasskey}
-				<button class="btn btn-outline w-full" onclick={handlePasskey}>
+			{#if isBiometricAvailable}
+				<div class="divider">OR</div>
+				<button class="btn btn-outline w-full" onclick={handleBiometricAuth} disabled={isLoading}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -151,41 +333,23 @@
 							d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
 						/>
 					</svg>
-					{#if isLogin}
-						Continue with Biometric
-					{:else}
-						Add Passkey
-					{/if}
+					{isLogin ? 'Login' : 'Sign Up'} with Biometrics
 				</button>
 			{/if}
 
-			<button class="btn btn-outline w-full">
-				<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5" viewBox="0 0 48 48">
-					<path
-						fill="#FFC107"
-						d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-					/>
-					<path
-						fill="#FF3D00"
-						d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
-					/>
-					<path
-						fill="#4CAF50"
-						d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
-					/>
-					<path
-						fill="#1976D2"
-						d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-					/>
-				</svg>
-				Continue with Google
-			</button>
-
-			<div class="mt-4 text-center">
-				<button onclick={() => (isLogin = !isLogin)} class="link link-primary">
-					{isLogin ? "Don't have an account? Sign up" : 'Already have an account? Login'}
+			<p class="mt-4 text-center">
+				{isLogin ? "Don't have an account?" : 'Already have an account?'}
+				<button
+					class="link ml-1"
+					onclick={() => {
+						isLogin = !isLogin;
+						error = '';
+						useBiometrics = false;
+					}}
+				>
+					{isLogin ? 'Sign Up' : 'Login'}
 				</button>
-			</div>
+			</p>
 		</div>
 	</div>
 </div>

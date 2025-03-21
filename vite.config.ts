@@ -7,7 +7,14 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
-		allowedHosts: true
+		allowedHosts: true,
+		proxy: {
+			'/api': {
+				target: 'http://uo0s8c4sw488kwg0ko44kg8g.production.bittasker.hedgehackers.finance',
+				changeOrigin: true,
+				secure: false  // Allow insecure requests
+			}
+		}
 	},
 	test: {
 		globals: true,

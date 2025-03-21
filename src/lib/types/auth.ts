@@ -31,6 +31,7 @@ export interface NostrRegistrationData {
 	authTag: string;
 	iterations: number;
 	googleToken?: string; // Optional Google token for social registration
+	useBiometrics: boolean; // Added for biometric authentication
 }
 
 export interface NostrKeyData {
