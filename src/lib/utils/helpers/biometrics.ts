@@ -2,8 +2,8 @@ import type { Credentials } from '$lib/types/auth';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
 
-export const BIOMETRIC_SERVER_KEY = 'com.bittasker.app:nostr_keys';
-export const BIOMETRIC_VERIFY_OPTIONS = {
+const BIOMETRIC_SERVER_KEY = import.meta.env.VITE_BIOMETRIC_SERVER_KEY;
+const BIOMETRIC_VERIFY_OPTIONS = {
     reason: 'Secure your BitTasker account',
     title: 'BitTasker Authentication',
     subtitle: 'Verify Identity',
