@@ -273,11 +273,13 @@
 					</div>
 				{/if}
 
-				<div class="card-actions mt-6 justify-end">
-					<button type="submit" class="btn btn-primary" disabled={isLoading}>
-						{isLoading ? 'Loading...' : isLogin ? 'Login' : 'Sign Up'}
-					</button>
-				</div>
+				<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
+					{#if isLoading}
+						<span class="loading loading-spinner"></span>
+					{:else}
+						{isLogin ? 'Login' : 'Sign Up'}
+					{/if}
+				</button>
 			</form>
 
 			{#if isBiometricAvailable}
