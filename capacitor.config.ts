@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
 	appName: 'bittasker',
 	webDir: 'build',
 	server: {
-		url: process.env.VITE_TUNNEL_LINK,
+		url: process.env.VITE_CLIENT_URL,
 		cleartext: true
 	},
 	plugins: {
