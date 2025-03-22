@@ -77,8 +77,8 @@
 				goto('/profile');
 			}
 		} catch (err: unknown) {
-			console.error('Biometric auth failed:', err);
-			error = err instanceof Error ? err.message : 'Biometric authentication failed';
+			console.error('Authentication failed:', err);
+			error = err instanceof Error ? err.message : 'Authentication failed';
 		} finally {
 			isLoading = false;
 		}
@@ -91,7 +91,6 @@
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>
 
 			{#if isBiometricAvailable}
-				<div class="divider">OR</div>
 				<button class="btn btn-outline w-full" onclick={handleBiometricAuth} disabled={isLoading}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -109,6 +108,10 @@
 					</svg>
 					{isLoading ? 'Loading...' : 'Continue with Biometrics'}
 				</button>
+
+				{#if error}
+					<p class="text-red-500 mt-2">{error}</p>
+				{/if}
 			{/if}
 
 			<Alby />
