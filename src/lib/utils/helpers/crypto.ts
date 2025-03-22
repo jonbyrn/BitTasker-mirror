@@ -1,10 +1,5 @@
+import type { EncryptedData } from '$lib/types/auth';
 import { bytesToBase64, base64ToBytes } from './encoding';
-
-export interface EncryptedData {
-    data: string;
-    iv: string;
-    authTag: string;
-}
 
 export async function generateRandomKey(): Promise<CryptoKey> {
     return await crypto.subtle.generateKey(

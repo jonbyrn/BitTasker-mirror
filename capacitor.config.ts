@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
 	appName: 'bittasker',
 	webDir: 'build',
 	server: {
-		url: 'https://fine-symbols-mix.loca.lt',
+		url: process.env.VITE_TUNNEL_LINK,
 		cleartext: true
 	},
 	plugins: {

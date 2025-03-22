@@ -23,7 +23,7 @@ export interface EncryptedKeyData {
 
 export interface NostrRegistrationData {
 	name?: string;
-	email: string;
+	email?: string;
 	publicKey: string;
 	encryptedPrivateKey: string;
 	iv: string;
@@ -86,4 +86,10 @@ export interface ApiResponse<T> {
     credential?: string; // For Google auth responses
     access_token?: string; // For authentication responses
     token?: string; // For authentication responses
+}
+
+export interface EncryptedData {
+    data: string;
+    iv: string;
+    authTag: string;
 }

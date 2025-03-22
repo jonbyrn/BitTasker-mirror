@@ -15,12 +15,27 @@ const authApi = createAxiosInstance({
  * @param challenge Login challenge
  * @param signature Signed login challenge
  * @returns Promise with the login response
- * @throws 400 - Bad Request or missing required data
- * @throws 401 - Unauthorized - Invalid email or signed challenge
+ * @throws {Error} 400 - No account associated with Nostr key or missing data
+ * @throws {Error} 401 - Invalid signature or unauthorized access
+ * @throws {Error} 500 - Internal server error
  */
-export const loginWithNostr = async (pubKey: string, challenge: string, signature: string): Promise<ApiResponse<any>> => {
-    const response = await authApi.post(`${API_PATH}/nostr/login`, { pubkey: pubKey, challenge, signature });
-    return response.data;
+export const loginWithNostr = async (pubkey: string, challenge: string, signature: string): Promise<ApiResponse<any>> => {
+    try {
+    const response = await authApi.post(`${API_PATH}/nostr/login`, { pubkey, challenge, signature });
+        return response.data;
+    } catch (error: any) {
+        if (error?.response?.status === 400) {
+            throw new Error(error.response.data.message || 'No account associated with this Nostr key. Please register first.');
+        }
+        if (error?.response?.status === 401) {
+            throw new Error('Invalid signature or unauthorized access');
+        }
+        if (error?.response?.status === 500) {
+            throw new Error('Internal server error. Please try again later.');
+        }
+        
+        throw new Error('Login failed. Please try again.');
+    }
 };
 
 /**

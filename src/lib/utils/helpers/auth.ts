@@ -1,7 +1,8 @@
-import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
-import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, importKey, type EncryptedData } from '$lib/utils/helpers/crypto';
+import type { EncryptedData } from '$lib/types/auth';
 import { schnorr } from '@noble/curves/secp256k1';
 import { utf8ToBytes, randomBytes } from '@noble/hashes/utils';
+import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
+import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, importKey } from '$lib/utils/helpers/crypto';
 
 export async function encryptNostrPrivateKeyWithUserId(
     nostrPrivateKey: string,

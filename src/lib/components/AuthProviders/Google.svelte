@@ -153,21 +153,23 @@
 	}
 
 	if (browser) {
-		if (!isNative) {
-			// Load Google Identity Services only for web
-			const script = document.createElement('script');
-			script.src = 'https://accounts.google.com/gsi/client';
-			script.async = true;
-			script.defer = true;
-			script.onload = initializeGoogleAuth;
-			document.head.appendChild(script);
-		} else {
-			// Initialize directly for native platforms
-			initializeGoogleAuth();
-		}
+		// TODO: initialize google login once enabled
+		// if (!isNative) {
+		// 	// Load Google Identity Services only for web
+		// 	const script = document.createElement('script');
+		// 	script.src = 'https://accounts.google.com/gsi/client';
+		// 	script.async = true;
+		// 	script.defer = true;
+		// 	script.onload = initializeGoogleAuth;
+		// 	document.head.appendChild(script);
+		// } else {
+		// 	// Initialize directly for native platforms
+		// 	initializeGoogleAuth();
+		// }
 	}
 
 	const handleGoogleSignIn = () => {
+		return console.warn('Google auth disabled');
 		if (!browser || !googleAuthInitialized) return;
 		if (isNative) {
 			handleNativeGoogleLogin();
@@ -177,7 +179,7 @@
 	};
 </script>
 
-<button type="button" class="btn btn-outline w-full" onclick={handleGoogleSignIn}>
+<button type="button" class="btn btn-outline w-full" onclick={handleGoogleSignIn} disabled={!googleAuthInitialized}>
 	<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5" viewBox="0 0 48 48">
 		<path
 			fill="#FFC107"
