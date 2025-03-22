@@ -1,16 +1,3 @@
-<script lang="ts">
-	import { onMount } from 'svelte';
-	import { getCredentials } from '$lib/utils/helpers/biometrics';
-	import { NativeBiometric } from 'capacitor-native-biometric';
-
-	let user = $state({});
-
-	onMount(async () => {
-		const result = await NativeBiometric.isAvailable();
-		if (result.isAvailable) user = await getCredentials();
-	});
-</script>
-
 <div class="min-h-screen">
 	<div class="flex flex-col items-center justify-center gap-4">
 		<div class="avatar avatar-placeholder mx-auto">
@@ -31,6 +18,5 @@
 				</svg>
 			</div>
 		</div>
-		<p class="bg-neutral rounded-full px-4 py-1">{user?.username}</p>
 	</div>
 </div>

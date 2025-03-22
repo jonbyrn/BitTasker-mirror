@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
 	appName: 'bittasker',
 	webDir: 'build',
 	server: {
-		url: 'https://magnetic-antelope-repeatedly.ngrok-free.app',
+		url: 'https://fine-symbols-mix.loca.lt',
 		cleartext: true
 	},
 	plugins: {

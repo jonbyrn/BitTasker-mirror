@@ -10,19 +10,6 @@ const authApi = createAxiosInstance({
 });
 
 /**
- * Authenticate a user with email and password
- * @param email User email
- * @param password User password
- * @returns Promise with the authentication response
- * @throws 400 - Bad Request or missing required data
- * @throws 401 - Unauthorized - Invalid email or password
- */
-export const loginWithCredentials = async (email: string, password: string): Promise<ApiResponse<any>> => {
-    const response = await authApi.post(`${API_PATH}/login`, { email, password });
-    return response.data;
-};
-
-/**
  * Login with Nostr
  * @param pubKey User's public key
  * @param challenge Login challenge
@@ -35,6 +22,20 @@ export const loginWithNostr = async (pubKey: string, challenge: string, signatur
     const response = await authApi.post(`${API_PATH}/nostr/login`, { pubkey: pubKey, challenge, signature });
     return response.data;
 };
+
+/**
+ * Authenticate a user with email and password
+ * @param email User email
+ * @param password User password
+ * @returns Promise with the authentication response
+ * @throws 400 - Bad Request or missing required data
+ * @throws 401 - Unauthorized - Invalid email or password
+ */
+export const loginWithCredentials = async (email: string, password: string): Promise<ApiResponse<any>> => {
+    const response = await authApi.post(`${API_PATH}/login`, { email, password });
+    return response.data;
+};
+
 
 /**
  * Register a new user with client-generated Nostr keys

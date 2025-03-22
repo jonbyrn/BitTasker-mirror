@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { LoginResponse, ApiResponse } from '$lib/types/auth';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
@@ -22,7 +23,6 @@
 	import { bytesToBase64, bytesToHex } from '$lib/utils/helpers/encoding';
 	import { encrypt, exportKey, generateRandomKey } from '$lib/utils/helpers/crypto';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import type { LoginResponse, ApiResponse } from '$lib/types/auth';
 
 	let email: string = $state('');
 	let password: string = $state('');
@@ -43,12 +43,12 @@
 			emailError = '';
 			passwordError = '';
 			error = '';
-			
+
 			if (password !== confirmPassword) {
 				passwordError = 'Passwords do not match';
 				return;
 			}
-			
+
 			const sk = generateSecretKey();
 			const pk = getPublicKey(sk);
 			const npriv = bytesToHex(sk);
@@ -61,8 +61,7 @@
 				iv: encrypted.iv,
 				salt: salt,
 				authTag: encrypted.authTag,
-				iterations: 100000,
-				useBiometrics: false
+				iterations: 100000
 			});
 
 			console.log({ res });
@@ -88,7 +87,7 @@
 			passwordError = '';
 			error = '';
 
-			const response = await loginWithCredentials(email, password) as ApiResponse<LoginResponse>;
+			const response = (await loginWithCredentials(email, password)) as ApiResponse<LoginResponse>;
 			const keyData = response.data;
 
 			// Decrypt private key with password
@@ -101,7 +100,7 @@
 				100000 // Default PBKDF2 iterations for key derivation
 			);
 
-			goto('/dashboard');
+			goto('/profile');
 		} catch (err: any) {
 			if (err.status === 401) {
 				error = 'Invalid email or password';
@@ -164,14 +163,14 @@
 				const saltBytes = crypto.getRandomValues(new Uint8Array(16));
 
 				await registerWithNostr({
-					email: 'biometrics1@biometrics.com',
+					email: 'biometrics3@biometrics.com',
 					publicKey: pk,
 					encryptedPrivateKey: encryptedData.data,
 					iv: encryptedData.iv,
 					authTag: encryptedData.authTag,
-					useBiometrics: true,
 					salt: bytesToBase64(saltBytes),
-					iterations: 100000
+					iterations: 100000,
+					authMethod: 'passkey'
 				});
 
 				const success = await setBiometricKey(pk, {
@@ -185,13 +184,15 @@
 					error = 'Failed to set up biometric authentication';
 					return;
 				}
+
+				goto('/profile');
 			} else {
 				const { username: pubKey, password: encryptedKey } = biometricData;
 				const { challenge } = await getLoginChallenge();
 				const privateKey = await decryptPrivateKeyWithBiometrics(encryptedKey);
 				const signedChallenge = await signLoginChallenge(challenge, privateKey);
 				await loginWithNostr(pubKey, challenge, signedChallenge);
-				goto('/dashboard');
+				goto('/profile');
 			}
 		} catch (err: unknown) {
 			console.error('Biometric auth failed:', err);
@@ -267,12 +268,6 @@
 					</div>
 				{/if}
 
-				{#if error}
-					<div class="alert alert-error">
-						<span>{error}</span>
-					</div>
-				{/if}
-
 				<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
@@ -280,15 +275,17 @@
 						{isLogin ? 'Login' : 'Sign Up'}
 					{/if}
 				</button>
+
+				{#if error}
+				<div class="alert alert-error">
+					<span>{error}</span>
+				</div>
+			{/if}
 			</form>
 
 			{#if isBiometricAvailable}
 				<div class="divider">OR</div>
-				<button
-					class="btn btn-outline btn-secondary w-full"
-					onclick={handleBiometricAuth}
-					disabled={isLoading}
-				>
+				<button class="btn btn-outline w-full" onclick={handleBiometricAuth} disabled={isLoading}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
