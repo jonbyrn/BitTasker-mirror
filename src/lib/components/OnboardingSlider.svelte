@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { register } from 'swiper/element/bundle';
-	import { onboardingCompleted } from '$lib/states/deviceInfo';
-	import { t } from '$lib/states/i18n';
-	import { setLocale } from '$lib/states/i18n';
 	import type { Locales } from '$lib/states/i18n';
-	import { darkMode } from '$lib/states/theme';
-	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { t } from '$lib/states/i18n';
+	import { goto } from '$app/navigation';
+	import { darkMode } from '$lib/states/theme';
+	import { setLocale } from '$lib/states/i18n';
+	import { register } from 'swiper/element/bundle';
 	import { Preferences } from '@capacitor/preferences';
+	import { onboardingCompleted } from '$lib/states/deviceInfo';
 
 	register();
 
@@ -77,12 +77,12 @@
 	const getStarted = async () => {
 		await Preferences.set({ key: 'onboardingCompleted', value: 'true' });
 		onboardingCompleted.set(true);
-		goto('/auth/login');
+		goto('/auth');
 	};
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: 'onboardingCompleted' });
 		if (value === 'true') {
-			goto('/auth/login');
+			goto('/auth');
 		}
 	});
 </script>

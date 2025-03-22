@@ -6,8 +6,7 @@
     // X API configuration
     const X_CLIENT_ID = import.meta.env.VITE_X_CLIENT_ID;
     const X_CLIENT_SECRET = import.meta.env.VITE_X_CLIENT_SECRET;
-    const X_REDIRECT_URI = 'https://ba43-196-117-119-182.ngrok-free.app/auth/login';
-    // const X_REDIRECT_URI = import.meta.env.VITE_X_REDIRECT_URI;
+    const X_REDIRECT_URI = import.meta.env.VITE_X_REDIRECT_URI;
 
     let isInitialized = $state(false);
     let isLoading = $state(false);
