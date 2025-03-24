@@ -4,7 +4,9 @@
 	import { isValidEmail } from '$lib/utils/helpers/validators';
 	import { createPasskey, verifyIdentity } from '$lib/utils/helpers/biometrics';
 	import { goto } from '$app/navigation';
-	import {  mockLogin } from '$lib/stores/auth';
+	import { mockLogin } from '$lib/stores/auth';
+	import { Capacitor } from '@capacitor/core';
+
 	let isLogin = $state(true);
 	let isPasskey = $state(false);
 	let email = $state('user@example.com');
@@ -14,8 +16,14 @@
 	let isBiometricAvailable = $state(false);
 
 	onMount(async () => {
-		const result = await NativeBiometric.isAvailable();
-		if (result.isAvailable) isBiometricAvailable = true;
+		try {
+			if (Capacitor.isNativePlatform()) {
+				const result = await NativeBiometric.isAvailable();
+				if (result.isAvailable) isBiometricAvailable = true;
+			}
+		} catch (error) {
+			console.error('Error:', error);
+		}
 	});
 	function handlePasskey() {
 		if (isLogin) {
@@ -25,22 +33,28 @@
 		}
 	}
 	async function handleSubmit(e: Event) {
-		e.preventDefault();
+		try {
+			e.preventDefault();
 
-		if (!isValidEmail(email)) return console.error('email validation failed');
+			if (!isValidEmail(email)) return console.error('email validation failed');
 
-		if (isLogin) {
-			// Handle login
-			console.log('Login:', { email, password });
-			goto('/dashboard');
-		} else if (isPasskey) {
-			createPasskey(email);
-			await mockLogin(email, password);
+			if (isLogin) {
+				// Handle login
+				console.log('Login:', { email, password });
+				await mockLogin(email, password);
+				goto('/dashboard');
+			} else if (isPasskey) {
+				createPasskey(email);
+				await mockLogin(email, password);
 
-			goto('/dashboard');
-		} else {
-			// Handle signup
-			console.log('Signup:', { name, email, password });
+				goto('/dashboard');
+			} else {
+				// Handle signup
+				console.log('Signup:', { name, email, password });
+			}
+		} catch (error) {
+			alert(error);
+			console.error('Error:', error);
 		}
 	}
 </script>
@@ -77,7 +91,7 @@
 						type="email"
 						id="email"
 						bind:value={email}
-						placeholder="Enter your email"
+						placeholder="user@example.com"
 						class="input input-bordered w-full"
 						required
 					/>
@@ -92,7 +106,7 @@
 							type="password"
 							id="password"
 							bind:value={password}
-							placeholder="Enter your password"
+							placeholder="password"
 							class="input input-bordered w-full"
 							required
 						/>

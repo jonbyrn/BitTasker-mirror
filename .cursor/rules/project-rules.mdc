@@ -1,3 +1,8 @@
+---
+description: These are the overview of our entire project. What are we trying to build, What are the technologies, And what are our approaches are written in here.
+globs: 
+alwaysApply: false
+---
 # BitTasker Technical Specifications
 
 *Note: The official name of the application is "BitTasker" (capital 'B', capital 'T', no space). Please ensure all documentation, code, and marketing materials use this spelling consistently.*
@@ -843,36 +848,36 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 ## Documentation References
 
 ### Bitcoin Development
-- [Bitcoin Developer Documentation](https://developer.bitcoin.org/)
-- [Lightning Network Specifications](https://github.com/lightning/bolts)
-- [Liquid Network Documentation](https://docs.liquid.net/)
-- [LDK Documentation](https://lightningdevkit.org/)
+- [Bitcoin Developer Documentation](mdc:https:/developer.bitcoin.org)
+- [Lightning Network Specifications](mdc:https:/github.com/lightning/bolts)
+- [Liquid Network Documentation](mdc:https:/docs.liquid.net)
+- [LDK Documentation](mdc:https:/lightningdevkit.org)
 
 ### Nostr Protocol
-- [Nostr Protocol Specification](https://github.com/nostr-protocol/nostr)
-- [NIPs (Nostr Implementation Possibilities)](https://github.com/nostr-protocol/nips)
-- [Nostr Development Kit](https://github.com/nostr-dev-kit/ndk)
+- [Nostr Protocol Specification](mdc:https:/github.com/nostr-protocol/nostr)
+- [NIPs (Nostr Implementation Possibilities)](mdc:https:/github.com/nostr-protocol/nips)
+- [Nostr Development Kit](mdc:https:/github.com/nostr-dev-kit/ndk)
 
 ### Web & Mobile Development
-- [SvelteKit Documentation](https://kit.svelte.dev/docs)
-- [DaisyUI Documentation](https://daisyui.com/docs)
-- [Capacitor Documentation](https://capacitorjs.com/docs)
-- [TailwindCSS Documentation](https://tailwindcss.com/docs)
-- [IndexedDB for Client-side Storage](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
+- [SvelteKit Documentation](mdc:https:/kit.svelte.dev/docs)
+- [DaisyUI Documentation](mdc:https:/daisyui.com/docs)
+- [Capacitor Documentation](mdc:https:/capacitorjs.com/docs)
+- [TailwindCSS Documentation](mdc:https:/tailwindcss.com/docs)
+- [IndexedDB for Client-side Storage](mdc:https:/developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API)
 
 ### Security & Encryption
-- [Web Crypto API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
-- [OWASP Security Practices](https://owasp.org/www-project-web-security-testing-guide/)
-- [Public Key Cryptography Standards](https://www.rfc-editor.org/rfc/rfc8017)
+- [Web Crypto API](mdc:https:/developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+- [OWASP Security Practices](mdc:https:/owasp.org/www-project-web-security-testing-guide)
+- [Public Key Cryptography Standards](mdc:https:/www.rfc-editor.org/rfc/rfc8017)
 
 ### Localization & Internationalization
-- [Mozilla L10n Guide](https://developer.mozilla.org/en-US/docs/Mozilla/Localization)
-- [i18next Documentation](https://www.i18next.com/)
-- [Google Translate API](https://cloud.google.com/translate/docs)
+- [Mozilla L10n Guide](mdc:https:/developer.mozilla.org/en-US/docs/Mozilla/Localization)
+- [i18next Documentation](mdc:https:/www.i18next.com)
+- [Google Translate API](mdc:https:/cloud.google.com/translate/docs)
 
 ### Payment Processing
-- [Payment Request API](https://developer.mozilla.org/en-US/docs/Web/API/Payment_Request_API)
-- [Escrow System Design Patterns](https://www.sciencedirect.com/science/article/pii/S2405844018323363)
+- [Payment Request API](mdc:https:/developer.mozilla.org/en-US/docs/Web/API/Payment_Request_API)
+- [Escrow System Design Patterns](mdc:https:/www.sciencedirect.com/science/article/pii/S2405844018323363)
 
 ## Recommended Additional Features
 
