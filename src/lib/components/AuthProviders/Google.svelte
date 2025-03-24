@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { NostrRegistrationData } from '$lib/types/auth';
+	import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_GOOGLE_IOS_CLIENT_ID } from '$env/static/public';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
     import { bytesToHex } from '@noble/hashes/utils';
@@ -13,7 +14,6 @@
 		decryptNostrPrivateKeyWithUserId
 	} from '$lib/utils/helpers/auth';
 
-	const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);
@@ -130,8 +130,8 @@
 		if (isNative) {
 			await SocialLogin.initialize({
 				google: {
-					webClientId: GOOGLE_CLIENT_ID, // Use Web Client ID for all platforms
-					iOSClientId: 'IOS_CLIENT_ID', // for iOS
+					webClientId: PUBLIC_GOOGLE_CLIENT_ID, // Use Web Client ID for all platforms
+					iOSClientId: PUBLIC_GOOGLE_IOS_CLIENT_ID, // for iOS
 					// mode: 'offline' // replaces grantOfflineAccess
 				}
 			}).then(() => {
@@ -143,7 +143,7 @@
 		if (!window.google) return;
 
 		window.google.accounts.id.initialize({
-			client_id: GOOGLE_CLIENT_ID,
+			client_id: PUBLIC_GOOGLE_CLIENT_ID,
 			callback: handleGoogleCallback,
 			auto_select: false,
 			cancel_on_tap_outside: true
