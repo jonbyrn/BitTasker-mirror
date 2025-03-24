@@ -55,7 +55,6 @@ export const authState = createAuthStore();
 // Helper Functions
 export function isProfileComplete(profile: UserType): boolean {
     return Boolean(
-        profile.id &&
         profile.name &&
         profile.email &&
         profile.publicKey
