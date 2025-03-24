@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 
 	// Mock user data - in a real implementation, this would come from an API or Nostr
 	let user = {
@@ -200,11 +199,6 @@
 		const now = new Date();
 		return now.getFullYear() - then.getFullYear();
 	}
-
-	onMount(() => {
-		// In a real implementation, this would fetch profile data from Nostr or an API
-		console.log('UserProfile component mounted');
-	});
 </script>
 
 <div class="mx-auto max-w-5xl">

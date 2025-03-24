@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-
 	// Form fields
 	let title = $state('');
 	let description = $state('');
@@ -118,10 +116,6 @@
 			isSubmitting = false;
 		}
 	}
-
-	onMount(() => {
-		// Any initialization code can go here
-	});
 </script>
 
 <div class="card bg-base-100 mx-auto max-w-3xl shadow-xl">
@@ -187,10 +181,12 @@
 				<label for="description">
 					<span class="label">Description</span>
 					<textarea
-					id="description"
-					bind:value={description}
-					class="textarea textarea-bordered h-32 w-full {errors.description ? 'textarea-error' : ''}"
-					placeholder="Describe your task in detail"
+						id="description"
+						bind:value={description}
+						class="textarea textarea-bordered h-32 w-full {errors.description
+							? 'textarea-error'
+							: ''}"
+						placeholder="Describe your task in detail"
 					></textarea>
 				</label>
 				{#if errors.description}
@@ -303,21 +299,21 @@
 					<span class="label">Required Skills</span>
 					<div class="flex gap-2">
 						<input
-						type="text"
-						bind:value={newSkill}
-						class="input input-bordered w-full"
-						placeholder="Enter a required skill"
+							type="text"
+							bind:value={newSkill}
+							class="input input-bordered w-full"
+							placeholder="Enter a required skill"
 						/>
 						<button
-						type="button"
-						class="btn btn-primary"
-						onclick={addSkill}
-						disabled={!newSkill.trim()}
+							type="button"
+							class="btn btn-primary"
+							onclick={addSkill}
+							disabled={!newSkill.trim()}
 						>
-						Add
-					</button>
-				</div>
-			</label>
+							Add
+						</button>
+					</div>
+				</label>
 
 				{#if skills.length > 0}
 					<div class="mt-4 flex flex-wrap gap-2">
@@ -342,10 +338,10 @@
 				<label>
 					<span class="label">Attachments</span>
 					<input
-					type="file"
-					class="file-input file-input-bordered w-full"
-					onchange={handleFileUpload}
-					multiple
+						type="file"
+						class="file-input file-input-bordered w-full"
+						onchange={handleFileUpload}
+						multiple
 					/>
 				</label>
 

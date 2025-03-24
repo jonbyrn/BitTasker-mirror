@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import { deviceInfo } from '$lib/states/deviceInfo';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 
 	// Dashboard state
@@ -9,9 +9,8 @@
 	let { children } = $props();
 
 	$effect(() => {
-		const section = $page.url.pathname.split('/dashboard/')[1] || '';
+		const section = page.url.pathname.split('/dashboard/')[1] || '';
 		activeSection = section;
-		console.log('Section updated from URL:', section);
 	});
 </script>
 
@@ -37,6 +36,7 @@
 								{#each sections as section}
 									<li>
 										<a
+											data-sveltekit-reload="off"
 											href="/dashboard/{section.id}"
 											class:menu-active={activeSection === section.id}
 										>
