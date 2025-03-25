@@ -2,7 +2,14 @@
 	import NDK, { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { browser } from '$app/environment';
 	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-	import { getLoginChallenge, loginWithNostr } from '$lib/services/auth.service';
+	import {
+		checkRegistrationStatus,
+		getLoginChallenge,
+		loginWithNostr
+	} from '$lib/services/auth.service';
+	import { goto } from '$app/navigation';
+	import { Preferences } from '@capacitor/preferences';
+	import { user } from '$lib/states/user.store';
 
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
@@ -39,9 +46,9 @@
 
 		try {
 			const signer = new NDKNip07Signer();
-			const user = await signer.user();
+			const signerUser = await signer.user();
 
-			if (!user) {
+			if (!signerUser) {
 				throw new Error('No user returned from Nostr');
 			}
 
@@ -52,11 +59,24 @@
 				created_at: Math.floor(Date.now() / 1000),
 				content: challenge,
 				tags: [],
-				pubkey: user.pubkey
+				pubkey: signerUser.pubkey
 			};
 			const signedEvent = await signer.sign(event);
 
-			await loginWithNostr(user.pubkey, challenge, signedEvent);
+			const checkRegistration = await checkRegistrationStatus(signerUser.pubkey);
+			if (!checkRegistration.isRegistered) {
+				goto('/auth/recover?provider=alby&npub=' + signerUser.pubkey);
+			} else {
+				const res = await loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+				if (res.access_token) {
+					await Preferences.set({
+						key: 'access_token',
+						value: res.access_token
+					});
+					user.updateProfile(res.user);
+					goto('/dashboard');
+				}
+			}
 		} catch (err) {
 			console.error('Nostr login error:', err);
 			error = (err as Error)?.message || 'Failed to sign in with Nostr';

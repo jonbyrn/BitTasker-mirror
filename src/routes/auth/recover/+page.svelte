@@ -1,16 +1,26 @@
 <script lang="ts">
-	import type { AxiosError } from 'axios';
+	import type { NostrRegistrationData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import { registerWithNostr } from '$lib/services/auth.service';
-	import { validatePassword } from '$lib/utils/helpers/validators';
+	import { getLoginChallenge, loginWithNostr, registerWithNostr } from '$lib/services/auth.service';
+	import {
+		validateEmail,
+		validateName,
+		validateNostrPrivateKey,
+		validatePassword
+	} from '$lib/utils/helpers/validators';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
-	
-	const email = page.url.searchParams.get('email') || '';
+	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
+	import { Preferences } from '@capacitor/preferences';
+	import { user } from '$lib/states/user.store';
 
+	const provider = page.url.searchParams.get('provider') || '';
+	let npub = $state(page.url.searchParams.get('npub') || '');
+	let nsec = $state(page.url.searchParams.get('nsec') || '');
 	let name = $state('');
+	let email = $state('');
 	let password = $state('');
 	let confirmPassword = $state('');
 	let isLoading = $state(false);
@@ -25,6 +35,23 @@
 			error = '';
 			passwordError = '';
 
+			if (!name || !email || !password || !confirmPassword) {
+				error = 'All fields are required';
+				return;
+			}
+
+			const emailValidation = validateEmail(email);
+			if (!emailValidation.isValid) {
+				error = emailValidation.error!;
+				return;
+			}
+
+			const nameValidation = validateName(name);
+			if (!nameValidation.isValid) {
+				error = nameValidation.error!;
+				return;
+			}
+
 			if (password !== confirmPassword) {
 				passwordError = 'Passwords do not match';
 				return;
@@ -36,25 +63,61 @@
 				return;
 			}
 
-			// Generate Nostr keypair
-			const sk = generateSecretKey();
-			const pk = getPublicKey(sk);
-			const npriv = bytesToHex(sk);
-			const { encrypted, salt } = await encryptNostrPrivateKeyWithPassword(npriv, password);
+			if (npub || nsec) {
+				const validateNsec = validateNostrPrivateKey(nsec);
+				if (!validateNsec.isValid) {
+					error = validateNsec.error!;
+					return;
+				}
+			} else {
+				// Generate Nostr keypair
+				const sk = generateSecretKey();
+				const npriv = bytesToHex(sk);
+				nsec = npriv;
+				npub = getPublicKey(sk);
+			}
 
-			const res = await registerWithNostr({
+			const { encrypted, salt } = await encryptNostrPrivateKeyWithPassword(nsec, password);
+
+			const data: NostrRegistrationData = {
 				name,
 				email,
-				publicKey: pk,
+				publicKey: npub,
 				encryptedPrivateKey: encrypted.data,
 				iv: encrypted.iv,
+				authTag: encrypted.authTag,
 				salt: salt,
-				authTag: 'auth-tag-data',
-				iterations: 100000,
-				useBiometrics: false // Password-based registration
-			});
+				iterations: 100000
+			};
+			if (provider === 'passkey') data.authMethod = 'passkey';
+			const res = await registerWithNostr(data);
 
-			goto('/dashboard');
+			if (res.publicKey) {
+				const { challenge } = await getLoginChallenge();
+				const signer = new NDKNip07Signer();
+				const signerUser = await signer.user();
+				if (!signerUser) {
+					throw new Error('No user returned from Nostr');
+				}
+				const event = {
+					kind: 22242,
+					created_at: Math.floor(Date.now() / 1000),
+					content: challenge,
+					tags: [],
+					pubkey: signerUser.pubkey
+				};
+				const signedEvent = await signer.sign(event);
+
+				const res = await loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+				if (res.access_token) {
+					await Preferences.set({
+						key: 'access_token',
+						value: res.access_token
+					});
+					user.updateProfile(res.user);
+					goto('/dashboard');
+				}
+			}
 		} catch (err: any) {
 			error = err.response?.data?.message || 'Registration failed';
 			console.error(err);
@@ -93,14 +156,66 @@
 
 			{#if error}
 				<div class="alert alert-error">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
 					</svg>
 					<span>{error}</span>
 				</div>
 			{/if}
 
 			<form onsubmit={handleSubmit} class="space-y-4">
+				<div class="form-control space-y-1">
+					<label class="label" for="nsec">
+						<span class="label-text">Private key</span>
+					</label>
+					<input
+						type="password"
+						id="nsec"
+						bind:value={nsec}
+						placeholder="Enter your private nostr key"
+						class="input input-bordered w-full"
+						required
+					/>
+				</div>
+
+				<div class="form-control space-y-1">
+					<label class="label" for="name">
+						<span class="label-text">Name</span>
+					</label>
+					<input
+						type="text"
+						id="name"
+						bind:value={name}
+						placeholder="Enter your name"
+						class="input input-bordered w-full"
+						required
+					/>
+				</div>
+
+				<div class="form-control space-y-1">
+					<label class="label" for="email">
+						<span class="label-text">Email</span>
+					</label>
+					<input
+						type="email"
+						id="email"
+						bind:value={email}
+						placeholder="Enter your email"
+						class="input input-bordered w-full"
+						required
+					/>
+				</div>
+
 				<div class="form-control space-y-1">
 					<label class="label" for="password">
 						<span class="label-text">Recovery Password</span>

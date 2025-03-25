@@ -1,12 +1,11 @@
 import { writable } from 'svelte/store';
-import type { UserType, AuthState } from '$lib/types/user';
+import type { UserData, AuthState } from '$lib/types/auth';
 
 // Initial States
-const initialProfile: UserType = {
-    id: '',
+const initialProfile: UserData = {
     name: '',
     email: '',
-    publicKey: '',
+    npub: '',
     createdAt: new Date(),
     updatedAt: new Date()
 };
@@ -18,13 +17,13 @@ const initialAuthState: AuthState = {
 };
 
 const createUserStore = () => {
-    const { subscribe, set, update } = writable<UserType>(initialProfile);
+    const { subscribe, set, update } = writable<UserData>(initialProfile);
 
     return {
         subscribe,
         set,
         update,
-        updateProfile: (profile: Partial<UserType>) => 
+        updateProfile: (profile: Partial<UserData>) =>
             update(state => ({
                 ...state,
                 ...profile,
@@ -43,7 +42,7 @@ const createAuthStore = () => {
             update(state => ({ ...state, isLoading: loading })),
         setError: (error: string | null) =>
             update(state => ({ ...state, error })),
-        login: (profile: UserType) =>
+        login: (profile: UserData) =>
             update(state => ({ ...state, isAuthenticated: true, error: null })),
         logout: () => set(initialAuthState)
     };
@@ -53,10 +52,9 @@ export const user = createUserStore();
 export const authState = createAuthStore();
 
 // Helper Functions
-export function isProfileComplete(profile: UserType): boolean {
+export function isProfileComplete(profile: UserData): boolean {
     return Boolean(
         profile.name &&
-        profile.email &&
-        profile.publicKey
+        profile.email
     );
 }

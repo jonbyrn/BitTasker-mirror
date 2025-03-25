@@ -45,8 +45,7 @@
                     id: response.client_id,
                     email,
                     name,
-                    publicKey: nostrKey.publicKey,
-                    privateKey: decryptedPrivateKey,
+                    npub: nostrKey.publicKey,
                     createdAt: new Date(userData.createdAt),
                     updatedAt: new Date(userData.updatedAt)
                 });

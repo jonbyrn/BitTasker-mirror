@@ -1,6 +1,4 @@
 <script lang="ts">
-	import type { ApiResponse, AuthResponse, UserAuthData } from '$lib/types/auth';
-	import type { UserType } from '$lib/types/user';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
@@ -9,12 +7,17 @@
 		getBiometricData,
 		setBiometricKey
 	} from '$lib/utils/helpers/biometrics';
-	import { getLoginChallenge, loginWithNostr, registerWithNostr } from '$lib/services/auth.service';
+	import {
+		getLoginChallenge,
+		loginWithPasskey,
+		registerPasskeyDevice
+	} from '$lib/services/auth.service';
 	import { signLoginChallenge, decryptPrivateKeyWithBiometrics } from '$lib/utils/helpers/auth';
-	import { bytesToBase64, bytesToHex } from '$lib/utils/helpers/encoding';
+	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { encrypt, exportKey, generateRandomKey } from '$lib/utils/helpers/crypto';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { user, isProfileComplete } from '$lib/states/user.store';
+	import { user } from '$lib/states/user.store';
+	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 
@@ -22,20 +25,64 @@
 	let isLoading: boolean = $state(false);
 	let isBiometricAvailable: boolean = $state(false);
 
-	function transformUserData(authData: UserAuthData): UserType {
-		return {
-			id: authData.id.toString(),
-			name: authData.name,
-			email: authData.email,
-			publicKey: authData.nostrKey?.publicKey || '',
-			createdAt: new Date(authData.createdAt),
-			updatedAt: new Date(authData.updatedAt)
-		};
-	}
-
 	onMount(async () => {
 		isBiometricAvailable = await checkBiometricAvailability();
 	});
+
+	const registerWithPasskey = async (deviceId: string) => {
+		const sk = generateSecretKey();
+		const npub = getPublicKey(sk);
+		const nsec = bytesToHex(sk);
+		const encryptionKey = await generateRandomKey();
+		const encryptedData = await encrypt(nsec, encryptionKey);
+		const exportedKey = await exportKey(encryptionKey);
+		const deviceName = await getDeviceName();
+
+		const response = await registerPasskeyDevice(npub, deviceId, deviceName);
+		console.log({ response });
+
+		const success = await setBiometricKey(npub, {
+			key: exportedKey,
+			iv: encryptedData.iv,
+			authTag: encryptedData.authTag,
+			data: encryptedData.data
+		});
+
+		if (!success) {
+			error = 'Failed to set up biometric authentication';
+			return;
+		}
+
+		if(response.userId && response.deviceId) {
+			goto(`/auth/recover?npub=${npub}&nsec=${nsec}`);
+		}
+	};
+
+	const loginWithBiometric = async (pubKey: string, encryptedKey: string, deviceId: string) => {
+		const { challenge } = await getLoginChallenge();
+		const privateKey = await decryptPrivateKeyWithBiometrics(encryptedKey);
+		const signedChallenge = await signLoginChallenge(challenge, privateKey);
+		if (!signedChallenge) {
+			error = 'Failed to sign login challenge';
+			return;
+		}
+		const response = await loginWithPasskey(pubKey, deviceId);
+		console.log({ response });
+
+		if (!response.access_token) {
+			error = 'No access token received from server';
+			return;
+		}
+
+		// Store access token securely
+		await Preferences.set({
+			key: 'access_token',
+			value: response.access_token
+		});
+		
+		user.updateProfile(response.user);
+		goto('/dashboard');
+	};
 
 	async function handleBiometricAuth() {
 		try {
@@ -43,93 +90,13 @@
 			error = '';
 
 			const biometricData = await getBiometricData();
+			const deviceId = await getDeviceIdentifier();
 
 			if (!biometricData) {
-				// Registration flow
-				const sk = generateSecretKey();
-				const pk = getPublicKey(sk);
-				const privateKeyHex = bytesToHex(sk);
-				const encryptionKey = await generateRandomKey();
-				const encryptedData = await encrypt(privateKeyHex, encryptionKey);
-				const exportedKey = await exportKey(encryptionKey);
-				const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-
-				const response = (await registerWithNostr({
-					publicKey: pk,
-					encryptedPrivateKey: encryptedData.data,
-					iv: encryptedData.iv,
-					authTag: encryptedData.authTag,
-					salt: bytesToBase64(saltBytes),
-					iterations: 100000,
-					authMethod: 'passkey'
-				})) as ApiResponse<AuthResponse>;
-				console.log({ response });
-
-				const success = await setBiometricKey(pk, {
-					key: exportedKey,
-					iv: encryptedData.iv,
-					authTag: encryptedData.authTag,
-					data: encryptedData.data
-				});
-
-				if (!success) {
-					error = 'Failed to set up biometric authentication';
-					return;
-				}
-
-				if (!response.access_token) {
-					error = 'No access token received from server';
-					return;
-				}
-
-				// Store access token securely
-				await Preferences.set({
-					key: 'access_token',
-					value: response.access_token
-				});
-
-				// Update user store with profile data
-				const userData = response.data?.user;
-				if (userData) {
-					const transformedUser = transformUserData(userData);
-					user.updateProfile(transformedUser);
-					goto('/recover');
-				} else {
-					error = 'No user data received from server';
-				}
+				await registerWithPasskey(deviceId);
 			} else {
-				// Login flow
 				const { username: pubKey, password: encryptedKey } = biometricData;
-				const { challenge } = await getLoginChallenge();
-				const privateKey = await decryptPrivateKeyWithBiometrics(encryptedKey);
-				const signedChallenge = await signLoginChallenge(challenge, privateKey);
-				const response = (await loginWithNostr(
-					pubKey,
-					challenge,
-					signedChallenge
-				)) as ApiResponse<AuthResponse>;
-				console.log({ response });
-
-				if (!response.access_token) {
-					error = 'No access token received from server';
-					return;
-				}
-
-				// Store access token securely
-				await Preferences.set({
-					key: 'access_token',
-					value: response.access_token
-				});
-
-				// Update user store with profile data
-				const userData = response.data?.user;
-				if (userData) {
-					const transformedUser = transformUserData(userData);
-					user.updateProfile(transformedUser);
-					goto(isProfileComplete(transformedUser) ? '/dashboard' : '/profile');
-				} else {
-					error = 'No user data received from server';
-				}
+				await loginWithBiometric(pubKey, encryptedKey, deviceId);
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);

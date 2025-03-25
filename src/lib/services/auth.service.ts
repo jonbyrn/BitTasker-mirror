@@ -1,4 +1,4 @@
-import type { NostrRegistrationData, ApiResponse } from '$lib/types/auth';
+import type { NostrRegistrationData, UserData } from '$lib/types/auth';
 import createAxiosInstance from '$lib/api/axios';
 import axios from 'axios';
 
@@ -19,9 +19,9 @@ const authApi = createAxiosInstance({
  * @throws {Error} 401 - Invalid signature or unauthorized access
  * @throws {Error} 500 - Internal server error
  */
-export const loginWithNostr = async (pubkey: string, challenge: string, signature: string): Promise<ApiResponse<any>> => {
+export const loginWithNostr = async (pubkey: string, challenge: string, signature: string): Promise<{ access_token: string; user: UserData }> => {
     try {
-    const response = await authApi.post(`${API_PATH}/nostr/login`, { pubkey, challenge, signature });
+        const response = await authApi.post(`${API_PATH}/nostr/login`, { pubkey, challenge, signature });
         return response.data;
     } catch (error: any) {
         if (error?.response?.status === 400) {
@@ -33,7 +33,7 @@ export const loginWithNostr = async (pubkey: string, challenge: string, signatur
         if (error?.response?.status === 500) {
             throw new Error('Internal server error. Please try again later.');
         }
-        
+
         throw new Error('Login failed. Please try again.');
     }
 };
@@ -46,7 +46,7 @@ export const loginWithNostr = async (pubkey: string, challenge: string, signatur
  * @throws 400 - Bad Request or missing required data
  * @throws 401 - Unauthorized - Invalid email or password
  */
-export const loginWithCredentials = async (email: string, password: string): Promise<ApiResponse<any>> => {
+export const loginWithCredentials = async (email: string, password: string): Promise<{ access_token: string; user: UserData }> => {
     const response = await authApi.post(`${API_PATH}/login`, { email, password });
     return response.data;
 };
@@ -61,7 +61,7 @@ export const loginWithCredentials = async (email: string, password: string): Pro
  * @throws {Error} 422 - Invalid encryption data format
  * @throws {Error} 500 - Internal server error
  */
-export const registerWithNostr = async (registrationData: NostrRegistrationData): Promise<ApiResponse<any>> => {
+export const registerWithNostr = async (registrationData: NostrRegistrationData): Promise<{ publicKey: string; user: UserData }> => {
     try {
         // Validate required fields
         if (!registrationData.publicKey || !registrationData.encryptedPrivateKey) {
@@ -94,7 +94,7 @@ export const registerWithNostr = async (registrationData: NostrRegistrationData)
  * @throws 400 - Bad Request or missing required encryption data
  * @throws 409 - Email already in use
  */
-export const authenticateWithGoogle = async (credential: string): Promise<any> => {
+export const authenticateWithGoogle = async (credential: string): Promise<{ access_token: string; user: UserData }> => {
     const response = await authApi.post(`${API_PATH}/google/login`, { access_token: credential });
     return response.data;
 };
@@ -106,7 +106,7 @@ export const authenticateWithGoogle = async (credential: string): Promise<any> =
  * @throws 400 - Bad Request or missing required encryption data
  * @throws 409 - Email already in use
  */
-export const authenticateWithFacebook = async (credential: string): Promise<ApiResponse<any>> => {
+export const authenticateWithFacebook = async (credential: string): Promise<{ access_token: string; user: UserData }> => {
     const response = await authApi.post(`${API_PATH}/facebook/login`, { access_token: credential });
     return response.data;
 };
@@ -116,11 +116,7 @@ export const authenticateWithFacebook = async (credential: string): Promise<ApiR
  * @param accessToken Access token from user login
  * @returns Promise with encrypted Nostr key data
  */
-export async function getEncryptedKeysWithToken(accessToken: string): Promise<{
-    publicKey: string;
-    encryptedPrivateKey: string;
-    iv: string;
-}> {
+export async function getEncryptedKeysWithToken(accessToken: string): Promise<{ publicKey: string; encryptedPrivateKey: string; iv: string; }> {
     const authApiWithAccessToken = createAxiosInstance({
         baseURL: API_URL,
         headers: {
@@ -139,4 +135,44 @@ export async function getEncryptedKeysWithToken(accessToken: string): Promise<{
 export async function getLoginChallenge(): Promise<{ challenge: string; message: string }> {
     const response = await axios.get(`${API_PATH}/nostr/challenge`);
     return response.data;
+}
+
+/**
+ * Check registration status for a user
+ * @param publicKey User's Nostr public key
+ * @returns Promise with registration status data
+ * @throws 400 - Bad Request or missing required encryption data
+ * @throws 404 - User not found
+ * @throws 500 - Internal Server Error
+ */
+export async function checkRegistrationStatus(publicKey: string): Promise<{ isRegistered: boolean; hasEmail: boolean; onboardingComplete: boolean; }> {
+    const response = await authApi.post(`${API_PATH}/check-registration`, { publicKey });
+    return response.data;
+}
+
+/**
+ * Register a new passkey device for biometric authentication
+ * @param publicKey User's Nostr public key
+ * @param deviceId Unique device identifier
+ * @param deviceName Device name
+ * @returns Promise with passkey registration response
+ */
+export async function registerPasskeyDevice(publicKey: string, deviceId: string, deviceName: string): Promise<{ id: number; userId: number; deviceId: string; deviceName: string; createdAt: string; lastUsed: string; revokedAt: string }> {
+    const response = await authApi.post(`${API_PATH}/register/passkey-device`, { publicKey, deviceId, deviceName });
+    return response.data;
+}
+
+/**
+ * Login with biometric authentication
+ * @param publicKey User's Nostr public key
+ * @param deviceId Unique device identifier
+ * @returns Promise with authentication response
+ */
+export async function loginWithPasskey(publicKey: string, deviceId: string): Promise<{ user: UserData; access_token: string; }> {
+    const response = await authApi.post(`${API_PATH}/login/passkey`, { publicKey, deviceId });
+    return response.data;
+}
+
+export async function revokePasskeyDevice(publicKey: string, deviceId: string): Promise<void> {
+    await authApi.post(`${API_PATH}/revoke-device`, { publicKey, deviceId });
 }

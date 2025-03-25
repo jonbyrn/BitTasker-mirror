@@ -50,24 +50,26 @@ export interface NostrKeyData {
 	deleted: boolean;
 }
 
-export interface UserAuthData {
-	id: number;
+export interface UserData {
+	id?: number;
 	email: string;
 	name: string;
-	password: string | null;
-	isEmailVerified: boolean;
-	lastLoginAt: string;
-	status: 'ACTIVE' | 'INACTIVE';
-	userRole: 'CLIENT' | 'ADMIN';
-	createdAt: string;
-	updatedAt: string;
-	deletedAt: string | null;
-	deleted: boolean;
-	nostrKey: NostrKeyData;
+	npub: string;
+	password?: string | null;
+	onboardingComplete?: boolean;
+	isEmailVerified?: boolean;
+	lastLoginAt?: string;
+	status?: 'ACTIVE' | 'INACTIVE';
+	userRole?: 'CLIENT' | 'ADMIN';
+	createdAt?: Date;
+	updatedAt?: Date;
+	deletedAt?: Date;
+	deleted?: boolean;
+	nostrKey?: NostrKeyData;
 }
 
 export interface AuthResponse {
-    user: UserAuthData;
+    user: UserData;
     access_token: string;
 }
 
@@ -79,17 +81,30 @@ export interface LoginResponse {
     token: string;
 }
 
-// Generic API response wrapper
-export interface ApiResponse<T> {
-    data: T;
-    message: string;
-    credential?: string; // For Google auth responses
-    access_token?: string; // For authentication responses
-    token?: string; // For authentication responses
-}
-
 export interface EncryptedData {
     data: string;
     iv: string;
     authTag: string;
+}
+
+export interface BiometricVerifyOptions {
+    reason: string;
+    title: string;
+    subtitle: string;
+    description: string;
+    maxAttempts: number;
+    useFallback: boolean;
+}
+
+export interface EncryptionData {
+    key: string;
+    iv: string;
+    authTag: string;
+    data: string;
+}
+
+export interface AuthState {
+    isAuthenticated: boolean;
+    isLoading: boolean;
+    error: string | null;
 }
