@@ -131,3 +131,8 @@
     --depth: 1;
     --noise: 1;
 }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 500ms;
+}

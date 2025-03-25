@@ -81,6 +81,7 @@
 		"date-fns": "^4.1.0",
 		"iconify-icon": "^2.3.0",
 		"nostr-tools": "^2.11.0",
-		"swiper": "^11.2.6"
+		"swiper": "^11.2.6",
+		"zod": "^3.24.2"
 	}
 }

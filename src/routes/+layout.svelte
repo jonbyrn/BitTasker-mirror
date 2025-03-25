@@ -40,3 +40,7 @@
 	{/if}
 	{@render children()}
 </main>
+
+<footer class="bg-base-300 text-base-content/70 py-4 text-center">
+	<p>© 2023 BitTasker. All rights reserved.</p>
+</footer>

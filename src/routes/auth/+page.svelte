@@ -20,6 +20,7 @@
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
+	import BottomNavBar from '$lib/components/NavBar.svelte';
 
 	let error: string = $state('');
 	let isLoading: boolean = $state(false);
@@ -53,7 +54,7 @@
 			return;
 		}
 
-		if(response.userId && response.deviceId) {
+		if (response.userId && response.deviceId) {
 			goto(`/auth/recover?npub=${npub}&nsec=${nsec}`);
 		}
 	};
@@ -79,7 +80,7 @@
 			key: 'access_token',
 			value: response.access_token
 		});
-		
+
 		user.updateProfile(response.user);
 		authState.login();
 		goto('/dashboard');
@@ -109,6 +110,7 @@
 </script>
 
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
+	<BottomNavBar />
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>
