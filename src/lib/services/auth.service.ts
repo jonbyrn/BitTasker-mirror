@@ -128,6 +128,18 @@ export async function getEncryptedKeysWithToken(accessToken: string): Promise<{ 
     return response.data;
 }
 
+export async function getUserProfile(accessToken: string): Promise<UserData> {
+    const authApiWithAccessToken = createAxiosInstance({
+        baseURL: API_URL,
+        headers: {
+            Authorization: `Bearer ${accessToken}`
+        }
+    });
+
+    const response = await authApiWithAccessToken.get(`${API_PATH}/profile`);
+    return response.data;
+}
+
 /**
  * Get login challenge for a user
  * @returns Promise with login challenge data
@@ -173,6 +185,12 @@ export async function loginWithPasskey(publicKey: string, deviceId: string): Pro
     return response.data;
 }
 
+/**
+ * Revoke a passkey device for biometric authentication
+ * @param publicKey User's Nostr public key
+ * @param deviceId Unique device identifier
+ * @returns Promise with revocation response
+ */
 export async function revokePasskeyDevice(publicKey: string, deviceId: string): Promise<void> {
     await authApi.post(`${API_PATH}/revoke-device`, { publicKey, deviceId });
 }

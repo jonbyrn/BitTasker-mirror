@@ -60,23 +60,6 @@ export async function decryptNostrPrivateKeyWithUserId(
     }
 }
 
-export async function decryptNostrPrivateKeyWithPassword(
-    encryptedData: EncryptedData,
-    recoveryPassword: string,
-    salt: string
-): Promise<string> {
-    try {
-        // Derive key from recovery password
-        const saltBytes = base64ToBytes(salt);
-        const recoveryKey = await deriveKeyFromPassword(recoveryPassword, saltBytes);
-
-        // Decrypt the private key
-        return await decrypt(encryptedData, recoveryKey);
-    } catch (error) {
-        throw new Error('Failed to decrypt Nostr private key with recovery password');
-    }
-}
-
 export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Promise<string> {
     try {
         // Parse the stored encryption data
