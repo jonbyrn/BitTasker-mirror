@@ -1,5 +1,6 @@
-import { writable } from 'svelte/store';
 import type { UserData, AuthState } from '$lib/types/auth';
+import { writable } from 'svelte/store';
+import { Preferences } from '@capacitor/preferences';
 
 // Initial States
 const initialProfile: UserData = {
@@ -42,9 +43,13 @@ const createAuthStore = () => {
             update(state => ({ ...state, isLoading: loading })),
         setError: (error: string | null) =>
             update(state => ({ ...state, error })),
-        login: (profile: UserData) =>
+        login: () =>
             update(state => ({ ...state, isAuthenticated: true, error: null })),
-        logout: () => set(initialAuthState)
+        logout: async () => {
+            await Preferences.remove({ key: 'access_token' });
+            user.reset();
+            set(initialAuthState);
+        }
     };
 };
 

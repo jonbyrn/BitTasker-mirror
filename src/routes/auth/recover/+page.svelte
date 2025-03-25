@@ -14,7 +14,7 @@
 	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/states/user.store';
+	import { authState, user } from '$lib/states/user.store';
 
 	const provider = page.url.searchParams.get('provider') || '';
 	let npub = $state(page.url.searchParams.get('npub') || '');
@@ -115,6 +115,7 @@
 						value: res.access_token
 					});
 					user.updateProfile(res.user);
+					authState.login();
 					goto('/dashboard');
 				}
 			}

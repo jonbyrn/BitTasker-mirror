@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { isAuthenticated, authLoading } from '$lib/stores/auth';
-	const { children } = $props();
+	import { authState } from '$lib/states/user.store';
+	
+  const { children } = $props();
 </script>
 
-{#if $authLoading}
+{#if $authState.isLoading}
 	<div class="flex h-full w-full flex-col items-center justify-center">
 		<span class="loading loading-spinner loading-xl"></span>
 		<p>Loading...</p>
 	</div>
-{:else if $isAuthenticated}
+{:else if $authState.isAuthenticated}
 	{@render children()}
 {:else}
 	<!-- This shouldn't be seen since the +layout.ts should redirect -->

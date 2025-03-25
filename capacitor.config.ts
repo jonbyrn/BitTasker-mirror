@@ -5,9 +5,8 @@ const config: CapacitorConfig = {
 	appName: 'bittasker',
 	webDir: 'build',
 	server: {
-		url: 'https://sour-mails-greet.loca.lt',
-		cleartext: true,
-		androidScheme: 'https'
+		url: process.env.VITE_CLIENT_URL,
+		cleartext: true
 	},
 	plugins: {
 		StatusBar: {

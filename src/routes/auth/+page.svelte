@@ -16,7 +16,7 @@
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { encrypt, exportKey, generateRandomKey } from '$lib/utils/helpers/crypto';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { user } from '$lib/states/user.store';
+	import { user, authState } from '$lib/states/user.store';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
@@ -81,6 +81,7 @@
 		});
 		
 		user.updateProfile(response.user);
+		authState.login();
 		goto('/dashboard');
 	};
 

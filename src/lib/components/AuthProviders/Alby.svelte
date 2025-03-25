@@ -9,7 +9,7 @@
 	} from '$lib/services/auth.service';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/states/user.store';
+	import { authState, user } from '$lib/states/user.store';
 
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
@@ -74,6 +74,7 @@
 						value: res.access_token
 					});
 					user.updateProfile(res.user);
+					authState.login();
 					goto('/dashboard');
 				}
 			}

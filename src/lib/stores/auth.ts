@@ -183,11 +183,5 @@ export async function logout(): Promise<void> {
   // await fetch('https://your-api.com/auth/logout', {...});
 }
 
-// Function to get stored token (useful for API calls)
-export async function getToken(): Promise<string | null> {
-  const { value } = await Preferences.get({ key: 'access_token' });
-  return value;
-}
-
 // Initialize auth when this module is imported
-initAuth();
+// initAuth();
