@@ -28,18 +28,18 @@ export const authLoading: Writable<boolean> = writable(true);
 export async function initAuth(): Promise<void> {
   // Set loading state immediately
   authLoading.set(true);
-  
+
   try {
     let storedToken: string | null = null;
-    
+
     if (Capacitor.isNativePlatform()) {
       // Add a small delay to ensure loading screen shows
       // This prevents the flash of content
       await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const { value } = await Preferences.get({ key: 'auth_token' });
+
+      const { value } = await Preferences.get({ key: 'access_token' });
       storedToken = value;
-      
+
       if (storedToken) {
         const { value: userValue } = await Preferences.get({ key: 'auth_user' });
         const userData: User | null = userValue ? JSON.parse(userValue) : null;
@@ -49,15 +49,15 @@ export async function initAuth(): Promise<void> {
       // Fallback to localStorage for web
       // Add a small delay to ensure loading screen shows
       await new Promise(resolve => setTimeout(resolve, 100));
-      
-      storedToken = localStorage.getItem('auth_token');
-      
+
+      storedToken = localStorage.getItem('access_token');
+
       if (storedToken) {
         const userData: User | null = JSON.parse(localStorage.getItem('auth_user') || 'null');
         user.set(userData);
       }
     }
-    
+
     token.set(storedToken);
   } catch (error) {
     console.error('Failed to initialize auth:', error);
@@ -79,8 +79,8 @@ export interface LoginResponse {
 
 // Login function - call your API here
 export async function login(
-  email: string, 
-  password: string, 
+  email: string,
+  password: string,
   apiUrl: string = 'https://your-api.com/auth/login'
 ): Promise<LoginResponse> {
   authLoading.set(true);
@@ -93,26 +93,26 @@ export async function login(
       },
       body: JSON.stringify({ email, password }),
     });
-    
+
     const data = await response.json();
-    
+
     if (!response.ok) {
       throw new Error(data.message || 'Login failed');
     }
-    
+
     // Store the user data and token
     user.set(data.user);
     token.set(data.token);
-    
+
     // Save to storage
     if (Capacitor.isNativePlatform()) {
-      await Preferences.set({ key: 'auth_token', value: data.token });
+      await Preferences.set({ key: 'access_token', value: data.token });
       await Preferences.set({ key: 'auth_user', value: JSON.stringify(data.user) });
     } else {
-      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('access_token', data.token);
       localStorage.setItem('auth_user', JSON.stringify(data.user));
     }
-    
+
     return data as LoginResponse;
   } catch (error) {
     console.error('Login error:', error);
@@ -125,10 +125,10 @@ export async function login(
 // For demo purposes - simple credential validation (REMOVE in production)
 export async function mockLogin(email: string, password: string): Promise<LoginResponse> {
   authLoading.set(true);
-  
+
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 800));
-  
+
   try {
     // Demo validation - REPLACE with real API call in production
     if (email === 'user@example.com' && password === 'password') {
@@ -138,20 +138,20 @@ export async function mockLogin(email: string, password: string): Promise<LoginR
         email,
         name: 'Demo User',
       };
-      
+
       // Store the user data and token
       user.set(mockUser);
       token.set(mockToken);
-      
+
       // Save to storage
       if (Capacitor.isNativePlatform()) {
-        await Preferences.set({ key: 'auth_token', value: mockToken });
+        await Preferences.set({ key: 'access_token', value: mockToken });
         await Preferences.set({ key: 'auth_user', value: JSON.stringify(mockUser) });
       } else {
-        localStorage.setItem('auth_token', mockToken);
+        localStorage.setItem('access_token', mockToken);
         localStorage.setItem('auth_user', JSON.stringify(mockUser));
       }
-      
+
       return { user: mockUser, token: mockToken };
     } else {
       throw new Error('Invalid email or password');
@@ -169,33 +169,19 @@ export async function logout(): Promise<void> {
   // Clear auth stores
   user.set(null);
   token.set(null);
-  
+
   // Clear storage
   if (Capacitor.isNativePlatform()) {
-    await Preferences.remove({ key: 'auth_token' });
-    await Preferences.remove({ key: 'auth_user' });
+    await Preferences.remove({ key: 'access_token' });
+    await Preferences.remove({ key: 'access_token' });
   } else {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_user');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('access_token');
   }
-  
+
   // Optional: Call logout API endpoint
   // await fetch('https://your-api.com/auth/logout', {...});
 }
 
-// Function to get stored token (useful for API calls)
-export async function getToken(): Promise<string | null> {
-  let currentToken: string | null = null;
-  
-  if (Capacitor.isNativePlatform()) {
-    const { value } = await Preferences.get({ key: 'auth_token' });
-    currentToken = value;
-  } else {
-    currentToken = localStorage.getItem('auth_token');
-  }
-  
-  return currentToken;
-}
-
 // Initialize auth when this module is imported
-initAuth();
+// initAuth();

@@ -32,9 +32,8 @@ const createAxiosInstance = (config: RequestConfig = {}) => {
 		(response) => response,
 		async (error) => {
 			if (error.response?.status === 401) {
-				// Handle unauthorized access
+				// Only clear local storage, let components handle their own redirects
 				localStorage.removeItem('nostrKeys');
-				window.location.href = '/auth/login';
 			}
 			return Promise.reject(error);
 		}

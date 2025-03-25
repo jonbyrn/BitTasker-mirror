@@ -8,6 +8,16 @@ export function isValidEmail(email: string): boolean {
 	return emailRegex.test(email);
 }
 
+export function validateEmail(email: string): ValidationResult {
+	if (!email) {
+		return { isValid: false, error: 'Email is required' };
+	}
+	if (!isValidEmail(email)) {
+		return { isValid: false, error: 'Please enter a valid email address' };
+	}
+	return { isValid: true };
+}
+
 export function validateName(name: string): ValidationResult {
 	if (!name) {
 		return { isValid: false, error: 'Full name is required' };
@@ -36,16 +46,6 @@ export function validateName(name: string): ValidationResult {
 	return { isValid: true };
 }
 
-export function validateEmail(email: string): ValidationResult {
-	if (!email) {
-		return { isValid: false, error: 'Email is required' };
-	}
-	if (!isValidEmail(email)) {
-		return { isValid: false, error: 'Please enter a valid email address' };
-	}
-	return { isValid: true };
-}
-
 export function validatePassword(password: string): ValidationResult {
 	if (!password) {
 		return { isValid: false, error: 'Password is required' };
@@ -66,4 +66,23 @@ export function validatePassword(password: string): ValidationResult {
 		return { isValid: false, error: 'Password must contain at least one special character' };
 	}
 	return { isValid: true };
+}
+
+export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error?: string } {
+    // Check if it's a valid bech32 nsec format
+    if (!nsec.startsWith('nsec1')) {
+        return { isValid: false, error: 'Nostr private key must start with nsec1' };
+    }
+
+    // Bech32 nsec keys are typically around 63 characters
+    if (nsec.length < 60 || nsec.length > 65) {
+        return { isValid: false, error: 'Invalid Nostr private key length' };
+    }
+	
+    // Only allow valid bech32 characters
+    if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(nsec)) {
+        return { isValid: false, error: 'Invalid characters in Nostr private key' };
+    }
+
+    return { isValid: true };
 }

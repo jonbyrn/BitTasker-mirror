@@ -1,67 +1,148 @@
 <script lang="ts">
+	import type { NostrRegistrationData } from '$lib/types/auth';
+	import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_GOOGLE_IOS_CLIENT_ID } from '$env/static/public';
 	import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+    import { bytesToHex } from '@noble/hashes/utils';
+	import { user, authState } from '$lib/states/user.store';
+    import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+    import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
+	import { SocialLogin } from '@capgo/capacitor-social-login';
+	import { Capacitor } from '@capacitor/core';
+	import {
+		encryptNostrPrivateKeyWithUserId,
+		decryptNostrPrivateKeyWithUserId
+	} from '$lib/utils/helpers/auth';
 
-	const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
-	let email = $state('');
-	let name = $state('');
+	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);
 
-	async function encryptCredentials(credential: string, key: CryptoKey): Promise<string> {
-		const encoder = new TextEncoder();
-		const data = encoder.encode(credential);
+    async function handleGoogleCallback(response: any) {
+        if (!response?.credential) return;
 
-		const iv = crypto.getRandomValues(new Uint8Array(12));
-		const encryptedData = await crypto.subtle.encrypt(
-			{
-				name: 'AES-GCM',
-				iv
-			},
-			key,
-			data
-		);
+        try {
+            const res = await authenticateWithGoogle(response.credential);
+            const { user: userData } = res;
 
-		// Combine IV and encrypted data
-		const result = new Uint8Array(iv.length + encryptedData.byteLength);
-		result.set(iv);
-		result.set(new Uint8Array(encryptedData), iv.length);
+            // User exists, handle successful login
+            const { email, name, nostrKey } = userData;
 
-		return btoa(String.fromCharCode(...result));
-	}
+            try {
+                // Decrypt the user's Nostr private key
+                const decryptedPrivateKey = await decryptNostrPrivateKeyWithUserId(
+                    {
+                        data: nostrKey.encryptedPrivateKey,
+                        iv: nostrKey.iv,
+                        authTag: nostrKey.authTag
+                    },
+                    response.client_id,
+                    nostrKey.salt
+                );
 
-	async function handleGoogleCallback(response: any) {
-		console.log('Google callback response:', response);
-		if (!response?.credential) return;
+                // Only update user store and grant access if decryption succeeds
+                user.updateProfile({
+                    id: response.client_id,
+                    email,
+                    name,
+                    npub: nostrKey.publicKey,
+                    createdAt: new Date(userData.createdAt),
+                    updatedAt: new Date(userData.updatedAt)
+                });
 
+                goto('/profile');
+            } catch (decryptError) {
+                console.error('Failed to decrypt Nostr private key:', decryptError);
+                // Set error state and prevent login
+                authState.setError(
+                    'Failed to decrypt user credentials. Please try again or contact support.'
+                );
+				// TODO: Could redirect to a help page or show an error modal
+                return;
+            }
+        } catch (error: any) {
+            if (error.response?.status === 404) {
+                // User doesn't exist, proceed with registration
+                console.log('New user, proceeding with registration');
+
+                // Decode the JWT token to get user info
+                const payload = JSON.parse(atob(response.credential.split('.')[1]));
+
+                // Generate Nostr keypair
+                const privateKey = generateSecretKey();
+                const publicKey = getPublicKey(privateKey);
+                const privateKeyHex = bytesToHex(privateKey);
+
+				// Encrypt private key using client ID as user ID
+				const { encrypted, salt } = await encryptNostrPrivateKeyWithUserId(
+					privateKeyHex,
+					response.client_id
+				);
+
+				// Register user with encrypted Nostr keys
+				const registrationResult = await registerWithNostr({
+                    email: payload.email,
+                    name: payload.name,
+                    publicKey,
+					encryptedPrivateKey: encrypted.data,
+					iv: encrypted.iv,
+					salt,
+					authTag: 'auth-tag-data',
+					iterations: 100000
+				} as NostrRegistrationData);
+
+				console.log('Registration result:', registrationResult);
+
+                // Redirect to recovery page with email
+                goto('/auth/recover?email=' + encodeURIComponent(payload.email));
+            } else {
+                console.error('Authentication error:', error);
+                authState.setError('Authentication failed. Please try again.');
+            }
+        }
+    }
+
+	async function handleNativeGoogleLogin() {
 		try {
-			// Decode the JWT token to get user info
-			const payload = JSON.parse(atob(response.credential.split('.')[1]));
-			console.log('Google payload:', payload);
+			const result = await SocialLogin.login({
+				provider: 'google',
+				options: {
+					scopes: ['email', 'profile']
+					// forceRefreshToken: true // if you need refresh token
+				}
+			});
+			console.log('Google login result:', result);
 
-			// Create a secure key using Web Crypto API
-			const encoder = new TextEncoder();
-			const keyMaterial = encoder.encode(response.credential);
-			const key = await crypto.subtle.importKey('raw', keyMaterial, { name: 'PBKDF2' }, false, [
-				'deriveKey'
-			]);
-
-			// Store encrypted credentials securely
-			const encryptedCreds = await encryptCredentials(response.credential, key);
-			localStorage.setItem('auth_token', encryptedCreds);
-
-			// Update user state with Google profile info
-			email = payload.email;
-			name = payload.name;
+			if (result?.result && 'accessToken' in result.result && result.result.accessToken?.token) {
+				await handleGoogleCallback({
+					credential: result.result.accessToken.token
+				});
+			}
 		} catch (error) {
-			console.error('Google auth error:', error);
+			console.error('Native Google login error:', error);
 		}
 	}
 
-	function initializeGoogleAuth() {
-		if (!browser || !window.google) return;
+	async function initializeGoogleAuth() {
+		if (!browser) return;
+
+		if (isNative) {
+			await SocialLogin.initialize({
+				google: {
+					webClientId: PUBLIC_GOOGLE_CLIENT_ID, // Use Web Client ID for all platforms
+					iOSClientId: PUBLIC_GOOGLE_IOS_CLIENT_ID, // for iOS
+					// mode: 'offline' // replaces grantOfflineAccess
+				}
+			}).then(() => {
+				googleAuthInitialized = true;
+			});
+            return;
+        }
+
+		if (!window.google) return;
 
 		window.google.accounts.id.initialize({
-			client_id: GOOGLE_CLIENT_ID,
+			client_id: PUBLIC_GOOGLE_CLIENT_ID,
 			callback: handleGoogleCallback,
 			auto_select: false,
 			cancel_on_tap_outside: true
@@ -71,22 +152,33 @@
 	}
 
 	if (browser) {
-		// Load Google Identity Services
-		const script = document.createElement('script');
-		script.src = 'https://accounts.google.com/gsi/client';
-		script.async = true;
-		script.defer = true;
-		script.onload = initializeGoogleAuth;
-		document.head.appendChild(script);
+		// TODO: initialize google login once enabled
+		// if (!isNative) {
+		// 	// Load Google Identity Services only for web
+		// 	const script = document.createElement('script');
+		// 	script.src = 'https://accounts.google.com/gsi/client';
+		// 	script.async = true;
+		// 	script.defer = true;
+		// 	script.onload = initializeGoogleAuth;
+		// 	document.head.appendChild(script);
+		// } else {
+		// 	// Initialize directly for native platforms
+		// 	initializeGoogleAuth();
+		// }
 	}
 
 	const handleGoogleSignIn = () => {
+		return console.warn('Google auth disabled');
 		if (!browser || !googleAuthInitialized) return;
-		window.google.accounts.id.prompt();
+		if (isNative) {
+			handleNativeGoogleLogin();
+		} else {
+			window.google.accounts.id.prompt();
+        }
 	};
 </script>
 
-<button type="button" class="btn btn-outline w-full" onclick={handleGoogleSignIn}>
+<button type="button" class="btn btn-outline w-full" onclick={handleGoogleSignIn} disabled={!googleAuthInitialized}>
 	<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5" viewBox="0 0 48 48">
 		<path
 			fill="#FFC107"
@@ -104,6 +196,6 @@
 			fill="#1976D2"
 			d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
 		/>
-	</svg>
-	Continue with Google
+        </svg>
+        Continue with Google
 </button>

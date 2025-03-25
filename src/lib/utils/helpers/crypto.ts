@@ -1,71 +1,155 @@
-import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
+import type { EncryptedData } from '$lib/types/auth';
+import { bytesToBase64, base64ToBytes } from './encoding';
 
-// Use a consistent salt for token-based encryption
-const TOKEN_SALT = new Uint8Array([
-	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
-]);
+export async function generateRandomKey(): Promise<CryptoKey> {
+    return await crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt']
+    );
+}
 
-export async function generateEncryptionKeyFromToken(token: string): Promise<CryptoKey> {
-	const encoder = new TextEncoder();
-	const keyMaterial = await crypto.subtle.importKey('raw', encoder.encode(token), 'PBKDF2', false, [
-		'deriveKey'
-	]);
+export async function generateEncryptionKeyFromUserId(
+    userId: string,
+    salt: Uint8Array
+): Promise<CryptoKey> {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(userId),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+    );
 
-	return await crypto.subtle.deriveKey(
-		{
-			name: 'PBKDF2',
-			salt: TOKEN_SALT,
-			iterations: 100000,
-			hash: 'SHA-256'
-		},
-		keyMaterial,
-		{ name: 'AES-GCM', length: 256 },
-		true,
-		['encrypt', 'decrypt']
-	);
+    return crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 100000,
+            hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt']
+    );
 }
 
 export async function exportKey(key: CryptoKey): Promise<string> {
-	const exported = await crypto.subtle.exportKey('raw', key);
-	return bytesToBase64(new Uint8Array(exported));
+    const exported = await crypto.subtle.exportKey('raw', key);
+    return bytesToBase64(new Uint8Array(exported));
 }
 
-export async function importKey(keyData: string): Promise<CryptoKey> {
+export async function _importKey(keyData: string): Promise<CryptoKey> {
 	const keyBytes = base64ToBytes(keyData);
 	return await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM', length: 256 }, true, [
 		'encrypt',
 		'decrypt'
 	]);
 }
-
-export async function deriveKeyFromPassword(
-	password: string,
-	salt: Uint8Array
-): Promise<CryptoKey> {
-	const encoder = new TextEncoder();
-	const keyMaterial = await crypto.subtle.importKey(
-		'raw',
-		encoder.encode(password),
-		'PBKDF2',
-		false,
-		['deriveKey']
-	);
-
-	return await crypto.subtle.deriveKey(
-		{
-			name: 'PBKDF2',
-			salt,
-			iterations: 100000,
-			hash: 'SHA-256'
-		},
-		keyMaterial,
-		{ name: 'AES-GCM', length: 256 },
-		true,
-		['encrypt', 'decrypt']
-	);
+	
+export async function importKey(keyData: string): Promise<CryptoKey> {
+    const keyBytes = base64ToBytes(keyData);
+    return await crypto.subtle.importKey(
+        'raw',
+        keyBytes,
+        { name: 'AES-GCM', length: 256 },
+        true,
+        ['encrypt', 'decrypt']
+    );
 }
 
 export async function encrypt(
+    data: string,
+    key: CryptoKey
+): Promise<EncryptedData> {
+    const encoder = new TextEncoder();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const dataBytes = encoder.encode(data);
+
+    const encryptedData = await crypto.subtle.encrypt(
+        {
+            name: 'AES-GCM',
+            iv: iv,
+            tagLength: 128
+        },
+        key,
+        dataBytes
+    );
+
+    // Split the encrypted data into ciphertext and auth tag
+    const dataBytes2 = new Uint8Array(encryptedData.slice(0, -16));
+    const authTagBytes = new Uint8Array(encryptedData.slice(-16));
+
+    return {
+        data: bytesToBase64(dataBytes2),
+        iv: bytesToBase64(iv),
+        authTag: bytesToBase64(authTagBytes)
+    };
+}
+
+export async function decrypt(
+    encryptedData: EncryptedData,
+    key: CryptoKey
+): Promise<string> {
+    const decoder = new TextDecoder();
+    const dataBytes = base64ToBytes(encryptedData.data);
+    const ivBytes = base64ToBytes(encryptedData.iv);
+    const authTagBytes = base64ToBytes(encryptedData.authTag);
+
+    // Combine ciphertext and auth tag
+    const combinedBytes = new Uint8Array(dataBytes.length + authTagBytes.length);
+    combinedBytes.set(dataBytes);
+    combinedBytes.set(authTagBytes, dataBytes.length);
+
+    const decryptedData = await crypto.subtle.decrypt(
+        {
+            name: 'AES-GCM',
+            iv: ivBytes,
+            tagLength: 128
+        },
+        key,
+        combinedBytes
+    );
+
+    return decoder.decode(decryptedData);
+}
+
+export async function deriveKeyFromPassword(
+    password: string,
+    salt: Uint8Array,
+    iterations: number = 100000
+): Promise<CryptoKey> {
+    try {
+        const encoder = new TextEncoder();
+        const keyMaterial = await crypto.subtle.importKey(
+            'raw',
+            encoder.encode(password),
+            'PBKDF2',
+            false,
+            ['deriveKey']
+        );
+
+        return await crypto.subtle.deriveKey(
+            {
+                name: 'PBKDF2',
+                salt,
+                iterations: 100000,
+                hash: 'SHA-256'
+            },
+            keyMaterial,
+            { name: 'AES-GCM', length: 256 },
+            true,
+            ['encrypt', 'decrypt']
+        );
+    } catch (err) {
+        console.error('Failed to derive key from password:', err);
+        throw new Error('Failed to derive key from password');
+    }
+}
+
+export async function _encrypt(
 	data: string,
 	key: CryptoKey
 ): Promise<{
@@ -89,7 +173,7 @@ export async function encrypt(
 	};
 }
 
-export async function decrypt(encryptedData: string, iv: string, key: CryptoKey): Promise<string> {
+export async function _decrypt(encryptedData: string, iv: string, key: CryptoKey): Promise<string> {
 	const decoder = new TextDecoder();
 	const decrypted = await crypto.subtle.decrypt(
 		{

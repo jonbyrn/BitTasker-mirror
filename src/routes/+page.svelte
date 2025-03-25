@@ -3,6 +3,7 @@
 	import { t } from '$lib/states/i18n';
 	import { deviceInfo } from '$lib/states/deviceInfo';
 	import OnboardingSlider from '$lib/components/OnboardingSlider.svelte';
+
 	onMount(async () => {
 		if ($deviceInfo !== null && $deviceInfo.platform !== 'web') {
 			const main = document.getElementById('main');
