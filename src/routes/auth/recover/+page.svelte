@@ -128,7 +128,7 @@
 	}
 </script>
 
-<div class="bg-base-200 flex min-h-screen flex-col items-center justify-center gap-4 px-4">
+<div class="bg-base-200 flex flex-col items-center justify-center gap-4 px-4 mt-16 py-10">
 	<div class="alert alert-warning w-full max-w-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
