@@ -191,6 +191,20 @@
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<div class="form-control space-y-1">
+					<label class="label" for="nsec">
+						<span class="label-text">Private key</span>
+					</label>
+					<input
+						type="password"
+						id="nsec"
+						bind:value={nsec}
+						placeholder="Enter your private nostr key"
+						class="input input-bordered w-full"
+						required
+					/>
+				</div>
+
+				<div class="form-control space-y-1">
 					<label class="label" for="name">
 						<span class="label-text">Name</span>
 					</label>
