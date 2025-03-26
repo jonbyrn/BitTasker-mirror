@@ -50,8 +50,7 @@
 			salt: salt,
 			authTag: encrypted.authTag,
 			iterations: 100000,
-			authMethod: 'passkey',
-			email: 'test@test.com'
+			authMethod: 'passkey'
 		});
 		console.log({ registerNostr: res });
 
