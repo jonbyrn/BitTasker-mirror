@@ -9,7 +9,8 @@
 	} from '$lib/services/auth.service';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
-	import { authState, user } from '$lib/states/user.store';
+	import { user } from '$lib/states/user.store';
+	import { authState } from '$lib/states/auth.store';
 
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 

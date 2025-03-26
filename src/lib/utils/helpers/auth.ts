@@ -2,7 +2,7 @@ import type { EncryptedData } from '$lib/types/auth';
 import { schnorr } from '@noble/curves/secp256k1';
 import { utf8ToBytes, randomBytes } from '@noble/hashes/utils';
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
-import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, importKey } from '$lib/utils/helpers/crypto';
+import { encrypt, decrypt, deriveKeyFromPassword, generateEncryptionKeyFromUserId, importKey, exportKey } from '$lib/utils/helpers/crypto';
 
 export async function encryptNostrPrivateKeyWithUserId(
     nostrPrivateKey: string,
@@ -24,21 +24,25 @@ export async function encryptNostrPrivateKeyWithUserId(
 }
 
 export async function encryptNostrPrivateKeyWithPassword(
-    nostrPrivateKey: string,
-    recoveryPassword: string
-): Promise<{ encrypted: EncryptedData; salt: string }> {
+    nsec: string,
+    password: string
+): Promise<{ encrypted: EncryptedData; salt: string; exportedKey: string }> {
     // Generate a random salt for recovery password
     const salt = randomBytes(16);
 
     // Derive key from recovery password
-    const recoveryKey = await deriveKeyFromPassword(recoveryPassword, salt);
+    const derivedKey = await deriveKeyFromPassword(password, salt);
 
     // Encrypt with recovery password key
-    const encrypted = await encrypt(nostrPrivateKey, recoveryKey);
+    const encrypted = await encrypt(nsec, derivedKey);
+
+    // Export the derived key
+    const exportedKey = await exportKey(derivedKey);
 
     return {
         encrypted,
-        salt: bytesToBase64(salt)
+        salt: bytesToBase64(salt),
+        exportedKey
     };
 }
 
@@ -63,7 +67,7 @@ export async function decryptNostrPrivateKeyWithUserId(
 export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Promise<string> {
     try {
         // Parse the stored encryption data
-        const { key, iv, authTag, data } = JSON.parse(encryptedData);
+        const { key, iv, authTag, data, salt } = JSON.parse(encryptedData);
 
         // Import the encryption key
         const encryptionKey = await importKey(key);

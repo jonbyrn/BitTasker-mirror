@@ -10,13 +10,18 @@
 	import {
 		getLoginChallenge,
 		loginWithPasskey,
-		registerPasskeyDevice
+		registerPasskeyDevice,
+		registerWithNostr
 	} from '$lib/services/auth.service';
-	import { signLoginChallenge, decryptPrivateKeyWithBiometrics } from '$lib/utils/helpers/auth';
+	import {
+		signLoginChallenge,
+		decryptPrivateKeyWithBiometrics,
+		encryptNostrPrivateKeyWithPassword
+	} from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
-	import { encrypt, exportKey, generateRandomKey } from '$lib/utils/helpers/crypto';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { user, authState } from '$lib/states/user.store';
+	import { user } from '$lib/states/user.store';
+	import { authState } from '$lib/states/auth.store';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
@@ -33,19 +38,32 @@
 		const sk = generateSecretKey();
 		const npub = getPublicKey(sk);
 		const nsec = bytesToHex(sk);
-		const encryptionKey = await generateRandomKey();
-		const encryptedData = await encrypt(nsec, encryptionKey);
-		const exportedKey = await exportKey(encryptionKey);
-		const deviceName = await getDeviceName();
+		const { encrypted, salt, exportedKey } = await encryptNostrPrivateKeyWithPassword(
+			nsec,
+			deviceId
+		);
 
+		const res = await registerWithNostr({
+			publicKey: npub,
+			encryptedPrivateKey: encrypted.data,
+			iv: encrypted.iv,
+			salt: salt,
+			authTag: encrypted.authTag,
+			iterations: 100000,
+			authMethod: 'passkey',
+			email: 'test@test.com'
+		});
+		console.log({ registerNostr: res });
+
+		const deviceName = await getDeviceName();
 		const response = await registerPasskeyDevice(npub, deviceId, deviceName);
-		console.log({ response });
 
 		const success = await setBiometricKey(npub, {
 			key: exportedKey,
-			iv: encryptedData.iv,
-			authTag: encryptedData.authTag,
-			data: encryptedData.data
+			iv: encrypted.iv,
+			authTag: encrypted.authTag,
+			data: encrypted.data,
+			salt
 		});
 
 		if (!success) {
@@ -53,8 +71,8 @@
 			return;
 		}
 
-		if(response.userId && response.deviceId) {
-			goto(`/auth/recover?npub=${npub}&nsec=${nsec}`);
+		if (response.userId && response.deviceId) {
+			goto(`/auth/recover?provider=passkey&npub=${npub}&nsec=${nsec}`);
 		}
 	};
 
@@ -67,7 +85,6 @@
 			return;
 		}
 		const response = await loginWithPasskey(pubKey, deviceId);
-		console.log({ response });
 
 		if (!response.access_token) {
 			error = 'No access token received from server';
@@ -79,7 +96,7 @@
 			key: 'access_token',
 			value: response.access_token
 		});
-		
+
 		user.updateProfile(response.user);
 		authState.login();
 		goto('/dashboard');

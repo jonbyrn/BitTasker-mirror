@@ -3,7 +3,12 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import { getLoginChallenge, loginWithNostr, registerWithNostr } from '$lib/services/auth.service';
+	import {
+		getLoginChallenge,
+		loginWithNostr,
+		loginWithPasskey,
+		registerWithNostr
+	} from '$lib/services/auth.service';
 	import {
 		validateEmail,
 		validateName,
@@ -14,7 +19,9 @@
 	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { Preferences } from '@capacitor/preferences';
-	import { authState, user } from '$lib/states/user.store';
+	import { user } from '$lib/states/user.store';
+	import { authState } from '$lib/states/auth.store';
+	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 
 	const provider = page.url.searchParams.get('provider') || '';
 	let npub = $state(page.url.searchParams.get('npub') || '');
@@ -63,13 +70,15 @@
 				return;
 			}
 
-			if (npub || nsec) {
+			if (provider === 'alby') {
 				const validateNsec = validateNostrPrivateKey(nsec);
 				if (!validateNsec.isValid) {
 					error = validateNsec.error!;
 					return;
 				}
-			} else {
+			}
+
+			if (!npub || !nsec) {
 				// Generate Nostr keypair
 				const sk = generateSecretKey();
 				const npriv = bytesToHex(sk);
@@ -93,26 +102,35 @@
 			const res = await registerWithNostr(data);
 
 			if (res.publicKey) {
-				const { challenge } = await getLoginChallenge();
-				const signer = new NDKNip07Signer();
-				const signerUser = await signer.user();
-				if (!signerUser) {
-					throw new Error('No user returned from Nostr');
-				}
-				const event = {
-					kind: 22242,
-					created_at: Math.floor(Date.now() / 1000),
-					content: challenge,
-					tags: [],
-					pubkey: signerUser.pubkey
-				};
-				const signedEvent = await signer.sign(event);
+				let accessToken: string | null = null;
+				if (provider === 'alby') {
+					const { challenge } = await getLoginChallenge();
+					const signer = new NDKNip07Signer();
+					const signerUser = await signer.user();
+					if (!signerUser) {
+						throw new Error('No user returned from Nostr');
+					}
+					const event = {
+						kind: 22242,
+						created_at: Math.floor(Date.now() / 1000),
+						content: challenge,
+						tags: [],
+						pubkey: signerUser.pubkey
+					};
+					const signedEvent = await signer.sign(event);
 
-				const res = await loginWithNostr(signerUser.pubkey, challenge, signedEvent);
-				if (res.access_token) {
+					const res = await loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+					if (res.access_token) accessToken = res.access_token;
+				} else if (provider === 'passkey') {
+					const deviceId = await getDeviceIdentifier();
+					const res = await loginWithPasskey(npub, deviceId);
+					if (res.access_token) accessToken = res.access_token;
+				}
+
+				if (accessToken) {
 					await Preferences.set({
 						key: 'access_token',
-						value: res.access_token
+						value: accessToken
 					});
 					user.updateProfile(res.user);
 					authState.login();
@@ -120,15 +138,14 @@
 				}
 			}
 		} catch (err: any) {
-			error = err.response?.data?.message || 'Registration failed';
-			console.error(err);
+			error = err || 'Registration failed';
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
 
-<div class="bg-base-200 flex flex-col items-center justify-center gap-4 px-4 mt-16 py-10">
+<div class="bg-base-200 mt-16 flex flex-col items-center justify-center gap-4 px-4 py-10">
 	<div class="alert alert-warning w-full max-w-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -154,25 +171,6 @@
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Complete Registration</h2>
-
-			{#if error}
-				<div class="alert alert-error">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{error}</span>
-				</div>
-			{/if}
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<div class="form-control space-y-1">
@@ -266,6 +264,25 @@
 					{/if}
 				</button>
 			</form>
+
+			{#if error}
+				<div class="alert alert-error">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>
