@@ -8,6 +8,8 @@
 
 	const { children } = $props();
 
+	let width = $state(375);
+
 	$effect(() => {
 		setDarkMode($darkMode);
 	});
@@ -34,8 +36,10 @@
 	});
 </script>
 
+<svelte:window bind:innerWidth={width} />
+
 <main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main" class="select-none">
-	{#if $deviceInfo?.platform === 'web'}
+	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<NavBar />
 	{/if}
 	{@render children()}

@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
 	appName: 'bittasker',
 	webDir: 'build',
 	server: {
-		url: process.env.VITE_CLIENT_URL,
+		url: "https://olive-crabs-call.loca.lt",
 		cleartext: true
 	},
 	plugins: {

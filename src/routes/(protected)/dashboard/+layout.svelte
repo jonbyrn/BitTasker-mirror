@@ -4,9 +4,10 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 
-	// Dashboard state
-	let activeSection = $state('');
 	let { children } = $props();
+	
+	let width = $state(375);
+	let activeSection = $state('');
 
 	$effect(() => {
 		const section = page.url.pathname.split('/dashboard/')[1] || '';
@@ -22,10 +23,12 @@
 	/>
 </svelte:head>
 
+<svelte:window bind:innerWidth={width} />
+
 <div class="bg-base-200 min-h-screen md:pt-16">
 	<div class="mx-auto px-2 py-8 md:px-4">
 		<div class="flex flex-col gap-8 md:flex-row">
-			{#if $deviceInfo?.platform === 'web'}
+			{#if $deviceInfo?.platform === 'web' && width > 768}
 				<!-- Sidebar -->
 				<div class="w-full flex-shrink-0 md:w-64">
 					<div class="card bg-base-100 mb-6 shadow-xl">
