@@ -29,6 +29,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Pure functions and immutable data structures
 - Separation of concerns and single responsibility principle
 - Client-side e2e using Web Crypto API
+- Leverage capacitor plugins for platform-specific features
 
 ### Development Tools
 
@@ -80,7 +81,7 @@ src/
   - Components: src/lib/components/ExampleComponent.svelte
   - Services: src/lib/services/example.service.ts
   - Utils: src/lib/utils/exampleUtil.ts
-  - Types: src/lib/types/exampleTypes.ts
+  - Types: src/lib/types/example.d.ts
   - Tests: src/lib/tests/example.test.ts
   - States: src/lib/states/example.store.ts
 
@@ -88,6 +89,7 @@ src/
 
 - Use TypeScript for type safety
 - Use proper type assertions for external data
+- Leverage capacitor Preferences plugin over localStorage
 - Implement proper error handling
 - Export interfaces for public types
 - Prefer const over let

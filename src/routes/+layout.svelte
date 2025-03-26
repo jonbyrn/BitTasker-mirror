@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
-	import { darkMode, setDarkMode } from '$lib/states/theme';
-	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/states/deviceInfo';
+	import { darkMode, setDarkMode } from '$lib/states/theme.store';
+	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/states/deviceInfo.store';
 	import NavBar from '$lib/components/NavBar.svelte';
 	import '../app.css';
 

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { Locales } from '$lib/states/i18n';
+	import type { Locales } from '$lib/states/i18n.store';
 	import { onMount } from 'svelte';
-	import { t } from '$lib/states/i18n';
+	import { t } from '$lib/states/i18n.store';
 	import { goto } from '$app/navigation';
-	import { darkMode } from '$lib/states/theme';
-	import { setLocale } from '$lib/states/i18n';
+	import { darkMode } from '$lib/states/theme.store';
+	import { setLocale } from '$lib/states/i18n.store';
 	import { register } from 'swiper/element/bundle';
 	import { Preferences } from '@capacitor/preferences';
-	import { onboardingCompleted } from '$lib/states/deviceInfo';
+	import { onboardingCompleted } from '$lib/states/deviceInfo.store';
 
 	register();
 

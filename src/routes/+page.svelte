@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { t } from '$lib/states/i18n';
-	import { deviceInfo } from '$lib/states/deviceInfo';
+	import { t } from '$lib/states/i18n.store';
+	import { deviceInfo } from '$lib/states/deviceInfo.store';
 	import OnboardingSlider from '$lib/components/OnboardingSlider.svelte';
 
 	onMount(async () => {

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { darkMode } from '$lib/states/theme';
-	import { t } from '$lib/states/i18n';
-	import { setLocale } from '$lib/states/i18n';
-	import type { Locales } from '$lib/states/i18n';
+	import { darkMode } from '$lib/states/theme.store';
+	import { t } from '$lib/states/i18n.store';
+	import { setLocale } from '$lib/states/i18n.store';
+	import type { Locales } from '$lib/states/i18n.store';
 
 	const languages: { code: Locales; name: string }[] = [
 		{ code: 'en', name: 'English' },
