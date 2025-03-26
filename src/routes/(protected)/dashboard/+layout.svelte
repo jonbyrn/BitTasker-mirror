@@ -51,7 +51,6 @@
 			{:else}
 				<BottomNavBar />
 			{/if}
-			<BottomNavBar />
 
 			<!-- Main Content -->
 			<div class="mb-24 flex-grow">
