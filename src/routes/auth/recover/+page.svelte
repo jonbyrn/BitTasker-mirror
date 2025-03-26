@@ -25,7 +25,8 @@
 
 	const provider = page.url.searchParams.get('provider') || '';
 	let npub = $state(page.url.searchParams.get('npub') || '');
-	let nsec = $state(page.url.searchParams.get('nsec') || '');
+	let token = $state(page.url.searchParams.get('token') || '');
+	let nsec = $state('');
 	let name = $state('');
 	let email = $state('');
 	let password = $state('');
@@ -33,6 +34,22 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let passwordError = $state('');
+
+	// Fetch nsec using the token
+	$effect.pre(() => {
+		if (token) {
+			void (async () => {
+				const storedNsec = await Preferences.get({ key: token });
+				if (storedNsec.value) {
+					nsec = storedNsec.value;
+					await Preferences.remove({ key: token });
+				} else {
+					error = 'Recovery token expired or invalid';
+					goto('/auth');
+				}
+			})();
+		}
+	});
 
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -145,7 +162,7 @@
 	}
 </script>
 
-<div class="bg-base-200 mt-16 flex flex-col items-center justify-center gap-4 px-4 py-10">
+<div class="bg-base-200 flex flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
 	<div class="alert alert-warning w-full max-w-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -173,20 +190,6 @@
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Complete Registration</h2>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
-				<div class="form-control space-y-1">
-					<label class="label" for="nsec">
-						<span class="label-text">Private key</span>
-					</label>
-					<input
-						type="password"
-						id="nsec"
-						bind:value={nsec}
-						placeholder="Enter your private nostr key"
-						class="input input-bordered w-full"
-						required
-					/>
-				</div>
-
 				<div class="form-control space-y-1">
 					<label class="label" for="name">
 						<span class="label-text">Name</span>
