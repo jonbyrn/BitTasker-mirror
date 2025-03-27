@@ -1,39 +1,13 @@
-import { type Task, type TaskStep } from '$lib/types/task';
+import { type Task, type TaskStep } from '$lib/types/task.d';
+import { Preferences } from '@capacitor/preferences';
+import { writable } from 'svelte/store';
 
 const STORAGE_KEY = 'bittasker_draft_task';
+export const STEPS: TaskStep[] = ['basics', 'location', 'details', 'budget'];
 
 function createTaskStore() {
-  let task = $state<Task>({
-    title: '',
-    description: '',
-    budget: 0,
-    budgetType: 'FIXED',
-    taskType: 'IN_PERSON',
-    deadline: '',
-    categoryIds: [],
-    skillIds: [],
-  });
-
-  let currentStep = $state<TaskStep>('basics');
-  let isEditing = $state(false);
-
-  // Load draft from localStorage
-  function loadDraft() {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      task = JSON.parse(stored);
-    }
-  }
-
-  // Save draft to localStorage
-  function saveDraft() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(task));
-  }
-
-  // Clear draft from localStorage
-  function clearDraft() {
-    localStorage.removeItem(STORAGE_KEY);
-    task = {
+  const initialState = {
+    task: {
       title: '',
       description: '',
       budget: 0,
@@ -42,42 +16,79 @@ function createTaskStore() {
       deadline: '',
       categoryIds: [],
       skillIds: [],
-    };
-    currentStep = 'basics';
-  }
+    } as Task,
+    currentStep: 'basics' as TaskStep,
+    isEditing: false
+  };
+
+  const store = writable(initialState);
+
+  // Load draft from preferences
+  const loadDraft = async () => {
+    const stored = await Preferences.get({ key: STORAGE_KEY });
+    if (stored.value) {
+      const parsedTask = JSON.parse(stored.value);
+      store.update(state => ({ ...state, task: parsedTask }));
+    }
+  };
+
+  // Save draft to preferences
+  const saveDraft = async () => {
+    let currentTask: Task | undefined;
+    store.subscribe(state => {
+      currentTask = state.task;
+    })();
+    if (currentTask) {
+      await Preferences.set({
+        key: STORAGE_KEY,
+        value: JSON.stringify(currentTask)
+      });
+    }
+  };
+
+  // Clear draft from preferences
+  const clearDraft = async () => {
+    await Preferences.remove({ key: STORAGE_KEY });
+    store.set(initialState);
+  };
 
   // Navigation between steps
-  function nextStep() {
-    const steps: TaskStep[] = ['basics', 'timing', 'location', 'details', 'budget'];
-    const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex < steps.length - 1) {
-      currentStep = steps[currentIndex + 1];
-      saveDraft();
-    }
-  }
+  const nextStep = () => {
+    store.update(state => {
+      const currentIndex = STEPS.indexOf(state.currentStep);
+      if (currentIndex < STEPS.length - 1) {
+        return { ...state, currentStep: STEPS[currentIndex + 1] };
+      }
+      return state;
+    });
+    saveDraft();
+  };
 
-  function previousStep() {
-    const steps: TaskStep[] = ['basics', 'timing', 'location', 'details', 'budget'];
-    const currentIndex = steps.indexOf(currentStep);
-    if (currentIndex > 0) {
-      currentStep = steps[currentIndex - 1];
-    }
-  }
+  const previousStep = () => {
+    store.update(state => {
+      const currentIndex = STEPS.indexOf(state.currentStep);
+      if (currentIndex > 0) {
+        return { ...state, currentStep: STEPS[currentIndex - 1] };
+      }
+      return state;
+    });
+  };
 
-  function setStep(step: TaskStep) {
-    currentStep = step;
-  }
+  const setStep = (step: TaskStep) => {
+    store.update(state => ({ ...state, currentStep: step }));
+  };
 
   // Update task data
-  function updateTask(updates: Partial<Task>) {
-    task = { ...task, ...updates };
+  const updateTask = (updates: Partial<Task>) => {
+    store.update(state => ({
+      ...state,
+      task: { ...state.task, ...updates }
+    }));
     saveDraft();
-  }
+  };
 
   return {
-    task,
-    currentStep,
-    isEditing,
+    subscribe: store.subscribe,
     loadDraft,
     saveDraft,
     clearDraft,

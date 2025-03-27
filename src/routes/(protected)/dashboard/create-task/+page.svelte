@@ -1,13 +1,24 @@
 <script lang="ts">
-	// Import task store and task type
-	import { taskStore } from '$lib/states/task.store';
-	import type { Task } from '$lib/types/task';
+	import type { Task } from '$lib/types/task.d';
+	import { taskStore as store, STEPS } from '$lib/states/task.store';
+	import { onMount } from 'svelte';
+	import Uploader from '$lib/components/Uploader.svelte';
 
-	// Load any existing draft on mount
-	taskStore.loadDraft();
+	onMount(() => {
+		store.loadDraft();
+	});
 
-	// Categories - This would typically come from an API
-	const categories = [
+	interface Category {
+		id: number;
+		name: string;
+	}
+
+	interface Skill {
+		id: number;
+		name: string;
+	}
+
+	const categories: Category[] = [
 		{ id: 1, name: 'Home Maintenance' },
 		{ id: 2, name: 'Delivery' },
 		{ id: 3, name: 'Professional Services' },
@@ -19,43 +30,38 @@
 		{ id: 9, name: 'Other' }
 	];
 
-	// Skills - This would typically come from an API
-	const skills = [
+	const skills: Skill[] = [
 		{ id: 5, name: 'JavaScript' },
 		{ id: 12, name: 'TypeScript' },
 		{ id: 18, name: 'Node.js' }
 	];
 
-	// Form validation
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
 
-	// Form validation
 	function validateCurrentStep(): boolean {
 		errors = {};
 
-		switch (taskStore.currentStep) {
+		switch ($store.currentStep) {
 			case 'basics':
-				if (!taskStore.task.title?.trim()) errors.title = 'Title is required';
+				if (!$store.task.title?.trim()) errors.title = 'Title is required';
+				if ($store.task.dateRange && !$store.task.dateRange.end && !$store.task.dateRange.start) {
+					errors.deadline = 'You must select a start or an end date';
+				}
 				break;
-
-			case 'timing':
-				if (!taskStore.task.deadline) errors.deadline = 'Deadline is required';
-				break;
-
 			case 'location':
-				if (taskStore.task.taskType === 'IN_PERSON' && !taskStore.task.pickupLocation?.zipCode) {
+				if ($store.task.taskType === 'IN_PERSON' && !$store.task.pickupLocation?.zipCode) {
 					errors.location = 'Location is required for in-person tasks';
 				}
 				break;
 
 			case 'details':
-				if (!taskStore.task.description?.trim()) errors.description = 'Description is required';
+				if (!$store.task.description?.trim()) errors.description = 'Description is required';
 				break;
 
 			case 'budget':
-				if (!taskStore.task.budget || taskStore.task.budget <= 0) {
+				if (!$store.task.budget || $store.task.budget <= 0) {
 					errors.budget = 'Valid budget is required';
 				}
 				break;
@@ -64,7 +70,6 @@
 		return Object.keys(errors).length === 0;
 	}
 
-	// Handle file upload
 	let attachments = $state<File[]>([]);
 	function handleFileUpload(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -75,37 +80,32 @@
 		}
 	}
 
-	// Remove an attachment
 	function removeAttachment(index: number) {
 		attachments = attachments.filter((_, i) => i !== index);
 	}
 
 	function handleNext() {
 		if (validateCurrentStep()) {
-			taskStore.nextStep();
+			store.nextStep();
+			store.saveDraft();
 		}
 	}
 
-	// Submit the form
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
 
 		isSubmitting = true;
 
 		try {
-			// Prepare the final task data
 			const finalTask: Task = {
-				...taskStore.task,
-				// Add any additional processing here
+				...$store.task
 			};
 
-			// In a real implementation, this would be an API call to create a task
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			isSubmitted = true;
-			taskStore.clearDraft();
+			await store.clearDraft();
 
-			// Reset form after showing success message
 			setTimeout(() => {
 				isSubmitted = false;
 			}, 3000);
@@ -122,7 +122,7 @@
 	<div class="card-body">
 		<div class="flex items-center justify-between">
 			<h2 class="card-title text-2xl">Create a New Task</h2>
-			<div class="text-sm">Step {taskStore.currentStep} of 5</div>
+			<div class="text-sm">Step {STEPS.indexOf($store.currentStep) + 1} of {STEPS.length}</div>
 		</div>
 
 		{#if isSubmitted}
@@ -164,7 +164,7 @@
 		{/if}
 
 		<div class="space-y-6">
-			{#if taskStore.currentStep === 'basics'}
+			{#if $store.currentStep === 'basics'}
 				<div class="w-full">
 					<label for="title" class="label">
 						<span class="label-text">What do you need done?</span>
@@ -172,12 +172,81 @@
 					<input
 						type="text"
 						id="title"
-						bind:value={taskStore.task.title}
+						value={$store.task.title}
+						onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 						class="input input-bordered w-full {errors.title ? 'input-error' : ''}"
 						placeholder="e.g. Help move my sofa"
 					/>
 					{#if errors.title}
 						<span class="label-text-alt text-error">{errors.title}</span>
+					{/if}
+				</div>
+
+				<div class="space-y-4">
+					<h3 class="text-lg font-semibold">When do you need this done?</h3>
+
+					<div class="flex gap-4">
+						<button
+							class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+							onclick={() => store.updateTask({ dateRange: undefined })}
+						>
+							I'm flexible
+						</button>
+						<button
+							class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+							onclick={() =>
+								store.updateTask({
+									dateRange: {
+										start: new Date().toISOString(),
+										end: $store.task.deadline
+									}
+								})}
+						>
+							On a specific date
+						</button>
+					</div>
+
+					{#if $store.task.dateRange}
+						<div class="grid grid-cols-2 gap-4">
+							<div>
+								<label for="startDate" class="label">Start Date</label>
+								<input
+									type="date"
+									id="startDate"
+									value={$store.task.dateRange.start}
+									onchange={(e) => {
+										const start = (e.target as HTMLInputElement).value;
+										const end = $store.task.dateRange?.end ?? new Date().toISOString();
+										store.updateTask({
+											dateRange: {
+												start,
+												end
+											}
+										});
+									}}
+									class="input input-bordered w-full"
+								/>
+							</div>
+							<div>
+								<label for="endDate" class="label">End Date</label>
+								<input
+									type="date"
+									id="endDate"
+									value={$store.task.dateRange.end}
+									onchange={(e) => {
+										const end = (e.target as HTMLInputElement).value;
+										const start = $store.task.dateRange?.start ?? new Date().toISOString();
+										store.updateTask({
+											dateRange: {
+												start,
+												end
+											}
+										});
+									}}
+									class="input input-bordered w-full"
+								/>
+							</div>
+						</div>
 					{/if}
 				</div>
 
@@ -187,7 +256,11 @@
 					</label>
 					<select
 						id="category"
-						bind:value={taskStore.task.categoryIds[0]}
+						value={$store.task.categoryIds?.[0]?.toString() ?? ''}
+						onchange={(e) =>
+							store.updateTask({
+								categoryIds: [parseInt((e.target as HTMLSelectElement).value, 10)]
+							})}
 						class="select select-bordered w-full {errors.category ? 'select-error' : ''}"
 					>
 						<option value="" disabled selected>Select a category</option>
@@ -199,74 +272,52 @@
 						<span class="label-text-alt text-error">{errors.category}</span>
 					{/if}
 				</div>
-			{:else if taskStore.currentStep === 'timing'}
-				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">When do you need this done?</h3>
-					
-					<div class="flex gap-4">
-						<button
-							class="btn {taskStore.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() => taskStore.updateTask({ dateRange: undefined })}
-						>
-							I'm flexible
-						</button>
-						<button
-							class="btn {!taskStore.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() =>
-								taskStore.updateTask({
-									dateRange: {
-										start: new Date().toISOString(),
-										end: taskStore.task.deadline
-									}
-								})}
-						>
-							On a specific date
-						</button>
-					</div>
 
-					{#if taskStore.task.dateRange}
-						<div class="grid grid-cols-2 gap-4">
-							<div>
-								<label for="startDate" class="label">Start Date</label>
+				<div class="w-full">
+					<label for="skills" class="label">Required Skills</label>
+					<div class="flex flex-wrap gap-2">
+						{#each skills as skill}
+							<label
+								class="badge badge-lg cursor-pointer p-3 {$store.task.skillIds.includes(skill.id)
+									? 'badge-primary'
+									: ''}"
+							>
 								<input
-									type="date"
-									id="startDate"
-									bind:value={taskStore.task.dateRange.start}
-									class="input input-bordered w-full"
+									type="checkbox"
+									class="hidden"
+									checked={$store.task.skillIds.includes(skill.id)}
+									onclick={() => {
+										const newSkills = $store.task.skillIds.includes(skill.id)
+											? $store.task.skillIds.filter((id: number) => id !== skill.id)
+											: [...$store.task.skillIds, skill.id];
+										store.updateTask({ skillIds: newSkills });
+									}}
 								/>
-							</div>
-							<div>
-								<label for="endDate" class="label">End Date</label>
-								<input
-									type="date"
-									id="endDate"
-									bind:value={taskStore.task.dateRange.end}
-									class="input input-bordered w-full"
-								/>
-							</div>
-						</div>
-					{/if}
+								{skill.name}
+							</label>
+						{/each}
+					</div>
 				</div>
-			{:else if taskStore.currentStep === 'location'}
+			{:else if $store.currentStep === 'location'}
 				<div class="space-y-4">
 					<h3 class="text-lg font-semibold">Where do you need this done?</h3>
-					
+
 					<div class="flex gap-4">
 						<button
-							class="btn {taskStore.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => taskStore.updateTask({ taskType: 'IN_PERSON' })}
+							class="btn {$store.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => store.updateTask({ taskType: 'IN_PERSON' })}
 						>
 							In-person
 						</button>
 						<button
-							class="btn {taskStore.task.taskType === 'REMOTE' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => taskStore.updateTask({ taskType: 'REMOTE' })}
+							class="btn {$store.task.taskType === 'REMOTE' ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => store.updateTask({ taskType: 'REMOTE' })}
 						>
 							Remote
 						</button>
 					</div>
 
-					{#if taskStore.task.taskType === 'IN_PERSON'}
+					{#if $store.task.taskType === 'IN_PERSON'}
 						<div class="w-full">
 							<label for="pickup-location" class="label">
 								<span class="label-text">Location</span>
@@ -274,10 +325,10 @@
 							<input
 								type="text"
 								id="pickup-location"
-								value={taskStore.task.pickupLocation?.zipCode ?? ''}
+								value={$store.task.pickupLocation?.zipCode ?? ''}
 								onchange={(e) => {
 									const zipCode = (e.target as HTMLInputElement).value;
-									taskStore.updateTask({
+									store.updateTask({
 										pickupLocation: {
 											zipCode,
 											displayName: '',
@@ -296,14 +347,16 @@
 						</div>
 					{/if}
 				</div>
-			{:else if taskStore.currentStep === 'details'}
+			{:else if $store.currentStep === 'details'}
 				<div class="space-y-4">
 					<div class="w-full">
 						<label for="description">
 							<span class="label">Task Details</span>
 							<textarea
 								id="description"
-								bind:value={taskStore.task.description}
+								value={$store.task.description}
+								onchange={(e) =>
+									store.updateTask({ description: (e.target as HTMLTextAreaElement).value })}
 								class="textarea textarea-bordered h-32 w-full {errors.description
 									? 'textarea-error'
 									: ''}"
@@ -316,19 +369,23 @@
 					</div>
 
 					<div class="w-full">
-						<label class="label">Required Skills</label>
+						<label for="skills" class="label">Required Skills</label>
 						<div class="flex flex-wrap gap-2">
 							{#each skills as skill}
-								<label class="badge badge-lg cursor-pointer p-3 {taskStore.task.skillIds.includes(skill.id) ? 'badge-primary' : ''}">
+								<label
+									class="badge badge-lg cursor-pointer p-3 {$store.task.skillIds.includes(skill.id)
+										? 'badge-primary'
+										: ''}"
+								>
 									<input
 										type="checkbox"
 										class="hidden"
-										checked={taskStore.task.skillIds.includes(skill.id)}
+										checked={$store.task.skillIds.includes(skill.id)}
 										onclick={() => {
-											const newSkills = taskStore.task.skillIds.includes(skill.id)
-												? taskStore.task.skillIds.filter((id) => id !== skill.id)
-												: [...taskStore.task.skillIds, skill.id];
-											taskStore.updateTask({ skillIds: newSkills });
+											const newSkills = $store.task.skillIds.includes(skill.id)
+												? $store.task.skillIds.filter((id: number) => id !== skill.id)
+												: [...$store.task.skillIds, skill.id];
+											store.updateTask({ skillIds: newSkills });
 										}}
 									/>
 									{skill.name}
@@ -338,15 +395,24 @@
 					</div>
 
 					<div class="w-full">
-						<label>
+						<label for="attachments" class="label">
 							<span class="label">Attachments</span>
 							<input
 								type="file"
+								id="attachments"
 								class="file-input file-input-bordered w-full"
 								onchange={handleFileUpload}
 								multiple
 							/>
 						</label>
+
+						<Uploader
+							id="attachments"
+							label="Attachments"
+							maxFiles={5}
+							maxFileSize={10}
+							onChange={handleFileUpload}
+						/>
 
 						{#if attachments.length > 0}
 							<div class="mt-4 space-y-2">
@@ -366,20 +432,20 @@
 						{/if}
 					</div>
 				</div>
-			{:else if taskStore.currentStep === 'budget'}
+			{:else if $store.currentStep === 'budget'}
 				<div class="space-y-4">
 					<h3 class="text-lg font-semibold">What's your budget?</h3>
-					
+
 					<div class="flex gap-4">
 						<button
-							class="btn {taskStore.task.budgetType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => taskStore.updateTask({ budgetType: 'FIXED' })}
+							class="btn {$store.task.budgetType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => store.updateTask({ budgetType: 'FIXED' })}
 						>
 							Fixed price
 						</button>
 						<button
-							class="btn {taskStore.task.budgetType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => taskStore.updateTask({ budgetType: 'HOURLY' })}
+							class="btn {$store.task.budgetType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => store.updateTask({ budgetType: 'HOURLY' })}
 						>
 							Hourly rate
 						</button>
@@ -392,7 +458,9 @@
 						<input
 							type="number"
 							id="budget"
-							bind:value={taskStore.task.budget}
+							value={$store.task.budget}
+							onchange={(e) =>
+								store.updateTask({ budget: parseFloat((e.target as HTMLInputElement).value) })}
 							class="input input-bordered w-full {errors.budget ? 'input-error' : ''}"
 							placeholder="Enter your budget"
 							min="0"
@@ -403,7 +471,7 @@
 						{/if}
 					</div>
 
-					{#if taskStore.task.budgetType === 'HOURLY'}
+					{#if $store.task.budgetType === 'HOURLY'}
 						<div class="w-full">
 							<label for="estimatedHours" class="label">
 								<span class="label-text">Estimated Hours</span>
@@ -411,7 +479,11 @@
 							<input
 								type="number"
 								id="estimatedHours"
-								bind:value={taskStore.task.estimatedHours}
+								value={$store.task.estimatedHours}
+								onchange={(e) =>
+									store.updateTask({
+										estimatedHours: parseInt((e.target as HTMLInputElement).value)
+									})}
 								class="input input-bordered w-full"
 								placeholder="Estimated hours needed"
 								min="1"
@@ -422,13 +494,13 @@
 			{/if}
 
 			<div class="mt-6 flex justify-between">
-				{#if taskStore.currentStep !== 'basics'}
-					<button class="btn" onclick={() => taskStore.previousStep()}>Back</button>
+				{#if $store.currentStep !== 'basics'}
+					<button class="btn" onclick={() => store.previousStep()}>Back</button>
 				{:else}
 					<div></div>
 				{/if}
 
-				{#if taskStore.currentStep === 'budget'}
+				{#if $store.currentStep === 'budget'}
 					<button
 						class="btn btn-primary {isSubmitting ? 'loading' : ''}"
 						onclick={handleSubmit}

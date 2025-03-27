@@ -27,3 +27,17 @@ export interface Task {
 }
 
 export type TaskStep = 'basics' | 'timing' | 'location' | 'details' | 'budget';
+
+/* export enum BudgetType {
+  FIXED = 'FIXED',
+  HOURLY = 'HOURLY'
+}
+
+export enum Step {
+  BASICS = 'basics',
+  TIMING = 'timing',
+  LOCATION = 'location',
+  DETAILS = 'details',
+  BUDGET = 'budget'
+}
+ */
