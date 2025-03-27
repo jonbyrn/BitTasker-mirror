@@ -1,7 +1,7 @@
 export interface Location {
   displayName: string;
-  longitude: number;
-  latitude: number;
+  longitude: number | null;
+  latitude: number | null;
   zipCode: string;
   locationLoaded: boolean;
 }

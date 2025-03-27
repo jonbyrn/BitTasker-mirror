@@ -41,9 +41,9 @@
 
 <div class="relative w-full">
 	<div
-		class="hover:border-primary flex min-h-[48px] w-full cursor-pointer flex-wrap gap-2 rounded-lg border p-2 text-left transition-colors {error
+		class="hover:border-primary flex min-h-[40px] w-full cursor-pointer flex-wrap items-center gap-2 rounded-lg border p-2 text-left transition-colors {error
 			? 'border-error'
-			: 'border-gray-600'}"
+			: 'border-white/20'}"
 		onclick={() => (isOpen = true)}
 		onkeydown={handleKeyDown}
 		role="combobox"
@@ -54,10 +54,12 @@
 	>
 		{#if selectedTags?.length}
 			{#each selectedTags as tag}
-				<div class="badge badge-primary gap-1">
-					{tag}
+				<div
+					class="badge badge-primary flex min-w-16 items-center justify-between rounded-full pr-1 pl-2"
+				>
+					<span class="text-center w-full">{options.find(opt => opt.id === tag)?.name}</span>
 					<span
-						class="btn btn-ghost btn-xs btn-circle"
+						class="border-none bg-transparent text-black shadow-none"
 						onclick={(e) => removeTag(tag, e)}
 						role="button"
 						tabindex="0"
@@ -96,7 +98,7 @@
 		>
 			{#each options as tag}
 				<div
-					class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left transition-colors text-base-content"
+					class="hover:bg-base-200 text-base-content w-full cursor-pointer px-4 py-2 text-left transition-colors"
 					class:text-primary={selectedTags.includes(tag.id)}
 					onclick={() => addTag(tag.id)}
 					onkeydown={(e) => e.key === 'Enter' && addTag(tag.id)}

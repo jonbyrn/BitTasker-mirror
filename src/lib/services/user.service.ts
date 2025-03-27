@@ -1,4 +1,5 @@
 import type { UserData } from "$lib/types/auth";
+import type { ICategory, ISkill } from "$lib/types/common";
 import createAxiosInstance from "$lib/api/axios";
 import { goto } from "$app/navigation";
 
@@ -18,7 +19,7 @@ export async function getUserProfile(): Promise<UserData> {
     }
 }
 
-export async function fetchSkills(): Promise<string[]> {
+export async function fetchSkills(): Promise<ISkill[]> {
     try {
         const response = await userApi.get(`${ADMIN_PATH}/skills`);
         return response.data;
@@ -28,7 +29,7 @@ export async function fetchSkills(): Promise<string[]> {
     }
 }
 
-export async function fetchCategories(): Promise<string[]> {
+export async function fetchCategories(): Promise<ICategory[]> {
     try {
         const response = await userApi.get(`${ADMIN_PATH}/categories`);
         return response.data;

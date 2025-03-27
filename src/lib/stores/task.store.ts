@@ -3,7 +3,7 @@ import { Preferences } from '@capacitor/preferences';
 import { writable } from 'svelte/store';
 
 const STORAGE_KEY = 'bittasker_draft_task';
-export const STEPS: TaskStep[] = ['basics', 'location', 'details', 'budget'];
+export const STEPS: TaskStep[] = ['basics', 'location', 'budget'];
 
 function createTaskStore() {
   const initialState = {
@@ -14,9 +14,29 @@ function createTaskStore() {
       budgetType: 'FIXED',
       taskType: 'IN_PERSON',
       deadline: '',
+      estimatedHours: 0,
       categoryIds: [],
       skillIds: [],
+      pickupLocation: {
+        displayName: '',
+        longitude: null,
+        latitude: null,
+        zipCode: '',
+        locationLoaded: false
+      },
+      dropOffLocation: {
+        displayName: '',
+        longitude: null,
+        latitude: null,
+        zipCode: '',
+        locationLoaded: false
+      },
+      dateRange: {
+        start: new Date().toISOString(),
+        end: 'null'
+      }
     } as Task,
+    isRemovals: false,
     currentStep: 'basics' as TaskStep,
     isEditing: false
   };
@@ -88,7 +108,9 @@ function createTaskStore() {
   };
 
   return {
+    set: store.set,
     subscribe: store.subscribe,
+    update: store.update,
     loadDraft,
     saveDraft,
     clearDraft,

@@ -1,41 +1,17 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task.d';
-	import { taskStore as store, STEPS } from '$lib/stores/task.store';
+	import type { Place } from '$lib/utils/constants/places';
 	import { onMount } from 'svelte';
+	import { appStore } from '$lib/stores/app.store';
+	import { PLACES } from '$lib/utils/constants/places';
+	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
+	import Input from '$lib/components/Input.svelte';
 
 	onMount(() => {
 		store.loadDraft();
 	});
-
-	interface Category {
-		id: number;
-		name: string;
-	}
-
-	interface Skill {
-		id: number;
-		name: string;
-	}
-
-	const categories: Category[] = [
-		{ id: 1, name: 'Home Maintenance' },
-		{ id: 2, name: 'Delivery' },
-		{ id: 3, name: 'Professional Services' },
-		{ id: 4, name: 'IT & Technology' },
-		{ id: 5, name: 'Personal Assistant' },
-		{ id: 6, name: 'Creative Services' },
-		{ id: 7, name: 'Education & Training' },
-		{ id: 8, name: 'Events & Photography' },
-		{ id: 9, name: 'Other' }
-	];
-
-	const skills: Skill[] = [
-		{ id: 5, name: 'JavaScript' },
-		{ id: 12, name: 'TypeScript' },
-		{ id: 18, name: 'Node.js' }
-	];
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
@@ -53,7 +29,7 @@
 				break;
 			case 'location':
 				if ($store.task.taskType === 'IN_PERSON' && !$store.task.pickupLocation?.zipCode) {
-					errors.location = 'Location is required for in-person tasks';
+					errors.location = 'Location is required for this task';
 				}
 				break;
 
@@ -72,17 +48,12 @@
 	}
 
 	let attachments = $state<File[]>([]);
-	function handleFileUpload(event: Event) {
-		const input = event.target as HTMLInputElement;
-		if (input.files) {
-			for (let i = 0; i < input.files.length; i++) {
-				attachments = [...attachments, input.files[i]];
+	function handleFileUpload(files: File[]) {
+		if (files) {
+			for (let i = 0; i < files.length; i++) {
+				attachments = [...attachments, files[i]];
 			}
 		}
-	}
-
-	function removeAttachment(index: number) {
-		attachments = attachments.filter((_, i) => i !== index);
 	}
 
 	function handleNext() {
@@ -252,23 +223,17 @@
 				</div>
 
 				<div class="w-full">
-					<label for="category" class="label">
-						<span class="label-text">Category</span>
-					</label>
-					<select
+					<Input
 						id="category"
-						value={$store.task.categoryIds?.[0]?.toString() ?? ''}
-						onchange={(e) =>
-							store.updateTask({
-								categoryIds: [parseInt((e.target as HTMLSelectElement).value, 10)]
-							})}
-						class="select select-bordered w-full {errors.category ? 'select-error' : ''}"
-					>
-						<option value="" disabled selected>Select a category</option>
-						{#each categories as cat}
-							<option value={cat.id}>{cat.name}</option>
-						{/each}
-					</select>
+						label="Category"
+						options={$appStore.categories.map((cat) => ({
+							label: cat.name,
+							value: cat.id.toString()
+						}))}
+						value={$appStore.categories.find((cat) => cat.id === $store.task.categoryIds?.[0])
+							?.name ?? ''}
+						onChange={(id) => store.updateTask({ categoryIds: [parseInt(id.value, 10)] })}
+					/>
 					{#if errors.category}
 						<span class="label-text-alt text-error">{errors.category}</span>
 					{/if}
@@ -276,115 +241,127 @@
 
 				<div class="w-full">
 					<label for="skills" class="label">Required Skills</label>
-					<Tags options={skills} selectedTags={$store.task.skillIds} onChange={(ids) => store.updateTask({ skillIds: ids })} />
+					<Tags
+						options={$appStore.skills}
+						selectedTags={$store.task.skillIds}
+						onChange={(ids) => store.updateTask({ skillIds: ids })}
+					/>
 				</div>
 			{:else if $store.currentStep === 'location'}
 				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">Where do you need this done?</h3>
-
+					<h3 class="text-lg font-semibold">Is this a removals task?</h3>
 					<div class="flex gap-4">
 						<button
-							class="btn {$store.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => store.updateTask({ taskType: 'IN_PERSON' })}
+							class="btn {$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => ($store.isRemovals = true)}
 						>
-							In-person
+							Yes
 						</button>
 						<button
-							class="btn {$store.task.taskType === 'REMOTE' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => store.updateTask({ taskType: 'REMOTE' })}
+							class="btn {!$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => ($store.isRemovals = false)}
 						>
-							Remote
+							No
 						</button>
 					</div>
 
-					{#if $store.task.taskType === 'IN_PERSON'}
+					{#if $store.isRemovals}
+						<p>Removals tasks require a pickup location and drop-off location.</p>
 						<div class="w-full">
-							<label for="pickup-location" class="label">
-								<span class="label-text">Location</span>
-							</label>
-							<input
-								type="text"
-								id="pickup-location"
-								value={$store.task.pickupLocation?.zipCode ?? ''}
-								onchange={(e) => {
-									const zipCode = (e.target as HTMLInputElement).value;
-									store.updateTask({
-										pickupLocation: {
-											zipCode,
-											displayName: '',
-											longitude: 0,
-											latitude: 0,
-											locationLoaded: false
-										}
-									});
+							<Input
+								id="pickupLocation"
+								label="Pickup Location"
+								placeholder="Enter address or ZIP code"
+								value={$store.task.pickupLocation?.displayName}
+								error={errors.location}
+								options={PLACES.map((place) => ({
+									label: place.displayName,
+									value: place.zipCode
+								}))}
+								onChange={(option) => {
+									const place = PLACES.find((p) => p.zipCode === option.value);
+									if (place) {
+										store.updateTask({
+											pickupLocation: {
+												...place,
+												locationLoaded: true
+											}
+										});
+									}
 								}}
-								class="input input-bordered w-full {errors.location ? 'input-error' : ''}"
-								placeholder="Enter ZIP code"
 							/>
-							{#if errors.location}
-								<span class="label-text-alt text-error">{errors.location}</span>
-							{/if}
 						</div>
-					{/if}
-				</div>
-			{:else if $store.currentStep === 'details'}
-				<div class="space-y-4">
-					<div class="w-full">
-						<label for="description">
-							<span class="label">Task Details</span>
-							<textarea
-								id="description"
-								value={$store.task.description}
-								onchange={(e) =>
-									store.updateTask({ description: (e.target as HTMLTextAreaElement).value })}
-								class="textarea textarea-bordered h-32 w-full {errors.description
-									? 'textarea-error'
-									: ''}"
-								placeholder="Describe your task in detail"
-							></textarea>
-						</label>
-						{#if errors.description}
-							<span class="label-text-alt text-error">{errors.description}</span>
+						<div class="w-full">
+							<Input
+								id="dropOffLocation"
+								label="Drop-off Location"
+								placeholder="Enter address or ZIP code"
+								value={$store.task.dropOffLocation?.displayName}
+								options={PLACES.map((place) => ({
+									label: place.displayName,
+									value: place.zipCode
+								}))}
+								onChange={(option) => {
+									const place = PLACES.find((p) => p.zipCode === option.value);
+									if (place) {
+										store.updateTask({
+											dropOffLocation: {
+												...place,
+												locationLoaded: true
+											}
+										});
+									}
+								}}
+							/>
+						</div>
+					{:else}
+						<p>Where do you need this done?</p>
+
+						<div class="flex gap-4">
+							<button
+								class="btn {$store.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
+								onclick={() => store.updateTask({ taskType: 'IN_PERSON' })}
+							>
+								In-person
+							</button>
+							<button
+								class="btn {$store.task.taskType === 'REMOTE' ? 'btn-primary' : 'btn-outline'}"
+								onclick={() => store.updateTask({ taskType: 'REMOTE' })}
+							>
+								Remote
+							</button>
+						</div>
+
+						{#if $store.task.taskType === 'IN_PERSON'}
+							<div class="w-full">
+								<Input
+									id="location"
+									label="Location"
+									placeholder="Enter address or ZIP code"
+									value={$store.task.pickupLocation?.displayName}
+									error={errors.location}
+									options={PLACES.map((place) => ({
+										label: place.displayName,
+										value: place.zipCode
+									}))}
+									onChange={(option) => {
+										const place = PLACES.find((p) => p.zipCode === option.value);
+										if (place) {
+											store.updateTask({
+												pickupLocation: {
+													...place,
+													locationLoaded: true
+												}
+											});
+										}
+									}}
+								/>
+							</div>
 						{/if}
-					</div>
+					{/if}
 
 					<div class="w-full">
-						<label for="skills" class="label">Required Skills</label>
-						<div class="flex flex-wrap gap-2">
-							{#each skills as skill}
-								<label
-									class="badge badge-lg cursor-pointer p-3 {$store.task.skillIds.includes(skill.id)
-										? 'badge-primary'
-										: ''}"
-								>
-									<input
-										type="checkbox"
-										class="hidden"
-										checked={$store.task.skillIds.includes(skill.id)}
-										onclick={() => {
-											const newSkills = $store.task.skillIds.includes(skill.id)
-												? $store.task.skillIds.filter((id: number) => id !== skill.id)
-												: [...$store.task.skillIds, skill.id];
-											store.updateTask({ skillIds: newSkills });
-										}}
-									/>
-									{skill.name}
-								</label>
-							{/each}
-						</div>
-					</div>
-
-					<div class="w-full">
-						<label for="attachments" class="label">
-							<span class="label">Attachments</span>
-							<input
-								type="file"
-								id="attachments"
-								class="file-input file-input-bordered w-full"
-								onchange={handleFileUpload}
-								multiple
-							/>
-						</label>
+						<label for="attachments" class="label"> Attachments </label>
 
 						<Uploader
 							id="attachments"
@@ -393,23 +370,6 @@
 							maxFileSize={10}
 							onChange={handleFileUpload}
 						/>
-
-						{#if attachments.length > 0}
-							<div class="mt-4 space-y-2">
-								{#each attachments as file, index}
-									<div class="bg-base-200 flex items-center justify-between rounded-lg p-2">
-										<span class="truncate">{file.name}</span>
-										<button
-											type="button"
-											class="btn btn-error btn-sm btn-circle"
-											onclick={() => removeAttachment(index)}
-										>
-											✕
-										</button>
-									</div>
-								{/each}
-							</div>
-						{/if}
 					</div>
 				</div>
 			{:else if $store.currentStep === 'budget'}
@@ -470,6 +430,25 @@
 							/>
 						</div>
 					{/if}
+
+					<div class="w-full">
+						<label for="description">
+							<span class="label">Task Details</span>
+							<textarea
+								id="description"
+								value={$store.task.description}
+								onchange={(e) =>
+									store.updateTask({ description: (e.target as HTMLTextAreaElement).value })}
+								class="textarea textarea-bordered h-32 w-full {errors.description
+									? 'textarea-error'
+									: ''}"
+								placeholder="Describe your task in detail"
+							></textarea>
+						</label>
+						{#if errors.description}
+							<span class="label-text-alt text-error">{errors.description}</span>
+						{/if}
+					</div>
 				</div>
 			{/if}
 
