@@ -63,7 +63,7 @@ src/
 │   ├── components/      # Reusable UI components
 │   ├── services/        # Business logic and API services
 │   ├── types/           # TypeScript type definitions
-│   ├── states/          # State management, stores, and context
+│   ├── stores/          # State management, stores, and context
 │   └── tests/           # Unit and integration tests
 │   ├── utils/           # Utility functions, helpers, constanst, enums
 │       ├── helpers/            # Helper functions
@@ -84,7 +84,7 @@ src/
   - Utils: src/lib/utils/exampleUtil.ts
   - Types: src/lib/types/example.d.ts
   - Tests: src/lib/tests/example.test.ts
-  - States: src/lib/states/example.store.ts
+  - Stores: src/lib/stores/example.store.ts
 
 ### Code Style
 

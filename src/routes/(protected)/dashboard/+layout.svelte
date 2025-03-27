@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
-	import { deviceInfo } from '$lib/states/deviceInfo.store';
+	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 

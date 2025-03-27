@@ -19,8 +19,8 @@
 	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/states/user.store';
-	import { authState } from '$lib/states/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 
 	const provider = page.url.searchParams.get('provider') || '';

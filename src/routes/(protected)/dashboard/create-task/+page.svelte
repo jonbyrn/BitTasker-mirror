@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task.d';
-	import { taskStore as store, STEPS } from '$lib/states/task.store';
+	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { onMount } from 'svelte';
 	import Uploader from '$lib/components/Uploader.svelte';
+	import Tags from '$lib/components/Tags.svelte';
 
 	onMount(() => {
 		store.loadDraft();
@@ -275,28 +276,7 @@
 
 				<div class="w-full">
 					<label for="skills" class="label">Required Skills</label>
-					<div class="flex flex-wrap gap-2">
-						{#each skills as skill}
-							<label
-								class="badge badge-lg cursor-pointer p-3 {$store.task.skillIds.includes(skill.id)
-									? 'badge-primary'
-									: ''}"
-							>
-								<input
-									type="checkbox"
-									class="hidden"
-									checked={$store.task.skillIds.includes(skill.id)}
-									onclick={() => {
-										const newSkills = $store.task.skillIds.includes(skill.id)
-											? $store.task.skillIds.filter((id: number) => id !== skill.id)
-											: [...$store.task.skillIds, skill.id];
-										store.updateTask({ skillIds: newSkills });
-									}}
-								/>
-								{skill.name}
-							</label>
-						{/each}
-					</div>
+					<Tags options={skills} selectedTags={$store.task.skillIds} onChange={(ids) => store.updateTask({ skillIds: ids })} />
 				</div>
 			{:else if $store.currentStep === 'location'}
 				<div class="space-y-4">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/states/i18n.store';
+	import { t } from '$lib/stores/i18n.store';
 </script>
 
 <div class="bg-base-100 glow-effect min-h-screen px-4 py-16">

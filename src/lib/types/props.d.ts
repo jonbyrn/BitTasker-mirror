@@ -10,3 +10,11 @@ export interface UploaderProps {
     onChange?: (files: File[]) => void;
     onError?: (message: string) => void;
 }
+
+export interface TagsProps {
+    options?: {id: number, name: string}[];
+    selectedTags?: number[];
+    placeholder?: string;
+    error?: string;
+    onChange?: (tags: number[]) => void;
+}
