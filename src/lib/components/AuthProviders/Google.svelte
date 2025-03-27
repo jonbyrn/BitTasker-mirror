@@ -3,10 +3,11 @@
 	import { PUBLIC_GOOGLE_CLIENT_ID, PUBLIC_GOOGLE_IOS_CLIENT_ID } from '$env/static/public';
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
-    import { bytesToHex } from '@noble/hashes/utils';
-	import { user, authState } from '$lib/states/user.store';
-    import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-    import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
+	import { bytesToHex } from '@noble/hashes/utils';
+	import { user } from '$lib/states/user.store';
+	import { authState } from '$lib/states/auth.store';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
 	import { SocialLogin } from '@capgo/capacitor-social-login';
 	import { Capacitor } from '@capacitor/core';
 	import {
@@ -14,64 +15,63 @@
 		decryptNostrPrivateKeyWithUserId
 	} from '$lib/utils/helpers/auth';
 
-
 	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);
 
-    async function handleGoogleCallback(response: any) {
-        if (!response?.credential) return;
+	async function handleGoogleCallback(response: any) {
+		if (!response?.credential) return;
 
-        try {
-            const res = await authenticateWithGoogle(response.credential);
-            const { user: userData } = res;
+		try {
+			const res = await authenticateWithGoogle(response.credential);
+			const { user: userData } = res;
 
-            // User exists, handle successful login
-            const { email, name, nostrKey } = userData;
+			// User exists, handle successful login
+			const { email, name, nostrKey } = userData;
 
-            try {
-                // Decrypt the user's Nostr private key
-                const decryptedPrivateKey = await decryptNostrPrivateKeyWithUserId(
-                    {
-                        data: nostrKey.encryptedPrivateKey,
-                        iv: nostrKey.iv,
-                        authTag: nostrKey.authTag
-                    },
-                    response.client_id,
-                    nostrKey.salt
-                );
+			try {
+				// Decrypt the user's Nostr private key
+				const decryptedPrivateKey = await decryptNostrPrivateKeyWithUserId(
+					{
+						data: nostrKey.encryptedPrivateKey,
+						iv: nostrKey.iv,
+						authTag: nostrKey.authTag
+					},
+					response.client_id,
+					nostrKey.salt
+				);
 
-                // Only update user store and grant access if decryption succeeds
-                user.updateProfile({
-                    id: response.client_id,
-                    email,
-                    name,
-                    npub: nostrKey.publicKey,
-                    createdAt: new Date(userData.createdAt),
-                    updatedAt: new Date(userData.updatedAt)
-                });
+				// Only update user store and grant access if decryption succeeds
+				user.updateProfile({
+					id: response.client_id,
+					email,
+					name,
+					npub: nostrKey.publicKey,
+					createdAt: new Date(userData.createdAt),
+					updatedAt: new Date(userData.updatedAt)
+				});
 
-                goto('/profile');
-            } catch (decryptError) {
-                console.error('Failed to decrypt Nostr private key:', decryptError);
-                // Set error state and prevent login
-                authState.setError(
-                    'Failed to decrypt user credentials. Please try again or contact support.'
-                );
+				goto('/profile');
+			} catch (decryptError) {
+				console.error('Failed to decrypt Nostr private key:', decryptError);
+				// Set error state and prevent login
+				authState.setError(
+					'Failed to decrypt user credentials. Please try again or contact support.'
+				);
 				// TODO: Could redirect to a help page or show an error modal
-                return;
-            }
-        } catch (error: any) {
-            if (error.response?.status === 404) {
-                // User doesn't exist, proceed with registration
-                console.log('New user, proceeding with registration');
+				return;
+			}
+		} catch (error: any) {
+			if (error.response?.status === 404) {
+				// User doesn't exist, proceed with registration
+				console.log('New user, proceeding with registration');
 
-                // Decode the JWT token to get user info
-                const payload = JSON.parse(atob(response.credential.split('.')[1]));
+				// Decode the JWT token to get user info
+				const payload = JSON.parse(atob(response.credential.split('.')[1]));
 
-                // Generate Nostr keypair
-                const privateKey = generateSecretKey();
-                const publicKey = getPublicKey(privateKey);
-                const privateKeyHex = bytesToHex(privateKey);
+				// Generate Nostr keypair
+				const privateKey = generateSecretKey();
+				const publicKey = getPublicKey(privateKey);
+				const privateKeyHex = bytesToHex(privateKey);
 
 				// Encrypt private key using client ID as user ID
 				const { encrypted, salt } = await encryptNostrPrivateKeyWithUserId(
@@ -81,9 +81,9 @@
 
 				// Register user with encrypted Nostr keys
 				const registrationResult = await registerWithNostr({
-                    email: payload.email,
-                    name: payload.name,
-                    publicKey,
+					email: payload.email,
+					name: payload.name,
+					publicKey,
 					encryptedPrivateKey: encrypted.data,
 					iv: encrypted.iv,
 					salt,
@@ -93,14 +93,14 @@
 
 				console.log('Registration result:', registrationResult);
 
-                // Redirect to recovery page with email
-                goto('/auth/recover?email=' + encodeURIComponent(payload.email));
-            } else {
-                console.error('Authentication error:', error);
-                authState.setError('Authentication failed. Please try again.');
-            }
-        }
-    }
+				// Redirect to recovery page with email
+				goto('/auth/recover?email=' + encodeURIComponent(payload.email));
+			} else {
+				console.error('Authentication error:', error);
+				authState.setError('Authentication failed. Please try again.');
+			}
+		}
+	}
 
 	async function handleNativeGoogleLogin() {
 		try {
@@ -130,14 +130,14 @@
 			await SocialLogin.initialize({
 				google: {
 					webClientId: PUBLIC_GOOGLE_CLIENT_ID, // Use Web Client ID for all platforms
-					iOSClientId: PUBLIC_GOOGLE_IOS_CLIENT_ID, // for iOS
+					iOSClientId: PUBLIC_GOOGLE_IOS_CLIENT_ID // for iOS
 					// mode: 'offline' // replaces grantOfflineAccess
 				}
 			}).then(() => {
 				googleAuthInitialized = true;
 			});
-            return;
-        }
+			return;
+		}
 
 		if (!window.google) return;
 
@@ -174,11 +174,16 @@
 			handleNativeGoogleLogin();
 		} else {
 			window.google.accounts.id.prompt();
-        }
+		}
 	};
 </script>
 
-<button type="button" class="btn btn-outline w-full" onclick={handleGoogleSignIn} disabled={!googleAuthInitialized}>
+<button
+	type="button"
+	class="btn btn-outline w-full"
+	onclick={handleGoogleSignIn}
+	disabled={!googleAuthInitialized}
+>
 	<svg xmlns="http://www.w3.org/2000/svg" class="mr-2 h-5 w-5" viewBox="0 0 48 48">
 		<path
 			fill="#FFC107"
@@ -196,6 +201,6 @@
 			fill="#1976D2"
 			d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
 		/>
-        </svg>
-        Continue with Google
+	</svg>
+	Continue with Google
 </button>

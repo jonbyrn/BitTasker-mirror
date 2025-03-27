@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { authState } from '$lib/states/user.store';
+	import { authState } from '$lib/states/auth.store';
 	
-  const { children } = $props();
+	const { children } = $props();
 </script>
 
 {#if $authState.isLoading}

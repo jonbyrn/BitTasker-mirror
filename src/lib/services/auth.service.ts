@@ -1,6 +1,5 @@
 import type { NostrRegistrationData, UserData } from '$lib/types/auth';
 import createAxiosInstance from '$lib/api/axios';
-import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PATH = '/api/v1/auth';
@@ -54,7 +53,15 @@ export const loginWithCredentials = async (email: string, password: string): Pro
 
 /**
  * Register a new user with client-generated Nostr keys
- * @param registrationData User registration data with Nostr keys
+ * @param email User email (optional)
+ * @param password User password (optional)
+ * @param authMethod Authentication method (passkey)
+ * @param publicKey User's Nostr public key
+ * @param encryptedPrivateKey User's Nostr private key
+ * @param iv Initialization vector
+ * @param salt Salting data
+ * @param authTag Authentication tag
+ * @param iterations Number of iterations
  * @returns Promise with the registration response
  * @throws {Error} 400 - Bad Request or missing required encryption data
  * @throws {Error} 409 - Email already in use
@@ -128,24 +135,12 @@ export async function getEncryptedKeysWithToken(accessToken: string): Promise<{ 
     return response.data;
 }
 
-export async function getUserProfile(accessToken: string): Promise<UserData> {
-    const authApiWithAccessToken = createAxiosInstance({
-        baseURL: API_URL,
-        headers: {
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-    const response = await authApiWithAccessToken.get(`${API_PATH}/profile`);
-    return response.data;
-}
-
 /**
  * Get login challenge for a user
  * @returns Promise with login challenge data
  */
 export async function getLoginChallenge(): Promise<{ challenge: string; message: string }> {
-    const response = await axios.get(`${API_PATH}/nostr/challenge`);
+    const response = await authApi.get(`${API_PATH}/nostr/challenge`);
     return response.data;
 }
 

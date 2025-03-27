@@ -1,8 +1,10 @@
 import type { LayoutLoad } from './$types';
 import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
-import { getUserProfile } from '$lib/services/auth.service';
 import { Preferences } from '@capacitor/preferences';
+import { getUserProfile } from '$lib/services/user.service';
+import { user } from '$lib/states/user.store';
+import { authState } from '$lib/states/auth.store';
 
 export const load: LayoutLoad = async () => {
   // Only check authentication on the client side
@@ -10,8 +12,10 @@ export const load: LayoutLoad = async () => {
     const { value: token } = await Preferences.get({ key: 'access_token' });
 
     if (token) {
-      const user = await getUserProfile(token);
-      return { user };
+      const res = await getUserProfile();
+      user.set(res);
+      authState.login();
+      return { user: res };
     } else {
       throw redirect(303, '/auth');
     }
