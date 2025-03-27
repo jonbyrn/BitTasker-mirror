@@ -2,12 +2,12 @@
 	import { tasks2 as tasks } from '$lib/utils/consts';
 
 	// Filter states
-	let searchQuery = '';
-	let selectedCategory = '';
-	let showRemoteOnly = false;
-	let minBudget = '';
-	let maxBudget = '';
-	let sortBy = 'newest'; // newest, oldest, budget_high, budget_low
+	let searchQuery = $state('');
+	let selectedCategory = $state('');
+	let showRemoteOnly = $state(false);
+	let minBudget = $state('');
+	let maxBudget = $state('');
+	let sortBy = $state('newest'); // newest, oldest, budget_high, budget_low
 
 	// Categories - This would typically come from an API
 	const categories = [
@@ -22,58 +22,59 @@
 		'Events & Photography',
 		'Other'
 	];
-
 	// Filtered tasks
-	$: filteredTasks = tasks
-		.filter((task) => {
-			// Search query filter
-			if (
-				searchQuery &&
-				!task.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-				!task.description.toLowerCase().includes(searchQuery.toLowerCase())
-			) {
-				return false;
-			}
+	const filteredTasks = $derived(
+		tasks
+			.filter((task) => {
+				// Search query filter
+				if (
+					searchQuery &&
+					!task.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+					!task.description.toLowerCase().includes(searchQuery.toLowerCase())
+				) {
+					return false;
+				}
 
-			// Category filter
-			if (
-				selectedCategory &&
-				selectedCategory !== 'All Categories' &&
-				task.category !== selectedCategory
-			) {
-				return false;
-			}
+				// Category filter
+				if (
+					selectedCategory &&
+					selectedCategory !== 'All Categories' &&
+					task.category !== selectedCategory
+				) {
+					return false;
+				}
 
-			// Remote filter
-			if (showRemoteOnly && !task.isRemote) {
-				return false;
-			}
+				// Remote filter
+				if (showRemoteOnly && !task.isRemote) {
+					return false;
+				}
 
-			// Budget filter
-			if (minBudget && parseFloat(task.budget) < parseFloat(minBudget)) {
-				return false;
-			}
+				// Budget filter
+				if (minBudget && parseFloat(task.budget) < parseFloat(minBudget)) {
+					return false;
+				}
 
-			if (maxBudget && parseFloat(task.budget) > parseFloat(maxBudget)) {
-				return false;
-			}
+				if (maxBudget && parseFloat(task.budget) > parseFloat(maxBudget)) {
+					return false;
+				}
 
-			return true;
-		})
-		.sort((a, b) => {
-			switch (sortBy) {
-				case 'newest':
-					return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-				case 'oldest':
-					return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-				case 'budget_high':
-					return parseFloat(b.budget) - parseFloat(a.budget);
-				case 'budget_low':
-					return parseFloat(a.budget) - parseFloat(b.budget);
-				default:
-					return 0;
-			}
-		});
+				return true;
+			})
+			.sort((a, b) => {
+				switch (sortBy) {
+					case 'newest':
+						return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+					case 'oldest':
+						return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+					case 'budget_high':
+						return parseFloat(b.budget) - parseFloat(a.budget);
+					case 'budget_low':
+						return parseFloat(a.budget) - parseFloat(b.budget);
+					default:
+						return 0;
+				}
+			})
+	);
 
 	// Clear all filters
 	function clearFilters() {

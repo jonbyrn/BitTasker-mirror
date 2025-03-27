@@ -1,6 +1,5 @@
 import type { NostrRegistrationData, UserData } from '$lib/types/auth';
 import createAxiosInstance from '$lib/api/axios';
-import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PATH = '/api/v1/auth';
@@ -145,7 +144,7 @@ export async function getUserProfile(accessToken: string): Promise<UserData> {
  * @returns Promise with login challenge data
  */
 export async function getLoginChallenge(): Promise<{ challenge: string; message: string }> {
-    const response = await axios.get(`${API_PATH}/nostr/challenge`);
+    const response = await authApi.get(`${API_PATH}/nostr/challenge`);
     return response.data;
 }
 

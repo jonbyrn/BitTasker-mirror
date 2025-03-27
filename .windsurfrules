@@ -1047,3 +1047,222 @@ src/
 - Use snapshot testing for UI components to prevent regressions
 - Automate accessibility testing in the CI pipeline
 - Regularly perform load testing on Nostr relay integrations
+
+# BitTasker API Service Layer Documentation
+
+## Overview
+
+The BitTasker API service layer is designed to provide a structured, type-safe, and consistent approach to handling API calls throughout the application. This document outlines the architecture, usage patterns, and extension guidelines.
+
+## Architecture
+
+### Directory Structure
+
+```
+src/lib/api/
+├── index.ts          # Main export file
+├── endpoints.ts      # API endpoint constants
+├── types.ts          # TypeScript type definitions
+├── apiService.ts     # Base API service class
+├── authService.ts    # Auth-specific service
+├── axios.ts          # Axios instance configuration
+└── [other services]  # Domain-specific services
+```
+
+### Core Components
+
+1. **Base API Service** (`apiService.ts`)
+   - Foundation class with HTTP method wrappers
+   - Centralizes error handling and response formatting
+   - Implements typed requests and responses
+
+2. **Endpoint Constants** (`endpoints.ts`)
+   - Single source of truth for all API paths
+   - Organized by domain (auth, users, tasks)
+   - Template literals for dynamic endpoints
+
+3. **Type Definitions** (`types.ts`)
+   - Request and response interfaces
+   - Domain-specific type definitions
+   - Ensures type safety across the application
+
+4. **Domain Services** (`authService.ts`, etc.)
+   - Extend the base service
+   - Implement domain-specific methods
+   - Export singleton instances
+
+5. **Central Export** (`index.ts`)
+   - Unified import point
+   - Exports all services, types, and utilities
+
+## Usage Guidelines
+
+### Importing Services
+
+Always import services from the main index file:
+
+```typescript
+import { authService, ApiError } from '$lib/api';
+import type { OnboardingRequest } from '$lib/api';
+```
+
+### Making API Calls
+
+Use the appropriate service for domain-specific calls:
+
+```typescript
+// Example: Complete user onboarding
+try {
+  const userData = await authService.completeOnboarding(onboardingData);
+  // Handle success
+} catch (error) {
+  if (error instanceof ApiError) {
+    // Handle API-specific error
+  }
+}
+```
+
+### Error Handling
+
+All API errors are transformed into `ApiError` instances with consistent properties:
+
+```typescript
+try {
+  await authService.someMethod();
+} catch (error) {
+  if (error instanceof ApiError) {
+    console.error(`Status: ${error.status}, Message: ${error.message}`);
+    // Access error details via error.data
+  }
+}
+```
+
+## Extending the System
+
+### Adding New Endpoints
+
+1. Add the endpoint constant to `endpoints.ts`:
+
+```typescript
+// Example: Add payment endpoints
+PAYMENTS: {
+  LIST: `/${API_VERSION}/payments`,
+  CREATE: `/${API_VERSION}/payments`,
+  DETAILS: (id: string) => `/${API_VERSION}/payments/${id}`
+}
+```
+
+### Creating Request/Response Types
+
+Add new types to `types.ts`:
+
+```typescript
+// Example: Payment types
+export interface PaymentRequest {
+  amount: number;
+  currency: string;
+  description?: string;
+}
+
+export interface PaymentResponse {
+  id: string;
+  status: 'pending' | 'completed' | 'failed';
+  amount: number;
+  currency: string;
+  createdAt: string;
+}
+```
+
+### Implementing a New Service
+
+1. Create a new service file (e.g., `paymentService.ts`):
+
+```typescript
+import { BaseApiService } from './apiService';
+import { ENDPOINTS } from './endpoints';
+import type { PaymentRequest, PaymentResponse } from './types';
+
+export class PaymentService extends BaseApiService {
+  async createPayment(data: PaymentRequest): Promise<PaymentResponse> {
+    const response = await this.post<PaymentResponse>(ENDPOINTS.PAYMENTS.CREATE, data);
+    return response.data;
+  }
+  
+  async getPayments(): Promise<PaymentResponse[]> {
+    const response = await this.get<PaymentResponse[]>(ENDPOINTS.PAYMENTS.LIST);
+    return response.data;
+  }
+  
+  async getPaymentById(id: string): Promise<PaymentResponse> {
+    const response = await this.get<PaymentResponse>(ENDPOINTS.PAYMENTS.DETAILS(id));
+    return response.data;
+  }
+}
+
+export const paymentService = new PaymentService();
+```
+
+2. Export the new service in `index.ts`:
+
+```typescript
+// Add to existing exports
+export { paymentService } from './paymentService';
+```
+
+## Best Practices
+
+1. **Endpoint Management**
+   - Always define endpoints in `endpoints.ts`
+   - Use constants for base paths and versions
+   - Use template literals for dynamic paths
+
+2. **Type Safety**
+   - Define request/response types before implementation
+   - Use generics to ensure type consistency
+   - Export types through the main index file
+
+3. **Error Handling**
+   - Use the `ApiError` class for consistent error objects
+   - Check for specific error instances in catch blocks
+   - Provide meaningful error messages to users
+
+4. **Service Organization**
+   - Group related functionality in domain-specific services
+   - Export singleton instances for consistent state
+   - Keep methods focused on a single responsibility
+
+5. **Testability**
+   - Design services to be easily mockable
+   - Separate business logic from API calls
+   - Use dependency injection where appropriate
+
+## Versioning and Backward Compatibility
+
+When updating API endpoints:
+
+1. Keep old endpoints working until clients migrate
+2. Use versioning in API paths (`/v1/`, `/v2/`)
+3. Document breaking changes
+4. Consider implementing adapter patterns for major changes
+
+## Security Considerations
+
+1. **Token Management**
+   - The base service automatically adds authentication headers
+   - Logout clears tokens from localStorage
+   - Implement token refresh logic in the base service
+
+2. **Data Sanitization**
+   - Validate data before sending to API
+   - Never trust client-side data
+   - Implement input validation where needed
+
+## Example Implementation Flow
+
+1. **Define the endpoint in `endpoints.ts`**
+2. **Create types in `types.ts`**
+3. **Implement the service method**
+4. **Export the service in `index.ts`**
+5. **Use in components with proper error handling**
+
+By following these guidelines, we maintain a consistent, extensible, and maintainable API layer that scales with the application's needs.

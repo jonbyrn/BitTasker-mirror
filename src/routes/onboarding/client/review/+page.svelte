@@ -4,6 +4,9 @@
 	import { navigateWithTransition } from '$lib/utils/viewTransition';
 	import { onboardingStore } from '$lib/stores/onboardingStore';
 	import { taskCategories } from '$lib/data/onboardingData';
+	import { goto } from '$app/navigation';
+	import { authService, ApiError } from '$lib/api';
+	import type { OnboardingRequest, UserLocation } from '$lib/api';
 
 	let userData = $state({
 		accountType: '',
@@ -18,6 +21,8 @@
 	let isSubmitting = $state(false);
 	let submitSuccess = $state(false);
 	let submitError = $state(false);
+	let errorMessage = $state('');
+
 	// Get selected category names
 	let selectedTaskCategories = $derived(
 		userData.taskCategories
@@ -42,29 +47,72 @@
 		return unsubscribe;
 	});
 
+	/**
+	 * Parse location string into structured location object
+	 */
+	function parseLocation(locationString: string): UserLocation {
+		// Parse the location - it's in the format "City, State, Country"
+		const parts = locationString.split(',').map((part) => part.trim());
+
+		return {
+			addressLine1: '', // Required fields
+			city: parts[0] || '',
+			state: parts[1] || '',
+			country: parts[2] || 'United States', // Default to US
+			postalCode: '',
+			latitude: 0,
+			longitude: 0
+		};
+	}
+
 	async function handleSubmit() {
 		isSubmitting = true;
 		submitError = false;
+		errorMessage = '';
 
 		try {
-			// Simulate API call with a delay
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// Format data for API according to documentation
+			const onboardingData: OnboardingRequest = {
+				userType: userData.accountType.toUpperCase() as any, // Convert to uppercase to match API expectations
+				userInfo: {
+					name: `${userData.firstName} ${userData.lastName}`.trim(),
+					email: userData.email
+				},
+				location: parseLocation(userData.location),
+				profile: {
+					about: userData.about,
+					categories: userData.taskCategories
+				}
+			};
 
-			// Log the data to console (for demonstration)
-			console.log('Submitting client profile:', userData);
+			// Make the API call using our auth service
+			const response = await authService.completeOnboarding(onboardingData);
 
-			// Clear the onboarding data
+			console.log('User profile created:', response);
+
+			// Clear onboarding data
 			onboardingStore.clearData();
+
+			// Remove nostrKeys from localStorage is handled by the service on logout
 
 			submitSuccess = true;
 
-			// Navigate to tutorial page
+			// Navigate to dashboard instead of tutorial
 			setTimeout(() => {
-				navigateWithTransition('/onboarding/client/tutorial');
-			}, 500);
+				goto('/dashboard'); // Using goto instead of navigateWithTransition for a full page refresh
+			}, 1000);
 		} catch (error) {
 			console.error('Error submitting profile:', error);
 			submitError = true;
+
+			// Extract error message
+			if (error instanceof ApiError) {
+				errorMessage = error.message;
+			} else if (error instanceof Error) {
+				errorMessage = error.message;
+			} else {
+				errorMessage = 'An unknown error occurred';
+			}
 		} finally {
 			isSubmitting = false;
 		}
@@ -124,12 +172,7 @@
 				</button>
 			</h3>
 
-			<textarea
-				id="about"
-				value={userData.about}
-				class="textarea w-full h-40"
-				disabled
-			></textarea>
+			<textarea id="about" value={userData.about} class="textarea h-40 w-full" disabled></textarea>
 		</div>
 
 		<div class="divider"></div>
@@ -187,7 +230,7 @@
 							clip-rule="evenodd"
 						/>
 					</svg>
-					Submitted
+					Success! Redirecting...
 				{:else}
 					Create Profile
 				{/if}
@@ -210,7 +253,9 @@
 						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<span>An error occurred while creating your profile. Please try again.</span>
+				<span>
+					{errorMessage || 'An error occurred while creating your profile. Please try again.'}
+				</span>
 			</div>
 		{/if}
 	</div>

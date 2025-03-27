@@ -77,12 +77,12 @@
 	const getStarted = async () => {
 		await Preferences.set({ key: 'onboardingCompleted', value: 'true' });
 		onboardingCompleted.set(true);
-		goto('/auth');
+		goto('/onboarding');
 	};
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: 'onboardingCompleted' });
 		if (value === 'true') {
-			goto('/auth');
+			goto('/onboarding');
 		}
 	});
 </script>
