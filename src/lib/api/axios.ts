@@ -1,4 +1,5 @@
 import axios, { type AxiosRequestConfig } from 'axios';
+import { Preferences } from '@capacitor/preferences';
 
 interface RequestConfig extends AxiosRequestConfig {
 	baseURL?: string;
@@ -14,11 +15,10 @@ const createAxiosInstance = (config: RequestConfig = {}) => {
 
 	// Request interceptor
 	instance.interceptors.request.use(
-		(config) => {
-			const nostrKeys = localStorage.getItem('nostrKeys');
-			if (nostrKeys) {
-				const { publicKey } = JSON.parse(nostrKeys);
-				config.headers['X-Nostr-Key'] = publicKey;
+		async (config) => {
+			const { value: accessToken } = await Preferences.get({ key: 'access_token' });
+			if (accessToken) {
+				config.headers['Authorization'] = `Bearer ${accessToken}`;
 			}
 			return config;
 		},
@@ -32,8 +32,7 @@ const createAxiosInstance = (config: RequestConfig = {}) => {
 		(response) => response,
 		async (error) => {
 			if (error.response?.status === 401) {
-				// Only clear local storage, let components handle their own redirects
-				localStorage.removeItem('nostrKeys');
+				// TODO: Handle failed requests
 			}
 			return Promise.reject(error);
 		}

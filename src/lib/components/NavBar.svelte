@@ -158,6 +158,6 @@
 			</svg>
 		</label>
 
-		<a href="/auth" class="btn btn-primary">{$t('navbar.start_now')}</a>
+		<a href="/dashboard" class="btn btn-primary">{$t('navbar.start_now')}</a>
 	</div>
 </div>

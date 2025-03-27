@@ -101,6 +101,7 @@ export interface EncryptionData {
     iv: string;
     authTag: string;
     data: string;
+    salt: string;
 }
 
 export interface AuthState {

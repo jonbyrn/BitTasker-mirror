@@ -53,7 +53,15 @@ export const loginWithCredentials = async (email: string, password: string): Pro
 
 /**
  * Register a new user with client-generated Nostr keys
- * @param registrationData User registration data with Nostr keys
+ * @param email User email (optional)
+ * @param password User password (optional)
+ * @param authMethod Authentication method (passkey)
+ * @param publicKey User's Nostr public key
+ * @param encryptedPrivateKey User's Nostr private key
+ * @param iv Initialization vector
+ * @param salt Salting data
+ * @param authTag Authentication tag
+ * @param iterations Number of iterations
  * @returns Promise with the registration response
  * @throws {Error} 400 - Bad Request or missing required encryption data
  * @throws {Error} 409 - Email already in use
@@ -124,18 +132,6 @@ export async function getEncryptedKeysWithToken(accessToken: string): Promise<{ 
     });
 
     const response = await authApiWithAccessToken.get(`${API_PATH}/encrypted-key`);
-    return response.data;
-}
-
-export async function getUserProfile(accessToken: string): Promise<UserData> {
-    const authApiWithAccessToken = createAxiosInstance({
-        baseURL: API_URL,
-        headers: {
-            Authorization: `Bearer ${accessToken}`
-        }
-    });
-
-    const response = await authApiWithAccessToken.get(`${API_PATH}/profile`);
     return response.data;
 }
 

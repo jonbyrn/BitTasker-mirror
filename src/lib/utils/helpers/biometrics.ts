@@ -29,10 +29,7 @@ export async function verifyIdentity(): Promise<boolean> {
     }
 }
 
-export async function setBiometricKey(
-    publicKey: string, 
-    encryptionData: EncryptionData
-): Promise<boolean> {
+export async function setBiometricKey(publicKey: string, encryptionData: EncryptionData): Promise<boolean> {
     try {
         // Store the encryption data as a JSON string
         await NativeBiometric.setCredentials({
