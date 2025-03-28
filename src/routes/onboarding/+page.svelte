@@ -2,10 +2,17 @@
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { fly } from 'svelte/transition';
-	import { sequentialTransition, addViewTransitionStyles } from '$lib/utils/viewTransition';
+	import {
+		sequentialTransition,
+		addViewTransitionStyles,
+		navigateWithTransition
+	} from '$lib/utils/viewTransition';
+	import { completeUserOnboarding } from '$lib/services/user.service';
+	import { tryCatch } from '$lib/utils/tryCatch';
+	import type { OnboardingRequest } from '$lib/types/onboarding';
 
 	// Define reactive state with Svelte 5 runes
-	let userType = $state('CLIENT');
+	let userType = $state<'CLIENT' | 'FREELANCER' | 'BOTH'>('CLIENT');
 	let fullName = $state('');
 	let email = $state('');
 	let address1 = $state('');
@@ -19,6 +26,7 @@
 	let currentStep = $state(1);
 	let totalSteps = $state(3);
 	let isAnimating = $state(false);
+	let isLoading = $state(false);
 
 	// Form validation errors
 	let errors = $state({
@@ -60,7 +68,7 @@
 			country !== ''
 	);
 
-	function handleSubmit(e: Event) {
+	async function handleSubmit(e: Event) {
 		e.preventDefault();
 
 		// Validate the final step before submission
@@ -75,7 +83,7 @@
 			});
 
 			// Here you would submit the data to your API
-			const userData = {
+			const userData: OnboardingRequest = {
 				userType: userType,
 				userInfo: {
 					fullName: fullName,
@@ -88,14 +96,21 @@
 					state: stateName,
 					postalCode: postalCode,
 					country: country,
-					latitude: null, // These would be populated by a geocoding service
-					longitude: null
+					latitude: 0, // These would be populated by a geocoding service
+					longitude: 0
 				}
 			};
 
-			console.log('Submitting user data:', userData);
-			// Replace with actual API call to save data
-			// then redirect to dashboard or next step
+			isLoading = true;
+			const { data: response, error } = await tryCatch(completeUserOnboarding(userData));
+			if (error) {
+				console.error('Error:', error);
+				errors.step3 = error.message;
+			} else {
+				console.log('Response:', response);
+				navigateWithTransition('/dashboard');
+			}
+			isLoading = false;
 		} catch (error) {
 			if (error instanceof z.ZodError) {
 				errors.step3 = error.errors[0].message;
@@ -494,8 +509,13 @@
 							</svg>
 						</button>
 					{:else}
-						<button type="submit" class="btn btn-primary" disabled={!isFormValid || isAnimating}>
-							Complete Setup
+						<button
+							type="submit"
+							class="btn btn-primary"
+							class:loading={isLoading}
+							disabled={!isFormValid || isAnimating || isLoading}
+						>
+							{isLoading ? 'Completing...' : 'Complete Setup'}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="ml-2 h-5 w-5"

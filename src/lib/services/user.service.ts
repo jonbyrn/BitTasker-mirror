@@ -1,6 +1,11 @@
 import type { UserData } from '$lib/types/auth';
 import createAxiosInstance from '$lib/api/axios';
 import { tryCatch } from '$lib/utils/tryCatch';
+import type {
+	OnboardingRequest,
+	OnboardingSuccessResponse,
+	OnboardingErrorResponse
+} from '$lib/types/onboarding';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const API_PATH = '/api/users';
@@ -12,28 +17,31 @@ export async function getUserProfile(): Promise<UserData> {
 	return response.data;
 }
 
-export async function checkOnboardingStatus(): Promise<{
-	completed: boolean;
-}> {
-	// This is a mock implementation until the API is ready
-	// TODO: Replace with actual API call when available
-	const { data: response, error } = await tryCatch(userApi.get(`${API_PATH}/onboarding-status`));
+/**
+ * Submits user onboarding data to complete the onboarding process
+ * @param onboardingData The user's onboarding information
+ * @returns A promise resolving to the onboarding success response
+ * @throws Error if the request fails with appropriate error message
+ */
+export async function completeUserOnboarding(
+	onboardingData: OnboardingRequest
+): Promise<OnboardingSuccessResponse> {
+	const { data: response, error } = await tryCatch(
+		userApi.post('/api/v1/auth/onboarding', onboardingData)
+	);
 
 	if (error) {
-		console.log('Using mock onboarding status data', error);
-		// TODO: Remove this and throw the error instead, once the API is ready
-		return {
-			completed: false
-		};
+		console.error('Failed to complete onboarding:', error);
+		throw new Error(`Failed to complete onboarding: ${error.message}`);
 	}
 
-	if (response.status === 200) {
-		return {
-			completed: true
-		};
-	} else {
-		return {
-			completed: false
-		};
+	// Handle different response statuses
+	if (response.status === 400) {
+		const errorData = response.data as OnboardingErrorResponse;
+		throw new Error(`Bad Request: ${errorData.message.join(', ')}`);
+	} else if (response.status === 401) {
+		throw new Error('Unauthorized: You must be logged in to complete onboarding');
 	}
+
+	return response.data;
 }

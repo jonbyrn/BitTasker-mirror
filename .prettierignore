@@ -2,3 +2,13 @@
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Xcode
+ios/*
+
+# Android
+android/*
+
+storybook-static/*
+.storybook/*
+build/*
