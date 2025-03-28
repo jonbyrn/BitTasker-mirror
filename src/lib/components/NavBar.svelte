@@ -47,9 +47,6 @@
 					<a href="/how-it-works">{$t('navbar.how_it_works')}</a>
 				</li>
 				<li>
-					<a href="/onboarding">Onboarding</a>
-				</li>
-				<li>
 					<details class="dropdown">
 						<summary>{$t('navbar.language')}</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
@@ -105,9 +102,6 @@
 			<li><a href="/">{$t('navbar.home')}</a></li>
 			<li>
 				<a href="/how-it-works">{$t('navbar.how_it_works')}</a>
-			</li>
-			<li>
-				<a href="/onboarding">Onboarding</a>
 			</li>
 			<li>
 				<details class="dropdown">

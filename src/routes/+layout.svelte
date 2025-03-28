@@ -39,11 +39,11 @@
 <svelte:window bind:innerWidth={width} />
 
 <main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main" class="select-none">
-	{#if $deviceInfo?.platform === 'web' && width > 768}
+	{#if $deviceInfo?.platform === 'web'}
 		<NavBar />
 	{/if}
 	{@render children()}
 	<footer class="bg-base-300 text-base-content/70 py-4 text-center">
-		<p>© 2023 BitTasker. All rights reserved.</p>
+		<p>© {new Date().getFullYear()} BitTasker. All rights reserved.</p>
 	</footer>
 </main>
