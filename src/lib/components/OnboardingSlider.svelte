@@ -78,12 +78,12 @@
 	const getStarted = async () => {
 		await Preferences.set({ key: StorageKeys.ONBOARDING_COMPLETED, value: 'true' });
 		onboardingCompleted.set(true);
-		goto('/auth');
+		goto('/onboarding');
 	};
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: StorageKeys.ONBOARDING_COMPLETED });
 		if (value === 'true') {
-			goto('/auth');
+			goto('/onboarding');
 		}
 	});
 </script>

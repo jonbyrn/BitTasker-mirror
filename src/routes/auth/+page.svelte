@@ -26,6 +26,7 @@
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
+	import BottomNavBar from '$lib/components/NavBar.svelte';
 
 	let error: string = $state('');
 	let isLoading: boolean = $state(false);
@@ -76,13 +77,13 @@
 			const tempTokenHex = Array.from(tempToken)
 				.map((b) => b.toString(16).padStart(2, '0'))
 				.join('');
-	
+
 			// Store nsec temporarily with the token
 			await Preferences.set({
 				key: tempTokenHex,
 				value: nsec
 			});
-	
+
 			// Set a timeout to automatically clear the stored nsec after 5 minutes
 			setTimeout(
 				async () => {
@@ -90,10 +91,9 @@
 				},
 				5 * 60 * 1000
 			);
-	
+
 			goto(`/auth/recover?provider=passkey&npub=${npub}&token=${tempTokenHex}`);
 		}
-
 	};
 
 	const loginWithBiometric = async (pubKey: string, encryptedKey: string, deviceId: string) => {
@@ -146,6 +146,7 @@
 </script>
 
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
+	<BottomNavBar />
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>

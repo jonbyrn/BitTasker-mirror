@@ -152,7 +152,7 @@
 					});
 					user.updateProfile(res.user);
 					authState.login();
-					goto('/dashboard');
+					goto('/onboarding');
 				}
 			}
 		} catch (err: any) {

@@ -69,20 +69,20 @@ export function validatePassword(password: string): ValidationResult {
 }
 
 export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error?: string } {
-    // Check if it's a valid bech32 nsec format
-    if (!nsec.startsWith('nsec1')) {
-        return { isValid: false, error: 'Nostr private key must start with nsec1' };
-    }
+	// Check if it's a valid bech32 nsec format
+	if (!nsec.startsWith('nsec1')) {
+		return { isValid: false, error: 'Nostr private key must start with nsec1' };
+	}
 
-    // Bech32 nsec keys are typically around 63 characters
-    if (nsec.length < 60 || nsec.length > 65) {
-        return { isValid: false, error: 'Invalid Nostr private key length' };
-    }
-	
-    // Only allow valid bech32 characters
-    if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(nsec)) {
-        return { isValid: false, error: 'Invalid characters in Nostr private key' };
-    }
+	// Bech32 nsec keys are typically around 63 characters
+	if (nsec.length < 60 || nsec.length > 65) {
+		return { isValid: false, error: 'Invalid Nostr private key length' };
+	}
 
-    return { isValid: true };
+	// Only allow valid bech32 characters
+	if (!/^nsec1[023456789acdefghjklmnpqrstuvwxyz]+$/i.test(nsec)) {
+		return { isValid: false, error: 'Invalid characters in Nostr private key' };
+	}
+
+	return { isValid: true };
 }

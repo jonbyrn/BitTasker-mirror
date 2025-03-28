@@ -12,7 +12,7 @@ export default defineConfig({
 			'/api': {
 				target: 'http://uo0s8c4sw488kwg0ko44kg8g.production.bittasker.hedgehackers.finance',
 				changeOrigin: true,
-				secure: false  // Allow insecure requests
+				secure: false // Allow insecure requests
 			}
 		}
 	},

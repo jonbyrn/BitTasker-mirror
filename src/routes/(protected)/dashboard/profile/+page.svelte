@@ -1,5 +1,4 @@
 <script lang="ts">
-
 	// Mock user data - in a real implementation, this would come from an API or Nostr
 	let user = {
 		id: 'user1',
@@ -91,20 +90,20 @@
 	};
 
 	// Edit mode state
-	let isEditMode = false;
+	let isEditMode = $state(false);
 
 	// Form states
-	let editName = user.name;
-	let editBio = user.bio;
-	let editLocation = user.location;
-	let editSkills = [...user.skills];
-	let newSkillName = '';
-	let newSkillLevel = 3;
+	let editName = $state(user.name);
+	let editBio = $state(user.bio);
+	let editLocation = $state(user.location);
+	let editSkills = $state([...user.skills]);
+	let newSkillName = $state('');
+	let newSkillLevel = $state(3);
 
 	// New portfolio item
-	let newPortfolioTitle = '';
-	let newPortfolioDescription = '';
-	let newPortfolioImages: File[] = [];
+	let newPortfolioTitle = $state('');
+	let newPortfolioDescription = $state('');
+	let newPortfolioImages = $state<File[]>([]);
 
 	// Toggle edit mode
 	function toggleEditMode() {
@@ -240,11 +239,11 @@
 			</div>
 
 			<div class="flex flex-wrap gap-2">
-				<button class="btn btn-primary" on:click={toggleEditMode}>
+				<button class="btn btn-primary" onclick={toggleEditMode}>
 					{isEditMode ? 'Cancel' : 'Edit Profile'}
 				</button>
 				{#if isEditMode}
-					<button class="btn btn-primary" on:click={saveProfile}> Save Changes </button>
+					<button class="btn btn-primary" onclick={saveProfile}> Save Changes </button>
 				{/if}
 			</div>
 		</div>
@@ -375,7 +374,7 @@
 								</div>
 							</div>
 							<div class="form-control flex items-end">
-								<button class="btn btn-primary" on:click={addSkill}> Add Skill </button>
+								<button class="btn btn-primary" onclick={addSkill}> Add Skill </button>
 							</div>
 						</div>
 
@@ -407,7 +406,7 @@
 																name={`rating-${i}`}
 																class="mask mask-star-2 bg-orange-400"
 																checked={j + 1 === skill.level}
-																on:change={() => {
+																onchange={() => {
 																	editSkills[i].level = j + 1;
 																	editSkills = [...editSkills];
 																}}
@@ -416,7 +415,7 @@
 													</div>
 												</td>
 												<td>
-													<button class="btn btn-error btn-sm" on:click={() => removeSkill(i)}>
+													<button class="btn btn-error btn-sm" onclick={() => removeSkill(i)}>
 														Remove
 													</button>
 												</td>
@@ -468,7 +467,7 @@
 							<input
 								type="file"
 								id="portfolioImages"
-								on:change={handleImageUpload}
+								onchange={handleImageUpload}
 								class="file-input file-input-bordered w-full"
 								multiple
 								accept="image/*"
@@ -485,7 +484,7 @@
 
 						<button
 							class="btn btn-primary"
-							on:click={addPortfolioItem}
+							onclick={addPortfolioItem}
 							disabled={!newPortfolioTitle.trim() || !newPortfolioDescription.trim()}
 						>
 							Add Portfolio Item

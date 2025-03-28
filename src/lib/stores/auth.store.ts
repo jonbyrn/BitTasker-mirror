@@ -5,13 +5,13 @@ import { user } from './user.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 
 const initialAuthState: AuthState = {
-    isAuthenticated: false,
-    isLoading: false,
-    error: null
+	isAuthenticated: false,
+	isLoading: false,
+	error: null
 };
 
 const createAuthStore = () => {
-    const { subscribe, set, update } = writable<AuthState>(initialAuthState);
+	const { subscribe, set, update } = writable<AuthState>(initialAuthState);
 
     return {
         subscribe,
