@@ -10,6 +10,8 @@
 	import { completeUserOnboarding } from '$lib/services/user.service';
 	import { tryCatch } from '$lib/utils/tryCatch';
 	import type { OnboardingRequest } from '$lib/types/onboarding';
+	import { t, setLocale } from '$lib/stores/i18n.store';
+	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 
 	// Define reactive state with Svelte 5 runes
 	let userType = $state<'CLIENT' | 'FREELANCER' | 'BOTH'>('CLIENT');
@@ -207,11 +209,40 @@
 </script>
 
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4 pt-20">
-	<div class="card bg-base-100 w-full max-w-2xl shadow-xl">
+	<div class="card bg-base-100 relative w-full max-w-2xl shadow-xl">
+		
+		<!-- Language selector - only shown on native devices -->
+		{#if $deviceInfo?.platform === 'ios' || $deviceInfo?.platform === 'android'}
+			<div class="absolute top-1 right-1 z-10">
+				<div class="dropdown dropdown-end">
+					<div tabindex="0" role="button" class="btn btn-ghost btn-sm">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"
+							/>
+						</svg>
+					</div>
+					<ul class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow">
+						<li><button onclick={() => setLocale('en')}>English</button></li>
+						<li><button onclick={() => setLocale('es')}>Español</button></li>
+					</ul>
+				</div>
+			</div>
+		{/if}
+		
 		<div class="card-body p-4 text-sm md:p-8 md:text-base">
-			<h2 class="mb-2 text-center text-3xl font-bold">Welcome to Our Platform!</h2>
+			<h2 class="mb-2 text-center text-3xl font-bold">{$t('onboarding.page.title')}</h2>
 			<p class="text-base-content/70 mb-6 text-center">
-				Let's get your profile set up so you can get started.
+				{$t('onboarding.page.subtitle')}
 			</p>
 
 			<!-- Progress indicator -->
@@ -222,17 +253,17 @@
 					<span
 						class={currentStep >= 1
 							? 'text-primary font-xs md:font-medium'
-							: 'text-base-content/50'}>Profile Type</span
+							: 'text-base-content/50'}>{$t('onboarding.step.profile_type')}</span
 					>
 					<span
 						class={currentStep >= 2
 							? 'text-primary font-xs md:font-medium'
-							: 'text-base-content/50'}>Personal Info</span
+							: 'text-base-content/50'}>{$t('onboarding.step.personal_info')}</span
 					>
 					<span
 						class={currentStep >= 3
 							? 'text-primary font-xs md:font-medium'
-							: 'text-base-content/50'}>Location</span
+							: 'text-base-content/50'}>{$t('onboarding.step.location')}</span
 					>
 				</div>
 			</div>
@@ -247,10 +278,13 @@
 							in:fly={{ x: direction > 0 ? 100 : -100, duration: 250, delay: 300 }}
 							out:fly={{ x: direction > 0 ? -100 : 100, duration: 250, delay: 0 }}
 						>
-							<span class="label-text text-lg font-medium">What best describes you?</span>
+							<span class="label-text text-lg font-medium"
+								>{$t('onboarding.profile_type.question')}</span
+							>
 
 							<div class="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-								<label
+								<button
+									tabindex="0"
 									class="flex cursor-pointer flex-col rounded-lg border p-4 transition-all {userType ===
 									'CLIENT'
 										? 'border-primary bg-primary/10'
@@ -281,14 +315,15 @@
 										</svg>
 									</div>
 									<div class="text-center">
-										<span class="font-semibold">Client</span>
+										<span class="font-semibold">{$t('onboarding.profile_type.client')}</span>
 										<p class="text-base-content/70 mt-1 text-sm">
-											I want to hire experts for my projects
+											{$t('onboarding.profile_type.client_desc')}
 										</p>
 									</div>
-								</label>
+								</button>
 
-								<label
+								<button
+									tabindex="0"
 									class="flex cursor-pointer flex-col rounded-lg border p-4 transition-all {userType ===
 									'FREELANCER'
 										? 'border-primary bg-primary/10'
@@ -319,12 +354,12 @@
 										</svg>
 									</div>
 									<div class="text-center">
-										<span class="font-semibold">Freelancer</span>
+										<span class="font-semibold">{$t('onboarding.profile_type.freelancer')}</span>
 										<p class="text-base-content/70 mt-1 text-sm">
-											I want to work on projects and get paid
+											{$t('onboarding.profile_type.freelancer_desc')}
 										</p>
 									</div>
-								</label>
+								</button>
 							</div>
 
 							{#if errors.step1}
@@ -340,14 +375,14 @@
 							in:fly={{ x: direction > 0 ? 100 : -100, duration: 250, delay: 300 }}
 							out:fly={{ x: direction > 0 ? -100 : 100, duration: 250, delay: 0 }}
 						>
-							<h3 class="text-lg font-medium">Personal Information</h3>
+							<h3 class="text-lg font-medium">{$t('onboarding.personal_info.title')}</h3>
 
 							<div class="form-control px-1">
-								<span class="label-text">Full Name</span>
+								<span class="label-text">{$t('onboarding.personal_info.full_name')}</span>
 
 								<input
 									type="text"
-									placeholder="John Doe"
+									placeholder={$t('onboarding.personal_info.full_name_placeholder')}
 									class="input input-bordered w-full"
 									bind:value={fullName}
 									required
@@ -355,11 +390,11 @@
 							</div>
 
 							<div class="form-control px-1">
-								<span class="label-text">Email</span>
+								<span class="label-text">{$t('onboarding.personal_info.email')}</span>
 
 								<input
 									type="email"
-									placeholder="example@domain.com"
+									placeholder={$t('onboarding.personal_info.email_placeholder')}
 									class="input input-bordered w-full"
 									bind:value={email}
 									required
@@ -379,14 +414,14 @@
 							in:fly={{ x: direction > 0 ? 100 : -100, duration: 250, delay: 300 }}
 							out:fly={{ x: direction > 0 ? -100 : 100, duration: 250, delay: 0 }}
 						>
-							<h3 class="text-lg font-medium">Your Location</h3>
+							<h3 class="text-lg font-medium">{$t('onboarding.location.title')}</h3>
 
 							<div class="form-control px-1">
-								<span class="label-text">Address Line 1</span>
+								<span class="label-text">{$t('onboarding.location.address1')}</span>
 
 								<input
 									type="text"
-									placeholder="123 Main St"
+									placeholder={$t('onboarding.location.address1_placeholder')}
 									class="input input-bordered w-full"
 									bind:value={address1}
 									required
@@ -394,11 +429,11 @@
 							</div>
 
 							<div class="form-control px-1">
-								<span class="label-text">Address Line 2 (Optional)</span>
+								<span class="label-text">{$t('onboarding.location.address2')}</span>
 
 								<input
 									type="text"
-									placeholder="Apt, Suite, Unit, etc."
+									placeholder={$t('onboarding.location.address2_placeholder')}
 									class="input input-bordered w-full"
 									bind:value={address2}
 								/>
@@ -406,11 +441,11 @@
 
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 								<div class="form-control px-1">
-									<span class="label-text">City</span>
+									<span class="label-text">{$t('onboarding.location.city')}</span>
 
 									<input
 										type="text"
-										placeholder="New York"
+										placeholder={$t('onboarding.location.city_placeholder')}
 										class="input input-bordered w-full"
 										bind:value={city}
 										required
@@ -418,11 +453,11 @@
 								</div>
 
 								<div class="form-control px-1">
-									<span class="label-text">State/Province</span>
+									<span class="label-text">{$t('onboarding.location.state')}</span>
 
 									<input
 										type="text"
-										placeholder="NY"
+										placeholder={$t('onboarding.location.state_placeholder')}
 										class="input input-bordered w-full"
 										bind:value={stateName}
 										required
@@ -432,11 +467,11 @@
 
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 								<div class="form-control px-1">
-									<span class="label-text">Postal/ZIP Code</span>
+									<span class="label-text">{$t('onboarding.location.postal_code')}</span>
 
 									<input
 										type="text"
-										placeholder="10001"
+										placeholder={$t('onboarding.location.postal_code_placeholder')}
 										class="input input-bordered w-full"
 										bind:value={postalCode}
 										required
@@ -444,20 +479,22 @@
 								</div>
 
 								<div class="form-control px-1">
-									<span class="label-text">Country</span>
+									<span class="label-text">{$t('onboarding.location.country')}</span>
 
 									<select class="select select-bordered w-full" bind:value={country} required>
-										<option value="" disabled selected>Select country</option>
-										<option value="United States">United States</option>
-										<option value="Canada">Canada</option>
-										<option value="United Kingdom">United Kingdom</option>
-										<option value="Australia">Australia</option>
-										<option value="Germany">Germany</option>
-										<option value="France">France</option>
-										<option value="Japan">Japan</option>
-										<option value="China">China</option>
-										<option value="India">India</option>
-										<option value="Brazil">Brazil</option>
+										<option value="" disabled selected
+											>{$t('onboarding.location.country_placeholder')}</option
+										>
+										<option value="United States">{$t('onboarding.country.us')}</option>
+										<option value="Canada">{$t('onboarding.country.canada')}</option>
+										<option value="United Kingdom">{$t('onboarding.country.uk')}</option>
+										<option value="Australia">{$t('onboarding.country.australia')}</option>
+										<option value="Germany">{$t('onboarding.country.germany')}</option>
+										<option value="France">{$t('onboarding.country.france')}</option>
+										<option value="Japan">{$t('onboarding.country.japan')}</option>
+										<option value="China">{$t('onboarding.country.china')}</option>
+										<option value="India">{$t('onboarding.country.india')}</option>
+										<option value="Brazil">{$t('onboarding.country.brazil')}</option>
 										<!-- Add more countries as needed -->
 									</select>
 								</div>
@@ -486,7 +523,7 @@
 									clip-rule="evenodd"
 								/>
 							</svg>
-							Back
+							{$t('onboarding.button.back')}
 						</button>
 					{:else}
 						<div></div>
@@ -494,7 +531,7 @@
 
 					{#if currentStep < totalSteps}
 						<button type="button" class="btn btn-primary" onclick={nextStep} disabled={isAnimating}>
-							Next
+							{$t('onboarding.button.next')}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="ml-2 h-5 w-5"
@@ -515,7 +552,7 @@
 							class:loading={isLoading}
 							disabled={!isFormValid || isAnimating || isLoading}
 						>
-							{isLoading ? 'Completing...' : 'Complete Setup'}
+							{isLoading ? $t('onboarding.button.completing') : $t('onboarding.button.complete')}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="ml-2 h-5 w-5"
