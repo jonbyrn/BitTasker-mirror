@@ -148,6 +148,7 @@
 					country
 				});
 				if (!result3.success) {
+					console.log('Error:', result3.error);
 					errors.step3 = result3.error.errors[0].message;
 					return false;
 				}
@@ -210,7 +211,6 @@
 
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4 pt-20">
 	<div class="card bg-base-100 relative w-full max-w-2xl shadow-xl">
-		
 		<!-- Language selector - only shown on native devices -->
 		{#if $deviceInfo?.platform === 'ios' || $deviceInfo?.platform === 'android'}
 			<div class="absolute top-1 right-1 z-10">
@@ -238,7 +238,7 @@
 				</div>
 			</div>
 		{/if}
-		
+
 		<div class="card-body p-4 text-sm md:p-8 md:text-base">
 			<h2 class="mb-2 text-center text-3xl font-bold">{$t('onboarding.page.title')}</h2>
 			<p class="text-base-content/70 mb-6 text-center">
@@ -289,6 +289,9 @@
 									'CLIENT'
 										? 'border-primary bg-primary/10'
 										: 'border-base-300 hover:border-primary/50'}"
+									onclick={() => {
+										userType = 'CLIENT';
+									}}
 								>
 									<input
 										type="radio"
@@ -328,6 +331,9 @@
 									'FREELANCER'
 										? 'border-primary bg-primary/10'
 										: 'border-base-300 hover:border-primary/50'}"
+									onclick={() => {
+										userType = 'FREELANCER';
+									}}
 								>
 									<input
 										type="radio"
