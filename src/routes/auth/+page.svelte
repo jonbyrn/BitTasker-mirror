@@ -77,13 +77,13 @@
 			const tempTokenHex = Array.from(tempToken)
 				.map((b) => b.toString(16).padStart(2, '0'))
 				.join('');
-	
+
 			// Store nsec temporarily with the token
 			await Preferences.set({
 				key: tempTokenHex,
 				value: nsec
 			});
-	
+
 			// Set a timeout to automatically clear the stored nsec after 5 minutes
 			setTimeout(
 				async () => {
@@ -91,10 +91,9 @@
 				},
 				5 * 60 * 1000
 			);
-	
+
 			goto(`/auth/recover?provider=passkey&npub=${npub}&token=${tempTokenHex}`);
 		}
-
 	};
 
 	const loginWithBiometric = async (pubKey: string, encryptedKey: string, deviceId: string) => {

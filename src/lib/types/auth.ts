@@ -31,8 +31,8 @@ export interface NostrRegistrationData {
 	authTag: string;
 	iterations: number;
 	googleToken?: string; // Optional Google token for social registration
-	authMethod?: 'passkey',
-	password?: string
+	authMethod?: 'passkey';
+	password?: string;
 }
 
 export interface NostrKeyData {
@@ -69,43 +69,43 @@ export interface UserData {
 }
 
 export interface AuthResponse {
-    user: UserData;
-    access_token: string;
+	user: UserData;
+	access_token: string;
 }
 
 export interface LoginResponse {
-    publicKey: string;
-    encryptedPrivateKey: string;
-    iv: string;
-    authTag: string;
-    token: string;
+	publicKey: string;
+	encryptedPrivateKey: string;
+	iv: string;
+	authTag: string;
+	token: string;
 }
 
 export interface EncryptedData {
-    data: string;
-    iv: string;
-    authTag: string;
+	data: string;
+	iv: string;
+	authTag: string;
 }
 
 export interface BiometricVerifyOptions {
-    reason: string;
-    title: string;
-    subtitle: string;
-    description: string;
-    maxAttempts: number;
-    useFallback: boolean;
+	reason: string;
+	title: string;
+	subtitle: string;
+	description: string;
+	maxAttempts: number;
+	useFallback: boolean;
 }
 
 export interface EncryptionData {
-    key: string;
-    iv: string;
-    authTag: string;
-    data: string;
-    salt: string;
+	key: string;
+	iv: string;
+	authTag: string;
+	data: string;
+	salt: string;
 }
 
 export interface AuthState {
-    isAuthenticated: boolean;
-    isLoading: boolean;
-    error: string | null;
+	isAuthenticated: boolean;
+	isLoading: boolean;
+	error: string | null;
 }

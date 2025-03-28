@@ -21,7 +21,8 @@ export const load: LayoutLoad = async () => {
 		}
 
 		// Check onboarding status
-		const { data: onboardingStatus, error: onboardingError } = await tryCatch(checkOnboardingStatus());
+		const { data: onboardingStatus, error: onboardingError } =
+			await tryCatch(checkOnboardingStatus());
 
 		if (onboardingError) {
 			console.error('Error checking onboarding status', onboardingError);

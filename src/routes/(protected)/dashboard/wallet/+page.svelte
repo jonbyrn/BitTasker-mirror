@@ -2,16 +2,16 @@
 	import { wallet } from '$lib/utils/consts';
 
 	// UI state
-	let activeTab = 'balance'; // balance, receive, send, transactions
-	let selectedAddress = wallet.addresses.find((a) => a.isDefault) || wallet.addresses[0];
-	let showQR = false;
-	let copiedAddress = false;
+	let activeTab = $state('balance'); // balance, receive, send, transactions
+	let selectedAddress = $state(wallet.addresses.find((a) => a.isDefault) || wallet.addresses[0]);
+	let showQR = $state(false);
+	let copiedAddress = $state(false);
 
 	// Send form
-	let sendAmount = '';
-	let sendAddress = '';
-	let sendNetworkFee = 'medium'; // low, medium, high
-	let sendError = '';
+	let sendAmount = $state('');
+	let sendAddress = $state('');
+	let sendNetworkFee = $state('medium'); // low, medium, high
+	let sendError = $state('');
 
 	// Format number with a specific number of decimals
 	function formatNumber(number: number, decimals: number): string {
@@ -322,9 +322,9 @@
 					<h4 class="card-title text-base">Request Specific Amount</h4>
 
 					<div class="form-control">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Amount (BTC)</span>
-						</label>
+						</div>
 						<div class="input-group">
 							<input type="number" placeholder="0.00000000" class="input input-bordered w-full" />
 							<select class="select select-bordered">
@@ -335,9 +335,9 @@
 					</div>
 
 					<div class="form-control mt-4">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Description (optional)</span>
-						</label>
+						</div>
 						<input
 							type="text"
 							placeholder="What's this payment for?"
@@ -381,9 +381,9 @@
 					{/if}
 
 					<div class="form-control">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Recipient Address</span>
-						</label>
+						</div>
 						<div class="input-group">
 							<input
 								type="text"
@@ -391,7 +391,7 @@
 								class="input input-bordered w-full"
 								bind:value={sendAddress}
 							/>
-							<button class="btn">
+							<button aria-label="Scan QR Code" class="btn">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-5 w-5"
@@ -417,12 +417,12 @@
 					</div>
 
 					<div class="form-control mt-4">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Amount</span>
 							<span class="label-text-alt"
 								>Available: {formatNumber(wallet.balance.btc, 8)} BTC</span
 							>
-						</label>
+						</div>
 						<div class="input-group">
 							<input
 								type="number"
@@ -439,9 +439,9 @@
 					</div>
 
 					<div class="form-control mt-4">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Transaction Fee</span>
-						</label>
+						</div>
 						<div class="btn-group w-full">
 							<button
 								class="btn flex-1 {sendNetworkFee === 'low' ? 'btn-active' : ''}"
@@ -474,9 +474,9 @@
 					</div>
 
 					<div class="form-control mt-4">
-						<label class="label">
+						<div class="label">
 							<span class="label-text">Description (optional)</span>
-						</label>
+						</div>
 						<input
 							type="text"
 							placeholder="What's this payment for?"

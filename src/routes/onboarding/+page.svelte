@@ -193,7 +193,7 @@
 
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4 pt-20">
 	<div class="card bg-base-100 w-full max-w-2xl shadow-xl">
-		<div class="card-body p-4 md:p-8 text-sm md:text-base">
+		<div class="card-body p-4 text-sm md:p-8 md:text-base">
 			<h2 class="mb-2 text-center text-3xl font-bold">Welcome to Our Platform!</h2>
 			<p class="text-base-content/70 mb-6 text-center">
 				Let's get your profile set up so you can get started.

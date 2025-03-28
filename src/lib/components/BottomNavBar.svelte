@@ -2,7 +2,7 @@
 	import 'iconify-icon';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
-	
+
 	let currentSection = $state('');
 
 	$effect.pre(() => {
