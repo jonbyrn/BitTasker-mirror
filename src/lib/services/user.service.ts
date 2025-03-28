@@ -8,7 +8,7 @@ import type { OnboardingSuccessResponse } from "$lib/types/onboarding";
 import type { OnboardingErrorResponse } from "$lib/types/onboarding";
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_PATH = '/api/users';
+const API_PATH = '/api/v1/users';
 const ADMIN_PATH = '/api/v1/admin';
 
 const userApi = createAxiosInstance({ baseURL: API_URL });
