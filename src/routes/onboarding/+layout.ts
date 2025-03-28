@@ -6,11 +6,12 @@ import { getUserProfile } from '$lib/services/user.service';
 import { user } from '$lib/stores/user.store';
 import { authState } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 export const load: LayoutLoad = async () => {
 	if (browser) {
 		const { data: token, error: tokenError } = await tryCatch(
-			Preferences.get({ key: 'access_token' })
+			Preferences.get({ key: StorageKeys.ACCESS_TOKEN })
 		);
 		if (tokenError || !token || token === null) {
 			throw redirect(303, '/auth');

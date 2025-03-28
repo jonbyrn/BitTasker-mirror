@@ -24,8 +24,6 @@ export class AuthService extends BaseApiService {
 	 */
 	async logout(): Promise<void> {
 		await this.post(ENDPOINTS.AUTH.LOGOUT);
-		// Clear local storage on logout
-		localStorage.removeItem('nostrKeys');
 	}
 
 	// Add other auth-related methods as needed
