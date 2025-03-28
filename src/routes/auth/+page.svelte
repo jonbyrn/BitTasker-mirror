@@ -23,6 +23,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 
@@ -112,7 +113,7 @@
 
 		// Store access token securely
 		await Preferences.set({
-			key: 'access_token',
+			key: StorageKeys.ACCESS_TOKEN,
 			value: response.access_token
 		});
 

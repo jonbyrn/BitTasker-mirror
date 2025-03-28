@@ -22,6 +22,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 
 	const provider = page.url.searchParams.get('provider') || '';
 	let npub = $state(page.url.searchParams.get('npub') || '');
@@ -146,7 +147,7 @@
 
 				if (accessToken) {
 					await Preferences.set({
-						key: 'access_token',
+						key: StorageKeys.ACCESS_TOKEN,
 						value: accessToken
 					});
 					user.updateProfile(res.user);

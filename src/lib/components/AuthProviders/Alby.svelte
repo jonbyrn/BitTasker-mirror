@@ -11,6 +11,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
@@ -71,7 +72,7 @@
 				const res = await loginWithNostr(signerUser.pubkey, challenge, signedEvent);
 				if (res.access_token) {
 					await Preferences.set({
-						key: 'access_token',
+						key: StorageKeys.ACCESS_TOKEN,
 						value: res.access_token
 					});
 					user.updateProfile(res.user);

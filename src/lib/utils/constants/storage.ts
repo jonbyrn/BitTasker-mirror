@@ -6,18 +6,20 @@ export const StorageKeys = {
     // Tasks
     DRAFT_TASK: 'bittasker_draft_task',
     TASK_FILTERS: 'bittasker_task_filters',
-    
+
     // User preferences
-    THEME: 'bittasker_theme',
-    LANGUAGE: 'bittasker_language',
-    
+    ONBOARDING_COMPLETED: 'onboardingCompleted',
+    LANGUAGE_PREFERENCE_KEY: 'user_language',
+    THEME: 'darkMode',
+
     // Auth
-    AUTH_TOKEN: 'bittasker_auth_token',
-    REFRESH_TOKEN: 'bittasker_refresh_token',
-    
+    ACCESS_TOKEN: 'access_token',
+    REFRESH_TOKEN: 'refresh_token',
+
     // App state
     LAST_SYNC: 'bittasker_last_sync',
-    APP_VERSION: 'bittasker_app_version'
+    APP_VERSION: 'bittasker_app_version',
+    DEVICE_UNIQUE_ID: 'device_unique_id'
 } as const;
 
 // Type to get autocomplete for storage keys

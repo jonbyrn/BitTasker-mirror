@@ -8,6 +8,7 @@
 	import { register } from 'swiper/element/bundle';
 	import { Preferences } from '@capacitor/preferences';
 	import { onboardingCompleted } from '$lib/stores/deviceInfo.store';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 
 	register();
 
@@ -75,12 +76,12 @@
 	};
 
 	const getStarted = async () => {
-		await Preferences.set({ key: 'onboardingCompleted', value: 'true' });
+		await Preferences.set({ key: StorageKeys.ONBOARDING_COMPLETED, value: 'true' });
 		onboardingCompleted.set(true);
 		goto('/auth');
 	};
 	onMount(async () => {
-		const { value } = await Preferences.get({ key: 'onboardingCompleted' });
+		const { value } = await Preferences.get({ key: StorageKeys.ONBOARDING_COMPLETED });
 		if (value === 'true') {
 			goto('/auth');
 		}

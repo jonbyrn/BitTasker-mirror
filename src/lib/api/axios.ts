@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 interface RequestConfig extends AxiosRequestConfig {
 	baseURL?: string;
@@ -16,7 +17,7 @@ const createAxiosInstance = (config: RequestConfig = {}) => {
 	// Request interceptor
 	instance.interceptors.request.use(
 		async (config) => {
-			const { value: accessToken } = await Preferences.get({ key: 'access_token' });
+			const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 			if (accessToken) {
 				config.headers['Authorization'] = `Bearer ${accessToken}`;
 			}

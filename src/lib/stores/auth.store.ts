@@ -2,6 +2,7 @@ import type { AuthState } from '$lib/types/auth';
 import { writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 import { user } from './user.store';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 const initialAuthState: AuthState = {
     isAuthenticated: false,
@@ -22,7 +23,7 @@ const createAuthStore = () => {
         login: () =>
             update(state => ({ ...state, isAuthenticated: true, error: null })),
         logout: async () => {
-            await Preferences.remove({ key: 'access_token' });
+            await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
             user.reset();
             set(initialAuthState);
         }
