@@ -1,10 +1,10 @@
 import { derived, writable } from 'svelte/store';
 import translations from '$lib/utils/translations';
 import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 export type Locales = 'en' | 'es';
 
-const LANGUAGE_PREFERENCE_KEY = 'user_language';
 const DEFAULT_LANGUAGE: Locales = 'en';
 const locales = ['en', 'es'];
 const locale = writable<Locales>(DEFAULT_LANGUAGE);
@@ -12,7 +12,7 @@ const locale = writable<Locales>(DEFAULT_LANGUAGE);
 // Load the saved language preference
 const loadSavedLanguage = async () => {
 	try {
-		const { value } = await Preferences.get({ key: LANGUAGE_PREFERENCE_KEY });
+		const { value } = await Preferences.get({ key: StorageKeys.LANGUAGE_PREFERENCE_KEY });
 		if (value && locales.includes(value as Locales)) {
 			locale.set(value as Locales);
 		}
@@ -25,7 +25,7 @@ const loadSavedLanguage = async () => {
 const saveLanguage = async (language: Locales) => {
 	try {
 		await Preferences.set({
-			key: LANGUAGE_PREFERENCE_KEY,
+			key: StorageKeys.LANGUAGE_PREFERENCE_KEY,
 			value: language
 		});
 	} catch (error) {

@@ -1,11 +1,19 @@
 <script lang="ts">
-	import { authState } from '$lib/states/auth.store';
-
+	import { authState } from '$lib/stores/auth.store';
+	import { appStore } from '$lib/stores/app.store';
+	
 	const { children } = $props();
+
+	// Load global data when authenticated
+	$effect.pre(() => {
+		if ($authState.isAuthenticated) {
+			appStore.loadGlobalData();
+		}
+	});
 </script>
 
 {#if $authState.isLoading}
-	<div class="flex h-full w-full flex-col items-center justify-center">
+	<div class="flex w-full flex-col items-center justify-center h-[100dvh]">
 		<span class="loading loading-spinner loading-xl"></span>
 		<p>Loading...</p>
 	</div>

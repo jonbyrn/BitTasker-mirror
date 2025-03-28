@@ -1,56 +1,57 @@
 import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '../constants/storage';
 
 /**
  * Get unique device identifier for biometric authentication
  * Uses actual device hardware identifiers when available
  */
 export async function getDeviceIdentifier(): Promise<string> {
-	try {
-		// First check if we've already stored a device ID
-		const { value: storedId } = await Preferences.get({ key: 'device_unique_id' });
-		if (storedId) {
-			return storedId;
-		}
+    try {
+        // First check if we've already stored a device ID
+        const { value: storedId } = await Preferences.get({ key: StorageKeys.DEVICE_UNIQUE_ID });
+        if (storedId) {
+            return storedId;
+        }
 
-		// Get device info from Capacitor
-		const info = await Device.getInfo();
-		const id = await Device.getId();
-
-		// Create a device identifier using real hardware information
-		let deviceId: string;
-
-		if (id.identifier && id.identifier !== 'unknown') {
-			// Use the device identifier if available (most secure option)
-			deviceId = id.identifier;
-		} else if (info.platform === 'ios') {
-			// For iOS, use vendor identifier + model + OS version
-			deviceId = `ios_${info.model}_${info.osVersion}`;
-		} else if (info.platform === 'android') {
-			// For Android, combine model + manufacturer + OS version
-			deviceId = `android_${info.manufacturer}_${info.model}_${info.osVersion}`;
-		} else {
-			// For web/desktop, create a persistent browser fingerprint
-			deviceId = await generateBrowserFingerprint();
-		}
-
-		// Store the device ID for future use
-		await Preferences.set({
-			key: 'device_unique_id',
-			value: deviceId
-		});
-
-		return deviceId;
-	} catch (error) {
-		console.error('Error getting device identifier:', error);
-		// Fallback to a random ID if device info can't be accessed
-		const fallbackId = generateRandomId();
-		await Preferences.set({
-			key: 'device_unique_id',
-			value: fallbackId
-		});
-		return fallbackId;
-	}
+        // Get device info from Capacitor
+        const info = await Device.getInfo();
+        const id = await Device.getId();
+        
+        // Create a device identifier using real hardware information
+        let deviceId: string;
+        
+        if (id.identifier && id.identifier !== 'unknown') {
+            // Use the device identifier if available (most secure option)
+            deviceId = id.identifier;
+        } else if (info.platform === 'ios') {
+            // For iOS, use vendor identifier + model + OS version
+            deviceId = `ios_${info.model}_${info.osVersion}`;
+        } else if (info.platform === 'android') {
+            // For Android, combine model + manufacturer + OS version
+            deviceId = `android_${info.manufacturer}_${info.model}_${info.osVersion}`;
+        } else {
+            // For web/desktop, create a persistent browser fingerprint
+            deviceId = await generateBrowserFingerprint();
+        }
+        
+        // Store the device ID for future use
+        await Preferences.set({
+            key: StorageKeys.DEVICE_UNIQUE_ID,
+            value: deviceId
+        });
+        
+        return deviceId;
+    } catch (error) {
+        console.error('Error getting device identifier:', error);
+        // Fallback to a random ID if device info can't be accessed
+        const fallbackId = generateRandomId();
+        await Preferences.set({
+            key: StorageKeys.DEVICE_UNIQUE_ID,
+            value: fallbackId
+        });
+        return fallbackId;
+    }
 }
 
 /**

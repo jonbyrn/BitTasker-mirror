@@ -3,16 +3,16 @@ import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
 import { Preferences } from '@capacitor/preferences';
 import { getUserProfile } from '$lib/services/user.service';
-import { user } from '$lib/states/user.store';
-import { authState } from '$lib/states/auth.store';
+import { user } from '$lib/stores/user.store';
+import { authState } from '$lib/stores/auth.store';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
 	if (browser) {
-		// Moving away from traditional error handling to a more functional approach
 		const { data: token, error: tokenError } = await tryCatch(
-			Preferences.get({ key: 'access_token' })
+			Preferences.get({ key: StorageKeys.ACCESS_TOKEN })
 		);
 
 		if (tokenError || !token || token === null) {
