@@ -1,49 +1,84 @@
 <script lang="ts">
+	import type { TaskResponse, Task } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
-	import { tasks } from '$lib/utils/consts';
-	let selectedCategory = $state('All Categories');
+	import { getAllTasks } from '$lib/services/task.service';
+	import { appStore } from '$lib/stores/app.store';
+	import Input from '$lib/components/Input.svelte';
+
+	let selectedCategory = $state({ label: '', value: '' });
 	let searchQuery = $state('');
+	let currentPage = $state(1);
+	let limit = $state(10);
+	let tasks = $state<Task[]>([]);
+	let meta = $state<TaskResponse['meta'] | null>(null);
+	let loading = $state(false);
 
-	// Filter options
-	const categories = [
-		'All Categories',
-		'Home Maintenance',
-		'IT & Technology',
-		'Creative Services',
-		'Professional Services',
-		'Delivery',
-		'Tutoring & Education',
-		'Events & Lifestyle'
-	];
+	// Load tasks with filters
+	async function loadTasks() {
+		try {
+			const params: Record<string, any> = {
+				page: currentPage,
+				limit
+			};
 
-	// Filter tasks by category and search query
-	let filteredTasks = $derived(
-		tasks.filter((task) => {
-			// Category filter
-			const categoryMatch =
-				selectedCategory === 'All Categories' || task.category === selectedCategory;
+			// Only add filters if they have values
+			if (selectedCategory.value) {
+				params.categoryId = parseInt(selectedCategory.value, 10);
+			}
 
-			// Search filter
-			const searchLower = searchQuery.toLowerCase();
-			const searchMatch =
-				!searchQuery ||
-				task.title.toLowerCase().includes(searchLower) ||
-				task.description.toLowerCase().includes(searchLower);
+			if (searchQuery.trim()) {
+				params.searchTerm = searchQuery.trim();
+			}
 
-			return categoryMatch && searchMatch;
-		})
-	);
+			const response = await getAllTasks(params);
+			tasks = response.data;
+			meta = response.meta;
+		} catch (error) {
+			console.error('Error loading tasks:', error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	// Debounce function
+	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+		let timeoutId: ReturnType<typeof setTimeout>;
+		return function (...args: Parameters<T>) {
+			clearTimeout(timeoutId);
+			timeoutId = setTimeout(() => fn.apply(null, args), delay);
+		};
+	}
+
+	// Handle filter changes with debounce
+	const debouncedLoadTasks = debounce(() => {
+		loadTasks();
+	}, 500);
+
+	function handleFilterChange() {
+		loading = true; // Update loading state immediately
+		currentPage = 1; // Reset to first page
+		debouncedLoadTasks();
+	}
+
+	// Handle page change
+	function handlePageChange(newPage: number) {
+		currentPage = newPage;
+		loadTasks(); // Immediate load for page changes
+	}
+
+	// Initial load
+	loadTasks();
 
 	// Format dates
-	function formatTimeAgo(date: Date): string {
-		return formatDistanceToNow(date, { addSuffix: true });
+	function formatTimeAgo(date: string): string {
+		return formatDistanceToNow(new Date(date), { addSuffix: true });
 	}
 
 	// Format currency
-	function formatCurrency(amount: number, currency: string): string {
+	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
-			currency
+			currency: 'USD'
 		}).format(amount);
 	}
 </script>
@@ -53,14 +88,20 @@
 		<!-- Filters -->
 		<div class="mb-6 flex flex-col gap-4 sm:flex-row">
 			<div class="form-control w-full max-w-xs">
-				<label for="category-select" class="label">
-					<span class="label-text">Category</span>
-				</label>
-				<select id="category-select" class="select select-bordered" bind:value={selectedCategory}>
-					{#each categories as category}
-						<option value={category}>{category}</option>
-					{/each}
-				</select>
+				<Input
+					id="category"
+					label="Category"
+					placeholder="Select a category"
+					options={$appStore.categories.map((cat) => ({
+						label: cat.name,
+						value: cat.id.toString()
+					}))}
+					value={selectedCategory.label}
+					onChange={(option) => {
+						selectedCategory = option;
+						handleFilterChange();
+					}}
+				/>
 			</div>
 
 			<div class="form-control w-full">
@@ -73,12 +114,20 @@
 					placeholder="Search tasks..."
 					class="input input-bordered w-full"
 					bind:value={searchQuery}
+					oninput={handleFilterChange}
 				/>
 			</div>
 		</div>
 
+		<!-- Loading State -->
+		{#if loading}
+			<div class="flex justify-center py-8">
+				<span class="loading loading-spinner loading-lg"></span>
+			</div>
+		{/if}
+
 		<!-- Task List -->
-		{#if filteredTasks.length > 0}
+		{#if !loading && tasks.length > 0}
 			<div class="overflow-x-auto">
 				<table class="table-zebra table w-full">
 					<thead>
@@ -86,12 +135,12 @@
 							<th>Task</th>
 							<th>Budget</th>
 							<th>Posted</th>
-							<th>Bids</th>
+							<th>Status</th>
 							<th>Action</th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each filteredTasks as task}
+						{#each tasks as task}
 							<tr class="hover">
 								<td>
 									<div>
@@ -100,21 +149,28 @@
 											{task.description}
 										</div>
 										<div class="mt-1">
-											<span class="badge badge-neutral badge-sm">{task.category}</span>
-											<span class="badge badge-neutral badge-sm">{task.location}</span>
+											<span class="badge badge-neutral badge-sm">{task.taskType}</span>
+											{#if task.pickupLocation}
+												<span class="badge badge-neutral badge-sm"
+													>{task.pickupLocation.zipCode}</span
+												>
+											{/if}
 										</div>
 									</div>
 								</td>
 								<td>
 									<div class="text-primary font-semibold">
-										{formatCurrency(task.budget, task.currency)}
+										{formatCurrency(task.budget)}
+										{#if task.budgetType === 'HOURLY'}
+											<span class="text-sm opacity-75">/hr</span>
+										{/if}
 									</div>
 								</td>
 								<td>
-									<div class="text-sm">{formatTimeAgo(task.postedDate)}</div>
+									<div class="text-sm">{formatTimeAgo(task.deadline)}</div>
 								</td>
 								<td>
-									<div class="badge">{task.bids}</div>
+									<div class="badge">{task.status}</div>
 								</td>
 								<td>
 									<button class="btn btn-primary btn-sm">Bid Now</button>
@@ -124,7 +180,7 @@
 					</tbody>
 				</table>
 			</div>
-		{:else}
+		{:else if !loading}
 			<div class="alert alert-info">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -144,12 +200,32 @@
 		{/if}
 
 		<!-- Pagination -->
-		<div class="join mt-6 flex justify-center">
-			<button class="join-item btn">«</button>
-			<button class="join-item btn btn-active">1</button>
-			<button class="join-item btn">2</button>
-			<button class="join-item btn">3</button>
-			<button class="join-item btn">»</button>
-		</div>
+		{#if meta && meta.totalPages > 1}
+			<div class="join mt-6 flex justify-center">
+				<button 
+					class="join-item btn"
+					disabled={!meta.hasPreviousPage}
+					onclick={() => handlePageChange(currentPage - 1)}
+				>
+					«
+				</button>
+				{#each Array(meta.totalPages) as _, i}
+					<button
+						class="join-item btn"
+						class:btn-active={currentPage === i + 1}
+						onclick={() => handlePageChange(i + 1)}
+					>
+						{i + 1}
+					</button>
+				{/each}
+				<button 
+					class="join-item btn" 
+					disabled={!meta.hasNextPage} 
+					onclick={() => handlePageChange(currentPage + 1)}
+				>
+					»
+				</button>
+			</div>
+		{/if}
 	</div>
 </div>

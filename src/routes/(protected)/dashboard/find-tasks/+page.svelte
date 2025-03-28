@@ -1,277 +1,377 @@
 <script lang="ts">
-	import { tasks2 as tasks } from '$lib/utils/consts';
+	import type { SearchTaskResponse } from '$lib/types/task';
+	import { formatDistanceToNow } from 'date-fns';
+	import { searchTasks } from '$lib/services/task.service';
+	import { appStore } from '$lib/stores/app.store';
+	import { slide } from 'svelte/transition';
+	import Input from '$lib/components/Input.svelte';
 
-	// Filter states
-	let searchQuery = '';
-	let selectedCategory = '';
-	let showRemoteOnly = false;
-	let minBudget = '';
-	let maxBudget = '';
-	let sortBy = 'newest'; // newest, oldest, budget_high, budget_low
+	// State
+	let searchQuery = $state('');
+	let selectedCategory = $state({ label: '', value: '' });
+	let selectedTaskType = $state({ label: '', value: '' });
+	let sortField = $state('createdAt');
+	let sortOrder = $state('desc');
+	let minBudget = $state('');
+	let maxBudget = $state('');
+	let currentPage = $state(1);
+	let limit = $state(10);
+	let tasks = $state<SearchTaskResponse['items']>([]);
+	let meta = $state<SearchTaskResponse['meta'] | null>(null);
+	let loading = $state(false);
+	let isFiltersVisible = $state(true);
 
-	// Categories - This would typically come from an API
-	const categories = [
-		'All Categories',
-		'Home Maintenance',
-		'Delivery',
-		'Professional Services',
-		'IT & Technology',
-		'Personal Assistant',
-		'Creative Services',
-		'Education & Training',
-		'Events & Photography',
-		'Other'
-	];
+	// Load tasks with filters
+	async function loadTasks() {
+		try {
+			const params: Record<string, any> = {
+				page: currentPage,
+				limit,
+				sortField,
+				sortOrder
+			};
 
-	// Filtered tasks
-	$: filteredTasks = tasks
-		.filter((task) => {
-			// Search query filter
-			if (
-				searchQuery &&
-				!task.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-				!task.description.toLowerCase().includes(searchQuery.toLowerCase())
-			) {
-				return false;
+			// Only add filters if they have values
+			if (searchQuery.trim()) {
+				params.searchTerm = searchQuery.trim();
 			}
 
-			// Category filter
-			if (
-				selectedCategory &&
-				selectedCategory !== 'All Categories' &&
-				task.category !== selectedCategory
-			) {
-				return false;
+			if (selectedCategory.value) {
+				params.categoryIds = [parseInt(selectedCategory.value, 10)];
 			}
 
-			// Remote filter
-			if (showRemoteOnly && !task.isRemote) {
-				return false;
+			if (selectedTaskType.value) {
+				params.taskType = selectedTaskType.value;
 			}
 
-			// Budget filter
-			if (minBudget && parseFloat(task.budget) < parseFloat(minBudget)) {
-				return false;
+			if (minBudget) {
+				params.minBudget = parseFloat(minBudget);
 			}
 
-			if (maxBudget && parseFloat(task.budget) > parseFloat(maxBudget)) {
-				return false;
+			if (maxBudget) {
+				params.maxBudget = parseFloat(maxBudget);
 			}
 
-			return true;
-		})
-		.sort((a, b) => {
-			switch (sortBy) {
-				case 'newest':
-					return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-				case 'oldest':
-					return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-				case 'budget_high':
-					return parseFloat(b.budget) - parseFloat(a.budget);
-				case 'budget_low':
-					return parseFloat(a.budget) - parseFloat(b.budget);
-				default:
-					return 0;
-			}
-		});
+			const response = await searchTasks(params);
+			tasks = response.items;
+			meta = response.meta;
+		} catch (error) {
+			console.error('Error loading tasks:', error);
+		} finally {
+			loading = false;
+		}
+	}
 
-	// Clear all filters
+	// Debounce function
+	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+		let timeoutId: ReturnType<typeof setTimeout>;
+		return function (...args: Parameters<T>) {
+			clearTimeout(timeoutId);
+			timeoutId = setTimeout(() => fn.apply(null, args), delay);
+		};
+	}
+
+	// Handle filter changes with debounce
+	const debouncedLoadTasks = debounce(() => {
+		loadTasks();
+	}, 500);
+
+	function handleFilterChange() {
+		loading = true; // Update loading state immediately
+		currentPage = 1; // Reset to first page
+		debouncedLoadTasks();
+	}
+
+	// Handle page change
+	function handlePageChange(newPage: number) {
+		currentPage = newPage;
+		loading = true;
+		loadTasks(); // Immediate load for page changes
+	}
+
+	// Clear filters
 	function clearFilters() {
 		searchQuery = '';
-		selectedCategory = '';
-		showRemoteOnly = false;
+		selectedCategory = { label: '', value: '' };
+		selectedTaskType = { label: '', value: '' };
+		sortField = 'createdAt';
+		sortOrder = 'desc';
 		minBudget = '';
 		maxBudget = '';
-		sortBy = 'newest';
+		handleFilterChange();
 	}
 
 	// Format date
-	function formatDate(dateString: string) {
-		const date = new Date(dateString);
-		return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+	function formatTimeAgo(date: string): string {
+		return formatDistanceToNow(new Date(date), { addSuffix: true });
 	}
 
-	// Bid on task
-	function bidOnTask(taskId: string) {
-		// In a real implementation, this would navigate to a bid creation page
-		console.log(`Bidding on task: ${taskId}`);
-	}
+	// Initial load
+	loadTasks();
 </script>
 
-<div class="mx-auto max-w-5xl">
-	<div class="bg-base-100 mb-6 rounded-lg p-2 shadow-lg md:p-6">
-		<!-- Search and Filters -->
-		<div class="mb-6">
-			<div class="form-control mb-4">
-				<div class="w-full">
+<div class="card bg-base-100 mb-6 shadow-xl">
+	<div class="card-body">
+		<!-- Filters header -->
+		<div class="mb-4 flex items-center justify-between">
+			<h3 class="text-lg font-semibold">Filters</h3>
+			<button
+				class="btn btn-ghost btn-sm"
+				onclick={() => (isFiltersVisible = !isFiltersVisible)}
+				aria-expanded={isFiltersVisible}
+				aria-label={isFiltersVisible ? 'Collapse filters' : 'Expand filters'}
+			>
+				{#if isFiltersVisible}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M5 15l7-7 7 7"
+						/>
+					</svg>
+				{:else}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 9l-7 7-7-7"
+						/>
+					</svg>
+				{/if}
+			</button>
+		</div>
+
+		<!-- Filters content -->
+		{#if isFiltersVisible}
+			<div class="mb-6 flex flex-col gap-4" transition:slide>
+				<div class="form-control w-full">
+					<label for="search" class="label">
+						<span class="label-text">Search</span>
+					</label>
 					<input
+						id="search"
 						type="text"
 						placeholder="Search tasks..."
-						class="input input-bordered w-10/12"
+						class="input input-bordered w-full"
 						bind:value={searchQuery}
+						oninput={handleFilterChange}
 					/>
-					<button aria-label="Search" class="btn btn-square">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-							/>
-						</svg>
-					</button>
 				</div>
-			</div>
 
-			<div class="mb-4 flex flex-col gap-4 md:flex-row">
-				<div>
-					<label class="select">
-						<span class="label">Category</span>
-						<select bind:value={selectedCategory}>
-							{#each categories as category}
-								<option value={category}>{category}</option>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div class="form-control">
+						<label for="category" class="label">
+							<span class="label-text">Category</span>
+						</label>
+						<select
+							id="category"
+							class="select select-bordered w-full"
+							bind:value={selectedCategory.value}
+							onchange={handleFilterChange}
+						>
+							<option value="">All Categories</option>
+							{#each $appStore.categories as category}
+								<option value={category.id}>{category.name}</option>
 							{/each}
 						</select>
-					</label>
+					</div>
+
+					<div class="form-control">
+						<label for="taskType" class="label">
+							<span class="label-text">Task Type</span>
+						</label>
+						<select
+							id="taskType"
+							class="select select-bordered w-full"
+							bind:value={selectedTaskType.value}
+							onchange={handleFilterChange}
+						>
+							<option value="">All Types</option>
+							<option value="REMOTE">Remote</option>
+							<option value="IN_PERSON">In Person</option>
+						</select>
+					</div>
 				</div>
 
-				<div>
-					<label class="select">
-						<span class="label">Sort By</span>
-						<select bind:value={sortBy} class="text-sm">
-							<option value="newest">Newest First</option>
-							<option value="oldest">Oldest First</option>
-							<option value="budget_high">Highest Budget</option>
-							<option value="budget_low">Lowest Budget</option>
-						</select>
-					</label>
-				</div>
-			</div>
-			<div>
-				<label>
-					<span class="label hidden">Budget Range (BTC)</span>
-					<div class="flex gap-2">
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div class="form-control">
+						<label for="minBudget" class="label">
+							<span class="label-text">Minimum Budget</span>
+						</label>
 						<input
+							id="minBudget"
 							type="number"
-							placeholder="Min BTC"
+							placeholder="Min budget"
 							class="input input-bordered w-full"
 							bind:value={minBudget}
 							min="0"
 							step="0.0001"
+							oninput={handleFilterChange}
 						/>
+					</div>
+
+					<div class="form-control">
+						<label for="maxBudget" class="label">
+							<span class="label-text">Maximum Budget</span>
+						</label>
 						<input
+							id="maxBudget"
 							type="number"
-							placeholder="Max BTC"
+							placeholder="Max budget"
 							class="input input-bordered w-full"
 							bind:value={maxBudget}
 							min="0"
 							step="0.0001"
+							oninput={handleFilterChange}
 						/>
 					</div>
-				</label>
-			</div>
-			<div class="mt-4 flex flex-col justify-between gap-4 md:flex-row">
-				<label class="fieldset-label">
-					<input type="checkbox" bind:checked={showRemoteOnly} class="checkbox" />
-					Remote only
-				</label>
+				</div>
 
-				<button class="btn" onclick={clearFilters}> Clear Filters </button>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div class="form-control">
+						<label for="sortField" class="label">
+							<span class="label-text">Sort By</span>
+						</label>
+						<select
+							class="select select-bordered w-full"
+							bind:value={sortField}
+							onchange={handleFilterChange}
+						>
+							<option value="createdAt">Created Date</option>
+							<option value="updatedAt">Updated Date</option>
+							<option value="budget">Budget</option>
+							<option value="deadline">Deadline</option>
+							<option value="title">Title</option>
+						</select>
+					</div>
+
+					<div class="form-control">
+						<label for="sortOrder" class="label">
+							<span class="label-text">Sort Order</span>
+						</label>
+						<select
+							class="select select-bordered w-full"
+							bind:value={sortOrder}
+							onchange={handleFilterChange}
+						>
+							<option value="desc">Descending</option>
+							<option value="asc">Ascending</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="flex justify-end">
+					<button class="btn" onclick={clearFilters}>Clear Filters</button>
+				</div>
 			</div>
-		</div>
+		{/if}
 
 		<!-- Results count -->
 		<div class="mb-4">
 			<p class="text-base-content/70">
-				Showing {filteredTasks.length}
-				{filteredTasks.length === 1 ? 'task' : 'tasks'}
+				{#if meta}
+					Showing {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, meta.totalItems)}
+					of {meta.totalItems} tasks
+				{/if}
 			</p>
 		</div>
 
 		<!-- Task List -->
-		{#if filteredTasks.length > 0}
+		{#if loading}
+			<div class="flex justify-center py-8">
+				<span class="loading loading-spinner loading-lg"></span>
+			</div>
+		{:else if tasks.length > 0}
 			<div class="space-y-4">
-				{#each filteredTasks as task}
+				{#each tasks as task}
 					<div class="card bg-base-200 shadow-md transition-shadow hover:shadow-lg">
 						<div class="card-body">
 							<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 								<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
 								<div class="flex items-center gap-2 text-sm">
-									<span class="font-semibold">{task.budget} {task.currencyType}</span>
-									<span class="badge">{task.isRemote ? 'Remote' : 'On-site'}</span>
+									<span class="font-semibold">{task.budget} BTC</span>
+									<span class="badge badge-outline">{task.status}</span>
 								</div>
 							</div>
 
 							<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
 
-							<div class="mt-2 mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-								<div>
-									<p class="text-base-content/60 text-sm">Category</p>
-									<p class="font-medium">{task.category}</p>
-								</div>
+							<div class="mt-2 mb-4">
+								<div class="flex flex-wrap gap-4">
+									{#if task.deadline}
+										<div>
+											<p class="text-base-content/60 text-sm">Deadline</p>
+											<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
+										</div>
+									{/if}
 
-								<div>
-									<p class="text-base-content/60 text-sm">Location</p>
-									<p class="font-medium">{task.isRemote ? 'Remote' : task.location}</p>
-								</div>
-
-								<div>
-									<p class="text-base-content/60 text-sm">Deadline</p>
-									<p class="font-medium">{formatDate(task.deadline)}</p>
+									{#if task.client?.user}
+										<div>
+											<p class="text-base-content/60 text-sm">Posted By</p>
+											<p class="font-medium">{task.client.user.name}</p>
+										</div>
+									{/if}
 								</div>
 							</div>
 
-							<div class="mb-4 flex flex-wrap gap-2">
-								{#each task.skills as skill}
-									<span class="badge badge-primary badge-outline">{skill}</span>
-								{/each}
-							</div>
-
-							<div class="card-actions flex items-center justify-between gap-6">
-								<div class="flex items-center gap-2">
-									<div class="avatar">
-										<div class="border-base-100 w-8 rounded-full border">
-											<span class="text-center">{task.postedBy.name.charAt(0)}</span>
-										</div>
-									</div>
-									<div>
-										<p class="font-medium">{task.postedBy.name}</p>
-										<div class="text-base-content/70 flex items-center gap-1 text-xs">
-											<span class="flex items-center">
-												<svg
-													xmlns="http://www.w3.org/2000/svg"
-													viewBox="0 0 24 24"
-													fill="currentColor"
-													class="h-4 w-4 text-yellow-500"
-												>
-													<path
-														fill-rule="evenodd"
-														d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z"
-														clip-rule="evenodd"
-													/>
-												</svg>
-												{task.postedBy.rating}
-											</span>
-											<span>•</span>
-											<span>{task.postedBy.completedTasks} tasks completed</span>
-										</div>
-									</div>
+							{#if task.skills && task.skills.length > 0}
+								<div class="mb-4 flex flex-wrap gap-2">
+									{#each task.skills as skill}
+										<span class="badge badge-primary badge-outline">{skill.name}</span>
+									{/each}
 								</div>
+							{/if}
 
-								<button class="btn btn-primary w-full md:w-auto" onclick={() => bidOnTask(task.id)}>
-									Bid on Task
-								</button>
+							<div class="card-actions justify-end">
+								<a href="/dashboard/tasks/{task.id}" class="btn btn-primary">View Details</a>
 							</div>
 						</div>
 					</div>
 				{/each}
 			</div>
+
+			<!-- Pagination -->
+			{#if meta && meta.totalPages > 1}
+				<div class="join mt-6 flex justify-center">
+					<button
+						class="join-item btn"
+						disabled={currentPage === 1}
+						onclick={() => handlePageChange(currentPage - 1)}
+					>
+						«
+					</button>
+					{#each Array(meta.totalPages) as _, i}
+						<button
+							class="join-item btn"
+							class:btn-active={currentPage === i + 1}
+							onclick={() => handlePageChange(i + 1)}
+						>
+							{i + 1}
+						</button>
+					{/each}
+					<button
+						class="join-item btn"
+						disabled={currentPage === meta.totalPages}
+						onclick={() => handlePageChange(currentPage + 1)}
+					>
+						»
+					</button>
+				</div>
+			{/if}
 		{:else}
 			<div class="py-12 text-center">
 				<svg

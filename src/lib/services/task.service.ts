@@ -1,4 +1,5 @@
-import type { Task, GetTasksParams, TaskResponse, SearchTasksParams, TaskStatus } from '$lib/types/task.d';
+import type { Task, GetTasksParams, TaskResponse, SearchTasksParams, SearchTaskResponse } from '$lib/types/task.d';
+import type { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import createAxiosInstance from '$lib/api/axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -35,12 +36,12 @@ export async function deleteTask(id: string): Promise<void> {
     await taskApi.delete(`${API_PATH}/${id}`);
 }
 
-export async function updateTaskStatus(id: string, status: TaskStatus): Promise<Task> {
+export async function updateTaskStatus(id: string, status: TaskStatusEnum): Promise<Task> {
     const { data } = await taskApi.put(`${API_PATH}/${id}/status`, { status });
     return data;
 }
 
-export async function searchTasks(params: SearchTasksParams = {}): Promise<TaskResponse> {
+export async function searchTasks(params: SearchTasksParams = {}): Promise<SearchTaskResponse> {
     const { data } = await taskApi.get('/api/v1/tasks/search', { params });
     return data;
 }

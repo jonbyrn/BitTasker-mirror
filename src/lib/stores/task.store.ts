@@ -1,9 +1,11 @@
-import { type Task, type TaskStep } from '$lib/types/task.d';
+import { type CreateTaskParams } from '$lib/types/task.d';
+import { TaskStepEnum } from '$lib/utils/enums/task.enum';
+import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { writable } from 'svelte/store';
 
-const STORAGE_KEY = 'bittasker_draft_task';
-export const STEPS = ['basics', 'location', 'budget'];
+const STORAGE_KEY = StorageKeys.DRAFT_TASK;
+export const STEPS = [TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET];
 
 function createTaskStore() {
   const initialState = {
@@ -35,10 +37,10 @@ function createTaskStore() {
         start: new Date().toISOString(),
         end: 'null'
       }
-    } as Task,
+    } as CreateTaskParams,
     id: '',
     isRemovals: false,
-    currentStep: 'basics',
+    currentStep: TaskStepEnum.BASICS,
     isEditing: false
   };
 
@@ -55,7 +57,7 @@ function createTaskStore() {
 
   // Save draft to preferences
   const saveDraft = async () => {
-    let currentTask: Task | undefined;
+    let currentTask: CreateTaskParams | undefined;
     store.subscribe(state => {
       currentTask = state.task;
     })();
@@ -95,12 +97,12 @@ function createTaskStore() {
     });
   };
 
-  const setStep = (step: TaskStep) => {
+  const setStep = (step: TaskStepEnum) => {
     store.update(state => ({ ...state, currentStep: step }));
   };
 
   // Update task data
-  const updateTask = (updates: Partial<Task>) => {
+  const updateTask = (updates: Partial<CreateTaskParams>) => {
     store.update(state => ({
       ...state,
       task: { ...state.task, ...updates }

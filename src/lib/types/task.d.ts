@@ -1,3 +1,5 @@
+import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
+
 export interface Location {
   displayName: string;
   longitude: number | null;
@@ -11,12 +13,12 @@ export interface DateRange {
   end: string;
 }
 
-export interface Task {
+export interface CreateTaskParams {
   title: string;
   description: string;
   budget: number;
-  budgetType: 'FIXED' | 'HOURLY';
-  taskType: 'REMOTE' | 'IN_PERSON';
+  budgetType: BudgetTypeEnum;
+  taskType: TaskTypeEnum;
   deadline: string;
   estimatedHours?: number;
   categoryIds: number[];
@@ -26,32 +28,29 @@ export interface Task {
   dateRange?: DateRange;
 }
 
-export type TaskStep = 'basics' | 'location' | 'budget';
-
-/* export enum BudgetType {
-  FIXED = 'FIXED',
-  HOURLY = 'HOURLY'
+export interface Task extends CreateTaskParams {
+  id: string;
+  status: TaskStatusEnum;
+  client: {
+    id: number;
+    user: {
+      id: number;
+      name: string;
+    };
+  };
+  skills: Array<{
+    id: number;
+    name: string;
+  }>;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export enum Step {
-  BASICS = 'basics',
-  TIMING = 'timing',
-  LOCATION = 'location',
-  DETAILS = 'details',
-  BUDGET = 'budget'
-} */
-
-export type TaskStatus = 'draft' | 'open' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
-
-export type TaskType = 'REMOTE' | 'IN_PERSON';
-
-export type BudgetType = 'FIXED' | 'HOURLY';
-
 export interface GetTasksParams {
-  status?: TaskStatus[];
+  status?: TaskStatusEnum[];
   categoryId?: number;
   skillId?: number;
-  taskType?: TaskType;
+  taskType?: TaskTypeEnum;
   searchTerm?: string;
   minBudget?: number;
   maxBudget?: number;
@@ -61,7 +60,7 @@ export interface GetTasksParams {
 }
 
 export interface SearchTasksParams extends GetTasksParams {
-  budgetType?: BudgetType;
+  budgetType?: BudgetTypeEnum;
   categoryIds?: number[];
   skills?: number[];
   location?: string;
@@ -76,6 +75,18 @@ export interface TaskResponse {
     total: number;
     page: number;
     limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
+export interface SearchTaskResponse {
+  items: Task[];
+  meta: {
+    totalItems: number;
+    currentPage: number;
+    itemsPerPage: number;
     totalPages: number;
     hasNextPage: boolean;
     hasPreviousPage: boolean;

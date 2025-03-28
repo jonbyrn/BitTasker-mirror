@@ -40,6 +40,7 @@
 		inputValue = target.value;
 		isOpen = true;
 		selectedIndex = -1;
+		onChange?.({ label: target.value, value: target.value });
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {

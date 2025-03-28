@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { AxiosError } from 'axios';
 	import { appStore } from '$lib/stores/app.store';
 	import { PLACES } from '$lib/utils/constants/places';
-	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask } from '$lib/services/task.service';
-	import { AxiosError } from 'axios';
+	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import Input from '$lib/components/Input.svelte';
@@ -43,8 +44,8 @@
 				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
 					errors.deadline = 'Deadline must be in the future';
 				if ($store.task.categoryIds.length === 0)
-					errors.categoryIds = 'At least one category is required';
-				if ($store.task.skillIds.length === 0) errors.skillIds = 'At least one skill is required';
+					errors.category = 'At least one category is required';
+				if ($store.task.skillIds.length === 0) errors.skill = 'At least one skill is required';
 				break;
 			case 'location':
 				if ($store.task.taskType === 'IN_PERSON' && !$store.task.pickupLocation?.zipCode) {
@@ -236,13 +237,10 @@
 						}))}
 						value={$appStore.categories.find((cat) => cat.id === $store.task.categoryIds?.[0])
 							?.name ?? ''}
-						onChange={(id) => store.updateTask({ categoryIds: [parseInt(id.value, 10)] })}
+						onChange={(option) => store.updateTask({ categoryIds: [parseInt(option.value, 10)] })}
 					/>
 					{#if errors.category}
 						<span class="label-text-alt text-error">{errors.category}</span>
-					{/if}
-					{#if errors.categoryIds}
-						<span class="label-text-alt text-error">{errors.categoryIds}</span>
 					{/if}
 				</div>
 
@@ -334,14 +332,14 @@
 						<div class="flex gap-4">
 							<button
 								class="btn {$store.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
-								onclick={() => store.updateTask({ taskType: 'IN_PERSON' })}
+								onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 							>
 								In-person
 							</button>
 							<button
-								class="btn {$store.task.taskType === 'REMOTE' ? 'btn-primary' : 'btn-outline'}"
+								class="btn {$store.task.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
 								onclick={() => {
-									store.updateTask({ taskType: 'REMOTE' });
+									store.updateTask({ taskType: TaskTypeEnum.REMOTE });
 									store.updateTask({
 										pickupLocation: {
 											displayName: '',
@@ -364,7 +362,7 @@
 							</button>
 						</div>
 
-						{#if $store.task.taskType === 'IN_PERSON'}
+						{#if $store.task.taskType === TaskTypeEnum.IN_PERSON}
 							<div class="w-full">
 								<Input
 									id="location"
@@ -407,14 +405,14 @@
 
 					<div class="flex gap-4">
 						<button
-							class="btn {$store.task.budgetType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => store.updateTask({ budgetType: 'FIXED' })}
+							class="btn {$store.task.budgetType === BudgetTypeEnum.FIXED ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => store.updateTask({ budgetType: BudgetTypeEnum.FIXED })}
 						>
 							Fixed price
 						</button>
 						<button
-							class="btn {$store.task.budgetType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => store.updateTask({ budgetType: 'HOURLY' })}
+							class="btn {$store.task.budgetType === BudgetTypeEnum.HOURLY ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => store.updateTask({ budgetType: BudgetTypeEnum.HOURLY })}
 						>
 							Hourly rate
 						</button>
@@ -440,7 +438,7 @@
 						{/if}
 					</div>
 
-					{#if $store.task.budgetType === 'HOURLY'}
+					{#if $store.task.budgetType === BudgetTypeEnum.HOURLY}
 						<div class="w-full">
 							<label for="estimatedHours" class="label">
 								<span class="label-text">Estimated Hours</span>
