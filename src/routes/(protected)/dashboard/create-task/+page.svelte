@@ -231,6 +231,8 @@
 					<Input
 						id="category"
 						label="Category"
+						placeholder="Select a category"
+						autoComplete="on"
 						options={$appStore.categories.map((cat) => ({
 							label: cat.name,
 							value: cat.id.toString()
@@ -292,6 +294,7 @@
 								placeholder="Enter address or ZIP code"
 								value={$store.task.pickupLocation?.displayName}
 								error={errors.location}
+								autoComplete="on"
 								{options}
 								onChange={(option) => {
 									const place = PLACES.find((p) => p.zipCode === option.value);
@@ -311,6 +314,7 @@
 								id="dropOffLocation"
 								label="Drop-off Location"
 								placeholder="Enter address or ZIP code"
+								autoComplete="on"
 								value={$store.task.dropOffLocation?.displayName}
 								{options}
 								onChange={(option) => {
@@ -371,6 +375,7 @@
 									value={$store.task.pickupLocation?.displayName}
 									error={errors.location}
 									{options}
+									autoComplete="on"
 									onChange={(option) => {
 										const place = PLACES.find((p) => p.zipCode === option.value);
 										if (place) {

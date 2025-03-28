@@ -1,12 +1,8 @@
 <script lang="ts">
 	import type { TaskResponse, Task } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
-	import { getAllTasks } from '$lib/services/task.service';
-	import { appStore } from '$lib/stores/app.store';
-	import Input from '$lib/components/Input.svelte';
+	import { getMyTasks } from '$lib/services/task.service';
 
-	let selectedCategory = $state({ label: '', value: '' });
-	let searchQuery = $state('');
 	let currentPage = $state(1);
 	let limit = $state(10);
 	let tasks = $state<Task[]>([]);
@@ -16,48 +12,26 @@
 	// Load tasks with filters
 	async function loadTasks() {
 		try {
-			const params: Record<string, any> = {
+			loading = true;
+			const response = await getMyTasks();
+			tasks = response;
+			// Since getMyTasks doesn't support pagination yet, we'll handle it client-side
+			const startIndex = (currentPage - 1) * limit;
+			const endIndex = startIndex + limit;
+			tasks = response.slice(startIndex, endIndex);
+			meta = {
+				total: response.length,
 				page: currentPage,
-				limit
+				limit,
+				totalPages: Math.ceil(response.length / limit),
+				hasNextPage: endIndex < response.length,
+				hasPreviousPage: currentPage > 1
 			};
-
-			// Only add filters if they have values
-			if (selectedCategory.value) {
-				params.categoryId = parseInt(selectedCategory.value, 10);
-			}
-
-			if (searchQuery.trim()) {
-				params.searchTerm = searchQuery.trim();
-			}
-
-			const response = await getAllTasks(params);
-			tasks = response.data;
-			meta = response.meta;
 		} catch (error) {
 			console.error('Error loading tasks:', error);
 		} finally {
 			loading = false;
 		}
-	}
-
-	// Debounce function
-	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
-		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
-			clearTimeout(timeoutId);
-			timeoutId = setTimeout(() => fn.apply(null, args), delay);
-		};
-	}
-
-	// Handle filter changes with debounce
-	const debouncedLoadTasks = debounce(() => {
-		loadTasks();
-	}, 500);
-
-	function handleFilterChange() {
-		loading = true; // Update loading state immediately
-		currentPage = 1; // Reset to first page
-		debouncedLoadTasks();
 	}
 
 	// Handle page change
@@ -85,40 +59,6 @@
 
 <div class="card bg-base-100 mb-6 shadow-xl">
 	<div class="card-body">
-		<!-- Filters -->
-		<div class="mb-6 flex flex-col gap-4 sm:flex-row">
-			<div class="form-control w-full max-w-xs">
-				<Input
-					id="category"
-					label="Category"
-					placeholder="Select a category"
-					options={$appStore.categories.map((cat) => ({
-						label: cat.name,
-						value: cat.id.toString()
-					}))}
-					value={selectedCategory.label}
-					onChange={(option) => {
-						selectedCategory = option;
-						handleFilterChange();
-					}}
-				/>
-			</div>
-
-			<div class="form-control w-full">
-				<label for="search-input" class="label">
-					<span class="label-text">Search</span>
-				</label>
-				<input
-					id="search-input"
-					type="text"
-					placeholder="Search tasks..."
-					class="input input-bordered w-full"
-					bind:value={searchQuery}
-					oninput={handleFilterChange}
-				/>
-			</div>
-		</div>
-
 		<!-- Loading State -->
 		{#if loading}
 			<div class="flex justify-center py-8">
@@ -181,28 +121,29 @@
 				</table>
 			</div>
 		{:else if !loading}
-			<div class="alert alert-info">
+			<div class="py-12 text-center">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
+					class="text-base-content/30 mx-auto h-12 w-12"
 					fill="none"
 					viewBox="0 0 24 24"
-					class="h-6 w-6 shrink-0 stroke-current"
+					stroke="currentColor"
 				>
 					<path
 						stroke-linecap="round"
 						stroke-linejoin="round"
 						stroke-width="2"
-						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					></path>
+						d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
 				</svg>
-				<span>No tasks match your search criteria. Try adjusting your filters.</span>
+				<h3 class="mt-4 text-lg font-semibold">No tasks found</h3>
 			</div>
 		{/if}
 
 		<!-- Pagination -->
 		{#if meta && meta.totalPages > 1}
 			<div class="join mt-6 flex justify-center">
-				<button 
+				<button
 					class="join-item btn"
 					disabled={!meta.hasPreviousPage}
 					onclick={() => handlePageChange(currentPage - 1)}
@@ -218,9 +159,9 @@
 						{i + 1}
 					</button>
 				{/each}
-				<button 
-					class="join-item btn" 
-					disabled={!meta.hasNextPage} 
+				<button
+					class="join-item btn"
+					disabled={!meta.hasNextPage}
 					onclick={() => handlePageChange(currentPage + 1)}
 				>
 					»

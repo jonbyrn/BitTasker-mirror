@@ -10,8 +10,8 @@
 	let searchQuery = $state('');
 	let selectedCategory = $state({ label: '', value: '' });
 	let selectedTaskType = $state({ label: '', value: '' });
-	let sortField = $state('createdAt');
-	let sortOrder = $state('desc');
+	let sortField = $state({ label: 'Created Date', value: 'createdAt' });
+	let sortOrder = $state({ label: 'Descending', value: 'desc' });
 	let minBudget = $state('');
 	let maxBudget = $state('');
 	let currentPage = $state(1);
@@ -27,8 +27,8 @@
 			const params: Record<string, any> = {
 				page: currentPage,
 				limit,
-				sortField,
-				sortOrder
+				sortField: sortField.value,
+				sortOrder: sortOrder.value
 			};
 
 			// Only add filters if they have values
@@ -44,11 +44,12 @@
 				params.taskType = selectedTaskType.value;
 			}
 
-			if (minBudget) {
+			if (minBudget && maxBudget && parseFloat(minBudget) < parseFloat(maxBudget)) {
 				params.minBudget = parseFloat(minBudget);
-			}
-
-			if (maxBudget) {
+				params.maxBudget = parseFloat(maxBudget);
+			} else if (minBudget && parseFloat(minBudget) > 0) {
+				params.minBudget = parseFloat(minBudget);
+			} else if (maxBudget && parseFloat(maxBudget) > 0) {
 				params.maxBudget = parseFloat(maxBudget);
 			}
 
@@ -94,8 +95,8 @@
 		searchQuery = '';
 		selectedCategory = { label: '', value: '' };
 		selectedTaskType = { label: '', value: '' };
-		sortField = 'createdAt';
-		sortOrder = 'desc';
+		sortField = { label: 'Created Date', value: 'createdAt' };
+		sortOrder = { label: 'Descending', value: 'desc' };
 		minBudget = '';
 		maxBudget = '';
 		handleFilterChange();
@@ -173,37 +174,41 @@
 				</div>
 
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					<div class="form-control">
-						<label for="category" class="label">
-							<span class="label-text">Category</span>
-						</label>
-						<select
+					<div class="form-control w-full max-w-xs">
+						<Input
 							id="category"
-							class="select select-bordered w-full"
-							bind:value={selectedCategory.value}
-							onchange={handleFilterChange}
-						>
-							<option value="">All Categories</option>
-							{#each $appStore.categories as category}
-								<option value={category.id}>{category.name}</option>
-							{/each}
-						</select>
+							label="Category"
+							placeholder="Select a category"
+							options={$appStore.categories.map((cat) => ({
+								label: cat.name,
+								value: cat.id.toString()
+							}))}
+							value={selectedCategory.label}
+							onChange={(option) => {
+								selectedCategory = option;
+								handleFilterChange();
+							}}
+						/>
 					</div>
 
 					<div class="form-control">
-						<label for="taskType" class="label">
-							<span class="label-text">Task Type</span>
-						</label>
-						<select
+						<Input
 							id="taskType"
-							class="select select-bordered w-full"
-							bind:value={selectedTaskType.value}
-							onchange={handleFilterChange}
-						>
-							<option value="">All Types</option>
-							<option value="REMOTE">Remote</option>
-							<option value="IN_PERSON">In Person</option>
-						</select>
+							label="Task Type"
+							placeholder="Select a task type"
+							options={[
+								{ label: 'All Types', value: '' },
+								{ label: 'Remote', value: 'REMOTE' },
+								{ label: 'In Person', value: 'IN_PERSON' }
+							]}
+							type="select"
+							autoComplete="off"
+							value={selectedTaskType.label}
+							onChange={(option) => {
+								selectedTaskType = option;
+								handleFilterChange();
+							}}
+						/>
 					</div>
 				</div>
 
@@ -234,7 +239,7 @@
 							placeholder="Max budget"
 							class="input input-bordered w-full"
 							bind:value={maxBudget}
-							min="0"
+							min={minBudget}
 							step="0.0001"
 							oninput={handleFilterChange}
 						/>
@@ -243,34 +248,38 @@
 
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div class="form-control">
-						<label for="sortField" class="label">
-							<span class="label-text">Sort By</span>
-						</label>
-						<select
-							class="select select-bordered w-full"
-							bind:value={sortField}
-							onchange={handleFilterChange}
-						>
-							<option value="createdAt">Created Date</option>
-							<option value="updatedAt">Updated Date</option>
-							<option value="budget">Budget</option>
-							<option value="deadline">Deadline</option>
-							<option value="title">Title</option>
-						</select>
+						<Input
+							id="sortField"
+							label="Sort By"
+							options={[
+								{ label: 'Created Date', value: 'createdAt' },
+								{ label: 'Updated Date', value: 'updatedAt' },
+								{ label: 'Budget', value: 'budget' },
+								{ label: 'Deadline', value: 'deadline' },
+								{ label: 'Title', value: 'title' }
+							]}
+							value={sortField.label}
+							onChange={(option) => {
+								sortField = option;
+								handleFilterChange();
+							}}
+						/>
 					</div>
 
 					<div class="form-control">
-						<label for="sortOrder" class="label">
-							<span class="label-text">Sort Order</span>
-						</label>
-						<select
-							class="select select-bordered w-full"
-							bind:value={sortOrder}
-							onchange={handleFilterChange}
-						>
-							<option value="desc">Descending</option>
-							<option value="asc">Ascending</option>
-						</select>
+						<Input
+							id="sortOrder"
+							label="Sort Order"
+							options={[
+								{ label: 'Descending', value: 'desc' },
+								{ label: 'Ascending', value: 'asc' }
+							]}
+							value={sortOrder.label}
+							onChange={(option) => {
+								sortOrder = option;
+								handleFilterChange();
+							}}
+						/>
 					</div>
 				</div>
 

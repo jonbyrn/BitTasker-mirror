@@ -26,6 +26,8 @@ export interface InputProps {
     value?: string;
     placeholder?: string;
     error?: string;
+    type?: 'text' | 'number' | 'date' | 'time' | 'datetime' | 'month' | 'week' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'color' | 'select';
+    autoComplete?: 'on' | 'off';
     options?: { label: string; value: string }[];
     onChange?: (option: { label: string; value: string }) => void;
 }

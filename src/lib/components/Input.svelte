@@ -9,6 +9,8 @@
 		placeholder = '',
 		error = '',
 		options = [],
+		autoComplete = 'off',
+		type = 'text',
 		onChange
 	}: InputProps = $props();
 
@@ -18,6 +20,7 @@
 	let filteredOptions = $state<{ label: string; value: string }[]>(options);
 
 	function filterOptions(searchTerm: string): { label: string; value: string }[] {
+		if (!options.length || autoComplete === 'off') return options;
 		if (!searchTerm) return options;
 
 		return options.filter((option) =>
@@ -38,7 +41,13 @@
 	function handleInput(e: Event) {
 		const target = e.target as HTMLInputElement;
 		inputValue = target.value;
-		isOpen = true;
+
+		if (options.length && autoComplete === 'off') {
+			// Handle as select - don't update on input
+			return;
+		}
+
+		isOpen = autoComplete === 'on';
 		selectedIndex = -1;
 		onChange?.({ label: target.value, value: target.value });
 	}
@@ -67,8 +76,10 @@
 	}
 
 	function handleClick() {
-		isOpen = true;
-		selectedIndex = -1;
+		if (options.length) {
+			isOpen = !isOpen;
+			selectedIndex = -1;
+		}
 	}
 
 	function handleClickOutside() {
@@ -85,22 +96,36 @@
 			</label>
 		{/if}
 
-		<input
-			{id}
-			{placeholder}
-			value={inputValue}
-			type="text"
-			class="input input-bordered w-full {error ? 'input-error' : ''}"
-			oninput={handleInput}
-			onclick={handleClick}
-			onkeydown={handleKeyDown}
-		/>
+		<div class="relative">
+			<input
+				{id}
+				{placeholder}
+				{type}
+				autocomplete={autoComplete}
+				value={inputValue}
+				class="input input-bordered w-full {error ? 'input-error' : ''}"
+				oninput={handleInput}
+				onclick={handleClick}
+				onkeydown={handleKeyDown}
+				readonly={options.length > 0 && autoComplete === 'off'}
+			/>
+
+			{#if options.length > 0 && autoComplete === 'off'}
+				<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
+					<svg class="h-4 w-4 fill-current" viewBox="0 0 20 20">
+						<path
+							d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+						/>
+					</svg>
+				</div>
+			{/if}
+		</div>
 
 		{#if isOpen && filteredOptions.length > 0}
 			<ul
 				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg shadow-lg"
 				role="listbox"
-				aria-label="Location suggestions"
+				aria-label="options"
 			>
 				{#each filteredOptions as option (option.value)}
 					<li
