@@ -4,8 +4,8 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import { user } from '$lib/states/user.store';
-	import { authState } from '$lib/states/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { authState } from '$lib/stores/auth.store';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
 	import { SocialLogin } from '@capgo/capacitor-social-login';

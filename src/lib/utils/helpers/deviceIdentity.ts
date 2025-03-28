@@ -1,5 +1,6 @@
 import { Device } from '@capacitor/device';
 import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '../constants/storage';
 
 /**
  * Get unique device identifier for biometric authentication
@@ -8,7 +9,7 @@ import { Preferences } from '@capacitor/preferences';
 export async function getDeviceIdentifier(): Promise<string> {
     try {
         // First check if we've already stored a device ID
-        const { value: storedId } = await Preferences.get({ key: 'device_unique_id' });
+        const { value: storedId } = await Preferences.get({ key: StorageKeys.DEVICE_UNIQUE_ID });
         if (storedId) {
             return storedId;
         }
@@ -36,7 +37,7 @@ export async function getDeviceIdentifier(): Promise<string> {
         
         // Store the device ID for future use
         await Preferences.set({
-            key: 'device_unique_id',
+            key: StorageKeys.DEVICE_UNIQUE_ID,
             value: deviceId
         });
         
@@ -46,7 +47,7 @@ export async function getDeviceIdentifier(): Promise<string> {
         // Fallback to a random ID if device info can't be accessed
         const fallbackId = generateRandomId();
         await Preferences.set({
-            key: 'device_unique_id',
+            key: StorageKeys.DEVICE_UNIQUE_ID,
             value: fallbackId
         });
         return fallbackId;

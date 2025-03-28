@@ -20,9 +20,10 @@
 	} from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { user } from '$lib/states/user.store';
-	import { authState } from '$lib/states/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 
@@ -52,7 +53,6 @@
 			iterations: 100000,
 			authMethod: 'passkey'
 		});
-		console.log({ registerNostr: res });
 
 		const deviceName = await getDeviceName();
 		const response = await registerPasskeyDevice(npub, deviceId, deviceName);
@@ -113,7 +113,7 @@
 
 		// Store access token securely
 		await Preferences.set({
-			key: 'access_token',
+			key: StorageKeys.ACCESS_TOKEN,
 			value: response.access_token
 		});
 

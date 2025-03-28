@@ -22,6 +22,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Always use Sveltekit 5 with Runes.
 - In svelte 5 there is not on:click event it's changed to onclick. Same goes for other on: events. 
 - In svelte 5 'createEventDispatcher' is deprecated, pass functions as props to the component.
+- Svelte 5 runes ($state, $derived, $effect...) are only available inside `.svelte` and `.svelte.js/ts` files
 - Always use $state() to create reactive variables.
 - With this same codebase we will support multiple platforms like Android, iOS, and Web.
 - We will also use Storybook for component development.
@@ -29,6 +30,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 - Pure functions and immutable data structures
 - Separation of concerns and single responsibility principle
 - Client-side e2e using Web Crypto API
+- Leverage capacitor plugins for platform-specific features
 
 ### Development Tools
 
@@ -61,7 +63,7 @@ src/
 │   ├── components/      # Reusable UI components
 │   ├── services/        # Business logic and API services
 │   ├── types/           # TypeScript type definitions
-│   ├── states/          # State management, stores, and context
+│   ├── stores/          # State management, stores, and context
 │   └── tests/           # Unit and integration tests
 │   ├── utils/           # Utility functions, helpers, constanst, enums
 │       ├── helpers/            # Helper functions
@@ -80,14 +82,15 @@ src/
   - Components: src/lib/components/ExampleComponent.svelte
   - Services: src/lib/services/example.service.ts
   - Utils: src/lib/utils/exampleUtil.ts
-  - Types: src/lib/types/exampleTypes.ts
+  - Types: src/lib/types/example.d.ts
   - Tests: src/lib/tests/example.test.ts
-  - States: src/lib/states/example.store.ts
+  - Stores: src/lib/stores/example.store.ts
 
 ### Code Style
 
 - Use TypeScript for type safety
 - Use proper type assertions for external data
+- Leverage capacitor Preferences plugin over localStorage
 - Implement proper error handling
 - Export interfaces for public types
 - Prefer const over let
