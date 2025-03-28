@@ -25,25 +25,35 @@ const initialData = storedData
 const createOnboardingStore = () => {
 	const { subscribe, set, update } = writable(initialData);
 
+	// Helper function to save data to localStorage
+	const saveToLocalStorage = (data: string | string[]) => {
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem('onboardingData', JSON.stringify(data));
+		}
+	};
+
 	return {
 		subscribe,
 		updateField: (field: string, value: string | string[]) => {
 			update((data) => {
 				const updatedData = { ...data, [field]: value };
-				if (typeof localStorage !== 'undefined') {
-					localStorage.setItem('onboardingData', JSON.stringify(updatedData));
-				}
+				saveToLocalStorage(updatedData);
 				return updatedData;
 			});
 		},
 		updateFields: (fields: Record<string, string | string[]>) => {
 			update((data) => {
 				const updatedData = { ...data, ...fields };
-				if (typeof localStorage !== 'undefined') {
-					localStorage.setItem('onboardingData', JSON.stringify(updatedData));
-				}
+				saveToLocalStorage(updatedData);
 				return updatedData;
 			});
+		},
+		getField: (field?: string) => {
+			let value;
+			subscribe((data) => {
+				value = field ? data[field] : data;
+			})();
+			return value;
 		},
 		clearData: () => {
 			const emptyData = {
