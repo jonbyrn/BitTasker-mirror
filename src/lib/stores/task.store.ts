@@ -3,7 +3,7 @@ import { Preferences } from '@capacitor/preferences';
 import { writable } from 'svelte/store';
 
 const STORAGE_KEY = 'bittasker_draft_task';
-export const STEPS: TaskStep[] = ['basics', 'location', 'budget'];
+export const STEPS = ['basics', 'location', 'budget'];
 
 function createTaskStore() {
   const initialState = {
@@ -36,8 +36,9 @@ function createTaskStore() {
         end: 'null'
       }
     } as Task,
+    id: '',
     isRemovals: false,
-    currentStep: 'basics' as TaskStep,
+    currentStep: 'basics',
     isEditing: false
   };
 

@@ -57,7 +57,7 @@
 				<div
 					class="badge badge-primary flex min-w-16 items-center justify-between rounded-full pr-1 pl-2"
 				>
-					<span class="text-center w-full">{options.find(opt => opt.id === tag)?.name}</span>
+					<span class="w-full text-center">{options.find((opt) => opt.id === tag)?.name}</span>
 					<span
 						class="border-none bg-transparent text-black shadow-none"
 						onclick={(e) => removeTag(tag, e)}

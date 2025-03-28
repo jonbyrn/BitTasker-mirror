@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task.d';
-	import type { Place } from '$lib/utils/constants/places';
 	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import { PLACES } from '$lib/utils/constants/places';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
+	import { createTask } from '$lib/services/task.service';
+	import { AxiosError } from 'axios';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import Input from '$lib/components/Input.svelte';
@@ -17,30 +17,53 @@
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
 
+	const options = PLACES.map((place) => ({
+		label: place.displayName,
+		value: place.zipCode
+	}));
+
 	function validateCurrentStep(): boolean {
 		errors = {};
 
 		switch ($store.currentStep) {
 			case 'basics':
 				if (!$store.task.title?.trim()) errors.title = 'Title is required';
-				if ($store.task.dateRange && !$store.task.dateRange.end && !$store.task.dateRange.start) {
-					errors.deadline = 'You must select a start or an end date';
+				if ($store.task.dateRange) {
+					if (!$store.task.dateRange.end && !$store.task.dateRange.start) {
+						errors.deadline = 'You must select a start or an end date';
+					}
+					if (
+						new Date($store.task.dateRange.end) < new Date() ||
+						new Date($store.task.dateRange.start) < new Date() ||
+						new Date($store.task.dateRange.end) < new Date($store.task.dateRange.start)
+					) {
+						errors.deadline = 'Date range must be in the future';
+					}
 				}
+				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
+					errors.deadline = 'Deadline must be in the future';
+				if ($store.task.categoryIds.length === 0)
+					errors.categoryIds = 'At least one category is required';
+				if ($store.task.skillIds.length === 0) errors.skillIds = 'At least one skill is required';
 				break;
 			case 'location':
 				if ($store.task.taskType === 'IN_PERSON' && !$store.task.pickupLocation?.zipCode) {
 					errors.location = 'Location is required for this task';
 				}
 				break;
-
-			case 'details':
-				if (!$store.task.description?.trim()) errors.description = 'Description is required';
-				break;
-
 			case 'budget':
 				if (!$store.task.budget || $store.task.budget <= 0) {
 					errors.budget = 'Valid budget is required';
 				}
+				if (
+					$store.task.budgetType === 'HOURLY' &&
+					(!$store.task.estimatedHours || $store.task.estimatedHours <= 0)
+				) {
+					errors.estimatedHours = 'Estimated hours must be greater than 0';
+				}
+				if (!$store.task.description?.trim()) errors.description = 'Description is required';
+				if ($store.task.description?.trim().length < 20)
+					errors.description = 'Description must be at least 20 characters long';
 				break;
 		}
 
@@ -69,12 +92,7 @@
 		isSubmitting = true;
 
 		try {
-			const finalTask: Task = {
-				...$store.task
-			};
-
-			await new Promise((resolve) => setTimeout(resolve, 1000));
-
+			await createTask($store.task);
 			isSubmitted = true;
 			await store.clearDraft();
 
@@ -83,7 +101,12 @@
 			}, 3000);
 		} catch (error) {
 			console.error('Error creating task:', error);
-			errors.general = 'Failed to create task. Please try again.';
+			if (error instanceof AxiosError && error.response && error.response?.data?.message) {
+				const message = error.response.data.message;
+				if (Array.isArray(message)) errors.general = message[0];
+				else errors.general = message;
+			} else if (error instanceof Error) errors.general = error.message;
+			else errors.general = 'Failed to create task. Please try again.';
 		} finally {
 			isSubmitting = false;
 		}
@@ -96,44 +119,6 @@
 			<h2 class="card-title text-2xl">Create a New Task</h2>
 			<div class="text-sm">Step {STEPS.indexOf($store.currentStep) + 1} of {STEPS.length}</div>
 		</div>
-
-		{#if isSubmitted}
-			<div class="alert alert-success mb-6 shadow-lg">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>Task created successfully!</span>
-			</div>
-		{/if}
-
-		{#if errors.general}
-			<div class="alert alert-error mb-6 shadow-lg">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>{errors.general}</span>
-			</div>
-		{/if}
 
 		<div class="space-y-6">
 			{#if $store.currentStep === 'basics'}
@@ -160,7 +145,8 @@
 					<div class="flex gap-4">
 						<button
 							class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() => store.updateTask({ dateRange: undefined })}
+							onclick={() =>
+								store.updateTask({ deadline: new Date().toISOString(), dateRange: undefined })}
 						>
 							I'm flexible
 						</button>
@@ -168,9 +154,10 @@
 							class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 							onclick={() =>
 								store.updateTask({
+									deadline: '',
 									dateRange: {
 										start: new Date().toISOString(),
-										end: $store.task.deadline
+										end: new Date().toISOString()
 									}
 								})}
 						>
@@ -218,6 +205,23 @@
 									class="input input-bordered w-full"
 								/>
 							</div>
+							{#if errors.deadline}
+								<span class="label-text-alt text-error col-span-2 -mt-4">{errors.deadline}</span>
+							{/if}
+						</div>
+					{:else}
+						<div>
+							<label for="deadline" class="label">Deadline</label>
+							<input
+								type="date"
+								class="input input-bordered w-full"
+								value={$store.task.deadline}
+								onchange={(e) =>
+									store.updateTask({ deadline: (e.target as HTMLInputElement).value })}
+							/>
+							{#if errors.deadline}
+								<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
+							{/if}
 						</div>
 					{/if}
 				</div>
@@ -237,6 +241,9 @@
 					{#if errors.category}
 						<span class="label-text-alt text-error">{errors.category}</span>
 					{/if}
+					{#if errors.categoryIds}
+						<span class="label-text-alt text-error">{errors.categoryIds}</span>
+					{/if}
 				</div>
 
 				<div class="w-full">
@@ -246,38 +253,48 @@
 						selectedTags={$store.task.skillIds}
 						onChange={(ids) => store.updateTask({ skillIds: ids })}
 					/>
+					{#if errors.skillIds}
+						<span class="label-text-alt text-error">{errors.skillIds}</span>
+					{/if}
 				</div>
 			{:else if $store.currentStep === 'location'}
 				<div class="space-y-4">
 					<h3 class="text-lg font-semibold">Is this a removals task?</h3>
 					<div class="flex gap-4">
 						<button
-							class="btn {$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
+							class="btn min-w-1/3 text-xl {$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
 							onclick={() => ($store.isRemovals = true)}
 						>
 							Yes
 						</button>
 						<button
-							class="btn {!$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
-							onclick={() => ($store.isRemovals = false)}
+							class="btn min-w-1/3 text-xl {!$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
+							onclick={() => {
+								$store.isRemovals = false;
+								store.updateTask({
+									dropOffLocation: {
+										displayName: '',
+										longitude: null,
+										latitude: null,
+										zipCode: '',
+										locationLoaded: false
+									}
+								});
+							}}
 						>
 							No
 						</button>
 					</div>
 
 					{#if $store.isRemovals}
-						<p>Removals tasks require a pickup location and drop-off location.</p>
-						<div class="w-full">
+						<div class="w-full pt-4">
 							<Input
 								id="pickupLocation"
 								label="Pickup Location"
 								placeholder="Enter address or ZIP code"
 								value={$store.task.pickupLocation?.displayName}
 								error={errors.location}
-								options={PLACES.map((place) => ({
-									label: place.displayName,
-									value: place.zipCode
-								}))}
+								{options}
 								onChange={(option) => {
 									const place = PLACES.find((p) => p.zipCode === option.value);
 									if (place) {
@@ -297,10 +314,7 @@
 								label="Drop-off Location"
 								placeholder="Enter address or ZIP code"
 								value={$store.task.dropOffLocation?.displayName}
-								options={PLACES.map((place) => ({
-									label: place.displayName,
-									value: place.zipCode
-								}))}
+								{options}
 								onChange={(option) => {
 									const place = PLACES.find((p) => p.zipCode === option.value);
 									if (place) {
@@ -315,7 +329,7 @@
 							/>
 						</div>
 					{:else}
-						<p>Where do you need this done?</p>
+						<p class="text-md pt-4 font-semibold">Where do you need this done?</p>
 
 						<div class="flex gap-4">
 							<button
@@ -326,7 +340,25 @@
 							</button>
 							<button
 								class="btn {$store.task.taskType === 'REMOTE' ? 'btn-primary' : 'btn-outline'}"
-								onclick={() => store.updateTask({ taskType: 'REMOTE' })}
+								onclick={() => {
+									store.updateTask({ taskType: 'REMOTE' });
+									store.updateTask({
+										pickupLocation: {
+											displayName: '',
+											longitude: null,
+											latitude: null,
+											zipCode: '',
+											locationLoaded: false
+										},
+										dropOffLocation: {
+											displayName: '',
+											longitude: null,
+											latitude: null,
+											zipCode: '',
+											locationLoaded: false
+										}
+									});
+								}}
 							>
 								Remote
 							</button>
@@ -340,10 +372,7 @@
 									placeholder="Enter address or ZIP code"
 									value={$store.task.pickupLocation?.displayName}
 									error={errors.location}
-									options={PLACES.map((place) => ({
-										label: place.displayName,
-										value: place.zipCode
-									}))}
+									{options}
 									onChange={(option) => {
 										const place = PLACES.find((p) => p.zipCode === option.value);
 										if (place) {
@@ -428,6 +457,9 @@
 								placeholder="Estimated hours needed"
 								min="1"
 							/>
+							{#if errors.estimatedHours}
+								<span class="label-text-alt text-error">{errors.estimatedHours}</span>
+							{/if}
 						</div>
 					{/if}
 
@@ -472,5 +504,43 @@
 				{/if}
 			</div>
 		</div>
+
+		{#if isSubmitted}
+			<div class="alert alert-success mt-6 shadow-lg">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>Task created successfully!</span>
+			</div>
+		{/if}
+
+		{#if errors.general}
+			<div class="alert alert-error mt-6 shadow-lg">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>{errors.general}</span>
+			</div>
+		{/if}
 	</div>
 </div>

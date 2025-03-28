@@ -12,10 +12,10 @@ export const load: LayoutLoad = async () => {
     const { value: token } = await Preferences.get({ key: 'access_token' });
 
     if (token) {
-      // const res = await getUserProfile();
-      // user.set(res);
+      const res = await getUserProfile();
+      user.set(res);
       authState.login();
-      // return { user: res };
+      return { user: res };
     } else {
       throw redirect(303, '/auth');
     }

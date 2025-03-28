@@ -52,7 +52,6 @@
 			iterations: 100000,
 			authMethod: 'passkey'
 		});
-		console.log({ registerNostr: res });
 
 		const deviceName = await getDeviceName();
 		const response = await registerPasskeyDevice(npub, deviceId, deviceName);
