@@ -1,10 +1,10 @@
-import { fontFamily } from "tailwindcss/defaultTheme";
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
+import daisyui from "daisyui";
 
-const config: Config = {
-	darkMode: ["class"],
-	content: ["./src/**/*.{html,js,svelte,ts}"],
-	safelist: ["dark"],
+const config = {
+	darkMode: "class",
+	content: ["./src/**/*.{html,js,svelte,ts}", "./**/*.{ts,js}"],
 	theme: {
 		container: {
 			center: true,
@@ -55,10 +55,34 @@ const config: Config = {
 				sm: "calc(var(--radius) - 4px)"
 			},
 			fontFamily: {
-				sans: [...fontFamily.sans]
+				sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans]
 			}
 		}
 	},
+	plugins: [
+		require("@tailwindcss/typography"),
+		require("@tailwindcss/forms"),
+		daisyui
+	],
+	daisyui: {
+		themes: ["light", "dark"],
+		base: true,
+		styled: true,
+		utils: true,
+		prefix: "daisy-",
+		logs: false,
+		themeRoot: ":root"
+	}
+} as Config & {
+	daisyui: {
+		themes: string[];
+		base: boolean;
+		styled: boolean;
+		utils: boolean;
+		prefix: string;
+		logs: boolean;
+		themeRoot: string;
+	};
 };
 
 export default config;

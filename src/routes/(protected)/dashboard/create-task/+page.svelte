@@ -9,6 +9,7 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import Input from '$lib/components/Input.svelte';
+	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 
 	onMount(() => {
 		store.loadDraft();
@@ -286,52 +287,40 @@
 						</button>
 					</div>
 
+					<div class="h-1"></div>
 					{#if $store.isRemovals}
-						<div class="w-full pt-4">
-							<Input
-								id="pickupLocation"
+						<div class="w-full">
+							<LocationAutoComplete
 								label="Pickup Location"
 								placeholder="Enter address or ZIP code"
-								value={$store.task.pickupLocation?.displayName}
-								error={errors.location}
-								autoComplete="on"
-								{options}
-								onChange={(option) => {
-									const place = PLACES.find((p) => p.zipCode === option.value);
-									if (place) {
-										store.updateTask({
-											pickupLocation: {
-												...place,
-												locationLoaded: true
-											}
-										});
-									}
+								location={$store.task.pickupLocation}
+								onLocationSelect={(location) => {
+									store.updateTask({
+										pickupLocation: {
+											...location,
+											locationLoaded: true
+										}
+									});
 								}}
 							/>
 						</div>
 						<div class="w-full">
-							<Input
-								id="dropOffLocation"
+							<LocationAutoComplete
 								label="Drop-off Location"
 								placeholder="Enter address or ZIP code"
-								autoComplete="on"
-								value={$store.task.dropOffLocation?.displayName}
-								{options}
-								onChange={(option) => {
-									const place = PLACES.find((p) => p.zipCode === option.value);
-									if (place) {
-										store.updateTask({
-											dropOffLocation: {
-												...place,
-												locationLoaded: true
-											}
-										});
-									}
+								location={$store.task.dropOffLocation}
+								onLocationSelect={(location) => {
+									store.updateTask({
+										dropOffLocation: {
+											...location,
+											locationLoaded: true
+										}
+									});
 								}}
 							/>
 						</div>
 					{:else}
-						<p class="text-md pt-4 font-semibold">Where do you need this done?</p>
+						<p class="text-md font-semibold">Where do you need this done?</p>
 
 						<div class="flex gap-4">
 							<button
@@ -370,24 +359,17 @@
 
 						{#if $store.task.taskType === TaskTypeEnum.IN_PERSON}
 							<div class="w-full">
-								<Input
-									id="location"
+								<LocationAutoComplete
 									label="Location"
 									placeholder="Enter address or ZIP code"
-									value={$store.task.pickupLocation?.displayName}
-									error={errors.location}
-									{options}
-									autoComplete="on"
-									onChange={(option) => {
-										const place = PLACES.find((p) => p.zipCode === option.value);
-										if (place) {
-											store.updateTask({
-												pickupLocation: {
-													...place,
-													locationLoaded: true
-												}
-											});
-										}
+									location={$store.task.pickupLocation}
+									onLocationSelect={(location) => {
+										store.updateTask({
+											pickupLocation: {
+												...location,
+												locationLoaded: true
+											}
+										});
 									}}
 								/>
 							</div>

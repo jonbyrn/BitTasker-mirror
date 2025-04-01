@@ -1,25 +1,26 @@
 <script lang="ts">
+	import type { LocationData, LocationProps } from '$lib/types/props';
 	import { Geolocation } from '@capacitor/geolocation';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
-	interface LocationData {
-		displayName: string;
-		longitude: number;
-		latitude: number;
-		zipCode: string;
-		locationLoaded: boolean;
-	}
-
-	let { label, defaultLocation, onLocationSelect } = $props();
+	// Props
+	let {
+		label = 'Location',
+		defaultLocation = null as LocationData | null,
+		onLocationSelect = undefined as ((location: LocationData) => void) | undefined
+	} = $props();
 
 	// State
 	let map: google.maps.Map;
-	let marker: google.maps.Marker;
-	let autocomplete: google.maps.places.Autocomplete;
+	let marker: google.maps.marker.AdvancedMarkerElement;
 	let searchInput: HTMLInputElement;
+	let predictions = $state<google.maps.places.AutocompletePrediction[]>([]);
+	let showPredictions = $state(false);
+	let isLoading = $state(false);
+	let hasError = $state(false);
 
-	const location = $state<LocationData>({
+	let location = $state({
 		displayName: '',
 		longitude: -122.4194, // Default: San Francisco
 		latitude: 37.7749,
@@ -29,48 +30,135 @@
 
 	// Initialize map
 	async function initMap() {
+		const { Map } = (await google.maps.importLibrary('maps')) as google.maps.MapsLibrary;
+		const { AdvancedMarkerElement } = (await google.maps.importLibrary(
+			'marker'
+		)) as google.maps.MarkerLibrary;
+		const { AutocompleteService, PlacesService } = (await google.maps.importLibrary(
+			'places'
+		)) as google.maps.PlacesLibrary;
+
 		const mapOptions = {
 			center: { lat: location.latitude, lng: location.longitude },
 			zoom: 15,
 			mapTypeControl: false,
 			streetViewControl: false,
-			fullscreenControl: false
+			fullscreenControl: false,
+			mapId: 'bittasker_map'
 		};
 
-		map = new google.maps.Map(document.getElementById('map')!, mapOptions);
-		marker = new google.maps.Marker({
+		map = new Map(document.getElementById('map')!, mapOptions);
+		marker = new AdvancedMarkerElement({
 			map,
-			draggable: true,
-			position: { lat: location.latitude, lng: location.longitude }
-		});
-
-		// Handle marker drag events
-		marker.addListener('dragend', () => {
-			const pos = marker.getPosition()!;
-			updateLocationFromCoords(pos.lat(), pos.lng());
+			position: { lat: location.latitude, lng: location.longitude },
+			gmpDraggable: true,
+			title: location.displayName || 'Selected location'
 		});
 
 		// Initialize autocomplete
-		autocomplete = new google.maps.places.Autocomplete(searchInput, {
-			types: ['address']
+		const service = new AutocompleteService();
+		const sessionToken = new google.maps.places.AutocompleteSessionToken();
+		
+		// Create a container div for PlacesService
+		const placesDiv = document.createElement('div');
+		document.body.appendChild(placesDiv);
+		const placesService = new PlacesService(placesDiv);
+
+		// Handle input changes
+		let debounceTimer: number;
+		searchInput.addEventListener('input', (e) => {
+			clearTimeout(debounceTimer);
+			const input = (e.target as HTMLInputElement).value;
+			hasError = false;
+			
+			if (input.length === 0) {
+				predictions = [];
+				showPredictions = false;
+				location.displayName = '';
+				location.zipCode = '';
+				if (onLocationSelect) {
+					onLocationSelect(location);
+				}
+				return;
+			}
+
+			debounceTimer = window.setTimeout(() => {
+				if (input.length > 2) {
+					isLoading = true;
+					const request = {
+						input,
+						sessionToken,
+						componentRestrictions: { country: 'US' },
+						types: ['address']
+					};
+
+					service.getPlacePredictions(request, (results, status) => {
+						isLoading = false;
+						if (status !== google.maps.places.PlacesServiceStatus.OK || !results) {
+							console.error('Place predictions failed:', status);
+							predictions = [];
+							showPredictions = false;
+							hasError = true;
+							return;
+						}
+
+						predictions = results;
+						showPredictions = true;
+					});
+				}
+			}, 300);
 		});
 
-		autocomplete.addListener('place_changed', () => {
-			const place = autocomplete.getPlace();
-			if (!place.geometry) return;
+		// Handle prediction selection
+		async function selectPrediction(prediction: google.maps.places.AutocompletePrediction) {
+			const placeRequest = {
+				placeId: prediction.place_id,
+				fields: ['geometry', 'formatted_address', 'address_components']
+			};
 
-			const lat = place.geometry.location!.lat();
-			const lng = place.geometry.location!.lng();
+			placesService.getDetails(placeRequest, (place, detailStatus) => {
+				if (detailStatus === google.maps.places.PlacesServiceStatus.OK && place && place.geometry) {
+					const lat = place.geometry.location!.lat();
+					const lng = place.geometry.location!.lng();
 
-			updateLocationFromPlace(place);
-			map.setCenter({ lat, lng });
-			marker.setPosition({ lat, lng });
+					updateLocationFromPlace(place);
+					if (map) map.setCenter({ lat, lng });
+					if (marker) marker.position = { lat, lng };
+					
+					searchInput.value = prediction.description;
+					predictions = [];
+					showPredictions = false;
+				}
+			});
+		}
+
+		// Handle marker drag events
+		marker.addListener('position_changed', () => {
+			const pos = marker.position as google.maps.LatLng;
+			if (pos) {
+				updateLocationFromCoords(pos.lat(), pos.lng());
+			}
 		});
+
+		// Add click handler to document to close predictions
+		document.addEventListener('click', (e) => {
+			const target = e.target as HTMLElement;
+			if (!target.closest('.location-container')) {
+				showPredictions = false;
+			}
+		});
+
+		// Make selectPrediction available in the component scope
+		(window as any).selectPrediction = selectPrediction;
 	}
 
 	// Update location from coordinates
 	async function updateLocationFromCoords(lat: number, lng: number) {
-		const geocoder = new google.maps.Geocoder();
+		const { Geocoder } = (await google.maps.importLibrary(
+			'geocoding'
+		)) as google.maps.GeocodingLibrary;
+		const geocoder = new Geocoder();
+
 		try {
 			const response = await geocoder.geocode({ location: { lat, lng } });
 			if (response.results[0]) {
@@ -95,7 +183,9 @@
 		location.zipCode = zipCode;
 		location.locationLoaded = true;
 
-		onLocationSelect(location);
+		if (onLocationSelect) {
+			onLocationSelect(location);
+		}
 	}
 
 	// Get current location
@@ -105,37 +195,32 @@
 			location.latitude = coords.latitude;
 			location.longitude = coords.longitude;
 
-			map.setCenter({ lat: coords.latitude, lng: coords.longitude });
-			marker.setPosition({ lat: coords.latitude, lng: coords.longitude });
+			if (map) map.setCenter({ lat: coords.latitude, lng: coords.longitude });
+			if (marker) marker.position = { lat: coords.latitude, lng: coords.longitude };
 			await updateLocationFromCoords(coords.latitude, coords.longitude);
 		} catch (error) {
 			console.error('Error getting location:', error);
-			// Use default location if permission denied
 			if (defaultLocation) {
 				Object.assign(location, defaultLocation);
-				map.setCenter({ lat: location.latitude, lng: location.longitude });
-				marker.setPosition({ lat: location.latitude, lng: location.longitude });
+				if (map) map.setCenter({ lat: location.latitude, lng: location.longitude });
+				if (marker) marker.position = { lat: location.latitude, lng: location.longitude };
 			}
 		}
 	}
 
-	// Effects
-	$effect(() => {
+	onMount(() => {
 		if (browser && window.google) {
 			initMap();
+			if (defaultLocation) {
+				Object.assign(location, defaultLocation);
+			}
+			getCurrentLocation();
 		}
-	});
-
-	onMount(() => {
-		if (defaultLocation) {
-			Object.assign(location, defaultLocation);
-		}
-		getCurrentLocation();
 	});
 </script>
 
 <div class="location-container">
-	<div class="form-control w-full">
+	<div class="form-control w-full relative">
 		<label class="label" for="location-search">
 			<span class="label-text">{label}</span>
 		</label>
@@ -144,9 +229,31 @@
 			id="location-search"
 			type="text"
 			placeholder="Enter address..."
-			class="input input-bordered w-full"
+			class="input input-bordered w-full {hasError ? 'input-error' : ''}"
 			value={location.displayName}
 		/>
+		{#if isLoading}
+			<div class="absolute right-3 top-[2.8rem]">
+				<span class="loading loading-spinner loading-sm"></span>
+			</div>
+		{/if}
+		{#if hasError}
+			<label class="label" for="location-search">
+				<span class="label-text-alt text-error">Failed to get address suggestions. Please try again.</span>
+			</label>
+		{/if}
+		{#if showPredictions && predictions.length > 0}
+			<div class="predictions-dropdown absolute w-full bg-base-100 shadow-lg rounded-lg mt-1 z-50 max-h-60 overflow-y-auto">
+				{#each predictions as prediction}
+					<button
+						class="w-full text-left px-4 py-2 hover:bg-base-200 cursor-pointer"
+						onclick={() => (window as any).selectPrediction(prediction)}
+					>
+						{prediction.description}
+					</button>
+				{/each}
+			</div>
+		{/if}
 	</div>
 
 	<div id="map" class="map-container"></div>
@@ -165,5 +272,13 @@
 		height: 300px;
 		border-radius: 0.5rem;
 		overflow: hidden;
+	}
+
+	.predictions-dropdown {
+		border: 1px solid hsl(var(--b2));
+	}
+
+	.predictions-dropdown button {
+		transition: background-color 0.2s ease;
 	}
 </style>
