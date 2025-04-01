@@ -104,12 +104,10 @@
 			};
 
 			isLoading = true;
-			const { data: response, error } = await tryCatch(completeUserOnboarding(userData));
+			const { data: response, error } = await completeUserOnboarding(userData);
 			if (error) {
-				console.error('Error:', error);
 				errors.step3 = error.message;
 			} else {
-				console.log('Response:', response);
 				navigateWithTransition('/dashboard');
 			}
 			isLoading = false;

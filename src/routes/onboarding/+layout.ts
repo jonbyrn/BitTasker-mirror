@@ -23,6 +23,13 @@ export const load: LayoutLoad = async () => {
 		user.set(userData);
 		authState.login();
 
+		// Check if the user has completed the onboarding process, if yes, redirect to the dashboard
+		const isOnboarding = userData.onboardingComplete;
+
+		if (isOnboarding) {
+			throw redirect(303, '/dashboard');
+		}
+
 		return { user: userData };
 	}
 
