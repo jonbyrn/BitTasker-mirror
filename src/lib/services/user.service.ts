@@ -1,4 +1,4 @@
-import type { UserData } from '$lib/types/auth';
+import type { ApiUserProfile } from '$lib/types/auth';
 import type { ICategory, ISkill } from '$lib/types/common';
 import { tryCatch } from '$lib/utils/tryCatch';
 import createAxiosInstance from '$lib/api/axios';
@@ -12,7 +12,7 @@ const ADMIN_PATH = '/api/v1/admin';
 
 const userApi = createAxiosInstance({ baseURL: API_URL });
 
-export async function getUserProfile(): Promise<UserData> {
+export async function getUserProfile(): Promise<ApiUserProfile> {
 	try {
 		const response = await userApi.get(ENDPOINTS.USERS.PROFILE);
 		return response.data;
