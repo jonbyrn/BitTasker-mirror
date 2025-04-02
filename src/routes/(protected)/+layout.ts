@@ -11,18 +11,17 @@ import { tryCatch } from '$lib/utils/tryCatch';
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
 	if (browser) {
-		const { data: token, error: tokenError } = await tryCatch(
-			Preferences.get({ key: StorageKeys.ACCESS_TOKEN })
-		);
+		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
-		if (tokenError || !token || token === null) {
-			console.error('Error fetching access token', tokenError);
+		if (!token || token === null) {
+			console.log('no token');
 			throw redirect(303, '/auth');
 		}
 
 		const { data: userData, error: userError } = await tryCatch(getUserProfile());
 		if (userError || !userData || userData === null) {
 			console.error('Error fetching user profile', userError);
+			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 			throw redirect(303, '/auth');
 		} else {
 			user.set(userData);

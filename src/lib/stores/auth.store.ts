@@ -13,21 +13,18 @@ const initialAuthState: AuthState = {
 const createAuthStore = () => {
 	const { subscribe, set, update } = writable<AuthState>(initialAuthState);
 
-    return {
-        subscribe,
-        set,
-        setLoading: (loading: boolean) =>
-            update(state => ({ ...state, isLoading: loading })),
-        setError: (error: string | null) =>
-            update(state => ({ ...state, error })),
-        login: () =>
-            update(state => ({ ...state, isAuthenticated: true, error: null })),
-        logout: async () => {
-            await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
-            user.reset();
-            set(initialAuthState);
-        }
-    };
+	return {
+		subscribe,
+		set,
+		setLoading: (loading: boolean) => update((state) => ({ ...state, isLoading: loading })),
+		setError: (error: string | null) => update((state) => ({ ...state, error })),
+		login: () => update((state) => ({ ...state, isAuthenticated: true, error: null })),
+		logout: async () => {
+			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+			user.reset();
+			set(initialAuthState);
+		}
+	};
 };
 
 export const authState = createAuthStore();

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { authState } from '$lib/stores/auth.store';
 	import { appStore } from '$lib/stores/app.store';
-	
+
 	const { children } = $props();
 
 	// Load global data when authenticated
@@ -13,7 +13,7 @@
 </script>
 
 {#if $authState.isLoading}
-	<div class="flex w-full flex-col items-center justify-center h-[100dvh]">
+	<div class="flex h-[100dvh] w-full flex-col items-center justify-center">
 		<span class="loading loading-spinner loading-xl"></span>
 		<p>Loading...</p>
 	</div>

@@ -11,7 +11,7 @@
 		locationLoaded: boolean;
 	}
 
-  let { label, defaultLocation, onLocationSelect } = $props();
+	let { label, defaultLocation, onLocationSelect } = $props();
 
 	// State
 	let map: google.maps.Map;
