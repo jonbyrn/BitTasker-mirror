@@ -341,7 +341,9 @@
 								In-person
 							</button>
 							<button
-								class="btn {$store.task.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
+								class="btn {$store.task.taskType === TaskTypeEnum.REMOTE
+									? 'btn-primary'
+									: 'btn-outline'}"
 								onclick={() => {
 									store.updateTask({ taskType: TaskTypeEnum.REMOTE });
 									store.updateTask({
@@ -410,13 +412,17 @@
 
 					<div class="flex gap-4">
 						<button
-							class="btn {$store.task.budgetType === BudgetTypeEnum.FIXED ? 'btn-primary' : 'btn-outline'}"
+							class="btn {$store.task.budgetType === BudgetTypeEnum.FIXED
+								? 'btn-primary'
+								: 'btn-outline'}"
 							onclick={() => store.updateTask({ budgetType: BudgetTypeEnum.FIXED })}
 						>
 							Fixed price
 						</button>
 						<button
-							class="btn {$store.task.budgetType === BudgetTypeEnum.HOURLY ? 'btn-primary' : 'btn-outline'}"
+							class="btn {$store.task.budgetType === BudgetTypeEnum.HOURLY
+								? 'btn-primary'
+								: 'btn-outline'}"
 							onclick={() => store.updateTask({ budgetType: BudgetTypeEnum.HOURLY })}
 						>
 							Hourly rate

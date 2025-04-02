@@ -99,7 +99,7 @@
 				<button
 					aria-label="Remove image"
 					type="button"
-					class="absolute -top-2 -right-2 rounded-full bg-white p-1 shadow-md hover:bg-gray-100 text-black cursor-pointer"
+					class="absolute -top-2 -right-2 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
 				>
 					<svg

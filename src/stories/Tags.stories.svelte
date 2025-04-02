@@ -29,7 +29,7 @@
 			}
 		} satisfies ArgTypes<TagsProps>,
 		args: {
-            onChange: fn()
+			onChange: fn()
 		}
 	});
 </script>
