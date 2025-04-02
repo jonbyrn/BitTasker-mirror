@@ -52,10 +52,6 @@
 		handleInputChange('budgetType', value);
 	};
 
-	const handleTaskTypeChange = (value: TaskTypeEnum) => {
-		handleInputChange('taskType', value);
-	};
-
 	let attachments = $state<File[]>([]);
 	const handleFileUpload = (files: File[]) => {
 		if (files) {

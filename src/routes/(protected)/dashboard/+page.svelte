@@ -1,10 +1,9 @@
 <script lang="ts">
 	import type { TaskResponse, Task } from '$lib/types/task';
+	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getMyTasks } from '$lib/services/task.service';
 	import BidForm from '$lib/components/Bid/BidForm.svelte';
-	import { taskStore } from '$lib/stores/task.store';
-	import { goto } from '$app/navigation';
 
 	let currentPage = $state(1);
 	let limit = $state(10);
