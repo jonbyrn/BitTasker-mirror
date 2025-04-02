@@ -7,18 +7,18 @@ const API_PATH = '/api/v1/bid';
 const bidApi = createAxiosInstance({ baseURL: API_URL });
 
 export async function createBid(bid: Bid): Promise<Bid> {
-  const response = await bidApi.post(API_PATH, bid);
-  return response.data;
+	const response = await bidApi.post(API_PATH, bid);
+	return response.data;
 }
 
 export async function updateBid(bid: Bid): Promise<Bid> {
-  const response = await bidApi.put(API_PATH, bid);
-  return response.data;
+	const response = await bidApi.put(API_PATH, bid);
+	return response.data;
 }
 
 export async function withdrawBid(bidId: string): Promise<void> {
-  const response = await bidApi.post(`${API_PATH}/${bidId}/withdraw`);
-  if (!response.data) {
-    throw new Error('Failed to withdraw bid');
-  }
+	const response = await bidApi.post(`${API_PATH}/${bidId}/withdraw`);
+	if (!response.data) {
+		throw new Error('Failed to withdraw bid');
+	}
 }

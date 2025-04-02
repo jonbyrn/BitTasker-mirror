@@ -125,7 +125,7 @@
 
 		{#if isOpen && filteredOptions.length > 0}
 			<ul
-				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg shadow-lg border"
+				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-lg"
 				role="listbox"
 				aria-label="options"
 			>

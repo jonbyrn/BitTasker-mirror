@@ -50,9 +50,9 @@ export interface InputProps {
 }
 
 export interface LocationProps {
-    label?: string;
-    placeholder?: string;
-    location?: Location;
-    defaultLocation?: Location;
-    onLocationSelect: (location: Location) => void;
+	label?: string;
+	placeholder?: string;
+	location?: Location;
+	defaultLocation?: Location;
+	onLocationSelect: (location: Location) => void;
 }

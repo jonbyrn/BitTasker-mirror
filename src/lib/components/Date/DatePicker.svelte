@@ -121,7 +121,7 @@
 													class="relative size-10 p-0! text-center text-sm"
 												>
 													<DatePicker.Day
-														class="rounded-lg text-foreground hover:bg-white/10 data-selected:bg-white/20 data-disabled:text-foreground/30 data-selected:text-background data-unavailable:text-muted-foreground group relative inline-flex size-10 items-center justify-center border border-transparent bg-transparent p-0 text-sm font-normal whitespace-nowrap transition-all data-disabled:pointer-events-none data-outside-month:pointer-events-none data-selected:font-medium data-unavailable:line-through cursor-pointer"
+														class="text-foreground data-disabled:text-foreground/30 data-selected:text-background data-unavailable:text-muted-foreground group relative inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-transparent bg-transparent p-0 text-sm font-normal whitespace-nowrap transition-all hover:bg-white/10 data-disabled:pointer-events-none data-outside-month:pointer-events-none data-selected:bg-white/20 data-selected:font-medium data-unavailable:line-through"
 													>
 														<div
 															class="bg-foreground group-data-selected:bg-background absolute top-[5px] hidden size-1 rounded-full transition-all group-data-today:block"

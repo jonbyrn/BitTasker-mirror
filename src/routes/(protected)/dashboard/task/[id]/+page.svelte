@@ -10,7 +10,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
-    
+
 	const taskId = page.params.id;
 	let task = $state<Task | null>(null);
 	let isEditing = $state(true);

@@ -6,9 +6,15 @@
 		title: 'Components/Location',
 		component: Location,
 		argTypes: {
-			label: { control: 'text' },
-			defaultLocation: { control: 'object' },
-			onLocationSelect: { action: 'locationSelected' }
+			label: {
+				control: { type: 'text' }
+			},
+			defaultLocation: {
+				control: { type: 'object' }
+			},
+			onLocationSelect: {
+				action: 'locationSelected'
+			}
 		}
 	};
 </script>
