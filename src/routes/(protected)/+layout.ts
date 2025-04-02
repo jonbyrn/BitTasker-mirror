@@ -15,14 +15,14 @@ export const load: LayoutLoad = async () => {
 
 		if (!token || token === null) {
 			console.log('no token');
-			return redirect(303, '/auth');
+			throw redirect(303, '/auth');
 		}
 
 		const { data: userData, error: userError } = await tryCatch(getUserProfile());
 		if (userError || !userData || userData === null) {
 			console.error('Error fetching user profile', userError);
 			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
-			return redirect(303, '/auth');
+			throw redirect(303, '/auth');
 		} else {
 			user.set(userData);
 			authState.login();
