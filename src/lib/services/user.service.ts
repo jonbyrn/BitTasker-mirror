@@ -1,12 +1,11 @@
 import type { ApiUserProfile } from '$lib/types/auth';
 import type { ICategory, ISkill } from '$lib/types/common';
-import { tryCatch } from '$lib/utils/tryCatch';
-import createAxiosInstance from '$lib/api/axios';
-import { goto } from '$app/navigation';
-import type { OnboardingRequest } from '$lib/types/onboarding';
-import type { OnboardingSuccessResponse } from '$lib/types/onboarding';
-import type { OnboardingErrorResponse } from '$lib/types/onboarding';
+import type { OnboardingRequest, OnboardingSuccessResponse, OnboardingErrorResponse } from '$lib/types/onboarding';
 import { ENDPOINTS } from '$lib/api/endpoints';
+import { tryCatch } from '$lib/utils/tryCatch';
+import { goto } from '$app/navigation';
+import createAxiosInstance from '$lib/api/axios';
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 const ADMIN_PATH = '/api/v1/admin';
 

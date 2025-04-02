@@ -5,6 +5,7 @@
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import NavBar from '$lib/components/NavBar.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
 
 	const { children } = $props();
@@ -43,6 +44,7 @@
 		<NavBar />
 	{/if}
 	{@render children()}
+	<Toast />
 	<footer class="bg-base-300 text-base-content/70 py-4 text-center">
 		<p>© {new Date().getFullYear()} BitTasker. All rights reserved.</p>
 	</footer>

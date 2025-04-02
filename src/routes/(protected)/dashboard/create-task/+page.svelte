@@ -7,7 +7,6 @@
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
-	import Input from '$lib/components/Input.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 
@@ -44,7 +43,7 @@
 				if ($store.task.skillIds.length === 0) errors.skill = 'At least one skill is required';
 				break;
 			case 'location':
-				if($store.isRemovals) {
+				if ($store.isRemovals) {
 					if (!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude) {
 						errors.location = 'Pickup location is required for this task';
 					}
@@ -52,7 +51,10 @@
 						errors.location = 'Drop-off location is required for this task';
 					}
 				}
-				if ($store.task.taskType === TaskTypeEnum.IN_PERSON && (!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude)) {
+				if (
+					$store.task.taskType === TaskTypeEnum.IN_PERSON &&
+					(!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude)
+				) {
 					errors.location = 'Location is required for this task';
 				}
 				break;
@@ -223,18 +225,14 @@
 				</div>
 
 				<div class="w-full">
-					<Input
-						id="category"
-						label="Category"
-						placeholder="Select a category"
-						autoComplete="on"
+					<label for="category" class="label">Category</label>
+					<Tags
 						options={$appStore.categories.map((cat) => ({
-							label: cat.name,
-							value: cat.id.toString()
+							name: cat.name,
+							id: cat.id
 						}))}
-						value={$appStore.categories.find((cat) => cat.id === $store.task.categoryIds?.[0])
-							?.name ?? ''}
-						onChange={(option) => store.updateTask({ categoryIds: [parseInt(option.value, 10)] })}
+						selectedTags={$store.task.categoryIds}
+						onChange={(ids) => store.updateTask({ categoryIds: ids })}
 					/>
 					{#if errors.category}
 						<span class="label-text-alt text-error">{errors.category}</span>

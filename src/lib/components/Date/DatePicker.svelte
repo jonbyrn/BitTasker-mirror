@@ -61,7 +61,7 @@
 				</DatePicker.Trigger>
 			{/snippet}
 		</DatePicker.Input>
-		<DatePicker.Content sideOffset={6} align="center" class="z-50">
+		<DatePicker.Content sideOffset={6} align="end" class="z-50">
 			<DatePicker.Calendar
 				class="border-dark-10 shadow-popover mt-4 rounded-xl border bg-black p-5"
 			>

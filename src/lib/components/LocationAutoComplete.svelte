@@ -23,34 +23,32 @@
 	let hasError = $state(false);
 	let showOptions = $state(false);
 
-	// State
-	// let location = $state({
-	// 	displayName: '',
-	// 	longitude: -122.4194, // Default: San Francisco
-	// 	latitude: 37.7749,
-	// 	zipCode: '',
-	// 	locationLoaded: false
-	// });
-
 	async function getPredictions() {
-		if (!searchInput.value) return;
-		isLoading = true;
-		const { AutocompleteSessionToken, AutocompleteSuggestion } = (await google.maps.importLibrary(
-			'places'
-		)) as google.maps.PlacesLibrary;
+		try {
+			if (!searchInput.value) return;
+			isLoading = true;
+			const { AutocompleteSessionToken, AutocompleteSuggestion } = (await google.maps.importLibrary(
+				'places'
+			)) as google.maps.PlacesLibrary;
 
-		const token = new AutocompleteSessionToken();
+			const token = new AutocompleteSessionToken();
 
-		const request = {
-			input: searchInput.value,
-			language: 'en-US',
-			sessionToken: token
-		};
+			const request = {
+				input: searchInput.value,
+				language: 'en-US',
+				sessionToken: token
+			};
 
-		const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
-		predictions = suggestions.map((suggestion) => suggestion.placePrediction);
-		showOptions = true;
-		isLoading = false;
+			const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+			predictions = suggestions.map((suggestion) => suggestion.placePrediction);
+			showOptions = true;
+			isLoading = false;
+		} catch (error) {
+			hasError = true;
+			console.error('Failed to get predictions:', error);
+		} finally {
+			isLoading = false;
+		}
 	}
 
 	// Debounce function
@@ -96,7 +94,7 @@
 			bind:this={searchInput}
 			id="location-search"
 			type="text"
-			placeholder="Enter address..."
+			{placeholder}
 			class="input input-bordered w-full {hasError ? 'input-error' : ''}"
 			value={location.displayName}
 			oninput={debounce(() => getPredictions(), 300)}

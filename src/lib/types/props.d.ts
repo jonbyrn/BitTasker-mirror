@@ -23,11 +23,12 @@ export interface TagsProps {
 }
 
 export interface InputProps {
-	id: string;
+	id?: string;
 	label?: string;
 	value?: string;
 	placeholder?: string;
 	error?: string;
+    required?: boolean;
 	type?:
 		| 'text'
 		| 'number'
