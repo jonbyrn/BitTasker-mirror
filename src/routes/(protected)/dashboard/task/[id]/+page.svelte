@@ -13,7 +13,7 @@
 
 	const taskId = page.params.id;
 	let task = $state<Task | null>(null);
-	let isEditing = $state(true);
+	let isEditing = $state(false);
 	let loading = $state(true);
 	let error = $state('');
 	let updateObject = $state<Partial<Task> & { skillIds?: number[]; categoryIds?: number[] }>({});
