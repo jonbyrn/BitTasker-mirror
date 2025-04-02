@@ -44,8 +44,18 @@
 	loadTasks();
 
 	// Format dates
-	function formatTimeAgo(date: string): string {
-		return formatDistanceToNow(new Date(date), { addSuffix: true });
+	function formatTimeAgo(date: string | null): string {
+		if (!date) return 'No deadline';
+		try {
+			const parsedDate = new Date(date);
+			if (isNaN(parsedDate.getTime())) {
+				return 'Invalid date';
+			}
+			return formatDistanceToNow(parsedDate, { addSuffix: true });
+		} catch (error) {
+			console.error('Error formatting date:', error);
+			return 'Invalid date';
+		}
 	}
 
 	// Format currency

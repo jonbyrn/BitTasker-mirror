@@ -23,23 +23,23 @@ export async function getUserProfile(): Promise<ApiUserProfile> {
 }
 
 export async function fetchSkills(): Promise<ISkill[]> {
-    try {
-        const response = await userApi.get(`${ADMIN_PATH}/skills`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching skills:', error);
-        return [];
-    }
+	try {
+		const response = await userApi.get(`${ADMIN_PATH}/skills`);
+		return response.data;
+	} catch (error) {
+		console.error('Error fetching skills:', error);
+		return [];
+	}
 }
 
 export async function fetchCategories(): Promise<ICategory[]> {
-    try {
-        const response = await userApi.get(`${ADMIN_PATH}/categories`);
-        return response.data;
-    } catch (error) {
-        console.error('Error fetching categories:', error);
-        return [];
-    }
+	try {
+		const response = await userApi.get(`${ADMIN_PATH}/categories`);
+		return response.data;
+	} catch (error) {
+		console.error('Error fetching categories:', error);
+		return [];
+	}
 }
 
 /**

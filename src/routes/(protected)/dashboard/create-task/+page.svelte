@@ -253,8 +253,8 @@
 						selectedTags={$store.task.skillIds}
 						onChange={(ids) => store.updateTask({ skillIds: ids })}
 					/>
-					{#if errors.skillIds}
-						<span class="label-text-alt text-error">{errors.skillIds}</span>
+					{#if errors.skill}
+						<span class="label-text-alt text-error">{errors.skill}</span>
 					{/if}
 				</div>
 			{:else if $store.currentStep === 'location'}
