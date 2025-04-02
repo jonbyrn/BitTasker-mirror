@@ -24,7 +24,7 @@
 		try {
 			loading = true;
 			task = await getTaskById(taskId);
-			isFlexibleDate = !task.dateRange;
+			isFlexibleDate = !task?.dateRange;
 		} catch (err) {
 			error = 'Failed to load task details';
 			console.error(err);
