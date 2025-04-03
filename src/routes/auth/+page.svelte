@@ -21,8 +21,7 @@
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 	import BottomNavBar from '$lib/components/NavBar.svelte';
-	import authService from '$lib/api/auth.service';
-	import { page } from '$app/state';
+	import authService from '$lib/api/services/auth.service';
 
 
 	let error: string = $state('');
@@ -148,7 +147,6 @@
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>
 
-			{page.url.origin}
 			{#if isBiometricAvailable}
 				<button class="btn btn-outline w-full" onclick={handleBiometricAuth} disabled={isLoading}>
 					<svg

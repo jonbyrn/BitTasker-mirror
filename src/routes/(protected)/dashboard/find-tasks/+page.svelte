@@ -4,7 +4,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { slide } from 'svelte/transition';
 	import Input from '$lib/components/Input.svelte';
-	import taskService from '$lib/api/task.service';
+	import taskService from '$lib/api/services/task.service';
 
 	// State
 	let searchQuery = $state('');

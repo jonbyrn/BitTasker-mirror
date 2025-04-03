@@ -6,7 +6,7 @@ import { user } from '$lib/stores/user.store';
 import { authState } from '$lib/stores/auth.store';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import userService from '$lib/api/user.service';
+import userService from '$lib/api/services/user.service';
 
 export const load: LayoutLoad = async () => {
 	if (browser) {

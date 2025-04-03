@@ -1,7 +1,7 @@
 import type { ApiUserProfile } from '$lib/types/auth';
 import type { LayoutLoad } from './$types';
 import { tryCatch } from '$lib/utils/tryCatch';
-import userService from '$lib/api/user.service';
+import userService from '$lib/api/services/user.service';
 
 // Mock user data to provide fallbacks
 const mockUser = {

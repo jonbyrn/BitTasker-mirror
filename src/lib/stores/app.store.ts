@@ -1,6 +1,6 @@
 import type { ICategory, ISkill } from '$lib/types/common';
 import { writable } from 'svelte/store';
-import userService from '$lib/api/user.service';
+import userService from '$lib/api/services/user.service';
 
 interface Toast {
 	type: 'success' | 'error' | 'info';

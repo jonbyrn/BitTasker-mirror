@@ -3,12 +3,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import {
-		validateEmail,
-		validateName,
-		validateNostrPrivateKey,
-		validatePassword
-	} from '$lib/utils/helpers/validators';
+	import { validateNostrPrivateKey, validatePassword } from '$lib/utils/helpers/validators';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
@@ -17,7 +12,7 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import AuthService from '$lib/api/auth.service';
+	import AuthService from '$lib/api/services/auth.service';
 
 	const provider = page.url.searchParams.get('provider') || '';
 	let npub = $state(page.url.searchParams.get('npub') || '');

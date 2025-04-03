@@ -13,7 +13,7 @@
 		encryptNostrPrivateKeyWithUserId,
 		decryptNostrPrivateKeyWithUserId
 	} from '$lib/utils/helpers/auth';
-	import authService from '$lib/api/auth.service';
+	import authService from '$lib/api/services/auth.service';
 
 	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);

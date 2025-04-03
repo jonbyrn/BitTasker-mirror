@@ -1,6 +1,6 @@
 import type { Bid } from '$lib/types/bid';
-import { BaseApiService } from './apiService';
-import { ENDPOINTS } from './endpoints';
+import { BaseApiService } from '../apiService';
+import { ENDPOINTS } from '../endpoints';
 
 /**
  * Bid Service

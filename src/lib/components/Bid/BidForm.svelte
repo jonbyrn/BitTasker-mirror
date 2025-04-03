@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Bid } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
-	import bidService from '$lib/api/bid.service';
+	import bidService from '$lib/api/services/bid.service';
 
 	const props = $props<{
 		task: Task;

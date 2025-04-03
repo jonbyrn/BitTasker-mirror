@@ -2,7 +2,7 @@
 	import type { TaskResponse, Task } from '$lib/types/task';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
-	import taskService from '$lib/api/task.service';
+	import taskService from '$lib/api/services/task.service';
 	import BidForm from '$lib/components/Bid/BidForm.svelte';
 
 	let currentPage = $state(1);

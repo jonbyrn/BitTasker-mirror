@@ -5,10 +5,10 @@ import type {
   OnboardingSuccessResponse,
   OnboardingErrorResponse
 } from '$lib/types/onboarding';
-import { ENDPOINTS } from './endpoints';
+import { ENDPOINTS } from '../endpoints';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { goto } from '$app/navigation';
-import { BaseApiService } from './apiService';
+import { BaseApiService } from '../apiService';
 
 /**
  * User Service

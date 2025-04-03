@@ -10,9 +10,6 @@ export * from './types';
 // Export API errors and response types
 export { ApiError, type ApiResponse } from './apiService';
 
-// Export services
-export { authService } from './authService';
-
 // Export endpoints for direct use if needed
 export { ENDPOINTS } from './endpoints';
 

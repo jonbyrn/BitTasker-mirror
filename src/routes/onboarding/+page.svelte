@@ -10,7 +10,7 @@
 	} from '$lib/utils/viewTransition';
 	import { t, setLocale } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
-	import userService from '$lib/api/user.service';
+	import userService from '$lib/api/services/user.service';
 
 	// Define reactive state with Svelte 5 runes
 	let userType = $state<'CLIENT' | 'FREELANCER' | 'BOTH'>('CLIENT');

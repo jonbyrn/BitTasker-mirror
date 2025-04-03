@@ -9,7 +9,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
-	import taskService from '$lib/api/task.service';
+	import taskService from '$lib/api/services/task.service';
 
 	const taskId = page.params.id;
 	let task = $state<Task | null>(null);

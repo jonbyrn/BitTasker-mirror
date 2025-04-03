@@ -6,8 +6,8 @@ import type {
   SearchTaskResponse
 } from '$lib/types/task.d';
 import type { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import { BaseApiService } from './apiService';
-import { ENDPOINTS } from './endpoints';
+import { BaseApiService } from '../apiService';
+import { ENDPOINTS } from '../endpoints';
 
 /**
  * Task Service

@@ -6,11 +6,11 @@ import { user } from '$lib/stores/user.store';
 import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
-import userService from '$lib/api/user.service';
+import userService from '$lib/api/services/user.service';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
-	if (browser) {
+	if (browser) {	
 		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 		if (!token || token === null) {

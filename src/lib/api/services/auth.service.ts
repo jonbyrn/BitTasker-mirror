@@ -1,7 +1,7 @@
 import type { NostrRegistrationData, UserData } from '$lib/types/auth';
-import { BaseApiService } from './apiService';
-import { ENDPOINTS } from './endpoints';
-import type { OnboardingRequest, OnboardingResponse } from './types';
+import { BaseApiService } from '../apiService';
+import { ENDPOINTS } from '../endpoints';
+import type { OnboardingRequest, OnboardingResponse } from '../types';
 
 /**
  * Authentication Service
