@@ -12,7 +12,7 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import AuthService from '$lib/api/services/auth.service';
+	import authService from '$lib/api/services/auth.service';
 
 	const provider = page.url.searchParams.get('provider') || '';
 	let npub = $state(page.url.searchParams.get('npub') || '');
@@ -91,12 +91,12 @@
 				iterations: 100000
 			};
 			if (provider === 'passkey') data.authMethod = 'passkey';
-			const res = await AuthService.registerWithNostr(data);
+			const res = await authService.registerWithNostr(data);
 
 			if (res.publicKey) {
 				let accessToken: string | null = null;
 				if (provider === 'alby') {
-					const { challenge } = await AuthService.getLoginChallenge();
+					const { challenge } = await authService.getLoginChallenge();
 					const signer = new NDKNip07Signer();
 					const signerUser = await signer.user();
 					if (!signerUser) {
@@ -111,11 +111,11 @@
 					};
 					const signedEvent = await signer.sign(event);
 
-					const res = await AuthService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+					const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
 					if (res.access_token) accessToken = res.access_token;
 				} else if (provider === 'passkey') {
 					const deviceId = await getDeviceIdentifier();
-					const res = await AuthService.loginWithPasskey(npub, deviceId);
+					const res = await authService.loginWithPasskey(npub, deviceId);
 					if (res.access_token) accessToken = res.access_token;
 				}
 
