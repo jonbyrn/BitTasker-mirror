@@ -28,7 +28,7 @@ export interface InputProps {
 	value?: string;
 	placeholder?: string;
 	error?: string;
-    required?: boolean;
+	required?: boolean;
 	type?:
 		| 'text'
 		| 'number'

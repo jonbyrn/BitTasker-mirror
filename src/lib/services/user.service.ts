@@ -1,6 +1,10 @@
 import type { ApiUserProfile } from '$lib/types/auth';
 import type { ICategory, ISkill } from '$lib/types/common';
-import type { OnboardingRequest, OnboardingSuccessResponse, OnboardingErrorResponse } from '$lib/types/onboarding';
+import type {
+	OnboardingRequest,
+	OnboardingSuccessResponse,
+	OnboardingErrorResponse
+} from '$lib/types/onboarding';
 import { ENDPOINTS } from '$lib/api/endpoints';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { goto } from '$app/navigation';
