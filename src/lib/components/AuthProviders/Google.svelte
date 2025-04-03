@@ -7,13 +7,13 @@
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { authenticateWithGoogle, registerWithNostr } from '$lib/services/auth.service';
 	import { SocialLogin } from '@capgo/capacitor-social-login';
 	import { Capacitor } from '@capacitor/core';
 	import {
 		encryptNostrPrivateKeyWithUserId,
 		decryptNostrPrivateKeyWithUserId
 	} from '$lib/utils/helpers/auth';
+	import authService from '$lib/api/auth.service';
 
 	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);
@@ -22,7 +22,7 @@
 		if (!response?.credential) return;
 
 		try {
-			const res = await authenticateWithGoogle(response.credential);
+			const res = await authService.authenticateWithGoogle(response.credential);
 			const { user: userData } = res;
 
 			// User exists, handle successful login
@@ -80,7 +80,7 @@
 				);
 
 				// Register user with encrypted Nostr keys
-				const registrationResult = await registerWithNostr({
+				const registrationResult = await authService.registerWithNostr({
 					email: payload.email,
 					name: payload.name,
 					publicKey,

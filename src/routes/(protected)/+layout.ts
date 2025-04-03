@@ -2,11 +2,11 @@ import type { LayoutLoad } from './$types';
 import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
 import { Preferences } from '@capacitor/preferences';
-import { getUserProfile } from '$lib/services/user.service';
 import { user } from '$lib/stores/user.store';
 import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
+import userService from '$lib/api/user.service';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
@@ -18,7 +18,7 @@ export const load: LayoutLoad = async () => {
 			throw redirect(303, '/auth');
 		}
 
-		const { data: userData, error: userError } = await tryCatch(getUserProfile());
+		const { data: userData, error: userError } = await tryCatch(userService.getUserProfile());
 		if (userError || !userData || userData === null) {
 			console.error('Error fetching user profile', userError);
 			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });

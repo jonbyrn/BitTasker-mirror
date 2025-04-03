@@ -8,12 +8,6 @@
 		setBiometricKey
 	} from '$lib/utils/helpers/biometrics';
 	import {
-		getLoginChallenge,
-		loginWithPasskey,
-		registerPasskeyDevice,
-		registerWithNostr
-	} from '$lib/services/auth.service';
-	import {
 		signLoginChallenge,
 		decryptPrivateKeyWithBiometrics,
 		encryptNostrPrivateKeyWithPassword
@@ -27,6 +21,9 @@
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
 	import BottomNavBar from '$lib/components/NavBar.svelte';
+	import authService from '$lib/api/auth.service';
+	import { page } from '$app/state';
+
 
 	let error: string = $state('');
 	let isLoading: boolean = $state(false);
@@ -45,7 +42,7 @@
 			deviceId
 		);
 
-		const res = await registerWithNostr({
+		const res = await authService.registerWithNostr({
 			publicKey: npub,
 			encryptedPrivateKey: encrypted.data,
 			iv: encrypted.iv,
@@ -56,7 +53,7 @@
 		});
 
 		const deviceName = await getDeviceName();
-		const response = await registerPasskeyDevice(npub, deviceId, deviceName);
+		const response = await authService.registerPasskeyDevice(npub, deviceId, deviceName);
 
 		const success = await setBiometricKey(npub, {
 			key: exportedKey,
@@ -97,14 +94,14 @@
 	};
 
 	const loginWithBiometric = async (pubKey: string, encryptedKey: string, deviceId: string) => {
-		const { challenge } = await getLoginChallenge();
+		const { challenge } = await authService.getLoginChallenge();
 		const privateKey = await decryptPrivateKeyWithBiometrics(encryptedKey);
 		const signedChallenge = await signLoginChallenge(challenge, privateKey);
 		if (!signedChallenge) {
 			error = 'Failed to sign login challenge';
 			return;
 		}
-		const response = await loginWithPasskey(pubKey, deviceId);
+		const response = await authService.loginWithPasskey(pubKey, deviceId);
 
 		if (!response.access_token) {
 			error = 'No access token received from server';
@@ -151,6 +148,7 @@
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>
 
+			{page.url.origin}
 			{#if isBiometricAvailable}
 				<button class="btn btn-outline w-full" onclick={handleBiometricAuth} disabled={isLoading}>
 					<svg

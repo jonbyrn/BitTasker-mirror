@@ -1,6 +1,6 @@
-import { fetchCategories, fetchSkills } from '$lib/services/user.service';
 import type { ICategory, ISkill } from '$lib/types/common';
 import { writable } from 'svelte/store';
+import userService from '$lib/api/user.service';
 
 interface Toast {
 	type: 'success' | 'error' | 'info';
@@ -51,7 +51,7 @@ const createAppStore = () => {
 			update((state) => ({ ...state, isLoading: true, error: null }));
 
 			try {
-				const [skills, categories] = await Promise.all([fetchSkills(), fetchCategories()]);
+				const [skills, categories] = await Promise.all([userService.fetchSkills(), userService.fetchCategories()]);
 
 				update((state) => ({ ...state, skills, categories }));
 			} catch (error) {

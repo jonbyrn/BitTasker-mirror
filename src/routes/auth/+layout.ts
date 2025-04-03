@@ -1,12 +1,12 @@
+import type { LayoutLoad } from '../$types';
 import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';
 import { tryCatch } from '$lib/utils/tryCatch';
-import { getUserProfile } from '$lib/services/user.service';
 import { user } from '$lib/stores/user.store';
 import { authState } from '$lib/stores/auth.store';
-import type { LayoutLoad } from '../$types';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import userService from '$lib/api/user.service';
 
 export const load: LayoutLoad = async () => {
 	if (browser) {
@@ -18,7 +18,7 @@ export const load: LayoutLoad = async () => {
 			return {};
 		}
 
-		const { data: userData, error: userError } = await tryCatch(getUserProfile());
+		const { data: userData, error: userError } = await tryCatch(userService.getUserProfile());
 
 		// If we successfully get user data, user is logged in
 		if (!userError && userData) {
