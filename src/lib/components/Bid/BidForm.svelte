@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Bid } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
-	import { createBid } from '$lib/services/bid.service';
+	import bidService from '$lib/api/services/bid.service';
 
 	const props = $props<{
 		task: Task;
@@ -44,7 +44,7 @@
 		try {
 			loading = true;
 			error = null;
-			await createBid(formData);
+			await bidService.createBid(formData);
 			props.onSuccess();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to submit bid';

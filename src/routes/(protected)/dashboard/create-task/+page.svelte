@@ -2,9 +2,9 @@
 	import { onMount } from 'svelte';
 	import { AxiosError } from 'axios';
 	import { appStore } from '$lib/stores/app.store';
-	import { createTask } from '$lib/services/task.service';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
+	import taskService from '$lib/api/services/task.service';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
@@ -99,7 +99,7 @@
 		isSubmitting = true;
 
 		try {
-			await createTask($store.task);
+			await taskService.createTask($store.task);
 			isSubmitted = true;
 			await store.clearDraft();
 
@@ -486,7 +486,7 @@
 						onclick={handleSubmit}
 						disabled={isSubmitting}
 					>
-						{isSubmitting ? 'Creating Task...' : 'Get Quotes'}
+						{isSubmitting ? '' : 'Get Quotes'}
 					</button>
 				{:else}
 					<button class="btn btn-primary" onclick={handleNext}>Next</button>

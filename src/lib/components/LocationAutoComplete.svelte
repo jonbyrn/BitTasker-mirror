@@ -108,7 +108,7 @@
 
 	{#if hasError}
 		<label class="label" for="location-search">
-			<span class="label-text-alt text-error">
+			<span class="label-text-alt text-error whitespace-break-spaces">
 				Failed to get address suggestions. Please try again.
 			</span>
 		</label>

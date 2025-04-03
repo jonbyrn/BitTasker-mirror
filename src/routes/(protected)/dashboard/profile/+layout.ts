@@ -1,7 +1,7 @@
-import { getUserProfile } from '$lib/services/user.service';
-import { tryCatch } from '$lib/utils/tryCatch';
 import type { ApiUserProfile } from '$lib/types/auth';
 import type { LayoutLoad } from './$types';
+import { tryCatch } from '$lib/utils/tryCatch';
+import userService from '$lib/api/services/user.service';
 
 // Mock user data to provide fallbacks
 const mockUser = {
@@ -93,7 +93,9 @@ const mockUser = {
 };
 
 export const load: LayoutLoad = async () => {
-	const { data: userData, error: userError } = await tryCatch<ApiUserProfile>(getUserProfile());
+	const { data: userData, error: userError } = await tryCatch<ApiUserProfile>(
+		userService.getUserProfile()
+	);
 
 	if (userError || !userData) {
 		console.error('Failed to fetch user profile:', userError);

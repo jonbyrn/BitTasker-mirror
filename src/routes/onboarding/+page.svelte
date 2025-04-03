@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { OnboardingRequest } from '$lib/types/onboarding';
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { fly } from 'svelte/transition';
@@ -7,11 +8,9 @@
 		addViewTransitionStyles,
 		navigateWithTransition
 	} from '$lib/utils/viewTransition';
-	import { completeUserOnboarding } from '$lib/services/user.service';
-	import { tryCatch } from '$lib/utils/tryCatch';
-	import type { OnboardingRequest } from '$lib/types/onboarding';
 	import { t, setLocale } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
+	import userService from '$lib/api/services/user.service';
 
 	// Define reactive state with Svelte 5 runes
 	let userType = $state<'CLIENT' | 'FREELANCER' | 'BOTH'>('CLIENT');
@@ -104,7 +103,7 @@
 			};
 
 			isLoading = true;
-			const { data: response, error } = await completeUserOnboarding(userData);
+			const { data: response, error } = await userService.completeUserOnboarding(userData);
 			if (error) {
 				errors.step3 = error.message;
 			} else {

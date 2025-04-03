@@ -3,13 +3,13 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { appStore } from '$lib/stores/app.store';
-	import { getTaskById, updateTask } from '$lib/services/task.service';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import Input from '$lib/components/Input.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
+	import taskService from '$lib/api/services/task.service';
 
 	const taskId = page.params.id;
 	let task = $state<Task | null>(null);
@@ -23,7 +23,7 @@
 	async function fetchTask() {
 		try {
 			loading = true;
-			task = await getTaskById(taskId);
+			task = await taskService.getTaskById(taskId);
 			isFlexibleDate = !task?.dateRange;
 		} catch (err) {
 			error = 'Failed to load task details';
@@ -75,7 +75,7 @@
 				isEditing = false;
 				return;
 			}
-			await updateTask(taskId, updateObject);
+			await taskService.updateTask(taskId, updateObject);
 			await fetchTask();
 			updateObject = {};
 			isEditing = false;
@@ -228,7 +228,11 @@
 		</section>
 
 		<!-- Location -->
-		<section class="card bg-base-200 p-4">
+		<section
+			class="card bg-base-200 p-4 {!isEditing && task.taskType === TaskTypeEnum.REMOTE
+				? 'hidden'
+				: 'block'}"
+		>
 			<h2 class="mb-4 text-xl font-semibold">Location</h2>
 			{#if isEditing}
 				<div class="space-y-4">

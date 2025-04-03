@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { SearchTaskResponse } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
-	import { searchTasks } from '$lib/services/task.service';
 	import { appStore } from '$lib/stores/app.store';
 	import { slide } from 'svelte/transition';
 	import Input from '$lib/components/Input.svelte';
+	import taskService from '$lib/api/services/task.service';
 
 	// State
 	let searchQuery = $state('');
@@ -53,7 +53,7 @@
 				params.maxBudget = parseFloat(maxBudget);
 			}
 
-			const response = await searchTasks(params);
+			const response = await taskService.searchTasks(params);
 			tasks = response.items;
 			meta = response.meta;
 		} catch (error) {

@@ -2,7 +2,7 @@
 	import type { TaskResponse, Task } from '$lib/types/task';
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
-	import { getMyTasks } from '$lib/services/task.service';
+	import taskService from '$lib/api/services/task.service';
 	import BidForm from '$lib/components/Bid/BidForm.svelte';
 
 	let currentPage = $state(1);
@@ -16,7 +16,7 @@
 	async function loadTasks() {
 		try {
 			loading = true;
-			const response = await getMyTasks();
+			const response = await taskService.getMyTasks();
 			tasks = response;
 			// Since getMyTasks doesn't support pagination yet, we'll handle it client-side
 			const startIndex = (currentPage - 1) * limit;
@@ -93,7 +93,7 @@
 						<tr>
 							<th>Task</th>
 							<th>Budget</th>
-							<th>Posted</th>
+							<th>Date</th>
 							<th>Status</th>
 							<th>Action</th>
 						</tr>
