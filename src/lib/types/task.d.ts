@@ -28,22 +28,71 @@ export interface CreateTaskParams {
 	dateRange?: DateRange;
 }
 
-export interface Task extends CreateTaskParams {
-	id: string;
+export interface Task {
+	id: number;
+	clientId: number;
+	title: string;
+	description: string;
+	budget: number;
+	budgetType: BudgetTypeEnum;
 	status: TaskStatusEnum;
-	client: {
-		id: number;
-		user: {
-			id: number;
-			name: string;
-		};
-	};
-	skills: Array<{
-		id: number;
-		name: string;
-	}>;
+	taskType: TaskTypeEnum;
+	isRemovals: boolean;
+	deadlineDate: string | null;
+	estimatedHours: number;
+	dateRange: DateRange | null;
+	pickupLocation: Location | null;
+	dropOffLocation: Location | null;
+	isBoosted: boolean;
+	boostPercentage: number | null;
 	createdAt: string;
 	updatedAt: string;
+	completedAt: string | null;
+	cancelledAt: string | null;
+	deletedAt: string | null;
+	isDeleted: boolean;
+	categories: Array<{
+		id: number;
+		taskId: number;
+		categoryId: number;
+		isPrimary: boolean;
+		createdAt: string;
+		category: {
+			id: number;
+			name: string;
+			description: string;
+			icon: string;
+			slug: string;
+			parentId: number;
+			isActive: boolean;
+			displayOrder: number;
+			createdAt: string;
+			updatedAt: string;
+			deletedAt: string | null;
+			isDeleted: boolean;
+		};
+	}>;
+	requiredSkills: Array<{
+		id: number;
+		taskId: number;
+		skillId: number;
+		importance: string;
+		experienceLevel: string | null;
+		notes: string | null;
+		createdAt: string;
+		skill: {
+			id: number;
+			name: string;
+			description: string;
+			categoryId: number;
+			isVerifiable: boolean;
+			createdAt: string;
+			updatedAt: string;
+			deletedAt: string | null;
+			isDeleted: boolean;
+		};
+	}>;
+	bids: any[];
 }
 
 export interface GetTasksParams {

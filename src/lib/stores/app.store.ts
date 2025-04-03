@@ -2,11 +2,18 @@ import { fetchCategories, fetchSkills } from '$lib/services/user.service';
 import type { ICategory, ISkill } from '$lib/types/common';
 import { writable } from 'svelte/store';
 
+interface Toast {
+	type: 'success' | 'error' | 'info';
+	message: string;
+	id: number;
+}
+
 interface AppStore {
 	skills: ISkill[];
 	categories: ICategory[];
 	isLoading: boolean;
 	error: string | null;
+	toasts: Toast[];
 }
 
 const createAppStore = () => {
@@ -14,8 +21,27 @@ const createAppStore = () => {
 		skills: [],
 		categories: [],
 		isLoading: false,
-		error: null
+		error: null,
+		toasts: []
 	});
+
+	let toastId = 0;
+
+	const addToast = (toast: Omit<Toast, 'id'>) => {
+		const id = toastId++;
+		update((state) => ({
+			...state,
+			toasts: [...state.toasts, { ...toast, id }]
+		}));
+
+		// Auto-remove toast after 3 seconds
+		setTimeout(() => {
+			update((state) => ({
+				...state,
+				toasts: state.toasts.filter((t) => t.id !== id)
+			}));
+		}, 3000);
+	};
 
 	return {
 		subscribe,
@@ -34,6 +60,15 @@ const createAppStore = () => {
 			} finally {
 				update((state) => ({ ...state, isLoading: false }));
 			}
+		},
+		showSuccessToast: (message: string) => {
+			addToast({ type: 'success', message });
+		},
+		showErrorToast: (message: string) => {
+			addToast({ type: 'error', message });
+		},
+		showInfoToast: (message: string) => {
+			addToast({ type: 'info', message });
 		}
 	};
 };

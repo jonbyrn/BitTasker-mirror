@@ -1,3 +1,5 @@
+import type { Location } from '$lib/types/task';
+
 export interface UploaderProps {
 	id: string;
 	label?: string;
@@ -21,11 +23,12 @@ export interface TagsProps {
 }
 
 export interface InputProps {
-	id: string;
+	id?: string;
 	label?: string;
 	value?: string;
 	placeholder?: string;
 	error?: string;
+    required?: boolean;
 	type?:
 		| 'text'
 		| 'number'
@@ -44,4 +47,12 @@ export interface InputProps {
 	autoComplete?: 'on' | 'off';
 	options?: { label: string; value: string }[];
 	onChange?: (option: { label: string; value: string }) => void;
+}
+
+export interface LocationProps {
+	label?: string;
+	placeholder?: string;
+	location?: Location;
+	defaultLocation?: Location;
+	onLocationSelect: (location: Location) => void;
 }

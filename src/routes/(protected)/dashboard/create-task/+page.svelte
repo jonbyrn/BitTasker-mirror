@@ -2,13 +2,13 @@
 	import { onMount } from 'svelte';
 	import { AxiosError } from 'axios';
 	import { appStore } from '$lib/stores/app.store';
-	import { PLACES } from '$lib/utils/constants/places';
 	import { createTask } from '$lib/services/task.service';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
-	import Input from '$lib/components/Input.svelte';
+	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
+	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 
 	onMount(() => {
 		store.loadDraft();
@@ -17,11 +17,6 @@
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
-
-	const options = PLACES.map((place) => ({
-		label: place.displayName,
-		value: place.zipCode
-	}));
 
 	function validateCurrentStep(): boolean {
 		errors = {};
@@ -48,7 +43,18 @@
 				if ($store.task.skillIds.length === 0) errors.skill = 'At least one skill is required';
 				break;
 			case 'location':
-				if ($store.task.taskType === 'IN_PERSON' && !$store.task.pickupLocation?.zipCode) {
+				if ($store.isRemovals) {
+					if (!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude) {
+						errors.location = 'Pickup location is required for this task';
+					}
+					if (!$store.task.dropOffLocation?.latitude || !$store.task.dropOffLocation?.longitude) {
+						errors.location = 'Drop-off location is required for this task';
+					}
+				}
+				if (
+					$store.task.taskType === TaskTypeEnum.IN_PERSON &&
+					(!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude)
+				) {
 					errors.location = 'Location is required for this task';
 				}
 				break;
@@ -169,13 +175,11 @@
 					{#if $store.task.dateRange}
 						<div class="grid grid-cols-2 gap-4">
 							<div>
-								<label for="startDate" class="label">Start Date</label>
-								<input
-									type="date"
-									id="startDate"
+								<DatePicker
+									label="Start Date"
 									value={$store.task.dateRange.start}
-									onchange={(e) => {
-										const start = (e.target as HTMLInputElement).value;
+									onChange={(value: string) => {
+										const start = value;
 										const end = $store.task.dateRange?.end ?? new Date().toISOString();
 										store.updateTask({
 											dateRange: {
@@ -184,17 +188,14 @@
 											}
 										});
 									}}
-									class="input input-bordered w-full"
 								/>
 							</div>
 							<div>
-								<label for="endDate" class="label">End Date</label>
-								<input
-									type="date"
-									id="endDate"
+								<DatePicker
+									label="End Date"
 									value={$store.task.dateRange.end}
-									onchange={(e) => {
-										const end = (e.target as HTMLInputElement).value;
+									onChange={(value: string) => {
+										const end = value;
 										const start = $store.task.dateRange?.start ?? new Date().toISOString();
 										store.updateTask({
 											dateRange: {
@@ -203,7 +204,6 @@
 											}
 										});
 									}}
-									class="input input-bordered w-full"
 								/>
 							</div>
 							{#if errors.deadline}
@@ -212,13 +212,10 @@
 						</div>
 					{:else}
 						<div>
-							<label for="deadline" class="label">Deadline</label>
-							<input
-								type="date"
-								class="input input-bordered w-full"
+							<DatePicker
+								label="Deadline"
 								value={$store.task.deadline}
-								onchange={(e) =>
-									store.updateTask({ deadline: (e.target as HTMLInputElement).value })}
+								onChange={(value: string) => store.updateTask({ deadline: value })}
 							/>
 							{#if errors.deadline}
 								<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
@@ -228,18 +225,14 @@
 				</div>
 
 				<div class="w-full">
-					<Input
-						id="category"
-						label="Category"
-						placeholder="Select a category"
-						autoComplete="on"
+					<label for="category" class="label">Category</label>
+					<Tags
 						options={$appStore.categories.map((cat) => ({
-							label: cat.name,
-							value: cat.id.toString()
+							name: cat.name,
+							id: cat.id
 						}))}
-						value={$appStore.categories.find((cat) => cat.id === $store.task.categoryIds?.[0])
-							?.name ?? ''}
-						onChange={(option) => store.updateTask({ categoryIds: [parseInt(option.value, 10)] })}
+						selectedTags={$store.task.categoryIds}
+						onChange={(ids) => store.updateTask({ categoryIds: ids })}
 					/>
 					{#if errors.category}
 						<span class="label-text-alt text-error">{errors.category}</span>
@@ -286,52 +279,43 @@
 						</button>
 					</div>
 
+					<div class="h-1"></div>
 					{#if $store.isRemovals}
-						<div class="w-full pt-4">
-							<Input
-								id="pickupLocation"
+						<div class="w-full">
+							<LocationAutoComplete
 								label="Pickup Location"
 								placeholder="Enter address or ZIP code"
-								value={$store.task.pickupLocation?.displayName}
-								error={errors.location}
-								autoComplete="on"
-								{options}
-								onChange={(option) => {
-									const place = PLACES.find((p) => p.zipCode === option.value);
-									if (place) {
-										store.updateTask({
-											pickupLocation: {
-												...place,
-												locationLoaded: true
-											}
-										});
-									}
+								location={$store.task.pickupLocation}
+								onLocationSelect={(location) => {
+									store.updateTask({
+										pickupLocation: {
+											...location,
+											locationLoaded: true
+										}
+									});
 								}}
 							/>
 						</div>
 						<div class="w-full">
-							<Input
-								id="dropOffLocation"
+							<LocationAutoComplete
 								label="Drop-off Location"
 								placeholder="Enter address or ZIP code"
-								autoComplete="on"
-								value={$store.task.dropOffLocation?.displayName}
-								{options}
-								onChange={(option) => {
-									const place = PLACES.find((p) => p.zipCode === option.value);
-									if (place) {
-										store.updateTask({
-											dropOffLocation: {
-												...place,
-												locationLoaded: true
-											}
-										});
-									}
+								location={$store.task.dropOffLocation}
+								onLocationSelect={(location) => {
+									store.updateTask({
+										dropOffLocation: {
+											...location,
+											locationLoaded: true
+										}
+									});
 								}}
 							/>
 						</div>
+						{#if errors.location}
+							<span class="label-text-alt text-error block">{errors.location}</span>
+						{/if}
 					{:else}
-						<p class="text-md pt-4 font-semibold">Where do you need this done?</p>
+						<p class="text-md font-semibold">Where do you need this done?</p>
 
 						<div class="flex gap-4">
 							<button
@@ -370,26 +354,22 @@
 
 						{#if $store.task.taskType === TaskTypeEnum.IN_PERSON}
 							<div class="w-full">
-								<Input
-									id="location"
+								<LocationAutoComplete
 									label="Location"
 									placeholder="Enter address or ZIP code"
-									value={$store.task.pickupLocation?.displayName}
-									error={errors.location}
-									{options}
-									autoComplete="on"
-									onChange={(option) => {
-										const place = PLACES.find((p) => p.zipCode === option.value);
-										if (place) {
-											store.updateTask({
-												pickupLocation: {
-													...place,
-													locationLoaded: true
-												}
-											});
-										}
+									location={$store.task.pickupLocation}
+									onLocationSelect={(location) => {
+										store.updateTask({
+											pickupLocation: {
+												...location,
+												locationLoaded: true
+											}
+										});
 									}}
 								/>
+								{#if errors.location}
+									<span class="label-text-alt text-error">{errors.location}</span>
+								{/if}
 							</div>
 						{/if}
 					{/if}

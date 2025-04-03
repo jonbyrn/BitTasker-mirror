@@ -1,13 +1,16 @@
 <script lang="ts">
 	import type { TaskResponse, Task } from '$lib/types/task';
+	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getMyTasks } from '$lib/services/task.service';
+	import BidForm from '$lib/components/Bid/BidForm.svelte';
 
 	let currentPage = $state(1);
 	let limit = $state(10);
 	let tasks = $state<Task[]>([]);
 	let meta = $state<TaskResponse['meta'] | null>(null);
 	let loading = $state(false);
+	let selectedTask = $state<Task | null>(null);
 
 	// Load tasks with filters
 	async function loadTasks() {
@@ -38,6 +41,12 @@
 	function handlePageChange(newPage: number) {
 		currentPage = newPage;
 		loadTasks(); // Immediate load for page changes
+	}
+
+	// Handle bid success
+	function handleBidSuccess() {
+		selectedTask = null;
+		loadTasks(); // Refresh the task list
 	}
 
 	// Initial load
@@ -91,10 +100,18 @@
 					</thead>
 					<tbody>
 						{#each tasks as task}
-							<tr class="hover">
+							<tr class="hover cursor-pointer">
 								<td>
 									<div>
-										<div class="font-bold">{task.title}</div>
+										<button
+											class="cursor-pointer font-bold"
+											onclick={(e) => {
+												e.stopPropagation();
+												goto('/dashboard/task/' + task.id);
+											}}
+										>
+											{task.title}
+										</button>
 										<div class="max-w-xs truncate text-sm opacity-75">
 											{task.description}
 										</div>
@@ -117,13 +134,21 @@
 									</div>
 								</td>
 								<td>
-									<div class="text-sm">{formatTimeAgo(task.deadline)}</div>
+									<div class="text-sm">{formatTimeAgo(task.deadlineDate)}</div>
 								</td>
 								<td>
 									<div class="badge">{task.status}</div>
 								</td>
 								<td>
-									<button class="btn btn-primary btn-sm">Bid Now</button>
+									<button
+										class="btn btn-primary btn-sm"
+										onclick={(e) => {
+											e.stopPropagation();
+											selectedTask = task;
+										}}
+									>
+										Bid Now
+									</button>
 								</td>
 							</tr>
 						{/each}
@@ -180,3 +205,8 @@
 		{/if}
 	</div>
 </div>
+
+<!-- Bid Form Modal -->
+{#if selectedTask}
+	<BidForm task={selectedTask} onClose={() => (selectedTask = null)} onSuccess={handleBidSuccess} />
+{/if}

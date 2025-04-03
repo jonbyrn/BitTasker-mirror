@@ -66,7 +66,7 @@ export async function decryptNostrPrivateKeyWithUserId(
 		// Decrypt using the helper function
 		return await decrypt(encryptedData, key);
 	} catch (error) {
-		console.log('Decryption error:', error);
+		console.error('Decryption error:', error);
 		throw new Error('Failed to decrypt Nostr private key with user ID');
 	}
 }
