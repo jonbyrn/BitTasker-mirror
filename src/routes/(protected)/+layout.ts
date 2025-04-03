@@ -10,7 +10,7 @@ import userService from '$lib/api/services/user.service';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
-	if (browser) {	
+	if (browser) {
 		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 		if (!token || token === null) {

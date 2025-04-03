@@ -51,7 +51,10 @@ const createAppStore = () => {
 			update((state) => ({ ...state, isLoading: true, error: null }));
 
 			try {
-				const [skills, categories] = await Promise.all([userService.fetchSkills(), userService.fetchCategories()]);
+				const [skills, categories] = await Promise.all([
+					userService.fetchSkills(),
+					userService.fetchCategories()
+				]);
 
 				update((state) => ({ ...state, skills, categories }));
 			} catch (error) {

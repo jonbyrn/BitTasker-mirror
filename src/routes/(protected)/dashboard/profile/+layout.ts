@@ -93,7 +93,9 @@ const mockUser = {
 };
 
 export const load: LayoutLoad = async () => {
-	const { data: userData, error: userError } = await tryCatch<ApiUserProfile>(userService.getUserProfile());
+	const { data: userData, error: userError } = await tryCatch<ApiUserProfile>(
+		userService.getUserProfile()
+	);
 
 	if (userError || !userData) {
 		console.error('Failed to fetch user profile:', userError);

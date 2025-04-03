@@ -23,7 +23,6 @@
 	import BottomNavBar from '$lib/components/NavBar.svelte';
 	import authService from '$lib/api/services/auth.service';
 
-
 	let error: string = $state('');
 	let isLoading: boolean = $state(false);
 	let isBiometricAvailable: boolean = $state(false);

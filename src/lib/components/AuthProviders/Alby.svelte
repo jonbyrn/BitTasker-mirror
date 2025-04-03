@@ -8,7 +8,7 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
-	
+
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
 	let isInitialized = $state(false);
