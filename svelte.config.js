@@ -7,8 +7,23 @@ const config = {
 	// for more information about preprocessors
 	preprocess: vitePreprocess(),
 
+	compilerOptions: {
+		runes: true
+	},
+
 	kit: {
-		adapter: adapter()
+		// Configure the adapter with fallback for SPA navigation
+		adapter: adapter({
+			// Single-page app mode with fallback
+			fallback: 'index.html',
+			// Path to build output
+			pages: 'build',
+			assets: 'build',
+			// Precompress content for better performance
+			precompress: true,
+			// Make all paths strict
+			strict: true
+		})
 	}
 };
 

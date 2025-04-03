@@ -8,23 +8,20 @@
 		setBiometricKey
 	} from '$lib/utils/helpers/biometrics';
 	import {
-		getLoginChallenge,
-		loginWithPasskey,
-		registerPasskeyDevice,
-		registerWithNostr
-	} from '$lib/services/auth.service';
-	import {
 		signLoginChallenge,
 		decryptPrivateKeyWithBiometrics,
 		encryptNostrPrivateKeyWithPassword
 	} from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { user } from '$lib/states/user.store';
-	import { authState } from '$lib/states/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { authState } from '$lib/stores/auth.store';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import Google from '$lib/components/AuthProviders/Google.svelte';
+	import BottomNavBar from '$lib/components/NavBar.svelte';
+	import authService from '$lib/api/services/auth.service';
 
 	let error: string = $state('');
 	let isLoading: boolean = $state(false);
@@ -43,7 +40,7 @@
 			deviceId
 		);
 
-		const res = await registerWithNostr({
+		const res = await authService.registerWithNostr({
 			publicKey: npub,
 			encryptedPrivateKey: encrypted.data,
 			iv: encrypted.iv,
@@ -52,10 +49,9 @@
 			iterations: 100000,
 			authMethod: 'passkey'
 		});
-		console.log({ registerNostr: res });
 
 		const deviceName = await getDeviceName();
-		const response = await registerPasskeyDevice(npub, deviceId, deviceName);
+		const response = await authService.registerPasskeyDevice(npub, deviceId, deviceName);
 
 		const success = await setBiometricKey(npub, {
 			key: exportedKey,
@@ -76,13 +72,13 @@
 			const tempTokenHex = Array.from(tempToken)
 				.map((b) => b.toString(16).padStart(2, '0'))
 				.join('');
-	
+
 			// Store nsec temporarily with the token
 			await Preferences.set({
 				key: tempTokenHex,
 				value: nsec
 			});
-	
+
 			// Set a timeout to automatically clear the stored nsec after 5 minutes
 			setTimeout(
 				async () => {
@@ -90,21 +86,20 @@
 				},
 				5 * 60 * 1000
 			);
-	
+
 			goto(`/auth/recover?provider=passkey&npub=${npub}&token=${tempTokenHex}`);
 		}
-
 	};
 
 	const loginWithBiometric = async (pubKey: string, encryptedKey: string, deviceId: string) => {
-		const { challenge } = await getLoginChallenge();
+		const { challenge } = await authService.getLoginChallenge();
 		const privateKey = await decryptPrivateKeyWithBiometrics(encryptedKey);
 		const signedChallenge = await signLoginChallenge(challenge, privateKey);
 		if (!signedChallenge) {
 			error = 'Failed to sign login challenge';
 			return;
 		}
-		const response = await loginWithPasskey(pubKey, deviceId);
+		const response = await authService.loginWithPasskey(pubKey, deviceId);
 
 		if (!response.access_token) {
 			error = 'No access token received from server';
@@ -113,7 +108,7 @@
 
 		// Store access token securely
 		await Preferences.set({
-			key: 'access_token',
+			key: StorageKeys.ACCESS_TOKEN,
 			value: response.access_token
 		});
 
@@ -146,6 +141,7 @@
 </script>
 
 <div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
+	<BottomNavBar />
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>

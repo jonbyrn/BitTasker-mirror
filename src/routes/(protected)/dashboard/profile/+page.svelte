@@ -1,110 +1,22 @@
 <script lang="ts">
-
-	// Mock user data - in a real implementation, this would come from an API or Nostr
-	let user = {
-		id: 'user1',
-		name: 'Alex Johnson',
-		avatar: '', // URL to avatar image
-		bio: 'Professional handyman with 10+ years of experience. Specialized in home repairs, carpentry, and electrical work.',
-		location: 'San Francisco, CA',
-		skills: [
-			{ name: 'Carpentry', level: 5, verified: true },
-			{ name: 'Electrical', level: 4, verified: true },
-			{ name: 'Plumbing', level: 3, verified: false },
-			{ name: 'Painting', level: 5, verified: true },
-			{ name: 'Flooring', level: 4, verified: false }
-		],
-		portfolio: [
-			{
-				id: 'port1',
-				title: 'Kitchen Renovation',
-				description:
-					'Complete kitchen renovation including custom cabinets and island installation.',
-				images: ['/path/to/image1.jpg', '/path/to/image2.jpg'],
-				date: '2023-06-15'
-			},
-			{
-				id: 'port2',
-				title: 'Bathroom Remodel',
-				description: 'Full bathroom remodel with custom tilework and fixtures.',
-				images: ['/path/to/image3.jpg'],
-				date: '2023-04-10'
-			}
-		],
-		certifications: [
-			{
-				name: 'Certified Carpenter',
-				issuer: 'National Carpentry Association',
-				date: '2015-01-15',
-				verified: true
-			},
-			{
-				name: 'Licensed Electrician',
-				issuer: 'State Board of Electrical Contractors',
-				date: '2016-03-22',
-				verified: true
-			}
-		],
-		reviews: [
-			{
-				id: 'rev1',
-				rating: 5,
-				text: 'Alex did an amazing job on our kitchen renovation. Highly recommended!',
-				from: {
-					id: 'client1',
-					name: 'Sarah Miller'
-				},
-				date: '2023-07-02'
-			},
-			{
-				id: 'rev2',
-				rating: 4,
-				text: 'Great work on our bathroom remodel. Professional and timely.',
-				from: {
-					id: 'client2',
-					name: 'John Davis'
-				},
-				date: '2023-05-18'
-			}
-		],
-		stats: {
-			tasksCompleted: 47,
-			averageRating: 4.8,
-			responseRate: 98,
-			onTimeCompletion: 95
-		},
-		availability: {
-			schedule: {
-				monday: { available: true, hours: '9:00-17:00' },
-				tuesday: { available: true, hours: '9:00-17:00' },
-				wednesday: { available: true, hours: '9:00-17:00' },
-				thursday: { available: true, hours: '9:00-17:00' },
-				friday: { available: true, hours: '9:00-17:00' },
-				saturday: { available: false, hours: '' },
-				sunday: { available: false, hours: '' }
-			},
-			nextAvailable: '2023-12-15'
-		},
-		nostrPublicKey: 'npub1abc123...',
-		bitcoinAddress: 'bc1abc123...',
-		lightningAddress: 'alex@lightning.me'
-	};
+	let { data } = $props();
+	const { userProfile: user } = data;
 
 	// Edit mode state
-	let isEditMode = false;
+	let isEditMode = $state(false);
 
 	// Form states
-	let editName = user.name;
-	let editBio = user.bio;
-	let editLocation = user.location;
-	let editSkills = [...user.skills];
-	let newSkillName = '';
-	let newSkillLevel = 3;
+	let editName = $state(user.name);
+	let editBio = $state(user.bio);
+	let editLocation = $state(user.location);
+	let editSkills = $state([...user.skills]);
+	let newSkillName = $state('');
+	let newSkillLevel = $state(3);
 
 	// New portfolio item
-	let newPortfolioTitle = '';
-	let newPortfolioDescription = '';
-	let newPortfolioImages: File[] = [];
+	let newPortfolioTitle = $state('');
+	let newPortfolioDescription = $state('');
+	let newPortfolioImages = $state<File[]>([]);
 
 	// Toggle edit mode
 	function toggleEditMode() {
@@ -176,13 +88,13 @@
 	// Save profile changes
 	function saveProfile() {
 		// In a real implementation, this would send data to an API or Nostr
-		user = {
-			...user,
-			name: editName,
-			bio: editBio,
-			location: editLocation,
-			skills: editSkills
-		};
+		// user = {
+		// 	...user,
+		// 	name: editName,
+		// 	bio: editBio,
+		// 	location: editLocation,
+		// 	skills: editSkills
+		// };
 
 		isEditMode = false;
 	}
@@ -240,11 +152,11 @@
 			</div>
 
 			<div class="flex flex-wrap gap-2">
-				<button class="btn btn-primary" on:click={toggleEditMode}>
+				<button class="btn btn-primary" onclick={toggleEditMode}>
 					{isEditMode ? 'Cancel' : 'Edit Profile'}
 				</button>
 				{#if isEditMode}
-					<button class="btn btn-primary" on:click={saveProfile}> Save Changes </button>
+					<button class="btn btn-primary" onclick={saveProfile}> Save Changes </button>
 				{/if}
 			</div>
 		</div>
@@ -375,7 +287,7 @@
 								</div>
 							</div>
 							<div class="form-control flex items-end">
-								<button class="btn btn-primary" on:click={addSkill}> Add Skill </button>
+								<button class="btn btn-primary" onclick={addSkill}> Add Skill </button>
 							</div>
 						</div>
 
@@ -407,7 +319,7 @@
 																name={`rating-${i}`}
 																class="mask mask-star-2 bg-orange-400"
 																checked={j + 1 === skill.level}
-																on:change={() => {
+																onchange={() => {
 																	editSkills[i].level = j + 1;
 																	editSkills = [...editSkills];
 																}}
@@ -416,7 +328,7 @@
 													</div>
 												</td>
 												<td>
-													<button class="btn btn-error btn-sm" on:click={() => removeSkill(i)}>
+													<button class="btn btn-error btn-sm" onclick={() => removeSkill(i)}>
 														Remove
 													</button>
 												</td>
@@ -468,7 +380,7 @@
 							<input
 								type="file"
 								id="portfolioImages"
-								on:change={handleImageUpload}
+								onchange={handleImageUpload}
 								class="file-input file-input-bordered w-full"
 								multiple
 								accept="image/*"
@@ -485,7 +397,7 @@
 
 						<button
 							class="btn btn-primary"
-							on:click={addPortfolioItem}
+							onclick={addPortfolioItem}
 							disabled={!newPortfolioTitle.trim() || !newPortfolioDescription.trim()}
 						>
 							Add Portfolio Item

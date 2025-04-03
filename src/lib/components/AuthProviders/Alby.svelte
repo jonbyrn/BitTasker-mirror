@@ -2,15 +2,12 @@
 	import NDK, { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { browser } from '$app/environment';
 	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-	import {
-		checkRegistrationStatus,
-		getLoginChallenge,
-		loginWithNostr
-	} from '$lib/services/auth.service';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/states/user.store';
-	import { authState } from '$lib/states/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { authState } from '$lib/stores/auth.store';
+	import { StorageKeys } from '$lib/utils/constants/storage';
+	import authService from '$lib/api/services/auth.service';
 
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
@@ -53,7 +50,7 @@
 				throw new Error('No user returned from Nostr');
 			}
 
-			const { challenge } = await getLoginChallenge();
+			const { challenge } = await authService.getLoginChallenge();
 			// Create event to sign
 			const event = {
 				kind: 22242,
@@ -64,14 +61,14 @@
 			};
 			const signedEvent = await signer.sign(event);
 
-			const checkRegistration = await checkRegistrationStatus(signerUser.pubkey);
+			const checkRegistration = await authService.checkRegistrationStatus(signerUser.pubkey);
 			if (!checkRegistration.isRegistered) {
 				goto('/auth/recover?provider=alby&npub=' + signerUser.pubkey);
 			} else {
-				const res = await loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+				const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
 				if (res.access_token) {
 					await Preferences.set({
-						key: 'access_token',
+						key: StorageKeys.ACCESS_TOKEN,
 						value: res.access_token
 					});
 					user.updateProfile(res.user);

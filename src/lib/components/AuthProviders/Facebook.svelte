@@ -79,7 +79,7 @@
 			(window as any).FB.login(
 				(response: FacebookLoginResponse) => {
 					isLoading = false;
-					
+
 					if (!response) {
 						throw new Error('No response received from Facebook');
 					}
@@ -96,7 +96,7 @@
 							throw new Error(`Unexpected response status: ${response.status}`);
 					}
 				},
-				{ 
+				{
 					scope: 'public_profile,email',
 					return_scopes: true // This helps us know which permissions were granted
 				}
@@ -108,7 +108,7 @@
 			console.error('Facebook login error:', {
 				provider: 'facebook',
 				error: error instanceof Error ? error.message : 'Unknown error occurred',
-				timestamp: new Date().toISOString(),
+				timestamp: new Date().toISOString()
 			});
 		}
 	};
