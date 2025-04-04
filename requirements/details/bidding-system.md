@@ -153,3 +153,68 @@ interface Task {
 - **Communication During Bidding**: Implement a system for task posters to request clarification before accepting bids
 
 - **Bid Expiry**: Consider if bids should expire after a certain time
+
+## 7. Test Plan
+
+### Unit Tests
+
+#### BidService Tests
+
+- Test creating a new bid with valid data
+- Test validation of bid amounts (minimum, maximum constraints)
+- Test that bids can't be placed on user's own tasks
+- Test bid updates for pending bids
+- Test preventing updates to accepted/declined bids
+- Test bid withdrawal functionality
+- Test conversion between BTC and satoshis
+
+#### TaskAssignmentService Tests
+
+- Test accepting a bid updates task status correctly
+- Test accepting a bid assigns the correct worker
+- Test declining a bid updates bid status correctly
+- Test error handling when accepting withdrawn bids
+
+### Component Tests
+
+#### BidCreationForm Component Tests
+
+- Test form validation (required fields, amount constraints)
+- Test form submission process
+- Test error message display
+- Test Bitcoin amount conversion display
+
+#### BidReviewScreen Component Tests
+
+- Test sorting and filtering of bids
+- Test display of bid information
+- Test accept/decline button functionality
+- Test navigation to bid details
+
+### Integration Tests
+
+- Test full bid creation flow from worker perspective
+- Test bid review and acceptance flow from task poster perspective
+- Test the entire workflow from bid creation to task assignment
+- Test integration with notification system for bid status updates
+- Test integration with escrow system when accepting bids
+
+### E2E Tests
+
+- Test entire bid-to-assignment workflow in a realistic environment
+- Test with multiple concurrent users placing bids
+- Test task poster reviewing and accepting bids
+
+### API Tests
+
+- Test all API endpoints with valid inputs
+- Test API error responses with invalid inputs
+- Test authorization rules (only task poster can accept bids, etc.)
+- Test API performance with large numbers of bids
+
+### Edge Case Tests
+
+- Test simultaneous bid acceptances
+- Test bid withdrawal during review
+- Test placing bids on tasks with different statuses
+- Test bid modification timing constraints
