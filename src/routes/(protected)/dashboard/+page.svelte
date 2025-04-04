@@ -4,6 +4,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import taskService from '$lib/api/services/task.service';
 	import BidForm from '$lib/components/Bid/BidForm.svelte';
+	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 
 	let currentPage = $state(1);
 	let limit = $state(10);
@@ -11,6 +12,7 @@
 	let meta = $state<TaskResponse['meta'] | null>(null);
 	let loading = $state(false);
 	let selectedTask = $state<Task | null>(null);
+	let activeTab = $state('tasks'); // Track active tab: 'tasks' or 'bids'
 
 	// Load tasks with filters
 	async function loadTasks() {
@@ -76,7 +78,33 @@
 	}
 </script>
 
-<div class="card bg-base-100 mb-6 shadow-xl">
+<div class="mb-6">
+	<!-- Dashboard Tabs -->
+	<div class="tabs tabs-bordered mb-4" role="tablist" aria-label="Dashboard sections">
+		<button 
+			class="tab {activeTab === 'tasks' ? 'tab-active' : ''}" 
+			onclick={() => activeTab = 'tasks'}
+			role="tab"
+			aria-selected={activeTab === 'tasks'}
+			aria-controls="panel-tasks"
+			id="tab-tasks"
+		>
+			My Tasks
+		</button>
+		<button 
+			class="tab {activeTab === 'bids' ? 'tab-active' : ''}" 
+			onclick={() => activeTab = 'bids'}
+			role="tab"
+			aria-selected={activeTab === 'bids'}
+			aria-controls="panel-bids"
+			id="tab-bids"
+		>
+			My Bids
+		</button>
+	</div>
+
+	<!-- Tasks Tab Panel -->
+	<div id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" class="card bg-base-100 shadow-xl {activeTab !== 'tasks' ? 'hidden' : ''}">
 	<div class="card-body">
 		<!-- Loading State -->
 		{#if loading}
@@ -204,6 +232,14 @@
 			</div>
 		{/if}
 	</div>
+</div>
+
+<!-- Bids Tab Panel -->
+<div id="panel-bids" role="tabpanel" aria-labelledby="tab-bids" class="{activeTab !== 'bids' ? 'hidden' : ''}">
+	{#if activeTab === 'bids'}
+		<DashboardBidsPanel />
+	{/if}
+</div>
 </div>
 
 <!-- Bid Form Modal -->

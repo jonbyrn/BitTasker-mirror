@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SearchTaskResponse } from '$lib/types/task';
+	import type { TaskResponse } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
 	import { appStore } from '$lib/stores/app.store';
 	import { slide } from 'svelte/transition';
@@ -10,14 +10,14 @@
 	let searchQuery = $state('');
 	let selectedCategory = $state({ label: '', value: '' });
 	let selectedTaskType = $state({ label: '', value: '' });
-	let sortField = $state({ label: 'Created Date', value: 'createdAt' });
+	let sortBy = $state({ label: 'Created Date', value: 'createdAt' });
 	let sortOrder = $state({ label: 'Descending', value: 'desc' });
 	let minBudget = $state('');
 	let maxBudget = $state('');
 	let currentPage = $state(1);
 	let limit = $state(10);
-	let tasks = $state<SearchTaskResponse['items']>([]);
-	let meta = $state<SearchTaskResponse['meta'] | null>(null);
+	let tasks = $state<TaskResponse['items']>([]);
+	let meta = $state<TaskResponse['meta'] | null>(null);
 	let loading = $state(false);
 	let isFiltersVisible = $state(true);
 
@@ -27,7 +27,7 @@
 			const params: Record<string, any> = {
 				page: currentPage,
 				limit,
-				sortField: sortField.value,
+				sortBy: sortBy.value,
 				sortOrder: sortOrder.value
 			};
 
@@ -53,8 +53,9 @@
 				params.maxBudget = parseFloat(maxBudget);
 			}
 
-			const response = await taskService.searchTasks(params);
+			const response = await taskService.getAllTasks(params);
 			tasks = response.items;
+			console.log(tasks)
 			meta = response.meta;
 		} catch (error) {
 			console.error('Error loading tasks:', error);
@@ -95,7 +96,7 @@
 		searchQuery = '';
 		selectedCategory = { label: '', value: '' };
 		selectedTaskType = { label: '', value: '' };
-		sortField = { label: 'Created Date', value: 'createdAt' };
+		sortBy = { label: 'Created Date', value: 'createdAt' };
 		sortOrder = { label: 'Descending', value: 'desc' };
 		minBudget = '';
 		maxBudget = '';
@@ -258,9 +259,9 @@
 								{ label: 'Deadline', value: 'deadline' },
 								{ label: 'Title', value: 'title' }
 							]}
-							value={sortField.label}
+							value={sortBy.label}
 							onChange={(option) => {
-								sortField = option;
+								sortBy = option;
 								handleFilterChange();
 							}}
 						/>
@@ -293,8 +294,8 @@
 		<div class="mb-4">
 			<p class="text-base-content/70">
 				{#if meta}
-					Showing {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, meta.totalItems)}
-					of {meta.totalItems} tasks
+					Showing {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, meta.total)}
+					of {meta.total} tasks
 				{/if}
 			</p>
 		</div>
@@ -321,32 +322,57 @@
 
 							<div class="mt-2 mb-4">
 								<div class="flex flex-wrap gap-4">
-									{#if task.deadline}
+									{#if task.deadlineDate}
 										<div>
 											<p class="text-base-content/60 text-sm">Deadline</p>
-											<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
+											<p class="font-medium">{formatTimeAgo(task.deadlineDate)}</p>
+										</div>
+									{:else if task.dateRange}
+										<div>
+											<p class="text-base-content/60 text-sm">Date Range</p>
+											<p class="font-medium">
+												{new Date(task.dateRange.start).toLocaleDateString()} - 
+												{new Date(task.dateRange.end).toLocaleDateString()}
+											</p>
 										</div>
 									{/if}
 
 									{#if task.client?.user}
 										<div>
 											<p class="text-base-content/60 text-sm">Posted By</p>
-											<p class="font-medium">{task.client.user.name}</p>
+											<p class="font-medium">{task.client.user.email}</p>
 										</div>
 									{/if}
 								</div>
 							</div>
 
-							{#if task.skills && task.skills.length > 0}
+							{#if task.requiredSkills && task.requiredSkills.length > 0}
 								<div class="mb-4 flex flex-wrap gap-2">
-									{#each task.skills as skill}
-										<span class="badge badge-primary badge-outline">{skill.name}</span>
+									{#each task.requiredSkills as skillItem}
+										<span class="badge badge-primary badge-outline">{skillItem.skill.name}</span>
 									{/each}
 								</div>
 							{/if}
 
-							<div class="card-actions justify-end">
-								<a href="/dashboard/tasks/{task.id}" class="btn btn-primary">View Details</a>
+							<div class="card-actions mt-4 flex justify-between items-center">
+								<div class="flex items-center gap-2">
+									<div class="badge badge-info gap-1">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+										</svg>
+										{task.bids?.length || 0} Bids
+									</div>
+								</div>
+
+								<div class="flex gap-2">
+									<a href="/dashboard/task/{task.id}?tab=bids" class="btn btn-secondary btn-sm">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+										</svg>
+										Bid Now
+									</a>
+									<a href="/dashboard/task/{task.id}" class="btn btn-primary btn-sm">View Details</a>
+								</div>
 							</div>
 						</div>
 					</div>
