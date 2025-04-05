@@ -5,6 +5,7 @@
 	import { slide } from 'svelte/transition';
 	import Input from '$lib/components/Input.svelte';
 	import taskService from '$lib/api/services/task.service';
+	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 
 	// State
 	let searchQuery = $state('');
@@ -16,14 +17,19 @@
 	let maxBudget = $state('');
 	let currentPage = $state(1);
 	let limit = $state(10);
-	let tasks = $state<TaskResponse['items']>([]);
-	let meta = $state<TaskResponse['meta'] | null>(null);
+	let tasks = $state<TaskResponse['data']>([]);
+	let meta = $state<TaskResponse['pagination'] | null>(null);
 	let loading = $state(false);
 	let isFiltersVisible = $state(true);
+
+	// Bid drawer state
+	let selectedTaskId = $state<string | null>(null);
+	let isSidebarOpen = $state(false);
 
 	// Load tasks with filters
 	async function loadTasks() {
 		try {
+			loading = true;
 			const params: Record<string, any> = {
 				page: currentPage,
 				limit,
@@ -54,9 +60,8 @@
 			}
 
 			const response = await taskService.getAllTasks(params);
-			tasks = response.items;
-			console.log(tasks)
-			meta = response.meta;
+			tasks = response.data;
+			meta = response.pagination;
 		} catch (error) {
 			console.error('Error loading tasks:', error);
 		} finally {
@@ -106,6 +111,21 @@
 	// Format date
 	function formatTimeAgo(date: string): string {
 		return formatDistanceToNow(new Date(date), { addSuffix: true });
+	}
+
+	// Handle task selection for bidding
+	function handleTaskSelect(taskId: string) {
+		selectedTaskId = taskId;
+		isSidebarOpen = true;
+	}
+
+	// Handle sidebar close
+	function handleSidebarClose() {
+		isSidebarOpen = false;
+		// Clear selected task after transition completes
+		setTimeout(() => {
+			selectedTaskId = null;
+		}, 300);
 	}
 
 	// Initial load
@@ -331,7 +351,7 @@
 										<div>
 											<p class="text-base-content/60 text-sm">Date Range</p>
 											<p class="font-medium">
-												{new Date(task.dateRange.start).toLocaleDateString()} - 
+												{new Date(task.dateRange.start).toLocaleDateString()} -
 												{new Date(task.dateRange.end).toLocaleDateString()}
 											</p>
 										</div>
@@ -354,25 +374,48 @@
 								</div>
 							{/if}
 
-							<div class="card-actions mt-4 flex justify-between items-center">
+							<div class="card-actions mt-4 flex items-center justify-between">
 								<div class="flex items-center gap-2">
 									<div class="badge badge-info gap-1">
-										<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+											/>
 										</svg>
 										{task.bids?.length || 0} Bids
 									</div>
 								</div>
 
-								<div class="flex gap-2">
-									<a href="/dashboard/task/{task.id}?tab=bids" class="btn btn-secondary btn-sm">
-										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-										</svg>
-										Bid Now
-									</a>
-									<a href="/dashboard/task/{task.id}" class="btn btn-primary btn-sm">View Details</a>
-								</div>
+								<button
+									class="btn btn-primary btn-sm"
+									onclick={() => handleTaskSelect(task.id.toString())}
+									aria-label="Bid on this task"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M12 4v16m8-8H4"
+										/>
+									</svg>
+									Bid Now
+								</button>
 							</div>
 						</div>
 					</div>
@@ -430,3 +473,11 @@
 		{/if}
 	</div>
 </div>
+
+{#if selectedTaskId}
+	<TaskDetailsBidDrawer
+		taskId={selectedTaskId}
+		onClose={handleSidebarClose}
+		isOpen={isSidebarOpen}
+	/>
+{/if}

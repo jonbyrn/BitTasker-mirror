@@ -143,8 +143,8 @@ export interface TaskData extends Task {
 }
 
 export interface TaskResponse {
-	items: TaskData[];
-	meta: {
+	data: TaskData[];
+	pagination: {
 		total: number;
 		page: number;
 		limit: number;

@@ -3,16 +3,12 @@
 	import { goto } from '$app/navigation';
 	import { formatDistanceToNow } from 'date-fns';
 	import taskService from '$lib/api/services/task.service';
-	import BidForm from '$lib/components/Bid/BidForm.svelte';
-	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 
 	let currentPage = $state(1);
 	let limit = $state(10);
 	let tasks = $state<Task[]>([]);
-	let meta = $state<TaskResponse['meta'] | null>(null);
+	let meta = $state<TaskResponse['pagination'] | null>(null);
 	let loading = $state(false);
-	let selectedTask = $state<Task | null>(null);
-	let activeTab = $state('tasks'); // Track active tab: 'tasks' or 'bids'
 
 	// Load tasks with filters
 	async function loadTasks() {
@@ -45,12 +41,6 @@
 		loadTasks(); // Immediate load for page changes
 	}
 
-	// Handle bid success
-	function handleBidSuccess() {
-		selectedTask = null;
-		loadTasks(); // Refresh the task list
-	}
-
 	// Initial load
 	loadTasks();
 
@@ -79,32 +69,13 @@
 </script>
 
 <div class="mb-6">
-	<!-- Dashboard Tabs -->
-	<div class="tabs tabs-bordered mb-4" role="tablist" aria-label="Dashboard sections">
-		<button 
-			class="tab {activeTab === 'tasks' ? 'tab-active' : ''}" 
-			onclick={() => activeTab = 'tasks'}
-			role="tab"
-			aria-selected={activeTab === 'tasks'}
-			aria-controls="panel-tasks"
-			id="tab-tasks"
-		>
-			My Tasks
-		</button>
-		<button 
-			class="tab {activeTab === 'bids' ? 'tab-active' : ''}" 
-			onclick={() => activeTab = 'bids'}
-			role="tab"
-			aria-selected={activeTab === 'bids'}
-			aria-controls="panel-bids"
-			id="tab-bids"
-		>
-			My Bids
-		</button>
+	<!-- Dashboard Header -->
+	<div class="mb-4">
+		<h2 class="text-xl font-bold">My Tasks</h2>
 	</div>
 
-	<!-- Tasks Tab Panel -->
-	<div id="panel-tasks" role="tabpanel" aria-labelledby="tab-tasks" class="card bg-base-100 shadow-xl {activeTab !== 'tasks' ? 'hidden' : ''}">
+	<!-- Tasks Panel -->
+	<div id="panel-tasks" role="region" aria-label="My Tasks" class="card bg-base-100 shadow-xl">
 	<div class="card-body">
 		<!-- Loading State -->
 		{#if loading}
@@ -131,18 +102,14 @@
 							<tr class="hover cursor-pointer">
 								<td>
 									<div>
-										<button
+										<span
 											class="cursor-pointer font-bold"
-											onclick={(e) => {
-												e.stopPropagation();
-												goto('/dashboard/task/' + task.id);
-											}}
 										>
 											{task.title}
-										</button>
-										<div class="max-w-xs truncate text-sm opacity-75">
+										</span>
+										<p class="max-w-xs truncate text-sm opacity-75">
 											{task.description}
-										</div>
+										</p>
 										<div class="mt-1">
 											<span class="badge badge-neutral badge-sm">{task.taskType}</span>
 											{#if task.pickupLocation}
@@ -169,13 +136,13 @@
 								</td>
 								<td>
 									<button
-										class="btn btn-primary btn-sm"
+										class="btn btn-secondary btn-sm"
 										onclick={(e) => {
 											e.stopPropagation();
-											selectedTask = task;
+											goto('/dashboard/task/' + task.id);
 										}}
 									>
-										Bid Now
+										View Details
 									</button>
 								</td>
 							</tr>
@@ -234,15 +201,4 @@
 	</div>
 </div>
 
-<!-- Bids Tab Panel -->
-<div id="panel-bids" role="tabpanel" aria-labelledby="tab-bids" class="{activeTab !== 'bids' ? 'hidden' : ''}">
-	{#if activeTab === 'bids'}
-		<DashboardBidsPanel />
-	{/if}
 </div>
-</div>
-
-<!-- Bid Form Modal -->
-{#if selectedTask}
-	<BidForm task={selectedTask} onClose={() => (selectedTask = null)} onSuccess={handleBidSuccess} />
-{/if}

@@ -24,25 +24,13 @@ export class TaskService extends BaseApiService {
 	}
 
 	/**
-	 * Get all tasks with optional filtering parameters
-	 * @param params Optional parameters for filtering tasks
-	 * @returns Promise containing tasks and pagination data
-	 * @throws Error if retrieving tasks fails
-	 */
-	// async getAllTasks(params: GetTasksParams = {}): Promise<TaskResponse> {
-	// 	const response = await this.get<TaskResponse>(ENDPOINTS.TASKS.LIST, { params });
-	// 	return response.data;
-	// }
-
-	
-	/**
 	 * Search for tasks with optional search parameters
 	 * @param params Optional parameters for searching tasks
 	 * @returns Promise containing search results and pagination data
 	 * @throws Error if search fails
-	 */
+	*/
 	async getAllTasks(params: SearchTasksParams = {}): Promise<TaskResponse> {
-		const response = await this.get<TaskResponse>(ENDPOINTS.TASKS.SEARCH, { params });
+		const response = await this.get<TaskResponse>(ENDPOINTS.TASKS.LIST, { params });
 		return response.data;
 	}
 

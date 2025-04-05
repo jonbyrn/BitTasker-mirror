@@ -9,7 +9,6 @@
 	import Input from '$lib/components/Input.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
-	import TaskBidsTabs from '$lib/components/bidding/TaskBidsTabs.svelte';
 	import taskService from '$lib/api/services/task.service';
 
 	const taskId = page.params.id;
@@ -19,12 +18,6 @@
 	let error = $state('');
 	let updateObject = $state<Partial<Task> & { skillIds?: number[]; categoryIds?: number[] }>({});
 	let isFlexibleDate = $state(false);
-	// Get URL parameters
-	const tabParam = page.url.searchParams.get('tab');
-	const bidId = page.url.searchParams.get('bid'); // Get selected bid ID from URL
-	
-	// Set initial active tab based on URL parameter or default to 'details'
-	let activeTab = $state(tabParam === 'bids' ? 'bids' : 'details');
 
 	// Fetch task details
 	async function fetchTask() {
@@ -104,39 +97,19 @@
 		<div class="flex items-center justify-between">
 			<h1 class="text-2xl font-bold">{task.title}</h1>
 			<div class="space-x-2">
-				{#if !isEditing && activeTab === 'details'}
+				{#if !isEditing}
 					<button class="btn btn-primary" onclick={() => (isEditing = true)}>Edit</button>
 				{/if}
 			</div>
 		</div>
 
-		<!-- Tabs navigation -->
-		<div class="tabs tabs-bordered" role="tablist" aria-label="Task information tabs">
-			<button
-				class="tab {activeTab === 'details' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'details')}
-				role="tab"
-				aria-selected={activeTab === 'details'}
-				aria-controls="panel-details"
-				id="tab-details"
-			>
-				Details
-			</button>
-			<button
-				class="tab {activeTab === 'bids' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'bids')}
-				role="tab"
-				aria-selected={activeTab === 'bids'}
-				aria-controls="panel-bids"
-				id="tab-bids"
-			>
-				Bids
-			</button>
+		<!-- Task Details Header -->
+		<div class="mb-4">
+			<h2 class="text-lg font-bold">Task Details</h2>
 		</div>
 
-		<!-- Tab content -->
-		{#if activeTab === 'details'}
-			<div id="panel-details" role="tabpanel" aria-labelledby="tab-details">
+		<!-- Task content -->
+		<div id="panel-details" role="region" aria-label="Task details">
 				<!-- Basic Information -->
 				<section class="card bg-base-200 p-4">
 					<h2 class="mb-4 text-xl font-semibold">Basic Information</h2>
@@ -405,10 +378,5 @@
 					</div>
 				{/if}
 			</div>
-		{:else if activeTab === 'bids'}
-			<div id="panel-bids" role="tabpanel" aria-labelledby="tab-bids">
-				<TaskBidsTabs {taskId} selectedBidId={bidId || undefined} />
-			</div>
-		{/if}
 	</div>
 {/if}
