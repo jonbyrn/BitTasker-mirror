@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Bid } from '$lib/types/bid';
-	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { goto } from '$app/navigation';
+	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 
 	const props = $props<{
 		bid: Bid;
@@ -15,7 +15,7 @@
 			const date = new Date(timestamp);
 			const now = new Date();
 			const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-			
+
 			if (diffInSeconds < 60) return 'just now';
 			if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
 			if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
@@ -46,23 +46,22 @@
 	}
 </script>
 
-<div 
-	class="card bg-base-100 shadow hover:shadow-md transition-shadow duration-200"
+<div
+	class="card bg-base-100 shadow transition-shadow duration-200 hover:shadow-md"
 	role="article"
 	aria-labelledby={`bid-${props.bid.id}-title`}
 >
 	<div class="card-body p-4">
-		<div class="flex justify-between items-start">
+		<div class="flex items-start justify-between">
 			<div>
 				<h3 id={`bid-${props.bid.id}-title`} class="card-title text-base">
-					{props.isProvider 
+					{props.isProvider
 						? `Bid on: ${props.bid.taskTitle || 'Untitled Task'}`
-						: `From: ${props.bid.bidderName || 'Anonymous'}`
-					}
+						: `From: ${props.bid.freelancer.name || 'Anonymous'}`}
 				</h3>
-				<p class="text-sm text-base-content/70">{timeAgo}</p>
+				<p class="text-base-content/70 text-sm">{timeAgo()}</p>
 			</div>
-			
+
 			<div class="flex flex-col items-end">
 				<span class="text-lg font-bold">
 					{formatCurrency(props.bid.amount, props.bid.currency)}
@@ -72,12 +71,12 @@
 				</span>
 			</div>
 		</div>
-		
+
 		{#if props.bid.description}
-			<p class="mt-2 text-sm line-clamp-2">{props.bid.description}</p>
+			<p class="mt-2 line-clamp-2 text-sm">{props.bid.description}</p>
 		{/if}
-		
-		<div class="card-actions justify-end mt-3">
+
+		<div class="card-actions mt-3 justify-end">
 			<button
 				onclick={handleViewDetails}
 				class="btn btn-sm btn-primary"

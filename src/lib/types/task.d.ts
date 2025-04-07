@@ -1,3 +1,4 @@
+import type { TaskBid } from './bid';
 import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 export interface Location {
@@ -92,7 +93,7 @@ export interface Task {
 			isDeleted: boolean;
 		};
 	}>;
-	bids: any[];
+	bids: TaskBid[];
 }
 
 export interface SearchTasksParams {
@@ -141,6 +142,30 @@ export interface TaskData extends Task {
 	freelancerAssignments?: any[];
 	bids?: any[];
 }
+
+// export interface TaskWithRelations extends Task {
+// 	bids?: Array<{
+// 		id: number;
+// 		taskId: number;
+// 		bidderId: number;
+// 		amount: number;
+// 		currency: string;
+// 		message: string;
+// 		status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
+// 		createdAt: string;
+// 		updatedAt: string;
+// 		bidder?: {
+// 			id: number;
+// 			userId: number;
+// 			name: string;
+// 			averageRating?: number;
+// 			joined?: string;
+// 			level?: number;
+// 			experiencePoints?: number;
+// 		};
+// 	}>;
+// 	freelancerAssignments?: Array<any>;
+// }
 
 export interface TaskResponse {
 	data: TaskData[];

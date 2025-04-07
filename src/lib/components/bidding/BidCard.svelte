@@ -1,12 +1,11 @@
 <script lang="ts">
-	import type { Bid } from '$lib/types/bid';
+	import type { Bid, TaskBid } from '$lib/types/bid';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { timeAgo } from '$lib/utils/helpers/dateFormatter';
 	
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
-		bid: Bid;
-		isTaskOwner?: boolean;
+		bid: TaskBid;
 		onViewDetails: (bid: Bid) => void;
 		onAcceptBid: (bid: Bid) => void;
 		onRejectBid: (bid: Bid) => void;
@@ -44,12 +43,12 @@
 			<!-- Bidder Info -->
 			<div class="flex-1">
 				<h3 class="text-lg font-semibold">{props.bid.bidderName || 'Anonymous'}</h3>
-				<div class="text-sm opacity-70">{getFormattedTime}</div>
+				<div class="text-sm opacity-70">{getFormattedTime()}</div>
 			</div>
 			
 			<!-- Price Info -->
 			<div class="text-right">
-				<div class="text-xl font-bold">{getFormattedPrice}</div>
+				<div class="text-xl font-bold">{getFormattedPrice()}</div>
 				<div class="text-sm">
 					{#if props.bid.paymentType === 'HOURLY'}
 						{formatCurrency(props.bid.hourlyRate || 0, props.bid.currency)}/hr · Est. {props.bid.estimatedHours || 0} hrs
@@ -76,7 +75,7 @@
 				View Details
 			</button>
 			
-			{#if props.isTaskOwner && props.bid.status === 'pending'}
+			{#if props.bid.status === 'PENDING'}
 				<button class="btn btn-xs btn-primary" onclick={() => props.onAcceptBid(props.bid)}>
 					Accept
 				</button>

@@ -3,6 +3,8 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { appStore } from '$lib/stores/app.store';
+	import { slide } from 'svelte/transition';
+	import { pushState } from '$app/navigation';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
@@ -10,14 +12,34 @@
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import taskService from '$lib/api/services/task.service';
+	import BidsPanel from '$lib/components/bidding/BidsPanel.svelte';
 
 	const taskId = page.params.id;
-	let task = $state<Task | null>(null);
-	let isEditing = $state(false);
-	let loading = $state(true);
-	let error = $state('');
-	let updateObject = $state<Partial<Task> & { skillIds?: number[]; categoryIds?: number[] }>({});
-	let isFlexibleDate = $state(false);
+	const selectedBidId = page.url.searchParams.get('bid');
+	let task = $state<Task | null>(null),
+		isEditing = $state(false),
+		loading = $state(true),
+		error = $state(''),
+		updateObject = $state<Partial<Task> & { skillIds?: number[]; categoryIds?: number[] }>({}),
+		isFlexibleDate = $state(false),
+		activeTab = $state('details'); // 'details' or 'bids';
+
+	// Selected bid object (find the bid that matches selectedBidId)
+	const selectedBid = $derived(
+		selectedBidId
+			? task?.bids?.find((bid) => bid.id?.toString() === selectedBidId?.toString())
+			: null
+	);
+
+	// Check URL params for tab selection
+	const setTabFromUrl = () => {
+		if (page && page.url) {
+			const tabParam = page.url.searchParams.get('tab');
+			if (tabParam && ['details', 'bids'].includes(tabParam)) {
+				activeTab = tabParam;
+			}
+		}
+	};
 
 	// Fetch task details
 	async function fetchTask() {
@@ -35,6 +57,7 @@
 
 	onMount(() => {
 		fetchTask();
+		setTabFromUrl();
 	});
 
 	type TaskFieldValue<T extends keyof Task> = Task[T];
@@ -97,19 +120,59 @@
 		<div class="flex items-center justify-between">
 			<h1 class="text-2xl font-bold">{task.title}</h1>
 			<div class="space-x-2">
-				{#if !isEditing}
+				{#if !isEditing && activeTab === 'details'}
 					<button class="btn btn-primary" onclick={() => (isEditing = true)}>Edit</button>
 				{/if}
 			</div>
 		</div>
 
-		<!-- Task Details Header -->
-		<div class="mb-4">
-			<h2 class="text-lg font-bold">Task Details</h2>
+		<!-- Task Tabs -->
+		<div class="tabs tabs-bordered" role="tablist">
+			<button
+				class="tab {activeTab === 'details' ? 'tab-active' : ''}"
+				onclick={() => {
+					activeTab = 'details';
+					// Update URL without navigation
+					const url = new URL(window.location.href);
+					url.searchParams.set('tab', 'details');
+					pushState(url, 'Details');
+				}}
+				role="tab"
+				aria-selected={activeTab === 'details'}
+				aria-controls="panel-details"
+				id="tab-details"
+			>
+				Details
+			</button>
+			<button
+				class="tab {activeTab === 'bids' ? 'tab-active' : ''}"
+				onclick={() => {
+					activeTab = 'bids';
+					// Update URL without navigation
+					const url = new URL(window.location.href);
+					url.searchParams.set('tab', 'bids');
+					pushState(url, 'Bids');
+				}}
+				role="tab"
+				aria-selected={activeTab === 'bids'}
+				aria-controls="panel-bids"
+				id="tab-bids"
+			>
+				Bids
+				{#if task.bids && task.bids.length > 0}
+					<div class="badge badge-sm ml-2">{task.bids.length}</div>
+				{/if}
+			</button>
 		</div>
 
-		<!-- Task content -->
-		<div id="panel-details" role="region" aria-label="Task details">
+		{#if activeTab === 'details'}
+			<!-- Task content -->
+			<div
+				id="panel-details"
+				role="tabpanel"
+				aria-labelledby="tab-details"
+				transition:slide={{ duration: 300 }}
+			>
 				<!-- Basic Information -->
 				<section class="card bg-base-200 p-4">
 					<h2 class="mb-4 text-xl font-semibold">Basic Information</h2>
@@ -378,5 +441,51 @@
 					</div>
 				{/if}
 			</div>
+		{:else if activeTab === 'bids'}
+			<!-- Bids content -->
+			<div
+				id="panel-bids"
+				role="tabpanel"
+				aria-labelledby="tab-bids"
+				transition:slide={{ duration: 300 }}
+			>
+				<div class="w-full" role="region" aria-labelledby="task-bids-title">
+					<h2 id="task-bids-title" class="sr-only">Task Bids</h2>
+
+					{#if task.bids.length > 0}
+						<BidsPanel {taskId} onCreateBid={() => {}} bids={task.bids} {selectedBid} />
+					{:else}
+						<div class="bg-base-200 rounded-lg py-8 text-center">
+							<div class="mb-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="mx-auto h-12 w-12 opacity-50"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="1.5"
+										d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+							</div>
+							<h3 class="text-lg font-medium">No bids yet</h3>
+							<p class="mt-1 text-sm opacity-70">No bids have been submitted for this task yet.</p>
+							<a
+								class="btn btn-primary mt-4"
+								aria-label="See tasks"
+								href="/dashboard"
+								data-sveltekit-reload="off"
+							>
+								See All Tasks
+							</a>
+						</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
 	</div>
 {/if}

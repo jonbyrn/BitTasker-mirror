@@ -3,6 +3,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { appStore } from '$lib/stores/app.store';
 	import { slide } from 'svelte/transition';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import Input from '$lib/components/Input.svelte';
 	import taskService from '$lib/api/services/task.service';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
@@ -111,12 +112,6 @@
 	// Format date
 	function formatTimeAgo(date: string): string {
 		return formatDistanceToNow(new Date(date), { addSuffix: true });
-	}
-
-	// Handle task selection for bidding
-	function handleTaskSelect(taskId: string) {
-		selectedTaskId = taskId;
-		isSidebarOpen = true;
 	}
 
 	// Handle sidebar close
@@ -397,7 +392,13 @@
 
 								<button
 									class="btn btn-primary btn-sm"
-									onclick={() => handleTaskSelect(task.id.toString())}
+									class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
+									onclick={() => {
+										if (task.status === TaskStatusEnum.OPEN) {
+											selectedTaskId = task.id.toString();
+											isSidebarOpen = true;
+										}
+									}}
 									aria-label="Bid on this task"
 								>
 									<svg
@@ -414,7 +415,7 @@
 											d="M12 4v16m8-8H4"
 										/>
 									</svg>
-									Bid Now
+									{task.status === TaskStatusEnum.OPEN ? 'Bid Now' : 'Bidding closed'}
 								</button>
 							</div>
 						</div>

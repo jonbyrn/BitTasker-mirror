@@ -1,12 +1,10 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import type { Bid } from '$lib/types/bid';
 	import { fly } from 'svelte/transition';
-	import { user } from '$lib/stores/user.store';
 	import { formatDistanceToNow, format } from 'date-fns';
-	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import taskService from '$lib/api/services/task.service';
-	import bidService from '$lib/api/services/bid.service';
+	import BidCreationForm from './BidCreationForm.svelte';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -30,7 +28,6 @@
 	let hourlyRate = $state('');
 	let estimatedHours = $state('');
 	let bidType = $state<'FIXED' | 'HOURLY'>('FIXED');
-	let submittingBid = $state(false);
 	let bidFormErrors = $state<Record<string, string>>({});
 
 	// Scroll lock management
@@ -95,106 +92,14 @@
 		bidFormErrors = {};
 	}
 
-	function validateBidForm(): boolean {
-		const errors: Record<string, string> = {};
+	const handleClose = () => props.onClose();
 
-		if (!amount && bidType === 'FIXED') {
-			errors.amount = 'Please enter a bid amount';
-		} else if (bidType === 'FIXED' && parseFloat(amount) <= 0) {
-			errors.amount = 'Bid amount must be greater than 0';
-		}
-
-		if (bidType === 'HOURLY') {
-			if (!hourlyRate) {
-				errors.hourlyRate = 'Please enter an hourly rate';
-			} else if (parseFloat(hourlyRate) <= 0) {
-				errors.hourlyRate = 'Hourly rate must be greater than 0';
-			}
-
-			if (!estimatedHours) {
-				errors.estimatedHours = 'Please enter estimated hours';
-			} else if (parseFloat(estimatedHours) <= 0) {
-				errors.estimatedHours = 'Estimated hours must be greater than 0';
-			}
-		}
-
-		if (!description.trim()) {
-			errors.description = 'Please enter a description for your bid';
-		} else if (description.length < 50) {
-			errors.description = 'Description should be at least 50 characters';
-		}
-
-		if (!estimatedDuration.trim()) {
-			errors.estimatedDuration = 'Please provide an estimated completion time';
-		}
-
-		if (!proposedApproach.trim()) {
-			errors.proposedApproach = 'Please describe your approach to this task';
-		} else if (proposedApproach.length < 50) {
-			errors.proposedApproach = 'Your approach description should be at least 50 characters';
-		}
-
-		bidFormErrors = errors;
-		return Object.keys(errors).length === 0;
-	}
-
-	async function handleBidSubmit() {
-		if (!validateBidForm() || !task) return;
-
-		try {
-			submittingBid = true;
-
-			const currentUser = $user;
-			if (!currentUser) {
-				errorMessage = 'You must be logged in to submit a bid.';
-				return;
-			}
-
-			const bidData: Partial<Bid> = {
-				taskId: task.id.toString(),
-				bidderId: currentUser.id?.toString() || '',
-				bidderName: currentUser.name || currentUser.email,
-				description,
-				proposedApproach,
-				estimatedDuration,
-				paymentType: bidType,
-				currency: 'BTC',
-				visibility: 'PUBLIC',
-				responseTime: 24
-			};
-
-			if (bidType === 'FIXED') {
-				bidData.amount = parseFloat(amount);
-			} else {
-				bidData.hourlyRate = parseFloat(hourlyRate);
-				bidData.estimatedHours = parseFloat(estimatedHours);
-				bidData.amount = parseFloat(hourlyRate) * parseFloat(estimatedHours);
-			}
-
-			await bidService.createBid(bidData as Bid);
-
-			// Show success message and hide form
-			bidSubmitted = true;
-			showBidForm = false;
-		} catch (error) {
-			console.error('Failed to submit bid:', error);
-			errorMessage = 'Failed to submit your bid. Please try again.';
-		} finally {
-			submittingBid = false;
-		}
-	}
-
-	function handleClose() {
-		props.onClose();
-	}
-
-	function formatTimeAgo(date: string): string {
-		return formatDistanceToNow(new Date(date), { addSuffix: true });
-	}
+	const formatTimeAgo = (date: string): string =>
+		formatDistanceToNow(new Date(date), { addSuffix: true });
 </script>
 
 <div
-	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full max-w-[40rem] transform overflow-auto shadow-xl transition-transform duration-300 {props.isOpen
+	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-[70%] transform overflow-auto shadow-xl transition-transform duration-300 {props.isOpen
 		? 'translate-x-0'
 		: 'translate-x-full'}"
 >
@@ -212,7 +117,7 @@
 
 	<!-- Drawer -->
 	<div
-		class="bg-base-100 fixed inset-y-0 right-0 z-50 w-full overflow-y-auto shadow-xl transition-transform duration-300 ease-in-out md:w-[40rem]"
+		class="bg-base-100 fixed inset-y-0 right-0 z-50 w-full overflow-y-auto shadow-xl transition-transform duration-300 ease-in-out"
 		class:translate-x-0={props.isOpen}
 		class:translate-x-full={!props.isOpen}
 		aria-labelledby="drawer-title"
@@ -379,215 +284,10 @@
 				<div class="divider"></div>
 
 				<!-- Bid form -->
-				{#if showBidForm}
-					<form
-						class="space-y-4"
-						onsubmit={(e) => {
-							e.preventDefault();
-							handleBidSubmit();
-						}}
-					>
-						<h3 class="text-lg font-semibold">Place Your Bid</h3>
-
-						<!-- Payment type toggle -->
-						<div class="form-control">
-							<label class="label cursor-pointer" for="payment-type-group">
-								<span class="label-text">Payment Type</span>
-							</label>
-							<div
-								id="payment-type-group"
-								class="tabs tabs-boxed bg-base-200 mb-2 rounded-lg p-2"
-								role="radiogroup"
-								aria-label="Payment Type"
-							>
-								<button
-									type="button"
-									class="tab flex-1 rounded-md {bidType === 'FIXED'
-										? 'tab-active bg-primary text-primary-content font-medium'
-										: 'hover:bg-base-300'}"
-									onclick={() => (bidType = 'FIXED')}
-									role="radio"
-									aria-checked={bidType === 'FIXED'}
-								>
-									Fixed Price
-								</button>
-								<button
-									type="button"
-									class="tab flex-1 rounded-md {bidType === 'HOURLY'
-										? 'tab-active bg-primary text-primary-content font-medium'
-										: 'hover:bg-base-300'}"
-									onclick={() => (bidType = 'HOURLY')}
-									role="radio"
-									aria-checked={bidType === 'HOURLY'}
-								>
-									Hourly Rate
-								</button>
-							</div>
-						</div>
-
-						{#if bidType === 'FIXED'}
-							<!-- Fixed price bid amount -->
-							<div class="form-control">
-								<label class="label" for="bid-amount">
-									<span class="label-text">Your Bid Amount (BTC)</span>
-								</label>
-								<input
-									id="bid-amount"
-									type="number"
-									class="input input-bordered w-full {bidFormErrors.amount ? 'input-error' : ''}"
-									placeholder="0.00123"
-									min="0.00001"
-									step="0.00001"
-									aria-describedby={bidFormErrors.amount ? 'amount-error' : undefined}
-									bind:value={amount}
-								/>
-								{#if bidFormErrors.amount}
-									<div class="label">
-										<span class="label-text-alt text-error" id="amount-error" aria-live="polite"
-											>{bidFormErrors.amount}</span
-										>
-									</div>
-								{/if}
-							</div>
-						{:else}
-							<!-- Hourly rate bid details -->
-							<div class="grid grid-cols-2 gap-4">
-								<div class="form-control">
-									<label class="label" for="hourly-rate">
-										<span class="label-text">Hourly Rate (BTC)</span>
-									</label>
-									<input
-										id="hourly-rate"
-										type="number"
-										class="input input-bordered w-full {bidFormErrors.hourlyRate
-											? 'input-error'
-											: ''}"
-										placeholder="0.0001"
-										min="0.00001"
-										step="0.00001"
-										bind:value={hourlyRate}
-									/>
-									{#if bidFormErrors.hourlyRate}
-										<div class="label">
-											<span
-												class="label-text-alt text-error"
-												id="hourly-rate-error"
-												aria-live="polite">{bidFormErrors.hourlyRate}</span
-											>
-										</div>
-									{/if}
-								</div>
-								<div class="form-control">
-									<label class="label" for="estimated-hours">
-										<span class="label-text">Estimated Hours</span>
-									</label>
-									<input
-										id="estimated-hours"
-										type="number"
-										class="input input-bordered w-full {bidFormErrors.estimatedHours
-											? 'input-error'
-											: ''}"
-										placeholder="10"
-										min="1"
-										step="1"
-										bind:value={estimatedHours}
-									/>
-									{#if bidFormErrors.estimatedHours}
-										<div class="label">
-											<span
-												class="label-text-alt text-error"
-												id="estimated-hours-error"
-												aria-live="polite">{bidFormErrors.estimatedHours}</span
-											>
-										</div>
-									{/if}
-								</div>
-							</div>
-						{/if}
-
-						<!-- Estimated completion time -->
-						<div class="form-control">
-							<label class="label" for="estimated-duration">
-								<span class="label-text">Estimated Completion Time</span>
-							</label>
-							<input
-								id="estimated-duration"
-								type="text"
-								class="input input-bordered w-full {bidFormErrors.estimatedDuration
-									? 'input-error'
-									: ''}"
-								placeholder="e.g., 3 days, 1 week"
-								bind:value={estimatedDuration}
-							/>
-							{#if bidFormErrors.estimatedDuration}
-								<div class="label">
-									<span
-										class="label-text-alt text-error"
-										id="estimated-duration-error"
-										aria-live="polite">{bidFormErrors.estimatedDuration}</span
-									>
-								</div>
-							{/if}
-						</div>
-
-						<!-- Bid description -->
-						<div class="form-control">
-							<label class="label block" for="bid-description">
-								<span class="label-text">Cover Letter</span>
-							</label>
-							<textarea
-								id="bid-description"
-								class="textarea textarea-bordered h-24 w-full {bidFormErrors.description
-									? 'textarea-error'
-									: ''}"
-								placeholder="Explain why you're the right person for this task"
-								bind:value={description}
-							></textarea>
-							{#if bidFormErrors.description}
-								<div class="label">
-									<span class="label-text-alt text-error" id="description-error" aria-live="polite"
-										>{bidFormErrors.description}</span
-									>
-								</div>
-							{/if}
-						</div>
-
-						<!-- Proposed approach -->
-						<div class="form-control">
-							<label class="label block" for="proposed-approach">
-								<span class="label-text">Your Approach</span>
-							</label>
-							<textarea
-								id="proposed-approach"
-								class="textarea textarea-bordered h-24 w-full {bidFormErrors.proposedApproach
-									? 'textarea-error'
-									: ''}"
-								placeholder="Describe how you plan to complete this task"
-								bind:value={proposedApproach}
-							></textarea>
-							{#if bidFormErrors.proposedApproach}
-								<div class="label">
-									<span
-										class="label-text-alt text-error whitespace-break-spaces"
-										id="proposed-approach-error"
-										aria-live="polite">{bidFormErrors.proposedApproach}</span
-									>
-								</div>
-							{/if}
-						</div>
-
-						<!-- Submit button -->
-						<div class="flex justify-end pt-4">
-							<button type="submit" class="btn btn-primary" disabled={submittingBid}>
-								{#if submittingBid}
-									<span class="loading loading-spinner loading-sm"></span>
-									Submitting...
-								{:else}
-									Submit Bid
-								{/if}
-							</button>
-						</div>
-					</form>
+				{#if showBidForm && task.status === TaskStatusEnum.OPEN}
+					<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
+				{:else}
+					<p class="text-base-content/60 mt-4">Task is not open for bidding.</p>
 				{/if}
 			</div>
 			<!-- Task not found state -->

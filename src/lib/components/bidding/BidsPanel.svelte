@@ -1,58 +1,44 @@
 <script lang="ts">
-	import type { Bid, CounterOffer } from '$lib/types/bid';
+	import type { Bid, CounterOffer, TaskBid } from '$lib/types/bid';
 	import { onMount } from 'svelte';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import BidCard from '$lib/components/bidding/BidCard.svelte';
 	import BidDetailsDrawer from '$lib/components/bidding/BidDetailsDrawer.svelte';
 	import bidService from '$lib/api/services/bid.service';
-	import { bidStore } from '$lib/stores/bid.store';
+	import taskService from '$lib/api/services/task.service';
 
 	// Props
 	const props = $props<{
 		taskId: string;
-		isTaskOwner?: boolean;
 		onCreateBid: () => void;
+		bids?: TaskBid[];
+		selectedBid?: TaskBid | null;
 	}>();
 
 	// State
-	let bids = $state<Bid[]>([]);
-	let isLoading = $state(true);
+	let bids = $state<TaskBid[]>(props.bids || []);
+	let isLoading = $state(false); // No loading state needed as bids are passed directly
 	let error = $state<string | null>(null);
-	let selectedBid = $state<Bid | null>(null);
-	let isDrawerOpen = $state(false);
+	let selectedBid = $state<Bid | null>(props.selectedBid || null);
+	let isDrawerOpen = $state(props.selectedBid ? true : false);
 	let counterOffers = $state<CounterOffer[]>([]);
 
 	// Lifecycle
-	onMount(async () => {
-		await loadBids();
-		bids = $bidStore.bids.filter((bid) => bid.taskId === props.taskId);
+	onMount(() => {
+		// If a selected bid was provided and has an ID, load its counter offers
+		// if (selectedBid && selectedBid.id) {
+		// 	counterOffers = bidStore.getCounterOffersForBid(selectedBid.id);
+		// 	// Automatically open the drawer if a selected bid was provided
+		// 	isDrawerOpen = true;
+		// }
 	});
-
-	// Methods
-	async function loadBids() {
-		isLoading = true;
-		error = null;
-
-		try {
-			// Try to get bids from the API through the service
-			const taskBids = await bidService.getBidsForTask(props.taskId);
-			bids = taskBids;
-
-			// Mark this task as loaded in the store to avoid duplicate fetches
-			bidStore.markTaskLoaded(props.taskId);
-		} catch (err) {
-			console.error('Failed to load bids:', err);
-			error = 'Failed to load bids for this task';
-		} finally {
-			isLoading = false;
-		}
-	}
 
 	function handleViewDetails(bid: Bid) {
 		selectedBid = bid;
 
 		// Load counter offers for this bid
 		if (bid.id) {
-			counterOffers = bidStore.getCounterOffersForBid(bid.id);
+			// counterOffers = bidStore.getCounterOffersForBid(bid.id);
 		} else {
 			counterOffers = [];
 		}
@@ -60,11 +46,11 @@
 		isDrawerOpen = true;
 	}
 
-	async function handleAcceptBid(bid: Bid) {
-		if (!bid.id || !props.taskId) return;
+	async function handleAcceptBid() {
+		if (!props.taskId) return;
 
 		try {
-			await bidService.acceptBid(bid.id, props.taskId);
+			await taskService.updateTaskStatus(props.taskId, TaskStatusEnum.IN_PROGRESS);
 			isDrawerOpen = false;
 		} catch (err) {
 			console.error('Failed to accept bid:', err);
@@ -72,11 +58,11 @@
 		}
 	}
 
-	async function handleRejectBid(bid: Bid) {
-		if (!bid.id) return;
+	async function handleRejectBid() {
+		if (!props.taskId) return;
 
 		try {
-			await bidService.rejectBid(bid.id);
+			await taskService.updateTaskStatus(props.taskId, TaskStatusEnum.DISPUTED);
 			isDrawerOpen = false;
 		} catch (err) {
 			console.error('Failed to reject bid:', err);
@@ -84,10 +70,10 @@
 		}
 	}
 
-	async function handleCounterOffer(bid: Bid) {
+	async function handleCounterOffer() {
 		// This would typically open a counter offer form
 		// For this implementation, we'll just simulate with a prompt
-		if (!bid.id) return;
+		if (!props.taskId) return;
 
 		const amount = prompt('Enter counter offer amount:');
 		if (!amount) return;
@@ -96,18 +82,23 @@
 		if (!message) return;
 
 		try {
-			await bidService.createCounterOffer(bid.id, {
-				price: {
-					amount: parseFloat(amount),
-					currency: bid.currency
-				},
-				message,
-				proposedBy: 'current-user-id' // This would come from user store
-			});
+			// const counterOffer: CounterOffer = {
+			// 	id: crypto.randomUUID(),
+			// 	bidId: props.taskId,
+			// 	price: {
+			// 		amount: parseFloat(amount),
+			// 		currency: 'USD'
+			// 	},
+			// 	message,
+			// 	proposedBy: 'current-user-id',
+			// 	status: 'pending',
+			// 	createdAt: new Date().toISOString()
+			// };
+			// await bidService.createCounterOffer(props.taskId, counterOffer);
 
 			// Refresh counter offers
-			if (bid.id) {
-				counterOffers = bidStore.getCounterOffersForBid(bid.id);
+			if (props.taskId) {
+				// counterOffers = bidStore.getCounterOffersForBid(props.taskId);
 			}
 		} catch (err) {
 			console.error('Failed to create counter offer:', err);
@@ -129,100 +120,24 @@
 				<p class="text-sm opacity-70">{bids.length} bid{bids.length !== 1 ? 's' : ''} submitted</p>
 			{/if}
 		</div>
-
-		<!-- Create Bid Button (only shown if not task owner) -->
-		{#if !props.isTaskOwner}
-			<button
-				class="btn btn-primary"
-				onclick={props.onCreateBid}
-				aria-label="Submit a bid for this task"
-			>
-				Submit a Bid
-			</button>
-		{/if}
 	</div>
 
-	<!-- Loading State -->
-	{#if isLoading}
-		<div class="flex justify-center py-8">
-			<div class="loading loading-spinner loading-lg"></div>
-		</div>
-		<!-- Error State -->
-	{:else if error}
-		<div class="alert alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/></svg
-			>
-			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadBids} aria-label="Retry loading bids">Retry</button>
-		</div>
-		<!-- Empty State -->
-	{:else if bids.length === 0}
-		<div class="bg-base-200 rounded-lg py-8 text-center">
-			<div class="mb-3">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="mx-auto h-12 w-12 opacity-50"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="1.5"
-						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-			</div>
-			<h3 class="text-lg font-medium">No bids yet</h3>
-			<p class="mt-1 text-sm opacity-70">
-				{#if props.isTaskOwner}
-					No bids have been submitted for this task yet.
-				{:else}
-					Be the first to submit a bid for this task!
-				{/if}
-			</p>
-			{#if !props.isTaskOwner}
-				<button
-					class="btn btn-primary mt-4"
-					onclick={props.onCreateBid}
-					aria-label="Submit a bid for this task"
-				>
-					Submit a Bid
-				</button>
-			{/if}
-		</div>
-		<!-- Bids List -->
-	{:else}
-		<div class="space-y-4">
-			{#each bids as bid (bid.id)}
-				<BidCard
-					{bid}
-					isTaskOwner={props.isTaskOwner}
-					onViewDetails={handleViewDetails}
-					onAcceptBid={handleAcceptBid}
-					onRejectBid={handleRejectBid}
-					onCounterOffer={handleCounterOffer}
-				/>
-			{/each}
-		</div>
-	{/if}
+	<div class="space-y-4">
+		{#each bids as bid (bid.id)}
+			<BidCard
+				{bid}
+				onViewDetails={handleViewDetails}
+				onAcceptBid={handleAcceptBid}
+				onRejectBid={handleRejectBid}
+				onCounterOffer={handleCounterOffer}
+			/>
+		{/each}
+	</div>
 
 	<!-- Bid Details Drawer -->
 	<BidDetailsDrawer
 		bid={selectedBid}
 		isOpen={isDrawerOpen}
-		isTaskOwner={props.isTaskOwner}
 		{counterOffers}
 		onClose={closeDrawer}
 		onAcceptBid={handleAcceptBid}
