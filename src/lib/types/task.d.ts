@@ -143,30 +143,6 @@ export interface TaskData extends Task {
 	bids?: any[];
 }
 
-// export interface TaskWithRelations extends Task {
-// 	bids?: Array<{
-// 		id: number;
-// 		taskId: number;
-// 		bidderId: number;
-// 		amount: number;
-// 		currency: string;
-// 		message: string;
-// 		status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
-// 		createdAt: string;
-// 		updatedAt: string;
-// 		bidder?: {
-// 			id: number;
-// 			userId: number;
-// 			name: string;
-// 			averageRating?: number;
-// 			joined?: string;
-// 			level?: number;
-// 			experiencePoints?: number;
-// 		};
-// 	}>;
-// 	freelancerAssignments?: Array<any>;
-// }
-
 export interface TaskResponse {
 	data: TaskData[];
 	pagination: {

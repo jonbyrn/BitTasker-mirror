@@ -1,8 +1,4 @@
-import type {
-	Task,
-	TaskResponse,
-	SearchTasksParams,
-} from '$lib/types/task.d';
+import type { Task, TaskResponse, SearchTasksParams } from '$lib/types/task.d';
 import type { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
@@ -28,7 +24,7 @@ export class TaskService extends BaseApiService {
 	 * @param params Optional parameters for searching tasks
 	 * @returns Promise containing search results and pagination data
 	 * @throws Error if search fails
-	*/
+	 */
 	async getAllTasks(params: SearchTasksParams = {}): Promise<TaskResponse> {
 		const response = await this.get<TaskResponse>(ENDPOINTS.TASKS.LIST, { params });
 		return response.data;

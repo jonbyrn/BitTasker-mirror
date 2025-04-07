@@ -23,7 +23,7 @@ export class BidService extends BaseApiService {
 	}
 	/**
 	 * Create a new bid for a task
-	   * @param bid The bid information to create
+	 * @param bid The bid information to create
 	 * @returns Promise containing the created bid data
 	 * @throws Error if bid creation fails
 	 */

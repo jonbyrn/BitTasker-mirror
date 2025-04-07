@@ -1,4 +1,4 @@
-import type { Freelancer } from "./freelancer";
+import type { Freelancer } from './freelancer';
 
 export type PaymentType = 'FIXED' | 'HOURLY';
 export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN';
@@ -53,11 +53,11 @@ export interface Bid {
 		title: string;
 		description: string;
 		status: string;
-	},
+	};
 
 	// Freelancer Information
-	freelancer: Freelancer,
-	milestones: []
+	freelancer: Freelancer;
+	milestones: [];
 
 	// Provider Information
 	// providerHighlights?: {
@@ -108,8 +108,8 @@ export interface TaskBid extends Bid {
 		user: {
 			id: number;
 			email: string;
-		}
-	}
+		};
+	};
 }
 
 export interface BidsResponse {
