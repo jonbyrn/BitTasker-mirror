@@ -63,11 +63,17 @@ export const ENDPOINTS = {
 		WITHDRAW: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/withdraw`,
 		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`
 	},
+
 	// Admin endpoints
 	ADMIN: {
 		SKILLS: `${API_PATH}/${API_VERSION}/${ADMIN}/skills`,
 		CATEGORIES: `${API_PATH}/${API_VERSION}/${ADMIN}/categories`
-	}
+	},
 
-	// Add more endpoint categories as needed
+	// Upload endpoints
+	UPLOADS: {
+	  SINGLE: `${API_PATH}/${API_VERSION}/uploads/single`,
+	  MULTIPLE: `${API_PATH}/${API_VERSION}/uploads/multiple`,
+	  DELETE: (key: string) => `${API_PATH}/${API_VERSION}/uploads/${key}`
+	}
 };

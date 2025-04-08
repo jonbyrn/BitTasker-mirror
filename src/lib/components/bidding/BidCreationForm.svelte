@@ -17,7 +17,7 @@
 	let estimatedDuration = $state('');
 	let proposedApproach = $state('');
 	let coverLetter = $state('');
-	let milestones = $state<string[]>(['']);
+	let milestones = $state([{ description: '' }]);
 	let submittingBid = $state(false);
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
@@ -26,20 +26,20 @@
 	const currencyOptions: Currency[] = ['BTC', 'L-BTC', 'USD', 'LN'];
 
 	// Dynamic array handling
-	function addItem(array: string[], index: number) {
+	function addItem(array: { description: string }[], index: number) {
 		const newArray = [...array];
-		newArray.splice(index + 1, 0, '');
+		newArray.splice(index + 1, 0, { description: '' });
 		return newArray;
 	}
 
-	function removeItem(array: string[], index: number) {
+	function removeItem(array: { description: string }[], index: number) {
 		if (array.length > 1) {
 			const newArray = [...array];
 			newArray.splice(index, 1);
 			return newArray;
 		} else {
 			const newArray = [...array];
-			newArray[0] = '';
+			newArray[0] = { description: '' };
 			return newArray;
 		}
 	}
@@ -103,7 +103,7 @@
 
 		try {
 			// Filter out empty items
-			const filteredMilestones = milestones.filter((m) => m.trim());
+			const filteredMilestones = milestones.filter((m) => m.description.trim() !== '');
 
 			const newBid: Partial<CreateBidParams> = {
 				taskId,
@@ -450,10 +450,10 @@
 						<input
 							type="text"
 							class="input input-bordered w-full"
-							value={milestone}
+							value={milestone.description}
 							oninput={(e) => {
 								const newMilestones = [...milestones];
-								newMilestones[i] = (e.target as HTMLInputElement).value;
+								newMilestones[i] = { description: (e.target as HTMLInputElement).value };
 								milestones = newMilestones;
 							}}
 							placeholder="e.g., Design completed by Day 3"

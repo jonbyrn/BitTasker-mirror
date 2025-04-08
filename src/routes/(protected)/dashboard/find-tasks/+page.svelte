@@ -190,7 +190,7 @@
 				</div>
 
 				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					<div class="form-control w-full max-w-xs">
+					<div class="form-control w-full">
 						<Input
 							id="category"
 							label="Category"
@@ -475,10 +475,4 @@
 	</div>
 </div>
 
-{#if selectedTaskId}
-	<TaskDetailsBidDrawer
-		taskId={selectedTaskId}
-		onClose={handleSidebarClose}
-		isOpen={isSidebarOpen}
-	/>
-{/if}
+<TaskDetailsBidDrawer taskId={selectedTaskId} onClose={handleSidebarClose} isOpen={isSidebarOpen} />

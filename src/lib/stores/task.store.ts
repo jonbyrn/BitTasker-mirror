@@ -2,7 +2,7 @@ import { type CreateTaskParams } from '$lib/types/task.d';
 import { TaskStepEnum } from '$lib/utils/enums/task.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
-import { writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 export const STEPS = [TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET];
@@ -51,20 +51,17 @@ function createTaskStore() {
 		const stored = await Preferences.get({ key: STORAGE_KEY });
 		if (stored.value) {
 			const parsedTask = JSON.parse(stored.value);
-			store.update((state) => ({ ...state, task: parsedTask }));
+			store.update((state) => ({ ...state, task: parsedTask, currentStep: parsedTask.currentStep || TaskStepEnum.BASICS }));
 		}
 	};
 
 	// Save draft to preferences
 	const saveDraft = async () => {
-		let currentTask: CreateTaskParams | undefined;
-		store.subscribe((state) => {
-			currentTask = state.task;
-		})();
-		if (currentTask) {
+		const task = get(store);
+		if (task) {
 			await Preferences.set({
 				key: STORAGE_KEY,
-				value: JSON.stringify(currentTask)
+				value: JSON.stringify({ ...task.task, currentStep: task.currentStep })
 			});
 		}
 	};

@@ -26,39 +26,69 @@
 			return;
 		}
 
+		// Create a new array to collect the processed files
+		const newFiles = [...files];
+		let hasErrors = false;
+		let processedCount = 0;
+		const totalToProcess = selectedFiles.length;
+
 		Array.from(selectedFiles).forEach((file) => {
+			// Validate file type
 			if (allowedTypes?.includes('image/*')) {
 				if (!file.type.startsWith('image/')) {
 					error = 'Invalid file type. Only images are allowed';
 					onError(error);
+					hasErrors = true;
 					return;
 				}
 			} else if (!allowedTypes?.includes(file.type)) {
 				error = 'Invalid file type. Only JPG, PNG and WebP images are allowed';
 				onError(error);
+				hasErrors = true;
 				return;
 			}
 
+			// Validate file size
 			if (file.size > maxFileSize * 1024 * 1024) {
 				error = `File size must be less than ${maxFileSize}MB`;
 				onError(error);
+				hasErrors = true;
 				return;
 			}
 
+			// Check image dimensions if specified
 			const img = new Image();
 			img.src = URL.createObjectURL(file);
 			img.onload = () => {
 				if ((width && img.width !== width) || (height && img.height !== height)) {
 					error = `Image dimensions must be ${width}x${height}px`;
 					onError(error);
-					return;
+					hasErrors = true;
+				} else {
+					// Add the file to our collection
+					newFiles.push(file);
 				}
 
-				files = [...files, file];
-				onChange(files);
-				error = '';
+				// Increment processed count
+				processedCount++;
+
+				// If this is the last file and there are no errors, update the files array
+				if (processedCount === totalToProcess && !hasErrors) {
+					files = newFiles;
+					error = '';
+					// Call onChange with the updated files array
+					onChange(files);
+				}
+			};
+
+			img.onerror = () => {
+				error = 'Failed to load image for validation';
+				onError(error);
+				hasErrors = true;
+				processedCount++;
 			};
 		});
+
 	}
 
 	function removeFile(index: number) {
@@ -88,7 +118,7 @@
 		</div>
 	{/if}
 
-	<div class="grid grid-cols-3 gap-4 sm:grid-cols-3 md:grid-cols-4">
+	<div class="grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
 		{#each files as file, index}
 			<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
 				<img
@@ -119,10 +149,10 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative aspect-square h-20 w-20 overflow-hidden sm:h-24 sm:w-24">
+			<div class="relative aspect-square h-20 overflow-hidden sm:h-24 sm:w-24">
 				<label
 					for="file-upload-{id}"
-					class="flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg bg-gray-900"
+					class="bg-base-200 border-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border"
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
 						<svg
@@ -140,10 +170,10 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="mb-2 text-xs text-gray-500 sm:text-sm">
+						<p class="mb-2 text-[10px] text-gray-500 sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
-						<p class="text-[8px] text-gray-500 sm:text-xs">
+						<p class="text-[8px] text-gray-500">
 							{allowedTypes.map((type) => type.split('/')[1].toUpperCase()).join(', ')} (Max. {maxFileSize}MB)
 						</p>
 					</div>

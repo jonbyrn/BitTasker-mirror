@@ -92,6 +92,7 @@
 					{:else}
 						<div class="space-y-4">
 							{#each myBids as bid (bid.id)}
+								<div class="divider"></div>
 								<BidSummaryCard {bid} isProvider={true} />
 							{/each}
 						</div>
@@ -134,6 +135,7 @@
 					{:else}
 						<div class="space-y-4">
 							{#each receivedBids as bid (bid.id)}
+								<div class="divider"></div>
 								<BidSummaryCard {bid} isProvider={false} />
 							{/each}
 						</div>

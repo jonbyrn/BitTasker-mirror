@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { AxiosError } from 'axios';
+	import { linear } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
 	import { appStore } from '$lib/stores/app.store';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
@@ -9,6 +11,7 @@
 	import Tags from '$lib/components/Tags.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
+	import uploadService from '$lib/api/services/upload.service';
 
 	onMount(() => {
 		store.loadDraft();
@@ -77,21 +80,21 @@
 		return Object.keys(errors).length === 0;
 	}
 
-	let attachments = $state<File[]>([]);
-	function handleFileUpload(files: File[]) {
+	const handleFileUpload = async (files: File[]) => {
 		if (files) {
-			for (let i = 0; i < files.length; i++) {
-				attachments = [...attachments, files[i]];
-			}
+			const uploadedFiles = await uploadService.uploadMultipleFiles(files);
+			console.log(uploadedFiles);
 		}
-	}
+	};
 
-	function handleNext() {
+	let direction: 'forward' | 'backward' = $state('forward');
+	const handleNext = () => {
 		if (validateCurrentStep()) {
 			store.nextStep();
 			store.saveDraft();
+			direction = 'forward';
 		}
-	}
+	};
 
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
@@ -129,129 +132,147 @@
 
 		<div class="space-y-6">
 			{#if $store.currentStep === 'basics'}
-				<div class="w-full">
-					<label for="title" class="label">
-						<span class="label-text">What do you need done?</span>
-					</label>
-					<input
-						type="text"
-						id="title"
-						value={$store.task.title}
-						onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
-						class="input input-bordered w-full {errors.title ? 'input-error' : ''}"
-						placeholder="e.g. Help move my sofa"
-					/>
-					{#if errors.title}
-						<span class="label-text-alt text-error">{errors.title}</span>
-					{/if}
-				</div>
-
-				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">When do you need this done?</h3>
-
-					<div class="flex gap-4">
-						<button
-							class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() =>
-								store.updateTask({ deadline: new Date().toISOString(), dateRange: undefined })}
-						>
-							I'm flexible
-						</button>
-						<button
-							class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() =>
-								store.updateTask({
-									deadline: '',
-									dateRange: {
-										start: new Date().toISOString(),
-										end: new Date().toISOString()
-									}
-								})}
-						>
-							On a specific date
-						</button>
+				<div
+					class="space-y-6"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
+					<div class="w-full">
+						<label for="title" class="label">
+							<span class="label-text">What do you need done?</span>
+						</label>
+						<input
+							type="text"
+							id="title"
+							value={$store.task.title}
+							onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
+							class="input input-bordered w-full {errors.title ? 'input-error' : ''}"
+							placeholder="e.g. Help move my sofa"
+						/>
+						{#if errors.title}
+							<span class="label-text-alt text-error">{errors.title}</span>
+						{/if}
 					</div>
 
-					{#if $store.task.dateRange}
-						<div class="grid grid-cols-2 gap-4">
+					<div class="space-y-4">
+						<h3 class="text-lg font-semibold">When do you need this done?</h3>
+
+						<div class="flex gap-4">
+							<button
+								class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+								onclick={() =>
+									store.updateTask({ deadline: new Date().toISOString(), dateRange: undefined })}
+							>
+								I'm flexible
+							</button>
+							<button
+								class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+								onclick={() =>
+									store.updateTask({
+										deadline: '',
+										dateRange: {
+											start: new Date().toISOString(),
+											end: new Date().toISOString()
+										}
+									})}
+							>
+								On a specific date
+							</button>
+						</div>
+
+						{#if $store.task.dateRange}
+							<div class="grid grid-cols-2 gap-4">
+								<div>
+									<DatePicker
+										label="Start Date"
+										value={$store.task.dateRange.start}
+										onChange={(value: string) => {
+											const start = value;
+											const end = $store.task.dateRange?.end ?? new Date().toISOString();
+											store.updateTask({
+												dateRange: {
+													start,
+													end
+												}
+											});
+										}}
+									/>
+								</div>
+								<div>
+									<DatePicker
+										label="End Date"
+										value={$store.task.dateRange.end}
+										onChange={(value: string) => {
+											const end = value;
+											const start = $store.task.dateRange?.start ?? new Date().toISOString();
+											store.updateTask({
+												dateRange: {
+													start,
+													end
+												}
+											});
+										}}
+									/>
+								</div>
+								{#if errors.deadline}
+									<span class="label-text-alt text-error col-span-2 -mt-4">{errors.deadline}</span>
+								{/if}
+							</div>
+						{:else}
 							<div>
 								<DatePicker
-									label="Start Date"
-									value={$store.task.dateRange.start}
-									onChange={(value: string) => {
-										const start = value;
-										const end = $store.task.dateRange?.end ?? new Date().toISOString();
-										store.updateTask({
-											dateRange: {
-												start,
-												end
-											}
-										});
-									}}
+									label="Deadline"
+									value={$store.task.deadline}
+									onChange={(value: string) => store.updateTask({ deadline: value })}
 								/>
+								{#if errors.deadline}
+									<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
+								{/if}
 							</div>
-							<div>
-								<DatePicker
-									label="End Date"
-									value={$store.task.dateRange.end}
-									onChange={(value: string) => {
-										const end = value;
-										const start = $store.task.dateRange?.start ?? new Date().toISOString();
-										store.updateTask({
-											dateRange: {
-												start,
-												end
-											}
-										});
-									}}
-								/>
-							</div>
-							{#if errors.deadline}
-								<span class="label-text-alt text-error col-span-2 -mt-4">{errors.deadline}</span>
-							{/if}
-						</div>
-					{:else}
-						<div>
-							<DatePicker
-								label="Deadline"
-								value={$store.task.deadline}
-								onChange={(value: string) => store.updateTask({ deadline: value })}
-							/>
-							{#if errors.deadline}
-								<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
-							{/if}
-						</div>
-					{/if}
-				</div>
+						{/if}
+					</div>
 
-				<div class="w-full">
-					<label for="category" class="label">Category</label>
-					<Tags
-						options={$appStore.categories.map((cat) => ({
-							name: cat.name,
-							id: cat.id
-						}))}
-						selectedTags={$store.task.categoryIds}
-						onChange={(ids) => store.updateTask({ categoryIds: ids })}
-					/>
-					{#if errors.category}
-						<span class="label-text-alt text-error">{errors.category}</span>
-					{/if}
-				</div>
+					<div class="w-full">
+						<label for="category" class="label">Category</label>
+						<Tags
+							options={$appStore.categories.map((cat) => ({
+								name: cat.name,
+								id: cat.id
+							}))}
+							selectedTags={$store.task.categoryIds}
+							onChange={(ids) => store.updateTask({ categoryIds: ids })}
+						/>
+						{#if errors.category}
+							<span class="label-text-alt text-error">{errors.category}</span>
+						{/if}
+					</div>
 
-				<div class="w-full">
-					<label for="skills" class="label">Required Skills</label>
-					<Tags
-						options={$appStore.skills}
-						selectedTags={$store.task.skillIds}
-						onChange={(ids) => store.updateTask({ skillIds: ids })}
-					/>
-					{#if errors.skill}
-						<span class="label-text-alt text-error">{errors.skill}</span>
-					{/if}
+					<div class="w-full">
+						<label for="skills" class="label">Required Skills</label>
+						<Tags
+							options={$appStore.skills}
+							selectedTags={$store.task.skillIds}
+							onChange={(ids) => store.updateTask({ skillIds: ids })}
+						/>
+						{#if errors.skill}
+							<span class="label-text-alt text-error">{errors.skill}</span>
+						{/if}
+					</div>
 				</div>
 			{:else if $store.currentStep === 'location'}
-				<div class="space-y-4">
+				<div
+					class="space-y-4"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
 					<h3 class="text-lg font-semibold">Is this a removals task?</h3>
 					<div class="flex gap-4">
 						<button
@@ -387,7 +408,15 @@
 					</div>
 				</div>
 			{:else if $store.currentStep === 'budget'}
-				<div class="space-y-4">
+				<div
+					class="space-y-4"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
 					<h3 class="text-lg font-semibold">What's your budget?</h3>
 
 					<div class="flex gap-4">
@@ -475,7 +504,13 @@
 
 			<div class="mt-6 flex justify-between">
 				{#if $store.currentStep !== 'basics'}
-					<button class="btn" onclick={() => store.previousStep()}>Back</button>
+					<button
+						class="btn"
+						onclick={() => {
+							store.previousStep();
+							direction = 'backward';
+						}}>Back</button
+					>
 				{:else}
 					<div></div>
 				{/if}

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Bid, CounterOffer, Currency } from '$lib/types/bid';
+	import type { Bid, CounterOffer, Currency, TaskBid } from '$lib/types/bid';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 
 	// Props
 	const props = $props<{
-		bid: Bid;
+		bid: TaskBid;
 		onSubmit: (
 			bidId: string,
 			counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>

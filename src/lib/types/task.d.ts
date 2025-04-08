@@ -36,9 +36,11 @@ export interface Task {
 	description: string;
 	budget: number;
 	budgetType: BudgetTypeEnum;
+	currency?: string;
 	status: TaskStatusEnum;
 	taskType: TaskTypeEnum;
 	isRemovals: boolean;
+	isOwner?: boolean;
 	deadlineDate: string | null;
 	estimatedHours: number;
 	dateRange: DateRange | null;
@@ -52,6 +54,9 @@ export interface Task {
 	cancelledAt: string | null;
 	deletedAt: string | null;
 	isDeleted: boolean;
+	attachments?: {
+		images?: string[];
+	};
 	categories: Array<{
 		id: number;
 		taskId: number;

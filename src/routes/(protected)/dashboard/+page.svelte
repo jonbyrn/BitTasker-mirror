@@ -5,10 +5,14 @@
 	import { slide } from 'svelte/transition';
 	import taskService from '$lib/api/services/task.service';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
+	import TaskDrawer from '$lib/components/TaskDrawer.svelte';
 
 	let tasks = $state<Task[]>([]);
 	let loading = $state(false);
 	let activeTab = $state('tasks'); // 'tasks' or 'bids'
+	let selectedTaskId = $state<number | null>(null);
+	let drawerOpen = $state(false);
+	let drawerInitialTab = $state('details');
 
 	// Load tasks with filters
 	async function loadTasks() {
@@ -49,6 +53,15 @@
 			currency: 'USD'
 		}).format(amount);
 	}
+
+	// Task drawer functions
+	const openTaskDrawer = (taskId: number, tab: string = 'details') => {
+		selectedTaskId = taskId;
+		drawerInitialTab = tab;
+		drawerOpen = true;
+	}
+
+	const closeTaskDrawer = () => drawerOpen = false;
 </script>
 
 <div class="mb-6">
@@ -117,7 +130,12 @@
 							<div class="card bg-base-200 shadow-md transition-shadow hover:shadow-lg">
 								<div class="card-body">
 									<div class="flex justify-between">
-										<h3 class="card-title text-lg">{task.title}</h3>
+										<div class="flex gap-2 items-center">
+											<h3 class="card-title text-lg">{task.title}</h3>
+											{#if task.isOwner}
+												<span class="badge badge-sm badge-info">Your Task</span>
+											{/if}
+										</div>
 										<div
 											class="badge {task.status === 'OPEN'
 												? 'badge-success'
@@ -206,12 +224,18 @@
 									</div>
 
 									<div class="card-actions mt-2 justify-end">
-										<a href="/dashboard/task/{task.id}" class="btn btn-primary btn-sm"
-											>View Details</a
+										<button 
+											class="btn btn-primary btn-sm"
+											onclick={() => openTaskDrawer(task.id, 'details')}
 										>
-										<a href="/dashboard/task/{task.id}?tab=bids" class="btn btn-outline btn-sm"
-											>View Bids</a
+											View Details
+										</button>
+										<button 
+											class="btn btn-outline btn-sm"
+											onclick={() => openTaskDrawer(task.id, 'bids')}
 										>
+											View Bids
+										</button>
 									</div>
 								</div>
 							</div>
@@ -253,3 +277,11 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Task Drawer -->
+<TaskDrawer 
+	taskId={selectedTaskId} 
+	isOpen={drawerOpen} 
+	activeTab={drawerInitialTab}
+	onClose={closeTaskDrawer} 
+/>
