@@ -1,9 +1,7 @@
 import type {
 	Task,
-	GetTasksParams,
 	TaskResponse,
 	SearchTasksParams,
-	SearchTaskResponse
 } from '$lib/types/task.d';
 import type { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { BaseApiService } from '../apiService';
@@ -26,12 +24,12 @@ export class TaskService extends BaseApiService {
 	}
 
 	/**
-	 * Get all tasks with optional filtering parameters
-	 * @param params Optional parameters for filtering tasks
-	 * @returns Promise containing tasks and pagination data
-	 * @throws Error if retrieving tasks fails
-	 */
-	async getAllTasks(params: GetTasksParams = {}): Promise<TaskResponse> {
+	 * Search for tasks with optional search parameters
+	 * @param params Optional parameters for searching tasks
+	 * @returns Promise containing search results and pagination data
+	 * @throws Error if search fails
+	*/
+	async getAllTasks(params: SearchTasksParams = {}): Promise<TaskResponse> {
 		const response = await this.get<TaskResponse>(ENDPOINTS.TASKS.LIST, { params });
 		return response.data;
 	}
@@ -88,17 +86,6 @@ export class TaskService extends BaseApiService {
 	 */
 	async updateTaskStatus(id: string, status: TaskStatusEnum): Promise<Task> {
 		const response = await this.put<Task>(ENDPOINTS.TASKS.STATUS(id), { status });
-		return response.data;
-	}
-
-	/**
-	 * Search for tasks with optional search parameters
-	 * @param params Optional parameters for searching tasks
-	 * @returns Promise containing search results and pagination data
-	 * @throws Error if search fails
-	 */
-	async searchTasks(params: SearchTasksParams = {}): Promise<SearchTaskResponse> {
-		const response = await this.get<SearchTaskResponse>(ENDPOINTS.TASKS.SEARCH, { params });
 		return response.data;
 	}
 }

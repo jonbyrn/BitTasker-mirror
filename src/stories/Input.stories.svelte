@@ -1,5 +1,8 @@
-<script lang="ts" context="module">
-	export const meta = {
+<script lang="ts">
+	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Input from '$lib/components/Input.svelte';
+
+	const { Story } = defineMeta({
 		title: 'Components/Input',
 		component: Input,
 		tags: ['autodocs'],
@@ -22,72 +25,70 @@
 			},
 			options: { control: { type: 'object' } }
 		}
-	};
+	});
 </script>
 
-<!-- @storybook/addon-svelte-csf -->
-<script lang="ts">
-	import Input from '$lib/components/Input.svelte';
-	import type { InputProps } from '$lib/types/props';
-	import type { Meta, StoryFn } from '@storybook/svelte';
-</script>
+<Story
+	name="Default"
+	args={{ id: 'default-input', label: 'Default Input', placeholder: 'Enter some text...' }}
+/>
 
-<!-- Default -->
-<div class="w-96">
-	<Input id="default-input" label="Default Input" placeholder="Enter some text..." />
-</div>
+<Story
+	name="With Error"
+	args={{
+		id: 'error-input',
+		label: 'Input with Error',
+		placeholder: 'Enter some text...',
+		error: 'This field is required'
+	}}
+/>
 
-<!-- With Error -->
-<div class="w-96">
-	<Input
-		id="error-input"
-		label="Input with Error"
-		placeholder="Enter some text..."
-		error="This field is required"
-	/>
-</div>
-
-<!-- With Autocomplete -->
-<div class="w-96">
-	<Input
-		id="autocomplete-input"
-		label="Autocomplete Input"
-		placeholder="Start typing..."
-		autoComplete="on"
-		options={[
+<Story
+	name="With Autocomplete"
+	args={{
+		id: 'autocomplete-input',
+		label: 'Autocomplete Input',
+		placeholder: 'Start typing...',
+		autoComplete: 'on',
+		options: [
 			{ label: 'Option 1', value: '1' },
 			{ label: 'Option 2', value: '2' },
 			{ label: 'Option 3', value: '3' }
-		]}
-	/>
-</div>
+		]
+	}}
+/>
 
-<!-- As Select -->
-<div class="w-96">
-	<Input
-		id="select-input"
-		label="Select Input"
-		placeholder="Select an option..."
-		autoComplete="off"
-		options={[
+<Story
+	name="As Select"
+	args={{
+		id: 'select-input',
+		label: 'Select Input',
+		placeholder: 'Select an option...',
+		autoComplete: 'off',
+		options: [
 			{ label: 'Option 1', value: '1' },
 			{ label: 'Option 2', value: '2' },
 			{ label: 'Option 3', value: '3' }
-		]}
-	/>
-</div>
+		]
+	}}
+/>
 
-<!-- Number Input -->
-<div class="w-96">
-	<Input id="number-input" label="Number Input" type="number" placeholder="Enter a number..." />
-</div>
+<Story
+	name="Number Input"
+	args={{
+		id: 'number-input',
+		label: 'Number Input',
+		type: 'number',
+		placeholder: 'Enter a number...'
+	}}
+/>
 
-<!-- Password Input -->
-<div class="w-96">
-	<Input
-		id="password-input"
-		label="Password Input"
-		type="password"
-		placeholder="Enter password..."
-	/>
-</div>
+<Story
+	name="Password Input"
+	args={{
+		id: 'password-input',
+		label: 'Password Input',
+		type: 'password',
+		placeholder: 'Enter password...'
+	}}
+/>

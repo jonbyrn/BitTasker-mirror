@@ -1,3 +1,4 @@
+import type { TaskBid } from './bid';
 import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 export interface Location {
@@ -92,10 +93,10 @@ export interface Task {
 			isDeleted: boolean;
 		};
 	}>;
-	bids: any[];
+	bids: TaskBid[];
 }
 
-export interface GetTasksParams {
+export interface SearchTasksParams {
 	status?: TaskStatusEnum[];
 	categoryId?: number;
 	skillId?: number;
@@ -106,36 +107,72 @@ export interface GetTasksParams {
 	includeDeleted?: boolean;
 	page?: number;
 	limit?: number;
-}
-
-export interface SearchTasksParams extends GetTasksParams {
 	budgetType?: BudgetTypeEnum;
 	categoryIds?: number[];
 	skills?: number[];
 	location?: string;
 	radius?: number;
-	sortField?: 'createdAt' | 'updatedAt' | 'budget' | 'deadline' | 'title';
+	sortBy?: 'createdAt' | 'updatedAt' | 'budget' | 'deadline' | 'title';
 	sortOrder?: 'asc' | 'desc';
 }
 
+export interface TaskData extends Task {
+	visibility: 'PUBLIC';
+	isTemplated: false;
+	templateId: null;
+	isFromRecurring: false;
+	boostAmount: null;
+	boostEndDate: null;
+	client: {
+		id: number;
+		userId: number;
+		tasksCompleted: number;
+		tasksPosted: number;
+		averageRating: number | null;
+		level: number;
+		experiencePoints: number;
+		verificationLevel: string;
+		createdAt: string;
+		updatedAt: string;
+		user?: {
+			id: number;
+			email: string;
+		};
+	};
+	freelancerAssignments?: any[];
+	bids?: any[];
+}
+
+// export interface TaskWithRelations extends Task {
+// 	bids?: Array<{
+// 		id: number;
+// 		taskId: number;
+// 		bidderId: number;
+// 		amount: number;
+// 		currency: string;
+// 		message: string;
+// 		status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
+// 		createdAt: string;
+// 		updatedAt: string;
+// 		bidder?: {
+// 			id: number;
+// 			userId: number;
+// 			name: string;
+// 			averageRating?: number;
+// 			joined?: string;
+// 			level?: number;
+// 			experiencePoints?: number;
+// 		};
+// 	}>;
+// 	freelancerAssignments?: Array<any>;
+// }
+
 export interface TaskResponse {
-	data: Task[];
-	meta: {
+	data: TaskData[];
+	pagination: {
 		total: number;
 		page: number;
 		limit: number;
-		totalPages: number;
-		hasNextPage: boolean;
-		hasPreviousPage: boolean;
-	};
-}
-
-export interface SearchTaskResponse {
-	items: Task[];
-	meta: {
-		totalItems: number;
-		currentPage: number;
-		itemsPerPage: number;
 		totalPages: number;
 		hasNextPage: boolean;
 		hasPreviousPage: boolean;

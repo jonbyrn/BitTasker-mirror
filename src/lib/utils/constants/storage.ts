@@ -7,6 +7,10 @@ export const StorageKeys = {
 	DRAFT_TASK: 'bittasker_draft_task',
 	TASK_FILTERS: 'bittasker_task_filters',
 
+	// Bidding
+	BIDS: 'bittasker_bids',
+	COUNTER_OFFERS: 'bittasker_counter_offers',
+
 	// User preferences
 	ONBOARDING_COMPLETED: 'onboardingCompleted',
 	LANGUAGE_PREFERENCE_KEY: 'user_language',

@@ -57,11 +57,12 @@ export const ENDPOINTS = {
 
 	// Bid endpoints
 	BIDS: {
+		GET: `${API_PATH}/${API_VERSION}/${BIDS}`,
 		CREATE: `${API_PATH}/${API_VERSION}/${BIDS}`,
-		UPDATE: `${API_PATH}/${API_VERSION}/${BIDS}`,
-		WITHDRAW: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/withdraw`
+		UPDATE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`,
+		WITHDRAW: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/withdraw`,
+		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`
 	},
-
 	// Admin endpoints
 	ADMIN: {
 		SKILLS: `${API_PATH}/${API_VERSION}/${ADMIN}/skills`,

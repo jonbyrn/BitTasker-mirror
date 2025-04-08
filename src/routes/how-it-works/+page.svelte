@@ -184,7 +184,7 @@
 	<div class="relative z-10 mt-20 text-center">
 		<h3 class="mb-6 text-3xl font-bold">{$t('how_it_works.cta.title')}</h3>
 		<div class="flex justify-center gap-6">
-			<a href="/signup" class="btn btn-primary btn-lg">{$t('how_it_works.cta.create_account')}</a>
+			<a href="/auth" class="btn btn-primary btn-lg">{$t('how_it_works.cta.create_account')}</a>
 		</div>
 	</div>
 </div>
