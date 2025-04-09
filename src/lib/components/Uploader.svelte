@@ -88,7 +88,6 @@
 				processedCount++;
 			};
 		});
-
 	}
 
 	function removeFile(index: number) {

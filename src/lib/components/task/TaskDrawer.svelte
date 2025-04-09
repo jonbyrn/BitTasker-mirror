@@ -419,20 +419,33 @@
 								<h3 class="text-base-content/60 mb-1 text-sm">Attachments</h3>
 								<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
 									{#each task.attachments.images as image, i}
-										<button 
-											class="group relative overflow-hidden rounded-box"
+										<button
+											class="group rounded-box relative overflow-hidden"
 											onclick={() => (selectedImage = image)}
-											aria-label="View attachment {i+1}"
+											aria-label="View attachment {i + 1}"
 										>
 											<img
 												src={image}
-												alt="Task attachment {i+1}"
+												alt="Task attachment {i + 1}"
 												loading="lazy"
 												class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
 											/>
-											<div class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-												<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+											<div
+												class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-8 w-8 text-white"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+													/>
 												</svg>
 											</div>
 										</button>
@@ -732,8 +745,8 @@
 					</div>
 				{/if}
 				{#if selectedImage}
-					<div 
-						class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" 
+					<div
+						class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
 						onclick={() => (selectedImage = null)}
 						onkeydown={(e) => e.key === 'Escape' && (selectedImage = null)}
 						role="dialog"
@@ -741,17 +754,35 @@
 						aria-label="Image preview"
 						tabindex="-1"
 					>
-						<button 
-							class="absolute right-4 top-4 text-white" 
-							onclick={(e) => { e.stopPropagation(); selectedImage = null; }} 
+						<button
+							class="absolute top-4 right-4 text-white"
+							onclick={(e) => {
+								e.stopPropagation();
+								selectedImage = null;
+							}}
 							aria-label="Close image preview"
 						>
-							<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-8 w-8"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M6 18L18 6M6 6l12 12"
+								/>
 							</svg>
 						</button>
 						<div class="max-h-[90vh] max-w-[90vw] overflow-auto">
-							<img src={selectedImage} alt="Task attachment preview" class="max-h-full max-w-full object-contain" />
+							<img
+								src={selectedImage}
+								alt="Task attachment preview"
+								class="max-h-full max-w-full object-contain"
+							/>
 						</div>
 					</div>
 				{/if}

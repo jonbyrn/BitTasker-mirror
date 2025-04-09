@@ -109,7 +109,7 @@
 ></div>
 
 <div
-	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full sm:w-[70%] transform overflow-auto shadow-xl transition-transform duration-300 {props.isOpen
+	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full transform overflow-auto shadow-xl transition-transform duration-300 sm:w-[70%] {props.isOpen
 		? 'translate-x-0'
 		: 'translate-x-full'}"
 >

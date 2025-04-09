@@ -83,13 +83,10 @@ export class BidService extends BaseApiService {
 	 * @throws Error if counter offer creation fails
 	 */
 	async createCounterOffer(
-		bidId: string, 
+		bidId: string,
 		counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
 	): Promise<CounterOffer> {
-		const response = await this.post(
-			`${ENDPOINTS.BIDS.GET}/${bidId}/counter-offers`, 
-			counterOffer
-		);
+		const response = await this.post(`${ENDPOINTS.BIDS.GET}/${bidId}/counter-offers`, counterOffer);
 		return response.data;
 	}
 
@@ -100,13 +97,8 @@ export class BidService extends BaseApiService {
 	 * @returns Promise that resolves when the response is successful
 	 * @throws Error if response fails
 	 */
-	async respondToCounterOffer(
-		counterId: string, 
-		action: 'accept' | 'reject'
-	): Promise<void> {
-		const response = await this.post(
-			`${ENDPOINTS.BIDS.GET}/counter-offers/${counterId}/${action}`
-		);
+	async respondToCounterOffer(counterId: string, action: 'accept' | 'reject'): Promise<void> {
+		const response = await this.post(`${ENDPOINTS.BIDS.GET}/counter-offers/${counterId}/${action}`);
 		return response.data;
 	}
 }

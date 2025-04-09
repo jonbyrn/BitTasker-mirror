@@ -72,8 +72,8 @@ export const ENDPOINTS = {
 
 	// Upload endpoints
 	UPLOADS: {
-	  SINGLE: `${API_PATH}/${API_VERSION}/uploads/single`,
-	  MULTIPLE: `${API_PATH}/${API_VERSION}/uploads/multiple`,
-	  DELETE: (key: string) => `${API_PATH}/${API_VERSION}/uploads/${key}`
+		SINGLE: `${API_PATH}/${API_VERSION}/uploads/single`,
+		MULTIPLE: `${API_PATH}/${API_VERSION}/uploads/multiple`,
+		DELETE: (key: string) => `${API_PATH}/${API_VERSION}/uploads/${key}`
 	}
 };

@@ -51,7 +51,11 @@ function createTaskStore() {
 		const stored = await Preferences.get({ key: STORAGE_KEY });
 		if (stored.value) {
 			const parsedTask = JSON.parse(stored.value);
-			store.update((state) => ({ ...state, task: parsedTask, currentStep: parsedTask.currentStep || TaskStepEnum.BASICS }));
+			store.update((state) => ({
+				...state,
+				task: parsedTask,
+				currentStep: parsedTask.currentStep || TaskStepEnum.BASICS
+			}));
 		}
 	};
 

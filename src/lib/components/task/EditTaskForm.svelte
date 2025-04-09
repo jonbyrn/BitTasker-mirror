@@ -296,7 +296,8 @@
 					<LocationAutoComplete
 						label="Dropoff Location"
 						location={editedTask.dropOffLocation ?? undefined}
-						onLocationSelect={(location: Location) => handleInputChange('dropOffLocation', location)}
+						onLocationSelect={(location: Location) =>
+							handleInputChange('dropOffLocation', location)}
 					/>
 				{/if}
 			{/if}

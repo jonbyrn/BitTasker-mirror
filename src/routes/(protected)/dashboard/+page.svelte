@@ -59,9 +59,9 @@
 		selectedTaskId = taskId;
 		drawerInitialTab = tab;
 		drawerOpen = true;
-	}
+	};
 
-	const closeTaskDrawer = () => drawerOpen = false;
+	const closeTaskDrawer = () => (drawerOpen = false);
 </script>
 
 <div class="mb-6">
@@ -130,7 +130,7 @@
 							<div class="card bg-base-200 shadow-md transition-shadow hover:shadow-lg">
 								<div class="card-body">
 									<div class="flex justify-between">
-										<div class="flex gap-2 items-center">
+										<div class="flex items-center gap-2">
 											<h3 class="card-title text-lg">{task.title}</h3>
 											{#if task.isOwner}
 												<span class="badge badge-sm badge-info">Your Task</span>
@@ -224,13 +224,13 @@
 									</div>
 
 									<div class="card-actions mt-2 justify-end">
-										<button 
+										<button
 											class="btn btn-primary btn-sm"
 											onclick={() => openTaskDrawer(task.id, 'details')}
 										>
 											View Details
 										</button>
-										<button 
+										<button
 											class="btn btn-outline btn-sm"
 											onclick={() => openTaskDrawer(task.id, 'bids')}
 										>
@@ -279,9 +279,9 @@
 </div>
 
 <!-- Task Drawer -->
-<TaskDrawer 
-	taskId={selectedTaskId} 
-	isOpen={drawerOpen} 
+<TaskDrawer
+	taskId={selectedTaskId}
+	isOpen={drawerOpen}
 	activeTab={drawerInitialTab}
-	onClose={closeTaskDrawer} 
+	onClose={closeTaskDrawer}
 />

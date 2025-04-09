@@ -26,7 +26,7 @@ export interface Bid {
 
 	// Visibility and Responsiveness
 	visibility: Visibility;
-	milestones?: Array<{description: string}>;
+	milestones?: Array<{ description: string }>;
 	responseTime: number;
 
 	// Status Information
@@ -165,7 +165,7 @@ export interface CreateBidParams {
 	estimatedDuration: string;
 	proposedApproach: string;
 	coverLetter: string;
-	milestones?: Array<{description: string}>;
+	milestones?: Array<{ description: string }>;
 	visibility: Visibility;
 	responseTime: number;
 }

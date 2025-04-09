@@ -31,8 +31,8 @@
 		return status === 'accepted'
 			? 'badge-success'
 			: status === 'rejected'
-			? 'badge-error'
-			: 'badge-info';
+				? 'badge-error'
+				: 'badge-info';
 	}
 
 	function wasProposedByCurrentUser(proposedBy: string) {
@@ -50,11 +50,9 @@
 	{:else}
 		<div class="space-y-4">
 			{#each props.counterOffers as offer}
-				<div 
-					class="card bg-base-200 hover:bg-base-300 transition-colors border border-base-300"
-				>
+				<div class="card bg-base-200 hover:bg-base-300 border-base-300 border transition-colors">
 					<div class="card-body p-4">
-						<div class="flex justify-between items-start">
+						<div class="flex items-start justify-between">
 							<div>
 								<div class="badge {getStatusBadgeClasses(offer.status)} mb-2">
 									{offer.status.charAt(0).toUpperCase() + offer.status.slice(1)}
@@ -63,16 +61,16 @@
 									{formatCurrency(offer.price.amount, offer.price.currency)}
 								</h4>
 								{#if offer.timeFrame}
-									<p class="text-sm mt-1">
+									<p class="mt-1 text-sm">
 										Estimated completion: {offer.timeFrame.estimatedCompletion}
 									</p>
 								{/if}
 							</div>
 							<div class="text-right">
-								<p class="text-sm text-base-content/60">
+								<p class="text-base-content/60 text-sm">
 									{wasProposedByCurrentUser(offer.proposedBy) ? 'You' : 'They'} proposed
 								</p>
-								<p class="text-xs text-base-content/60">
+								<p class="text-base-content/60 text-xs">
 									{formatDate(offer.createdAt)}
 								</p>
 							</div>
@@ -83,16 +81,16 @@
 						</div>
 
 						{#if offer.status === 'pending' && !wasProposedByCurrentUser(offer.proposedBy)}
-							<div class="card-actions justify-end mt-3">
-								<button 
-									class="btn btn-sm btn-outline btn-error" 
+							<div class="card-actions mt-3 justify-end">
+								<button
+									class="btn btn-sm btn-outline btn-error"
 									onclick={() => handleResponse(offer.id, 'reject')}
 									disabled={isLoading}
 								>
 									Decline
 								</button>
-								<button 
-									class="btn btn-sm btn-primary" 
+								<button
+									class="btn btn-sm btn-primary"
 									onclick={() => handleResponse(offer.id, 'accept')}
 									disabled={isLoading}
 								>

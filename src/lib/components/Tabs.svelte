@@ -1,9 +1,5 @@
 <script lang="ts">
-	const {
-		tabs,
-		activeTab,
-		onTabChange
-	} = $props<{
+	const { tabs, activeTab, onTabChange } = $props<{
 		tabs: { id: string; label: string }[];
 		activeTab: string;
 		onTabChange: (tabId: string) => void;
@@ -27,18 +23,18 @@
 			const containerRect = tabContainer.getBoundingClientRect();
 			const activeElement = tabElements.get(activeTab)!;
 			const activeRect = activeElement.getBoundingClientRect();
-			
+
 			// Calculate position relative to container
 			const left = activeRect.left - containerRect.left;
 			const width = activeRect.width;
-			
+
 			sliderStyle = `left: ${left}px; width: ${width}px;`;
 		}
 	});
 	// Svelte action to bind tab elements
 	function bindTabElement(node: HTMLElement, id: string) {
 		registerTabElement(id, node);
-		
+
 		return {
 			update(newId: string) {
 				registerTabElement(newId, node);
@@ -66,10 +62,10 @@
 			</button>
 		{/each}
 	</div>
-	
+
 	<!-- Animated slider -->
-	<div 
-		class="tab-slider absolute bottom-0 h-0.5 bg-primary transition-all duration-300"
+	<div
+		class="tab-slider bg-primary absolute bottom-0 h-0.5 transition-all duration-300"
 		style={sliderStyle}
 	></div>
 </div>
@@ -78,7 +74,7 @@
 	.tabs-container {
 		overflow: hidden;
 	}
-	
+
 	.tab-slider {
 		height: 2px;
 		border-radius: 1px;
