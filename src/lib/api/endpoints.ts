@@ -13,6 +13,8 @@ const USERS = 'users';
 const TASKS = 'tasks';
 const BIDS = 'bid';
 const ADMIN = 'admin';
+const TASK_TEMPLATES = 'task-templates';
+const SERVICE_PACKAGES = 'service-packages';
 // const PAYMENTS = 'payments';
 // const MESSAGES = 'messages';
 
@@ -75,5 +77,25 @@ export const ENDPOINTS = {
 		SINGLE: `${API_PATH}/${API_VERSION}/uploads/single`,
 		MULTIPLE: `${API_PATH}/${API_VERSION}/uploads/multiple`,
 		DELETE: (key: string) => `${API_PATH}/${API_VERSION}/uploads/${key}`
+	},
+
+	// Task Templates endpoints
+	TASK_TEMPLATES: {
+		POST: `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}`,
+		GET: `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}`,
+		GET_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}/${id}`,
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}/${id}`,
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}/${id}`
+	},
+
+	// Service Packages endpoints
+	SERVICE_PACKAGES: {
+		POST: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}`,
+		GET: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}`, // get all user packages
+		GET_PUBLIC: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/public`, // get all public packages
+		GET_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, // get services package by id
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, 
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
+		PURCHASE_PACKAGE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
 	}
 };

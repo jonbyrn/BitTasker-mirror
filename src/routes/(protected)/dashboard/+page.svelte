@@ -6,6 +6,7 @@
 	import taskService from '$lib/api/services/task.service';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
+	import RecurringTasksPanel from '$lib/components/task/RecurringTasksPanel.svelte';
 
 	let tasks = $state<Task[]>([]);
 	let loading = $state(false);
@@ -103,6 +104,16 @@
 			id="tab-bids"
 		>
 			My Bids
+		</button>
+		<button
+			class="tab {activeTab === 'recurring' ? 'tab-active' : ''}"
+			onclick={() => (activeTab = 'recurring')}
+			role="tab"
+			aria-selected={activeTab === 'recurring'}
+			aria-controls="panel-recurring"
+			id="tab-recurring"
+		>
+			Recurring Tasks
 		</button>
 	</div>
 
@@ -273,6 +284,19 @@
 		>
 			<div class="card-body">
 				<DashboardBidsPanel />
+			</div>
+		</div>
+	{:else if activeTab === 'recurring'}
+		<!-- Recurring Tasks Panel -->
+		<div
+			id="panel-recurring"
+			role="tabpanel"
+			aria-labelledby="tab-recurring"
+			class="card bg-base-100 shadow-xl"
+			transition:slide={{ duration: 300 }}
+		>
+			<div class="card-body">
+				<RecurringTasksPanel />
 			</div>
 		</div>
 	{/if}
