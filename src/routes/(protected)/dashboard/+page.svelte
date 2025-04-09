@@ -5,7 +5,7 @@
 	import { slide } from 'svelte/transition';
 	import taskService from '$lib/api/services/task.service';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
-	import TaskDrawer from '$lib/components/TaskDrawer.svelte';
+	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 
 	let tasks = $state<Task[]>([]);
 	let loading = $state(false);
