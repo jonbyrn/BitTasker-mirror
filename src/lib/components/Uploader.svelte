@@ -77,7 +77,7 @@
 					files = newFiles;
 					error = '';
 					// Call onChange with the updated files array
-					onChange(files);
+					onChange(files as File[]);
 				}
 			};
 
@@ -92,7 +92,7 @@
 
 	function removeFile(index: number) {
 		files = files.filter((_, i) => i !== index);
-		onChange(files);
+		onChange(files as File[]);
 		error = '';
 	}
 </script>
@@ -121,7 +121,7 @@
 		{#each files as file, index}
 			<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
 				<img
-					src={URL.createObjectURL(file)}
+					src={typeof file === 'string' ? file : URL.createObjectURL(file)}
 					alt="Preview"
 					class="h-full w-full rounded-lg object-cover"
 				/>

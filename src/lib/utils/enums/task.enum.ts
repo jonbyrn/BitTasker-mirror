@@ -6,7 +6,8 @@ export enum BudgetTypeEnum {
 export enum TaskStepEnum {
 	BASICS = 'basics',
 	LOCATION = 'location',
-	BUDGET = 'budget'
+	BUDGET = 'budget',
+	RECURRING = 'recurring'
 }
 
 export enum TaskStatusEnum {

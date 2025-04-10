@@ -13,18 +13,7 @@
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import DatePicker from '$lib/components/Date/DatePicker.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import RecurrencePatternSelector from '$lib/components/task/RecurrencePatternSelector.svelte';
-	import {
-		RECURRINGFREQUENCYENUM,
-		BUDGETCURRENCY,
-		BUDGETTYPE,
-		TIMINGTYPE,
-		TIMINGTIMEOFDAY,
-		LOCATIONTYPE,
-		TASKCATEGORY,
-		TASKSKILL
-	} from '$lib/utils/enums/recurringTask.enums';
-	import type { RecurrencePattern } from '$lib/types/recurring-tasks';
+	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 
 	onMount(() => {
 		store.loadDraft();
@@ -33,95 +22,10 @@
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
-	let isRecurringTask = $state(false);
-	let generationPreview = $state<string[]>([]);
-	
-	// Recurring task data structure
-	const recurringTaskData = $state({
-		recurrencePattern: {
-			frequency: RECURRINGFREQUENCYENUM.WEEKLY,
-			interval: 1,
-			daysOfWeek: [1], // Monday by default
-			dayOfMonth: 1,
-			endDate: '',
-			maxOccurrences: 12
-		},
-		timing: {
-			timeOfDay: TIMINGTIMEOFDAY.MORNING
-		},
-		details: {
-			category: TASKCATEGORY.OTHER
-		}
-	});
-	
-	// Generate preview of upcoming task dates
-	async function generatePreview() {
-		if (!$store.task.title) return;
-		
-		try {
-			// Convert skill IDs to TASKSKILL enum values
-			const skillEnums = ($store.task.skillIds || []).map(id => {
-				// This is a simplification - you'd need a proper mapping from skill IDs to enum values
-				return Object.values(TASKSKILL)[0];
-			});
-			
-			const preview = {
-				title: $store.task.title || 'Untitled Task',
-				description: $store.task.description || '',
-				recurrencePattern: recurringTaskData.recurrencePattern,
-				timing: {
-					type: $store.task.deadline ? TIMINGTYPE.BEFORE_DATE : TIMINGTYPE.FLEXIBLE,
-					timeOfDay: recurringTaskData.timing.timeOfDay,
-					dueDate: $store.task.deadline || null
-				},
-				location: {
-					type: $store.task.taskType === TaskTypeEnum.IN_PERSON ? LOCATIONTYPE.IN_PERSON : LOCATIONTYPE.ONLINE,
-					isRemovalsTask: $store.isRemovals,
-					pickup: {
-						zipCode: $store.task.pickupLocation?.zipCode || null
-					},
-					dropoff: {
-						zipCode: $store.task.dropOffLocation?.zipCode || null
-					}
-				},
-				details: {
-					summary: $store.task.description || '',
-					category: recurringTaskData.details.category,
-					requiredSkills: skillEnums,
-					attachments: {
-						images: []
-					}
-				},
-				budget: {
-					amount: $store.task.budget || 0,
-					currency: BUDGETCURRENCY.BTC,
-					type: $store.task.budgetType === BudgetTypeEnum.FIXED ? BUDGETTYPE.FIXED : BUDGETTYPE.HOURLY,
-					estimatedHours: $store.task.estimatedHours || 1
-				}
-			};
-			console.log(preview)
-		} catch (err) {
-			console.error('Error generating preview:', err);
-		}
-	}
-	
-	// Update recurrence pattern
-	function updateRecurrencePattern(pattern: RecurrencePattern) {
-		// Ensure all fields have proper default values to satisfy the type
-		recurringTaskData.recurrencePattern = {
-			frequency: pattern.frequency || RECURRINGFREQUENCYENUM.WEEKLY,
-			interval: pattern.interval || 1,
-			daysOfWeek: pattern.daysOfWeek || [1],
-			dayOfMonth: pattern.dayOfMonth || 1,
-			endDate: pattern.endDate || '',
-			maxOccurrences: pattern.maxOccurrences || 12
-		};
-		generatePreview();
-	}
+	let direction: 'forward' | 'backward' = $state('forward');
 
 	function validateCurrentStep(): boolean {
 		errors = {};
-
 		switch ($store.currentStep) {
 			case 'basics':
 				if (!$store.task.title?.trim()) errors.title = 'Title is required';
@@ -181,11 +85,17 @@
 	const handleFileUpload = async (files: File[]) => {
 		if (files) {
 			const uploadedFiles = await uploadService.uploadMultipleFiles(files);
-			console.log(uploadedFiles);
+			uploadedFiles.forEach((file) => {
+				if (!$store.task.attachments) return;
+				$store.task.attachments.push({
+					url: file.url,
+					key: file.key,
+					type: 'image'
+				});
+			});
 		}
 	};
 
-	let direction: 'forward' | 'backward' = $state('forward');
 	const handleNext = () => {
 		if (validateCurrentStep()) {
 			store.nextStep();
@@ -200,55 +110,23 @@
 		isSubmitting = true;
 
 		try {
-			if (isRecurringTask) {
-				// Convert skill IDs to TASKSKILL enum values for recurring task
-				const skillEnums = ($store.task.skillIds || []).map(id => {
-					// This is a simplification - you'd need a proper mapping from skill IDs to enum values
-					return Object.values(TASKSKILL)[0];
-				});
-
-				// Create a recurring task template
-				const template = await recurringTasksService.createTemplate({
-					title: $store.task.title,
-					description: $store.task.description,
-					recurrencePattern: recurringTaskData.recurrencePattern,
-					timing: {
-						type: $store.task.deadline ? TIMINGTYPE.BEFORE_DATE : TIMINGTYPE.FLEXIBLE,
-						timeOfDay: recurringTaskData.timing.timeOfDay,
-						dueDate: $store.task.deadline || null
-					},
-					location: {
-						type: $store.task.taskType === TaskTypeEnum.IN_PERSON ? LOCATIONTYPE.IN_PERSON : LOCATIONTYPE.ONLINE,
-						isRemovalsTask: $store.isRemovals,
-						pickup: {
-							zipCode: $store.task.pickupLocation?.zipCode || null
-						},
-						dropoff: {
-							zipCode: $store.task.dropOffLocation?.zipCode || null
-						}
-					},
-					details: {
-						summary: $store.task.description,
-						category: recurringTaskData.details.category,
-						requiredSkills: skillEnums,
-						attachments: {
-							images: []
-						}
-					},
-					budget: {
-						amount: $store.task.budget,
-						currency: BUDGETCURRENCY.BTC,
-						type: $store.task.budgetType === BudgetTypeEnum.FIXED ? BUDGETTYPE.FIXED : BUDGETTYPE.HOURLY,
-						estimatedHours: $store.task.estimatedHours || 1
-					}
-				});
-				
-				console.log('Created recurring task template:', template);
+			if ($store.recurringTask.isRecurring) {
+				// Create recurring task template
+				const data = {
+					isRecurring: true,
+					name: $store.recurringTask.name,
+					description: $store.recurringTask.description,
+					recurrencePattern: $store.recurringTask.recurrencePattern,
+					task: $store.task
+				};
+				return console.log(data);
+				const res = await recurringTasksService.createTemplate(data);
+				console.log(res);
 			} else {
 				// Create a regular task
 				await taskService.createTask($store.task);
 			}
-			
+
 			isSubmitted = true;
 			await store.clearDraft();
 
@@ -275,24 +153,20 @@
 			<h2 class="card-title text-2xl">Create a New Task</h2>
 			<div class="text-sm">Step {STEPS.indexOf($store.currentStep) + 1} of {STEPS.length}</div>
 		</div>
-		
+
 		<!-- Recurring Task Toggle -->
-		<div class="form-control w-full max-w-xs mt-2 mb-4">
+		<div class="form-control mt-2 mb-4 w-full max-w-xs">
 			<label class="label cursor-pointer">
 				<span class="label-text font-medium">Create as recurring task</span>
-				<input 
-					type="checkbox" 
-					class="toggle toggle-primary" 
-					bind:checked={isRecurringTask} 
-					onchange={() => {
-						if (isRecurringTask && $store.currentStep === 'budget') {
-							generatePreview();
-						}
-					}}
+				<input
+					type="checkbox"
+					class="toggle toggle-primary"
+					bind:checked={$store.recurringTask.isRecurring}
+					onchange={(event) => store.setupRecurringTask((event.target as HTMLInputElement).checked)}
 				/>
 			</label>
-			{#if isRecurringTask}
-				<div class="text-sm text-info">This task will repeat based on the schedule you set</div>
+			{#if $store.recurringTask.isRecurring}
+				<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
 			{/if}
 		</div>
 
@@ -506,13 +380,13 @@
 
 						<div class="flex gap-4">
 							<button
-								class="btn {$store.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
+								class="btn {$store.task?.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
 								onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 							>
 								In-person
 							</button>
 							<button
-								class="btn {$store.task.taskType === TaskTypeEnum.REMOTE
+								class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE
 									? 'btn-primary'
 									: 'btn-outline'}"
 								onclick={() => {
@@ -539,7 +413,7 @@
 							</button>
 						</div>
 
-						{#if $store.task.taskType === TaskTypeEnum.IN_PERSON}
+						{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 							<div class="w-full">
 								<LocationAutoComplete
 									label="Location"
@@ -567,6 +441,7 @@
 						<Uploader
 							id="attachments"
 							label="Attachments"
+							files={$store.task.attachments?.map((file) => file.url)}
 							maxFiles={5}
 							maxFileSize={10}
 							onChange={handleFileUpload}
@@ -614,7 +489,6 @@
 							value={$store.task.budget}
 							onchange={(e) => {
 								store.updateTask({ budget: parseFloat((e.target as HTMLInputElement).value) });
-								if (isRecurringTask) generatePreview();
 							}}
 							class="input input-bordered w-full {errors.budget ? 'input-error' : ''}"
 							placeholder="Enter your budget"
@@ -639,7 +513,6 @@
 									store.updateTask({
 										estimatedHours: parseInt((e.target as HTMLInputElement).value)
 									});
-									if (isRecurringTask) generatePreview();
 								}}
 								class="input input-bordered w-full"
 								placeholder="Estimated hours needed"
@@ -659,7 +532,6 @@
 								value={$store.task.description}
 								onchange={(e) => {
 									store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
-									if (isRecurringTask) generatePreview();
 								}}
 								class="textarea textarea-bordered h-32 w-full {errors.description
 									? 'textarea-error'
@@ -671,47 +543,67 @@
 							<span class="label-text-alt text-error">{errors.description}</span>
 						{/if}
 					</div>
-					
-					<!-- Recurring Task Section -->
-					{#if isRecurringTask}
-						<div class="divider mt-6 mb-4">Recurring Task Schedule</div>
-						
-						<!-- Recurrence Pattern Selector -->
-						<div class="mb-6">
-							<h4 class="font-medium text-lg mb-2">How often should this task repeat?</h4>
-							<RecurrencePatternSelector
-								pattern={recurringTaskData.recurrencePattern}
-								onUpdate={updateRecurrencePattern}
-							/>
-						</div>
-						
-						<!-- Generation Preview -->
-						{#if generationPreview.length > 0}
-							<div class="my-6">
-								<h4 class="font-medium text-lg mb-2">Task Generation Preview</h4>
-								<div class="bg-base-200 rounded-box p-4">
-									<p class="mb-2 text-sm">
-										Based on your settings, tasks will be generated on these dates:
-									</p>
-									<ul class="max-h-32 overflow-y-auto pl-5 text-sm list-disc">
-										{#each generationPreview.slice(0, 10) as date}
-											<li>{new Date(date).toLocaleDateString()}</li>
-										{/each}
-										{#if generationPreview.length > 10}
-											<li class="italic">...and {generationPreview.length - 10} more instances</li>
-										{/if}
-									</ul>
-								</div>
-							</div>
-						{:else}
-							<div class="alert alert-info">
-								<span>Complete all required fields to see when your tasks will be scheduled.</span>
-							</div>
+				</div>
+			{:else if $store.currentStep === 'recurring'}
+				<div
+					class="space-y-4"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
+					<div class="w-full">
+						<label for="name" class="label">
+							<span class="label-text">Recurring Task Name</span>
+						</label>
+						<input
+							type="text"
+							id="name"
+							value={$store.recurringTask.name}
+							onchange={(e) =>
+								store.updateRecurringDetails({ name: (e.target as HTMLInputElement).value })}
+							class="input input-bordered w-full {errors.name ? 'input-error' : ''}"
+							placeholder="e.g. Weekly Sofa Pickup"
+						/>
+						{#if errors.name}
+							<span class="label-text-alt text-error">{errors.name}</span>
 						{/if}
-					{/if}
+					</div>
+
+					<div class="w-full">
+						<label for="description">
+							<span class="label-text">Recurring Task Details</span>
+						</label>
+						<textarea
+							id="description"
+							value={$store.recurringTask.description}
+							onchange={(e) =>
+								store.updateRecurringDetails({
+									description: (e.target as HTMLTextAreaElement).value
+								})}
+							class="textarea textarea-bordered h-32 w-full {errors.description
+								? 'textarea-error'
+								: ''}"
+							placeholder="Describe your recurring task in detail"
+						></textarea>
+						{#if errors.description}
+							<span class="label-text-alt text-error">{errors.description}</span>
+						{/if}
+					</div>
+
+					<div class="divider mt-6 mb-4">Recurring Task Schedule</div>
+
+					<!-- Recurrence Pattern Selector -->
+					<div class="mb-6">
+						<h4 class="mb-2 text-lg font-medium">How often should this task repeat?</h4>
+						<RecurrencePattern pattern={$store.recurringTask.recurrencePattern} />
+					</div>
 				</div>
 			{/if}
 
+			<!-- Control buttons -->
 			<div class="mt-6 flex justify-between">
 				{#if $store.currentStep !== 'basics'}
 					<button
@@ -725,7 +617,7 @@
 					<div></div>
 				{/if}
 
-				{#if $store.currentStep === 'budget'}
+				{#if STEPS.indexOf($store.currentStep) === STEPS.length - 1}
 					<button
 						class="btn btn-primary {isSubmitting ? 'loading' : ''}"
 						onclick={handleSubmit}
@@ -733,7 +625,7 @@
 					>
 						{#if isSubmitting}
 							<span></span>
-						{:else if isRecurringTask}
+						{:else if $store.recurringTask.isRecurring}
 							Create Recurring Template
 						{:else}
 							Get Quotes

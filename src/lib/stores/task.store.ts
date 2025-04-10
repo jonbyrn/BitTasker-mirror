@@ -1,11 +1,13 @@
-import { type CreateTaskParams } from '$lib/types/task.d';
+import type { CreateTaskParams } from '$lib/types/task.d';
+import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { TaskStepEnum } from '$lib/utils/enums/task.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { get, writable } from 'svelte/store';
+import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
-export const STEPS = [TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET];
+export let STEPS = [TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET];
 
 function createTaskStore() {
 	const initialState = {
@@ -36,7 +38,8 @@ function createTaskStore() {
 			dateRange: {
 				start: new Date().toISOString(),
 				end: 'null'
-			}
+			},
+			attachments: []
 		} as CreateTaskParams,
 		id: '',
 		isRemovals: false,
@@ -44,28 +47,51 @@ function createTaskStore() {
 		isEditing: false
 	};
 
-	const store = writable(initialState);
+	const recurringTask = {
+		isRecurring: false,
+		name: '',
+		description: '',
+		recurrencePattern: {
+			frequency: RECURRINGFREQUENCYENUM.WEEKLY,
+			interval: 1,
+			daysOfWeek: [1], // Monday by default
+			dayOfMonth: 1,
+			endDate: '',
+			maxOccurrences: 12
+		},
+	}
+
+	const store = writable({ ...initialState, recurringTask });
 
 	// Load draft from preferences
 	const loadDraft = async () => {
 		const stored = await Preferences.get({ key: STORAGE_KEY });
 		if (stored.value) {
-			const parsedTask = JSON.parse(stored.value);
+			const parsedData = JSON.parse(stored.value);
 			store.update((state) => ({
 				...state,
-				task: parsedTask,
-				currentStep: parsedTask.currentStep || TaskStepEnum.BASICS
+				task: { ...parsedData.task },
+				currentStep: parsedData.currentStep || TaskStepEnum.BASICS,
+				recurringTask: { ...parsedData.recurringTask }
 			}));
+			if (parsedData.recurringTask.isRecurring) {
+				STEPS.push(TaskStepEnum.RECURRING);
+			}
 		}
 	};
 
+
 	// Save draft to preferences
 	const saveDraft = async () => {
-		const task = get(store);
-		if (task) {
+		const storeData = get(store);
+		if (storeData) {
 			await Preferences.set({
 				key: STORAGE_KEY,
-				value: JSON.stringify({ ...task.task, currentStep: task.currentStep })
+				value: JSON.stringify({
+					currentStep: storeData.currentStep,
+					task: storeData.task,
+					recurringTask: storeData.recurringTask
+				})
 			});
 		}
 	};
@@ -73,7 +99,7 @@ function createTaskStore() {
 	// Clear draft from preferences
 	const clearDraft = async () => {
 		await Preferences.remove({ key: STORAGE_KEY });
-		store.set(initialState);
+		store.set({ ...initialState, recurringTask });
 	};
 
 	// Navigation between steps
@@ -91,6 +117,9 @@ function createTaskStore() {
 	const previousStep = () => {
 		store.update((state) => {
 			const currentIndex = STEPS.indexOf(state.currentStep);
+			if (currentIndex === -1 && state.currentStep === TaskStepEnum.RECURRING) {
+				return { ...state, currentStep: TaskStepEnum.BUDGET };
+			}
 			if (currentIndex > 0) {
 				return { ...state, currentStep: STEPS[currentIndex - 1] };
 			}
@@ -111,6 +140,33 @@ function createTaskStore() {
 		saveDraft();
 	};
 
+	// Setup recurring task
+	const setupRecurringTask = (isRecurring: boolean) => {
+		store.update((state) => ({
+			...state,
+			recurringTask: { ...state.recurringTask, isRecurring }
+		}));
+		if (isRecurring) {
+			STEPS.push(TaskStepEnum.RECURRING);
+		} else {
+			STEPS.splice(STEPS.indexOf(TaskStepEnum.RECURRING), 1);
+		}
+		saveDraft();
+	};
+
+	// Update recurring task data
+	const updateRecurringDetails = (updates: Partial<typeof recurringTask>) => {
+		store.update((state) => ({
+			...state,
+			recurringTask: { ...state.recurringTask, ...updates }
+		}));
+		saveDraft();
+	};
+
+	const updateRecurrencePattern = (updates: Partial<RecurrencePattern>) => {
+		updateRecurringDetails({ recurrencePattern: { ...recurringTask.recurrencePattern, ...updates } });
+	}
+
 	return {
 		set: store.set,
 		subscribe: store.subscribe,
@@ -121,7 +177,10 @@ function createTaskStore() {
 		nextStep,
 		previousStep,
 		setStep,
-		updateTask
+		updateTask,
+		setupRecurringTask,
+		updateRecurringDetails,
+		updateRecurrencePattern
 	};
 }
 

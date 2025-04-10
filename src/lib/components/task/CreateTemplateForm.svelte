@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { TaskTemplate } from '$lib/types/recurring-tasks';
 	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
-	import RecurrencePatternSelector from '$lib/components/task/RecurrencePatternSelector.svelte';
+	import RecurrencePatternSelector from '$lib/components/task/RecurrencePattern.svelte';
 	import {
 		RECURRINGFREQUENCYENUM,
 		TIMINGTYPE,

@@ -27,6 +27,7 @@ export interface CreateTaskParams {
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	dateRange?: DateRange;
+	attachments?: { url: string; key: string, type: string }[];
 }
 
 export interface Task {

@@ -1,4 +1,4 @@
-import type { Task, TaskResponse, SearchTasksParams } from '$lib/types/task.d';
+import type { Task, TaskResponse, SearchTasksParams, CreateTaskParams } from '$lib/types/task.d';
 import type { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
@@ -14,7 +14,7 @@ export class TaskService extends BaseApiService {
 	 * @returns Promise containing the created task
 	 * @throws Error if task creation fails
 	 */
-	async createTask(task: Partial<Task>): Promise<Task> {
+	async createTask(task: Partial<CreateTaskParams>): Promise<Task> {
 		const response = await this.post<Task>(ENDPOINTS.TASKS.CREATE, task);
 		return response.data;
 	}

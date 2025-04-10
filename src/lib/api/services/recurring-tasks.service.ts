@@ -1,4 +1,4 @@
-import type { TaskTemplate } from '$lib/types/recurring-tasks';
+import type { CreateRecurringTaskParams, TaskTemplate } from '$lib/types/recurring-tasks';
 import { ENDPOINTS } from '../endpoints';
 import { BaseApiService } from '../apiService';
 
@@ -37,7 +37,7 @@ class RecurringTasksService extends BaseApiService {
   /**
    * Create a new task template
    */
-  async createTemplate(template: Omit<TaskTemplate, 'id' | 'createdAt' | 'createdBy' | 'status'>): Promise<TaskTemplate> {
+  async createTemplate(template: CreateRecurringTaskParams): Promise<TaskTemplate> {
     try {
       const response = await this.post<TaskTemplate>(ENDPOINTS.TASK_TEMPLATES.POST, template);
       return response.data;

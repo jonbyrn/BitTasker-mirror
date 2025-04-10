@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { RecurrencePattern } from '$lib/types/recurring-tasks';
+	import { taskStore } from '$lib/stores/task.store';
 	import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
+	import Input from '../Input.svelte';
+	import DatePicker from '../Date/DatePicker.svelte';
 
-	let { pattern, onUpdate } = $props<{
-		pattern: RecurrencePattern;
-		onUpdate: (pattern: RecurrencePattern) => void;
-	}>();
+	let { pattern } = $props<{ pattern: RecurrencePattern }>();
 
 	const localPattern = $state<RecurrencePattern>({
 		frequency: pattern.frequency,
@@ -51,8 +51,7 @@
 	}
 
 	// Handle frequency change
-	function handleFrequencyChange(event: Event) {
-		const value = (event.target as HTMLSelectElement).value as RECURRINGFREQUENCYENUM;
+	function handleFrequencyChange(value: RECURRINGFREQUENCYENUM) {
 		localPattern.frequency = value;
 
 		// Set reasonable defaults for the selected frequency
@@ -88,7 +87,7 @@
 
 	// Emit the updated pattern to parent
 	function emitUpdate() {
-		onUpdate({ ...localPattern });
+		taskStore.updateRecurrencePattern(localPattern);
 	}
 
 	// Initialize with props
@@ -108,21 +107,23 @@
 		<label class="label" for="frequency">
 			<span class="label-text">How often should this task repeat?</span>
 		</label>
-		<select
-			class="select select-bordered w-full"
+		<Input
+			id="frequency"
+			type="select"
 			value={localPattern.frequency}
-			onchange={handleFrequencyChange}
-		>
-			<option value={RECURRINGFREQUENCYENUM.DAILY}>Daily</option>
-			<option value={RECURRINGFREQUENCYENUM.WEEKLY}>Weekly</option>
-			<option value={RECURRINGFREQUENCYENUM.BIWEEKLY}>Every 2 weeks</option>
-			<option value={RECURRINGFREQUENCYENUM.MONTHLY}>Monthly</option>
-			<option value={RECURRINGFREQUENCYENUM.CUSTOM}>Custom</option>
-		</select>
+			onChange={({ value }) => handleFrequencyChange(value as RECURRINGFREQUENCYENUM)}
+			options={[
+				{ value: RECURRINGFREQUENCYENUM.DAILY, label: 'Daily' },
+				{ value: RECURRINGFREQUENCYENUM.WEEKLY, label: 'Weekly' },
+				{ value: RECURRINGFREQUENCYENUM.BIWEEKLY, label: 'Every 2 weeks' },
+				{ value: RECURRINGFREQUENCYENUM.MONTHLY, label: 'Monthly' },
+				{ value: RECURRINGFREQUENCYENUM.CUSTOM, label: 'Custom' }
+			]}
+		/>
 	</div>
 
 	<!-- Frequency-specific options -->
-	<div class="mb-4">
+	<div class="mb-8">
 		{#if localPattern.frequency === RECURRINGFREQUENCYENUM.DAILY}
 			<div class="form-control">
 				<label class="label" for="interval">
@@ -158,7 +159,7 @@
 				</div>
 			</div>
 
-			<div class="form-control">
+			<div class="form-control space-y-1">
 				<label class="label" for="daysOfWeek">
 					<span class="label-text">On these days:</span>
 				</label>
@@ -177,37 +178,39 @@
 				</div>
 			</div>
 		{:else if localPattern.frequency === RECURRINGFREQUENCYENUM.MONTHLY}
-			<div class="form-control mb-4">
-				<label class="label" for="interval">
-					<span class="label-text">Repeat every</span>
-				</label>
-				<div class="flex items-center gap-2">
-					<input
-						type="number"
-						class="input input-bordered w-24"
-						min="1"
-						max="12"
-						value={localPattern.interval}
-						onchange={handleIntervalChange}
-					/>
-					<span>month(s)</span>
+			<div class="flex justify-start items-center gap-4">
+				<div class="form-control w-full">
+					<label class="label" for="interval">
+						<span class="label-text">Repeat every</span>
+					</label>
+					<div class="flex items-center gap-2">
+						<input
+							type="number"
+							class="input input-bordered w-24"
+							min="1"
+							max="12"
+							value={localPattern.interval}
+							onchange={handleIntervalChange}
+						/>
+						<span>month(s)</span>
+					</div>
 				</div>
-			</div>
 
-			<div class="form-control">
-				<label class="label" for="dayOfMonth">
-					<span class="label-text">On day</span>
-				</label>
-				<div class="flex items-center gap-2">
-					<input
-						type="number"
-						class="input input-bordered w-24"
-						min="1"
-						max="31"
-						value={localPattern.dayOfMonth}
-						onchange={handleDayOfMonthChange}
-					/>
-					<span>of the month</span>
+				<div class="form-control w-full">
+					<label class="label" for="dayOfMonth">
+						<span class="label-text">On day</span>
+					</label>
+					<div class="flex items-center gap-2">
+						<input
+							type="number"
+							class="input input-bordered w-24"
+							min="1"
+							max="31"
+							value={localPattern.dayOfMonth}
+							onchange={handleDayOfMonthChange}
+						/>
+						<span>of the month</span>
+					</div>
 				</div>
 			</div>
 		{:else if localPattern.frequency === RECURRINGFREQUENCYENUM.CUSTOM}
@@ -240,22 +243,20 @@
 			<label class="label" for="endDate">
 				<span class="label-text">End Date (optional)</span>
 			</label>
-			<input
-				type="date"
-				class="input input-bordered w-full"
+			<DatePicker
 				value={localPattern.endDate}
-				onchange={handleEndDateChange}
+				onChange={handleEndDateChange}
 			/>
 		</div>
 
-		<div class="form-control md:w-1/2">
+		<div class="form-control md:w-1/2 space-y-2">
 			<label class="label" for="maxOccurrences">
 				<span class="label-text">Maximum Occurrences</span>
 			</label>
 			<div class="flex items-center gap-2">
 				<input
 					type="number"
-					class="input input-bordered w-full"
+					class="input input-bordered w-full h-10"
 					min="1"
 					max="365"
 					value={localPattern.maxOccurrences}
