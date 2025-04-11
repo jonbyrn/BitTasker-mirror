@@ -28,6 +28,11 @@
 	let currentTab = $state('details'); // 'details' or 'bids'
 	let isEditing = $state(false);
 	let selectedImage = $state<string | null>(null);
+	// Bid withdrawal state
+	let withdrawalReason = $state('');
+	let bidToWithdraw = $state<string | null>(null); // Now storing just the bid ID
+	let withdrawingBid = $state(false);
+	let withdrawalError = $state('');
 	let selectedBid = $state<TaskBid | null>(null);
 	let expandedBidId = $state<string | null>(null);
 	let showCounterOfferForm = $state(false);
@@ -77,8 +82,8 @@
 			loading = true;
 			errorMessage = '';
 
-			const taskData = await taskService.getTaskById(taskId);
-			task = taskData;
+			const res = await taskService.getTaskById(taskId);
+			task = res;
 			bids = task.bids;
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -121,13 +126,49 @@
 		}
 	}
 
-	async function handleWithdrawBid(bid: TaskBid) {
+	function toggleBidWithdrawal(bidId: string) {
+		// If we're already withdrawing this bid, cancel withdrawal mode
+		if (bidToWithdraw === bidId) {
+			bidToWithdraw = null;
+			withdrawalReason = '';
+			withdrawalError = '';
+			return;
+		}
+
+		// Otherwise, enter withdrawal mode for this bid
+		withdrawalReason = '';
+		withdrawalError = '';
+		bidToWithdraw = bidId;
+
+		// Make sure the bid details are expanded
+		if (expandedBidId !== bidId) {
+			// expandedBidId = bidId;
+		}
+	}
+
+	async function handleWithdrawBid(bidId: string) {
+		// Validate reason is provided
+		if (!withdrawalReason.trim()) {
+			withdrawalError = 'Please provide a reason for withdrawing your bid';
+			return;
+		}
+
 		try {
-			await bidService.withdrawBid(bid.id);
+			withdrawingBid = true;
+			withdrawalError = '';
+			await bidService.withdrawBid(bidId, withdrawalReason.trim());
+
+			// Reset state
+			withdrawalReason = '';
+			bidToWithdraw = null;
+
 			// Refresh task to update status and bids
 			await loadTaskDetails(props.taskId!);
 		} catch (error) {
 			console.error('Error withdrawing bid:', error);
+			withdrawalError = 'Failed to withdraw bid. Please try again.';
+		} finally {
+			withdrawingBid = false;
 		}
 	}
 
@@ -414,18 +455,18 @@
 						{/if}
 
 						<!-- Task attachments -->
-						{#if task.attachments && task.attachments.images && task.attachments.images.length > 0}
+						{#if task.attachments && task.attachments.length > 0}
 							<div>
 								<h3 class="text-base-content/60 mb-1 text-sm">Attachments</h3>
 								<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-									{#each task.attachments.images as image, i}
+									{#each task.attachments as image, i}
 										<button
 											class="group rounded-box relative overflow-hidden"
-											onclick={() => (selectedImage = image)}
+											onclick={() => (selectedImage = image.fileUrl)}
 											aria-label="View attachment {i + 1}"
 										>
 											<img
-												src={image}
+												src={image.fileUrl}
 												alt="Task attachment {i + 1}"
 												loading="lazy"
 												class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
@@ -471,6 +512,48 @@
 						</div>
 					{/if}
 				</div>
+				{#if selectedImage}
+					<div
+						class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+						onclick={() => (selectedImage = null)}
+						onkeydown={(e) => e.key === 'Escape' && (selectedImage = null)}
+						role="dialog"
+						aria-modal="true"
+						aria-label="Image preview"
+						tabindex="-1"
+					>
+						<button
+							class="absolute top-4 right-4 text-white"
+							onclick={(e) => {
+								e.stopPropagation();
+								selectedImage = null;
+							}}
+							aria-label="Close image preview"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-8 w-8"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M6 18L18 6M6 6l12 12"
+								/>
+							</svg>
+						</button>
+						<div class="max-h-[90vh] max-w-[90vw] overflow-auto">
+							<img
+								src={selectedImage}
+								alt="Task attachment preview"
+								class="max-h-full max-w-full rounded-lg object-contain"
+							/>
+						</div>
+					</div>
+				{/if}
 				<!-- Bids Tab -->
 			{:else if currentTab === 'bids'}
 				<div class="space-y-6">
@@ -546,6 +629,38 @@
 										<div class="mt-2">
 											<p class="line-clamp-2">{bid.description}</p>
 										</div>
+
+										<!-- Withdrawal reason -->
+										{#if bidToWithdraw === bid.id}
+											<div class="animate-fadeIn mt-4 space-y-4">
+												<div class="border-base-300 border-t pt-4">
+													<h4 class="text-base-content/80 mb-3 text-sm font-medium">
+														Withdraw Your Bid
+													</h4>
+													<p class="mb-2 text-sm">
+														Please provide a reason for withdrawing your bid:
+													</p>
+
+													<div class="form-control w-full">
+														<textarea
+															id="withdrawal-reason-{bid.id}"
+															name="withdrawal-reason"
+															class="textarea textarea-bordered h-20 w-full {withdrawalError
+																? 'textarea-error'
+																: ''}"
+															placeholder="Please explain why you're withdrawing your bid..."
+															bind:value={withdrawalReason}
+														></textarea>
+
+														{#if withdrawalError}
+															<label class="label" for="withdrawal-reason-{bid.id}">
+																<span class="label-text-alt text-error">{withdrawalError}</span>
+															</label>
+														{/if}
+													</div>
+												</div>
+											</div>
+										{/if}
 
 										<!-- Expanded bid details -->
 										{#if expandedBidId === bid.id}
@@ -716,11 +831,25 @@
 												</button>
 											{:else if !task.isOwner && bid.status && bid.status === 'PENDING'}
 												<button
-													class="btn btn-warning btn-sm"
-													onclick={() => handleWithdrawBid(bid)}
+													class="btn {bidToWithdraw === bid.id
+														? 'btn-error'
+														: 'btn-warning'} btn-sm"
+													onclick={() => toggleBidWithdrawal(bid.id)}
 												>
-													Withdraw
+													{bidToWithdraw === bid.id ? 'Cancel Withdrawal' : 'Withdraw'}
 												</button>
+												{#if bidToWithdraw === bid.id}
+													<button
+														class="btn btn-warning btn-sm"
+														onclick={() => handleWithdrawBid(bid.id)}
+														disabled={withdrawingBid}
+													>
+														{#if withdrawingBid}
+															<span class="loading loading-spinner loading-xs"></span>
+														{/if}
+														Confirm Withdrawal
+													</button>
+												{/if}
 											{/if}
 										</div>
 									</div>
@@ -740,48 +869,6 @@
 									showCounterOfferForm = false;
 									selectedBid = null;
 								}}
-							/>
-						</div>
-					</div>
-				{/if}
-				{#if selectedImage}
-					<div
-						class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-						onclick={() => (selectedImage = null)}
-						onkeydown={(e) => e.key === 'Escape' && (selectedImage = null)}
-						role="dialog"
-						aria-modal="true"
-						aria-label="Image preview"
-						tabindex="-1"
-					>
-						<button
-							class="absolute top-4 right-4 text-white"
-							onclick={(e) => {
-								e.stopPropagation();
-								selectedImage = null;
-							}}
-							aria-label="Close image preview"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-8 w-8"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M6 18L18 6M6 6l12 12"
-								/>
-							</svg>
-						</button>
-						<div class="max-h-[90vh] max-w-[90vw] overflow-auto">
-							<img
-								src={selectedImage}
-								alt="Task attachment preview"
-								class="max-h-full max-w-full object-contain"
 							/>
 						</div>
 					</div>

@@ -100,7 +100,7 @@
 				<a class="btn btn-primary mx-auto" href="/dashboard/create-task"> Create Template </a>
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+			<div class="grid grid-cols-1 gap-4">
 				{#each templates as template (template.id)}
 					<TaskTemplateCard
 						{template}

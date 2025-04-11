@@ -15,8 +15,9 @@ const BIDS = 'bid';
 const ADMIN = 'admin';
 const TASK_TEMPLATES = 'task-templates';
 const SERVICE_PACKAGES = 'service-packages';
-// const PAYMENTS = 'payments';
-// const MESSAGES = 'messages';
+const SAVED_SEARCHES = 'saved-searches';
+const RECOMMENDATIONS = 'recommendations';
+const LOCATION = 'location';
 
 // Full endpoint paths
 export const ENDPOINTS = {
@@ -97,5 +98,30 @@ export const ENDPOINTS = {
 		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, 
 		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
 		PURCHASE_PACKAGE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
+	},
+
+	// Saved Searches endpoints
+	SAVED_SEARCHES: {
+		CREATE: `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}`,
+		LIST: `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}`,
+		DETAILS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
+		NOTIFICATIONS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/notifications`,
+		MARK_AS_READ: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/mark-as-read`
+	},
+
+	// Recommendations endpoints
+	RECOMMENDATIONS: {
+		LIST: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}`,
+		GENERATE: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}/generate`,
+		MARK_VIEWED: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}/mark-viewed`,
+		FEEDBACK: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}/feedback`
+	},
+
+	// Location endpoints
+	LOCATION: {
+		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
+		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
 	}
 };

@@ -9,7 +9,7 @@ import type {
   TASKSKILL,
   BUDGETCURRENCY
 } from '$lib/utils/enums/recurringTask.enums';
-import type { CreateTaskParams } from './task';
+import type { CreateTaskParams, Task } from './task';
 
 export interface RecurrencePattern {
   frequency: RECURRINGFREQUENCYENUM;
@@ -22,52 +22,12 @@ export interface RecurrencePattern {
 
 export interface TaskTemplate {
   id: string;
-  title: string;
+  name: string;
   description: string;
-
-  // Schedule configuration
   recurrencePattern: RecurrencePattern;
-
-  // Task details (similar to regular task)
-  timing: {
-    type: TIMINGTYPE;
-    timeOfDay?: TIMINGTIMEOFDAY;
-    dueDate?: string | null;
-  };
-
-  location: {
-    type: LOCATIONTYPE;
-    isRemovalsTask: boolean;
-    pickup?: {
-      zipCode: string | null;
-    };
-    dropoff?: {
-      zipCode: string | null;
-    };
-  };
-
-  details: {
-    summary: string;
-    category: TASKCATEGORY;
-    requiredSkills: TASKSKILL[];
-    attachments: {
-      images: string[];
-    };
-  };
-
-  budget: {
-    amount: number;
-    currency: BUDGETCURRENCY;
-    type: BUDGETTYPE;
-    estimatedHours?: number;
-  };
-
-  // Metadata
+  task: Task;
   createdAt: string;
   createdBy: string;
-  lastGeneratedDate?: string;
-  nextGenerationDate?: string;
-  status: TASKSTATUS;
 }
 
 export interface ServicePackage {

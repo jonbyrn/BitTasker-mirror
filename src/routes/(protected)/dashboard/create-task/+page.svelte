@@ -41,7 +41,7 @@
 						errors.deadline = 'Date range must be in the future';
 					}
 				}
-				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
+				if ($store.task.deadlineDate && new Date($store.task.deadlineDate) < new Date())
 					errors.deadline = 'Deadline must be in the future';
 				if ($store.task.categoryIds.length === 0)
 					errors.category = 'At least one category is required';
@@ -83,16 +83,27 @@
 	}
 
 	const handleFileUpload = async (files: File[]) => {
-		if (files) {
+		if (!files || files.length === 0) return;
+		
+		try {
 			const uploadedFiles = await uploadService.uploadMultipleFiles(files);
-			uploadedFiles.forEach((file) => {
+			uploadedFiles.forEach((file, index) => {
 				if (!$store.task.attachments) return;
 				$store.task.attachments.push({
-					url: file.url,
-					key: file.key,
-					type: 'image'
+					fileUrl: file.url,
+					fileName: files[index].name,
+					fileSize: files[index].size
 				});
 			});
+			
+			// Save to localStorage immediately after adding attachments
+			store.saveDraft();
+			appStore.showSuccessToast('Files uploaded successfully');
+		} catch (error) {
+			// Handle upload failure
+			console.error('File upload failed:', error);
+			errors.attachments = 'Failed to upload attachments. Please go back and try again.';
+			appStore.showErrorToast('Failed to upload attachments. Please go back and try again.');
 		}
 	};
 
@@ -119,7 +130,6 @@
 					recurrencePattern: $store.recurringTask.recurrencePattern,
 					task: $store.task
 				};
-				return console.log(data);
 				const res = await recurringTasksService.createTemplate(data);
 				console.log(res);
 			} else {
@@ -155,20 +165,23 @@
 		</div>
 
 		<!-- Recurring Task Toggle -->
-		<div class="form-control mt-2 mb-4 w-full max-w-xs">
-			<label class="label cursor-pointer">
-				<span class="label-text font-medium">Create as recurring task</span>
-				<input
-					type="checkbox"
-					class="toggle toggle-primary"
-					bind:checked={$store.recurringTask.isRecurring}
-					onchange={(event) => store.setupRecurringTask((event.target as HTMLInputElement).checked)}
-				/>
-			</label>
-			{#if $store.recurringTask.isRecurring}
-				<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
-			{/if}
-		</div>
+		{#if $store.currentStep !== 'recurring'}
+			<div class="form-control mt-2 mb-4 w-full max-w-xs">
+				<label class="label cursor-pointer">
+					<span class="label-text font-medium">Create as recurring task</span>
+					<input
+						type="checkbox"
+						class="toggle toggle-primary"
+						bind:checked={$store.recurringTask.isRecurring}
+						onchange={(event) =>
+							store.setupRecurringTask((event.target as HTMLInputElement).checked)}
+					/>
+				</label>
+				{#if $store.recurringTask.isRecurring}
+					<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="space-y-6">
 			{#if $store.currentStep === 'basics'}
@@ -205,7 +218,7 @@
 							<button
 								class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 								onclick={() =>
-									store.updateTask({ deadline: new Date().toISOString(), dateRange: undefined })}
+									store.updateTask({ deadlineDate: new Date().toISOString(), dateRange: undefined })}
 							>
 								I'm flexible
 							</button>
@@ -213,7 +226,7 @@
 								class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 								onclick={() =>
 									store.updateTask({
-										deadline: '',
+										deadlineDate: undefined,
 										dateRange: {
 											start: new Date().toISOString(),
 											end: new Date().toISOString()
@@ -266,8 +279,8 @@
 							<div>
 								<DatePicker
 									label="Deadline"
-									value={$store.task.deadline}
-									onChange={(value: string) => store.updateTask({ deadline: value })}
+									value={$store.task.deadlineDate}
+									onChange={(value: string) => store.updateTask({ deadlineDate: value })}
 								/>
 								{#if errors.deadline}
 									<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
@@ -441,7 +454,7 @@
 						<Uploader
 							id="attachments"
 							label="Attachments"
-							files={$store.task.attachments?.map((file) => file.url)}
+							files={$store.task.attachments?.map((file) => file.fileUrl)}
 							maxFiles={5}
 							maxFileSize={10}
 							onChange={handleFileUpload}

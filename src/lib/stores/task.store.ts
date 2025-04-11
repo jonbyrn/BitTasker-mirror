@@ -17,7 +17,7 @@ function createTaskStore() {
 			budget: 0,
 			budgetType: 'FIXED',
 			taskType: 'IN_PERSON',
-			deadline: '',
+			deadlineDate: '',
 			estimatedHours: 0,
 			categoryIds: [],
 			skillIds: [],

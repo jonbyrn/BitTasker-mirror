@@ -46,11 +46,12 @@ export class BidService extends BaseApiService {
 	/**
 	 * Withdraw a bid from a task
 	 * @param bidId The ID of the bid to withdraw
+	 * @param reason The reason for withdrawing the bid
 	 * @returns Promise that resolves when withdrawal is successful
 	 * @throws Error if bid withdrawal fails
 	 */
-	async withdrawBid(bidId: string): Promise<void> {
-		const response = await this.post(ENDPOINTS.BIDS.WITHDRAW(bidId));
+	async withdrawBid(bidId: string, reason: string): Promise<void> {
+		const response = await this.patch(ENDPOINTS.BIDS.WITHDRAW(bidId), { reason });
 		return response.data;
 	}
 	/**

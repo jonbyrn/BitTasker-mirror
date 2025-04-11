@@ -154,6 +154,16 @@ export interface CounterOffer {
 	status: 'pending' | 'accepted' | 'rejected';
 }
 
+export interface Milestone {
+	title: string;
+	description: string;
+	amount: number;
+	deliverables: string;
+	sequence: number;
+	dueDate: string;
+	estimatedHours: number;
+}
+
 export interface CreateBidParams {
 	taskId: number;
 	paymentType: PaymentType;
@@ -165,7 +175,7 @@ export interface CreateBidParams {
 	estimatedDuration: string;
 	proposedApproach: string;
 	coverLetter: string;
-	milestones?: Array<{ description: string }>;
+	milestones?: Array<Milestone>;
 	visibility: Visibility;
 	responseTime: number;
 }

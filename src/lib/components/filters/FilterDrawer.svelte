@@ -1,0 +1,451 @@
+<!-- 
+  FilterDrawer.svelte
+  Main filter drawer component that organizes all filtering options
+  for task discovery
+-->
+<script lang="ts">
+	import type { SearchTasksParams } from '$lib/types/task.d';
+	import {
+		BudgetTypeEnum,
+		TaskTypeEnum,
+		TaskStatusEnum,
+		SortByEnum,
+		SortOrderEnum
+	} from '$lib/utils/enums/task.enum';
+	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
+	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
+	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
+
+	// Props
+	let { isOpen, onClose, onApply } = $props<{
+		isOpen: boolean;
+		onClose: () => void;
+		onApply: (filters: SearchTasksParams) => void;
+	}>();
+
+	// State
+	const filters = $state<SearchTasksParams>({
+		searchTerm: '',
+		status: [],
+		taskType: undefined,
+		categoryIds: [],
+		skills: [],
+		minBudget: undefined,
+		maxBudget: undefined,
+		budgetType: undefined,
+		location: undefined,
+		radius: undefined,
+		page: 1,
+		limit: 10,
+		sortBy: SortByEnum.CREATED_AT,
+		sortOrder: SortOrderEnum.DESC
+	});
+
+	let categoryOptions = $state<{ id: number; name: string }[]>([]);
+	let skillOptions = $state<{ id: number; name: string }[]>([]);
+
+	// Track active filter count
+	let activeFilterCount = $state(0);
+
+	$effect(() => {
+		// Calculate active filter count for badge
+		let count = 0;
+
+		if (filters.searchTerm) count++;
+		if (filters.taskType) count++;
+		if (filters.status && filters.status.length > 0) count++;
+		if (filters.categoryIds && filters.categoryIds.length > 0) count++;
+		if (filters.skills && filters.skills.length > 0) count++;
+		if (filters.minBudget || filters.maxBudget) count++;
+		if (filters.budgetType) count++;
+		if (filters.location) count++;
+		if (filters.radius) count++;
+		if (filters.sortBy !== 'createdAt' || filters.sortOrder !== 'desc') count++;
+
+		activeFilterCount = count;
+	});
+
+	// Scroll lock management
+	const disableBodyScroll = () => {
+		document.body.classList.add('overflow-hidden');
+	};
+
+	const enableBodyScroll = () => {
+		document.body.classList.remove('overflow-hidden');
+	};
+
+	// Handle drawer state changes, including scroll locking
+	$effect(() => {
+		if (isOpen) {
+			// Lock scroll when drawer is open
+			disableBodyScroll();
+		} else {
+			// Restore scrolling when drawer is closed
+			enableBodyScroll();
+		}
+
+		// Handle cleanup when component is unmounted
+		return enableBodyScroll;
+	});
+
+	// Fetch categories and skills on mount
+	async function fetchFilterOptions() {
+		try {
+			// These would be actual API calls in the real implementation
+			categoryOptions = [
+				{ id: 1, name: 'Home Services' },
+				{ id: 2, name: 'Professional Services' },
+				{ id: 3, name: 'Transport' }
+				// Add more categories as needed
+			];
+
+			skillOptions = [
+				{ id: 1, name: 'Cleaning' },
+				{ id: 2, name: 'Gardening' },
+				{ id: 3, name: 'Accounting' }
+				// Add more skills as needed
+			];
+		} catch (error) {
+			console.error('Failed to load filter options:', error);
+		}
+	}
+
+	// Call this when component is mounted
+	fetchFilterOptions();
+
+	// Clear all filters
+	function clearFilters() {
+		filters.searchTerm = '';
+		filters.status = [];
+		filters.taskType = undefined;
+		filters.categoryIds = [];
+		filters.skills = [];
+		filters.minBudget = undefined;
+		filters.maxBudget = undefined;
+		filters.budgetType = undefined;
+		filters.location = undefined;
+		filters.radius = undefined;
+		filters.sortBy = SortByEnum.CREATED_AT;
+		filters.sortOrder = SortOrderEnum.DESC;
+	}
+
+	// Apply filters and close drawer
+	function applyFilters() {
+		onApply({ ...filters });
+		onClose();
+	}
+
+	// Handle task type change
+	function handleTaskTypeChange(type: TaskTypeEnum | undefined) {
+		filters.taskType = type;
+	}
+
+	// Handle status selection
+	function handleStatusChange(status: TaskStatusEnum) {
+		if (filters.status?.includes(status)) {
+			filters.status = filters.status.filter((s) => s !== status);
+		} else {
+			filters.status = [...(filters.status || []), status];
+		}
+	}
+
+	// Handle price range change
+	function handlePriceRangeChange(min: number | undefined, max: number | undefined) {
+		filters.minBudget = min;
+		filters.maxBudget = max;
+	}
+
+	// Handle budget type change
+	function handleBudgetTypeChange(type: BudgetTypeEnum | undefined) {
+		filters.budgetType = type;
+	}
+
+	// Handle category selection
+	function handleCategoryChange(categoryId: number) {
+		if (filters.categoryIds?.includes(categoryId)) {
+			filters.categoryIds = filters.categoryIds.filter((id) => id !== categoryId);
+		} else {
+			filters.categoryIds = [...(filters.categoryIds || []), categoryId];
+		}
+	}
+
+	// Handle skill selection
+	function handleSkillChange(skillId: number) {
+		if (filters.skills?.includes(skillId)) {
+			filters.skills = filters.skills.filter((id) => id !== skillId);
+		} else {
+			filters.skills = [...(filters.skills || []), skillId];
+		}
+	}
+
+	// Handle sort options change
+	function handleSortChange(field: string) {
+		if (filters.sortBy === field) {
+			filters.sortOrder =
+				filters.sortOrder === SortOrderEnum.ASC ? SortOrderEnum.DESC : SortOrderEnum.ASC;
+		} else {
+			filters.sortBy = field as SortByEnum;
+			filters.sortOrder = SortOrderEnum.DESC;
+		}
+	}
+
+	// Handle location filter changes
+	function handleLocationChange(location: string | undefined, radius: number | undefined) {
+		filters.location = location;
+		filters.radius = radius;
+	}
+</script>
+
+<!-- Drawer Overlay -->
+<div
+	class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out"
+	class:opacity-0={!isOpen}
+	class:invisible={!isOpen}
+	onclick={onClose}
+	onkeydown={(e) => e.key === 'Escape' && onClose()}
+	role="dialog"
+	tabindex="-1"
+></div>
+
+<div
+	class="bg-base-100 fixed top-0 right-0 z-50 h-full w-full transform overflow-auto shadow-xl transition-transform duration-300 sm:w-[70%] {isOpen
+		? 'translate-x-0'
+		: 'translate-x-full'}"
+>
+	<!-- Header -->
+	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
+		<h2 id="drawer-title" class="text-xl font-bold">Filters</h2>
+		<button class="btn btn-ghost btn-circle" onclick={onClose} aria-label="Close dialog">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M6 18L18 6M6 6l12 12"
+				/>
+			</svg>
+		</button>
+	</div>
+	<div class="p-8">
+		<!-- Search term -->
+		<div class="form-control mb-4">
+			<label class="label font-medium" for="search-term">Search Term</label>
+			<input
+				type="text"
+				placeholder="Enter keywords..."
+				class="input input-bordered w-full"
+				bind:value={filters.searchTerm}
+			/>
+		</div>
+
+		<!-- Task Type -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" defaultChecked />
+			<div class="collapse-title font-medium">Task Type</div>
+			<div class="collapse-content">
+				<div class="flex flex-wrap gap-2">
+					<button
+						class="btn btn-sm"
+						class:btn-primary={filters.taskType === TaskTypeEnum.IN_PERSON}
+						onclick={() => handleTaskTypeChange(TaskTypeEnum.IN_PERSON)}
+					>
+						In Person
+					</button>
+					<button
+						class="btn btn-sm"
+						class:btn-primary={filters.taskType === TaskTypeEnum.REMOTE}
+						onclick={() => handleTaskTypeChange(TaskTypeEnum.REMOTE)}
+					>
+						Remote
+					</button>
+					<button
+						class="btn btn-sm"
+						class:btn-primary={filters.taskType === undefined}
+						onclick={() => handleTaskTypeChange(undefined)}
+					>
+						Any
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Task Status -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" />
+			<div class="collapse-title font-medium">Status</div>
+			<div class="collapse-content">
+				<div class="flex flex-wrap gap-2">
+					{#each Object.values(TaskStatusEnum) as status}
+						<button
+							class="btn btn-sm"
+							class:btn-primary={filters.status?.includes(status)}
+							onclick={() => handleStatusChange(status)}
+						>
+							{status.replace('_', ' ')}
+						</button>
+					{/each}
+				</div>
+			</div>
+		</div>
+
+		<!-- Budget Range -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" defaultChecked />
+			<div class="collapse-title font-medium">Budget Range</div>
+			<div class="collapse-content">
+				<PriceRangeSlider
+					minBudget={filters.minBudget}
+					maxBudget={filters.maxBudget}
+					onRangeChange={handlePriceRangeChange}
+				/>
+
+				<div class="mt-4">
+					<label class="label font-medium" for="budget-type">Budget Type</label>
+					<div class="flex flex-wrap gap-2">
+						{#each Object.values(BudgetTypeEnum) as type}
+							<button
+								class="btn btn-sm"
+								class:btn-primary={filters.budgetType === type}
+								onclick={() => handleBudgetTypeChange(type)}
+							>
+								{type}
+							</button>
+						{/each}
+						<button
+							class="btn btn-sm"
+							class:btn-primary={filters.budgetType === undefined}
+							onclick={() => handleBudgetTypeChange(undefined)}
+						>
+							Any
+						</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Location -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" />
+			<div class="collapse-title font-medium">Location</div>
+			<div class="collapse-content">
+				<LocationFilter
+					location={filters.location}
+					radius={filters.radius}
+					onLocationChange={handleLocationChange}
+				/>
+			</div>
+		</div>
+
+		<!-- Availability -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" />
+			<div class="collapse-title font-medium">Availability</div>
+			<div class="collapse-content">
+				<AvailabilityFilter />
+			</div>
+		</div>
+
+		<!-- Categories -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" />
+			<div class="collapse-title font-medium">Categories</div>
+			<div class="collapse-content">
+				<div class="flex flex-col gap-2">
+					{#each categoryOptions as category}
+						<label class="label cursor-pointer justify-start gap-2">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-primary"
+								checked={filters.categoryIds?.includes(category.id)}
+								onclick={() => handleCategoryChange(category.id)}
+							/>
+							<span>{category.name}</span>
+						</label>
+					{/each}
+				</div>
+			</div>
+		</div>
+
+		<!-- Skills -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" />
+			<div class="collapse-title font-medium">Skills</div>
+			<div class="collapse-content">
+				<div class="flex flex-col gap-2">
+					{#each skillOptions as skill}
+						<label class="label cursor-pointer justify-start gap-2">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-primary"
+								checked={filters.skills?.includes(skill.id)}
+								onclick={() => handleSkillChange(skill.id)}
+							/>
+							<span>{skill.name}</span>
+						</label>
+					{/each}
+				</div>
+			</div>
+		</div>
+
+		<!-- Sort Options -->
+		<div class="collapse-arrow collapse mb-2">
+			<input type="checkbox" class="peer" />
+			<div class="collapse-title font-medium">Sort By</div>
+			<div class="collapse-content">
+				<div class="flex flex-col gap-2">
+					{#each ['createdAt', 'budget', 'deadlineDate', 'title'] as field}
+						<button
+							class="btn btn-sm w-full justify-between"
+							class:btn-primary={filters.sortBy === field}
+							onclick={() => handleSortChange(field)}
+						>
+							<span>
+								{field === 'createdAt'
+									? 'Date'
+									: field === 'budget'
+										? 'Budget'
+										: field === 'deadline'
+											? 'Deadline'
+											: 'Title'}
+							</span>
+							{#if filters.sortBy === field}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d={filters.sortOrder === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}
+									/>
+								</svg>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			</div>
+		</div>
+
+		<!-- Filter Actions -->
+		<div class="divider"></div>
+		<div class="mt-8 flex justify-between">
+			<button class="btn btn-ghost btn-outline" onclick={clearFilters}> Clear Filters </button>
+			<button class="btn btn-primary" onclick={applyFilters}>
+				Apply
+				{#if activeFilterCount > 0}
+					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
+				{/if}
+			</button>
+		</div>
+	</div>
+</div>
