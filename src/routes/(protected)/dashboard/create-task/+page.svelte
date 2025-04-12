@@ -11,7 +11,7 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
-	import DatePicker from '$lib/components/Date/DatePicker.svelte';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 

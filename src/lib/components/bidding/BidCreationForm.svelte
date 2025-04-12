@@ -4,7 +4,7 @@
 	import { fly, slide } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import bidService from '$lib/api/services/bid.service';
-	import DatePicker from '../Date/DatePicker.svelte';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
 	// Props
 	const { taskId, onClose } = $props<{ taskId: number; onClose: () => void }>();

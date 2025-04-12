@@ -9,7 +9,7 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import Input from '$lib/components/Input.svelte';
-	import DatePicker from '$lib/components/Date/DatePicker.svelte';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import taskService from '$lib/api/services/task.service';
 	import BidsPanel from '$lib/components/bidding/BidsPanel.svelte';

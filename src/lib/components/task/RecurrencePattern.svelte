@@ -3,7 +3,7 @@
 	import { taskStore } from '$lib/stores/task.store';
 	import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
 	import Input from '../Input.svelte';
-	import DatePicker from '../Date/DatePicker.svelte';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
 	let {
 		pattern,
