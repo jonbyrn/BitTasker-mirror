@@ -1,17 +1,23 @@
 <script lang="ts">
 	import type { TaskTemplate } from '$lib/types/recurring-tasks';
 	import { format } from 'date-fns';
-	import { TASKSTATUS, RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
-
+	import { TASKSTATUS, RECURRINGFREQUENCYENUM, BUDGETTYPE } from '$lib/utils/enums/recurringTask.enums';
+	
 	// Props
-	let { template, onStatusChange, onDelete } = $props<{
+	let { template, onStatusChange, onDelete, onUpdate } = $props<{
 		template: TaskTemplate;
 		onStatusChange: (status: TASKSTATUS) => void;
 		onDelete: () => void;
+		onUpdate?: (templateId: string) => void;
 	}>();
 
 	// State
 	let isExpanded = $state(false);
+	let viewMode = $state<'summary' | 'details' | 'edit'>('summary');
+	let showDeleteConfirm = $state(false);
+	let isLoading = $state(false);
+	let error = $state<string | null>(null);
+	
 	const statusLabels = {
 		[TASKSTATUS.ACTIVE]: 'Active',
 		[TASKSTATUS.PAUSED]: 'Paused',
@@ -94,94 +100,239 @@
 	}
 </script>
 
-<div class="card bg-base-100 shadow-md transition-shadow hover:shadow-lg">
-	<div class="card-body p-4">
-		<!-- Card Header -->
-		<div class="flex items-center justify-between">
-			<h3 class="card-title truncate text-base md:text-lg">{template.title}</h3>
-			<div class="badge {getStatusColor(template.status)} badge-sm md:badge-md">
-				{statusLabels[template.status]}
+<div class="card border bg-base-100 shadow-md transition-shadow hover:shadow-lg">
+	{#if showDeleteConfirm}
+		<div class="card-body p-4">
+			<h3 class="card-title text-base md:text-lg">Confirm Deletion</h3>
+			<p class="py-2">Are you sure you want to delete this recurring task template? All future scheduled tasks will be cancelled.</p>
+			
+			<div class="card-actions justify-end mt-4">
+				<button class="btn btn-ghost btn-sm" onclick={() => showDeleteConfirm = false}>Cancel</button>
+				<button class="btn btn-error btn-sm" onclick={onDelete}>Delete</button>
 			</div>
 		</div>
-
-		<!-- Recurrence Pattern -->
-		<div class="my-2">
-			<div class="text-xs opacity-70 md:text-sm">Recurrence:</div>
-			<div class="text-sm font-medium md:text-base">
-				{getFrequencyDescription(template)}
-			</div>
-		</div>
-
-		<!-- Next Generation -->
-		{#if template.nextGenerationDate}
-			<div class="my-2">
-				<div class="text-xs opacity-70 md:text-sm">Next task:</div>
-				<div class="text-sm font-medium md:text-base">
-					{formatDate(template.nextGenerationDate)}
+	{:else if viewMode === 'details'}
+		<div class="card-body p-4">
+			<div class="flex items-center justify-between">
+				<h3 class="card-title text-base md:text-lg">{template.title || template.task.title}</h3>
+				<div class="badge {getStatusColor(template.status)} badge-sm md:badge-md">
+					{template.status ? (statusLabels[template.status as keyof typeof statusLabels] || 'Unknown') : 'Unknown'}
 				</div>
 			</div>
-		{/if}
-
-		<!-- Expanded Content -->
-		{#if isExpanded}
+			
 			<div class="divider my-2"></div>
-
-			<!-- Budget -->
-			<div class="my-2 grid grid-cols-2 gap-2">
+			
+			<!-- Comprehensive Task Details -->
+			<div class="space-y-4">
+				<!-- Template Info -->
 				<div>
-					<div class="text-xs opacity-70">Budget:</div>
-					<div class="text-sm font-medium">
-						{template.budget.amount}
-						{template.budget.currency}
-						{#if template.budget.type === 'HOURLY'}
-							/hr ({template.budget.estimatedHours} hrs)
+					<h4 class="font-semibold mb-2">Template Information</h4>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<p class="text-xs opacity-70">Description</p>
+							<p class="text-sm">{template.description}</p>
+						</div>
+						<div>
+							<p class="text-xs opacity-70">Created</p>
+							<p class="text-sm">{formatDate(template.createdAt)}</p>
+						</div>
+					</div>
+				</div>
+				
+				<!-- Schedule Details -->
+				<div>
+					<h4 class="font-semibold mb-2">Schedule</h4>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<p class="text-xs opacity-70">Frequency</p>
+							<p class="text-sm">{getFrequencyDescription(template)}</p>
+						</div>
+						{#if template.recurrencePattern.endDate}
+							<div>
+								<p class="text-xs opacity-70">End Date</p>
+								<p class="text-sm">{formatDate(template.recurrencePattern.endDate)}</p>
+							</div>
+						{/if}
+						{#if template.recurrencePattern.maxOccurrences}
+							<div>
+								<p class="text-xs opacity-70">Maximum Occurrences</p>
+								<p class="text-sm">{template.recurrencePattern.maxOccurrences}</p>
+							</div>
+						{/if}
+						{#if template.nextGenerationDate}
+							<div>
+								<p class="text-xs opacity-70">Next Task</p>
+								<p class="text-sm">{formatDate(template.nextGenerationDate)}</p>
+							</div>
 						{/if}
 					</div>
 				</div>
-
-				<!-- Location -->
+				
+				<!-- Task Details -->
 				<div>
-					<div class="text-xs opacity-70">Location:</div>
-					<div class="text-sm font-medium">
-						{template.location.type === 'ONLINE' ? 'Online' : 'In-person'}
-						{#if template.location.type === 'IN_PERSON' && template.location.pickup?.zipCode}
-							({template.location.pickup.zipCode})
-						{/if}
+					<h4 class="font-semibold mb-2">Task Details</h4>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<p class="text-xs opacity-70">Title</p>
+							<p class="text-sm">{template.task.title}</p>
+						</div>
+						<div>
+							<p class="text-xs opacity-70">Budget</p>
+							<p class="text-sm">
+								{template.task.budget} {template.task.currency || 'BTC'}
+								{#if template.task.budgetType === BUDGETTYPE.HOURLY}
+									/hr ({template.task.estimatedHours || 0} hrs)
+								{/if}
+							</p>
+						</div>
+						<div>
+							<p class="text-xs opacity-70">Type</p>
+							<p class="text-sm">{template.task.taskType.replace('_', ' ')}</p>
+						</div>
+						<div>
+							<p class="text-xs opacity-70">Location</p>
+							<p class="text-sm">
+								{#if template.task.pickupLocation}
+									{template.task.pickupLocation.displayName || template.task.pickupLocation.zipCode}
+								{:else}
+									Online
+								{/if}
+							</p>
+						</div>
 					</div>
+					
+					<div class="mt-3">
+						<p class="text-xs opacity-70 mb-1">Description</p>
+						<p class="text-sm whitespace-pre-line">{template.task.description}</p>
+					</div>
+					
+					{#if template.task.requiredSkills?.length > 0}
+						<div class="mt-3">
+							<p class="text-xs opacity-70 mb-1">Required Skills</p>
+							<div class="flex flex-wrap gap-2">
+								{#each template.task.requiredSkills as skillItem}
+									<span class="badge badge-primary badge-outline">{skillItem.skill.name}</span>
+								{/each}
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
-
-			<!-- Description -->
-			<div class="my-2">
-				<div class="text-xs opacity-70">Description:</div>
-				<div class="mt-1 text-sm">
-					{template.description.length > 150
-						? template.description.slice(0, 150) + '...'
-						: template.description}
-				</div>
+			
+			<div class="card-actions justify-end mt-4">
+				<button class="btn btn-ghost btn-sm" onclick={() => viewMode = 'summary'}>Back</button>
+				{#if onUpdate}
+					<button class="btn btn-secondary btn-sm" onclick={() => onUpdate?.(template.id)}>Edit</button>
+				{/if}
+				<button 
+					class="btn btn-primary btn-sm"
+					onclick={toggleStatus}
+					disabled={template.status !== TASKSTATUS.ACTIVE && template.status !== TASKSTATUS.PAUSED}
+				>
+					{template.status === TASKSTATUS.ACTIVE ? 'Pause' : 'Resume'}
+				</button>
 			</div>
-
-			<!-- Created Date -->
-			<div class="mt-2 text-xs opacity-50">
-				Created: {formatDate(template.createdAt)}
-			</div>
-		{/if}
-
-		<!-- Card Actions -->
-		<div class="card-actions mt-2 justify-end">
-			<button class="btn btn-ghost btn-xs" onclick={toggleExpand}>
-				{isExpanded ? 'Show Less' : 'Show More'}
-			</button>
-
-			<button class="btn btn-ghost btn-xs" onclick={onDelete}> Delete </button>
-
-			<button
-				class="btn btn-primary btn-xs"
-				onclick={toggleStatus}
-				disabled={template.status !== TASKSTATUS.ACTIVE && template.status !== TASKSTATUS.PAUSED}
-			>
-				{template.status === TASKSTATUS.ACTIVE ? 'Pause' : 'Resume'}
-			</button>
 		</div>
-	</div>
+	{:else}
+		<div class="card-body p-4">
+			<!-- Card Header -->
+			<div class="flex items-center justify-between">
+				<h3 class="card-title truncate text-base md:text-lg">{template.title || template.task.title}</h3>
+				<div class="badge {getStatusColor(template.status)} badge-sm md:badge-md">
+					{template.status ? (statusLabels[template.status as keyof typeof statusLabels] || 'Unknown') : 'Unknown'}
+				</div>
+			</div>
+
+			<!-- Recurrence Pattern -->
+			<div class="my-2">
+				<div class="text-xs opacity-70 md:text-sm">Recurrence:</div>
+				<div class="text-sm font-medium md:text-base">
+					{getFrequencyDescription(template)}
+				</div>
+			</div>
+
+			<!-- Next Generation -->
+			{#if template.nextGenerationDate}
+				<div class="my-2">
+					<div class="text-xs opacity-70 md:text-sm">Next task:</div>
+					<div class="text-sm font-medium md:text-base">
+						{formatDate(template.nextGenerationDate)}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Expanded Content -->
+			{#if isExpanded}
+				<div class="divider my-2"></div>
+
+				<!-- Budget -->
+				<div class="my-2 grid grid-cols-2 gap-2">
+					<div>
+						<div class="text-xs opacity-70">Budget:</div>
+						<div class="text-sm font-medium">
+							{template.task.budget} {template.task.currency || 'BTC'}
+							{#if template.task.budgetType === BUDGETTYPE.HOURLY}
+								/hr ({template.task.estimatedHours || 0} hrs)
+							{/if}
+						</div>
+					</div>
+
+					<!-- Location -->
+					<div>
+						<div class="text-xs opacity-70">Location:</div>
+						<div class="text-sm font-medium">
+							{template.task.taskType === 'ONLINE' ? 'Online' : 'In-person'}
+							{#if template.task.taskType === 'IN_PERSON' && template.task.pickupLocation?.zipCode}
+								({template.task.pickupLocation.zipCode})
+							{/if}
+						</div>
+					</div>
+				</div>
+
+				<!-- Description -->
+				<div class="my-2">
+					<div class="text-xs opacity-70">Description:</div>
+					<div class="mt-1 text-sm">
+						{template.description.length > 150
+							? template.description.slice(0, 150) + '...'
+							: template.description}
+					</div>
+				</div>
+
+				<!-- Created Date -->
+				<div class="mt-2 text-xs opacity-50">
+					Created: {formatDate(template.createdAt)}
+				</div>
+			{/if}
+
+			<!-- Card Actions -->
+			<div class="card-actions mt-2 justify-end">
+				<button class="btn btn-ghost btn-xs" onclick={toggleExpand}>
+					{isExpanded ? 'Show Less' : 'Show More'}
+				</button>
+				
+				<button 
+					class="btn btn-ghost btn-xs" 
+					onclick={() => viewMode = 'details'}
+				> 
+					View Details 
+				</button>
+
+				<button 
+					class="btn btn-ghost btn-xs" 
+					onclick={() => showDeleteConfirm = true}
+				> 
+					Delete 
+				</button>
+
+				<button
+					class="btn btn-primary btn-xs"
+					onclick={toggleStatus}
+					disabled={template.status !== TASKSTATUS.ACTIVE && template.status !== TASKSTATUS.PAUSED}
+				>
+					{template.status === TASKSTATUS.ACTIVE ? 'Pause' : 'Resume'}
+				</button>
+			</div>
+		</div>
+	{/if}
 </div>

@@ -115,20 +115,6 @@ class RecurringTasksService extends BaseApiService {
       throw error;
     }
   }
-
-  /**
-   * Calculate the next generation dates for a template
-   * Provides a preview of when tasks will be generated
-   */
-  async getGenerationPreview(templateData: Partial<TaskTemplate>): Promise<string[]> {
-    try {
-      const response = await this.post<string[]>(`${ENDPOINTS.TASK_TEMPLATES.POST}/preview`, templateData);
-      return response.data;
-    } catch (error) {
-      console.error('Error generating preview dates:', error);
-      throw error;
-    }
-  }
 }
 
 export default new RecurringTasksService();

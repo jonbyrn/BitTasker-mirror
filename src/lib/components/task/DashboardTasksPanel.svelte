@@ -56,8 +56,46 @@
 <div class="card-body">
 	<!-- Loading State -->
 	{#if loading}
-		<div class="flex justify-center py-8">
-			<span class="loading loading-spinner loading-lg"></span>
+		<div class="space-y-6">
+			{#each Array(3) as _}
+				<div class="card bg-base-200 shadow-md animate-pulse">
+					<div class="card-body">
+						<div class="flex justify-between">
+							<div class="flex items-center gap-2">
+								<div class="bg-base-300 h-7 w-48 rounded"></div>
+							</div>
+							<div class="bg-base-300 h-6 w-24 rounded"></div>
+						</div>
+						<div class="bg-base-300 my-2 h-4 w-full rounded"></div>
+						<div class="bg-base-300 mb-4 h-4 w-2/3 rounded"></div>
+
+						<div class="my-2 flex flex-wrap gap-2">
+							<div class="bg-base-300 h-6 w-28 rounded"></div>
+							<div class="bg-base-300 h-6 w-32 rounded"></div>
+						</div>
+
+						<div class="my-2 grid grid-cols-2 gap-4">
+							<div>
+								<div class="bg-base-300 mb-1 h-4 w-16 rounded"></div>
+								<div class="bg-base-300 h-6 w-32 rounded"></div>
+							</div>
+							<div>
+								<div class="bg-base-300 mb-1 h-4 w-24 rounded"></div>
+								<div class="bg-base-300 h-6 w-36 rounded"></div>
+							</div>
+						</div>
+
+						<div class="mt-2 mb-2 flex items-center justify-between">
+							<div class="bg-base-300 h-6 w-20 rounded"></div>
+						</div>
+
+						<div class="card-actions mt-2 justify-end">
+							<div class="bg-base-300 h-9 w-28 rounded"></div>
+							<div class="bg-base-300 h-9 w-24 rounded"></div>
+						</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{/if}
 

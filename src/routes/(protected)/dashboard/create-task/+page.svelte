@@ -84,7 +84,7 @@
 
 	const handleFileUpload = async (files: File[]) => {
 		if (!files || files.length === 0) return;
-		
+
 		try {
 			const uploadedFiles = await uploadService.uploadMultipleFiles(files);
 			uploadedFiles.forEach((file, index) => {
@@ -95,7 +95,7 @@
 					fileSize: files[index].size
 				});
 			});
-			
+
 			// Save to localStorage immediately after adding attachments
 			store.saveDraft();
 			appStore.showSuccessToast('Files uploaded successfully');
@@ -130,8 +130,7 @@
 					recurrencePattern: $store.recurringTask.recurrencePattern,
 					task: $store.task
 				};
-				const res = await recurringTasksService.createTemplate(data);
-				console.log(res);
+				await recurringTasksService.createTemplate(data);
 			} else {
 				// Create a regular task
 				await taskService.createTask($store.task);
@@ -161,7 +160,9 @@
 	<div class="card-body">
 		<div class="flex items-center justify-between">
 			<h2 class="card-title text-2xl">Create a New Task</h2>
-			<div class="text-sm">Step {STEPS.indexOf($store.currentStep) + 1} of {STEPS.length}</div>
+			<div class="text-sm">
+				Step {$STEPS.indexOf($store.currentStep) + 1} of {$STEPS.length}
+			</div>
 		</div>
 
 		<!-- Recurring Task Toggle -->
@@ -218,7 +219,10 @@
 							<button
 								class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 								onclick={() =>
-									store.updateTask({ deadlineDate: new Date().toISOString(), dateRange: undefined })}
+									store.updateTask({
+										deadlineDate: new Date().toISOString(),
+										dateRange: undefined
+									})}
 							>
 								I'm flexible
 							</button>
@@ -630,7 +634,7 @@
 					<div></div>
 				{/if}
 
-				{#if STEPS.indexOf($store.currentStep) === STEPS.length - 1}
+				{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
 					<button
 						class="btn btn-primary {isSubmitting ? 'loading' : ''}"
 						onclick={handleSubmit}

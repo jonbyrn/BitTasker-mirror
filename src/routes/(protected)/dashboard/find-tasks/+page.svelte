@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { TaskResponse, SearchTasksParams, TaskData } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
-	import { appStore } from '$lib/stores/app.store';
 	import {
 		TaskStatusEnum,
 		TaskTypeEnum,
@@ -13,7 +12,6 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
-	import HistoryBasedSuggestions from '$lib/components/recommendations/HistoryBasedSuggestions.svelte';
 	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 
@@ -413,7 +411,9 @@
 	<!-- Results count -->
 	<div class="mb-4">
 		<p class="text-base-content/70">
-			{#if meta}
+			{#if loading}
+				<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
+			{:else if meta}
 				Showing {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, meta.total)}
 				of {meta.total} tasks
 			{/if}
@@ -422,13 +422,74 @@
 
 	<!-- Personalized Recommendations Section -->
 	{#if showRecommendations}
-		<RecommendedTasks limit={3} onTaskClick={goToTaskDetails} />
+		{#if loadingRecommendations}
+			<div class="mb-8">
+				<div class="mb-4 flex items-center justify-between">
+					<div class="bg-base-300 h-7 w-64 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-6 w-24 animate-pulse rounded"></div>
+				</div>
+				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+					{#each Array(3) as _}
+						<div class="card bg-base-100 h-64 animate-pulse shadow-md">
+							<div class="card-body p-4">
+								<div class="bg-base-300 mb-2 h-6 w-3/4 rounded"></div>
+								<div class="bg-base-300 mb-4 h-4 w-1/2 rounded"></div>
+								<div class="bg-base-300 mb-2 h-4 w-full rounded"></div>
+								<div class="bg-base-300 mb-2 h-4 w-full rounded"></div>
+								<div class="bg-base-300 mb-6 h-4 w-2/3 rounded"></div>
+								<div class="mt-auto flex justify-between">
+									<div class="bg-base-300 h-5 w-20 rounded"></div>
+									<div class="bg-base-300 h-8 w-24 rounded"></div>
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{:else}
+			<RecommendedTasks limit={3} onTaskClick={goToTaskDetails} />
+		{/if}
 	{/if}
 
 	<!-- Task List -->
 	{#if loading}
-		<div class="flex justify-center py-8">
-			<span class="loading loading-spinner loading-lg"></span>
+		<div class="card bg-base-100 space-y-4 shadow-md">
+			{#each Array(4) as _}
+				<div class="card-body animate-pulse">
+					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+						<div class="bg-base-300 h-7 w-3/4 rounded"></div>
+						<div class="bg-base-300 h-6 w-32 rounded"></div>
+					</div>
+
+					<div class="my-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+						<div>
+							<div class="bg-base-300 mb-2 h-4 w-16 rounded"></div>
+							<div class="bg-base-300 h-6 w-28 rounded"></div>
+						</div>
+						<div>
+							<div class="bg-base-300 mb-2 h-4 w-24 rounded"></div>
+							<div class="bg-base-300 h-6 w-36 rounded"></div>
+						</div>
+						<div>
+							<div class="bg-base-300 mb-2 h-4 w-20 rounded"></div>
+							<div class="bg-base-300 h-6 w-32 rounded"></div>
+						</div>
+					</div>
+
+					<div class="mb-4 flex flex-wrap gap-2">
+						<div class="bg-base-300 h-6 w-20 rounded"></div>
+						<div class="bg-base-300 h-6 w-24 rounded"></div>
+						<div class="bg-base-300 h-6 w-16 rounded"></div>
+					</div>
+
+					<div class="card-actions mt-4 flex items-center justify-between">
+						<div class="bg-base-300 h-6 w-16 rounded"></div>
+						<div class="bg-base-300 h-9 w-24 rounded"></div>
+					</div>
+				</div>
+
+				<div class="divider mx-auto w-[90%]"></div>
+			{/each}
 		</div>
 	{:else if tasks.length > 0}
 		<div class="card bg-base-100 space-y-4 shadow-md transition-shadow hover:shadow-lg">
@@ -530,7 +591,7 @@
 				</div>
 
 				{#if index < tasks.length - 1}
-					<div class="divider w-[90%] mx-auto"></div>
+					<div class="divider mx-auto w-[90%]"></div>
 				{/if}
 			{/each}
 		</div>
@@ -595,12 +656,12 @@
 			<button class="btn btn-primary mt-4" onclick={clearFilters}>Clear Filters</button>
 		</div>
 	{/if}
-</div>
 
-<!-- Saved Searches Section -->
-{#if showSavedSearches}
-	<SavedSearchList />
-{/if}
+	<!-- Saved Searches Section -->
+	{#if showSavedSearches}
+		<SavedSearchList />
+	{/if}
+</div>
 
 <!-- Advanced Filter Drawer Component -->
 <FilterDrawer

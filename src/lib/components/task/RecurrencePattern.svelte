@@ -5,7 +5,15 @@
 	import Input from '../Input.svelte';
 	import DatePicker from '../Date/DatePicker.svelte';
 
-	let { pattern } = $props<{ pattern: RecurrencePattern }>();
+	let {
+		pattern,
+		isEditing = false,
+		onPatternChange = (pattern: RecurrencePattern) => {}
+	} = $props<{
+		pattern: RecurrencePattern;
+		isEditing?: boolean;
+		onPatternChange?: (pattern: RecurrencePattern) => void;
+	}>();
 
 	const localPattern = $state<RecurrencePattern>({
 		frequency: pattern.frequency,
@@ -80,14 +88,18 @@
 	}
 
 	// Handle end date change
-	function handleEndDateChange(event: Event) {
-		localPattern.endDate = (event.target as HTMLInputElement).value;
+	function handleEndDateChange(value: string) {
+		localPattern.endDate = value;
 		emitUpdate();
 	}
 
 	// Emit the updated pattern to parent
 	function emitUpdate() {
-		taskStore.updateRecurrencePattern(localPattern);
+		if (isEditing) {
+			onPatternChange(localPattern);
+		} else {
+			taskStore.updateRecurrencePattern(localPattern);
+		}
 	}
 
 	// Initialize with props
@@ -178,7 +190,7 @@
 				</div>
 			</div>
 		{:else if localPattern.frequency === RECURRINGFREQUENCYENUM.MONTHLY}
-			<div class="flex justify-start items-center gap-4">
+			<div class="flex items-center justify-start gap-4">
 				<div class="form-control w-full">
 					<label class="label" for="interval">
 						<span class="label-text">Repeat every</span>
@@ -243,20 +255,17 @@
 			<label class="label" for="endDate">
 				<span class="label-text">End Date (optional)</span>
 			</label>
-			<DatePicker
-				value={localPattern.endDate}
-				onChange={handleEndDateChange}
-			/>
+			<DatePicker value={localPattern.endDate} onChange={handleEndDateChange} />
 		</div>
 
-		<div class="form-control md:w-1/2 space-y-2">
+		<div class="form-control space-y-2 md:w-1/2">
 			<label class="label" for="maxOccurrences">
 				<span class="label-text">Maximum Occurrences</span>
 			</label>
 			<div class="flex items-center gap-2">
 				<input
 					type="number"
-					class="input input-bordered w-full h-10"
+					class="input input-bordered h-10 w-full"
 					min="1"
 					max="365"
 					value={localPattern.maxOccurrences}

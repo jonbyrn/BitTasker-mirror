@@ -7,7 +7,8 @@ import { get, writable } from 'svelte/store';
 import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
-export let STEPS = [TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET];
+
+export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET]);
 
 function createTaskStore() {
 	const initialState = {
@@ -75,7 +76,7 @@ function createTaskStore() {
 				recurringTask: { ...parsedData.recurringTask }
 			}));
 			if (parsedData.recurringTask.isRecurring) {
-				STEPS.push(TaskStepEnum.RECURRING);
+				STEPS.update(steps => [...steps, TaskStepEnum.RECURRING]);
 			}
 		}
 	};
@@ -105,9 +106,10 @@ function createTaskStore() {
 	// Navigation between steps
 	const nextStep = () => {
 		store.update((state) => {
-			const currentIndex = STEPS.indexOf(state.currentStep);
-			if (currentIndex < STEPS.length - 1) {
-				return { ...state, currentStep: STEPS[currentIndex + 1] };
+			const steps = get(STEPS);
+			const currentIndex = steps.indexOf(state.currentStep);
+			if (currentIndex < steps.length - 1) {
+				return { ...state, currentStep: steps[currentIndex + 1] };
 			}
 			return state;
 		});
@@ -116,12 +118,13 @@ function createTaskStore() {
 
 	const previousStep = () => {
 		store.update((state) => {
-			const currentIndex = STEPS.indexOf(state.currentStep);
+			const steps = get(STEPS);
+			const currentIndex = steps.indexOf(state.currentStep);
 			if (currentIndex === -1 && state.currentStep === TaskStepEnum.RECURRING) {
 				return { ...state, currentStep: TaskStepEnum.BUDGET };
 			}
 			if (currentIndex > 0) {
-				return { ...state, currentStep: STEPS[currentIndex - 1] };
+				return { ...state, currentStep: steps[currentIndex - 1] };
 			}
 			return state;
 		});
@@ -147,9 +150,9 @@ function createTaskStore() {
 			recurringTask: { ...state.recurringTask, isRecurring }
 		}));
 		if (isRecurring) {
-			STEPS.push(TaskStepEnum.RECURRING);
+			STEPS.update(steps => [...steps, TaskStepEnum.RECURRING]);
 		} else {
-			STEPS.splice(STEPS.indexOf(TaskStepEnum.RECURRING), 1);
+			STEPS.update(steps => steps.filter(step => step !== TaskStepEnum.RECURRING));
 		}
 		saveDraft();
 	};
@@ -171,6 +174,7 @@ function createTaskStore() {
 		set: store.set,
 		subscribe: store.subscribe,
 		update: store.update,
+		STEPS,
 		loadDraft,
 		saveDraft,
 		clearDraft,
