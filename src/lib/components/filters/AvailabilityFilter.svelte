@@ -4,11 +4,19 @@
   and time of day preferences
 -->
 <script lang="ts">
-	import type { DateRange } from '$lib/types/task';
-
 	// Props
-	let { onAvailabilityChange = () => {} } = $props<{
-		onAvailabilityChange?: (date: DateRange | undefined, timePreferences: string[]) => void;
+	let {
+		deadlineBefore = undefined,
+		deadlineAfter = undefined,
+		onAvailabilityChange = () => {}
+	} = $props<{
+		deadlineBefore?: string;
+		deadlineAfter?: string;
+		onAvailabilityChange?: (
+			filterMode: 'date_range' | 'deadline',
+			start: string,
+			end: string
+		) => void;
 	}>();
 
 	// State
@@ -25,8 +33,14 @@
 		{ value: 'evening', label: 'Evening (6pm-10pm)' }
 	]);
 
-	let hasDeadline = $state(false);
-	let deadlineDate = $state('');
+	// Deadline filter modes
+	let filterMode = $state<'date_range' | 'deadline'>('date_range');
+
+	// Deadline filters
+	let hasDeadlineBefore = $state(false);
+	let hasDeadlineAfter = $state(false);
+	let deadlineBeforeDate = $state(deadlineBefore || '');
+	let deadlineAfterDate = $state(deadlineAfter || '');
 
 	// Toggle time preference
 	function toggleTimePreference(value: string) {
@@ -42,26 +56,32 @@
 		dateRange.start = '';
 		dateRange.end = '';
 		timePreferences = [];
-		hasDeadline = false;
-		deadlineDate = '';
-	}
-
-	// Format date for display (MM/DD/YYYY)
-	function formatDate(dateString: string): string {
-		if (!dateString) return '';
-		const date = new Date(dateString);
-		return date.toLocaleDateString('en-US', {
-			month: '2-digit',
-			day: '2-digit',
-			year: 'numeric'
-		});
+		hasDeadlineBefore = false;
+		hasDeadlineAfter = false;
+		deadlineBeforeDate = '';
+		deadlineAfterDate = '';
 	}
 
 	// Apply availability filter changes
 	function applyChanges() {
-		const validDateRange = dateRange.start && dateRange.end ? dateRange : undefined;
+		if (filterMode === 'date_range') {
+			return onAvailabilityChange('date_range', dateRange.start, dateRange.end);
+		} else if (filterMode === 'deadline') {
+			// Determine which deadline filters to apply based on mode and inputs
+			let beforeDate: string | undefined = undefined;
+			let afterDate: string | undefined = undefined;
 
-		onAvailabilityChange(validDateRange, timePreferences);
+			// Apply deadline filters if the user has specified them
+			if (hasDeadlineBefore && deadlineBeforeDate) {
+				beforeDate = deadlineBeforeDate;
+			}
+
+			if (hasDeadlineAfter && deadlineAfterDate) {
+				afterDate = deadlineAfterDate;
+			}
+
+			return onAvailabilityChange('deadline', beforeDate, afterDate);
+		}
 	}
 
 	// Update parent when our filters change
@@ -71,34 +91,59 @@
 </script>
 
 <div class="space-y-4">
-	<!-- Date Range -->
-	<div>
-		<label class="label" for="date-range">
-			<span class="label-text font-medium">Date Range</span>
+	<!-- Filter Type Selection -->
+	<div class="flex items-center justify-between gap-2">
+		<label class="label" for="filter-type">
+			<span class="label-text font-medium">Filter Type</span>
 		</label>
-		<div class="grid grid-cols-2 gap-2">
-			<div>
-				<label class="label mb-1 p-0" for="start-date">
-					<span class="label-text text-xs">Start Date</span>
-				</label>
-				<input
-					type="date"
-					class="input input-bordered input-sm w-full"
-					bind:value={dateRange.start}
-				/>
-			</div>
-			<div>
-				<label class="label mb-1 p-0" for="end-date">
-					<span class="label-text text-xs">End Date</span>
-				</label>
-				<input
-					type="date"
-					class="input input-bordered input-sm w-full"
-					bind:value={dateRange.end}
-				/>
-			</div>
+		<div class="flex flex-wrap gap-2">
+			<button
+				class="btn btn-sm"
+				class:btn-primary={filterMode === 'date_range'}
+				onclick={() => (filterMode = 'date_range')}
+			>
+				Date Range
+			</button>
+			<button
+				class="btn btn-sm"
+				class:btn-primary={filterMode === 'deadline'}
+				onclick={() => (filterMode = 'deadline')}
+			>
+				Deadline
+			</button>
 		</div>
 	</div>
+
+	{#if filterMode === 'date_range'}
+		<!-- Date Range -->
+		<div>
+			<label class="label" for="date-range">
+				<span class="label-text font-medium">Date Range</span>
+			</label>
+			<div class="grid grid-cols-2 gap-2">
+				<div>
+					<label class="label mb-1 p-0" for="start-date">
+						<span class="label-text text-xs">Start Date</span>
+					</label>
+					<input
+						type="date"
+						class="input input-bordered input-sm w-full"
+						bind:value={dateRange.start}
+					/>
+				</div>
+				<div>
+					<label class="label mb-1 p-0" for="end-date">
+						<span class="label-text text-xs">End Date</span>
+					</label>
+					<input
+						type="date"
+						class="input input-bordered input-sm w-full"
+						bind:value={dateRange.end}
+					/>
+				</div>
+			</div>
+		</div>
+	{/if}
 
 	<!-- Time Preferences -->
 	<div>
@@ -118,22 +163,45 @@
 		</div>
 	</div>
 
-	<!-- Deadline-based filtering -->
-	<div>
-		<label class="label flex cursor-pointer justify-start gap-2" for="deadline-filter">
-			<input type="checkbox" class="checkbox checkbox-primary" bind:checked={hasDeadline} />
-			<span class="label-text font-medium">Filter by Deadline</span>
-		</label>
+	{#if filterMode === 'deadline'}
+		<!-- Deadline Before -->
+		<div>
+			<label class="label flex cursor-pointer justify-start gap-2" for="deadline-before-filter">
+				<input type="checkbox" class="checkbox checkbox-primary" bind:checked={hasDeadlineBefore} />
+				<span class="label-text font-medium">Tasks due before</span>
+			</label>
 
-		{#if hasDeadline}
-			<div class="mt-2">
-				<label class="label mb-1 p-0" for="deadline-date">
-					<span class="label-text text-xs">Tasks due before</span>
-				</label>
-				<input type="date" class="input input-bordered input-sm w-full" bind:value={deadlineDate} />
-			</div>
-		{/if}
-	</div>
+			{#if hasDeadlineBefore}
+				<div class="mt-2">
+					<input
+						type="date"
+						class="input input-bordered input-sm w-full"
+						bind:value={deadlineBeforeDate}
+						id="deadline-before-date"
+					/>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Deadline After -->
+		<div>
+			<label class="label flex cursor-pointer justify-start gap-2" for="deadline-after-filter">
+				<input type="checkbox" class="checkbox checkbox-primary" bind:checked={hasDeadlineAfter} />
+				<span class="label-text font-medium">Tasks due after</span>
+			</label>
+
+			{#if hasDeadlineAfter}
+				<div class="mt-2">
+					<input
+						type="date"
+						class="input input-bordered input-sm w-full"
+						bind:value={deadlineAfterDate}
+						id="deadline-after-date"
+					/>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Clear button -->
 	<div>

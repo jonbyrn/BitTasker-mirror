@@ -12,6 +12,7 @@
 		SortByEnum,
 		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
+	import { appStore } from '$lib/stores/app.store';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
 	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
@@ -35,14 +36,22 @@
 		budgetType: undefined,
 		location: undefined,
 		radius: undefined,
+		deadlineBefore: undefined,
+		deadlineAfter: undefined,
+		dateRange: undefined,
 		page: 1,
 		limit: 10,
 		sortBy: SortByEnum.CREATED_AT,
 		sortOrder: SortOrderEnum.DESC
 	});
 
-	let categoryOptions = $state<{ id: number; name: string }[]>([]);
-	let skillOptions = $state<{ id: number; name: string }[]>([]);
+	// Get categories and skills from app store
+	let categoryOptions = $state<{ id: number; name: string }[]>(
+		$appStore.categories.map((cat) => ({ id: cat.id, name: cat.name }))
+	);
+	let skillOptions = $state<{ id: number; name: string }[]>(
+		$appStore.skills.map((skill) => ({ id: skill.id, name: skill.name }))
+	);
 
 	// Track active filter count
 	let activeFilterCount = $state(0);
@@ -60,6 +69,8 @@
 		if (filters.budgetType) count++;
 		if (filters.location) count++;
 		if (filters.radius) count++;
+		if (filters.dateRange) count++;
+		if (filters.deadlineBefore || filters.deadlineAfter) count++;
 		if (filters.sortBy !== 'createdAt' || filters.sortOrder !== 'desc') count++;
 
 		activeFilterCount = count;
@@ -88,31 +99,6 @@
 		return enableBodyScroll;
 	});
 
-	// Fetch categories and skills on mount
-	async function fetchFilterOptions() {
-		try {
-			// These would be actual API calls in the real implementation
-			categoryOptions = [
-				{ id: 1, name: 'Home Services' },
-				{ id: 2, name: 'Professional Services' },
-				{ id: 3, name: 'Transport' }
-				// Add more categories as needed
-			];
-
-			skillOptions = [
-				{ id: 1, name: 'Cleaning' },
-				{ id: 2, name: 'Gardening' },
-				{ id: 3, name: 'Accounting' }
-				// Add more skills as needed
-			];
-		} catch (error) {
-			console.error('Failed to load filter options:', error);
-		}
-	}
-
-	// Call this when component is mounted
-	fetchFilterOptions();
-
 	// Clear all filters
 	function clearFilters() {
 		filters.searchTerm = '';
@@ -125,6 +111,9 @@
 		filters.budgetType = undefined;
 		filters.location = undefined;
 		filters.radius = undefined;
+		filters.deadlineBefore = undefined;
+		filters.deadlineAfter = undefined;
+		filters.dateRange = undefined;
 		filters.sortBy = SortByEnum.CREATED_AT;
 		filters.sortOrder = SortOrderEnum.DESC;
 	}
@@ -146,6 +135,21 @@
 			filters.status = filters.status.filter((s) => s !== status);
 		} else {
 			filters.status = [...(filters.status || []), status];
+		}
+	}
+
+	// Handle availability change
+	function handleAvailabilityChange(
+		filterMode: 'date_range' | 'deadline',
+		start: string,
+		end: string
+	) {
+		if (filterMode === 'date_range') {
+			filters.dateRange = { start, end };
+		}
+		if (filterMode === 'deadline') {
+			filters.deadlineBefore = start;
+			filters.deadlineAfter = end;
 		}
 	}
 
@@ -232,7 +236,7 @@
 			</svg>
 		</button>
 	</div>
-	<div class="p-8">
+	<div class="px-2 py-4 sm:p-8">
 		<!-- Search term -->
 		<div class="form-control mb-4">
 			<label class="label font-medium" for="search-term">Search Term</label>
@@ -347,7 +351,11 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Availability</div>
 			<div class="collapse-content">
-				<AvailabilityFilter />
+				<AvailabilityFilter
+					deadlineBefore={filters.deadlineBefore}
+					deadlineAfter={filters.deadlineAfter}
+					onAvailabilityChange={handleAvailabilityChange}
+				/>
 			</div>
 		</div>
 

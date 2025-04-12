@@ -116,6 +116,9 @@ export interface SearchTasksParams {
 	skills?: number[];
 	location?: string;
 	radius?: number;
+	deadlineBefore?: string;
+	deadlineAfter?: string;
+	dateRange?: DateRange;
 	sortBy?: SortByEnum;
 	sortOrder?: SortOrderEnum;
 }

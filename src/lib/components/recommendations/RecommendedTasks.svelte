@@ -95,7 +95,7 @@
 	}
 </script>
 
-<section class="bg-base-200 mb-8 rounded-lg p-4">
+<section class="bg-base-200 mb-8">
 	<div class="mb-4 flex items-center justify-between">
 		<h2 class="text-xl font-bold">Recommended For You</h2>
 		<button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={isLoading}>
@@ -145,7 +145,7 @@
 			<div class="loading loading-spinner loading-lg"></div>
 		</div>
 	{:else if recommendations.length === 0}
-		<div class="bg-base-100 rounded-md p-6 text-center">
+		<div class="bg-base-100 rounded-xl p-6 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="text-primary mx-auto mb-4 h-12 w-12"

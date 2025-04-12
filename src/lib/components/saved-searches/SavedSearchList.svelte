@@ -126,8 +126,8 @@
 	}
 </script>
 
-<div class="bg-base-200 mb-6 rounded-lg p-4">
-	<h2 class="mb-4 text-xl font-bold">Saved Searches</h2>
+<div class="card bg-base-100 mb-6 p-4">
+	<h2 class="mb-4 text-xl font-bold">Your Saved Searches</h2>
 
 	{#if error}
 		<div class="alert alert-error mb-4">
@@ -178,7 +178,7 @@
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search}
-				<div class="card bg-base-100 shadow-sm">
+				<div class="card border shadow-sm">
 					<div class="card-body p-4">
 						<!-- Header with name and notification indicator -->
 						<div class="flex items-start justify-between">

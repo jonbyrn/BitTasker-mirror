@@ -2,14 +2,20 @@
 	import type { TaskResponse, SearchTasksParams, TaskData } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
 	import { appStore } from '$lib/stores/app.store';
-	import { TaskStatusEnum, TaskTypeEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
+	import {
+		TaskStatusEnum,
+		TaskTypeEnum,
+		SortByEnum,
+		SortOrderEnum
+	} from '$lib/utils/enums/task.enum';
 	import taskService from '$lib/api/services/task.service';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
-	// import HistoryBasedSuggestions from '$lib/components/recommendations/HistoryBasedSuggestions.svelte';
+	import HistoryBasedSuggestions from '$lib/components/recommendations/HistoryBasedSuggestions.svelte';
 	import recommendationsService from '$lib/api/services/recommendations.service';
+	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 
 	// State
 	let searchQuery = $state('');
@@ -37,7 +43,6 @@
 	let showRecommendations = $state(true);
 	let showSavedSearches = $state(true);
 	let showHistorySuggestions = $state(true);
-	let showTaskPreferences = $state(true);
 
 	// Infinite scroll state
 	let observer: IntersectionObserver | null = null;
@@ -416,46 +421,8 @@
 	</div>
 
 	<!-- Personalized Recommendations Section -->
-	{#if showRecommendations && recommendedTasks.length > 0}
-		<div class="card bg-base-100 mb-6 shadow-xl">
-			<div class="card-body">
-				<div class="mb-4 flex items-center justify-between">
-					<h2 class="card-title text-xl">Recommended for You</h2>
-					<button class="btn btn-ghost btn-sm" onclick={toggleAllRecommendations}>
-						{showAllRecommendations ? 'Show Less' : 'Show More'}
-					</button>
-				</div>
-
-				{#if loadingRecommendations}
-					<div class="flex justify-center py-4">
-						<span class="loading loading-spinner loading-md"></span>
-					</div>
-				{:else}
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{#each recommendedTasks.slice(0, showAllRecommendations ? undefined : 3) as task}
-							<div
-								role="button"
-								tabindex="0"
-								class="card bg-base-200 cursor-pointer shadow-sm transition-shadow hover:shadow-md"
-								onclick={() => goToTaskDetails(task.id.toString())}
-								onkeydown={(e) => e.key === 'Enter' && goToTaskDetails(task.id.toString())}
-							>
-								<div class="card-body p-4">
-									<h3 class="card-title line-clamp-1 text-lg">{task.title}</h3>
-									<p class="mb-2 line-clamp-2 text-sm">{task.description}</p>
-									<div class="mt-2 flex items-center justify-between">
-										<span class="badge badge-outline">
-											{task.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In Person'}
-										</span>
-										<span class="font-semibold">{task.budget} BTC</span>
-									</div>
-								</div>
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
+	{#if showRecommendations}
+		<RecommendedTasks limit={3} onTaskClick={goToTaskDetails} />
 	{/if}
 
 	<!-- Task List -->
@@ -464,89 +431,59 @@
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
 	{:else if tasks.length > 0}
-		<div class="space-y-4">
-			{#each tasks as task}
-				<div class="card bg-base-100 shadow-md transition-shadow hover:shadow-lg">
-					<div class="card-body">
-						<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-							<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
-							<div class="flex items-center gap-2 text-sm">
-								<span class="font-semibold">{task.budget} BTC</span>
-								<span class="badge badge-outline">{task.status}</span>
-							</div>
+		<div class="card bg-base-100 space-y-4 shadow-md transition-shadow hover:shadow-lg">
+			{#each tasks as task, index}
+				<div class="card-body">
+					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
+						<div class="flex items-center gap-2 text-sm">
+							<span class="font-semibold">{task.budget} BTC</span>
+							<span class="badge badge-outline">{task.status}</span>
 						</div>
+					</div>
 
-						<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
+					<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
 
-						<div class="mt-2 mb-4">
-							<div class="flex flex-wrap gap-4">
-								{#if task.deadlineDate}
-									<div>
-										<p class="text-base-content/60 text-sm">Deadline</p>
-										<p class="font-medium">{formatTimeAgo(task.deadlineDate)}</p>
-									</div>
-								{:else if task.dateRange}
-									<div>
-										<p class="text-base-content/60 text-sm">Date Range</p>
-										<p class="font-medium">
-											{new Date(task.dateRange.start).toLocaleDateString()} -
-											{new Date(task.dateRange.end).toLocaleDateString()}
-										</p>
-									</div>
-								{/if}
-
-								{#if task.client?.user}
-									<div>
-										<p class="text-base-content/60 text-sm">Posted By</p>
-										<p class="font-medium">{task.client.user.email}</p>
-									</div>
-								{/if}
-							</div>
-						</div>
-
-						{#if task.requiredSkills && task.requiredSkills.length > 0}
-							<div class="mb-4 flex flex-wrap gap-2">
-								{#each task.requiredSkills as skillItem}
-									<span class="badge badge-primary badge-outline">{skillItem.skill.name}</span>
-								{/each}
-							</div>
-						{/if}
-
-						<div class="card-actions mt-4 flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								<div class="badge badge-info gap-1">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
-										/>
-									</svg>
-									{task.bids?.length || 0} Bids
+					<div class="mt-2 mb-4">
+						<div class="flex flex-wrap gap-4">
+							{#if task.deadlineDate}
+								<div>
+									<p class="text-base-content/60 text-sm">Deadline</p>
+									<p class="font-medium">{formatTimeAgo(task.deadlineDate)}</p>
 								</div>
-							</div>
+							{:else if task.dateRange}
+								<div>
+									<p class="text-base-content/60 text-sm">Date Range</p>
+									<p class="font-medium">
+										{new Date(task.dateRange.start).toLocaleDateString()} -
+										{new Date(task.dateRange.end).toLocaleDateString()}
+									</p>
+								</div>
+							{/if}
 
-							<button
-								class="btn btn-primary btn-sm"
-								class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
-								onclick={() => {
-									if (task.status === TaskStatusEnum.OPEN) {
-										selectedTaskId = task.id.toString();
-										isSidebarOpen = true;
-									}
-								}}
-								aria-label="Bid on this task"
-							>
+							{#if task.client?.user}
+								<div>
+									<p class="text-base-content/60 text-sm">Posted By</p>
+									<p class="font-medium">{task.client.user.email}</p>
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					{#if task.requiredSkills && task.requiredSkills.length > 0}
+						<div class="mb-4 flex flex-wrap gap-2">
+							{#each task.requiredSkills as skillItem}
+								<span class="badge badge-primary badge-outline">{skillItem.skill.name}</span>
+							{/each}
+						</div>
+					{/if}
+
+					<div class="card-actions mt-4 flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<div class="badge badge-info gap-1">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
+									class="h-4 w-4"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -555,14 +492,46 @@
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M12 4v16m8-8H4"
+										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
 									/>
 								</svg>
-								{task.status === TaskStatusEnum.OPEN ? 'Bid Now' : 'Bidding closed'}
-							</button>
+								{task.bids?.length || 0} Bids
+							</div>
 						</div>
+
+						<button
+							class="btn btn-primary btn-sm"
+							class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
+							onclick={() => {
+								if (task.status === TaskStatusEnum.OPEN) {
+									selectedTaskId = task.id.toString();
+									isSidebarOpen = true;
+								}
+							}}
+							aria-label="Bid on this task"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 4v16m8-8H4"
+								/>
+							</svg>
+							{task.status === TaskStatusEnum.OPEN ? 'Bid Now' : 'Bidding closed'}
+						</button>
 					</div>
 				</div>
+
+				{#if index < tasks.length - 1}
+					<div class="divider w-[90%] mx-auto"></div>
+				{/if}
 			{/each}
 		</div>
 
@@ -630,54 +599,7 @@
 
 <!-- Saved Searches Section -->
 {#if showSavedSearches}
-	<div class="card bg-base-100 mb-6 shadow-xl">
-		<div class="card-body">
-			<h2 class="mb-4 text-xl font-bold">Your Saved Searches</h2>
-			<SavedSearchList />
-		</div>
-	</div>
-{/if}
-
-<!-- User History Based Suggestions -->
-{#if showHistorySuggestions}
-	<!-- <div class="card bg-base-100 mb-6 shadow-xl">
-		<div class="card-body">
-			<h2 class="mb-4 text-xl font-bold">Based on Your History</h2>
-			<HistoryBasedSuggestions onTaskClick={goToTaskDetails} />
-		</div>
-	</div> -->
-{/if}
-
-{#if showTaskPreferences}
-	<!-- Task Preferences -->
-	<div class="card bg-base-100 mb-6 shadow-xl">
-		<div class="card-body">
-			<h2 class="mb-4 text-xl font-bold">Your Task Preferences</h2>
-			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				<div class="card bg-base-200">
-					<div class="card-body">
-						<h3 class="card-title text-lg">Preferred Categories</h3>
-						<div class="mt-2 flex flex-wrap gap-2">
-							{#each $appStore.categories?.slice(0, 5) || [] as category}
-								<span class="badge badge-primary">{category?.name || 'Category'}</span>
-							{/each}
-						</div>
-					</div>
-				</div>
-				<div class="card bg-base-200">
-					<div class="card-body">
-						<h3 class="card-title text-lg">Your Skills</h3>
-						<div class="mt-2 flex flex-wrap gap-2">
-							<span class="badge badge-secondary">JavaScript</span>
-							<span class="badge badge-secondary">Python</span>
-							<span class="badge badge-secondary">UX Design</span>
-							<span class="badge badge-secondary">Marketing</span>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+	<SavedSearchList />
 {/if}
 
 <!-- Advanced Filter Drawer Component -->
