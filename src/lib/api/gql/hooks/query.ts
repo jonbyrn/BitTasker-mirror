@@ -6,7 +6,7 @@
  */
 
 import type { DocumentNode } from 'graphql';
-import type { TypedDocumentNode, OperationVariables, ApolloQueryResult, WatchQueryOptions, QueryOptions } from '@apollo/client/core';
+import type { TypedDocumentNode, OperationVariables, WatchQueryOptions, QueryOptions } from '@apollo/client/core';
 import { client } from '../client';
 import { readable } from 'svelte/store';
 
@@ -24,7 +24,7 @@ export async function executeQuery<TData = any, TVariables extends OperationVari
       variables,
       ...options,
     });
-    
+
     return {
       data: result.data,
       loading: false,
@@ -89,11 +89,14 @@ export async function refetchQuery<TData = any, TVariables extends OperationVari
       updateCache(cache) {
         // If specific variables are provided, we can use them to refetch
         if (variables) {
-          cache.modify({
-            fields: {
-              [query.definitions[0].name.value]: (_, { INVALIDATE }) => INVALIDATE
-            }
-          });
+          const definition = query.definitions[0];
+          if (definition && 'name' in definition && definition.name) {
+            cache.modify({
+              fields: {
+                [definition.name.value]: (_, { INVALIDATE }) => INVALIDATE
+              }
+            });
+          }
         }
       }
     });
