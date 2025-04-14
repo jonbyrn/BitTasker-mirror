@@ -5,84 +5,18 @@
  */
 
 import { gql } from '@apollo/client/core';
-// Define fragments directly to ensure proper resolution
-
-// Basic fields fragment
-const TASK_BASIC_FIELDS = gql`
-  fragment TaskBasicFields on Task {
-    id
-    title
-    description
-    status
-    budget
-    budgetType
-    taskType
-    visibility
-    createdAt
-    updatedAt
-    clientId
-  }
-`;
-
-// Location fields fragment
-const TASK_LOCATION_FIELDS = gql`
-  fragment TaskLocationFields on Task {
-    isRemovals
-    pickupLocation {
-      displayName
-      latitude
-      longitude
-      locationLoaded
-      zipCode
-    }
-    dropOffLocation {
-      displayName
-      latitude
-      longitude
-      locationLoaded
-      zipCode
-    }
-  }
-`;
-
-// Detail fields fragment (combines basic and location)
-const TASK_DETAIL_FIELDS = gql`
-  fragment TaskDetailFields on Task {
-    ...TaskBasicFields
-    ...TaskLocationFields
-    dateRange {
-      start
-      end
-    }
-    deadlineDate
-    estimatedHours
-    freelancerId
-    skillIds
-    attachments {
-      fileName
-      fileUrl
-      fileSize
-    }
-    imageUrls
-  }
-  ${TASK_BASIC_FIELDS}
-  ${TASK_LOCATION_FIELDS}
-`;
-
-// Full fields fragment
-const TASK_FULL_FIELDS = gql`
-  fragment TaskFullFields on Task {
-    ...TaskDetailFields
-    categoryIds
-    deletedAt
-  }
-  ${TASK_DETAIL_FIELDS}
-`;
+import { withFragments } from '../hooks/fragments';
+import {
+  TASK_BASIC_FIELDS,
+  TASK_DETAIL_FIELDS,
+  TASK_FULL_FIELDS,
+  TASK_LOCATION_FIELDS
+} from '../fragments/task';
 
 /**
  * Get paginated list of tasks with filtering
  */
-export const GET_TASKS = gql`
+const GET_TASKS_QUERY = gql`
   query Tasks(
     $page: Int = 1
     $limit: Int = 10
@@ -119,56 +53,87 @@ export const GET_TASKS = gql`
       }
     }
   }
-  ${TASK_BASIC_FIELDS}
 `;
+
+// Export the query with attached fragments
+export const GET_TASKS = withFragments(GET_TASKS_QUERY, TASK_BASIC_FIELDS);
 
 /**
  * Get a single task by ID
  */
-export const GET_TASK = gql`
+const GET_TASK_QUERY = gql`
   query Task($id: Int!) {
     task(id: $id) {
       ...TaskFullFields
     }
   }
-  ${TASK_FULL_FIELDS}
 `;
+
+// Export the query with attached fragments - Full fields depends on detail fields, location fields and basic fields
+export const GET_TASK = withFragments(
+  GET_TASK_QUERY, 
+  TASK_FULL_FIELDS,
+  TASK_DETAIL_FIELDS,
+  TASK_BASIC_FIELDS,
+  TASK_LOCATION_FIELDS
+);
 
 /**
  * Get current user's tasks
  */
-export const GET_MY_TASKS = gql`
+const GET_MY_TASKS_QUERY = gql`
   query MyTasks {
     myTasks {
       ...TaskDetailFields
     }
   }
-  ${TASK_DETAIL_FIELDS}
 `;
+
+// Export the query with attached fragments - Detail fields depends on basic fields and location fields
+export const GET_MY_TASKS = withFragments(
+  GET_MY_TASKS_QUERY, 
+  TASK_DETAIL_FIELDS,
+  TASK_BASIC_FIELDS,
+  TASK_LOCATION_FIELDS
+);
 
 /**
  * Create a new task
  */
-export const CREATE_TASK = gql`
+const CREATE_TASK_MUTATION = gql`
   mutation CreateTask($input: CreateTaskInput!) {
     createTask(input: $input) {
       ...TaskDetailFields
     }
   }
-  ${TASK_DETAIL_FIELDS}
 `;
+
+// Export the mutation with attached fragments - Detail fields depends on basic fields and location fields
+export const CREATE_TASK = withFragments(
+  CREATE_TASK_MUTATION, 
+  TASK_DETAIL_FIELDS,
+  TASK_BASIC_FIELDS,
+  TASK_LOCATION_FIELDS
+);
 
 /**
  * Update an existing task
  */
-export const UPDATE_TASK = gql`
+const UPDATE_TASK_MUTATION = gql`
   mutation UpdateTask($id: Int!, $input: UpdateTaskInput!) {
     updateTask(id: $id, input: $input) {
       ...TaskDetailFields
     }
   }
-  ${TASK_DETAIL_FIELDS}
 `;
+
+// Export the mutation with attached fragments - Detail fields depends on basic fields and location fields
+export const UPDATE_TASK = withFragments(
+  UPDATE_TASK_MUTATION, 
+  TASK_DETAIL_FIELDS,
+  TASK_BASIC_FIELDS,
+  TASK_LOCATION_FIELDS
+);
 
 /**
  * Change task status

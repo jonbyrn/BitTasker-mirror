@@ -6,11 +6,12 @@
  */
 
 import { gql } from '@apollo/client/core';
+import { registerFragment } from '../hooks/fragments';
 
 /**
  * Basic Task fields that are commonly needed
  */
-export const TASK_BASIC_FIELDS = gql`
+export const TASK_BASIC_FIELDS = registerFragment(gql`
   fragment TaskBasicFields on Task {
     id
     title
@@ -24,12 +25,12 @@ export const TASK_BASIC_FIELDS = gql`
     updatedAt
     clientId
   }
-`;
+`);
 
 /**
  * Location-related Task fields
  */
-export const TASK_LOCATION_FIELDS = gql`
+export const TASK_LOCATION_FIELDS = registerFragment(gql`
   fragment TaskLocationFields on Task {
     isRemovals
     pickupLocation {
@@ -47,12 +48,12 @@ export const TASK_LOCATION_FIELDS = gql`
       zipCode
     }
   }
-`;
+`);
 
 /**
  * Detailed Task fields including attachments and timing
  */
-export const TASK_DETAIL_FIELDS = gql`
+export const TASK_DETAIL_FIELDS = registerFragment(gql`
   fragment TaskDetailFields on Task {
     ...TaskBasicFields
     ...TaskLocationFields
@@ -71,15 +72,15 @@ export const TASK_DETAIL_FIELDS = gql`
     }
     imageUrls
   }
-`;
+`);
 
 /**
  * Full Task representation with all available fields
  */
-export const TASK_FULL_FIELDS = gql`
+export const TASK_FULL_FIELDS = registerFragment(gql`
   fragment TaskFullFields on Task {
     ...TaskDetailFields
     categoryIds
     deletedAt
   }
-`;
+`);
