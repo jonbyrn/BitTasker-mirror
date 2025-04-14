@@ -6,7 +6,7 @@ export interface UploaderProps {
 	maxFiles?: number;
 	maxFileSize?: number;
 	allowedTypes?: string[];
-	files?: File[];
+	files?: (File | string)[];
 	error?: string;
 	width?: number;
 	height?: number;
@@ -30,20 +30,20 @@ export interface InputProps {
 	error?: string;
 	required?: boolean;
 	type?:
-		| 'text'
-		| 'number'
-		| 'date'
-		| 'time'
-		| 'datetime'
-		| 'month'
-		| 'week'
-		| 'email'
-		| 'password'
-		| 'search'
-		| 'tel'
-		| 'url'
-		| 'color'
-		| 'select';
+	| 'text'
+	| 'number'
+	| 'date'
+	| 'time'
+	| 'datetime'
+	| 'month'
+	| 'week'
+	| 'email'
+	| 'password'
+	| 'search'
+	| 'tel'
+	| 'url'
+	| 'color'
+	| 'select';
 	autoComplete?: 'on' | 'off';
 	options?: { label: string; value: string }[];
 	onChange?: (option: { label: string; value: string }) => void;

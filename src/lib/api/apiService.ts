@@ -73,6 +73,22 @@ export class BaseApiService {
 	}
 
 	/**
+	 * Make a PATCH request to the specified endpoint
+	 */
+	protected async patch<T = any, D = any>(
+		url: string,
+		data?: D,
+		config?: AxiosRequestConfig
+	): Promise<ApiResponse<T>> {
+		try {
+			const response: AxiosResponse = await this.axiosInstance.patch(url, data, config);
+			return this.formatResponse<T>(response);
+		} catch (error) {
+			return this.handleError(error);
+		}
+	}
+
+	/**
 	 * Make a DELETE request to the specified endpoint
 	 */
 	protected async delete<T = any>(

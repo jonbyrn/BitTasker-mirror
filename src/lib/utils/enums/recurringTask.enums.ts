@@ -1,0 +1,65 @@
+/**
+ * Enums for recurring tasks
+ */
+
+export enum RECURRINGFREQUENCYENUM {
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  BIWEEKLY = 'BIWEEKLY',
+  MONTHLY = 'MONTHLY',
+  CUSTOM = 'CUSTOM'
+}
+
+export enum TIMINGTYPE {
+  ON_DATE = 'ON_DATE',
+  BEFORE_DATE = 'BEFORE_DATE',
+  FLEXIBLE = 'FLEXIBLE'
+}
+
+export enum LOCATIONTYPE {
+  IN_PERSON = 'IN_PERSON',
+  ONLINE = 'ONLINE'
+}
+
+export enum TIMINGTIMEOFDAY {
+  MORNING = 'morning',
+  MIDDAY = 'midday',
+  AFTERNOON = 'afternoon',
+  EVENING = 'evening'
+}
+
+export enum BUDGETTYPE {
+  FIXED = 'FIXED',
+  HOURLY = 'HOURLY'
+}
+
+export enum TASKSTATUS {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED'
+}
+
+export enum TASKTYPE {
+  REMOTE = 'REMOTE',
+  IN_PERSON = 'IN_PERSON'
+}
+
+export enum TASKCATEGORY {
+  REMOVALS = 'REMOVALS',
+  DELIVERY = 'DELIVERY',
+  CLEANING = 'CLEANING',
+  HANDYMAN = 'HANDYMAN',
+  GARDENING = 'GARDENING',
+  TUTORING = 'TUTORING',
+  DESIGN = 'DESIGN',
+  TECH_SUPPORT = 'TECH_SUPPORT',
+  OTHER = 'OTHER'
+}
+
+export enum BUDGETCURRENCY {
+  BTC = 'BTC',
+  L_BTC = 'L-BTC',
+  USDT = 'USDt',
+  LN = 'LN'
+}

@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { AxiosError } from 'axios';
+	import { linear } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
 	import { appStore } from '$lib/stores/app.store';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import taskService from '$lib/api/services/task.service';
+	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
-	import DatePicker from '$lib/components/Date/DatePicker.svelte';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import uploadService from '$lib/api/services/upload.service';
+	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 
 	onMount(() => {
 		store.loadDraft();
@@ -17,10 +22,10 @@
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
+	let direction: 'forward' | 'backward' = $state('forward');
 
 	function validateCurrentStep(): boolean {
 		errors = {};
-
 		switch ($store.currentStep) {
 			case 'basics':
 				if (!$store.task.title?.trim()) errors.title = 'Title is required';
@@ -36,7 +41,7 @@
 						errors.deadline = 'Date range must be in the future';
 					}
 				}
-				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
+				if ($store.task.deadlineDate && new Date($store.task.deadlineDate) < new Date())
 					errors.deadline = 'Deadline must be in the future';
 				if ($store.task.categoryIds.length === 0)
 					errors.category = 'At least one category is required';
@@ -77,21 +82,38 @@
 		return Object.keys(errors).length === 0;
 	}
 
-	let attachments = $state<File[]>([]);
-	function handleFileUpload(files: File[]) {
-		if (files) {
-			for (let i = 0; i < files.length; i++) {
-				attachments = [...attachments, files[i]];
-			}
-		}
-	}
+	const handleFileUpload = async (files: File[]) => {
+		if (!files || files.length === 0) return;
 
-	function handleNext() {
+		try {
+			const uploadedFiles = await uploadService.uploadMultipleFiles(files);
+			uploadedFiles.forEach((file, index) => {
+				if (!$store.task.attachments) return;
+				$store.task.attachments.push({
+					fileUrl: file.url,
+					fileName: files[index].name,
+					fileSize: files[index].size
+				});
+			});
+
+			// Save to localStorage immediately after adding attachments
+			store.saveDraft();
+			appStore.showSuccessToast('Files uploaded successfully');
+		} catch (error) {
+			// Handle upload failure
+			console.error('File upload failed:', error);
+			errors.attachments = 'Failed to upload attachments. Please go back and try again.';
+			appStore.showErrorToast('Failed to upload attachments. Please go back and try again.');
+		}
+	};
+
+	const handleNext = () => {
 		if (validateCurrentStep()) {
 			store.nextStep();
 			store.saveDraft();
+			direction = 'forward';
 		}
-	}
+	};
 
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
@@ -99,7 +121,21 @@
 		isSubmitting = true;
 
 		try {
-			await taskService.createTask($store.task);
+			if ($store.recurringTask.isRecurring) {
+				// Create recurring task template
+				const data = {
+					isRecurring: true,
+					name: $store.recurringTask.name,
+					description: $store.recurringTask.description,
+					recurrencePattern: $store.recurringTask.recurrencePattern,
+					task: $store.task
+				};
+				await recurringTasksService.createTemplate(data);
+			} else {
+				// Create a regular task
+				await taskService.createTask($store.task);
+			}
+
 			isSubmitted = true;
 			await store.clearDraft();
 
@@ -124,134 +160,176 @@
 	<div class="card-body">
 		<div class="flex items-center justify-between">
 			<h2 class="card-title text-2xl">Create a New Task</h2>
-			<div class="text-sm">Step {STEPS.indexOf($store.currentStep) + 1} of {STEPS.length}</div>
+			<div class="text-sm">
+				Step {$STEPS.indexOf($store.currentStep) + 1} of {$STEPS.length}
+			</div>
 		</div>
+
+		<!-- Recurring Task Toggle -->
+		{#if $store.currentStep !== 'recurring'}
+			<div class="form-control mt-2 mb-4 w-full max-w-xs">
+				<label class="label cursor-pointer">
+					<span class="label-text font-medium">Create as recurring task</span>
+					<input
+						type="checkbox"
+						class="toggle toggle-primary"
+						bind:checked={$store.recurringTask.isRecurring}
+						onchange={(event) =>
+							store.setupRecurringTask((event.target as HTMLInputElement).checked)}
+					/>
+				</label>
+				{#if $store.recurringTask.isRecurring}
+					<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="space-y-6">
 			{#if $store.currentStep === 'basics'}
-				<div class="w-full">
-					<label for="title" class="label">
-						<span class="label-text">What do you need done?</span>
-					</label>
-					<input
-						type="text"
-						id="title"
-						value={$store.task.title}
-						onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
-						class="input input-bordered w-full {errors.title ? 'input-error' : ''}"
-						placeholder="e.g. Help move my sofa"
-					/>
-					{#if errors.title}
-						<span class="label-text-alt text-error">{errors.title}</span>
-					{/if}
-				</div>
-
-				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">When do you need this done?</h3>
-
-					<div class="flex gap-4">
-						<button
-							class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() =>
-								store.updateTask({ deadline: new Date().toISOString(), dateRange: undefined })}
-						>
-							I'm flexible
-						</button>
-						<button
-							class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-							onclick={() =>
-								store.updateTask({
-									deadline: '',
-									dateRange: {
-										start: new Date().toISOString(),
-										end: new Date().toISOString()
-									}
-								})}
-						>
-							On a specific date
-						</button>
+				<div
+					class="space-y-6"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
+					<div class="w-full">
+						<label for="title" class="label">
+							<span class="label-text">What do you need done?</span>
+						</label>
+						<input
+							type="text"
+							id="title"
+							value={$store.task.title}
+							onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
+							class="input input-bordered w-full {errors.title ? 'input-error' : ''}"
+							placeholder="e.g. Help move my sofa"
+						/>
+						{#if errors.title}
+							<span class="label-text-alt text-error">{errors.title}</span>
+						{/if}
 					</div>
 
-					{#if $store.task.dateRange}
-						<div class="grid grid-cols-2 gap-4">
+					<div class="space-y-4">
+						<h3 class="text-lg font-semibold">When do you need this done?</h3>
+
+						<div class="flex gap-4">
+							<button
+								class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+								onclick={() =>
+									store.updateTask({
+										deadlineDate: new Date().toISOString(),
+										dateRange: undefined
+									})}
+							>
+								I'm flexible
+							</button>
+							<button
+								class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+								onclick={() =>
+									store.updateTask({
+										deadlineDate: undefined,
+										dateRange: {
+											start: new Date().toISOString(),
+											end: new Date().toISOString()
+										}
+									})}
+							>
+								On a specific date
+							</button>
+						</div>
+
+						{#if $store.task.dateRange}
+							<div class="grid grid-cols-2 gap-4">
+								<div>
+									<DatePicker
+										label="Start Date"
+										value={$store.task.dateRange.start}
+										onChange={(value: string) => {
+											const start = value;
+											const end = $store.task.dateRange?.end ?? new Date().toISOString();
+											store.updateTask({
+												dateRange: {
+													start,
+													end
+												}
+											});
+										}}
+									/>
+								</div>
+								<div>
+									<DatePicker
+										label="End Date"
+										value={$store.task.dateRange.end}
+										onChange={(value: string) => {
+											const end = value;
+											const start = $store.task.dateRange?.start ?? new Date().toISOString();
+											store.updateTask({
+												dateRange: {
+													start,
+													end
+												}
+											});
+										}}
+									/>
+								</div>
+								{#if errors.deadline}
+									<span class="label-text-alt text-error col-span-2 -mt-4">{errors.deadline}</span>
+								{/if}
+							</div>
+						{:else}
 							<div>
 								<DatePicker
-									label="Start Date"
-									value={$store.task.dateRange.start}
-									onChange={(value: string) => {
-										const start = value;
-										const end = $store.task.dateRange?.end ?? new Date().toISOString();
-										store.updateTask({
-											dateRange: {
-												start,
-												end
-											}
-										});
-									}}
+									label="Deadline"
+									value={$store.task.deadlineDate}
+									onChange={(value: string) => store.updateTask({ deadlineDate: value })}
 								/>
+								{#if errors.deadline}
+									<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
+								{/if}
 							</div>
-							<div>
-								<DatePicker
-									label="End Date"
-									value={$store.task.dateRange.end}
-									onChange={(value: string) => {
-										const end = value;
-										const start = $store.task.dateRange?.start ?? new Date().toISOString();
-										store.updateTask({
-											dateRange: {
-												start,
-												end
-											}
-										});
-									}}
-								/>
-							</div>
-							{#if errors.deadline}
-								<span class="label-text-alt text-error col-span-2 -mt-4">{errors.deadline}</span>
-							{/if}
-						</div>
-					{:else}
-						<div>
-							<DatePicker
-								label="Deadline"
-								value={$store.task.deadline}
-								onChange={(value: string) => store.updateTask({ deadline: value })}
-							/>
-							{#if errors.deadline}
-								<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
-							{/if}
-						</div>
-					{/if}
-				</div>
+						{/if}
+					</div>
 
-				<div class="w-full">
-					<label for="category" class="label">Category</label>
-					<Tags
-						options={$appStore.categories.map((cat) => ({
-							name: cat.name,
-							id: cat.id
-						}))}
-						selectedTags={$store.task.categoryIds}
-						onChange={(ids) => store.updateTask({ categoryIds: ids })}
-					/>
-					{#if errors.category}
-						<span class="label-text-alt text-error">{errors.category}</span>
-					{/if}
-				</div>
+					<div class="w-full">
+						<label for="category" class="label">Category</label>
+						<Tags
+							options={$appStore.categories.map((cat) => ({
+								name: cat.name,
+								id: cat.id
+							}))}
+							selectedTags={$store.task.categoryIds}
+							onChange={(ids) => store.updateTask({ categoryIds: ids })}
+						/>
+						{#if errors.category}
+							<span class="label-text-alt text-error">{errors.category}</span>
+						{/if}
+					</div>
 
-				<div class="w-full">
-					<label for="skills" class="label">Required Skills</label>
-					<Tags
-						options={$appStore.skills}
-						selectedTags={$store.task.skillIds}
-						onChange={(ids) => store.updateTask({ skillIds: ids })}
-					/>
-					{#if errors.skill}
-						<span class="label-text-alt text-error">{errors.skill}</span>
-					{/if}
+					<div class="w-full">
+						<label for="skills" class="label">Required Skills</label>
+						<Tags
+							options={$appStore.skills}
+							selectedTags={$store.task.skillIds}
+							onChange={(ids) => store.updateTask({ skillIds: ids })}
+						/>
+						{#if errors.skill}
+							<span class="label-text-alt text-error">{errors.skill}</span>
+						{/if}
+					</div>
 				</div>
 			{:else if $store.currentStep === 'location'}
-				<div class="space-y-4">
+				<div
+					class="space-y-4"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
 					<h3 class="text-lg font-semibold">Is this a removals task?</h3>
 					<div class="flex gap-4">
 						<button
@@ -319,13 +397,13 @@
 
 						<div class="flex gap-4">
 							<button
-								class="btn {$store.task.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
+								class="btn {$store.task?.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
 								onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 							>
 								In-person
 							</button>
 							<button
-								class="btn {$store.task.taskType === TaskTypeEnum.REMOTE
+								class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE
 									? 'btn-primary'
 									: 'btn-outline'}"
 								onclick={() => {
@@ -352,7 +430,7 @@
 							</button>
 						</div>
 
-						{#if $store.task.taskType === TaskTypeEnum.IN_PERSON}
+						{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 							<div class="w-full">
 								<LocationAutoComplete
 									label="Location"
@@ -380,6 +458,7 @@
 						<Uploader
 							id="attachments"
 							label="Attachments"
+							files={$store.task.attachments?.map((file) => file.fileUrl)}
 							maxFiles={5}
 							maxFileSize={10}
 							onChange={handleFileUpload}
@@ -387,7 +466,15 @@
 					</div>
 				</div>
 			{:else if $store.currentStep === 'budget'}
-				<div class="space-y-4">
+				<div
+					class="space-y-4"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
 					<h3 class="text-lg font-semibold">What's your budget?</h3>
 
 					<div class="flex gap-4">
@@ -417,8 +504,9 @@
 							type="number"
 							id="budget"
 							value={$store.task.budget}
-							onchange={(e) =>
-								store.updateTask({ budget: parseFloat((e.target as HTMLInputElement).value) })}
+							onchange={(e) => {
+								store.updateTask({ budget: parseFloat((e.target as HTMLInputElement).value) });
+							}}
 							class="input input-bordered w-full {errors.budget ? 'input-error' : ''}"
 							placeholder="Enter your budget"
 							min="0"
@@ -438,10 +526,11 @@
 								type="number"
 								id="estimatedHours"
 								value={$store.task.estimatedHours}
-								onchange={(e) =>
+								onchange={(e) => {
 									store.updateTask({
 										estimatedHours: parseInt((e.target as HTMLInputElement).value)
-									})}
+									});
+								}}
 								class="input input-bordered w-full"
 								placeholder="Estimated hours needed"
 								min="1"
@@ -458,8 +547,9 @@
 							<textarea
 								id="description"
 								value={$store.task.description}
-								onchange={(e) =>
-									store.updateTask({ description: (e.target as HTMLTextAreaElement).value })}
+								onchange={(e) => {
+									store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
+								}}
 								class="textarea textarea-bordered h-32 w-full {errors.description
 									? 'textarea-error'
 									: ''}"
@@ -471,22 +561,92 @@
 						{/if}
 					</div>
 				</div>
+			{:else if $store.currentStep === 'recurring'}
+				<div
+					class="space-y-4"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
+					<div class="w-full">
+						<label for="name" class="label">
+							<span class="label-text">Recurring Task Name</span>
+						</label>
+						<input
+							type="text"
+							id="name"
+							value={$store.recurringTask.name}
+							onchange={(e) =>
+								store.updateRecurringDetails({ name: (e.target as HTMLInputElement).value })}
+							class="input input-bordered w-full {errors.name ? 'input-error' : ''}"
+							placeholder="e.g. Weekly Sofa Pickup"
+						/>
+						{#if errors.name}
+							<span class="label-text-alt text-error">{errors.name}</span>
+						{/if}
+					</div>
+
+					<div class="w-full">
+						<label for="description">
+							<span class="label-text">Recurring Task Details</span>
+						</label>
+						<textarea
+							id="description"
+							value={$store.recurringTask.description}
+							onchange={(e) =>
+								store.updateRecurringDetails({
+									description: (e.target as HTMLTextAreaElement).value
+								})}
+							class="textarea textarea-bordered h-32 w-full {errors.description
+								? 'textarea-error'
+								: ''}"
+							placeholder="Describe your recurring task in detail"
+						></textarea>
+						{#if errors.description}
+							<span class="label-text-alt text-error">{errors.description}</span>
+						{/if}
+					</div>
+
+					<div class="divider mt-6 mb-4">Recurring Task Schedule</div>
+
+					<!-- Recurrence Pattern Selector -->
+					<div class="mb-6">
+						<h4 class="mb-2 text-lg font-medium">How often should this task repeat?</h4>
+						<RecurrencePattern pattern={$store.recurringTask.recurrencePattern} />
+					</div>
+				</div>
 			{/if}
 
+			<!-- Control buttons -->
 			<div class="mt-6 flex justify-between">
 				{#if $store.currentStep !== 'basics'}
-					<button class="btn" onclick={() => store.previousStep()}>Back</button>
+					<button
+						class="btn"
+						onclick={() => {
+							store.previousStep();
+							direction = 'backward';
+						}}>Back</button
+					>
 				{:else}
 					<div></div>
 				{/if}
 
-				{#if $store.currentStep === 'budget'}
+				{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
 					<button
 						class="btn btn-primary {isSubmitting ? 'loading' : ''}"
 						onclick={handleSubmit}
 						disabled={isSubmitting}
 					>
-						{isSubmitting ? '' : 'Get Quotes'}
+						{#if isSubmitting}
+							<span></span>
+						{:else if $store.recurringTask.isRecurring}
+							Create Recurring Template
+						{:else}
+							Get Quotes
+						{/if}
 					</button>
 				{:else}
 					<button class="btn btn-primary" onclick={handleNext}>Next</button>

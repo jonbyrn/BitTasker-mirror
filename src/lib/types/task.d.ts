@@ -1,5 +1,5 @@
 import type { TaskBid } from './bid';
-import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
 
 export interface Location {
 	displayName: string;
@@ -20,13 +20,14 @@ export interface CreateTaskParams {
 	budget: number;
 	budgetType: BudgetTypeEnum;
 	taskType: TaskTypeEnum;
-	deadline: string;
+	deadlineDate: string;
 	estimatedHours?: number;
 	categoryIds: number[];
 	skillIds: number[];
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	dateRange?: DateRange;
+	attachments?: { fileName: string; fileUrl: string, fileSize: number }[];
 }
 
 export interface Task {
@@ -36,9 +37,11 @@ export interface Task {
 	description: string;
 	budget: number;
 	budgetType: BudgetTypeEnum;
+	currency?: string;
 	status: TaskStatusEnum;
 	taskType: TaskTypeEnum;
 	isRemovals: boolean;
+	isOwner?: boolean;
 	deadlineDate: string | null;
 	estimatedHours: number;
 	dateRange: DateRange | null;
@@ -52,6 +55,7 @@ export interface Task {
 	cancelledAt: string | null;
 	deletedAt: string | null;
 	isDeleted: boolean;
+	attachments?: { fileName: string; fileUrl: string, fileSize: number }[];
 	categories: Array<{
 		id: number;
 		taskId: number;
@@ -112,8 +116,11 @@ export interface SearchTasksParams {
 	skills?: number[];
 	location?: string;
 	radius?: number;
-	sortBy?: 'createdAt' | 'updatedAt' | 'budget' | 'deadline' | 'title';
-	sortOrder?: 'asc' | 'desc';
+	deadlineBefore?: string;
+	deadlineAfter?: string;
+	dateRange?: DateRange;
+	sortBy?: SortByEnum;
+	sortOrder?: SortOrderEnum;
 }
 
 export interface TaskData extends Task {
@@ -142,30 +149,6 @@ export interface TaskData extends Task {
 	freelancerAssignments?: any[];
 	bids?: any[];
 }
-
-// export interface TaskWithRelations extends Task {
-// 	bids?: Array<{
-// 		id: number;
-// 		taskId: number;
-// 		bidderId: number;
-// 		amount: number;
-// 		currency: string;
-// 		message: string;
-// 		status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
-// 		createdAt: string;
-// 		updatedAt: string;
-// 		bidder?: {
-// 			id: number;
-// 			userId: number;
-// 			name: string;
-// 			averageRating?: number;
-// 			joined?: string;
-// 			level?: number;
-// 			experiencePoints?: number;
-// 		};
-// 	}>;
-// 	freelancerAssignments?: Array<any>;
-// }
 
 export interface TaskResponse {
 	data: TaskData[];

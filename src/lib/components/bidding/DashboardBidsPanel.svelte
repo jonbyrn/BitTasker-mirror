@@ -31,8 +31,52 @@
 <div class="w-full" role="region" aria-label="My bids dashboard">
 	<!-- Loading State -->
 	{#if isLoading}
-		<div class="flex justify-center py-8" aria-live="polite">
-			<div class="loading loading-spinner loading-lg" aria-label="Loading your bids"></div>
+		<div class="grid grid-cols-1 gap-6" aria-live="polite">
+			<!-- My Submitted Bids Skeleton -->
+			<div class="card border bg-base-100 shadow-lg animate-pulse">
+				<div class="card-body">
+					<div class="bg-base-300 h-7 w-48 rounded mb-6"></div>
+					
+					{#each Array(2) as _}
+						<div class="divider"></div>
+						<div class="space-y-3">
+							<div class="flex justify-between items-center">
+								<div class="bg-base-300 h-6 w-64 rounded"></div>
+								<div class="bg-base-300 h-6 w-24 rounded"></div>
+							</div>
+							<div class="bg-base-300 h-4 w-full rounded"></div>
+							<div class="bg-base-300 h-4 w-3/4 rounded"></div>
+							<div class="flex justify-between mt-3">
+								<div class="bg-base-300 h-6 w-32 rounded"></div>
+								<div class="bg-base-300 h-9 w-28 rounded"></div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+			
+			<!-- Bids on My Tasks Skeleton -->
+			<div class="card border bg-base-100 shadow-lg animate-pulse">
+				<div class="card-body">
+					<div class="bg-base-300 h-7 w-48 rounded mb-6"></div>
+					
+					{#each Array(2) as _}
+						<div class="divider"></div>
+						<div class="space-y-3">
+							<div class="flex justify-between items-center">
+								<div class="bg-base-300 h-6 w-64 rounded"></div>
+								<div class="bg-base-300 h-6 w-24 rounded"></div>
+							</div>
+							<div class="bg-base-300 h-4 w-full rounded"></div>
+							<div class="bg-base-300 h-4 w-3/4 rounded"></div>
+							<div class="flex justify-between mt-3">
+								<div class="bg-base-300 h-6 w-32 rounded"></div>
+								<div class="bg-base-300 h-9 w-28 rounded"></div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
 		</div>
 
 		<!-- Error State -->
@@ -92,6 +136,7 @@
 					{:else}
 						<div class="space-y-4">
 							{#each myBids as bid (bid.id)}
+								<div class="divider"></div>
 								<BidSummaryCard {bid} isProvider={true} />
 							{/each}
 						</div>
@@ -134,6 +179,7 @@
 					{:else}
 						<div class="space-y-4">
 							{#each receivedBids as bid (bid.id)}
+								<div class="divider"></div>
 								<BidSummaryCard {bid} isProvider={false} />
 							{/each}
 						</div>

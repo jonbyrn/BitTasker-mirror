@@ -1,8 +1,10 @@
 <script lang="ts">
-	import type { CreateBidParams, Currency, PaymentType } from '$lib/types/bid';
+	import type { CreateBidParams, Currency, Milestone, PaymentType } from '$lib/types/bid';
 	import { AxiosError } from 'axios';
-	import { slide } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
+	import { linear } from 'svelte/easing';
 	import bidService from '$lib/api/services/bid.service';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
 	// Props
 	const { taskId, onClose } = $props<{ taskId: number; onClose: () => void }>();
@@ -17,7 +19,17 @@
 	let estimatedDuration = $state('');
 	let proposedApproach = $state('');
 	let coverLetter = $state('');
-	let milestones = $state<string[]>(['']);
+	let milestones = $state<Partial<Milestone>[]>([
+		{
+			title: '',
+			description: '',
+			amount: 0,
+			deliverables: '',
+			sequence: 1,
+			dueDate: '',
+			estimatedHours: 0
+		}
+	]);
 	let submittingBid = $state(false);
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
@@ -26,20 +38,40 @@
 	const currencyOptions: Currency[] = ['BTC', 'L-BTC', 'USD', 'LN'];
 
 	// Dynamic array handling
-	function addItem(array: string[], index: number) {
+	function addItem(array: Partial<Milestone>[], index: number) {
 		const newArray = [...array];
-		newArray.splice(index + 1, 0, '');
+		newArray.splice(index + 1, 0, {
+			title: '',
+			description: '',
+			amount: 0,
+			deliverables: '',
+			sequence: array.length + 1,
+			dueDate: '',
+			estimatedHours: 0
+		});
 		return newArray;
 	}
 
-	function removeItem(array: string[], index: number) {
+	function removeItem(array: Partial<Milestone>[], index: number) {
 		if (array.length > 1) {
 			const newArray = [...array];
 			newArray.splice(index, 1);
-			return newArray;
+			// Update sequence numbers
+			return newArray.map((item, i) => ({
+				...item,
+				sequence: i + 1
+			}));
 		} else {
 			const newArray = [...array];
-			newArray[0] = '';
+			newArray[0] = {
+				title: '',
+				description: '',
+				amount: 0,
+				deliverables: '',
+				sequence: 1,
+				dueDate: '',
+				estimatedHours: 0
+			};
 			return newArray;
 		}
 	}
@@ -103,7 +135,20 @@
 
 		try {
 			// Filter out empty items
-			const filteredMilestones = milestones.filter((m) => m.trim());
+			const filteredMilestones = milestones
+				.filter(
+					(m) =>
+						m.title?.trim() !== '' || m.description?.trim() !== '' || m.deliverables?.trim() !== ''
+				)
+				.map((m, i) => ({
+					title: m.title || `Milestone ${i + 1}`,
+					description: m.description || '',
+					amount: m.amount || 0,
+					deliverables: m.deliverables || '',
+					sequence: m.sequence || i + 1,
+					dueDate: m.dueDate || '',
+					estimatedHours: m.estimatedHours || 0
+				}));
 
 			const newBid: Partial<CreateBidParams> = {
 				taskId,
@@ -149,7 +194,15 @@
 	<h2 class="mb-6 text-2xl font-bold">Place your bid</h2>
 
 	{#if bidSubmitted}
-		<div class="p-8 text-center">
+		<div
+			class="p-8 text-center"
+			in:fly={{
+				duration: 200,
+				easing: linear,
+				y: 0,
+				x: 20
+			}}
+		>
 			<div class="mb-6">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -442,38 +495,209 @@
 
 			<!-- Milestones -->
 			<div class="form-control">
-				<label class="label" id="milestones-label" for="milestones">
-					<span class="label-text">Milestones (Optional)</span>
-				</label>
-				{#each milestones as milestone, i}
-					<div class="mb-2 flex items-center gap-2" transition:slide>
-						<input
-							type="text"
-							class="input input-bordered w-full"
-							value={milestone}
-							oninput={(e) => {
-								const newMilestones = [...milestones];
-								newMilestones[i] = (e.target as HTMLInputElement).value;
-								milestones = newMilestones;
-							}}
-							placeholder="e.g., Design completed by Day 3"
-						/>
-						<button
-							type="button"
-							class="btn btn-square btn-outline btn-sm"
-							onclick={() => (milestones = addItem(milestones, i))}
+				<div class="flex items-center justify-between">
+					<label class="label" id="milestones-label" for="milestones-container">
+						<span class="label-text font-medium">Milestones (Optional)</span>
+					</label>
+					<button
+						type="button"
+						class="btn btn-sm btn-outline"
+						onclick={() => (milestones = addItem(milestones, milestones.length - 1))}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
 						>
-							+
-						</button>
-						<button
-							type="button"
-							class="btn btn-square btn-outline btn-sm"
-							onclick={() => (milestones = removeItem(milestones, i))}
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+							/>
+						</svg>
+						Add Milestone
+					</button>
+				</div>
+
+				<div id="milestones-container" class="border-base-300 bg-base-100 rounded-lg border p-1">
+					{#each milestones as milestone, i}
+						<div
+							class="border-base-200 mb-4 rounded-md border p-4"
+							transition:slide={{ duration: 200 }}
 						>
-							-
-						</button>
-					</div>
-				{/each}
+							<div class="mb-2 flex items-center justify-between">
+								<h3 class="text-lg font-medium">Milestone {i + 1}</h3>
+								<button
+									type="button"
+									class="btn btn-circle btn-ghost btn-sm"
+									onclick={() => (milestones = removeItem(milestones, i))}
+									aria-label="Remove milestone"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+								</button>
+							</div>
+
+							<!-- Title field -->
+							<div class="form-control">
+								<label class="label" for={`milestone-title-${i}`}>
+									<span class="label-text">Title</span>
+								</label>
+								<input
+									id={`milestone-title-${i}`}
+									type="text"
+									class="input input-bordered w-full"
+									value={milestone.title}
+									oninput={(e) => {
+										const newMilestones = [...milestones];
+										newMilestones[i] = {
+											...newMilestones[i],
+											title: (e.target as HTMLInputElement).value
+										};
+										milestones = newMilestones;
+									}}
+									placeholder="e.g., Initial Design"
+								/>
+							</div>
+
+							<!-- Description field -->
+							<div class="form-control mt-2">
+								<label class="label" for={`milestone-description-${i}`}>
+									<span class="label-text">Description</span>
+								</label>
+								<textarea
+									id={`milestone-description-${i}`}
+									class="textarea textarea-bordered h-20 w-full"
+									value={milestone.description}
+									oninput={(e) => {
+										const newMilestones = [...milestones];
+										newMilestones[i] = {
+											...newMilestones[i],
+											description: (e.target as HTMLTextAreaElement).value
+										};
+										milestones = newMilestones;
+									}}
+									placeholder="Describe what this milestone involves"
+								></textarea>
+							</div>
+
+							<div class="mt-2 grid grid-cols-2 gap-4">
+								<!-- Amount field -->
+								<div class="form-control">
+									<label class="label" for={`milestone-amount-${i}`}>
+										<span class="label-text">Amount ({currency})</span>
+									</label>
+									<input
+										id={`milestone-amount-${i}`}
+										type="number"
+										min="0"
+										step="0.01"
+										class="input input-bordered w-full"
+										value={milestone.amount}
+										oninput={(e) => {
+											const newMilestones = [...milestones];
+											newMilestones[i] = {
+												...newMilestones[i],
+												amount: parseFloat((e.target as HTMLInputElement).value) || 0
+											};
+											milestones = newMilestones;
+										}}
+									/>
+								</div>
+
+								<!-- Estimated Hours field -->
+								<div class="form-control">
+									<label class="label" for={`milestone-hours-${i}`}>
+										<span class="label-text">Estimated Hours</span>
+									</label>
+									<input
+										id={`milestone-hours-${i}`}
+										type="number"
+										min="0"
+										step="0.5"
+										class="input input-bordered w-full"
+										value={milestone.estimatedHours}
+										oninput={(e) => {
+											const newMilestones = [...milestones];
+											newMilestones[i] = {
+												...newMilestones[i],
+												estimatedHours: parseFloat((e.target as HTMLInputElement).value) || 0
+											};
+											milestones = newMilestones;
+										}}
+									/>
+								</div>
+							</div>
+
+							<div class="mt-2 grid grid-cols-2 gap-4">
+								<!-- Due Date field -->
+								<div class="form-control w-full">
+									<label class="label" for={`milestone-due-date-${i}`}>
+										<span class="label-text">Due Date</span>
+									</label>
+									<DatePicker
+										value={milestone.dueDate}
+										onChange={(value: string) => {
+											const newMilestones = [...milestones];
+											newMilestones[i] = { ...newMilestones[i], dueDate: value };
+											milestones = newMilestones;
+										}}
+									/>
+									<!-- <input
+										id={`milestone-due-date-${i}`}
+										type="date"
+										class="input input-bordered w-full"
+										value={milestone.dueDate}
+										oninput={(e) => {
+											const newMilestones = [...milestones];
+											newMilestones[i] = { ...newMilestones[i], dueDate: (e.target as HTMLInputElement).value };
+											milestones = newMilestones;
+										}}
+									/> -->
+								</div>
+
+								<!-- Sequence field (hidden, auto-calculated) -->
+								<input type="hidden" value={i + 1} id={`milestone-sequence-${i}`} />
+							</div>
+
+							<!-- Deliverables field -->
+							<div class="form-control mt-2">
+								<label class="label" for={`milestone-deliverables-${i}`}>
+									<span class="label-text">Deliverables</span>
+								</label>
+								<textarea
+									id={`milestone-deliverables-${i}`}
+									class="textarea textarea-bordered h-20 w-full"
+									value={milestone.deliverables}
+									oninput={(e) => {
+										const newMilestones = [...milestones];
+										newMilestones[i] = {
+											...newMilestones[i],
+											deliverables: (e.target as HTMLTextAreaElement).value
+										};
+										milestones = newMilestones;
+									}}
+									placeholder="What specific items will be delivered at this milestone"
+								></textarea>
+							</div>
+						</div>
+					{/each}
+				</div>
 			</div>
 
 			<!-- Divider -->

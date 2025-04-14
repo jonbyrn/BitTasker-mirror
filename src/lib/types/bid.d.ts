@@ -1,9 +1,9 @@
-import type { Freelancer } from "./freelancer";
+import type { Freelancer } from './freelancer';
 
 export type PaymentType = 'FIXED' | 'HOURLY';
 export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN';
 export type Visibility = 'PUBLIC' | 'PRIVATE';
-export type BidStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'countered';
+export type BidStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED';
 
 export interface Bid {
 	// Basic Information
@@ -26,7 +26,7 @@ export interface Bid {
 
 	// Visibility and Responsiveness
 	visibility: Visibility;
-	milestones?: string[];
+	milestones?: Array<{ description: string }>;
 	responseTime: number;
 
 	// Status Information
@@ -53,11 +53,10 @@ export interface Bid {
 		title: string;
 		description: string;
 		status: string;
-	},
+	};
 
 	// Freelancer Information
-	freelancer: Freelancer,
-	milestones: []
+	freelancer: Freelancer;
 
 	// Provider Information
 	// providerHighlights?: {
@@ -67,7 +66,7 @@ export interface Bid {
 	// };
 
 	// Negotiation Tracking
-	// counterOffers?: CounterOffer[];
+	counterOffers?: CounterOffer[];
 }
 
 export interface TaskBid extends Bid {
@@ -83,6 +82,8 @@ export interface TaskBid extends Bid {
 	isWithdrawn: boolean;
 	withdrawnReason: string | null;
 	expiresAt: string | null;
+	createdAt: string;
+	updatedAt: string;
 	freelancer: {
 		id: number;
 		userId: number;
@@ -108,8 +109,8 @@ export interface TaskBid extends Bid {
 		user: {
 			id: number;
 			email: string;
-		}
-	}
+		};
+	};
 }
 
 export interface BidsResponse {
@@ -153,6 +154,16 @@ export interface CounterOffer {
 	status: 'pending' | 'accepted' | 'rejected';
 }
 
+export interface Milestone {
+	title: string;
+	description: string;
+	amount: number;
+	deliverables: string;
+	sequence: number;
+	dueDate: string;
+	estimatedHours: number;
+}
+
 export interface CreateBidParams {
 	taskId: number;
 	paymentType: PaymentType;
@@ -164,7 +175,7 @@ export interface CreateBidParams {
 	estimatedDuration: string;
 	proposedApproach: string;
 	coverLetter: string;
-	milestones?: string[];
+	milestones?: Array<Milestone>;
 	visibility: Visibility;
 	responseTime: number;
 }

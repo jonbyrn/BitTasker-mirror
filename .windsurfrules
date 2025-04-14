@@ -103,6 +103,11 @@ src/
 - Immutable data
 - No side effects in business logic
 - Composition over inheritance
+- Never import $state or $effect from svelte (built-in runes)
+- Use $props for props
+- Use $state for state and $effect for side effects
+- Use $derived for derived values
+- Always add for attribute to labels
 - Imports order:
   - Types imports
   - Named imports

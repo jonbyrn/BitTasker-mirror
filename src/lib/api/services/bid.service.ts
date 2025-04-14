@@ -23,7 +23,7 @@ export class BidService extends BaseApiService {
 	}
 	/**
 	 * Create a new bid for a task
-	   * @param bid The bid information to create
+	 * @param bid The bid information to create
 	 * @returns Promise containing the created bid data
 	 * @throws Error if bid creation fails
 	 */
@@ -46,11 +46,60 @@ export class BidService extends BaseApiService {
 	/**
 	 * Withdraw a bid from a task
 	 * @param bidId The ID of the bid to withdraw
+	 * @param reason The reason for withdrawing the bid
 	 * @returns Promise that resolves when withdrawal is successful
 	 * @throws Error if bid withdrawal fails
 	 */
-	async withdrawBid(bidId: string): Promise<void> {
-		const response = await this.post(ENDPOINTS.BIDS.WITHDRAW(bidId));
+	async withdrawBid(bidId: string, reason: string): Promise<void> {
+		const response = await this.patch(ENDPOINTS.BIDS.WITHDRAW(bidId), { reason });
+		return response.data;
+	}
+	/**
+	 * Accept a bid
+	 * @param bidId The ID of the bid to accept
+	 * @returns Promise that resolves when acceptance is successful
+	 * @throws Error if bid acceptance fails
+	 */
+	async acceptBid(bidId: string): Promise<void> {
+		const response = await this.post(`${ENDPOINTS.BIDS.GET}/${bidId}/accept`);
+		return response.data;
+	}
+
+	/**
+	 * Reject a bid
+	 * @param bidId The ID of the bid to reject
+	 * @returns Promise that resolves when rejection is successful
+	 * @throws Error if bid rejection fails
+	 */
+	async rejectBid(bidId: string): Promise<void> {
+		const response = await this.post(`${ENDPOINTS.BIDS.GET}/${bidId}/reject`);
+		return response.data;
+	}
+
+	/**
+	 * Create a counter offer for a bid
+	 * @param bidId The ID of the bid to counter
+	 * @param counterOffer The counter offer data
+	 * @returns Promise containing the created counter offer
+	 * @throws Error if counter offer creation fails
+	 */
+	async createCounterOffer(
+		bidId: string,
+		counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
+	): Promise<CounterOffer> {
+		const response = await this.post(`${ENDPOINTS.BIDS.GET}/${bidId}/counter-offers`, counterOffer);
+		return response.data;
+	}
+
+	/**
+	 * Respond to a counter offer (accept or reject)
+	 * @param counterId The ID of the counter offer
+	 * @param action The action to take ('accept' or 'reject')
+	 * @returns Promise that resolves when the response is successful
+	 * @throws Error if response fails
+	 */
+	async respondToCounterOffer(counterId: string, action: 'accept' | 'reject'): Promise<void> {
+		const response = await this.post(`${ENDPOINTS.BIDS.GET}/counter-offers/${counterId}/${action}`);
 		return response.data;
 	}
 }
