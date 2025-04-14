@@ -1,29 +1,30 @@
-<script lang="ts">
-	import { Meta, Template, Story } from '@storybook/addon-svelte-csf';
+<script module>
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import Drawer from '../lib/components/Drawer.svelte';
 	import { action } from '@storybook/addon-actions';
 
 	const onClose = action('onClose');
+
+	const { Story } = defineMeta({
+		title: 'Components/Drawer',
+		component: Drawer,
+		tags: ['autodocs'],
+		argTypes: {
+			isOpen: { control: 'boolean' },
+			title: { control: 'text' },
+			position: {
+				control: { type: 'select', options: ['left', 'right'] }
+			},
+			width: {
+				control: { type: 'select', options: ['sm', 'md', 'lg', 'full'] }
+			},
+			isScrollable: { control: 'boolean' }
+		}
+	});
 </script>
 
-<Meta
-	title="Components/Drawer"
-	component={Drawer}
-	argTypes={{
-		isOpen: { control: 'boolean' },
-		title: { control: 'text' },
-		position: {
-			control: { type: 'select', options: ['left', 'right'] }
-		},
-		width: {
-			control: { type: 'select', options: ['sm', 'md', 'lg', 'full'] }
-		},
-		isScrollable: { control: 'boolean' }
-	}}
-/>
-
 <!-- Basic Drawer Example -->
-<Template let:args>
+<Story name="Basic Example" let:args>
 	<div class="p-8">
 		<Drawer {...args} onClose={onClose}>
 			<div class="space-y-4">
@@ -39,7 +40,7 @@
 			</div>
 		{/if}
 	</div>
-</Template>
+</Story>
 
 <Story
 	name="Right Drawer (Default)"
@@ -53,7 +54,7 @@
 />
 
 <!-- Left Side Drawer -->
-<Template let:args>
+<Story name="Left Side Navigation" let:args>
 	<div class="p-8">
 		<Drawer {...args} onClose={onClose}>
 			<div class="space-y-4">
@@ -74,7 +75,7 @@
 			</div>
 		{/if}
 	</div>
-</Template>
+</Story>
 
 <Story
 	name="Left Drawer"
@@ -88,7 +89,7 @@
 />
 
 <!-- Drawer with Footer -->
-<Template let:args>
+<Story name="Footer Example" let:args>
 	<div class="p-8">
 		<Drawer {...args} onClose={onClose}>
 			<div class="space-y-4">
@@ -107,12 +108,12 @@
 				</ul>
 			</div>
 			
-			<svelte:fragment slot="footer">
+			<snippet name="footer">
 				<div class="flex justify-between w-full">
 					<button class="btn btn-ghost" onclick={onClose}>Cancel</button>
 					<button class="btn btn-primary" onclick={action('submit-bid')}>Submit Bid</button>
 				</div>
-			</svelte:fragment>
+			</snippet>
 		</Drawer>
 
 		{#if !args.isOpen}
@@ -121,7 +122,7 @@
 			</div>
 		{/if}
 	</div>
-</Template>
+</Story>
 
 <Story
 	name="With Footer"
@@ -135,7 +136,7 @@
 />
 
 <!-- Full Width Drawer -->
-<Template let:args>
+<Story name="Full Width Example" let:args>
 	<div class="p-8">
 		<Drawer {...args} onClose={onClose}>
 			<div class="space-y-6">
@@ -153,13 +154,13 @@
 				</div>
 			</div>
 			
-			<svelte:fragment slot="footer">
+			<snippet name="footer">
 				<div class="flex justify-end gap-2">
 					<button class="btn btn-ghost" onclick={onClose}>Close</button>
 					<button class="btn btn-primary" onclick={action('export')}>Export</button>
 					<button class="btn btn-secondary" onclick={action('print')}>Print</button>
 				</div>
-			</svelte:fragment>
+			</snippet>
 		</Drawer>
 
 		{#if !args.isOpen}
@@ -168,7 +169,7 @@
 			</div>
 		{/if}
 	</div>
-</Template>
+</Story>
 
 <Story
 	name="Full Width"
@@ -182,7 +183,7 @@
 />
 
 <!-- Scrollable Content Drawer -->
-<Template let:args>
+<Story name="Scrollable Example" let:args>
 	<div class="p-8">
 		<Drawer {...args} onClose={onClose}>
 			<div class="space-y-4">
@@ -205,7 +206,7 @@
 			</div>
 		{/if}
 	</div>
-</Template>
+</Story>
 
 <Story
 	name="Scrollable Content"
