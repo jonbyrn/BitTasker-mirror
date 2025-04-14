@@ -2,7 +2,9 @@
 	import type { Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
-	import taskService from '$lib/api/services/task.service';
+	// import taskService from '$lib/api/services/task.service';
+	import { executeQuery } from '$lib/api/gql';
+	import { GET_MY_TASKS } from '$lib/api/gql/operations/tasks';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -16,9 +18,19 @@
 	async function loadTasks() {
 		try {
 			loading = true;
-			tasks = await taskService.getMyTasks();
+			// tasks = await taskService.getMyTasks();
+			const { data, error } = await executeQuery(GET_MY_TASKS);
+			
+			if (error) {
+				console.error('GraphQL error loading tasks:', error);
+				tasks = [];
+				return;
+			}
+			
+			tasks = data.myTasks;
 		} catch (error) {
 			console.error('Error loading tasks:', error);
+			tasks = [];
 		} finally {
 			loading = false;
 		}

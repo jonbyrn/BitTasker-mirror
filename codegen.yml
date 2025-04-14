@@ -1,0 +1,21 @@
+# schema: './src/lib/api/gql/schema.graphql' # Use local schema for development
+schema: ${VITE_GRAPHQL_ENDPOINT:http://127.0.0.1:8000/graph}
+documents: './src/lib/api/gql/**/*.ts'
+generates:
+  src/lib/api/gql/generated.ts:
+    plugins:
+      - typescript
+      - typescript-operations
+      - typescript-document-nodes
+    config:
+      skipTypename: false
+      withHooks: true
+      withRefetchFn: true
+      preResolveTypes: true
+      dedupeFragments: true
+      pureMagicComment: true
+      inlineFragmentTypes: combine
+      scalars:
+        DateTime: string
+        JSON: any
+        Upload: File
