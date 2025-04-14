@@ -8,8 +8,6 @@
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	import RecurringTasksPanel from '$lib/components/task/RecurringTasksPanel.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
-	import { executeQuery } from '$lib/api/gql';
-	import { GET_MY_TASKS } from '$lib/api/gql/operations/tasks';
 
 	// Tab management
 	let availableTabs = $state([

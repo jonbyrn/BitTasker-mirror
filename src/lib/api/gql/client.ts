@@ -70,7 +70,7 @@ const cache = new InMemoryCache({
   }
 });
 
-// Create the Apollo Client instance
+// Create the Apollo Client instance with improved debugging
 export const client = new ApolloClient({
   link: from([errorLink, authLink, httpLink]),
   cache,

@@ -5,11 +5,79 @@
  */
 
 import { gql } from '@apollo/client/core';
-import { 
-  TASK_BASIC_FIELDS, 
-  TASK_DETAIL_FIELDS,
-  TASK_FULL_FIELDS 
-} from '../fragments/task';
+// Define fragments directly to ensure proper resolution
+
+// Basic fields fragment
+const TASK_BASIC_FIELDS = gql`
+  fragment TaskBasicFields on Task {
+    id
+    title
+    description
+    status
+    budget
+    budgetType
+    taskType
+    visibility
+    createdAt
+    updatedAt
+    clientId
+  }
+`;
+
+// Location fields fragment
+const TASK_LOCATION_FIELDS = gql`
+  fragment TaskLocationFields on Task {
+    isRemovals
+    pickupLocation {
+      displayName
+      latitude
+      longitude
+      locationLoaded
+      zipCode
+    }
+    dropOffLocation {
+      displayName
+      latitude
+      longitude
+      locationLoaded
+      zipCode
+    }
+  }
+`;
+
+// Detail fields fragment (combines basic and location)
+const TASK_DETAIL_FIELDS = gql`
+  fragment TaskDetailFields on Task {
+    ...TaskBasicFields
+    ...TaskLocationFields
+    dateRange {
+      start
+      end
+    }
+    deadlineDate
+    estimatedHours
+    freelancerId
+    skillIds
+    attachments {
+      fileName
+      fileUrl
+      fileSize
+    }
+    imageUrls
+  }
+  ${TASK_BASIC_FIELDS}
+  ${TASK_LOCATION_FIELDS}
+`;
+
+// Full fields fragment
+const TASK_FULL_FIELDS = gql`
+  fragment TaskFullFields on Task {
+    ...TaskDetailFields
+    categoryIds
+    deletedAt
+  }
+  ${TASK_DETAIL_FIELDS}
+`;
 
 /**
  * Get paginated list of tasks with filtering
