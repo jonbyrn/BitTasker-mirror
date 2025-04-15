@@ -130,5 +130,38 @@ export const ENDPOINTS = {
 	LOCATION: {
 		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
 		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
+	},
+
+	// Wallet endpoints
+	WALLET: {
+		BITCOIN: {
+			GET: `${API_PATH}/${API_VERSION}/bitcoin`,
+			CREATE: `${API_PATH}/${API_VERSION}/bitcoin/wallet`,
+			ADDRESS: `${API_PATH}/${API_VERSION}/bitcoin/wallet/address`,
+			BALANCE: `${API_PATH}/${API_VERSION}/bitcoin/wallet/balance`,
+			BALANCES: `${API_PATH}/${API_VERSION}/bitcoin/balances`,
+			ADDRESS_BALANCE: (address: string) => `${API_PATH}/${API_VERSION}/bitcoin/address/${address}/balance`,
+			ADDRESS_TRANSACTIONS: (address: string, limit?: number) => `${API_PATH}/${API_VERSION}/bitcoin/address/${address}/transactions?${limit ? `limit=${limit}` : ''}`,
+			FEES: `${API_PATH}/${API_VERSION}/bitcoin/fees`,
+			WHITELIST: `${API_PATH}/${API_VERSION}/bitcoin/whitelist`,
+			CONVERT: `${API_PATH}/${API_VERSION}/bitcoin/convert`,
+			PRICE: `${API_PATH}/${API_VERSION}/bitcoin/price`,
+			TRANSACTIONS: `${API_PATH}/${API_VERSION}/bitcoin/transactions`, // NOT AVAILABLE
+			SEND: `${API_PATH}/${API_VERSION}/bitcoin/send`, // NOT AVAILABLE
+			VALIDATE: `${API_PATH}/${API_VERSION}/bitcoin/validate` // NOT AVAILABLE
+		},
+		LIGHTNING: {
+			INVOICE: `${API_PATH}/${API_VERSION}/lightning/invoice`, // NOT AVAILABLE
+			PAY: `${API_PATH}/${API_VERSION}/lightning/pay`, // NOT AVAILABLE
+			CONNECT: `${API_PATH}/${API_VERSION}/lightning/connect`, // NOT AVAILABLE
+			TRANSACTIONS: `${API_PATH}/${API_VERSION}/lightning/transactions` // NOT AVAILABLE
+		},
+		LIQUID: {
+			ADDRESS: `${API_PATH}/${API_VERSION}/liquid/address`, // NOT AVAILABLE
+			BALANCE: `${API_PATH}/${API_VERSION}/liquid/balance`, // NOT AVAILABLE
+			SEND: `${API_PATH}/${API_VERSION}/liquid/send`, // NOT AVAILABLE
+			ESCROW: `${API_PATH}/${API_VERSION}/liquid/escrow`, // NOT AVAILABLE
+			ASSETS: `${API_PATH}/${API_VERSION}/liquid/assets` // NOT AVAILABLE
+		}
 	}
 };

@@ -1,4 +1,9 @@
 ---
+description: 
+globs: 
+alwaysApply: false
+---
+---
 description: These are the overview of our entire project. What are we trying to build, What are the technologies, And what are our approaches are written in here.
 globs: 
 alwaysApply: false
@@ -93,6 +98,7 @@ src/
 
 - Use TypeScript for type safety
 - Use proper type assertions for external data
+- Leverage capacitor Preferences plugin over localStorage
 - Implement proper error handling
 - Export interfaces for public types
 - Prefer const over let
