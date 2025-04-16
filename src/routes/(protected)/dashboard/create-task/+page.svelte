@@ -15,6 +15,7 @@
 	import uploadService from '$lib/api/services/upload.service';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 
+	// Load the draft when the page is loaded
 	onMount(() => {
 		store.loadDraft();
 	});
