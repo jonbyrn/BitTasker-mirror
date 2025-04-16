@@ -3,218 +3,140 @@
   Mobile-specific wallet actions for BitTasker wallet
   Includes:
   - Biometric authentication
-  - QR code scanning
-  - Secure storage
-  - Mobile-friendly UI components
+  - Mobile QR code scanning
+  - Touch-optimized UI elements
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import * as mobileWalletService from '$lib/services/mobile-wallet.service';
-	import * as walletService from '$lib/services/wallet.service';
-	import walletStore from '$lib/stores/wallet.store';
-	import { fade, slide } from 'svelte/transition';
-	import { Capacitor } from '@capacitor/core';
+	import { isMobileDevice, isBiometricAvailable } from '$lib/utils/helpers/wallet/mobile-wallet';
+	import { walletStore } from '$lib/stores/wallet.store';
+	import { fade } from 'svelte/transition';
 	import 'iconify-icon';
 
-	// Props
-	let { onAddressScanned = (address: string, type: string) => {}, onAuthenticated = () => {} } =
-		$props<{
-			onAddressScanned?: (address: string, type: string) => void;
-			onAuthenticated?: () => void;
-		}>();
-
 	// Local state
-	let isMobile = $state(false);
 	let biometricsAvailable = $state(false);
-	let isLoading = $state(false);
-	let scanningQR = $state(false);
-	let errorMessage = $state('');
-	let showActions = $state(false);
+	let loading = $state(false);
+	let error = $state('');
+
+	// Props
+	let { onBiometricUnlock = () => {} } = $props<{ onBiometricUnlock?: () => void }>();
 
 	onMount(async () => {
-		// Check if we're on a mobile device
-		isMobile = mobileWalletService.isMobileDevice();
+		if (!isMobileDevice()) return;
 
-		if (isMobile) {
-			// Check if biometric authentication is available
-			biometricsAvailable = await mobileWalletService.isBiometricAvailable();
-
-			// Check if device security is enabled
-			const securityEnabled = await mobileWalletService.hasDeviceSecurityEnabled();
-			if (!securityEnabled) {
-				errorMessage =
-					'Please enable device security (PIN, pattern, or fingerprint) for wallet security.';
-			}
+		// Check if biometrics are available
+		try {
+			biometricsAvailable = await isBiometricAvailable();
+		} catch (err) {
+			console.error('Error checking biometric availability:', err);
 		}
 	});
 
-	// Functions
-	async function authenticateWithBiometrics() {
-		if (!isMobile || !biometricsAvailable) {
-			return;
-		}
+	async function unlockWithBiometrics() {
+		if (!biometricsAvailable) return;
 
-		isLoading = true;
-		errorMessage = '';
+		loading = true;
+		error = '';
 
 		try {
-			const password = await mobileWalletService.authenticateWithBiometrics();
-
-			if (password) {
-				// If we have a password, we can unlock the wallet
-				onAuthenticated();
+			const success = await walletStore.unlockWithBiometrics();
+			
+			if (success) {
+				onBiometricUnlock();
 			} else {
-				errorMessage = 'Authentication failed. Please try again.';
+				error = 'Biometric authentication failed';
 			}
-		} catch (error) {
-			errorMessage = 'Authentication error. Please try again.';
-			console.error('Biometric authentication error:', error);
+		} catch (err) {
+			console.error('Error with biometric unlock:', err);
+			error = 'Error with biometric authentication';
 		} finally {
-			isLoading = false;
+			loading = false;
 		}
-	}
-
-	async function scanQRCode() {
-		if (!isMobile) {
-			return;
-		}
-
-		scanningQR = true;
-		errorMessage = '';
-
-		try {
-			const result = await mobileWalletService.scanQRCode();
-
-			if (result) {
-				// Notify parent component of the scanned address/invoice
-				onAddressScanned(result.value, result.type);
-			} else {
-				errorMessage = 'No QR code detected. Please try again.';
-			}
-		} catch (error) {
-			errorMessage = 'Error scanning QR code. Please try again.';
-			console.error('QR scanning error:', error);
-		} finally {
-			scanningQR = false;
-		}
-	}
-
-	function toggleActions() {
-		showActions = !showActions;
 	}
 </script>
 
-{#if isMobile}
-	<div class="mobile-wallet-actions" transition:fade={{ duration: 200 }}>
-		<button
-			class="primary-action-button"
-			onclick={toggleActions}
-			aria-label="Mobile wallet actions"
+{#if biometricsAvailable}
+	<div class="biometric-actions" transition:fade={{ duration: 200 }}>
+		<button 
+			class="biometric-button" 
+			onclick={unlockWithBiometrics}
+			disabled={loading}
+			aria-label="Unlock with biometrics"
 		>
-			<iconify-icon icon="mdi:cellphone" width="24" height="24" ></iconify-icon>
+			{#if loading}
+				<span class="loading-spinner"></span>
+			{:else}
+				<iconify-icon icon="mdi:fingerprint" width="28" height="28"></iconify-icon>
+			{/if}
+			<span>Unlock with Biometrics</span>
 		</button>
-
-		{#if showActions}
-			<div class="actions-panel" transition:slide={{ duration: 300 }}>
-				{#if biometricsAvailable}
-					<button
-						class="action-button"
-						onclick={authenticateWithBiometrics}
-						disabled={isLoading}
-						aria-label="Authenticate with biometrics"
-					>
-						<iconify-icon icon="mdi:fingerprint" width="20" height="20" ></iconify-icon>
-						<span>Authenticate</span>
-					</button>
-				{/if}
-
-				<button
-					class="action-button"
-					onclick={scanQRCode}
-					disabled={scanningQR}
-					aria-label="Scan QR code"
-				>
-					<iconify-icon icon="mdi:qrcode-scan" width="20" height="20" ></iconify-icon>
-					<span>{scanningQR ? 'Scanning...' : 'Scan QR'}</span>
-				</button>
-			</div>
-		{/if}
-
-		{#if errorMessage}
-			<div class="error-message" transition:fade={{ duration: 200 }}>
-				{errorMessage}
+		
+		{#if error}
+			<div class="error-message">
+				{error}
 			</div>
 		{/if}
 	</div>
 {/if}
 
 <style>
-	.mobile-wallet-actions {
-		position: fixed;
-		bottom: 1.5rem;
-		right: 1.5rem;
-		z-index: 100;
+	.biometric-actions {
+		margin: 1rem 0;
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
-		gap: 0.5rem;
+		align-items: center;
+		width: 100%;
 	}
 
-	.primary-action-button {
-		width: 3.5rem;
-		height: 3.5rem;
-		border-radius: 50%;
-		background-color: var(--primary-color, #3b82f6);
-		color: white;
-		border: none;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	.biometric-button {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		cursor: pointer;
-	}
-
-	.actions-panel {
-		background-color: white;
-		border-radius: 0.75rem;
-		padding: 0.75rem;
-		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-		margin-bottom: 0.5rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		min-width: 10rem;
-	}
-
-	.action-button {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+		gap: 0.75rem;
 		background-color: var(--surface-color, #f9fafb);
 		border: 1px solid var(--border-color, #e5e7eb);
 		border-radius: 0.5rem;
-		padding: 0.75rem;
-		font-size: 0.875rem;
+		padding: 0.75rem 1.5rem;
+		font-size: 1rem;
+		font-weight: 500;
+		width: 100%;
+		max-width: 300px;
 		cursor: pointer;
-		transition: background-color 0.2s;
+		transition: background-color 0.2s, transform 0.1s;
 	}
 
-	.action-button:hover {
+	.biometric-button:hover {
 		background-color: var(--hover-color, #f3f4f6);
 	}
 
-	.action-button:disabled {
+	.biometric-button:active {
+		transform: scale(0.98);
+	}
+
+	.biometric-button:disabled {
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
 
 	.error-message {
-		background-color: var(--error-color, #fee2e2);
-		color: var(--error-text-color, #b91c1c);
-		padding: 0.75rem;
-		border-radius: 0.5rem;
+		margin-top: 0.75rem;
+		color: var(--error-color, #ef4444);
 		font-size: 0.875rem;
-		max-width: 20rem;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+	}
+
+	.loading-spinner {
+		display: inline-block;
+		width: 24px;
+		height: 24px;
+		border: 3px solid rgba(0, 0, 0, 0.1);
+		border-radius: 50%;
+		border-top-color: var(--primary-color, #3b82f6);
+		animation: spin 1s ease-in-out infinite;
+	}
+
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
 	}
 </style>

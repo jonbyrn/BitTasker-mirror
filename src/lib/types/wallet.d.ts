@@ -21,6 +21,7 @@ export interface Transaction {
     txid: string;
     network: 'Bitcoin' | 'Lightning' | 'Liquid';
     status?: 'pending' | 'confirmed' | 'failed';
+    fee?: number;
 }
 
 export interface WalletState {
@@ -32,7 +33,6 @@ export interface WalletState {
     networkType: 'bitcoin' | 'lightning' | 'liquid';
     hardwareWalletConnected?: boolean;
     hardwareWalletType?: 'ledger' | 'trezor';
-    isInitialized: boolean;
     isEncrypted: boolean;
     encryptionStatus: 'unencrypted' | 'locked' | 'unlocked';
 }
@@ -70,4 +70,6 @@ export interface LightningInvoice {
     amount: number;
     description: string;
     expiryTime: number;
-} 
+}
+
+export type StoragePreference = 'self' | 'service';

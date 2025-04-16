@@ -15,8 +15,8 @@ import * as bitcoinWalletService from '$lib/utils/helpers/wallet/bitcoin-wallet.
 import * as lightningWalletService from '$lib/utils/helpers/wallet/lightning-wallet.service';
 import * as liquidWalletService from '$lib/utils/helpers/wallet/liquid-wallet.service';
 import * as hardwareWalletService from '$lib/utils/helpers/wallet/hardware-wallet.service';
-import * as walletCryptoService from '$lib/utils/helpers/wallet/wallet-crypto.service';
-import * as mobileWalletService from '$lib/utils/helpers/wallet/mobile-wallet.service';
+import * as walletCryptoService from '$lib/utils/helpers/wallet/wallet-crypto';
+import * as mobileWalletService from '$lib/utils/helpers/wallet/mobile-wallet';
 import { walletStore } from '$lib/stores/wallet.store';
 import { checkBiometricAvailability } from '../biometrics';
 import { get } from 'svelte/store';
@@ -92,7 +92,7 @@ export async function unlockWallet(password?: string): Promise<boolean> {
 
         if (canUseBiometrics && !password) {
             // Try to get password from biometric auth
-            const bioPassword = await mobileWalletService.authenticateWithBiometrics();
+            const bioPassword = await mobileWalletService.getBiometricPassword();
 
             if (!bioPassword) {
                 return false;
@@ -155,7 +155,7 @@ export async function generateAddress(networkType: 'bitcoin' | 'lightning' | 'li
     // If on mobile, ensure we're authenticated for sensitive operations
     let canUseBiometrics = await checkBiometricAvailability();
     if (canUseBiometrics) {
-        await mobileWalletService.authenticateWithBiometrics();
+        await mobileWalletService.getBiometricPassword();
     }
 
     // Convert lowercase network type to proper case for wallet store
@@ -178,7 +178,7 @@ interface ExtendedSendTxParams extends SendTxParams {
 /**
  * Send transaction
  */
-export async function sendTransaction(params: ExtendedSendTxParams): Promise<Transaction> {
+export async function sendTransaction(params: ExtendedSendTxParams): Promise<Transaction | null> {
     let state = {
         isLocked: true,
         addresses: [] as any[]
@@ -194,7 +194,7 @@ export async function sendTransaction(params: ExtendedSendTxParams): Promise<Tra
 
     // If on mobile, ensure we're authenticated for transactions
     if (mobileWalletService.isMobileDevice()) {
-        const authenticated = await mobileWalletService.authenticateWithBiometrics();
+        const authenticated = await mobileWalletService.getBiometricPassword();
         if (!authenticated) {
             throw new Error('Biometric authentication required for sending funds');
         }
@@ -272,7 +272,7 @@ export async function generateLightningInvoice(
 
     // If on mobile, ensure we're authenticated
     if (mobileWalletService.isMobileDevice()) {
-        await mobileWalletService.authenticateWithBiometrics();
+        await mobileWalletService.getBiometricPassword();
     }
 
     return lightningWalletService.generateInvoice(amountSats, description);
@@ -395,7 +395,7 @@ export async function createTaskEscrow(
 
     // If on mobile, verify with biometrics for creating an escrow
     if (mobileWalletService.isMobileDevice()) {
-        const authenticated = await mobileWalletService.authenticateWithBiometrics();
+        const authenticated = await mobileWalletService.getBiometricPassword();
         if (!authenticated) {
             throw new Error('Biometric authentication required for creating escrow');
         }

@@ -10,7 +10,6 @@
  */
 
 import type { WalletAddress, Transaction, SendTxParams, NetworkFee } from '$lib/types/wallet';
-import * as walletCrypto from '$lib/utils/helpers/wallet/wallet-crypto.service';
 
 // Mock fee rates (sat/vbyte) - in a real implementation, these would come from an API
 const mockFeeRates = {

@@ -148,7 +148,9 @@ export const ENDPOINTS = {
 			PRICE: `${API_PATH}/${API_VERSION}/bitcoin/price`,
 			TRANSACTIONS: `${API_PATH}/${API_VERSION}/bitcoin/transactions`, // NOT AVAILABLE
 			SEND: `${API_PATH}/${API_VERSION}/bitcoin/send`, // NOT AVAILABLE
-			VALIDATE: `${API_PATH}/${API_VERSION}/bitcoin/validate` // NOT AVAILABLE
+			VALIDATE: `${API_PATH}/${API_VERSION}/bitcoin/validate`, // NOT AVAILABLE
+			STORE_MNEMONIC: `${API_PATH}/${API_VERSION}/bitcoin/wallet/mnemonic`, // E2E encrypted mnemonic storage - NOT AVAILABLE
+			GET_MNEMONIC: `${API_PATH}/${API_VERSION}/bitcoin/wallet/mnemonic`, // Retrieve E2E encrypted mnemonic - NOT AVAILABLE
 		},
 		LIGHTNING: {
 			INVOICE: `${API_PATH}/${API_VERSION}/lightning/invoice`, // NOT AVAILABLE

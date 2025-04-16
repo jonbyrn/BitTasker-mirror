@@ -228,6 +228,35 @@ class BitcoinWalletService extends BaseApiService {
             throw error;
         }
     }
+
+    /**
+     * Store E2E encrypted mnemonic phrase on the server - NOT AVAILABLE
+     * @param encryptedData The encrypted mnemonic data
+     * @returns Success status
+     */
+    async storeEncryptedMnemonic(encryptedData: { ciphertext: string; iv: string; salt: string }): Promise<boolean> {
+        try {
+            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.STORE_MNEMONIC, encryptedData);
+            return response.status === 200;
+        } catch (error) {
+            console.error('Failed to store encrypted mnemonic:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Retrieve E2E encrypted mnemonic phrase from the server - NOT AVAILABLE
+     * @returns The encrypted mnemonic data or null if not found
+     */
+    async getEncryptedMnemonic(): Promise<{ ciphertext: string; iv: string; salt: string } | null> {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET_MNEMONIC);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to retrieve encrypted mnemonic:', error);
+            return null;
+        }
+    }
 }
 
 const walletService = new BitcoinWalletService();
