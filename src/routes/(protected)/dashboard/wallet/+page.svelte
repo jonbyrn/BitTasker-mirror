@@ -11,6 +11,8 @@
 	import WalletSend from '$lib/components/wallet/WalletSend.svelte';
 	import WalletTransactions from '$lib/components/wallet/WalletTransactions.svelte';
 	import WalletSetup from '$lib/components/wallet/WalletSetup.svelte';
+	import { Preferences } from '@capacitor/preferences';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 
 	// UI state with mutable let variables using runes
 	let activeTab = $state('balance'); // balance, receive, send, transactions
@@ -47,15 +49,20 @@
 		activeTab = tab;
 	}
 
-	onMount(async () => {
-		// Check if wallet is already initialized
-		const wallet = await walletService.getOrCreateWallet();
-		console.log('wallet', wallet);
+	function checkHardwareWalletSupport(): boolean {
+		const hasWebUSB = typeof navigator !== 'undefined' && 'usb' in navigator;
+		const hasWebHID = typeof navigator !== 'undefined' && 'hid' in navigator;
 
+		return hasWebUSB || hasWebHID;
+	}
+
+	onMount(async () => {
 		try {
 			// Check if wallet exists and is initialized
-			const storagePreference = walletStore.getStoragePreference();
-			if (storagePreference) {
+			const storagePreference = await Preferences.get({
+				key: StorageKeys.WALLET_STORAGE_PREFERENCE
+			});
+			if (storagePreference.value) {
 				// Wallet setup has been started, mark as initialized
 				isWalletInitialized = true;
 			}
@@ -63,11 +70,11 @@
 			console.error('Error checking wallet initialization:', error);
 		}
 
-		// Check hardware wallet support
-		const hasHardwareSupport = hardwareWallet.checkHardwareWalletSupport();
-		if (hasHardwareSupport) {
-			showHardwareWalletOptions = true;
-		}
+		// TODO: Check hardware wallet support
+		// const hasHardwareSupport = hardwareWallet.checkHardwareWalletSupport();
+		// if (hasHardwareSupport) {
+		// 	showHardwareWalletOptions = true;
+		// }
 	});
 
 	// Format number with a specific number of decimals
@@ -297,11 +304,11 @@
 
 	{#if !isWalletInitialized}
 		<!-- Wallet Setup Screen -->
-		<WalletSetup />
-		
+		<WalletSetup bind:isWalletInitialized />
+
 		{#if showHardwareWalletOptions}
 			<div class="divider">OR</div>
-			
+
 			<div class="flex gap-2">
 				<button
 					class="btn flex-1"

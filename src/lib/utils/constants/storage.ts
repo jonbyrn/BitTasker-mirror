@@ -27,7 +27,8 @@ export const StorageKeys = {
 	// Wallet
 	WALLET_ENCRYPTED: 'wallet_encrypted',
 	WALLET_SALT: 'wallet_salt',
-	WALLET_IV: 'wallet_iv'
+	WALLET_IV: 'wallet_iv',
+	WALLET_STORAGE_PREFERENCE: 'wallet_storage_preference'
 } as const;
 
 // Type to get autocomplete for storage keys

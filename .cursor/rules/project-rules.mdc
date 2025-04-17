@@ -69,7 +69,7 @@ BitTasker is a gig economy platform inspired by Airtasker, designed to connect p
 src/
 ├── lib/
 │   ├── components/      # Reusable UI components
-│   ├── services/        # Business logic and API services
+│   ├── api/services     # Business logic and API services
 │   ├── types/           # TypeScript type definitions
 │   ├── stores/          # State management, stores, and context
 │   └── tests/           # Unit and integration tests

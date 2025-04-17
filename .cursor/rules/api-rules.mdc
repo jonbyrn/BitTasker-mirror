@@ -1,4 +1,9 @@
 ---
+description: 
+globs: 
+alwaysApply: false
+---
+---
 description: These are the rules which has defined how to work with backend APIs, how a backend request should be handled on a code level and also the file structure to follow.
 globs: 
 alwaysApply: false

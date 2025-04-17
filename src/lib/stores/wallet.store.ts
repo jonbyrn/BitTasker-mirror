@@ -10,9 +10,9 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { checkBiometricAvailability } from '$lib/utils/helpers/biometrics';
 import { Preferences } from '@capacitor/preferences';
-import * as walletCryptoService from '$lib/utils/helpers/wallet/wallet-crypto';
+import { generateMnemonic, decryptMnemonic, encryptMnemonic } from '$lib/utils/helpers/wallet/wallet-crypto';
 import * as mobileWalletService from '$lib/utils/helpers/wallet/mobile-wallet';
-import bitcoinWalletService from '$lib/api/services/wallet.service';
+import walletService from '$lib/api/services/wallet.service';
 
 // Initial state with empty data
 const initialState: WalletState = {
@@ -36,9 +36,9 @@ const WALLET_STORAGE_PREFERENCE_KEY = 'bittasker_wallet_storage_preference';
 
 // Network fee estimates
 export const networkFees: NetworkFee[] = [
-    { type: 'low', satPerVbyte: 1, estimatedConfirmationTime: 60 },
-    { type: 'medium', satPerVbyte: 5, estimatedConfirmationTime: 20 },
-    { type: 'high', satPerVbyte: 10, estimatedConfirmationTime: 10 }
+    { type: 'low', satPerVbyte: 1, estimatedConfirmation: 60 },
+    { type: 'medium', satPerVbyte: 5, estimatedConfirmation: 20 },
+    { type: 'high', satPerVbyte: 10, estimatedConfirmation: 10 }
 ];
 
 /**
@@ -50,7 +50,7 @@ const createWalletStore = () => {
     // Initialize from API when in browser
     if (browser) {
         // Check if wallet is initialized
-        bitcoinWalletService.getOrCreateWallet()
+        walletService.getOrCreateWallet()
             .then(data => {
                 if (data && data.isInitialized) {
                     update(state => ({
@@ -79,7 +79,8 @@ const createWalletStore = () => {
         initializeWallet: async (passphrase: string, storagePreference: 'self' | 'service'): Promise<{ success: boolean, mnemonic?: string }> => {
             try {
                 // Generate a new mnemonic for the wallet
-                const mnemonic = await walletCryptoService.generateMnemonic();
+                const mnemonic = await generateMnemonic();
+                console.log('mnemonic', mnemonic);
 
                 // Store the user's preference
                 if (browser) {
@@ -88,7 +89,7 @@ const createWalletStore = () => {
 
                 if (storagePreference === 'service') {
                     // Encrypt the mnemonic with the passphrase
-                    const encryptedData = await walletCryptoService.encryptMnemonic(mnemonic, passphrase);
+                    const encryptedData = await encryptMnemonic(mnemonic, passphrase);
 
                     // Check if biometric auth is available
                     const biometricsAvailable = await checkBiometricAvailability();
@@ -99,15 +100,15 @@ const createWalletStore = () => {
                         await mobileWalletService.storeMnemonicInSecureStorage(encryptedData);
                     } else {
                         // Store via API with E2E encryption
-                        await bitcoinWalletService.storeEncryptedMnemonic(encryptedData);
+                        await walletService.storeEncryptedMnemonic(encryptedData);
                     }
                 }
 
                 // Set up the wallet with the API
-                await bitcoinWalletService.getOrCreateWallet();
+                await walletService.getOrCreateWallet();
 
                 // Generate an initial address
-                const newAddress = await bitcoinWalletService.generateNewAddress();
+                const newAddress = await walletService.generateNewAddress();
 
                 // Update wallet state
                 update(state => {
@@ -156,7 +157,7 @@ const createWalletStore = () => {
                         encryptedData = await mobileWalletService.getMnemonicFromSecureStorage();
                     } else {
                         // Try to get from API
-                        encryptedData = await bitcoinWalletService.getEncryptedMnemonic();
+                        encryptedData = await walletService.getEncryptedMnemonic();
                     }
                 }
 
@@ -167,7 +168,7 @@ const createWalletStore = () => {
 
                 // Try to decrypt the mnemonic
                 try {
-                    await walletCryptoService.decryptMnemonic(encryptedData, passphrase);
+                    await decryptMnemonic(encryptedData, passphrase);
 
                     // If decryption succeeded, wallet is unlocked
                     update(state => ({
@@ -235,7 +236,7 @@ const createWalletStore = () => {
         generateAddress: async (type: WalletAddress['type'] = 'Bitcoin'): Promise<WalletAddress | null> => {
             try {
                 // In a real implementation, this would generate a new address
-                const newAddress = await bitcoinWalletService.generateNewAddress();
+                const newAddress = await walletService.generateNewAddress();
 
                 update(state => {
                     const updatedState = {
@@ -262,7 +263,7 @@ const createWalletStore = () => {
                 subscribe(state => { currentState = state; })();
 
                 // Send the transaction using the API service
-                const { txid, fee } = await bitcoinWalletService.sendBitcoin(params);
+                const { txid, fee } = await walletService.sendBitcoin(params);
 
                 // Create a new transaction object
                 const newTransaction: Transaction = {
@@ -303,7 +304,7 @@ const createWalletStore = () => {
         refreshWallet: async () => {
             try {
                 // Get balance
-                const balanceData = await bitcoinWalletService.getWalletBalance();
+                const balanceData = await walletService.getWalletBalance();
 
                 // Update state with new balance
                 update(state => {
@@ -329,7 +330,7 @@ const createWalletStore = () => {
                 subscribe(state => { currentState = state; })();
 
                 for (const address of currentState.addresses) {
-                    const addressTransactions = await bitcoinWalletService.getAddressTransactions(address.address);
+                    const addressTransactions = await walletService.getAddressTransactions(address.address);
                     allTransactions = [...allTransactions, ...addressTransactions];
                 }
 
@@ -366,13 +367,6 @@ const createWalletStore = () => {
             subscribe(state => { balance = state.balance; })();
             return balance;
         },
-
-        /**
-         * Get user's storage preference
-         */
-        getStoragePreference: () => {
-            return browser ? localStorage.getItem(WALLET_STORAGE_PREFERENCE_KEY) as 'self' | 'service' | null : null;
-        }
     };
 };
 

@@ -1,27 +1,63 @@
+// Wallet Types
+export type NetworkType = 'bitcoin' | 'lightning' | 'liquid';
+export type NetworkFeeType = 'low' | 'medium' | 'high';
+export type StoragePreference = 'service' | 'self';
+
 export interface WalletBalance {
     btc: number;
     sats: number;
     usd: number;
+    liquid?: {
+        [assetId: string]: number;
+    };
 }
 
 export interface WalletAddress {
-    type: 'Bitcoin' | 'Lightning' | 'Liquid';
+    type: NetworkType;
     address: string;
-    isDefault: boolean;
+    label?: string;
+    balance?: number;
+    path?: string; // BIP32 derivation path
 }
 
 export interface Transaction {
     id: string;
-    type: 'sent' | 'received';
+    type: NetworkType;
     amount: number;
-    timestamp: number;
-    sender: string;
-    recipient: string;
-    confirmations: number | null;
-    txid: string;
-    network: 'Bitcoin' | 'Lightning' | 'Liquid';
-    status?: 'pending' | 'confirmed' | 'failed';
     fee?: number;
+    confirmations: number;
+    timestamp: number;
+    status: 'pending' | 'confirmed' | 'failed';
+    from: string;
+    to: string;
+    memo?: string;
+    escrow?: EscrowDetails;
+}
+
+export interface EscrowDetails {
+    contractId: string;
+    milestones: Milestone[];
+    status: 'pending' | 'active' | 'completed' | 'disputed';
+    releaseConditions: ReleaseCondition[];
+}
+
+export interface Milestone {
+    id: string;
+    amount: number;
+    description: string;
+    status: 'pending' | 'released' | 'disputed';
+    dueDate?: number;
+}
+
+export interface ReleaseCondition {
+    type: 'time' | 'multisig' | 'oracle';
+    data: any;
+}
+
+export interface NetworkFee {
+    type: NetworkFeeType;
+    satPerVbyte: number;
+    estimatedConfirmation: number;
 }
 
 export interface WalletState {
@@ -30,17 +66,37 @@ export interface WalletState {
     transactions: Transaction[];
     isInitialized: boolean;
     isLocked: boolean;
-    networkType: 'bitcoin' | 'lightning' | 'liquid';
+    networkType: NetworkType;
     hardwareWalletConnected?: boolean;
     hardwareWalletType?: 'ledger' | 'trezor';
     isEncrypted: boolean;
     encryptionStatus: 'unencrypted' | 'locked' | 'unlocked';
 }
 
-export interface NetworkFee {
-    type: 'low' | 'medium' | 'high';
-    satPerVbyte: number;
-    estimatedConfirmationTime: number; // in minutes
+export interface WalletKey {
+    mnemonic: string; // BIP39 mnemonic (encrypted)
+    keyPairs: {
+        [path: string]: {
+            publicKey: string;
+            privateKey: string; // Encrypted
+        };
+    };
+}
+
+export interface LightningInvoice {
+    paymentHash: string;
+    paymentRequest: string;
+    amount: number;
+    description?: string;
+    expiresAt: number;
+}
+
+export interface LiquidAsset {
+    assetId: string;
+    name: string;
+    ticker: string;
+    precision: number;
+    balance: number;
 }
 
 export interface SendTxParams {
