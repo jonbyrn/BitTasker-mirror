@@ -37,13 +37,21 @@
 				control: { type: 'number', min: 0.1, max: 10, step: 0.1 },
 				description: 'Maximum file size in MB'
 			},
-			dimensions: {
-				control: 'object',
-				description: 'Required image dimensions'
+			allowedTypes: {
+				control: 'text',
+				description: 'Allowed file types'
 			},
 			error: {
 				control: 'text',
 				description: 'Error message to display'
+			},
+			width: {
+				control: 'number',
+				description: 'Width of the uploader'
+			},
+			height: {
+				control: 'number',
+				description: 'Height of the uploader'
 			},
 			onChange: { action: 'fileChange' },
 			onError: { action: 'error' }
@@ -58,7 +66,6 @@
 		label: 'Upload images',
 		maxFiles: 4,
 		maxFileSize: 1,
-		dimensions: { width: 512, height: 512 },
 		allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
 		files: [],
 		error: ''
@@ -82,7 +89,6 @@
 		label: 'Upload images',
 		maxFiles: 4,
 		maxFileSize: 1,
-		dimensions: { width: 512, height: 512 },
 		allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
 		files: [],
 		error: 'Maximum file size exceeded'
@@ -102,7 +108,6 @@
 		label: 'Upload profile picture',
 		maxFiles: 1,
 		maxFileSize: 1,
-		dimensions: { width: 512, height: 512 },
 		allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
 		files: [],
 		error: ''
@@ -121,7 +126,8 @@
 		label: 'Upload landscape image',
 		maxFiles: 4,
 		maxFileSize: 1,
-		dimensions: { width: 1024, height: 768 },
+		width: 1024,
+		height: 768,
 		allowedTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
 		files: [],
 		error: ''

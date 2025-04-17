@@ -103,6 +103,11 @@ src/
 - Immutable data
 - No side effects in business logic
 - Composition over inheritance
+- Never import $state or $effect from svelte (built-in runes)
+- Use $props for props
+- Use $state for state and $effect for side effects
+- Use $derived for derived values
+- Always add for attribute to labels
 - Imports order:
   - Types imports
   - Named imports
@@ -1067,9 +1072,12 @@ src/lib/api/
 ├── endpoints.ts      # API endpoint constants
 ├── types.ts          # TypeScript type definitions
 ├── apiService.ts     # Base API service class
-├── authService.ts    # Auth-specific service
 ├── axios.ts          # Axios instance configuration
-└── [other services]  # Domain-specific services
+├── services          # Domain-specific services
+│   ├── bid.service.ts # Bid-specific service
+│   ├── task.service.ts # Task-specific service
+│   ├── user.service.ts # User-specific service
+│   └── [other services] # Domain-specific services
 ```
 
 ### Core Components
@@ -1089,7 +1097,7 @@ src/lib/api/
    - Domain-specific type definitions
    - Ensures type safety across the application
 
-4. **Domain Services** (`authService.ts`, etc.)
+4. **Domain Services** (`services/auth.service.ts`, etc.)
    - Extend the base service
    - Implement domain-specific methods
    - Export singleton instances
@@ -1102,11 +1110,8 @@ src/lib/api/
 
 ### Importing Services
 
-Always import services from the main index file:
-
 ```typescript
-import { authService, ApiError } from '$lib/api';
-import type { OnboardingRequest } from '$lib/api';
+import { authService, ApiError } from '$lib/api/services/auth.service';
 ```
 
 ### Making API Calls

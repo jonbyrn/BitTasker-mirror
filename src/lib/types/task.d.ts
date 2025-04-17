@@ -1,4 +1,5 @@
-import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import type { TaskBid } from './bid';
+import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
 
 export interface Location {
 	displayName: string;
@@ -19,13 +20,14 @@ export interface CreateTaskParams {
 	budget: number;
 	budgetType: BudgetTypeEnum;
 	taskType: TaskTypeEnum;
-	deadline: string;
+	deadlineDate: string;
 	estimatedHours?: number;
 	categoryIds: number[];
 	skillIds: number[];
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	dateRange?: DateRange;
+	attachments?: { fileName: string; fileUrl: string, fileSize: number }[];
 }
 
 export interface Task {
@@ -35,9 +37,11 @@ export interface Task {
 	description: string;
 	budget: number;
 	budgetType: BudgetTypeEnum;
+	currency?: string;
 	status: TaskStatusEnum;
 	taskType: TaskTypeEnum;
 	isRemovals: boolean;
+	isOwner?: boolean;
 	deadlineDate: string | null;
 	estimatedHours: number;
 	dateRange: DateRange | null;
@@ -51,6 +55,7 @@ export interface Task {
 	cancelledAt: string | null;
 	deletedAt: string | null;
 	isDeleted: boolean;
+	attachments?: { fileName: string; fileUrl: string, fileSize: number }[];
 	categories: Array<{
 		id: number;
 		taskId: number;
@@ -92,10 +97,10 @@ export interface Task {
 			isDeleted: boolean;
 		};
 	}>;
-	bids: any[];
+	bids: TaskBid[];
 }
 
-export interface GetTasksParams {
+export interface SearchTasksParams {
 	status?: TaskStatusEnum[];
 	categoryId?: number;
 	skillId?: number;
@@ -106,36 +111,51 @@ export interface GetTasksParams {
 	includeDeleted?: boolean;
 	page?: number;
 	limit?: number;
-}
-
-export interface SearchTasksParams extends GetTasksParams {
 	budgetType?: BudgetTypeEnum;
 	categoryIds?: number[];
 	skills?: number[];
 	location?: string;
 	radius?: number;
-	sortField?: 'createdAt' | 'updatedAt' | 'budget' | 'deadline' | 'title';
-	sortOrder?: 'asc' | 'desc';
+	deadlineBefore?: string;
+	deadlineAfter?: string;
+	dateRange?: DateRange;
+	sortBy?: SortByEnum;
+	sortOrder?: SortOrderEnum;
+}
+
+export interface TaskData extends Task {
+	visibility: 'PUBLIC';
+	isTemplated: false;
+	templateId: null;
+	isFromRecurring: false;
+	boostAmount: null;
+	boostEndDate: null;
+	client: {
+		id: number;
+		userId: number;
+		tasksCompleted: number;
+		tasksPosted: number;
+		averageRating: number | null;
+		level: number;
+		experiencePoints: number;
+		verificationLevel: string;
+		createdAt: string;
+		updatedAt: string;
+		user?: {
+			id: number;
+			email: string;
+		};
+	};
+	freelancerAssignments?: any[];
+	bids?: any[];
 }
 
 export interface TaskResponse {
-	data: Task[];
-	meta: {
+	data: TaskData[];
+	pagination: {
 		total: number;
 		page: number;
 		limit: number;
-		totalPages: number;
-		hasNextPage: boolean;
-		hasPreviousPage: boolean;
-	};
-}
-
-export interface SearchTaskResponse {
-	items: Task[];
-	meta: {
-		totalItems: number;
-		currentPage: number;
-		itemsPerPage: number;
 		totalPages: number;
 		hasNextPage: boolean;
 		hasPreviousPage: boolean;

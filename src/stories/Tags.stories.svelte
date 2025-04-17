@@ -1,4 +1,4 @@
-<script lang="ts">
+<script module lang="ts">
 	import type { ArgTypes } from '@storybook/svelte';
 	import type { TagsProps } from '$lib/types/props';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
@@ -45,7 +45,7 @@
 <Story
 	name="With Tags"
 	args={{
-		selectedTags: ['JavaScript', 'TypeScript', 'Svelte'],
+		selectedTags: [1, 2, 3],
 		placeholder: 'Select tags...'
 	}}
 />

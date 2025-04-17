@@ -13,8 +13,11 @@ const USERS = 'users';
 const TASKS = 'tasks';
 const BIDS = 'bid';
 const ADMIN = 'admin';
-// const PAYMENTS = 'payments';
-// const MESSAGES = 'messages';
+const TASK_TEMPLATES = 'task-templates';
+const SERVICE_PACKAGES = 'service-packages';
+const SAVED_SEARCHES = 'saved-searches';
+const RECOMMENDATIONS = 'recommendations';
+const LOCATION = 'location';
 
 // Full endpoint paths
 export const ENDPOINTS = {
@@ -57,16 +60,68 @@ export const ENDPOINTS = {
 
 	// Bid endpoints
 	BIDS: {
+		GET: `${API_PATH}/${API_VERSION}/${BIDS}`,
 		CREATE: `${API_PATH}/${API_VERSION}/${BIDS}`,
-		UPDATE: `${API_PATH}/${API_VERSION}/${BIDS}`,
-		WITHDRAW: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/withdraw`
+		UPDATE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`,
+		WITHDRAW: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/withdraw`,
+		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`
 	},
 
 	// Admin endpoints
 	ADMIN: {
 		SKILLS: `${API_PATH}/${API_VERSION}/${ADMIN}/skills`,
 		CATEGORIES: `${API_PATH}/${API_VERSION}/${ADMIN}/categories`
-	}
+	},
 
-	// Add more endpoint categories as needed
+	// Upload endpoints
+	UPLOADS: {
+		SINGLE: `${API_PATH}/${API_VERSION}/uploads/single`,
+		MULTIPLE: `${API_PATH}/${API_VERSION}/uploads/multiple`,
+		DELETE: (key: string) => `${API_PATH}/${API_VERSION}/uploads/${key}`
+	},
+
+	// Task Templates endpoints
+	TASK_TEMPLATES: {
+		POST: `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}`,
+		GET: `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}`,
+		GET_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}/${id}`,
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}/${id}`,
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${TASK_TEMPLATES}/${id}`
+	},
+
+	// Service Packages endpoints
+	SERVICE_PACKAGES: {
+		POST: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}`,
+		GET: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}`, // get all user packages
+		GET_PUBLIC: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/public`, // get all public packages
+		GET_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, // get services package by id
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, 
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
+		PURCHASE_PACKAGE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
+	},
+
+	// Saved Searches endpoints
+	SAVED_SEARCHES: {
+		CREATE: `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}`,
+		LIST: `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}`,
+		DETAILS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
+		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
+		NOTIFICATIONS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/notifications`,
+		MARK_AS_READ: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/mark-as-read`
+	},
+
+	// Recommendations endpoints
+	RECOMMENDATIONS: {
+		LIST: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}`,
+		GENERATE: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}/generate`,
+		MARK_VIEWED: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}/mark-viewed`,
+		FEEDBACK: `${API_PATH}/${API_VERSION}/${RECOMMENDATIONS}/feedback`
+	},
+
+	// Location endpoints
+	LOCATION: {
+		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
+		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
+	}
 };

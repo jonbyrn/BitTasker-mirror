@@ -6,7 +6,8 @@ export enum BudgetTypeEnum {
 export enum TaskStepEnum {
 	BASICS = 'basics',
 	LOCATION = 'location',
-	BUDGET = 'budget'
+	BUDGET = 'budget',
+	RECURRING = 'recurring'
 }
 
 export enum TaskStatusEnum {
@@ -21,4 +22,23 @@ export enum TaskStatusEnum {
 export enum TaskTypeEnum {
 	REMOTE = 'REMOTE',
 	IN_PERSON = 'IN_PERSON'
+}
+
+export enum SortByEnum {
+	CREATED_AT = 'createdAt',
+	UPDATED_AT = 'updatedAt',
+	BUDGET = 'budget',
+	DEADLINE = 'deadlineDate',
+	TITLE = 'title'
+}
+
+export enum SortOrderEnum {
+	ASC = 'asc',
+	DESC = 'desc'
+}
+
+export enum NotificationFrequency {
+  INSTANT = 'INSTANT',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY'
 }

@@ -24,7 +24,6 @@
 			selectedTags = [...(selectedTags || []), tag];
 			onChange?.(selectedTags);
 		}
-		isOpen = false;
 	};
 
 	const handleClickOutside = () => {
