@@ -7,7 +7,7 @@
 		SortByEnum,
 		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
-	import taskService from '$lib/api/services/task.service';
+	import taskService from '$lib/api/gql/services/task.service';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';

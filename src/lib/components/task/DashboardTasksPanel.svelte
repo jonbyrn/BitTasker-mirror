@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
+	import { TaskStatusEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
+	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { formatDistanceToNow } from 'date-fns';
-	import taskService from '$lib/api/services/task.service';
+	import taskService from '$lib/api/gql/services/task.service';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -10,26 +11,98 @@
 	}>();
 
 	let tasks = $state<Task[]>([]);
-	let loading = $state(false);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+	let activeFilter = $state<string>('all');
 
-	// Load tasks with filters
+	// Filters
+	const filters = [
+		{ id: 'all', label: 'All Tasks', icon: 'folder-open' },
+		{ id: 'in-progress', label: 'In Progress', icon: 'activity' },
+		{ id: 'completed', label: 'Completed', icon: 'check-circle' },
+		{ id: 'drafts', label: 'Drafts', icon: 'edit' }
+	];
+
+	// Task filtering
+	const getFilteredTasks = (tasks: Task[], filter: string): Task[] => {
+		switch (filter) {
+			case 'in-progress':
+				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
+			case 'completed':
+				return tasks.filter((task) => task.status === TaskStatusEnum.COMPLETED);
+			case 'drafts':
+				return tasks.filter((task) => task.status === TaskStatusEnum.DRAFT);
+			default:
+				return tasks;
+		}
+	};
+
+	// Load user tasks
 	async function loadTasks() {
 		try {
 			loading = true;
-			tasks = await taskService.getMyTasks();
-		} catch (error) {
-			console.error('Error loading tasks:', error);
+			error = null;
+			// Use GraphQL service instead of REST
+			const userTasks = await taskService.getMyTasks();
+
+			// Sort tasks by created date (newest first)
+			tasks = userTasks.sort((a, b) => {
+				return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+			});
+		} catch (err) {
+			console.error('Error loading tasks:', err);
+			error = 'Failed to load tasks. Please try again.';
 		} finally {
 			loading = false;
 		}
 	}
 
-	// Initial load
-	onMount(() => {
-		loadTasks();
-	});
+	// Format date for display
+	function formatDate(dateString: string): string {
+		return format(new Date(dateString), 'MMM d, yyyy');
+	}
 
-	// Format dates
+	// Convert status to user-friendly string
+	function formatStatus(status: TaskStatusEnum): string {
+		switch (status) {
+			case TaskStatusEnum.IN_PROGRESS:
+				return 'In Progress';
+			case TaskStatusEnum.DRAFT:
+				return 'Draft';
+			case TaskStatusEnum.OPEN:
+				return 'Open';
+			case TaskStatusEnum.COMPLETED:
+				return 'Completed';
+			case TaskStatusEnum.CANCELLED:
+				return 'Cancelled';
+			case TaskStatusEnum.DISPUTED:
+				return 'Disputed';
+			default:
+				return status;
+		}
+	}
+
+	// Get appropriate status badge class
+	function getStatusClass(status: TaskStatusEnum): string {
+		switch (status) {
+			case TaskStatusEnum.IN_PROGRESS:
+				return 'badge-primary';
+			case TaskStatusEnum.DRAFT:
+				return 'badge-secondary';
+			case TaskStatusEnum.OPEN:
+				return 'badge-info';
+			case TaskStatusEnum.COMPLETED:
+				return 'badge-success';
+			case TaskStatusEnum.CANCELLED:
+				return 'badge-warning';
+			case TaskStatusEnum.DISPUTED:
+				return 'badge-error';
+			default:
+				return 'badge-ghost';
+		}
+	}
+
+	// Calculate time ago
 	function formatTimeAgo(date: string | null): string {
 		if (!date) return 'No deadline';
 		try {
@@ -51,6 +124,11 @@
 			currency: 'USD'
 		}).format(amount);
 	}
+
+	// Load tasks on mount
+	onMount(() => {
+		loadTasks();
+	});
 </script>
 
 <div class="card-body">
@@ -58,7 +136,7 @@
 	{#if loading}
 		<div class="space-y-6">
 			{#each Array(3) as _}
-				<div class="card bg-base-200 shadow-md animate-pulse">
+				<div class="card bg-base-200 animate-pulse shadow-md">
 					<div class="card-body">
 						<div class="flex justify-between">
 							<div class="flex items-center gap-2">
@@ -112,16 +190,8 @@
 									<div class="badge badge-accent">Owner</div>
 								{/if}
 							</div>
-							<div
-								class="badge {task.status === 'OPEN'
-									? 'badge-success'
-									: task.status === 'IN_PROGRESS'
-									? 'badge-warning'
-									: task.status === 'COMPLETED'
-									? 'badge-primary'
-									: 'badge-neutral'}"
-							>
-								{task.status}
+							<div class="badge {getStatusClass(task.status)}">
+								{formatStatus(task.status)}
 							</div>
 						</div>
 						<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>

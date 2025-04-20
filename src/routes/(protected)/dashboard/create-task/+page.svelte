@@ -6,7 +6,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
-	import taskService from '$lib/api/services/task.service';
+	import taskService from '$lib/api/gql/services/task.service';
 	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
