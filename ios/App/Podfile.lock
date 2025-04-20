@@ -10,11 +10,11 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
-  - Capacitor (7.0.1):
+  - Capacitor (7.1.0):
     - CapacitorCordova
   - CapacitorApp (7.0.0):
     - Capacitor
-  - CapacitorCordova (7.0.1)
+  - CapacitorCordova (7.1.0)
   - CapacitorDevice (7.0.0):
     - Capacitor
   - CapacitorGeolocation (7.1.1):
@@ -112,9 +112,9 @@ SPEC CHECKSUMS:
   Alamofire: 7193b3b92c74a07f85569e1a6c4f4237291e7496
   AppAuth: d4f13a8fe0baf391b2108511793e4b479691fb73
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
-  Capacitor: 23fff43571a4d1e3ee7d67b5a3588c6e757c2913
+  Capacitor: 68ff8eabbcce387e69767c13b5fbcc1c5399eabc
   CapacitorApp: 45cb7cbef4aa380b9236fd6980033eb5cde6fcd2
-  CapacitorCordova: 63d476958d5022d76f197031e8b7ea3519988c64
+  CapacitorCordova: 866217f32c1d25b326c568a10ea3ed0c36b13e29
   CapacitorDevice: 62066b65e148a133df7b8c5bf972ba835b329748
   CapacitorGeolocation: 8f8ac02ceaeb203a4762f8dc4ff5119e3f7fa50a
   CapacitorNativeBiometric: b47637a8cd349bdac014424bb4ddcae9ee5d4919

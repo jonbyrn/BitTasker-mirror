@@ -1,11 +1,7 @@
-import fs from 'fs';
-import path from 'path';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
-
-const CERT_PATH = path.resolve(__dirname, 'cert');
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
@@ -18,10 +14,6 @@ export default defineConfig({
 				changeOrigin: true,
 				secure: false // Allow insecure requests
 			}
-		},
-		https: {
-			key: fs.readFileSync(path.join(CERT_PATH, 'localhost-key.pem')),
-			cert: fs.readFileSync(path.join(CERT_PATH, 'localhost.pem'))
 		}
 	},
 	test: {

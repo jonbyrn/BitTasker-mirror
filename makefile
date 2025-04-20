@@ -12,3 +12,6 @@ codegen:
 
 dev:
 	npm run dev
+
+setup-certs:
+	node setup-certs.js
