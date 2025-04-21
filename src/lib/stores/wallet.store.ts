@@ -82,7 +82,6 @@ const createWalletStore = () => {
             try {
                 // Generate a new mnemonic for the wallet
                 const mnemonic = await generateMnemonic();
-                console.log('mnemonic', mnemonic);
 
                 // Store the user's preference
                 if (browser) {

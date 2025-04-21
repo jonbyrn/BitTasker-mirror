@@ -28,7 +28,10 @@ export const StorageKeys = {
 	WALLET_ENCRYPTED: 'wallet_encrypted',
 	WALLET_SALT: 'wallet_salt',
 	WALLET_IV: 'wallet_iv',
-	WALLET_STORAGE_PREFERENCE: 'wallet_storage_preference'
+	WALLET_STORAGE_PREFERENCE: 'wallet_storage_preference',
+
+	// WebAuthn
+	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId'
 } as const;
 
 // Type to get autocomplete for storage keys

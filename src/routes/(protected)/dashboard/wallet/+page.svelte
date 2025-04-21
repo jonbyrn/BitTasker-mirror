@@ -88,8 +88,6 @@
 
 	onMount(async () => {
 		try {
-			const mnemonic = await generateMnemonic();
-			console.log(mnemonic);
 			// Check if wallet exists and is initialized
 			const storagePreference = await Preferences.get({
 				key: StorageKeys.WALLET_STORAGE_PREFERENCE
@@ -109,7 +107,7 @@
 		// }
 	});
 
-	// Connect hardware wallet
+	// TODO: Connect hardware wallet
 	async function connectHardwareWallet(type: 'ledger' | 'trezor'): Promise<void> {
 		return console.warn('Hardware wallet not implemented');
 		// isConnectingHardwareWallet = true;
@@ -259,7 +257,7 @@
 					amount={paymentAmount}
 					description={paymentDescription}
 					recipient={paymentRecipient}
-					on:paymentComplete={handlePaymentComplete}
+					onPaymentComplete={handlePaymentComplete}
 				/>
 			</div>
 		{:else if activeTab === 'escrow' || activeTab === 'liquid-escrow'}

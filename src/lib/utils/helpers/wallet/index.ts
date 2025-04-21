@@ -3,12 +3,15 @@
  * @module wallet
  */
 
-import { base64ToBuffer, base64ToBytes, bufferToBase64 } from '$lib/utils/helpers/encoding';
+import type { EncryptionData } from '$lib/types/auth';
+import { base64ToBuffer, base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { browser } from '$app/environment';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { checkBiometricAvailability } from '$lib/utils/helpers/biometrics';
+import { deriveKeyFromPassword, encrypt, decrypt, exportKey, importKey } from '$lib/utils/helpers/crypto';
+import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+import { setWebBiometricKey, checkWebBiometricAvailability } from '$lib/utils/helpers/webBiometrics';
 import * as bip39 from '@scure/bip39';
 import * as bip32 from '@scure/bip32';
 
@@ -17,7 +20,7 @@ import * as bip32 from '@scure/bip32';
  * @returns {string} A 12 or 24-word mnemonic phrase
  */
 export function generateMnemonic() {
-    const mnemonic = bip39.generateMnemonic(wordlist, 256);
+    const mnemonic = bip39.generateMnemonic(wordlist, 128);
     return mnemonic;
 }
 
@@ -55,114 +58,66 @@ const ENCODING = 'utf-8';
 const TAG_LENGTH = 128;
 
 /**
- * Derives a cryptographic key from a password using PBKDF2
- * @param {string} password - The password to derive the key from
- * @param {Uint8Array} [salt] - Optional salt for key derivation. If not provided, a random salt will be generated
- * @returns {Promise<{key: CryptoKey, salt: Uint8Array}>} The derived key and salt used
- */
-export async function deriveKeyFromPassword(
-    password: string,
-    salt?: Uint8Array
-): Promise<{ key: CryptoKey; salt: Uint8Array }> {
-    // Generate a random salt if not provided
-    if (!salt) {
-        salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-    }
-
-    // Convert password to key material
-    const encoder = new TextEncoder();
-    const passwordBuffer = encoder.encode(password);
-
-    // Import password as key material
-    const keyMaterial = await crypto.subtle.importKey(
-        'raw',
-        passwordBuffer,
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits', 'deriveKey']
-    );
-
-    // Derive the key using PBKDF2
-    const key = await crypto.subtle.deriveKey(
-        {
-            name: 'PBKDF2',
-            salt,
-            iterations: PBKDF2_ITERATIONS,
-            hash: 'SHA-256'
-        },
-        keyMaterial,
-        { name: 'AES-GCM', length: AES_KEY_LENGTH },
-        false,
-        ['encrypt', 'decrypt']
-    );
-
-    return { key, salt };
-}
-
-/**
- * Encrypts a mnemonic phrase using AES-GCM with a password-derived key
+ * Encrypts a mnemonic phrase using the provided password
  * @param {string} mnemonic - The mnemonic phrase to encrypt
  * @param {string} password - The password to use for encryption
- * @returns {Promise<string>} Base64 encoded string containing salt + IV + encrypted data
+ * @returns {Promise<EncryptionData>} The encrypted data with all required fields
  */
-export async function encryptMnemonic(mnemonic: string, password: string) {
-    const { key, salt } = await deriveKeyFromPassword(password);
+export async function encryptMnemonic(mnemonic: string, password: string): Promise<EncryptionData> {
+    // Generate a random salt
+    const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+    
+    // Use the centralized function to derive the key
+    const key = await deriveKeyFromPassword(password, salt, PBKDF2_ITERATIONS);
+    
+    // Use the centralized function to encrypt the data
+    const encryptedData = await encrypt(mnemonic, key);
+    
+    // Get the salt as base64
+    const saltBase64 = bytesToBase64(salt);
+    
+    // Export the key for storage (the key is now extractable)
+    const exportedKey = await exportKey(key);
 
-    // Generate random IV
-    const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
-
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(mnemonic);
-
-    const encryptedBuffer = await crypto.subtle.encrypt(
-        {
-            name: 'AES-GCM',
-            iv: iv,
-            tagLength: TAG_LENGTH
-        },
-        key,
-        dataBuffer
-    );
-
-    // Combine salt + IV + encrypted data
-    const result = new Uint8Array(salt.length + iv.length + encryptedBuffer.byteLength);
-    result.set(salt, 0);
-    result.set(iv, salt.length);
-    result.set(new Uint8Array(encryptedBuffer), salt.length + iv.length);
-
-    return bufferToBase64(result);
+    return {
+        key: exportedKey,
+        iv: encryptedData.iv,
+        authTag: encryptedData.authTag,
+        data: encryptedData.data,
+        salt: saltBase64
+    };
 }
 
 /**
  * Decrypts an encrypted mnemonic phrase using the provided password
- * @param {string} encrypted - The encrypted mnemonic (base64 encoded)
+ * @param {EncryptionData} encrypted - The encrypted mnemonic data
  * @param {string} password - The password used for encryption
  * @returns {Promise<string>} The decrypted mnemonic phrase
  * @throws {Error} If decryption fails or the password is incorrect
  */
-export async function decryptMnemonic(encrypted: string, password: string) {
-    const encryptedBuffer = base64ToBuffer(encrypted);
-    
-    // Extract salt, IV, and encrypted data
-    const salt = encryptedBuffer.slice(0, SALT_LENGTH);
-    const iv = encryptedBuffer.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
-    const encryptedData = encryptedBuffer.slice(SALT_LENGTH + IV_LENGTH);
+export async function decryptMnemonic(encrypted: EncryptionData, password: string): Promise<string> {
+    try {
+        // If we have a stored key, use it instead of deriving a new one
+        let key: CryptoKey;
+        if (encrypted.key) {
+            // Import the stored key
+            key = await importKey(encrypted.key);
+        } else {
+            // Derive the key from password and salt
+            const salt = base64ToBytes(encrypted.salt);
+            key = await deriveKeyFromPassword(password, salt, PBKDF2_ITERATIONS);
+        }
 
-    const { key } = await deriveKeyFromPassword(password, salt);
-
-    // Decrypt the data
-    const decryptedBuffer = await crypto.subtle.decrypt(
-        {
-            name: 'AES-GCM',
-            iv: iv,
-            tagLength: TAG_LENGTH
-        },
-        key,
-        encryptedData
-    );
-
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedBuffer);
+        // Use the centralized function to decrypt the data
+        return await decrypt({
+            data: encrypted.data,
+            iv: encrypted.iv,
+            authTag: encrypted.authTag
+        }, key);
+    } catch (error) {
+        console.error('Failed to decrypt mnemonic:', error);
+        throw new Error('Invalid password or corrupted data');
+    }
 }
 
 /**
@@ -183,24 +138,28 @@ export async function initializeWallet(password: string, storagePreference: 'sel
         const addresses = deriveAddresses(mnemonic);
         console.log('addresses', addresses);
 
-        // Store the user's preference
-        if (browser) {
-            Preferences.set({ key: StorageKeys.WALLET_STORAGE_PREFERENCE, value: storagePreference });
-        }
-
         if (storagePreference === 'service') {
             // Encrypt the mnemonic with the password
             const encryptedData = await encryptMnemonic(mnemonic, password);
             console.log('encryptedData', encryptedData);
 
-            // TODO: Implement biometric auth
             // Check if biometric auth is available
-            // const biometricsAvailable = await checkBiometricAvailability();
-            // if (biometricsAvailable) {
-            //     // Store password with biometrics
-            // } else {
-            //     // Store via API with E2E encryption
-            // }
+            const biometricsAvailable = await checkBiometricAvailability();
+            if (biometricsAvailable) {
+                // Store password with biometrics
+                await setBiometricKey(addresses[0], encryptedData);
+            } else {
+                const isAvailable = await checkWebBiometricAvailability();
+                if (isAvailable) {
+                    await setWebBiometricKey(addresses[0], encryptedData);
+                }
+            }
+            // Store via API with E2E encryption
+        }
+
+        // Store the user's preference
+        if (browser) {
+            await Preferences.set({ key: StorageKeys.WALLET_STORAGE_PREFERENCE, value: storagePreference });
         }
 
         // TODO: Set up the wallet with the API
@@ -234,7 +193,7 @@ export function deriveWalletKeypair(mnemonic: string, index: number = 0) {
     const root = bip32.HDKey.fromMasterSeed(seed);
     const path = `m/44'/1'/0'/0/${index}`;
     const child = root.derive(path);
-    
+
     if (!child.privateKey || !child.publicKey) {
         throw new Error('Failed to derive keypair');
     }
