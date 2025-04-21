@@ -9,19 +9,19 @@ const prodServerUrl = env.VITE_GRAPHQL_SERVER_ENTRYPOINT;
 const config: CodegenConfig = {
 	overwrite: true,
 	schema: prodServerUrl,
-	documents: 'src/**/*.graphql',
+	documents: ['src/lib/api/gql/operations/**/*.ts', 'src/lib/api/gql/fragments/**/*.ts'],
 	generates: {
 		'src/lib/graphql/generated/': {
 			preset: 'client',
 			presetConfig: {
-				gqlTagName: 'gql'
+				gqlImport: { module: '@apollo/client/core', identifier: 'gql' }
 			},
 			config: {
 				useTypeImports: true
 			}
 		}
 	},
-	ignoreNoDocuments: true
+	ignoreNoDocuments: false
 };
 
 export default config;

@@ -18,10 +18,7 @@ import type {
 import {
     BudgetTypeEnum,
     TaskTypeEnum,
-    TaskStatusEnum,
-    SortByEnum,
-    SortOrderEnum
-} from '$lib/utils/enums/task.enum';
+    TaskStatusEnum} from '$lib/utils/enums/task.enum';
 
 import { executeQuery } from '../hooks/query';
 import { executeMutation } from '../hooks/mutation';
