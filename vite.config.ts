@@ -1,3 +1,4 @@
+import houdini from "houdini/vite";
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
@@ -5,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
+	plugins: [houdini(), tailwindcss(), sveltekit()],
 	server: {
 		allowedHosts: true,
 		proxy: {
