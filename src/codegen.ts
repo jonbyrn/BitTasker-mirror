@@ -17,7 +17,8 @@ const config: CodegenConfig = {
 				gqlImport: { module: '@apollo/client/core', identifier: 'gql' }
 			},
 			config: {
-				useTypeImports: true
+				useTypeImports: true,
+				preResolveTypes: true
 			}
 		}
 	},

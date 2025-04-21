@@ -17,15 +17,15 @@ This revised guide outlines the approach for integrating GraphQL with BitTasker'
 
 ## Dependency Considerations
 
-### Updated Dependencies
+### Current Dependencies
 
-For GraphQL integration with SvelteKit 5, we recommend the following dependencies:
-
-- `@apollo/client` - Core Apollo Client library (latest version)
-- `graphql` - GraphQL language implementation (latest version)
-- `@graphql-codegen/cli` - Code generation CLI tool (latest version)
-- `@graphql-codegen/typescript` - TypeScript types generator (latest version)
-- `@graphql-codegen/typescript-operations` - TypeScript operations generator (latest version)
+- `@apollo/client`: ^3.13.7 - Core Apollo Client library
+- `graphql`: ^16.10.0 - GraphQL language implementation
+- `@graphql-codegen/cli`: ^5.0.5 - Code generation CLI tool
+- `@graphql-codegen/typescript`: ^4.1.6 - TypeScript types generator
+- `@graphql-codegen/typescript-operations`: ^4.6.0 - TypeScript operations generator
+- `@graphql-codegen/client-preset`: ^4.8.0 - Client preset for code generation
+- `@graphql-codegen/typescript-document-nodes`: ^4.0.16 - Document nodes generator
 
 ### Deprecated Dependencies to Avoid
 
@@ -35,46 +35,49 @@ For GraphQL integration with SvelteKit 5, we recommend the following dependencie
 ### Recommended Alternatives
 
 Instead of `svelte-apollo`, we can:
+
 - Use Apollo Client directly with SvelteKit's load functions
 - Create custom stores for reactive GraphQL data
 - Use SvelteKit's native fetch API with GraphQL for simpler queries
 
 ## Integration with Existing Architecture
 
-### Leveraging Existing API Structure
+### Current Implementation
 
-BitTasker already has an established API service structure at `src/lib/api/services`. Instead of creating parallel services that could lead to confusion and maintenance issues, we'll extend this structure to include GraphQL capabilities.
+The project uses a hybrid approach where:
 
-### Recommended Approach
+1. GraphQL operations are defined in `src/lib/api/gql/operations`
+2. Types are generated in `src/lib/graphql/generated`
+3. The Apollo Client is configured in `src/lib/api/gql/client.ts`
+4. Services in `src/lib/api/gql/services` implement the business logic
+5. Custom hooks in `src/lib/api/gql/hooks` provide reactive data handling
 
-1. Add a `gql` folder inside the existing `src/lib/api` directory
-2. Implement GraphQL-specific utilities within this folder
-3. Adapt the existing service interfaces to work with both REST and GraphQL
-4. Gradually migrate from REST to GraphQL without duplicating business logic
+### Code Generation
+
+The project uses GraphQL Code Generator with the following configuration:
+
+- Schema is fetched from the production server endpoint
+- Operations are sourced from `operations` and `fragments` directories
+- Generated code uses the client preset with Apollo Client integration
+- Type imports are enabled for better TypeScript integration
+- No-document checks are enforced to catch missing operations
 
 ## Folder Structure
 
 ```
 src/
 └── lib/
-    └── api/
-        ├── services/           # Existing API services - keep as is
-        │   ├── auth.service.ts
-        │   ├── tasks.service.ts
-        │   └── ...
-        └── gql/                # New GraphQL integration
-            ├── client.ts       # Apollo Client configuration
-            ├── operations/     # GraphQL queries and mutations
-            │   ├── auth.ts
-            │   ├── tasks.ts
-            │   └── ...
-            ├── fragments/      # Reusable GraphQL fragments
-            │   ├── task.ts
-            │   ├── bid.ts
-            │   └── ...
-            └── hooks/          # Custom hooks and utilities
-                ├── query.ts    # Query utilities
-                └── mutation.ts # Mutation utilities
+    ├── api/
+    │   └── gql/               # GraphQL integration
+    │       ├── client.ts      # Apollo Client configuration
+    │       ├── generated.ts   # Legacy generated types
+    │       ├── index.ts      # Exports and utilities
+    │       ├── operations/    # GraphQL queries and mutations
+    │       ├── fragments/     # Reusable GraphQL fragments
+    │       ├── services/     # GraphQL service implementations
+    │       └── hooks/        # Custom hooks and utilities
+    └── graphql/
+        └── generated/        # Generated types and operations
 ```
 
 ## Architectural Approach
@@ -84,6 +87,7 @@ src/
 Based on BitTasker's established design principles, which prefer Functional Programming over OOP, we recommend:
 
 ✅ **Functional Programming Approach**:
+
 - Use pure functions for GraphQL operations
 - Maintain immutable data structures
 - Separate concerns with composable functions
@@ -117,16 +121,19 @@ The existing BitTasker authentication system uses JWT tokens. This approach shou
 ### Phased Approach
 
 1. **Phase 1: Setup and Infrastructure**
+
    - Implement GraphQL client configuration
    - Set up type generation
    - Establish integration patterns
 
 2. **Phase 2: Non-Critical Features First**
+
    - Identify low-risk features for initial migration
    - Implement GraphQL versions alongside REST
    - Test thoroughly before switching over
 
 3. **Phase 3: Core Features Migration**
+
    - Gradually migrate critical features
    - Ensure feature parity with REST endpoints
    - Run parallel implementations during transition
@@ -161,6 +168,7 @@ The existing BitTasker authentication system uses JWT tokens. This approach shou
 ### Mobile Considerations
 
 Since BitTasker is built to support mobile platforms via Capacitor:
+
 - Consider offline caching for mobile users
 - Implement retry mechanisms for unstable connections
 - Optimize payload size for mobile data usage
