@@ -4,15 +4,17 @@ import type {
     SendTxParams,
     NetworkFee,
     WalletState,
-    WalletBalance
+    WalletBalance,
+    LightningInvoice
 } from '$lib/types/wallet';
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { checkBiometricAvailability } from '$lib/utils/helpers/biometrics';
 import { Preferences } from '@capacitor/preferences';
-import { generateMnemonic, decryptMnemonic, encryptMnemonic } from '$lib/utils/helpers/wallet/wallet-crypto';
-import * as mobileWalletService from '$lib/utils/helpers/wallet/mobile-wallet';
+import { generateMnemonic, decryptMnemonic, encryptMnemonic } from '$lib/utils/helpers/wallet-old/wallet-crypto';
+import * as mobileWalletService from '$lib/utils/helpers/wallet-old/mobile-wallet';
 import walletService from '$lib/api/services/wallet.service';
+import { connectNostrWalletConnect, generateInvoice, payInvoice } from '$lib/utils/helpers/wallet/lightning/nwc';
 
 // Initial state with empty data
 const initialState: WalletState = {
@@ -50,7 +52,7 @@ const createWalletStore = () => {
     // Initialize from API when in browser
     if (browser) {
         // Check if wallet is initialized
-        walletService.getOrCreateWallet()
+        /* walletService.getOrCreateWallet()
             .then(data => {
                 if (data && data.isInitialized) {
                     update(state => ({
@@ -62,7 +64,7 @@ const createWalletStore = () => {
             })
             .catch(error => {
                 console.error('Failed to check wallet initialization status:', error);
-            });
+            }); */
     }
 
     return {
@@ -367,6 +369,42 @@ const createWalletStore = () => {
             subscribe(state => { balance = state.balance; })();
             return balance;
         },
+
+        /**
+     * Connect to a Lightning wallet using NWC
+     */
+        connectLightningWallet: async (nwcUrl: string): Promise<boolean> => {
+            return connectNostrWalletConnect(nwcUrl);
+        },
+
+        /**
+         * Generate a Lightning invoice
+         */
+        generateLightningInvoice: async (
+            amountSats: number,
+            description: string,
+            expirySeconds: number = 3600
+        ): Promise<LightningInvoice> => {
+            return generateInvoice(amountSats, description, expirySeconds);
+        },
+
+        /**
+         * Pay a Lightning invoice
+         */
+        payLightningInvoice: async (
+            paymentRequest: string,
+            maxFeePercent: number = 1
+        ): Promise<Transaction> => {
+            const transaction = await payInvoice(paymentRequest, maxFeePercent);
+
+            // Update the wallet state with the new transaction
+            update(state => ({
+                ...state,
+                transactions: [transaction, ...state.transactions]
+            }));
+
+            return transaction;
+        }
     };
 };
 

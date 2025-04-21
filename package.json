@@ -74,6 +74,7 @@
 	"dependencies": {
 		"@apollo/client": "^3.13.7",
 		"@bitcoinerlab/secp256k1": "^1.2.0",
+		"@capacitor-mlkit/barcode-scanning": "^7.2.1",
 		"@capacitor/android": "^7.0.1",
 		"@capacitor/app": "^7.0.0",
 		"@capacitor/barcode-scanner": "^2.0.3",
@@ -87,6 +88,7 @@
 		"@capacitor/preferences": "^7.0.0",
 		"@capacitor/splash-screen": "^7.0.1",
 		"@capacitor/status-bar": "^7.0.1",
+		"@capawesome/capacitor-torch": "^7.0.2",
 		"@capgo/capacitor-social-login": "^7.4.5",
 		"@getalby/bitcoin-connect": "^3.7.1",
 		"@getalby/sdk": "^5.0.0",
@@ -96,6 +98,7 @@
 		"@scure/bip39": "^1.5.4",
 		"@types/google.maps": "^3.58.1",
 		"axios": "^1.8.4",
+		"barcode-detector": "^3.0.1",
 		"bip32": "^5.0.0-rc.0",
 		"bip39": "^3.1.0",
 		"bitcoinjs-lib": "^6.1.7",

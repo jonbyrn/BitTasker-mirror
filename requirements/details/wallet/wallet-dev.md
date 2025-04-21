@@ -183,7 +183,7 @@ This way, even if the server is compromised, the attacker cannot access the wall
    - Address generation for receiving payments
    - Address labeling and organization
 
-## Component Structure
+## 4. Component Structure
 
 ```
 src/
@@ -215,7 +215,7 @@ src/
 │           └── assets.ts      # Liquid asset management
 ```
 
-## 4. Implementation Roadmap
+## 5. Implementation Roadmap
 
 ### Phase 1: BitTasker Hot Wallet (Priority)
 
@@ -255,7 +255,7 @@ src/
 - Implement device selection and PIN entry screens
 - Create transaction confirmation flows for hardware devices
 
-## 5. Technical Stack
+## 6. Technical Stack
 
 ### Core Dependencies
 
@@ -290,7 +290,7 @@ npm install qrcode@1.5.3           # QR code generation
 - Sensitive data never leaves the browser
 - Use secure storage with encryption
 
-## 6. Wallet Setup
+## 7. Wallet Setup
 
 ### Recommended Approach: Hybrid Model
 
@@ -318,3 +318,111 @@ npm install qrcode@1.5.3           # QR code generation
 - Track balances and transaction history
 - Manage address indexes and derivation paths
 - Handle external blockchain monitoring
+
+## 8. Network Integration
+
+### Nostr Wallet Connect (NWC)
+
+#### Overview
+Nostr Wallet Connect is a protocol that enables web applications to connect to Bitcoin Lightning wallets through the Nostr protocol. It provides a standardized way for web applications to interact with Lightning wallets without requiring manual copy/paste or QR code scanning for every transaction.
+
+#### Benefits for BitTasker
+1. **Lightning Network Integration**
+   - Microtransactions support: Lightning is ideal for small, frequent payments with minimal fees
+   - Instant payments: Lightning transactions are nearly instant, unlike on-chain Bitcoin transactions
+   - Lower fees: Lightning transactions typically have much lower fees than on-chain transactions
+
+2. **Enhanced User Experience**
+   - Connect existing Lightning wallets
+   - Make payments without leaving the application
+   - Receive payments through Lightning invoices
+
+3. **Available SDKs and Libraries**
+   - @getalby/js-sdk: Alby's JavaScript SDK for NWC
+   - @getalby/bitcoin-connect: Bitcoin wallet connection library
+   - nostr-tools: Core Nostr protocol support
+   - @nostr-dev-kit/ndk: Nostr application development kit
+
+#### Testing Implementation
+1. **Setup Requirements**
+   - Lightning wallet with NWC support (Alby, Phoenix, Mutiny)
+   - NWC URL generation capability
+
+2. **Testing Steps**
+   - Generate NWC URL from wallet
+   - Connect in BitTasker wallet page
+   - Test invoice generation and payment
+   - Verify transaction visibility
+
+### Contract Generation
+
+#### Implementation Options
+
+1. **Frontend-Only Approach**
+   - Contract template system in frontend
+   - @getalby/bitcoin-connect for payments
+   - Local storage/IndexedDB for contract data
+
+2. **Backend Approach (Recommended)**
+   - Backend API for contract management
+   - Database storage for contracts
+   - Backend payment validation and escrow release
+
+### Escrow Implementation
+
+#### Backend Implementation (Recommended)
+- Escrow service for fund holding
+- Contract completion-based release mechanism
+- Dispute resolution handling
+
+#### Frontend-Only Approach (Limited)
+- Multi-signature wallet implementation
+- Time-locked transaction escrow
+- Note: More complex and less secure than backend solution
+
+### Liquid Network Integration
+
+#### Core Features
+1. **Escrow Services**
+   - Confidential transactions
+   - Multi-signature support
+   - Faster settlement (1-minute blocks)
+   - Lower transaction fees
+
+2. **Asset Management**
+   - Custom asset creation
+   - Task progress tracking
+   - Reward token implementation
+
+3. **Lightning Integration**
+   - Cross-network payments
+   - Bridge services
+   - Hybrid escrow solutions
+
+#### Implementation Approaches
+
+1. **Frontend-Only Implementation**
+   - **Libraries**
+     - liquidjs-lib for basic functionality
+     - @liquidnetwork/ldk for advanced features
+   - **Node Connection**
+     - Public Liquid nodes
+     - SPV transaction verification
+   - **Contract Implementation**
+     - Multi-signature addresses
+     - Time-locked transactions
+
+2. **Backend Implementation (Recommended)**
+   - **Node Operation**
+     - Private Liquid node (elementsd)
+     - Enhanced reliability
+   - **Service Layer**
+     - Escrow transaction management
+     - Key management and signing
+     - Frontend API integration
+   - **Asset Management**
+     - Task/escrow asset creation
+     - Ownership tracking
+     - Transfer management
+
+

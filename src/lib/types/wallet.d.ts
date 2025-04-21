@@ -129,3 +129,59 @@ export interface LightningInvoice {
 }
 
 export type StoragePreference = 'self' | 'service';
+
+
+
+
+export interface PaymentResult {
+    success: boolean;
+    txId: string;
+    amount: number;
+    timestamp: number;
+}
+
+export interface EscrowTransaction {
+    id: string;
+    amount: number;
+    timestamp: number;
+}
+
+export interface AssetDetails {
+    name: string;
+    ticker: string;
+    precision: number;
+    domain: string;
+}
+
+export interface BitcoinPaymentEvents {
+    amount: number;
+    description: string;
+    recipient: string;
+    onPaymentComplete: (tx: PaymentResult) => void;
+}
+
+export interface LiquidAssetManagerEvents {
+    liquidEscrowCreated: {
+        txId: string;
+        assetId: string;
+        amount: number;
+    };
+}
+
+export interface EscrowContractEvents {
+    escrowCreated: {
+        txId: string;
+        amount: number;
+        timeLockDuration: number;
+        requiredSignatures: number;
+    };
+    escrowReleased: {
+        txId: string;
+        amount: number;
+    };
+    escrowDisputed: {
+        txId: string;
+        amount: number;
+    };
+}
+

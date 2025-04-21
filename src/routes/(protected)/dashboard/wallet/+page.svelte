@@ -1,54 +1,84 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { walletStore } from '$lib/stores/wallet.store';
-	import * as hardwareWallet from '$lib/utils/helpers/wallet/hardware-wallet.service';
-	import walletService from '$lib/api/services/wallet.service';
-	import type { WalletAddress, NetworkFee } from '$lib/types/wallet';
-
-	// Import components
 	import WalletBalance from '$lib/components/wallet/WalletBalance.svelte';
 	import WalletReceive from '$lib/components/wallet/WalletReceive.svelte';
 	import WalletSend from '$lib/components/wallet/WalletSend.svelte';
 	import WalletTransactions from '$lib/components/wallet/WalletTransactions.svelte';
 	import WalletSetup from '$lib/components/wallet/WalletSetup.svelte';
+	import LightningConnect from '$lib/components/wallet/lightning/LightningConnect.svelte';
+	import LightningInvoice from '$lib/components/wallet/lightning/LightningInvoice.svelte';
+	import LightningPay from '$lib/components/wallet/lightning/LightningPay.svelte';
+	import BitcoinConnect from '$lib/components/wallet/lightning/BitcoinConnect.svelte';
+	import EscrowContract from '$lib/components/wallet/escrow/EscrowContract.svelte';
+	import LiquidAssetManager from '$lib/components/wallet/escrow/LiquidAssetManager.svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-
+	import type { EscrowContractEvents, LiquidAssetManagerEvents, BitcoinPaymentEvents } from '$lib/types/wallet';
+	import BitcoinPayment from '$lib/components/wallet/BitcoinPayment.svelte';
+	import { generateMnemonic } from '$lib/utils/helpers/wallet';
+	
 	// UI state with mutable let variables using runes
-	let activeTab = $state('balance'); // balance, receive, send, transactions
-	let selectedAddress = $state<WalletAddress | null>(null);
-	let showQR = $state(false);
-	let copiedAddress = $state(false);
+	let activeTab = $state<'balance' | 'receive' | 'send' | 'transactions' | 'lightning' | 'payment' | 'escrow' | 'liquid-escrow'>('balance');
+	let activeLightningTab = $state('connect'); // connect, invoice, pay, bitcoin-connect
 	let isWalletInitialized = $state(false);
-	let isCreatingWallet = $state(false);
-	let walletPassword = $state('');
-	let passwordError = $state('');
-	let isLoading = $state(false);
-	let walletNetwork = $state<'Bitcoin' | 'Lightning' | 'Liquid'>('Bitcoin');
 	let showHardwareWalletOptions = $state(false);
 	let isConnectingHardwareWallet = $state(false);
-	let hardwareWalletConnected = $state(false);
-	let hardwareWalletType = $state<'ledger' | 'trezor' | null>(null);
-
-	// Send form
-	let sendAmount = $state('');
-	let sendAddress = $state('');
-	let sendNetworkFee = $state<NetworkFee['type']>('medium'); // low, medium, high
-	let sendError = $state('');
-	let sendNetwork = $state<'Bitcoin' | 'Lightning' | 'Liquid'>('Bitcoin');
-	let sendAssetId = $state(''); // For Liquid assets
-
-	// Receive form
-	let requestAmount = $state('');
-	let requestDescription = $state('');
-	let requestCurrency = $state<'BTC' | 'sats'>('BTC');
 	let lightningInvoice = $state('');
+	
+	// Payment
+	let paymentAmount = $state(0);
+	let paymentDescription = $state('');
+	let paymentRecipient = $state('');
+	// Escrow
+	let escrowAmount = $state(0);
+	let escrowDescription = $state('');
+	let escrowRecipient = $state('');
+	let escrowTimeLock = $state(144); // 24 hours in blocks
+	let escrowSignatures = $state(2);
+	let liquidAssetId = $state('');
+	let liquidAmount = $state(0);
+	let liquidDescription = $state('');
 
 	// Handle changing tabs - create a function with the name expected by child components
 	function onTabChange(tab: string) {
-		activeTab = tab;
+		activeTab = tab as typeof activeTab;
 	}
 
+	function onLightningTabChange(tab: string) {
+		activeLightningTab = tab;
+	}
+
+	// Handle invoice generation
+	function handleInvoiceGenerated(invoice: string) {
+		lightningInvoice = invoice;
+	}
+
+	// Handle payment completion
+	function handlePaymentComplete(event: CustomEvent) {
+		console.log('Payment completed:', event.detail);
+		// You can add additional logic here, like showing a success message
+		// or updating the transaction list
+	}
+
+	// Handle escrow events
+	function handleEscrowCreated(event: EscrowContractEvents['escrowCreated']) {
+		console.log('Escrow created:', event);
+	}
+
+	function handleEscrowReleased(event: EscrowContractEvents['escrowReleased']) {
+		console.log('Escrow released:', event);
+	}
+
+	function handleEscrowDisputed(event: EscrowContractEvents['escrowDisputed']) {
+		console.log('Escrow disputed:', event);
+	}
+
+	// Handle liquid escrow events
+	function handleLiquidEscrowCreated(event: LiquidAssetManagerEvents['liquidEscrowCreated']) {
+		console.log('Liquid escrow created:', event);
+	}
+
+	// TODO: Check hardware wallet support
 	function checkHardwareWalletSupport(): boolean {
 		const hasWebUSB = typeof navigator !== 'undefined' && 'usb' in navigator;
 		const hasWebHID = typeof navigator !== 'undefined' && 'hid' in navigator;
@@ -58,6 +88,8 @@
 
 	onMount(async () => {
 		try {
+			const mnemonic = await generateMnemonic();
+			console.log(mnemonic);
 			// Check if wallet exists and is initialized
 			const storagePreference = await Preferences.get({
 				key: StorageKeys.WALLET_STORAGE_PREFERENCE
@@ -71,100 +103,11 @@
 		}
 
 		// TODO: Check hardware wallet support
-		// const hasHardwareSupport = hardwareWallet.checkHardwareWalletSupport();
+		// const hasHardwareSupport = checkHardwareWalletSupport();
 		// if (hasHardwareSupport) {
 		// 	showHardwareWalletOptions = true;
 		// }
 	});
-
-	// Format number with a specific number of decimals
-	function formatNumber(number: number, decimals: number): string {
-		return number.toFixed(decimals);
-	}
-
-	// Convert BTC to sats
-	function btcToSats(btc: number): number {
-		return Math.floor(btc * 100000000);
-	}
-
-	// Convert sats to BTC
-	function satsToBtc(sats: number): number {
-		return sats / 100000000;
-	}
-
-	// Format timestamp to human-readable date
-	function formatDate(timestamp: number): string {
-		const date = new Date(timestamp);
-		return date.toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
-	// Truncate address for display
-	function truncateAddress(address: string, prefixLength = 8, suffixLength = 4): string {
-		if (address.length <= prefixLength + suffixLength) {
-			return address;
-		}
-		return `${address.substring(0, prefixLength)}...${address.substring(address.length - suffixLength)}`;
-	}
-
-	// Copy address to clipboard
-	function copyToClipboard(text: string): void {
-		navigator.clipboard.writeText(text).then(() => {
-			copiedAddress = true;
-			setTimeout(() => {
-				copiedAddress = false;
-			}, 2000);
-		});
-	}
-
-	// Toggle QR code visibility
-	function toggleQR(): void {
-		showQR = !showQR;
-	}
-
-	// Select address type
-	function selectNetwork(type: 'Bitcoin' | 'Lightning' | 'Liquid'): void {
-		walletNetwork = type;
-		const address = walletStore.subscribe((state) => {
-			const found = state.addresses.find((a) => a.type === type);
-			if (found) {
-				selectedAddress = found;
-			}
-		})();
-	}
-
-	// Create or unlock wallet
-	async function setupWallet(): Promise<void> {
-		if (!walletPassword) {
-			passwordError = 'Please enter a password';
-			return;
-		}
-
-		isLoading = true;
-		passwordError = '';
-
-		try {
-			// Try to initialize wallet
-			const success = await walletStore.initializeWallet(walletPassword, 'service');
-
-			if (!success) {
-				passwordError = 'Failed to setup wallet. Please try again.';
-			} else {
-				isWalletInitialized = true;
-				walletPassword = '';
-			}
-		} catch (error) {
-			console.error('Wallet setup error:', error);
-			passwordError = 'An error occurred during wallet setup';
-		} finally {
-			isLoading = false;
-		}
-	}
 
 	// Connect hardware wallet
 	async function connectHardwareWallet(type: 'ledger' | 'trezor'): Promise<void> {
@@ -182,120 +125,6 @@
 		// } finally {
 		// 	isConnectingHardwareWallet = false;
 		// }
-	}
-
-	// Generate a new address
-	async function generateNewAddress(): Promise<void> {
-		try {
-			const newAddress = await walletStore.generateAddress(walletNetwork);
-			if (newAddress) {
-				selectedAddress = newAddress;
-			}
-		} catch (error) {
-			console.error('Failed to generate address:', error);
-		}
-	}
-
-	// Generate a Lightning invoice
-	async function generatePaymentRequest(): Promise<void> {
-		if (!requestAmount) {
-			return;
-		}
-
-		try {
-			// Convert amount to sats if needed
-			const amountSats =
-				requestCurrency === 'BTC' ? btcToSats(parseFloat(requestAmount)) : parseInt(requestAmount);
-
-			// Generate invoice
-			// const invoice = await generateLightningInvoice(
-			// 	amountSats,
-			// 	requestDescription || 'BitTasker Payment',
-			// 	3600 // 1 hour expiry
-			// );
-			const invoice = {
-				paymentRequest: `lnbc${amountSats}${Math.random().toString(36).substring(2, 15)}`,
-				amount: amountSats / 100000000, // Convert to BTC
-				description: requestDescription || 'BitTasker Payment',
-				expiryTime: Date.now() + 3600 * 1000 // 1 hour expiry
-			};
-
-			lightningInvoice = invoice.paymentRequest;
-			showQR = true;
-		} catch (error) {
-			console.error('Failed to generate payment request:', error);
-		}
-	}
-
-	// Validate send form
-	function validateSendForm(): boolean {
-		if (!sendAmount || isNaN(parseFloat(sendAmount)) || parseFloat(sendAmount) <= 0) {
-			sendError = 'Please enter a valid amount';
-			return false;
-		}
-
-		// Get current balance from wallet store
-		let insufficientFunds = false;
-		walletStore.subscribe((state) => {
-			if (parseFloat(sendAmount) > state.balance.btc) {
-				insufficientFunds = true;
-			}
-		})();
-
-		if (insufficientFunds) {
-			sendError = 'Insufficient balance';
-			return false;
-		}
-
-		if (!sendAddress.trim()) {
-			sendError = 'Please enter a recipient address';
-			return false;
-		}
-
-		// Validate address based on network
-		// const isValidAddress = validateAddress(sendAddress, sendNetwork);
-		const isValidAddress = false;
-		if (!isValidAddress) {
-			sendError = `Invalid ${sendNetwork} address`;
-			return false;
-		}
-
-		sendError = '';
-		return true;
-	}
-
-	// Send transaction
-	async function _sendTransaction(): Promise<void> {
-		if (!validateSendForm()) {
-			return;
-		}
-
-		isLoading = true;
-		try {
-			const params = {
-				amount: parseFloat(sendAmount),
-				recipientAddress: sendAddress,
-				networkFee: sendNetworkFee,
-				description: 'BitTasker Transfer',
-				network: sendNetwork,
-				...(sendNetwork === 'Liquid' && sendAssetId ? { assetId: sendAssetId } : {})
-			};
-
-			const tx = await walletStore.sendTransaction(params);
-
-			// Reset form
-			sendAmount = '';
-			sendAddress = '';
-			sendNetworkFee = 'medium';
-
-			// Switch to transactions tab to show the new transaction
-			activeTab = 'transactions';
-		} catch (error) {
-			console.error('Failed to send transaction:', error);
-			sendError = 'Failed to send transaction. Please try again.';
-		} finally {
-			isLoading = false;
-		}
 	}
 </script>
 
@@ -353,6 +182,24 @@
 			>
 				Transactions
 			</button>
+			<button
+				class="tab {activeTab === 'lightning' ? 'tab-active' : ''}"
+				onclick={() => onTabChange('lightning')}
+			>
+				Lightning
+			</button>
+			<button
+				class="tab {activeTab === 'payment' ? 'tab-active' : ''}"
+				onclick={() => onTabChange('payment')}
+			>
+				Pay
+			</button>
+			<button
+				class="tab {activeTab === 'escrow' ? 'tab-active' : ''}"
+				onclick={() => onTabChange('escrow')}
+			>
+				Escrow
+			</button>
 		</div>
 
 		<!-- Tab Content -->
@@ -364,6 +211,96 @@
 			<WalletSend {onTabChange} />
 		{:else if activeTab === 'transactions'}
 			<WalletTransactions />
+		{:else if activeTab === 'lightning'}
+			<div class="tabs tabs-boxed mb-6">
+				<button
+					class="tab {activeLightningTab === 'connect' ? 'tab-active' : ''}"
+					onclick={() => onLightningTabChange('connect')}
+				>
+					Connect
+				</button>
+				<button
+					class="tab {activeLightningTab === 'invoice' ? 'tab-active' : ''}"
+					onclick={() => onLightningTabChange('invoice')}
+				>
+					Invoice
+				</button>
+				<button
+					class="tab {activeLightningTab === 'pay' ? 'tab-active' : ''}"
+					onclick={() => onLightningTabChange('pay')}
+				>
+					Pay
+				</button>
+				<button
+					class="tab {activeLightningTab === 'bitcoin-connect' ? 'tab-active' : ''}"
+					onclick={() => onLightningTabChange('bitcoin-connect')}
+				>
+					Bitcoin Connect
+				</button>
+			</div>
+
+			{#if activeLightningTab === 'connect'}
+				<LightningConnect />
+			{:else if activeLightningTab === 'invoice'}
+				<LightningInvoice 
+					amount={1000} 
+					description="Test invoice" 
+					onInvoiceGenerated={handleInvoiceGenerated} 
+				/>
+			{:else if activeLightningTab === 'pay'}
+				<LightningPay />
+			{:else if activeLightningTab === 'bitcoin-connect'}
+				<BitcoinConnect />
+			{/if}
+		{:else if activeTab === 'payment'}
+			<div class="mb-6">
+				<h3 class="text-xl font-semibold mb-4">Pay with Bitcoin</h3>
+				<BitcoinPayment
+					amount={paymentAmount}
+					description={paymentDescription}
+					recipient={paymentRecipient}
+					on:paymentComplete={handlePaymentComplete}
+				/>
+			</div>
+		{:else if activeTab === 'escrow' || activeTab === 'liquid-escrow'}
+			<div class="mb-6">
+				<h3 class="text-xl font-semibold mb-4">Escrow Services</h3>
+				
+				<div class="tabs tabs-boxed mb-6">
+					<button
+						class="tab {activeTab === 'escrow' ? 'tab-active' : ''}"
+						onclick={() => onTabChange('escrow')}
+					>
+						Bitcoin Escrow
+					</button>
+					<button
+						class="tab {activeTab === 'liquid-escrow' ? 'tab-active' : ''}"
+						onclick={() => onTabChange('liquid-escrow')}
+					>
+						Liquid Escrow
+					</button>
+				</div>
+				
+				{#if activeTab === 'escrow'}
+					<EscrowContract 
+						amount={escrowAmount}
+						description={escrowDescription}
+						recipient={escrowRecipient}
+						timeLockDuration={escrowTimeLock}
+						requiredSignatures={escrowSignatures}
+						onEscrowCreated={handleEscrowCreated}
+						onEscrowReleased={handleEscrowReleased}
+						onEscrowDisputed={handleEscrowDisputed}
+					/>
+				{:else if activeTab === 'liquid-escrow'}
+					<LiquidAssetManager 
+						assetId={liquidAssetId}
+						amount={liquidAmount}
+						description={liquidDescription}
+						onLiquidEscrowCreated={handleLiquidEscrowCreated}
+					/>
+				{/if}
+			</div>
 		{/if}
 	{/if}
 </div>

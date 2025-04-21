@@ -99,19 +99,19 @@
 	<div class="tabs tabs-boxed mb-4">
 		<button
 			class="tab {sendNetwork === 'Bitcoin' ? 'tab-active' : ''}"
-			on:click={() => (sendNetwork = 'Bitcoin')}
+			onclick={() => (sendNetwork = 'Bitcoin')}
 		>
 			Bitcoin
 		</button>
 		<button
 			class="tab {sendNetwork === 'Lightning' ? 'tab-active' : ''}"
-			on:click={() => (sendNetwork = 'Lightning')}
+			onclick={() => (sendNetwork = 'Lightning')}
 		>
 			Lightning
 		</button>
 		<button
 			class="tab {sendNetwork === 'Liquid' ? 'tab-active' : ''}"
-			on:click={() => (sendNetwork = 'Liquid')}
+			onclick={() => (sendNetwork = 'Liquid')}
 		>
 			Liquid
 		</button>
@@ -213,19 +213,19 @@
 					<div class="btn-group w-full">
 						<button
 							class="btn flex-1 {sendNetworkFee === 'low' ? 'btn-active' : ''}"
-							on:click={() => (sendNetworkFee = 'low')}
+							onclick={() => (sendNetworkFee = 'low')}
 						>
 							Low
 						</button>
 						<button
 							class="btn flex-1 {sendNetworkFee === 'medium' ? 'btn-active' : ''}"
-							on:click={() => (sendNetworkFee = 'medium')}
+							onclick={() => (sendNetworkFee = 'medium')}
 						>
 							Medium
 						</button>
 						<button
 							class="btn flex-1 {sendNetworkFee === 'high' ? 'btn-active' : ''}"
-							on:click={() => (sendNetworkFee = 'high')}
+							onclick={() => (sendNetworkFee = 'high')}
 						>
 							High
 						</button>
@@ -257,7 +257,7 @@
 			{/if}
 
 			<div class="mt-6">
-				<button class="btn btn-primary btn-block" on:click={sendTransaction} disabled={isLoading}>
+				<button class="btn btn-primary btn-block" onclick={sendTransaction} disabled={isLoading}>
 					{isLoading ? 'Sending...' : `Send ${sendNetwork}`}
 				</button>
 			</div>

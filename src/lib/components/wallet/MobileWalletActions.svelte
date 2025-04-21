@@ -8,7 +8,7 @@
 -->
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { isMobileDevice, isBiometricAvailable } from '$lib/utils/helpers/wallet/mobile-wallet';
+	import { isMobileDevice, isBiometricAvailable } from '$lib/utils/helpers/wallet-old/mobile-wallet';
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { fade } from 'svelte/transition';
 	import 'iconify-icon';
