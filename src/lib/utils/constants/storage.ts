@@ -16,6 +16,9 @@ export const StorageKeys = {
 	ACCESS_TOKEN: 'access_token',
 	REFRESH_TOKEN: 'refresh_token',
 
+	// WebAuthn
+	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId',
+
 	// App state
 	LAST_SYNC: 'bittasker_last_sync',
 	APP_VERSION: 'bittasker_app_version',

@@ -250,3 +250,30 @@ export interface AuthState {
 	isLoading: boolean;
 	error: string | null;
 }
+
+export interface AccountRecoveryData {
+	publicKey: string;
+	recoveryPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
+}
+
+export interface NostrRecoveryCompleteData {
+	publicKey: string;
+	otp: string;
+	recoveryPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
+}
+
+export interface NostrRecoveryData {
+	encryptedPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
+}

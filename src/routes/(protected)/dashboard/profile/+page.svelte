@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { authState } from '$lib/stores/auth.store.js';
+
 	let { data } = $props();
 	const { userProfile: user } = data;
 
@@ -111,6 +114,11 @@
 		const now = new Date();
 		return now.getFullYear() - then.getFullYear();
 	}
+
+	const logout = async () => {
+		await authState.logout();
+		goto('/auth');
+	};
 </script>
 
 <div class="mx-auto max-w-5xl">
@@ -158,6 +166,7 @@
 				{#if isEditMode}
 					<button class="btn btn-primary" onclick={saveProfile}> Save Changes </button>
 				{/if}
+				<button class="btn btn-primary" onclick={logout}>Logout</button>
 			</div>
 		</div>
 

@@ -1,4 +1,4 @@
-import type { NostrRegistrationData, UserData } from '$lib/types/auth';
+import type { AccountRecoveryData, NostrRecoveryCompleteData, NostrRecoveryData, NostrRegistrationData, UserData } from '$lib/types/auth';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
@@ -261,10 +261,53 @@ export class AuthService extends BaseApiService {
 	}
 
 	/**
-	 * Log out the current user
+	 * Initiate nostr recovery process
+	 * @param email User's email
+	 * @response 200 - Recovery email sent successfully
+	 * @response 400 - Bad request
+	 * @returns Promise with recovery response
 	 */
-	async logout(): Promise<void> {
-		await this.post(ENDPOINTS.AUTH.LOGOUT);
+	async initiateNostrRecovery(email: string): Promise<void> {
+		await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
+	}
+
+	/**
+	 * Get nostr recovery data
+	 * @param npub User's Nostr public key
+	 * @response 200 - Recovery data retrieved successfully
+	 * @response 404 - No recovery data found
+	 * @returns Promise with recovery data
+	 */
+	async getNostrRecoveryData(npub: string): Promise<NostrRecoveryData> {
+		const response = await this.get(ENDPOINTS.AUTH.NOSTR_RECOVERY_DATA(npub));
+		return response.data;
+	}
+
+	/**
+	 * Complete nostr recovery process
+	 * @param data Nostr recovery complete data
+	 * @response 200 - Recovery completed successfully
+	 * @response 400 - Bad request
+	 * @response 404 - User not found
+	 * @returns Promise with recovery response
+	 */
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<void> {
+		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
+		return response.data;
+	}
+
+	/**
+	 * Setup account recovery password
+	 * @param data Account recovery data
+	 * @returns Promise with recovery response
+	 */
+	async setupAccountRecoveryPassword(data: AccountRecoveryData): Promise<{
+		success: boolean;
+		userId: number;
+		publicKey: string;
+	}> {
+		const response = await this.post(ENDPOINTS.AUTH.ACCOUNT_RECOVERY_KEY, data);
+		return response.data;
 	}
 }
 

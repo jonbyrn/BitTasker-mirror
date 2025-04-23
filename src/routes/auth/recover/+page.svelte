@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { NostrRegistrationData } from '$lib/types/auth';
+	import type { AccountRecoveryData, NostrRegistrationData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
@@ -23,6 +23,8 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let passwordError = $state('');
+	let showPassword = $state(false);
+	let showNsec = $state(false);
 
 	// Fetch nsec using the token
 	$effect.pre(() => {
@@ -80,18 +82,20 @@
 				npub = getPublicKey(sk);
 			}
 
-			const { encrypted, salt } = await encryptNostrPrivateKeyWithPassword(nsec, password);
+			const { encrypted, salt, iterations } = await encryptNostrPrivateKeyWithPassword(nsec, password);
 
-			const data: NostrRegistrationData = {
+			const data: AccountRecoveryData = {
 				publicKey: npub,
-				encryptedPrivateKey: encrypted.data,
+				recoveryPrivateKey: encrypted.data,
 				iv: encrypted.iv,
 				authTag: encrypted.authTag,
 				salt: salt,
-				iterations: 100000
+				iterations: iterations
 			};
-			if (provider === 'passkey') data.authMethod = 'passkey';
-			const res = await authService.registerWithNostr(data);
+			// if (provider === 'passkey') data.authMethod = 'passkey';
+
+			const res = await authService.setupAccountRecoveryPassword(data);
+			console.log({ res });
 
 			if (res.publicKey) {
 				let accessToken: string | null = null;
@@ -124,13 +128,13 @@
 						key: StorageKeys.ACCESS_TOKEN,
 						value: accessToken
 					});
-					user.updateProfile(res.user);
+					// user.updateProfile(res.user);
 					authState.login();
 					goto('/onboarding');
 				}
 			}
 		} catch (err: any) {
-			error = err || 'Registration failed';
+			error = err.message || 'Registration failed';
 		} finally {
 			isLoading = false;
 		}
@@ -169,42 +173,140 @@
 					<label class="label" for="nsec">
 						<span class="label-text">Private key</span>
 					</label>
-					<input
-						type="password"
-						id="nsec"
-						bind:value={nsec}
-						placeholder="Enter your private nostr key"
-						class="input input-bordered w-full"
-						required
-					/>
+					<div class="relative">
+						<input
+							type={showNsec ? 'text' : 'password'}
+							id="nsec"
+							bind:value={nsec}
+							placeholder="Enter your private nostr key"
+							class="input input-bordered w-full pr-10"
+							readonly={provider === 'passkey'}
+							required
+						/>
+						<button
+							type="button"
+							class="absolute inset-y-0 right-0 flex items-center pr-3"
+							onclick={() => (showNsec = !showNsec)}
+						>
+							{#if showNsec}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+									/>
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+									/>
+								</svg>
+							{/if}
+						</button>
+					</div>
+					{#if provider === 'passkey'}
+						<span class="text-info text-xs">
+							This key was generated using {provider} authentication
+						</span>
+					{/if}
 				</div>
 
 				<div class="form-control space-y-1">
 					<label class="label" for="password">
 						<span class="label-text">Recovery Password</span>
 					</label>
-					<input
-						type="password"
-						id="password"
-						bind:value={password}
-						placeholder="Enter a strong password"
-						class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-						required
-					/>
+					<div class="relative">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="password"
+							bind:value={password}
+							placeholder="Enter a strong password"
+							class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+							required
+						/>
+						<button
+							type="button"
+							class="absolute inset-y-0 right-0 flex items-center pr-3"
+							onclick={() => (showPassword = !showPassword)}
+						>
+							{#if showPassword}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+									/>
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+									/>
+								</svg>
+							{/if}
+						</button>
+					</div>
 				</div>
 
 				<div class="form-control space-y-1">
 					<label class="label" for="confirmPassword">
 						<span class="label-text">Confirm Recovery Password</span>
 					</label>
-					<input
-						type="password"
-						id="confirmPassword"
-						bind:value={confirmPassword}
-						placeholder="Confirm your password"
-						class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-						required
-					/>
+					<div class="relative">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="confirmPassword"
+							bind:value={confirmPassword}
+							placeholder="Confirm your password"
+							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
+							required
+						/>
+					</div>
 					{#if passwordError}
 						<span class="text-error text-sm">{passwordError}</span>
 					{/if}
@@ -216,6 +318,7 @@
 							<li>Use at least 8 characters</li>
 							<li>Include numbers and special characters</li>
 							<li>Avoid using personal information</li>
+							<li>Store this password in a secure place</li>
 						</ul>
 					</div>
 				</div>
@@ -230,7 +333,7 @@
 			</form>
 
 			{#if error}
-				<div class="alert alert-error">
+				<div class="alert alert-error mt-4">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6 shrink-0 stroke-current"

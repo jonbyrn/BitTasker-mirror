@@ -89,15 +89,19 @@ interface BrowserInfo {
  * This is a simplified version - in production you might use more signals
  */
 async function generateBrowserFingerprint(): Promise<string> {
-	const browser = getBrowserInfo();
+	const userAgent = navigator.userAgent;
+	// @ts-ignore
+	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
 	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	const languages = navigator.languages ? navigator.languages.join(',') : navigator.language;
+	const browser = getBrowserInfo();
+
+	// Combine all data points for maximum entropy
+	const deviceData = `${userAgent}_${platform}_${screenInfo}_${timezone}_${languages}_${browser.name}_${browser.version}_BitTasker`;
 
 	// Generate a hash of these properties for a fingerprint
-	const fingerprint = await sha256(
-		`${browser.name}_${browser.version}_${screenInfo}_${timezone}_${languages}`
-	);
+	const fingerprint = await sha256(deviceData);
 	return `web_${fingerprint.substring(0, 16)}`;
 }
 
@@ -146,3 +150,27 @@ function generateRandomId(): string {
 	window.crypto.getRandomValues(array);
 	return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
+
+/* export async function getEnhancedDeviceIdentifier(): Promise<string> {
+	// Get all device characteristics
+	const userAgent = navigator.userAgent;
+	// @ts-ignore
+	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
+	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
+	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const languages = navigator.languages ? navigator.languages.join(',') : navigator.language;
+	const browserInfo = getBrowserInfo();
+
+	// Combine all data points for maximum entropy
+	const deviceData = `${userAgent}_${platform}_${screenInfo}_${timezone}_${languages}_${browserInfo.name}_${browserInfo.version}_BitTasker`;
+
+	// Generate SHA-256 hash
+	const encoder = new TextEncoder();
+	const data = encoder.encode(deviceData);
+	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+
+	// Convert to hex string
+	return Array.from(new Uint8Array(hashBuffer))
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('');
+} */

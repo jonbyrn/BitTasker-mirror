@@ -7,6 +7,8 @@
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
+	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
 
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
@@ -63,7 +65,23 @@
 
 			const checkRegistration = await authService.checkRegistrationStatus(signerUser.pubkey);
 			if (!checkRegistration.isRegistered) {
-				goto('/auth/recover?provider=alby&npub=' + signerUser.pubkey);
+				const deviceId = await getDeviceIdentifier();
+				const { encrypted, salt, iterations } = await encryptNostrPrivateKeyWithPassword(
+					signerUser.pubkey,
+					deviceId
+				);
+				const res = await authService.registerWithNostr({
+					publicKey: signerUser.pubkey,
+					encryptedPrivateKey: encrypted.data,
+					iv: encrypted.iv,
+					salt: salt,
+					authTag: encrypted.authTag,
+					iterations,
+					// authMethod: 'alby'
+				});
+				if (res.publicKey) {
+					goto('/auth/recover?provider=alby&npub=' + signerUser.pubkey);
+				}
 			} else {
 				const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
 				if (res.access_token) {
