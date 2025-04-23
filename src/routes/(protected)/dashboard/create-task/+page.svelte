@@ -6,7 +6,6 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
-	import taskService from '$lib/api/gql/services/task.service';
 	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import Tags from '$lib/components/Tags.svelte';
@@ -14,11 +13,21 @@
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
+	import { graphql } from '$houdini';
+	import { tryCatch } from '$lib/utils/tryCatch';
 
 	// Load the draft when the page is loaded
 	onMount(() => {
 		store.loadDraft();
 	});
+
+	const createTaskMutation = graphql(`
+		mutation CreateTask($input: CreateTaskInput!) {
+			createTask(input: $input) {
+				id
+			}
+		}
+	`);
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
@@ -134,7 +143,40 @@
 				await recurringTasksService.createTemplate(data);
 			} else {
 				// Create a regular task
-				await taskService.createTask($store.task);
+				console.log($store.task);
+				const { data, error } = await tryCatch(
+					createTaskMutation.mutate({
+						input: {
+							title: $store.task.title,
+							description: $store.task.description,
+							budget: $store.task.budget,
+							budgetType: $store.task.budgetType,
+							taskType: $store.task.taskType,
+							deadlineDate: $store.task.deadlineDate,
+							estimatedHours: $store.task.estimatedHours,
+							categoryIds: $store.task.categoryIds,
+							skillIds: $store.task.skillIds,
+							pickupLocation: {
+								displayName: $store.task.pickupLocation?.displayName ?? '',
+								longitude: $store.task.pickupLocation?.longitude ?? 0,
+								latitude: $store.task.pickupLocation?.latitude ?? 0,
+								zipCode: $store.task.pickupLocation?.zipCode ?? '',
+								locationLoaded: $store.task.pickupLocation?.locationLoaded ?? false
+							},
+							dropOffLocation: {
+								displayName: $store.task.dropOffLocation?.displayName ?? '',
+								longitude: $store.task.dropOffLocation?.longitude ?? 0,
+								latitude: $store.task.dropOffLocation?.latitude ?? 0,
+								zipCode: $store.task.dropOffLocation?.zipCode ?? '',
+								locationLoaded: $store.task.dropOffLocation?.locationLoaded ?? false
+							},
+							dateRange: $store.task.dateRange,
+							attachments: $store.task.attachments
+						}
+					})
+				);
+				if (error) throw error;
+				console.log(data);
 			}
 
 			isSubmitted = true;

@@ -1,0 +1,19 @@
+query Me {
+	me {
+		biddingAllowed
+		createdAt
+		deletedAt
+		dob
+		email
+		id
+		isEmailVerified
+		lastLoginAt
+		mobileNumber
+		name
+		onboardingComplete
+		profilePicture
+		status
+		userRole
+		verificationLevel
+	}
+}

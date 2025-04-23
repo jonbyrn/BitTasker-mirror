@@ -3,7 +3,6 @@
 	import { TaskStatusEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
-	import taskService from '$lib/api/gql/services/task.service';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -43,7 +42,7 @@
 			loading = true;
 			error = null;
 			// Use GraphQL service instead of REST
-			const userTasks = await taskService.getMyTasks();
+			const userTasks = [];
 
 			// Sort tasks by created date (newest first)
 			tasks = userTasks.sort((a, b) => {

@@ -22,8 +22,8 @@ export const load: LayoutLoad = async () => {
 
 		// If we successfully get user data, user is logged in
 		if (!userError && userData) {
-			user.set(userData);
 			authState.login();
+			user.set(userData);
 
 			// Check onboarding status and redirect accordingly
 			if (userData.onboardingComplete) {

@@ -1,4 +1,4 @@
-import houdini from "houdini/vite";
+import houdini from 'houdini/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';

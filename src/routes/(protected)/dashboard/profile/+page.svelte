@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { mockUser } from '$lib/utils/consts';
 	let { data } = $props();
-	const { userProfile: user } = data;
+	const { user: userData } = $derived(data);
+
+	const user = $derived(mockUser);
 
 	// Edit mode state
 	let isEditMode = $state(false);
@@ -120,11 +123,11 @@
 			<div class="mb-4 flex items-center gap-4 md:mb-0">
 				<div class="avatar placeholder">
 					<div class="bg-primary text-primary-content w-20 rounded-full">
-						<span class="text-2xl">{user.name.charAt(0)}</span>
+						<span class="text-2xl">{userData?.name?.charAt(0)}</span>
 					</div>
 				</div>
 				<div>
-					<h2 class="text-2xl font-bold">{user.name}</h2>
+					<h2 class="text-2xl font-bold">{userData?.name ?? mockUser.name}</h2>
 					<p class="text-base-content/70 flex items-center gap-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -146,7 +149,7 @@
 								d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 							/>
 						</svg>
-						{user.location}
+						{userData?.location ?? mockUser.location}
 					</p>
 				</div>
 			</div>
@@ -320,8 +323,13 @@
 																class="mask mask-star-2 bg-orange-400"
 																checked={j + 1 === skill.level}
 																onchange={() => {
-																	editSkills[i].level = j + 1;
-																	editSkills = [...editSkills];
+																	const updatedSkills = editSkills.map((s, skillIndex) => {
+																		if (i === skillIndex) {
+																			return { ...s, level: j + 1 };
+																		}
+																		return s;
+																	});
+																	editSkills = updatedSkills;
 																}}
 															/>
 														{/each}

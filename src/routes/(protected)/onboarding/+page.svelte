@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { OnboardingRequest } from '$lib/types/onboarding';
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 	import { fly } from 'svelte/transition';
@@ -10,7 +9,16 @@
 	} from '$lib/utils/viewTransition';
 	import { t, setLocale } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
-	import userService from '$lib/api/services/user.service';
+	import { graphql } from '$houdini';
+	import { tryCatch } from '$lib/utils/tryCatch';
+
+	const updateUserMutation = graphql(`
+		mutation UpdateUser($input: UpdateUserInput!) {
+			updateUser(input: $input) {
+				id
+			}
+		}
+	`);
 
 	// Define reactive state with Svelte 5 runes
 	let userType = $state<'CLIENT' | 'FREELANCER' | 'BOTH'>('CLIENT');
@@ -83,31 +91,34 @@
 				country
 			});
 
-			// Here you would submit the data to your API
-			const userData: OnboardingRequest = {
-				userType: userType,
-				userInfo: {
-					fullName: fullName,
-					email: email
-				},
-				location: {
-					address1: address1,
-					address2: address2,
-					city: city,
-					state: stateName,
-					postalCode: postalCode,
-					country: country,
-					latitude: 0, // These would be populated by a geocoding service
-					longitude: 0
-				}
-			};
-
 			isLoading = true;
-			const { data: response, error } = await userService.completeUserOnboarding(userData);
+
+			// Use GraphQL mutation with tryCatch utility
+			const { data, error } = await tryCatch(
+				updateUserMutation.mutate({
+					input: {
+						name: fullName,
+						email: email,
+						userRole: userType,
+						address: {
+							city: city,
+							country: country,
+							postalCode: postalCode,
+							state: stateName,
+							street: address2 ? `${address1}, ${address2}` : address1
+						}
+					}
+				})
+			);
+
 			if (error) {
 				errors.step3 = error.message;
-			} else {
+			} else if (data.errors) {
+				errors.step3 = data.errors[0].message;
+			} else if (data.data?.updateUser.id) {
 				navigateWithTransition('/dashboard');
+			} else {
+				errors.step3 = 'An unknown error occurred';
 			}
 			isLoading = false;
 		} catch (error) {

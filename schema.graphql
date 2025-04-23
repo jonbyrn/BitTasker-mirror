@@ -3,6 +3,16 @@ Indicates exactly one field must be supplied and this field must not be `null`.
 """
 directive @oneOf on INPUT_OBJECT
 
+type Address {
+  addressLine1: String
+  addressLine2: String
+  city: String
+  country: String
+  id: Int!
+  postalCode: String
+  stateProvinceRegion: String
+}
+
 input AttachmentInput {
   fileName: String!
   fileSize: Float
@@ -408,7 +418,25 @@ input UpdateTaskTemplateInput {
   task: UpdateTaskInput
 }
 
+input UpdateUserAddressDto {
+  """City"""
+  city: String!
+
+  """Country"""
+  country: String!
+
+  """Postal code"""
+  postalCode: String!
+
+  """State or province"""
+  state: String!
+
+  """Street address"""
+  street: String!
+}
+
 input UpdateUserInput {
+  address: UpdateUserAddressDto
   biddingAllowed: Boolean
   dob: DateTime
   email: String
@@ -423,6 +451,7 @@ input UpdateUserInput {
 
 type User {
   biddingAllowed: Boolean!
+  billingAddress: Address
   createdAt: DateTime!
   deletedAt: DateTime
   dob: DateTime

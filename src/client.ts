@@ -1,15 +1,15 @@
 import { HoudiniClient } from '$houdini';
+import customAuthPlugin from '$lib/utils/houdini/plugins/customAuthPlugin';
+const token = localStorage.getItem('CapacitorStorage.access_token');
 
 export default new HoudiniClient({
-    url: 'https://devbackend.production.bittasker.hedgehackers.finance/graph'
-
-    // uncomment this to configure the network call (for things like authentication)
-    // for more information, please visit here: https://www.houdinigraphql.com/guides/authentication
-    // fetchParams({ session }) {
-    //     return {
-    //         headers: {
-    //             Authentication: `Bearer ${session.token}`,
-    //         }
-    //     }
-    // }
-})
+	url: 'http://127.0.0.1:3000/graph',
+	plugins: [customAuthPlugin],
+	fetchParams() {
+		return {
+			headers: {
+				Authorization: `Bearer ${token}`
+			}
+		};
+	}
+});
