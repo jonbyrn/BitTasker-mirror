@@ -1,12 +1,18 @@
 <script lang="ts">
 	import { walletStore } from '$lib/stores/wallet.store';
-	import { requestProvider } from '@getalby/bitcoin-connect';
-	import { checkCameraPermission, requestCameraPermission, scanSingleBarcode } from '$lib/utils/helpers/wallet/qr-scanner';
+	import {
+		checkCameraPermission,
+		requestCameraPermission,
+		isBarcodeScanningSupported
+	} from '$lib/utils/helpers/wallet/qr-scanner';
+	import BarcodeScanner from '$lib/components/wallet/qrScanner/BarcodeScanner.svelte';
 
 	let nwcUrl = $state('');
 	let isConnecting = $state(false);
 	let isScanning = $state(false);
 	let error = $state('');
+	let debugInfo = $state('');
+	let showScanner = $state(false);
 
 	async function connectWallet() {
 		isConnecting = true;
@@ -27,14 +33,28 @@
 	async function scanQRCode() {
 		isScanning = true;
 		error = '';
+		debugInfo = 'Starting scan...';
 
 		try {
+			// Check if barcode scanning is supported on this device
+			const supported = await isBarcodeScanningSupported();
+			debugInfo = `Barcode scanning supported: ${supported}`;
+
+			if (!supported) {
+				error = 'Barcode scanning is not supported on this device';
+				return;
+			}
+
 			// Check camera permission
 			const granted = await checkCameraPermission();
-			
+			debugInfo = `${debugInfo}\nCamera permission: ${granted}`;
+
 			if (!granted) {
 				// Request permission if not granted
+				debugInfo = `${debugInfo}\nRequesting camera permission...`;
 				const requested = await requestCameraPermission();
+				debugInfo = `${debugInfo}\nPermission request result: ${requested}`;
+
 				if (!requested) {
 					error = 'Camera permission is required to scan QR codes';
 					return;
@@ -42,23 +62,70 @@
 			}
 
 			// Scan for a single barcode
-			const scannedUrl = await scanSingleBarcode();
-			
-			if (scannedUrl) {
-				// Check if the scanned content is a valid NWC URL
-				if (scannedUrl.startsWith('nostr+walletconnect://')) {
-					nwcUrl = scannedUrl;
-					// Automatically connect after scanning
-					await connectWallet();
-				} else {
-					error = 'Invalid Nostr Wallet Connect URL';
-				}
-			}
+			// 	debugInfo = `${debugInfo}\nStarting barcode scan...`;
+			//     const scannedUrl = await scanSingleBarcode();
+			//     debugInfo = `${debugInfo}\nScan completed. Result: ${scannedUrl ? 'Success' : 'No barcode detected'}`;
+
+			//     if (scannedUrl) {
+			//         // Check if the scanned content is a valid NWC URL
+			//         if (scannedUrl.startsWith('nostr+walletconnect://')) {
+			//             nwcUrl = scannedUrl;
+			//             // Automatically connect after scanning
+			//             await connectWallet();
+			//         } else {
+			//             error = 'Invalid Nostr Wallet Connect URL';
+			//             debugInfo = `${debugInfo}\nInvalid content: ${scannedUrl.substring(0, 10)}...`;
+			//         }
+			//     } else {
+			//         error = 'No QR code detected or scan was canceled';
+			//     }
+			// } catch (err: unknown) {
+			//     const message = err instanceof Error ? err.message : 'An error occurred while scanning QR code';
+			//     error = message;
+			//     debugInfo = `${debugInfo}\nError: ${message}`;
+			//     console.error('QR scan error:', err);
+			// }
+
+			// Show scanner modal
+			showScanner = true;
 		} catch (err: unknown) {
-			error = err instanceof Error ? err.message : 'An error occurred while scanning QR code';
+			const message =
+				err instanceof Error ? err.message : 'An error occurred while scanning QR code';
+			error = message;
+			debugInfo = `${debugInfo}\nError: ${message}`;
+			console.error('QR scan error:', err);
 		} finally {
 			isScanning = false;
 		}
+	}
+
+	// Handle scan result
+	function handleScan({ value, format }: { value: string; format: string }) {
+		const scannedUrl = value;
+		debugInfo = `${debugInfo}\nScan completed. Result: ${scannedUrl ? 'Success' : 'No barcode detected'}`;
+
+		if (scannedUrl) {
+			// Check if the scanned content is a valid NWC URL
+			if (scannedUrl.startsWith('nostr+walletconnect://')) {
+				nwcUrl = scannedUrl;
+				// Automatically connect after scanning
+				connectWallet();
+			} else {
+				error = 'Invalid Nostr Wallet Connect URL';
+				debugInfo = `${debugInfo}\nInvalid content: ${scannedUrl.substring(0, 10)}...`;
+			}
+		} else {
+			error = 'No QR code detected or scan was canceled';
+		}
+
+		// Close scanner
+		showScanner = false;
+	}
+
+	// Handle when the user cancels scanning
+	function handleScanCancel() {
+		debugInfo = `${debugInfo}\nScan canceled by user`;
+		showScanner = false;
 	}
 </script>
 
@@ -99,11 +166,21 @@
 			{error}
 		</div>
 	{/if}
+
+	{#if debugInfo}
+		<div
+			class="mt-4 rounded border border-gray-300 bg-gray-500 p-2 font-mono text-xs whitespace-pre-wrap"
+		>
+			<p class="mb-1 text-sm font-semibold">Debug Info:</p>
+			{debugInfo}
+		</div>
+	{/if}
 </div>
 
-<style>
-	:global(body.barcode-scanner-active) {
-		--background: transparent;
-		--ion-background-color: transparent;
-	}
-</style>
+{#if showScanner}
+	<BarcodeScanner
+		title="Scan Wallet Connect QR Code"
+		onScan={handleScan}
+		onCancel={handleScanCancel}
+	/>
+{/if}

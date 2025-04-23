@@ -1,0 +1,40 @@
+/**
+ * Barcode Scanner specific styles
+ * These styles ensure the camera feed shows properly and other content is hidden
+ */
+
+body.barcode-scanning-active {
+	visibility: hidden;
+	background: transparent;
+	--background: transparent;
+}
+
+.barcode-scanning-modal {
+	visibility: visible;
+}
+
+@media (prefers-color-scheme: dark) {
+	.barcode-scanning-modal {
+		background: transparent;
+		--background: transparent;
+	}
+}
+
+@layer utilities {
+	body.barcode-scanning-active {
+		visibility: hidden;
+		background: transparent;
+		--background: transparent;
+	}
+
+	.barcode-scanning-modal {
+		visibility: visible;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		.barcode-scanning-modal {
+			background: transparent;
+			--background: transparent;
+		}
+	}
+}

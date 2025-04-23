@@ -7,9 +7,31 @@
 import {
   BarcodeScanner,
   BarcodeFormat,
+  type BarcodesScannedEvent,
   LensFacing,
 } from '@capacitor-mlkit/barcode-scanning';
 import { Torch } from '@capawesome/capacitor-torch';
+import { Capacitor } from '@capacitor/core';
+
+/**
+ * Apply scanner styles to make background transparent and hide other elements
+ */
+export function applyBarcodeScannerStyles(): void {
+  document.body.classList.add('barcode-scanning-active');
+  // document.body.classList.add('barcode-modal-open');
+  // document.documentElement.classList.add('barcode-scanning');
+  // document.body.classList.add('barcode-scanner-active');
+}
+
+/**
+ * Remove scanner styles to restore normal app appearance
+ */
+export function removeBarcodeScannerStyles(): void {
+  document.body.classList.remove('barcode-scanning-active');
+  // document.body.classList.remove('barcode-modal-open');
+  // document.body.classList.remove('barcode-scanner-active');
+  // document.documentElement.classList.remove('barcode-scanning');
+}
 
 /**
  * Check if the camera permission is granted
@@ -54,32 +76,86 @@ export async function isBarcodeScanningSupported(): Promise<boolean> {
 }
 
 /**
- * Start scanning for QR codes with a listener
- * @returns Promise<{listener: any}> - The listener object that can be used to remove the listener
+ * Start scanning with detection bounds
+ * @param formats - Barcode formats to scan for
+ * @param lensFacing - Which camera to use
+ * @param videoElement - HTML video element for web platform
+ * @param squareElement - Square overlay element for detection bounds
+ * @param onBarcodeDetected - Callback when barcode is detected
+ * @returns Promise<{listener: any}> - The listener that was created
  */
-export async function startScanningWithListener(): Promise<{listener: any}> {
+export async function startScanningWithBounds(
+  formats: BarcodeFormat[] = [BarcodeFormat.QrCode],
+  lensFacing: LensFacing = LensFacing.Back,
+  videoElement?: HTMLVideoElement,
+  squareElement?: HTMLDivElement,
+  onBarcodeDetected?: (barcode: any) => void
+): Promise<{ listener: any }> {
   try {
-    // Make background transparent
-    document.body.classList.add('barcode-scanner-active');
-    
-    // Add the barcodeScanned listener
-    const listener = await BarcodeScanner.addListener(
-      'barcodeScanned',
-      async result => {
-        console.log('Barcode scanned:', result.barcode);
+    // Apply transparent styles
+    applyBarcodeScannerStyles();
+
+    if (!squareElement || !onBarcodeDetected) {
+      throw new Error('Square element and callback are required');
+    }
+
+    const options = {
+      formats: formats,
+      lensFacing: lensFacing,
+      videoElement: Capacitor.getPlatform() === 'web' ? videoElement : undefined
+    };
+
+    // Setup detection bounds to only trigger when barcode is within square
+    const squareElementBoundingClientRect = squareElement.getBoundingClientRect();
+    const scaledRect = {
+      left: squareElementBoundingClientRect.left * window.devicePixelRatio,
+      right: squareElementBoundingClientRect.right * window.devicePixelRatio,
+      top: squareElementBoundingClientRect.top * window.devicePixelRatio,
+      bottom: squareElementBoundingClientRect.bottom * window.devicePixelRatio,
+      width: squareElementBoundingClientRect.width * window.devicePixelRatio,
+      height: squareElementBoundingClientRect.height * window.devicePixelRatio
+    };
+
+    const detectionCornerPoints = [
+      [scaledRect.left, scaledRect.top],
+      [scaledRect.left + scaledRect.width, scaledRect.top],
+      [scaledRect.left + scaledRect.width, scaledRect.top + scaledRect.height],
+      [scaledRect.left, scaledRect.top + scaledRect.height]
+    ];
+
+    const listener = await BarcodeScanner.addListener('barcodesScanned', async (event) => {
+      const firstBarcode = event.barcodes[0];
+      if (!firstBarcode) {
+        return;
       }
-    );
-    
-    // Start the barcode scanner
-    await BarcodeScanner.startScan({
-      formats: [BarcodeFormat.QrCode],
-      lensFacing: LensFacing.Back,
+
+      const cornerPoints = firstBarcode.cornerPoints;
+      if (detectionCornerPoints && cornerPoints && Capacitor.getPlatform() !== 'web') {
+        if (
+          detectionCornerPoints[0][0] > cornerPoints[0][0] ||
+          detectionCornerPoints[0][1] > cornerPoints[0][1] ||
+          detectionCornerPoints[1][0] < cornerPoints[1][0] ||
+          detectionCornerPoints[1][1] > cornerPoints[1][1] ||
+          detectionCornerPoints[2][0] < cornerPoints[2][0] ||
+          detectionCornerPoints[2][1] < cornerPoints[2][1] ||
+          detectionCornerPoints[3][0] > cornerPoints[3][0] ||
+          detectionCornerPoints[3][1] < cornerPoints[3][1]
+        ) {
+          return;
+        }
+      }
+
+      // Call the callback with the detected barcode
+      onBarcodeDetected(firstBarcode);
     });
-    
+
+    // Start the scan
+    await BarcodeScanner.startScan(options);
+
     return { listener };
   } catch (error) {
-    console.error('Error starting scan with listener:', error);
-    document.body.classList.remove('barcode-scanner-active');
+    console.error('Error starting scan with bounds:', error);
+    removeBarcodeScannerStyles();
     return { listener: null };
   }
 }
@@ -91,25 +167,56 @@ export async function startScanningWithListener(): Promise<{listener: any}> {
 export async function scanSingleBarcode(): Promise<string> {
   return new Promise(async (resolve) => {
     try {
-      document.body.classList.add('barcode-scanner-active');
+      // Check if scanner is supported first
+      const isSupported = await isBarcodeScanningSupported();
+      if (!isSupported) {
+        console.error('Barcode scanning is not supported on this device');
+        resolve('');
+        return;
+      }
       
-      const listener = await BarcodeScanner.addListener(
-        'barcodeScanned',
-        async result => {
-          await listener.remove();
-          document.body.classList.remove('barcode-scanner-active');
+      // Apply transparent styles
+      applyBarcodeScannerStyles();
+      
+      // Make sure we clean up properly in case of errors
+      const cleanup = async () => {
+        try {
+          removeBarcodeScannerStyles();
+          await BarcodeScanner.removeAllListeners();
           await BarcodeScanner.stopScan();
-          resolve(result.barcode);
+        } catch (error) {
+          console.error('Error during scanner cleanup:', error);
+        }
+      };
+      
+      // Add the listener for barcode scanned events
+      const listener = await BarcodeScanner.addListener(
+        'barcodesScanned',
+        async (result: any) => {
+          console.log('Barcode scanned:', result.barcodes[0]?.rawValue);
+          await listener.remove();
+          await cleanup();
+          resolve(result.barcodes[0]?.rawValue || '');
         }
       );
       
+      // Start scanning
       await BarcodeScanner.startScan({
         formats: [BarcodeFormat.QrCode],
         lensFacing: LensFacing.Back,
       });
     } catch (error) {
       console.error('Error scanning single barcode:', error);
-      document.body.classList.remove('barcode-scanner-active');
+      removeBarcodeScannerStyles();
+      
+      // Try to stop scan and remove listeners in case of error
+      try {
+        await BarcodeScanner.removeAllListeners();
+        await BarcodeScanner.stopScan();
+      } catch (innerError) {
+        console.error('Error cleaning up after scan error:', innerError);
+      }
+      
       resolve('');
     }
   });
@@ -121,13 +228,15 @@ export async function scanSingleBarcode(): Promise<string> {
  */
 export async function scanMultipleBarcodes(): Promise<string[]> {
   try {
+    applyBarcodeScannerStyles();
     const { barcodes } = await BarcodeScanner.scan({
-      formats: [BarcodeFormat.QrCode],
-      lensFacing: LensFacing.Back,
+      formats: [BarcodeFormat.QrCode]
     });
+    removeBarcodeScannerStyles();
     return barcodes.map(barcode => barcode.rawValue);
   } catch (error) {
     console.error('Error scanning multiple barcodes:', error);
+    removeBarcodeScannerStyles();
     return [];
   }
 }
@@ -144,10 +253,11 @@ export async function stopScanning(listener?: any): Promise<void> {
       await BarcodeScanner.removeAllListeners();
     }
     
-    document.body.classList.remove('barcode-scanner-active');
+    removeBarcodeScannerStyles();
     await BarcodeScanner.stopScan();
   } catch (error) {
     console.error('Error stopping scan:', error);
+    removeBarcodeScannerStyles();
   }
 }
 

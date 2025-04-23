@@ -1,4 +1,9 @@
 ---
+description: Services setup which defines API endpoints 
+globs: 
+alwaysApply: false
+---
+---
 description: 
 globs: 
 alwaysApply: false

@@ -103,19 +103,19 @@
   <div class="tabs tabs-boxed">
     <button
       class="tab {networkType === 'Bitcoin' ? 'tab-active' : ''}"
-      on:click={() => selectNetwork('Bitcoin')}
+      onclick={() => selectNetwork('Bitcoin')}
     >
       Bitcoin
     </button>
     <button
       class="tab {networkType === 'Lightning' ? 'tab-active' : ''}"
-      on:click={() => selectNetwork('Lightning')}
+      onclick={() => selectNetwork('Lightning')}
     >
       Lightning
     </button>
     <button
       class="tab {networkType === 'Liquid' ? 'tab-active' : ''}"
-      on:click={() => selectNetwork('Liquid')}
+      onclick={() => selectNetwork('Liquid')}
     >
       Liquid
     </button>
@@ -133,7 +133,7 @@
           </div>
           <button
             class="btn btn-ghost btn-sm"
-            on:click={() => copyToClipboard(selectedAddress?.address || '')}
+            onclick={() => copyToClipboard(selectedAddress?.address || '')}
           >
             {#if copiedAddress}
               <svg
@@ -171,10 +171,10 @@
       {/if}
 
       <div class="mt-4 flex gap-2">
-        <button class="btn flex-1" on:click={generateNewAddress}>
+        <button class="btn flex-1" onclick={generateNewAddress}>
           Generate New Address
         </button>
-        <button class="btn btn-primary flex-1" on:click={toggleQR}>
+        <button class="btn btn-primary flex-1" onclick={toggleQR}>
           {showQR ? 'Hide QR Code' : 'Show QR Code'}
         </button>
       </div>
@@ -231,7 +231,7 @@
         </div>
 
         <div class="mt-4">
-          <button class="btn btn-primary btn-block" on:click={generatePaymentRequest}>
+          <button class="btn btn-primary btn-block" onclick={generatePaymentRequest}>
             Generate Invoice
           </button>
         </div>
@@ -247,7 +247,7 @@
               </div>
               <button
                 class="btn btn-ghost btn-sm"
-                on:click={() => copyToClipboard(lightningInvoice)}
+                onclick={() => copyToClipboard(lightningInvoice)}
               >
                 {#if copiedAddress}
                   <svg

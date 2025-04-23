@@ -228,3 +228,15 @@
 		--ring: 216 12.2% 83.9%;
 	}
 }
+
+@layer utilities {
+	body.barcode-scanning-active {
+		visibility: hidden !important;
+		background: transparent !important;
+		--background: transparent !important;
+	}
+
+	.barcode-scanning-modal {
+		visibility: visible !important;
+	}
+}

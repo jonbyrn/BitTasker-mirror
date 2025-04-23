@@ -276,7 +276,7 @@
 				<div class="mt-3 flex items-center">
 					<label class="label cursor-pointer">
 						<input type="checkbox" class="toggle toggle-sm" bind:checked={hasAcknowledgedWarning} />
-						<span class="ml-2 text-sm">I understand the risks and want to proceed</span>
+						<span class="ml-2 text-sm whitespace-normal">I understand the risks and want to proceed</span>
 					</label>
 				</div>
 			</div>

@@ -246,7 +246,7 @@
 					onInvoiceGenerated={handleInvoiceGenerated} 
 				/>
 			{:else if activeLightningTab === 'pay'}
-				<LightningPay />
+				<!-- <LightningPay /> -->
 			{:else if activeLightningTab === 'bitcoin-connect'}
 				<BitcoinConnect />
 			{/if}
