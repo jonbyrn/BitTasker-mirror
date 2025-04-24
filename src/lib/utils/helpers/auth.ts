@@ -6,39 +6,20 @@ import {
 	encrypt,
 	decrypt,
 	deriveKeyFromPassword,
-	generateEncryptionKeyFromUserId,
 	importKey,
 	exportKey
 } from '$lib/utils/helpers/crypto';
 
-export async function encryptNostrPrivateKeyWithUserId(
-	nostrPrivateKey: string,
-	userId: string
-): Promise<{ encrypted: EncryptedData; salt: string }> {
-	// Generate a random salt
-	const salt = randomBytes(16);
-
-	// Generate encryption key from user ID and salt
-	const userIdKey = await generateEncryptionKeyFromUserId(userId, salt);
-
-	// Encrypt with user ID key
-	const encrypted = await encrypt(nostrPrivateKey, userIdKey);
-
-	return {
-		encrypted,
-		salt: bytesToBase64(salt)
-	};
-}
-
-export async function encryptNostrPrivateKeyWithPassword(
+export async function encryptNsec(
 	nsec: string,
-	password: string
-): Promise<{ encrypted: EncryptedData; salt: string; exportedKey: string }> {
+	password: string,
+	iterations: number = 100000
+): Promise<{ encrypted: EncryptedData; salt: string; exportedKey: string; iterations: number }> {
 	// Generate a random salt for recovery password
 	const salt = randomBytes(16);
 
 	// Derive key from recovery password
-	const derivedKey = await deriveKeyFromPassword(password, salt);
+	const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
 
 	// Encrypt with recovery password key
 	const encrypted = await encrypt(nsec, derivedKey);
@@ -49,29 +30,12 @@ export async function encryptNostrPrivateKeyWithPassword(
 	return {
 		encrypted,
 		salt: bytesToBase64(salt),
-		exportedKey
+		exportedKey,
+		iterations
 	};
 }
 
-export async function decryptNostrPrivateKeyWithUserId(
-	encryptedData: EncryptedData,
-	userId: string,
-	salt: string
-): Promise<string> {
-	try {
-		// Generate encryption key from user ID
-		const saltBytes = base64ToBytes(salt);
-		const key = await generateEncryptionKeyFromUserId(userId, saltBytes);
-
-		// Decrypt using the helper function
-		return await decrypt(encryptedData, key);
-	} catch (error) {
-		console.error('Decryption error:', error);
-		throw new Error('Failed to decrypt Nostr private key with user ID');
-	}
-}
-
-export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Promise<string> {
+export async function decryptNsecWithBiometrics(encryptedData: string): Promise<string> {
 	try {
 		// Parse the stored encryption data
 		const { key, iv, authTag, data, salt } = JSON.parse(encryptedData);
@@ -95,27 +59,40 @@ export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Pr
 	}
 }
 
-export async function decryptPrivateKeyWithPassword(
-	encryptedPrivateKey: string,
-	iv: string,
-	authTag: string,
-	password: string,
-	salt: string,
-	iterations: number
-): Promise<string> {
-	// Derive encryption key from password
-	const saltBytes = base64ToBytes(salt);
-	const encryptionKey = await deriveKeyFromPassword(password, saltBytes, iterations);
+export async function decryptNsecWithPassword({
+	encryptedPrivateKey,
+	iv,
+	authTag,
+	password,
+	salt,
+	iterations
+}: {
+	encryptedPrivateKey: string;
+	iv: string;
+	authTag: string;
+	password: string;
+	salt: string;
+	iterations: number;
+}): Promise<string> {
+	try {
+		// Derive encryption key from password
+		const saltBytes = base64ToBytes(salt);
+		const encryptionKey = await deriveKeyFromPassword(password, saltBytes, iterations);
 
-	// Decrypt private key using AES-GCM
-	return await decrypt(
-		{
-			data: encryptedPrivateKey,
-			iv,
-			authTag
-		},
-		encryptionKey
-	);
+		// Decrypt private key using AES-GCM
+		return await decrypt(
+			{
+				data: encryptedPrivateKey,
+				iv,
+				authTag
+			},
+			encryptionKey
+		);
+	} catch (err) {
+		throw new Error(
+			'Failed to decrypt with password: ' + (err instanceof Error ? err.message : 'Unknown error')
+		);
+	}
 }
 
 export async function generateLoginChallenge() {

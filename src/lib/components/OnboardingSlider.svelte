@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Locales } from '$lib/stores/i18n.store';
-	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { goto } from '$app/navigation';
 	import { darkMode } from '$lib/stores/theme.store';
@@ -43,49 +42,49 @@
 			id: 1,
 			titleKey: 'onboarding.slide1.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide1.description' as OnboardingTranslationKey,
-			image: '/onboarding/signup.svg'
+			image: '/illustrations/signup.svg'
 		},
 		{
 			id: 2,
 			titleKey: 'onboarding.slide2.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide2.description' as OnboardingTranslationKey,
-			image: '/onboarding/profile.svg'
+			image: '/illustrations/profile.svg'
 		},
 		{
 			id: 3,
 			titleKey: 'onboarding.slide3.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide3.description' as OnboardingTranslationKey,
-			image: '/onboarding/tasks.svg'
+			image: '/illustrations/tasks.svg'
 		},
 		{
 			id: 4,
 			titleKey: 'onboarding.slide4.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide4.description' as OnboardingTranslationKey,
-			image: '/onboarding/work.svg'
+			image: '/illustrations/work.svg'
 		},
 		{
 			id: 5,
 			titleKey: 'onboarding.slide5.title' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide5.description' as OnboardingTranslationKey,
-			image: '/onboarding/payment.svg'
+			image: '/illustrations/payment.svg'
 		}
 	];
-
-	const onSlideChange = (e: CustomEvent) => {
-		console.log('slide changed');
-	};
 
 	const getStarted = async () => {
 		await Preferences.set({ key: StorageKeys.ONBOARDING_COMPLETED, value: 'true' });
 		onboardingCompleted.set(true);
 		goto('/onboarding');
 	};
-	onMount(async () => {
-		const { value } = await Preferences.get({ key: StorageKeys.ONBOARDING_COMPLETED });
-		if (value === 'true') {
-			goto('/onboarding');
+
+	const skipOnboardingToLastSlide = async () => {
+		const swiperEl = document.querySelector('swiper-container');
+		if (swiperEl) {
+			const swiper = swiperEl.swiper;
+			if (swiper) {
+				swiper.slideTo(slides.length - 1);
+			}
 		}
-	});
+	};
 </script>
 
 <div class="bg-base-400">
@@ -146,7 +145,7 @@
 		navigation={false}
 		space-between={0}
 		slides-per-view={1}
-		onswiperslidechange={onSlideChange}
+		onswiperslidechange={() => {}}
 		class="[--swiper-pagination-bullet-border-color:#fff] [--swiper-pagination-bullet-inactive-color:#fff] [--swiper-pagination-bullet-inactive-opacity:0.5] [--swiper-pagination-color:#fff]"
 	>
 		{#each slides as slide}
@@ -167,6 +166,12 @@
 						<div class="absolute bottom-10 left-1/2 -translate-x-1/2">
 							<button class="btn btn-primary" onclick={getStarted}>
 								{$t('onboarding.get_started' as OnboardingTranslationKey)}
+							</button>
+						</div>
+					{:else}
+						<div class="absolute bottom-10 left-1/2 -translate-x-1/2">
+							<button class="btn" onclick={skipOnboardingToLastSlide}>
+								{$t('onboarding.skip' as OnboardingTranslationKey)}
 							</button>
 						</div>
 					{/if}

@@ -10,8 +10,8 @@
 	import { SocialLogin } from '@capgo/capacitor-social-login';
 	import { Capacitor } from '@capacitor/core';
 	import {
-		encryptNostrPrivateKeyWithUserId,
-		decryptNostrPrivateKeyWithUserId
+		encryptNsec,
+		decryptNsecWithPassword
 	} from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 
@@ -74,7 +74,7 @@
 				const privateKeyHex = bytesToHex(privateKey);
 
 				// Encrypt private key using client ID as user ID
-				const { encrypted, salt } = await encryptNostrPrivateKeyWithUserId(
+				const { encrypted, salt, iterations } = await encryptNostrPrivateKeyWithUserId(
 					privateKeyHex,
 					response.client_id
 				);
@@ -87,8 +87,9 @@
 					encryptedPrivateKey: encrypted.data,
 					iv: encrypted.iv,
 					salt,
-					authTag: 'auth-tag-data',
-					iterations: 100000
+					authTag: encrypted.authTag,
+					iterations: iterations,
+					deviceId: response.client_id
 				} as NostrRegistrationData);
 
 				console.log('Registration result:', registrationResult);

@@ -89,15 +89,19 @@ interface BrowserInfo {
  * This is a simplified version - in production you might use more signals
  */
 async function generateBrowserFingerprint(): Promise<string> {
-	const browser = getBrowserInfo();
+	const userAgent = navigator.userAgent;
+	// @ts-ignore
+	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
 	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
 	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	const languages = navigator.languages ? navigator.languages.join(',') : navigator.language;
+	const browser = getBrowserInfo();
+
+	// Combine all data points for maximum entropy
+	const deviceData = `${userAgent}_${platform}_${screenInfo}_${timezone}_${languages}_${browser.name}_${browser.version}_BitTasker`;
 
 	// Generate a hash of these properties for a fingerprint
-	const fingerprint = await sha256(
-		`${browser.name}_${browser.version}_${screenInfo}_${timezone}_${languages}`
-	);
+	const fingerprint = await sha256(deviceData);
 	return `web_${fingerprint.substring(0, 16)}`;
 }
 
@@ -143,6 +147,6 @@ async function sha256(text: string): Promise<string> {
  */
 function generateRandomId(): string {
 	const array = new Uint8Array(16);
-	window.crypto.getRandomValues(array);
+	crypto.getRandomValues(array);
 	return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
