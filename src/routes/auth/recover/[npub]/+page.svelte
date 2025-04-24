@@ -13,6 +13,12 @@
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { signLoginChallenge } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
+	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import {
+		checkWebBiometricAvailability,
+		setWebBiometricKey
+	} from '$lib/utils/helpers/webBiometrics';
+	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 
 	const npub = page.params.npub;
 
@@ -29,6 +35,10 @@
 	let recoveryData = $state<any>(null);
 	let showCurrentPassword = $state(false);
 	let showNewPassword = $state(false);
+	let authMethods = $state({
+		biometric: false,
+		webAuthn: false
+	});
 
 	onMount(async () => {
 		try {
@@ -36,6 +46,8 @@
 			recoveryData = await authService.getNostrRecoveryData(npub);
 			if (recoveryData && recoveryData.email) {
 				email = recoveryData.email;
+				authMethods.biometric = await checkBiometricAvailability();
+				authMethods.webAuthn = await checkWebBiometricAvailability();
 			}
 		} catch (err) {
 			console.error('Failed to fetch recovery data:', err);
@@ -57,14 +69,6 @@
 
 			// Decrypt private key with current password
 			try {
-				console.log('Recovery data from server:', {
-					ivLength: recoveryData.iv,
-					authTagLength: recoveryData.authTag,
-					encryptedDataLength: recoveryData.encryptedPrivateKey,
-					saltLength: recoveryData.salt,
-					iterations: recoveryData.iterations
-				});
-				
 				privateKey = await decryptPrivateKeyWithPassword({
 					encryptedPrivateKey: recoveryData.encryptedPrivateKey,
 					iv: recoveryData.iv,
@@ -73,7 +77,6 @@
 					salt: recoveryData.salt,
 					iterations: recoveryData.iterations
 				});
-				console.log(privateKey);
 				step = 2;
 			} catch (err: any) {
 				console.error('Detailed decryption error:', err);
@@ -85,6 +88,32 @@
 			isLoading = false;
 		}
 	}
+
+	const setNewBiometricKey = async (npub: string, nsec: string) => {
+		const deviceId = await getDeviceIdentifier();
+		const { encrypted, salt, exportedKey, iterations } = await encryptNostrPrivateKeyWithPassword(
+			nsec,
+			deviceId
+		);
+
+		if (authMethods.biometric) {
+			await setBiometricKey(npub, {
+				key: exportedKey,
+				iv: encrypted.iv,
+				authTag: encrypted.authTag,
+				data: encrypted.data,
+				salt
+			});
+		} else if (authMethods.webAuthn) {
+			await setWebBiometricKey(npub, {
+				key: exportedKey,
+				iv: encrypted.iv,
+				authTag: encrypted.authTag,
+				data: encrypted.data,
+				salt
+			});
+		}
+	};
 
 	async function completeRecovery(event: Event) {
 		event.preventDefault();
@@ -111,7 +140,10 @@
 			}
 
 			// Encrypt private key with new password
-			const { encrypted, salt, iterations } = await encryptNostrPrivateKeyWithPassword(privateKey, newPassword);
+			const { encrypted, salt, iterations, exportedKey } = await encryptNostrPrivateKeyWithPassword(
+				privateKey,
+				newPassword
+			);
 
 			// Complete recovery
 			await authService.completeNostrRecovery({
@@ -123,6 +155,9 @@
 				salt,
 				iterations
 			});
+
+			// Set new biometric key encrypted with device ID
+			setNewBiometricKey(npub, privateKey);
 
 			// Try to login
 			const { challenge } = await authService.getLoginChallenge();
@@ -152,7 +187,9 @@
 	}
 </script>
 
-<div class="bg-base-200 flex flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
+<div
+	class="bg-base-200 flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20"
+>
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Account Recovery</h2>
@@ -223,6 +260,32 @@
 							<span class="loading loading-spinner"></span>
 						{:else}
 							Continue
+						{/if}
+					</button>
+					<button
+						type="button"
+						class="btn btn-soft w-full"
+						disabled={isLoading}
+						onclick={() => goto('/auth/recover/send')}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 19l-7-7m0 0l7-7m-7 7h18"
+							/>
+						</svg>
+						{#if isLoading}
+							<span class="loading loading-spinner"></span>
+						{:else}
+							Back to Password Recovery
 						{/if}
 					</button>
 				</form>
@@ -333,6 +396,32 @@
 							<span class="loading loading-spinner"></span>
 						{:else}
 							Reset Password
+						{/if}
+					</button>
+					<button
+						type="button"
+						class="btn btn-secondary w-full"
+						disabled={isLoading}
+						onclick={() => goto('/auth/recover/send')}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 19l-7-7m0 0l7-7m-7 7h18"
+							/>
+						</svg>
+						{#if isLoading}
+							<span class="loading loading-spinner"></span>
+						{:else}
+							Back to Password Recovery
 						{/if}
 					</button>
 				</form>

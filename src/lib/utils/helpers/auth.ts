@@ -79,6 +79,15 @@ export async function decryptPrivateKeyWithPassword({
 		const saltBytes = base64ToBytes(salt);
 		const encryptionKey = await deriveKeyFromPassword(password, saltBytes, iterations);
 
+		const decrypted = await decrypt(
+			{
+				data: encryptedPrivateKey,
+				iv,
+				authTag
+			},
+			encryptionKey
+		);
+
 		// Decrypt private key using AES-GCM
 		return await decrypt(
 			{
@@ -89,7 +98,6 @@ export async function decryptPrivateKeyWithPassword({
 			encryptionKey
 		);
 	} catch (err) {
-		console.log(err);
 		throw new Error(
 			'Failed to decrypt with password: ' + (err instanceof Error ? err.message : 'Unknown error')
 		);

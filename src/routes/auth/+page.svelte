@@ -33,8 +33,7 @@
 	let isLoading = $state(false);
 	let authMethods = $state({
 		biometric: false,
-		webAuthn: false,
-		recovery: false
+		webAuthn: false
 	});
 
 	onMount(async () => {
@@ -188,14 +187,11 @@
 				// biometricData = await getWebBiometricData();
 			}
 
-			console.log('biometricData', biometricData);
 			if (!biometricData) {
 				// Registration flow
-				console.log('No biometric data found, registering');
 				await register(deviceId);
 			} else {
 				// Login flow
-				console.log('Biometric data found, logging in');
 				await login(biometricData.username, biometricData.password, deviceId);
 			}
 		} catch (err: unknown) {
