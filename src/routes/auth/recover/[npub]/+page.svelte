@@ -1,28 +1,25 @@
 <script lang="ts">
+	import type { NostrRecoveryData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import {
-		decryptNsecWithPassword,
-		encryptNsec
-	} from '$lib/utils/helpers/auth';
-	import { validatePassword } from '$lib/utils/helpers/validators';
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { signLoginChallenge } from '$lib/utils/helpers/auth';
-	import authService from '$lib/api/services/auth.service';
+	import { validatePassword } from '$lib/utils/helpers/validators';
+	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { decryptNsecWithPassword, encryptNsec } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
 		setWebBiometricKey
 	} from '$lib/utils/helpers/webBiometrics';
-	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import authService from '$lib/api/services/auth.service';
 
 	const npub = page.params.npub;
 
-	let email = $state('');
 	let recoveryCode = $state('');
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -32,7 +29,7 @@
 	let error = $state('');
 	let passwordError = $state('');
 	let step = $state(1); // 1: Current Password, 2: New Password
-	let recoveryData = $state<any>(null);
+	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
 	let showNewPassword = $state(false);
 	let authMethods = $state({
@@ -44,11 +41,8 @@
 		try {
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
-			if (recoveryData && recoveryData.email) {
-				email = recoveryData.email;
-				authMethods.biometric = await checkBiometricAvailability();
-				authMethods.webAuthn = await checkWebBiometricAvailability();
-			}
+			authMethods.biometric = await checkBiometricAvailability();
+			authMethods.webAuthn = await checkWebBiometricAvailability();
 		} catch (err) {
 			console.error('Failed to fetch recovery data:', err);
 			error = 'Failed to load recovery data';
@@ -70,7 +64,7 @@
 			// Decrypt private key with current password
 			try {
 				privateKey = await decryptNsecWithPassword({
-					encryptedPrivateKey: recoveryData.encryptedPrivateKey,
+					encryptedPrivateKey: recoveryData.recoveryPrivateKey,
 					iv: recoveryData.iv,
 					authTag: recoveryData.authTag,
 					password: currentPassword,
@@ -91,10 +85,8 @@
 
 	const setNewBiometricKey = async (npub: string, nsec: string) => {
 		const deviceId = await getDeviceIdentifier();
-		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(
-			nsec,
-			deviceId
-		);
+		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
+		console.log({ encrypted, salt, exportedKey, iterations, deviceId });
 
 		if (authMethods.biometric) {
 			await setBiometricKey(npub, {
@@ -157,7 +149,7 @@
 			});
 
 			// Set new biometric key encrypted with device ID
-			setNewBiometricKey(npub, privateKey);
+			await setNewBiometricKey(npub, privateKey);
 
 			// Try to login
 			const { challenge } = await authService.getLoginChallenge();
@@ -282,11 +274,7 @@
 								d="M10 19l-7-7m0 0l7-7m-7 7h18"
 							/>
 						</svg>
-						{#if isLoading}
-							<span class="loading loading-spinner"></span>
-						{:else}
-							Back to Password Recovery
-						{/if}
+						Back to account recovery
 					</button>
 				</form>
 			{:else if step === 2}
@@ -400,7 +388,7 @@
 					</button>
 					<button
 						type="button"
-						class="btn btn-secondary w-full"
+						class="btn btn-soft w-full"
 						disabled={isLoading}
 						onclick={() => goto('/auth/recover/send')}
 					>
@@ -418,11 +406,7 @@
 								d="M10 19l-7-7m0 0l7-7m-7 7h18"
 							/>
 						</svg>
-						{#if isLoading}
-							<span class="loading loading-spinner"></span>
-						{:else}
-							Back to Password Recovery
-						{/if}
+						Back to account recovery
 					</button>
 				</form>
 			{/if}

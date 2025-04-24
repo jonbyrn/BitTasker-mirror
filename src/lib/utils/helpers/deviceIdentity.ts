@@ -150,27 +150,3 @@ function generateRandomId(): string {
 	crypto.getRandomValues(array);
 	return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
-
-/* export async function getEnhancedDeviceIdentifier(): Promise<string> {
-	// Get all device characteristics
-	const userAgent = navigator.userAgent;
-	// @ts-ignore
-	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
-	const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
-	const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-	const languages = navigator.languages ? navigator.languages.join(',') : navigator.language;
-	const browserInfo = getBrowserInfo();
-
-	// Combine all data points for maximum entropy
-	const deviceData = `${userAgent}_${platform}_${screenInfo}_${timezone}_${languages}_${browserInfo.name}_${browserInfo.version}_BitTasker`;
-
-	// Generate SHA-256 hash
-	const encoder = new TextEncoder();
-	const data = encoder.encode(deviceData);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-
-	// Convert to hex string
-	return Array.from(new Uint8Array(hashBuffer))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-} */

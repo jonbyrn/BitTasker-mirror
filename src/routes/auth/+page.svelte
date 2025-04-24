@@ -61,10 +61,7 @@
 		const { npub, nsec } = await generateKeyPair();
 
 		// Encrypt the private key with device ID as the password
-		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(
-			nsec,
-			deviceId
-		);
+		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
 
 		// Register with server
 		await authService.registerWithNostr({
@@ -134,14 +131,6 @@
 	 * Login with biometric authentication
 	 */
 	async function login(pubKey: string, encryptedKey: string, deviceId: string) {
-		if (authMethods.webAuthn) {
-			// Verify user identity with WebAuthn
-			const verified = await verifyIdentity();
-			if (!verified) {
-				throw new Error('WebAuthn verification failed');
-			}
-		}
-
 		// Get login challenge from server
 		const { challenge } = await authService.getLoginChallenge();
 
@@ -238,12 +227,12 @@
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 							stroke="currentColor"
-							class="size-6"
+							class="size-4"
 						>
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
-								d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
+								d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 							/>
 						</svg>
 						{isLoading ? 'Processing...' : 'Continue with Passkey'}

@@ -140,6 +140,7 @@ export async function setWebBiometricKey(
     encryptionData: EncryptionData
 ): Promise<boolean> {
     try {
+        console.log('Setting WebAuthn key');
         if (!await checkWebBiometricAvailability()) {
             throw new Error('WebAuthn is not available on this device');
         }
@@ -172,6 +173,15 @@ export async function setWebBiometricKey(
         const credential = await navigator.credentials.create({
             publicKey: registrationOptions
         }) as PublicKeyCredential;
+
+        const { value: currentCredentials } = await Preferences.get({
+            key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
+        });
+
+        if (currentCredentials) {
+            await Preferences.remove({ key: currentCredentials });
+            await Preferences.remove({ key: `webAuthn_${currentCredentials}` });
+        }
 
         // Store credential ID for future authentication
         const credentialId = arrayBufferToBase64((credential.rawId));

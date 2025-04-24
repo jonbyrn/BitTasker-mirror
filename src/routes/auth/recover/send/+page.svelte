@@ -125,11 +125,7 @@
 						d="M10 19l-7-7m0 0l7-7m-7 7h18"
 					/>
 				</svg>
-				{#if isLoading}
-					<span class="loading loading-spinner"></span>
-				{:else}
-					Back to Login
-				{/if}
+				Back to Login
 			</button>
 		</div>
 	</div>

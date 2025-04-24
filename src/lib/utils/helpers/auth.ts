@@ -79,15 +79,6 @@ export async function decryptNsecWithPassword({
 		const saltBytes = base64ToBytes(salt);
 		const encryptionKey = await deriveKeyFromPassword(password, saltBytes, iterations);
 
-		const decrypted = await decrypt(
-			{
-				data: encryptedPrivateKey,
-				iv,
-				authTag
-			},
-			encryptionKey
-		);
-
 		// Decrypt private key using AES-GCM
 		return await decrypt(
 			{

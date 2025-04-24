@@ -191,7 +191,7 @@ export interface NostrRecoveryCompleteData {
 }
 
 export interface NostrRecoveryData {
-	encryptedPrivateKey: string;
+	recoveryPrivateKey: string;
 	iv: string;
 	salt: string;
 	authTag: string;
