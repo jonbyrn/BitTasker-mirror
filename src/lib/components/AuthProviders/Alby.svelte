@@ -7,7 +7,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
+	import { encryptNsec } from '$lib/utils/helpers/auth';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
 
@@ -66,7 +66,7 @@
 			const checkRegistration = await authService.checkRegistrationStatus(signerUser.pubkey);
 			if (!checkRegistration.isRegistered) {
 				const deviceId = await getDeviceIdentifier();
-				const { encrypted, salt, iterations } = await encryptNostrPrivateKeyWithPassword(
+				const { encrypted, salt, iterations } = await encryptNsec(
 					signerUser.pubkey,
 					deviceId
 				);

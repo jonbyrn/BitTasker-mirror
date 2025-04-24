@@ -3,8 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import {
-		decryptPrivateKeyWithPassword,
-		encryptNostrPrivateKeyWithPassword
+		decryptNsecWithPassword,
+		encryptNsec
 	} from '$lib/utils/helpers/auth';
 	import { validatePassword } from '$lib/utils/helpers/validators';
 	import { user } from '$lib/stores/user.store';
@@ -69,7 +69,7 @@
 
 			// Decrypt private key with current password
 			try {
-				privateKey = await decryptPrivateKeyWithPassword({
+				privateKey = await decryptNsecWithPassword({
 					encryptedPrivateKey: recoveryData.encryptedPrivateKey,
 					iv: recoveryData.iv,
 					authTag: recoveryData.authTag,
@@ -91,7 +91,7 @@
 
 	const setNewBiometricKey = async (npub: string, nsec: string) => {
 		const deviceId = await getDeviceIdentifier();
-		const { encrypted, salt, exportedKey, iterations } = await encryptNostrPrivateKeyWithPassword(
+		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(
 			nsec,
 			deviceId
 		);
@@ -140,7 +140,7 @@
 			}
 
 			// Encrypt private key with new password
-			const { encrypted, salt, iterations, exportedKey } = await encryptNostrPrivateKeyWithPassword(
+			const { encrypted, salt, iterations, exportedKey } = await encryptNsec(
 				privateKey,
 				newPassword
 			);

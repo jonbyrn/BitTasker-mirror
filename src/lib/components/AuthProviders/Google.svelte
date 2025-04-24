@@ -10,8 +10,8 @@
 	import { SocialLogin } from '@capgo/capacitor-social-login';
 	import { Capacitor } from '@capacitor/core';
 	import {
-		encryptNostrPrivateKeyWithPassword,
-		decryptPrivateKeyWithPassword
+		encryptNsec,
+		decryptNsecWithPassword
 	} from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 

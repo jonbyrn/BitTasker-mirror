@@ -39,7 +39,8 @@ export const ENDPOINTS = {
 		ACCOUNT_RECOVERY_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/update/nostr/recovery-key`,
 		NOSTR_RECOVERY_INITIATE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/initiate`,
 		NOSTR_RECOVERY_COMPLETE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/complete`,
-		NOSTR_RECOVERY_DATA: (npub: string) => `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`
+		NOSTR_RECOVERY_DATA: (npub: string) => `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`,
+		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`
 	},
 
 	// User endpoints

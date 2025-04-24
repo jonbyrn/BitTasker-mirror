@@ -15,8 +15,8 @@
 	} from '$lib/utils/helpers/biometrics';
 	import {
 		signLoginChallenge,
-		decryptPrivateKeyWithBiometrics,
-		encryptNostrPrivateKeyWithPassword
+		decryptNsecWithBiometrics,
+		encryptNsec
 	} from '$lib/utils/helpers/auth';
 	import {
 		checkWebBiometricAvailability,
@@ -61,7 +61,7 @@
 		const { npub, nsec } = await generateKeyPair();
 
 		// Encrypt the private key with device ID as the password
-		const { encrypted, salt, exportedKey, iterations } = await encryptNostrPrivateKeyWithPassword(
+		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(
 			nsec,
 			deviceId
 		);
@@ -146,7 +146,7 @@
 		const { challenge } = await authService.getLoginChallenge();
 
 		// Decrypt private key using biometrics
-		const privateKey = await decryptPrivateKeyWithBiometrics(encryptedKey);
+		const privateKey = await decryptNsecWithBiometrics(encryptedKey);
 
 		// Sign the challenge with the private key
 		const signedChallenge = await signLoginChallenge(challenge, privateKey);
@@ -184,7 +184,7 @@
 			if (authMethods.biometric) {
 				biometricData = await getBiometricData();
 			} else if (authMethods.webAuthn) {
-				// biometricData = await getWebBiometricData();
+				biometricData = await getWebBiometricData();
 			}
 
 			if (!biometricData) {

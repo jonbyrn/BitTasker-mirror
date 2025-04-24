@@ -309,6 +309,17 @@ export class AuthService extends BaseApiService {
 		const response = await this.post(ENDPOINTS.AUTH.ACCOUNT_RECOVERY_KEY, data);
 		return response.data;
 	}
+
+	/**
+	 * Verify email using token
+	 * @param token Verification token
+	 * @response 200 - Email verified successfully
+	 * @response 400 - Invalid token or token expired
+	 * @returns Promise with verification response
+	 */
+	async verifyEmail(token: string): Promise<void> {
+		await this.get(ENDPOINTS.AUTH.EMAIL_VERIFICATION, { params: { token } });
+	}
 }
 
 // Create singleton instance

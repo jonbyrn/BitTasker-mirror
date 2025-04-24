@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-	encryptNostrPrivateKeyWithPassword,
-	decryptPrivateKeyWithBiometrics,
-	decryptPrivateKeyWithPassword,
+	encryptNsec,
+	decryptNsecWithBiometrics,
+	decryptNsecWithPassword,
 	generateLoginChallenge,
 	signLoginChallenge
 } from '$lib/utils/helpers/auth';
@@ -29,7 +29,7 @@ describe('Nostr Key Encryption', () => {
 	};
 
 	it('should encrypt Nostr private key with password', async () => {
-		const result = await encryptNostrPrivateKeyWithPassword(
+		const result = await encryptNsec(
 			mockNostrPrivateKey,
 			mockRecoveryPassword
 		);
@@ -45,7 +45,7 @@ describe('Nostr Key Encryption', () => {
 	});
 
 	it('should decrypt private key with biometrics', async () => {
-		// Mock implementation for decryptPrivateKeyWithBiometrics
+		// Mock implementation for decryptNsecWithBiometrics
 		// This implementation bypasses the normal biometric checks
 		const mockEncryptedDataString = JSON.stringify(mockEncryptionData);
 		
@@ -56,7 +56,7 @@ describe('Nostr Key Encryption', () => {
 		const importKeySpy = vi.spyOn(await import('$lib/utils/helpers/crypto'), 'importKey')
 			.mockResolvedValue({} as CryptoKey);
 		
-		const decryptedKey = await decryptPrivateKeyWithBiometrics(mockEncryptedDataString);
+		const decryptedKey = await decryptNsecWithBiometrics(mockEncryptedDataString);
 		
 		expect(decryptedKey).toBe(mockNostrPrivateKey);
 		expect(importKeySpy).toHaveBeenCalled();
@@ -91,7 +91,7 @@ describe('Nostr Key Encryption', () => {
 		const decryptSpy = vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
 			.mockResolvedValue(mockNostrPrivateKey);
 		
-		const decryptedKey = await decryptPrivateKeyWithPassword(mockEncryptParams);
+		const decryptedKey = await decryptNsecWithPassword(mockEncryptParams);
 		
 		expect(decryptedKey).toBe(mockNostrPrivateKey);
 		expect(deriveKeySpy).toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe('Nostr Key Encryption', () => {
 		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
 			.mockRejectedValue(new Error('Decryption failed'));
 
-		await expect(decryptPrivateKeyWithPassword(mockEncryptParams))
+		await expect(decryptNsecWithPassword(mockEncryptParams))
 			.rejects.toThrow('Failed to decrypt with password');
 	});
 });

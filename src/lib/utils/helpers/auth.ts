@@ -10,7 +10,7 @@ import {
 	exportKey
 } from '$lib/utils/helpers/crypto';
 
-export async function encryptNostrPrivateKeyWithPassword(
+export async function encryptNsec(
 	nsec: string,
 	password: string,
 	iterations: number = 100000
@@ -35,7 +35,7 @@ export async function encryptNostrPrivateKeyWithPassword(
 	};
 }
 
-export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Promise<string> {
+export async function decryptNsecWithBiometrics(encryptedData: string): Promise<string> {
 	try {
 		// Parse the stored encryption data
 		const { key, iv, authTag, data, salt } = JSON.parse(encryptedData);
@@ -59,7 +59,7 @@ export async function decryptPrivateKeyWithBiometrics(encryptedData: string): Pr
 	}
 }
 
-export async function decryptPrivateKeyWithPassword({
+export async function decryptNsecWithPassword({
 	encryptedPrivateKey,
 	iv,
 	authTag,

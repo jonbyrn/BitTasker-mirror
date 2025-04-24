@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import authService from '$lib/api/services/auth.service';
+	import { validateEmail } from '$lib/utils/helpers/validators';
 
 	let email = $state('');
 	let isLoading = $state(false);
@@ -16,6 +17,11 @@
 
 			if (!email) {
 				error = 'Email is required';
+				return;
+			}
+
+			if (!validateEmail(email).isValid) {
+				error = 'Invalid email address';
 				return;
 			}
 
@@ -104,7 +110,27 @@
 
 			<div class="divider"></div>
 
-			<button class="btn btn-soft w-full" onclick={() => goto('/auth')}> Back to Login </button>
+			<button class="btn btn-soft w-full" onclick={() => goto('/auth')}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 19l-7-7m0 0l7-7m-7 7h18"
+					/>
+				</svg>
+				{#if isLoading}
+					<span class="loading loading-spinner"></span>
+				{:else}
+					Back to Login
+				{/if}
+			</button>
 		</div>
 	</div>
 </div>

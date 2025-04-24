@@ -5,7 +5,7 @@
 	import { bytesToHex } from '@noble/hashes/utils';
 	import { validateNostrPrivateKey, validatePassword } from '$lib/utils/helpers/validators';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
+	import { encryptNsec } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { Preferences } from '@capacitor/preferences';
 	import { user } from '$lib/stores/user.store';
@@ -82,7 +82,7 @@
 				npub = getPublicKey(sk);
 			}
 
-			const { encrypted, salt, iterations } = await encryptNostrPrivateKeyWithPassword(nsec, password);
+			const { encrypted, salt, iterations } = await encryptNsec(nsec, password);
 
 			const data: AccountRecoveryData = {
 				publicKey: npub,
@@ -95,7 +95,6 @@
 			// if (provider === 'passkey') data.authMethod = 'passkey';
 
 			const res = await authService.setupAccountRecoveryPassword(data);
-			console.log({ res });
 
 			if (res.publicKey) {
 				let accessToken: string | null = null;
