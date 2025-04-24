@@ -135,8 +135,7 @@ describe('Validators', () => {
 
   describe('validateNostrPrivateKey', () => {
     it('should return valid result for valid nsec format', () => {
-      // Create a valid formatted nsec key (63 characters total)
-      const validKey = 'nsec1' + '0123456789acdefghjklmnpqrstuvwxyz'.repeat(2);
+      const validKey = 'nsec1' + 'a'.repeat(60);
       const result = validateNostrPrivateKey(validKey);
       expect(result.isValid).toBe(true);
       expect(result.error).toBeUndefined();

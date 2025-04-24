@@ -12,19 +12,19 @@ describe('Crypto Utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Mock crypto.subtle methods
+    // Mock crypto.subtle methods with proper return values
     Object.defineProperty(global, 'crypto', {
       value: {
         subtle: {
-          generateKey: vi.fn(),
-          exportKey: vi.fn(),
-          importKey: vi.fn(),
-          encrypt: vi.fn(),
-          decrypt: vi.fn(),
-          deriveKey: vi.fn(),
+          generateKey: vi.fn().mockResolvedValue({ type: 'secret', algorithm: { name: 'AES-GCM' } }),
+          exportKey: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+          importKey: vi.fn().mockResolvedValue({ type: 'secret', algorithm: { name: 'AES-GCM' } }),
+          encrypt: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+          decrypt: vi.fn().mockResolvedValue(new TextEncoder().encode('test data')),
+          deriveKey: vi.fn().mockResolvedValue({ type: 'secret', algorithm: { name: 'AES-GCM' } }),
           digest: vi.fn()
         },
-        getRandomValues: vi.fn((array) => array)
+        getRandomValues: vi.fn((array) => array.fill(0))
       },
       configurable: true
     });
@@ -55,12 +55,13 @@ describe('Crypto Utilities', () => {
       
       expect(crypto.subtle.exportKey).toHaveBeenCalledWith('raw', mockKey);
       expect(typeof result).toBe('string');
+      expect(result).toBe('AQID'); // base64 of [1,2,3]
     });
   });
   
   describe('importKey', () => {
     it('should import key from base64 string', async () => {
-      const mockKeyData = 'c29tZXJhbmRvbWtleWRhdGE='; // "somerandomkeydata" in base64
+      const mockKeyData = 'AQID'; // base64 of [1,2,3]
       
       const key = await importKey(mockKeyData);
       
@@ -78,25 +79,22 @@ describe('Crypto Utilities', () => {
   describe('encrypt', () => {
     it('should encrypt data and return encrypted data object', async () => {
       const mockData = 'test data';
-      const mockKey = { type: 'secret' };
-      const mockEncryptedData = new Uint8Array([1, 2, 3]);
-      
-      crypto.subtle.encrypt.mockResolvedValue(mockEncryptedData);
+      const mockKey = { type: 'secret' } as CryptoKey;
       
       const result = await encrypt(mockData, mockKey);
       
-      expect(crypto.subtle.encrypt).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: 'AES-GCM',
-          tagLength: 128
-        }),
-        mockKey,
-        expect.any(Uint8Array)
-      );
+      const encryptCall = vi.mocked(crypto.subtle.encrypt).mock.calls[0];
+      expect(encryptCall[0]).toMatchObject({
+        name: 'AES-GCM',
+        tagLength: 128
+      });
+      expect(encryptCall[1]).toBe(mockKey);
+      expect(ArrayBuffer.isView(encryptCall[2])).toBe(true);
       
       expect(result).toEqual({
         data: expect.any(String),
-        iv: expect.any(String)
+        iv: expect.any(String),
+        authTag: expect.any(String)
       });
     });
   });
@@ -105,22 +103,21 @@ describe('Crypto Utilities', () => {
     it('should decrypt encrypted data and return original string', async () => {
       const mockKey = { type: 'secret' } as CryptoKey;
       const mockEncryptedData = {
-        data: 'bW9ja2RhdGE=', // "mockdata" in base64
-        iv: 'aXZpdml2', // "iviviv" in base64
-        authTag: 'YXV0aHRhZw==' // "authtag" in base64
+        data: 'AQID', // base64 of [1,2,3]
+        iv: 'AQID', // base64 of [1,2,3]
+        authTag: 'AQID' // base64 of [1,2,3]
       };
       
       const result = await decrypt(mockEncryptedData, mockKey);
       
-      expect(crypto.subtle.decrypt).toHaveBeenCalledWith(
-        {
-          name: 'AES-GCM',
-          iv: expect.any(Uint8Array),
-          tagLength: 128
-        },
-        mockKey,
-        expect.any(Uint8Array)
-      );
+      const decryptCall = vi.mocked(crypto.subtle.decrypt).mock.calls[0];
+      expect(decryptCall[0]).toMatchObject({
+        name: 'AES-GCM',
+        tagLength: 128
+      });
+      expect(decryptCall[1]).toBe(mockKey);
+      expect(ArrayBuffer.isView(decryptCall[2])).toBe(true);
+      
       expect(result).toBe('test data');
     });
   });
@@ -130,22 +127,27 @@ describe('Crypto Utilities', () => {
       const password = 'testpassword';
       const salt = new Uint8Array(16);
       const iterations = 100000;
-      const mockDerivedKey = { type: 'secret' };
-      
-      crypto.subtle.importKey.mockResolvedValue({ type: 'raw' });
-      crypto.subtle.deriveKey.mockResolvedValue(mockDerivedKey);
       
       const result = await deriveKeyFromPassword(password, salt, iterations);
       
-      expect(crypto.subtle.importKey).toHaveBeenCalledWith(
-        'raw',
-        expect.any(Uint8Array),
-        'PBKDF2',
-        false,
-        ['deriveKey']
-      );
+      const importCall = vi.mocked(crypto.subtle.importKey).mock.calls[0];
+      expect(importCall[0]).toBe('raw');
+      expect(ArrayBuffer.isView(importCall[1])).toBe(true);
+      expect(importCall[2]).toBe('PBKDF2');
+      expect(importCall[3]).toBe(false);
+      expect(importCall[4]).toEqual(['deriveKey']);
       
-      expect(result).toBe(mockDerivedKey);
+      const deriveCall = vi.mocked(crypto.subtle.deriveKey).mock.calls[0];
+      expect(deriveCall[0]).toMatchObject({
+        name: 'PBKDF2',
+        hash: 'SHA-256'
+      });
+      expect(deriveCall[1]).toEqual(expect.any(Object));
+      expect(deriveCall[2]).toEqual({ name: 'AES-GCM', length: 256 });
+      expect(deriveCall[3]).toBe(true);
+      expect(deriveCall[4]).toEqual(['encrypt', 'decrypt']);
+      
+      expect(result).toEqual({ type: 'secret', algorithm: { name: 'AES-GCM' } });
     });
     
     it('should throw an error if key derivation fails', async () => {

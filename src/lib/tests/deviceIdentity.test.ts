@@ -1,11 +1,14 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Device } from '@capacitor/device';
+import { Preferences } from '@capacitor/preferences';
+import { getDeviceIdentifier, getDeviceName } from '../utils/helpers/deviceIdentity';
+import type { DeviceInfo } from '@capacitor/device';
 
-// Mock Capacitor modules
+// Mock the Capacitor plugins
 vi.mock('@capacitor/device', () => ({
   Device: {
-    getInfo: vi.fn(),
-    getId: vi.fn()
+    getId: vi.fn(),
+    getInfo: vi.fn()
   }
 }));
 
@@ -16,43 +19,25 @@ vi.mock('@capacitor/preferences', () => ({
   }
 }));
 
-// Mock StorageKeys from constants
-vi.mock('$lib/utils/constants/storage', () => ({
-  StorageKeys: {
-    DEVICE_UNIQUE_ID: 'device_unique_id'
-  }
-}));
-
 describe('Device Identity Utilities', () => {
-  const Device = require('@capacitor/device').Device;
-  const Preferences = require('@capacitor/preferences').Preferences;
-  
   beforeEach(() => {
     vi.clearAllMocks();
     
-    // Mock crypto.subtle.digest for browser fingerprinting
-    Object.defineProperty(global, 'crypto', {
-      value: {
-        subtle: {
-          digest: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3, 4]))
-        },
-        getRandomValues: vi.fn((array) => array)
-      },
-      configurable: true
-    });
-
-    // Mock device info
-    vi.mocked(Device.getId).mockResolvedValue({ identifier: 'test-device-id' });
-    vi.mocked(Device.getInfo).mockResolvedValue({
+    // Set up default mock implementations
+    (Device.getId as any).mockResolvedValue({ identifier: 'test-device-id' });
+    (Device.getInfo as any).mockResolvedValue({
       platform: 'ios',
       model: 'iPhone',
       manufacturer: 'Apple',
-      operatingSystem: 'iOS'
-    });
-  });
-  
-  afterEach(() => {
-    vi.clearAllMocks();
+      operatingSystem: 'ios',
+      osVersion: '15.0',
+      webViewVersion: '15.0',
+      isVirtual: false,
+      name: 'iPhone 13'
+    } as DeviceInfo);
+    
+    (Preferences.get as any).mockResolvedValue({ value: null });
+    (Preferences.set as any).mockResolvedValue(undefined);
   });
   
   describe('getDeviceIdentifier', () => {
@@ -85,7 +70,12 @@ describe('Device Identity Utilities', () => {
       vi.mocked(Device.getInfo).mockResolvedValue({
         platform: 'ios',
         model: 'iPhone 13',
-        osVersion: '15.5'
+        osVersion: '15.5',
+        manufacturer: 'Apple',
+        operatingSystem: 'ios',
+        webViewVersion: '15.5',
+        isVirtual: false,
+        name: 'iPhone 13'
       });
       
       const deviceId = await getDeviceIdentifier();
@@ -99,12 +89,16 @@ describe('Device Identity Utilities', () => {
     
     it('should create Android device ID when identifier is not available', async () => {
       vi.mocked(Preferences.get).mockResolvedValue({ value: null });
-      vi.mocked(Device.getId).mockResolvedValue({ identifier: null });
+      vi.mocked(Device.getId).mockResolvedValue({ identifier: '' });
       vi.mocked(Device.getInfo).mockResolvedValue({
         platform: 'android',
         manufacturer: 'Samsung',
         model: 'Galaxy S21',
-        osVersion: '12.0'
+        osVersion: '12.0',
+        operatingSystem: 'android',
+        webViewVersion: '12.0',
+        isVirtual: false,
+        name: 'Galaxy S21'
       });
       
       const deviceId = await getDeviceIdentifier();
@@ -119,10 +113,16 @@ describe('Device Identity Utilities', () => {
     it('should create browser fingerprint for web platform', async () => {
       // Setup for web platform
       vi.mocked(Preferences.get).mockResolvedValue({ value: null });
-      vi.mocked(Device.getId).mockResolvedValue({ identifier: null });
+      vi.mocked(Device.getId).mockResolvedValue({ identifier: '' });
       vi.mocked(Device.getInfo).mockResolvedValue({
         platform: 'web',
-        operatingSystem: 'Windows'
+        operatingSystem: 'windows',
+        manufacturer: 'Microsoft',
+        model: 'Windows PC',
+        osVersion: '10',
+        webViewVersion: '91.0',
+        isVirtual: false,
+        name: 'Windows PC'
       });
       
       // Mock window properties for browser fingerprint
@@ -182,7 +182,13 @@ describe('Device Identity Utilities', () => {
     it('should return iOS device name', async () => {
       vi.mocked(Device.getInfo).mockResolvedValue({
         platform: 'ios',
-        model: 'iPhone 13 Pro'
+        model: 'iPhone 13 Pro',
+        operatingSystem: 'ios',
+        osVersion: '15.0',
+        manufacturer: 'Apple',
+        webViewVersion: '15.0',
+        isVirtual: false,
+        name: 'iPhone 13 Pro'
       });
       
       const name = await getDeviceName();
@@ -194,7 +200,12 @@ describe('Device Identity Utilities', () => {
       vi.mocked(Device.getInfo).mockResolvedValue({
         platform: 'android',
         manufacturer: 'Samsung',
-        model: 'Galaxy S21'
+        model: 'Galaxy S21',
+        operatingSystem: 'android',
+        osVersion: '12.0',
+        webViewVersion: '12.0',
+        isVirtual: false,
+        name: 'Galaxy S21'
       });
       
       const name = await getDeviceName();
@@ -205,20 +216,24 @@ describe('Device Identity Utilities', () => {
     it('should return web browser name', async () => {
       vi.mocked(Device.getInfo).mockResolvedValue({
         platform: 'web',
-        operatingSystem: 'Windows'
+        operatingSystem: 'windows',
+        manufacturer: 'Microsoft',
+        model: 'Windows PC',
+        osVersion: '10',
+        webViewVersion: '91.0',
+        isVirtual: false,
+        name: 'Windows PC'
       });
       
       // Mock navigator for browser detection
-      Object.defineProperty(global, 'navigator', {
-        value: {
-          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        },
+      Object.defineProperty(navigator, 'userAgent', {
+        value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         configurable: true
       });
       
       const name = await getDeviceName();
       
-      expect(name).toBe('Chrome on Windows');
+      expect(name).toBe('Chrome on windows');
     });
     
     it('should handle errors and return Unknown Device', async () => {
