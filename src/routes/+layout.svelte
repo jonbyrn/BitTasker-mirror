@@ -32,8 +32,8 @@
 			}
 		});
 
-		getDeviceInfo();
-		getOnboardingCompleted();
+		await getDeviceInfo();
+		await getOnboardingCompleted();
 	});
 </script>
 

@@ -97,6 +97,7 @@ export default {
 		'onboarding.slide5.description':
 			'Secure Bitcoin payments through our smart contract escrow system.',
 		'onboarding.get_started': 'Get started',
+		'onboarding.skip': 'Skip',
 		'onboarding.page.title': 'Welcome to Our Platform!',
 		'onboarding.page.subtitle': "Let's get your profile set up so you can get started.",
 		'onboarding.step.profile_type': 'Profile Type',
@@ -237,6 +238,7 @@ export default {
 		'onboarding.slide5.description':
 			'Pagos seguros en Bitcoin a través de nuestro sistema de depósito en garantía con contratos inteligentes.',
 		'onboarding.get_started': 'Comenzar',
+		'onboarding.skip': 'Omitir',
 		'onboarding.page.title': '¡Bienvenido a Nuestra Plataforma!',
 		'onboarding.page.subtitle': 'Vamos a configurar tu perfil para que puedas comenzar.',
 		'onboarding.step.profile_type': 'Tipo de Perfil',

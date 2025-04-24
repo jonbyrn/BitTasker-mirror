@@ -6,8 +6,6 @@ import {
 	generateLoginChallenge,
 	signLoginChallenge
 } from '$lib/utils/helpers/auth';
-import { NativeBiometric } from 'capacitor-native-biometric';
-import type { Credentials, EncryptedData } from '$lib/types/auth';
 
 vi.mock('capacitor-native-biometric', () => ({
 	NativeBiometric: {

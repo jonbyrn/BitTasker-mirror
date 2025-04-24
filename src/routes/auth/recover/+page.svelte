@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AccountRecoveryData, NostrRegistrationData } from '$lib/types/auth';
+	import type { AccountRecoveryData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
