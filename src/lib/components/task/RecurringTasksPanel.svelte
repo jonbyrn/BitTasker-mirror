@@ -1,52 +1,86 @@
 <script lang="ts">
-	import type { TaskTemplate, ServicePackage } from '$lib/types/recurring-tasks';
+	import type { TaskTemplate } from '$lib/types/recurring-tasks';
 	import { onMount } from 'svelte';
-	import { TASKSTATUS } from '$lib/utils/enums/recurringTask.enums';
 	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
-	import servicePackageService from '$lib/api/services/service-package.service';
 	import TaskTemplateCard from '$lib/components/task/TaskTemplateCard.svelte';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import {
+		graphql,
+		type TaskTemplates$result,
+		type UpdateTaskTemplate$input,
+		type RecurrencePatternInput
+	} from '$houdini';
 
-	let activeView = $state<'templates' | 'packages'>('templates');
+	const taskTemplatesStore = $derived(
+		graphql(`
+			query TaskTemplates {
+				taskTemplates {
+					id
+					name
+					description
+					createdAt
+					isRecurring
+					recurrencePattern {
+						frequency
+						daysOfWeek
+						dayOfMonth
+						interval
+						endDate
+						maxOccurrences
+					}
+					task {
+						title
+						taskType
+						description
+						budget
+						status
+						pickupLocation {
+							displayName
+						}
+						skillIds
+					}
+				}
+			}
+		`)
+	);
+
+	const updateTaskTemplateStore = graphql(`
+		mutation UpdateTaskTemplate($updateTaskTemplateId: Int!, $input: UpdateTaskTemplateInput!) {
+			updateTaskTemplate(id: $updateTaskTemplateId, input: $input) {
+				id
+			}
+		}
+	`);
+
+	const deleteTaskTemplateStore = graphql(`
+		mutation DeleteTaskTemplate($deleteTaskTemplateId: Int!) {
+			deleteTaskTemplate(id: $deleteTaskTemplateId)
+		}
+	`);
+
 	let templates = $state<TaskTemplate[]>([]);
-	let packages = $state<ServicePackage[]>([]);
-	let publicPackages = $state<ServicePackage[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
 	// Handle updating template recurrence pattern
-	let selectedTemplate = $state<TaskTemplate | null>(null);
+	let selectedTemplate = $state<TaskTemplates$result['taskTemplates'][0] | null>(null);
+	// Use a separate mutable state for editing the pattern in the modal
+	let editablePattern = $state<RecurrencePatternInput | null>(null);
 	let showRecurrenceEditor = $state(false);
 	let updateError = $state('');
-
-	// Fetch data on mount
-	async function fetchData() {
-		isLoading = true;
-		error = null;
-
-		try {
-			if (activeView === 'templates') {
-				templates = await recurringTasksService.getTemplates();
-			} else {
-				packages = await servicePackageService.getPackages();
-				publicPackages = await servicePackageService.getPublicPackages();
-			}
-		} catch (err) {
-			error = 'Failed to load data. Please try again.';
-			console.error('Error fetching recurring task data:', err);
-		} finally {
-			isLoading = false;
-		}
-	}
+	let isUpdating = $state(false);
 
 	// Handle template status change
-	async function handleStatusChange(templateId: string, newStatus: TASKSTATUS) {
+	async function handleStatusChange(
+		templateId: string,
+		newStatus: TaskTemplates$result['taskTemplates'][0]['task']['status']
+	) {
 		try {
 			isLoading = true;
-			if (newStatus === TASKSTATUS.PAUSED) {
+			if (newStatus === 'CANCELLED') {
 				await recurringTasksService.pauseTemplate(templateId);
-			} else if (newStatus === TASKSTATUS.ACTIVE) {
+			} else if (newStatus === 'OPEN') {
 				await recurringTasksService.resumeTemplate(templateId);
 			}
 
@@ -64,57 +98,114 @@
 
 	// Handle template deletion
 	async function handleDeleteTemplate(templateId: string) {
+		isLoading = true;
+		error = null; // Clear previous errors
 		try {
-			isLoading = true;
-			await recurringTasksService.deleteTemplate(templateId);
-			templates = templates.filter((template) => template.id !== templateId);
-		} catch (err) {
-			error = 'Failed to delete template. Please try again.';
+			const templateIdInt = parseInt(templateId);
+			if (isNaN(templateIdInt)) {
+				throw new Error('Invalid template ID for deletion');
+			}
+
+			await deleteTaskTemplateStore.mutate({ deleteTaskTemplateId: templateIdInt });
+
+			// Refetch the list to reflect the deletion
+			await taskTemplatesStore.fetch();
+			appStore.showSuccessToast('Template deleted successfully');
+		} catch (err: any) {
+			// Need better error handling here, as graphql does not throw errors when the mutation fails
+			const graphqlError = err.source?.errors?.[0]?.message;
+			error = graphqlError || err.message || 'Failed to delete template. Please try again.';
 			console.error('Error deleting template:', err);
 		} finally {
 			isLoading = false;
 		}
 	}
 
-	function handleUpdateTemplate(templateId: string) {
-		selectedTemplate = templates.find((t) => t.id === templateId) || null;
+	function openUpdateTemplateModal(templateId: string) {
+		selectedTemplate =
+			$taskTemplatesStore.data?.taskTemplates.find((t) => t.id === templateId) || null;
+		if (selectedTemplate?.recurrencePattern) {
+			// Clone the pattern for editing
+			editablePattern = { ...selectedTemplate.recurrencePattern };
+		} else {
+			// Initialize with default if no pattern exists (shouldn't happen for recurring)
+			editablePattern = {
+				frequency: 'WEEKLY', // Default or fetch from enums
+				interval: 1,
+				daysOfWeek: [1],
+				dayOfMonth: null,
+				endDate: null,
+				maxOccurrences: 12
+			};
+		}
 		showRecurrenceEditor = true;
 	}
 
+	// TODO: Currently not working as the backend is having issues with this particular mutation
+	// Hours spent: 3 hours
 	async function updateRecurrencePattern() {
-		if (!selectedTemplate) return;
+		if (!selectedTemplate || !editablePattern) return;
 
 		// Clear previous modal errors
 		updateError = '';
+		isUpdating = true;
 
 		try {
-			// Update template with new recurrence pattern
-			await recurringTasksService.updateTemplate(selectedTemplate.id, {
-				recurrencePattern: selectedTemplate.recurrencePattern
+			const input: UpdateTaskTemplate$input['input'] = {
+				// Only include recurrencePattern in the input if it's being updated
+				recurrencePattern: editablePattern
+			};
+
+			const templateIdInt = parseInt(selectedTemplate.id);
+			if (isNaN(templateIdInt)) {
+				throw new Error('Invalid template ID');
+			}
+
+			// Use the Houdini mutation
+			await updateTaskTemplateStore.mutate({
+				updateTaskTemplateId: templateIdInt,
+				input
 			});
 
-			// Update local state
-			templates = templates.map((template) =>
-				template.id === selectedTemplate?.id ? selectedTemplate : template
-			);
+			// Refetch the templates list to show the updated data
+			await taskTemplatesStore.fetch();
 
 			showRecurrenceEditor = false;
 			selectedTemplate = null;
+			editablePattern = null; // Clear editable pattern
 			appStore.showSuccessToast('Recurrence pattern updated successfully');
-		} catch (err) {
+		} catch (err: any) {
 			// Set error for the modal instead of the global error
-			updateError = 'Failed to update recurrence pattern. Please try again.';
+			// Try to extract the specific GraphQL error message
+			const graphqlError = err.source?.errors?.[0]?.message;
+			updateError =
+				graphqlError || err.message || 'Failed to update recurrence pattern. Please try again.';
 			console.error('Error updating recurrence pattern:', err);
+		} finally {
+			isUpdating = false;
 		}
 	}
 
 	function closeRecurrenceEditor() {
 		showRecurrenceEditor = false;
 		selectedTemplate = null;
+		editablePattern = null; // Clear editable pattern on close
 	}
 
+	$effect(() => {
+		if ($taskTemplatesStore.fetching) {
+			isLoading = true;
+		} else {
+			isLoading = false;
+		}
+
+		if ($taskTemplatesStore.errors) {
+			error = $taskTemplatesStore.errors[0].message;
+		}
+	});
+
 	onMount(() => {
-		fetchData();
+		taskTemplatesStore.fetch();
 	});
 </script>
 
@@ -153,7 +244,7 @@
 				</div>
 			{/each}
 		</div>
-	{:else}
+	{:else if !$taskTemplatesStore.fetching && !$taskTemplatesStore.errors && $taskTemplatesStore.data}
 		<!-- Templates View -->
 		<div class="mb-4 flex items-center justify-between">
 			<h3 class="text-lg font-semibold">Recurring Task Templates</h3>
@@ -197,9 +288,9 @@
 						</p>
 
 						<RecurrencePattern
-							pattern={selectedTemplate.recurrencePattern}
+							pattern={editablePattern}
 							isEditing
-							onPatternChange={(pattern) => (selectedTemplate!.recurrencePattern = pattern)}
+							onPatternChange={(pattern) => (editablePattern = pattern)}
 						/>
 
 						{#if updateError}
@@ -226,9 +317,9 @@
 							<button
 								class="btn btn-primary"
 								onclick={updateRecurrencePattern}
-								disabled={isLoading}
+								disabled={isUpdating}
 							>
-								{#if isLoading}
+								{#if isUpdating}
 									<span class="loading loading-spinner loading-xs"></span>
 								{/if}
 								Save Changes
@@ -239,7 +330,7 @@
 			</div>
 		{/if}
 
-		{#if templates.length === 0}
+		{#if $taskTemplatesStore.data.taskTemplates.length === 0}
 			<div class="card bg-base-200 p-6 text-center">
 				<h3 class="mb-2 text-lg">You don't have any recurring task templates yet</h3>
 				<p class="mb-4">Create a template to automate your regular tasks</p>
@@ -247,12 +338,12 @@
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-4">
-				{#each templates as template (template.id)}
+				{#each $taskTemplatesStore.data?.taskTemplates as template (template.id)}
 					<TaskTemplateCard
 						{template}
 						onStatusChange={(status) => handleStatusChange(template.id, status)}
 						onDelete={() => handleDeleteTemplate(template.id)}
-						onUpdate={handleUpdateTemplate}
+						onUpdate={openUpdateTemplateModal}
 					/>
 				{/each}
 			</div>
