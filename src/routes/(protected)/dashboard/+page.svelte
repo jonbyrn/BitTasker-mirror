@@ -76,11 +76,7 @@
 	</div>
 
 	<!-- Dashboard Tabs -->
-	<Tabs
-		tabs={availableTabs}
-		activeTab={activeTab}
-		onTabChange={handleTabChange}
-	/>
+	<Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} />
 
 	<!-- Tasks Panel -->
 	{#if activeTab === 'tasks'}
