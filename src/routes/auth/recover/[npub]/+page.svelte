@@ -86,7 +86,6 @@
 	const setNewBiometricKey = async (npub: string, nsec: string) => {
 		const deviceId = await getDeviceIdentifier();
 		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
-		console.log({ encrypted, salt, exportedKey, iterations, deviceId });
 
 		if (authMethods.biometric) {
 			await setBiometricKey(npub, {
@@ -132,7 +131,7 @@
 			}
 
 			// Encrypt private key with new password
-			const { encrypted, salt, iterations, exportedKey } = await encryptNsec(
+			const { encrypted, salt, iterations } = await encryptNsec(
 				privateKey,
 				newPassword
 			);

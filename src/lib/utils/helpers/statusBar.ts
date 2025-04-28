@@ -13,7 +13,7 @@ async function checkPlatform() {
 export async function initializeStatusBar() {
 	try {
 		if (await checkPlatform()) {
-			await StatusBar.setOverlaysWebView({ overlay: true });
+			await StatusBar.setOverlaysWebView({ overlay: false });
 			await StatusBar.setBackgroundColor({ color: '#00000000' });
 			await StatusBar.setStyle({ style: Style.Default });
 		}

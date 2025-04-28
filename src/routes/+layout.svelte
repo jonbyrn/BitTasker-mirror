@@ -17,7 +17,6 @@
 	const { children } = $props();
 
 	let width = $state(375);
-	let containerStyle = $derived($keyboardVisible ? `padding-bottom: ${$keyboardHeight}px;` : '');
 
 	$effect(() => {
 		setDarkMode($darkMode);
@@ -54,7 +53,6 @@
 	data-theme={$darkMode ? 'dustynight' : 'yellowsnow'}
 	id="main"
 	class="select-none"
-	style={containerStyle}
 >
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<NavBar />

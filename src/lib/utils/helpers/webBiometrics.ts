@@ -140,7 +140,6 @@ export async function setWebBiometricKey(
     encryptionData: EncryptionData
 ): Promise<boolean> {
     try {
-        console.log('Setting WebAuthn key');
         if (!await checkWebBiometricAvailability()) {
             throw new Error('WebAuthn is not available on this device');
         }
