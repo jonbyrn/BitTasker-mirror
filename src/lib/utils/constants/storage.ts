@@ -18,6 +18,7 @@ export const StorageKeys = {
 
 	// WebAuthn
 	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId',
+	WALLET_AUTHN_CREDENTIAL_ID: 'walletAuthnCredentialId',
 
 	// App state
 	LAST_SYNC: 'bittasker_last_sync',
@@ -29,9 +30,6 @@ export const StorageKeys = {
 	WALLET_SALT: 'wallet_salt',
 	WALLET_IV: 'wallet_iv',
 	WALLET_STORAGE_PREFERENCE: 'wallet_storage_preference',
-
-	// WebAuthn
-	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId'
 } as const;
 
 // Type to get autocomplete for storage keys

@@ -9,80 +9,36 @@
  * - Balance queries
  */
 
-import type { SendTxParams, Transaction, WalletAddress } from '$lib/types/wallet';
+import type { Transaction } from '$lib/types/wallet';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
-import { bytesToHex, hexToBytes } from '$lib/utils/helpers/encoding';
 
 class BitcoinWalletService extends BaseApiService {
     /**
-     * Get or create a Bitcoin wallet for the authenticated user
+     * Get Bitcoin wallet for the authenticated user
      */
-    async getOrCreateWallet() {
-        const response = await this.get(ENDPOINTS.WALLET.BITCOIN.CREATE);
+    async getWallet() {
+        const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET);
         return response.data;
     }
 
     /**
-     * Generate a new Bitcoin address
+     * Create a new Bitcoin wallet for the authenticated user
      */
-    async generateNewAddress(): Promise<WalletAddress> {
-        try {
-            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.ADDRESS);
-
-            return {
-                type: 'Bitcoin',
-                address: response.data.address,
-                isDefault: false
-            };
-        } catch (error) {
-            console.error('Failed to generate new Bitcoin address:', error);
-            throw error;
-        }
+    async createWallet({ address, network }: { address: string, network: string }) {
+        const response = await this.post(ENDPOINTS.WALLET.BITCOIN.CREATE, { address, network });
+        return response.data;
     }
 
     /**
-     * Validate a Bitcoin address (not available)
-     */
-    async validateAddress(address: string): Promise<boolean> {
-        try {
-            // Directly validate using regex for basic check
-            const basicBitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
-            if (!basicBitcoinAddressRegex.test(address)) {
-                return false;
-            }
-
-            // For complete validation, check with API
-            const response = await this.get(`${ENDPOINTS.WALLET.BITCOIN.VALIDATE}?address=${address}`);
-            return response.data.isValid;
-        } catch (error) {
-            console.error('Failed to validate Bitcoin address:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Get wallet balance for authenticated user
-     */
+    * Get wallet balance for authenticated user
+    */
     async getWalletBalance() {
         try {
             const response = await this.get(ENDPOINTS.WALLET.BITCOIN.BALANCE);
             return response.data;
         } catch (error) {
             console.error('Failed to get Bitcoin wallet balance:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get balance for a specific address
-     */
-    async getAddressBalance(address: string) {
-        try {
-            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.ADDRESS_BALANCE(address));
-            return response.data;
-        } catch (error) {
-            console.error(`Failed to get balance for address ${address}:`, error);
             throw error;
         }
     }
@@ -101,7 +57,59 @@ class BitcoinWalletService extends BaseApiService {
     }
 
     /**
-     * Get transactions for a specific address
+     * Get current bitcoin price
+     */
+    async getCurrentBitcoinPrice() {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.PRICE);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get current bitcoin price:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Convert fiat to bitcoin
+     */
+    async convertFiatToBitcoin(amount: number, currency: string) {
+        try {
+            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.CONVERT, { amount, currency });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to convert fiat to bitcoin:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get all user balances for all addresses
+     */
+    async getUserBalances() {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.BALANCES);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get user balances:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check balance for a specific Bitcoin address
+     */
+    async getAddressBalance(address: string) {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.ADDRESS_BALANCE(address));
+            return response.data;
+        } catch (error) {
+            console.error(`Failed to get balance for address ${address}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get transactions for a specific Bitcoin address
      */
     async getAddressTransactions(address: string, limit?: number): Promise<Transaction[]> {
         try {
@@ -128,9 +136,136 @@ class BitcoinWalletService extends BaseApiService {
     }
 
     /**
+     * Add address to user's whitelist
+     */
+    async whitelistAddress(address: string, label: string, description?: string) {
+        try {
+            const payload = {
+                address,
+                label,
+                description
+            };
+
+            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.WHITELIST, payload);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to whitelist address:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get user's whitelisted addresses
+     */
+    async getWhitelistedAddresses() {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.WHITELIST);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get whitelisted addresses:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Create a Bitcoin transaction skeleton
+     * @param fromAddress The address to send from
+     * @param toAddress The address to send to
+     * @param amount The amount to send
+     * @response 201: Transaction skeleton created
+     * @response 400: Invalid input
+     */
+    async createTransactionSkeleton({ fromAddress, toAddress, amount }: { fromAddress: string, toAddress: string, amount: number }) {
+        try {
+            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.TRANSACTION, { fromAddress, toAddress, amount });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to create transaction skeleton:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Broadcast a signed Bitcoin transaction
+     * TODO: Validate endpoint payload
+     * @param tx The transaction to broadcast
+     * @param signatures The signatures of the transaction
+     * @param pubKeys The public keys of the transaction
+     * @response 200: Broadcast successfull
+     * @response 400: Invalid payload
+     * @returns The transaction ID
+     */
+    async broadcastTransaction({ tx, signatures, pubKeys }: { tx: Transaction, signatures: string[], pubKeys: string[] }) {
+        try {
+            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.BROADCAST, { tx, signatures, pubKeys });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to broadcast transaction:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check Bitcoin transaction status
+     * @param txid The transaction ID
+     * @response 200: Transaction status retrieved
+     * @response 400: Invalid transaction ID
+     * @returns The transaction status
+     */
+    async checkTransactionStatus(txid: string) {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.CHECK_STATUS(txid));
+            return response.data;
+        } catch (error) {
+            console.error('Failed to check transaction status:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Withdraw Bitcoin
+     * @param amount The amount to withdraw
+     * @param address The address to withdraw to
+     * @param fee The fee to pay
+     * @param memo The memo to send with the transaction
+     * @param verificationId The verification ID
+     * @param verificationCode The verification code
+     * @response 200: Withdrawal successful
+     * @response 400: Invalid input
+     */
+    async withdrawBitcoin({ address, amount, fee, memo, verificationId, verificationCode }: { address: string, amount: number, fee: number, memo: string, verificationId: string, verificationCode: string }) {
+        try {
+            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.WITHDRAW, { address, amount, fee, memo, verificationId, verificationCode });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to withdraw Bitcoin:', error);
+            throw error;
+        }
+    }
+    /**
+     * Validate a Bitcoin address (not available)
+     */
+    /* async validateAddress(address: string): Promise<boolean> {
+        try {
+            // Directly validate using regex for basic check
+            const basicBitcoinAddressRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/;
+            if (!basicBitcoinAddressRegex.test(address)) {
+                return false;
+            }
+
+            // For complete validation, check with API
+            const response = await this.get(`${ENDPOINTS.WALLET.BITCOIN.VALIDATE}?address=${address}`);
+            return response.data.isValid;
+        } catch (error) {
+            console.error('Failed to validate Bitcoin address:', error);
+            return false;
+        }
+    } */
+
+    /**
      * Send Bitcoin to an address
      */
-    async sendBitcoin(params: SendTxParams): Promise<{
+    /* async sendBitcoin(params: SendTxParams): Promise<{
         txid: string;
         fee: number;
     }> {
@@ -156,85 +291,14 @@ class BitcoinWalletService extends BaseApiService {
             console.error('Failed to send Bitcoin transaction:', error);
             throw error;
         }
-    }
-
-    /**
-     * Get all user balances for all addresses
-     */
-    async getUserBalances() {
-        try {
-            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.BALANCES);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to get user balances:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Add address to whitelist
-     */
-    async whitelistAddress(address: string, label: string, description?: string) {
-        try {
-            const payload = {
-                address,
-                label,
-                description
-            };
-
-            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.WHITELIST, payload);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to whitelist address:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get whitelisted addresses
-     */
-    async getWhitelistedAddresses() {
-        try {
-            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.WHITELIST);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to get whitelisted addresses:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Convert fiat to bitcoin
-     */
-    async convertFiatToBitcoin(amount: number, currency: string) {
-        try {
-            const response = await this.post(ENDPOINTS.WALLET.BITCOIN.CONVERT, { amount, currency });
-            return response.data;
-        } catch (error) {
-            console.error('Failed to convert fiat to bitcoin:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Get current bitcoin price
-     */
-    async getCurrentBitcoinPrice() {
-        try {
-            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.PRICE);
-            return response.data;
-        } catch (error) {
-            console.error('Failed to get current bitcoin price:', error);
-            throw error;
-        }
-    }
+    } */
 
     /**
      * Store E2E encrypted mnemonic phrase on the server - NOT AVAILABLE
      * @param encryptedData The encrypted mnemonic data
      * @returns Success status
      */
-    async storeEncryptedMnemonic(encryptedData: { ciphertext: string; iv: string; salt: string }): Promise<boolean> {
+    /* async storeEncryptedMnemonic(encryptedData: { ciphertext: string; iv: string; salt: string }): Promise<boolean> {
         try {
             const response = await this.post(ENDPOINTS.WALLET.BITCOIN.STORE_MNEMONIC, encryptedData);
             return response.status === 200;
@@ -242,13 +306,13 @@ class BitcoinWalletService extends BaseApiService {
             console.error('Failed to store encrypted mnemonic:', error);
             throw error;
         }
-    }
+    } */
 
     /**
      * Retrieve E2E encrypted mnemonic phrase from the server - NOT AVAILABLE
      * @returns The encrypted mnemonic data or null if not found
      */
-    async getEncryptedMnemonic(): Promise<{ ciphertext: string; iv: string; salt: string } | null> {
+    /* async getEncryptedMnemonic(): Promise<{ ciphertext: string; iv: string; salt: string } | null> {
         try {
             const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET_MNEMONIC);
             return response.data;
@@ -256,7 +320,7 @@ class BitcoinWalletService extends BaseApiService {
             console.error('Failed to retrieve encrypted mnemonic:', error);
             return null;
         }
-    }
+    } */
 }
 
 const walletService = new BitcoinWalletService();

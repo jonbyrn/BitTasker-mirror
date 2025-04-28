@@ -4,7 +4,7 @@
  */
 
 import type { EncryptionData } from '$lib/types/auth';
-import { base64ToBuffer, base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
+import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { browser } from '$app/environment';
 import { Preferences } from '@capacitor/preferences';
@@ -151,7 +151,7 @@ export async function initializeWallet(password: string, storagePreference: 'sel
             } else {
                 const isAvailable = await checkWebBiometricAvailability();
                 if (isAvailable) {
-                    await setWebBiometricKey(addresses[0], encryptedData);
+                    await setWebBiometricKey(addresses[0], encryptedData, 'wallet');
                 }
             }
             // Store via API with E2E encryption

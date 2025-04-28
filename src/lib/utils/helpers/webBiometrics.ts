@@ -89,18 +89,16 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 /**
  * Verify user identity using WebAuthn
  */
-export async function verifyIdentity(
-	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
-): Promise<boolean> {
-	try {
-		if (!(await checkWebBiometricAvailability())) {
-			throw new Error('WebAuthn is not available on this device');
-		}
+export async function verifyIdentity(source: 'auth' | 'wallet' = 'auth', options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS): Promise<boolean> {
+    try {
+        if (!await checkWebBiometricAvailability()) {
+            throw new Error('WebAuthn is not available on this device');
+        }
 
-		// Get the stored credential ID
-		const { value: credentialId } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
+        // Get the stored credential ID
+        const { value: credentialId } = await Preferences.get({
+            key: source === 'auth' ? StorageKeys.WEB_AUTHN_CREDENTIAL_ID : StorageKeys.WALLET_AUTHN_CREDENTIAL_ID
+        });
 
 		if (!credentialId) {
 			console.error('No WebAuthn credential found. Please register first.');
@@ -140,8 +138,9 @@ export async function verifyIdentity(
  * Register WebAuthn credential and store encrypted data
  */
 export async function setWebBiometricKey(
-	publicKey: string,
-	encryptionData: EncryptionData
+    publicKey: string,
+    encryptionData: EncryptionData,
+    source: 'auth' | 'wallet' = 'auth'
 ): Promise<boolean> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
@@ -177,31 +176,33 @@ export async function setWebBiometricKey(
 			publicKey: registrationOptions
 		})) as PublicKeyCredential;
 
-		const { value: currentCredentials } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
+        const sourceKey = source === 'auth' ? 'webAuthn_' : 'walletAuthn_';
+        
+        const { value: currentCredentials } = await Preferences.get({
+            key: source === 'auth' ? StorageKeys.WEB_AUTHN_CREDENTIAL_ID : StorageKeys.WALLET_AUTHN_CREDENTIAL_ID
+        });
 
-		if (currentCredentials) {
-			await Preferences.remove({ key: currentCredentials });
-			await Preferences.remove({ key: `webAuthn_${currentCredentials}` });
-		}
+        if (currentCredentials) {
+            await Preferences.remove({ key: currentCredentials });
+            await Preferences.remove({ key: sourceKey + currentCredentials });
+        }
 
-		// Store credential ID for future authentication
-		const credentialId = arrayBufferToBase64(credential.rawId);
-		await Preferences.set({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
-			value: credentialId
-		});
+        // Store credential ID for future authentication
+        const credentialId = arrayBufferToBase64((credential.rawId));
+        await Preferences.set({
+            key: source === 'auth' ? StorageKeys.WEB_AUTHN_CREDENTIAL_ID : StorageKeys.WALLET_AUTHN_CREDENTIAL_ID,
+            value: credentialId
+        })
 
-		// Store the encrypted data
-		await Preferences.set({
-			key: `webAuthn_${credentialId}`,
-			value: JSON.stringify({
-				username: publicKey,
-				password: JSON.stringify(encryptionData),
-				server: userId
-			})
-		});
+        // Store the encrypted data
+        await Preferences.set({
+            key: sourceKey + credentialId,
+            value: JSON.stringify({
+                username: publicKey,
+                password: JSON.stringify(encryptionData),
+                server: userId
+            })
+        });
 
 		return true;
 	} catch (err) {
@@ -213,22 +214,24 @@ export async function setWebBiometricKey(
 /**
  * Get stored credentials after biometric verification
  */
-export async function getWebBiometricData(): Promise<Credentials | null> {
-	try {
-		const verified = await verifyIdentity();
-		if (!verified) return null;
+export async function getWebBiometricData(source: 'auth' | 'wallet' = 'auth'): Promise<Credentials | null> {
+    try {
+        const verified = await verifyIdentity(source);
+        if (!verified) return null;
 
-		const { value: credentialId } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
+        const sourceKey = source === 'auth' ? 'webAuthn_' : 'walletAuthn_';
+        
+        const { value: credentialId } = await Preferences.get({
+            key: source === 'auth' ? StorageKeys.WEB_AUTHN_CREDENTIAL_ID : StorageKeys.WALLET_AUTHN_CREDENTIAL_ID
+        });
 
 		if (!credentialId) {
 			return null;
 		}
 
-		const { value: storedData } = await Preferences.get({
-			key: `webAuthn_${credentialId}`
-		});
+        const { value: storedData } = await Preferences.get({
+            key: sourceKey + credentialId
+        });
 
 		if (!storedData) return null;
 

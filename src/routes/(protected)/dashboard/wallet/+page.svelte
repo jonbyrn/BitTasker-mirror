@@ -13,18 +13,31 @@
 	import LiquidAssetManager from '$lib/components/wallet/escrow/LiquidAssetManager.svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import type { EscrowContractEvents, LiquidAssetManagerEvents, BitcoinPaymentEvents } from '$lib/types/wallet';
+	import type {
+		EscrowContractEvents,
+		LiquidAssetManagerEvents,
+		BitcoinPaymentEvents
+	} from '$lib/types/wallet';
 	import BitcoinPayment from '$lib/components/wallet/BitcoinPayment.svelte';
 	import { generateMnemonic } from '$lib/utils/helpers/wallet';
-	
+
 	// UI state with mutable let variables using runes
-	let activeTab = $state<'balance' | 'receive' | 'send' | 'transactions' | 'lightning' | 'payment' | 'escrow' | 'liquid-escrow'>('balance');
+	let activeTab = $state<
+		| 'balance'
+		| 'receive'
+		| 'send'
+		| 'transactions'
+		| 'lightning'
+		| 'payment'
+		| 'escrow'
+		| 'liquid-escrow'
+	>('balance');
 	let activeLightningTab = $state('connect'); // connect, invoice, pay, bitcoin-connect
 	let isWalletInitialized = $state(false);
 	let showHardwareWalletOptions = $state(false);
 	let isConnectingHardwareWallet = $state(false);
 	let lightningInvoice = $state('');
-	
+
 	// Payment
 	let paymentAmount = $state(0);
 	let paymentDescription = $state('');
@@ -89,10 +102,14 @@
 	onMount(async () => {
 		try {
 			// Check if wallet exists and is initialized
-			const storagePreference = await Preferences.get({
+			const { value: storagePreference } = await Preferences.get({
 				key: StorageKeys.WALLET_STORAGE_PREFERENCE
 			});
-			if (storagePreference.value) {
+			const { value: walletCredentialId } = await Preferences.get({
+				key: StorageKeys.WALLET_AUTHN_CREDENTIAL_ID
+			});
+
+			if (storagePreference && walletCredentialId) {
 				// Wallet setup has been started, mark as initialized
 				isWalletInitialized = true;
 			}
@@ -240,10 +257,10 @@
 			{#if activeLightningTab === 'connect'}
 				<LightningConnect />
 			{:else if activeLightningTab === 'invoice'}
-				<LightningInvoice 
-					amount={1000} 
-					description="Test invoice" 
-					onInvoiceGenerated={handleInvoiceGenerated} 
+				<LightningInvoice
+					amount={1000}
+					description="Test invoice"
+					onInvoiceGenerated={handleInvoiceGenerated}
 				/>
 			{:else if activeLightningTab === 'pay'}
 				<!-- <LightningPay /> -->
@@ -252,7 +269,7 @@
 			{/if}
 		{:else if activeTab === 'payment'}
 			<div class="mb-6">
-				<h3 class="text-xl font-semibold mb-4">Pay with Bitcoin</h3>
+				<h3 class="mb-4 text-xl font-semibold">Pay with Bitcoin</h3>
 				<BitcoinPayment
 					amount={paymentAmount}
 					description={paymentDescription}
@@ -262,8 +279,8 @@
 			</div>
 		{:else if activeTab === 'escrow' || activeTab === 'liquid-escrow'}
 			<div class="mb-6">
-				<h3 class="text-xl font-semibold mb-4">Escrow Services</h3>
-				
+				<h3 class="mb-4 text-xl font-semibold">Escrow Services</h3>
+
 				<div class="tabs tabs-boxed mb-6">
 					<button
 						class="tab {activeTab === 'escrow' ? 'tab-active' : ''}"
@@ -278,9 +295,9 @@
 						Liquid Escrow
 					</button>
 				</div>
-				
+
 				{#if activeTab === 'escrow'}
-					<EscrowContract 
+					<EscrowContract
 						amount={escrowAmount}
 						description={escrowDescription}
 						recipient={escrowRecipient}
@@ -291,7 +308,7 @@
 						onEscrowDisputed={handleEscrowDisputed}
 					/>
 				{:else if activeTab === 'liquid-escrow'}
-					<LiquidAssetManager 
+					<LiquidAssetManager
 						assetId={liquidAssetId}
 						amount={liquidAmount}
 						description={liquidDescription}

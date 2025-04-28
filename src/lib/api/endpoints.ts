@@ -135,9 +135,8 @@ export const ENDPOINTS = {
 	// Wallet endpoints
 	WALLET: {
 		BITCOIN: {
-			GET: `${API_PATH}/${API_VERSION}/bitcoin`,
+			GET: `${API_PATH}/${API_VERSION}/bitcoin/wallet`,
 			CREATE: `${API_PATH}/${API_VERSION}/bitcoin/wallet`,
-			ADDRESS: `${API_PATH}/${API_VERSION}/bitcoin/wallet/address`,
 			BALANCE: `${API_PATH}/${API_VERSION}/bitcoin/wallet/balance`,
 			BALANCES: `${API_PATH}/${API_VERSION}/bitcoin/balances`,
 			ADDRESS_BALANCE: (address: string) => `${API_PATH}/${API_VERSION}/bitcoin/address/${address}/balance`,
@@ -146,6 +145,12 @@ export const ENDPOINTS = {
 			WHITELIST: `${API_PATH}/${API_VERSION}/bitcoin/whitelist`,
 			CONVERT: `${API_PATH}/${API_VERSION}/bitcoin/convert`,
 			PRICE: `${API_PATH}/${API_VERSION}/bitcoin/price`,
+			TRANSACTION: `${API_PATH}/${API_VERSION}/bitcoin/tx/skeleton`,
+			BROADCAST: `${API_PATH}/${API_VERSION}/bitcoin/tx/broadcast`,
+			CHECK_STATUS: (txid: string) => `${API_PATH}/${API_VERSION}/bitcoin/tx/status/${txid}`,
+			WITHDRAW: `${API_PATH}/${API_VERSION}/bitcoin/withdraw`,
+
+			/* UNAVAILABLE ENDPOINTS */
 			TRANSACTIONS: `${API_PATH}/${API_VERSION}/bitcoin/transactions`, // NOT AVAILABLE
 			SEND: `${API_PATH}/${API_VERSION}/bitcoin/send`, // NOT AVAILABLE
 			VALIDATE: `${API_PATH}/${API_VERSION}/bitcoin/validate`, // NOT AVAILABLE
@@ -165,5 +170,13 @@ export const ENDPOINTS = {
 			ESCROW: `${API_PATH}/${API_VERSION}/liquid/escrow`, // NOT AVAILABLE
 			ASSETS: `${API_PATH}/${API_VERSION}/liquid/assets` // NOT AVAILABLE
 		}
+	},
+
+	// Payment endpoints
+	PAYMENT: {
+		REQUEST: `${API_PATH}/${API_VERSION}/bitcoin/payment-request`,
+		REQUESTS: `${API_PATH}/${API_VERSION}/bitcoin/payment-requests`,
+		REQUEST_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/bitcoin/payment-request/${id}`,
+		CHECK_STATUS: (id: string) => `${API_PATH}/${API_VERSION}/bitcoin/payment-request/${id}/check`,
 	}
 };
