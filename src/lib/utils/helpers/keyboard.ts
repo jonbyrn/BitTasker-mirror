@@ -7,6 +7,8 @@ import { Device } from '@capacitor/device';
 export const keyboardVisible = writable(false);
 export const keyboardHeight = writable(0);
 
+let keyboardShowListener: any = null;
+let keyboardHideListener: any = null;
 let listenersSet = false;
 
 export async function setupKeyboardListeners() {
@@ -14,6 +16,9 @@ export async function setupKeyboardListeners() {
 	const info = await Device.getInfo();
 	if (info.platform === 'web') return; // Only run on mobile
 
+	 // Remove previous listeners if any
+	if (keyboardShowListener) keyboardShowListener.remove();
+	if (keyboardHideListener) keyboardHideListener.remove();
 	if (listenersSet) return;
 	listenersSet = true;
 
@@ -35,8 +40,9 @@ export async function setupKeyboardListeners() {
 	});
 }
 
-export function cleanupKeyboardListeners() {
-	// No-op for web, could remove listeners for mobile if needed
+function cleanupKeyboardListeners() {
+	if (keyboardShowListener) keyboardShowListener.remove();
+	if (keyboardHideListener) keyboardHideListener.remove();
 }
 
 // Utility to scroll an input into view above the keyboard
@@ -61,5 +67,6 @@ export function setupGlobalInputFocusScroll() {
 	document.addEventListener('focusin', handleFocusIn);
 	return () => {
 		document.removeEventListener('focusin', handleFocusIn);
+		cleanupKeyboardListeners();
 	};
 } 

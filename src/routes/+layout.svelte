@@ -6,7 +6,6 @@
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
 	import {
 		setupKeyboardListeners,
-		cleanupKeyboardListeners,
 		keyboardVisible,
 		keyboardHeight,
 		setupGlobalInputFocusScroll
@@ -22,10 +21,6 @@
 
 	$effect(() => {
 		setDarkMode($darkMode);
-	});
-
-	onMount(() => {
-		return () => cleanupKeyboardListeners();
 	});
 
 	// Initialize theme based on system preference
