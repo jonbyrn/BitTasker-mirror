@@ -59,8 +59,8 @@ function createTaskStore() {
 			dayOfMonth: 1,
 			endDate: '',
 			maxOccurrences: 12
-		},
-	}
+		}
+	};
 
 	const store = writable({ ...initialState, recurringTask });
 
@@ -76,11 +76,10 @@ function createTaskStore() {
 				recurringTask: { ...parsedData.recurringTask }
 			}));
 			if (parsedData.recurringTask.isRecurring) {
-				STEPS.update(steps => [...steps, TaskStepEnum.RECURRING]);
+				STEPS.update((steps) => [...steps, TaskStepEnum.RECURRING]);
 			}
 		}
 	};
-
 
 	// Save draft to preferences
 	const saveDraft = async () => {
@@ -150,9 +149,9 @@ function createTaskStore() {
 			recurringTask: { ...state.recurringTask, isRecurring }
 		}));
 		if (isRecurring) {
-			STEPS.update(steps => [...steps, TaskStepEnum.RECURRING]);
+			STEPS.update((steps) => [...steps, TaskStepEnum.RECURRING]);
 		} else {
-			STEPS.update(steps => steps.filter(step => step !== TaskStepEnum.RECURRING));
+			STEPS.update((steps) => steps.filter((step) => step !== TaskStepEnum.RECURRING));
 		}
 		saveDraft();
 	};
@@ -167,8 +166,10 @@ function createTaskStore() {
 	};
 
 	const updateRecurrencePattern = (updates: Partial<RecurrencePattern>) => {
-		updateRecurringDetails({ recurrencePattern: { ...recurringTask.recurrencePattern, ...updates } });
-	}
+		updateRecurringDetails({
+			recurrencePattern: { ...recurringTask.recurrencePattern, ...updates }
+		});
+	};
 
 	return {
 		set: store.set,

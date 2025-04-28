@@ -157,7 +157,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mx-auto max-w-3xl shadow-xl min-h-[90dvh]">
+<div class="card bg-base-100 mx-auto min-h-[90dvh] max-w-3xl shadow-xl">
 	<div class="card-body">
 		<div class="flex items-center justify-between">
 			<h2 class="card-title text-2xl">Create a New Task</h2>

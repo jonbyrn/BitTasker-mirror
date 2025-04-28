@@ -60,4 +60,4 @@ export async function showStatusBar() {
 	} catch (err) {
 		console.error('Error showing status bar', err);
 	}
-} 
+}

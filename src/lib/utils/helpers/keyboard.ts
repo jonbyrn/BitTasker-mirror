@@ -16,7 +16,7 @@ export async function setupKeyboardListeners() {
 	const info = await Device.getInfo();
 	if (info.platform === 'web') return; // Only run on mobile
 
-	 // Remove previous listeners if any
+	// Remove previous listeners if any
 	if (keyboardShowListener) keyboardShowListener.remove();
 	if (keyboardHideListener) keyboardHideListener.remove();
 	if (listenersSet) return;
@@ -59,7 +59,9 @@ export function setupGlobalInputFocusScroll() {
 		const target = event.target as HTMLElement;
 		if (
 			target &&
-			(target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.getAttribute('contenteditable') === 'true')
+			(target.tagName === 'INPUT' ||
+				target.tagName === 'TEXTAREA' ||
+				target.getAttribute('contenteditable') === 'true')
 		) {
 			scrollInputIntoView(target);
 		}
@@ -69,4 +71,4 @@ export function setupGlobalInputFocusScroll() {
 		document.removeEventListener('focusin', handleFocusIn);
 		cleanupKeyboardListeners();
 	};
-} 
+}

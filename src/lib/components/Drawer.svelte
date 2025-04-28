@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * Reusable Drawer Component for BitTasker
-	 * 
+	 *
 	 * A customizable side drawer that can be used throughout the application
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
@@ -47,19 +47,24 @@
 	// Get CSS classes for width
 	function getWidthClass(width: string): string {
 		switch (width) {
-			case 'sm': return 'w-full sm:w-[400px]';
-			case 'md': return 'w-full sm:w-[70%]';
-			case 'lg': return 'w-full sm:w-[85%]';
-			case 'full': return 'w-full';
-			default: return 'w-full sm:w-[70%]';
+			case 'sm':
+				return 'w-full sm:w-[400px]';
+			case 'md':
+				return 'w-full sm:w-[70%]';
+			case 'lg':
+				return 'w-full sm:w-[85%]';
+			case 'full':
+				return 'w-full';
+			default:
+				return 'w-full sm:w-[70%]';
 		}
 	}
 
 	// Get CSS classes for position transform
 	function getPositionTransform(position: string): string {
-		return position === 'left' ? 
-			`translate-x-${props.isOpen ? '0' : '-full'}` : 
-			`translate-x-${props.isOpen ? '0' : 'full'}`;
+		return position === 'left'
+			? `translate-x-${props.isOpen ? '0' : '-full'}`
+			: `translate-x-${props.isOpen ? '0' : 'full'}`;
 	}
 
 	// Escape key handler
@@ -86,7 +91,9 @@
 
 <!-- Drawer Panel -->
 <div
-	class="bg-base-100 fixed top-0 {position === 'left' ? 'left-0' : 'right-0'} z-50 h-full {getWidthClass(width)} 
+	class="bg-base-100 fixed top-0 {position === 'left'
+		? 'left-0'
+		: 'right-0'} z-50 h-full {getWidthClass(width)} 
 		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
 		transform shadow-xl transition-transform duration-300"
 	style="transform: {getPositionTransform(position)};"

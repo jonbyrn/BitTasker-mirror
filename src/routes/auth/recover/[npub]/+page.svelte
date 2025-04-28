@@ -131,10 +131,7 @@
 			}
 
 			// Encrypt private key with new password
-			const { encrypted, salt, iterations } = await encryptNsec(
-				privateKey,
-				newPassword
-			);
+			const { encrypted, salt, iterations } = await encryptNsec(privateKey, newPassword);
 
 			// Complete recovery
 			await authService.completeNostrRecovery({

@@ -49,11 +49,7 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<main
-	data-theme={$darkMode ? 'dustynight' : 'yellowsnow'}
-	id="main"
-	class="select-none"
->
+<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main" class="select-none">
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<NavBar />
 	{/if}

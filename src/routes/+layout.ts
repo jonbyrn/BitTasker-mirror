@@ -6,6 +6,6 @@ export const ssr = false;
 export const csr = true;
 
 if (browser) {
-  // initialize status bar with custom config - will override capacitor config
-  initializeStatusBar();
+	// initialize status bar with custom config - will override capacitor config
+	initializeStatusBar();
 }
