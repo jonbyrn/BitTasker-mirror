@@ -1,80 +1,63 @@
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Device } from '@capacitor/device';
 
-export class StatusBarService {
-  private static instance: StatusBarService;
-  private isCapacitor: boolean = false;
+let isCapacitor: boolean | null = null;
 
-  private constructor() {
-    this.checkPlatform();
-  }
+async function checkPlatform() {
+	if (isCapacitor !== null) return isCapacitor;
+	const info = await Device.getInfo();
+	isCapacitor = info.platform !== 'web';
+	return isCapacitor;
+}
 
-  public static getInstance(): StatusBarService {
-    if (!StatusBarService.instance) {
-      StatusBarService.instance = new StatusBarService();
-    }
-    return StatusBarService.instance;
-  }
+export async function initializeStatusBar() {
+	try {
+		if (await checkPlatform()) {
+			await StatusBar.setOverlaysWebView({ overlay: true });
+			await StatusBar.setBackgroundColor({ color: '#00000000' });
+			await StatusBar.setStyle({ style: Style.Default });
+		}
+	} catch (err) {
+		console.error('Error initializing StatusBar', err);
+	}
+}
 
-  private async checkPlatform() {
-    const info = await Device.getInfo();
-    this.isCapacitor = info.platform !== 'web';
-  }
+export async function setStatusBarStyleDark() {
+	try {
+		if (await checkPlatform()) {
+			await StatusBar.setStyle({ style: Style.Dark });
+		}
+	} catch (err) {
+		console.error('Error setting dark style', err);
+	}
+}
 
-  async initialize() {
-    try {
-      if (this.isCapacitor) {
-        // Make status bar overlay the WebView
-        await StatusBar.setOverlaysWebView({ overlay: true });
-        
-        // Set status bar to be transparent
-        await StatusBar.setBackgroundColor({ color: '#00000000' });
-        
-        // Automatically adjust status bar text color based on background
-        await StatusBar.setStyle({ style: Style.Default });
-      }
-    } catch (err) {
-      console.error('Error initializing StatusBar', err);
-    }
-  }
+export async function setStatusBarStyleLight() {
+	try {
+		if (await checkPlatform()) {
+			await StatusBar.setStyle({ style: Style.Light });
+		}
+	} catch (err) {
+		console.error('Error setting light style', err);
+	}
+}
 
-  async setStatusBarStyleDark() {
-    try {
-      if (this.isCapacitor) {
-        await StatusBar.setStyle({ style: Style.Dark });
-      }
-    } catch (err) {
-      console.error('Error setting dark style', err);
-    }
-  }
+export async function hideStatusBar() {
+	try {
+		if (await checkPlatform()) {
+			await StatusBar.hide();
+		}
+	} catch (err) {
+		console.error('Error hiding status bar', err);
+	}
+}
 
-  async setStatusBarStyleLight() {
-    try {
-      if (this.isCapacitor) {
-        await StatusBar.setStyle({ style: Style.Light });
-      }
-    } catch (err) {
-      console.error('Error setting light style', err);
-    }
-  }
-
-  async hideStatusBar() {
-    try {
-      if (this.isCapacitor) {
-        await StatusBar.hide();
-      }
-    } catch (err) {
-      console.error('Error hiding status bar', err);
-    }
-  }
-
-  async showStatusBar() {
-    try {
-      if (this.isCapacitor) {
-        await StatusBar.show();
-      }
-    } catch (err) {
-      console.error('Error showing status bar', err);
-    }
-  }
+export async function showStatusBar() {
+	try {
+		if (await checkPlatform()) {
+			await StatusBar.show();
+		}
+	} catch (err) {
+		console.error('Error showing status bar', err);
+	}
 } 

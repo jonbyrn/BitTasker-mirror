@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
-	import { StorageKeys } from '$lib/utils/constants/storage';
+	import {
+		setupKeyboardListeners,
+		cleanupKeyboardListeners,
+		keyboardVisible,
+		keyboardHeight,
+		setupGlobalInputFocusScroll
+	} from '$lib/utils/helpers/keyboard';
 	import NavBar from '$lib/components/NavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
@@ -11,9 +18,14 @@
 	const { children } = $props();
 
 	let width = $state(375);
+	let containerStyle = $derived($keyboardVisible ? `padding-bottom: ${$keyboardHeight}px;` : '');
 
 	$effect(() => {
 		setDarkMode($darkMode);
+	});
+
+	onMount(() => {
+		return () => cleanupKeyboardListeners();
 	});
 
 	// Initialize theme based on system preference
@@ -34,12 +46,21 @@
 
 		await getDeviceInfo();
 		await getOnboardingCompleted();
+
+		setupKeyboardListeners();
+		const cleanup = setupGlobalInputFocusScroll();
+		return cleanup;
 	});
 </script>
 
 <svelte:window bind:innerWidth={width} />
 
-<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main" class="select-none">
+<main
+	data-theme={$darkMode ? 'dustynight' : 'yellowsnow'}
+	id="main"
+	class="select-none"
+	style={containerStyle}
+>
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<NavBar />
 	{/if}

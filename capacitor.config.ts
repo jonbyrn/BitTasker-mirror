@@ -12,7 +12,7 @@ const config: CapacitorConfig = {
 	},
 	plugins: {
 		StatusBar: {
-			overlaysWebView: true,
+			overlaysWebView: false,
 			style: 'DEFAULT',
 			backgroundColor: '#00000000'
 		},
@@ -24,6 +24,11 @@ const config: CapacitorConfig = {
 				scopes: ['profile', 'email'],
 				responseType: 'token'
 			}
+		},
+		Keyboard: {
+			resize: 'body',
+			style: 'DARK',
+			resizeOnFullScreen: true
 		}
 	}
 };
