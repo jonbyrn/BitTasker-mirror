@@ -1,9 +1,12 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 /// <references types="houdini-svelte">
 
 /** @type {import('houdini').ConfigFile} */
 const config = {
 	watchSchema: {
-		url: 'http://127.0.0.1:3000/graph'
+		url: process.env.VITE_GRAPHQL_SERVER_ENTRYPOINT
 	},
 	runtimeDir: '.houdini',
 	plugins: {
