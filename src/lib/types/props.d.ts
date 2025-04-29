@@ -30,20 +30,20 @@ export interface InputProps {
 	error?: string;
 	required?: boolean;
 	type?:
-		| 'text'
-		| 'number'
-		| 'date'
-		| 'time'
-		| 'datetime'
-		| 'month'
-		| 'week'
-		| 'email'
-		| 'password'
-		| 'search'
-		| 'tel'
-		| 'url'
-		| 'color'
-		| 'select';
+	| 'text'
+	| 'number'
+	| 'date'
+	| 'time'
+	| 'datetime'
+	| 'month'
+	| 'week'
+	| 'email'
+	| 'password'
+	| 'search'
+	| 'tel'
+	| 'url'
+	| 'color'
+	| 'select';
 	autoComplete?: 'on' | 'off';
 	options?: { label: string; value: string }[];
 	onChange?: (option: { label: string; value: string }) => void;
@@ -55,4 +55,21 @@ export interface LocationProps {
 	location?: Location;
 	defaultLocation?: Location;
 	onLocationSelect: (location: Location) => void;
+}
+
+export interface SwiperProps {
+	items?: any[];
+	loop?: boolean;
+	slidesPerView?: number | 'auto';
+	spaceBetween?: number;
+	initialSlide?: number;
+	additionalSlides?: number;
+	autoPlay?: boolean;
+	autoPlayDuration?: number;
+	centeredSlides?: boolean;
+	currentIndex?: number;
+	swiperStyle?: string;
+	children?: import('svelte').Snippet<[any]>;
+	dots?: import('svelte').Snippet<[any]>;
+	lastEl?: import('svelte').Snippet<[any]>;
 }

@@ -97,6 +97,7 @@
 		"@scure/bip32": "^1.6.2",
 		"@scure/bip39": "^1.5.4",
 		"@types/google.maps": "^3.58.1",
+		"@webbtc/webln-types": "^3.0.0",
 		"axios": "^1.8.4",
 		"barcode-detector": "^3.0.1",
 		"bip32": "^5.0.0-rc.0",

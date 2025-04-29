@@ -1,7 +1,45 @@
-// Wallet Types
-export type NetworkType = 'bitcoin' | 'lightning' | 'liquid';
+import type { NetworkTypeEnum } from "$lib/utils/enums/wallet.enum";
+
 export type NetworkFeeType = 'low' | 'medium' | 'high';
 export type StoragePreference = 'service' | 'self';
+
+export interface Wallet {
+    id: number;
+    network: string;
+    addresses: [
+        {
+            address: string;
+            path: string;
+            type: string;
+            createdAt: string;
+        }
+    ],
+    createdAt: string;
+}
+
+export interface TransactionType {
+    txid: string;
+    type: 'incoming' | 'outgoing' | 'internal';
+    blockHeight: number;
+    confirmed: boolean;
+    confirmationTime: string;
+    fees: number;
+    amount: number;
+}
+
+export interface Transaction {
+    txid: string;
+    type: NetworkTypeEnum;
+    amount: number;
+    fee?: number;
+    confirmations: number;
+    timestamp: number;
+    status: 'pending' | 'confirmed' | 'failed';
+    from: string;
+    to: string;
+    memo?: string;
+    escrow?: EscrowDetails;
+}
 
 export interface WalletBalance {
     btc: number;
@@ -13,25 +51,11 @@ export interface WalletBalance {
 }
 
 export interface WalletAddress {
-    type: NetworkType;
+    type: NetworkTypeEnum;
     address: string;
     label?: string;
     balance?: number;
     path?: string; // BIP32 derivation path
-}
-
-export interface Transaction {
-    id: string;
-    type: NetworkType;
-    amount: number;
-    fee?: number;
-    confirmations: number;
-    timestamp: number;
-    status: 'pending' | 'confirmed' | 'failed';
-    from: string;
-    to: string;
-    memo?: string;
-    escrow?: EscrowDetails;
 }
 
 export interface EscrowDetails {
@@ -66,7 +90,7 @@ export interface WalletState {
     transactions: Transaction[];
     isInitialized: boolean;
     isLocked: boolean;
-    networkType: NetworkType;
+    networkType: NetworkTypeEnum;
     hardwareWalletConnected?: boolean;
     hardwareWalletType?: 'ledger' | 'trezor';
     isEncrypted: boolean;

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { requestProvider, onConnected, onDisconnected, onModalOpened, onModalClosed } from '@getalby/bitcoin-connect';
-	import { walletStore } from '$lib/stores/wallet.store';
 
 	let isConnecting = $state(false);
 	let isConnected = $state(false);

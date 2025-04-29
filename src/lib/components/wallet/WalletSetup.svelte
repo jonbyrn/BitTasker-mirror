@@ -4,7 +4,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { initializeWallet } from '$lib/utils/helpers/wallet';
 
-	let { isWalletInitialized = $bindable(false) } = $props<{ isWalletInitialized: boolean }>();
+	let { onWalletCreated } = $props<{ onWalletCreated: () => void }>();
 
 	let password = $state('');
 	let confirmPassword = $state('');
@@ -23,13 +23,8 @@
 	let passwordsMatch = $derived(password === confirmPassword);
 	const canProceed = $derived(passwordValid && passwordsMatch && hasAcknowledgedWarning);
 
-	// Toggle password visibility
-	function togglePasswordVisibility() {
-		showPassword = !showPassword;
-	}
-
 	// Handle wallet initialization
-	async function initialize() {
+	async function createWallet() {
 		if (!canProceed) return;
 
 		isLoading = true;
@@ -114,7 +109,7 @@
 					<button
 						type="button"
 						class="absolute inset-y-0 right-0 flex items-center pr-3"
-						onclick={togglePasswordVisibility}
+						onclick={() => (showPassword = !showPassword)}
 					>
 						{#if showPassword}
 							<svg
@@ -286,7 +281,7 @@
 			</div>
 		{/if}
 
-		<button class="btn btn-primary w-full" disabled={!canProceed || isLoading} onclick={initialize}>
+		<button class="btn btn-primary w-full" disabled={!canProceed || isLoading} onclick={createWallet}>
 			{isLoading ? 'Creating Wallet...' : 'Create Wallet'}
 		</button>
 	{:else}
@@ -316,14 +311,7 @@
 					Your wallet has been set up. Make sure to keep your seed phrase in a safe place.
 				{/if}
 			</p>
-			<button
-				onclick={() => {
-					isWalletInitialized = true;
-				}}
-				class="btn btn-primary mt-4"
-			>
-				Go to Wallet
-			</button>
+			<button class="btn btn-primary mt-4" onclick={onWalletCreated}> Go to Wallet </button>
 		</div>
 	{/if}
 </div>

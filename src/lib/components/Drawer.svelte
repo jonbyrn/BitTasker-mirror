@@ -62,9 +62,11 @@
 
 	// Get CSS classes for position transform
 	function getPositionTransform(position: string): string {
-		return position === 'left'
-			? `translate-x-${props.isOpen ? '0' : '-full'}`
-			: `translate-x-${props.isOpen ? '0' : 'full'}`;
+		if (props.isOpen) {
+			return 'translate(0)';
+		} else {
+			return position === 'right' ? 'translate(100%)' : 'translate(-100%)';
+		}
 	}
 
 	// Escape key handler

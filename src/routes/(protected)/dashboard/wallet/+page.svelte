@@ -143,11 +143,10 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">Bitcoin Wallet</h2>
+<div class="bg-base-100 mx-auto max-w-4xl rounded-lg py-6 shadow-lg">
+	<h2 class="mb-6 text-2xl font-bold px-6">Wallet</h2>
 
-	{#if !isWalletInitialized}
-		<!-- Wallet Setup Screen -->
+	<!-- {#if !isWalletInitialized}
 		<WalletSetup bind:isWalletInitialized />
 
 		{#if showHardwareWalletOptions}
@@ -170,9 +169,9 @@
 				</button>
 			</div>
 		{/if}
-	{:else}
+	{:else} -->
 		<!-- Tabs -->
-		<div class="tabs tabs-boxed mb-6">
+		<div class="tabs tabs-boxed mb-6 px-6">
 			<button
 				class="tab {activeTab === 'balance' ? 'tab-active' : ''}"
 				onclick={() => onTabChange('balance')}
@@ -197,7 +196,7 @@
 			>
 				Transactions
 			</button>
-			<button
+			<!-- <button
 				class="tab {activeTab === 'lightning' ? 'tab-active' : ''}"
 				onclick={() => onTabChange('lightning')}
 			>
@@ -214,13 +213,13 @@
 				onclick={() => onTabChange('escrow')}
 			>
 				Escrow
-			</button>
+			</button> -->
 		</div>
 
 		<!-- Tab Content -->
 		{#if activeTab === 'balance'}
 			<WalletBalance {onTabChange} />
-		{:else if activeTab === 'receive'}
+		<!-- {:else if activeTab === 'receive'}
 			<WalletReceive />
 		{:else if activeTab === 'send'}
 			<WalletSend {onTabChange} />
@@ -263,7 +262,7 @@
 					onInvoiceGenerated={handleInvoiceGenerated}
 				/>
 			{:else if activeLightningTab === 'pay'}
-				<!-- <LightningPay /> -->
+				<LightningPay />
 			{:else if activeLightningTab === 'bitcoin-connect'}
 				<BitcoinConnect />
 			{/if}
@@ -315,7 +314,7 @@
 						onLiquidEscrowCreated={handleLiquidEscrowCreated}
 					/>
 				{/if}
-			</div>
+			</div> -->
 		{/if}
-	{/if}
+	<!-- {/if} -->
 </div>

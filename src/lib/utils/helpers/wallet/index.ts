@@ -151,7 +151,6 @@ export async function initializeWallet(password: string, storagePreference: 'sel
                     await setWebBiometricKey(addresses[0], encryptedData, 'wallet');
                 }
             }
-            // Store via API with E2E encryption
         }
 
         // Store the user's preference
@@ -161,8 +160,6 @@ export async function initializeWallet(password: string, storagePreference: 'sel
 
         // TODO: Set up the wallet with the API
         // await walletService.getOrCreateWallet();
-        // TODO: Generate an initial address
-        // const newAddress = await walletService.generateNewAddress();
 
         // TODO: Load initial balance and transactions
         // await walletStore.refreshWallet();

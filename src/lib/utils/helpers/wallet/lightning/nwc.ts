@@ -1,6 +1,6 @@
-import type { LightningInvoice, Transaction, NetworkType } from '$lib/types/wallet';
+import type { LightningInvoice, Transaction } from '$lib/types/wallet';
 import { webln } from '@getalby/sdk';
-import { requestProvider } from '@getalby/bitcoin-connect';
+import { NetworkTypeEnum } from '$lib/utils/enums/wallet.enum';
 
 // State variables
 let isConnected = false;
@@ -15,11 +15,11 @@ function parseNwcUrl(nwcUrl: string): { pubkey: string; relay: string; secret: s
     const pubkey = url.hostname;
     const relay = url.searchParams.get('relay') || '';
     const secret = url.searchParams.get('secret') || '';
-    
+
     if (!pubkey || !relay || !secret) {
       throw new Error('Invalid NWC URL format');
     }
-    
+
     return { pubkey, relay, secret };
   } catch (error) {
     console.error('Failed to parse NWC URL:', error);
@@ -32,17 +32,17 @@ export async function connectNostrWalletConnect(nwcUrl: string): Promise<boolean
   try {
     // Parse the NWC URL
     const { pubkey, relay, secret } = parseNwcUrl(nwcUrl);
-    
+
     // Create a new NWC provider
     nwcProvider = new webln.NostrWebLNProvider({
       walletPubkey: pubkey,
       relayUrl: relay,
       secret
     });
-    
+
     // Connect to the wallet
     await nwcProvider.enable();
-    
+
     isConnected = true;
     currentProvider = 'NWC';
     return true;
@@ -103,7 +103,7 @@ export async function payInvoice(
     // Create a transaction object
     const transaction: Transaction = {
       id: result.paymentHash,
-      type: 'lightning' as NetworkType,
+      type: NetworkTypeEnum.LIGHTNING,
       amount: result.amount / 100000000, // Convert to BTC
       timestamp: Date.now(),
       from: '', // This would be the connected wallet's address

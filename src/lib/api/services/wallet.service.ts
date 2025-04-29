@@ -9,17 +9,27 @@
  * - Balance queries
  */
 
-import type { Transaction } from '$lib/types/wallet';
+import type { Transaction, TransactionType, Wallet } from '$lib/types/wallet';
+import { NetworkTypeEnum } from '$lib/utils/enums/wallet.enum';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 
 class BitcoinWalletService extends BaseApiService {
     /**
-     * Get Bitcoin wallet for the authenticated user
+     * Get Bitcoin wallets for the authenticated user
+     * @response 200: Wallets retrieved
+     * @response 400: Failed to retrieve wallets
+     * @response 404: User has no wallets
+     * @returns User wallets
      */
-    async getWallet() {
-        const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET);
-        return response.data;
+    async getWallets(): Promise<Wallet[]> {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get wallets:', error);
+            return [];
+        }
     }
 
     /**
@@ -28,6 +38,45 @@ class BitcoinWalletService extends BaseApiService {
     async createWallet({ address, network }: { address: string, network: string }) {
         const response = await this.post(ENDPOINTS.WALLET.BITCOIN.CREATE, { address, network });
         return response.data;
+    }
+
+    /**
+     * Get all transactions for the authenticated user
+     */
+    async getTransactions(): Promise<TransactionType[]> {
+        try {
+            // TODO: ENDPOINT NOT AVAILABLE
+            // const response = await this.get(ENDPOINTS.WALLET.BITCOIN.TRANSACTIONS);
+            // return response.data;
+            const mockTransactions: TransactionType[] = [
+                {
+                    txid: 'tx1',
+                    type: 'incoming',
+                    amount: 0.00123456,
+                    blockHeight: 680000,
+                    confirmed: true,
+                    confirmationTime: '2025-04-29T20:11:43.988Z',
+                    fees: 0.00005678,
+                },
+                {
+                    txid: 'tx2',
+                    type: 'outgoing',
+                    amount: 0.00045678,
+                    blockHeight: 680001,
+                    confirmed: true,
+                    confirmationTime: '2025-04-29T20:11:43.988Z',
+                    fees: 0.00005678,
+                }
+            ];
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    resolve(mockTransactions);
+                }, 1000);
+            });
+        } catch (error) {
+            console.error('Failed to get transactions:', error);
+            throw error;
+        }
     }
 
     /**
