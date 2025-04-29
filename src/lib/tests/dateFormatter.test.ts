@@ -115,12 +115,12 @@ describe('Date Formatter', () => {
 		it('should catch errors during calculation', () => {
 			// First restore real timers
 			vi.useRealTimers();
-			
+
 			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 			const originalGetTime = Date.prototype.getTime;
 
 			// Mock Date.prototype.getTime instead of Date.now to force an error in the calculation
-			Date.prototype.getTime = function() {
+			Date.prototype.getTime = function () {
 				throw new Error('Test error');
 			};
 
@@ -130,7 +130,7 @@ describe('Date Formatter', () => {
 			// Restore original implementation
 			Date.prototype.getTime = originalGetTime;
 			consoleSpy.mockRestore();
-			
+
 			// Reset fake timers for other tests
 			vi.useFakeTimers();
 			vi.setSystemTime(new Date('2023-01-15T12:00:00Z'));

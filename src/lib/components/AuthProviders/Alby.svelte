@@ -66,17 +66,14 @@
 			const checkRegistration = await authService.checkRegistrationStatus(signerUser.pubkey);
 			if (!checkRegistration.isRegistered) {
 				const deviceId = await getDeviceIdentifier();
-				const { encrypted, salt, iterations } = await encryptNsec(
-					signerUser.pubkey,
-					deviceId
-				);
+				const { encrypted, salt, iterations } = await encryptNsec(signerUser.pubkey, deviceId);
 				const res = await authService.registerWithNostr({
 					publicKey: signerUser.pubkey,
 					encryptedPrivateKey: encrypted.data,
 					iv: encrypted.iv,
 					salt: salt,
 					authTag: encrypted.authTag,
-					iterations,
+					iterations
 					// authMethod: 'alby'
 				});
 				if (res.publicKey) {

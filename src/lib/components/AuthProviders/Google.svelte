@@ -9,10 +9,7 @@
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { SocialLogin } from '@capgo/capacitor-social-login';
 	import { Capacitor } from '@capacitor/core';
-	import {
-		encryptNsec,
-		decryptNsecWithPassword
-	} from '$lib/utils/helpers/auth';
+	import { encryptNsec, decryptNsecWithPassword } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 
 	const isNative = Capacitor.isNativePlatform();

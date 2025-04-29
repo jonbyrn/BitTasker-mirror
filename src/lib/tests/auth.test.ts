@@ -27,10 +27,7 @@ describe('Nostr Key Encryption', () => {
 	};
 
 	it('should encrypt Nostr private key with password', async () => {
-		const result = await encryptNsec(
-			mockNostrPrivateKey,
-			mockRecoveryPassword
-		);
+		const result = await encryptNsec(mockNostrPrivateKey, mockRecoveryPassword);
 
 		expect(result).toHaveProperty('encrypted');
 		expect(result).toHaveProperty('salt');
@@ -46,16 +43,18 @@ describe('Nostr Key Encryption', () => {
 		// Mock implementation for decryptNsecWithBiometrics
 		// This implementation bypasses the normal biometric checks
 		const mockEncryptedDataString = JSON.stringify(mockEncryptionData);
-		
+
 		// Use vi.spyOn to mock the implementation of the imported function
-		const decryptSpy = vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
+		const decryptSpy = vi
+			.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
 			.mockResolvedValue(mockNostrPrivateKey);
-		
-		const importKeySpy = vi.spyOn(await import('$lib/utils/helpers/crypto'), 'importKey')
+
+		const importKeySpy = vi
+			.spyOn(await import('$lib/utils/helpers/crypto'), 'importKey')
 			.mockResolvedValue({} as CryptoKey);
-		
+
 		const decryptedKey = await decryptNsecWithBiometrics(mockEncryptedDataString);
-		
+
 		expect(decryptedKey).toBe(mockNostrPrivateKey);
 		expect(importKeySpy).toHaveBeenCalled();
 		expect(decryptSpy).toHaveBeenCalledWith(
@@ -66,7 +65,7 @@ describe('Nostr Key Encryption', () => {
 			}),
 			expect.anything()
 		);
-		
+
 		// Restore original implementations
 		decryptSpy.mockRestore();
 		importKeySpy.mockRestore();
@@ -81,16 +80,18 @@ describe('Nostr Key Encryption', () => {
 			salt: 'mockSaltData',
 			iterations: 100000
 		};
-		
+
 		// Mock the dependency functions
-		const deriveKeySpy = vi.spyOn(await import('$lib/utils/helpers/crypto'), 'deriveKeyFromPassword')
+		const deriveKeySpy = vi
+			.spyOn(await import('$lib/utils/helpers/crypto'), 'deriveKeyFromPassword')
 			.mockResolvedValue({} as CryptoKey);
-		
-		const decryptSpy = vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
+
+		const decryptSpy = vi
+			.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
 			.mockResolvedValue(mockNostrPrivateKey);
-		
+
 		const decryptedKey = await decryptNsecWithPassword(mockEncryptParams);
-		
+
 		expect(decryptedKey).toBe(mockNostrPrivateKey);
 		expect(deriveKeySpy).toHaveBeenCalled();
 		expect(decryptSpy).toHaveBeenCalledWith(
@@ -101,7 +102,7 @@ describe('Nostr Key Encryption', () => {
 			}),
 			expect.anything()
 		);
-		
+
 		// Restore original implementations
 		deriveKeySpy.mockRestore();
 		decryptSpy.mockRestore();
@@ -109,7 +110,7 @@ describe('Nostr Key Encryption', () => {
 
 	it('should generate a login challenge', async () => {
 		const challenge = await generateLoginChallenge();
-		
+
 		expect(challenge).toHaveProperty('challenge');
 		expect(challenge).toHaveProperty('message');
 		expect(typeof challenge.challenge).toBe('string');
@@ -118,14 +119,17 @@ describe('Nostr Key Encryption', () => {
 	});
 
 	it('should sign a login challenge with a private key', async () => {
-		const challenge = { challenge: 'abcdef1234567890', message: 'Sign this message: abcdef1234567890' };
-		
+		const challenge = {
+			challenge: 'abcdef1234567890',
+			message: 'Sign this message: abcdef1234567890'
+		};
+
 		const signature = await signLoginChallenge(challenge.challenge, mockNostrPrivateKey);
-		
+
 		expect(typeof signature).toBe('string');
 		expect(signature.length).toBeGreaterThan(0);
 	});
-	
+
 	it('should fail to decrypt with wrong password', async () => {
 		const mockEncryptParams = {
 			encryptedPrivateKey: 'mockEncryptedData',
@@ -135,15 +139,18 @@ describe('Nostr Key Encryption', () => {
 			salt: 'mockSaltData',
 			iterations: 100000
 		};
-		
-		// Mock to throw an error on decrypt
-		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'deriveKeyFromPassword')
-			.mockResolvedValue({} as CryptoKey);
-		
-		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
-			.mockRejectedValue(new Error('Decryption failed'));
 
-		await expect(decryptNsecWithPassword(mockEncryptParams))
-			.rejects.toThrow('Failed to decrypt with password');
+		// Mock to throw an error on decrypt
+		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'deriveKeyFromPassword').mockResolvedValue(
+			{} as CryptoKey
+		);
+
+		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt').mockRejectedValue(
+			new Error('Decryption failed')
+		);
+
+		await expect(decryptNsecWithPassword(mockEncryptParams)).rejects.toThrow(
+			'Failed to decrypt with password'
+		);
 	});
 });

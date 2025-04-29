@@ -39,7 +39,8 @@ export const ENDPOINTS = {
 		ACCOUNT_RECOVERY_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/update/nostr/recovery-key`,
 		NOSTR_RECOVERY_INITIATE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/initiate`,
 		NOSTR_RECOVERY_COMPLETE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/complete`,
-		NOSTR_RECOVERY_DATA: (npub: string) => `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`,
+		NOSTR_RECOVERY_DATA: (npub: string) =>
+			`${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`,
 		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`
 	},
 
@@ -101,7 +102,8 @@ export const ENDPOINTS = {
 		GET_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, // get services package by id
 		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
 		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
-		PURCHASE_PACKAGE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
+		PURCHASE_PACKAGE: (id: string) =>
+			`${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
 	},
 
 	// Saved Searches endpoints
@@ -111,7 +113,8 @@ export const ENDPOINTS = {
 		DETAILS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
 		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
 		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
-		NOTIFICATIONS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/notifications`,
+		NOTIFICATIONS: (id: string) =>
+			`${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/notifications`,
 		MARK_AS_READ: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/mark-as-read`
 	},
 

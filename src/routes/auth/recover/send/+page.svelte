@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import authService from '$lib/api/services/auth.service';
 	import { validateEmail } from '$lib/utils/helpers/validators';
+	import authService from '$lib/api/services/auth.service';
 
 	let email = $state('');
 	let isLoading = $state(false);

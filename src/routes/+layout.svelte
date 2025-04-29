@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
-	import { StorageKeys } from '$lib/utils/constants/storage';
+	import {
+		setupKeyboardListeners,
+		keyboardVisible,
+		keyboardHeight,
+		setupGlobalInputFocusScroll
+	} from '$lib/utils/helpers/keyboard';
 	import NavBar from '$lib/components/NavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
@@ -34,6 +40,10 @@
 
 		await getDeviceInfo();
 		await getOnboardingCompleted();
+
+		setupKeyboardListeners();
+		const cleanup = setupGlobalInputFocusScroll();
+		return cleanup;
 	});
 </script>
 
