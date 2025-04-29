@@ -1,12 +1,10 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
 /// <references types="houdini-svelte">
 
 /** @type {import('houdini').ConfigFile} */
 const config = {
 	watchSchema: {
-		url: process.env.VITE_GRAPHQL_SERVER_ENTRYPOINT
+		// TODO: change to local graphql server while developing
+		url: 'https://devbackend.production.bittasker.hedgehackers.finance/graph'
 	},
 	runtimeDir: '.houdini',
 	plugins: {
