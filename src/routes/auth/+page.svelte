@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Credentials } from '$lib/types/auth';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
@@ -21,13 +22,11 @@
 	import {
 		checkWebBiometricAvailability,
 		getWebBiometricData,
-		setWebBiometricKey,
-		verifyIdentity
+		setWebBiometricKey
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import BottomNavBar from '$lib/components/NavBar.svelte';
-	import type { Credentials } from '$lib/types/auth';
 
 	let error = $state('');
 	let isLoading = $state(false);

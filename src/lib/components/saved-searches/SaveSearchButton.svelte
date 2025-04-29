@@ -205,7 +205,9 @@
 					<span class="label-text">Active search</span>
 				</label>
 				<label class="label" for="isActive">
-					<span class="label-text-alt whitespace-normal">Inactive searches won't appear in your dashboard</span>
+					<span class="label-text-alt whitespace-normal"
+						>Inactive searches won't appear in your dashboard</span
+					>
 				</label>
 			</div>
 
