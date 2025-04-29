@@ -99,7 +99,7 @@
 			{/if}
 
 			<!-- Main Content -->
-			<div class="mb-24 flex-grow overflow-hidden">
+			<div class="mb-24 flex-grow overflow-y-visible">
 				{@render children()}
 			</div>
 		</div>

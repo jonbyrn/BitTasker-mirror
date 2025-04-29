@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { TaskResponse, SearchTasksParams, TaskData } from '$lib/types/task';
+	import type { SearchTasksParams, TaskData } from '$lib/types/task';
 	import { formatDistanceToNow } from 'date-fns';
 	import {
 		TaskStatusEnum,
@@ -7,15 +7,33 @@
 		SortByEnum,
 		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
-	import taskService from '$lib/api/gql/services/task.service';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
 	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
+	import { graphql, type SearchTasksDto } from '$houdini';
+	import { browser } from '$app/environment';
 
-	// State
+	// Function to create initial search parameters conforming to SearchTasksDto
+	function getInitialSearchParams(): Partial<SearchTasksDto> {
+		return {
+			taskType: undefined,
+			minBudget: undefined,
+			maxBudget: undefined,
+			budgetType: undefined,
+			categoryIds: [],
+			skillIds: [],
+			page: 1,
+			limit: 10,
+			sortBy: SortByEnum.CREATED_AT,
+			sortOrder: SortOrderEnum.DESC
+		};
+	}
+
+	// Reactive state for search parameters and UI controls
+	let searchParams = $state<Partial<SearchTasksDto>>(getInitialSearchParams());
 	let searchQuery = $state('');
 	let selectedCategory = $state({ label: '', value: '' });
 	let selectedTaskType = $state({ label: '', value: '' });
@@ -23,13 +41,111 @@
 	let sortOrder = $state({ label: 'Descending', value: SortOrderEnum.DESC });
 	let minBudget = $state('');
 	let maxBudget = $state('');
-	let currentPage = $state(1);
-	let limit = $state(10);
-	let tasks = $state<TaskResponse['data']>([]);
-	let meta = $state<TaskResponse['pagination'] | null>(null);
-	let loading = $state(false);
-	let loadingMore = $state(false);
-	let error = $state<string | null>(null);
+
+	// Houdini Query Store
+	const searchTasksQuery = $derived(
+		graphql(`
+			query SearchTasks($input: SearchTasksDto!) {
+				tasks(input: $input) {
+					items {
+						attachments {
+							fileName
+							fileSize
+							fileUrl
+						}
+						bids {
+							amount
+							clicks
+							clientResponse
+							clientViewed
+							clientViewedAt
+							competitiveScore
+							coverLetter
+							createdAt
+							currency
+							description
+							estimatedDuration
+							estimatedHours
+							expiresAt
+							featured
+							hourlyRate
+							id
+							impressions
+							isWithdrawn
+							paymentType
+							proposedApproach
+							rank
+							responseTime
+							status
+							updatedAt
+							visibility
+							withdrawnReason
+						}
+						budget
+						budgetType
+						categoryIds
+						client {
+							averageRating
+							createdAt
+							experiencePoints
+							id
+							level
+							tasksCompleted
+							tasksPosted
+							updatedAt
+							userId
+							verificationLevel
+							user {
+								name
+							}
+						}
+						createdAt
+						dateRange {
+							end
+							start
+						}
+						deadlineDate
+						deletedAt
+						description
+						dropOffLocation {
+							displayName
+							latitude
+							locationLoaded
+							longitude
+							zipCode
+						}
+						estimatedHours
+						freelancerId
+						id
+						imageUrls
+						isRemovals
+						pickupLocation {
+							displayName
+							latitude
+							locationLoaded
+							longitude
+							zipCode
+						}
+						skillIds
+						status
+						taskType
+						title
+						updatedAt
+						visibility
+					}
+					meta {
+						currentPage
+						itemCount
+						itemsPerPage
+						totalItems
+						totalPages
+						hasNextPage
+						hasPreviousPage
+					}
+				}
+			}
+		`)
+	);
 
 	// Recommendations state
 	let recommendedTasks = $state<TaskData[]>([]);
@@ -46,100 +162,17 @@
 	let observer: IntersectionObserver | null = null;
 	let scrollTarget = $state<HTMLElement | null>(null);
 
-	// Track if component is mounted
-	let isMounted = false;
-
-	// Search parameters for advanced filtering
-	function getInitialSearchParams() {
-		return {
-			searchTerm: '',
-			status: [TaskStatusEnum.OPEN],
-			taskType: undefined,
-			minBudget: undefined,
-			maxBudget: undefined,
-			budgetType: undefined,
-			categoryIds: [],
-			skills: [],
-			page: 1,
-			limit: 10,
-			sortBy: SortByEnum.CREATED_AT,
-			sortOrder: SortOrderEnum.DESC
-		};
-	}
-
-	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
-
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(null);
 	let isSidebarOpen = $state(false);
 
-	// Load tasks with filters
-	async function loadTasks(resetTasks = true) {
-		try {
-			if (resetTasks) {
-				loading = true;
-				error = null;
-			} else {
-				loadingMore = true;
-			}
-
-			// Synchronize standard filters with searchParams
-			const currentParams = { ...searchParams };
-			const currentPageValue = currentPage;
-			const limitValue = limit;
-			const sortByValue = sortBy.value;
-			const sortOrderValue = sortOrder.value;
-			const searchQueryValue = searchQuery.trim() || undefined;
-
-			searchParams = {
-				...currentParams,
-				page: currentPageValue,
-				limit: limitValue,
-				sortBy: sortByValue,
-				sortOrder: sortOrderValue,
-				searchTerm: searchQueryValue
-			};
-
-			if (selectedCategory.value) {
-				searchParams.categoryIds = [parseInt(selectedCategory.value, 10)];
-			}
-
-			if (selectedTaskType.value) {
-				searchParams.taskType = selectedTaskType.value as TaskTypeEnum;
-			}
-
-			if (minBudget && maxBudget && parseFloat(minBudget) < parseFloat(maxBudget)) {
-				searchParams.minBudget = parseFloat(minBudget);
-				searchParams.maxBudget = parseFloat(maxBudget);
-			} else if (minBudget && parseFloat(minBudget) > 0) {
-				searchParams.minBudget = parseFloat(minBudget);
-			} else if (maxBudget && parseFloat(maxBudget) > 0) {
-				searchParams.maxBudget = parseFloat(maxBudget);
-			}
-
-			const response = await taskService.getAllTasks(searchParams);
-
-			if (resetTasks) {
-				tasks = response.data;
-			} else {
-				tasks = [...tasks, ...response.data];
-			}
-
-			meta = response.pagination;
-		} catch (err) {
-			console.error('Error loading tasks:', err);
-			error = 'Failed to load tasks. Please try again.';
-		} finally {
-			loading = false;
-			loadingMore = false;
-		}
-	}
-
 	// Load more tasks (for infinite scroll)
 	async function loadMoreTasks() {
-		if (meta && meta.hasNextPage && !loadingMore) {
-			currentPage += 1;
-			await loadTasks(false);
+		if ($searchTasksQuery.data?.tasks.meta?.hasNextPage && !$searchTasksQuery.fetching) {
+			const nextPage = ($searchTasksQuery.data?.tasks.meta?.currentPage ?? 0) + 1;
+			searchParams = { ...searchParams, page: nextPage };
+			// Fetch with updated page param
+			await searchTasksQuery.fetch({ variables: { input: searchParams } });
 		}
 	}
 
@@ -166,54 +199,84 @@
 		};
 	}
 
-	// Handle filter changes with debounce
-	const debouncedLoadTasks = debounce(() => {
-		loadTasks();
-	}, 500);
+	// Debounced function to update searchParams
+	const debouncedUpdateSearchParams = debounce(async () => {
+		console.log('[FindTasks] Debounced update triggered. Current searchQuery:', searchQuery);
+		const currentPageValue = 1;
+		const limitValue = searchParams.limit;
+		const sortByValue = sortBy.value;
+		const sortOrderValue = sortOrder.value;
+		const searchQueryValue = searchQuery.trim() || undefined;
+		const categoryId = selectedCategory.value ? parseInt(selectedCategory.value, 10) : undefined;
+		const taskTypeValue = selectedTaskType.value
+			? (selectedTaskType.value as TaskTypeEnum)
+			: undefined;
+		let minBudgetValue = searchParams.minBudget;
+		let maxBudgetValue = searchParams.maxBudget;
 
-	function handleFilterChange() {
-		loading = true; // Update loading state immediately
-		currentPage = 1; // Reset to first page
+		if (minBudget && maxBudget && parseFloat(minBudget) < parseFloat(maxBudget)) {
+			minBudgetValue = parseFloat(minBudget);
+			maxBudgetValue = parseFloat(maxBudget);
+		} else if (minBudget && parseFloat(minBudget) > 0) {
+			minBudgetValue = parseFloat(minBudget);
+			maxBudgetValue = undefined;
+		} else if (maxBudget && parseFloat(maxBudget) > 0) {
+			minBudgetValue = undefined;
+			maxBudgetValue = parseFloat(maxBudget);
+		} else {
+			minBudgetValue = undefined;
+			maxBudgetValue = undefined;
+		}
+
+		const newParams: Partial<SearchTasksDto> = {
+			page: currentPageValue,
+			limit: limitValue,
+			sortBy: sortByValue,
+			sortOrder: sortOrderValue,
+			searchTerm: searchQueryValue,
+			categoryIds: categoryId ? [categoryId] : [],
+			taskType: taskTypeValue ? [taskTypeValue] : undefined,
+			minBudget: minBudgetValue,
+			maxBudget: maxBudgetValue
+		};
+
+		// Update the state directly (using Partial<SearchTasksDto>)
+		searchParams = { ...searchParams, ...newParams };
+
+		await searchTasksQuery.fetch({ variables: { input: searchParams } });
+	}, 1000);
+
+	// Handle simple filter changes (search input, quick task type toggles)
+	function handleSimpleFilterChange() {
 		searchParams.page = 1;
-		debouncedLoadTasks();
+		debouncedUpdateSearchParams();
 	}
 
 	// Handle advanced filter drawer apply
 	function handleFilterApply(filters: SearchTasksParams) {
-		// Merge filters with current search params and reset pagination
-		searchParams = {
+		isFilterDrawerOpen = false;
+		const dtoFilters: Partial<SearchTasksDto> = {
 			...filters,
+			budgetType: filters.budgetType ? [filters.budgetType] : undefined,
+			taskType: filters.taskType ? [filters.taskType] : undefined,
+			skillIds: filters.skillIds // Use skillIds from the SearchTasksParams type
+		};
+		searchParams = {
+			...searchParams,
+			...dtoFilters,
 			page: 1
 		};
-		currentPage = 1;
 
-		// Sync with form controls
+		// Update UI controls based on applied filters
 		searchQuery = filters.searchTerm || '';
-
-		if (filters.minBudget) {
-			minBudget = String(filters.minBudget);
-		}
-
-		if (filters.maxBudget) {
-			maxBudget = String(filters.maxBudget);
-		}
-
-		if (filters.taskType) {
-			selectedTaskType = {
-				label: filters.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In Person',
-				value: filters.taskType
-			};
-		}
-
-		loadTasks();
-	}
-
-	// Handle page change
-	function handlePageChange(newPage: number) {
-		currentPage = newPage;
-		searchParams.page = newPage;
-		loading = true;
-		loadTasks(); // Immediate load for page changes
+		minBudget = filters.minBudget ? String(filters.minBudget) : '';
+		maxBudget = filters.maxBudget ? String(filters.maxBudget) : '';
+		selectedTaskType = filters.taskType
+			? {
+					label: filters.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In Person',
+					value: filters.taskType
+				}
+			: { label: '', value: '' };
 	}
 
 	// Clear filters
@@ -226,12 +289,8 @@
 		minBudget = '';
 		maxBudget = '';
 
-		// Reset search params
-		searchParams = getInitialSearchParams();
-		const limitValue = limit; // Capture current limit value
-		searchParams.limit = limitValue;
-
-		handleFilterChange();
+		const currentLimit = searchParams.limit;
+		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 	}
 
 	// Format date
@@ -251,13 +310,11 @@
 
 	// Navigate to task details
 	function goToTaskDetails(taskId: string) {
-		// This would typically use a router to navigate
 		window.location.href = `/tasks/${taskId}`;
 	}
 
 	// Handle save search success
 	function handleSearchSaved() {
-		// Refresh saved searches list by toggling state in a closure
 		const currentState = showSavedSearches;
 		showSavedSearches = false;
 		setTimeout(() => {
@@ -268,7 +325,6 @@
 	// Handle sidebar close
 	function handleSidebarClose() {
 		isSidebarOpen = false;
-		// Clear selected task after transition completes
 		setTimeout(() => {
 			selectedTaskId = null;
 		}, 300);
@@ -276,10 +332,16 @@
 
 	// Setup intersection observer for infinite scroll
 	function setupInfiniteScroll() {
-		if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
+		if (!browser) return;
+
+		if ('IntersectionObserver' in window) {
 			observer = new IntersectionObserver(
 				(entries) => {
-					if (entries[0].isIntersecting && meta?.hasNextPage && !loading && !loadingMore) {
+					if (
+						entries[0].isIntersecting &&
+						$searchTasksQuery.data?.tasks.meta?.hasNextPage &&
+						!$searchTasksQuery.fetching
+					) {
 						loadMoreTasks();
 					}
 				},
@@ -296,7 +358,10 @@
 	function cleanupInfiniteScroll() {
 		if (observer && scrollTarget) {
 			observer.unobserve(scrollTarget);
+		}
+		if (observer) {
 			observer.disconnect();
+			observer = null;
 		}
 	}
 
@@ -307,27 +372,36 @@
 
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
+		if (!type) {
+			searchParams = { ...searchParams, taskType: undefined, page: 1 };
+			return;
+		}
+		const currentTypes = searchParams.taskType ?? [];
+		const typeExists = currentTypes.includes(type);
+
 		searchParams = {
 			...searchParams,
-			taskType: searchParams.taskType === type ? undefined : type,
+			// If type exists, filter it out. Otherwise, add it.
+			// If removing the only type results in an empty array, set to undefined.
+			taskType: typeExists
+				? currentTypes.filter((t) => t !== type).length > 0
+					? currentTypes.filter((t) => t !== type)
+					: undefined
+				: [...currentTypes, type],
 			page: 1
 		};
-		currentPage = 1;
-		loadTasks();
 	}
 
-	// Initial load
+	// Initial load & setup effect
 	$effect(() => {
-		if (!isMounted) {
-			isMounted = true;
-			loadTasks();
+		if (browser) {
 			loadRecommendations();
 			setupInfiniteScroll();
-		}
 
-		return () => {
-			cleanupInfiniteScroll();
-		};
+			return () => {
+				cleanupInfiniteScroll();
+			};
+		}
 	});
 </script>
 
@@ -347,7 +421,7 @@
 				class="input input-bordered w-full pl-10"
 				placeholder="Search tasks..."
 				bind:value={searchQuery}
-				oninput={handleFilterChange}
+				oninput={handleSimpleFilterChange}
 			/>
 			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 				<svg
@@ -371,14 +445,14 @@
 		<div class="hidden gap-2 sm:flex">
 			<button
 				class="btn btn-sm"
-				class:btn-primary={searchParams.taskType === TaskTypeEnum.REMOTE}
+				class:btn-primary={searchParams.taskType?.includes(TaskTypeEnum.REMOTE)}
 				onclick={() => toggleTaskType(TaskTypeEnum.REMOTE)}
 			>
 				Remote
 			</button>
 			<button
 				class="btn btn-sm"
-				class:btn-primary={searchParams.taskType === TaskTypeEnum.IN_PERSON}
+				class:btn-primary={searchParams.taskType?.includes(TaskTypeEnum.IN_PERSON)}
 				onclick={() => toggleTaskType(TaskTypeEnum.IN_PERSON)}
 			>
 				In Person
@@ -411,14 +485,33 @@
 	<!-- Results count -->
 	<div class="mb-4">
 		<p class="text-base-content/70">
-			{#if loading}
+			{#if $searchTasksQuery.fetching && searchParams.page === 1}
 				<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
-			{:else if meta}
-				Showing {(currentPage - 1) * limit + 1} - {Math.min(currentPage * limit, meta.total)}
-				of {meta.total} tasks
+			{:else if $searchTasksQuery.data?.tasks.meta}
+				Showing {$searchTasksQuery.data.tasks.items.length}
+				of {$searchTasksQuery.data.tasks.meta.totalItems} tasks
 			{/if}
 		</p>
 	</div>
+
+	<!-- Error Message -->
+	{#if $searchTasksQuery.errors}
+		<div class="alert alert-error mb-4">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+				><path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/></svg
+			>
+			<span>Error loading tasks: {$searchTasksQuery.errors[0].message}. Please try again.</span>
+		</div>
+	{/if}
 
 	<!-- Personalized Recommendations Section -->
 	{#if showRecommendations}
@@ -452,7 +545,7 @@
 	{/if}
 
 	<!-- Task List -->
-	{#if loading}
+	{#if $searchTasksQuery.fetching && searchParams.page === 1}
 		<div class="card bg-base-100 space-y-4 shadow-md">
 			{#each Array(4) as _}
 				<div class="card-body animate-pulse">
@@ -491,9 +584,9 @@
 				<div class="divider mx-auto w-[90%]"></div>
 			{/each}
 		</div>
-	{:else if tasks.length > 0}
+	{:else if $searchTasksQuery.data?.tasks.items && $searchTasksQuery.data.tasks.items.length > 0}
 		<div class="card bg-base-100 space-y-4 shadow-md transition-shadow hover:shadow-lg">
-			{#each tasks as task, index}
+			{#each $searchTasksQuery.data.tasks.items as task, index (task.id)}
 				<div class="card-body">
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
@@ -512,7 +605,7 @@
 									<p class="text-base-content/60 text-sm">Deadline</p>
 									<p class="font-medium">{formatTimeAgo(task.deadlineDate)}</p>
 								</div>
-							{:else if task.dateRange}
+							{:else if task.dateRange?.start && task.dateRange?.end}
 								<div>
 									<p class="text-base-content/60 text-sm">Date Range</p>
 									<p class="font-medium">
@@ -522,19 +615,21 @@
 								</div>
 							{/if}
 
-							{#if task.client?.user}
+							{#if task.client?.userId}
 								<div>
 									<p class="text-base-content/60 text-sm">Posted By</p>
-									<p class="font-medium">{task.client.user.email}</p>
+									<p class="font-medium">{task.client.user.name}</p>
 								</div>
 							{/if}
 						</div>
 					</div>
 
-					{#if task.requiredSkills && task.requiredSkills.length > 0}
+					{#if task.skillIds && task.skillIds.length > 0}
 						<div class="mb-4 flex flex-wrap gap-2">
-							{#each task.requiredSkills as skillItem}
-								<span class="badge badge-primary badge-outline">{skillItem.skill.name}</span>
+							{#each task.skillIds as skillItem}
+								{#if skillItem}
+									<span class="badge badge-primary badge-outline">{skillItem}</span>
+								{/if}
 							{/each}
 						</div>
 					{/if}
@@ -556,7 +651,7 @@
 										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
 									/>
 								</svg>
-								{task.bids?.length || 0} Bids
+								{task.bids?.length ?? 0} Bids
 							</div>
 						</div>
 
@@ -590,7 +685,7 @@
 					</div>
 				</div>
 
-				{#if index < tasks.length - 1}
+				{#if index < $searchTasksQuery.data.tasks.items.length - 1}
 					<div class="divider mx-auto w-[90%]"></div>
 				{/if}
 			{/each}
@@ -598,44 +693,13 @@
 
 		<!-- Infinite Scroll Target -->
 		<div bind:this={scrollTarget} class="mt-4 h-10">
-			{#if loadingMore}
+			{#if $searchTasksQuery.fetching && searchParams.page && searchParams.page > 1}
 				<div class="flex justify-center py-2">
 					<span class="loading loading-spinner loading-md"></span>
 				</div>
 			{/if}
 		</div>
-
-		<!-- Comment out pagination since we're using infinite scroll -->
-		<!-- 
-			{#if meta && meta.totalPages > 1}
-				<div class="join mt-6 flex justify-center">
-					<button
-						class="join-item btn"
-						disabled={currentPage === 1}
-						onclick={() => handlePageChange(currentPage - 1)}
-					>
-						«
-					</button>
-					{#each Array(meta.totalPages) as _, i}
-						<button
-							class="join-item btn"
-							class:btn-active={currentPage === i + 1}
-							onclick={() => handlePageChange(i + 1)}
-						>
-							{i + 1}
-						</button>
-					{/each}
-					<button
-						class="join-item btn"
-						disabled={currentPage === meta.totalPages}
-						onclick={() => handlePageChange(currentPage + 1)}
-					>
-						»
-					</button>
-				</div>
-			{/if}
-			-->
-	{:else}
+	{:else if !$searchTasksQuery.fetching}
 		<div class="py-12 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

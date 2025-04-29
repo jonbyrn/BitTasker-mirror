@@ -4,12 +4,12 @@
 -->
 <script lang="ts">
 	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
-	import type { SearchTasksParams } from '$lib/types/task.d';
+	import type { SearchTasksDto } from '$houdini';
 	import savedSearchesService from '$lib/api/services/saved-searches.service';
 
 	// Props
 	let { searchParams, onSaved } = $props<{
-		searchParams: SearchTasksParams;
+		searchParams: Partial<SearchTasksDto>;
 		onSaved: () => void;
 	}>();
 
@@ -25,14 +25,14 @@
 	// Has active search parameters
 	let hasActiveParams = $state(false);
 	$effect(() => {
-		// Check if there are any meaningful search parameters set
+		// Check if there are any meaningful search parameters set based on DTO
 		hasActiveParams =
 			!!searchParams.searchTerm ||
-			!!searchParams.taskType ||
+			(searchParams.taskType && searchParams.taskType.length > 0) ||
 			!!searchParams.location ||
 			(searchParams.status && searchParams.status.length > 0) ||
 			(searchParams.categoryIds && searchParams.categoryIds.length > 0) ||
-			(searchParams.skills && searchParams.skills.length > 0) ||
+			(searchParams.skillIds && searchParams.skillIds.length > 0) ||
 			!!searchParams.minBudget ||
 			!!searchParams.maxBudget;
 	});
@@ -44,8 +44,8 @@
 
 		if (searchParams.searchTerm) {
 			defaultName = `"${searchParams.searchTerm}"`;
-		} else if (searchParams.taskType) {
-			defaultName = `${searchParams.taskType} Tasks`;
+		} else if (searchParams.taskType && searchParams.taskType.length > 0) {
+			defaultName = `${searchParams.taskType[0]} Tasks`;
 		} else if (searchParams.location) {
 			defaultName = `Tasks near ${searchParams.location}`;
 		} else if (searchParams.categoryIds && searchParams.categoryIds.length > 0) {
@@ -75,10 +75,25 @@
 			isSaving = true;
 			error = null;
 
+			// The service expects SearchTasksParams, so we need to convert
+			// Convert Partial<SearchTasksDto> back to SearchTasksParams for the service
+			const paramsForService = {
+				...searchParams,
+				budgetType: searchParams.budgetType?.[0],
+				taskType: searchParams.taskType?.[0],
+				skillIds: searchParams.skillIds,
+				skills: undefined
+			};
+
+			// Remove undefined keys before sending to backend if necessary
+			Object.keys(paramsForService).forEach(
+				(key) => paramsForService[key] === undefined && delete paramsForService[key]
+			);
+
 			// Save search with notification preferences and active status
 			await savedSearchesService.createSavedSearch(
 				searchName,
-				searchParams,
+				paramsForService,
 				notifyOnMatch,
 				notificationFrequency
 			);
@@ -152,8 +167,8 @@
 						<div class="badge badge-sm">{searchParams.searchTerm}</div>
 					{/if}
 
-					{#if searchParams.taskType}
-						<div class="badge badge-sm">{searchParams.taskType}</div>
+					{#if searchParams.taskType && searchParams.taskType.length > 0}
+						<div class="badge badge-sm">{searchParams.taskType.join(', ')}</div>
 					{/if}
 
 					{#if searchParams.location}
@@ -205,7 +220,9 @@
 					<span class="label-text">Active search</span>
 				</label>
 				<label class="label" for="isActive">
-					<span class="label-text-alt whitespace-normal">Inactive searches won't appear in your dashboard</span>
+					<span class="label-text-alt whitespace-normal"
+						>Inactive searches won't appear in your dashboard</span
+					>
 				</label>
 			</div>
 

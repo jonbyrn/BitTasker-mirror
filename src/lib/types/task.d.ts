@@ -1,5 +1,11 @@
 import type { TaskBid } from './bid';
-import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
+import {
+	BudgetTypeEnum,
+	TaskTypeEnum,
+	TaskStatusEnum,
+	SortByEnum,
+	SortOrderEnum
+} from '$lib/utils/enums/task.enum';
 
 export interface Location {
 	displayName: string;
@@ -27,7 +33,7 @@ export interface CreateTaskParams {
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	dateRange?: DateRange;
-	attachments?: { fileName: string; fileUrl: string, fileSize: number }[];
+	attachments?: { fileName: string; fileUrl: string; fileSize: number }[];
 }
 
 export interface Task {
@@ -55,7 +61,7 @@ export interface Task {
 	cancelledAt: string | null;
 	deletedAt: string | null;
 	isDeleted: boolean;
-	attachments?: { fileName: string; fileUrl: string, fileSize: number }[];
+	attachments?: { fileName: string; fileUrl: string; fileSize: number }[];
 	categories: Array<{
 		id: number;
 		taskId: number;
@@ -113,7 +119,7 @@ export interface SearchTasksParams {
 	limit?: number;
 	budgetType?: BudgetTypeEnum;
 	categoryIds?: number[];
-	skills?: number[];
+	skillIds?: number[];
 	location?: string;
 	radius?: number;
 	deadlineBefore?: string;

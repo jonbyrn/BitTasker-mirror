@@ -118,6 +118,20 @@ input ChangePasswordInput {
   newPassword: String!
 }
 
+type Client {
+  averageRating: Float
+  createdAt: DateTime!
+  experiencePoints: Int!
+  id: ID!
+  level: Int!
+  tasksCompleted: Int!
+  tasksPosted: Int!
+  updatedAt: DateTime!
+  user: User!
+  userId: Int!
+  verificationLevel: VerificationLevel!
+}
+
 input CreateBidInput {
   amount: Float!
   coverLetter: String
@@ -264,6 +278,8 @@ type PaginatedTasksResponse {
 
 type PaginationMeta {
   currentPage: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
   itemCount: Int!
   itemsPerPage: Int!
   totalItems: Int!
@@ -363,6 +379,7 @@ type Task {
   budget: Float
   budgetType: BudgetType!
   categoryIds: [Int!]
+  client: Client!
   clientId: Int!
   createdAt: String!
   dateRange: DateRangeOutput
