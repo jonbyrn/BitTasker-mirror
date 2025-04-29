@@ -66,16 +66,16 @@ const TAG_LENGTH = 128;
 export async function encryptMnemonic(mnemonic: string, password: string): Promise<EncryptionData> {
     // Generate a random salt
     const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
-    
+
     // Use the centralized function to derive the key
     const key = await deriveKeyFromPassword(password, salt, PBKDF2_ITERATIONS);
-    
+
     // Use the centralized function to encrypt the data
     const encryptedData = await encrypt(mnemonic, key);
-    
+
     // Get the salt as base64
     const saltBase64 = bytesToBase64(salt);
-    
+
     // Export the key for storage (the key is now extractable)
     const exportedKey = await exportKey(key);
 
@@ -134,14 +134,11 @@ export async function initializeWallet(password: string, storagePreference: 'sel
     try {
         // Generate a new mnemonic for the wallet
         const mnemonic = generateMnemonic();
-        console.log('mnemonic', mnemonic);
         const addresses = deriveAddresses(mnemonic);
-        console.log('addresses', addresses);
 
         if (storagePreference === 'service') {
             // Encrypt the mnemonic with the password
             const encryptedData = await encryptMnemonic(mnemonic, password);
-            console.log('encryptedData', encryptedData);
 
             // Check if biometric auth is available
             const biometricsAvailable = await checkBiometricAvailability();
