@@ -1,56 +1,10 @@
 <script lang="ts">
-	import type { Bid } from '$lib/types/bid';
 	import { goto } from '$app/navigation';
-	import bidService from '$lib/api/services/bid.service';
 	import BidSummaryCard from '$lib/components/bidding/BidSummaryCard.svelte';
-	import { graphql } from '$houdini';
+	import { MyBidsStore } from '$houdini';
 	import { onMount } from 'svelte';
-	const bidsStore = $derived(
-		graphql(`
-			query Bids {
-				bids {
-					received {
-						data {
-							id
-							freelancer {
-								id
-								user {
-									name
-								}
-							}
-							amount
-							currency
-							status
-							description
-							task {
-								title
-								id
-							}
-						}
-					}
-					submitted {
-						data {
-							id
-							freelancer {
-								id
-								user {
-									name
-								}
-							}
-							amount
-							currency
-							status
-							description
-							task {
-								title
-								id
-							}
-						}
-					}
-				}
-			}
-		`)
-	);
+
+	const bidsStore = new MyBidsStore();
 
 	// State
 	let isLoading = $state(false);

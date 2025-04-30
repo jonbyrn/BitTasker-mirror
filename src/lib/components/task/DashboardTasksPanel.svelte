@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { graphql, type Tasks$result } from '$houdini';
+	import { TasksStore, type Tasks$result } from '$houdini';
 	import { user } from '$lib/stores/user.store';
-	import type { Task } from '$lib/types/task';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -108,74 +107,27 @@
 		}).format(amount);
 	}
 
-	const store = $derived(
-		graphql(`
-			query Tasks {
-				myTasks {
-					budget
-					budgetType
-					categoryIds
-					clientId
-					createdAt
-					deadlineDate
-					deletedAt
-					description
-					dropOffLocation {
-						displayName
-						latitude
-						locationLoaded
-						longitude
-						zipCode
-					}
-					estimatedHours
-					freelancerId
-					id
-					imageUrls
-					isRemovals
-					pickupLocation {
-						displayName
-						latitude
-						locationLoaded
-						longitude
-						zipCode
-					}
-					skillIds
-					status
-					taskType
-					title
-					updatedAt
-					visibility
-					dateRange {
-						end
-						start
-					}
-					bids {
-						id
-					}
-				}
-			}
-		`)
-	);
+	const tasksStore = new TasksStore();
 
 	$effect(() => {
-		if ($store.fetching) {
+		if ($tasksStore.fetching) {
 			loading = true;
 		} else {
 			loading = false;
 		}
-		if ($store.errors) {
-			error = $store.errors[0].message;
+		if ($tasksStore.errors) {
+			error = $tasksStore.errors[0].message;
 		}
 	});
 
 	onMount(() => {
-		store.fetch();
+		tasksStore.fetch();
 	});
 </script>
 
 <div class="card-body">
 	<!-- Loading State -->
-	{#if loading || $store.fetching}
+	{#if loading || $tasksStore.fetching}
 		<div class="space-y-6">
 			{#each Array(3) as _}
 				<div class="card bg-base-200 animate-pulse shadow-md">
@@ -220,9 +172,9 @@
 	{/if}
 
 	<!-- Task List -->
-	{#if !loading && !$store.fetching && $store.data?.myTasks}
+	{#if !loading && !$tasksStore.fetching && $tasksStore.data?.myTasks}
 		<div class="grid grid-cols-1 gap-6">
-			{#each $store.data?.myTasks as task}
+			{#each $tasksStore.data?.myTasks as task}
 				<div class="card bg-base-200 shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex justify-between">
@@ -333,7 +285,7 @@
 				</div>
 			{/each}
 		</div>
-	{:else if !loading && !$store.fetching && !$store.errors && !$store.data?.myTasks}
+	{:else if !loading && !$tasksStore.fetching && !$tasksStore.errors && !$tasksStore.data?.myTasks}
 		<div class="py-12 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

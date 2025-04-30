@@ -1,21 +1,21 @@
-export query Me {
-  me {
-    biddingAllowed
-    billingAddress {
-      city
-      country
-      createdAt
-      id
-      postalCode
-      state
-      street
-      updatedAt
-    }
-    isEmailVerified
-    name
-    profilePicture
-    status
-    userRole
-    verificationLevel
-  }
+query Me {
+	me {
+		biddingAllowed
+		billingAddress {
+			city
+			country
+			createdAt
+			id
+			postalCode
+			state
+			street
+			updatedAt
+		}
+		isEmailVerified
+		name
+		profilePicture
+		status
+		userRole
+		verificationLevel
+	}
 }

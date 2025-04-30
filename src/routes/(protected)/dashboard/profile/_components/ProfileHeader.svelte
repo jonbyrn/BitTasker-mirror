@@ -6,7 +6,6 @@
 
 	onMount(async () => {
 		await userStore.fetch();
-		console.log($userStore.data);
 	});
 
 	let { isEditMode, toggleEditMode, saveProfile, logout } = $props<{

@@ -9,16 +9,10 @@
 	} from '$lib/utils/viewTransition';
 	import { t, setLocale } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
-	import { graphql } from '$houdini';
+	import { UpdateUserStore } from '$houdini';
 	import { tryCatch } from '$lib/utils/tryCatch';
 
-	const updateUserMutation = graphql(`
-		mutation UpdateUser($input: UpdateUserInput!) {
-			updateUser(input: $input) {
-				id
-			}
-		}
-	`);
+	const updateUserMutation = new UpdateUserStore();
 
 	// Define reactive state with Svelte 5 runes
 	let userType = $state<'CLIENT' | 'FREELANCER' | 'BOTH'>('CLIENT');

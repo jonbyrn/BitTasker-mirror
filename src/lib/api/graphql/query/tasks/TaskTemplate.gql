@@ -1,0 +1,22 @@
+query MyTaskTemplates {
+	taskTemplates {
+		id
+		name
+		description
+		createdAt
+		recurrencePattern {
+			frequency
+			daysOfWeek
+			dayOfMonth
+			interval
+			endDate
+			maxOccurrences
+		}
+		task {
+			title
+			description
+			budget
+			status
+		}
+	}
+}

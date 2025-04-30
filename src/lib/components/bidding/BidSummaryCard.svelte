@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
-	import type { Bids$result } from '$houdini';
+	import type { MyBids$result } from '$houdini';
 
 	const props = $props<{
-		bid: Bids$result['bids']['received']['data'][0] | Bids$result['bids']['submitted']['data'][0];
+		bid:
+			| MyBids$result['bids']['received']['data'][0]
+			| MyBids$result['bids']['submitted']['data'][0];
 		isProvider: boolean;
 	}>();
 

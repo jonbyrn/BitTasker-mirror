@@ -1,0 +1,40 @@
+query MyBids {
+  bids {
+    received {
+      data {
+        id
+        freelancer {
+          user {
+            name
+          }
+        }
+        amount
+        currency
+        status
+        description
+        task {
+          title
+          id
+        }
+      }
+    }
+    submitted {
+      data {
+        id
+        freelancer {
+          user {
+            name
+          }
+        }
+        amount
+        currency
+        status
+        description
+        task {
+          title
+          id
+        }
+      }
+    }
+  }
+}

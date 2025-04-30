@@ -6,65 +6,26 @@
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import {
-		graphql,
-		type TaskTemplates$result,
+		MyTaskTemplatesStore,
+		UpdateTaskTemplateStore,
+		DeleteTaskTemplateStore,
+		type MyTaskTemplates$result,
 		type UpdateTaskTemplate$input,
 		type RecurrencePatternInput
 	} from '$houdini';
 
-	const taskTemplatesStore = $derived(
-		graphql(`
-			query TaskTemplates {
-				taskTemplates {
-					id
-					name
-					description
-					createdAt
-					isRecurring
-					recurrencePattern {
-						frequency
-						daysOfWeek
-						dayOfMonth
-						interval
-						endDate
-						maxOccurrences
-					}
-					task {
-						title
-						taskType
-						description
-						budget
-						status
-						pickupLocation {
-							displayName
-						}
-						skillIds
-					}
-				}
-			}
-		`)
-	);
+	const taskTemplatesStore = new MyTaskTemplatesStore();
 
-	const updateTaskTemplateStore = graphql(`
-		mutation UpdateTaskTemplate($updateTaskTemplateId: Int!, $input: UpdateTaskTemplateInput!) {
-			updateTaskTemplate(id: $updateTaskTemplateId, input: $input) {
-				id
-			}
-		}
-	`);
+	const updateTaskTemplateStore = new UpdateTaskTemplateStore();
 
-	const deleteTaskTemplateStore = graphql(`
-		mutation DeleteTaskTemplate($deleteTaskTemplateId: Int!) {
-			deleteTaskTemplate(id: $deleteTaskTemplateId)
-		}
-	`);
+	const deleteTaskTemplateStore = new DeleteTaskTemplateStore();
 
 	let templates = $state<TaskTemplate[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 
 	// Handle updating template recurrence pattern
-	let selectedTemplate = $state<TaskTemplates$result['taskTemplates'][0] | null>(null);
+	let selectedTemplate = $state<MyTaskTemplates$result['taskTemplates'][0] | null>(null);
 	// Use a separate mutable state for editing the pattern in the modal
 	let editablePattern = $state<RecurrencePatternInput | null>(null);
 	let showRecurrenceEditor = $state(false);
@@ -74,7 +35,7 @@
 	// Handle template status change
 	async function handleStatusChange(
 		templateId: string,
-		newStatus: TaskTemplates$result['taskTemplates'][0]['task']['status']
+		newStatus: MyTaskTemplates$result['taskTemplates'][0]['task']['status']
 	) {
 		try {
 			isLoading = true;

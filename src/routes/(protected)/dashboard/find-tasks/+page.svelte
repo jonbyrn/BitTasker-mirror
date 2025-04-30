@@ -13,7 +13,7 @@
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
 	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
-	import { graphql, type SearchTasksDto } from '$houdini';
+	import { SearchTasksStore, type SearchTasksDto } from '$houdini';
 	import { browser } from '$app/environment';
 
 	// Function to create initial search parameters conforming to SearchTasksDto
@@ -43,109 +43,7 @@
 	let maxBudget = $state('');
 
 	// Houdini Query Store
-	const searchTasksQuery = $derived(
-		graphql(`
-			query SearchTasks($input: SearchTasksDto!) {
-				tasks(input: $input) {
-					items {
-						attachments {
-							fileName
-							fileSize
-							fileUrl
-						}
-						bids {
-							amount
-							clicks
-							clientResponse
-							clientViewed
-							clientViewedAt
-							competitiveScore
-							coverLetter
-							createdAt
-							currency
-							description
-							estimatedDuration
-							estimatedHours
-							expiresAt
-							featured
-							hourlyRate
-							id
-							impressions
-							isWithdrawn
-							paymentType
-							proposedApproach
-							rank
-							responseTime
-							status
-							updatedAt
-							visibility
-							withdrawnReason
-						}
-						budget
-						budgetType
-						categoryIds
-						client {
-							averageRating
-							createdAt
-							experiencePoints
-							id
-							level
-							tasksCompleted
-							tasksPosted
-							updatedAt
-							userId
-							verificationLevel
-							user {
-								name
-							}
-						}
-						createdAt
-						dateRange {
-							end
-							start
-						}
-						deadlineDate
-						deletedAt
-						description
-						dropOffLocation {
-							displayName
-							latitude
-							locationLoaded
-							longitude
-							zipCode
-						}
-						estimatedHours
-						freelancerId
-						id
-						imageUrls
-						isRemovals
-						pickupLocation {
-							displayName
-							latitude
-							locationLoaded
-							longitude
-							zipCode
-						}
-						skillIds
-						status
-						taskType
-						title
-						updatedAt
-						visibility
-					}
-					meta {
-						currentPage
-						itemCount
-						itemsPerPage
-						totalItems
-						totalPages
-						hasNextPage
-						hasPreviousPage
-					}
-				}
-			}
-		`)
-	);
+	const searchTasksQuery = new SearchTasksStore();
 
 	// Recommendations state
 	let recommendedTasks = $state<TaskData[]>([]);
@@ -615,7 +513,7 @@
 								</div>
 							{/if}
 
-							{#if task.client?.userId}
+							{#if task.client?.user}
 								<div>
 									<p class="text-base-content/60 text-sm">Posted By</p>
 									<p class="font-medium">{task.client.user.name}</p>

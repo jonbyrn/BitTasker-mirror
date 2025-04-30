@@ -13,7 +13,7 @@
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
-	import { graphql } from '$houdini';
+	import { CreateTaskStore } from '$houdini';
 	import { tryCatch } from '$lib/utils/tryCatch';
 
 	// Load the draft when the page is loaded
@@ -21,13 +21,7 @@
 		store.loadDraft();
 	});
 
-	const createTaskMutation = graphql(`
-		mutation CreateTask($input: CreateTaskInput!) {
-			createTask(input: $input) {
-				id
-			}
-		}
-	`);
+	const createTaskMutation = new CreateTaskStore();
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);

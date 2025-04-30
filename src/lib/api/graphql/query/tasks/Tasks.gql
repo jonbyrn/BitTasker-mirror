@@ -1,0 +1,23 @@
+query Tasks {
+	myTasks {
+		id
+		title
+		description
+		clientId
+		status
+		taskType
+		pickupLocation {
+			zipCode
+		}
+		budget
+		budgetType
+		deadlineDate
+		dateRange {
+			start
+			end
+		}
+		bids {
+			id
+		}
+	}
+}
