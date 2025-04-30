@@ -149,12 +149,6 @@ export const mockUser = {
 			date: '2023-05-18'
 		}
 	],
-	stats: {
-		tasksCompleted: 47,
-		averageRating: 4.8,
-		responseRate: 98,
-		onTimeCompletion: 95
-	},
 	availability: {
 		schedule: {
 			monday: { available: true, hours: '9:00-17:00' },
