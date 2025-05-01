@@ -9,5 +9,8 @@ export async function setDarkMode(isDarkMode: boolean) {
 		key: StorageKeys.THEME,
 		value: isDarkMode.toString()
 	});
-	document.documentElement.setAttribute('data-theme', isDarkMode ? 'dustynigh' : 'yellowsnow');
+	document.documentElement.setAttribute(
+		'data-theme',
+		isDarkMode ? 'BitTasker-Dark' : 'BitTasker-Light'
+	);
 }
