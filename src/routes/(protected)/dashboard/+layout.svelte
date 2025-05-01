@@ -21,11 +21,6 @@
 		name="description"
 		content="Manage your tasks, bids, and wallet on Bittasker's dashboard."
 	/>
-	<!-- <script
-		async
-		defer
-		src="https://maps.googleapis.com/maps/api/js?key={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&loading=async&libraries=places"
-	></script> -->
 
 	<script>
 		((g) => {
@@ -104,7 +99,7 @@
 			{/if}
 
 			<!-- Main Content -->
-			<div class="mb-24 flex-grow overflow-hidden">
+			<div class="mb-24 flex-grow overflow-y-visible">
 				{@render children()}
 			</div>
 		</div>

@@ -12,8 +12,8 @@ const config = {
 	},
 
 	kit: {
-		// Configure the adapter with fallback for SPA navigation
-		adapter: adapter({
+        // Configure the adapter with fallback for SPA navigation
+        adapter: adapter({
 			// Single-page app mode with fallback
 			fallback: 'index.html',
 			// Path to build output
@@ -23,8 +23,12 @@ const config = {
 			precompress: true,
 			// Make all paths strict
 			strict: true
-		})
-	}
+		}),
+
+        alias: {
+            $houdini: ".houdini/"
+        }
+    }
 };
 
 export default config;

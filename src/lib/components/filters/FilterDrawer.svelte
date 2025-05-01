@@ -4,6 +4,7 @@
   for task discovery
 -->
 <script lang="ts">
+	// TODO: Replace with SearchTasksDto from Houdini
 	import type { SearchTasksParams } from '$lib/types/task.d';
 	import {
 		BudgetTypeEnum,
@@ -30,7 +31,7 @@
 		status: [],
 		taskType: undefined,
 		categoryIds: [],
-		skills: [],
+		skillIds: [],
 		minBudget: undefined,
 		maxBudget: undefined,
 		budgetType: undefined,
@@ -64,7 +65,7 @@
 		if (filters.taskType) count++;
 		if (filters.status && filters.status.length > 0) count++;
 		if (filters.categoryIds && filters.categoryIds.length > 0) count++;
-		if (filters.skills && filters.skills.length > 0) count++;
+		if (filters.skillIds && filters.skillIds.length > 0) count++;
 		if (filters.minBudget || filters.maxBudget) count++;
 		if (filters.budgetType) count++;
 		if (filters.location) count++;
@@ -105,7 +106,7 @@
 		filters.status = [];
 		filters.taskType = undefined;
 		filters.categoryIds = [];
-		filters.skills = [];
+		filters.skillIds = [];
 		filters.minBudget = undefined;
 		filters.maxBudget = undefined;
 		filters.budgetType = undefined;
@@ -175,10 +176,10 @@
 
 	// Handle skill selection
 	function handleSkillChange(skillId: number) {
-		if (filters.skills?.includes(skillId)) {
-			filters.skills = filters.skills.filter((id) => id !== skillId);
+		if (filters.skillIds?.includes(skillId)) {
+			filters.skillIds = filters.skillIds.filter((id) => id !== skillId);
 		} else {
-			filters.skills = [...(filters.skills || []), skillId];
+			filters.skillIds = [...(filters.skillIds || []), skillId];
 		}
 	}
 
@@ -391,7 +392,7 @@
 							<input
 								type="checkbox"
 								class="checkbox checkbox-primary"
-								checked={filters.skills?.includes(skill.id)}
+								checked={filters.skillIds?.includes(skill.id)}
 								onclick={() => handleSkillChange(skill.id)}
 							/>
 							<span>{skill.name}</span>

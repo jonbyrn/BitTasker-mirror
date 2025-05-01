@@ -1,31 +1,30 @@
 <script lang="ts">
-	import type { Bid } from '$lib/types/bid';
 	import { goto } from '$app/navigation';
-	import bidService from '$lib/api/services/bid.service';
 	import BidSummaryCard from '$lib/components/bidding/BidSummaryCard.svelte';
+	import { MyBidsStore } from '$houdini';
+	import { onMount } from 'svelte';
+
+	const bidsStore = new MyBidsStore();
 
 	// State
-	let myBids = $state<Bid[]>([]);
-	let receivedBids = $state<Bid[]>([]);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
 
-	async function loadBids() {
-		try {
+	$effect(() => {
+		if ($bidsStore.fetching) {
 			isLoading = true;
-			error = null;
-			const result = await bidService.getUserBids();
-			myBids = result.submitted.data;
-			receivedBids = result.received.data;
-		} catch (err) {
-			console.error('Failed to load bids:', err);
-			error = 'Failed to load bids data';
-		} finally {
+		} else {
 			isLoading = false;
 		}
-	}
 
-	loadBids();
+		if ($bidsStore.errors) {
+			error = $bidsStore.errors[0].message;
+		}
+	});
+
+	onMount(() => {
+		bidsStore.fetch();
+	});
 </script>
 
 <div class="w-full" role="region" aria-label="My bids dashboard">
@@ -80,7 +79,7 @@
 		</div>
 
 		<!-- Error State -->
-	{:else if error}
+	{:else if error || $bidsStore.errors || !$bidsStore.data}
 		<div class="alert alert-error" role="alert">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -97,7 +96,9 @@
 				/>
 			</svg>
 			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadBids} aria-label="Retry loading bids">Retry</button>
+			<button class="btn btn-sm" onclick={() => bidsStore.fetch()} aria-label="Retry loading bids">
+				Retry
+			</button>
 		</div>
 
 		<!-- Bids Content -->
@@ -108,7 +109,7 @@
 				<div class="card-body">
 					<h3 class="card-title">My Submitted Bids</h3>
 
-					{#if myBids.length === 0}
+					{#if $bidsStore.data.bids.submitted.data.length === 0}
 						<div class="py-6 text-center">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -135,7 +136,7 @@
 						</div>
 					{:else}
 						<div class="space-y-4">
-							{#each myBids as bid (bid.id)}
+							{#each $bidsStore.data.bids.submitted.data as bid (bid.id)}
 								<div class="divider"></div>
 								<BidSummaryCard {bid} isProvider={true} />
 							{/each}
@@ -149,7 +150,7 @@
 				<div class="card-body">
 					<h3 class="card-title">Bids on My Tasks</h3>
 
-					{#if receivedBids.length === 0}
+					{#if $bidsStore.data.bids.received.data.length === 0}
 						<div class="py-6 text-center">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -178,7 +179,7 @@
 						</div>
 					{:else}
 						<div class="space-y-4">
-							{#each receivedBids as bid (bid.id)}
+							{#each $bidsStore.data.bids.received.data as bid (bid.id)}
 								<div class="divider"></div>
 								<BidSummaryCard {bid} isProvider={false} />
 							{/each}

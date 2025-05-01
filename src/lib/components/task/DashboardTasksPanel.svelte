@@ -1,16 +1,15 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task';
-	import { TaskStatusEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
+	import { TasksStore, type Tasks$result } from '$houdini';
+	import { user } from '$lib/stores/user.store';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
-	import taskService from '$lib/api/gql/services/task.service';
 
 	// Props
 	const { openTaskDrawer } = $props<{
 		openTaskDrawer: (taskId: number, tab?: string) => void;
 	}>();
 
-	let tasks = $state<Task[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let activeFilter = $state<string>('all');
@@ -24,7 +23,10 @@
 	];
 
 	// Task filtering
-	const getFilteredTasks = (tasks: Task[], filter: string): Task[] => {
+	const getFilteredTasks = (
+		tasks: Tasks$result['myTasks'],
+		filter: string
+	): Tasks$result['myTasks'] => {
 		switch (filter) {
 			case 'in-progress':
 				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
@@ -37,33 +39,13 @@
 		}
 	};
 
-	// Load user tasks
-	async function loadTasks() {
-		try {
-			loading = true;
-			error = null;
-			// Use GraphQL service instead of REST
-			const userTasks = await taskService.getMyTasks();
-
-			// Sort tasks by created date (newest first)
-			tasks = userTasks.sort((a, b) => {
-				return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-			});
-		} catch (err) {
-			console.error('Error loading tasks:', err);
-			error = 'Failed to load tasks. Please try again.';
-		} finally {
-			loading = false;
-		}
-	}
-
 	// Format date for display
 	function formatDate(dateString: string): string {
 		return format(new Date(dateString), 'MMM d, yyyy');
 	}
 
 	// Convert status to user-friendly string
-	function formatStatus(status: TaskStatusEnum): string {
+	function formatStatus(status: Tasks$result['myTasks'][0]['status']): string {
 		switch (status) {
 			case TaskStatusEnum.IN_PROGRESS:
 				return 'In Progress';
@@ -83,7 +65,7 @@
 	}
 
 	// Get appropriate status badge class
-	function getStatusClass(status: TaskStatusEnum): string {
+	function getStatusClass(status: Tasks$result['myTasks'][0]['status']): string {
 		switch (status) {
 			case TaskStatusEnum.IN_PROGRESS:
 				return 'badge-primary';
@@ -125,15 +107,27 @@
 		}).format(amount);
 	}
 
-	// Load tasks on mount
+	const tasksStore = new TasksStore();
+
+	$effect(() => {
+		if ($tasksStore.fetching) {
+			loading = true;
+		} else {
+			loading = false;
+		}
+		if ($tasksStore.errors) {
+			error = $tasksStore.errors[0].message;
+		}
+	});
+
 	onMount(() => {
-		loadTasks();
+		tasksStore.fetch();
 	});
 </script>
 
 <div class="card-body">
 	<!-- Loading State -->
-	{#if loading}
+	{#if loading || $tasksStore.fetching}
 		<div class="space-y-6">
 			{#each Array(3) as _}
 				<div class="card bg-base-200 animate-pulse shadow-md">
@@ -178,15 +172,15 @@
 	{/if}
 
 	<!-- Task List -->
-	{#if !loading && tasks.length > 0}
+	{#if !loading && !$tasksStore.fetching && $tasksStore.data?.myTasks}
 		<div class="grid grid-cols-1 gap-6">
-			{#each tasks as task}
+			{#each $tasksStore.data?.myTasks as task}
 				<div class="card bg-base-200 shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex justify-between">
 							<div class="flex items-center gap-2">
 								<h3 class="card-title text-lg">{task.title}</h3>
-								{#if task.isOwner}
+								{#if task.clientId === $user.id}
 									<div class="badge badge-accent">Owner</div>
 								{/if}
 							</div>
@@ -226,15 +220,17 @@
 						</div>
 
 						<div class="my-2 grid grid-cols-2 gap-4">
-							<div>
-								<p class="text-base-content/70 text-xs">Budget</p>
-								<p class="text-primary font-semibold">
-									{formatCurrency(task.budget)}
-									{#if task.budgetType === 'HOURLY'}
-										<span class="text-xs">/hr</span>
-									{/if}
-								</p>
-							</div>
+							{#if task.budget}
+								<div>
+									<p class="text-base-content/70 text-xs">Budget</p>
+									<p class="text-primary font-semibold">
+										{formatCurrency(task.budget)}
+										{#if task.budgetType === 'HOURLY'}
+											<span class="text-xs">/hr</span>
+										{/if}
+									</p>
+								</div>
+							{/if}
 							<div>
 								{#if task.deadlineDate}
 									<p class="text-base-content/70 text-xs">Deadline</p>
@@ -289,7 +285,7 @@
 				</div>
 			{/each}
 		</div>
-	{:else if !loading}
+	{:else if !loading && !$tasksStore.fetching && !$tasksStore.errors && !$tasksStore.data?.myTasks}
 		<div class="py-12 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

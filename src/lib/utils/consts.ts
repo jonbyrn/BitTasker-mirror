@@ -82,3 +82,86 @@ export const wallet = {
 		}
 	]
 };
+
+// Mock user data to provide fallbacks
+export const mockUser = {
+	id: 'user1',
+	name: 'Alex Johnson',
+	avatar: '', // URL to avatar image
+	bio: 'Professional handyman with 10+ years of experience. Specialized in home repairs, carpentry, and electrical work.',
+	location: 'San Francisco, CA',
+	skills: [
+		{ name: 'Carpentry', level: 5, verified: true },
+		{ name: 'Electrical', level: 4, verified: true },
+		{ name: 'Plumbing', level: 3, verified: false },
+		{ name: 'Painting', level: 5, verified: true },
+		{ name: 'Flooring', level: 4, verified: false }
+	],
+	portfolio: [
+		{
+			id: 'port1',
+			title: 'Kitchen Renovation',
+			description: 'Complete kitchen renovation including custom cabinets and island installation.',
+			images: ['/path/to/image1.jpg', '/path/to/image2.jpg'],
+			date: '2023-06-15'
+		},
+		{
+			id: 'port2',
+			title: 'Bathroom Remodel',
+			description: 'Full bathroom remodel with custom tilework and fixtures.',
+			images: ['/path/to/image3.jpg'],
+			date: '2023-04-10'
+		}
+	],
+	certifications: [
+		{
+			name: 'Certified Carpenter',
+			issuer: 'National Carpentry Association',
+			date: '2015-01-15',
+			verified: true
+		},
+		{
+			name: 'Licensed Electrician',
+			issuer: 'State Board of Electrical Contractors',
+			date: '2016-03-22',
+			verified: true
+		}
+	],
+	reviews: [
+		{
+			id: 'rev1',
+			rating: 5,
+			text: 'Alex did an amazing job on our kitchen renovation. Highly recommended!',
+			from: {
+				id: 'client1',
+				name: 'Sarah Miller'
+			},
+			date: '2023-07-02'
+		},
+		{
+			id: 'rev2',
+			rating: 4,
+			text: 'Great work on our bathroom remodel. Professional and timely.',
+			from: {
+				id: 'client2',
+				name: 'John Davis'
+			},
+			date: '2023-05-18'
+		}
+	],
+	availability: {
+		schedule: {
+			monday: { available: true, hours: '9:00-17:00' },
+			tuesday: { available: true, hours: '9:00-17:00' },
+			wednesday: { available: true, hours: '9:00-17:00' },
+			thursday: { available: true, hours: '9:00-17:00' },
+			friday: { available: true, hours: '9:00-17:00' },
+			saturday: { available: false, hours: '' },
+			sunday: { available: false, hours: '' }
+		},
+		nextAvailable: '2023-12-15'
+	},
+	nostrPublicKey: 'npub1abc123...',
+	bitcoinAddress: 'bc1abc123...',
+	lightningAddress: 'alex@lightning.me'
+};

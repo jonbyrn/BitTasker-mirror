@@ -23,6 +23,7 @@
 	});
 
 	// Initialize theme based on system preference
+	// TODO: Properly handle the cleanup of the global input focus scroll listener
 	onMount(async () => {
 		const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
 
@@ -49,7 +50,7 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<main data-theme={$darkMode ? 'dustynight' : 'yellowsnow'} id="main" class="select-none">
+<main data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'} id="main" class="select-none">
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<NavBar />
 	{/if}

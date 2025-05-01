@@ -119,7 +119,7 @@ export interface SearchTasksParams {
 	limit?: number;
 	budgetType?: BudgetTypeEnum;
 	categoryIds?: number[];
-	skills?: number[];
+	skillIds?: number[];
 	location?: string;
 	radius?: number;
 	deadlineBefore?: string;

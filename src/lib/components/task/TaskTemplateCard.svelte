@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { TaskTemplate } from '$lib/types/recurring-tasks';
+	import type { MyTaskTemplates$result } from '$houdini';
 	import { format } from 'date-fns';
 	import {
 		TASKSTATUS,
@@ -9,8 +9,8 @@
 
 	// Props
 	let { template, onStatusChange, onDelete, onUpdate } = $props<{
-		template: TaskTemplate;
-		onStatusChange: (status: TASKSTATUS) => void;
+		template: MyTaskTemplates$result['taskTemplates'][0];
+		onStatusChange: (status: MyTaskTemplates$result['taskTemplates'][0]['task']['status']) => void;
 		onDelete: () => void;
 		onUpdate?: (templateId: string) => void;
 	}>();
@@ -23,10 +23,10 @@
 	let error = $state<string | null>(null);
 
 	const statusLabels = {
-		[TASKSTATUS.ACTIVE]: 'Active',
-		[TASKSTATUS.PAUSED]: 'Paused',
-		[TASKSTATUS.COMPLETED]: 'Completed',
-		[TASKSTATUS.CANCELLED]: 'Cancelled'
+		OPEN: 'Active',
+		COMPLETED: 'Completed',
+		IN_PROGRESS: 'In Progress',
+		CANCELLED: 'Cancelled'
 	};
 
 	const frequencyText = {
@@ -43,10 +43,10 @@
 	}
 
 	function toggleStatus() {
-		if (template.status === TASKSTATUS.ACTIVE) {
-			onStatusChange(TASKSTATUS.PAUSED);
-		} else if (template.status === TASKSTATUS.PAUSED) {
-			onStatusChange(TASKSTATUS.ACTIVE);
+		if (template.status === 'OPEN') {
+			onStatusChange('PAUSED');
+		} else if (template.status === 'PAUSED') {
+			onStatusChange('OPEN');
 		}
 	}
 
@@ -55,22 +55,28 @@
 		return format(new Date(dateString), 'MMM d, yyyy');
 	}
 
-	function getStatusColor(status: TASKSTATUS): string {
+	function getStatusColor(
+		status: MyTaskTemplates$result['taskTemplates'][0]['task']['status']
+	): string {
 		switch (status) {
-			case TASKSTATUS.ACTIVE:
+			case 'OPEN':
 				return 'bg-success text-success-content';
-			case TASKSTATUS.PAUSED:
+			case 'COMPLETED':
 				return 'bg-warning text-warning-content';
-			case TASKSTATUS.COMPLETED:
+			case 'IN_PROGRESS':
 				return 'bg-info text-info-content';
-			case TASKSTATUS.CANCELLED:
+			case 'CANCELLED':
 				return 'bg-error text-error-content';
 			default:
 				return 'bg-neutral text-neutral-content';
 		}
 	}
 
-	function getFrequencyDescription(template: TaskTemplate): string {
+	function getFrequencyDescription(template: MyTaskTemplates$result['taskTemplates'][0]): string {
+		if (!template.recurrencePattern) {
+			return 'Unknown';
+		}
+
 		const { frequency, interval, daysOfWeek, dayOfMonth } = template.recurrencePattern;
 
 		if (frequency === RECURRINGFREQUENCYENUM.DAILY) {
@@ -234,8 +240,11 @@
 			<div class="card-actions mt-4 justify-end">
 				<button class="btn btn-ghost btn-sm" onclick={() => (viewMode = 'summary')}>Back</button>
 				{#if onUpdate}
-					<button class="btn btn-secondary btn-sm" onclick={() => onUpdate?.(template.id)}
-						>Edit</button
+					<button
+						class="btn btn-secondary btn-sm"
+						onclick={() => {
+							onUpdate(template.id);
+						}}>Edit</button
 					>
 				{/if}
 				<button

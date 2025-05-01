@@ -69,83 +69,83 @@
 }
 
 /* Dark mode specific adjustments */
-:root[data-theme='dustynight'] .glow-blur {
+:root[data-theme='BitTasker-Dark'] .glow-blur {
 	opacity: 0.15;
 	filter: blur(120px);
 }
 
 /* Light mode adjustments */
-:root[data-theme='yellowsnow'] .glow-blur {
+:root[data-theme='BitTasker-Light'] .glow-blur {
 	opacity: 0.2;
 	filter: blur(100px);
 }
 
 @plugin "daisyui/theme" {
-	name: 'yellowsnow';
-	default: false;
-	prefersdark: false;
-	color-scheme: 'light';
-	--color-base-100: oklch(98% 0.002 247.839);
-	--color-base-200: oklch(96% 0.003 264.542);
-	--color-base-300: oklch(92% 0.006 264.531);
-	--color-base-content: oklch(21% 0.034 264.665);
-	--color-primary: #ff9315;
-	--color-primary-content: oklch(28% 0.066 53.813);
-	--color-secondary: oklch(70% 0.165 254.624);
-	--color-secondary-content: oklch(28% 0.091 267.935);
-	--color-accent: oklch(75% 0.183 55.934);
-	--color-accent-content: oklch(26% 0.079 36.259);
-	--color-neutral: oklch(37% 0.034 259.733);
+	name: 'BitTasker-Dark';
+	default: true;
+	prefersdark: true;
+	color-scheme: 'dark';
+	--color-base-100: #2d2d2d;
+	--color-base-200: #363636;
+	--color-base-300: #3f3f3f;
+	--color-base-content: oklch(100% 0 0);
+	--color-primary: #f7931a;
+	--color-primary-content: oklch(0% 0 0);
+	--color-secondary: #3a3a3a;
+	--color-secondary-content: oklch(100% 0 0);
+	--color-accent: #b35f00;
+	--color-accent-content: oklch(100% 0 0);
+	--color-neutral: #5c5c5c;
 	--color-neutral-content: oklch(98% 0.002 247.839);
-	--color-info: oklch(70% 0.165 254.624);
-	--color-info-content: oklch(28% 0.091 267.935);
-	--color-success: oklch(84% 0.238 128.85);
-	--color-success-content: oklch(27% 0.072 132.109);
-	--color-warning: oklch(82% 0.189 84.429);
-	--color-warning-content: oklch(27% 0.077 45.635);
-	--color-error: oklch(70% 0.191 22.216);
-	--color-error-content: oklch(25% 0.092 26.042);
-	--radius-selector: 0.25rem;
-	--radius-field: 0.5rem;
-	--radius-box: 1rem;
+	--color-info: #3daeff;
+	--color-info-content: oklch(100% 0 0);
+	--color-success: #22c55e;
+	--color-success-content: oklch(98% 0.031 120.757);
+	--color-warning: #facc15;
+	--color-warning-content: oklch(98% 0.016 73.684);
+	--color-error: #ef4444;
+	--color-error-content: oklch(96% 0.015 12.422);
+	--radius-selector: 2rem;
+	--radius-field: 2rem;
+	--radius-box: 2rem;
 	--size-selector: 0.25rem;
 	--size-field: 0.25rem;
 	--border: 2px;
 	--depth: 1;
-	--noise: 1;
+	--noise: 0;
 }
 
 @plugin "daisyui/theme" {
-	name: 'dustynight';
-	default: true;
-	prefersdark: true;
-	color-scheme: 'dark';
-	--color-base-100: oklch(14% 0 0);
-	--color-base-200: oklch(20% 0 0);
-	--color-base-300: oklch(21% 0.006 56.043);
-	--color-base-content: oklch(97% 0 0);
-	--color-primary: #ff9315;
-	--color-primary-content: oklch(27% 0.077 45.635);
-	--color-secondary: oklch(82% 0.12 346.018);
-	--color-secondary-content: oklch(28% 0.109 3.907);
-	--color-accent: oklch(86% 0.022 252.894);
-	--color-accent-content: oklch(12% 0.042 264.695);
-	--color-neutral: oklch(26% 0 0);
+	name: 'BitTasker-Light';
+	default: false;
+	prefersdark: false;
+	color-scheme: 'light';
+	--color-base-100: oklch(98% 0 0);
+	--color-base-200: #f1f3f5;
+	--color-base-300: #e5e7eb;
+	--color-base-content: #121212;
+	--color-primary: #f7931a;
+	--color-primary-content: oklch(0% 0 0);
+	--color-secondary: oklch(100% 0 0);
+	--color-secondary-content: #121212;
+	--color-accent: #ffd8a8;
+	--color-accent-content: oklch(28% 0.109 3.907);
+	--color-neutral: #6b7280;
 	--color-neutral-content: oklch(98% 0 0);
-	--color-info: oklch(74% 0.16 232.661);
-	--color-info-content: oklch(29% 0.066 243.157);
-	--color-success: oklch(84% 0.238 128.85);
-	--color-success-content: oklch(27% 0.072 132.109);
-	--color-warning: oklch(85% 0.199 91.936);
-	--color-warning-content: oklch(28% 0.066 53.813);
-	--color-error: oklch(71% 0.194 13.428);
-	--color-error-content: oklch(27% 0.105 12.094);
-	--radius-selector: 0.25rem;
-	--radius-field: 0.5rem;
-	--radius-box: 1rem;
+	--color-info: #2563eb;
+	--color-info-content: oklch(97% 0.013 236.62);
+	--color-success: #16a34a;
+	--color-success-content: oklch(98% 0.031 120.757);
+	--color-warning: #eab308;
+	--color-warning-content: oklch(98% 0.016 73.684);
+	--color-error: #dc2626;
+	--color-error-content: oklch(97% 0.013 17.38);
+	--radius-selector: 2rem;
+	--radius-field: 2rem;
+	--radius-box: 2rem;
 	--size-selector: 0.25rem;
 	--size-field: 0.25rem;
-	--border: 1px;
+	--border: 2px;
 	--depth: 1;
 	--noise: 1;
 }

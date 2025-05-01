@@ -1,27 +1,33 @@
 <script lang="ts">
-	import type { RecurrencePattern } from '$lib/types/recurring-tasks';
-	import { taskStore } from '$lib/stores/task.store';
+	import { type MyTaskTemplates$result, type RecurrencePatternInput } from '$houdini';
 	import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
 	import Input from '../Input.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
+	// Define a more specific type for the pattern prop, handling potential null
+	type PatternProp =
+		| (MyTaskTemplates$result['taskTemplates'][0]['recurrencePattern'] & { frequency: string }) // Ensure frequency is always string from Houdini
+		| RecurrencePatternInput
+		| null; // Allow null for initialization or empty states
+
 	let {
 		pattern,
 		isEditing = false,
-		onPatternChange = (pattern: RecurrencePattern) => {}
+		onPatternChange = (pattern: RecurrencePatternInput) => {}
 	} = $props<{
-		pattern: RecurrencePattern;
+		pattern: PatternProp;
 		isEditing?: boolean;
-		onPatternChange?: (pattern: RecurrencePattern) => void;
+		onPatternChange?: (pattern: RecurrencePatternInput) => void;
 	}>();
 
-	const localPattern = $state<RecurrencePattern>({
-		frequency: pattern.frequency,
-		interval: pattern.interval,
-		daysOfWeek: pattern.daysOfWeek || [],
-		dayOfMonth: pattern.dayOfMonth || 1,
-		endDate: pattern.endDate || '',
-		maxOccurrences: pattern.maxOccurrences || 12
+	// Use mutable state initialized from the prop
+	let localPattern = $state<RecurrencePatternInput>({
+		frequency: pattern?.frequency ?? RECURRINGFREQUENCYENUM.WEEKLY,
+		interval: pattern?.interval ?? 1,
+		daysOfWeek: pattern?.daysOfWeek ?? [1], // Default to Monday if null
+		dayOfMonth: pattern?.dayOfMonth ?? null,
+		endDate: pattern?.endDate ?? null,
+		maxOccurrences: pattern?.maxOccurrences ?? 12
 	});
 
 	// Labels for days of the week
@@ -36,10 +42,11 @@
 
 	// Toggle day of week selection
 	function toggleDayOfWeek(day: number) {
-		if (localPattern.daysOfWeek?.includes(day)) {
-			localPattern.daysOfWeek = localPattern.daysOfWeek.filter((d) => d !== day);
+		const currentDays = localPattern.daysOfWeek ?? [];
+		if (currentDays.includes(day)) {
+			localPattern.daysOfWeek = currentDays.filter((d) => d !== day);
 		} else {
-			localPattern.daysOfWeek = [...(localPattern.daysOfWeek || []), day].sort((a, b) => a - b);
+			localPattern.daysOfWeek = [...currentDays, day].sort((a, b) => a - b);
 		}
 		emitUpdate();
 	}
@@ -47,14 +54,14 @@
 	// Handle day of month change
 	function handleDayOfMonthChange(event: Event) {
 		const value = parseInt((event.target as HTMLInputElement).value);
-		localPattern.dayOfMonth = value >= 1 && value <= 31 ? value : 1;
+		localPattern.dayOfMonth = value >= 1 && value <= 31 ? value : null; // Allow null
 		emitUpdate();
 	}
 
 	// Handle max occurrences change
 	function handleMaxOccurrencesChange(event: Event) {
 		const value = parseInt((event.target as HTMLInputElement).value);
-		localPattern.maxOccurrences = value > 0 ? value : 1;
+		localPattern.maxOccurrences = value > 0 ? value : null; // Allow null
 		emitUpdate();
 	}
 
@@ -65,30 +72,37 @@
 		// Set reasonable defaults for the selected frequency
 		if (value === RECURRINGFREQUENCYENUM.DAILY) {
 			localPattern.interval = 1;
+			localPattern.daysOfWeek = null; // Daily doesn't use daysOfWeek
+			localPattern.dayOfMonth = null;
 		} else if (value === RECURRINGFREQUENCYENUM.WEEKLY) {
 			localPattern.interval = 1;
 			if (!localPattern.daysOfWeek?.length) {
 				localPattern.daysOfWeek = [1]; // Monday by default
 			}
+			localPattern.dayOfMonth = null;
 		} else if (value === RECURRINGFREQUENCYENUM.BIWEEKLY) {
 			localPattern.interval = 2;
 			if (!localPattern.daysOfWeek?.length) {
 				localPattern.daysOfWeek = [1]; // Monday by default
 			}
+			localPattern.dayOfMonth = null;
 		} else if (value === RECURRINGFREQUENCYENUM.MONTHLY) {
 			localPattern.interval = 1;
-			localPattern.dayOfMonth = 1;
+			localPattern.dayOfMonth = localPattern.dayOfMonth ?? 1; // Keep existing or default to 1
+			localPattern.daysOfWeek = null;
 		} else if (value === RECURRINGFREQUENCYENUM.CUSTOM) {
+			// Custom might need specific logic or retain existing days
 			if (!localPattern.daysOfWeek?.length) {
 				localPattern.daysOfWeek = [1, 3, 5]; // Mon, Wed, Fri by default
 			}
+			localPattern.dayOfMonth = null;
 		}
 
 		emitUpdate();
 	}
 
 	// Handle end date change
-	function handleEndDateChange(value: string) {
+	function handleEndDateChange(value: string | null) {
 		localPattern.endDate = value;
 		emitUpdate();
 	}
@@ -96,21 +110,19 @@
 	// Emit the updated pattern to parent
 	function emitUpdate() {
 		if (isEditing) {
-			onPatternChange(localPattern);
-		} else {
-			taskStore.updateRecurrencePattern(localPattern);
+			// Ensure the object passed matches RecurrencePatternInput (e.g., handle nulls appropriately)
+			const patternToSend: RecurrencePatternInput = {
+				frequency: localPattern.frequency as RECURRINGFREQUENCYENUM,
+				interval: localPattern.interval,
+				daysOfWeek: localPattern.daysOfWeek,
+				dayOfMonth: localPattern.dayOfMonth,
+				endDate: localPattern.endDate,
+				maxOccurrences: localPattern.maxOccurrences
+			};
+			onPatternChange(patternToSend);
 		}
+		return;
 	}
-
-	// Initialize with props
-	$effect(() => {
-		localPattern.frequency = pattern.frequency;
-		localPattern.interval = pattern.interval;
-		localPattern.daysOfWeek = pattern.daysOfWeek || [];
-		localPattern.dayOfMonth = pattern.dayOfMonth || 1;
-		localPattern.endDate = pattern.endDate || '';
-		localPattern.maxOccurrences = pattern.maxOccurrences || 12;
-	});
 </script>
 
 <div class="rounded-box border-base-300 bg-base-100 border p-4">
@@ -179,7 +191,7 @@
 					{#each dayLabels as day, index}
 						<button
 							type="button"
-							class="btn btn-sm {localPattern?.daysOfWeek?.includes(index)
+							class="btn btn-sm {localPattern.daysOfWeek?.includes(index)
 								? 'btn-primary'
 								: 'btn-outline'}"
 							onclick={() => toggleDayOfWeek(index)}
@@ -218,7 +230,7 @@
 							class="input input-bordered w-24"
 							min="1"
 							max="31"
-							value={localPattern.dayOfMonth}
+							value={localPattern.dayOfMonth ?? ''}
 							onchange={handleDayOfMonthChange}
 						/>
 						<span>of the month</span>
@@ -234,7 +246,7 @@
 					{#each dayLabels as day, index}
 						<button
 							type="button"
-							class="btn btn-sm {localPattern?.daysOfWeek?.includes(index)
+							class="btn btn-sm {localPattern.daysOfWeek?.includes(index)
 								? 'btn-primary'
 								: 'btn-outline'}"
 							onclick={() => toggleDayOfWeek(index)}
@@ -255,7 +267,10 @@
 			<label class="label" for="endDate">
 				<span class="label-text">End Date (optional)</span>
 			</label>
-			<DatePicker value={localPattern.endDate} onChange={handleEndDateChange} />
+			<DatePicker
+				value={localPattern.endDate ? localPattern.endDate : undefined}
+				onChange={handleEndDateChange}
+			/>
 		</div>
 
 		<div class="form-control space-y-2 md:w-1/2">
@@ -268,7 +283,7 @@
 					class="input input-bordered h-10 w-full"
 					min="1"
 					max="365"
-					value={localPattern.maxOccurrences}
+					value={localPattern.maxOccurrences ?? ''}
 					onchange={handleMaxOccurrencesChange}
 				/>
 				<span>tasks</span>
