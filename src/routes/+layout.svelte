@@ -23,6 +23,7 @@
 	});
 
 	// Initialize theme based on system preference
+	// TODO: Properly handle the cleanup of the global input focus scroll listener
 	onMount(async () => {
 		const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
 

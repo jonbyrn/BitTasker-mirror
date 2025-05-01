@@ -1,6 +1,9 @@
 import { HoudiniClient } from '$houdini';
 import customAuthPlugin from '$lib/utils/houdini/plugins/customAuthPlugin';
-const token = localStorage.getItem('CapacitorStorage.access_token');
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
+
+const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 export default new HoudiniClient({
 	url: import.meta.env.VITE_GRAPHQL_SERVER_ENTRYPOINT,
@@ -8,7 +11,7 @@ export default new HoudiniClient({
 	fetchParams() {
 		return {
 			headers: {
-				Authorization: `Bearer ${token}`
+				Authorization: `Bearer ${token.value}`
 			}
 		};
 	}

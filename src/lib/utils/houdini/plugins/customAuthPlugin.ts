@@ -1,5 +1,16 @@
 import { StorageKeys } from '$lib/utils/constants/storage';
 import type { ClientPlugin } from '$houdini';
+import { Preferences } from '@capacitor/preferences';
+
+interface GraphQLError {
+	message: string;
+	extensions?: {
+		code: string;
+		originalError?: {
+			statusCode: number;
+		};
+	};
+}
 
 const authErrorHandler: ClientPlugin = () => {
 	return {
@@ -8,14 +19,16 @@ const authErrorHandler: ClientPlugin = () => {
 				console.warn('encountered errors:', value.errors);
 
 				const authError = value.errors.find(
-					(err) =>
-						err.message.includes('Unauthorized') || err.message.includes('Authentication failed')
+					(err: GraphQLError) =>
+						err.message === 'Authentication failed: Unauthorized' &&
+						err.extensions?.code === 'UNAUTHENTICATED' &&
+						err.extensions?.originalError?.statusCode === 401
 				);
 
 				if (authError) {
-					console.warn('Detected auth error. Logging out...');
+					console.warn('Detected auth error. Logging out...', authError);
 
-					localStorage.removeItem(StorageKeys.ACCESS_TOKEN);
+					await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 
 					const { authState } = await import('$lib/stores/auth.store');
 					authState.logout();

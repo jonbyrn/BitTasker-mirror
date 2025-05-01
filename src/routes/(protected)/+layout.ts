@@ -4,6 +4,7 @@ import { redirect } from '@sveltejs/kit';
 import { Preferences } from '@capacitor/preferences';
 import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { get } from 'svelte/store';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
@@ -14,11 +15,9 @@ export const load: LayoutLoad = async () => {
 			console.log('no token');
 			throw redirect(303, '/auth');
 		}
-		authState.subscribe((state) => {
-			if (state.isAuthenticated === false) {
-				throw redirect(303, '/auth');
-			}
-		});
+		if (get(authState).isAuthenticated === false) {
+			throw redirect(303, '/auth');
+		}
 	}
 };
 

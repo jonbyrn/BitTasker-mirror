@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { type TaskTemplates$result } from '$houdini';
+	import { type MyTaskTemplates$result, type RecurrencePatternInput } from '$houdini';
 	import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
 	import Input from '../Input.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
-	import type { RecurrencePatternInput } from '$houdini';
 
 	// Define a more specific type for the pattern prop, handling potential null
 	type PatternProp =
-		| (TaskTemplates$result['taskTemplates'][0]['recurrencePattern'] & { frequency: string }) // Ensure frequency is always string from Houdini
+		| (MyTaskTemplates$result['taskTemplates'][0]['recurrencePattern'] & { frequency: string }) // Ensure frequency is always string from Houdini
 		| RecurrencePatternInput
 		| null; // Allow null for initialization or empty states
 

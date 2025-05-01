@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { TaskTemplates$result } from '$houdini';
+	import type { MyTaskTemplates$result } from '$houdini';
 	import { format } from 'date-fns';
 	import {
 		TASKSTATUS,
@@ -9,8 +9,8 @@
 
 	// Props
 	let { template, onStatusChange, onDelete, onUpdate } = $props<{
-		template: TaskTemplates$result['taskTemplates'][0];
-		onStatusChange: (status: TaskTemplates$result['taskTemplates'][0]['task']['status']) => void;
+		template: MyTaskTemplates$result['taskTemplates'][0];
+		onStatusChange: (status: MyTaskTemplates$result['taskTemplates'][0]['task']['status']) => void;
 		onDelete: () => void;
 		onUpdate?: (templateId: string) => void;
 	}>();
@@ -56,7 +56,7 @@
 	}
 
 	function getStatusColor(
-		status: TaskTemplates$result['taskTemplates'][0]['task']['status']
+		status: MyTaskTemplates$result['taskTemplates'][0]['task']['status']
 	): string {
 		switch (status) {
 			case 'OPEN':
@@ -72,7 +72,7 @@
 		}
 	}
 
-	function getFrequencyDescription(template: TaskTemplates$result['taskTemplates'][0]): string {
+	function getFrequencyDescription(template: MyTaskTemplates$result['taskTemplates'][0]): string {
 		if (!template.recurrencePattern) {
 			return 'Unknown';
 		}
