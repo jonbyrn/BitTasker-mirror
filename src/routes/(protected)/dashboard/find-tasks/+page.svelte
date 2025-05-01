@@ -15,6 +15,7 @@
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 	import { SearchTasksStore, type SearchTasksDto } from '$houdini';
 	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 
 	// Function to create initial search parameters conforming to SearchTasksDto
 	function getInitialSearchParams(): Partial<SearchTasksDto> {
@@ -64,6 +65,11 @@
 	let selectedTaskId = $state<string | null>(null);
 	let isSidebarOpen = $state(false);
 
+	// Loading states
+	let loadingTimeout = $state(false);
+	let isInitialLoad = $state(true);
+	let recommendationsLoaded = $state(false);
+
 	// Load more tasks (for infinite scroll)
 	async function loadMoreTasks() {
 		if ($searchTasksQuery.data?.tasks.meta?.hasNextPage && !$searchTasksQuery.fetching) {
@@ -76,10 +82,13 @@
 
 	// Load recommendations
 	async function loadRecommendations() {
+		if (recommendationsLoaded || !browser) return;
+
 		try {
 			loadingRecommendations = true;
 			const response = await recommendationsService.getRecommendations(10);
 			recommendedTasks = response.recommendations.map((r) => r.task);
+			recommendationsLoaded = true;
 		} catch (err) {
 			console.error('Error loading recommendations:', err);
 			recommendedTasks = [];
@@ -99,7 +108,6 @@
 
 	// Debounced function to update searchParams
 	const debouncedUpdateSearchParams = debounce(async () => {
-		console.log('[FindTasks] Debounced update triggered. Current searchQuery:', searchQuery);
 		const currentPageValue = 1;
 		const limitValue = searchParams.limit;
 		const sortByValue = sortBy.value;
@@ -138,10 +146,13 @@
 			maxBudget: maxBudgetValue
 		};
 
-		// Update the state directly (using Partial<SearchTasksDto>)
 		searchParams = { ...searchParams, ...newParams };
 
-		await searchTasksQuery.fetch({ variables: { input: searchParams } });
+		try {
+			await searchTasksQuery.fetch({ variables: { input: searchParams } });
+		} catch (err) {
+			console.error('[FindTasks] Search fetch error:', err);
+		}
 	}, 1000);
 
 	// Handle simple filter changes (search input, quick task type toggles)
@@ -193,7 +204,16 @@
 
 	// Format date
 	function formatTimeAgo(date: string): string {
-		return formatDistanceToNow(new Date(date), { addSuffix: true });
+		try {
+			const parsedDate = new Date(date);
+			if (isNaN(parsedDate.getTime())) {
+				return 'Invalid date';
+			}
+			return formatDistanceToNow(parsedDate, { addSuffix: true });
+		} catch (error) {
+			console.error('[FindTasks] Error formatting date:', error);
+			return 'Invalid date';
+		}
 	}
 
 	// Format date display
@@ -290,16 +310,49 @@
 		};
 	}
 
-	// Initial load & setup effect
-	$effect(() => {
+	// Initial data fetch and setup
+	onMount(() => {
 		if (browser) {
-			loadRecommendations();
+			loadRecommendations(); // Load recommendations on mount
+			searchTasksQuery
+				.fetch({ variables: { input: searchParams } }) // Initial tasks fetch
+				.catch((err) => console.error('[FindTasks] Initial task fetch error:', err));
 			setupInfiniteScroll();
-
-			return () => {
-				cleanupInfiniteScroll();
-			};
 		}
+		return () => {
+			if (browser) {
+				cleanupInfiniteScroll();
+			}
+		};
+	});
+
+	// Loading state management effect
+	$effect(() => {
+		// Update initial load flag
+		if (isInitialLoad && (!$searchTasksQuery.fetching || $searchTasksQuery.data?.tasks.items)) {
+			isInitialLoad = false;
+		}
+
+		// Condition for when page-level loading (initial or search) is active
+		const isPageLoading = $searchTasksQuery.fetching && searchParams.page === 1;
+
+		// Handle loading timeout
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		if (isPageLoading) {
+			timer = setTimeout(() => {
+				if ($searchTasksQuery.fetching && searchParams.page === 1) {
+					// Double check state
+					loadingTimeout = true;
+					console.error('[FindTasks] Query timeout - fetching took too long');
+				}
+			}, 10000); // 10 second timeout
+		} else {
+			loadingTimeout = false; // Reset timeout
+		}
+
+		return () => {
+			if (timer) clearTimeout(timer);
+		};
 	});
 </script>
 
@@ -443,15 +496,16 @@
 	{/if}
 
 	<!-- Task List -->
-	{#if $searchTasksQuery.fetching && searchParams.page === 1}
+	{#if (isInitialLoad || ($searchTasksQuery.fetching && searchParams.page === 1)) && !loadingTimeout}
+		<!-- Shimmer/Loading Placeholder -->
 		<div class="card bg-base-100 space-y-4 shadow-md">
 			{#each Array(4) as _}
 				<div class="card-body animate-pulse">
+					<!-- Skeleton structure -->
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 						<div class="bg-base-300 h-7 w-3/4 rounded"></div>
 						<div class="bg-base-300 h-6 w-32 rounded"></div>
 					</div>
-
 					<div class="my-4 grid grid-cols-1 gap-4 md:grid-cols-3">
 						<div>
 							<div class="bg-base-300 mb-2 h-4 w-16 rounded"></div>
@@ -466,21 +520,40 @@
 							<div class="bg-base-300 h-6 w-32 rounded"></div>
 						</div>
 					</div>
-
 					<div class="mb-4 flex flex-wrap gap-2">
 						<div class="bg-base-300 h-6 w-20 rounded"></div>
 						<div class="bg-base-300 h-6 w-24 rounded"></div>
 						<div class="bg-base-300 h-6 w-16 rounded"></div>
 					</div>
-
 					<div class="card-actions mt-4 flex items-center justify-between">
 						<div class="bg-base-300 h-6 w-16 rounded"></div>
 						<div class="bg-base-300 h-9 w-24 rounded"></div>
 					</div>
 				</div>
-
 				<div class="divider mx-auto w-[90%]"></div>
 			{/each}
+		</div>
+	{:else if loadingTimeout}
+		<!-- Loading Timeout Warning -->
+		<div class="alert alert-warning mb-4">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+				/>
+			</svg>
+			<div>
+				<h3 class="font-bold">Loading is taking longer than expected</h3>
+				<div class="text-xs">Try refreshing the page or check your connection</div>
+			</div>
+			<button class="btn btn-sm" onclick={() => window.location.reload()}> Refresh </button>
 		</div>
 	{:else if $searchTasksQuery.data?.tasks.items && $searchTasksQuery.data.tasks.items.length > 0}
 		<div class="card bg-base-100 space-y-4 shadow-md transition-shadow hover:shadow-lg">
