@@ -50,7 +50,7 @@
 	}
 </script>
 
-<div class="bg-base-100 flex h-full flex-col" in:fly={{ y: 20, duration: 300, easing: cubicOut }}>
+<div class="bg-base-100 flex flex-col h-screen" in:fly={{ y: 20, duration: 300, easing: cubicOut }}>
 	<!-- Navigation Bar -->
 	<div class="navbar bg-base-200 px-4">
 		<div class="navbar-start">

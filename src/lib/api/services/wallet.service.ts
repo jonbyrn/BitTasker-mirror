@@ -22,7 +22,7 @@ class BitcoinWalletService extends BaseApiService {
      * @response 404: User has no wallets
      * @returns User wallets
      */
-    async getWallets(): Promise<{ wallets: Wallet[], totalBalance: number }> {
+    async getAllWallets(): Promise<{ wallets: Wallet[], totalBalance: number }> {
         try {
             const response = await this.get(ENDPOINTS.WALLET.BITCOIN.ALL);
             return response.data;
@@ -65,8 +65,7 @@ class BitcoinWalletService extends BaseApiService {
     async getTransactions(): Promise<TransactionType[]> {
         try {
             const response = await this.get(ENDPOINTS.WALLET.BITCOIN.TRANSACTIONS);
-            console.log(response.data);
-            return response.data;
+            return response.data?.transactions || [];
         } catch (error) {
             console.error('Failed to get transactions:', error);
             throw error;

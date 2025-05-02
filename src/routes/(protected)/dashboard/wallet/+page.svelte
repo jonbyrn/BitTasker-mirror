@@ -62,7 +62,7 @@
 		loading = true;
 		const wallets: (Wallet | ConnectedWallet)[] = [];
 		const { wallets: internalWallets, totalBalance: internalTotalBalance } =
-			await walletService.getWallets();
+			await walletService.getAllWallets();
 		if (internalWallets && internalWallets.length > 0) {
 			wallets.push(...internalWallets);
 		}
