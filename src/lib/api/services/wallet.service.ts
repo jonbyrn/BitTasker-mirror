@@ -9,7 +9,7 @@
  * - Balance queries
  */
 
-import type { Transaction, TransactionType, Wallet } from '$lib/types/wallet';
+import type { Transaction, TransactionType, Wallet, Address } from '$lib/types/wallet';
 import { NetworkTypeEnum } from '$lib/utils/enums/wallet.enum';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
@@ -22,9 +22,9 @@ class BitcoinWalletService extends BaseApiService {
      * @response 404: User has no wallets
      * @returns User wallets
      */
-    async getWallets(): Promise<Wallet[]> {
+    async getWallets(): Promise<{ wallets: Wallet[], totalBalance: number }> {
         try {
-            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET);
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.ALL);
             return response.data;
         } catch (error) {
             console.error('Failed to get wallets:', error);
@@ -34,9 +34,28 @@ class BitcoinWalletService extends BaseApiService {
 
     /**
      * Create a new Bitcoin wallet for the authenticated user
+     * @param encryptedMnemonic The encrypted mnemonic of the wallet
+     * @param addresses The addresses of the wallet
+     * @response 201: Wallet successfully saved
+     * @response 400: User already has wallet or invalid data provided
+     * @response 401: Unauthorized
+     * @returns The created wallet
      */
-    async createWallet({ address, network }: { address: string, network: string }) {
-        const response = await this.post(ENDPOINTS.WALLET.BITCOIN.CREATE, { address, network });
+    async createWallet({ encryptedMnemonic, addresses }: { encryptedMnemonic: string, addresses: Address[] }) {
+        const response = await this.post(ENDPOINTS.WALLET.BITCOIN.CREATE, { encryptedMnemonic, addresses });
+        return response.data;
+    }
+
+    /**
+     * Get a Bitcoin wallet by ID
+     * @param id The ID of the wallet
+     * @response 200: Wallet information retrieved
+     * @response 401: Unauthorized
+     * @response 404: Wallet not found
+     * @returns The wallet
+     */
+    async getWallet(id: string): Promise<Wallet> {
+        const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET_WALLET(id));
         return response.data;
     }
 
@@ -45,34 +64,26 @@ class BitcoinWalletService extends BaseApiService {
      */
     async getTransactions(): Promise<TransactionType[]> {
         try {
-            // TODO: ENDPOINT NOT AVAILABLE
-            // const response = await this.get(ENDPOINTS.WALLET.BITCOIN.TRANSACTIONS);
-            // return response.data;
-            const mockTransactions: TransactionType[] = [
-                {
-                    txid: 'tx1',
-                    type: 'incoming',
-                    amount: 0.00123456,
-                    blockHeight: 680000,
-                    confirmed: true,
-                    confirmationTime: '2025-04-29T20:11:43.988Z',
-                    fees: 0.00005678,
-                },
-                {
-                    txid: 'tx2',
-                    type: 'outgoing',
-                    amount: 0.00045678,
-                    blockHeight: 680001,
-                    confirmed: true,
-                    confirmationTime: '2025-04-29T20:11:43.988Z',
-                    fees: 0.00005678,
-                }
-            ];
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    resolve(mockTransactions);
-                }, 1000);
-            });
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.TRANSACTIONS);
+            console.log(response.data);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get transactions:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get transactions for a specific Bitcoin wallet
+     * @param id The ID of the wallet
+     * @response 200: Wallet transactions retrieved successfully
+     * @response 401: Unauthorized
+     * @response 404: Wallet not found
+     */
+    async getWalletTransactions(id: string): Promise<TransactionType[]> {
+        try {
+            const response = await this.get(ENDPOINTS.WALLET.BITCOIN.GET_WALLET_TRANSACTIONS(id));
+            return response.data;
         } catch (error) {
             console.error('Failed to get transactions:', error);
             throw error;

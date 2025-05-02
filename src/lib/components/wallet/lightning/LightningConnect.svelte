@@ -4,7 +4,7 @@
 		checkCameraPermission,
 		requestCameraPermission,
 		isBarcodeScanningSupported
-	} from '$lib/utils/helpers/wallet/qr-scanner';
+	} from '$lib/utils/helpers/wallet/qrScanner';
 	import BarcodeScanner from '$lib/components/wallet/qrScanner/BarcodeScanner.svelte';
 
 	let nwcUrl = $state('');

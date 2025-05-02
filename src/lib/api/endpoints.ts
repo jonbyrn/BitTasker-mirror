@@ -135,8 +135,9 @@ export const ENDPOINTS = {
 	// Wallet endpoints
 	WALLET: {
 		BITCOIN: {
+			ALL: `${API_PATH}/${API_VERSION}/bitcoin/wallets`,
 			GET: `${API_PATH}/${API_VERSION}/bitcoin/wallet`,
-			CREATE: `${API_PATH}/${API_VERSION}/bitcoin/wallet`,
+			CREATE: `${API_PATH}/${API_VERSION}/bitcoin/wallet/client-created`,
 			BALANCE: `${API_PATH}/${API_VERSION}/bitcoin/wallet/balance`,
 			BALANCES: `${API_PATH}/${API_VERSION}/bitcoin/balances`,
 			ADDRESS_BALANCE: (address: string) => `${API_PATH}/${API_VERSION}/bitcoin/address/${address}/balance`,
@@ -149,9 +150,11 @@ export const ENDPOINTS = {
 			BROADCAST: `${API_PATH}/${API_VERSION}/bitcoin/tx/broadcast`,
 			CHECK_STATUS: (txid: string) => `${API_PATH}/${API_VERSION}/bitcoin/tx/status/${txid}`,
 			WITHDRAW: `${API_PATH}/${API_VERSION}/bitcoin/withdraw`,
+			TRANSACTIONS: `${API_PATH}/${API_VERSION}/bitcoin/wallets/transactions`,
+			GET_WALLET: (id: string) => `${API_PATH}/${API_VERSION}/bitcoin/wallet/${id}`,
+			GET_WALLET_TRANSACTIONS: (id: string) => `${API_PATH}/${API_VERSION}/bitcoin/wallet/${id}/transactions`,
 
 			/* UNAVAILABLE ENDPOINTS */
-			TRANSACTIONS: `${API_PATH}/${API_VERSION}/bitcoin/transactions`, // NOT AVAILABLE
 			SEND: `${API_PATH}/${API_VERSION}/bitcoin/send`, // NOT AVAILABLE
 			VALIDATE: `${API_PATH}/${API_VERSION}/bitcoin/validate`, // NOT AVAILABLE
 			STORE_MNEMONIC: `${API_PATH}/${API_VERSION}/bitcoin/wallet/mnemonic`, // E2E encrypted mnemonic storage - NOT AVAILABLE

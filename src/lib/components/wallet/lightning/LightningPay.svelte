@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { walletStore } from '$lib/stores/wallet.store';
-	import { checkCameraPermission, requestCameraPermission, isBarcodeScanningSupported } from '$lib/utils/helpers/wallet/qr-scanner';
+	import { checkCameraPermission, requestCameraPermission, isBarcodeScanningSupported } from '$lib/utils/helpers/wallet/qrScanner';
 	import BarcodeScanner from '$lib/components/wallet/qrScanner/BarcodeScanner.svelte';
 
 	let invoice = $state('');

@@ -8,7 +8,7 @@
 	import 'swiper/css/pagination';
 
 	let {
-		items = [],
+		items = $bindable([]),
 		loop = false,
 		slidesPerView = 'auto',
 		spaceBetween = 16,
@@ -24,85 +24,110 @@
 		lastEl
 	}: SwiperProps = $props();
 
-	const swiper = new Swiper('.swiper', {
-		init: false,
-		loop,
-		spaceBetween,
-		slidesPerView,
-		initialSlide,
-		centeredSlides,
-		autoHeight: true,
-		allowTouchMove: true,
-		allowSlideNext: true,
-		allowSlidePrev: true,
-		simulateTouch: true,
-		slideToClickedSlide: true,
-		touchEventsTarget: 'wrapper',
-		pagination: {
-			el: '.swiper-pagination',
-			clickable: true
-		},
-		navigation: {
-			nextEl: '.swiper-button-next',
-			prevEl: '.swiper-button-prev'
-		},
-		autoplay: autoPlay
-			? {
-					pauseOnMouseEnter: true,
-					disableOnInteraction: false,
-					delay: autoPlayDuration
+	let swiper: Swiper = $state() as Swiper;
+
+	function initSwiper() {
+		if (swiper) {
+			swiper.destroy(true, true);
+		}
+
+		swiper = new Swiper('.swiper', {
+			init: false,
+			loop,
+			spaceBetween,
+			slidesPerView,
+			initialSlide,
+			centeredSlides,
+			autoHeight: true,
+			allowTouchMove: true,
+			allowSlideNext: true,
+			allowSlidePrev: true,
+			simulateTouch: true,
+			slideToClickedSlide: true,
+			touchEventsTarget: 'wrapper',
+			pagination: {
+				el: '.swiper-pagination',
+				clickable: true
+			},
+			navigation: {
+				nextEl: '.swiper-button-next',
+				prevEl: '.swiper-button-prev'
+			},
+			autoplay: autoPlay
+				? {
+						pauseOnMouseEnter: true,
+						disableOnInteraction: false,
+						delay: autoPlayDuration
+					}
+				: false,
+			mousewheel: {
+				invert: true
+			},
+			breakpoints: {
+				768: {
+					slidesPerView:
+						typeof slidesPerView === 'number' ? slidesPerView + additionalSlides : slidesPerView,
+					spaceBetween: 0
 				}
-			: false,
-		mousewheel: {
-			invert: true
-		},
-		breakpoints: {
-			768: {
-				slidesPerView:
-					typeof slidesPerView === 'number' ? slidesPerView + additionalSlides : slidesPerView,
-				spaceBetween: 0
-			}
-		},
-		on: {
-			slideChange: () => {
-				currentIndex = swiper.realIndex;
-			}
-		},
-		modules: [Autoplay, Navigation, Pagination]
+			},
+			on: {
+				slideChange: () => {
+					currentIndex = swiper.realIndex;
+				}
+			},
+			modules: [Autoplay, Navigation, Pagination]
+		});
+
+		swiper.init();
+	}
+
+	// Watch for changes in items
+	$effect(() => {
+		if (items) {
+			// Wait for the DOM to update - Also prevents memory leaks
+			setTimeout(() => {
+				initSwiper();
+			}, 0);
+		}
 	});
 
 	onMount(() => {
-		swiper.init();
+		initSwiper();
 		return () => {
-			swiper.destroy();
+			if (swiper) {
+				swiper.destroy(true, true);
+			}
 		};
 	});
 
 	onDestroy(() => {
-		swiper.destroy();
+		if (swiper) {
+			swiper.destroy(true, true);
+		}
 	});
 
 	export const swiperMethods = {
-		stopAutoPlay: () => swiper.autoplay.stop(),
-		startAutoPlay: () => swiper.autoplay.start(),
-		slideToIndex: (index: number) => swiper.slideTo(index, 200, false),
-		next: () => swiper.slideNext(),
-		prev: () => swiper.slidePrev(200)
+		stopAutoPlay: () => swiper?.autoplay?.stop(),
+		startAutoPlay: () => swiper?.autoplay?.start(),
+		slideToIndex: (index: number) => swiper?.slideTo(index, 200, false),
+		next: () => swiper?.slideNext(),
+		prev: () => swiper?.slidePrev(200)
 	};
 </script>
 
 <div class="swiper" style={swiperStyle}>
 	<div class="swiper-wrapper">
-		{#each items as item, index}
-			{@render children?.({ item, index, swiper })}
-		{/each}
+		{#if items.length > 0}
+			{#each items as item, index}
+				{@render children?.({ item, index, swiper })}
+			{/each}
+		{/if}
 		{@render lastEl?.({ swiper })}
 	</div>
 	<!-- <div class="swiper-pagination"></div>
 	<div class="swiper-button-prev"></div>
 	<div class="swiper-button-next"></div> -->
 </div>
-
 {#if !loop}
 	{@render dots?.({
 		currentIndex,

@@ -1,4 +1,5 @@
 import type { NetworkTypeEnum } from "$lib/utils/enums/wallet.enum";
+import type { GetInfoResponse, GetBalanceResponse, GetIsEnabledResponse, GetIsSupportedResponse } from '@webbtc/webln-types';
 
 export type NetworkFeeType = 'low' | 'medium' | 'high';
 export type StoragePreference = 'service' | 'self';
@@ -9,25 +10,48 @@ export interface Wallet {
     addresses: [
         {
             address: string;
-            path: string;
-            type: string;
-            createdAt: string;
+            balance: number;
+            unconfirmedBalance: number;
+            totalReceived: number;
+            totalSent: number;
+            txCount: number;
         }
     ],
-    createdAt: string;
+    totalWalletBalance?: string;
+    createdAt?: string;
+}
+
+export interface ConnectedWallet {
+    info: GetInfoResponse;
+    balance?: number;
+    currency?: string;
+    isEnabled: GetIsEnabledResponse;
+    // isSupported?: GetIsSupportedResponse;
+    connected: boolean;
 }
 
 export interface TransactionType {
     txid: string;
-    type: 'incoming' | 'outgoing' | 'internal';
     blockHeight: number;
     confirmed: boolean;
     confirmationTime: string;
     fees: number;
     amount: number;
+    type: "received" | "sent" | "internal";
+    address: string;
+    walletId: number;
 }
 
-export interface Transaction {
+export interface Address {
+    address: string;
+    publicKey: string;
+    label: string;
+    path: string;
+    type: string;
+    isChange: boolean;
+}
+
+/* export interface Transaction {
     txid: string;
     type: NetworkTypeEnum;
     amount: number;
@@ -39,7 +63,7 @@ export interface Transaction {
     to: string;
     memo?: string;
     escrow?: EscrowDetails;
-}
+} */
 
 export interface WalletBalance {
     btc: number;

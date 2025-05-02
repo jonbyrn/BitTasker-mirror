@@ -2,7 +2,7 @@
 <script lang="ts">
 	import type { StoragePreference } from '$lib/types/wallet';
 	import { appStore } from '$lib/stores/app.store';
-	import { initializeWallet } from '$lib/utils/helpers/wallet';
+	import { createWallet } from '$lib/utils/helpers/wallet';
 
 	let { onWalletCreated } = $props<{ onWalletCreated: () => void }>();
 
@@ -24,14 +24,14 @@
 	const canProceed = $derived(passwordValid && passwordsMatch && hasAcknowledgedWarning);
 
 	// Handle wallet initialization
-	async function createWallet() {
+	async function onCreateWallet() {
 		if (!canProceed) return;
 
 		isLoading = true;
 		errorMessage = '';
 
 		try {
-			const result = await initializeWallet(password, storagePreference);
+			const result = await createWallet(password, storagePreference);
 
 			if (result.success) {
 				// If self-storage, display the mnemonic
@@ -281,7 +281,7 @@
 			</div>
 		{/if}
 
-		<button class="btn btn-primary w-full" disabled={!canProceed || isLoading} onclick={createWallet}>
+		<button class="btn btn-primary w-full" disabled={!canProceed || isLoading} onclick={onCreateWallet}>
 			{isLoading ? 'Creating Wallet...' : 'Create Wallet'}
 		</button>
 	{:else}

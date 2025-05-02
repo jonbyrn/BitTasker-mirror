@@ -14,7 +14,7 @@
 		getMaxZoomRatio,
 		startScanningWithBounds,
 		applyBarcodeScannerStyles
-	} from '$lib/utils/helpers/wallet/qr-scanner';
+	} from '$lib/utils/helpers/wallet/qrScanner';
 	import './barcode-scanner.css';
 
 	// Props

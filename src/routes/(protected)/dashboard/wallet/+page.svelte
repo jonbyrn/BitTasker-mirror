@@ -1,320 +1,448 @@
 <script lang="ts">
+	import type { Wallet, ConnectedWallet } from '$lib/types/wallet';
 	import { onMount } from 'svelte';
-	import WalletBalance from '$lib/components/wallet/WalletBalance.svelte';
-	import WalletReceive from '$lib/components/wallet/WalletReceive.svelte';
-	import WalletSend from '$lib/components/wallet/WalletSend.svelte';
-	import WalletTransactions from '$lib/components/wallet/WalletTransactions.svelte';
+	import { linear } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
+	import { onConnected, onDisconnected } from '@getalby/bitcoin-connect';
+	import Swiper from '$lib/components/Swiper.svelte';
 	import WalletSetup from '$lib/components/wallet/WalletSetup.svelte';
-	import LightningConnect from '$lib/components/wallet/lightning/LightningConnect.svelte';
-	import LightningInvoice from '$lib/components/wallet/lightning/LightningInvoice.svelte';
-	import LightningPay from '$lib/components/wallet/lightning/LightningPay.svelte';
-	import BitcoinConnect from '$lib/components/wallet/lightning/BitcoinConnect.svelte';
-	import EscrowContract from '$lib/components/wallet/escrow/EscrowContract.svelte';
-	import LiquidAssetManager from '$lib/components/wallet/escrow/LiquidAssetManager.svelte';
-	import { Preferences } from '@capacitor/preferences';
-	import { StorageKeys } from '$lib/utils/constants/storage';
-	import type {
-		EscrowContractEvents,
-		LiquidAssetManagerEvents,
-		BitcoinPaymentEvents
-	} from '$lib/types/wallet';
-	import BitcoinPayment from '$lib/components/wallet/BitcoinPayment.svelte';
-	import { generateMnemonic } from '$lib/utils/helpers/wallet';
+	import walletService from '$lib/api/services/wallet.service';
+	import Drawer from '$lib/components/Drawer.svelte';
+	import WalletConnect from '$lib/components/wallet/WalletConnect.svelte';
+	import TransactionList from '$lib/components/wallet/details/TransactionList.svelte';
+	import { goto } from '$app/navigation';
 
-	// UI state with mutable let variables using runes
-	let activeTab = $state<
-		| 'balance'
-		| 'receive'
-		| 'send'
-		| 'transactions'
-		| 'lightning'
-		| 'payment'
-		| 'escrow'
-		| 'liquid-escrow'
-	>('balance');
-	let activeLightningTab = $state('connect'); // connect, invoice, pay, bitcoin-connect
-	let isWalletInitialized = $state(false);
-	let showHardwareWalletOptions = $state(false);
-	let isConnectingHardwareWallet = $state(false);
-	let lightningInvoice = $state('');
+	let promise = $state<Promise<{ wallets: (Wallet | ConnectedWallet)[]; totalBalance: number }>>(
+		new Promise(() => {})
+	);
+	let showDrawer = $state(false);
+	let loading = $state(false);
+	let drawerContent = $state<'options' | 'create' | 'connect'>('connect');
+	let direction = $state<'forward' | 'backward'>('forward');
 
-	// Payment
-	let paymentAmount = $state(0);
-	let paymentDescription = $state('');
-	let paymentRecipient = $state('');
-	// Escrow
-	let escrowAmount = $state(0);
-	let escrowDescription = $state('');
-	let escrowRecipient = $state('');
-	let escrowTimeLock = $state(144); // 24 hours in blocks
-	let escrowSignatures = $state(2);
-	let liquidAssetId = $state('');
-	let liquidAmount = $state(0);
-	let liquidDescription = $state('');
-
-	// Handle changing tabs - create a function with the name expected by child components
-	function onTabChange(tab: string) {
-		activeTab = tab as typeof activeTab;
+	// Format number with a specific number of decimals
+	function formatNumber(number: number, decimals: number): string {
+		if (!number) return '0.00';
+		return number?.toFixed(decimals) || '0.00';
 	}
 
-	function onLightningTabChange(tab: string) {
-		activeLightningTab = tab;
+	// Format timestamp to human-readable date
+	function formatDate(timestamp: string): string {
+		const date = new Date(timestamp);
+		return date.toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
 	}
 
-	// Handle invoice generation
-	function handleInvoiceGenerated(invoice: string) {
-		lightningInvoice = invoice;
+	function openDrawer(content: 'options' | 'create' | 'connect' = 'options') {
+		drawerContent = content;
+		showDrawer = true;
+		if (showDrawer) {
+			if (content === 'options') {
+				direction = 'backward';
+			} else {
+				direction = 'forward';
+			}
+		}
 	}
 
-	// Handle payment completion
-	function handlePaymentComplete(event: CustomEvent) {
-		console.log('Payment completed:', event.detail);
-		// You can add additional logic here, like showing a success message
-		// or updating the transaction list
+	function closeDrawer() {
+		showDrawer = false;
+		// Reset to options after animation completes
+		setTimeout(() => {
+			drawerContent = 'options';
+		}, 300);
 	}
 
-	// Handle escrow events
-	function handleEscrowCreated(event: EscrowContractEvents['escrowCreated']) {
-		console.log('Escrow created:', event);
+	async function getWallets() {
+		loading = true;
+		const wallets: (Wallet | ConnectedWallet)[] = [];
+		const { wallets: internalWallets, totalBalance: internalTotalBalance } =
+			await walletService.getWallets();
+		if (internalWallets && internalWallets.length > 0) {
+			wallets.push(...internalWallets);
+		}
+
+		let balance = 0;
+
+		const unsubConnected = onConnected(async (provider) => {
+			const info = await provider.getInfo();
+			const pbalance = await provider.getBalance?.();
+			const isEnabled = await provider.isEnabled?.();
+			balance += pbalance?.balance ?? 0;
+			wallets.push({
+				info,
+				balance: pbalance?.balance,
+				currency: pbalance?.currency,
+				isEnabled: isEnabled,
+				connected: true
+			});
+			// Update promise with new data
+			promise = Promise.resolve({
+				wallets: [...wallets],
+				totalBalance: internalTotalBalance + balance
+			});
+		});
+
+		const unsubDisconnected = onDisconnected(() => {
+			wallets.pop();
+			balance = 0;
+			// Update promise with new data
+			promise = Promise.resolve({
+				wallets: [...wallets],
+				totalBalance: internalTotalBalance + balance
+			});
+		});
+
+		const totalBalance = internalTotalBalance + balance;
+		loading = false;
+
+		return {
+			data: { wallets, totalBalance },
+			cleanup: () => {
+				unsubConnected();
+				unsubDisconnected();
+			}
+		};
 	}
 
-	function handleEscrowReleased(event: EscrowContractEvents['escrowReleased']) {
-		console.log('Escrow released:', event);
-	}
+	onMount(() => {
+		let cleanup: (() => void) | undefined;
+		getWallets().then((result) => {
+			promise = Promise.resolve(result.data);
+			cleanup = result.cleanup;
+		});
 
-	function handleEscrowDisputed(event: EscrowContractEvents['escrowDisputed']) {
-		console.log('Escrow disputed:', event);
-	}
-
-	// Handle liquid escrow events
-	function handleLiquidEscrowCreated(event: LiquidAssetManagerEvents['liquidEscrowCreated']) {
-		console.log('Liquid escrow created:', event);
-	}
+		return () => {
+			cleanup?.();
+		};
+	});
 
 	// TODO: Check hardware wallet support
-	function checkHardwareWalletSupport(): boolean {
+	/* function checkHardwareWalletSupport(): boolean {
 		const hasWebUSB = typeof navigator !== 'undefined' && 'usb' in navigator;
 		const hasWebHID = typeof navigator !== 'undefined' && 'hid' in navigator;
 
 		return hasWebUSB || hasWebHID;
-	}
-
-	onMount(async () => {
-		try {
-			// Check if wallet exists and is initialized
-			const { value: storagePreference } = await Preferences.get({
-				key: StorageKeys.WALLET_STORAGE_PREFERENCE
-			});
-			const { value: walletCredentialId } = await Preferences.get({
-				key: StorageKeys.WALLET_AUTHN_CREDENTIAL_ID
-			});
-
-			if (storagePreference && walletCredentialId) {
-				// Wallet setup has been started, mark as initialized
-				isWalletInitialized = true;
-			}
-		} catch (error) {
-			console.error('Error checking wallet initialization:', error);
-		}
-
-		// TODO: Check hardware wallet support
-		// const hasHardwareSupport = checkHardwareWalletSupport();
-		// if (hasHardwareSupport) {
-		// 	showHardwareWalletOptions = true;
-		// }
-	});
+	} */
 
 	// TODO: Connect hardware wallet
+	/* let isConnectingHardwareWallet = $state(false);
 	async function connectHardwareWallet(type: 'ledger' | 'trezor'): Promise<void> {
 		return console.warn('Hardware wallet not implemented');
-		// isConnectingHardwareWallet = true;
+		isConnectingHardwareWallet = true;
 
-		// try {
-		// 	const connected = await connectHardwareWallet(type);
-		// 	if (connected) {
-		// 		hardwareWalletConnected = true;
-		// 		hardwareWalletType = type;
-		// 	}
-		// } catch (error) {
-		// 	console.error(`Failed to connect ${type}:`, error);
-		// } finally {
-		// 	isConnectingHardwareWallet = false;
-		// }
-	}
+		try {
+			const connected = await connectHardwareWallet(type);
+			if (connected) {
+				hardwareWalletConnected = true;
+				hardwareWalletType = type;
+			}
+		} catch (error) {
+			console.error(`Failed to connect ${type}:`, error);
+		} finally {
+			isConnectingHardwareWallet = false;
+		}
+	} */
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg py-6 shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold px-6">Wallet</h2>
-
-	<!-- {#if !isWalletInitialized}
-		<WalletSetup bind:isWalletInitialized />
-
-		{#if showHardwareWalletOptions}
-			<div class="divider">OR</div>
-
-			<div class="flex gap-2">
-				<button
-					class="btn flex-1"
-					onclick={() => connectHardwareWallet('ledger')}
-					disabled={isConnectingHardwareWallet}
-				>
-					Connect Ledger
-				</button>
-				<button
-					class="btn flex-1"
-					onclick={() => connectHardwareWallet('trezor')}
-					disabled={isConnectingHardwareWallet}
-				>
-					Connect Trezor
-				</button>
+	<h2 class="mb-6 px-6 text-2xl font-bold">Wallet</h2>
+	<div class="space-y-6">
+		<!-- Wallet Slider -->
+		{#await promise}
+			<div class="skeleton mx-auto h-72 w-[90%]"></div>
+		{:then { wallets, totalBalance }}
+			<!-- Totals -->
+			<div class="px-6">
+				<h3 class="mb-2 text-sm">Total Balance</h3>
+				<p class="text-xl font-bold">{formatNumber(totalBalance, 4)} BTC</p>
 			</div>
-		{/if}
-	{:else} -->
-		<!-- Tabs -->
-		<div class="tabs tabs-boxed mb-6 px-6">
-			<button
-				class="tab {activeTab === 'balance' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('balance')}
-			>
-				Balance
-			</button>
-			<button
-				class="tab {activeTab === 'receive' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('receive')}
-			>
+			{#if !loading}
+				<div class="px-2">
+					<Swiper items={wallets} slidesPerView={1.2} swiperStyle="width: 100%;">
+						{#snippet children({ item })}
+							<!-- Internal Wallet Card -->
+							{#if !item.connected}
+								<div
+									role="button"
+									tabindex="0"
+									class="swiper-slide"
+									style="height: 100%;"
+									onclick={() => goto(`/dashboard/wallet/${item.id}`)}
+									onkeydown={() => {}}
+								>
+									<div class="card bg-primary text-primary-content h-full">
+										<div class="card-body">
+											<h3 class="card-title mb-2 text-lg">Internal Wallet</h3>
+											<p class="text-4xl font-bold">{formatNumber(item?.balance?.btc, 4)} BTC</p>
+											<p class="opacity-80">
+												{item.balance?.sats?.toLocaleString()} sats
+											</p>
+											<p class="opacity-80">≈ ${item.balance?.usd?.toLocaleString()}</p>
+										</div>
+									</div>
+								</div>
+							{/if}
+							{#if item.connected}
+								<div class="swiper-slide" style="height: 100%;">
+									<div class="card bg-accent text-primary-content h-full">
+										<div class="card-body">
+											<h3 class="card-title mb-2 text-lg">Connected Wallet</h3>
+											<p class="text-4xl font-bold">
+												{formatNumber(item?.balance, 4)}
+												{item?.currency}
+											</p>
+											<p>{item?.isEnabled ? 'Enabled' : 'Disabled'}</p>
+										</div>
+									</div>
+								</div>
+							{/if}
+						{/snippet}
+						{#snippet lastEl()}
+							<!-- Add Wallet Card -->
+							<div class="swiper-slide" style="height: 100%;">
+								<div
+									role="button"
+									tabindex="0"
+									class="card bg-base-200 hover:bg-base-300 flex h-full cursor-pointer items-center justify-center transition-colors"
+									onclick={() => openDrawer()}
+									onkeydown={() => {}}
+								>
+									<div class="p-6 text-center">
+										<div
+											class="bg-base-content/10 mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full"
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-8 w-8"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 4v16m8-8H4"
+												/>
+											</svg>
+										</div>
+										<h3 class="mb-2 text-xl font-semibold">Add a wallet</h3>
+										<p class="text-base-content/70">
+											It's free, and you can create as many as you like.
+										</p>
+									</div>
+								</div>
+							</div>
+						{/snippet}
+					</Swiper>
+				</div>
+			{/if}
+		{:catch error}
+			<div class="text-center">
+				<p class="text-base-content/70">Error loading wallets: {error.message}</p>
+			</div>
+		{/await}
+
+		<!-- <div class="grid grid-cols-2 gap-4">
+			<button class="btn btn-outline btn-primary" onclick={() => onTabChange('receive')}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-2 h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+				</svg>
 				Receive
 			</button>
-			<button
-				class="tab {activeTab === 'send' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('send')}
-			>
+			<button class="btn btn-outline btn-primary" onclick={() => onTabChange('send')}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-2 h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+				</svg>
 				Send
 			</button>
-			<button
-				class="tab {activeTab === 'transactions' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('transactions')}
-			>
-				Transactions
-			</button>
-			<!-- <button
-				class="tab {activeTab === 'lightning' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('lightning')}
-			>
-				Lightning
-			</button>
-			<button
-				class="tab {activeTab === 'payment' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('payment')}
-			>
-				Pay
-			</button>
-			<button
-				class="tab {activeTab === 'escrow' ? 'tab-active' : ''}"
-				onclick={() => onTabChange('escrow')}
-			>
-				Escrow
-			</button> -->
+		</div> -->
+
+		<!-- Recent Transactions Section -->
+		<div class="space-y-4 px-6">
+			<h3 class="text-lg font-semibold">Recent Transactions</h3>
+
+			{#await walletService.getTransactions()}
+				<div class="my-5 flex items-center justify-center">
+					<div
+						class="border-l-primary h-10 w-10 animate-spin rounded-full border-2 border-t-transparent border-r-transparent border-b-transparent"
+					></div>
+				</div>
+			{:then transactions}
+				<TransactionList {transactions} />
+			{:catch error}
+				<div class="flex items-center justify-center">
+					<p class="text-accent text-center">
+						No transactions found! <br /> start with your wallet
+					</p>
+				</div>
+			{/await}
 		</div>
+	</div>
+</div>
 
-		<!-- Tab Content -->
-		{#if activeTab === 'balance'}
-			<WalletBalance {onTabChange} />
-		<!-- {:else if activeTab === 'receive'}
-			<WalletReceive />
-		{:else if activeTab === 'send'}
-			<WalletSend {onTabChange} />
-		{:else if activeTab === 'transactions'}
-			<WalletTransactions />
-		{:else if activeTab === 'lightning'}
-			<div class="tabs tabs-boxed mb-6">
+<Drawer isOpen={showDrawer} title="Add a Wallet" onClose={closeDrawer}>
+	<div class="bg-base-100 min-h-full w-full max-w-md">
+		{#if drawerContent === 'options'}
+			<div
+				class="space-y-4"
+				in:fly={{
+					duration: 200,
+					easing: linear,
+					y: 0,
+					x: direction === 'forward' ? 20 : -20
+				}}
+			>
 				<button
-					class="tab {activeLightningTab === 'connect' ? 'tab-active' : ''}"
-					onclick={() => onLightningTabChange('connect')}
+					class="card bg-base-200 hover:bg-base-300 w-full cursor-pointer p-4 transition-colors"
+					onclick={() => openDrawer('create')}
 				>
-					Connect
+					<div class="flex items-center space-x-4">
+						<div class="bg-primary/10 rounded-full p-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-primary h-6 w-6"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+								/>
+							</svg>
+						</div>
+						<div class="w-full">
+							<h3 class="font-semibold">Create New Wallet</h3>
+							<p class="text-base-content/70 text-sm">Create a new internal BitTasker wallet</p>
+						</div>
+					</div>
 				</button>
-				<button
-					class="tab {activeLightningTab === 'invoice' ? 'tab-active' : ''}"
-					onclick={() => onLightningTabChange('invoice')}
-				>
-					Invoice
-				</button>
-				<button
-					class="tab {activeLightningTab === 'pay' ? 'tab-active' : ''}"
-					onclick={() => onLightningTabChange('pay')}
-				>
-					Pay
-				</button>
-				<button
-					class="tab {activeLightningTab === 'bitcoin-connect' ? 'tab-active' : ''}"
-					onclick={() => onLightningTabChange('bitcoin-connect')}
-				>
-					Bitcoin Connect
-				</button>
-			</div>
 
-			{#if activeLightningTab === 'connect'}
-				<LightningConnect />
-			{:else if activeLightningTab === 'invoice'}
-				<LightningInvoice
-					amount={1000}
-					description="Test invoice"
-					onInvoiceGenerated={handleInvoiceGenerated}
-				/>
-			{:else if activeLightningTab === 'pay'}
-				<LightningPay />
-			{:else if activeLightningTab === 'bitcoin-connect'}
-				<BitcoinConnect />
-			{/if}
-		{:else if activeTab === 'payment'}
-			<div class="mb-6">
-				<h3 class="mb-4 text-xl font-semibold">Pay with Bitcoin</h3>
-				<BitcoinPayment
-					amount={paymentAmount}
-					description={paymentDescription}
-					recipient={paymentRecipient}
-					onPaymentComplete={handlePaymentComplete}
-				/>
-			</div>
-		{:else if activeTab === 'escrow' || activeTab === 'liquid-escrow'}
-			<div class="mb-6">
-				<h3 class="mb-4 text-xl font-semibold">Escrow Services</h3>
+				<button
+					class="card bg-base-200 hover:bg-base-300 w-full cursor-pointer p-4 transition-colors"
+					onclick={() => openDrawer('connect')}
+				>
+					<div class="flex items-center space-x-4">
+						<div class="bg-secondary/10 rounded-full p-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="text-secondary h-6 w-6"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 10V3L4 14h7v7l9-11h-7z"
+								/>
+							</svg>
+						</div>
+						<div class="w-full">
+							<h3 class="font-semibold">Connect Existing Wallet</h3>
+							<p class="text-base-content/70 text-sm">Connect your existing wallet</p>
+						</div>
+					</div>
+				</button>
 
-				<div class="tabs tabs-boxed mb-6">
+				<!-- TODO: Connect hardware wallet -->
+				<!-- <div class="flex gap-2">
 					<button
-						class="tab {activeTab === 'escrow' ? 'tab-active' : ''}"
-						onclick={() => onTabChange('escrow')}
+						class="btn flex-1"
+						onclick={() => connectHardwareWallet('ledger')}
+						disabled={isConnectingHardwareWallet}
 					>
-						Bitcoin Escrow
+						Connect Ledger
 					</button>
 					<button
-						class="tab {activeTab === 'liquid-escrow' ? 'tab-active' : ''}"
-						onclick={() => onTabChange('liquid-escrow')}
+						class="btn flex-1"
+						onclick={() => connectHardwareWallet('trezor')}
+						disabled={isConnectingHardwareWallet}
 					>
-						Liquid Escrow
+						Connect Trezor
+					</button>
+				</div> -->
+			</div>
+		{:else if drawerContent === 'create'}
+			<div
+				in:fly={{
+					duration: 200,
+					easing: linear,
+					y: 0,
+					x: direction === 'forward' ? 20 : -20
+				}}
+			>
+				<div class="mb-6 flex items-center justify-between">
+					<button aria-label="Back" class="btn btn-ghost btn-sm" onclick={() => openDrawer()}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15 19l-7-7 7-7"
+							/>
+						</svg>
 					</button>
 				</div>
-
-				{#if activeTab === 'escrow'}
-					<EscrowContract
-						amount={escrowAmount}
-						description={escrowDescription}
-						recipient={escrowRecipient}
-						timeLockDuration={escrowTimeLock}
-						requiredSignatures={escrowSignatures}
-						onEscrowCreated={handleEscrowCreated}
-						onEscrowReleased={handleEscrowReleased}
-						onEscrowDisputed={handleEscrowDisputed}
-					/>
-				{:else if activeTab === 'liquid-escrow'}
-					<LiquidAssetManager
-						assetId={liquidAssetId}
-						amount={liquidAmount}
-						description={liquidDescription}
-						onLiquidEscrowCreated={handleLiquidEscrowCreated}
-					/>
-				{/if}
-			</div> -->
+				<WalletSetup onWalletCreated={() => closeDrawer()} />
+			</div>
+		{:else}
+			<div
+				in:fly={{
+					duration: 200,
+					easing: linear,
+					y: 0,
+					x: direction === 'forward' ? 20 : -20
+				}}
+			>
+				<div class="mb-6 flex items-center justify-between">
+					<button aria-label="Back" class="btn btn-ghost btn-sm" onclick={() => openDrawer()}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M15 19l-7-7 7-7"
+							/>
+						</svg>
+					</button>
+				</div>
+				<WalletConnect />
+			</div>
 		{/if}
-	<!-- {/if} -->
-</div>
+	</div>
+</Drawer>

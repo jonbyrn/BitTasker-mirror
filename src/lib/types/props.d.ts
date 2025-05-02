@@ -69,7 +69,7 @@ export interface SwiperProps {
 	centeredSlides?: boolean;
 	currentIndex?: number;
 	swiperStyle?: string;
-	children?: import('svelte').Snippet<[any]>;
+	children?: import('svelte').Snippet<[{ item: any; index: number; swiper: Swiper }]>;
+	lastEl?: import('svelte').Snippet<[{ swiper: Swiper }]>;
 	dots?: import('svelte').Snippet<[any]>;
-	lastEl?: import('svelte').Snippet<[any]>;
 }

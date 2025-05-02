@@ -1,5 +1,5 @@
 import type { LightningInvoice, Transaction } from '$lib/types/wallet';
-import { webln } from '@getalby/sdk';
+import { webln, LN, USD } from '@getalby/sdk';
 import { NetworkTypeEnum } from '$lib/utils/enums/wallet.enum';
 
 // State variables

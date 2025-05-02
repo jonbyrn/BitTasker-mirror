@@ -91,709 +91,202 @@ NWC overview: https://docs.nwc.dev/reference-api/overview
 Error codes: https://docs.nwc.dev/reference-api/error-codes
 Connecting lightning wallets to webapp: https://github.com/getAlby/bitcoin-connect
 
-## API endpoints:
 
+## Technology Stack
+
+### Bitcoin & Blockchain
+- **bitcoinjs-lib**: Core Bitcoin operations
+- **bip39**: Seed phrase generation and management
+- **bip32**: HD wallet derivation
+- **@scure/bip39**: Modern, secure BIP39 implementation
+- **@noble/secp256k1**: For cryptographic operations
+- **Electrum Server API**: For UTXO management and transaction broadcasting
+- **Mempool.space API**: For fee estimation and transaction monitoring
+
+### Lightning Network
+- **WebLN**: For browser-based Lightning wallet interactions
+- **@getalby/js-lightning-tools**: Tools for Lightning Address protocols
+- **Nostr Wallet Connect (NWC)**:
+  - **@getalby/js-sdk**: Alby JavaScript SDK for NWC
+  - **nostr-tools**: Core nostr protocol support
+
+### Liquid Network
+- **liquidjs-lib**: For Liquid Network operations
+- **Blockstream Esplora API**: For Liquid asset operations
+
+### Cryptography
+- **Web Crypto API**: For secure key generation and encryption
+- **Leveraging existing crypto.ts and encoding.ts utilities**
+
+### Hardware Wallet Integration
+- **@ledgerhq/hw-app-btc**: For Ledger integration
+- **@trezor/connect-web**: For Trezor integration
+
+## Implementation Plan
+
+### Phase 1: Core Wallet Infrastructure
+
+1. **Secure Key Management**
+   - Implement BIP39 mnemonic generation using @scure/bip39
+   - Create HD wallet derivation using bip32
+   - Integrate with existing encryption utilities for key storage
+   - Create wallet state store with proper types
+
+2. **Bitcoin Wallet Service**
+   - Address generation following BIP84 (P2WPKH)
+   - UTXO management using Electrum server API
+   - Transaction building and signing using bitcoinjs-lib
+   - Fee estimation using Mempool API
+   - Balance queries and transaction history
+
+### Phase 2: Lightning Integration
+
+1. **Lightning Wallet Integration**
+   - WebLN provider detection and connection
+   - BOLT11 invoice generation and payment
+   - Lightning Address protocol support
+   - Nostr Wallet Connect implementation using @getalby/js-sdk
+
+2. **Payment Flow Integration**
+   - Invoice QR code generation
+   - Send flow with Lightning/on-chain detection
+   - Payment status tracking
+
+### Phase 3: Liquid & Escrow
+
+1. **Liquid Network Support**
+   - Integration with liquidjs-lib for Liquid operations
+   - Liquid address generation and validation
+   - Asset management (L-BTC, USDT)
+   - Multi-signature contract implementation
+   - Time-locked escrow contracts
+
+2. **Escrow System Implementation**
+   - Smart contract templates for different escrow types
+   - Dispute resolution mechanism
+   - Fee calculation and extraction logic
+
+### Phase 4: Hardware Wallet & Advanced Features
+
+1. **Hardware Wallet Integration**
+   - Ledger support via @ledgerhq/hw-app-btc
+   - Trezor support via @trezor/connect-web
+   - Address verification on device
+   - Transaction signing flow with hardware wallets
+
+2. **Advanced Security Features**
+   - Spending limits
+   - Address whitelisting
+   - Enhanced recovery options
+
+## Implementation Details
+
+### Key Security Architecture
+
+1. **Zero Trust Model**
+   - No server-side private key storage
+   - Client-side encryption of all sensitive data
+   - Encryption key derived from user password using PBKDF2
+
+2. **Key Derivation Workflow**
+   ```
+   User Password → PBKDF2 → AES-256 Key
+                              ↓
+   BIP39 Mnemonic ←→ AES-256 Encryption ←→ Encrypted Storage
+   ```
+
+3. **HD Wallet Structure**
+   - BIP44/84 compliant key derivation paths
+   - Multiple account support
+   - Different address types (SegWit, Taproot)
+
+### API Integration Strategy
+
+1. **Backend API Integration**
+   - Wallet creation: `POST /api/v1/bitcoin/wallet`
+   - Address generation: `POST /api/v1/bitcoin/wallet/address`
+   - Transaction creation: `POST /api/v1/bitcoin/send`
+   - Custom middleware for handling wallet-specific errors
+
+2. **External APIs**
+   - Electrum servers for UTXO management
+   - Mempool.space for fee estimation
+   - Blockstream Esplora for Liquid operations
+   - Fallback providers for redundancy
+
+### Secure Storage Strategy
+
+1. **Encrypted Storage Layers**
+   - Browser's localStorage with encrypted data
+   - Capacitor Preferences for mobile persistence
+   - WebCrypto API for cryptographic operations
+   - Salt and IV management for each encrypted item
+
+2. **Recovery Mechanisms**
+   - BIP39 seed phrase backup
+   - Optional encrypted cloud backup
+   - Device synchronization
+
+## Testing Strategy
+
+1. **Test Environments**
+   - Bitcoin Testnet/Regtest
+   - Lightning Test Network
+   - Liquid Testnet
+
+2. **Testing Areas**
+   - Key generation and derivation
+   - Transaction signing
+   - Fee calculation
+   - Address validation
+   - Hardware wallet interactions
+   - Recovery procedures
+
+## Implementation Roadmap
+
+1. **Week 1-2: Core Infrastructure**
+   - Set up wallet services following API rules
+   - Implement secure key management
+   - Bitcoin address generation and validation
+
+2. **Week 3-4: Bitcoin Transactions**
+   - UTXO management
+   - Transaction building and signing
+   - Transaction broadcasting
+   - History tracking
+
+3. **Week 5-6: Lightning Integration**
+   - WebLN support
+   - NWC implementation
+   - Invoice generation and payment
+
+4. **Week 7-8: Liquid & Escrow**
+   - Liquid address management
+   - Asset operations
+   - Escrow contract templates
+
+5. **Week 9-10: Hardware & Advanced Features**
+   - Hardware wallet integration
+   - Advanced security features
+   - UI polish and performance optimization
+
+## Libraries & Dependencies
+
+```json
+{
+  "dependencies": {
+    "bitcoinjs-lib": "^6.1.0",
+    "@scure/bip39": "^1.2.0",
+    "bip32": "^4.0.0",
+    "@noble/secp256k1": "^1.7.1",
+    "@getalby/js-sdk": "^1.1.0",
+    "@getalby/js-lightning-tools": "^1.0.2",
+    "nostr-tools": "^1.10.1",
+    "liquidjs-lib": "^6.0.2",
+    "@ledgerhq/hw-app-btc": "^8.0.0",
+    "@trezor/connect-web": "^9.0.5"
+  }
+}
 ```
-"/api/v1/bitcoin": {
-            "get": {
-                "operationId": "BitcoinController_getInfo_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": ""
-                    }
-                },
-                "summary": "Get general information about the Bitcoin service",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/health": {
-            "get": {
-                "operationId": "BitcoinController_healthCheck_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": ""
-                    }
-                },
-                "summary": "Check the health of the Bitcoin service and connections",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/wallet": {
-            "get": {
-                "operationId": "BitcoinController_getOrCreateWallet_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "Wallet information retrieved or new wallet created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "number",
-                                            "example": 1
-                                        },
-                                        "network": {
-                                            "type": "string",
-                                            "example": "testnet"
-                                        },
-                                        "addresses": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "address": {
-                                                        "type": "string",
-                                                        "example": "tb1qz5zehes4aucht68krv88tvjz3sd5l0ekrh4n5k"
-                                                    },
-                                                    "path": {
-                                                        "type": "string",
-                                                        "example": "m/44'/0'/0'/0/0"
-                                                    },
-                                                    "type": {
-                                                        "type": "string",
-                                                        "example": "P2WPKH"
-                                                    },
-                                                    "createdAt": {
-                                                        "type": "string",
-                                                        "format": "date-time"
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        "createdAt": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer": []
-                    }
-                ],
-                "summary": "Create or get Bitcoin wallet for the authenticated user",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/wallet/balance": {
-            "get": {
-                "operationId": "BitcoinController_getWalletBalance_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "User balances retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "addresses": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "address": {
-                                                        "type": "string",
-                                                        "example": "tb1qz5zehes4aucht68krv88tvjz3sd5l0ekrh4n5k"
-                                                    },
-                                                    "balance": {
-                                                        "type": "number",
-                                                        "example": 0.01234567
-                                                    },
-                                                    "unconfirmedBalance": {
-                                                        "type": "number",
-                                                        "example": 0
-                                                    },
-                                                    "totalReceived": {
-                                                        "type": "number",
-                                                        "example": 0.05678901
-                                                    },
-                                                    "totalSent": {
-                                                        "type": "number",
-                                                        "example": 0.04444334
-                                                    },
-                                                    "txCount": {
-                                                        "type": "number",
-                                                        "example": 5
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        "totalBalance": {
-                                            "type": "number",
-                                            "example": 0.01234567
-                                        },
-                                        "totalUnconfirmedBalance": {
-                                            "type": "number",
-                                            "example": 0
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer": []
-                    }
-                ],
-                "summary": "Get wallet balance for the authenticated user",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/wallet/address": {
-            "post": {
-                "operationId": "BitcoinController_generateNewAddress_v1",
-                "parameters": [],
-                "responses": {
-                    "201": {
-                        "description": "New address created",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "address": {
-                                            "type": "string",
-                                            "example": "tb1qz5zehes4aucht68krv88tvjz3sd5l0ekrh4n5k"
-                                        },
-                                        "path": {
-                                            "type": "string",
-                                            "example": "m/44'/0'/0'/0/1"
-                                        },
-                                        "type": {
-                                            "type": "string",
-                                            "example": "P2WPKH"
-                                        },
-                                        "createdAt": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    },
-                    "404": {
-                        "description": "No wallet found for user"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer": []
-                    }
-                ],
-                "summary": "Create a new Bitcoin address for the user",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/fees": {
-            "get": {
-                "operationId": "BitcoinController_getFeeEstimates_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "Fee estimates retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "lowPriority": {
-                                            "type": "number",
-                                            "example": 1
-                                        },
-                                        "mediumPriority": {
-                                            "type": "number",
-                                            "example": 5
-                                        },
-                                        "highPriority": {
-                                            "type": "number",
-                                            "example": 10
-                                        },
-                                        "lastUpdated": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "summary": "Get fee estimates for Bitcoin transactions",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/price": {
-            "get": {
-                "operationId": "BitcoinController_getBitcoinPrice_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "Bitcoin price retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "usd": {
-                                            "type": "number",
-                                            "example": 45123.45
-                                        },
-                                        "gbp": {
-                                            "type": "number",
-                                            "example": 32456.78
-                                        },
-                                        "eur": {
-                                            "type": "number",
-                                            "example": 38789.12
-                                        },
-                                        "lastUpdated": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "summary": "Get current Bitcoin price",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/convert": {
-            "post": {
-                "operationId": "BitcoinController_convertFiatToBitcoin_v1",
-                "parameters": [],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/FiatConversionDto"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "200": {
-                        "description": "Conversion calculated",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "fiatAmount": {
-                                            "type": "number",
-                                            "example": 1000
-                                        },
-                                        "fiatCurrency": {
-                                            "type": "string",
-                                            "example": "USD"
-                                        },
-                                        "bitcoinAmount": {
-                                            "type": "number",
-                                            "example": 0.02216
-                                        },
-                                        "exchangeRate": {
-                                            "type": "number",
-                                            "example": 45123.45
-                                        },
-                                        "lastUpdated": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid input or unsupported currency"
-                    }
-                },
-                "summary": "Convert fiat currency to Bitcoin",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/balances": {
-            "get": {
-                "operationId": "BitcoinController_getUserBalances_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "User balances retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "addresses": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "address": {
-                                                        "type": "string",
-                                                        "example": "tb1qz5zehes4aucht68krv88tvjz3sd5l0ekrh4n5k"
-                                                    },
-                                                    "balance": {
-                                                        "type": "number",
-                                                        "example": 0.01234567
-                                                    },
-                                                    "unconfirmedBalance": {
-                                                        "type": "number",
-                                                        "example": 0
-                                                    },
-                                                    "totalReceived": {
-                                                        "type": "number",
-                                                        "example": 0.05678901
-                                                    },
-                                                    "totalSent": {
-                                                        "type": "number",
-                                                        "example": 0.04444334
-                                                    },
-                                                    "txCount": {
-                                                        "type": "number",
-                                                        "example": 5
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        "totalBalance": {
-                                            "type": "number",
-                                            "example": 0.01234567
-                                        },
-                                        "totalUnconfirmedBalance": {
-                                            "type": "number",
-                                            "example": 0
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer": []
-                    }
-                ],
-                "summary": "Get balances for all addresses of the authenticated user",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/address/{address}/balance": {
-            "get": {
-                "operationId": "BitcoinController_getAddressBalance_v1",
-                "parameters": [
-                    {
-                        "name": "address",
-                        "required": true,
-                        "in": "path",
-                        "description": "Bitcoin address to get balance for",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Address balance retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "address": {
-                                            "type": "string",
-                                            "example": "tb1qz5zehes4aucht68krv88tvjz3sd5l0ekrh4n5k"
-                                        },
-                                        "balance": {
-                                            "type": "number",
-                                            "example": 0.01234567
-                                        },
-                                        "unconfirmedBalance": {
-                                            "type": "number",
-                                            "example": 0
-                                        },
-                                        "totalReceived": {
-                                            "type": "number",
-                                            "example": 0.05678901
-                                        },
-                                        "totalSent": {
-                                            "type": "number",
-                                            "example": 0.04444334
-                                        },
-                                        "txCount": {
-                                            "type": "number",
-                                            "example": 5
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid address format"
-                    }
-                },
-                "summary": "Get balance for a specific Bitcoin address",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/address/{address}/transactions": {
-            "get": {
-                "operationId": "BitcoinController_getAddressTransactions_v1",
-                "parameters": [
-                    {
-                        "name": "address",
-                        "required": true,
-                        "in": "path",
-                        "description": "Bitcoin address to get transactions for",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "limit",
-                        "required": false,
-                        "in": "query",
-                        "description": "Maximum number of transactions to return",
-                        "schema": {
-                            "type": "number"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Transactions retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "txid": {
-                                                "type": "string",
-                                                "example": "1a2b3c4d5e6f7g8h9i0j"
-                                            },
-                                            "blockHeight": {
-                                                "type": "number",
-                                                "example": 680000
-                                            },
-                                            "confirmed": {
-                                                "type": "boolean",
-                                                "example": true
-                                            },
-                                            "confirmationTime": {
-                                                "type": "string",
-                                                "format": "date-time",
-                                                "nullable": true
-                                            },
-                                            "fees": {
-                                                "type": "number",
-                                                "example": 0.00005678
-                                            },
-                                            "amount": {
-                                                "type": "number",
-                                                "example": 0.12345678
-                                            },
-                                            "type": {
-                                                "type": "string",
-                                                "enum": [
-                                                    "incoming",
-                                                    "outgoing",
-                                                    "self"
-                                                ],
-                                                "example": "incoming"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid address format"
-                    }
-                },
-                "summary": "Get transactions for a specific Bitcoin address",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-        "/api/v1/bitcoin/whitelist": {
-            "post": {
-                "operationId": "BitcoinController_whitelistAddress_v1",
-                "parameters": [],
-                "requestBody": {
-                    "required": true,
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "$ref": "#/components/schemas/WhitelistAddressDto"
-                            }
-                        }
-                    }
-                },
-                "responses": {
-                    "201": {
-                        "description": "Address whitelisted successfully",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "id": {
-                                            "type": "number",
-                                            "example": 1
-                                        },
-                                        "userId": {
-                                            "type": "number",
-                                            "example": 42
-                                        },
-                                        "label": {
-                                            "type": "string",
-                                            "example": "Hardware Wallet"
-                                        },
-                                        "address": {
-                                            "type": "string",
-                                            "example": "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-                                        },
-                                        "description": {
-                                            "type": "string",
-                                            "example": "Cold storage for savings",
-                                            "nullable": true
-                                        },
-                                        "createdAt": {
-                                            "type": "string",
-                                            "format": "date-time"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid input data"
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer": []
-                    }
-                ],
-                "summary": "Add a Bitcoin address to user whitelist",
-                "tags": [
-                    "Bitcoin"
-                ]
-            },
-            "get": {
-                "operationId": "BitcoinController_getWhitelistedAddresses_v1",
-                "parameters": [],
-                "responses": {
-                    "200": {
-                        "description": "Whitelisted addresses retrieved",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {
-                                                "type": "number",
-                                                "example": 1
-                                            },
-                                            "userId": {
-                                                "type": "number",
-                                                "example": 42
-                                            },
-                                            "label": {
-                                                "type": "string",
-                                                "example": "Hardware Wallet"
-                                            },
-                                            "address": {
-                                                "type": "string",
-                                                "example": "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"
-                                            },
-                                            "description": {
-                                                "type": "string",
-                                                "example": "Cold storage for savings",
-                                                "nullable": true
-                                            },
-                                            "createdAt": {
-                                                "type": "string",
-                                                "format": "date-time"
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized"
-                    }
-                },
-                "security": [
-                    {
-                        "bearer": []
-                    }
-                ],
-                "summary": "Get user's whitelisted Bitcoin addresses",
-                "tags": [
-                    "Bitcoin"
-                ]
-            }
-        },
-```
+
+This implementation plan provides a comprehensive approach to building a real, production-ready Bitcoin wallet for the BitTasker platform, utilizing modern libraries and best practices for blockchain interactions while maintaining the highest security standards for a non-custodial wallet. 

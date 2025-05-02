@@ -174,10 +174,10 @@ export async function scanSingleBarcode(): Promise<string> {
         resolve('');
         return;
       }
-      
+
       // Apply transparent styles
       applyBarcodeScannerStyles();
-      
+
       // Make sure we clean up properly in case of errors
       const cleanup = async () => {
         try {
@@ -188,7 +188,7 @@ export async function scanSingleBarcode(): Promise<string> {
           console.error('Error during scanner cleanup:', error);
         }
       };
-      
+
       // Add the listener for barcode scanned events
       const listener = await BarcodeScanner.addListener(
         'barcodesScanned',
@@ -199,7 +199,7 @@ export async function scanSingleBarcode(): Promise<string> {
           resolve(result.barcodes[0]?.rawValue || '');
         }
       );
-      
+
       // Start scanning
       await BarcodeScanner.startScan({
         formats: [BarcodeFormat.QrCode],
@@ -208,7 +208,7 @@ export async function scanSingleBarcode(): Promise<string> {
     } catch (error) {
       console.error('Error scanning single barcode:', error);
       removeBarcodeScannerStyles();
-      
+
       // Try to stop scan and remove listeners in case of error
       try {
         await BarcodeScanner.removeAllListeners();
@@ -216,7 +216,7 @@ export async function scanSingleBarcode(): Promise<string> {
       } catch (innerError) {
         console.error('Error cleaning up after scan error:', innerError);
       }
-      
+
       resolve('');
     }
   });
@@ -252,7 +252,7 @@ export async function stopScanning(listener?: any): Promise<void> {
     } else {
       await BarcodeScanner.removeAllListeners();
     }
-    
+
     removeBarcodeScannerStyles();
     await BarcodeScanner.stopScan();
   } catch (error) {
@@ -384,5 +384,146 @@ export async function openCameraSettings(): Promise<void> {
     await BarcodeScanner.openSettings();
   } catch (error) {
     console.error('Error opening camera settings:', error);
+  }
+}
+
+
+
+
+
+
+
+/* ######################################################### */
+/* ######################################################### */
+/* QR Code Parsing */
+
+
+/**
+ * Parse a scanned QR code and detect its type
+ */
+export function parseScannedQRCode(data: string): {
+  type: 'bitcoin' | 'lightning' | 'liquid' | 'unknown';
+  value: string;
+} {
+  // Bitcoin URI (BIP21)
+  if (data.toLowerCase().startsWith('bitcoin:')) {
+    return { type: 'bitcoin', value: data };
+  }
+
+  // Bitcoin address patterns
+  if (
+    data.startsWith('1') || // P2PKH
+    data.startsWith('3') || // P2SH
+    data.startsWith('bc1') // Bech32
+  ) {
+    return { type: 'bitcoin', value: data };
+  }
+
+  // Lightning Invoice (BOLT11)
+  if (
+    data.toLowerCase().startsWith('lightning:') ||
+    data.startsWith('lnbc') ||
+    data.startsWith('lntb') ||
+    data.startsWith('lnbcrt')
+  ) {
+    return { type: 'lightning', value: data.replace(/^lightning:/i, '') };
+  }
+
+  // Liquid address typically starts with different prefix
+  if (
+    data.startsWith('VT') ||
+    data.startsWith('AZ') ||
+    data.startsWith('ex')
+  ) {
+    return { type: 'liquid', value: data };
+  }
+
+  // Unknown format
+  return { type: 'unknown', value: data };
+}
+
+
+/**
+* Register for transaction notifications
+*/
+export async function registerForTransactionNotifications(
+  addresses: WalletAddress[]
+): Promise<boolean> {
+  if (!isMobileDevice()) {
+    return false;
+  }
+
+  try {
+    // In a real implementation, this would register the addresses with a
+    // notification service that monitors blockchain transactions
+
+    // Mock implementation - would normally store these addresses in a backend service
+    // that watches for blockchain/Lightning transactions and sends push notifications
+    console.log('Registered for notifications for addresses:', addresses);
+
+    return true;
+  } catch (error) {
+    console.error('Error registering for transaction notifications:', error);
+    return false;
+  }
+}
+
+/**
+* Setup background transaction monitoring
+*/
+export function setupBackgroundMonitoring(): void {
+  if (!isMobileDevice()) {
+    return;
+  }
+
+  // This would implement app-specific background tasks to check for new 
+  // transactions and notify the user. Background task implementation varies
+  // by platform and would use platform-specific APIs.
+
+  // On iOS, this might use Background Fetch
+  // On Android, this might use WorkManager or a Foreground Service
+
+  console.log('Background transaction monitoring set up');
+}
+
+/**
+* Handle deep links for wallet operations
+* 
+* This would be called from the main app when a deep link is detected
+*/
+export function handleWalletDeepLink(url: string): {
+  type: 'bitcoin' | 'lightning' | 'liquid' | 'unknown';
+  action: string;
+  data: any;
+} {
+  // Parse the URL to extract wallet operations
+  try {
+    // Example: bittasker://wallet/bitcoin/send?address=xxx&amount=yyy
+    const uri = new URL(url);
+
+    if (uri.protocol !== 'bittasker:') {
+      return { type: 'unknown', action: 'none', data: null };
+    }
+
+    const pathParts = uri.pathname.split('/').filter(Boolean);
+
+    if (pathParts.length < 2 || pathParts[0] !== 'wallet') {
+      return { type: 'unknown', action: 'none', data: null };
+    }
+
+    // Extract params
+    const params: Record<string, string> = {};
+    uri.searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
+
+    return {
+      type: pathParts[1] as 'bitcoin' | 'lightning' | 'liquid' | 'unknown',
+      action: pathParts[2] || 'view',
+      data: params
+    };
+  } catch (error) {
+    console.error('Error parsing wallet deep link:', error);
+    return { type: 'unknown', action: 'none', data: null };
   }
 } 
