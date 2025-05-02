@@ -1,6 +1,8 @@
 import { StorageKeys } from '$lib/utils/constants/storage';
 import type { ClientPlugin } from '$houdini';
 import { Preferences } from '@capacitor/preferences';
+import { goto } from '$app/navigation';
+import { browser } from '$app/environment';
 
 interface GraphQLError {
 	message: string;
@@ -28,13 +30,14 @@ const authErrorHandler: ClientPlugin = () => {
 				if (authError) {
 					console.warn('Detected auth error. Logging out...', authError);
 
-					await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+					// Only run Capacitor/browser-specific code in the browser
+					if (browser) {
+						await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 
-					const { authState } = await import('$lib/stores/auth.store');
-					authState.logout();
+						const { authState } = await import('$lib/stores/auth.store');
+						authState.logout();
 
-					if (typeof window !== 'undefined') {
-						window.location.href = '/auth';
+						goto('/auth');
 					}
 				}
 			}
