@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { deviceInfo } from '$lib/stores/deviceInfo.store';
-	import { t } from '$lib/stores/i18n.store';
-	import { setLocale } from '$lib/stores/i18n.store';
 	import type { Locales } from '$lib/stores/i18n.store';
-	import 'iconify-icon';
-	import Drawer from '$lib/components/Drawer.svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
+	import { page } from '$app/state';
 	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { t } from '$lib/stores/i18n.store';
+	import { darkMode } from '$lib/stores/theme.store';
+	import { setLocale } from '$lib/stores/i18n.store';
+	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { showBackButton } from '$lib/stores/navigation.store';
+	import Drawer from '$lib/components/Drawer.svelte';
+	import Avatar from '$lib/components/Avatar.svelte';
+	import 'iconify-icon';
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);

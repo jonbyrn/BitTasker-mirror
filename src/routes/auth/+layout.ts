@@ -33,7 +33,7 @@ export const load: LayoutLoad = async () => {
 			}
 		} else {
 			// If there's an error or no user data, remove the invalid/expired token and continue to auth page
-			// await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 			console.log('Invalid or expired token, removed token, returning to auth page');
 			return {};
 		}

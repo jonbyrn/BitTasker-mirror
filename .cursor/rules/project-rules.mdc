@@ -105,7 +105,6 @@ src/
 - Immutable data
 - No side effects in business logic
 - Composition over inheritance
-- Never use state, effect or derived runes inside stores
 - Imports order:
   - Types imports
   - Named imports
