@@ -227,7 +227,7 @@
 				</ul>
 			</div>
 		{:else}
-			<!-- User is not logged in: show dark mode toggle and Start Now button -->
+			<!-- User is not logged in: show dark mode toggle, Login, and Signup buttons -->
 			<label class="swap swap-rotate btn btn-ghost btn-circle mr-2">
 				<input type="checkbox" checked={$darkMode} onchange={() => ($darkMode = !$darkMode)} />
 
@@ -253,7 +253,12 @@
 					/>
 				</svg>
 			</label>
-			<a href="/dashboard" class="btn btn-primary">{$t('navbar.start_now')}</a>
+			
+			<!-- Login and Signup buttons, replacing the Get Started button -->
+			<div class="flex gap-2">
+				<a href="/auth/login" class="btn btn-secondary">Login</a>
+				<a href="/auth/signup" class="btn btn-primary">Signup</a>
+			</div>
 		{/if}
 	</div>
 </div>
@@ -336,9 +341,12 @@
 				</li>
 				<li><a href="/logout" onclick={closeDrawer}>{getTranslation('navbar.logout')}</a></li>
 			{:else}
-				<li class="mt-4">
-					<a href="/dashboard" class="btn btn-primary w-full" onclick={closeDrawer}>
-						{$t('navbar.start_now')}
+				<li class="mt-4 flex flex-col gap-2">
+					<a href="/auth/login" class="btn btn-secondary w-full" onclick={closeDrawer}>
+						Login
+					</a>
+					<a href="/auth/signup" class="btn btn-primary w-full" onclick={closeDrawer}>
+						Signup
 					</a>
 				</li>
 			{/if}

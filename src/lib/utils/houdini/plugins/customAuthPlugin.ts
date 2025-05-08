@@ -32,12 +32,12 @@ const authErrorHandler: ClientPlugin = () => {
 
 					// Only run Capacitor/browser-specific code in the browser
 					if (browser) {
-						await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+						// await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 
-						const { authState } = await import('$lib/stores/auth.store');
-						authState.logout();
+						// const { authState } = await import('$lib/stores/auth.store');
+						// authState.logout();
 
-						goto('/auth');
+						// goto('/auth');
 					}
 				}
 			}
