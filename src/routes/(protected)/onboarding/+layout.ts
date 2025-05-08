@@ -1,3 +1,4 @@
+// TODO: This layout should be removed, and the onboarding logic should be handled in the (protected)/+layout.ts file
 import type { LayoutLoad } from '../../$types';
 import { browser } from '$app/environment';
 import { redirect } from '@sveltejs/kit';

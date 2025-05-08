@@ -7,12 +7,9 @@
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
 	import {
 		setupKeyboardListeners,
-		keyboardVisible,
-		keyboardHeight,
 		setupGlobalInputFocusScroll
 	} from '$lib/utils/helpers/keyboard';
 	import TopBar from '$lib/components/TopBar.svelte';
-	import NavBar from '$lib/components/NavBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
@@ -87,7 +84,10 @@
 				{@render children()}
 			</div>
 		{:else}
-			<div class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden border-2 border-red-500">
+			<div
+				class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
+				style={showBottomBar ? 'padding-bottom: var(--dock-height, 5rem);' : ''}
+			>
 				{@render children()}
 			</div>
 		{/if}
@@ -99,13 +99,9 @@
 	</div>
 
 	{#if showBottomBar && ($deviceInfo?.platform !== 'web' || width <= 768)}
-		{#if $keyboardVisible}
-			<!-- <div style="height: {$keyboardHeight}px"></div> -->
-		{:else}
-			<div class="pb-safe right-0 bottom-0 left-0 z-50">
-				<BottomNavBar />
-			</div>
-		{/if}
+		<div class="pb-safe right-0 bottom-0 left-0 z-50">
+			<BottomNavBar />
+		</div>
 	{/if}
 
 	<Toast />
