@@ -7,9 +7,8 @@ import { Device } from '@capacitor/device';
 export const keyboardVisible = writable(false);
 export const keyboardHeight = writable(0);
 
-// TODO: Fix js error (use const instead of let)
-let keyboardShowListener: any = null;
-let keyboardHideListener: any = null;
+const keyboardShowListener: any = null;
+const keyboardHideListener: any = null;
 let listenersSet = false;
 
 export async function setupKeyboardListeners() {

@@ -140,7 +140,7 @@
 	}
 </script>
 
-<div class="bg-base-200 flex flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
+<div class="flex flex-col items-center justify-center gap-4 px-4 flex-grow">
 	<div class="alert alert-warning w-full max-w-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"

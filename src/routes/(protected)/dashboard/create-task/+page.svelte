@@ -193,7 +193,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mx-auto min-h-[90dvh] max-w-3xl shadow-xl">
+<div class="card bg-base-100 max-w-3xl shadow-xl mx-4 mt-2 sm:mt-0">
 	<div class="card-body">
 		<div class="flex items-center justify-between">
 			<h2 class="card-title text-2xl">Create a New Task</h2>
@@ -279,7 +279,7 @@
 						</div>
 
 						{#if $store.task.dateRange}
-							<div class="grid grid-cols-2 gap-4">
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div>
 									<DatePicker
 										label="Start Date"

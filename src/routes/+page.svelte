@@ -13,9 +13,7 @@
 </script>
 
 {#if $deviceInfo !== null && $deviceInfo?.platform !== 'web'}
-	<div class="min-h-[90vh]">
-		<OnboardingSlider />
-	</div>
+	<OnboardingSlider />
 {:else}
 	<div class="min-h-screen">
 		<!-- Hero Section -->

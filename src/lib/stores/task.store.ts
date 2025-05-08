@@ -5,6 +5,7 @@ import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
 import { get, writable } from 'svelte/store';
 import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
+import { page } from '$app/state';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
@@ -48,8 +49,10 @@ function createTaskStore() {
 		isEditing: false
 	};
 
+	const recurring = page.url.searchParams.get('recurring');
+
 	const recurringTask = {
-		isRecurring: false,
+		isRecurring: recurring == 'true',
 		name: '',
 		description: '',
 		recurrencePattern: {

@@ -26,7 +26,6 @@
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
-	import BottomNavBar from '$lib/components/NavBar.svelte';
 
 	let error = $state('');
 	let isLoading = $state(false);
@@ -191,8 +190,7 @@
 	}
 </script>
 
-<div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
-	<BottomNavBar />
+<div class="flex w-full flex-grow items-center justify-center px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>

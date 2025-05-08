@@ -10,11 +10,16 @@ export const load: LayoutLoad = async (event) => {
 		const { data: userData, error: userDataError } = await tryCatch(
 			(await load_IsOnboardingComplete(event)).IsOnboardingComplete.fetch()
 		);
-		if (userDataError) throw redirect(303, '/auth');
+		
+		if (userDataError) {
+			console.log('User data error, redirecting to auth');
+			throw redirect(303, '/auth');
+		}
 
+		authState.login();
+		
 		if (userData.data?.me.onboardingComplete) {
 			throw redirect(303, '/dashboard');
 		}
-		authState.login();
 	}
 };

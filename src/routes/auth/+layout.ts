@@ -19,6 +19,7 @@ export const load: LayoutLoad = async () => {
 		}
 
 		const { data: userData, error: userError } = await tryCatch(userService.getUserProfile());
+		console.log('userData', userData, userError);
 
 		// If we successfully get user data, user is logged in
 		if (!userError && userData) {
@@ -27,14 +28,12 @@ export const load: LayoutLoad = async () => {
 			user.set(userData);
 
 			// Check onboarding status and redirect accordingly
-			if (userData.onboardingComplete) {
-				throw redirect(303, '/dashboard');
-			} else {
+			if (!userData.onboardingComplete) {
 				throw redirect(303, '/onboarding');
 			}
 		} else {
 			// If there's an error or no user data, remove the invalid/expired token and continue to auth page
-			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+			// await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
 			console.log('Invalid or expired token, removed token, returning to auth page');
 			return {};
 		}

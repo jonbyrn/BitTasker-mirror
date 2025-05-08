@@ -287,6 +287,7 @@ type PaginationMeta {
 }
 
 type Query {
+  IsOnboardingComplete: Boolean!
   bid(id: Int!): Bid!
   bids: UserBidsResponse!
   bidsByTask(taskId: Int!): [Bid!]!
@@ -488,25 +489,16 @@ input UpdateTaskTemplateInput {
   task: UpdateTaskInput
 }
 
-input UpdateUserAddressDto {
-  """City"""
-  city: String!
-
-  """Country"""
-  country: String!
-
-  """Postal code"""
-  postalCode: String!
-
-  """State or province"""
-  state: String!
-
-  """Street address"""
-  street: String!
+input UpdateUserAddressInput {
+  city: String
+  country: String
+  postalCode: String
+  state: String
+  street: String
 }
 
 input UpdateUserInput {
-  address: UpdateUserAddressDto
+  address: UpdateUserAddressInput
   biddingAllowed: Boolean
   dob: DateTime
   email: String

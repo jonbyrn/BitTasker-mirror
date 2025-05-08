@@ -36,7 +36,7 @@
 </script>
 
 <div
-	class="bg-base-200 flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20"
+	class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4"
 >
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">

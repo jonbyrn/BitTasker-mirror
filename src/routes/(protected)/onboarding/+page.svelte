@@ -211,7 +211,7 @@
 	});
 </script>
 
-<div class="bg-base-200 flex min-h-screen items-center justify-center px-4 pt-20">
+<div class="bg-base-200 flex items-center justify-center px-4 flex-grow my-5">
 	<div class="card bg-base-100 relative w-full max-w-2xl shadow-xl">
 		<!-- Language selector - only shown on native devices -->
 		{#if $deviceInfo?.platform === 'ios' || $deviceInfo?.platform === 'android'}

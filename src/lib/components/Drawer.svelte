@@ -9,7 +9,7 @@
 	// Props
 	const props = $props<{
 		isOpen: boolean;
-		title: string;
+		title?: string;
 		onClose: () => void;
 		position?: 'left' | 'right';
 		width?: 'sm' | 'md' | 'lg' | 'full';
@@ -61,10 +61,13 @@
 	}
 
 	// Get CSS classes for position transform
-	function getPositionTransform(position: string): string {
-		return position === 'left'
-			? `translate-x-${props.isOpen ? '0' : '-full'}`
-			: `translate-x-${props.isOpen ? '0' : 'full'}`;
+	function getPositionTransform(position: string) {
+		if (!props.isOpen) {
+			if (position === 'left') return 'translateX(-100%)';
+			if (position === 'right') return 'translateX(100%)';
+		} else {
+			return 'translateX(0)';
+		}
 	}
 
 	// Escape key handler
@@ -99,9 +102,15 @@
 	style="transform: {getPositionTransform(position)};"
 >
 	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
+	<div
+		class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
+			? 'bg-base-200 border-b'
+			: ''}"
+	>
 		<h2 id="drawer-title" class="text-xl font-bold">
-			{props.title}
+			{#if props.title}
+				{props.title}
+			{/if}
 		</h2>
 		<button class="btn btn-ghost btn-circle" onclick={props.onClose} aria-label="Close drawer">
 			<svg
