@@ -152,7 +152,7 @@
 				5 * 60 * 1000
 			);
 
-			goto(`/auth/recover?provider=passkey&npub=${npub}&token=${tempTokenHex}`);
+			goto('/auth/onboarding');
 		}
 	}
 
@@ -178,9 +178,9 @@
 		}
 	}
 
+	// TODO: In a production environment, you must verify the token on your server
 	async function verifyCaptcha(token: string) {
 		try {
-			// TODO: In a production environment, you must verify the token on your server
 			// The verification should look something like this:
 
 			/*
@@ -224,7 +224,7 @@
 
 <div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full p-4 shadow-xl">
-		<div class="mb-8 flex flex-col items-center justify-center">
+		<div class="flex flex-col items-center justify-center">
 			<img src="/logo.svg" alt="BitTasker" class="h-20 w-auto" />
 			<h1 class="mt-6 text-center text-2xl font-bold">Signup for BitTasker</h1>
 			<p class="mx-auto text-center">
@@ -255,8 +255,8 @@
 		<div class="card-body">
 			<div class="flex flex-col gap-4">
 				<!-- Cloudflare Turnstile Captcha -->
-				<div class="mt-2 mb-4">
-					<p class="mb-2 text-center text-sm">Please verify you're human</p>
+				<div class="mt-2">
+					<p class="mb-2 w-full text-start text-sm">Please verify you're human</p>
 					<div bind:this={turnstileWidget} class="flex justify-center"></div>
 					<!-- {#if isCaptchaVerified}
 							<div class="alert alert-success mt-3 text-sm">
@@ -268,57 +268,48 @@
 						{/if} -->
 				</div>
 
-				{#if authMethods.biometric}
-					<button
-						class="btn btn-primary"
-						onclick={handleSignup}
-						disabled={isLoading || !isCaptchaVerified}
+				<button
+					class="btn btn-primary"
+					onclick={() => goto('/auth/onboarding?method=create')}
+					disabled={isLoading || !isCaptchaVerified}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="1.5"
+						stroke="currentColor"
+						class="size-5"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-							stroke="currentColor"
-							class="size-6"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
-							/>
-						</svg>
-						{isLoading ? 'Processing...' : 'Continue with Biometrics'}
-					</button>
-				{/if}
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+						/>
+					</svg>
+					{isLoading ? 'Processing...' : 'Create Account'}
+				</button>
 
-				{#if authMethods.webAuthn}
-					<button
-						class="btn btn-primary"
-						onclick={handleSignup}
-						disabled={isLoading || !isCaptchaVerified}
+				<button
+					class="btn btn-secondary"
+					onclick={() => goto('/auth/onboarding?method=import')}
+					disabled={!isCaptchaVerified}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="24"
+						height="24"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						class="size-6"
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke-width="1.5"
-							stroke="currentColor"
-							class="size-5"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
-							/>
-						</svg>
-						{isLoading ? 'Processing...' : 'Continue with Passkey'}
-					</button>
-				{/if}
-
-				{#if !authMethods.biometric && !authMethods.webAuthn}
-					<Alby />
-				{/if}
+						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">
+							<path stroke-linejoin="round" d="M12 4v10m0 0l3-3m-3 3l-3-3" />
+							<path d="M12 20a8 8 0 0 1-8-8m16 0a7.99 7.99 0 0 1-3 6.245" />
+						</g>
+					</svg>
+					Import Nostr Account
+				</button>
 
 				{#if error}
 					<div class="alert alert-error mt-2">

@@ -11,6 +11,8 @@
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
 
+	let { disabled = false } = $props();
+
 	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
 	let isInitialized = $state(false);
@@ -100,7 +102,7 @@
 	}
 </script>
 
-<button class="btn btn-outline w-full" onclick={handleLogin} disabled={isLoading || !isInitialized}>
+<button class="btn btn-outline w-full" onclick={handleLogin} disabled={isLoading || !isInitialized || disabled}>
 	<div class="flex items-center justify-center gap-2">
 		{#if isLoading}
 			<span class="loading loading-spinner"></span>

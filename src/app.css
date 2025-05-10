@@ -309,15 +309,3 @@
 		/* Chrome, Safari, Opera */
 	}
 }
-
-/* Improve tap targets for mobile */
-@media (max-width: 768px) {
-	button,
-	a,
-	input:not([type="checkbox"]),
-	select,
-	[role="button"] {
-		min-height: 22px;
-		min-width: 44px;
-	}
-}

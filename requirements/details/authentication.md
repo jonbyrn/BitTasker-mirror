@@ -13,6 +13,7 @@ BitTasker offers a decentralized platform for hiring and task management with mo
 ## Authentication Methods
 
 BitTasker supports the following authentication methods:
+
 - Passkey/Biometric authentication (WebAuthn)
 - Alby Connect integration
 - Nostr key import (for existing Nostr users)
@@ -24,9 +25,11 @@ BitTasker supports the following authentication methods:
 #### Login Page (`/login`)
 
 **Header:**
+
 - BitTasker logo
 
 **Content:**
+
 - Heading: "Login to BitTasker"
 - Subtext: "Hire for gigs, pay in Bitcoin or Fiat. Own your data and reputation."
 - Explanation: "Login with your Passkey/Biometrics, or [Alby Connect](https://getalby.com) account."
@@ -40,9 +43,11 @@ BitTasker supports the following authentication methods:
 #### Signup Page (`/signup`)
 
 **Header:**
+
 - BitTasker logo (centered)
 
 **Content:**
+
 - Heading: "Signup for BitTasker"
 - Subtext: "Hire for gigs, pay in Bitcoin or Fiat. Own your data."
 - Explanation: "To get started, signup with a next-gen Passkey/Biometric login, or your [Alby Connect](https://getalby.com) account."
@@ -58,6 +63,7 @@ BitTasker supports the following authentication methods:
 #### Onboarding Screen 1: Account Setup
 
 **Options:**
+
 - Create new Nostr Key OR Import existing key
 - Username field (with availability verification)
 - Optional recovery password with warning and explanation
@@ -65,6 +71,7 @@ BitTasker supports the following authentication methods:
 #### Onboarding Screen 2: Profile Information
 
 **Fields:**
+
 - Display name
 - Profile picture upload - Use and update Uploader.svelte accordingly
 - Professional title (e.g., Plumber, Handyman)
@@ -82,6 +89,7 @@ BitTasker supports the following authentication methods:
 #### Onboarding Screen 4: Completion
 
 **Content:**
+
 - Large success checkmark (rounded)
 - Heading: "You're all set!"
 - Message: "Welcome to BitTasker, the Decentralized Workforce. You're ready to start browsing and posting tasks."
@@ -90,6 +98,7 @@ BitTasker supports the following authentication methods:
 ## Implementation Notes
 
 ### Technical Considerations
+
 - Implement WebAuthn for Passkey/Biometric authentication
 - Integrate with Alby Connect for Lightning Network authentication
 - Support Nostr key creation and import
@@ -101,8 +110,12 @@ BitTasker supports the following authentication methods:
 3. What languages should we translate into automatically besides English and Spanish?
 
 ## Assets
+
 - BitTasker logo is available at `static/logo.svg`
 
 ## Resources
+
 - Cloudflare captcha client side: https://developers.cloudflare.com/turnstile/get-started/client-side-rendering/
 - Cloudflare captcha server side: https://developers.cloudflare.com/turnstile/get-started/server-side-validation/
+- Cloudflare captcha get started: https://developers.cloudflare.com/turnstile/get-started/
+- Cloudflare captcha testing keys: https://developers.cloudflare.com/turnstile/troubleshooting/testing/

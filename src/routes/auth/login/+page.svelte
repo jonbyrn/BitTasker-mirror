@@ -86,7 +86,7 @@
 				await login(biometricData.username, biometricData.password, deviceId);
 			} else {
 				// Show error message
-				error = 'No biometric data found, please create an account';
+				error = 'No create account, please create an account';
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);

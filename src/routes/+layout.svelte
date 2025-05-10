@@ -91,7 +91,7 @@
 				{@render children()}
 			</div>
 		{/if}
-		{#if !showBottomBar}
+		{#if !showBottomBar && showTopBar}
 			<footer class="bg-base-300 text-base-content/70 py-4 text-center">
 				<p>© {new Date().getFullYear()} BitTasker. All rights reserved.</p>
 			</footer>
