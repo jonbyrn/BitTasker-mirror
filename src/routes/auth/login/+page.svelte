@@ -103,10 +103,11 @@
 			<div class="mb-8 flex flex-col items-center justify-center">
 				<img src="/logo.svg" alt="BitTasker" class="h-20 w-auto" />
 				<h1 class="mt-6 text-center text-2xl font-bold">Login to BitTasker</h1>
+				<br />
 				<p class="text-base-content/70 mt-3 text-center text-sm">
-					Hire for gigs, pay in Bitcoin or Fiat. Own your data and reputation.
+					Hire for gigs, pay in Bitcoin or Fiat.
 				</p>
-				<p class="text-base-content/70 mt-1 text-center text-sm">
+				<p class="text-base-content/70 mt-2 text-center text-sm">
 					Login with your <span class="text-primary">Passkey/Biometrics</span>, or
 					<a
 						href="https://getalby.com"

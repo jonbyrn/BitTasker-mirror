@@ -31,18 +31,14 @@
 	let saveForLater = $state(false);
 
 	// Handle image upload
-	function handleImageUpload(event: Event) {
-		const input = event.target as HTMLInputElement;
-		if (input.files && input.files[0]) {
-			const file = input.files[0];
-			if (file.type.match('image.*')) {
+	function handleImageUpload(file: File) {
+		if (file.type.match('image.*')) {
 				profilePicture = file;
 				const reader = new FileReader();
 				reader.onload = (e) => {
 					picturePreview = e.target?.result as string;
 				};
-				reader.readAsDataURL(file);
-			}
+			reader.readAsDataURL(file);
 		}
 	}
 
@@ -68,7 +64,6 @@
 	}
 
 	async function handleSubmit() {
-        return nextStep();
 		try {
 			isLoading = true;
 			error = '';
@@ -89,41 +84,17 @@
 				return;
 			}
 
-			// Get the existing onboarding data
-			const onboardingDataResult = await Preferences.get({ key: 'bittasker_onboarding_data' });
-			if (!onboardingDataResult.value) {
-				error = 'Missing account setup data. Please go back to the first step.';
-				isLoading = false;
-				return;
-			}
-
-			const onboardingData = JSON.parse(onboardingDataResult.value);
-
 			// Update the onboarding data with profile information
 			const updatedData = {
-				...onboardingData,
 				displayName,
 				professionalTitle,
 				profileDescription,
 				skills,
-				profilePicture: picturePreview, // In a real implementation, you'd upload this to a server
-				saveForLater
+				// TODO: profilePicture: {key, url} Upload image to server and get key and url
 			};
 
-			// Store updated onboarding data
-			await Preferences.set({
-				key: 'bittasker_onboarding_data',
-				value: JSON.stringify(updatedData)
-			});
-
-			// Go to the next step or save for later
-			if (saveForLater) {
-				// Save progress and redirect to browse tasks
-				goto('/dashboard');
-			} else {
-				// Continue to location setup
-				goto('/auth/onboarding/location');
-			}
+			// Go to the next step
+			nextStep();
 		} catch (err: unknown) {
 			console.error('Profile setup failed:', err);
 			error = err instanceof Error ? err.message : 'Profile setup failed';
@@ -143,6 +114,9 @@
 					label="Profile Picture"
 					maxFiles={1}
 					customClass="h-32 w-full"
+					onChange={(files) => {
+						console.log(files);
+					}}
 				/>
 			</div>
 
@@ -189,7 +163,7 @@
 				<textarea
 					id="profileDescription"
 					bind:value={profileDescription}
-					class="textarea textarea-bordered h-24 {descriptionError ? 'textarea-error' : ''}"
+					class="textarea textarea-bordered rounded-2xl h-24 {descriptionError ? 'textarea-error' : ''}"
 					placeholder="Tell others about yourself, your skills, and experience"
 					disabled={saveForLater}
 				></textarea>
@@ -291,7 +265,7 @@
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{/if}
-					{saveForLater ? 'Save for Later' : 'Next'}
+					Next
 				</button>
 			</div>
 		</form>

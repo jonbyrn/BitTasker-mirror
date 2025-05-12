@@ -227,11 +227,12 @@
 		<div class="flex flex-col items-center justify-center">
 			<img src="/logo.svg" alt="BitTasker" class="h-20 w-auto" />
 			<h1 class="mt-6 text-center text-2xl font-bold">Signup for BitTasker</h1>
-			<p class="mx-auto text-center">
-				<span class="text-base-content/70 mt-3 text-center text-sm">
+			<br />
+			<p class="mx-auto space-y-2 text-center">
+				<span class="text-base-content/70 mt-3 block text-center text-sm">
 					Hire for gigs, pay in Bitcoin or Fiat. Own your data.
-				</span> <br />
-				<span class="text-base-content/70 mt-1 text-center text-sm">
+				</span>
+				<span class="text-base-content/70 block text-center text-sm">
 					To get started, signup with a next-gen Passkey/Biometric login, or your
 					<a
 						href="https://getalby.com"
@@ -239,8 +240,8 @@
 						rel="noopener noreferrer"
 						class="text-primary hover:underline">Alby Connect</a
 					> account.
-				</span> <br />
-				<span class="text-base-content/70 mt-1 text-center text-sm">
+				</span>
+				<span class="text-base-content/70 block text-center text-sm">
 					If you have an existing account on
 					<a
 						href="https://nostr.com"
@@ -270,45 +271,18 @@
 
 				<button
 					class="btn btn-primary"
-					onclick={() => goto('/auth/onboarding?method=create')}
+					onclick={() => goto('/auth/onboarding')}
 					disabled={isLoading || !isCaptchaVerified}
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-						stroke="currentColor"
-						class="size-5"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
-						/>
-					</svg>
-					{isLoading ? 'Processing...' : 'Create Account'}
-				</button>
-
-				<button
-					class="btn btn-secondary"
-					onclick={() => goto('/auth/onboarding?method=import')}
-					disabled={!isCaptchaVerified}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="24"
-						height="24"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						class="size-6"
-					>
+					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
 						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">
-							<path stroke-linejoin="round" d="M12 4v10m0 0l3-3m-3 3l-3-3" />
-							<path d="M12 20a8 8 0 0 1-8-8m16 0a7.99 7.99 0 0 1-3 6.245" />
+							<path d="M20 12a8 8 0 0 0-8-8m0 16a7.99 7.99 0 0 0 6.245-3" /><path
+								stroke-linejoin="round"
+								d="M4 12h10m0 0l-3-3m3 3l-3 3"
+							/>
 						</g>
 					</svg>
-					Import Nostr Account
+					{isLoading ? 'Processing...' : 'Sign Up'}
 				</button>
 
 				{#if error}

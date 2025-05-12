@@ -6,6 +6,10 @@
 	box-sizing: border-box;
 }
 
+input {
+	@apply focus:outline-none
+}
+
 /* Glow animations */
 @keyframes pulse-glow {
 

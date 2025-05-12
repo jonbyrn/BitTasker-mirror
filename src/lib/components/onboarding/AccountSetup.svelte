@@ -2,7 +2,7 @@
 	import type { AccountRecoveryData } from '$lib/types/auth';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { fly } from 'svelte/transition';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -13,7 +13,8 @@
 	import {
 		validateNostrPrivateKey,
 		validateUsername,
-		validatePassword
+		validatePassword,
+		validateEmail
 	} from '$lib/utils/helpers/validators';
 	import authService from '$lib/api/services/auth.service';
 
@@ -25,15 +26,15 @@
 		prevStep: () => void;
 	} = $props();
 
-	const method = page.url.searchParams.get('method');
-
 	// User data
 	let username = $state('');
 	let nsec = $state('');
 	let npub = $state('');
 	let recoveryPassword = $state('');
 	let confirmPassword = $state('');
+	let recoveryEmail = $state('');
 	let enableRecovery = $state(false);
+	let importNostrKey = $state(false);
 
 	// Status indicators
 	let isLoading = $state(false);
@@ -42,7 +43,9 @@
 	let usernameError = $state('');
 	let nsecError = $state('');
 	let passwordError = $state('');
+	let emailError = $state('');
 	let usernameAvailable = $state(false);
+
 	// Password visibility
 	let showPrivateKey = $state(false);
 	let showPassword = $state(false);
@@ -53,16 +56,6 @@
 		const nsec = bytesToHex(sk);
 		return { npub, nsec };
 	}
-
-	onMount(async () => {
-		try {
-			if (method === 'create') {
-				({ npub, nsec } = await generateKeyPair());
-			}
-		} catch (err) {
-			console.error('Error checking authentication methods:', err);
-		}
-	});
 
 	async function checkUsernameAvailability() {
 		if (!username) {
@@ -154,7 +147,7 @@
 		}
 	}
 
-	async function setupAccRecovery(npub: string, nsec: string, password: string) {
+	async function setupAccRecovery(npub: string, nsec: string, password: string, email: string) {
 		try {
 			isLoading = true;
 			error = '';
@@ -167,7 +160,8 @@
 				iv: encrypted.iv,
 				authTag: encrypted.authTag,
 				salt: salt,
-				iterations: iterations
+				iterations: iterations,
+				email
 			};
 
 			await authService.setupAccountRecoveryPassword(data);
@@ -179,6 +173,12 @@
 		}
 	}
 
+	function handleUsernameBlur() {
+		if (username && !isCheckingUsername && !usernameAvailable) {
+			checkUsernameAvailability();
+		}
+	}
+
 	async function handleSubmit() {
 		try {
 			isLoading = true;
@@ -186,6 +186,7 @@
 			usernameError = '';
 			nsecError = '';
 			passwordError = '';
+			emailError = '';
 
 			// Validate username
 			if (!username) {
@@ -194,8 +195,11 @@
 			}
 
 			if (!usernameAvailable) {
-				usernameError = 'Username is already taken';
-				return;
+				await checkUsernameAvailability();
+				if (!usernameAvailable) {
+					usernameError = 'Username is already taken';
+					return;
+				}
 			}
 
 			const usernameValidation = validateUsername(username);
@@ -204,22 +208,36 @@
 				return;
 			}
 
-			// Validate imported private key
-			const validation = validateNostrPrivateKey(nsec);
-			if (!validation.isValid) {
-				nsecError = validation.error!;
-				return;
-			}
+			// If importing key, validate it
+			if (importNostrKey) {
+				const validation = validateNostrPrivateKey(nsec);
+				if (!validation.isValid) {
+					nsecError = validation.error!;
+					return;
+				}
 
-			// Get npub from nsec if not provided
-			if (!npub) {
+				// Get npub from nsec
 				npub = getNpubFromEncodedNsec(nsec);
+			} else {
+				// Generate key pair
+				({ npub, nsec } = await generateKeyPair());
 			}
 
 			await register(npub, nsec);
 
 			// Validate recovery password if enabled
 			if (enableRecovery) {
+				if (!recoveryEmail) {
+					emailError = 'Recovery email is required';
+					return;
+				}
+
+				const emailValidation = validateEmail(recoveryEmail);
+				if (!emailValidation.isValid) {
+					emailError = emailValidation.error!;
+					return;
+				}
+
 				if (!recoveryPassword) {
 					passwordError = 'Recovery password is required';
 					return;
@@ -236,7 +254,7 @@
 					return;
 				}
 
-				await setupAccRecovery(npub, nsec, recoveryPassword);
+				await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
 			}
 
 			// Go to the next step
@@ -263,28 +281,19 @@
 						<span class="label-text-alt text-success">Available</span>
 					{/if}
 				</label>
-				<div class="join w-full">
-					<input
-						type="text"
-						id="username"
-						bind:value={username}
-						class="input input-bordered join-item flex-1 {usernameError
-							? 'input-error'
-							: usernameAvailable && username
-								? 'input-success'
-								: ''}"
-						placeholder="Choose a username"
-						required
-					/>
-					<button
-						type="button"
-						class="btn btn-neutral join-item"
-						onclick={checkUsernameAvailability}
-						disabled={isCheckingUsername || !username}
-					>
-						Check
-					</button>
-				</div>
+				<input
+					type="text"
+					id="username"
+					bind:value={username}
+					onblur={handleUsernameBlur}
+					class="input input-bordered w-full {usernameError
+						? 'input-error'
+						: usernameAvailable && username
+							? 'input-success'
+							: ''}"
+					placeholder="Choose a username"
+					required
+				/>
 				{#if usernameError}
 					<label class="label" for="username">
 						<span class="label-text-alt text-error">{usernameError}</span>
@@ -292,103 +301,37 @@
 				{/if}
 			</div>
 
-			<!-- Private Key Field (Import Mode) -->
+			<!-- Nostr Key Import Option -->
 			<div class="form-control">
-				<label class="label" for="privateKey">
-					<span class="label-text">Private Key (nsec)</span>
-				</label>
-				<div class="relative">
-					<input
-						type={showPrivateKey ? 'text' : 'password'}
-						id="privateKey"
-						bind:value={nsec}
-						class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
-						placeholder="Enter your Nostr private key"
-						required
-					/>
-					<button
-						type="button"
-						class="absolute inset-y-0 right-0 flex items-center pr-3"
-						onclick={() => (showPrivateKey = !showPrivateKey)}
-					>
-						{#if showPrivateKey}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-								/>
-							</svg>
-						{:else}
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-								/>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-								/>
-							</svg>
-						{/if}
-					</button>
-				</div>
-				{#if nsecError}
-					<label class="label" for="privateKey">
-						<span class="label-text-alt text-error">{nsecError}</span>
-					</label>
-				{/if}
-			</div>
-
-			<!-- Recovery Password Option -->
-			<div class="form-control space-y-2">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
-					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
-					<span class="label-text">Create recovery password</span>
+					<input type="checkbox" bind:checked={importNostrKey} class="checkbox checkbox-sm" />
+					<div class="flex items-center gap-2">
+						<span class="label-text">Import Nostr Key (nsec)</span>
+					</div>
 				</label>
-				<span class="text-info/90 block text-xs">
-					Optional but recommended. If you lose access to your device, you'll be able to recover
-					your account.
-				</span>
 			</div>
 
-			{#if enableRecovery}
-				<!-- Recovery Password Field -->
-				<div class="form-control">
-					<label class="label" for="password">
-						<span class="label-text">Recovery Password</span>
+			<!-- Private Key Field (Only shown if import is checked) -->
+			{#if importNostrKey}
+				<div class="form-control" in:fly={{ duration: 100, y: -20, easing: linear }}>
+					<label class="label" for="privateKey">
+						<span class="label-text">Private Key (nsec)</span>
 					</label>
 					<div class="relative">
 						<input
-							type={showPassword ? 'text' : 'password'}
-							id="password"
-							bind:value={recoveryPassword}
-							class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
-							placeholder="Create a strong password"
+							type={showPrivateKey ? 'text' : 'password'}
+							id="privateKey"
+							bind:value={nsec}
+							class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
+							placeholder="Enter your Nostr private key"
+							required
 						/>
 						<button
 							type="button"
 							class="absolute inset-y-0 right-0 flex items-center pr-3"
-							onclick={() => (showPassword = !showPassword)}
+							onclick={() => (showPrivateKey = !showPrivateKey)}
 						>
-							{#if showPassword}
+							{#if showPrivateKey}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-5 w-5"
@@ -427,35 +370,233 @@
 							{/if}
 						</button>
 					</div>
-				</div>
-
-				<!-- Confirm Password Field -->
-				<div class="form-control">
-					<label class="label" for="confirmPassword">
-						<span class="label-text">Confirm Recovery Password</span>
-					</label>
-					<input
-						type={showPassword ? 'text' : 'password'}
-						id="confirmPassword"
-						bind:value={confirmPassword}
-						class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-						placeholder="Confirm your password"
-					/>
-					{#if passwordError}
-						<label class="label" for="confirmPassword">
-							<span class="label-text-alt text-error">{passwordError}</span>
+					{#if nsecError}
+						<label class="label" for="privateKey">
+							<span class="label-text-alt text-error">{nsecError}</span>
 						</label>
 					{/if}
 				</div>
+			{:else}
+				<div
+					class="alert alert-info mt-2 rounded-2xl text-xs text-black"
+					in:fly={{ duration: 100, y: -20, easing: linear }}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>
+						If you already have a private key on Nostr, you can import it here and use it. If not,
+						we'll generate one for you.
+					</span>
+				</div>
+			{/if}
 
-				<!-- Password Guidelines -->
-				<div class="alert alert-info text-xs">
-					<ul class="list-inside list-disc">
-						<li>Use at least 8 characters</li>
-						<li>Include numbers and special characters</li>
-						<li>Avoid using personal information</li>
-						<li>Store this password in a secure place</li>
-					</ul>
+			<!-- Recovery Password Option -->
+			<div class="form-control">
+				<label class="label flex cursor-pointer items-center justify-start gap-2">
+					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
+					<span class="label-text">Create recovery password</span>
+				</label>
+				{#if !enableRecovery}
+					<div
+						class="alert alert-warning mt-4 rounded-2xl text-xs text-black"
+						in:fly={{ duration: 100, y: -20, easing: linear }}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<p>
+							<span class="font-bold">Optional but recommended.</span>
+							<br />
+							<span>
+								If you lose access to your device, you'll be able to recover your account.
+							</span>
+						</p>
+					</div>
+				{/if}
+			</div>
+
+			{#if enableRecovery}
+				<div class="space-y-4" in:fly={{ duration: 100, y: -20, easing: linear }}>
+					<!-- Recovery Email Field -->
+					<div class="form-control">
+						<label class="label" for="email">
+							<div class="flex items-center gap-2">
+								<span class="label-text">Recovery Email</span>
+							</div>
+						</label>
+						<input
+							type="email"
+							id="email"
+							bind:value={recoveryEmail}
+							class="input input-bordered w-full {emailError ? 'input-error' : ''}"
+							placeholder="Enter your email address"
+							required={enableRecovery}
+						/>
+						{#if emailError}
+							<label class="label" for="email">
+								<span class="label-text-alt text-error">{emailError}</span>
+							</label>
+						{/if}
+					</div>
+
+					<div
+						class="alert alert-warning mt-4 rounded-2xl text-xs text-black"
+						in:fly={{ duration: 100, y: -20, easing: linear }}
+					>
+						<p>
+							<span class="flex items-center justify-center gap-2 font-bold">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-6 w-6 shrink-0"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+									/>
+								</svg>
+								You will only be able to recover your account via email.
+							</span>
+							<br />
+							<span>
+								If you lose access to your email, you will not be able to recover your account in
+								the event that you lose access to your primary login method.
+							</span>
+						</p>
+					</div>
+
+					<!-- Recovery Password Field -->
+					<div class="form-control">
+						<label class="label" for="password">
+							<span class="label-text">Recovery Password</span>
+						</label>
+						<div class="relative">
+							<input
+								type={showPassword ? 'text' : 'password'}
+								id="password"
+								bind:value={recoveryPassword}
+								class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+								placeholder="Create a strong password"
+								required={enableRecovery}
+							/>
+							<button
+								type="button"
+								class="absolute inset-y-0 right-0 flex items-center pr-3"
+								onclick={() => (showPassword = !showPassword)}
+							>
+								{#if showPassword}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+										/>
+									</svg>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+										/>
+									</svg>
+								{/if}
+							</button>
+						</div>
+					</div>
+
+					<!-- Confirm Password Field -->
+					<div class="form-control">
+						<label class="label" for="confirmPassword">
+							<span class="label-text">Confirm Recovery Password</span>
+						</label>
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="confirmPassword"
+							bind:value={confirmPassword}
+							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
+							placeholder="Confirm your password"
+							required={enableRecovery}
+						/>
+						{#if passwordError}
+							<label class="label" for="confirmPassword">
+								<span class="label-text-alt text-error">{passwordError}</span>
+							</label>
+						{/if}
+					</div>
+
+					<!-- Password Guidelines -->
+					{#if recoveryPassword}
+						<p class="mt-2" in:fly={{ duration: 100, y: -20, easing: linear }}>
+							Your password should be at least
+							<span class={recoveryPassword.length >= 8 ? 'text-success font-medium' : ''}>
+								8 characters
+							</span>, include
+							<span class={/[A-Z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
+								uppercase
+							</span>,
+							<span class={/[a-z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
+								lowercase
+							</span>,
+							<span class={/[0-9]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
+								numbers
+							</span>, and
+							<span
+								class={/[!@#$%^&*(),.?":{}|<>]/.test(recoveryPassword)
+									? 'text-success font-medium'
+									: ''}
+							>
+								special characters
+							</span>.
+						</p>
+					{/if}
 				</div>
 			{/if}
 

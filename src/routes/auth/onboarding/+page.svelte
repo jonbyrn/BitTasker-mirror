@@ -5,7 +5,7 @@
 	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
 
-	let currentStep = $state(0);
+	let currentStep = $state(1);
 </script>
 
 <div class="flex w-full flex-grow flex-col items-center justify-center px-4 py-8">
@@ -15,28 +15,16 @@
 			<h1 class="my-4 text-center text-2xl font-bold">Account Setup</h1>
 
 			<ul class="steps mx-auto w-full">
-				<li
-					data-content={currentStep > 0 ? '✓' : '●'}
-					class="step {currentStep >= 0 ? 'step-primary' : 'step-neutral'}"
-				>
+				<li data-content="" class="step {currentStep >= 0 ? 'step-primary' : 'step-neutral'}">
 					Account
 				</li>
-				<li
-					data-content={currentStep > 1 ? '✓' : '●'}
-					class="step {currentStep >= 1 ? 'step-primary' : 'step-neutral'}"
-				>
+				<li data-content="" class="step {currentStep >= 1 ? 'step-primary' : 'step-neutral'}">
 					Profile
 				</li>
-				<li
-					data-content={currentStep > 2 ? '✓' : '●'}
-					class="step {currentStep >= 2 ? 'step-primary' : 'step-neutral'}"
-				>
+				<li data-content="" class="step {currentStep >= 2 ? 'step-primary' : 'step-neutral'}">
 					Location
 				</li>
-				<li
-					data-content={currentStep > 3 ? '✓' : '●'}
-					class="step {currentStep >= 3 ? 'step-primary' : 'step-neutral'}"
-				>
+				<li data-content="" class="step {currentStep >= 3 ? 'step-primary' : 'step-neutral'}">
 					Completed
 				</li>
 			</ul>
@@ -53,3 +41,15 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	.steps .step:before {
+		background-color: var(--color-neutral);
+		color: var(--color-neutral);
+	}
+
+	.steps .step.step-primary:before {
+		background-color: var(--color-primary);
+		color: var(--color-primary-content);
+	}
+</style>

@@ -37,7 +37,7 @@ type Bid {
   estimatedHours: Int
   expiresAt: DateTime
   featured: Boolean!
-  freelancer: Freelancer
+  freelancer: PublicFreelancer
   hourlyRate: Float
   id: ID!
   impressions: Int!
@@ -48,7 +48,6 @@ type Bid {
   rank: Int
   responseTime: Int
   status: BidStatus!
-  task: Task
   updatedAt: DateTime!
   visibility: BidVisibility!
   withdrawnReason: String
@@ -121,13 +120,9 @@ input ChangePasswordInput {
 type Client {
   averageRating: Float
   createdAt: DateTime!
-  experiencePoints: Int!
   id: ID!
-  level: Int!
-  tasksCompleted: Int!
-  tasksPosted: Int!
   updatedAt: DateTime!
-  user: User!
+  user: PublicUser!
   userId: Int!
   verificationLevel: VerificationLevel!
 }
@@ -221,28 +216,23 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
-type Freelancer {
-  id: ID!
-  user: User
-}
-
 input LocationInput {
-  displayName: String!
-  latitude: Float!
+  displayName: String
+  latitude: Float
 
   """Whether location data is loaded"""
   locationLoaded: Boolean! = true
-  longitude: Float!
+  longitude: Float
   zipCode: String
 }
 
 type LocationOutput {
-  displayName: String!
-  latitude: Float!
+  displayName: String
+  latitude: Float
 
   """Whether location data is loaded"""
   locationLoaded: Boolean!
-  longitude: Float!
+  longitude: Float
   zipCode: String
 }
 
@@ -268,6 +258,7 @@ type Mutation {
   updateTask(id: Int!, input: UpdateTaskInput!): Task!
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
   updateUser(input: UpdateUserInput!): User!
+  updateUserOnboardingProfile(input: UpdateUserOnboardingProfileInput!): User!
   withdrawBid(id: Int!, reason: String): Boolean!
 }
 
@@ -286,13 +277,34 @@ type PaginationMeta {
   totalPages: Int!
 }
 
+type PublicFreelancer {
+  averageRating: Float
+  bio: String
+  id: ID!
+  level: Int!
+  professionalTitle: String
+  specialties: [String!]
+  user: PublicUser!
+  yearsExperience: Float
+}
+
+type PublicUser {
+  id: ID!
+  name: String
+  profilePicture: String
+  userRole: UserRole!
+}
+
 type Query {
   IsOnboardingComplete: Boolean!
   bid(id: Int!): Bid!
   bids: UserBidsResponse!
   bidsByTask(taskId: Int!): [Bid!]!
+  checkUsernameAvailability(username: String!): Boolean!
+  getUsernameHistory(userId: Int!): [String!]!
   me: User!
   myTasks: [Task!]!
+  searchSkills(query: String!): [String!]!
   task(id: Int!): Task!
   taskTemplateById(id: Int!): TaskTemplateResponse!
   taskTemplates: [TaskTemplateResponse!]!
@@ -510,6 +522,18 @@ input UpdateUserInput {
   status: UserStatus
   userRole: UserRole
 }
+
+input UpdateUserOnboardingProfileInput {
+  displayName: String
+  professionalTitle: String
+  profileDescription: String
+  profilePicture: Upload
+  skillIds: [Int!]
+  username: String
+}
+
+"""The `Upload` scalar type represents a file upload."""
+scalar Upload
 
 type User {
   biddingAllowed: Boolean!

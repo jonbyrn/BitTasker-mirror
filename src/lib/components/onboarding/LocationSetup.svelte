@@ -180,7 +180,7 @@
 						latitude: lat,
 						longitude: lng,
 						zipCode: postalCode,
-						locationLoaded: true
+						locationLoaded: true,
 					};
 
 					// Call the callback function

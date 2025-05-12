@@ -178,6 +178,7 @@ export interface AccountRecoveryData {
 	salt: string;
 	authTag: string;
 	iterations: number;
+	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {
