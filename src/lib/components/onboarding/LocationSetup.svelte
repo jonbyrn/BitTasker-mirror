@@ -4,6 +4,10 @@
 	import { Geolocation } from '@capacitor/geolocation';
 	import { Preferences } from '@capacitor/preferences';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
+	import { UpdateUserProfileStore } from '$houdini';
+
+	// Create the store for updating user profile with location
+	const profileStore = new UpdateUserProfileStore();
 
 	let { nextStep, prevStep, onLocationSelect = (location: Location) => {} } = $props();
 
@@ -24,6 +28,7 @@
 	let isLoading = $state(false);
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
+	let error = $state('');
 	let predictions = $state<(google.maps.places.PlacePrediction | null)[]>([]);
 	let showOptions = $state(false);
 	let scriptLoaded = $state(false);
@@ -140,9 +145,9 @@
 
 			// Try to get user's geolocation
 			getUserLocation();
-		} catch (error) {
-			console.error('Error initializing map:', error);
-			hasError = true;
+		} catch (err) {
+			console.error('Error initializing map:', err);
+			error = err instanceof Error ? err.message : 'Error initializing map';
 		}
 	});
 
@@ -197,7 +202,7 @@
 			}
 		} catch (error) {
 			console.error('Error updating location:', error);
-			hasError = true;
+			error = error instanceof Error ? error.message : 'Error updating location';
 		}
 	}
 
@@ -389,6 +394,43 @@
 			}
 		}
 	}
+
+	async function handleSubmit() {
+		try {
+			isLoading = true;
+			
+			// Don't proceed if location isn't loaded yet
+			if (location.latitude === null || location.longitude === null) {
+				error = 'Please select a location';
+				throw new Error('Please select a location');
+			}
+			
+			// Update user location using GraphQL
+			const result = await profileStore.mutate({
+				input: {
+					location: {
+						displayName: location.displayName,
+						latitude: location.latitude,
+						longitude: location.longitude,
+						zipCode: location.zipCode,
+						serviceRadius: serviceRadius
+					}
+				}
+			});
+
+			if (result.errors) {
+				throw new Error(result.errors[0].message);
+			}
+			
+			// Go to next step
+			nextStep();
+		} catch (error) {
+			console.error('Error updating location:', error);
+			error = error instanceof Error ? error.message : 'Error updating location';
+		} finally {
+			isLoading = false;
+		}
+	}
 </script>
 
 <div class="card w-full">
@@ -565,7 +607,7 @@
 			</div>
 		</div>
 
-		{#if hasError}
+		{#if error}
 			<div class="alert alert-error mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -579,7 +621,7 @@
 						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/></svg
 				>
-				<span>Error loading the map. Please try again.</span>
+				<span>{error}</span>
 			</div>
 		{/if}
 
@@ -600,5 +642,15 @@
 				<span>Location set: {location.displayName}</span>
 			</div>
 		{/if}
+
+		<div class="mt-6 flex justify-between">
+			<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+			<button type="button" class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
+				{#if isLoading}
+					<span class="loading loading-spinner"></span>
+				{/if}
+				Next
+			</button>
+		</div>
 	</div>
 </div>

@@ -216,16 +216,7 @@
 	<div class="navbar-end">
 		{#if isLoggedIn}
 			<!-- User is logged in: show profile or badge -->
-			<div class="dropdown dropdown-end">
-				<Avatar {user} onClick={() => goto('/dashboard/profile')} />
-				<ul
-					class="menu menu-sm dropdown-content bg-base-100 rounded-box z-[1] mt-3 w-52 p-2 shadow"
-				>
-					<li><a href="/dashboard/profile">{getTranslation('navbar.profile')}</a></li>
-					<li><a href="/dashboard/settings">{getTranslation('navbar.settings')}</a></li>
-					<li><a href="/logout">{getTranslation('navbar.logout')}</a></li>
-				</ul>
-			</div>
+			<Avatar {user} onClick={() => goto('/dashboard/profile')} />
 		{:else}
 			<!-- User is not logged in: show dark mode toggle, Login, and Signup buttons -->
 			<label class="swap swap-rotate btn btn-ghost btn-circle mr-2">

@@ -112,6 +112,19 @@ enum BudgetType {
   RANGE
 }
 
+type Category {
+  createdAt: DateTime!
+  description: String
+  displayOrder: Float!
+  icon: String
+  id: ID!
+  isActive: Boolean!
+  name: String!
+  parentId: Float
+  slug: String!
+  updatedAt: DateTime!
+}
+
 input ChangePasswordInput {
   currentPassword: String!
   newPassword: String!
@@ -124,7 +137,6 @@ type Client {
   updatedAt: DateTime!
   user: PublicUser!
   userId: Int!
-  verificationLevel: VerificationLevel!
 }
 
 input CreateBidInput {
@@ -257,8 +269,7 @@ type Mutation {
   updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
   updateTask(id: Int!, input: UpdateTaskInput!): Task!
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
-  updateUser(input: UpdateUserInput!): User!
-  updateUserOnboardingProfile(input: UpdateUserOnboardingProfileInput!): User!
+  updateUserProfile(input: UpdateUserProfileInput!): User!
   withdrawBid(id: Int!, reason: String): Boolean!
 }
 
@@ -291,7 +302,8 @@ type PublicFreelancer {
 type PublicUser {
   id: ID!
   name: String
-  profilePicture: String
+  profilePictureId: String
+  profilePictureUrl: String
   userRole: UserRole!
 }
 
@@ -300,11 +312,15 @@ type Query {
   bid(id: Int!): Bid!
   bids: UserBidsResponse!
   bidsByTask(taskId: Int!): [Bid!]!
+  categories: [Category!]!
+  category(id: Int!): Category
   checkUsernameAvailability(username: String!): Boolean!
   getUsernameHistory(userId: Int!): [String!]!
   me: User!
   myTasks: [Task!]!
   searchSkills(query: String!): [String!]!
+  skill(id: Int!): Skill
+  skills: [Skill!]!
   task(id: Int!): Task!
   taskTemplateById(id: Int!): TaskTemplateResponse!
   taskTemplates: [TaskTemplateResponse!]!
@@ -378,6 +394,16 @@ input SearchTasksDto {
   sortOrder: String = "desc"
   status: [TaskStatus!]
   taskType: [TaskType!]
+}
+
+type Skill {
+  approved: Boolean
+  categoryId: Float
+  createdAt: DateTime!
+  id: ID!
+  isVerifiable: Boolean
+  name: String!
+  updatedAt: DateTime!
 }
 
 enum SkillImportance {
@@ -501,43 +527,27 @@ input UpdateTaskTemplateInput {
   task: UpdateTaskInput
 }
 
-input UpdateUserAddressInput {
-  city: String
-  country: String
-  postalCode: String
-  state: String
-  street: String
+input UpdateUserLocationInput {
+  displayName: String!
+  latitude: Float!
+  longitude: Float!
+  serviceRadius: Float
+  zipCode: String
 }
 
-input UpdateUserInput {
-  address: UpdateUserAddressInput
-  biddingAllowed: Boolean
-  dob: DateTime
-  email: String
-  isEmailVerified: Boolean
-  mobileNumber: String
-  name: String
-  onboardingComplete: Boolean
-  profilePicture: String
-  status: UserStatus
-  userRole: UserRole
-}
-
-input UpdateUserOnboardingProfileInput {
+input UpdateUserProfileInput {
   displayName: String
+  location: UpdateUserLocationInput
   professionalTitle: String
   profileDescription: String
-  profilePicture: Upload
-  skillIds: [Int!]
+  profilePictureId: String
+  profilePictureUrl: String
+  skillNames: [String!]
   username: String
 }
 
-"""The `Upload` scalar type represents a file upload."""
-scalar Upload
-
 type User {
   biddingAllowed: Boolean!
-  billingAddress: UserAddress
   createdAt: DateTime!
   deletedAt: DateTime
   dob: DateTime
@@ -545,30 +555,30 @@ type User {
   id: ID!
   isEmailVerified: Boolean!
   lastLoginAt: DateTime
+  location: UserLocation
   mobileNumber: String
   name: String
   onboardingComplete: Boolean!
-  profilePicture: String
+  profilePictureId: String
+  profilePictureUrl: String
   status: UserStatus!
   updatedAt: DateTime!
   userRole: UserRole!
-  verificationLevel: VerificationLevel!
-}
-
-type UserAddress {
-  city: String!
-  country: String!
-  createdAt: DateTime!
-  id: Int!
-  postalCode: String!
-  state: String!
-  street: String!
-  updatedAt: DateTime!
 }
 
 type UserBidsResponse {
   received: BidsWithPaginationDto!
   submitted: BidsWithPaginationDto!
+}
+
+type UserLocation {
+  createdAt: DateTime!
+  displayName: String!
+  latitude: Float!
+  longitude: Float!
+  serviceRadius: Float
+  updatedAt: DateTime!
+  zipCode: String
 }
 
 enum UserRole {
@@ -583,11 +593,4 @@ enum UserStatus {
   BANNED
   INACTIVE
   SUSPENDED
-}
-
-enum VerificationLevel {
-  BASIC
-  NONE
-  PREMIUM
-  VERIFIED
 }

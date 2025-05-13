@@ -1,21 +1,25 @@
 query Me {
 	me {
-		biddingAllowed
-		billingAddress {
-			city
-			country
-			createdAt
-			id
-			postalCode
-			state
-			street
-			updatedAt
-		}
-		isEmailVerified
+		id
+		email
 		name
-		profilePicture
+		profilePictureUrl
+		profilePictureId
+		onboardingComplete
+		biddingAllowed
+		isEmailVerified
 		status
 		userRole
-		verificationLevel
+		location {
+			displayName
+			latitude
+			longitude
+			zipCode
+		}
+		dob
+		mobileNumber
+		lastLoginAt
+		createdAt
+		updatedAt
 	}
 }

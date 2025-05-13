@@ -20,7 +20,7 @@
 			const authService = new AuthService();
 			await authService.verifyEmail(token);
 			// After successful verification, redirect to login page
-			goto('/auth');
+			goto('/auth/login');
 		} catch (err) {
 			error = 'Failed to verify email. The link might be expired or invalid.';
 			isVerifying = false;
@@ -43,7 +43,7 @@
 			<div class="text-center">
 				<h2 class="mb-4 text-2xl font-semibold text-red-600">Verification Failed</h2>
 				<p class="text-white">{error}</p>
-				<a href="/auth" class="text-primary btn btn-ghost btn-outline mt-4 hover:underline">
+				<a href="/auth/login" class="text-primary btn btn-ghost btn-outline mt-4 hover:underline">
 					Return to Login
 				</a>
 			</div>

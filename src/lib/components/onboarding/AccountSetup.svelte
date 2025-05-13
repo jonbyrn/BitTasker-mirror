@@ -1,8 +1,6 @@
 <script lang="ts">
 	import type { AccountRecoveryData } from '$lib/types/auth';
-	import { onMount } from 'svelte';
-	import { page } from '$app/state';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -17,6 +15,9 @@
 		validateEmail
 	} from '$lib/utils/helpers/validators';
 	import authService from '$lib/api/services/auth.service';
+	import { CheckUsernameAvailabilityStore } from '$houdini';
+	import { Preferences } from '@capacitor/preferences';
+	import { StorageKeys } from '$lib/utils/constants/storage';
 
 	let {
 		nextStep,
@@ -25,6 +26,9 @@
 		nextStep: () => void;
 		prevStep: () => void;
 	} = $props();
+
+	// Create the store for username availability checking
+	const usernameStore = new CheckUsernameAvailabilityStore();
 
 	// User data
 	let username = $state('');
@@ -72,10 +76,22 @@
 		try {
 			isCheckingUsername = true;
 			usernameError = '';
-			// TODO: API call to check username availability would go here
-			// Simulated for now
-			await new Promise((resolve) => setTimeout(resolve, 500));
-			usernameAvailable = true;
+
+			const { data, errors } = await usernameStore.fetch({
+				variables: {
+					username
+				}
+			});
+
+			if (errors) {
+				throw new Error(errors[0].message);
+			}
+
+			usernameAvailable = data?.checkUsernameAvailability || false;
+
+			if (!usernameAvailable) {
+				usernameError = 'Username is already taken';
+			}
 		} catch (err) {
 			usernameError = 'Failed to check username availability';
 			usernameAvailable = false;
@@ -87,7 +103,7 @@
 	/**
 	 * Register a new user with biometric authentication
 	 */
-	async function register(npub: string, nsec: string) {
+	async function register(username: string, npub: string, nsec: string) {
 		try {
 			isLoading = true;
 			error = '';
@@ -99,6 +115,7 @@
 
 			// Register with server
 			await authService.registerWithNostr({
+				username,
 				publicKey: npub,
 				encryptedPrivateKey: encrypted.data,
 				iv: encrypted.iv,
@@ -111,6 +128,14 @@
 			// Register device with server
 			const deviceName = await getDeviceName();
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName);
+
+			const response = await authService.loginWithPasskey(npub, deviceId);
+			if (response && response.access_token) {
+				await Preferences.set({
+					key: StorageKeys.ACCESS_TOKEN,
+					value: response.access_token
+				});
+			}
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
@@ -147,6 +172,7 @@
 		}
 	}
 
+	// TODO:Handle next step if recovery password is failed
 	async function setupAccRecovery(npub: string, nsec: string, password: string, email: string) {
 		try {
 			isLoading = true;
@@ -223,7 +249,7 @@
 				({ npub, nsec } = await generateKeyPair());
 			}
 
-			await register(npub, nsec);
+			await register(username, npub, nsec);
 
 			// Validate recovery password if enabled
 			if (enableRecovery) {
@@ -268,7 +294,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl" in:fly={{ duration: 100, x: 20, easing: linear }}>
+<div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Username Field -->

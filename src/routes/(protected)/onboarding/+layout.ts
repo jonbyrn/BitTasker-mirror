@@ -14,7 +14,7 @@ export const load: LayoutLoad = async (event) => {
 		
 		if (userDataError) {
 			console.log('User data error, redirecting to auth');
-			throw redirect(303, '/auth');
+			throw redirect(303, '/auth/login');
 		}
 
 		authState.login();

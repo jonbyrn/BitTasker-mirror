@@ -5,8 +5,8 @@ export interface Credentials {
 }
 
 export interface NostrRegistrationData {
-	name?: string;
 	email?: string;
+	username?: string;
 	publicKey: string;
 	encryptedPrivateKey: string;
 	iv: string;

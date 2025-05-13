@@ -36,7 +36,7 @@
 					await Preferences.remove({ key: token });
 				} else {
 					error = 'Recovery token expired or invalid';
-					goto('/auth');
+					goto('/auth/login');
 				}
 			})();
 		}

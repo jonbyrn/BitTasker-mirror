@@ -1,3 +1,4 @@
+<!-- TODO: Update alby login functionality to only hande login -->
 <script lang="ts">
 	import NDK, { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { browser } from '$app/environment';

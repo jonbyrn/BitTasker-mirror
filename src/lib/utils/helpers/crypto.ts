@@ -15,7 +15,8 @@ export async function exportKey(key: CryptoKey): Promise<string> {
 
 export async function importKey(keyData: string): Promise<CryptoKey> {
 	const keyBytes = base64ToBytes(keyData);
-	return await crypto.subtle.importKey('raw', keyBytes, { name: 'AES-GCM', length: 256 }, true, [
+	const buffer = new Uint8Array(keyBytes).buffer;
+	return await crypto.subtle.importKey('raw', buffer, { name: 'AES-GCM', length: 256 }, true, [
 		'encrypt',
 		'decrypt'
 	]);
@@ -58,10 +59,13 @@ export async function decrypt(encryptedData: EncryptedData, key: CryptoKey): Pro
 	combinedBytes.set(dataBytes);
 	combinedBytes.set(authTagBytes, dataBytes.length);
 
+	// Create a proper ArrayBuffer for the iv
+	const ivBuffer = new Uint8Array(ivBytes).buffer;
+
 	const decryptedData = await crypto.subtle.decrypt(
 		{
 			name: 'AES-GCM',
-			iv: ivBytes,
+			iv: ivBuffer,
 			tagLength: 128
 		},
 		key,
@@ -86,10 +90,13 @@ export async function deriveKeyFromPassword(
 			['deriveKey']
 		);
 
+		// Create a proper ArrayBuffer for the salt
+		const saltBuffer = new Uint8Array(salt).buffer;
+
 		return await crypto.subtle.deriveKey(
 			{
 				name: 'PBKDF2',
-				salt,
+				salt: saltBuffer,
 				iterations,
 				hash: 'SHA-256'
 			},

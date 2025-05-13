@@ -25,7 +25,7 @@ export class UserService extends BaseApiService {
 			const response = await this.get<ApiUserProfile>(ENDPOINTS.USERS.PROFILE);
 			return response.data;
 		} catch (error) {
-			goto('/auth');
+			goto('/auth/login');
 			throw error;
 		}
 	}

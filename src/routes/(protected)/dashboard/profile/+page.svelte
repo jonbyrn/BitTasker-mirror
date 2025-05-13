@@ -37,7 +37,7 @@
 	// Logout (passed to children)
 	const logout = async () => {
 		await authState.logout();
-		goto('/auth');
+		goto('/');
 	};
 </script>
 

@@ -15,7 +15,7 @@ export const load: LayoutLoad = async () => {
 
 		if (!token || token === null) {
 			console.log('No token exists, redirecting to auth');
-			throw redirect(303, '/auth');
+			throw redirect(303, '/auth/login');
 		} else {
 			const { data: userData } = await tryCatch(userService.getUserProfile());
 			user.set(userData);

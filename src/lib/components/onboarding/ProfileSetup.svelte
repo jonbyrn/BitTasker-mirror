@@ -6,6 +6,11 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
+	import { UpdateUserProfileStore } from '$houdini';
+	import uploadService from '$lib/api/services/upload.service';
+
+	// Create the store for updating user profile
+	const profileStore = new UpdateUserProfileStore();
 
 	let { nextStep, prevStep } = $props<{
 		nextStep: () => void;
@@ -13,38 +18,40 @@
 	}>();
 
 	// User data
-	let displayName = $state('');
-	let profilePicture = $state<File | null>(null);
-	let professionalTitle = $state('');
-	let profileDescription = $state('');
+	let displayName = $state('John Doe');
+	let professionalTitle = $state('Developer');
+	let profileDescription = $state('Lorem ipsum dolor sit, amet consectetur adipisicing elit. Magni pariatur doloribus eveniet odio rem perferendis dolorem numquam, voluptates inventore nemo qui vel dignissimos impedit. Tempore dolores impedit maxime reprehenderit animi!');
 	let skillsInput = $state('');
-	let skills = $state<string[]>([]);
+	// let skills = $state<string[]>([]);
+	let skills = $state<string[]>(['test', 'test2', 'test3', 'test4', 'test5', 'test6', 'test7', 'test8', 'test9', 'test10', 'test11', 'test12', 'test13', 'test14']);
 
 	// Status indicators
 	let isLoading = $state(false);
 	let error = $state('');
 	let nameError = $state('');
 	let descriptionError = $state('');
-	let picturePreview = $state('');
+	let picture = $state({ key: '', url: '' });
 
-	// Save for later option
+	// TODO: Save for later option
 	let saveForLater = $state(false);
 
 	// Handle image upload
-	function handleImageUpload(file: File) {
-		if (file.type.match('image.*')) {
-				profilePicture = file;
-				const reader = new FileReader();
-				reader.onload = (e) => {
-					picturePreview = e.target?.result as string;
-				};
-			reader.readAsDataURL(file);
+	async function handleImageUpload(file: File) {
+		if (!file) return;
+
+		try {
+			const uploadedFile = await uploadService.uploadSingleFile(file, 'profile');
+			picture = { key: uploadedFile.key, url: uploadedFile.url };
+		} catch (error) {
+			// Handle upload failure
+			console.error('File upload failed:', error);
+			error = 'File upload failed';
 		}
 	}
 
 	// Add skill tag
 	function addSkill() {
-		if (skillsInput && !skills.includes(skillsInput) && skills.length < 20) {
+		if (skillsInput && skillsInput.trim() && skillsInput.trim().length > 3 && !skills.includes(skillsInput.trim()) && skills.length < 20) {
 			skills = [...skills, skillsInput.trim()];
 			skillsInput = '';
 		}
@@ -78,20 +85,34 @@
 			}
 
 			// Validate profile description
-			if (!saveForLater && (!profileDescription || profileDescription.length < 200)) {
-				descriptionError = 'Please provide a profile description (minimum 200 characters)';
+			if (
+				!saveForLater &&
+				(!profileDescription || profileDescription.length < 200 || profileDescription.length > 2000)
+			) {
+				descriptionError =
+					'Please provide a profile description (minimum 200 characters, max 2000 characters)';
 				isLoading = false;
 				return;
 			}
 
-			// Update the onboarding data with profile information
-			const updatedData = {
+			// Create profile data
+			const profileData = {
 				displayName,
 				professionalTitle,
 				profileDescription,
-				skills,
-				// TODO: profilePicture: {key, url} Upload image to server and get key and url
+				skillNames: skills,
+				profilePictureUrl: picture.url,
+				profilePictureId: picture.key
 			};
+
+			// Update profile using GraphQL
+			const result = await profileStore.mutate({
+				input: profileData
+			});
+
+			if (result.errors) {
+				throw new Error(result.errors[0].message);
+			}
 
 			// Go to the next step
 			nextStep();
@@ -104,7 +125,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl" in:fly={{ duration: 100, x: 20, easing: linear }}>
+<div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Profile Picture Upload -->
@@ -114,9 +135,7 @@
 					label="Profile Picture"
 					maxFiles={1}
 					customClass="h-32 w-full"
-					onChange={(files) => {
-						console.log(files);
-					}}
+					onChange={(files) => handleImageUpload(files[0])}
 				/>
 			</div>
 
@@ -163,12 +182,14 @@
 				<textarea
 					id="profileDescription"
 					bind:value={profileDescription}
-					class="textarea textarea-bordered rounded-2xl h-24 {descriptionError ? 'textarea-error' : ''}"
+					class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
+						? 'textarea-error'
+						: ''}"
 					placeholder="Tell others about yourself, your skills, and experience"
 					disabled={saveForLater}
 				></textarea>
 				{#if descriptionError}
-					<label class="label" for="profileDescription">
+					<label class="label whitespace-normal" for="profileDescription">
 						<span class="label-text-alt text-error">{descriptionError}</span>
 					</label>
 				{/if}
@@ -202,7 +223,9 @@
 				<div class="mt-2 flex flex-wrap gap-2">
 					{#each skills as skill, index}
 						<div class="badge badge-lg gap-1">
-							{skill}
+							<span class="mb-1">
+								{skill}
+							</span>
 							<button
 								aria-label="Remove skill"
 								type="button"
@@ -212,7 +235,7 @@
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
+									class="h-3 w-3"
 									viewBox="0 0 20 20"
 									fill="currentColor"
 								>
