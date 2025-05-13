@@ -30,6 +30,8 @@
 
 	// Generate random color based on name
 	function getRandomColor(name: string): string {
+		if (!name) return 'bg-primary';
+
 		const colors = [
 			'bg-primary',
 			'bg-secondary',

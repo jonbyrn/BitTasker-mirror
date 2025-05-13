@@ -1,4 +1,3 @@
-<!-- TODO: Update alby login functionality to only hande login -->
 <script lang="ts">
 	import NDK, { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { browser } from '$app/environment';
@@ -8,8 +7,6 @@
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { encryptNsec } from '$lib/utils/helpers/auth';
-	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import authService from '$lib/api/services/auth.service';
 
 	let { disabled = false } = $props();
@@ -66,33 +63,15 @@
 			};
 			const signedEvent = await signer.sign(event);
 
-			const checkRegistration = await authService.checkRegistrationStatus(signerUser.pubkey);
-			if (!checkRegistration.isRegistered) {
-				const deviceId = await getDeviceIdentifier();
-				const { encrypted, salt, iterations } = await encryptNsec(signerUser.pubkey, deviceId);
-				const res = await authService.registerWithNostr({
-					publicKey: signerUser.pubkey,
-					encryptedPrivateKey: encrypted.data,
-					iv: encrypted.iv,
-					salt: salt,
-					authTag: encrypted.authTag,
-					iterations
-					// authMethod: 'alby'
+			const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+			if (res.access_token) {
+				await Preferences.set({
+					key: StorageKeys.ACCESS_TOKEN,
+					value: res.access_token
 				});
-				if (res.publicKey) {
-					goto('/auth/recover?provider=alby&npub=' + signerUser.pubkey);
-				}
-			} else {
-				const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
-				if (res.access_token) {
-					await Preferences.set({
-						key: StorageKeys.ACCESS_TOKEN,
-						value: res.access_token
-					});
-					user.updateProfile(res.user);
-					authState.login();
-					goto('/dashboard');
-				}
+				user.updateProfile(res.user);
+				authState.login();
+				goto('/dashboard');
 			}
 		} catch (err) {
 			console.error('Nostr login error:', err);
@@ -103,7 +82,11 @@
 	}
 </script>
 
-<button class="btn btn-outline w-full" onclick={handleLogin} disabled={isLoading || !isInitialized || disabled}>
+<button
+	class="btn btn-outline w-full"
+	onclick={handleLogin}
+	disabled={isLoading || !isInitialized || disabled}
+>
 	<div class="flex items-center justify-center gap-2">
 		{#if isLoading}
 			<span class="loading loading-spinner"></span>

@@ -1,14 +1,10 @@
 <script lang="ts">
-	// TODO: Integrate this step with API
-	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { UpdateUserProfileStore } from '$houdini';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import Uploader from '$lib/components/Uploader.svelte';
-	import { fly } from 'svelte/transition';
-	import { linear } from 'svelte/easing';
-	import { UpdateUserProfileStore } from '$houdini';
 	import uploadService from '$lib/api/services/upload.service';
-	import { onMount } from 'svelte';
 
 	// Create the store for updating user profile
 	const profileStore = new UpdateUserProfileStore();

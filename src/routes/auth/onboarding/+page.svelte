@@ -37,16 +37,28 @@
 			<h1 class="my-4 text-center text-2xl font-bold">Account Setup</h1>
 
 			<ul class="steps mx-auto w-full">
-				<li data-content="" class="step {currentStep >= 0 ? 'step-primary' : 'step-neutral'}">
+				<li
+					data-content=""
+					class="step {currentStep >= 0 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
+				>
 					Account
 				</li>
-				<li data-content="" class="step {currentStep >= 1 ? 'step-primary' : 'step-neutral'}">
+				<li
+					data-content=""
+					class="step {currentStep >= 1 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
+				>
 					Profile
 				</li>
-				<li data-content="" class="step {currentStep >= 2 ? 'step-primary' : 'step-neutral'}">
+				<li
+					data-content=""
+					class="step {currentStep >= 2 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
+				>
 					Location
 				</li>
-				<li data-content="" class="step {currentStep >= 3 ? 'step-primary' : 'step-neutral'}">
+				<li
+					data-content=""
+					class="step {currentStep >= 3 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
+				>
 					Completed
 				</li>
 			</ul>

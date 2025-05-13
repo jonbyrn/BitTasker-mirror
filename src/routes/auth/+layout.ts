@@ -13,12 +13,5 @@ export const load: LayoutLoad = async ({ url }) => {
 	// If user is logged in and not in onboarding, redirect to dashboard
 	if (token.value && !url.pathname.includes('/onboarding')) {
 		redirect(303, '/dashboard');
-
-		// TODO: Revise the following code, Check onboarding status and redirect accordingly
-		// if (!onboardingComplete.value) {
-		// 	redirect(303, '/onboarding');
-		// } else {
-		// 	redirect(303, '/dashboard');
-		// }
 	}
 };

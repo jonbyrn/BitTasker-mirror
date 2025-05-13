@@ -14,10 +14,10 @@
 		validatePassword,
 		validateEmail
 	} from '$lib/utils/helpers/validators';
-	import authService from '$lib/api/services/auth.service';
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
+	import authService from '$lib/api/services/auth.service';
 
 	let {
 		nextStep,
@@ -167,6 +167,7 @@
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);
 			error = err instanceof Error ? err.message : 'Registration failed';
+			throw new Error(error);
 		} finally {
 			isLoading = false;
 		}
@@ -194,6 +195,7 @@
 		} catch (err: unknown) {
 			console.error('Failed to setup account recovery:', err);
 			error = err instanceof Error ? err.message : 'Failed to setup account recovery';
+			throw new Error(error);
 		} finally {
 			isLoading = false;
 		}

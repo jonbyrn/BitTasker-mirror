@@ -4,6 +4,7 @@
 	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/stores/i18n.store';
+	import { user } from '$lib/stores/user.store';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { setLocale } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
@@ -23,13 +24,6 @@
 
 	// Create a reference to the resize handler so we can remove it later
 	let resizeHandler: (() => void) | null = null;
-
-	// TODO: Sample user - replace with actual user data from your auth system
-	let user = $state({
-		name: 'John Doe',
-		email: 'john@example.com',
-		profileImage: null
-	});
 
 	// Languages supported by the app
 	const languages: { code: Locales; name: string }[] = [
@@ -92,6 +86,7 @@
 		// Determine if user is logged in based on path
 		// This should be replaced with proper auth check
 		isLoggedIn = path.startsWith('/dashboard');
+		console.log('isLoggedIn', isLoggedIn);
 
 		// Check layout mode whenever deviceInfo changes
 		if ($deviceInfo) {
@@ -216,7 +211,7 @@
 	<div class="navbar-end">
 		{#if isLoggedIn}
 			<!-- User is logged in: show profile or badge -->
-			<Avatar {user} onClick={() => goto('/dashboard/profile')} />
+			<Avatar user={{ name: $user.name, profileImage: null }} onClick={() => goto('/dashboard/profile')} />
 		{:else}
 			<!-- User is not logged in: show dark mode toggle, Login, and Signup buttons -->
 			<label class="swap swap-rotate btn btn-ghost btn-circle mr-2">
@@ -248,7 +243,7 @@
 			<!-- Login and Signup buttons, replacing the Get Started button -->
 			<div class="flex gap-2">
 				<a href="/auth/login" class="btn btn-secondary">Login</a>
-				<a href="/auth/signup" class="btn btn-primary">Signup</a>
+				<a href="/auth/signup" class="btn btn-primary">Sign up</a>
 			</div>
 		{/if}
 	</div>

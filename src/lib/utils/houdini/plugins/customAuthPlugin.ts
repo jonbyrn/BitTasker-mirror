@@ -1,7 +1,7 @@
-import { StorageKeys } from '$lib/utils/constants/storage';
 import type { ClientPlugin } from '$houdini';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 // Only import Capacitor modules in browser
 let Preferences: any = null;

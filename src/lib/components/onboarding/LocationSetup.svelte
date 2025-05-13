@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Location } from '$lib/types/task';
+	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
 	import { Preferences } from '@capacitor/preferences';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
