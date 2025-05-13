@@ -45,9 +45,18 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="text-xl font-bold">Oops! Something went wrong</h2>
-				<p class="text-base-content/70">{error}</p>
-				<button class="btn btn-primary mt-4" onclick={restartSetup}> Restart Setup </button>
+				<h2 class="text-xl font-bold">Oops! Your profile is not complete</h2>
+				<p class="text-base-content/70">
+					Don't worry you can continue using BitTasker, and complete your onboarding process later.
+					<br /> <br />
+					Or you can restart the onboarding process.
+				</p>
+				<div class="mt-4 flex max-w-md flex-col items-center space-y-4">
+					<button class="btn btn-primary w-full" onclick={restartSetup}> Restart Setup </button>
+					<button class="btn btn-secondary w-full" onclick={() => goto('/dashboard/find-tasks')}>
+						Continue without completing
+					</button>
+				</div>
 			</div>
 		{:else}
 			<div class="flex flex-col items-center space-y-4 text-center">

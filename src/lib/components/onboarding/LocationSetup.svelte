@@ -185,7 +185,7 @@
 						latitude: lat,
 						longitude: lng,
 						zipCode: postalCode,
-						locationLoaded: true,
+						locationLoaded: true
 					};
 
 					// Call the callback function
@@ -398,13 +398,13 @@
 	async function handleSubmit() {
 		try {
 			isLoading = true;
-			
+
 			// Don't proceed if location isn't loaded yet
 			if (location.latitude === null || location.longitude === null) {
 				error = 'Please select a location';
 				throw new Error('Please select a location');
 			}
-			
+
 			// Update user location using GraphQL
 			const result = await profileStore.mutate({
 				input: {
@@ -421,7 +421,7 @@
 			if (result.errors) {
 				throw new Error(result.errors[0].message);
 			}
-			
+
 			// Go to next step
 			nextStep();
 		} catch (error) {
@@ -515,10 +515,7 @@
 			>
 				<button
 					aria-label="Toggle radius"
-					onclick={() => {
-						toggleRadius = !toggleRadius;
-						console.log(toggleRadius);
-					}}
+					onclick={() => (toggleRadius = !toggleRadius)}
 					class="relative"
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 1024 1024">

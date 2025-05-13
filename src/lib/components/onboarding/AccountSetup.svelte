@@ -648,7 +648,7 @@
 			<!-- Form Actions -->
 			<div class="mt-6 flex justify-between">
 				<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-				<button type="submit" class="btn btn-primary" disabled={isLoading}>
+				<button type="submit" class="btn btn-primary" disabled={isLoading || !usernameAvailable}>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{/if}

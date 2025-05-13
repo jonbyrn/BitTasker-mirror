@@ -8,6 +8,7 @@
 	import { linear } from 'svelte/easing';
 	import { UpdateUserProfileStore } from '$houdini';
 	import uploadService from '$lib/api/services/upload.service';
+	import { onMount } from 'svelte';
 
 	// Create the store for updating user profile
 	const profileStore = new UpdateUserProfileStore();
@@ -20,10 +21,27 @@
 	// User data
 	let displayName = $state('John Doe');
 	let professionalTitle = $state('Developer');
-	let profileDescription = $state('Lorem ipsum dolor sit, amet consectetur adipisicing elit. Magni pariatur doloribus eveniet odio rem perferendis dolorem numquam, voluptates inventore nemo qui vel dignissimos impedit. Tempore dolores impedit maxime reprehenderit animi!');
+	let profileDescription = $state(
+		'Lorem ipsum dolor sit, amet consectetur adipisicing elit. Magni pariatur doloribus eveniet odio rem perferendis dolorem numquam, voluptates inventore nemo qui vel dignissimos impedit. Tempore dolores impedit maxime reprehenderit animi!'
+	);
 	let skillsInput = $state('');
 	// let skills = $state<string[]>([]);
-	let skills = $state<string[]>(['test', 'test2', 'test3', 'test4', 'test5', 'test6', 'test7', 'test8', 'test9', 'test10', 'test11', 'test12', 'test13', 'test14']);
+	let skills = $state<string[]>([
+		'test',
+		'test2',
+		'test3',
+		'test4',
+		'test5',
+		'test6',
+		'test7',
+		'test8',
+		'test9',
+		'test10',
+		'test11',
+		'test12',
+		'test13',
+		'test14'
+	]);
 
 	// Status indicators
 	let isLoading = $state(false);
@@ -31,27 +49,45 @@
 	let nameError = $state('');
 	let descriptionError = $state('');
 	let picture = $state({ key: '', url: '' });
+	let pictureLoading = $state(false);
 
 	// TODO: Save for later option
 	let saveForLater = $state(false);
+	let showPrevBtn = $state(false);
+
+	onMount(async () => {
+		const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+		if (!value) {
+			showPrevBtn = true;
+		}
+	});
 
 	// Handle image upload
 	async function handleImageUpload(file: File) {
 		if (!file) return;
 
 		try {
+			pictureLoading = true;
 			const uploadedFile = await uploadService.uploadSingleFile(file, 'profile');
 			picture = { key: uploadedFile.key, url: uploadedFile.url };
 		} catch (error) {
 			// Handle upload failure
 			console.error('File upload failed:', error);
 			error = 'File upload failed';
+		} finally {
+			pictureLoading = false;
 		}
 	}
 
 	// Add skill tag
 	function addSkill() {
-		if (skillsInput && skillsInput.trim() && skillsInput.trim().length > 3 && !skills.includes(skillsInput.trim()) && skills.length < 20) {
+		if (
+			skillsInput &&
+			skillsInput.trim() &&
+			skillsInput.trim().length > 3 &&
+			!skills.includes(skillsInput.trim()) &&
+			skills.length < 20
+		) {
 			skills = [...skills, skillsInput.trim()];
 			skillsInput = '';
 		}
@@ -100,7 +136,7 @@
 				displayName,
 				professionalTitle,
 				profileDescription,
-				skillNames: skills,
+				skills,
 				profilePictureUrl: picture.url,
 				profilePictureId: picture.key
 			};
@@ -277,14 +313,18 @@
 							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<span>{error}</span>
+					<span class="whitespace-normal">{error}</span>
 				</div>
 			{/if}
 
 			<!-- Form Actions -->
 			<div class="mt-6 flex justify-between">
-				<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-				<button type="submit" class="btn btn-primary" disabled={isLoading}>
+				{#if showPrevBtn}
+					<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+				{:else}
+					<div></div>
+				{/if}
+				<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{/if}

@@ -1,16 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { linear } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
 	import AccountSetup from '$lib/components/onboarding/AccountSetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
 	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
-	import { onMount } from 'svelte';
-	import authService from '$lib/api/services/auth.service';
-	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
-	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { Preferences } from '@capacitor/preferences';
-	import { linear } from 'svelte/easing';
-	import { fly } from 'svelte/transition';
 
 	let currentStep = $state(0);
 	let direction = $state<'forward' | 'backward'>('forward');
@@ -30,7 +25,7 @@
 	};
 
 	const restartSetup = () => {
-		currentStep = 0;
+		currentStep = 1;
 		direction = 'backward';
 	};
 </script>

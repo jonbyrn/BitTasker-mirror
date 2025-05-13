@@ -360,7 +360,7 @@
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h1 class="mb-2 text-2xl font-bold">Find Tasks</h1>
-		<p class="text-gray-600">Discover tasks that match your skills and interests</p>
+		<p class="text-base-content/70">Discover tasks that match your skills and interests</p>
 	</div>
 
 	<!-- Search and Filter Controls -->

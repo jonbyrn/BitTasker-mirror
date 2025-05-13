@@ -300,11 +300,13 @@ type PublicFreelancer {
 }
 
 type PublicUser {
+  displayName: String
   id: ID!
   name: String
   profilePictureId: String
   profilePictureUrl: String
   userRole: UserRole!
+  username: String
 }
 
 type Query {
@@ -542,7 +544,7 @@ input UpdateUserProfileInput {
   profileDescription: String
   profilePictureId: String
   profilePictureUrl: String
-  skillNames: [String!]
+  skills: [String!]
   username: String
 }
 
@@ -550,6 +552,7 @@ type User {
   biddingAllowed: Boolean!
   createdAt: DateTime!
   deletedAt: DateTime
+  displayName: String
   dob: DateTime
   email: String
   id: ID!
@@ -564,6 +567,7 @@ type User {
   status: UserStatus!
   updatedAt: DateTime!
   userRole: UserRole!
+  username: String
 }
 
 type UserBidsResponse {
