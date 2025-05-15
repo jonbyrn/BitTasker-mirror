@@ -24,7 +24,6 @@
 			const { data, errors } = await isOnboardingCompleteStore.fetch({
 				policy: 'NetworkOnly' // Force network request, ignore cache
 			});
-			console.log('Checking onboarding status', data, errors);
 
 			if (errors) {
 				error = errors.map((err) => err.message).join(', ');
