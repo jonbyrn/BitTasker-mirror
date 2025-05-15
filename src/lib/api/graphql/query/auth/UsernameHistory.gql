@@ -1,0 +1,3 @@
+query GetUsernameHistory($userId: Int!) {
+  getUsernameHistory(userId: $userId)
+} 

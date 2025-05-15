@@ -5,8 +5,8 @@ export interface Credentials {
 }
 
 export interface NostrRegistrationData {
-	name?: string;
 	email?: string;
+	username?: string;
 	publicKey: string;
 	encryptedPrivateKey: string;
 	iv: string;
@@ -178,6 +178,7 @@ export interface AccountRecoveryData {
 	salt: string;
 	authTag: string;
 	iterations: number;
+	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {

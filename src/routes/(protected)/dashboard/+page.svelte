@@ -57,7 +57,7 @@
 	const closeTaskDrawer = () => (drawerOpen = false);
 </script>
 
-<div class="mb-6">
+<div class="h-full px-4 py-8">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<h2 class="text-2xl font-bold">My Dashboard</h2>
@@ -78,8 +78,8 @@
 	<!-- Dashboard Tabs -->
 	<Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} />
 
-	<!-- Tasks Panel -->
 	{#if activeTab === 'tasks'}
+		<!-- Tasks Panel -->
 		<div
 			id="panel-tasks"
 			role="tabpanel"

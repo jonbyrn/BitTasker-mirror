@@ -11,6 +11,7 @@
 		error = '',
 		width,
 		height,
+		customClass = 'aspect-square h-20 w-20 sm:h-24 sm:w-24',
 		onChange = () => {},
 		onError = () => {}
 	}: UploaderProps = $props();
@@ -117,9 +118,13 @@
 		</div>
 	{/if}
 
-	<div class="grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+	<div
+		class={maxFiles > 1
+			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
+			: 'h-full w-full'}
+	>
 		{#each files as file, index}
-			<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
+			<div class="relative {customClass}">
 				<img
 					src={typeof file === 'string' ? file : URL.createObjectURL(file)}
 					alt="Preview"
@@ -128,7 +133,7 @@
 				<button
 					aria-label="Remove image"
 					type="button"
-					class="absolute -top-2 -right-2 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
+					class="absolute -top-2 -right-2 w-6 h-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
 				>
 					<svg
@@ -148,7 +153,7 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative aspect-square h-20 overflow-hidden sm:h-24 sm:w-24">
+			<div class="relative overflow-hidden {customClass}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 border-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border"

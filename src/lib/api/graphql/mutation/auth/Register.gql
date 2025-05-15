@@ -1,0 +1,20 @@
+mutation Register($input: RegisterInput!) {
+  register(input: $input) {
+    access_token
+    expires_in
+    token_type
+    user {
+      id
+      email
+      name
+      profilePictureUrl
+      onboardingComplete
+      userRole
+      status
+      isEmailVerified
+      lastLoginAt
+      createdAt
+      updatedAt
+    }
+  }
+} 

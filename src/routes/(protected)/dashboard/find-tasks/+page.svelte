@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { SearchTasksParams, TaskData } from '$lib/types/task';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { formatDistanceToNow } from 'date-fns';
+	import { SearchTasksStore, type SearchTasksDto } from '$houdini';
 	import {
 		TaskStatusEnum,
 		TaskTypeEnum,
@@ -13,9 +16,6 @@
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
 	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
-	import { SearchTasksStore, type SearchTasksDto } from '$houdini';
-	import { browser } from '$app/environment';
-	import { onMount } from 'svelte';
 
 	// Function to create initial search parameters conforming to SearchTasksDto
 	function getInitialSearchParams(): Partial<SearchTasksDto> {
@@ -360,7 +360,7 @@
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h1 class="mb-2 text-2xl font-bold">Find Tasks</h1>
-		<p class="text-gray-600">Discover tasks that match your skills and interests</p>
+		<p class="text-base-content/70">Discover tasks that match your skills and interests</p>
 	</div>
 
 	<!-- Search and Filter Controls -->

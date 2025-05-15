@@ -1,44 +1,37 @@
-import type { LayoutLoad } from '../$types';
-import { browser } from '$app/environment';
+import type { LayoutLoad } from './$types';
+import { get } from 'svelte/store';
 import { redirect } from '@sveltejs/kit';
-import { tryCatch } from '$lib/utils/tryCatch';
-import { user } from '$lib/stores/user.store';
-import { authState } from '$lib/stores/auth.store';
-import { Preferences } from '@capacitor/preferences';
+import { browser } from '$app/environment';
+import { CheckOnboardingStatusStore } from '$houdini';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import userService from '$lib/api/services/user.service';
+import { isCaptchaVerified } from '$lib/stores/auth.store';
 
-export const load: LayoutLoad = async () => {
-	if (browser) {
-		const tokenResult = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-		const token = tokenResult.value;
+export const load: LayoutLoad = async ({ url }) => {
+	if (!browser) return;
 
-		if (!token) {
-			console.log('No token on auth page, skipping getUserProfile');
-			return {};
-		}
+	// Dynamically import Preferences only in the browser
+	const { Preferences } = await import('@capacitor/preferences');
+	const token = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
-		const { data: userData, error: userError } = await tryCatch(userService.getUserProfile());
+	// If user is logged in and not in onboarding, redirect to dashboard
+	if (token.value) {
+		if (url.pathname.includes('/onboarding')) {
+			const isOnboardingCompleteStore = new CheckOnboardingStatusStore();
+			const { data } = await isOnboardingCompleteStore.fetch();
 
-		// If we successfully get user data, user is logged in
-		if (!userError && userData) {
-			authState.login();
-			// TODO: type error should be fixed after new auth is implemented
-			user.set(userData);
-
-			// Check onboarding status and redirect accordingly
-			if (userData.onboardingComplete) {
-				throw redirect(303, '/dashboard');
+			if (data?.IsOnboardingComplete.isComplete) {
+				redirect(303, '/dashboard');
 			} else {
-				throw redirect(303, '/onboarding');
+				return { currentStep: 1 };
 			}
 		} else {
-			// If there's an error or no user data, remove the invalid/expired token and continue to auth page
-			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
-			console.log('Invalid or expired token, removed token, returning to auth page');
-			return {};
+			redirect(303, '/dashboard');
+		}
+	} else {
+		if (url.pathname.includes('/onboarding')) {
+			if (!get(isCaptchaVerified)) {
+				redirect(303, '/auth/signup');
+			}
 		}
 	}
-
-	return {};
 };

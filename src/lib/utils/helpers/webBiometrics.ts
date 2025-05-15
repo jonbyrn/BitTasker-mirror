@@ -37,18 +37,18 @@ const WEBAUTHN_VERIFY_OPTIONS: WebAuthnVerifyOptions = {
 /**
  * Generate a new challenge
  */
-function generateChallenge(): Uint8Array {
+function generateChallenge(): ArrayBuffer {
 	const arr = new Uint8Array(32);
 	crypto.getRandomValues(arr);
-	return arr;
+	return arr.buffer;
 }
 
 /**
  * Convert string to ArrayBuffer
  */
-function stringToArrayBuffer(str: string): Uint8Array {
+function stringToArrayBuffer(str: string): ArrayBuffer {
 	const encoder = new TextEncoder();
-	return encoder.encode(str);
+	return encoder.encode(str).buffer;
 }
 
 /**
@@ -61,13 +61,13 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 /**
  * Convert Base64 string to ArrayBuffer
  */
-function base64ToArrayBuffer(base64: string): Uint8Array {
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
 	const binaryString = atob(base64);
 	const bytes = new Uint8Array(binaryString.length);
 	for (let i = 0; i < binaryString.length; i++) {
 		bytes[i] = binaryString.charCodeAt(i);
 	}
-	return bytes;
+	return bytes.buffer;
 }
 
 /**

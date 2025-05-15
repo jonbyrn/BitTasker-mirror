@@ -1,0 +1,6 @@
+query CheckOnboardingStatus {
+	IsOnboardingComplete {
+		isComplete
+		missingFields
+	}
+}

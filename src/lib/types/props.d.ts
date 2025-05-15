@@ -10,6 +10,7 @@ export interface UploaderProps {
 	error?: string;
 	width?: number;
 	height?: number;
+	customClass?: string;
 	onChange?: (files: File[]) => void;
 	onError?: (message: string) => void;
 }

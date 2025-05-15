@@ -1,32 +1,19 @@
 <script lang="ts">
-	import type { Credentials } from '$lib/types/auth';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { bytesToHex } from '$lib/utils/helpers/encoding';
-	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
-	import {
-		checkBiometricAvailability,
-		getBiometricData,
-		setBiometricKey
-	} from '$lib/utils/helpers/biometrics';
-	import {
-		signLoginChallenge,
-		decryptNsecWithBiometrics,
-		encryptNsec
-	} from '$lib/utils/helpers/auth';
+	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
-		getWebBiometricData,
-		setWebBiometricKey
+		getWebBiometricData
 	} from '$lib/utils/helpers/webBiometrics';
+	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
-	import BottomNavBar from '$lib/components/NavBar.svelte';
 
 	let error = $state('');
 	let isLoading = $state(false);
@@ -44,87 +31,6 @@
 			console.error('Error checking authentication methods:', err);
 		}
 	});
-
-	async function generateKeyPair() {
-		const sk = generateSecretKey();
-		const npub = getPublicKey(sk);
-		const nsec = bytesToHex(sk);
-		return { npub, nsec };
-	}
-
-	/**
-	 * Register a new user with biometric authentication
-	 */
-	async function register(deviceId: string) {
-		// Generate a new Nostr keypair
-		const { npub, nsec } = await generateKeyPair();
-
-		// Encrypt the private key with device ID as the password
-		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
-
-		// Register with server
-		await authService.registerWithNostr({
-			publicKey: npub,
-			encryptedPrivateKey: encrypted.data,
-			iv: encrypted.iv,
-			salt: salt,
-			authTag: encrypted.authTag,
-			iterations,
-			authMethod: 'passkey'
-		});
-
-		// Register device with server
-		const deviceName = await getDeviceName();
-		const response = await authService.registerPasskeyDevice(npub, deviceId, deviceName);
-
-		// Store encryption data with biometrics
-		let success = false;
-		if (authMethods.biometric) {
-			success = await setBiometricKey(npub, {
-				key: exportedKey,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				data: encrypted.data,
-				salt
-			});
-		} else if (authMethods.webAuthn) {
-			success = await setWebBiometricKey(npub, {
-				key: exportedKey,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				data: encrypted.data,
-				salt
-			});
-		}
-
-		if (!success) {
-			throw new Error('Failed to set up biometric authentication');
-		}
-
-		if (response.userId && response.deviceId) {
-			// Generate a random one-time token for recovery
-			const tempToken = crypto.getRandomValues(new Uint8Array(32));
-			const tempTokenHex = Array.from(tempToken)
-				.map((b) => b.toString(16).padStart(2, '0'))
-				.join('');
-
-			// Store nsec temporarily with the token
-			await Preferences.set({
-				key: tempTokenHex,
-				value: nsec
-			});
-
-			// Clean up after 5 minutes
-			setTimeout(
-				async () => {
-					await Preferences.remove({ key: tempTokenHex });
-				},
-				5 * 60 * 1000
-			);
-
-			goto(`/auth/recover?provider=passkey&npub=${npub}&token=${tempTokenHex}`);
-		}
-	}
 
 	/**
 	 * Login with biometric authentication
@@ -167,7 +73,7 @@
 			error = '';
 
 			const deviceId = await getDeviceIdentifier();
-			let biometricData: Credentials | null = null;
+			let biometricData = null;
 
 			if (authMethods.biometric) {
 				biometricData = await getBiometricData();
@@ -175,12 +81,12 @@
 				biometricData = await getWebBiometricData();
 			}
 
-			if (!biometricData) {
-				// Registration flow
-				await register(deviceId);
-			} else {
+			if (biometricData) {
 				// Login flow
 				await login(biometricData.username, biometricData.password, deviceId);
+			} else {
+				// Show error message
+				error = 'No account found, please create one';
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
@@ -191,15 +97,31 @@
 	}
 </script>
 
-<div class="bg-base-200 flex min-h-screen items-center justify-center px-4">
-	<BottomNavBar />
-	<div class="card bg-base-100 w-full max-w-md shadow-xl">
+<div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
+	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Login to BitTasker</h2>
-
-			<div class="flex flex-col gap-3">
+			<div class="mb-8 flex flex-col items-center justify-center">
+				<img src="/logo.svg" alt="BitTasker" class="h-20 w-auto" />
+				<h1 class="mt-6 text-center text-2xl font-bold">Login to BitTasker</h1>
+				<br />
+				<p class="text-base-content/70 mt-3 text-center text-sm">
+					Hire for gigs, pay in Bitcoin or Fiat.
+				</p>
+				<p class="text-base-content/70 mt-2 text-center text-sm">
+					Login with your <span class="text-primary">Passkey/Biometrics</span>, or
+					<a
+						href="https://getalby.com"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-primary hover:underline"
+					>
+						Alby Connect
+					</a> account.
+				</p>
+			</div>
+			<div class="flex flex-col gap-4">
 				{#if authMethods.biometric}
-					<button class="btn btn-outline w-full" onclick={authenticate} disabled={isLoading}>
+					<button class="btn btn-primary" onclick={authenticate} disabled={isLoading}>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -219,14 +141,14 @@
 				{/if}
 
 				{#if authMethods.webAuthn}
-					<button class="btn btn-outline w-full" onclick={authenticate} disabled={isLoading}>
+					<button class="btn btn-primary" onclick={authenticate} disabled={isLoading}>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke-width="1.5"
 							stroke="currentColor"
-							class="size-4"
+							class="size-5"
 						>
 							<path
 								stroke-linecap="round"
@@ -243,7 +165,7 @@
 				{/if}
 
 				{#if error}
-					<div class="alert alert-error mt-4">
+					<div class="alert alert-error mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -261,13 +183,14 @@
 					</div>
 				{/if}
 
-				<div class="divider"></div>
+				<div class="divider my-1">OR</div>
 
-				<div class="flex items-center justify-center text-center">
-					<span class="text-sm text-gray-500">Lost your account?</span>
-					<button class="btn btn-link h-fit" onclick={() => goto('/auth/recover/send')}>
-						Recover Account
-					</button>
+				<button onclick={() => goto('/auth/signup')} class="btn btn-outline">
+					Create Account
+				</button>
+
+				<div class="mt-2 text-center">
+					<a href="/auth/recover" class="link link-primary text-sm"> Recover Account </a>
 				</div>
 			</div>
 		</div>

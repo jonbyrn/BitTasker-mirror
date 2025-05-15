@@ -1,0 +1,6 @@
+mutation VerifyTrunstile($input: TurnstileVerificationInput!) {
+	verifyTurnstileToken(input: $input) {
+		success
+		message
+	}
+}

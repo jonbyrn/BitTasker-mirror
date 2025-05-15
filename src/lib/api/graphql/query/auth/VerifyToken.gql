@@ -1,0 +1,18 @@
+query VerifyToken($token: String!) {
+  verifyToken(token: $token) {
+    isValid
+    user {
+      id
+      email
+      name
+      profilePictureUrl
+      onboardingComplete
+      userRole
+      status
+      isEmailVerified
+      lastLoginAt
+      createdAt
+      updatedAt
+    }
+  }
+} 

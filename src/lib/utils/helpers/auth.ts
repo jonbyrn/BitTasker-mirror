@@ -9,6 +9,9 @@ import {
 	importKey,
 	exportKey
 } from '$lib/utils/helpers/crypto';
+import { getPublicKey } from 'nostr-tools/pure';
+import { hexToBytes } from '$lib/utils/helpers/encoding';
+import { nip19 } from 'nostr-tools';
 
 export async function encryptNsec(
 	nsec: string,
@@ -122,4 +125,24 @@ export async function signLoginChallenge(challenge: string, privateKey: string):
 	return Array.from(signature)
 		.map((b) => b.toString(16).padStart(2, '0'))
 		.join('');
+}
+
+// TODO: ADD TESTS
+/**
+ * Get the npub from an encoded nsec
+ * When the nsec is encoded, it's in bech32 format (nsec1...), so we need to decode it first
+ * @param encodedNsec 
+ * @returns 
+ */
+export function getNpubFromEncodedNsec(encodedNsec: string): string {
+	// Decode the nsec
+	const { data: privateKeyHex } = nip19.decode(encodedNsec);
+
+	// Convert hex to bytes and then get public key
+	const publicKeyHex = getPublicKey(privateKeyHex as Uint8Array);
+
+	// Encode as npub
+	const encodedNpub = nip19.npubEncode(publicKeyHex);
+
+	return encodedNpub;
 }

@@ -12,10 +12,6 @@ query MyBids {
         currency
         status
         description
-        task {
-          title
-          id
-        }
       }
     }
     submitted {
@@ -30,10 +26,6 @@ query MyBids {
         currency
         status
         description
-        task {
-          title
-          id
-        }
       }
     }
   }

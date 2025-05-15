@@ -25,6 +25,22 @@ declare global {
 			};
 		};
 	}
+
+	// TypeScript interfaces for Turnstile for type checking
+	type TurnstileCallback = (token: string) => void;
+
+	interface TurnstileWidget {
+		render: (container: string | HTMLElement, params: any) => string;
+		reset: (widgetId?: string) => void;
+		getResponse: (widgetId?: string) => string;
+		isExpired: (widgetId?: string) => boolean;
+		remove: (widgetId?: string) => void;
+	}
+
+	interface Window {
+		turnstile: TurnstileWidget;
+		onloadTurnstileCallback: () => void;
+	}
 }
 
-export {};
+export { };

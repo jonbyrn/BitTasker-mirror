@@ -103,19 +103,7 @@ export class AuthService extends BaseApiService {
 			);
 			return response.data;
 		} catch (error: any) {
-			if (error?.status === 409) {
-				throw new Error('Email already registered');
-			} else if (error?.status === 400) {
-				throw new Error('Invalid registration data');
-			} else if (error?.status === 422) {
-				throw new Error('Invalid encryption format');
-			} else if (error?.status === 500) {
-				throw new Error('Server error occurred during registration');
-			} else if (error.message) {
-				throw error;
-			} else {
-				throw new Error('Failed to register user');
-			}
+			throw new Error(error);
 		}
 	}
 
