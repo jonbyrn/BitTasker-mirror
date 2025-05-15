@@ -80,6 +80,7 @@
 		"@capacitor/screen-orientation": "^7.0.1",
 		"@capacitor/splash-screen": "^7.0.1",
 		"@capacitor/status-bar": "^7.0.1",
+		"@capawesome/capacitor-screen-orientation": "^7.0.1",
 		"@capgo/capacitor-social-login": "^7.4.5",
 		"@nostr-dev-kit/ndk": "^2.12.2",
 		"@nostr-dev-kit/ndk-svelte": "^2.4.5",

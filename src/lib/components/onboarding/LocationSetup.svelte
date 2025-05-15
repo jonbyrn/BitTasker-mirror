@@ -5,6 +5,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { UpdateUserProfileStore } from '$houdini';
+	import { PUBLIC_GOOGLE_MAPS_API_KEY } from '$env/static/public';
 
 	// Create the store for updating user profile with location
 	const profileStore = new UpdateUserProfileStore();
@@ -51,7 +52,7 @@
 					return;
 				}
 
-				const API_KEY = 'AIzaSyAqWtItXmQGJWbTOGX-CW2VciMuKiUMqZY'; // Replace with your actual API key
+				const API_KEY = PUBLIC_GOOGLE_MAPS_API_KEY;
 				const script = document.createElement('script');
 				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
 				script.async = true;
