@@ -201,11 +201,35 @@
 		}
 	}
 
-	function handleUsernameBlur() {
-		if (username && !isCheckingUsername && !usernameAvailable) {
+	// Debounce utility
+	function debounce(fn: (...args: any[]) => void, delay: number) {
+		let timeout: ReturnType<typeof setTimeout>;
+		return (...args: any[]) => {
+			clearTimeout(timeout);
+			timeout = setTimeout(() => fn(...args), delay);
+		};
+	}
+
+	// Debounced version of checkUsernameAvailability
+	const debouncedCheckUsernameAvailability = debounce(() => {
+		if (username) {
 			checkUsernameAvailability();
 		}
-	}
+	}, 600);
+
+	$effect(() => {
+		usernameAvailable = false;
+		usernameError = '';
+		if (username) {
+			debouncedCheckUsernameAvailability();
+		}
+	});
+
+	$effect(() => {
+		if (nsec) {
+			nsecError = '';
+		}
+	});
 
 	async function handleSubmit() {
 		try {
@@ -313,7 +337,6 @@
 					type="text"
 					id="username"
 					bind:value={username}
-					onblur={handleUsernameBlur}
 					class="input input-bordered w-full {usernameError
 						? 'input-error'
 						: usernameAvailable && username
