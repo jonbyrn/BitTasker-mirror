@@ -303,22 +303,12 @@
 				{:else}
 					<div></div>
 				{/if}
-				{#if !saveForLater}
-					<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
-						{#if isLoading}
-							<span class="loading loading-spinner"></span>
-						{/if}
-						Next
-					</button>
-				{:else}
-					<button
-						type="button"
-						class="btn btn-primary"
-						onclick={() => goto('/dashboard/find-tasks')}
-					>
-						Skip for now
-					</button>
-				{/if}
+				<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
+					{#if isLoading}
+						<span class="loading loading-spinner"></span>
+					{/if}
+					Next
+				</button>
 			</div>
 		</form>
 	</div>
