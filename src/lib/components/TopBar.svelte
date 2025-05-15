@@ -86,8 +86,6 @@
 		// Determine if user is logged in based on path
 		// This should be replaced with proper auth check
 		isLoggedIn = path.startsWith('/dashboard');
-		console.log('isLoggedIn', isLoggedIn);
-
 		// Check layout mode whenever deviceInfo changes
 		if ($deviceInfo) {
 			checkLayoutMode();
@@ -96,7 +94,6 @@
 
 	// Go back function for the back button
 	function goBack() {
-		console.log('going back')
 		window.history.back();
 	}
 
@@ -140,7 +137,7 @@
 </script>
 
 <!-- Main TopBar component -->
-<div class="navbar bg-base-100/80 border-base-300 pt-safe z-40 border-b backdrop-blur-sm">
+<div class="navbar bg-base-100/80 border-base-300 pt-safe z-40 w-full border-b backdrop-blur-sm">
 	<div class="navbar-start">
 		{#if isDesktopLayout || (!isLoggedIn && !$showBackButton)}
 			<!-- Desktop or Mobile not logged in: BitTasker on the left -->
@@ -208,11 +205,16 @@
 		{/if}
 	</div>
 
-	<div class="navbar-end">
-		{#if isLoggedIn}
+	{#if isLoggedIn}
+		<div class="navbar-end w-full">
 			<!-- User is logged in: show profile or badge -->
-			<Avatar user={{ name: $user.name, profileImage: null }} onClick={() => goto('/dashboard/profile')} />
-		{:else}
+			<Avatar
+				user={{ name: $user.name, profileImage: null }}
+				onClick={() => goto('/dashboard/profile')}
+			/>
+		</div>
+	{:else}
+		<div class="navbar-end w-full">
 			<!-- User is not logged in: show dark mode toggle, Login, and Signup buttons -->
 			<label class="swap swap-rotate btn btn-ghost btn-circle mr-2">
 				<input type="checkbox" checked={$darkMode} onchange={() => ($darkMode = !$darkMode)} />
@@ -239,14 +241,14 @@
 					/>
 				</svg>
 			</label>
-			
+
 			<!-- Login and Signup buttons, replacing the Get Started button -->
 			<div class="flex gap-2">
 				<a href="/auth/login" class="btn btn-secondary">Login</a>
 				<a href="/auth/signup" class="btn btn-primary">Sign up</a>
 			</div>
-		{/if}
-	</div>
+		</div>
+	{/if}
 </div>
 
 <!-- Mobile Drawer -->
@@ -328,12 +330,8 @@
 				<li><a href="/logout" onclick={closeDrawer}>{getTranslation('navbar.logout')}</a></li>
 			{:else}
 				<li class="mt-4 flex flex-col gap-2">
-					<a href="/auth/login" class="btn btn-secondary w-full" onclick={closeDrawer}>
-						Login
-					</a>
-					<a href="/auth/signup" class="btn btn-primary w-full" onclick={closeDrawer}>
-						Signup
-					</a>
+					<a href="/auth/login" class="btn btn-secondary w-full" onclick={closeDrawer}> Login </a>
+					<a href="/auth/signup" class="btn btn-primary w-full" onclick={closeDrawer}> Signup </a>
 				</li>
 			{/if}
 		</ul>

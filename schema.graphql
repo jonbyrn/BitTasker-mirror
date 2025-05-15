@@ -270,7 +270,13 @@ type Mutation {
   updateTask(id: Int!, input: UpdateTaskInput!): Task!
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
   updateUserProfile(input: UpdateUserProfileInput!): User!
+  verifyTurnstileToken(input: TurnstileVerificationInput!): TurnstileVerificationResult!
   withdrawBid(id: Int!, reason: String): Boolean!
+}
+
+type OnboardingStatusDto {
+  isComplete: Boolean!
+  missingFields: [String!]!
 }
 
 type PaginatedTasksResponse {
@@ -310,7 +316,7 @@ type PublicUser {
 }
 
 type Query {
-  IsOnboardingComplete: Boolean!
+  IsOnboardingComplete: OnboardingStatusDto!
   bid(id: Int!): Bid!
   bids: UserBidsResponse!
   bidsByTask(taskId: Int!): [Bid!]!
@@ -480,6 +486,16 @@ type TokenVerificationResult {
   user: User
 }
 
+input TurnstileVerificationInput {
+  action: String
+  token: String!
+}
+
+type TurnstileVerificationResult {
+  message: String
+  success: Boolean!
+}
+
 input UpdateBidInput {
   amount: Float
   coverLetter: String
@@ -564,6 +580,7 @@ type User {
   onboardingComplete: Boolean!
   profilePictureId: String
   profilePictureUrl: String
+  skills: [Skill!]!
   status: UserStatus!
   updatedAt: DateTime!
   userRole: UserRole!

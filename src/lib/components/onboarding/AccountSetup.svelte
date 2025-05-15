@@ -201,8 +201,17 @@
 		}
 	}
 
+	// Debounce function
+	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
+		let timeoutId: ReturnType<typeof setTimeout>;
+		return function (...args: Parameters<T>) {
+			clearTimeout(timeoutId);
+			timeoutId = setTimeout(() => fn.apply(null, args), delay);
+		};
+	}
+
 	function handleUsernameBlur() {
-		if (username && !isCheckingUsername && !usernameAvailable) {
+		if (!isCheckingUsername && username && !usernameAvailable) {
 			checkUsernameAvailability();
 		}
 	}
@@ -313,7 +322,7 @@
 					type="text"
 					id="username"
 					bind:value={username}
-					onblur={handleUsernameBlur}
+					oninput={debounce(handleUsernameBlur, 1000)}
 					class="input input-bordered w-full {usernameError
 						? 'input-error'
 						: usernameAvailable && username

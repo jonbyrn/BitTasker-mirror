@@ -32,17 +32,21 @@
 	let predictions = $state<(google.maps.places.PlacePrediction | null)[]>([]);
 	let showOptions = $state(false);
 	let scriptLoaded = $state(false);
+	let googleMapsReady = $state(false);
 	let isFullscreen = $state(false);
 	let toggleRadius = $state(false);
 	let mapContainerDiv: HTMLElement | null = $state(null);
+	let initRetryCount = $state(0);
+	let maxRetries = 3;
 
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
 		return new Promise<void>((resolve, reject) => {
 			try {
-				// Check if script is already loaded
-				if (window.google?.maps) {
+				// Check if script is already loaded and API is available
+				if (window.google?.maps?.Map) {
 					scriptLoaded = true;
+					googleMapsReady = true;
 					resolve();
 					return;
 				}
@@ -55,7 +59,16 @@
 
 				script.onload = () => {
 					scriptLoaded = true;
-					resolve();
+					// Add a small delay to ensure Google Maps API is fully initialized
+					setTimeout(() => {
+						// Check if the API is actually available
+						if (window.google?.maps?.Map) {
+							googleMapsReady = true;
+							resolve();
+						} else {
+							reject(new Error('Google Maps API not initialized correctly'));
+						}
+					}, 500);
 				};
 
 				script.onerror = () => {
@@ -70,8 +83,8 @@
 	}
 
 	async function initMap() {
-		if (!scriptLoaded) {
-			throw new Error('Google Maps not loaded yet');
+		if (!googleMapsReady || !window.google?.maps?.Map) {
+			throw new Error('Google Maps not fully loaded yet');
 		}
 
 		try {
@@ -130,24 +143,43 @@
 		}
 	}
 
-	onMount(async () => {
+	async function tryInitMap() {
 		try {
-			// Load Google Maps API dynamically if not already loaded
-			if (!scriptLoaded && !window.google?.maps) {
-				await loadGoogleMapsScript();
-			} else {
-				scriptLoaded = true;
+			if (initRetryCount >= maxRetries) {
+				throw new Error('Failed to initialize map after multiple attempts');
 			}
-
-			// Wait for Google Maps to load
+			
+			// Only proceed if Google Maps is ready
+			if (!googleMapsReady) {
+				initRetryCount++;
+				// Wait a bit and try again
+				setTimeout(tryInitMap, 1000);
+				return;
+			}
+			
 			await initMap();
 			isMapLoaded = true;
-
+			
 			// Try to get user's geolocation
 			getUserLocation();
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error = err instanceof Error ? err.message : 'Error initializing map';
+			hasError = true;
+		}
+	}
+
+	onMount(async () => {
+		try {
+			// Load Google Maps API dynamically if not already loaded
+			await loadGoogleMapsScript();
+			
+			// Try to initialize the map
+			tryInitMap();
+		} catch (err) {
+			console.error('Error loading Google Maps:', err);
+			error = err instanceof Error ? err.message : 'Error loading Google Maps';
+			hasError = true;
 		}
 	});
 
@@ -157,7 +189,7 @@
 			createMarkerAndCircle(lat, lng);
 
 			// Reverse geocode to get address
-			if (window.google?.maps) {
+			if (googleMapsReady && window.google?.maps) {
 				const { Geocoder } = (await google.maps.importLibrary(
 					'geocoding'
 				)) as google.maps.GeocodingLibrary;
@@ -207,7 +239,7 @@
 	}
 
 	function createMarkerAndCircle(lat: number, lng: number) {
-		if (!map || !window.google?.maps) return;
+		if (!map || !googleMapsReady || !window.google?.maps) return;
 
 		const position = { lat, lng };
 
@@ -260,7 +292,7 @@
 
 	// Place search functionality
 	async function getPredictions() {
-		if (!window.google?.maps) {
+		if (!googleMapsReady || !window.google?.maps) {
 			hasError = true;
 			return;
 		}
@@ -305,7 +337,7 @@
 	}
 
 	async function selectPrediction(prediction: google.maps.places.PlacePrediction) {
-		if (!window.google?.maps) return;
+		if (!googleMapsReady || !window.google?.maps) return;
 
 		let place = prediction.toPlace();
 		await place.fetchFields({
@@ -419,6 +451,7 @@
 			});
 
 			if (result.errors) {
+				error = result.errors.map((err) => err.message).join(', ');
 				throw new Error(result.errors[0].message);
 			}
 
@@ -637,6 +670,31 @@
 					/></svg
 				>
 				<span>Location set: {location.displayName}</span>
+			</div>
+		{/if}
+
+		<!-- Retry button for map loading issues -->
+		{#if hasError && !isMapLoaded}
+			<div class="alert alert-warning mx-4 mt-4">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+					><path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+					/></svg
+				>
+				<div>
+					<h3 class="font-bold">Map loading failed</h3>
+					<div class="text-xs">Try reloading the map</div>
+				</div>
+				<button class="btn btn-sm" onclick={() => { hasError = false; loadGoogleMapsScript().then(() => tryInitMap()); }}>
+					Retry
+				</button>
 			</div>
 		{/if}
 

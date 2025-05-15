@@ -73,7 +73,7 @@
 	const getStarted = async () => {
 		await Preferences.set({ key: StorageKeys.ONBOARDING_COMPLETED, value: 'true' });
 		onboardingCompleted.set(true);
-		goto('/onboarding');
+		goto('/auth/login');
 	};
 
 	const skipOnboardingToLastSlide = async () => {
