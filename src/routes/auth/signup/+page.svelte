@@ -16,7 +16,6 @@
 		try {
 			// Setup callback for Turnstile
 			window.onloadTurnstileCallback = renderTurnstile;
-			console.log('Turnstile sitekey:', import.meta.env.VITE_CLOUDFLARE_SITEKEY);
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
