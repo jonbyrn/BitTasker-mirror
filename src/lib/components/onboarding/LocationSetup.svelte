@@ -52,6 +52,7 @@
 				}
 
 				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+				console.log('API_KEY', API_KEY);
 				const script = document.createElement('script');
 				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
 				script.async = true;
