@@ -204,7 +204,7 @@
 	// Debounce function
 	function debounce(fn: (...args: any[]) => void, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
-		return function (...args: Parameters<T>) {
+		return function (...args: Parameters<typeof fn>) {
 			clearTimeout(timeoutId);
 			timeoutId = setTimeout(() => fn.apply(null, args), delay);
 		};

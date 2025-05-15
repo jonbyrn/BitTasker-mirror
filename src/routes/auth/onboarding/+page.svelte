@@ -7,7 +7,9 @@
 	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';
 	import CompleteSetup from '$lib/components/onboarding/CompleteSetup.svelte';
 
-	let currentStep = $state(0);
+	let { data } = $props();
+	
+	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
 
 	const nextStep = () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { UpdateUserProfileStore } from '$houdini';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
@@ -15,29 +16,11 @@
 	}>();
 
 	// User data
-	let displayName = $state('John Doe');
-	let professionalTitle = $state('Developer');
-	let profileDescription = $state(
-		'Lorem ipsum dolor sit, amet consectetur adipisicing elit. Magni pariatur doloribus eveniet odio rem perferendis dolorem numquam, voluptates inventore nemo qui vel dignissimos impedit. Tempore dolores impedit maxime reprehenderit animi!'
-	);
+	let displayName = $state('');
+	let professionalTitle = $state('');
+	let profileDescription = $state('');
 	let skillsInput = $state('');
-	// let skills = $state<string[]>([]);
-	let skills = $state<string[]>([
-		'test',
-		'test2',
-		'test3',
-		'test4',
-		'test5',
-		'test6',
-		'test7',
-		'test8',
-		'test9',
-		'test10',
-		'test11',
-		'test12',
-		'test13',
-		'test14'
-	]);
+	let skills = $state<string[]>([]);
 
 	// Status indicators
 	let isLoading = $state(false);
@@ -320,12 +303,22 @@
 				{:else}
 					<div></div>
 				{/if}
-				<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
-					{#if isLoading}
-						<span class="loading loading-spinner"></span>
-					{/if}
-					Next
-				</button>
+				{#if !saveForLater}
+					<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
+						{#if isLoading}
+							<span class="loading loading-spinner"></span>
+						{/if}
+						Next
+					</button>
+				{:else}
+					<button
+						type="button"
+						class="btn btn-primary"
+						onclick={() => goto('/dashboard/find-tasks')}
+					>
+						Skip for now
+					</button>
+				{/if}
 			</div>
 		</form>
 	</div>

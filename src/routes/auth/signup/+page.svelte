@@ -2,14 +2,13 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { VerifyTrunstileStore } from '$houdini';
+	import { isCaptchaVerified } from '$lib/stores/auth.store';
 
 	const verifyTrunstileStore = new VerifyTrunstileStore();
 
 	let error = $state('');
 	let isLoading = $state(false);
-	let isCaptchaVerified = $state(false);
 	let turnstileWidget = $state<HTMLElement | null>(null);
-	let turnstileResponse = $state('');
 	let turnstileWidgetId: string | undefined;
 	let captchaFailed = $state(false);
 
@@ -34,14 +33,12 @@
 			'retry-interval': 10000, // If retry is enabled, wait 10 seconds between attempts
 			callback: function (token: string) {
 				// This function is called when the user successfully completes the challenge
-				turnstileResponse = token;
 				verifyCaptcha(token);
 			},
 			'expired-callback': function () {
 				// This function is called when the token expires after 300 seconds
 				console.log('Captcha expired, please solve again');
-				turnstileResponse = '';
-				isCaptchaVerified = false;
+				isCaptchaVerified.set(false);
 				captchaFailed = true;
 				error = 'Verification expired, please complete the captcha again';
 			},
@@ -84,13 +81,13 @@
 				throw new Error('Captcha verification failed');
 			}
 
-			isCaptchaVerified = data.verifyTurnstileToken.success;
+			isCaptchaVerified.set(data.verifyTurnstileToken.success);
 
 			error = ''; // Clear any previous errors
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
 			error = 'Failed to verify captcha';
-			isCaptchaVerified = false;
+			isCaptchaVerified.set(false);
 			captchaFailed = true;
 		}
 	}
@@ -142,14 +139,14 @@
 				<div class="mt-2">
 					<div class="flex items-center justify-between gap-2 mb-2">
 						<p class="w-full text-start text-sm">Please verify you're human</p>
-						{#if captchaFailed}
+						{#if captchaFailed && !$isCaptchaVerified}
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
 								Retry Verification
 							</button>
 						{/if}
 					</div>
 					<div bind:this={turnstileWidget} class="flex justify-center"></div>
-					{#if isCaptchaVerified}
+					{#if $isCaptchaVerified}
 						<div class="alert alert-success mt-3 text-sm">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -172,7 +169,7 @@
 				<button
 					class="btn btn-primary"
 					onclick={() => goto('/auth/onboarding')}
-					disabled={isLoading || !isCaptchaVerified}
+					disabled={isLoading || !$isCaptchaVerified}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
 						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">

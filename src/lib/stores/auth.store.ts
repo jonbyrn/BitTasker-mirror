@@ -30,3 +30,4 @@ const createAuthStore = () => {
 };
 
 export const authState = createAuthStore();
+export const isCaptchaVerified = writable(false);
