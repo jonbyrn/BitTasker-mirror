@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { UpdateUserProfileStore } from '$houdini';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { UpdateUserProfileStore, type UpdateUserProfileInput } from '$houdini';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
@@ -111,14 +110,19 @@
 			}
 
 			// Create profile data
-			const profileData = {
+			const profileData: UpdateUserProfileInput = {
 				displayName,
 				professionalTitle,
-				profileDescription,
-				skills,
 				profilePictureUrl: picture.url,
 				profilePictureId: picture.key
 			};
+
+			if (!saveForLater) {
+				profileData.profileDescription = profileDescription;
+				if (skills.length > 0) {
+					profileData.skills = skills;
+				}
+			}
 
 			// Update profile using GraphQL
 			const result = await profileStore.mutate({
