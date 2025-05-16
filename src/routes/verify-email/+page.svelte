@@ -28,7 +28,7 @@
 	});
 </script>
 
-<div class="flex min-h-[100dvh] items-center justify-center">
+<div class="flex-grow flex items-center justify-center mx-2">
 	<div class="bg-base-100 w-full max-w-md rounded-lg p-8 shadow-lg">
 		{#if isVerifying}
 			<div class="text-center">
