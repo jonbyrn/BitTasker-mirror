@@ -2,14 +2,14 @@
 </script>
 
 <!-- Stats Cards -->
-<div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-	<div class="stats shadow">
+<div class="mb-8 grid gap-4 grid-cols-2 md:grid-cols-4">
+	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
 			<div class="stat-title">Tasks Completed</div>
 			<div class="stat-value text-xl">47</div>
 		</div>
 	</div>
-	<div class="stats shadow">
+	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
 			<div class="stat-title">Rating</div>
 			<div class="stat-value flex items-center text-xl">
@@ -29,13 +29,13 @@
 			</div>
 		</div>
 	</div>
-	<div class="stats shadow">
+	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
 			<div class="stat-title">Response Rate</div>
 			<div class="stat-value text-xl">98%</div>
 		</div>
 	</div>
-	<div class="stats shadow">
+	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
 			<div class="stat-title">On-Time Rate</div>
 			<div class="stat-value text-xl">95%</div>

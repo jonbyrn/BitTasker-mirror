@@ -88,7 +88,7 @@
 		{#if props.user.name}
 			<span>{getUserInitials(props.user.name)}</span>
 		{:else}
-			<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
+			<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
 				<g fill="none" stroke="black" stroke-width="1.5">
 					<circle cx="12" cy="6" r="4" />
 					<path
