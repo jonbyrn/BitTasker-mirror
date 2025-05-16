@@ -10,39 +10,7 @@
 		openTaskDrawer: (taskId: number, tab?: string) => void;
 	}>();
 
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-	let activeFilter = $state<string>('all');
-
-	// Filters
-	const filters = [
-		{ id: 'all', label: 'All Tasks', icon: 'folder-open' },
-		{ id: 'in-progress', label: 'In Progress', icon: 'activity' },
-		{ id: 'completed', label: 'Completed', icon: 'check-circle' },
-		{ id: 'drafts', label: 'Drafts', icon: 'edit' }
-	];
-
-	// Task filtering
-	const getFilteredTasks = (
-		tasks: Tasks$result['myTasks'],
-		filter: string
-	): Tasks$result['myTasks'] => {
-		switch (filter) {
-			case 'in-progress':
-				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
-			case 'completed':
-				return tasks.filter((task) => task.status === TaskStatusEnum.COMPLETED);
-			case 'drafts':
-				return tasks.filter((task) => task.status === TaskStatusEnum.DRAFT);
-			default:
-				return tasks;
-		}
-	};
-
-	// Format date for display
-	function formatDate(dateString: string): string {
-		return format(new Date(dateString), 'MMM d, yyyy');
-	}
+	const tasksStore = new TasksStore();
 
 	// Convert status to user-friendly string
 	function formatStatus(status: Tasks$result['myTasks'][0]['status']): string {
@@ -107,19 +75,6 @@
 		}).format(amount);
 	}
 
-	const tasksStore = new TasksStore();
-
-	$effect(() => {
-		if ($tasksStore.fetching) {
-			loading = true;
-		} else {
-			loading = false;
-		}
-		if ($tasksStore.errors) {
-			error = $tasksStore.errors[0].message;
-		}
-	});
-
 	onMount(() => {
 		tasksStore.fetch();
 	});
@@ -127,9 +82,9 @@
 
 <div class="card-body">
 	<!-- Loading State -->
-	{#if loading || $tasksStore.fetching}
+	{#if $tasksStore.fetching}
 		<div class="space-y-6">
-			{#each Array(3) as _}
+			{#each Array(2) as _}
 				<div class="card bg-base-200 animate-pulse shadow-md">
 					<div class="card-body">
 						<div class="flex justify-between">
@@ -172,7 +127,7 @@
 	{/if}
 
 	<!-- Task List -->
-	{#if !loading && !$tasksStore.fetching && $tasksStore.data?.myTasks}
+	{#if !$tasksStore.fetching && $tasksStore.data?.myTasks && $tasksStore.data?.myTasks.length > 0}
 		<div class="grid grid-cols-1 gap-6">
 			{#each $tasksStore.data?.myTasks as task}
 				<div class="card bg-base-200 shadow-md transition-shadow hover:shadow-lg">
@@ -285,7 +240,7 @@
 				</div>
 			{/each}
 		</div>
-	{:else if !loading && !$tasksStore.fetching && !$tasksStore.errors && !$tasksStore.data?.myTasks}
+	{:else if !$tasksStore.fetching && !$tasksStore.errors}
 		<div class="py-12 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -302,6 +257,12 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">No tasks found</h3>
+		</div>
+	{/if}
+
+	{#if $tasksStore.errors}
+		<div class="py-12 text-center">
+			<h3 class="mt-4 text-lg font-semibold">Error loading tasks</h3>
 		</div>
 	{/if}
 </div>
