@@ -3,14 +3,14 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import { validateNostrPrivateKey, validatePassword } from '$lib/utils/helpers/validators';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { t } from '$lib/stores/i18n.store';
 	import { encryptNsec } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { validateNostrPrivateKey, validatePassword } from '$lib/utils/helpers/validators';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
 
@@ -35,7 +35,7 @@
 					nsec = storedNsec.value;
 					await Preferences.remove({ key: token });
 				} else {
-					error = 'Recovery token expired or invalid';
+					error = $t('auth.recover.errors.token_expired');
 					goto('/auth/login');
 				}
 			})();
@@ -51,12 +51,12 @@
 			passwordError = '';
 
 			if (!password || !confirmPassword) {
-				error = 'All fields are required';
+				error = $t('auth.recover.errors.required_fields');
 				return;
 			}
 
 			if (password !== confirmPassword) {
-				passwordError = 'Passwords do not match';
+				passwordError = $t('auth.recover.errors.password_mismatch');
 				return;
 			}
 
@@ -103,7 +103,7 @@
 					const signer = new NDKNip07Signer();
 					const signerUser = await signer.user();
 					if (!signerUser) {
-						throw new Error('No user returned from Nostr');
+						throw new Error($t('auth.recover.errors.no_nostr_user'));
 					}
 					const event = {
 						kind: 22242,
@@ -127,13 +127,12 @@
 						key: StorageKeys.ACCESS_TOKEN,
 						value: accessToken
 					});
-					// user.updateProfile(res.user);
 					authState.login();
 					goto('/onboarding');
 				}
 			}
 		} catch (err: any) {
-			error = err.message || 'Registration failed';
+			error = err.message || $t('auth.recover.errors.registration_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -155,29 +154,28 @@
 			/></svg
 		>
 		<div class="inline-block">
-			<h3 class="font-bold">Important Security Notice</h3>
+			<h3 class="font-bold">{$t('auth.recover.security_notice.title')}</h3>
 			<p class="text-sm">
-				This password will be used to encrypt your account recovery key. If you lose this password,
-				there will be no way to recover your account. Please store it securely.
+				{$t('auth.recover.security_notice.description')}
 			</p>
 		</div>
 	</div>
 
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Complete Registration</h2>
+			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('auth.recover.title')}</h2>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<div class="form-control space-y-1">
 					<label class="label" for="nsec">
-						<span class="label-text">Private key</span>
+						<span class="label-text">{$t('auth.recover.private_key.label')}</span>
 					</label>
 					<div class="relative">
 						<input
 							type={showNsec ? 'text' : 'password'}
 							id="nsec"
 							bind:value={nsec}
-							placeholder="Enter your private nostr key"
+							placeholder={$t('auth.recover.private_key.placeholder')}
 							class="input input-bordered w-full pr-10"
 							readonly={provider === 'passkey'}
 							required
@@ -235,14 +233,14 @@
 
 				<div class="form-control space-y-1">
 					<label class="label" for="password">
-						<span class="label-text">Recovery Password</span>
+						<span class="label-text">{$t('auth.recover.password.label')}</span>
 					</label>
 					<div class="relative">
 						<input
 							type={showPassword ? 'text' : 'password'}
 							id="password"
 							bind:value={password}
-							placeholder="Enter a strong password"
+							placeholder={$t('auth.recover.password.placeholder')}
 							class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
 							required
 						/>
@@ -294,14 +292,14 @@
 
 				<div class="form-control space-y-1">
 					<label class="label" for="confirmPassword">
-						<span class="label-text">Confirm Recovery Password</span>
+						<span class="label-text">{$t('auth.recover.confirm_password.label')}</span>
 					</label>
 					<div class="relative">
 						<input
 							type={showPassword ? 'text' : 'password'}
 							id="confirmPassword"
 							bind:value={confirmPassword}
-							placeholder="Confirm your password"
+							placeholder={$t('auth.recover.confirm_password.placeholder')}
 							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
 							required
 						/>

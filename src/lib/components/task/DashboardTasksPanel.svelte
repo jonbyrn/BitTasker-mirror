@@ -5,6 +5,7 @@
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { t } from '$lib/stores/i18n.store';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -51,17 +52,17 @@
 	function formatStatus(status: Tasks$result['myTasks'][0]['status']): string {
 		switch (status) {
 			case TaskStatusEnum.IN_PROGRESS:
-				return 'In Progress';
+				return $t('task.status.in_progress');
 			case TaskStatusEnum.DRAFT:
-				return 'Draft';
+				return $t('task.status.draft');
 			case TaskStatusEnum.OPEN:
-				return 'Open';
+				return $t('task.status.open');
 			case TaskStatusEnum.COMPLETED:
-				return 'Completed';
+				return $t('task.status.completed');
 			case TaskStatusEnum.CANCELLED:
-				return 'Cancelled';
+				return $t('task.status.cancelled');
 			case TaskStatusEnum.DISPUTED:
-				return 'Disputed';
+				return $t('task.status.disputed');
 			default:
 				return status;
 		}
@@ -89,16 +90,16 @@
 
 	// Calculate time ago
 	function formatTimeAgo(date: string | null): string {
-		if (!date) return 'No deadline';
+		if (!date) return $t('task.deadline.none');
 		try {
 			const parsedDate = new Date(date);
 			if (isNaN(parsedDate.getTime())) {
-				return 'Invalid date';
+				return $t('task.deadline.invalid');
 			}
 			return formatDistanceToNow(parsedDate, { addSuffix: true });
 		} catch (error) {
 			console.error('Error formatting date:', error);
-			return 'Invalid date';
+			return $t('task.deadline.invalid');
 		}
 	}
 
@@ -196,7 +197,7 @@
 							<div class="flex items-center gap-2">
 								<h3 class="card-title text-lg">{task.title}</h3>
 								{#if task.clientId === $user.id}
-									<div class="badge badge-accent">Owner</div>
+									<div class="badge badge-accent">{$t('task.role.owner')}</div>
 								{/if}
 							</div>
 							<div class="badge {getStatusClass(task.status)}">
@@ -237,11 +238,11 @@
 						<div class="my-2 grid grid-cols-2 gap-4">
 							{#if task.budget !== null && task.budget !== undefined}
 								<div>
-									<p class="text-base-content/70 text-xs">Budget</p>
+									<p class="text-base-content/70 text-xs">{$t('task.budget.label')}</p>
 									<p class="text-primary font-semibold">
 										{formatCurrency(task.budget)}
 										{#if task.budgetType === 'HOURLY'}
-											<span class="text-xs">/hr</span>
+											<span class="text-xs">{$t('task.budget.hourly')}</span>
 										{/if}
 									</p>
 									<p class="text-xs text-info">
@@ -251,11 +252,11 @@
 							{/if}
 							<div>
 								{#if task.deadlineDate}
-									<p class="text-base-content/70 text-xs">Deadline</p>
+									<p class="text-base-content/70 text-xs">{$t('task.deadline.label')}</p>
 									<p class="text-sm">{formatTimeAgo(task.deadlineDate)}</p>
 								{/if}
 								{#if task.dateRange}
-									<p class="text-base-content/70 text-xs">Date Range</p>
+									<p class="text-base-content/70 text-xs">{$t('task.dateRange.label')}</p>
 									<p class="text-sm">
 										{formatTimeAgo(task.dateRange.start)} -
 										{formatTimeAgo(task.dateRange.end)}
@@ -290,13 +291,13 @@
 								class="btn btn-primary btn-sm"
 								onclick={() => openTaskDrawer(task.id, 'details')}
 							>
-								View Details
+								{$t('task.actions.view_details')}
 							</button>
 							<button
 								class="btn btn-outline btn-sm"
 								onclick={() => openTaskDrawer(task.id, 'bids')}
 							>
-								View Bids
+								{$t('task.actions.view_bids')}
 							</button>
 						</div>
 					</div>
@@ -319,13 +320,13 @@
 					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">No tasks found</h3>
+			<h3 class="mt-4 text-lg font-semibold">{$t('task.empty.no_tasks')}</h3>
 		</div>
 	{/if}
 
 	{#if $tasksStore.errors}
 		<div class="py-12 text-center">
-			<h3 class="mt-4 text-lg font-semibold">Error loading tasks</h3>
+			<h3 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h3>
 		</div>
 	{/if}
 </div>
