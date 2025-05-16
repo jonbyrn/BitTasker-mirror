@@ -1,11 +1,14 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { MeStore } from '$houdini';
+	import Avatar from '$lib/components/Avatar.svelte';
 	import { onMount } from 'svelte';
 
 	const userStore = new MeStore();
 
 	onMount(async () => {
 		await userStore.fetch();
+		console.log($userStore.data?.me);
 	});
 
 	let { isEditMode, toggleEditMode, saveProfile, logout } = $props<{
@@ -24,8 +27,8 @@
 	$effect(() => {
 		if (!isEditMode && $userStore.data?.me) {
 			currentEditName = $userStore.data.me.name || '';
-			currentEditBio = $userStore.data.me.billingAddress?.city || '';
-			currentEditLocation = $userStore.data.me.billingAddress?.country || '';
+			// currentEditBio = $userStore.data.me.billingAddress?.city || '';
+			// currentEditLocation = $userStore.data.me.billingAddress?.country || '';
 		}
 	});
 
@@ -46,26 +49,11 @@
 
 <!-- Profile Header -->
 <div class="mb-6 flex flex-col items-start justify-between md:flex-row md:items-center">
-	{#if $userStore.fetching && !$userStore.data?.me}
-		<!-- Loading State -->
-		<div class="mb-4 flex items-center gap-4 md:mb-0">
-			<div class="avatar placeholder animate-pulse">
-				<div class="bg-base-300 w-20 rounded-full"></div>
-			</div>
-			<div class="space-y-2">
-				<div class="bg-base-300 h-8 w-48 animate-pulse rounded"></div>
-				<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
-			</div>
-		</div>
-		<div class="flex flex-wrap gap-2">
-			<div class="bg-base-300 h-10 w-24 animate-pulse rounded"></div>
-			<div class="bg-base-300 h-10 w-24 animate-pulse rounded"></div>
-		</div>
-	{:else if $userStore.data?.me && !$userStore.fetching}
+	{#if $userStore.data?.me}
 		<div class="flex flex-col gap-4">
 			<!-- Verification Banner -->
 			{#if !$userStore.data.me.isEmailVerified}
-				<div class="alert alert-warning mb-4 shadow-lg">
+				<div class="alert alert-warning mb-4 rounded-2xl text-black shadow-lg">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6 shrink-0 stroke-current"
@@ -88,11 +76,13 @@
 
 			<!-- User Profile -->
 			<div class="mb-4 flex items-center gap-4 md:mb-0">
-				<div class="avatar placeholder">
-					<div class="bg-primary text-primary-content w-20 rounded-full">
-						<span class="text-2xl">{$userStore.data.me.name?.charAt(0) ?? 'U'}</span>
-					</div>
-				</div>
+				<Avatar
+					user={{
+						name: $userStore.data.me.name || '',
+						profileImage: $userStore.data.me.profilePictureUrl || null
+					}}
+					size="xl"
+				/>
 				<div>
 					{#if isEditMode}
 						<div class="form-control mb-1">
@@ -133,19 +123,21 @@
 						</div>
 					{:else}
 						<div class="flex items-center gap-2">
-							<h2 class="text-2xl font-bold">{$userStore.data.me.name}</h2>
-							{#if $userStore.data.me.userRole === 'FREELANCER'}
-								<div class="badge badge-primary">Freelancer</div>
+							<h2 class="text-2xl font-bold">
+								{$userStore.data.me.name || $userStore.data.me.username}
+							</h2>
+							{#if $userStore.data.me.userRole === 'BOTH'}
+								<div class="badge badge-primary">Freelancer & Client</div>
+							{:else if $userStore.data.me.userRole === 'FREELANCER'}
+								<div class="badge badge-secondary">Freelancer</div>
 							{:else if $userStore.data.me.userRole === 'CLIENT'}
-								<div class="badge badge-secondary">Client</div>
-							{:else if $userStore.data.me.userRole === 'BOTH'}
-								<div class="badge badge-accent">Freelancer & Client</div>
+								<div class="badge badge-accent">Client</div>
 							{/if}
 						</div>
-						<p class="text-base-content/70 flex items-center gap-2">
+						<p class="text-base-content/70 flex items-start gap-2">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4"
+								class="h-6 w-6"
 								fill="none"
 								viewBox="0 0 24 24"
 								stroke="currentColor"
@@ -163,8 +155,7 @@
 									d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 								/>
 							</svg>
-							{$userStore.data.me.billingAddress?.city}, {$userStore.data.me.billingAddress
-								?.country}
+							<small>{$userStore.data.me.location?.displayName}</small>
 						</p>
 					{/if}
 				</div>
@@ -179,7 +170,26 @@
 			{/if}
 			<button class="btn btn-primary" onclick={logout}>Logout</button>
 		</div>
-	{:else if $userStore.errors}
+	{/if}
+
+	{#if $userStore.fetching}
+		<!-- Loading State -->
+		<div class="mb-4 flex items-center gap-4 md:mb-0">
+			<div class="avatar placeholder animate-pulse">
+				<div class="bg-base-300 w-20 rounded-full"></div>
+			</div>
+			<div class="space-y-2">
+				<div class="bg-base-300 h-8 w-48 animate-pulse rounded"></div>
+				<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+			</div>
+		</div>
+		<div class="flex flex-wrap gap-2">
+			<div class="bg-base-300 h-10 w-24 animate-pulse rounded"></div>
+			<div class="bg-base-300 h-10 w-24 animate-pulse rounded"></div>
+		</div>
+	{/if}
+
+	{#if $userStore.errors}
 		<!-- Error State -->
 		<div class="alert alert-error">
 			<span>Failed to load user data. Please try again later.</span>
