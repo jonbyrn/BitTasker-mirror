@@ -25,7 +25,7 @@
 	};
 
 	type OnboardingTranslationKey =
-		| 'onboarding.slide1.title'
+		| 'auth.signup.button'
 		| 'onboarding.slide1.description'
 		| 'onboarding.slide2.title'
 		| 'onboarding.slide2.description'
@@ -40,7 +40,7 @@
 	const slides = [
 		{
 			id: 1,
-			titleKey: 'onboarding.slide1.title' as OnboardingTranslationKey,
+			titleKey: 'auth.signup.button' as OnboardingTranslationKey,
 			descriptionKey: 'onboarding.slide1.description' as OnboardingTranslationKey,
 			image: '/illustrations/signup.svg'
 		},

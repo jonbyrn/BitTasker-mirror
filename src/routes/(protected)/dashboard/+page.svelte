@@ -3,6 +3,7 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { t } from '$lib/stores/i18n.store';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
@@ -11,9 +12,9 @@
 
 	// Tab management
 	let availableTabs = $state([
-		{ id: 'tasks', label: 'My Tasks' },
-		{ id: 'bids', label: 'My Bids' },
-		{ id: 'recurring', label: 'Recurring Tasks' }
+		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
+		{ id: 'bids', label: $t('dashboard.tabs.bids') },
+		{ id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
 	let activeTab = $state('');
 
@@ -60,7 +61,7 @@
 <div class="h-full px-4 py-8">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
-		<h2 class="text-2xl font-bold">My Dashboard</h2>
+		<h2 class="text-2xl font-bold">{$t('dashboard.title')}</h2>
 		<a href="/dashboard/create-task" class="btn btn-primary">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -71,7 +72,7 @@
 			>
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 			</svg>
-			Create Task
+			{$t('dashboard.create_task')}
 		</a>
 	</div>
 

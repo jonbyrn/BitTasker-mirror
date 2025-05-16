@@ -3,6 +3,8 @@
   Component that explains why a specific task is recommended to the user
 -->
 <script lang="ts">
+	import { t } from '$lib/stores/i18n.store';
+
 	// Props
 	let { type, description } = $props<{
 		type:
@@ -25,11 +27,11 @@
 
 	// Display name for recommendation type
 	const typeDisplayNames = {
-		skill_match: 'Skills Match',
-		category_preference: 'Category Preference',
-		location_based: 'Location Based',
-		budget_range: 'Budget Range',
-		client_history: 'Previous Clients'
+		skill_match: $t('recommendations.type.skill_match'),
+		category_preference: $t('recommendations.type.category_preference'),
+		location_based: $t('recommendations.type.location_based'),
+		budget_range: $t('recommendations.type.budget_range'),
+		client_history: $t('recommendations.type.client_history')
 	};
 </script>
 
