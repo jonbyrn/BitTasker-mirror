@@ -3,8 +3,8 @@
 /** @type {import('houdini').ConfigFile} */
 const config = {
 	watchSchema: {
-		// TODO: change to local graphql server while developing
-		url: 'https://devbackend.production.bittasker.hedgehackers.finance/graph'
+		// Use env: prefix to access environment variables
+		url: 'env:PUBLIC_GRAPHQL_ENDPOINT',
 	},
 	runtimeDir: '.houdini',
 	plugins: {

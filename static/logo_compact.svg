@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="100%" zoomAndPan="magnify" viewBox="0 0 78 78" height="100%" preserveAspectRatio="xMidYMid"
+    version="1.0" id="svg106" sodipodi:docname="Bittasker logo SVG native dark.svg"
+    inkscape:version="1.4 (e7c3feb100, 2024-10-09)" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns="http://www.w3.org/2000/svg"
+    xmlns:svg="http://www.w3.org/2000/svg">
+
+    <sodipodi:namedview id="namedview106" pagecolor="#ffffff" bordercolor="#666666" borderopacity="1.0"
+        inkscape:showpageshadow="2" inkscape:pageopacity="0.0" inkscape:pagecheckerboard="0"
+        inkscape:deskcolor="#d1d1d1" inkscape:zoom="1.786" inkscape:cx="181.97088" inkscape:cy="94.344905"
+        inkscape:window-width="1920" inkscape:window-height="1118" inkscape:window-x="0" inkscape:window-y="0"
+        inkscape:window-maximized="1" inkscape:current-layer="svg106" />
+    <defs id="defs3">
+        <g id="g1" />
+        <clipPath id="ac65d43d9b">
+            <path d="m 70.226562,128.74609 h 39.749998 v 54.75 H 70.226562 Z m 0,0" clip-rule="nonzero" id="path1" />
+        </clipPath>
+        <clipPath id="7ead2a88f8">
+            <path d="m 50.75,116.82422 h 78.49219 v 78.49219 H 50.75 Z m 0,0" clip-rule="nonzero" id="path2" />
+        </clipPath>
+        <clipPath id="0a0d144300">
+            <path
+                d="m 89.996094,116.82422 c -21.675782,0 -39.246094,17.57031 -39.246094,39.24609 0,21.67578 17.570312,39.2461 39.246094,39.2461 21.675786,0 39.246096,-17.57032 39.246096,-39.2461 0,-21.67578 -17.57031,-39.24609 -39.246096,-39.24609 z m 0,0"
+                clip-rule="nonzero" id="path3" />
+        </clipPath>
+    </defs>
+    <g clip-path="url(#ac65d43d9b)" id="g4" transform="translate(-50.75,-116.82422)">
+        <path fill="#f7931a"
+            d="m 102.61328,154.08984 c 2.9375,-1.49218 4.77735,-4.12109 4.34766,-8.49609 -0.57813,-5.97656 -5.76172,-7.98438 -12.308596,-8.55469 v -8.29297 h -5.070313 l -0.0039,8.07422 c -1.332031,0 -2.695313,0.0273 -4.046875,0.0547 V 128.7461 H 80.46485 l -0.0039,8.29297 c -1.097657,0.0234 -2.175782,0.043 -3.226563,0.043 v -0.0234 l -6.996094,-0.004 v 5.39062 c 0,0 3.746094,-0.0703 3.683594,0 2.054687,0 2.722656,1.1875 2.917969,2.21094 v 22.72266 c -0.08984,0.64062 -0.46875,1.66796 -1.90625,1.67187 0.06641,0.0547 -3.6875,0 -3.6875,0 l -1.007813,6.02734 h 6.597657 c 1.230468,0 2.4375,0.0195 3.625,0.0312 l 0.0039,8.38672 h 5.066406 l -0.0039,-8.30078 c 1.394531,0.0312 2.738281,0.043 4.054687,0.0391 l -0.0039,8.26172 h 5.074219 v -8.375 c 8.523438,-0.48437 14.492188,-2.625 15.234378,-10.59375 0.59766,-6.41797 -2.43359,-9.28125 -7.27344,-10.4375 z M 85.652344,142.80859 c 2.859375,0 11.855468,-0.90625 11.855468,5.04297 0,5.70313 -8.992187,5.03906 -11.855468,5.03906 z m -0.0039,26.28125 0.0039,-11.11328 c 3.4375,0 14.214844,-0.98437 14.214844,5.55469 0,6.26953 -10.777344,5.55859 -14.21875,5.55859 z m 0,0"
+            fill-opacity="1" fill-rule="nonzero" id="path4" />
+    </g>
+    <g clip-path="url(#7ead2a88f8)" id="g6" transform="translate(-50.75,-116.82422)">
+        <g clip-path="url(#0a0d144300)" id="g5">
+            <path stroke-linecap="butt" transform="matrix(0.75,0,0,0.75,50.75,116.82374)" fill="none"
+                stroke-linejoin="miter"
+                d="M 52.328128,6.33629e-4 C 23.427084,6.33629e-4 -4.89889e-7,23.427719 -4.89889e-7,52.328762 -4.89889e-7,81.229806 23.427084,104.65689 52.328128,104.65689 c 28.901044,0 52.328132,-23.427084 52.328132,-52.328128 0,-28.901043 -23.427088,-52.328128371 -52.328132,-52.328128371 z m 0,0"
+                stroke="#f7931a" stroke-width="14" stroke-opacity="1" stroke-miterlimit="4" id="path5" />
+        </g>
+    </g>
+</svg>
