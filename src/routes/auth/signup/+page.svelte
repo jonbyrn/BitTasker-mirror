@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { VerifyTrunstileStore } from '$houdini';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
+	import { t } from '$lib/stores/i18n.store';
 
 	const verifyTrunstileStore = new VerifyTrunstileStore();
 
@@ -40,7 +41,7 @@
 				console.log('Captcha expired, please solve again');
 				isCaptchaVerified.set(false);
 				captchaFailed = true;
-				error = 'Verification expired, please complete the captcha again';
+				error = $t('auth.signup.error.captcha_expired');
 			},
 			'error-callback': function (errorCode: string) {
 				// This function is called when there's an error with the widget
@@ -52,7 +53,7 @@
 
 				console.error('Turnstile widget encountered an error:', errorCode);
 				captchaFailed = true;
-				error = 'Captcha verification error, please try again';
+				error = $t('auth.signup.error.verification_error');
 			}
 		});
 	}
@@ -78,7 +79,7 @@
 				throw new Error(errors[0].message);
 			}
 			if (!data) {
-				throw new Error('Captcha verification failed');
+				throw new Error($t('auth.signup.error.captcha_failed'));
 			}
 
 			isCaptchaVerified.set(data.verifyTurnstileToken.success);
@@ -86,7 +87,7 @@
 			error = ''; // Clear any previous errors
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
-			error = 'Failed to verify captcha';
+			error = $t('auth.signup.error.captcha_failed');
 			isCaptchaVerified.set(false);
 			captchaFailed = true;
 		}
@@ -106,29 +107,29 @@
 	<div class="card bg-base-100 w-full p-4 shadow-xl">
 		<div class="flex flex-col items-center justify-center">
 			<img src="/logo.svg" alt="BitTasker" class="h-20 w-auto" />
-			<h1 class="mt-6 text-center text-2xl font-bold">Signup for BitTasker</h1>
+			<h1 class="mt-6 text-center text-2xl font-bold">{$t('auth.signup.title')}</h1>
 			<br />
 			<p class="mx-auto space-y-2 text-center">
 				<span class="text-base-content/70 mt-3 block text-center text-sm">
-					Hire for gigs, pay in Bitcoin or Fiat. Own your data.
+					{$t('auth.signup.subtitle')}
 				</span>
 				<span class="text-base-content/70 block text-center text-sm">
-					To get started, signup with a next-gen Passkey/Biometric login, or your
+					{$t('auth.signup.description')}
 					<a
 						href="https://getalby.com"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-primary hover:underline">Alby Connect</a
-					> account.
+						class="text-primary hover:underline">{$t('auth.login.alby_connect')}</a
+					> {$t('auth.login.account')}.
 				</span>
 				<span class="text-base-content/70 block text-center text-sm">
-					If you have an existing account on
+					{$t('auth.signup.nostr_info')}
 					<a
 						href="https://nostr.com"
 						target="_blank"
 						rel="noopener noreferrer"
 						class="text-primary hover:underline">Nostr</a
-					>, you'll be able to import it on the next step.
+					>, {$t('auth.signup.nostr_import')}.
 				</span>
 			</p>
 		</div>
@@ -138,10 +139,10 @@
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
 					<div class="flex items-center justify-between gap-2 mb-2">
-						<p class="w-full text-start text-sm">Please verify you're human</p>
+						<p class="w-full text-start text-sm">{$t('auth.signup.verify_human')}</p>
 						{#if captchaFailed && !$isCaptchaVerified}
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
-								Retry Verification
+								{$t('auth.signup.retry_verification')}
 							</button>
 						{/if}
 					</div>
@@ -161,7 +162,7 @@
 									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span>Verification successful</span>
+							<span>{$t('auth.signup.verification_success')}</span>
 						</div>
 					{/if}
 				</div>
@@ -179,7 +180,7 @@
 							/>
 						</g>
 					</svg>
-					{isLoading ? 'Processing...' : 'Sign Up'}
+					{isLoading ? $t('common.processing') : $t('auth.signup.button')}
 				</button>
 
 				{#if error}
@@ -201,10 +202,10 @@
 					</div>
 				{/if}
 
-				<div class="divider my-1">OR</div>
+				<div class="divider my-1">{$t('common.or')}</div>
 
 				<div class="text-center">
-					<a href="/auth/login" class="btn btn-outline w-full">Login</a>
+					<a href="/auth/login" class="btn btn-outline w-full">{$t('auth.login.button')}</a>
 				</div>
 			</div>
 		</div>

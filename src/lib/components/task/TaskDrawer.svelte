@@ -10,6 +10,7 @@
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import CounterOfferHistory from '$lib/components/bidding/CounterOfferHistory.svelte';
 	import EditTaskForm from './EditTaskForm.svelte';
+	import { t } from '$lib/stores/i18n.store';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -40,8 +41,8 @@
 
 	// Define tabs
 	const tabs = [
-		{ id: 'details', label: 'Task Details' },
-		{ id: 'bids', label: 'Bids' }
+		{ id: 'details', label: $t('task.drawer.details') },
+		{ id: 'bids', label: $t('task.drawer.bids') }
 	];
 
 	// Scroll lock management
@@ -87,7 +88,7 @@
 			bids = task.bids;
 		} catch (error) {
 			console.error('Failed to load task details:', error);
-			errorMessage = 'Failed to load task details. Please try again.';
+			errorMessage = $t('task.drawer.error.load');
 		} finally {
 			loading = false;
 		}
@@ -149,7 +150,7 @@
 	async function handleWithdrawBid(bidId: string) {
 		// Validate reason is provided
 		if (!withdrawalReason.trim()) {
-			withdrawalError = 'Please provide a reason for withdrawing your bid';
+			withdrawalError = $t('task.drawer.error.withdraw_reason');
 			return;
 		}
 
@@ -166,7 +167,7 @@
 			await loadTaskDetails(props.taskId!);
 		} catch (error) {
 			console.error('Error withdrawing bid:', error);
-			withdrawalError = 'Failed to withdraw bid. Please try again.';
+			withdrawalError = $t('task.drawer.error.withdraw_failed');
 		} finally {
 			withdrawingBid = false;
 		}
@@ -197,7 +198,7 @@
 				await loadTaskDetails(props.taskId);
 			}
 		} catch (error) {
-			console.error('Error creating counter offer:', error);
+			console.error($t('task.drawer.error.counter_offer'), error);
 		}
 	}
 

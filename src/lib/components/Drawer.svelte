@@ -12,9 +12,10 @@
 		title?: string;
 		onClose: () => void;
 		position?: 'left' | 'right';
-		width?: 'sm' | 'md' | 'lg' | 'full';
+		width?: 'sm' | 'md' | 'lg' | 'full' | string;
 		isScrollable?: boolean;
 		children?: import('svelte').Snippet;
+		footer?: import('svelte').Snippet;
 	}>();
 
 	// Set defaults
@@ -46,6 +47,10 @@
 
 	// Get CSS classes for width
 	function getWidthClass(width: string): string {
+		if (width.split('').includes('%')) {
+			return `w-[${width}] sm:w-[400px]`;
+		}
+
 		switch (width) {
 			case 'sm':
 				return 'w-full sm:w-[400px]';
@@ -136,9 +141,9 @@
 	</div>
 
 	<!-- Footer (Optional) -->
-	{#if props.footer?.()}
+	{#if props?.footer?.()}
 		<div class="bg-base-200 sticky bottom-0 border-t p-4">
-			{@render props.footer()}
+			{@render props.footer?.()}
 		</div>
 	{/if}
 </div>

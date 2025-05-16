@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
+	import { t } from '$lib/stores/i18n.store';
 
 	let {
 		id = 'image-uploader',
-		label = 'Upload Image',
+		label = $t('uploader.uploadImage'),
 		maxFiles = 1,
 		maxFileSize = 8,
 		allowedTypes = ['image/*'],
@@ -22,7 +23,7 @@
 		if (!selectedFiles) return;
 
 		if (files?.length + selectedFiles.length > maxFiles) {
-			error = `Maximum ${maxFiles} images allowed`;
+			error = `Maximum of ${maxFiles} images allowed`;
 			onError?.(error);
 			return;
 		}
@@ -37,7 +38,7 @@
 			// Validate file type
 			if (allowedTypes?.includes('image/*')) {
 				if (!file.type.startsWith('image/')) {
-					error = 'Invalid file type. Only images are allowed';
+					error = $t('uploader.invalidTypeError');
 					onError(error);
 					hasErrors = true;
 					return;
@@ -83,7 +84,7 @@
 			};
 
 			img.onerror = () => {
-				error = 'Failed to load image for validation';
+				error = $t('uploader.failedToLoadImage');
 				onError(error);
 				hasErrors = true;
 				processedCount++;

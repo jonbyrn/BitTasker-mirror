@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { CreateBidParams, Currency, Milestone, PaymentType } from '$lib/types/bid';
 	import { AxiosError } from 'axios';
-	import { fly, slide } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
+	import { t } from '$lib/stores/i18n.store';
+	import { fly, slide } from 'svelte/transition';
 	import bidService from '$lib/api/services/bid.service';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
@@ -399,18 +400,16 @@
 			<!-- Estimated completion time -->
 			<div class="form-control">
 				<label class="label" for="estimated-duration">
-					<span class="label-text">Estimated Completion Time</span>
+					<span class="label-text">{$t('bid.form.estimated_duration.label')}</span>
 				</label>
 				<input
 					id="estimated-duration"
 					type="text"
 					class="input input-bordered w-full {bidFormErrors.estimatedDuration ? 'input-error' : ''}"
 					class:input-error={bidFormErrors.estimatedDuration}
-					placeholder="e.g., 3 days, 1 week"
+					placeholder={$t('bid.form.estimated_duration.placeholder')}
 					aria-invalid={bidFormErrors.estimatedDuration ? 'true' : undefined}
-					aria-describedby={bidFormErrors.estimatedDuration
-						? 'estimated-duration-error'
-						: undefined}
+					aria-describedby={bidFormErrors.estimatedDuration ? 'estimated-duration-error' : undefined}
 					bind:value={estimatedDuration}
 				/>
 				{#if bidFormErrors.estimatedDuration}
@@ -424,15 +423,15 @@
 
 			<!-- Bid Description -->
 			<div class="form-control">
-				<label class="label block" for="bid-cover-letter">
-					<span class="label-text">Bid Description</span>
+				<label class="label block" for="bid-description">
+					<span class="label-text">{$t('bid.form.description.label')}</span>
 				</label>
 				<textarea
-					id="bid-cover-letter"
+					id="bid-description"
 					class="textarea textarea-bordered h-24 w-full {bidFormErrors.description
 						? 'textarea-error'
 						: ''}"
-					placeholder="Explain why you're the right person for this task"
+					placeholder={$t('bid.form.description.placeholder')}
 					bind:value={description}
 				></textarea>
 				{#if bidFormErrors.description}
@@ -447,7 +446,7 @@
 			<!-- Your approach -->
 			<div class="form-control">
 				<label class="label block" for="proposed-approach">
-					<span class="label-text">Your Approach</span>
+					<span class="label-text">{$t('bid.form.approach.label')}</span>
 				</label>
 				<textarea
 					id="proposed-approach"
@@ -455,7 +454,7 @@
 						? 'textarea-error'
 						: ''}"
 					class:textarea-error={bidFormErrors.proposedApproach}
-					placeholder="Describe how you plan to complete this task"
+					placeholder={$t('bid.form.approach.placeholder')}
 					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
 					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
 					bind:value={proposedApproach}
@@ -474,14 +473,14 @@
 			<!-- Cover letter -->
 			<div class="form-control">
 				<label class="label block" for="bid-cover-letter">
-					<span class="label-text">Cover Letter (Optional)</span>
+					<span class="label-text">{$t('bid.form.cover_letter.label')}</span>
 				</label>
 				<textarea
 					id="bid-cover-letter"
 					class="textarea textarea-bordered h-24 w-full {bidFormErrors.coverLetter
 						? 'textarea-error'
 						: ''}"
-					placeholder="Explain why you're the right person for this task"
+					placeholder={$t('bid.form.cover_letter.placeholder')}
 					bind:value={coverLetter}
 				></textarea>
 				{#if bidFormErrors.coverLetter}
