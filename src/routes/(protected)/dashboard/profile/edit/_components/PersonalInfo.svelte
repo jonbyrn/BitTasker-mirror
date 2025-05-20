@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
 	import type { NostrEvent } from 'nostr-tools';
-	import { getNostrMetadata, mergeNostrAndGraphQLData } from '$lib/nostr/profile';
+	import { getNostrMetadata, mergeNostrAndGraphQLData, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import { publishEvent } from '$lib/utils/nostr';
 	import { finalizeEvent } from 'nostr-tools/pure';
 	import { SimplePool } from 'nostr-tools/pool';
@@ -11,16 +11,16 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { user, onComplete } = $props<{
+	let { user = $bindable(null), onComplete } = $props<{
 		user: any | null | undefined;
 		onComplete: (completed: boolean) => void;
 	}>();
 
 	// Local state
-	let displayName = $state(user?.displayName || 'John');
-	let professionalTitle = $state(user?.professionalTitle || 'Software Engineer');
-	let profileDescription = $state(user?.about || 'I am a software engineer');
-	let website = $state(user?.website || 'https://www.example.com');
+	let displayName = $state(user?.displayName || '');
+	let professionalTitle = $state(user?.professionalTitle || '');
+	let profileDescription = $state(user?.about || '');
+	let website = $state(user?.website || '');
 	// let pictures = $state<NostrProfileImage[]>(
 	// 	[
 	// 		user?.profilePictureUrl
@@ -46,6 +46,45 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let nostrPool = $state(new SimplePool());
+	let cleanup: (() => void) | null = null;
+
+	// Subscribe to profile updates
+	onMount(async () => {
+		cleanup = await subscribeToProfileUpdates(async (event) => {
+			try {
+				// Handle profile metadata update
+				if (event.kind === 0) {
+					const metadata = JSON.parse(event.content);
+					displayName = metadata.displayName || displayName;
+					professionalTitle = metadata.professionalTitle || professionalTitle;
+					profileDescription = metadata.about || profileDescription;
+					website = metadata.website || website;
+				}
+				// Handle image metadata update
+				else if (event.kind === 1063) {
+					const urlTag = event.tags.find(tag => tag[0] === 'url');
+					if (urlTag) {
+						const newImage = {
+							url: urlTag[1],
+							type: event.tags.find(tag => tag[0] === 'm')?.[1] || 'image/jpeg',
+							alt: event.tags.find(tag => tag[0] === 'alt')?.[1] || '',
+							key: event.tags.find(tag => tag[0] === 'x')?.[1] || ''
+						};
+						pictures = [...pictures, newImage];
+					}
+				}
+			} catch (err) {
+				console.error('Failed to process profile update:', err);
+				error = 'Failed to connect to Nostr relay. Please try again later.';
+			}
+		});
+	});
+
+	// Cleanup subscription on component destroy
+	onDestroy(() => {
+		if (cleanup) cleanup();
+		nostrPool.close([PUBLIC_NOSTR_RELAY_URL]);
+	});
 
 	// Derived state for form completion
 	let isComplete = $derived(
@@ -74,9 +113,7 @@
 				additionalPictures: pictures.slice(1).map((pic) => pic.url)
 			};
 
-			return console.log({ profileData, pictures });
-
-			// Publish profile metadata
+			// Publish profile metadata with retry logic
 			await publishProfileMetadata(profileData, pictures);
 		} catch (err) {
 			console.error('Failed to update profile:', err);
@@ -116,11 +153,6 @@
 		}
 		pictures = pictures.filter((_, i) => i !== index);
 	}
-
-	// Cleanup
-	onDestroy(() => {
-		nostrPool.close([PUBLIC_NOSTR_RELAY_URL]);
-	});
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-6">

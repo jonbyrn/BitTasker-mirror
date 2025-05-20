@@ -5,6 +5,7 @@ import { finalizeEvent } from 'nostr-tools/pure';
 import { hexToBytes } from '@noble/hashes/utils';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
+import { getSignedEvent } from '$lib/utils/nostr';
 
 // Constants
 /* const DEFAULT_RELAYS = [
@@ -15,6 +16,74 @@ import { getNpub } from '$lib/utils/nostrKeys';
 
 // Create a pool instance for reuse
 const pool = new SimplePool();
+
+// Subscription store for profile updates
+let profileSubscriptions = new Map<string, {
+    sub: any;
+    callbacks: Set<(event: NostrEvent) => void>;
+}>();
+
+/**
+ * Subscribe to profile updates for a given public key
+ * @param callback Function to call when profile is updated
+ * @param relays Relay URLs to subscribe to
+ * @returns Cleanup function to unsubscribe
+ */
+export async function subscribeToProfileUpdates(callback: (event: NostrEvent) => void, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<() => void> {
+    let npub: string;
+
+    try {
+        // Wait for the public key
+        npub = await getNpub();
+        if (!npub) {
+            console.error('No public key found');
+            return () => { };
+        }
+
+        // Check if we already have a subscription for this pubkey
+        if (!profileSubscriptions.has(npub)) {
+            const filter: Filter = {
+                authors: [npub],
+                kinds: [0, 1063], // Kind 0 for metadata, 1063 for media metadata
+                limit: 10
+            };
+
+            const sub = pool.subscribe(relays, filter, {
+                onevent(event: NostrEvent) {
+                    const subs = profileSubscriptions.get(npub);
+                    if (subs) {
+                        for (const cb of subs.callbacks) {
+                            cb(event);
+                        }
+                    }
+                }
+            });
+
+            profileSubscriptions.set(npub, {
+                sub,
+                callbacks: new Set([callback])
+            });
+        } else {
+            // Add callback to existing subscription
+            profileSubscriptions.get(npub)?.callbacks.add(callback);
+        }
+
+        // Return cleanup function
+        return () => {
+            const subs = profileSubscriptions.get(npub);
+            if (subs) {
+                subs.callbacks.delete(callback);
+                if (subs.callbacks.size === 0) {
+                    subs.sub.close();
+                    profileSubscriptions.delete(npub);
+                }
+            }
+        };
+    } catch (err) {
+        console.error('Failed to get public key:', err);
+        return () => { };
+    }
+}
 
 /**
  * Fetches profile metadata for a given public key
@@ -128,7 +197,7 @@ export async function getNostrCertifications(pubkey: string): Promise<NostrEvent
 }
 
 /**
- * Publish a profile metadata event to Nostr
+ * Publish a profile metadata event to Nostr with improved error handling and retries
  */
 export async function publishProfileMetadata(
     metadata: NostrProfile,
@@ -150,11 +219,45 @@ export async function publishProfileMetadata(
             ])
     };
 
-    // Publish to relays
-    const pubs = pool.publish(relays, event as NostrEvent);
-    await Promise.all(pubs);
+    const signedEvent = await getSignedEvent(event);
 
-    return event as NostrEvent;
+    try {
+        // Publish with timeout and retry logic
+        const maxRetries = 3;
+        const timeout = 5000; // 5 seconds
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const publishPromises = relays.map(relay =>
+                    new Promise<void>((resolve, reject) => {
+                        const pub = pool.publish([relay], signedEvent);
+                        const timeoutId = setTimeout(() => {
+                            reject(new Error(`Publish to ${relay} timed out`));
+                        }, timeout);
+
+                        Promise.all(pub)
+                            .then(() => {
+                                clearTimeout(timeoutId);
+                                resolve();
+                            })
+                            .catch(reject);
+                    })
+                );
+
+                await Promise.all(publishPromises);
+                return signedEvent;
+            } catch (err) {
+                if (attempt === maxRetries) throw err;
+                console.warn(`Retry ${attempt} failed, retrying...`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+
+        throw new Error('Failed to publish after all retries');
+    } catch (error) {
+        console.error('Error publishing to relays:', error);
+        throw error;
+    }
 }
 
 /**
@@ -192,8 +295,7 @@ export async function publishNostrProfileImage(image: NostrProfileImage, private
             tags: [
                 ['url', image.url],
                 ['m', image.type || 'image/jpeg'],
-                ['alt', image.alt || ''],
-                ['x', image.key]
+                ['alt', image.alt || '']
             ],
             content: JSON.stringify(image)
         };
@@ -258,5 +360,12 @@ export function mergeNostrAndGraphQLData(nostrData: NostrEvent[], graphqlData: a
 
 // Cleanup function
 export function closeNostrPool(): void {
+    // Close all subscriptions
+    for (const [_, subs] of profileSubscriptions) {
+        subs.sub.close();
+    }
+    profileSubscriptions.clear();
+
+    // Close pool
     pool.close([PUBLIC_NOSTR_RELAY_URL]);
 } 

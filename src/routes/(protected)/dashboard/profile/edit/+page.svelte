@@ -9,15 +9,16 @@
 	import Availability from './_components/Availability.svelte';
 	import StandardServices from './_components/StandardServices.svelte';
 	import AIAssistant from './_components/AIAssistant.svelte';
-	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import { getNostrMetadata, mergeNostrAndGraphQLData, closeNostrPool } from '$lib/nostr/profile';
 	import { onMount, onDestroy } from 'svelte';
+	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
 
 	// States
 	let user = $state<any>(null);
 	let nostrEvents = $state<NostrEvent[]>([]);
 	let isLoading = $state(true);
 	let error = $state('');
+	let cleanup: (() => void) | null = null;
 	let completedSections = $state({
 		personalInfo: false,
 		location: false,
@@ -35,8 +36,10 @@
 	// Load profile data
 	onMount(async () => {
 		try {
+			isLoading = true;
 			// Load Nostr events
 			nostrEvents = await getNostrMetadata();
+			console.log({ nostrEvents });
 
 			// Load GraphQL data
 			const meStore = new MeStore();
@@ -76,6 +79,21 @@
 					];
 				}
 
+				// Subscribe to profile updates
+				cleanup = await subscribeToProfileUpdates(async (event) => {
+					try {
+						// Update nostrEvents with the new event
+						nostrEvents = [...nostrEvents.filter(e => e.id !== event.id), event];
+						
+						// Re-merge data with the updated nostrEvents
+						const mergedProfile = await mergeNostrAndGraphQLData(nostrEvents, user);
+						user = { ...user, ...mergedProfile };
+					} catch (err) {
+						console.error('Failed to process profile update:', err);
+					}
+				});
+
+				// Initial merge
 				const mergedProfile = await mergeNostrAndGraphQLData(nostrEvents, user);
 				user = { ...user, ...mergedProfile };
 			}
@@ -83,12 +101,14 @@
 			console.error('Error loading profile:', err);
 			error = 'Failed to load profile data';
 		} finally {
+			console.log({ user });
 			isLoading = false;
 		}
 	});
 
 	// Cleanup on component destroy
 	onDestroy(() => {
+		if (cleanup) cleanup();
 		closeNostrPool();
 	});
 
@@ -122,21 +142,22 @@
 		</div>
 	</div>
 
-	<!-- Profile Sections -->
-	<div class="space-y-4">
-		<!-- Personal Information -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">Personal Information</h2>
-				<PersonalInfo
-					{user}
-					onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
-				/>
+	{#if !isLoading}
+		<!-- Profile Sections -->
+		<div class="space-y-4">
+			<!-- Personal Information -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">Personal Information</h2>
+					<PersonalInfo
+						bind:user
+						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- Location & Service Area -->
-		<!-- <div class="card bg-base-100 shadow-lg">
+			<!-- Location & Service Area -->
+			<!-- <div class="card bg-base-100 shadow-lg">
       <div class="card-body">
         <h2 class="card-title">Location & Service Area</h2>
         <LocationService 
@@ -146,65 +167,79 @@
       </div>
     </div> -->
 
-		<!-- Skills -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">Skills & Expertise</h2>
-				<Skills {user} onComplete={(completed) => handleSectionComplete('skills', completed)} />
+			<!-- Skills -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">Skills & Expertise</h2>
+					<Skills {user} onComplete={(completed) => handleSectionComplete('skills', completed)} />
+				</div>
 			</div>
-		</div>
 
-		<!-- Portfolio -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">Portfolio</h2>
-				<Portfolio
-					{user}
-					onComplete={(completed) => handleSectionComplete('portfolio', completed)}
-				/>
+			<!-- Portfolio -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">Portfolio</h2>
+					<Portfolio
+						{user}
+						onComplete={(completed) => handleSectionComplete('portfolio', completed)}
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- Video Introduction -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">Video Introduction</h2>
-				<VideoIntro
-					{user}
-					onComplete={(completed) => handleSectionComplete('videoIntro', completed)}
-				/>
+			<!-- Video Introduction -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">Video Introduction</h2>
+					<VideoIntro
+						{user}
+						onComplete={(completed) => handleSectionComplete('videoIntro', completed)}
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- Availability Calendar -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">Availability</h2>
-				<Availability
-					{user}
-					onComplete={(completed) => handleSectionComplete('availability', completed)}
-				/>
+			<!-- Availability Calendar -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">Availability</h2>
+					<Availability
+						{user}
+						onComplete={(completed) => handleSectionComplete('availability', completed)}
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- Standard Services -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">Standard Services</h2>
-				<StandardServices
-					{user}
-					onComplete={(completed) => handleSectionComplete('standardServices', completed)}
-				/>
+			<!-- Standard Services -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">Standard Services</h2>
+					<StandardServices
+						{user}
+						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
+					/>
+				</div>
 			</div>
-		</div>
 
-		<!-- AI Assistant -->
-		<div class="card bg-base-100 rounded-xl shadow-lg">
-			<div class="card-body">
-				<h2 class="card-title">AI Assistant</h2>
-				<AIAssistant {user} />
-				<!-- onComplete={(completed) => updateSectionCompletion('services', completed)} -->
+			<!-- AI Assistant -->
+			<div class="card bg-base-100 rounded-xl shadow-lg">
+				<div class="card-body">
+					<h2 class="card-title">AI Assistant</h2>
+					<AIAssistant {user} />
+					<!-- onComplete={(completed) => updateSectionCompletion('services', completed)} -->
+				</div>
 			</div>
 		</div>
-	</div>
+	{:else}
+		<!-- Loading skeletons -->
+		<div class="space-y-4">
+			<div class="card bg-base-100 animate-pulse rounded-xl shadow-lg">
+				<div class="card-body">
+					<div class="flex items-center justify-between">
+						<div class="bg-base-200 h-6 w-48 rounded-md"></div>
+						<div class="bg-base-200 h-6 w-24 rounded-md"></div>
+					</div>
+					<div class="bg-base-200 h-4 w-full rounded-md"></div>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>
