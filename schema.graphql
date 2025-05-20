@@ -269,6 +269,7 @@ type Mutation {
   updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
   updateTask(id: Int!, input: UpdateTaskInput!): Task!
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
+  updateUser(id: Int!, input: UpdateUserInput!): User!
   updateUserProfile(input: UpdateUserProfileInput!): User!
   verifyTurnstileToken(input: TurnstileVerificationInput!): TurnstileVerificationResult!
   withdrawBid(id: Int!, reason: String): Boolean!
@@ -543,6 +544,21 @@ input UpdateTaskInput {
 input UpdateTaskTemplateInput {
   recurrencePattern: RecurrencePatternInput
   task: UpdateTaskInput
+}
+
+input UpdateUserInput {
+  biddingAllowed: Boolean
+  dob: DateTime
+  email: String
+  isEmailVerified: Boolean
+  location: UpdateUserLocationInput
+  mobileNumber: String
+  name: String
+  onboardingComplete: Boolean
+  profilePictureId: String
+  profilePictureUrl: String
+  status: UserStatus
+  userRole: UserRole
 }
 
 input UpdateUserLocationInput {

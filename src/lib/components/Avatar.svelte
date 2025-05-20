@@ -82,11 +82,11 @@
 	<button
 		class="avatar placeholder text-neutral-content flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full text-center {getSizeClass(
 			size
-		)} {getRandomColor(props.user.name)}"
+		)} {getRandomColor(props.user?.name)}"
 		onclick={props.onClick}
 	>
-		{#if props.user.name}
-			<span>{getUserInitials(props.user.name)}</span>
+		{#if props.user?.name}
+			<span>{getUserInitials(props.user?.name)}</span>
 		{:else}
 			<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
 				<g fill="none" stroke="black" stroke-width="1.5">
