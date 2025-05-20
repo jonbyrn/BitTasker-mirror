@@ -6,6 +6,7 @@ import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
 import { decryptNsecWithBiometrics } from './helpers/auth';
+import { getNostrKeyPair } from './nostrKeys';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -16,26 +17,9 @@ const pool = new SimplePool();
  * @returns The signed event
  */
 export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {
-    const { biometricData } = get(appStore);
+    const { npub, nsec } = await getNostrKeyPair();
 
-    let pubkey: string | null = null;
-    let privateKey: Uint8Array | null = null;
-
-    if (!biometricData) {
-        const biometricData = await appStore.getBiometricData();
-        if (!biometricData) {
-            throw new Error('No biometric data found');
-        }
-        pubkey = biometricData.username;
-        const sk = await decryptNsecWithBiometrics(biometricData.password);
-        privateKey = hexToBytes(sk);
-    } else {
-        pubkey = biometricData.username;
-        const sk = await decryptNsecWithBiometrics(biometricData.password);
-        privateKey = hexToBytes(sk);
-    }
-
-    if (!pubkey || !privateKey) {
+    if (!npub || !nsec) {
         throw new Error('No pubkey or private key found');
     }
 
@@ -45,11 +29,11 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
         created_at: Math.floor(Date.now() / 1000),
         content: metadata.content || '',
         tags: metadata.tags || [],
-        pubkey
+        pubkey: npub
     };
 
     // Finalize the event (calculate id and sign)
-    const signedEvent = finalizeEvent(event, privateKey);
+    const signedEvent = finalizeEvent(event, nsec);
 
     // Validate the event
     if (!validateEvent(signedEvent)) {
