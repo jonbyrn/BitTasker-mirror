@@ -10,34 +10,90 @@
 	import StandardServices from './_components/StandardServices.svelte';
 	import AIAssistant from './_components/AIAssistant.svelte';
 	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-	import { fetchProfileMetadata, publishEvent } from '$lib/utils/nostr';
-	import { onMount } from 'svelte';
-	import { appStore } from '$lib/stores/app.store';
+	import { getNostrMetadata, mergeNostrAndGraphQLData, closeNostrPool } from '$lib/nostr/profile';
+	import { onMount, onDestroy } from 'svelte';
 
-	// const userStore = new MeStore();
+	// States
 	let user = $state<any>(null);
-
-	onMount(async () => {
-		const profile = await fetchProfileMetadata(
-			$appStore.biometricData?.username ?? '',
-			PUBLIC_NOSTR_RELAY_URL
-		);
-		console.log('profile', profile);
-	});
-
-	// State for tracking section completion
+	let nostrEvents = $state<NostrEvent[]>([]);
+	let isLoading = $state(true);
+	let error = $state('');
 	let completedSections = $state({
 		personalInfo: false,
 		location: false,
 		skills: false,
 		portfolio: false,
-		video: false,
+		videoIntro: false,
 		availability: false,
-		services: false
+		standardServices: false,
+		aiAssistant: false
 	});
 
-	// Function to update section completion
-	function updateSectionCompletion(section: keyof typeof completedSections, completed: boolean) {
+	// Derived state for form completion
+	let isFormComplete = $derived(Object.values(completedSections).every((completed) => completed));
+
+	// Load profile data
+	onMount(async () => {
+		try {
+			// Load Nostr events
+			nostrEvents = await getNostrMetadata();
+
+			// Load GraphQL data
+			const meStore = new MeStore();
+			const result = await meStore.fetch();
+			const initialUser = result.data?.me;
+
+			// Merge data
+			if (initialUser) {
+				user = {
+					id: initialUser.id,
+					name: initialUser.name,
+					displayName: initialUser.displayName,
+					email: initialUser.email,
+					dob: initialUser.dob,
+					biddingAllowed: initialUser.biddingAllowed,
+					createdAt: initialUser.createdAt,
+					isEmailVerified: initialUser.isEmailVerified,
+					lastLoginAt: initialUser.lastLoginAt,
+					location: initialUser.location,
+					mobileNumber: initialUser.mobileNumber,
+					onboardingComplete: initialUser.onboardingComplete,
+					skills: initialUser.skills,
+					status: initialUser.status,
+					updatedAt: initialUser.updatedAt,
+					userRole: initialUser.userRole,
+					username: initialUser.username
+				};
+
+				if (initialUser.profilePictureUrl) {
+					user.pictures = [
+						{
+							url: initialUser.profilePictureUrl,
+							alt: 'profile picture',
+							type: 'image',
+							key: initialUser.profilePictureId
+						}
+					];
+				}
+
+				const mergedProfile = await mergeNostrAndGraphQLData(nostrEvents, user);
+				user = { ...user, ...mergedProfile };
+			}
+		} catch (err) {
+			console.error('Error loading profile:', err);
+			error = 'Failed to load profile data';
+		} finally {
+			isLoading = false;
+		}
+	});
+
+	// Cleanup on component destroy
+	onDestroy(() => {
+		closeNostrPool();
+	});
+
+	// Section completion handlers
+	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean) {
 		completedSections[section] = completed;
 	}
 
@@ -47,16 +103,6 @@
 			Object.keys(completedSections).length) *
 			100
 	);
-
-	// Function to publish events to your relay
-	async function handlePublishToRelay(event: NostrEvent): Promise<void> {
-		try {
-			await publishEvent(event, PUBLIC_NOSTR_RELAY_URL);
-		} catch (error) {
-			console.error('Failed to publish event:', error);
-			throw error;
-		}
-	}
 </script>
 
 <div class="mx-auto max-w-5xl p-4">
@@ -84,7 +130,7 @@
 				<h2 class="card-title">Personal Information</h2>
 				<PersonalInfo
 					{user}
-					onComplete={(completed) => updateSectionCompletion('personalInfo', completed)}
+					onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
 				/>
 			</div>
 		</div>
@@ -95,7 +141,7 @@
         <h2 class="card-title">Location & Service Area</h2>
         <LocationService 
           user={$userStore.data?.me}
-          onComplete={(completed) => updateSectionCompletion('location', completed)}
+          onComplete={(completed) => handleSectionComplete('location', completed)}
         />
       </div>
     </div> -->
@@ -104,7 +150,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				<h2 class="card-title">Skills & Expertise</h2>
-				<Skills {user} onComplete={(completed) => updateSectionCompletion('skills', completed)} />
+				<Skills {user} onComplete={(completed) => handleSectionComplete('skills', completed)} />
 			</div>
 		</div>
 
@@ -114,7 +160,7 @@
 				<h2 class="card-title">Portfolio</h2>
 				<Portfolio
 					{user}
-					onComplete={(completed) => updateSectionCompletion('portfolio', completed)}
+					onComplete={(completed) => handleSectionComplete('portfolio', completed)}
 				/>
 			</div>
 		</div>
@@ -125,7 +171,7 @@
 				<h2 class="card-title">Video Introduction</h2>
 				<VideoIntro
 					{user}
-					onComplete={(completed) => updateSectionCompletion('video', completed)}
+					onComplete={(completed) => handleSectionComplete('videoIntro', completed)}
 				/>
 			</div>
 		</div>
@@ -136,7 +182,7 @@
 				<h2 class="card-title">Availability</h2>
 				<Availability
 					{user}
-					onComplete={(completed) => updateSectionCompletion('availability', completed)}
+					onComplete={(completed) => handleSectionComplete('availability', completed)}
 				/>
 			</div>
 		</div>
@@ -147,7 +193,7 @@
 				<h2 class="card-title">Standard Services</h2>
 				<StandardServices
 					{user}
-					onComplete={(completed) => updateSectionCompletion('services', completed)}
+					onComplete={(completed) => handleSectionComplete('standardServices', completed)}
 				/>
 			</div>
 		</div>

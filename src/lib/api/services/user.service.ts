@@ -4,7 +4,7 @@ import type {
 	OnboardingRequest,
 	OnboardingSuccessResponse,
 	OnboardingErrorResponse
-} from '$lib/types/onboarding';
+} from '$lib/types/onboarding.d';
 import { ENDPOINTS } from '../endpoints';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { goto } from '$app/navigation';

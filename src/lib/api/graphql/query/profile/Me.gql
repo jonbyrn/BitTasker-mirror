@@ -3,6 +3,7 @@ query Me {
 		id
 		email
 		name
+		displayName
 		username
 		profilePictureUrl
 		profilePictureId
@@ -11,13 +12,17 @@ query Me {
 		isEmailVerified
 		status
 		userRole
+		dob
 		location {
 			displayName
 			latitude
 			longitude
 			zipCode
 		}
-		dob
+		skills {
+			id
+			name
+		}
 		mobileNumber
 		lastLoginAt
 		createdAt

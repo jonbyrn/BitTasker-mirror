@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { UpdateUserProfileStore } from '$houdini';
+	import { onMount } from 'svelte';
+  import { getNostrMetadata } from '$lib/nostr/profile';
+  import { publishEvent } from '$lib/utils/nostr';
   import Uploader from '$lib/components/Uploader.svelte';
   import uploadService from '$lib/api/services/upload.service';
 
@@ -22,8 +24,6 @@
     onComplete: (completed: boolean) => void;
   }>();
 
-  const profileStore = new UpdateUserProfileStore();
-
   // Local state
   let skills = $state<Skill[]>(user?.skills || []);
   let newSkillName = $state('');
@@ -36,42 +36,132 @@
   let certificationDate = $state('');
   let certificationFile: File | null = $state(null);
 
+  // Load Nostr skills data
+  onMount(async () => {
+    if (!user?.pubkey) return;
+    try {
+      const nostrProfile = await getNostrMetadata();
+      if (nostrProfile) {
+        const metadata = JSON.parse(nostrProfile.content);
+        if (metadata.skills) {
+          skills = metadata.skills.map((skill: any) => ({
+            name: skill.name,
+            level: skill.level,
+            verificationStatus: skill.verified ? 'verified' : 'unverified',
+            endorsements: skill.endorsements || 0,
+            certifications: skill.certifications || []
+          }));
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load Nostr skills:', err);
+    }
+  });
+
   // Track form completion
   $effect(() => {
     const isComplete = skills.length > 0;
     onComplete(isComplete);
   });
 
-  // Add new skill
-  function addSkill() {
+  // Add new skill with Nostr
+  async function addSkill() {
     if (!newSkillName.trim()) return;
 
-    const newSkill: Skill = {
-      name: newSkillName.trim(),
-      level: newSkillLevel,
-      verificationStatus: 'unverified',
-      endorsements: 0,
-      certifications: []
-    };
+    try {
+      isLoading = true;
+      error = '';
 
-    skills = [...skills, newSkill];
-    newSkillName = '';
-    newSkillLevel = 3;
+      const newSkill: Skill = {
+        name: newSkillName.trim(),
+        level: newSkillLevel,
+        verificationStatus: 'unverified',
+        endorsements: 0,
+        certifications: []
+      };
+
+      // Create Nostr event for skill
+      const skillEvent = {
+        kind: 30000, // Using parameterized replaceable event
+        content: JSON.stringify(newSkill),
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', `skill-${newSkill.name.toLowerCase()}`],
+          ['t', 'skill']
+        ]
+      };
+
+      await publishEvent(skillEvent);
+      skills = [...skills, newSkill];
+      newSkillName = '';
+      newSkillLevel = 3;
+    } catch (err) {
+      console.error('Failed to add skill:', err);
+      error = err instanceof Error ? err.message : 'Failed to add skill';
+    } finally {
+      isLoading = false;
+    }
   }
 
-  // Remove skill
-  function removeSkill(index: number) {
-    skills = skills.filter((_, i) => i !== index);
+  // Remove skill with Nostr
+  async function removeSkill(index: number) {
+    try {
+      isLoading = true;
+      error = '';
+
+      const skillToRemove = skills[index];
+      
+      // Create deletion event
+      const deleteEvent = {
+        kind: 5,
+        content: '',
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', `skill-${skillToRemove.name.toLowerCase()}`],
+          ['t', 'skill']
+        ]
+      };
+
+      await publishEvent(deleteEvent);
+      skills = skills.filter((_, i) => i !== index);
+    } catch (err) {
+      console.error('Failed to remove skill:', err);
+      error = err instanceof Error ? err.message : 'Failed to remove skill';
+    } finally {
+      isLoading = false;
+    }
   }
 
-  // Update skill level
-  function updateSkillLevel(index: number, level: number) {
-    skills = skills.map((skill, i) => 
-      i === index ? { ...skill, level } : skill
-    );
+  // Update skill level with Nostr
+  async function updateSkillLevel(index: number, level: number) {
+    try {
+      isLoading = true;
+      error = '';
+
+      const updatedSkill = { ...skills[index], level };
+
+      // Create update event
+      const updateEvent = {
+        kind: 30000,
+        content: JSON.stringify(updatedSkill),
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', `skill-${updatedSkill.name.toLowerCase()}`],
+          ['t', 'skill']
+        ]
+      };
+
+      await publishEvent(updateEvent);
+      skills = skills.map((skill, i) => (i === index ? updatedSkill : skill));
+    } catch (err) {
+      console.error('Failed to update skill level:', err);
+      error = err instanceof Error ? err.message : 'Failed to update skill level';
+    } finally {
+      isLoading = false;
+    }
   }
 
-  // Handle certification file upload
+  // Handle certification file upload with Nostr
   async function handleCertificationUpload(files: File[]) {
     if (!files.length || !selectedSkill) return;
 
@@ -79,7 +169,23 @@
       isLoading = true;
       error = '';
 
+      // 1. Upload file to media server
       const file = files[0];
+      const uploadedFile = await uploadService.uploadSingleFile(file, 'certifications');
+
+      // 2. Create Nostr event for certification file
+      const certFileEvent = {
+        kind: 1063,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['url', uploadedFile.url],
+          ['m', file.type],
+          ['alt', 'Certification document']
+        ],
+        content: 'Certification document'
+      };
+
+      await publishEvent(certFileEvent);
       certificationFile = file;
     } catch (err) {
       console.error('File upload failed:', err);
@@ -89,7 +195,7 @@
     }
   }
 
-  // Add certification to skill
+  // Add certification to skill with Nostr
   async function addCertification() {
     if (!selectedSkill || !certificationName || !certificationIssuer || !certificationDate || !certificationFile) {
       error = 'Please fill in all certification fields';
@@ -100,10 +206,7 @@
       isLoading = true;
       error = '';
 
-      // Upload certification file
-      const uploadedFile = await uploadService.uploadSingleFile(certificationFile, 'certifications');
-
-      // Add certification to skill
+      // Create certification object
       const certification = {
         name: certificationName,
         issuer: certificationIssuer,
@@ -112,9 +215,30 @@
         verified: false
       };
 
+      // Update skill with new certification
+      const updatedSkill = {
+        ...selectedSkill,
+        certifications: [...selectedSkill.certifications, certification]
+      };
+
+      // Create Nostr event for updated skill
+      const skillEvent = {
+        kind: 30000,
+        content: JSON.stringify(updatedSkill),
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [
+          ['d', `skill-${updatedSkill.name.toLowerCase()}`],
+          ['t', 'skill'],
+          ['cert', certificationFile.url]
+        ]
+      };
+
+      await publishEvent(skillEvent);
+
+      // Update local state
       skills = skills.map(skill => 
         skill === selectedSkill 
-          ? { ...skill, certifications: [...skill.certifications, certification] }
+          ? updatedSkill
           : skill
       );
 
@@ -383,7 +507,6 @@
           id="certificationFile"
           label="Upload Certificate"
           maxFiles={1}
-          accept=".pdf,.jpg,.jpeg,.png"
           customClass="w-full"
           onChange={handleCertificationUpload}
         />

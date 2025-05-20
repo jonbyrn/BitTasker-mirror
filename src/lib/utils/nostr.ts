@@ -64,11 +64,8 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
  * @param event - The event to publish
  * @param relayUrl - The URL of the relay to publish to
  */
-export async function publishEvent(event: Partial<NostrEvent>, relayUrl?: string): Promise<void> {
+export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string = PUBLIC_NOSTR_RELAY_URL): Promise<void> {
     try {
-        if (!relayUrl) {
-            relayUrl = PUBLIC_NOSTR_RELAY_URL;
-        }
 
         const signedEvent = await getSignedEvent(event);
 
