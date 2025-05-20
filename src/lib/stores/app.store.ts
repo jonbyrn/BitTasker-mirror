@@ -1,5 +1,6 @@
 import type { ICategory, ISkill } from '$lib/types/common';
-import { writable } from 'svelte/store';
+import type { Credentials } from '$lib/types/auth';
+import { writable, get } from 'svelte/store';
 import userService from '$lib/api/services/user.service';
 
 interface Toast {
@@ -14,16 +15,20 @@ interface AppStore {
 	isLoading: boolean;
 	error: string | null;
 	toasts: Toast[];
+	biometricData: Credentials | null;
 }
 
 const createAppStore = () => {
-	const { subscribe, set, update } = writable<AppStore>({
+	const store = writable<AppStore>({
 		skills: [],
 		categories: [],
 		isLoading: false,
 		error: null,
-		toasts: []
+		toasts: [],
+		biometricData: null
 	});
+
+	const { subscribe, set, update } = store;
 
 	let toastId = 0;
 
@@ -41,6 +46,26 @@ const createAppStore = () => {
 				toasts: state.toasts.filter((t) => t.id !== id)
 			}));
 		}, 3000);
+	};
+
+	const getBiometricData = async () => {
+		const currentState = get(store);
+		if (currentState.biometricData) return currentState.biometricData;
+
+		const { checkBiometricAvailability, getBiometricData } = await import('$lib/utils/helpers/biometrics');
+
+		const isBiometricAvailable = await checkBiometricAvailability();
+
+		if (isBiometricAvailable) {
+			const biometricData = await getBiometricData();
+			update((state) => ({ ...state, biometricData }));
+			return biometricData;
+		} else {
+			const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
+			const webBiometricData = await getWebBiometricData();
+			update((state) => ({ ...state, biometricData: webBiometricData }));
+			return webBiometricData;
+		}
 	};
 
 	return {
@@ -72,7 +97,8 @@ const createAppStore = () => {
 		},
 		showInfoToast: (message: string) => {
 			addToast({ type: 'info', message });
-		}
+		},
+		getBiometricData
 	};
 };
 
