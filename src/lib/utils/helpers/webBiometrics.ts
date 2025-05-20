@@ -7,6 +7,7 @@
 import type { Credentials, BiometricVerifyOptions, EncryptionData } from '$lib/types/auth';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { appStore } from '$lib/stores/app.store';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -193,15 +194,20 @@ export async function setWebBiometricKey(
 			value: credentialId
 		});
 
+		const data = {
+			username: publicKey,
+			password: JSON.stringify(encryptionData),
+			server: userId
+		};
+
 		// Store the encrypted data
 		await Preferences.set({
 			key: `webAuthn_${credentialId}`,
-			value: JSON.stringify({
-				username: publicKey,
-				password: JSON.stringify(encryptionData),
-				server: userId
-			})
+			value: JSON.stringify(data)
 		});
+
+		appStore.update((state) => ({ ...state, biometricData: data }));
+		await Preferences.set({ key: 'npub', value: publicKey });
 
 		return true;
 	} catch (err) {

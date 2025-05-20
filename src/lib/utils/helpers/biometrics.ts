@@ -2,6 +2,8 @@ import type { Credentials, BiometricVerifyOptions, EncryptionData } from '$lib/t
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { Capacitor } from '@capacitor/core';
 import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { appStore } from '$lib/stores/app.store';
+import { Preferences } from '@capacitor/preferences';
 
 const BIOMETRIC_VERIFY_OPTIONS: BiometricVerifyOptions = {
 	reason: 'Secure your BitTasker account',
@@ -30,16 +32,24 @@ export async function verifyIdentity(): Promise<boolean> {
 }
 
 export async function setBiometricKey(
-	publicKey: string,
+	npub: string,
 	encryptionData: EncryptionData
 ): Promise<boolean> {
 	try {
-		// Store the encryption data as a JSON string
-		await NativeBiometric.setCredentials({
-			username: publicKey,
+		const data = {
+			username: npub,
 			password: JSON.stringify(encryptionData),
 			server: await generateDeviceKey()
-		});
+		}
+
+		// Store the encryption data as a JSON string
+		await NativeBiometric.setCredentials(data);
+
+		appStore.update((state) => ({
+			...state,
+			biometricData: data
+		}));
+		await Preferences.set({ key: 'npub', value: npub });
 
 		return true;
 	} catch (err) {

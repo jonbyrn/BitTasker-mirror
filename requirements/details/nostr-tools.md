@@ -550,4 +550,288 @@ export async function publishProfileUpdate(
   const signedEvent = finalizeEvent(event, privateKey);
   const pubs = pool.publish(['wss://relay.example.com'], signedEvent);
   await Promise.all(pubs);
-} 
+}
+
+### Image Handling
+
+#### 1. Image Upload Process
+1. **Upload to Media Server**
+   - Images should first be uploaded to a secure media server
+   - Server should support content type verification
+   - Generate thumbnails and blurhash previews
+   - Return secure URLs for the uploaded content
+
+2. **Create Nostr Event**
+   ```typescript
+   const imageEvent = {
+     kind: 1063, // Media metadata event
+     tags: [
+       ["url", imageUrl],
+       ["m", "image/jpeg"],
+       ["x", sha256Hash],
+       ["size", fileSize],
+       ["dim", dimensions],
+       ["blurhash", hash],
+       ["thumb", thumbnailUrl],
+       ["alt", "picture"]
+     ],
+     content: "image update"
+   };
+   ```
+
+3. **Link to Profile**
+   ```typescript
+   const event = {
+     kind: 0,
+     content: JSON.stringify({
+       name: "User Name",
+       picture: imageUrl,
+       // ... other fields
+     }),
+     tags: [
+       ["p", userPubkey],
+       ["e", imageEventId, "image"]
+     ]
+   };
+   ```
+
+#### 2. Multiple Images
+For handling multiple images:
+
+1. **Create Separate Events**
+   ```typescript
+   const images = [
+     {url: "image1.jpg", alt: "Main profile"},
+     {url: "image2.jpg", alt: "Professional shot"},
+     {url: "image3.jpg", alt: "Casual photo"}
+   ];
+
+   for (const img of images) {
+     const imageEvent = {
+       kind: 1063,
+       tags: [
+         ["url", img.url],
+         ["alt", img.alt],
+         // ... other metadata tags
+       ]
+     };
+     // Publish event
+   }
+   ```
+
+2. **Reference in Profile**
+   ```typescript
+   const profileEvent = {
+     kind: 0,
+     content: JSON.stringify({
+       name: "User Name",
+       pictures: images.map(img => img.url),
+     }),
+     tags: imageEvents.map(evt => 
+       ["e", evt.id, "image"]
+     )
+   };
+   ```
+
+#### 3. Best Practices
+1. **Image Optimization**
+   - Compress images before upload
+   - Generate multiple resolutions
+   - Use WebP format when supported
+   - Include blurhash for loading previews
+
+2. **Security**
+   - Verify file types server-side
+   - Scan for malware
+   - Use signed URLs with expiration
+   - Implement rate limiting
+
+3. **Performance**
+   - Use CDN for image delivery
+   - Cache image metadata events
+   - Lazy load secondary images
+   - Preload primary image
+
+4. **Error Handling**
+   ```typescript
+   async function uploadImage(file) {
+     try {
+       // 1. Upload to media server
+       const upload = await uploadToServer(file);
+       
+       // 2. Create image event
+       const imageEvent = {
+         kind: 1063,
+         tags: [
+           ["url", upload.url],
+           // ... metadata tags
+         ]
+       };
+       const signedImageEvent = await finalizeEvent(imageEvent, privateKey);
+       
+       // 3. Update event
+       const event = {
+         kind: 0,
+         content: JSON.stringify({
+           picture: upload.url
+         }),
+         tags: [["e", signedImageEvent.id, "image"]]
+       };
+       const signedEvent = await finalizeEvent(event, privateKey);
+       
+       // 4. Publish events
+       await pool.publish(relays, [signedImageEvent, signedEvent]);
+       
+     } catch (err) {
+       if (err instanceof UploadError) {
+         // Handle upload failures
+       } else if (err instanceof NostrError) {
+         // Handle Nostr operation failures
+       } else {
+         // Handle unexpected errors
+       }
+     }
+   }
+   ```
+
+## SimplePool API
+
+The `SimplePool` class from nostr-tools (v2.13.0+) is used to interact with one or multiple relays. It provides a simplified interface for querying, subscribing to, and publishing events.
+
+### Importing
+
+```typescript
+import { SimplePool } from 'nostr-tools/pool'
+```
+
+### Creating a Pool
+
+```typescript
+// Create a pool instance - no configuration options needed as of v2.13.0
+const pool = new SimplePool()
+```
+
+### Methods
+
+#### querySync(relays: string[], filter: Filter): Promise<Event[]>
+
+Query for multiple events that match the filter. This is the preferred method for fetching events in v2.13.0+.
+
+```typescript
+const events = await pool.querySync(
+  ['wss://relay.example.com'],
+  {
+    authors: [pubkey],
+    kinds: [0, 1063], // Kind 0 for metadata, 1063 for media metadata
+    limit: 10
+  }
+)
+```
+
+#### publish(relays: string[], event: Event): Promise<void>
+
+Publish an event to multiple relays.
+
+```typescript
+await pool.publish(
+  ['wss://relay.example.com'],
+  signedEvent
+)
+```
+
+#### subscribe(relays: string[], filter: Filter, options: SubscriptionOptions): Sub
+
+Subscribe to events from multiple relays.
+
+```typescript
+const sub = pool.subscribe(
+  ['wss://relay.example.com'],
+  {
+    kinds: [1],
+    authors: [pubkey],
+  },
+  {
+    onevent(event) {
+      console.log('got event:', event)
+    }
+  }
+)
+```
+
+#### close(relays?: string[]): void
+
+Close connections to specified relays or all relays if no argument is provided.
+
+```typescript
+// Close specific relays
+pool.close(['wss://relay.example.com'])
+
+// Close all relays
+pool.close()
+```
+
+### Error Handling
+
+It's recommended to wrap pool operations in try-catch blocks:
+
+```typescript
+try {
+  const events = await pool.querySync(relays, filter);
+  return events;
+} catch (error) {
+  console.error('Failed to fetch Nostr events:', error);
+  return [];
+}
+```
+
+### Node.js Usage
+
+When using nostr-tools in Node.js, you need to provide a WebSocket implementation:
+
+```typescript
+import { useWebSocketImplementation } from 'nostr-tools/pool'
+import WebSocket from 'ws'
+
+useWebSocketImplementation(WebSocket)
+```
+
+### Filter Types
+
+```typescript
+interface Filter {
+  ids?: string[]
+  authors?: string[]
+  kinds?: number[]
+  '#e'?: string[] // event ids
+  '#p'?: string[] // pubkeys
+  '#t'?: string[] // arbitrary tags
+  since?: number
+  until?: number
+  limit?: number
+}
+```
+
+### Event Types
+
+```typescript
+interface Event {
+  id: string
+  pubkey: string
+  created_at: number
+  kind: number
+  tags: string[][]
+  content: string
+  sig: string
+}
+```
+
+### Best Practices
+
+1. Always reuse the same SimplePool instance when possible
+2. Close connections when they're no longer needed
+3. Use appropriate filters to minimize unnecessary data transfer
+4. Handle errors appropriately when interacting with relays
+5. Consider using multiple relays for redundancy
+6. Use appropriate timeouts for queries and subscriptions
+7. Use querySync instead of deprecated list method for fetching events
+8. Don't pass configuration options to SimplePool constructor (v2.13.0+) 

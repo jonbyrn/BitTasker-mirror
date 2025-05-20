@@ -41,7 +41,7 @@
 	async function login(biometricData: Credentials, deviceId: string) {
 		const pubKey = biometricData.username;
 		const encryptedKey = biometricData.password;
-		
+
 		// Get login challenge from server
 		const { challenge } = await authService.getLoginChallenge();
 
@@ -70,7 +70,8 @@
 		// Update user state and navigate to dashboard
 		user.updateProfile(response.user);
 		authState.login();
-		appStore.update((state) => ({ ...state, biometricData: null }));
+		appStore.update((state) => ({ ...state, biometricData }));
+		await Preferences.set({ key: 'npub', value: pubKey });
 		goto('/dashboard');
 	}
 
