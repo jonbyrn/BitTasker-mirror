@@ -1,9 +1,10 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
-	import type { NostrEvent } from 'nostr-tools';
-	import { getNostrMetadata, mergeNostrAndGraphQLData, subscribeToProfileUpdates } from '$lib/nostr/profile';
-	import { publishEvent } from '$lib/utils/nostr';
-	import { finalizeEvent } from 'nostr-tools/pure';
+	import {
+		publishMultipleImages,
+		subscribeToProfileUpdates,
+		deleteNostrEvent
+	} from '$lib/nostr/profile';
 	import { SimplePool } from 'nostr-tools/pool';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { onDestroy, onMount } from 'svelte';
@@ -11,49 +12,29 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { user = $bindable(null), onComplete } = $props<{
-		user: any | null | undefined;
-		onComplete: (completed: boolean) => void;
-	}>();
+	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
 	// Local state
-	let displayName = $state(user?.displayName || '');
-	let professionalTitle = $state(user?.professionalTitle || '');
-	let profileDescription = $state(user?.about || '');
-	let website = $state(user?.website || '');
-	// let pictures = $state<NostrProfileImage[]>(
-	// 	[
-	// 		user?.profilePictureUrl
-	// 			? {
-	// 					url: user.profilePictureUrl,
-	// 					type: user.profilePictureContentType || 'image/jpeg',
-	// 					alt: user.profilePictureAlt || 'Profile picture',
-	// 					key: user.profilePictureKey
-	// 				}
-	// 			: null,
-	// 		...user?.additionalProfilePictures?.map((pic: NostrProfileImage) => ({
-	// 			url: pic.url,
-	// 			type: pic.type,
-	// 			alt: pic.alt,
-	// 			key: pic.key
-	// 		}))
-	// 	].filter(Boolean) as NostrProfileImage[]
-	// );
-	let pictures = $state<NostrProfileImage[]>([
-		...(user?.profilePictures || []),
-		...(user?.additionalProfilePictures || [])
-	]);
+	let displayName = $state('');
+	let professionalTitle = $state('');
+	let profileDescription = $state('');
+	let website = $state('');
+	let pictures = $state<(NostrProfileImage | File)[]>([]);
 	let isLoading = $state(false);
 	let error = $state('');
 	let nostrPool = $state(new SimplePool());
+	let profileEventId = $state<string | null>(null);
+	let imageEventId = $state<string | null>(null); // Track the current image event ID
 	let cleanup: (() => void) | null = null;
 
 	// Subscribe to profile updates
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(async (event) => {
 			try {
+				console.log({ event });
 				// Handle profile metadata update
 				if (event.kind === 0) {
+					profileEventId = event.id;
 					const metadata = JSON.parse(event.content);
 					displayName = metadata.displayName || displayName;
 					professionalTitle = metadata.professionalTitle || professionalTitle;
@@ -62,22 +43,30 @@
 				}
 				// Handle image metadata update
 				else if (event.kind === 1063) {
-					const urlTag = event.tags.find(tag => tag[0] === 'url');
-					if (urlTag) {
-						const newImage = {
-							url: urlTag[1],
-							type: event.tags.find(tag => tag[0] === 'm')?.[1] || 'image/jpeg',
-							alt: event.tags.find(tag => tag[0] === 'alt')?.[1] || '',
-							key: event.tags.find(tag => tag[0] === 'x')?.[1] || ''
-						};
-						pictures = [...pictures, newImage];
-					}
+					imageEventId = event.id; // Store the event ID
+					const images = JSON.parse(event.content);
+					pictures = images.map((img: NostrProfileImage) => ({
+						url: img.url,
+						type: img.type || 'image/jpeg',
+						alt: img.alt || '',
+						key: img.key
+					}));
 				}
 			} catch (err) {
 				console.error('Failed to process profile update:', err);
 				error = 'Failed to connect to Nostr relay. Please try again later.';
 			}
 		});
+
+		/* // Fetch initial metadata
+		const events = await getNostrMetadata();
+		const latestImageEvent = events
+			.filter(e => e.kind === 1063)
+			.sort((a, b) => b.created_at - a.created_at)[0];
+		
+		if (latestImageEvent) {
+			imageEventId = latestImageEvent.id;
+		} */
 	});
 
 	// Cleanup subscription on component destroy
@@ -96,6 +85,24 @@
 		onComplete(isComplete);
 	});
 
+	const uploadImages = async (pictures: (NostrProfileImage | File)[]) => {
+		const uploadPromises = pictures.map(async (picture) => {
+			if (picture instanceof File) {
+				const uploadResult = await uploadService.uploadSingleFile(picture, 'profile');
+				return {
+					key: uploadResult.key,
+					url: uploadResult.url,
+					type: picture.type,
+					alt: picture.name
+				};
+			} else {
+				return picture;
+			}
+		});
+
+		return Promise.all(uploadPromises);
+	};
+
 	// Handle form submission
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
@@ -103,18 +110,41 @@
 		error = '';
 
 		try {
+			// const uploadedPictures = await uploadImages(pictures);
+			const uploadedPictures = [
+				{
+					url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/profile/1747839971600-acb3a5b460e5ec3e.webp',
+					key: 'profile/1747839971600-acb3a5b460e5ec3e.webp',
+					type: 'image/webp',
+					alt: 'bugatti divo.webp'
+				},
+				{
+					url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/profile/1747839972381-48b053b512414835.png',
+					key: 'profile/1747839972381-48b053b512414835.png',
+					type: 'image/png',
+					alt: 'bugatti bolide.png'
+				},
+				{
+					url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/profile/1747839972432-1d2be5fb5f32c768.png',
+					key: 'profile/1747839972432-1d2be5fb5f32c768.png',
+					type: 'image/png',
+					alt: 'screenshot-2024.png'
+				}
+			];
+
+			// Publish new images event, passing the existing event ID if we have one
+			await publishMultipleImages(uploadedPictures, imageEventId);
+
 			// Prepare profile data
 			const profileData: NostrProfile = {
 				displayName,
 				professionalTitle,
 				about: profileDescription,
-				website,
-				picture: pictures[0]?.url,
-				additionalPictures: pictures.slice(1).map((pic) => pic.url)
+				website
 			};
 
 			// Publish profile metadata with retry logic
-			await publishProfileMetadata(profileData, pictures);
+			await publishProfileMetadata(profileData, uploadedPictures);
 		} catch (err) {
 			console.error('Failed to update profile:', err);
 			error = err instanceof Error ? err.message : 'Failed to update profile';
@@ -125,25 +155,8 @@
 
 	// Handle image upload
 	async function handleImageUpload(files: File[]) {
-		if (!files.length || files.length > 5) return;
-
-		try {
-			const uploadPromises = files.map(async (file) => {
-				const uploadResult = await uploadService.uploadSingleFile(file, 'profile');
-				return {
-					key: uploadResult.key,
-					url: uploadResult.url,
-					type: file.type,
-					alt: file.name
-				};
-			});
-
-			const uploadedFiles = await Promise.all(uploadPromises);
-			pictures = [...pictures, ...uploadedFiles];
-		} catch (err) {
-			console.error('Failed to process images:', err);
-			error = err instanceof Error ? err.message : 'Failed to process images';
-		}
+		if (pictures.length > 5 || !files.length || files.length > 5) return;
+		pictures = [...pictures, ...files];
 	}
 
 	// Remove profile picture
@@ -170,7 +183,7 @@
 			<Uploader
 				id="profilePictures"
 				label="Add Pictures"
-				files={pictures.map((pic) => pic.url)}
+				files={pictures.map((pic) => (pic instanceof File ? pic : pic.url))}
 				maxFiles={5}
 				onChange={handleImageUpload}
 			/>

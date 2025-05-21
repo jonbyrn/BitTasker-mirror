@@ -835,3 +835,157 @@ interface Event {
 6. Use appropriate timeouts for queries and subscriptions
 7. Use querySync instead of deprecated list method for fetching events
 8. Don't pass configuration options to SimplePool constructor (v2.13.0+) 
+```
+
+### Event Updates in Nostr
+
+Nostr is fundamentally an append-only protocol, which means events cannot be directly updated or deleted. However, there are several patterns for handling updates:
+
+#### 1. Replaceable Events (NIPs 1 & 16)
+
+Replaceable events are special event kinds (>= 10000 and <= 19999, or >= 30000 and <= 39999) that can be "replaced" by newer events. The replacement is determined by:
+
+- Same author (pubkey)
+- Same event kind
+- Same 'd' tag value
+- Higher created_at timestamp
+
+Example of a replaceable event:
+```typescript
+const replaceableEvent = {
+    kind: 30000, // Replaceable event kind
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+        ['d', 'unique-identifier'], // Required for replaceable events
+        // ... other tags
+    ],
+    content: JSON.stringify(data)
+};
+```
+
+#### 2. Parameterized Replaceable Events (NIP-33)
+
+Similar to replaceable events, but with more flexible coordination using the 'd' tag:
+
+```typescript
+const parameterizedEvent = {
+    kind: 31000, // Parameterized replaceable event
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+        ['d', 'custom-identifier'], // Coordinates replacement
+        // ... other tags
+    ],
+    content: JSON.stringify(data)
+};
+```
+
+#### 3. Event Deletion (NIP-09)
+
+Events can be "deleted" by publishing a deletion event that references them:
+
+```typescript
+const deletionEvent = {
+    kind: 5,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+        ['e', eventIdToDelete], // Reference to event being deleted
+        ['k', eventKindToDelete] // Optional: kind of deleted event
+    ],
+    content: 'Deletion reason'
+};
+```
+
+#### Best Practices for Updates
+
+1. **Replaceable Events**
+   - Use for profile metadata (kind: 0)
+   - Use for lists and sets (kind: 30000+)
+   - Always include a 'd' tag with a unique identifier
+   - Ensure newer events have higher timestamps
+
+2. **Event Deletion**
+   - Use for removing sensitive or incorrect information
+   - Include 'e' tags for all events being deleted
+   - Optionally include 'k' tags to specify event kinds
+   - Consider client-side handling of deletion events
+
+3. **Update Patterns**
+   - For profile data: Use kind 0 (replaceable by default)
+   - For lists/sets: Use kind 30000+ with 'd' tags
+   - For media/files: Use kind 30063 with 'd' tags
+   - For ephemeral data: Use kind 20000+
+
+Example Implementation for Profile Images:
+```typescript
+// Publishing profile images as a replaceable event
+const profileImagesEvent = {
+    kind: 30063, // Replaceable event for profile images
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [
+        ['d', 'profile-images'], // Identifier for replacement
+        ['url', 'image1.jpg'],
+        ['url', 'image2.jpg'],
+        // ... other image metadata
+    ],
+    content: JSON.stringify(images)
+};
+
+// Subscribing to profile image updates
+const sub = pool.sub([relay], {
+    kinds: [30063],
+    authors: [pubkey],
+    '#d': ['profile-images']
+});
+
+sub.on('event', event => {
+    // Handle latest profile images
+    const images = JSON.parse(event.content);
+    updateUI(images);
+});
+```
+
+#### Handling Event Updates in Clients
+
+1. **Subscribing to Updates**
+```typescript
+// Subscribe to replaceable events
+pool.subscribe([relay], {
+    kinds: [30000], // Replaceable event kind
+    '#d': ['identifier'], // Specific identifier
+    authors: [pubkey]
+}, {
+    onevent: (event) => {
+        // Only process the latest event
+        handleLatestEvent(event);
+    }
+});
+```
+
+2. **Querying Latest State**
+```typescript
+// Get the latest state of a replaceable event
+const events = await pool.querySync([relay], {
+    kinds: [30000],
+    '#d': ['identifier'],
+    authors: [pubkey]
+});
+
+// Sort by timestamp and take the latest
+const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
+```
+
+3. **Handling Deletions**
+```typescript
+// Subscribe to deletion events
+pool.subscribe([relay], {
+    kinds: [5], // Deletion events
+    authors: [pubkey]
+}, {
+    onevent: (event) => {
+        const deletedIds = event.tags
+            .filter(tag => tag[0] === 'e')
+            .map(tag => tag[1]);
+        handleDeletions(deletedIds);
+    }
+});
+``` 
