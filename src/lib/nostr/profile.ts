@@ -1,11 +1,10 @@
-import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
+import type { NostrProfile, NostrProfileImage, Skill } from '$lib/types/profile.d';
 import type { NostrEvent, Filter } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
-import { finalizeEvent } from 'nostr-tools/pure';
-import { hexToBytes } from '@noble/hashes/utils';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
+import uploadService from '$lib/api/services/upload.service';
 
 // Constants
 /* const DEFAULT_RELAYS = [
@@ -143,167 +142,6 @@ export async function publishProfileMetadata(
 }
 
 /**
- * Fetches profile metadata for a given public key
- */
-export async function getNostrMetadata(relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent[]> {
-    try {
-        const npub = await getNpub();
-
-        const filter: Filter = {
-            authors: [npub],
-            kinds: [0, 1063], // Kind 0 for metadata, 1063 for media metadata (NIP-94)
-            limit: 10 // Limit the number of events returned
-        };
-
-        const events = await pool.querySync(relays, filter);
-        return events;
-    } catch (error) {
-        console.error('Failed to fetch Nostr profile:', error);
-        return [];
-    }
-}
-
-/**
- * Fetch a user's skills from Nostr
- */
-export async function getNostrSkills(pubkey: string): Promise<NostrEvent[]> {
-    try {
-        const filter: Filter = {
-            kinds: [30000],
-            authors: [pubkey],
-            '#t': ['skill']
-        };
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        return events;
-    } catch (err) {
-        console.error('Failed to fetch Nostr skills:', err);
-        return [];
-    }
-}
-
-/**
- * Fetch a user's portfolio from Nostr
- */
-export async function getNostrPortfolio(pubkey: string): Promise<NostrEvent[]> {
-    try {
-        const filter: Filter = {
-            kinds: [30001],
-            authors: [pubkey],
-            '#t': ['portfolio']
-        };
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        return events;
-    } catch (err) {
-        console.error('Failed to fetch Nostr portfolio:', err);
-        return [];
-    }
-}
-
-/**
- * Fetch a user's profile images from Nostr
- */
-export async function getNostrProfileImages(pubkey: string): Promise<NostrEvent[]> {
-    try {
-        const filter: Filter = {
-            kinds: [1063],
-            authors: [pubkey],
-            '#t': ['profile']
-        };
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        return events;
-    } catch (err) {
-        console.error('Failed to fetch Nostr profile images:', err);
-        return [];
-    }
-}
-
-/**
- * Fetch a user's portfolio images from Nostr
- */
-export async function getNostrPortfolioImages(pubkey: string): Promise<NostrEvent[]> {
-    try {
-        const filter: Filter = {
-            kinds: [1063],
-            authors: [pubkey],
-            '#t': ['portfolio']
-        };
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        return events;
-    } catch (err) {
-        console.error('Failed to fetch Nostr portfolio images:', err);
-        return [];
-    }
-}
-
-/**
- * Fetch a user's certifications from Nostr
- */
-export async function getNostrCertifications(pubkey: string): Promise<NostrEvent[]> {
-    try {
-        const filter: Filter = {
-            kinds: [1063],
-            authors: [pubkey],
-            '#t': ['certification']
-        };
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        return events;
-    } catch (err) {
-        console.error('Failed to fetch Nostr certifications:', err);
-        return [];
-    }
-}
-
-/**
- * Publish a profile metadata event to Nostr
- */
-export async function publishNostrProfile(profile: NostrProfile, privateKeyHex: string): Promise<void> {
-    try {
-        const privateKey = hexToBytes(privateKeyHex);
-        const event = {
-            kind: 0,
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [],
-            content: JSON.stringify(profile)
-        };
-
-        const signedEvent = finalizeEvent(event, privateKey);
-        await pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent);
-    } catch (error) {
-        console.error('Error publishing Nostr profile:', error);
-        throw error;
-    }
-}
-
-/**
- * Publish a profile image event to Nostr
- */
-export async function publishNostrProfileImage(image: NostrProfileImage, privateKeyHex: string): Promise<void> {
-    const pool = new SimplePool();
-    const privateKey = hexToBytes(privateKeyHex);
-
-    try {
-        const event = {
-            kind: 1063, // NIP-94 image event
-            created_at: Math.floor(Date.now() / 1000),
-            tags: [
-                ['url', image.url],
-                ['m', image.type || 'image/jpeg'],
-                ['alt', image.alt || '']
-            ],
-            content: JSON.stringify(image)
-        };
-
-        const signedEvent = finalizeEvent(event, privateKey);
-        await pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent);
-    } catch (error) {
-        console.error('Error publishing Nostr profile image:', error);
-        throw error;
-    } finally {
-        pool.close([PUBLIC_NOSTR_RELAY_URL]);
-    }
-}
-
-/**
  * Publish mutliple profile images
  * @param images 
  * @param eventId 
@@ -348,57 +186,6 @@ export async function publishMultipleImages(images: NostrProfileImage[], eventId
 }
 
 /**
- * Merge GraphQL and Nostr profile data
- */
-export function mergeNostrAndGraphQLData(nostrData: NostrEvent[], graphqlData: any): NostrProfile {
-    // Start with GraphQL data as base
-    const baseProfile: NostrProfile = {
-        name: graphqlData?.name,
-        about: graphqlData?.about,
-        pictures: graphqlData?.pictures,
-        website: graphqlData?.website,
-        professionalTitle: graphqlData?.professionalTitle
-    };
-
-    // Merge with Nostr data if available
-    if (nostrData.length > 0) {
-        const metadataEvent = nostrData.find(event => event.kind === 0);
-        if (metadataEvent) {
-            try {
-                const nostrProfile = JSON.parse(metadataEvent.content);
-                Object.assign(baseProfile, {
-                    ...nostrProfile,
-                    // Keep GraphQL data if Nostr data is empty/undefined
-                    name: nostrProfile.name || baseProfile.name,
-                    about: nostrProfile.about || baseProfile.about,
-                    pictures: nostrProfile.pictures || baseProfile.pictures,
-                    website: nostrProfile.website || baseProfile.website,
-                    professionalTitle: nostrProfile.professionalTitle || baseProfile.professionalTitle
-                });
-            } catch (error) {
-                console.error('Error parsing Nostr profile data:', error);
-            }
-        }
-
-        // Handle additional pictures from NIP-94 events
-        const imageEvents = nostrData.filter(event => event.kind === 1063);
-        if (imageEvents.length > 0) {
-            baseProfile.pictures = imageEvents.map(event => {
-                const urlTag = event.tags.find(tag => tag[0] === 'url');
-                return urlTag ? {
-                    url: urlTag[1],
-                    type: event.tags.find(tag => tag[0] === 'm')?.[1] || 'image/jpeg',
-                    alt: event.tags.find(tag => tag[0] === 'alt')?.[1] || '',
-                    key: event.tags.find(tag => tag[0] === 'x')?.[1] || ''
-                } : null;
-            }).filter(Boolean) as NostrProfileImage[];
-        }
-    }
-
-    return baseProfile;
-}
-
-/**
  * Delete a Nostr event by its ID
  * @param eventId The ID of the event to delete
  * @param relays Optional array of relay URLs
@@ -428,7 +215,9 @@ export async function deleteNostrEvent(eventId: string, eventKind?: string, rela
     }
 }
 
-// Cleanup function
+/**
+ * Cleanup function
+ */
 export function closeNostrPool(): void {
     // Close all subscriptions
     for (const [_, subs] of profileSubscriptions) {
@@ -438,4 +227,124 @@ export function closeNostrPool(): void {
 
     // Close pool
     pool.close([PUBLIC_NOSTR_RELAY_URL]);
-} 
+}
+
+/**
+ * Subscribe to skills updates
+ * @param callback Callback function to handle skills updates
+ * @param relays Array of relay URLs
+ * @returns Cleanup function
+ */
+export async function subscribeToSkillsUpdates(callback: (skills: Skill[]) => void, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<() => void> {
+    try {
+        // Subscribe to skills events
+        const filter = {
+            kinds: [30000], // Replaceable event for skills
+            '#t': ['skill'],
+            limit: 10
+        };
+
+        const sub = pool.subscribe(relays, filter, {
+            onevent(event) {
+                try {
+                    if (event.kind === 30000) {
+                        const skillsData = JSON.parse(event.content);
+                        if (Array.isArray(skillsData)) {
+                            callback(skillsData);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to process skills update:', err);
+                }
+            }
+        });
+
+        // Also fetch initial state
+        // const events = await pool.querySync(relays, filter);
+        // if (events.length > 0) {
+        //     const latestEvent = events.sort((a, b) => b.created_at - a.created_at)[0];
+        //     try {
+        //         const skillsData = JSON.parse(latestEvent.content);
+        //         if (Array.isArray(skillsData)) {
+        //             callback(skillsData);
+        //         }
+        //     } catch (err) {
+        //         console.error('Failed to parse initial skills:', err);
+        //     }
+        // }
+
+        return () => {
+            sub.close();
+        };
+    } catch (err) {
+        console.error('Failed to setup skills subscription:', err);
+        return () => { };
+    }
+}
+
+/**
+ * Publish skills update to Nostr
+ */
+export async function publishSkillsUpdate(
+    skills: Skill[],
+    certificationFiles: { file: File; skillName: string }[] = [],
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): Promise<void> {
+    try {
+        // 1. Upload certification files if any
+        const certificationUploads = await Promise.all(
+            certificationFiles.map(async ({ file, skillName }) => {
+                const uploadResult = await uploadService.uploadSingleFile(file, 'certifications');
+
+                // Create certification file event
+                const certEvent = {
+                    kind: 1063,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [
+                        ['url', uploadResult.url],
+                        ['x', uploadResult.key],
+                        ['m', file.type],
+                        ['alt', 'Certification document'],
+                        ['t', 'certification'],
+                        ['skill', skillName]
+                    ],
+                    content: JSON.stringify({
+                        skillName,
+                        fileName: file.name
+                    })
+                };
+
+                const signedCertEvent = await getSignedEvent(certEvent);
+                return { event: signedCertEvent, url: uploadResult.url };
+            })
+        );
+
+        // 2. Create skills event
+        const skillsEvent = {
+            kind: 30000,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['d', 'skills'], // Identifier for replaceable event
+                ['t', 'skill']
+            ],
+            content: JSON.stringify(skills)
+        };
+
+        const signedSkillsEvent = await getSignedEvent(skillsEvent);
+
+        // 3. Publish all events
+        const allEvents = [
+            signedSkillsEvent,
+            ...certificationUploads.map(upload => upload.event)
+        ];
+
+        await Promise.all(
+            allEvents.flatMap(event =>
+                pool.publish(relays, event)
+            )
+        );
+    } catch (error) {
+        console.error('Failed to publish skills update:', error);
+        throw error;
+    }
+}

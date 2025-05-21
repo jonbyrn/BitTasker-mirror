@@ -48,3 +48,25 @@ export interface NostrProfileData {
     portfolioImages: NostrEvent[];
     certifications: NostrEvent[];
 }
+
+/**
+ * Interface for skill certifications
+ */
+export interface SkillCertification {
+    name: string;
+    issuer: string;
+    date: string;
+    file: { key: string; url: string } | File;
+    verified: boolean;
+}
+
+/**
+ * Interface for skills
+ */
+export interface Skill {
+    name: string;
+    level: number;
+    verificationStatus: 'pending' | 'verified' | 'unverified';
+    endorsements: number;
+    certifications: SkillCertification[];
+}

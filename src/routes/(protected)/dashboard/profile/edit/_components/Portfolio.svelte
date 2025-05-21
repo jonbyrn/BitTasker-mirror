@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { publishEvent } from '$lib/utils/nostr';
-	import { getNostrProfileMetadata } from '$lib/utils/nostr-profile';
+	// import { getNostrProfileMetadata } from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
@@ -57,7 +57,7 @@
 	async function loadNostrPortfolio() {
 		if (!user?.pubkey) return;
 		try {
-			const nostrProfile = await getNostrProfileMetadata(user.pubkey);
+			/* const nostrProfile = await getNostrProfileMetadata(user.pubkey);
 			if (nostrProfile) {
 				const metadata = JSON.parse(nostrProfile.content);
 				if (metadata.portfolio) {
@@ -69,7 +69,7 @@
 						}))
 					}));
 				}
-			}
+			} */
 		} catch (err) {
 			console.error('Failed to load Nostr portfolio:', err);
 		}
