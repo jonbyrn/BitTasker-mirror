@@ -12,10 +12,15 @@ const pool = new SimplePool();
  */
 export async function getNostrProfileMetadata(pubkey: string): Promise<NostrEvent | null> {
 	try {
-		const events = await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
-			kinds: [0],
-			authors: [pubkey]
-		}]);
+		const events = await pool.list(
+			[PUBLIC_NOSTR_RELAY_URL],
+			[
+				{
+					kinds: [0],
+					authors: [pubkey]
+				}
+			]
+		);
 
 		return events[0] || null;
 	} catch (err) {
@@ -31,11 +36,16 @@ export async function getNostrProfileMetadata(pubkey: string): Promise<NostrEven
  */
 export async function getNostrSkills(pubkey: string): Promise<NostrEvent[]> {
 	try {
-		return await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
-			kinds: [30000],
-			authors: [pubkey],
-			'#t': ['skill']
-		}]);
+		return await pool.list(
+			[PUBLIC_NOSTR_RELAY_URL],
+			[
+				{
+					kinds: [30000],
+					authors: [pubkey],
+					'#t': ['skill']
+				}
+			]
+		);
 	} catch (err) {
 		console.error('Failed to fetch Nostr skills:', err);
 		return [];
@@ -49,11 +59,16 @@ export async function getNostrSkills(pubkey: string): Promise<NostrEvent[]> {
  */
 export async function getNostrPortfolio(pubkey: string): Promise<NostrEvent[]> {
 	try {
-		return await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
-			kinds: [30001],
-			authors: [pubkey],
-			'#t': ['portfolio']
-		}]);
+		return await pool.list(
+			[PUBLIC_NOSTR_RELAY_URL],
+			[
+				{
+					kinds: [30001],
+					authors: [pubkey],
+					'#t': ['portfolio']
+				}
+			]
+		);
 	} catch (err) {
 		console.error('Failed to fetch Nostr portfolio:', err);
 		return [];
@@ -67,11 +82,16 @@ export async function getNostrPortfolio(pubkey: string): Promise<NostrEvent[]> {
  */
 export async function getNostrProfileImages(pubkey: string): Promise<NostrEvent[]> {
 	try {
-		return await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
-			kinds: [1063],
-			authors: [pubkey],
-			'#t': ['profile']
-		}]);
+		return await pool.list(
+			[PUBLIC_NOSTR_RELAY_URL],
+			[
+				{
+					kinds: [1063],
+					authors: [pubkey],
+					'#t': ['profile']
+				}
+			]
+		);
 	} catch (err) {
 		console.error('Failed to fetch Nostr profile images:', err);
 		return [];
@@ -85,11 +105,16 @@ export async function getNostrProfileImages(pubkey: string): Promise<NostrEvent[
  */
 export async function getNostrPortfolioImages(pubkey: string): Promise<NostrEvent[]> {
 	try {
-		return await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
-			kinds: [1063],
-			authors: [pubkey],
-			'#t': ['portfolio']
-		}]);
+		return await pool.list(
+			[PUBLIC_NOSTR_RELAY_URL],
+			[
+				{
+					kinds: [1063],
+					authors: [pubkey],
+					'#t': ['portfolio']
+				}
+			]
+		);
 	} catch (err) {
 		console.error('Failed to fetch Nostr portfolio images:', err);
 		return [];
@@ -103,11 +128,16 @@ export async function getNostrPortfolioImages(pubkey: string): Promise<NostrEven
  */
 export async function getNostrCertifications(pubkey: string): Promise<NostrEvent[]> {
 	try {
-		return await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
-			kinds: [1063],
-			authors: [pubkey],
-			'#t': ['certification']
-		}]);
+		return await pool.list(
+			[PUBLIC_NOSTR_RELAY_URL],
+			[
+				{
+					kinds: [1063],
+					authors: [pubkey],
+					'#t': ['certification']
+				}
+			]
+		);
 	} catch (err) {
 		console.error('Failed to fetch Nostr certifications:', err);
 		return [];
@@ -121,14 +151,15 @@ export async function getNostrCertifications(pubkey: string): Promise<NostrEvent
  */
 export async function getNostrProfileData(pubkey: string) {
 	try {
-		const [metadata, skills, portfolio, profileImages, portfolioImages, certifications] = await Promise.all([
-			getNostrProfileMetadata(pubkey),
-			getNostrSkills(pubkey),
-			getNostrPortfolio(pubkey),
-			getNostrProfileImages(pubkey),
-			getNostrPortfolioImages(pubkey),
-			getNostrCertifications(pubkey)
-		]);
+		const [metadata, skills, portfolio, profileImages, portfolioImages, certifications] =
+			await Promise.all([
+				getNostrProfileMetadata(pubkey),
+				getNostrSkills(pubkey),
+				getNostrPortfolio(pubkey),
+				getNostrProfileImages(pubkey),
+				getNostrPortfolioImages(pubkey),
+				getNostrCertifications(pubkey)
+			]);
 
 		return {
 			metadata,
@@ -154,4 +185,4 @@ export async function getNostrProfileData(pubkey: string) {
 // Cleanup function to close pool
 export function cleanupNostrPool() {
 	pool.close([PUBLIC_NOSTR_RELAY_URL]);
-} 
+}

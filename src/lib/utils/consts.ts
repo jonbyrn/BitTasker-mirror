@@ -6,7 +6,8 @@ export const sections = [
 	{ id: 'create-task', label: 'Create', icon: 'ic:baseline-create' },
 	{ id: 'find-tasks', label: 'Find', icon: 'mdi:magnify' },
 	{ id: 'wallet', label: 'Wallet', icon: 'mdi:wallet' },
-	{ id: 'profile', label: 'Profile', icon: 'mdi:account' }
+	{ id: 'profile', label: 'Profile', icon: 'mdi:account' },
+	{ id: 'messages', label: 'Messages', icon: 'mdi:message' }
 ];
 
 /**
