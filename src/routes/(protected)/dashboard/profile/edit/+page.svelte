@@ -9,7 +9,12 @@
 	import Availability from './_components/Availability.svelte';
 	import StandardServices from './_components/StandardServices.svelte';
 	import AIAssistant from './_components/AIAssistant.svelte';
-	import { getNostrMetadata, mergeNostrAndGraphQLData, closeNostrPool } from '$lib/nostr/profile';
+	import {
+		getNostrMetadata,
+		mergeNostrAndGraphQLData,
+		closeNostrPool,
+		deleteNostrEvent
+	} from '$lib/nostr/profile';
 	import { onMount, onDestroy } from 'svelte';
 	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
 
@@ -36,10 +41,10 @@
 	// Load profile data
 	onMount(async () => {
 		try {
-			isLoading = true;
+			/* isLoading = true;
 			// Load Nostr events
 			nostrEvents = await getNostrMetadata();
-			console.log({ nostrEvents });
+			console.log({ nostrEvents, length: nostrEvents.length });
 
 			// Load GraphQL data
 			const meStore = new MeStore();
@@ -50,8 +55,7 @@
 			if (initialUser) {
 				user = {
 					id: initialUser.id,
-					name: initialUser.name,
-					displayName: initialUser.displayName,
+					name: initialUser.name || initialUser.displayName,
 					email: initialUser.email,
 					dob: initialUser.dob,
 					biddingAllowed: initialUser.biddingAllowed,
@@ -68,11 +72,11 @@
 					username: initialUser.username
 				};
 
-				if (initialUser.profilePictureUrl) {
+				if (initialUser.profilePictureUrl && initialUser.profilePictureId) {
 					user.pictures = [
 						{
 							url: initialUser.profilePictureUrl,
-							alt: 'profile picture',
+							alt: 'main profile picture',
 							type: 'image',
 							key: initialUser.profilePictureId
 						}
@@ -80,13 +84,13 @@
 				}
 
 				// Subscribe to profile updates
-				cleanup = await subscribeToProfileUpdates(async (event) => {
+				cleanup = await subscribeToProfileUpdates((event) => {
 					try {
 						// Update nostrEvents with the new event
-						nostrEvents = [...nostrEvents.filter(e => e.id !== event.id), event];
-						
+						nostrEvents = [...nostrEvents.filter((e) => e.id !== event.id), event];
+
 						// Re-merge data with the updated nostrEvents
-						const mergedProfile = await mergeNostrAndGraphQLData(nostrEvents, user);
+						const mergedProfile = mergeNostrAndGraphQLData(nostrEvents, user);
 						user = { ...user, ...mergedProfile };
 					} catch (err) {
 						console.error('Failed to process profile update:', err);
@@ -94,21 +98,20 @@
 				});
 
 				// Initial merge
-				const mergedProfile = await mergeNostrAndGraphQLData(nostrEvents, user);
+				const mergedProfile = mergeNostrAndGraphQLData(nostrEvents, user);
 				user = { ...user, ...mergedProfile };
-			}
+			} */
 		} catch (err) {
 			console.error('Error loading profile:', err);
 			error = 'Failed to load profile data';
 		} finally {
-			console.log({ user });
 			isLoading = false;
 		}
 	});
 
 	// Cleanup on component destroy
 	onDestroy(() => {
-		if (cleanup) cleanup();
+		// if (cleanup) cleanup();
 		closeNostrPool();
 	});
 
@@ -149,10 +152,7 @@
 			<div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Personal Information</h2>
-					<PersonalInfo
-						bind:user
-						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
-					/>
+					<PersonalInfo onComplete={(completed) => handleSectionComplete('personalInfo', completed)} />
 				</div>
 			</div>
 

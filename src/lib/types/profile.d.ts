@@ -1,22 +1,21 @@
 // Types
-export interface NostrProfile {
-    name?: string;
-    displayName?: string;
-    about?: string;
-    picture?: string;
-    banner?: string;
-    website?: string;
-    nip05?: string;
-    lud16?: string;
-    professionalTitle?: string;
-    additionalPictures?: string[];
-}
-
 export interface NostrProfileImage {
     url: string;
     type: string;
     alt: string;
     key: string;
+}
+
+export interface NostrProfile {
+    name?: string;
+    displayName?: string;
+    about?: string;
+    pictures?: NostrProfileImage[];
+    banner?: string;
+    website?: string;
+    nip05?: string;
+    lud16?: string;
+    professionalTitle?: string;
 }
 
 export interface NostrSkill {
