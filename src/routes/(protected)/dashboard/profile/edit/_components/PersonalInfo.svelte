@@ -31,7 +31,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(async (event) => {
 			try {
-				console.log({ event });
 				// Handle profile metadata update
 				if (event.kind === 0) {
 					profileEventId = event.id;
@@ -57,16 +56,6 @@
 				error = 'Failed to connect to Nostr relay. Please try again later.';
 			}
 		});
-
-		/* // Fetch initial metadata
-		const events = await getNostrMetadata();
-		const latestImageEvent = events
-			.filter(e => e.kind === 1063)
-			.sort((a, b) => b.created_at - a.created_at)[0];
-		
-		if (latestImageEvent) {
-			imageEventId = latestImageEvent.id;
-		} */
 	});
 
 	// Cleanup subscription on component destroy
@@ -159,7 +148,7 @@
 		pictures = [...pictures, ...files];
 	}
 
-	// Remove profile picture
+	// TODO: Remove profile picture
 	function removePicture(index: number, file: File | string) {
 		if (typeof file === 'string') {
 			// remove images from nostr

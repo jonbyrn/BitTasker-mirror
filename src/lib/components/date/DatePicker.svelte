@@ -2,31 +2,48 @@
 	import { CalendarDate, type DateValue } from '@internationalized/date';
 	import { DatePicker } from 'bits-ui';
 
-	function convertDate(date: Date): CalendarDate | undefined {
+	function convertDate(date: Date | string): CalendarDate | undefined {
 		try {
 			if (!date) return undefined;
-			const [year, month, day] = date.toISOString().split('T')[0].split('-').map(Number);
+			const dateObj = typeof date === 'string' ? new Date(date) : date;
+			const [year, month, day] = dateObj.toISOString().split('T')[0].split('-').map(Number);
 			return new CalendarDate(year, month, day);
 		} catch (error) {
 			return undefined;
 		}
 	}
 
-	let { label = '', value = '', onChange } = $props();
+	let { label = '', value = '', minDate = '', maxDate = '', onChange } = $props();
 
-	let _value = $state(convertDate(new Date(value)));
+	let _value = $state(convertDate(value));
+	let _minDate = $state(convertDate(minDate));
+	let _maxDate = $state(convertDate(maxDate));
 
 	function onValueChange(value: DateValue | undefined) {
 		if (!value) return;
 		onChange?.(new Date(value.toString()).toISOString());
 	}
+
+	function isDateUnavailable(date: DateValue) {
+		if (_minDate && date.compare(_minDate) < 0) return true;
+		if (_maxDate && date.compare(_maxDate) > 0) return true;
+		return false;
+	}
 </script>
 
-<DatePicker.Root weekdayFormat="short" fixedWeeks={true} value={_value} {onValueChange}>
+<DatePicker.Root
+	weekdayFormat="short"
+	fixedWeeks={true}
+	value={_value}
+	{onValueChange}
+	minValue={_minDate}
+	maxValue={_maxDate}
+	{isDateUnavailable}
+>
 	<div class="flex w-full flex-col gap-1.5">
-		<DatePicker.Label class="block text-sm font-medium select-none">{label}</DatePicker.Label>
+		<DatePicker.Label class="label label-text block text-sm select-none">{label}</DatePicker.Label>
 		<DatePicker.Input
-			class="h-input border-border-input bg-background text-foreground focus-within:border-border-input-hover focus-within:shadow-date-field-focus hover:border-border-input-hover flex w-full items-center rounded-lg border px-2 py-3 text-sm tracking-[0.01em] select-none"
+			class="h-input input input-bordered bg-base-100 flex w-full items-center rounded-lg px-2 py-3 text-sm ring-0 outline-none select-none"
 		>
 			{#snippet children({ segments })}
 				{#each segments as { part, value }}

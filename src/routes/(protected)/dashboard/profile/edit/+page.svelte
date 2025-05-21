@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { NostrEvent } from 'nostr-tools';
-	import { MeStore } from '$houdini';
+	import { closeNostrPool } from '$lib/nostr/profile';
+	import { onMount, onDestroy } from 'svelte';
 	import PersonalInfo from './_components/PersonalInfo.svelte';
 	import LocationService from './_components/LocationService.svelte';
 	import Skills from './_components/Skills.svelte';
@@ -9,21 +10,11 @@
 	import Availability from './_components/Availability.svelte';
 	import StandardServices from './_components/StandardServices.svelte';
 	import AIAssistant from './_components/AIAssistant.svelte';
-	import {
-		getNostrMetadata,
-		mergeNostrAndGraphQLData,
-		closeNostrPool,
-		deleteNostrEvent
-	} from '$lib/nostr/profile';
-	import { onMount, onDestroy } from 'svelte';
-	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
 
 	// States
 	let user = $state<any>(null);
-	let nostrEvents = $state<NostrEvent[]>([]);
 	let isLoading = $state(true);
 	let error = $state('');
-	let cleanup: (() => void) | null = null;
 	let completedSections = $state({
 		personalInfo: false,
 		location: false,
@@ -152,26 +143,28 @@
 			<div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Personal Information</h2>
-					<PersonalInfo onComplete={(completed) => handleSectionComplete('personalInfo', completed)} />
+					<PersonalInfo
+						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
+					/>
 				</div>
 			</div>
 
 			<!-- Location & Service Area -->
 			<!-- <div class="card bg-base-100 shadow-lg">
-      <div class="card-body">
-        <h2 class="card-title">Location & Service Area</h2>
-        <LocationService 
-          user={$userStore.data?.me}
-          onComplete={(completed) => handleSectionComplete('location', completed)}
-        />
-      </div>
-    </div> -->
+				<div class="card-body">
+					<h2 class="card-title">Location & Service Area</h2>
+					<LocationService
+						user={$userStore.data?.me}
+						onComplete={(completed) => handleSectionComplete('location', completed)}
+					/>
+				</div>
+			</div> -->
 
 			<!-- Skills -->
 			<div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Skills & Expertise</h2>
-					<Skills {user} onComplete={(completed) => handleSectionComplete('skills', completed)} />
+					<Skills onComplete={(completed) => handleSectionComplete('skills', completed)} />
 				</div>
 			</div>
 
