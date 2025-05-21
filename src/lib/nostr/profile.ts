@@ -86,6 +86,63 @@ export async function subscribeToProfileUpdates(callback: (event: NostrEvent) =>
 }
 
 /**
+ * Publish a profile metadata event to Nostr with improved error handling and retries
+ */
+export async function publishProfileMetadata(
+    metadata: NostrProfile,
+    images: NostrProfileImage[],
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): Promise<NostrEvent> {
+    // Create metadata event
+    const event: Partial<NostrEvent> = {
+        kind: 0,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify(metadata),
+        tags: []
+    };
+
+    const signedEvent = await getSignedEvent(event);
+
+    try {
+        // Publish with timeout and retry logic
+        const maxRetries = 3;
+        const timeout = 5000; // 5 seconds
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const publishPromises = relays.map(relay =>
+                    new Promise<void>((resolve, reject) => {
+                        const pub = pool.publish([relay], signedEvent);
+                        const timeoutId = setTimeout(() => {
+                            reject(new Error(`Publish to ${relay} timed out`));
+                        }, timeout);
+
+                        Promise.all(pub)
+                            .then(() => {
+                                clearTimeout(timeoutId);
+                                resolve();
+                            })
+                            .catch(reject);
+                    })
+                );
+
+                await Promise.all(publishPromises);
+                return signedEvent;
+            } catch (err) {
+                if (attempt === maxRetries) throw err;
+                console.warn(`Retry ${attempt} failed, retrying...`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+
+        throw new Error('Failed to publish after all retries');
+    } catch (error) {
+        console.error('Error publishing to relays:', error);
+        throw error;
+    }
+}
+
+/**
  * Fetches profile metadata for a given public key
  */
 export async function getNostrMetadata(relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent[]> {
@@ -197,70 +254,6 @@ export async function getNostrCertifications(pubkey: string): Promise<NostrEvent
 }
 
 /**
- * Publish a profile metadata event to Nostr with improved error handling and retries
- */
-export async function publishProfileMetadata(
-    metadata: NostrProfile,
-    images: NostrProfileImage[],
-    relays = [PUBLIC_NOSTR_RELAY_URL]
-): Promise<NostrEvent> {
-    // Create metadata event
-    const event: Partial<NostrEvent> = {
-        kind: 0,
-        created_at: Math.floor(Date.now() / 1000),
-        content: JSON.stringify(metadata),
-        tags: images
-            .filter(img => img.url)
-            .flatMap(img => [
-                ['url', img.url],
-                ['m', img.type || 'image/jpeg'],
-                ['alt', img.alt || ''],
-                ['x', img.key]
-            ])
-    };
-
-    const signedEvent = await getSignedEvent(event);
-
-    try {
-        // Publish with timeout and retry logic
-        const maxRetries = 3;
-        const timeout = 5000; // 5 seconds
-
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                const publishPromises = relays.map(relay =>
-                    new Promise<void>((resolve, reject) => {
-                        const pub = pool.publish([relay], signedEvent);
-                        const timeoutId = setTimeout(() => {
-                            reject(new Error(`Publish to ${relay} timed out`));
-                        }, timeout);
-
-                        Promise.all(pub)
-                            .then(() => {
-                                clearTimeout(timeoutId);
-                                resolve();
-                            })
-                            .catch(reject);
-                    })
-                );
-
-                await Promise.all(publishPromises);
-                return signedEvent;
-            } catch (err) {
-                if (attempt === maxRetries) throw err;
-                console.warn(`Retry ${attempt} failed, retrying...`);
-                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-            }
-        }
-
-        throw new Error('Failed to publish after all retries');
-    } catch (error) {
-        console.error('Error publishing to relays:', error);
-        throw error;
-    }
-}
-
-/**
  * Publish a profile metadata event to Nostr
  */
 export async function publishNostrProfile(profile: NostrProfile, privateKeyHex: string): Promise<void> {
@@ -311,15 +304,58 @@ export async function publishNostrProfileImage(image: NostrProfileImage, private
 }
 
 /**
+ * Publish mutliple profile images
+ * @param images 
+ * @param eventId 
+ * @param relays 
+ * @returns 
+ */
+export async function publishMultipleImages(images: NostrProfileImage[], eventId: string | null, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<string[]> {
+    try {
+        let event: Partial<NostrEvent>;
+        if (eventId) {
+            event = {
+                kind: 30063, // Replaceable event for profile images
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['d', 'profile-images'] // Identifier for this replaceable event
+                ],
+                content: JSON.stringify(images)
+            };
+        } else {
+            event = {
+                kind: 1063,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['d', 'profile-images']
+                ],
+                content: JSON.stringify(images)
+            };
+        }
+
+        if (!event) {
+            throw new Error('Event is undefined');
+        }
+
+        const signedEvent = await getSignedEvent(event);
+        const pub = await Promise.all(pool.publish(relays, signedEvent));
+
+        return pub;
+    } catch (error) {
+        console.error('Error publishing multiple images:', error);
+        throw error;
+    }
+}
+
+/**
  * Merge GraphQL and Nostr profile data
  */
 export function mergeNostrAndGraphQLData(nostrData: NostrEvent[], graphqlData: any): NostrProfile {
     // Start with GraphQL data as base
     const baseProfile: NostrProfile = {
         name: graphqlData?.name,
-        displayName: graphqlData?.displayName,
         about: graphqlData?.about,
-        picture: graphqlData?.picture,
+        pictures: graphqlData?.pictures,
         website: graphqlData?.website,
         professionalTitle: graphqlData?.professionalTitle
     };
@@ -334,9 +370,8 @@ export function mergeNostrAndGraphQLData(nostrData: NostrEvent[], graphqlData: a
                     ...nostrProfile,
                     // Keep GraphQL data if Nostr data is empty/undefined
                     name: nostrProfile.name || baseProfile.name,
-                    displayName: nostrProfile.displayName || baseProfile.displayName,
                     about: nostrProfile.about || baseProfile.about,
-                    picture: nostrProfile.picture || baseProfile.picture,
+                    pictures: nostrProfile.pictures || baseProfile.pictures,
                     website: nostrProfile.website || baseProfile.website,
                     professionalTitle: nostrProfile.professionalTitle || baseProfile.professionalTitle
                 });
@@ -348,14 +383,49 @@ export function mergeNostrAndGraphQLData(nostrData: NostrEvent[], graphqlData: a
         // Handle additional pictures from NIP-94 events
         const imageEvents = nostrData.filter(event => event.kind === 1063);
         if (imageEvents.length > 0) {
-            baseProfile.additionalPictures = imageEvents.map(event => {
+            baseProfile.pictures = imageEvents.map(event => {
                 const urlTag = event.tags.find(tag => tag[0] === 'url');
-                return urlTag ? urlTag[1] : '';
-            }).filter(Boolean);
+                return urlTag ? {
+                    url: urlTag[1],
+                    type: event.tags.find(tag => tag[0] === 'm')?.[1] || 'image/jpeg',
+                    alt: event.tags.find(tag => tag[0] === 'alt')?.[1] || '',
+                    key: event.tags.find(tag => tag[0] === 'x')?.[1] || ''
+                } : null;
+            }).filter(Boolean) as NostrProfileImage[];
         }
     }
 
     return baseProfile;
+}
+
+/**
+ * Delete a Nostr event by its ID
+ * @param eventId The ID of the event to delete
+ * @param relays Optional array of relay URLs
+ */
+export async function deleteNostrEvent(eventId: string, eventKind?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+    try {
+        const npub = await getNpub();
+        if (!npub) {
+            console.error('No public key found');
+            return;
+        }
+
+        const event: Partial<NostrEvent> = {
+            kind: 5, // Event deletion (NIP-09)
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['e', eventId], ['k', eventKind || '']], // Reference to the event being deleted
+            content: 'Delete previous profile images',
+            pubkey: npub
+        };
+
+        const signedEvent = await getSignedEvent(event);
+        console.log({ signedEvent });
+        await Promise.all(pool.publish(relays, signedEvent));
+    } catch (error) {
+        console.error('Error deleting Nostr event:', error);
+        throw error;
+    }
 }
 
 // Cleanup function
