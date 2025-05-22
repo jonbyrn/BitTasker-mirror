@@ -1,8 +1,12 @@
 <script lang="ts">
-	import type { Skill, SkillCertification } from '$lib/types/profile.d';
+	import type { Skill } from '$lib/types/profile.d';
 	import { onMount, onDestroy } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
-	import { subscribeToSkillsUpdates, publishSkillsUpdate } from '$lib/nostr/profile';
+	import {
+		subscribeToSkillsUpdates,
+		publishSkillsUpdate,
+		uploadCertification
+	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
@@ -15,14 +19,20 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let selectedSkill = $state<Skill | null>(null);
-	let certificationName = $state('');
-	let certificationIssuer = $state('');
-	let certificationDate = $state('');
-	let certificationFile = $state<File | null>(null);
-	let pendingCertifications = $state<{ file: File; skillName: string }[]>([]);
 	let hasUnsavedChanges = $state(false);
 	let isAddingCertificate = $state(false);
 	let cleanup: (() => void) | null = null;
+	let certification = $state<{
+		name: string;
+		issuer: string;
+		date: string;
+		file: File | null;
+	}>({
+		name: '',
+		issuer: '',
+		date: '',
+		file: null
+	});
 
 	// Subscribe to skills updates
 	onMount(async () => {
@@ -76,51 +86,56 @@
 	// Handle certification file upload
 	function handleCertificationUpload(files: File[]) {
 		if (!files.length) return;
-		certificationFile = files[0];
+		certification.file = files[0];
 	}
 
 	// Add certification to skill
-	function addCertification() {
-		if (
-			!selectedSkill ||
-			!certificationName ||
-			!certificationIssuer ||
-			!certificationDate ||
-			!certificationFile
-		) {
-			error = 'Please fill in all certification fields';
-			return;
+	async function addCertification() {
+		try {
+			if (
+				!selectedSkill ||
+				!certification.name ||
+				!certification.issuer ||
+				!certification.date ||
+				!certification.file
+			) {
+				error = 'Please fill in all certification fields';
+				return;
+			}
+
+			// Upload certification file and create Nostr event with all certification data
+			const certResult = await uploadCertification({
+				skillName: selectedSkill.name,
+				name: certification.name,
+				issuer: certification.issuer,
+				date: certification.date,
+				file: certification.file
+			});
+
+			// Update the selected skill with just the reference to the certification
+			skills = skills.map((skill) =>
+				skill === selectedSkill
+					? {
+							...skill,
+							certifications: [...skill.certifications, certResult]
+						}
+					: skill
+			);
+
+			// Reset form
+			certification = {
+				name: '',
+				issuer: '',
+				date: '',
+				file: null
+			};
+			selectedSkill = null;
+			hasUnsavedChanges = true;
+			isAddingCertificate = false;
+		} catch (err) {
+			console.error('Failed to add certification:', err);
+			error = err instanceof Error ? err.message : 'Failed to add certification';
 		}
-
-		const certification: SkillCertification = {
-			name: certificationName,
-			issuer: certificationIssuer,
-			date: certificationDate,
-			file: certificationFile,
-			verified: false
-		};
-
-		// Add to pending certifications
-		pendingCertifications = [
-			...pendingCertifications,
-			{ file: certificationFile, skillName: selectedSkill.name }
-		];
-
-		// Update the selected skill with new certification
-		skills = skills.map((skill) =>
-			skill === selectedSkill
-				? { ...skill, certifications: [...skill.certifications, certification] }
-				: skill
-		);
-
-		// Reset form
-		certificationName = '';
-		certificationIssuer = '';
-		certificationDate = '';
-		certificationFile = null;
-		selectedSkill = null;
-		hasUnsavedChanges = true;
-		isAddingCertificate = false;
 	}
 
 	// Save all changes
@@ -129,12 +144,8 @@
 			isLoading = true;
 			error = '';
 
-			console.log({ skills, pendingCertifications });
-			return;
-			await publishSkillsUpdate(skills, pendingCertifications);
-
-			// Clear pending certifications after successful save
-			pendingCertifications = [];
+			// Publish skills update
+			await publishSkillsUpdate(skills);
 			hasUnsavedChanges = false;
 
 			appStore.showSuccessToast('Skills updated successfully!');
@@ -287,7 +298,7 @@
 										<input
 											type="text"
 											id="certificationName"
-											bind:value={certificationName}
+											bind:value={certification.name}
 											class="input input-bordered w-full"
 											placeholder="e.g. AWS Certified Developer"
 											required
@@ -302,7 +313,7 @@
 										<input
 											type="text"
 											id="certificationIssuer"
-											bind:value={certificationIssuer}
+											bind:value={certification.issuer}
 											class="input input-bordered w-full"
 											placeholder="e.g. Amazon Web Services"
 											required
@@ -313,10 +324,10 @@
 									<div class="form-control">
 										<DatePicker
 											label="Issue Date"
-											value={certificationDate}
+											value={certification.date}
 											maxDate={new Date().toISOString()}
 											onChange={(value: string) => {
-												certificationDate = value;
+												certification.date = value;
 											}}
 										/>
 									</div>
@@ -331,7 +342,7 @@
 											label="Upload Certificate"
 											maxFiles={1}
 											customClass="w-full"
-											files={certificationFile ? [certificationFile] : undefined}
+											files={certification.file ? [certification.file] : undefined}
 											onChange={handleCertificationUpload}
 										/>
 									</div>
@@ -343,10 +354,10 @@
 											class="btn btn-primary btn-sm"
 											onclick={addCertification}
 											disabled={isLoading ||
-												!certificationName ||
-												!certificationIssuer ||
-												!certificationDate ||
-												!certificationFile}
+												!certification.name ||
+												!certification.issuer ||
+												!certification.date ||
+												!certification.file}
 										>
 											{#if isLoading}
 												<span class="loading loading-spinner"></span>
