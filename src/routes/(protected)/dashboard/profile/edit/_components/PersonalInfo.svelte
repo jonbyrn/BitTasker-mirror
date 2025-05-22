@@ -44,12 +44,14 @@
 				else if (event.kind === 1063) {
 					imageEventId = event.id; // Store the event ID
 					const images = JSON.parse(event.content);
-					pictures = images.map((img: NostrProfileImage) => ({
-						url: img.url,
-						type: img.type || 'image/jpeg',
-						alt: img.alt || '',
-						key: img.key
-					}));
+					if (images.length > 0) {
+						pictures = images.map((img: NostrProfileImage) => ({
+							url: img.url,
+							type: img.type || 'image/jpeg',
+							alt: img.alt || '',
+							key: img.key
+						}));
+					}
 				}
 			} catch (err) {
 				console.error('Failed to process profile update:', err);

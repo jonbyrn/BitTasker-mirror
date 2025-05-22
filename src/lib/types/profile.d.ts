@@ -53,11 +53,13 @@ export interface NostrProfileData {
  * Interface for skill certifications
  */
 export interface SkillCertification {
+    skillName: string;
     name: string;
     issuer: string;
     date: string;
-    file: { key: string; url: string } | File;
     verified: boolean;
+    fileUrl: string;
+    eventId?: string;
 }
 
 /**

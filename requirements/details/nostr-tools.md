@@ -988,4 +988,151 @@ pool.subscribe([relay], {
         handleDeletions(deletedIds);
     }
 });
-``` 
+```
+
+### Event Kind Selection Guide
+
+#### Understanding Event Kinds
+
+Event kinds in Nostr serve different purposes based on their number ranges:
+
+1. **Basic Events (0-9)**
+   - Core protocol events
+   - Example: kind 0 for metadata, kind 1 for notes
+   - Permanent, non-replaceable events
+
+2. **Regular Events (1000-9999)**
+   - Application-specific data
+   - Permanent, non-replaceable events
+   - Used for immutable records and file metadata
+
+3. **Replaceable Events (10000-19999)**
+   - Single-instance replaceable events
+   - Latest event replaces all previous ones
+   - Used for user preferences and settings
+
+4. **Ephemeral Events (20000-29999)**
+   - Short-lived events
+   - Not meant to be stored long-term
+   - Used for temporary or real-time data
+
+5. **Parameterized Replaceable Events (30000-39999)**
+   - Multi-instance replaceable events
+   - Latest event replaces previous ones with same parameters
+   - Used for user-specific data sets
+
+#### Choosing Event Kinds: Decision Framework
+
+1. **Data Permanence**
+   - Immutable data → Regular events (1000-9999)
+   - Updatable data → Replaceable events (10000+ or 30000+)
+   - Temporary data → Ephemeral events (20000-29999)
+
+2. **Update Pattern**
+   - Single latest version needed → Replaceable events (10000-19999)
+   - Multiple instances with parameters → Parameterized replaceable (30000-39999)
+   - Historical record needed → Regular events (1000-9999)
+
+3. **Storage Requirements**
+   - Long-term storage → Regular or replaceable events
+   - Temporary storage → Ephemeral events
+   - Version history needed → Regular events
+
+#### Example: Skills and Certifications Implementation
+
+Here's a real-world example of choosing event kinds:
+
+1. **Skills List (Kind 30000)**
+   ```typescript
+   const skillsEvent = {
+       kind: 30000,
+       tags: [['d', 'skills'], ['t', 'skill']],
+       content: JSON.stringify(skills)
+   };
+   ```
+   - Why Kind 30000?
+     - Parameterized replaceable event
+     - Only latest version matters
+     - Single source of truth for current skills
+     - No need for version history
+
+2. **Certifications (Kind 1063)**
+   ```typescript
+   const certEvent = {
+       kind: 1063,
+       tags: [
+           ['d', 'certifications'],
+           ['t', 'certification'],
+           ['skill', skillName]
+       ],
+       content: JSON.stringify(certificationData)
+   };
+   ```
+   - Why Kind 1063?
+     - Regular event for file metadata
+     - Certifications are immutable records
+     - Historical record is important
+     - Each certification is a separate verifiable document
+
+#### Best Practices for Event Kind Selection
+
+1. **Use Regular Events (1000-9999) When:**
+   - Data needs to be immutable
+   - Historical record is important
+   - Each event is unique and permanent
+   - Example: Certifications, achievements, transactions
+
+2. **Use Replaceable Events (10000-19999) When:**
+   - Only the latest version matters
+   - Single instance per user needed
+   - Previous versions can be discarded
+   - Example: User preferences, profile settings
+
+3. **Use Parameterized Replaceable Events (30000-39999) When:**
+   - Multiple replaceable instances needed
+   - Data is organized by parameters
+   - Latest version per parameter matters
+   - Example: Skills lists, custom lists, categorized data
+
+4. **Use Ephemeral Events (20000-29999) When:**
+   - Data is temporary
+   - Real-time updates needed
+   - Storage is not critical
+   - Example: Online status, temporary notifications
+
+#### Implementation Considerations
+
+1. **Event Relationships**
+   ```typescript
+   // Link events using tags
+   const event = {
+       tags: [
+           ['e', relatedEventId],  // Reference another event
+           ['p', pubkey],          // Reference a user
+           ['d', identifier]       // Parameter for replaceable events
+       ]
+   };
+   ```
+
+2. **Data Organization**
+   ```typescript
+   // Group related data in replaceable events
+   const event = {
+       kind: 30000,
+       tags: [
+           ['d', 'category'],      // Parameter
+           ['t', 'type'],         // Type identifier
+           ['version', '1.0']     // Optional metadata
+       ]
+   };
+   ```
+
+3. **Version Management**
+   ```typescript
+   // Handle updates appropriately
+   const sub = pool.subscribe(relays, {
+       kinds: [30000],            // Replaceable events
+       '#d': ['identifier'],      // Specific parameter
+       authors: [pubkey]          // Specific user
+   });
+   ``` 
