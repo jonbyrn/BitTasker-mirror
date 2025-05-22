@@ -52,7 +52,9 @@ const createAppStore = () => {
 		const currentState = get(store);
 		if (currentState.biometricData) return currentState.biometricData;
 
-		const { checkBiometricAvailability, getBiometricData } = await import('$lib/utils/helpers/biometrics');
+		const { checkBiometricAvailability, getBiometricData } = await import(
+			'$lib/utils/helpers/biometrics'
+		);
 
 		const isBiometricAvailable = await checkBiometricAvailability();
 

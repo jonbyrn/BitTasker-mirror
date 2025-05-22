@@ -3,7 +3,6 @@
 	import { fetchProfileMetadata, getMessagedPeople } from '$lib/utils/nostr-message';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { getNostrProfileMetadata } from '$lib/utils/nostr-profile';
 	import { nip19 } from 'nostr-tools';
 
 	// State
