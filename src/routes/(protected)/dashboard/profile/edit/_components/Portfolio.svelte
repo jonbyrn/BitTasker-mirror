@@ -1,129 +1,132 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { publishEvent } from '$lib/utils/nostr';
-	// import { getNostrProfileMetadata } from '$lib/nostr/profile';
+	import { onDestroy, onMount } from 'svelte';
+	import { appStore } from '$lib/stores/app.store';
+	import type { PortfolioItem, NostrProfileImage, Skill } from '$lib/types/profile.d';
+	import {
+		subscribeToPortfolioUpdates,
+		publishPortfolioItem,
+		deletePortfolioItem,
+		subscribeToSkillsUpdates,
+		publishMultipleImages,
+		subscribeToProfileUpdates,
+		_subscribeToProfileUpdates
+	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	interface PortfolioItem {
-		id: string;
-		title: string;
-		description: string;
-		category: string;
-		completionDate: string;
-		images: Array<{
-			url: string;
-			key: string;
-			isPrimary: boolean;
-			eventId?: string;
-			type?: string;
-		}>;
-		skills: string[];
-		clientTestimonial?: {
-			name: string;
-			rating: number;
-			text: string;
-		};
-	}
-
 	let { user, onComplete } = $props<{
-		user: { portfolio?: Array<PortfolioItem> | null } | null | undefined;
+		user: { pubkey?: string } | null | undefined;
 		onComplete: (completed: boolean) => void;
 	}>();
 
 	// Local state
-	let portfolioItems = $state<PortfolioItem[]>(user?.portfolio || []);
+	let portfolioItems = $state<PortfolioItem[]>([]);
 	let title = $state('');
 	let description = $state('');
 	let category = $state('');
 	let completionDate = $state('');
 	let selectedSkills = $state<string[]>([]);
-	let images: Array<{ 
-		url: string; 
-		key: string; 
-		isPrimary: boolean; 
-		eventId?: string;
-		type?: string;
-	}> = $state([]);
+	let userSkills = $state<Skill[]>([]);
+	let images = $state<(NostrProfileImage | File)[]>([]);
 	let isLoading = $state(false);
 	let error = $state('');
 	let editingItem = $state<PortfolioItem | null>(null);
-
-	// Load Nostr portfolio data
-	onMount(() => {
-		loadNostrPortfolio();
+	let successMessage = $state('');
+	let skills = $state<Skill[]>([]);
+	let events = $state<{
+		portfolio: string | null;
+		images: string | null;
+		skills: string | null;
+	}>({
+		portfolio: null,
+		images: null,
+		skills: null
 	});
 
-	async function loadNostrPortfolio() {
+	// Subscribe to portfolio and skills updates
+	let unsubscribePortfolio: (() => void) | undefined;
+	let unsubscribeSkills: (() => void) | undefined;
+	let cleanup: (() => void) | null = null;
+
+	/* async function setupSubscriptions() {
 		if (!user?.pubkey) return;
-		try {
-			/* const nostrProfile = await getNostrProfileMetadata(user.pubkey);
-			if (nostrProfile) {
-				const metadata = JSON.parse(nostrProfile.content);
-				if (metadata.portfolio) {
-					portfolioItems = metadata.portfolio.map((item: any) => ({
-						...item,
-						images: item.images.map((img: any) => ({
-							...img,
-							isPrimary: img.isPrimary || false
-						}))
-					}));
+
+		unsubscribePortfolio = await subscribeToPortfolioUpdates((items) => {
+			portfolioItems = items;
+		});
+
+		unsubscribeSkills = await subscribeToSkillsUpdates((skills) => {
+			userSkills = skills;
+		});
+	} */
+
+	onMount(async () => {
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				console.log('event', event, event.kind);
+				try {
+					if (event.kind === 30001) {
+						events.portfolio = event.id;
+						portfolioItems = JSON.parse(event.content);
+					} else if (event.kind === 1063 || event.kind === 30063) {
+						events.images = event.id;
+						images = JSON.parse(event.content);
+					} else if (event.kind === 30000) {
+						events.skills = event.id;
+						skills = JSON.parse(event.content);
+					}
+				} catch (err) {
+					console.error('Failed to subscribe to portfolio updates:', err);
 				}
-			} */
-		} catch (err) {
-			console.error('Failed to load Nostr portfolio:', err);
-		}
-	}
+			},
+			{
+				30001: { d: 'portfolio' },
+				1063: { d: 'portfolio-images' }
+				// 30063: { 'd': 'portfolio-images' },
+				// 30000: { 't': 'skills' }
+			}
+		);
 
-	// Handle image upload with Nostr
+		/* setupSubscriptions();
+
+		return () => {
+			if (unsubscribePortfolio) unsubscribePortfolio();
+			if (unsubscribeSkills) unsubscribeSkills();
+		}; */
+	});
+
+	onDestroy(() => {
+		if (cleanup) cleanup();
+		if (unsubscribePortfolio) unsubscribePortfolio();
+		if (unsubscribeSkills) unsubscribeSkills();
+	});
+
+	// Handle image upload
 	async function handleImageUpload(files: File[]) {
-		if (!files.length) return;
-
-		try {
-			isLoading = true;
-			error = '';
-
-			// 1. Upload files to media server
-			const uploadPromises = files.map((file) => uploadService.uploadSingleFile(file, 'portfolio'));
-			const uploadedFiles = await Promise.all(uploadPromises);
-
-			// 2. Create Nostr events for each image
-			const imageEvents = await Promise.all(
-				uploadedFiles.map(async (file, index) => {
-					const imageEvent = {
-						kind: 1063,
-						created_at: Math.floor(Date.now() / 1000),
-						tags: [
-							['url', file.url],
-							['m', file.type || 'image/jpeg'],
-							['alt', 'Portfolio image'],
-							['t', 'portfolio']
-						],
-						content: 'Portfolio image'
-					};
-					const signedEvent = await publishEvent(imageEvent);
-					return {
-						url: file.url,
-						key: file.key,
-						isPrimary: index === 0,
-						eventId: signedEvent.id,
-						type: file.type
-					};
-				})
-			);
-
-			// 3. Update local state
-			images = [...images, ...imageEvents];
-		} catch (err) {
-			console.error('File upload failed:', err);
-			error = 'Failed to upload images. Please try again.';
-		} finally {
-			isLoading = false;
-		}
+		images = [...images, ...files];
 	}
 
-	// Add portfolio item with Nostr
-	async function addPortfolioItem() {
+	const uploadImages = async (pictures: (NostrProfileImage | File)[]) => {
+		const uploadPromises = pictures?.map(async (picture, index) => {
+			if (picture instanceof File) {
+				const uploadResult = await uploadService.uploadSingleFile(picture, 'portfolio');
+				return {
+					key: uploadResult.key,
+					url: uploadResult.url,
+					type: picture.type,
+					alt: picture.name,
+					isPrimary: index === 0
+				};
+			} else {
+				return picture;
+			}
+		});
+
+		return Promise.all(uploadPromises);
+	};
+
+	// Add or update portfolio item
+	async function handleSubmit() {
 		if (!title || !description || !category || !completionDate || images.length === 0) {
 			error = 'Please fill in all required fields and add at least one image';
 			return;
@@ -133,70 +136,63 @@
 			isLoading = true;
 			error = '';
 
-			const newItem: PortfolioItem = {
-				id: crypto.randomUUID(),
+			// const uploadedImages = await uploadImages(images);
+			await publishMultipleImages(
+				[
+					{
+						key: 'portfolio/1747948929920-10586a274a71f2dd.png',
+						url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/portfolio/1747948929920-10586a274a71f2dd.png',
+						type: 'image/png',
+						alt: 'bugati bolide.png',
+						isPrimary: true
+					}
+				],
+				events.images,
+				'portfolio-images'
+			);
+			return;
+
+			const item: PortfolioItem = {
 				title,
 				description,
 				category,
 				completionDate,
-				images,
 				skills: selectedSkills
 			};
 
-			// Create Nostr event for portfolio item
-			const portfolioEvent = {
-				kind: 30001, // Using parameterized replaceable event
-				content: JSON.stringify(newItem),
-				created_at: Math.floor(Date.now() / 1000),
-				tags: [
-					['d', `portfolio-${newItem.id}`],
-					['t', 'portfolio'],
-					...images.map(img => ['e', img.eventId!, 'image']),
-					...selectedSkills.map(skill => ['t', skill])
-				]
-			};
+			if (editingItem?.id) {
+				item.id = editingItem.id;
+			}
 
-			await publishEvent(portfolioEvent);
+			await publishPortfolioItem(item);
 
-			// Update local state
-			portfolioItems = [newItem, ...portfolioItems];
+			// Show success message
+			successMessage = editingItem
+				? 'Portfolio item updated successfully!'
+				: 'Portfolio item added successfully!';
 
 			// Reset form
-			title = '';
-			description = '';
-			category = '';
-			completionDate = '';
-			selectedSkills = [];
-			images = [];
+			resetForm();
 		} catch (err) {
-			console.error('Failed to add portfolio item:', err);
-			error = err instanceof Error ? err.message : 'Failed to add portfolio item';
+			console.error('Failed to save portfolio item:', err);
+			error = err instanceof Error ? err.message : 'Failed to save portfolio item';
 		} finally {
 			isLoading = false;
 		}
 	}
 
-	// Remove portfolio item with Nostr
-	async function removePortfolioItem(id: string) {
+	// Remove portfolio item
+	async function removePortfolioItem(item: PortfolioItem) {
 		try {
 			isLoading = true;
 			error = '';
 
-			// Create deletion event
-			const deleteEvent = {
-				kind: 5,
-				content: '',
-				created_at: Math.floor(Date.now() / 1000),
-				tags: [
-					['d', `portfolio-${id}`],
-					['t', 'portfolio']
-				]
-			};
-
-			await publishEvent(deleteEvent);
-
-			// Update local state
-			portfolioItems = portfolioItems.filter(item => item.id !== id);
+			await deletePortfolioItem(
+				item.id,
+				item.images?.map((img) => img.key)
+			);
+			successMessage = 'Portfolio item deleted successfully!';
+			setTimeout(() => (successMessage = ''), 3000);
 		} catch (err) {
 			console.error('Failed to remove portfolio item:', err);
 			error = err instanceof Error ? err.message : 'Failed to remove portfolio item';
@@ -205,71 +201,12 @@
 		}
 	}
 
-	// Update portfolio item with Nostr
-	async function updatePortfolioItem(item: PortfolioItem) {
-		try {
-			isLoading = true;
-			error = '';
-
-			// Create update event
-			const updateEvent = {
-				kind: 30001,
-				content: JSON.stringify(item),
-				created_at: Math.floor(Date.now() / 1000),
-				tags: [
-					['d', `portfolio-${item.id}`],
-					['t', 'portfolio'],
-					...item.images.map(img => ['e', img.eventId!, 'image']),
-					...item.skills.map(skill => ['t', skill])
-				]
-			};
-
-			await publishEvent(updateEvent);
-
-			// Update local state
-			portfolioItems = portfolioItems.map(i => i.id === item.id ? item : i);
-			editingItem = null;
-		} catch (err) {
-			console.error('Failed to update portfolio item:', err);
-			error = err instanceof Error ? err.message : 'Failed to update portfolio item';
-		} finally {
-			isLoading = false;
-		}
-	}
-
-	// Available categories
-	const categories = [
-		'Web Development',
-		'Mobile Apps',
-		'Design',
-		'Writing',
-		'Video Production',
-		'Photography',
-		'Marketing',
-		'Business',
-		'Other'
-	];
-
-	// Track form completion
-	$effect(() => {
-		const isComplete = portfolioItems.length > 0;
-		onComplete(isComplete);
-	});
-
 	// Set primary image
 	function setPrimaryImage(index: number) {
-		images = images.map((img, i) => ({
+		images = images?.map((img, i) => ({
 			...img,
 			isPrimary: i === index
 		}));
-	}
-
-	// Remove image
-	function removeImage(index: number) {
-		images = images.filter((_, i) => i !== index);
-		if (images.length > 0 && !images.some((img) => img.isPrimary)) {
-			images[0].isPrimary = true;
-		}
 	}
 
 	// Edit portfolio item
@@ -295,38 +232,16 @@
 		error = '';
 	}
 
-	// Save portfolio
-	async function handleSubmit() {
-		try {
-			isLoading = true;
-			error = '';
-
-			// Update profile using GraphQL
-			const result = await profileStore.mutate({
-				input: {
-					portfolio: portfolioItems
-				}
-			});
-
-			if (result.errors) {
-				throw new Error(result.errors[0].message);
-			}
-
-			// Show success message
-			const toast = document.getElementById('portfolio-toast-success');
-			if (toast) toast.style.display = 'block';
-		} catch (err) {
-			console.error('Portfolio update failed:', err);
-			error = err instanceof Error ? err.message : 'Failed to update portfolio';
-		} finally {
-			isLoading = false;
-		}
-	}
+	// Track form completion
+	$effect(() => {
+		const isComplete = portfolioItems.length > 0;
+		onComplete(isComplete);
+	});
 </script>
 
 <div class="space-y-8">
 	<!-- Portfolio Form -->
-	<div class="card border-base-300 border rounded-xl p-4">
+	<div class="card border-base-300 rounded-xl border p-4">
 		<h3 class="mb-4 text-lg font-medium">
 			{editingItem ? 'Edit Portfolio Item' : 'Add Portfolio Item'}
 		</h3>
@@ -357,7 +272,7 @@
 				<textarea
 					id="description"
 					bind:value={description}
-					class="textarea textarea-bordered rounded-xl h-32 w-full"
+					class="textarea textarea-bordered h-32 w-full rounded-xl"
 					placeholder="Describe your project, your role, and the outcomes..."
 					required
 				></textarea>
@@ -371,8 +286,8 @@
 				</label>
 				<select id="category" bind:value={category} class="select select-bordered w-full" required>
 					<option value="">Select a category</option>
-					{#each categories as cat}
-						<option value={cat}>{cat}</option>
+					{#each $appStore.categories as cat}
+						<option value={cat.name}>{cat.name}</option>
 					{/each}
 				</select>
 			</div>
@@ -397,23 +312,27 @@
 				<label class="label" for="skills">
 					<span class="label-text font-medium">Skills Used</span>
 				</label>
-				<input
-					type="text"
+				<select
 					id="skills"
-					placeholder="Type a skill and press Enter"
-					class="input input-bordered w-full"
-					onkeydown={(e) => {
-						if (e.key === 'Enter') {
-							e.preventDefault();
-							const input = e.target as HTMLInputElement;
-							const skill = input.value.trim();
-							if (skill && !selectedSkills.includes(skill)) {
-								selectedSkills = [...selectedSkills, skill];
-								input.value = '';
-							}
+					class="select select-bordered w-full"
+					onchange={(e) => {
+						const select = e.target as HTMLSelectElement;
+						const skill = select.value;
+						if (skill && !selectedSkills?.includes(skill)) {
+							selectedSkills = [...selectedSkills, skill];
+							select.value = '';
 						}
 					}}
-				/>
+				>
+					<option value="">Select a skill</option>
+					{#if userSkills}
+						{#each userSkills as skill}
+							{#if !selectedSkills?.includes(skill.name)}
+								<option value={skill.name}>{skill.name}</option>
+							{/if}
+						{/each}
+					{/if}
+				</select>
 				{#if selectedSkills.length > 0}
 					<div class="mt-2 flex flex-wrap gap-2">
 						{#each selectedSkills as skill}
@@ -436,7 +355,7 @@
 			<!-- Images -->
 			<div class="form-control space-y-2">
 				<div>
-					<span class="text-base-content/80 font-medium block">Project Images</span>
+					<span class="text-base-content/80 block font-medium">Project Images</span>
 					<span class="text-base-content/70 block">Required • First image will be primary</span>
 				</div>
 
@@ -444,7 +363,7 @@
 					id="portfolioImages"
 					label="Add Images"
 					maxFiles={10}
-					files={images.map((img) => img.url)}
+					files={images?.map((img) => (img instanceof File ? img : img.url))}
 					onChange={handleImageUpload}
 				/>
 			</div>
@@ -456,12 +375,19 @@
 				</div>
 			{/if}
 
+			<!-- Success Message -->
+			{#if successMessage}
+				<div class="alert alert-success">
+					<span>{successMessage}</span>
+				</div>
+			{/if}
+
 			<!-- Form Actions -->
 			<div class="flex justify-end gap-2">
 				{#if editingItem}
 					<button class="btn btn-ghost" onclick={resetForm}> Cancel </button>
 				{/if}
-				<button class="btn btn-primary" onclick={addPortfolioItem} disabled={isLoading}>
+				<button class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{/if}
@@ -477,11 +403,12 @@
 			{#each portfolioItems as item}
 				<div class="card bg-base-100 shadow-lg">
 					<figure>
-						<img
+						<!-- <img
 							src={item.images.find((img) => img.isPrimary)?.url || item.images[0].url}
 							alt={item.title}
 							class="h-48 w-full object-cover"
-						/>
+						/> -->
+						test image
 					</figure>
 					<div class="card-body">
 						<h2 class="card-title">{item.title}</h2>
@@ -489,14 +416,16 @@
 
 						<div class="mt-4 flex flex-wrap gap-2">
 							<span class="badge badge-ghost">{item.category}</span>
-							{#each item.skills as skill}
-								<span class="badge badge-primary badge-outline">{skill}</span>
-							{/each}
+							{#if item.skills}
+								{#each item.skills as skill}
+									<span class="badge badge-primary badge-outline">{skill}</span>
+								{/each}
+							{/if}
 						</div>
 
 						<div class="card-actions mt-4 justify-end">
 							<button class="btn btn-ghost btn-sm" onclick={() => editItem(item)}> Edit </button>
-							<button class="btn btn-error btn-sm" onclick={() => removePortfolioItem(item.id)}>
+							<button class="btn btn-error btn-sm" onclick={() => removePortfolioItem(item)}>
 								Remove
 							</button>
 						</div>
@@ -509,20 +438,6 @@
 			<span>No portfolio items yet. Add some projects to showcase your work.</span>
 		</div>
 	{/if}
-
-	<!-- Save Button -->
-	<div class="flex justify-end">
-		<button
-			class="btn btn-primary"
-			onclick={handleSubmit}
-			disabled={isLoading || portfolioItems.length === 0}
-		>
-			{#if isLoading}
-				<span class="loading loading-spinner"></span>
-			{/if}
-			Save Portfolio
-		</button>
-	</div>
 </div>
 
 <!-- Success Toast -->

@@ -4,6 +4,7 @@ export interface NostrProfileImage {
     type: string;
     alt: string;
     key: string;
+    isPrimary?: boolean;
 }
 
 export interface NostrProfile {
@@ -71,4 +72,13 @@ export interface Skill {
     verificationStatus: 'pending' | 'verified' | 'unverified';
     endorsements: number;
     certifications: SkillCertification[];
+}
+
+export interface PortfolioItem {
+    id?: string;
+    title: string;
+    description: string;
+    category: string;
+    completionDate: string;
+    skills: string[];
 }

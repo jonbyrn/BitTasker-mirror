@@ -6,7 +6,7 @@ The profile management system in BitTasker is built using SvelteKit for the fron
 
 ## Frontend Implementation
 
-### 1. Profile Component Structure
+### Component Structure
 ```typescript
 src/routes/profile/
 ├── +page.svelte           // Main profile page
@@ -22,80 +22,191 @@ src/routes/profile/
 │   └── AIAssistant.svelte
 ```
 
-## Hybrid Nostr Implementation
+## Nostr Implementation
 
-### 1. Profile Data Flow
-```typescript
-// Profile data flow architecture
-src/lib/nostr/
-├── profile.ts       // Nostr profile management
-├── events.ts        // Event handling utilities
-└── media.ts         // Media handling for Nostr
+### Profile Sections
 
-// Profile loading sequence:
-1. Load initial data from GraphQL
-2. Fetch Nostr profile data
-3. Merge and display combined data
-4. Save updates only to Nostr
-```
+#### 1. Personal Information
 
-### 2. Profile Image Handling
-- Images are first uploaded to a secure media server
-- Image URLs are then included in Nostr events using NIP-94 media tags
-- Multiple profile images supported through separate events
-- Image metadata stored using tags:
-```typescript
-tags: [
-  ["url", imageUrl],
-  ["m", "image/jpeg"],
-  ["alt", "Profile picture"],
-  ["blurhash", imageHash],
-  ["thumb", thumbnailUrl]
-]
-```
+- **Event Kind**: 0 (Metadata)
+- **Content**: JSON object containing basic profile information
+- **Implementation**: Uses replaceable events to store and update user metadata
+- **Fields**:
+  - name
+  - displayName
+  - about
+  - pictures (array of profile images)
+  - banner
+  - website
+  - nip05
+  - lud16
+  - professionalTitle
+- **Image Handling**:
+  ```typescript
+  tags: [
+    ["url", imageUrl],
+    ["m", "image/jpeg"],
+    ["alt", "Profile picture"],
+    ["blurhash", imageHash],
+    ["thumb", thumbnailUrl]
+  ]
+  ```
 
-### 3. Component Integration
-Each profile component integrates with Nostr:
+#### 2. Skills & Certifications
 
-- **PersonalInfo.svelte**
-  - Uses Kind 0 events for basic profile metadata
-  - Handles multiple profile images
-  - Manages contact information
-
-- **ServiceSkills.svelte**
-  - Uses parameterized replaceable events (Kind 30000-39999)
-  - Tags for skill categories and proficiency levels
-
-- **Portfolio.svelte**
-  - Uses Kind 1 events for portfolio items
-  - Media attachments via NIP-94
-  - Project categorization through tags
-
-- **Availability.svelte**
-  - Uses Kind 31000 for availability schedules
-  - Timezone and scheduling preferences
-
-- **PricingCard.svelte**
-  - Uses Kind 32000 for service pricing
-  - Currency and payment method tags
-
-### 4. Error Handling
-```typescript
-try {
-  // Attempt Nostr operation
-  await nostrOperation();
-} catch (err) {
-  if (err instanceof NostrConnectionError) {
-    // Handle connection issues
-  } else if (err instanceof NostrValidationError) {
-    // Handle validation errors
-  } else {
-    // Handle unexpected errors
+- **Event Kind**: 30000 (Replaceable)
+- **Content**: JSON array of skills with proficiency levels
+- **Tags**: 
+  - `t`: ['skill']
+- **Related Events**:
+  - **Certifications**: Kind 1063 with `t`: ['certification']
+  - Links certifications to skills using the `skill` tag
+- **Implementation**:
+  - Skills are stored as a replaceable event
+  - Certifications are stored as separate media events
+  - Real-time subscription for updates
+  - Verification system for certifications
+- **Data Structure**:
+  ```typescript
+  interface Skill {
+    name: string;
+    level: number;
+    verificationStatus: 'pending' | 'verified' | 'unverified';
+    endorsements: number;
+    certifications: SkillCertification[];
   }
-}
-```
+  ```
 
-### 5. Migration Strategy
+#### 3. Portfolio
+
+- **Event Kind**: 30001 (Replaceable)
+- **Content**: JSON object containing portfolio item details
+- **Tags**:
+  - `d`: ['portfolio-{id}'] (for unique identification)
+  - `t`: ['portfolio']
+  - `e`: ['{imageEventId}', 'image'] (references to image events)
+  - `t`: ['{skillName}'] (skills used in the project)
+- **Related Events**:
+  - **Images**: Kind 1063 with `t`: ['portfolio']
+- **Implementation**:
+  - Each portfolio item is a replaceable event
+  - Images are stored as separate media events
+  - Real-time subscription for updates
+  - Primary image selection
+  - Deletion using Kind 5 events
+
+#### 4. Availability
+
+- **Event Kind**: 31000 (Replaceable)
+- **Content**: JSON object containing availability schedule
+- **Tags**:
+  - `d`: ['availability']
+  - `t`: ['schedule']
+- **Implementation**:
+  - Weekly recurring schedule
+  - Time zone handling
+  - Buffer time settings
+  - Break time settings
+- **Data Structure**:
+  ```typescript
+  interface Availability {
+    timezone: string;
+    weeklySchedule: {
+      [day: string]: {
+        available: boolean;
+        slots: Array<{
+          start: string;
+          end: string;
+        }>;
+      };
+    };
+    bufferTime: number;
+    breakTime: number;
+  }
+  ```
+
+#### 5. Pricing
+
+- **Event Kind**: 32000 (Replaceable)
+- **Content**: JSON object containing service pricing
+- **Tags**:
+  - `d`: ['pricing']
+  - `t`: ['service-rate']
+  - `currency`: ['USD', 'EUR', etc.]
+- **Implementation**:
+  - Hourly rates
+  - Package pricing
+  - Currency preferences
+  - Payment method preferences
+- **Data Structure**:
+  ```typescript
+  interface Pricing {
+    hourlyRate: number;
+    currency: string;
+    packages: Array<{
+      name: string;
+      description: string;
+      hours: number;
+      price: number;
+      features: string[];
+    }>;
+    paymentMethods: string[];
+  }
+  ```
+
+#### 6. Location
+
+- **Event Kind**: 33000 (Replaceable)
+- **Content**: JSON object containing location preferences
+- **Tags**:
+  - `d`: ['location']
+  - `t`: ['work-location']
+- **Implementation**:
+  - Work location preferences
+  - Remote work settings
+  - Time zone information
+  - Travel preferences
+- **Data Structure**:
+  ```typescript
+  interface Location {
+    preferredLocations: string[];
+    remoteWork: boolean;
+    travelPreferences: {
+      willing: boolean;
+      radius: number;
+      unit: 'km' | 'mi';
+    };
+  }
+  ```
+
+### Common Features
+
+#### Image Handling
+- Uses Kind 1063 events for media metadata
+- Images are uploaded to a media server
+- Event tags include:
+  - `url`: Direct link to the image
+  - `m`: MIME type
+  - `alt`: Alternative text
+  - `t`: Context tag (e.g., 'portfolio', 'certification')
+
+#### Real-time Updates
+- Uses SimplePool for efficient relay connections
+- Implements subscription system for live updates
+- Handles both initial data load and real-time changes
+
+#### Data Management
+- Uses replaceable events for updateable content
+- Maintains references between related events using tags
+- Implements proper cleanup on component unmount
+
+#### Error Handling
+- Implements retry logic for failed operations
+- Provides user feedback for success/failure
+- Maintains data consistency across operations
+
+### Migration Strategy
+
 1. **Phase 1: Dual Read**
    - Read from both GraphQL and Nostr
    - Display merged data
@@ -145,19 +256,44 @@ try {
    - Booking integration
    - Schedule synchronization
 
-## Future Enhancements
+## Best Practices
 
-1. **AI Features**
-   - Enhanced profile recommendations
-   - Automated skill verification
-   - Content moderation
+1. **Event Organization**
+   - Use appropriate event kinds for different data types
+   - Maintain clear relationships using tags
+   - Use replaceable events for updateable content
 
-2. **Analytics**
-   - Profile completion metrics
-   - Engagement tracking
-   - Performance analytics
+2. **Data Consistency**
+   - Validate data before publishing
+   - Handle race conditions in real-time updates
+   - Implement proper cleanup
 
-3. **Social Features**
-   - Skill endorsements
-   - Professional networking
-   - Reputation system
+3. **User Experience**
+   - Provide immediate feedback for actions
+   - Handle loading states appropriately
+   - Implement proper error handling
+
+4. **Performance**
+   - Optimize image uploads
+   - Use efficient data structures
+   - Implement proper caching strategies
+
+## Future Improvements
+
+1. **Verification System**
+   - Implement NIP-05 verification
+   - Add certification verification
+   - Support third-party verifications
+
+2. **Data Backup**
+   - Implement local caching
+   - Add export/import functionality
+   - Support multiple relay redundancy
+
+3. **Enhanced Features**
+   - Add portfolio analytics
+   - Implement social sharing
+   - Add collaborative features
+   - AI-powered profile optimization
+   - Enhanced skill recommendations
+   - Automated content moderation 

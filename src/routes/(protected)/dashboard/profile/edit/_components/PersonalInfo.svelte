@@ -29,35 +29,38 @@
 
 	// Subscribe to profile updates
 	onMount(async () => {
-		cleanup = await subscribeToProfileUpdates(async (event) => {
-			try {
-				// Handle profile metadata update
-				if (event.kind === 0) {
-					profileEventId = event.id;
-					const metadata = JSON.parse(event.content);
-					displayName = metadata.displayName || displayName;
-					professionalTitle = metadata.professionalTitle || professionalTitle;
-					profileDescription = metadata.about || profileDescription;
-					website = metadata.website || website;
-				}
-				// Handle image metadata update
-				else if (event.kind === 1063) {
-					imageEventId = event.id; // Store the event ID
-					const images = JSON.parse(event.content);
-					if (images.length > 0) {
-						pictures = images.map((img: NostrProfileImage) => ({
-							url: img.url,
-							type: img.type || 'image/jpeg',
-							alt: img.alt || '',
-							key: img.key
-						}));
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				try {
+					// Handle profile metadata update
+					if (event.kind === 0) {
+						profileEventId = event.id;
+						const metadata = JSON.parse(event.content);
+						displayName = metadata.displayName || displayName;
+						professionalTitle = metadata.professionalTitle || professionalTitle;
+						profileDescription = metadata.about || profileDescription;
+						website = metadata.website || website;
 					}
+					// Handle image metadata update
+					else if (event.kind === 1063) {
+						imageEventId = event.id; // Store the event ID
+						const images = JSON.parse(event.content);
+						if (images.length > 0) {
+							pictures = images.map((img: NostrProfileImage) => ({
+								url: img.url,
+								type: img.type || 'image/jpeg',
+								alt: img.alt || '',
+								key: img.key
+							}));
+						}
+					}
+				} catch (err) {
+					console.error('Failed to process profile update:', err);
+					error = 'Failed to connect to Nostr relay. Please try again later.';
 				}
-			} catch (err) {
-				console.error('Failed to process profile update:', err);
-				error = 'Failed to connect to Nostr relay. Please try again later.';
-			}
-		});
+			},
+			[0, 1063] // Kind 0 for metadata, 1063 for media metadata
+		);
 	});
 
 	// Cleanup subscription on component destroy
@@ -124,7 +127,7 @@
 			];
 
 			// Publish new images event, passing the existing event ID if we have one
-			await publishMultipleImages(uploadedPictures, imageEventId);
+			await publishMultipleImages(uploadedPictures, imageEventId, 'profile-images');
 
 			// Prepare profile data
 			const profileData: NostrProfile = {
