@@ -8,6 +8,8 @@ import type {
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
+import type { NDKRawEvent } from '@nostr-dev-kit/ndk';
+import type { NostrEvent } from '$lib/types/nostr';
 
 /**
  * Authentication Service
@@ -16,23 +18,18 @@ import type { OnboardingRequest, OnboardingResponse } from '../types';
 export class AuthService extends BaseApiService {
 	/**
 	 * Login with Nostr
-	 * @param pubkey User's public key
+	 * @param event Nostr event
 	 * @param challenge Login challenge
-	 * @param signature Signed login challenge
 	 * @returns Promise with the login response
 	 * @throws {Error} 400 - No account associated with Nostr key or missing data
 	 * @throws {Error} 401 - Invalid signature or unauthorized access
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async loginWithNostr(
-		pubkey: string,
-		challenge: string,
-		signature: string
-	): Promise<{ access_token: string; user: UserData }> {
+	async loginWithNostr(event: NostrEvent , challenge: string): Promise<{ access_token: string; user: UserData }> {
 		try {
 			const response = await this.post<{ access_token: string; user: UserData }>(
 				ENDPOINTS.AUTH.NOSTR_LOGIN,
-				{ pubkey, challenge, signature }
+				{ event, challenge }
 			);
 			return response.data;
 		} catch (error: any) {
