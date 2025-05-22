@@ -30,12 +30,27 @@
 	let error = $state('');
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
 
+	// Pagination state
+	let isLoadingMore = $state(false);
+	let hasMoreMessages = $state(true);
+	let oldestMessageTimestamp = $state<number | null>(null);
+	let isNearTop = $state(false);
+
+	// Draft persistence state
+	let draftSaveTimeout: NodeJS.Timeout | null = null;
+	let lastSavedDraft = $state('');
+
 	// References
 	let messagesContainer: HTMLDivElement;
 	let messageInput: HTMLTextAreaElement;
 
 	// Real-time subscription
 	let unsubscribe: (() => void) | null = null;
+
+	// Configuration
+	const MESSAGES_PER_PAGE = 50;
+	const SCROLL_THRESHOLD = 200; // pixels from top to trigger load more
+	const DRAFT_SAVE_DELAY = 1000; // milliseconds to wait before saving draft
 
 	// Convert pubkeys to display format
 	const currentUserHex = $derived(() => {
@@ -58,11 +73,16 @@
 		}
 	});
 
+	// Draft persistence key
+	const draftKey = $derived(() => `chat_draft_${currentUserHex()}_${recipientHex()}`);
+
 	// Load messages when recipient changes
 	$effect(() => {
 		if (recipientPubkey) {
+			resetPagination();
 			loadMessages();
 			setupRealtimeListener();
+			loadDraft();
 		}
 
 		// Cleanup on recipient change
@@ -74,10 +94,35 @@
 		};
 	});
 
-	// Auto-scroll to bottom when new messages arrive
+	// Auto-save draft when message text changes
 	$effect(() => {
-		if (messages.length > 0 && messagesContainer) {
+		if (newMessageText !== lastSavedDraft && recipientPubkey) {
+			saveDraftDebounced();
+		}
+	});
+
+	// Auto-scroll to bottom when new messages arrive (but not when loading more)
+	$effect(() => {
+		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
 			scrollToBottom();
+		}
+	});
+
+	// Monitor scroll position for infinite scroll
+	$effect(() => {
+		if (messagesContainer) {
+			const handleScroll = () => {
+				const { scrollTop } = messagesContainer;
+				isNearTop = scrollTop < SCROLL_THRESHOLD;
+
+				// Trigger load more when near top and not already loading
+				if (isNearTop && hasMoreMessages && !isLoadingMore && !isLoadingMessages) {
+					loadMoreMessages();
+				}
+			};
+
+			messagesContainer.addEventListener('scroll', handleScroll);
+			return () => messagesContainer.removeEventListener('scroll', handleScroll);
 		}
 	});
 
@@ -86,18 +131,92 @@
 		if (unsubscribe) {
 			unsubscribe();
 		}
+		if (draftSaveTimeout) {
+			clearTimeout(draftSaveTimeout);
+		}
+		// Save any pending draft before unmounting
+		saveDraft();
 	});
+
+	// --- Draft persistence functions ---
+	function loadDraft() {
+		try {
+			const saved = localStorage.getItem(draftKey());
+			if (saved && saved.trim()) {
+				newMessageText = saved;
+				lastSavedDraft = saved;
+			}
+		} catch (error) {
+			console.error('Failed to load draft:', error);
+		}
+	}
+
+	function saveDraft() {
+		if (!recipientPubkey) return;
+
+		try {
+			if (newMessageText.trim()) {
+				localStorage.setItem(draftKey(), newMessageText);
+				lastSavedDraft = newMessageText;
+			} else {
+				// Clear empty drafts
+				localStorage.removeItem(draftKey());
+				lastSavedDraft = '';
+			}
+		} catch (error) {
+			console.error('Failed to save draft:', error);
+		}
+	}
+
+	function saveDraftDebounced() {
+		if (draftSaveTimeout) {
+			clearTimeout(draftSaveTimeout);
+		}
+
+		draftSaveTimeout = setTimeout(() => {
+			saveDraft();
+		}, DRAFT_SAVE_DELAY);
+	}
+
+	function clearDraft() {
+		try {
+			localStorage.removeItem(draftKey());
+			lastSavedDraft = '';
+		} catch (error) {
+			console.error('Failed to clear draft:', error);
+		}
+	}
+
+	// --- Existing functions ---
+	function resetPagination() {
+		messages = [];
+		isLoadingMore = false;
+		hasMoreMessages = true;
+		oldestMessageTimestamp = null;
+		isNearTop = false;
+	}
 
 	async function loadMessages() {
 		isLoadingMessages = true;
 		error = '';
 
 		try {
-			// Fetch message history
-			const messageHistory = await getMessageHistory(recipientHex(), { limit: 50 });
+			// Fetch initial message history
+			const messageHistory = await getMessageHistory(recipientHex(), {
+				limit: MESSAGES_PER_PAGE
+			});
 
 			// Sort messages by timestamp (oldest first)
-			messages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
+			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
+			messages = sortedMessages;
+
+			// Update pagination state
+			if (sortedMessages.length > 0) {
+				oldestMessageTimestamp = sortedMessages[0].event.created_at;
+				hasMoreMessages = sortedMessages.length === MESSAGES_PER_PAGE;
+			} else {
+				hasMoreMessages = false;
+			}
 
 			// Fetch recipient profile if not provided
 			if (!initialProfile || (!initialProfile.name && !initialProfile.picture)) {
@@ -113,6 +232,52 @@
 			console.error('Error loading messages:', err);
 		} finally {
 			isLoadingMessages = false;
+		}
+	}
+
+	async function loadMoreMessages() {
+		if (!hasMoreMessages || isLoadingMore || !oldestMessageTimestamp) return;
+
+		isLoadingMore = true;
+		const previousScrollHeight = messagesContainer.scrollHeight;
+
+		try {
+			// Fetch older messages using the oldest timestamp as 'until'
+			const olderMessages = await getMessageHistory(recipientHex(), {
+				limit: MESSAGES_PER_PAGE,
+				until: oldestMessageTimestamp - 1 // Subtract 1 to exclude the oldest message we already have
+			});
+
+			if (olderMessages.length > 0) {
+				// Sort and prepend older messages
+				const sortedOlderMessages = olderMessages.sort(
+					(a, b) => a.event.created_at - b.event.created_at
+				);
+				messages = [...sortedOlderMessages, ...messages];
+
+				// Update oldest timestamp
+				oldestMessageTimestamp = sortedOlderMessages[0].event.created_at;
+
+				// Check if we have more messages to load
+				hasMoreMessages = olderMessages.length === MESSAGES_PER_PAGE;
+
+				// Preserve scroll position
+				setTimeout(() => {
+					if (messagesContainer) {
+						const newScrollHeight = messagesContainer.scrollHeight;
+						const scrollDiff = newScrollHeight - previousScrollHeight;
+						messagesContainer.scrollTop += scrollDiff;
+					}
+				}, 0);
+			} else {
+				hasMoreMessages = false;
+			}
+		} catch (err) {
+			console.error('Error loading more messages:', err);
+			// Don't show error for pagination failures, just stop trying
+			hasMoreMessages = false;
+		} finally {
+			isLoadingMore = false;
 		}
 	}
 
@@ -152,8 +317,9 @@
 		isSendingMessage = true;
 
 		try {
-			// Clear the input immediately for better UX
+			// Clear the input and draft immediately for better UX
 			newMessageText = '';
+			clearDraft();
 
 			// Send the message - real-time listener will add it to the UI
 			await sendDirectMessage(messageContent, recipientHex());
@@ -193,6 +359,16 @@
 	function handleSubmit(event: Event) {
 		event.preventDefault();
 		sendMessage();
+	}
+
+	// Manual load more function for explicit "Load More" button
+	function handleLoadMore() {
+		loadMoreMessages();
+	}
+
+	// Handle input changes for draft saving
+	function handleInputChange() {
+		// The $effect will handle saving the draft automatically
 	}
 </script>
 
@@ -250,34 +426,70 @@
 				</svg>
 				<span>{error}</span>
 			</div>
-		{:else if messages.length === 0}
-			<!-- Empty State -->
-			<div class="flex flex-col items-center justify-center py-8 text-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-base-content/30 mb-4 h-12 w-12"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-					/>
-				</svg>
-				<p class="text-base-content/60">No messages yet. Start the conversation!</p>
-			</div>
 		{:else}
-			<!-- Messages List -->
-			{#each messages as message}
-				<ChatMessage
-					{message}
-					isSender={message.senderPubkey === currentUserHex()}
-					profile={message.senderPubkey === currentUserHex() ? { name: 'You' } : recipientProfile}
-				/>
-			{/each}
+			<!-- Load More Section (shown at top when more messages available) -->
+			{#if hasMoreMessages}
+				<div class="flex justify-center py-2">
+					{#if isLoadingMore}
+						<div class="text-base-content/60 flex items-center gap-2 text-sm">
+							<div class="loading loading-spinner loading-sm"></div>
+							Loading older messages...
+						</div>
+					{:else}
+						<button
+							class="btn btn-ghost btn-sm"
+							onclick={handleLoadMore}
+							aria-label="Load older messages"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 15l7-7 7 7"
+								/>
+							</svg>
+							Load older messages
+						</button>
+					{/if}
+				</div>
+			{/if}
+
+			{#if messages.length === 0}
+				<!-- Empty State -->
+				<div class="flex flex-col items-center justify-center py-8 text-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content/30 mb-4 h-12 w-12"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+						/>
+					</svg>
+					<p class="text-base-content/60">No messages yet. Start the conversation!</p>
+				</div>
+			{:else}
+				<!-- Messages List -->
+				{#each messages as message}
+					<ChatMessage
+						{message}
+						isSender={message.senderPubkey === currentUserHex()}
+						profile={message.senderPubkey === currentUserHex() ? { name: 'You' } : recipientProfile}
+					/>
+				{/each}
+			{/if}
 		{/if}
 	</div>
 
@@ -289,6 +501,7 @@
 					bind:this={messageInput}
 					bind:value={newMessageText}
 					onkeydown={handleKeyPress}
+					oninput={handleInputChange}
 					class="textarea textarea-bordered w-full resize-none"
 					placeholder="Type a message..."
 					rows="1"
