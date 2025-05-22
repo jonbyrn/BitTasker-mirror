@@ -140,14 +140,14 @@
 		<!-- Profile Sections -->
 		<div class="space-y-4">
 			<!-- Personal Information -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
+			<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Personal Information</h2>
 					<PersonalInfo
 						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
 					/>
 				</div>
-			</div>
+			</div> -->
 
 			<!-- Location & Service Area -->
 			<!-- <div class="card bg-base-100 shadow-lg">
@@ -161,12 +161,12 @@
 			</div> -->
 
 			<!-- Skills -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
+			<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Skills & Expertise</h2>
 					<Skills onComplete={(completed) => handleSectionComplete('skills', completed)} />
 				</div>
-			</div>
+			</div> -->
 
 			<!-- Portfolio -->
 			<div class="card bg-base-100 rounded-xl shadow-lg">
