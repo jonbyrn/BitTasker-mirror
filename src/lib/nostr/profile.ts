@@ -93,7 +93,7 @@ export async function _subscribeToProfileUpdates(callback: (event: NostrEvent) =
  * @returns Cleanup function to unsubscribe
  */
 export async function subscribeToProfileUpdates(
-    callback: (event: NostrEvent) => void, 
+    callback: (event: NostrEvent) => void,
     kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined },
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<() => void> {
@@ -140,7 +140,7 @@ export async function subscribeToProfileUpdates(
             }
 
             // Create separate subscriptions for each filter
-            const subs = filters.map(filter => 
+            const subs = filters.map(filter =>
                 pool.subscribe(relays, filter, {
                     onevent(event: NostrEvent) {
                         callback(event);
@@ -270,8 +270,7 @@ export async function publishMultipleImages(images: NostrProfileImage[], eventId
         }
 
         const signedEvent = await getSignedEvent(event);
-        console.log('signedEvent', signedEvent);
-        
+
         const pub = await Promise.all(pool.publish(relays, signedEvent));
 
         return pub;
@@ -303,7 +302,6 @@ export async function deleteNostrEvent(eventId: string, eventKind?: string, rela
         };
 
         const signedEvent = await getSignedEvent(event);
-        console.log({ signedEvent });
         await Promise.all(pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Error deleting Nostr event:', error);
@@ -521,139 +519,11 @@ export async function uploadCertification(
 }
 
 /**
- * Subscribe to portfolio updates
- */
-export async function subscribeToPortfolioUpdates(
-    callback: (portfolio: PortfolioItem[]) => void,
-    relays = [PUBLIC_NOSTR_RELAY_URL]
-): Promise<() => void> {
-    try {
-        const npub = await getNpub();
-        if (!npub) {
-            console.error('No public key found');
-            return () => { };
-        }
-
-        // Subscribe to both portfolio and image events
-        const filter = {
-            authors: [npub],
-            kinds: [30001, 1063, 30000], // 30001 for portfolio items, 1063 for images, 30000 for skills
-            '#t': ['portfolio', 'skill'],
-            limit: 50
-        };
-
-        let currentPortfolio: PortfolioItem[] = [];
-        let portfolioImages: { [key: string]: NostrProfileImage } = {};
-
-        const sub = pool.subscribe(relays, filter, {
-            onevent(event) {
-                try {
-                    if (event.kind === 30001) {
-                        // Handle portfolio item update
-                        const itemData = JSON.parse(event.content);
-                        const itemId = event.tags.find(t => t[0] === 'd')?.[1];
-                        if (itemId) {
-                            // Update or add item
-                            const index = currentPortfolio.findIndex(item => item.id === itemId);
-                            if (index >= 0) {
-                                currentPortfolio[index] = itemData;
-                            } else {
-                                currentPortfolio.push(itemData);
-                            }
-                            callback(currentPortfolio);
-                        }
-                    } else if (event.kind === 1063) {
-                        // Handle portfolio image
-                        const imageUrl = event.tags.find(t => t[0] === 'url')?.[1];
-                        const imageAlt = event.tags.find(t => t[0] === 'alt')?.[1] || 'portfolio';
-                        const imageType = event.tags.find(t => t[0] === 'm')?.[1] || 'image/jpeg';
-
-                        if (imageUrl) {
-                            portfolioImages[event.id] = {
-                                url: imageUrl,
-                                key: event.id,
-                                alt: imageAlt,
-                                type: imageType,
-                                isPrimary: false
-                            };
-
-                            // Update portfolio items that reference this image
-                            currentPortfolio = currentPortfolio.map(item => ({
-                                ...item,
-                                imageEventId: event.id,
-                                /* images: item.images.map(img =>
-                                    img.key === event.id ? portfolioImages[event.id] : img
-                                ) */
-                            }));
-                            callback(currentPortfolio);
-                        }
-                    }
-                } catch (err) {
-                    console.error('Failed to process portfolio event:', err);
-                }
-            }
-        });
-
-        // Fetch initial state
-        /* const events = await pool.querySync(relays, filter);
-        if (events.length > 0) {
-            events.sort((a, b) => a.created_at - b.created_at).forEach(event => {
-                try {
-                    if (event.kind === 30001) {
-                        const itemData = JSON.parse(event.content);
-                        const itemId = event.tags.find(t => t[0] === 'd')?.[1];
-                        if (itemId) {
-                            const index = currentPortfolio.findIndex(item => item.id === itemId);
-                            if (index >= 0) {
-                                currentPortfolio[index] = itemData;
-                            } else {
-                                currentPortfolio.push(itemData);
-                            }
-                        }
-                    } else if (event.kind === 1063) {
-                        const imageUrl = event.tags.find(t => t[0] === 'url')?.[1];
-                        const imageAlt = event.tags.find(t => t[0] === 'alt')?.[1] || 'Portfolio image';
-                        const imageType = event.tags.find(t => t[0] === 'm')?.[1] || 'image/jpeg';
-                        
-                        if (imageUrl) {
-                            portfolioImages[event.id] = {
-                                url: imageUrl,
-                                key: event.id,
-                                alt: imageAlt,
-                                type: imageType,
-                                isPrimary: false
-                            };
-                        }
-                    }
-                } catch (err) {
-                    console.error('Failed to parse portfolio event:', err);
-                }
-            });
-
-            // Update portfolio items with image data
-            currentPortfolio = currentPortfolio.map(item => ({
-                ...item,
-                images: item.images.map(img => 
-                    portfolioImages[img.key] ? portfolioImages[img.key] : img
-                )
-            }));
-            callback(currentPortfolio);
-        } */
-
-        return () => {
-            sub.close();
-        };
-    } catch (err) {
-        console.error('Failed to setup portfolio subscription:', err);
-        return () => { };
-    }
-}
-
-/**
  * Publish a portfolio item
  */
 export async function publishPortfolioItem(
-    items: PortfolioItem,
+    item: PortfolioItem,
+    tags: string[][],
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<void> {
     try {
@@ -661,17 +531,15 @@ export async function publishPortfolioItem(
         const itemEvent = {
             kind: 30001,
             created_at: Math.floor(Date.now() / 1000),
-            tags: [
-                ['d', `portfolio`],
-                // ...item.images.map(img => ['e', img.key, 'image']),
-                ...items.skills.map(skill => ['t', skill])
-            ],
-            content: JSON.stringify(items)
+            tags,
+            // tags: [
+            //     ['d', identified || `portfolio-${Math.random().toString(36).substring(2)}`], // Generate unique d tag for each portfolio item
+            //     ...item.skills.map(skill => ['t', skill])
+            // ],
+            content: JSON.stringify(item)
         };
-        console.log('itemEvent', itemEvent);
 
         const signedEvent = await getSignedEvent(itemEvent);
-        console.log('signedEvent', signedEvent);
         await Promise.all(pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Failed to publish portfolio item:', error);
@@ -714,27 +582,25 @@ export async function publishPortfolioItem(
  * Delete a portfolio item
  */
 export async function deletePortfolioItem(
-    itemId: string,
-    imageKeys: string[],
+    id: string,
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<void> {
     try {
-        // Create deletion event for portfolio item
+        // Create deletion event according to NIP-09
         const deleteEvent = {
             kind: 5,
             created_at: Math.floor(Date.now() / 1000),
             tags: [
-                ['d', `portfolio-${itemId}`],
-                ['t', 'portfolio'],
-                ...imageKeys.map(key => ['e', key])
+                ['e', id], // Event being deleted
+                ['k', '30001'] // Kind of event being deleted
             ],
-            content: 'Delete portfolio item'
+            content: 'Portfolio item deleted' // Optional reason
         };
 
         const signedEvent = await getSignedEvent(deleteEvent);
         await Promise.all(pool.publish(relays, signedEvent));
     } catch (error) {
-        console.error('Failed to delete portfolio item:', error);
+        console.error('Error deleting portfolio item:', error);
         throw error;
     }
 }
