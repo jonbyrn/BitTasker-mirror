@@ -204,7 +204,7 @@
 		{#if isLoggedIn}
 			<!-- User is logged in: show profile or badge -->
 			<Avatar
-				user={{ name: $user.name, profileImage: null }}
+				user={{ name: $user?.name, profileImage: null }}
 				onClick={() => goto('/dashboard/profile')}
 			/>
 		{:else}

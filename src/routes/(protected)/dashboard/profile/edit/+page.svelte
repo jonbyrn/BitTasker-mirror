@@ -170,13 +170,7 @@
 
 			<!-- Portfolio -->
 			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Portfolio</h2>
-					<Portfolio
-						{user}
-						onComplete={(completed) => handleSectionComplete('portfolio', completed)}
-					/>
-				</div>
+				<Portfolio onComplete={(completed) => handleSectionComplete('portfolio', completed)} />
 			</div>
 
 			<!-- Video Introduction -->

@@ -180,6 +180,72 @@ const listingEvent = {
 };
 ```
 
+### Event Deletion (NIP-09)
+
+Event deletion in Nostr is handled through kind 5 events. These are deletion requests rather than actual deletions, as the decentralized nature of Nostr means events cannot be truly deleted from all relays.
+
+#### Deletion Event Structure
+```typescript
+const deletionEvent = {
+  kind: 5,
+  created_at: number,
+  tags: [
+    ["e", eventIdToDelete],  // Event reference to delete
+    ["k", eventKindToDelete] // Optional: kind of event being deleted
+  ],
+  content: string, // Optional reason for deletion
+  // ... other event fields
+};
+```
+
+#### Key Points About Deletion
+1. **Request Nature**: Deletion events are requests, not commands. Relays and clients may choose whether to honor them.
+2. **Validation**: Only the original event author can delete their events. Clients must verify the deletion event's pubkey matches the original event's pubkey.
+3. **Multiple Events**: A single deletion event can reference multiple events to delete using multiple "e" tags.
+4. **Parameterized Events**: For NIP-33 parameterized replaceable events, use the "a" tag to delete all versions:
+   ```typescript
+   ["a", "<kind>:<pubkey>:<d-identifier>"]
+   ```
+
+#### Example Usage
+```typescript
+// Create a deletion event
+const deletionEvent = {
+  kind: 5,
+  created_at: Math.floor(Date.now() / 1000),
+  tags: [
+    ["e", "event_id_to_delete"],
+    ["k", "1"] // Indicating we're deleting a kind 1 event
+  ],
+  content: "Deleting this post",
+  pubkey: myPubkey
+};
+
+// Sign and publish the deletion event
+const signedDeletionEvent = await window.nostr.signEvent(deletionEvent);
+await pool.publish(relays, signedDeletionEvent);
+```
+
+#### Client Implementation
+When implementing deletion in a client:
+1. Check for deletion events when fetching events:
+   ```typescript
+   // Subscribe to both the events and their potential deletion events
+   pool.subscribeMany(relays, [
+     { kinds: [1], limit: 50 }, // Original events
+     { kinds: [5], '#e': [event.id] } // Deletion events
+   ]);
+   ```
+
+2. Only display events that haven't been deleted:
+   ```typescript
+   // Verify deletion event author matches original event author
+   if (deletionEvent.pubkey === originalEvent.pubkey) {
+     // Hide or mark the event as deleted
+     event.deleted = true;
+   }
+   ```
+
 ### Event Kinds
 
 #### Regular Events (Stored by Relays)

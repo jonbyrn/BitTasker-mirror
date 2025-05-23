@@ -81,4 +81,6 @@ export interface PortfolioItem {
     category: string;
     completionDate: string;
     skills: string[];
+    images: NostrProfileImage[];
+    tags?: string[][];
 }
