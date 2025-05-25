@@ -12,14 +12,14 @@
 	let turnstileWidgetId: string | undefined;
 	let captchaFailed = $state(false);
 
-	onMount(async () => {
-		try {
-			// Setup callback for Turnstile
-			window.onloadTurnstileCallback = renderTurnstile;
-		} catch (err) {
-			console.error('Error checking authentication methods:', err);
-		}
-	});
+	// onMount(async () => {
+	// 	try {
+	// 		// Setup callback for Turnstile
+	// 		window.onloadTurnstileCallback = renderTurnstile;
+	// 	} catch (err) {
+	// 		console.error('Error checking authentication methods:', err);
+	// 	}
+	// });
 
 	// Render Turnstile widget
 	function renderTurnstile() {
@@ -94,13 +94,13 @@
 </script>
 
 <!-- Cloudflare Turnstile Script -->
-<svelte:head>
+<!-- <svelte:head>
 	<script
 		src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback"
 		async
 		defer
 	></script>
-</svelte:head>
+</svelte:head> -->
 
 <div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full p-4 shadow-xl">
@@ -169,7 +169,7 @@
 				<button
 					class="btn btn-primary"
 					onclick={() => goto('/auth/onboarding')}
-					disabled={isLoading || !$isCaptchaVerified}
+				
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
 						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">

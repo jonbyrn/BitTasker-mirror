@@ -38,7 +38,7 @@ export interface CreateTaskParams {
 
 export interface Task {
 	id: number;
-	clientId: number;
+	userProfileId: number;
 	title: string;
 	description: string;
 	budget: number;
@@ -47,7 +47,7 @@ export interface Task {
 	status: TaskStatusEnum;
 	taskType: TaskTypeEnum;
 	isRemovals: boolean;
-	isOwner?: boolean;
+	// isOwner?: boolean;
 	deadlineDate: string | null;
 	estimatedHours: number;
 	dateRange: DateRange | null;
