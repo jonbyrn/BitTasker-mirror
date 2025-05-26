@@ -4,7 +4,7 @@
 const config = {
 	watchSchema: {
 		// TODO: change to local graphql server while developing
-		url: 'http://localhost:8000/graph'
+		url: 'https://devbackend.production.bittasker.hedgehackers.finance/graph'
 	},
 	runtimeDir: '.houdini',
 	plugins: {

@@ -29,9 +29,9 @@ export const load: LayoutLoad = async ({ url }) => {
 		}
 	} else {
 		if (url.pathname.includes('/onboarding')) {
-			// if (!get(isCaptchaVerified)) {
-			// 	redirect(303, '/auth/signup');
-			// }
+			if (!get(isCaptchaVerified)) {
+				redirect(303, '/auth/signup');
+			}
 		}
 	}
 };
