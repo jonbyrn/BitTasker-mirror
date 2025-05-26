@@ -169,7 +169,7 @@
 				<button
 					class="btn btn-primary"
 					onclick={() => goto('/auth/onboarding')}
-				
+					disabled={isLoading || !$isCaptchaVerified}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">
 						<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5">

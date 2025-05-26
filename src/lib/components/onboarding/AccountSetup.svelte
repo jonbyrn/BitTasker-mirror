@@ -104,7 +104,6 @@
 	 * Register a new user with biometric authentication
 	 */
 	async function register(username: string, npub: string, nsec: string) {
-		console.log('Registering user', username, npub, nsec);
 		try {
 			isLoading = true;
 			error = '';
