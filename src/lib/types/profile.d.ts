@@ -84,3 +84,17 @@ export interface PortfolioItem {
     images: NostrProfileImage[];
     tags?: string[][];
 }
+
+export interface TimeSlot {
+	day: number; // 0-6 (Sunday-Saturday)
+	start: string; // HH:mm format
+	end: string; // HH:mm format
+}
+
+export interface Availability {
+	timeSlots: TimeSlot[];
+	timezone: string;
+	noticeHours: number;
+	maxBookingsPerDay: number;
+	breakBetweenBookings: number; // minutes
+}

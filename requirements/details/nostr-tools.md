@@ -3,6 +3,39 @@
 ## Overview
 Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines for the package.
 
+## Event Kinds
+
+### Event Kind Ranges
+- **Regular Events (0-9999)**
+  - Core protocol events
+  - Permanent, non-replaceable events
+  - Example: kind 0 for metadata, kind 1 for text notes
+
+- **Replaceable Events (10000-19999)**
+  - Single-instance replaceable events
+  - Latest event replaces all previous ones
+  - Used for user preferences and settings
+
+- **Ephemeral Events (20000-29999)**
+  - Short-lived events
+  - Not meant to be stored long-term
+  - Used for temporary or real-time data
+
+- **Parameterized Replaceable Events (30000-39999)**
+  - Multi-instance replaceable events
+  - Latest event replaces previous ones with same parameters
+  - Used for user-specific data sets
+
+### Common Event Kinds
+- `0`: Metadata (Profile)
+- `1`: Text Note
+- `2`: Recommend Relay
+- `3`: Contacts
+- `4`: Encrypted Direct Messages
+- `5`: Event Deletion
+- `6`: Repost
+- `7`: Reaction
+
 ## Core Components
 
 ### Event Structure
