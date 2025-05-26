@@ -38,7 +38,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToSkillsUpdates((updatedSkills) => {
 			skills = updatedSkills;
-			console.log({ skills });
 			hasUnsavedChanges = false;
 		});
 	});

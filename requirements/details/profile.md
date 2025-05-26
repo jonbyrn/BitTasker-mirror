@@ -317,4 +317,4 @@ src/routes/profile/
    - Add collaborative features
    - AI-powered profile optimization
    - Enhanced skill recommendations
-   - Automated content moderation 
+   - Automated content moderation
