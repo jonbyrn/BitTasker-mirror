@@ -185,21 +185,20 @@
 			</div> -->
 
 			<!-- Availability Calendar -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
+			<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Availability</h2>
 					<Availability
 						onComplete={(completed) => handleSectionComplete('availability', completed)}
 					/>
 				</div>
-			</div>
+			</div> -->
 
 			<!-- Standard Services -->
 			<div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Standard Services</h2>
 					<StandardServices
-						{user}
 						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
 					/>
 				</div>

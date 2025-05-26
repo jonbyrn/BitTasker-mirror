@@ -47,7 +47,7 @@ export async function getNostrProfileMetadata(pubkey: string): Promise<NostrEven
  * @param pubkey User's public key
  * @returns Array of portfolio events
  */
-export async function getNostrPortfolio(pubkey: string): Promise<NostrEvent[]> {
+export async function _getNostrPortfolio(pubkey: string): Promise<NostrEvent[]> {
 	try {
 		return await pool.list([PUBLIC_NOSTR_RELAY_URL], [{
 			kinds: [30001],
