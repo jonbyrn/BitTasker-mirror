@@ -47,6 +47,9 @@ export interface InputProps {
 		| 'select';
 	autoComplete?: 'on' | 'off';
 	options?: { label: string; value: string }[];
+	min?: number;
+	max?: number;
+	step?: number;
 	onChange?: (option: { label: string; value: string }) => void;
 }
 

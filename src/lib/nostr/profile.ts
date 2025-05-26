@@ -1,4 +1,4 @@
-import type { NostrProfile, NostrProfileImage, Skill, SkillCertification, PortfolioItem, Availability } from '$lib/types/profile.d';
+import type { NostrProfile, NostrProfileImage, Skill, SkillCertification, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
 import type { NostrEvent, Filter, EventTemplate } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent } from 'nostr-tools/pure';
@@ -6,6 +6,7 @@ import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
+import { publishEvent } from '$lib/utils/nostr';
 
 // Constants
 /* const DEFAULT_RELAYS = [
@@ -588,6 +589,52 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
         await Promise.all(pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent));
     } catch (error) {
         console.error('Failed to publish availability update:', error);
+        throw error;
+    }
+}
+
+/**
+ * Publishes standard services data to Nostr
+ * @param servicesData The services data to publish
+ * @param tags Additional tags to include
+ */
+export async function publishStandardServices(servicesData: NostrStandardServices, tags: string[][], relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+    try {
+        const event = {
+            kind: 30003,
+            created_at: Math.floor(Date.now() / 1000),
+            content: JSON.stringify(servicesData),
+            tags: [...tags]
+        };
+
+        const signedEvent = await getSignedEvent(event);
+        await Promise.all(pool.publish(relays, signedEvent));
+    } catch (error) {
+        console.error('Failed to publish standard services:', error);
+        throw error;
+    }
+}
+
+/**
+ * Deletes a standard service event from Nostr
+ * @param eventId The ID of the event to delete
+ */
+export async function deleteStandardService(eventId: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+    try {
+        const event = {
+            kind: 5,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', eventId],
+                ['k', '30003']
+            ],
+            content: 'Standard service deleted'
+        };
+
+        const signedEvent = await getSignedEvent(event);
+        await Promise.all(pool.publish(relays, signedEvent));
+    } catch (error) {
+        console.error('Failed to delete standard service:', error);
         throw error;
     }
 }

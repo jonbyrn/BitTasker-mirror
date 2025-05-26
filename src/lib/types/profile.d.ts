@@ -98,3 +98,18 @@ export interface Availability {
 	maxBookingsPerDay: number;
 	breakBetweenBookings: number; // minutes
 }
+
+export interface StandardService {
+    id?: string;
+    name: string;
+    description: string;
+    duration: number; // minutes
+    price: number;
+    currency: string;
+    isCustomizable: boolean;
+}
+
+export interface NostrStandardServices {
+    services: StandardService[];
+    customQuoteAvailable: boolean;
+}

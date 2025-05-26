@@ -12,6 +12,9 @@
 		autoComplete = 'off',
 		required = false,
 		type = 'text',
+		min = undefined,
+		max = undefined,
+		step = undefined,
 		onChange
 	}: InputProps = $props();
 
@@ -108,7 +111,10 @@
 				{placeholder}
 				{type}
 				{required}
-				value={value}
+				{min}
+				{max}
+				{step}
+				{value}
 				autocomplete={autoComplete === 'on' ? 'on' : 'off'}
 				class="input input-bordered w-full {error ? 'input-error' : ''}"
 				oninput={handleInput}
