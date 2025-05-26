@@ -31,6 +31,7 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
+				console.log('event', event);
 				try {
 					// Handle profile metadata update
 					if (event.kind === 0) {
@@ -59,7 +60,7 @@
 					error = 'Failed to connect to Nostr relay. Please try again later.';
 				}
 			},
-			[0, 1063] // Kind 0 for metadata, 1063 for media metadata
+			{ 0: null, 1063: null } // Kind 0 for metadata, 1063 for media metadata
 		);
 	});
 
