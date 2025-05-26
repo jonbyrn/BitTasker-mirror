@@ -1,6 +1,7 @@
-import type { NostrProfile, NostrProfileImage, Skill, SkillCertification, PortfolioItem } from '$lib/types/profile.d';
-import type { NostrEvent, Filter } from 'nostr-tools';
+import type { NostrProfile, NostrProfileImage, Skill, SkillCertification, PortfolioItem, Availability } from '$lib/types/profile.d';
+import type { NostrEvent, Filter, EventTemplate } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
+import { finalizeEvent } from 'nostr-tools/pure';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
@@ -532,10 +533,6 @@ export async function publishPortfolioItem(
             kind: 30001,
             created_at: Math.floor(Date.now() / 1000),
             tags,
-            // tags: [
-            //     ['d', identified || `portfolio-${Math.random().toString(36).substring(2)}`], // Generate unique d tag for each portfolio item
-            //     ...item.skills.map(skill => ['t', skill])
-            // ],
             content: JSON.stringify(item)
         };
 
@@ -546,37 +543,6 @@ export async function publishPortfolioItem(
         throw error;
     }
 }
-
-/**
- * Upload portfolio images and create Nostr events
- */
-/* export async function uploadPortfolioImages(
-    files: File[],
-    relays = [PUBLIC_NOSTR_RELAY_URL]
-): Promise<NostrProfileImage[]> {
-    try {
-        // Upload files
-        const uploadPromises = files.map(file => uploadService.uploadSingleFile(file, 'portfolio'));
-        const uploadedFiles = await Promise.all(uploadPromises);
-
-        // Create NostrProfileImage objects
-        const portfolioImages: NostrProfileImage[] = uploadedFiles.map((file, index) => ({
-            url: file.url,
-            key: file.key,
-            alt: 'Portfolio image',
-            type: 'image/jpeg',
-            isPrimary: index === 0
-        }));
-
-        // Publish all images in a single replaceable event
-        await publishMultipleImages(portfolioImages, null, 'portfolio-images');
-
-        return portfolioImages;
-    } catch (error) {
-        console.error('Failed to upload portfolio images:', error);
-        throw error;
-    }
-} */
 
 /**
  * Delete a portfolio item
@@ -601,6 +567,27 @@ export async function deletePortfolioItem(
         await Promise.all(pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Error deleting portfolio item:', error);
+        throw error;
+    }
+}
+
+/**
+ * Publishes user availability update to Nostr
+ * Uses kind 30002 (parameterized replaceable event) with 'd' tag for 'availability'
+ */
+export async function publishAvailabilityUpdate(availability: Availability): Promise<void> {
+    try {
+        const event = {
+            kind: 30002, // Changed from 31000 to follow our kind numbering convention
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [['d', 'availability']],
+            content: JSON.stringify(availability)
+        };
+
+        const signedEvent = await getSignedEvent(event);
+        await Promise.all(pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent));
+    } catch (error) {
+        console.error('Failed to publish availability update:', error);
         throw error;
     }
 }

@@ -501,3 +501,35 @@ export async function subscribeToPortfolioUpdates(
         return () => { };
     }
 }
+
+
+/**
+ * Upload portfolio images and create Nostr events
+ */
+/* export async function uploadPortfolioImages(
+    files: File[],
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): Promise<NostrProfileImage[]> {
+    try {
+        // Upload files
+        const uploadPromises = files.map(file => uploadService.uploadSingleFile(file, 'portfolio'));
+        const uploadedFiles = await Promise.all(uploadPromises);
+
+        // Create NostrProfileImage objects
+        const portfolioImages: NostrProfileImage[] = uploadedFiles.map((file, index) => ({
+            url: file.url,
+            key: file.key,
+            alt: 'Portfolio image',
+            type: 'image/jpeg',
+            isPrimary: index === 0
+        }));
+
+        // Publish all images in a single replaceable event
+        await publishMultipleImages(portfolioImages, null, 'portfolio-images');
+
+        return portfolioImages;
+    } catch (error) {
+        console.error('Failed to upload portfolio images:', error);
+        throw error;
+    }
+} */

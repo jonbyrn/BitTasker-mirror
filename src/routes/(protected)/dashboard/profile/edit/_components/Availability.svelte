@@ -1,44 +1,70 @@
 <script lang="ts">
-	import { UpdateUserProfileStore } from '$houdini';
+	import type { Availability, TimeSlot } from '$lib/types/profile.d';
+	import { onDestroy, onMount } from 'svelte';
+	import { subscribeToProfileUpdates, publishAvailabilityUpdate } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
+	import { browser } from '$app/environment';
 
-	interface TimeSlot {
-		day: number; // 0-6 (Sunday-Saturday)
-		start: string; // HH:mm format
-		end: string; // HH:mm format
-	}
-
-	interface AvailabilityData {
-		timeSlots: TimeSlot[];
-		timezone: string;
-		noticeHours: number;
-		maxBookingsPerDay: number;
-		breakBetweenBookings: number; // minutes
-	}
-
-	let { user, onComplete } = $props<{
-		user: { availability?: AvailabilityData | null } | null | undefined;
-		onComplete: (completed: boolean) => void;
-	}>();
-
-	const profileStore = new UpdateUserProfileStore();
+	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
 	// Local state
-	let timeSlots = $state<TimeSlot[]>(user?.availability?.timeSlots || []);
-	let timezone = $state(
-		user?.availability?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
-	);
-	let noticeHours = $state(user?.availability?.noticeHours || 24);
-	let maxBookingsPerDay = $state(user?.availability?.maxBookingsPerDay || 5);
-	let breakBetweenBookings = $state(user?.availability?.breakBetweenBookings || 30);
+	let timeSlots = $state<TimeSlot[]>([]);
+	let timezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
+	let noticeHours = $state(24);
+	let maxBookingsPerDay = $state(5);
+	let breakBetweenBookings = $state('');
 	let isLoading = $state(false);
+	let loading = $state(false);
 	let error = $state('');
+	let timeSlotError = $state({
+		day: -1,
+		slotIndex: -1,
+		start: '',
+		end: ''
+	});
+	let cleanup: (() => void) | null = null;
 
 	// Days of the week
 	const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 	// Available timezones
 	const timezones = Intl.supportedValuesOf('timeZone');
+
+	// Subscribe to availability updates
+	onMount(async () => {
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				loading = true;
+				console.log('event', event);
+				try {
+					if (
+						event.kind === 30002 &&
+						event.tags.find((t) => t[0] === 'd' && t[1] === 'availability')
+					) {
+						const availabilityData = JSON.parse(event.content);
+						timeSlots = availabilityData.timeSlots || [];
+						timezone = availabilityData.timezone || timezone;
+						noticeHours = availabilityData.noticeHours || noticeHours;
+						maxBookingsPerDay = availabilityData.maxBookingsPerDay || maxBookingsPerDay;
+						breakBetweenBookings = availabilityData.breakBetweenBookings || breakBetweenBookings;
+					}
+				} catch (err) {
+					console.error('Failed to process availability update:', err);
+					error = 'Failed to load availability data. Please try again later.';
+				} finally {
+					loading = false;
+				}
+			},
+			{
+				30002: { d: 'availability' }
+			}
+		);
+	});
+
+	// Cleanup subscription on component destroy
+	onDestroy(() => {
+		if (cleanup) cleanup();
+	});
 
 	// Track completion
 	$effect(() => {
@@ -58,8 +84,77 @@
 		];
 	}
 
+	// Helper function to verify time slots
+	function verifyTimeSlot(end: string, start: string): boolean {
+		// Convert times to minutes since midnight for comparison
+		const [endHours, endMinutes] = end.split(':').map(Number);
+		const [startHours, startMinutes] = start.split(':').map(Number);
+
+		const endTotalMinutes = endHours * 60 + endMinutes;
+		const startTotalMinutes = startHours * 60 + startMinutes;
+
+		// End time should be at least 15 minutes after start time
+		return endTotalMinutes - startTotalMinutes < 15;
+	}
+
+	// Helper function to check for time slot conflicts
+	function checkTimeSlotConflicts(day: number, start: string, end: string, excludeIndex: number): boolean {
+		const slotsForDay = timeSlots.filter((slot, idx) => slot.day === day && idx !== excludeIndex);
+		
+		// Convert current slot times to minutes
+		const [startHours, startMinutes] = start.split(':').map(Number);
+		const [endHours, endMinutes] = end.split(':').map(Number);
+		const startMins = startHours * 60 + startMinutes;
+		const endMins = endHours * 60 + endMinutes;
+
+		// Check for conflicts with existing slots
+		return slotsForDay.some(slot => {
+			const [existingStartHours, existingStartMinutes] = slot.start.split(':').map(Number);
+			const [existingEndHours, existingEndMinutes] = slot.end.split(':').map(Number);
+			const existingStartMins = existingStartHours * 60 + existingStartMinutes;
+			const existingEndMins = existingEndHours * 60 + existingEndMinutes;
+
+			// Check if the new slot overlaps with existing slot
+			return (startMins < existingEndMins && endMins > existingStartMins);
+		});
+	}
+
 	// Update time slot
-	function updateTimeSlot(index: number, field: 'start' | 'end', value: string) {
+	function updateTimeSlot(index: number, field: 'start' | 'end', value: string, slotIndex: number) {
+		timeSlotError = { day: -1, slotIndex: -1, start: '', end: '' };
+
+		const currentSlot = timeSlots[index];
+		const updatedStart = field === 'start' ? value : currentSlot.start;
+		const updatedEnd = field === 'end' ? value : currentSlot.end;
+
+		if (field === 'end') {
+			// verify that the end time is after start time
+			if (verifyTimeSlot(value, currentSlot.start)) {
+				timeSlotError.day = currentSlot.day;
+				timeSlotError.slotIndex = slotIndex;
+				timeSlotError.end = 'End time must be at least 15 minutes after start time';
+				return;
+			}
+		}
+		if (field === 'start') {
+			// verify that the start time is before end time
+			if (verifyTimeSlot(currentSlot.end, value)) {
+				timeSlotError.day = currentSlot.day;
+				timeSlotError.slotIndex = slotIndex;
+				timeSlotError.start = 'Start time must be at least 15 minutes before end time';
+				return;
+			}
+		}
+
+		// Check for conflicts with other slots on the same day
+		if (checkTimeSlotConflicts(currentSlot.day, updatedStart, updatedEnd, index)) {
+			timeSlotError.day = currentSlot.day;
+			timeSlotError.slotIndex = slotIndex;
+			timeSlotError.start = field === 'start' ? 'Time slot conflicts with another slot' : '';
+			timeSlotError.end = field === 'end' ? 'Time slot conflicts with another slot' : '';
+			return;
+		}
+
 		timeSlots = timeSlots.map((slot, i) => (i === index ? { ...slot, [field]: value } : slot));
 	}
 
@@ -104,28 +199,16 @@
 			}
 
 			// Create availability data
-			const availabilityData: AvailabilityData = {
+			const availabilityData: Availability = {
 				timeSlots,
 				timezone,
 				noticeHours,
 				maxBookingsPerDay,
-				breakBetweenBookings
+				breakBetweenBookings: parseInt(breakBetweenBookings)
 			};
 
-			// Update profile using GraphQL
-			const result = await profileStore.mutate({
-				input: {
-					availability: availabilityData
-				}
-			});
-
-			if (result.errors) {
-				throw new Error(result.errors[0].message);
-			}
-
-			// Show success message
-			const toast = document.getElementById('availability-toast-success');
-			if (toast) toast.style.display = 'block';
+			// Publish availability update to Nostr
+			await publishAvailabilityUpdate(availabilityData);
 		} catch (err) {
 			console.error('Availability update failed:', err);
 			error = err instanceof Error ? err.message : 'Failed to update availability';
@@ -141,7 +224,13 @@
 		<label class="label" for="timezone">
 			<span class="label-text font-medium">Your Timezone</span>
 		</label>
-		<Input id="timezone" options={timezones.map(tz => ({ label: tz, value: tz }))} value={timezone} autoComplete="on" />
+		<Input
+			id="timezone"
+			options={timezones.map((tz) => ({ label: tz, value: tz }))}
+			value={timezone}
+			onChange={({ value }) => (timezone = value)}
+			autoComplete="on"
+		/>
 	</div>
 
 	<!-- Scheduling Preferences -->
@@ -181,18 +270,19 @@
 		<div class="form-control">
 			<label class="label" for="breakTime">
 				<span class="label-text font-medium">Break Between Bookings</span>
-				<span class="label-text-alt">minutes</span>
+				<span class="label-text-alt">(minutes)</span>
 			</label>
-			<select
+			<Input
+				type="number"
 				id="breakTime"
-				bind:value={breakBetweenBookings}
-				class="select select-bordered w-full"
-			>
-				<option value={15}>15 minutes</option>
-				<option value={30}>30 minutes</option>
-				<option value={45}>45 minutes</option>
-				<option value={60}>1 hour</option>
-			</select>
+				autoComplete="off"
+				options={['15', '30', '45', '60'].map((minutes) => ({
+					label: minutes,
+					value: minutes
+				}))}
+				value={breakBetweenBookings}
+				onChange={({ value }) => (breakBetweenBookings = value)}
+			/>
 		</div>
 	</div>
 
@@ -201,7 +291,7 @@
 		<h3 class="text-lg font-medium">Weekly Schedule</h3>
 
 		{#each days as day, index}
-			<div class="card bg-base-200 p-4 rounded-xl space-y-2">
+			<div class="card bg-base-200 space-y-2 rounded-xl p-4">
 				<h4 class="font-medium">{day}</h4>
 
 				{#if timeSlots.filter((slot) => slot.day === index).length === 0}
@@ -209,37 +299,44 @@
 				{:else}
 					<div class="space-y-2">
 						{#each timeSlots.filter((slot) => slot.day === index) as slot, slotIndex}
-							<div
-								class="relative flex flex-col items-center gap-4 rounded-xl border border-white/50 p-4 pt-10 shadow-md sm:flex-row"
-							>
-								<div class="flex w-full flex-row items-center justify-start gap-2">
-									<span class="text-base-content/70 w-1/5">from</span>
-									<input
-										type="time"
-										value={slot.start}
-										onchange={(e) =>
-											updateTimeSlot(
-												timeSlots.findIndex((s) => s === slot),
-												'start',
-												(e.target as HTMLInputElement).value
-											)}
-										class="input input-bordered"
-									/>
+							<div class="relative space-y-2 rounded-xl border border-white/50 p-4 pt-10 shadow-md">
+								<div class="flex flex-col items-center gap-4 sm:flex-row">
+									<div class="flex w-full flex-row items-center justify-start gap-2">
+										<span class="text-base-content/70 w-1/5">from</span>
+										<input
+											type="time"
+											value={slot.start}
+											onchange={(e) =>
+												updateTimeSlot(
+													timeSlots.findIndex((s) => s === slot),
+													'start',
+													(e.target as HTMLInputElement).value,
+													slotIndex
+												)}
+											class="input input-bordered"
+										/>
+									</div>
+									<div class="flex w-full flex-row items-center justify-start gap-2">
+										<span class="text-base-content/70 w-1/5">to</span>
+										<input
+											type="time"
+											value={slot.end}
+											onchange={(e) =>
+												updateTimeSlot(
+													timeSlots.findIndex((s) => s === slot),
+													'end',
+													(e.target as HTMLInputElement).value,
+													slotIndex
+												)}
+											class="input input-bordered"
+										/>
+									</div>
 								</div>
-								<div class="flex w-full flex-row items-center justify-start gap-2">
-									<span class="text-base-content/70 w-1/5">to</span>
-									<input
-										type="time"
-										value={slot.end}
-										onchange={(e) =>
-											updateTimeSlot(
-												timeSlots.findIndex((s) => s === slot),
-												'end',
-												(e.target as HTMLInputElement).value
-											)}
-										class="input input-bordered"
-									/>
-								</div>
+								{#if timeSlotError.day === index && timeSlotError.slotIndex === slotIndex}
+									<div class="alert alert-error w-full rounded-xl">
+										<span>{timeSlotError?.end || timeSlotError?.start}</span>
+									</div>
+								{/if}
 								<button
 									class="btn btn-ghost btn-xs btn-outline btn-circle absolute top-2 right-2"
 									onclick={() => removeTimeSlot(timeSlots.findIndex((s) => s === slot))}
@@ -251,7 +348,7 @@
 					</div>
 				{/if}
 
-				<div class="flex gap-2 justify-end">
+				<div class="flex justify-end gap-2">
 					<button
 						class="btn btn-ghost btn-outline btn-xs sm:btn-sm"
 						onclick={() => copyToOtherDays(index)}
@@ -285,12 +382,5 @@
 			{/if}
 			Save Availability
 		</button>
-	</div>
-</div>
-
-<!-- Success Toast -->
-<div id="availability-toast-success" class="toast toast-end" style="display: none;">
-	<div class="alert alert-success">
-		<span>Availability updated successfully!</span>
 	</div>
 </div>

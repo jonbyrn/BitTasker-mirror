@@ -97,33 +97,54 @@ src/routes/profile/
 
 #### 4. Availability
 
-- **Event Kind**: 31000 (Replaceable)
+- **Event Kind**: 30002 (Parameterized Replaceable)
 - **Content**: JSON object containing availability schedule
 - **Tags**:
   - `d`: ['availability']
   - `t`: ['schedule']
 - **Implementation**:
-  - Weekly recurring schedule
-  - Time zone handling
-  - Buffer time settings
-  - Break time settings
+  - Uses parameterized replaceable events for real-time updates
+  - Handles timezone-aware scheduling
+  - Supports multiple time slots per day
+  - Includes booking preferences and constraints
 - **Data Structure**:
   ```typescript
+  interface TimeSlot {
+    day: number;    // 0-6 (Sunday-Saturday)
+    start: string;  // HH:mm format
+    end: string;    // HH:mm format
+  }
+
   interface Availability {
+    timeSlots: TimeSlot[];
     timezone: string;
-    weeklySchedule: {
-      [day: string]: {
-        available: boolean;
-        slots: Array<{
-          start: string;
-          end: string;
-        }>;
-      };
-    };
-    bufferTime: number;
-    breakTime: number;
+    noticeHours: number;
+    maxBookingsPerDay: number;
+    breakBetweenBookings: number; // minutes
   }
   ```
+
+- **Features**:
+  - Weekly recurring schedule
+  - Multiple time slots per day
+  - Timezone handling
+  - Minimum notice period
+  - Maximum daily bookings
+  - Break time between bookings
+  - Real-time updates using Nostr events
+
+- **Integration Points**:
+  - Calendar systems
+  - Booking systems
+  - Timezone services
+  - Notification systems
+
+- **Best Practices**:
+  - Validate time slots before publishing
+  - Handle timezone conversions properly
+  - Implement proper cleanup on component unmount
+  - Use appropriate event kinds for updates
+  - Handle race conditions in real-time updates
 
 #### 5. Pricing
 
