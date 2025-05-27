@@ -43,7 +43,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
-				console.log('event', event);
 				try {
 					if (event.kind === 30001) {
 						const item = JSON.parse(event.content);

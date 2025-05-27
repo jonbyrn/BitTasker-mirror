@@ -54,24 +54,25 @@ export interface NostrProfileData {
  * Interface for skill certifications
  */
 export interface SkillCertification {
-    skillName: string;
+    eventId: string;
+    skillId: string;
     name: string;
     issuer: string;
     date: string;
     verified: boolean;
     fileUrl: string;
-    eventId?: string;
 }
 
 /**
  * Interface for skills
  */
 export interface Skill {
+    id?: string;
     name: string;
     level: number;
     verificationStatus: 'pending' | 'verified' | 'unverified';
     endorsements: number;
-    certifications: SkillCertification[];
+    certifications: string[]; // Array of certification event IDs
 }
 
 export interface PortfolioItem {

@@ -57,7 +57,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
-				console.log(event);
 				try {
 					if (
 						event.kind === 30003 &&

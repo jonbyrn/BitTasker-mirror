@@ -216,6 +216,90 @@ src/routes/profile/
 - Implements subscription system for live updates
 - Handles both initial data load and real-time changes
 
+##### Profile Subscription System
+```typescript
+// Key-based subscription management
+function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [tag: string]: string } }): string
+
+// Main subscription function
+async function subscribeToProfileUpdates(
+    callback: (event: NostrEvent) => void,
+    kindFilters?: { [kind: number]: { [tag: string]: string } },
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): Promise<() => void>
+```
+
+###### Subscription Management Architecture
+The subscription system uses a Map called `profileSubscriptions` to manage active Nostr subscriptions:
+
+```typescript
+let profileSubscriptions = new Map<string, {
+    sub: any;
+    callbacks: Set<(event: NostrEvent) => void>;
+}>();
+```
+
+1. **Subscription Management**
+   - Maps a composite key (combining npub and filters) to subscription data
+   - Each subscription object contains:
+     - `sub`: The Nostr subscription object handling relay connections
+     - `callbacks`: Set of callback functions for event handling
+
+2. **Subscription Reuse**
+   - Checks for existing subscriptions before creating new ones
+   - Reuses existing subscriptions for the same event types
+   - Prevents redundant relay connections
+   - Optimizes network resource usage
+
+3. **Callback Management**
+   - Maintains multiple callbacks per subscription
+   - Uses Set to prevent duplicate callbacks
+   - Executes all callbacks when events arrive
+   - Enables multiple components to listen to same events
+
+4. **Cleanup System**
+   - Returns a cleanup function that:
+     - Removes specific callbacks when components unmount
+     - Closes subscription when no callbacks remain
+     - Removes subscription from Map when closed
+     - Prevents memory leaks and connection overload
+
+This architecture provides several benefits:
+- Prevents duplicate subscriptions
+- Efficiently manages shared subscriptions
+- Proper cleanup handling
+- Reduces relay connections
+- Improves application performance
+
+The subscription system uses a composite key approach that combines:
+- User's public key (npub)
+- Event kinds being subscribed to
+- Tag filters being applied
+
+This ensures:
+- Different components can subscribe to different event types for the same user
+- Subscriptions are shared when watching the same events
+- Proper cleanup of specific subscriptions
+- Efficient relay connection management
+
+Example usage:
+```typescript
+// Subscribe to both skills and certifications
+const cleanup = await subscribeToProfileUpdates(
+    (event) => {
+        if (event.kind === 30000) {
+            // Handle skills update
+        } else if (event.kind === 1063) {
+            // Handle certification
+        }
+    },
+    { 
+        30000: { t: 'skill' },
+        1063: { t: 'certification' }
+    }
+);
+```
+
 #### Data Management
 - Uses replaceable events for updateable content
 - Maintains references between related events using tags

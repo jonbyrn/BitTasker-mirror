@@ -31,7 +31,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
-				console.log('event', event);
 				try {
 					// Handle profile metadata update
 					if (event.kind === 0) {

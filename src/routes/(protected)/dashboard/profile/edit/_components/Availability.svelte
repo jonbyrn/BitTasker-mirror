@@ -3,7 +3,6 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { subscribeToProfileUpdates, publishAvailabilityUpdate } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
-	import { browser } from '$app/environment';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -35,7 +34,6 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				loading = true;
-				console.log('event', event);
 				try {
 					if (
 						event.kind === 30002 &&

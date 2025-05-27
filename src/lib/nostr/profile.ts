@@ -18,6 +18,25 @@ import { publishEvent } from '$lib/utils/nostr';
 // Create a pool instance for reuse
 const pool = new SimplePool();
 
+// Helper function to create subscription key
+function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined }): string {
+    if (!kindFilters) {
+        return `${npub}:default`;
+    }
+    const kinds = Object.keys(kindFilters).sort().join(',');
+    const tags = Object.entries(kindFilters)
+        .map(([kind, tagFilters]) => {
+            if (!tagFilters) return '';
+            return Object.entries(tagFilters)
+                .map(([tag, value]) => `${tag}:${value}`)
+                .sort()
+                .join(';');
+        })
+        .filter(Boolean)
+        .join('|');
+    return `${npub}:${kinds}:${tags}`;
+}
+
 // Subscription store for profile updates
 let profileSubscriptions = new Map<string, {
     sub: any;
@@ -109,8 +128,11 @@ export async function subscribeToProfileUpdates(
             return () => { };
         }
 
-        // Check if we already have a subscription for this pubkey
-        if (!profileSubscriptions.has(npub)) {
+        // Create a unique subscription key based on npub and filters
+        const subscriptionKey = createSubscriptionKey(npub, kindFilters);
+
+        // Check if we already have a subscription for this specific combination
+        if (!profileSubscriptions.has(subscriptionKey)) {
             // Create separate filters for each kind
             const filters: Filter[] = [];
 
@@ -145,13 +167,18 @@ export async function subscribeToProfileUpdates(
             const subs = filters.map(filter =>
                 pool.subscribe(relays, filter, {
                     onevent(event: NostrEvent) {
-                        callback(event);
+                        const subs = profileSubscriptions.get(subscriptionKey);
+                        if (subs) {
+                            for (const cb of subs.callbacks) {
+                                cb(event);
+                            }
+                        }
                     }
                 })
             );
 
             // Store all subscriptions
-            profileSubscriptions.set(npub, {
+            profileSubscriptions.set(subscriptionKey, {
                 sub: {
                     close: () => subs.forEach(sub => sub.close())
                 },
@@ -159,17 +186,17 @@ export async function subscribeToProfileUpdates(
             });
         } else {
             // Add callback to existing subscription
-            profileSubscriptions.get(npub)?.callbacks.add(callback);
+            profileSubscriptions.get(subscriptionKey)?.callbacks.add(callback);
         }
 
         // Return cleanup function
         return () => {
-            const subs = profileSubscriptions.get(npub);
+            const subs = profileSubscriptions.get(subscriptionKey);
             if (subs) {
                 subs.callbacks.delete(callback);
                 if (subs.callbacks.size === 0) {
                     subs.sub.close();
-                    profileSubscriptions.delete(npub);
+                    profileSubscriptions.delete(subscriptionKey);
                 }
             }
         };
@@ -326,115 +353,6 @@ export function closeNostrPool(): void {
 }
 
 /**
- * Subscribe to skills updates
- */
-export async function subscribeToSkillsUpdates(callback: (skills: Skill[]) => void, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<() => void> {
-    try {
-        // Subscribe to both skills and certification events
-        const filter = {
-            kinds: [30000, 1063], // 30000 for skills, 1063 for certifications
-            '#t': ['skill', 'certification'],
-            limit: 50 // Increased limit to accommodate both types
-        };
-
-        let currentSkills: Skill[] = [];
-        let certifications: { [key: string]: SkillCertification } = {};
-
-        const sub = pool.subscribe(relays, filter, {
-            onevent(event) {
-                try {
-                    if (event.kind === 30000) {
-                        // Handle skills update
-                        const skillsData = JSON.parse(event.content);
-                        if (Array.isArray(skillsData)) {
-                            currentSkills = skillsData;
-                            // Merge with existing certifications
-                            const mergedSkills = mergeCertificationsWithSkills(currentSkills, certifications);
-                            callback(mergedSkills);
-                        }
-                    } else if (event.kind === 1063 && event.tags.find(t => t[0] === 't' && t[1] === 'certification')) {
-                        // Handle certification event
-                        const certData = JSON.parse(event.content);
-                        const cert: SkillCertification = {
-                            eventId: event.id,
-                            skillName: event.tags.find(t => t[0] === 'skill')?.[1] || '',
-                            name: certData.name,
-                            issuer: certData.issuer,
-                            date: certData.date,
-                            fileUrl: certData.fileUrl,
-                            verified: certData.verified
-                        };
-                        certifications[event.id] = cert;
-
-                        // Merge with current skills
-                        const mergedSkills = mergeCertificationsWithSkills(currentSkills, certifications);
-                        callback(mergedSkills);
-                    }
-                } catch (err) {
-                    console.error('Failed to process event:', err);
-                }
-            }
-        });
-
-        // TODO: Check usability of this
-        // Also fetch initial state
-        const events = await pool.querySync(relays, filter);
-        if (events.length > 0) {
-            // Process events in chronological order
-            events.sort((a, b) => a.created_at - b.created_at).forEach(event => {
-                try {
-                    if (event.kind === 30000) {
-                        const skillsData = JSON.parse(event.content);
-                        if (Array.isArray(skillsData)) {
-                            currentSkills = skillsData;
-                        }
-                    } else if (event.kind === 1063) {
-                        const certData = JSON.parse(event.content);
-                        const cert: SkillCertification = {
-                            eventId: event.id,
-                            skillName: event.tags.find(t => t[0] === 'skill')?.[1] || '',
-                            name: certData.name,
-                            issuer: certData.issuer,
-                            date: certData.date,
-                            fileUrl: certData.fileUrl,
-                            verified: certData.verified
-                        };
-                        certifications[event.id] = cert;
-                    }
-                } catch (err) {
-                    console.error('Failed to parse event:', err);
-                }
-            });
-
-            // Send merged data to callback
-            const mergedSkills = mergeCertificationsWithSkills(currentSkills, certifications);
-            callback(mergedSkills);
-        }
-
-        return () => {
-            sub.close();
-        };
-    } catch (err) {
-        console.error('Failed to setup skills subscription:', err);
-        return () => { };
-    }
-}
-
-/**
- * Helper function to merge certifications with skills
- */
-function mergeCertificationsWithSkills(
-    skills: Skill[],
-    certifications: { [key: string]: SkillCertification }
-): Skill[] {
-    return skills.map(skill => ({
-        ...skill,
-        certifications: Object.values(certifications)
-            .filter(cert => cert.skillName === skill.name)
-    }));
-}
-
-/**
  * Publish skills update to Nostr
  */
 export async function publishSkillsUpdate(
@@ -446,16 +364,13 @@ export async function publishSkillsUpdate(
         const skillsEvent = {
             kind: 30000,
             created_at: Math.floor(Date.now() / 1000),
-            tags: [['t', 'skill']],
+            tags: [['d', 'skills']],
             content: JSON.stringify(skills)
         };
 
         const signedSkillsEvent = await getSignedEvent(skillsEvent);
 
-        // Publish event
-        await Promise.all(
-            relays.map(relay => pool.publish([relay], signedSkillsEvent))
-        );
+        pool.publish(relays, signedSkillsEvent);
     } catch (error) {
         console.error('Failed to publish skills update:', error);
         throw error;
@@ -467,14 +382,14 @@ export async function publishSkillsUpdate(
  */
 export async function uploadCertification(
     certification: {
-        skillName: string,
+        skillId: string,
         name: string,
         issuer: string,
         date: string,
         file: File
     },
     relays = [PUBLIC_NOSTR_RELAY_URL]
-): Promise<SkillCertification> {
+): Promise<string> {
     try {
         // Upload file
         const uploadResult = await uploadService.uploadSingleFile(certification.file, 'certifications');
@@ -484,12 +399,11 @@ export async function uploadCertification(
             kind: 1063,
             created_at: Math.floor(Date.now() / 1000),
             tags: [
-                ['d', 'certifications'],
+                ['d', 'certification'],
                 ['x', uploadResult.key],
                 ['m', certification.file.type],
                 ['alt', certification.file.name],
-                ['t', 'certification'],
-                ['skill', certification.skillName]
+                ['skill', certification.skillId]
             ],
             content: JSON.stringify({
                 name: certification.name,
@@ -505,15 +419,7 @@ export async function uploadCertification(
         // Publish event
         pool.publish(relays, signedCertEvent)
 
-        return {
-            eventId: signedCertEvent.id,
-            name: certification.name,
-            issuer: certification.issuer,
-            date: certification.date,
-            skillName: certification.skillName,
-            fileUrl: uploadResult.url,
-            verified: false
-        };
+        return signedCertEvent.id;
     } catch (error) {
         console.error('Failed to upload certification:', error);
         throw error;
@@ -635,6 +541,27 @@ export async function deleteStandardService(eventId: string, relays = [PUBLIC_NO
         await Promise.all(pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Failed to delete standard service:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get a Nostr event by its ID
+ * @param eventId The ID of the event to fetch
+ * @param relays Optional array of relay URLs
+ * @returns Promise resolving to the event or null if not found
+ */
+export async function getEventById(eventId: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
+    try {
+        const filter: Filter = {
+            ids: [eventId]
+        };
+
+        // Use get method instead of list
+        const event = await pool.get(relays, filter);
+        return event || null;
+    } catch (error) {
+        console.error('Error fetching event by ID:', error);
         throw error;
     }
 }
