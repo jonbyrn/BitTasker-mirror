@@ -533,3 +533,116 @@ export async function subscribeToPortfolioUpdates(
         throw error;
     }
 } */
+
+
+
+/**
+ * Subscribe to skills updates
+ */
+export async function subscribeToSkillsUpdates(callback: (skills: Skill[]) => void, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<() => void> {
+    try {
+        // Subscribe to both skills and certification events
+        const filter = {
+            kinds: [30000, 1063], // 30000 for skills, 1063 for certifications
+            '#t': ['skill', 'certification'],
+            limit: 50 // Increased limit to accommodate both types
+        };
+
+        let currentSkills: Skill[] = [];
+        let certifications: { [key: string]: SkillCertification } = {};
+
+        const sub = pool.subscribe(relays, filter, {
+            onevent(event) {
+                try {
+                    if (event.kind === 30000) {
+                        // Handle skills update
+                        const skillsData = JSON.parse(event.content);
+                        if (Array.isArray(skillsData)) {
+                            currentSkills = skillsData;
+                            // Merge with existing certifications
+                            const mergedSkills = mergeCertificationsWithSkills(currentSkills, certifications);
+                            callback(mergedSkills);
+                        }
+                    } else if (event.kind === 1063 && event.tags.find(t => t[0] === 't' && t[1] === 'certification')) {
+                        // Handle certification event
+                        const certData = JSON.parse(event.content);
+                        const cert: SkillCertification = {
+                            eventId: event.id,
+                            skillName: event.tags.find(t => t[0] === 'skill')?.[1] || '',
+                            name: certData.name,
+                            issuer: certData.issuer,
+                            date: certData.date,
+                            fileUrl: certData.fileUrl,
+                            verified: certData.verified
+                        };
+                        certifications[event.id] = cert;
+
+                        // Merge with current skills
+                        const mergedSkills = mergeCertificationsWithSkills(currentSkills, certifications);
+                        callback(mergedSkills);
+                    }
+                } catch (err) {
+                    console.error('Failed to process event:', err);
+                }
+            }
+        });
+
+        // TODO: Check usability of this
+        // Also fetch initial state
+        const events = await pool.querySync(relays, filter);
+        if (events.length > 0) {
+            // Process events in chronological order
+            events.sort((a, b) => a.created_at - b.created_at).forEach(event => {
+                try {
+                    if (event.kind === 30000) {
+                        const skillsData = JSON.parse(event.content);
+                        if (Array.isArray(skillsData)) {
+                            currentSkills = skillsData;
+                        }
+                    } else if (event.kind === 1063) {
+                        const certData = JSON.parse(event.content);
+                        const cert: SkillCertification = {
+                            eventId: event.id,
+                            skillName: event.tags.find(t => t[0] === 'skill')?.[1] || '',
+                            name: certData.name,
+                            issuer: certData.issuer,
+                            date: certData.date,
+                            fileUrl: certData.fileUrl,
+                            verified: certData.verified
+                        };
+                        certifications[event.id] = cert;
+                    }
+                } catch (err) {
+                    console.error('Failed to parse event:', err);
+                }
+            });
+
+            // Send merged data to callback
+            const mergedSkills = mergeCertificationsWithSkills(currentSkills, certifications);
+            callback(mergedSkills);
+        }
+
+        return () => {
+            sub.close();
+        };
+    } catch (err) {
+        console.error('Failed to setup skills subscription:', err);
+        return () => { };
+    }
+}
+
+
+/**
+ * Helper function to merge certifications with skills
+ */
+function mergeCertificationsWithSkills(
+    skills: Skill[],
+    certifications: { [key: string]: SkillCertification }
+): Skill[] {
+    return skills.map(skill => ({
+        ...skill,
+        certifications: Object.values(certifications)
+            .filter(cert => cert.skillId === skill.id)
+            .map(cert => cert.eventId)
+    }));
+}

@@ -797,7 +797,71 @@ For handling multiple images:
 
 The `SimplePool` class from nostr-tools (v2.13.0+) is used to interact with one or multiple relays. It provides a simplified interface for querying, subscribing to, and publishing events.
 
-### Importing
+#### Query vs Subscribe: Understanding the Difference
+
+SimplePool provides two main methods for fetching events: `querySync` and `subscribe`. Each serves a different purpose:
+
+1. **querySync**
+   ```typescript
+   const events = await pool.querySync(relays, filter)
+   ```
+   - **Purpose**: One-time fetch of historical events
+   - **Behavior**: 
+     - Returns a Promise that resolves with all matching events
+     - Waits until all relays respond or timeout
+     - Useful for initial data load
+     - Good for fetching past events
+   - **Use Cases**:
+     - Loading initial state
+     - Fetching historical data
+     - One-time data retrieval
+     - Synchronous operations
+
+2. **subscribe**
+   ```typescript
+   const sub = pool.subscribe(relays, filter, {
+     onevent(event) { /* handle event */ }
+   })
+   ```
+   - **Purpose**: Real-time event monitoring
+   - **Behavior**:
+     - Maintains an open connection
+     - Receives events as they happen
+     - Continues until explicitly closed
+     - Good for real-time updates
+   - **Use Cases**:
+     - Live updates
+     - Real-time notifications
+     - Continuous monitoring
+     - Event streaming
+
+#### Best Practice: Combining Both Methods
+
+Often, the best approach is to use both methods together:
+```typescript
+async function setupEventHandling() {
+  // 1. Load initial state
+  const historicalEvents = await pool.querySync(relays, filter);
+  processEvents(historicalEvents);
+
+  // 2. Subscribe to future updates
+  const sub = pool.subscribe(relays, filter, {
+    onevent(event) {
+      processEvent(event);
+    }
+  });
+
+  return () => sub.close(); // Cleanup function
+}
+```
+
+This pattern ensures:
+- Immediate access to historical data
+- Real-time updates for new events
+- No missed events during initial load
+- Efficient resource usage
+
+#### Importing
 
 ```typescript
 import { SimplePool } from 'nostr-tools/pool'
