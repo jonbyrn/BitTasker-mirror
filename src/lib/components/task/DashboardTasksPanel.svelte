@@ -4,6 +4,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -13,6 +14,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let activeFilter = $state<string>('all');
+	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Filters
 	const filters = [
@@ -106,6 +108,30 @@
 			currency: 'USD'
 		}).format(amount);
 	}
+	
+	/**
+	 * Fetch current BTC price
+	 */
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			console.log('Current BTC price (dashboard-tasks-panel):', btcPrice);
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+	
+	/**
+	 * Calculate estimated USDT value based on BTC amount
+	 */
+	function calculateUsdtEstimate(btcAmount: number): string {
+		const estimatedValue = btcAmount * btcPrice;
+		return estimatedValue.toLocaleString('en-US', {
+			maximumFractionDigits: 2,
+			minimumFractionDigits: 2
+		});
+	}
 
 	const tasksStore = new TasksStore();
 
@@ -122,6 +148,7 @@
 
 	onMount(() => {
 		tasksStore.fetch();
+		fetchBtcPrice();
 	});
 </script>
 
@@ -220,7 +247,7 @@
 						</div>
 
 						<div class="my-2 grid grid-cols-2 gap-4">
-							{#if task.budget}
+							{#if task.budget !== null && task.budget !== undefined}
 								<div>
 									<p class="text-base-content/70 text-xs">Budget</p>
 									<p class="text-primary font-semibold">
@@ -228,6 +255,9 @@
 										{#if task.budgetType === 'HOURLY'}
 											<span class="text-xs">/hr</span>
 										{/if}
+									</p>
+									<p class="text-xs text-info">
+										≈ {calculateUsdtEstimate(task.budget)} USDT
 									</p>
 								</div>
 							{/if}
