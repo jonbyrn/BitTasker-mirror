@@ -151,7 +151,6 @@
 		}
 	}
 
-	// TODO: Remove profile picture
 	function removePicture(index: number) {
 		pictures = pictures.filter((_, i) => i !== index);
 	}
