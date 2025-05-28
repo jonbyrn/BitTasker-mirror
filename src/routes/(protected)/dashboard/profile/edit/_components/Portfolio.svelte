@@ -81,13 +81,20 @@
 	async function handleImageUpload(files: File[]) {
 		// Filter out files that are already in the images array
 		const newFiles = files.filter((file) => {
-			return file instanceof File;
+			if (!images.includes(file)) {
+				return file instanceof File;
+			}
+			return false;
 		});
 
 		// Add only new files to the images array
 		if (newFiles.length > 0) {
 			images = [...images, ...newFiles];
 		}
+	}
+
+	function handleImageRemove(index: number) {
+		images = images.filter((_, i) => i !== index);
 	}
 
 	const uploadImages = async (pictures: (NostrProfileImage | File)[]) => {
@@ -380,6 +387,7 @@
 							maxFiles={5}
 							files={images?.map((img) => (img instanceof File ? img : img.url))}
 							onChange={handleImageUpload}
+							onRemove={handleImageRemove}
 						/>
 					</div>
 
