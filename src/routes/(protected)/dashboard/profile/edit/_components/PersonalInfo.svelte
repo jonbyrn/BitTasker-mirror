@@ -31,6 +31,7 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
+				console.log('event', { ...event, content: JSON.parse(event.content) });
 				try {
 					// Handle profile metadata update
 					if (event.kind === 0) {
@@ -42,7 +43,7 @@
 						website = metadata.website || website;
 					}
 					// Handle image metadata update
-					else if (event.kind === 1063) {
+					else if (event.kind === 30063) {
 						imageEventId = event.id; // Store the event ID
 						const images = JSON.parse(event.content);
 						if (images.length > 0) {
@@ -59,7 +60,7 @@
 					error = 'Failed to connect to Nostr relay. Please try again later.';
 				}
 			},
-			{ 0: null, 1063: null } // Kind 0 for metadata, 1063 for media metadata
+			{ 0: null, 30063: { d: 'profile-images' } } // Kind 0 for metadata, 300063 for media metadata
 		);
 	});
 
@@ -104,30 +105,20 @@
 		error = '';
 
 		try {
-			// const uploadedPictures = await uploadImages(pictures);
-			const uploadedPictures = [
-				{
-					url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/profile/1747839971600-acb3a5b460e5ec3e.webp',
-					key: 'profile/1747839971600-acb3a5b460e5ec3e.webp',
-					type: 'image/webp',
-					alt: 'bugatti divo.webp'
-				},
-				{
-					url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/profile/1747839972381-48b053b512414835.png',
-					key: 'profile/1747839972381-48b053b512414835.png',
-					type: 'image/png',
-					alt: 'bugatti bolide.png'
-				},
-				{
-					url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/profile/1747839972432-1d2be5fb5f32c768.png',
-					key: 'profile/1747839972432-1d2be5fb5f32c768.png',
-					type: 'image/png',
-					alt: 'screenshot-2024.png'
-				}
-			];
+			const imagesToUpload = pictures.filter((picture) => {
+				return picture instanceof File;
+			});
+			const otherImages = pictures.filter((picture) => {
+				return !(picture instanceof File);
+			});
 
+			const uploadedPictures = await uploadImages(imagesToUpload);
+
+			const images = [...(otherImages as NostrProfileImage[]), ...uploadedPictures];
+
+			console.log({ images, imageEventId });
 			// Publish new images event, passing the existing event ID if we have one
-			await publishMultipleImages(uploadedPictures, imageEventId, 'profile-images');
+			await publishMultipleImages(images, imageEventId, 'profile-images');
 
 			// Prepare profile data
 			const profileData: NostrProfile = {
@@ -148,16 +139,20 @@
 	}
 
 	// Handle image upload
-	async function handleImageUpload(files: File[]) {
-		if (pictures.length > 5 || !files.length || files.length > 5) return;
-		pictures = [...pictures, ...files];
+	async function handleImageUpload(files: (File | NostrProfileImage)[]) {
+		const newFiles = files.filter((file) => {
+			if (!pictures.includes(file)) {
+				return file instanceof File;
+			}
+			return false;
+		});
+		if (newFiles.length > 0) {
+			pictures = [...pictures, ...newFiles];
+		}
 	}
 
 	// TODO: Remove profile picture
-	function removePicture(index: number, file: File | string) {
-		if (typeof file === 'string') {
-			// remove images from nostr
-		}
+	function removePicture(index: number) {
 		pictures = pictures.filter((_, i) => i !== index);
 	}
 </script>
@@ -180,6 +175,7 @@
 				files={pictures.map((pic) => (pic instanceof File ? pic : pic.url))}
 				maxFiles={5}
 				onChange={handleImageUpload}
+				onRemove={removePicture}
 			/>
 		</div>
 	</div>

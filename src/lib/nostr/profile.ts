@@ -273,33 +273,21 @@ export async function publishProfileMetadata(
  */
 export async function publishMultipleImages(images: NostrProfileImage[], eventId: string | null, identifier: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<string[]> {
     try {
-        let event: Partial<NostrEvent>;
-        if (eventId) {
-            event = {
-                kind: 30063, // Replaceable event for profile images
-                created_at: Math.floor(Date.now() / 1000),
-                tags: [
-                    ['d', identifier] // Identifier for this replaceable event
-                ],
-                content: JSON.stringify(images)
-            };
-        } else {
-            event = {
-                kind: 1063,
-                created_at: Math.floor(Date.now() / 1000),
-                tags: [
-                    ['d', identifier]
-                ],
-                content: JSON.stringify(images)
-            };
-        }
+        // Always use kind 30063 for replaceable events
+        const event: Partial<NostrEvent> = {
+            kind: 30063, // Replaceable event for profile images
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['d', identifier] // Identifier for this replaceable event
+            ],
+            content: JSON.stringify(images)
+        };
 
         if (!event) {
             throw new Error('Event is undefined');
         }
 
         const signedEvent = await getSignedEvent(event);
-
         const pub = await Promise.all(pool.publish(relays, signedEvent));
 
         return pub;
