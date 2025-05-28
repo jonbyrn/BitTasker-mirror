@@ -7,7 +7,9 @@ export enum TaskStepEnum {
 	BASICS = 'basics',
 	LOCATION = 'location',
 	BUDGET = 'budget',
-	RECURRING = 'recurring'
+	REVIEW = 'review',
+	RECURRING = 'recurring',
+	TASKBOOST = 'taskboost'
 }
 
 export enum TaskStatusEnum {
