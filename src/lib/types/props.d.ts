@@ -12,6 +12,7 @@ export interface UploaderProps {
 	height?: number;
 	customClass?: string;
 	onChange?: (files: File[]) => void;
+	onRemove?: (index: number) => void;
 	onError?: (message: string) => void;
 }
 
