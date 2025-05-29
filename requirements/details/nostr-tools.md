@@ -1,11 +1,26 @@
 # Nostr Tools Documentation
 
 ## Overview
-Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines for the package.
+Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines.
 
-## Event Kinds
+## Core Concepts
 
-### Event Kind Ranges
+### Event Structure
+```typescript
+interface Event {
+  id: string;      // Event ID (32-bytes lowercase hex) - computed from event data
+  pubkey: string;  // Publisher's public key (32-bytes lowercase hex)
+  created_at: number; // Unix timestamp in seconds
+  kind: number;    // Event kind (0 = metadata, 1 = text note, etc.)
+  tags: string[][]; // Array of tags
+  content: string; // Event content (can be encrypted for DMs)
+  sig: string;     // Event signature (64-bytes lowercase hex) - computed using private key
+}
+```
+
+### Event Kinds
+
+#### Kind Ranges
 - **Regular Events (0-9999)**
   - Core protocol events
   - Permanent, non-replaceable events
@@ -26,43 +41,47 @@ Nostr Tools is a comprehensive JavaScript/TypeScript library for working with th
   - Latest event replaces previous ones with same parameters
   - Used for user-specific data sets
 
-### Common Event Kinds
-- `0`: Metadata (Profile)
-- `1`: Text Note
-- `2`: Recommend Relay
-- `3`: Contacts
-- `4`: Encrypted Direct Messages
-- `5`: Event Deletion
-- `6`: Repost
-- `7`: Reaction
+#### Common Event Kinds
+- Basic Events (0-9):
+  - `0`: Metadata (Profile)
+  - `1`: Text Note
+  - `2`: Recommend Relay
+  - `3`: Contacts
+  - `4`: Encrypted Direct Messages
+  - `5`: Event Deletion
+  - `6`: Repost
+  - `7`: Reaction
 
-## Core Components
+- Channel Events (40-44):
+  - `40`: Channel Creation
+  - `41`: Channel Metadata
+  - `42`: Channel Message
+  - `43`: Channel Hide Message
+  - `44`: Channel Mute User
 
-### Event Structure
-```typescript
-interface Event {
-  id: string;      // Event ID (32-bytes lowercase hex) - computed from the event data
-  pubkey: string;  // Publisher's public key (32-bytes lowercase hex)
-  created_at: number; // Unix timestamp in seconds
-  kind: number;    // Event kind (0 = metadata, 1 = text note, etc.)
-  tags: string[][]; // Array of tags
-  content: string; // Event content (can be encrypted for DMs)
-  sig: string;     // Event signature (64-bytes lowercase hex) - computed using private key
-}
-```
+- Special Purpose (1000+):
+  - `1040`: OpenTimestamps
+  - `1063`: File Metadata
+  - `1311`: Live Chat Message
+  - `1984`: Report/Reporting
+  - `1985`: Label
 
-### Event Creation Process
+- Zap Related:
+  - `9734`: Zap Request
+  - `9735`: Zap
 
-When creating a new event, you only need to provide the following fields:
-```typescript
-const eventTemplate = {
-  kind: number,
-  created_at: number,
-  tags: string[][],
-  content: string,
-  pubkey: string
-};
-```
+- Lists and Preferences (10000+):
+  - `10000`: Mutelist
+  - `10001`: Pinlist
+  - `10002`: Relay List
+  - `10003`: Bookmark List
+
+- Parameterized Events (30000+):
+  - `30000`: Followsets
+  - `30001`: Genericlists
+  - `30023`: Long Form Article
+  - `30078`: Application
+  - `30402`: Classified Listing
 
 The `id` and `sig` fields are automatically computed when you call `finalizeEvent`:
 
@@ -101,7 +120,7 @@ console.log(signedEvent.sig);  // e.g., "79e85af3cd6c43324975466d32f91f291e10af0
 
 ### Event Tags
 
-Event tags are a fundamental feature that provide additional metadata and create relationships between events, users, and other entities. They are stored in the `tags` field as an array of arrays.
+Tags provide metadata and create relationships between events, users, and other entities.
 
 #### Tag Structure
 ```typescript
@@ -997,8 +1016,7 @@ interface Event {
 5. Consider using multiple relays for redundancy
 6. Use appropriate timeouts for queries and subscriptions
 7. Use querySync instead of deprecated list method for fetching events
-8. Don't pass configuration options to SimplePool constructor (v2.13.0+) 
-```
+8. Don't pass configuration options to SimplePool constructor (v2.13.0+) ```
 
 ### Event Updates in Nostr
 
