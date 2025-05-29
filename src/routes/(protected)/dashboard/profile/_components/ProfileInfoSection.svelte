@@ -1,343 +1,51 @@
 <script lang="ts">
-	import { mockUser } from '$lib/utils/consts';
+	import { profileStore } from '$lib/stores/profile.store';
 
-	// Define necessary types locally
-	type UserSkill = { name: string; level: number; verified: boolean };
-	type UserCertification = {
-		id: string;
-		name: string;
-		issue: string;
-		date: string;
-		verified: boolean;
-	};
-	type UserPortfolioItem = {
-		id: string;
-		title: string;
-		description: string;
-		images: string[];
-		date: string;
-	};
-	type Reviewer = { id: string; name: string; avatar?: string }; // Avatar is optional in mock
-	type UserReview = { id: string; from: Reviewer; rating: number; text: string; date: string };
-	type User = typeof mockUser;
-
-	let { isEditMode, formatDate, yearsFrom } = $props<{
-		isEditMode: boolean;
-		formatDate: (dateString: string) => string;
-		yearsFrom: (dateString: string) => number;
+	let { formatDate, yearsFrom } = $props<{
+		formatDate: (date: string) => string;
+		yearsFrom: (date: string) => number;
 	}>();
-
-	// Use mockUser directly
-	const user = mockUser;
-
-	// --- Local State for Edit Mode ---
-	let editSkills = $state([...user.skills]);
-	let newSkillName = $state('');
-	let newSkillLevel = $state(3);
-
-	let portfolioItems = $state([...user.portfolio]); // Local reactive copy for portfolio
-	let newPortfolioTitle = $state('');
-	let newPortfolioDescription = $state('');
-	let newPortfolioImages = $state<File[]>([]);
-
-	// Sync local edit state if isEditMode changes (e.g., cancel)
-	$effect(() => {
-		if (!isEditMode) {
-			editSkills = [...user.skills];
-			newSkillName = '';
-			newSkillLevel = 3;
-			portfolioItems = [...user.portfolio];
-			newPortfolioTitle = '';
-			newPortfolioDescription = '';
-			newPortfolioImages = [];
-		}
-	});
-
-	// --- Local Edit Functions ---
-	function addSkill() {
-		const nameToAdd = newSkillName.trim();
-		if (nameToAdd) {
-			editSkills = [
-				...editSkills,
-				{
-					name: nameToAdd,
-					level: newSkillLevel,
-					verified: false // New skills aren't verified by default
-				}
-			];
-			newSkillName = ''; // Reset form
-			newSkillLevel = 3;
-		}
-	}
-
-	function removeSkill(index: number) {
-		editSkills = editSkills.filter((_, i) => i !== index);
-	}
-
-	function updateSkillLevel(index: number, level: number) {
-		if (editSkills && editSkills[index]) {
-			editSkills[index].level = level;
-		}
-	}
-
-	function handleImageUpload(event: Event) {
-		const input = event.target as HTMLInputElement;
-		if (input.files) {
-			let addedImages: File[] = [];
-			for (let i = 0; i < input.files.length; i++) {
-				addedImages.push(input.files[i]);
-			}
-			newPortfolioImages = [...newPortfolioImages, ...addedImages];
-		}
-	}
-
-	function addPortfolioItem() {
-		const titleToAdd = newPortfolioTitle.trim();
-		const descriptionToAdd = newPortfolioDescription.trim();
-
-		if (titleToAdd && descriptionToAdd) {
-			// Create mock URLs for display, real implementation would upload
-			const mockImageUrls = newPortfolioImages.map(
-				(file, i) => `/mock/portfolio/${Date.now()}-${i}.jpg`
-			);
-
-			const newItem: UserPortfolioItem = {
-				id: `port${portfolioItems.length + 1 + Date.now()}`, // More unique ID
-				title: titleToAdd,
-				description: descriptionToAdd,
-				images: mockImageUrls,
-				date: new Date().toISOString().split('T')[0]
-			};
-
-			portfolioItems = [newItem, ...portfolioItems];
-
-			// Reset form
-			newPortfolioTitle = '';
-			newPortfolioDescription = '';
-			newPortfolioImages = [];
-		}
-	}
-	// TODO: Need a way to save the modified `editSkills` and `portfolioItems`
-	// when the parent's `saveProfile` is called. Options:
-	// 1. Emit events with the data.
-	// 2. Use a writable store.
-	// 3. Pass callback props for updating parent state (less ideal for deep nesting).
 </script>
 
-<div class="lg:w-2/3">
-	{#if isEditMode}
-		<!-- ====================== -->
-		<!--    EDIT MODE           -->
-		<!-- ====================== -->
-
-		<!-- Skills Edit Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">Skills</h3>
-			<!-- Add Skill Form -->
-			<div class="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-				<!-- Skill Name Input -->
-				<div class="form-control">
-					<label for="newSkillName" class="label">
-						<span class="label-text">Skill Name</span>
-					</label>
-					<input
-						type="text"
-						id="newSkillName"
-						bind:value={newSkillName}
-						class="input input-bordered w-full"
-						placeholder="Add a skill"
-					/>
-				</div>
-				<!-- Skill Level Input -->
-				<div class="form-control">
-					<label for="newSkillLevel" class="label">
-						<span class="label-text">Skill Level (1-5)</span>
-					</label>
-					<input
-						type="range"
-						id="newSkillLevel"
-						bind:value={newSkillLevel}
-						min="1"
-						max="5"
-						class="range range-primary"
-					/>
-					<div class="flex w-full justify-between px-2 text-xs">
-						<span>1</span>
-						<span>2</span>
-						<span>3</span>
-						<span>4</span>
-						<span>5</span>
-					</div>
-				</div>
-				<!-- Add Skill Button -->
-				<div class="form-control flex items-end">
-					<button class="btn btn-primary" onclick={addSkill} disabled={!newSkillName?.trim()}>
-						Add Skill
-					</button>
-				</div>
+<!-- Profile Info Section -->
+<div class="flex-1 mb-8">
+	{#if $profileStore.isLoading}
+		<div class="space-y-6">
+			<div class="animate-pulse space-y-4">
+				<div class="bg-base-300 h-6 w-48 rounded"></div>
+				<div class="bg-base-300 h-4 w-full rounded"></div>
+				<div class="bg-base-300 h-4 w-3/4 rounded"></div>
 			</div>
-
-			<!-- Current Skills Table -->
-			{#if editSkills && editSkills.length > 0}
-				<div class="overflow-x-auto">
-					<table class="table-zebra table w-full">
-						<thead>
-							<tr>
-								<th>Skill</th>
-								<th>Level</th>
-								<th>Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each editSkills as skill, i}
-								<tr>
-									<td>
-										{skill.name}
-										{#if skill.verified}
-											<span class="badge badge-success badge-sm ml-2">Verified</span>
-										{/if}
-									</td>
-									<td>
-										<div class="rating rating-sm">
-											{#each Array(5) as _, j}
-												<input
-													type="radio"
-													name={`rating-${i}`}
-													class="mask mask-star-2 bg-orange-400"
-													checked={j + 1 === skill.level}
-													onchange={() => updateSkillLevel(i, j + 1)}
-												/>
-											{/each}
-										</div>
-									</td>
-									<td>
-										<button class="btn btn-error btn-sm" onclick={() => removeSkill(i)}>
-											Remove
-										</button>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
+		</div>
+	{:else if $profileStore.data}
+		<!-- About -->
+		<div class="mb-8">
+			<h3 class="mb-4 text-xl font-semibold">About</h3>
+			{#if $profileStore.data.about}
+				<p class="text-base-content/70 max-w-2xl whitespace-pre-line">{$profileStore.data.about}</p>
 			{:else}
-				<div class="alert">
-					<span>No skills added yet. Add some skills to showcase your expertise.</span>
-				</div>
+				<p class="text-base-content/70 max-w-2xl">No description added yet.</p>
 			{/if}
 		</div>
-
-		<!-- Portfolio Edit Section -->
-		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">Add Portfolio Item</h3>
-			<!-- Portfolio Title Input -->
-			<div class="form-control mb-4">
-				<label for="portfolioTitle" class="label">
-					<span class="label-text">Project Title</span>
-				</label>
-				<input
-					type="text"
-					id="portfolioTitle"
-					bind:value={newPortfolioTitle}
-					class="input input-bordered w-full"
-					placeholder="Enter project title"
-				/>
-			</div>
-			<!-- Portfolio Description Input -->
-			<div class="form-control mb-4">
-				<label for="portfolioDescription" class="label">
-					<span class="label-text">Project Description</span>
-				</label>
-				<textarea
-					id="portfolioDescription"
-					bind:value={newPortfolioDescription}
-					class="textarea textarea-bordered h-24"
-					placeholder="Describe the project and your contribution"
-				></textarea>
-			</div>
-			<!-- Portfolio Image Input -->
-			<div class="form-control mb-4">
-				<label for="portfolioImages" class="label">
-					<span class="label-text">Project Images</span>
-				</label>
-				<input
-					type="file"
-					id="portfolioImages"
-					onchange={handleImageUpload}
-					class="file-input file-input-bordered w-full"
-					multiple
-					accept="image/*"
-				/>
-				<!-- Display Selected Images -->
-				{#if newPortfolioImages && newPortfolioImages.length > 0}
-					<div class="mt-2 flex flex-wrap gap-2">
-						{#each newPortfolioImages as file}
-							<div class="badge badge-lg">{file.name}</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-			<!-- Add Portfolio Item Button -->
-			<button
-				class="btn btn-primary"
-				onclick={addPortfolioItem}
-				disabled={!newPortfolioTitle?.trim() || !newPortfolioDescription?.trim()}
-			>
-				Add Portfolio Item
-			</button>
-		</div>
-
-		<!-- Display Current Portfolio Items in Edit Mode -->
-		{#if portfolioItems && portfolioItems.length > 0}
-			<div class="mb-8">
-				<h4 class="mb-2 text-lg font-semibold">Current Portfolio</h4>
-				<div class="grid grid-cols-1 gap-6">
-					{#each portfolioItems as item}
-						<div class="card bg-base-200 shadow-sm">
-							<div class="card-body p-4">
-								<h4 class="card-title text-base">{item.title}</h4>
-								<p class="text-base-content/70 text-sm">{formatDate(item.date)}</p>
-								<p class="my-1 text-sm">{item.description}</p>
-								{#if item.images && item.images.length > 0}
-									<div class="mt-2 flex flex-wrap gap-1">
-										{#each item.images as image}
-											<!-- Display mock path or placeholder -->
-											<div class="badge badge-outline text-xs">{image.split('/').pop()}</div>
-										{/each}
-									</div>
-								{/if}
-								<!-- TODO: Add delete/edit buttons for portfolio items -->
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
-	{:else if user}
-		<!-- ====================== -->
-		<!--    VIEW MODE           -->
-		<!-- ====================== -->
-
-		<!-- Bio Section -->
-		{#if user.bio}
-			<div class="mb-8">
-				<h3 class="mb-4 text-xl font-semibold">About</h3>
-				<p class="whitespace-pre-line">{user.bio}</p>
-			</div>
-		{/if}
 
 		<!-- Skills Section -->
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">Skills</h3>
-			{#if user.skills && user.skills.length > 0}
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-					{#each user.skills as skill}
+			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
+				<div class="grid gap-4 md:grid-cols-2">
+					{#each $profileStore.data.skills as skill}
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								<span>{skill.name}</span>
-								{#if skill.verified}
-									<span class="badge badge-success badge-sm">Verified</span>
-								{/if}
+								<span
+									class="badge pb-[4px] {skill.verificationStatus === 'verified'
+										? 'badge-success'
+										: skill.verificationStatus === 'pending'
+											? 'badge-warning'
+											: 'badge-ghost badge-outline'}"
+								>
+									{skill.verificationStatus}
+								</span>
 							</div>
 							<div class="rating rating-sm">
 								{#each Array(5) as _, i}
@@ -353,24 +61,25 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert">
-					<span>No skills listed yet.</span>
-				</div>
+				<p class="text-base-content/70">No skills added yet.</p>
 			{/if}
 		</div>
 
 		<!-- Certifications Section -->
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">Certifications</h3>
-			{#if user.certifications && user.certifications.length > 0}
-				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-					{#each user.certifications as cert}
-						<div class="card bg-base-200">
+			{#if $profileStore.data.certifications && $profileStore.data.certifications.length > 0}
+				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+					{#each $profileStore.data.certifications as cert}
+						<div class="card bg-base-200 flex flex-row items-center justify-start rounded-xl">
+							<img src={cert.fileUrl} alt={cert.name} class="h-full w-20 rounded-lg object-cover" />
 							<div class="card-body p-4">
 								<div class="flex items-start justify-between">
 									<h4 class="card-title text-base">{cert.name}</h4>
 									{#if cert.verified}
 										<div class="badge badge-success">Verified</div>
+									{:else}
+										<div class="badge badge-warning text-black">Unverified</div>
 									{/if}
 								</div>
 								<p class="text-base-content/70 text-sm">{cert.issuer}</p>
@@ -384,7 +93,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert">
+				<div class="alert rounded-xl">
 					<span>No certifications listed yet.</span>
 				</div>
 			{/if}
@@ -393,19 +102,23 @@
 		<!-- Portfolio Section -->
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">Portfolio</h3>
-			{#if user.portfolio && user.portfolio.length > 0}
+			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6">
-					{#each user.portfolio as item}
-						<div class="card bg-base-200">
+					{#each $profileStore.data.portfolio as item}
+						<div class="card bg-base-200 rounded-xl">
 							<div class="card-body p-4">
-								<h4 class="card-title">{item.title}</h4>
-								<p class="text-base-content/70 text-sm">{formatDate(item.date)}</p>
+								<h4 class="card-title">
+									{item.title}
+									<span class="badge pb-[4px]">
+										{formatDate(item.completionDate)}
+									</span>
+								</h4>
 								<p class="my-2">{item.description}</p>
 								{#if item.images && item.images.length > 0}
-									<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-										{#each item.images as image}
-											<div class="bg-base-300 flex h-40 items-center justify-center rounded-lg">
-												<span class="text-base-content/50">Image Placeholder</span>
+									<div class="carousel w-full rounded-lg">
+										{#each item.images as image, i}
+											<div class="carousel-item w-full" id="slide-{item.id}-{i}">
+												<img src={image.url} alt={image.alt} class="h-48 w-full object-cover" />
 											</div>
 										{/each}
 									</div>
@@ -422,11 +135,12 @@
 		</div>
 
 		<!-- Reviews Section -->
+		<!-- Reviews Section -->
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">Reviews</h3>
-			{#if user.reviews && user.reviews.length > 0}
+			{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
 				<div class="space-y-4">
-					{#each user.reviews as review}
+					{#each $profileStore.data.reviews as review}
 						<div class="card bg-base-200">
 							<div class="card-body p-4">
 								<div class="flex items-start justify-between">
@@ -462,10 +176,28 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert">
-					<span>No reviews yet.</span>
+				<div class="card bg-base-200 rounded-lg p-6 text-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content/30 mx-auto h-12 w-12"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+						/>
+					</svg>
+					<p class="text-base-content/70 mt-4">No reviews yet.</p>
 				</div>
 			{/if}
+		</div>
+	{:else if $profileStore.error}
+		<div class="alert alert-error">
+			<span>Failed to load profile data. Please try again later.</span>
 		</div>
 	{/if}
 </div>

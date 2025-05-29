@@ -1,25 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { authState } from '$lib/stores/auth.store.js';
+	import { profileStore } from '$lib/stores/profile.store';
+	import { onMount, onDestroy } from 'svelte';
 	import ProfileHeader from './_components/ProfileHeader.svelte';
 	import ProfileStats from './_components/ProfileStats.svelte';
 	import ProfileInfoSection from './_components/ProfileInfoSection.svelte';
 	import ProfileSidebar from './_components/ProfileSidebar.svelte';
-
-	// Edit mode state - Managed by the parent page
-	let isEditMode = $state(false);
-
-	// Toggle edit mode
-	function toggleEditMode() {
-		isEditMode = !isEditMode;
-	}
-
-	// Save profile changes
-	function saveProfile() {
-		// TODO: Implement actual save logic.
-		console.log('Saving profile changes... (gather state from children or use store)');
-		isEditMode = false;
-	}
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -39,19 +26,26 @@
 		await authState.logout();
 		goto('/');
 	};
+
+	// Initialize profile store
+	onMount(() => {
+		profileStore.init();
+	});
+
+	// Cleanup on destroy
+	onDestroy(() => {
+		profileStore.destroy();
+	});
 </script>
 
 <div class="mx-auto max-w-5xl">
 	<div class="bg-base-100 mb-6 rounded-lg p-6 shadow-lg">
-		<ProfileHeader {isEditMode} {toggleEditMode} {saveProfile} {logout} />
+		<ProfileHeader {logout} />
 
-		<!-- Rest here is static content -->
-		<ProfileStats />
+		<ProfileStats stats={$profileStore.stats} />
 
-		<div class="flex flex-col gap-8 lg:flex-row">
-			<ProfileInfoSection {isEditMode} {formatDate} {yearsFrom} />
+		<ProfileInfoSection {formatDate} {yearsFrom} />
 
-			<ProfileSidebar {formatDate} />
-		</div>
+		<ProfileSidebar {formatDate} />
 	</div>
 </div>
