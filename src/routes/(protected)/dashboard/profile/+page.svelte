@@ -29,7 +29,11 @@
 
 	// Initialize profile store
 	onMount(() => {
-		profileStore.init();
+		let timeout = setTimeout(() => {
+			profileStore.init();
+		}, 0);
+
+		return () => clearTimeout(timeout);
 	});
 
 	// Cleanup on destroy

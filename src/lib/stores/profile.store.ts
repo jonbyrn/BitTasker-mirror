@@ -128,7 +128,6 @@ function createProfileStore() {
                                             }
                                         };
                                     case 30002: // Availability
-                                        console.log('Availability', content);
                                         return {
                                             ...state,
                                             data: {
