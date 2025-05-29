@@ -174,15 +174,12 @@
 			</div>
 
 			<!-- Video Introduction -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
+			<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Video Introduction</h2>
-					<VideoIntro
-						{user}
-						onComplete={(completed) => handleSectionComplete('videoIntro', completed)}
-					/>
+					<VideoIntro onComplete={(completed) => handleSectionComplete('videoIntro', completed)} />
 				</div>
-			</div>
+			</div> -->
 
 			<!-- Availability Calendar -->
 			<div class="card bg-base-100 rounded-xl shadow-lg">

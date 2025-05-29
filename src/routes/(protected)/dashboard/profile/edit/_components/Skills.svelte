@@ -48,7 +48,7 @@
 						if (Array.isArray(skillsData)) {
 							skills = skillsData.map((skill) => ({
 								...skill,
-								id: skill.id || crypto.randomUUID()
+								id: skill.id
 							}));
 						}
 					} else if (
@@ -101,7 +101,8 @@
 			level: newSkillLevel,
 			verificationStatus: 'unverified',
 			endorsements: 0,
-			certifications: []
+			certifications: [],
+			id: crypto.randomUUID()
 		};
 
 		skills = [newSkill, ...skills];

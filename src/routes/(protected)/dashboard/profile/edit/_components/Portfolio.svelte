@@ -1,15 +1,16 @@
 <script lang="ts">
+	import type { PortfolioItem, NostrProfileImage, Skill } from '$lib/types/profile.d';
 	import { onDestroy, onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
-	import type { PortfolioItem, NostrProfileImage, Skill } from '$lib/types/profile.d';
 	import {
 		publishPortfolioItem,
 		deletePortfolioItem,
-		subscribeToProfileUpdates,
-		_subscribeToProfileUpdates
+		subscribeToProfileUpdates
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import Tags from '$lib/components/Tags.svelte';
+	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -19,10 +20,8 @@
 	let portfolioItems = $state<PortfolioItem[]>([]);
 	let title = $state('');
 	let description = $state('');
-	let category = $state('');
 	let completionDate = $state('');
 	let selectedSkills = $state<string[]>([]);
-	let userSkills = $state<Skill[]>([]);
 	let images = $state<(NostrProfileImage | File)[]>([]);
 	let isLoading = $state(false);
 	let error = $state('');
@@ -66,7 +65,7 @@
 			},
 			{
 				30001: null,
-				30000: { t: 'skills' }
+				30000: { d: 'skills' }
 			}
 		);
 	});
@@ -132,7 +131,6 @@
 			const item: PortfolioItem = {
 				title,
 				description,
-				category,
 				completionDate,
 				skills: selectedSkills,
 				images: uploadedImages
@@ -193,7 +191,6 @@
 		editingItem = item;
 		title = item.title;
 		description = item.description;
-		category = item.category;
 		completionDate = item.completionDate;
 		selectedSkills = [...item.skills];
 		images = [...item.images];
@@ -205,7 +202,6 @@
 		editingItem = null;
 		title = '';
 		description = '';
-		category = '';
 		completionDate = '';
 		selectedSkills = [];
 		images = [];
@@ -296,7 +292,7 @@
 					</div>
 
 					<!-- Category -->
-					<div class="form-control">
+					<!-- <div class="form-control">
 						<label class="label" for="category">
 							<span class="label-text font-medium">Category</span>
 							<span class="label-text-alt">Required</span>
@@ -312,19 +308,18 @@
 								<option value={cat.name}>{cat.name}</option>
 							{/each}
 						</select>
-					</div>
+					</div> -->
 
 					<!-- Completion Date -->
 					<div class="form-control">
 						<label class="label" for="completionDate">
 							<span class="label-text font-medium">Completion Date</span>
-							<span class="label-text-alt">Required</span>
+							<span class="label-text-alt">(Required)</span>
 						</label>
-						<input
-							type="date"
-							id="completionDate"
-							bind:value={completionDate}
-							class="input input-bordered w-full"
+						<DatePicker
+							label="Completion Date"
+							value={completionDate}
+							onChange={(value: string) => (completionDate = value)}
 							required
 						/>
 					</div>
@@ -334,44 +329,15 @@
 						<label class="label" for="skills">
 							<span class="label-text font-medium">Skills Used</span>
 						</label>
-						<select
-							id="skills"
-							class="select select-bordered w-full"
-							onchange={(e) => {
-								const select = e.target as HTMLSelectElement;
-								const skill = select.value;
-								if (skill && !selectedSkills?.includes(skill)) {
-									selectedSkills = [...selectedSkills, skill];
-									select.value = '';
-								}
-							}}
-						>
-							<option value="">Select a skill</option>
-							{#if userSkills}
-								{#each userSkills as skill}
-									{#if !selectedSkills?.includes(skill.name)}
-										<option value={skill.name}>{skill.name}</option>
-									{/if}
-								{/each}
-							{/if}
-						</select>
-						{#if selectedSkills.length > 0}
-							<div class="mt-2 flex flex-wrap gap-2">
-								{#each selectedSkills as skill}
-									<span class="badge badge-primary gap-2">
-										{skill}
-										<button
-											class="btn btn-ghost btn-xs"
-											onclick={() => {
-												selectedSkills = selectedSkills.filter((s) => s !== skill);
-											}}
-										>
-											✕
-										</button>
-									</span>
-								{/each}
-							</div>
-						{/if}
+
+						<Tags
+							selectedTags={selectedSkills}
+							options={skills.map((skill) => ({
+								id: skill.id || '',
+								name: skill.name
+							}))}
+							onChange={(value: (string | number)[]) => (selectedSkills = value as string[])}
+						/>
 					</div>
 
 					<!-- Images -->
@@ -408,7 +374,7 @@
 					<!-- Form Actions -->
 					<div class="flex justify-end gap-2">
 						{#if editingItem}
-							<button class="btn btn-ghost" onclick={resetForm}> Cancel </button>
+							<button class="btn btn-ghost btn-outline" onclick={resetForm}> Cancel </button>
 						{/if}
 						<button class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
 							{#if isLoading}
@@ -437,16 +403,13 @@
 							<h2 class="card-title">{item.title}</h2>
 							<p class="text-base-content/70">{item.description}</p>
 
-							{#if item.category || (item.skills && item.skills.length > 0)}
+							{#if skills && skills.length > 0 && item.skills && item.skills.length > 0}
 								<div class="mt-4 flex flex-wrap gap-2">
-									{#if item.category}
-										<span class="badge badge-ghost">{item.category}</span>
-									{/if}
-									{#if item.skills && item.skills.length > 0}
-										{#each item.skills as skill}
-											<span class="badge badge-primary badge-outline">{skill}</span>
-										{/each}
-									{/if}
+									{#each item.skills as skill}
+										<span class="badge badge-primary badge-outline">
+											{skills.find((s) => s.id === skill)?.name}
+										</span>
+									{/each}
 								</div>
 							{/if}
 

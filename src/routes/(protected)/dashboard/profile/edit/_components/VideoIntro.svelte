@@ -1,25 +1,16 @@
 <script lang="ts">
-	import { UpdateUserProfileStore } from '$houdini';
+	import type { VideoIntroData, VideoIntroMetadata } from '$lib/types/profile';
+	import { onDestroy, onMount } from 'svelte';
+	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
+	import { getSignedEvent, publishEvent } from '$lib/utils/nostr';
+	import { subscribeToProfileUpdates, deleteNostrEvent } from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	interface VideoIntroData {
-		videoUrl: string;
-		videoKey: string;
-		thumbnailUrl: string;
-		thumbnailKey: string;
-		duration: number;
-	}
-
-	let { user, onComplete } = $props<{
-		user: { videoIntro?: VideoIntroData | null } | null | undefined;
-		onComplete: (completed: boolean) => void;
-	}>();
-
-	const profileStore = new UpdateUserProfileStore();
+	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
 	// Local state
-	let videoData = $state<VideoIntroData | null>(user?.videoIntro || null);
+	let videoData = $state<VideoIntroMetadata | null>(null);
 	let isRecording = $state(false);
 	let mediaRecorder: MediaRecorder | null = $state(null);
 	let recordedChunks: Blob[] = $state([]);
@@ -27,11 +18,88 @@
 	let error = $state('');
 	let stream: MediaStream | null = $state(null);
 	let videoPreview: HTMLVideoElement | null = $state(null);
+	let videoEventId = $state<string | null>(null);
+	let cleanup: (() => void) | null = null;
+
+	// Subscribe to video updates
+	onMount(async () => {
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				try {
+					// Handle video metadata update (kind 21)
+					if (event.kind === 21) {
+						videoEventId = event.id;
+						const metadata = JSON.parse(event.content);
+						const videoUrl = event.tags.find((t) => t[0] === 'url')?.[1];
+						const thumbnailUrl = event.tags.find((t) => t[0] === 'thumb')?.[1];
+						const duration = Number(event.tags.find((t) => t[0] === 'duration')?.[1]) || 0;
+
+						if (videoUrl && thumbnailUrl) {
+							videoData = {
+								video: {
+									url: videoUrl,
+									key: event.tags.find((t) => t[0] === 'x')?.[1] || '',
+									type: 'video/webm',
+									alt: 'Profile video',
+									size: metadata.video.size,
+									duration
+								},
+								thumbnail: metadata.thumbnail
+							};
+						}
+					}
+				} catch (err) {
+					console.error('Failed to process video update:', err);
+					error = 'Failed to connect to Nostr relay. Please try again later.';
+				}
+			},
+			{ 21: null } // Subscribe to kind 21 (video) events
+		);
+	});
+
+	// Cleanup subscription on component destroy
+	onDestroy(() => {
+		if (cleanup) cleanup();
+		if (stream) {
+			stream.getTracks().forEach((track) => track.stop());
+		}
+	});
 
 	// Track completion
 	$effect(() => {
 		onComplete(!!videoData);
 	});
+
+	// Publish video event to Nostr
+	async function publishVideoEvent(videoData: VideoIntroMetadata, relay = PUBLIC_NOSTR_RELAY_URL) {
+		try {
+			// Publish to Nostr with extended metadata
+			const event = {
+				kind: 21, // NIP-71 Video Event
+				created_at: Math.floor(Date.now() / 1000),
+				tags: [
+					['url', videoData.video.url],
+					['x', videoData.video.key],
+					['m', videoData.video.type],
+					['thumb', videoData.thumbnail.url],
+					['duration', videoData.video.duration?.toString()],
+					['size', videoData.video.size?.toString()],
+					['t', 'profile-video']
+				],
+				content: JSON.stringify({
+					video: videoData.video,
+					thumbnail: videoData.thumbnail,
+					type: 'profile-intro'
+				})
+			};
+
+			const signedEvent = await getSignedEvent(event);
+			await publishEvent(signedEvent, relay);
+		} catch (err) {
+			console.error('Failed to publish video event:', err);
+			throw err;
+		}
+	}
 
 	// Handle video upload
 	async function handleVideoUpload(files: File[]) {
@@ -43,7 +111,7 @@
 
 			const videoFile = files[0];
 
-			// Create video element to get duration and generate thumbnail
+			// Create video element to get metadata
 			const video = document.createElement('video');
 			video.preload = 'metadata';
 
@@ -53,11 +121,6 @@
 			await new Promise((resolve) => {
 				video.onloadedmetadata = () => resolve(null);
 			});
-
-			// Check video duration (max 3 minutes)
-			if (video.duration > 180) {
-				throw new Error('Video must be 3 minutes or shorter');
-			}
 
 			// Upload video
 			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, 'videos');
@@ -69,22 +132,35 @@
 			canvas.getContext('2d')?.drawImage(video, 0, 0);
 
 			const thumbnailBlob = await new Promise<Blob>((resolve) => {
-				canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.7);
+				canvas.toBlob((blob) => resolve(blob!), 'image/webp', 0.7);
 			});
 
-			const uploadedThumbnail = await uploadService.uploadSingleFile(
-				new File([thumbnailBlob], 'thumbnail.jpg', { type: 'image/jpeg' }),
-				'thumbnails'
-			);
+			const thumbnailFile = new File([thumbnailBlob], 'thumbnail.webp', { type: 'image/webp' });
+			const uploadedThumbnail = await uploadService.uploadSingleFile(thumbnailFile, 'thumbnails');
 
-			// Update video data
-			videoData = {
-				videoUrl: uploadedVideo.url,
-				videoKey: uploadedVideo.key,
-				thumbnailUrl: uploadedThumbnail.url,
-				thumbnailKey: uploadedThumbnail.key,
-				duration: video.duration
+			const videoMetadata = {
+				video: {
+					key: uploadedVideo.key,
+					url: uploadedVideo.url,
+					type: videoFile.type,
+					alt: videoFile.name,
+					size: videoFile.size,
+					duration: video.duration
+				},
+				thumbnail: {
+				key: uploadedThumbnail.key,
+				url: uploadedThumbnail.url,
+				type: 'image/webp',
+				alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail',
+				width: video.videoWidth,
+				height: video.videoHeight,
+				size: thumbnailFile.size
+			}
 			};
+
+			// Publish to Nostr
+			// await publishVideoEvent(videoMetadata);
+			videoData = videoMetadata;
 
 			// Cleanup
 			URL.revokeObjectURL(videoUrl);
@@ -177,13 +253,26 @@
 			);
 
 			// Update video data
-			videoData = {
-				videoUrl: uploadedVideo.url,
-				videoKey: uploadedVideo.key,
-				thumbnailUrl: uploadedThumbnail.url,
-				thumbnailKey: uploadedThumbnail.key,
-				duration: video.duration
+			const videoMetadata = {
+				video: {
+					url: uploadedVideo.url,
+					key: uploadedVideo.key,
+					type: videoFile.type,
+					alt: videoFile.name,
+					size: videoFile.size,
+					duration: video.duration
+				},
+				thumbnail: {
+					key: uploadedThumbnail.key,
+					url: uploadedThumbnail.url,
+					type: 'image/jpeg',
+					alt: videoFile.name.replace(/\.[^/.]+$/, '') + ' thumbnail'
+				}
 			};
+
+			// Publish to Nostr
+			await publishVideoEvent(videoMetadata);
+			videoData = videoMetadata;
 		} catch (err) {
 			console.error('Failed to save recording:', err);
 			error = 'Failed to save recording';
@@ -194,41 +283,39 @@
 	}
 
 	// Remove video
-	function removeVideo() {
-		videoData = null;
-		if (videoPreview) {
-			videoPreview.srcObject = null;
-		}
-	}
+	async function removeVideo() {
+		if (!videoData) return;
 
-	// Save video intro
-	async function handleSubmit() {
 		try {
 			isLoading = true;
 			error = '';
 
-			if (!videoData) {
-				error = 'Please upload or record a video introduction';
-				return;
+			// Delete the video event using the shared function
+			if (videoEventId) {
+				// const deletionEvent = {
+				//     kind: 5,
+				//     created_at: Math.floor(Date.now() / 1000),
+				//     tags: [
+				//         ['e', videoEventId],
+				//         ['k', '21'] // Specifying we're deleting a kind 21 event
+				//     ],
+				//     content: 'Deleting profile video'
+				// };
+
+				// const signedEvent = await getSignedEvent(deletionEvent);
+				// await Promise.all(nostrPool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent));
+				await deleteNostrEvent(videoEventId, '21');
 			}
 
-			// Update profile using GraphQL
-			const result = await profileStore.mutate({
-				input: {
-					videoIntro: videoData
-				}
-			});
+			videoData = null;
+			videoEventId = null;
 
-			if (result.errors) {
-				throw new Error(result.errors[0].message);
+			if (videoPreview) {
+				videoPreview.srcObject = null;
 			}
-
-			// Show success message
-			const toast = document.getElementById('video-toast-success');
-			if (toast) toast.style.display = 'block';
 		} catch (err) {
-			console.error('Video update failed:', err);
-			error = err instanceof Error ? err.message : 'Failed to update video';
+			console.error('Failed to remove video:', err);
+			error = 'Failed to remove video';
 		} finally {
 			isLoading = false;
 		}
@@ -236,81 +323,73 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Video Preview -->
-	{#if videoData}
-		<div class="relative">
-			<video
-				src={videoData.videoUrl}
-				poster={videoData.thumbnailUrl}
-				controls
-				class="w-full rounded-lg"
-			>
-				<track kind="captions" />
-			</video>
-			<button class="btn btn-circle btn-error absolute top-2 right-2" onclick={removeVideo}>
-				✕
-			</button>
+	<div class="space-y-4">
+		<div>
+			<span class="text-base-content/80 block font-medium">Video Introduction</span>
+			<span class="text-base-content/70 block whitespace-normal">
+				Record or upload a short video introduction (max 3 minutes)
+			</span>
 		</div>
-	{:else if isRecording}
-		<div class="relative">
-			<video bind:this={videoPreview} class="w-full rounded-lg" muted>
-				<track kind="captions" />
-			</video>
-			<div class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-4">
-				<button class="btn btn-circle btn-error" onclick={stopRecording}> ⬛ </button>
-			</div>
-		</div>
-	{/if}
 
-	<!-- Upload/Record Controls -->
-	{#if !videoData && !isRecording}
-		<div class="grid gap-4 md:grid-cols-2">
-			<!-- Upload Video -->
-			<div class="card bg-base-200 p-4">
-				<h3 class="mb-4 font-medium">Upload Video</h3>
+		{#if error}
+			<div class="alert alert-error whitespace-normal">{error}</div>
+		{/if}
+
+		{#if videoData}
+			<div class="relative">
+				<video
+					src={videoData.video.url}
+					poster={videoData.thumbnail.url}
+					controls
+					class="w-full rounded-lg"
+				>
+					<track kind="captions" />
+				</video>
+				<button
+					aria-label="Remove video"
+					class="btn btn-circle btn-error absolute -top-2 -right-2"
+					onclick={removeVideo}
+					disabled={isLoading}
+				>
+					✕
+				</button>
+			</div>
+		{:else}
+			<div class="space-y-4">
+				<!-- Upload video -->
 				<Uploader
 					id="videoUpload"
 					label="Upload Video"
-					maxFiles={1}
 					allowedTypes={['video/*']}
-					customClass="w-full"
+					maxFiles={1}
 					onChange={handleVideoUpload}
+					customClass="w-full"
+					maxDuration={180}
+					maxFileSize={100}
 				/>
-				<p class="text-base-content/70 mt-2 text-sm">Maximum video length: 3 minutes</p>
+
+				<!-- Record video -->
+				<div class="border-base-300 rounded-lg border p-4">
+					<div class="space-y-4">
+						{#if isRecording}
+							<video bind:this={videoPreview} class="w-full rounded-lg" muted>
+								<track kind="captions" />
+							</video>
+							<button class="btn btn-error btn-block" onclick={stopRecording} disabled={isLoading}>
+								Stop Recording
+							</button>
+						{:else}
+							<button
+								class="btn btn-primary btn-block"
+								onclick={startRecording}
+								disabled={isLoading}
+							>
+								Record Video
+							</button>
+						{/if}
+					</div>
+				</div>
 			</div>
-
-			<!-- TODO:Record Video -->
-			<!-- <div class="card bg-base-200 p-4">
-				<h3 class="mb-4 font-medium">Record Video</h3>
-				<button class="btn btn-primary w-full" onclick={startRecording}> Start Recording </button>
-				<p class="text-base-content/70 mt-2 text-sm">
-					Recording will automatically stop after 3 minutes
-				</p>
-			</div> -->
-		</div>
-	{/if}
-
-	<!-- Error Message -->
-	{#if error}
-		<div class="alert alert-error">
-			<span>{error}</span>
-		</div>
-	{/if}
-
-	<!-- Submit Button -->
-	<div class="flex justify-end">
-		<button class="btn btn-primary" onclick={handleSubmit} disabled={isLoading || !videoData}>
-			{#if isLoading}
-				<span class="loading loading-spinner"></span>
-			{/if}
-			Save Video Introduction
-		</button>
-	</div>
-</div>
-
-<!-- Success Toast -->
-<div id="video-toast-success" class="toast toast-end" style="display: none;">
-	<div class="alert alert-success">
-		<span>Video introduction updated successfully!</span>
+		{/if}
 	</div>
 </div>
