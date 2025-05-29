@@ -2,8 +2,7 @@
 	import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
 	import {
 		publishMultipleImages,
-		subscribeToProfileUpdates,
-		deleteNostrEvent
+		subscribeToProfileUpdates
 	} from '$lib/nostr/profile';
 	import { SimplePool } from 'nostr-tools/pool';
 	import { publishProfileMetadata } from '$lib/nostr/profile';

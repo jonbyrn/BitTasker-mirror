@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount, onDestroy } from 'svelte';
 	import { authState } from '$lib/stores/auth.store.js';
 	import { profileStore } from '$lib/stores/profile.store';
-	import { onMount, onDestroy } from 'svelte';
 	import ProfileHeader from './_components/ProfileHeader.svelte';
 	import ProfileStats from './_components/ProfileStats.svelte';
 	import ProfileInfoSection from './_components/ProfileInfoSection.svelte';
