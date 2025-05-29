@@ -31,7 +31,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
-				console.log('event', { ...event, content: JSON.parse(event.content) });
 				try {
 					// Handle profile metadata update
 					if (event.kind === 0) {
@@ -116,7 +115,6 @@
 
 			const images = [...(otherImages as NostrProfileImage[]), ...uploadedPictures];
 
-			console.log({ images, imageEventId });
 			// Publish new images event, passing the existing event ID if we have one
 			await publishMultipleImages(images, imageEventId, 'profile-images');
 

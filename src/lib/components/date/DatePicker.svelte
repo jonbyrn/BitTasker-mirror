@@ -13,7 +13,7 @@
 		}
 	}
 
-	let { label = '', value = '', minDate = '', maxDate = '', onChange } = $props();
+	let { label = '', value = '', minDate = '', maxDate = '', required = false, onChange } = $props();
 
 	let _value = $state(convertDate(value));
 	let _minDate = $state(convertDate(minDate));
@@ -39,6 +39,7 @@
 	minValue={_minDate}
 	maxValue={_maxDate}
 	{isDateUnavailable}
+	{required}
 >
 	<div class="flex w-full flex-col gap-1.5">
 		<DatePicker.Label class="label label-text block text-sm select-none">{label}</DatePicker.Label>

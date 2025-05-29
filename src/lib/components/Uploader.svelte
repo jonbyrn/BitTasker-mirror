@@ -6,6 +6,7 @@
 		id = 'image-uploader',
 		label = $t('uploader.uploadImage'),
 		maxFiles = 1,
+		maxDuration = 60,
 		maxFileSize = 8,
 		allowedTypes = ['image/*'],
 		files = [],
@@ -18,13 +19,99 @@
 		onError = () => {}
 	}: UploaderProps = $props();
 
-	function handleFileChange(event: Event) {
+	async function validateFile(file: File): Promise<boolean> {
+		// Validate file type
+		const isImage = allowedTypes.includes('image/*');
+		const isVideo = allowedTypes.includes('video/*');
+
+		if (isImage && !file.type.startsWith('image/')) {
+			error = $t('uploader.invalidTypeError');
+			onError(error);
+			return false;
+		}
+
+		if (isVideo && !file.type.startsWith('video/')) {
+			error = $t('uploader.invalidFileType') + ' Only MP4, WebM and OGG videos are allowed';
+			onError(error);
+			return false;
+		}
+
+		if (!isImage && !isVideo && !allowedTypes.includes(file.type)) {
+			error = $t('uploader.invalidFileType');
+			onError(error);
+			return false;
+		}
+
+		// Validate file size
+		if (file.size > maxFileSize * 1024 * 1024) {
+			error = `File size must be less than ${maxFileSize}MB`;
+			onError(error);
+			return false;
+		}
+
+		// Validate video duration if applicable
+		if (isVideo && maxDuration && file.type.startsWith('video/')) {
+			try {
+				const video = document.createElement('video');
+				video.preload = 'metadata';
+				video.src = URL.createObjectURL(file);
+
+				await new Promise((resolve) => {
+					video.onloadedmetadata = () => resolve(null);
+				});
+
+				if (video.duration > maxDuration) {
+					error = `Video must be ${maxDuration} seconds or shorter`;
+					onError(error);
+					URL.revokeObjectURL(video.src);
+					return false;
+				}
+
+				URL.revokeObjectURL(video.src);
+			} catch (err) {
+				console.error('Failed to validate video duration:', err);
+				error = $t('uploader.failedToValidateVideo');
+				onError(error);
+				return false;
+			}
+		}
+
+		// Validate image dimensions if specified
+		if (isImage && (width || height)) {
+			try {
+				const img = new Image();
+				img.src = URL.createObjectURL(file);
+
+				await new Promise((resolve) => {
+					img.onload = () => resolve(null);
+				});
+
+				if ((width && img.width !== width) || (height && img.height !== height)) {
+					error = `Image dimensions must be ${width}x${height}px`;
+					onError(error);
+					URL.revokeObjectURL(img.src);
+					return false;
+				}
+
+				URL.revokeObjectURL(img.src);
+			} catch (err) {
+				console.error('Failed to validate image dimensions:', err);
+				error = $t('uploader.failedToLoadImage');
+				onError(error);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	async function handleFileChange(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const selectedFiles = input.files;
 		if (!selectedFiles) return;
 
 		if (files?.length + selectedFiles.length > maxFiles) {
-			error = `Maximum of ${maxFiles} images allowed`;
+			error = `Maximum of ${maxFiles} files allowed`;
 			onError?.(error);
 			return;
 		}
@@ -32,65 +119,22 @@
 		// Create a new array to collect the processed files
 		const newFiles = [...files];
 		let hasErrors = false;
-		let processedCount = 0;
-		const totalToProcess = selectedFiles.length;
 
-		Array.from(selectedFiles).forEach((file) => {
-			// Validate file type
-			if (allowedTypes?.includes('image/*')) {
-				if (!file.type.startsWith('image/')) {
-					error = $t('uploader.invalidTypeError');
-					onError(error);
-					hasErrors = true;
-					return;
-				}
-			} else if (!allowedTypes?.includes(file.type)) {
-				error = 'Invalid file type. Only JPG, PNG and WebP images are allowed';
-				onError(error);
+		// Process files sequentially to avoid memory issues with large files
+		for (const file of Array.from(selectedFiles)) {
+			const isValid = await validateFile(file);
+			if (!isValid) {
 				hasErrors = true;
-				return;
+				break;
 			}
+			newFiles.push(file);
+		}
 
-			// Validate file size
-			if (file.size > maxFileSize * 1024 * 1024) {
-				error = `File size must be less than ${maxFileSize}MB`;
-				onError(error);
-				hasErrors = true;
-				return;
-			}
-
-			// Check image dimensions if specified
-			const img = new Image();
-			img.src = URL.createObjectURL(file);
-			img.onload = () => {
-				if ((width && img.width !== width) || (height && img.height !== height)) {
-					error = `Image dimensions must be ${width}x${height}px`;
-					onError(error);
-					hasErrors = true;
-				} else {
-					// Add the file to our collection
-					newFiles.push(file);
-				}
-
-				// Increment processed count
-				processedCount++;
-
-				// If this is the last file and there are no errors, update the files array
-				if (processedCount === totalToProcess && !hasErrors) {
-					files = newFiles;
-					error = '';
-					// Call onChange with the updated files array
-					onChange(files as File[]);
-				}
-			};
-
-			img.onerror = () => {
-				error = $t('uploader.failedToLoadImage');
-				onError(error);
-				hasErrors = true;
-				processedCount++;
-			};
-		});
+		if (!hasErrors) {
+			files = newFiles;
+			error = '';
+			onChange(files as File[]);
+		}
 	}
 
 	function removeFile(index: number) {
@@ -98,6 +142,20 @@
 		onRemove(index);
 		error = '';
 	}
+
+	// Get file type display text
+	let fileTypeText = $derived(
+		allowedTypes
+			.map((type) => {
+				if (type === 'image/*') return 'Images';
+				if (type === 'video/*') return 'Videos';
+				return type.split('/')[1].toUpperCase();
+			})
+			.join(', ')
+	);
+
+	// Get duration text if applicable
+	let durationText = $derived(maxDuration ? ` (Max. ${maxDuration / 60} minutes)` : '');
 </script>
 
 <div class="space-y-4">
@@ -127,13 +185,21 @@
 	>
 		{#each files as file, index}
 			<div class="relative {customClass}">
-				<img
-					src={typeof file === 'string' ? file : URL.createObjectURL(file)}
-					alt="Preview"
-					class="h-full w-full rounded-lg object-cover"
-				/>
+				{#if typeof file === 'string'}
+					<img src={file} alt="Preview" class="h-full w-full rounded-lg object-cover" />
+				{:else if file.type.startsWith('video/')}
+					<video src={URL.createObjectURL(file)} class="h-full w-full rounded-lg object-cover">
+						<track kind="captions" />
+					</video>
+				{:else}
+					<img
+						src={URL.createObjectURL(file)}
+						alt="Preview"
+						class="h-full w-full rounded-lg object-cover"
+					/>
+				{/if}
 				<button
-					aria-label="Remove image"
+					aria-label="Remove file"
 					type="button"
 					class="absolute -top-2 -right-2 h-6 w-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
@@ -180,7 +246,7 @@
 							<span class="font-semibold">{label}</span>
 						</p>
 						<p class="label label-text text-[8px]">
-							{allowedTypes.map((type) => type.split('/')[1].toUpperCase()).join(', ')} (Max. {maxFileSize}MB)
+							{fileTypeText} (Max. {maxFileSize}MB{durationText})
 						</p>
 					</div>
 				</label>

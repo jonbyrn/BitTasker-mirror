@@ -5,6 +5,7 @@ export interface NostrProfileImage {
     alt: string;
     key: string;
     isPrimary?: boolean;
+    size?: number;
 }
 
 export interface NostrProfile {
@@ -67,7 +68,7 @@ export interface SkillCertification {
  * Interface for skills
  */
 export interface Skill {
-    id?: string;
+    id: string;
     name: string;
     level: number;
     verificationStatus: 'pending' | 'verified' | 'unverified';
@@ -79,25 +80,25 @@ export interface PortfolioItem {
     id?: string;
     title: string;
     description: string;
-    category: string;
     completionDate: string;
     skills: string[];
     images: NostrProfileImage[];
     tags?: string[][];
+    category?: string;
 }
 
 export interface TimeSlot {
-	day: number; // 0-6 (Sunday-Saturday)
-	start: string; // HH:mm format
-	end: string; // HH:mm format
+    day: number; // 0-6 (Sunday-Saturday)
+    start: string; // HH:mm format
+    end: string; // HH:mm format
 }
 
 export interface Availability {
-	timeSlots: TimeSlot[];
-	timezone: string;
-	noticeHours: number;
-	maxBookingsPerDay: number;
-	breakBetweenBookings: number; // minutes
+    timeSlots: TimeSlot[];
+    timezone: string;
+    noticeHours: number;
+    maxBookingsPerDay: number;
+    breakBetweenBookings: number; // minutes
 }
 
 export interface StandardService {
@@ -113,4 +114,18 @@ export interface StandardService {
 export interface NostrStandardServices {
     services: StandardService[];
     customQuoteAvailable: boolean;
+}
+
+export interface VideoIntroData {
+    url: string;
+    key: string;
+    type: string;
+    alt: string;
+    size: number;
+    duration: number;
+}
+
+export interface VideoIntroMetadata {
+    video: VideoIntroData;
+    thumbnail: NostrProfileImage;
 }
