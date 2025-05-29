@@ -1,43 +1,33 @@
 <script lang="ts">
-	import NDK, { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { browser } from '$app/environment';
-	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import { goto } from '$app/navigation';
 	import { Preferences } from '@capacitor/preferences';
 	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
+	import type { NostrEvent, SignedNostrEvent } from '$lib/types/nostr';
 
 	let { disabled = false } = $props();
-
-	const NOSTR_RELAYS = [PUBLIC_NOSTR_RELAY_URL];
 
 	let isInitialized = $state(false);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
 
-	const ndk = new NDK({
-		explicitRelayUrls: NOSTR_RELAYS
+	// Check if Nostr is available in the browser (wrapped in $effect to handle reactivity properly)
+	$effect(() => {
+		if (browser) {
+			isInitialized = typeof window.nostr !== 'undefined';
+			if (!isInitialized) {
+				error = 'Nostr extension not detected. Please install Alby extension.';
+			}
+		}
 	});
 
-	// Initialize NDK connection
-	if (browser) {
-		ndk
-			.connect()
-			.then(() => {
-				isInitialized = true;
-			})
-			.catch((err) => {
-				console.error('Failed to connect to Nostr relays:', err);
-				error = 'Failed to connect to Nostr relays';
-			});
-	}
-
-	// Handle Nostr login
+	// Handle Nostr login using window.nostr directly
 	async function handleLogin() {
 		if (!isInitialized) {
-			error = 'Nostr is not initialized';
+			error = 'Nostr extension not detected. Please install Alby extension.';
 			return;
 		}
 
@@ -45,25 +35,42 @@
 		error = null;
 
 		try {
-			const signer = new NDKNip07Signer();
-			const signerUser = await signer.user();
-
-			if (!signerUser) {
-				throw new Error('No user returned from Nostr');
+			// Get public key from the Nostr extension
+			if (!window.nostr) {
+				throw new Error('Nostr extension not available');
+			}
+			
+			const pubkey = await window.nostr.getPublicKey();
+			if (!pubkey) {
+				throw new Error('No public key returned from Nostr extension');
 			}
 
+			// Get challenge from the server
 			const { challenge } = await authService.getLoginChallenge();
-			// Create event to sign
-			const event = {
+
+			// Create an event for signing
+			const event: NostrEvent = {
 				kind: 22242,
 				created_at: Math.floor(Date.now() / 1000),
 				content: challenge,
-				tags: [],
-				pubkey: signerUser.pubkey
+				tags: [
+					['relay', window.location.origin],
+					['challenge', challenge]
+				],
+				pubkey
 			};
-			const signedEvent = await signer.sign(event);
 
-			const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+			// Sign the event using window.nostr.signEvent
+			if (!window.nostr) {
+				throw new Error('Nostr extension not available');
+			}
+		
+			// signEvent returns the event with a signature and id added
+			const rawSignedEvent = await window.nostr.signEvent(event) as SignedNostrEvent;
+			
+			// Pass the complete event with ID and signature to the login method
+			const res = await authService.loginWithNostr(rawSignedEvent, challenge);
+			
 			if (res.access_token) {
 				await Preferences.set({
 					key: StorageKeys.ACCESS_TOKEN,

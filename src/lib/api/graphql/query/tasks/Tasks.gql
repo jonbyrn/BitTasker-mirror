@@ -3,7 +3,7 @@ query Tasks {
 		id
 		title
 		description
-		clientId
+		userProfileId
 		status
 		taskType
 		pickupLocation {

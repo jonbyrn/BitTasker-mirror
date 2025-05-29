@@ -37,7 +37,7 @@ type Bid {
   estimatedHours: Int
   expiresAt: DateTime
   featured: Boolean!
-  freelancer: PublicFreelancer
+  freelancerId: Int @deprecated(reason: "Use userProfileId instead")
   hourlyRate: Float
   id: ID!
   impressions: Int!
@@ -49,6 +49,8 @@ type Bid {
   responseTime: Int
   status: BidStatus!
   updatedAt: DateTime!
+  userProfile: UserProfileOutput
+  userProfileId: Int
   visibility: BidVisibility!
   withdrawnReason: String
 }
@@ -128,15 +130,6 @@ type Category {
 input ChangePasswordInput {
   currentPassword: String!
   newPassword: String!
-}
-
-type Client {
-  averageRating: Float
-  createdAt: DateTime!
-  id: ID!
-  updatedAt: DateTime!
-  user: PublicUser!
-  userId: Int!
 }
 
 input CreateBidInput {
@@ -295,27 +288,6 @@ type PaginationMeta {
   totalPages: Int!
 }
 
-type PublicFreelancer {
-  averageRating: Float
-  bio: String
-  id: ID!
-  level: Int!
-  professionalTitle: String
-  specialties: [String!]
-  user: PublicUser!
-  yearsExperience: Float
-}
-
-type PublicUser {
-  displayName: String
-  id: ID!
-  name: String
-  profilePictureId: String
-  profilePictureUrl: String
-  userRole: UserRole!
-  username: String
-}
-
 type Query {
   IsOnboardingComplete: OnboardingStatusDto!
   bid(id: Int!): Bid!
@@ -427,8 +399,6 @@ type Task {
   budget: Float
   budgetType: BudgetType!
   categoryIds: [Int!]
-  client: Client!
-  clientId: Int!
   createdAt: String!
   dateRange: DateRangeOutput
   deadlineDate: String
@@ -436,7 +406,6 @@ type Task {
   description: String!
   dropOffLocation: LocationOutput
   estimatedHours: Int
-  freelancerId: Int
   id: ID!
   imageUrls: [String!]
   isRemovals: Boolean!
@@ -446,6 +415,8 @@ type Task {
   taskType: TaskType!
   title: String!
   updatedAt: String!
+  userProfile: UserProfileOutput!
+  userProfileId: Int!
   visibility: TaskVisibility!
 }
 
@@ -599,6 +570,7 @@ type User {
   skills: [Skill!]!
   status: UserStatus!
   updatedAt: DateTime!
+  userProfile: UserProfileOutput
   userRole: UserRole!
   username: String
 }
@@ -618,11 +590,33 @@ type UserLocation {
   zipCode: String
 }
 
+type UserProfileOutput {
+  averageRating: Float
+  createdAt: DateTime
+  experiencePoints: Int
+  feeDiscount: Float
+  id: ID!
+  identityVerified: Boolean
+  level: Int
+  monthlyActivityPoints: Int
+  professionalTitle: String
+  profileDescription: String
+  promotionalVideo: String
+  reputationScore: Float
+  standardRates: Float
+  successRate: Float
+  tasksCompleted: Int
+  tasksPosted: Int
+  updatedAt: DateTime
+  user: User
+  userId: ID!
+  verificationLevel: Int
+  yearsExperience: Int
+}
+
 enum UserRole {
   ADMIN
-  BOTH
-  CLIENT
-  FREELANCER
+  USER
 }
 
 enum UserStatus {
