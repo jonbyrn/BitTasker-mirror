@@ -93,7 +93,7 @@
 </script>
 
 <!-- Profile Sidebar -->
-<div class="lg:w-1/3">
+<div class="flex-1">
 	{#if $profileStore.isLoading}
 		<div class="space-y-6">
 			<div class="animate-pulse space-y-4">
