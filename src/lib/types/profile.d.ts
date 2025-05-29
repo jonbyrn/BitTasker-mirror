@@ -129,3 +129,53 @@ export interface VideoIntroMetadata {
     video: VideoIntroData;
     thumbnail: NostrProfileImage;
 }
+
+export type Profile = {
+    name?: string;
+    about?: string;
+    pictures?: NostrProfileImage[];
+    website?: string;
+    professionalTitle?: string;
+    skills?: {
+        name: string;
+        level: number;
+        verificationStatus: 'pending' | 'verified' | 'unverified';
+        endorsements: number;
+    }[];
+    certifications?: {
+        name: string;
+        issuer: string;
+        date: string;
+        verified: boolean;
+        fileUrl: string;
+    }[];
+    portfolio?: {
+        id: string;
+        title: string;
+        description: string;
+        images: NostrProfileImage[];
+        completionDate: string;
+        skills: string[];
+    }[];
+    availability?: {
+        timeSlots: Array<{
+            day: number;
+            start: string;
+            end: string;
+        }>;
+        timezone: string;
+        noticeHours: number;
+        maxBookingsPerDay: number;
+        breakBetweenBookings: number;
+    };
+    reviews?: {
+        id: string;
+        from?: {
+            name: string;
+            picture?: string;
+        };
+        rating: number;
+        text: string;
+        date: string;
+    }[];
+}; 
