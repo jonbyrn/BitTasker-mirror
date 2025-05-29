@@ -1,19 +1,10 @@
 import type { NostrProfile, NostrProfileImage, Skill, SkillCertification, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
 import type { NostrEvent, Filter, EventTemplate } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
-import { finalizeEvent } from 'nostr-tools/pure';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
-import { publishEvent } from '$lib/utils/nostr';
-
-// Constants
-/* const DEFAULT_RELAYS = [
-    'wss://relay.damus.io',
-    'wss://relay.nostr.band',
-    'wss://nos.lol'
-]; */
 
 // Create a pool instance for reuse
 const pool = new SimplePool();
@@ -42,69 +33,6 @@ let profileSubscriptions = new Map<string, {
     sub: any;
     callbacks: Set<(event: NostrEvent) => void>;
 }>();
-
-/**
- * Subscribe to profile updates for a given public key
- * @param callback Function to call when profile is updated
- * @param kinds Event kinds to subscribe to
- * @param relays Relay URLs to subscribe to
- * @returns Cleanup function to unsubscribe
- */
-export async function _subscribeToProfileUpdates(callback: (event: NostrEvent) => void, kinds: number[], relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<() => void> {
-    let npub: string;
-
-    try {
-        // Wait for the public key
-        npub = await getNpub();
-        if (!npub) {
-            console.error('No public key found');
-            return () => { };
-        }
-
-        // Check if we already have a subscription for this pubkey
-        if (!profileSubscriptions.has(npub)) {
-            const filter: Filter = {
-                authors: [npub],
-                kinds,
-                limit: 10
-            };
-
-            const sub = pool.subscribe(relays, filter, {
-                onevent(event: NostrEvent) {
-                    const subs = profileSubscriptions.get(npub);
-                    if (subs) {
-                        for (const cb of subs.callbacks) {
-                            cb(event);
-                        }
-                    }
-                }
-            });
-
-            profileSubscriptions.set(npub, {
-                sub,
-                callbacks: new Set([callback])
-            });
-        } else {
-            // Add callback to existing subscription
-            profileSubscriptions.get(npub)?.callbacks.add(callback);
-        }
-
-        // Return cleanup function
-        return () => {
-            const subs = profileSubscriptions.get(npub);
-            if (subs) {
-                subs.callbacks.delete(callback);
-                if (subs.callbacks.size === 0) {
-                    subs.sub.close();
-                    profileSubscriptions.delete(npub);
-                }
-            }
-        };
-    } catch (err) {
-        console.error('Failed to get public key:', err);
-        return () => { };
-    }
-}
 
 /**
  * Subscribe to profile updates for a given public key
