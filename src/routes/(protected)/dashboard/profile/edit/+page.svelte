@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { slide } from 'svelte/transition';
+	import { t } from '$lib/stores/i18n.store';
 	import PersonalInfo from './_components/PersonalInfo.svelte';
 	import Skills from './_components/Skills.svelte';
 	import Portfolio from './_components/Portfolio.svelte';
 	import VideoIntro from './_components/VideoIntro.svelte';
 	import Availability from './_components/Availability.svelte';
 	import StandardServices from './_components/StandardServices.svelte';
-	import { slide } from 'svelte/transition';
 
 	let completedSections = $state({
 		personalInfo: false,
@@ -43,7 +44,18 @@
 </script>
 
 {#snippet cardTitle(title: string, section: keyof typeof isCollapsed)}
-	<div class="flex items-center justify-between">
+	<div
+		role="button"
+		tabindex="0"
+		aria-label="Toggle {title}"
+		class="flex items-center justify-between"
+		onclick={() => {
+			if (isCollapsed[section]) {
+				isCollapsed[section] = !isCollapsed[section];
+			}
+		}}
+		onkeydown={() => {}}
+	>
 		<h2 class="card-title">
 			<span class="relative mr-3 flex size-3">
 				<span
@@ -66,7 +78,10 @@
 		<button
 			aria-label="Collapse"
 			class="btn btn-sm btn-ghost btn-circle"
-			onclick={() => (isCollapsed[section] = !isCollapsed[section])}
+			onclick={(event) => {
+				event.stopPropagation();
+				isCollapsed[section] = !isCollapsed[section];
+			}}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -84,16 +99,16 @@
 	</div>
 {/snippet}
 
-<div class="mx-auto max-w-5xl p-4 relative">
+<div class="relative mx-auto max-w-5xl p-4">
 	<div class="mb-4">
-		<h1 class="text-3xl font-bold">Edit Profile</h1>
-		<p class="text-base-content/70">Complete your profile to increase visibility and trust</p>
+		<h1 class="text-3xl font-bold">{$t('profile.page.edit_profile')}</h1>
+		<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
 	</div>
 
 	<!-- Progress Bar -->
-	<div class="bg-base-100 mt-4 rounded-xl p-4 sticky top-1 z-10 mb-4 border border-base-content/50">
+	<div class="bg-base-100 border-base-content/50 sticky top-1 z-10 mt-4 mb-4 rounded-xl border p-4">
 		<div class="mb-1 flex justify-between">
-			<span class="text-sm font-medium">Profile Completion</span>
+			<span class="text-sm font-medium">{$t('profile.page.completion')}</span>
 			<span class="text-sm font-medium">{Math.round(progress)}%</span>
 		</div>
 		<div class="bg-base-200 h-2.5 w-full rounded-full">
@@ -106,7 +121,7 @@
 		<!-- Personal Information -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
-				{@render cardTitle('Personal Information', 'personalInfo')}
+				{@render cardTitle($t('profile.page.sections.personal_info'), 'personalInfo')}
 				<div
 					class="overflow-hidden"
 					style:height={isCollapsed.personalInfo ? '1px' : 'auto'}
@@ -133,7 +148,7 @@
 		<!-- Skills -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
-				{@render cardTitle('Skills & Expertise', 'skills')}
+				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
 				<div
 					class="overflow-hidden"
 					style:height={isCollapsed.skills ? '0' : 'auto'}
@@ -147,7 +162,7 @@
 		<!-- Portfolio -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
-				{@render cardTitle('Portfolio', 'portfolio')}
+				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
 				<div
 					class="overflow-hidden"
 					style:height={isCollapsed.portfolio ? '0' : 'auto'}
@@ -161,7 +176,7 @@
 		<!-- Video Introduction -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
-				{@render cardTitle('Video Introduction', 'videoIntro')}
+				{@render cardTitle($t('profile.page.sections.video'), 'videoIntro')}
 				<div
 					class="overflow-hidden"
 					style:height={isCollapsed.videoIntro ? '0' : 'auto'}
@@ -175,7 +190,7 @@
 		<!-- Availability Calendar -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
-				{@render cardTitle('Availability', 'availability')}
+				{@render cardTitle($t('profile.page.sections.availability'), 'availability')}
 				<div
 					class="overflow-hidden"
 					style:height={isCollapsed.availability ? '0' : 'auto'}
@@ -191,7 +206,7 @@
 		<!-- Standard Services -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
-				{@render cardTitle('Standard Services', 'standardServices')}
+				{@render cardTitle($t('profile.page.sections.services'), 'standardServices')}
 				<div
 					class="overflow-hidden"
 					style:height={isCollapsed.standardServices ? '0' : 'auto'}

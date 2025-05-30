@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
-	import { appStore } from '$lib/stores/app.store';
 	import type { StandardService, NostrStandardServices } from '$lib/types/profile.d';
+	import { onDestroy, onMount } from 'svelte';
+	import { t } from '$lib/stores/i18n.store';
+	import { appStore } from '$lib/stores/app.store';
 	import {
 		publishStandardServices,
-		deleteStandardService,
 		subscribeToProfileUpdates
 	} from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
@@ -24,6 +24,7 @@
 	let isRemovingService = $state<string | null>(null);
 	let servicesForm = $state<HTMLDivElement | null>(null);
 	let currentEventId = $state<string | null>(null); // Track the current event ID
+	let isInitialLoading = $state(true);
 
 	// New service form state
 	let newService = $state<Partial<StandardService>>({
@@ -73,6 +74,8 @@
 					}
 				} catch (err) {
 					console.error('Failed to subscribe to services updates:', err);
+				} finally {
+					isInitialLoading = false;
 				}
 			},
 			{
@@ -231,261 +234,297 @@
 	});
 </script>
 
-<div class="space-y-6">
-	<!-- Custom Quote Option -->
-	<div class="form-control">
-		<label class="label cursor-pointer">
-			<span class="label-text font-medium">Allow Custom Quote Requests</span>
-			<input
-				type="checkbox"
-				checked={customQuoteAvailable}
-				onchange={handleCustomQuoteAvailable}
-				class="toggle toggle-primary"
-			/>
-		</label>
-		<p class="text-base-content/70 text-sm">
-			Let clients request custom quotes for services not listed
-		</p>
-	</div>
+{#if isInitialLoading}
+	<div class="space-y-8">
+		<!-- Services List Skeleton -->
+		<div class="grid gap-6 md:grid-cols-2">
+			{#each Array(2) as _}
+				<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
+					<div class="card-body">
+						<!-- Service Title -->
+						<div class="bg-base-300 h-6 w-48 animate-pulse rounded"></div>
 
-	<div class="card-title flex items-center justify-between">
-		<h2 class="card-title">Services</h2>
-		<button
-			aria-label="Add Service"
-			class="btn btn-circle btn-outline btn-xs"
-			onclick={() => (addingService = !addingService)}
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-				<g
-					fill="none"
-					stroke="#fff"
-					stroke-dasharray="16"
-					stroke-dashoffset="16"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-				>
-					<path d="M5 12h14">
-						<animate fill="freeze" attributeName="stroke-dashoffset" dur="0.4s" values="16;0" />
-					</path>
-					{#if !addingService}
-						<path d="M12 5v14">
-							<animate
-								fill="freeze"
-								attributeName="stroke-dashoffset"
-								begin="0.4s"
-								dur="0.4s"
-								values="16;0"
-							/>
-						</path>
-					{/if}
-				</g>
-			</svg>
-		</button>
-	</div>
+						<!-- Service Description -->
+						<div class="bg-base-300 mt-2 h-16 w-full animate-pulse rounded"></div>
 
-	<div class="space-y-8" bind:this={servicesForm}>
-		<!-- Service Form -->
-		{#if isFormOpen}
-			<div class="card border-base-300 rounded-xl border p-4">
-				<h3 class="mb-4 text-lg font-medium">
-					{editingService ? 'Edit Service' : 'Add Service'}
-				</h3>
-
-				<div class="space-y-4">
-					<!-- Service Name -->
-					<div class="form-control">
-						<label class="label" for="serviceName">
-							<span class="label-text font-medium">Service Name</span>
-							<span class="label-text-alt">Required</span>
-						</label>
-						<input
-							type="text"
-							id="serviceName"
-							bind:value={newService.name}
-							class="input input-bordered w-full"
-							placeholder="e.g. Basic Website Development"
-							required
-						/>
-					</div>
-
-					<!-- Service Description -->
-					<div class="form-control">
-						<label class="label" for="serviceDescription">
-							<span class="label-text font-medium">Description</span>
-							<span class="label-text-alt">Required</span>
-						</label>
-						<textarea
-							id="serviceDescription"
-							bind:value={newService.description}
-							class="textarea textarea-bordered h-24 w-full rounded-xl"
-							placeholder="Describe what's included in this service..."
-							required
-						></textarea>
-					</div>
-
-					<div class="grid gap-4 md:grid-cols-3">
-						<!-- Duration -->
-						<div class="form-control">
-							<label class="label" for="serviceDuration">
-								<span class="label-text font-medium">Duration</span>
-							</label>
-							<Input
-								type="number"
-								id="serviceDuration"
-								value={newService.duration?.toString()}
-								min={0}
-								step={1}
-								options={durationOptions}
-								onChange={({ value }) => {
-									newService.duration = parseInt(value);
-								}}
-							/>
+						<!-- Price and Duration -->
+						<div class="mt-4 grid grid-cols-2 gap-4">
+							<div class="bg-base-300 h-8 w-full animate-pulse rounded"></div>
+							<div class="bg-base-300 h-8 w-full animate-pulse rounded"></div>
 						</div>
 
-						<!-- Price and Currency -->
-						<div class="form-control">
-							<label class="label" for="servicePrice">
-								<span class="label-text font-medium">Price</span>
-								<span class="label-text-alt">(Required)</span>
-							</label>
-							<div class="join">
-								<select
-									class="select select-bordered join-item w-1/3"
-									bind:value={newService.currency}
-								>
-									{#each currencies as curr}
-										<option value={curr}>{curr}</option>
-									{/each}
-								</select>
-								<input
-									type="number"
-									id="servicePrice"
-									bind:value={newService.price}
-									required={true}
-									min="0"
-									step="0.01"
-									class="input input-bordered join-item w-full {!newService.price && error
-										? 'border-error'
-										: ''}"
-								/>
-							</div>
+						<!-- Actions -->
+						<div class="card-actions mt-4 justify-end">
+							<div class="bg-base-300 h-8 w-20 animate-pulse rounded"></div>
+							<div class="bg-base-300 h-8 w-20 animate-pulse rounded"></div>
 						</div>
-
-						<!-- Customizable -->
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text font-medium">Customizable</span>
-								<input
-									type="checkbox"
-									bind:checked={newService.isCustomizable}
-									class="checkbox checkbox-primary"
-								/>
-							</label>
-						</div>
-					</div>
-
-					<!-- Error Message -->
-					{#if error}
-						<div class="alert alert-error">
-							<span>{error}</span>
-						</div>
-					{/if}
-
-					<!-- Success Message -->
-					{#if successMessage}
-						<div class="alert alert-success">
-							<span>{successMessage}</span>
-						</div>
-					{/if}
-
-					<!-- Form Actions -->
-					<div class="flex justify-end gap-2">
-						{#if editingService}
-							<button class="btn btn-ghost" onclick={resetForm}> Cancel </button>
-						{/if}
-						<button
-							class="btn btn-primary"
-							onclick={handleSubmit}
-							disabled={isLoading || !newService.name || !newService.description}
-						>
-							{#if isLoading}
-								<span class="loading loading-spinner"></span>
-							{/if}
-							{editingService ? 'Update Service' : 'Add Service'}
-						</button>
 					</div>
 				</div>
-			</div>
-		{/if}
+			{/each}
+		</div>
 
-		<!-- Services List -->
-		{#if services.length > 0}
-			<div class="grid gap-4 md:grid-cols-2">
-				{#each services as service}
-					<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
-						<div class="card-body">
-							<div class="flex items-start justify-between">
-								<div>
-									<h3 class="card-title">{service.name}</h3>
-									<p class="text-base-content/70">{service.description}</p>
-								</div>
-								<div class="flex gap-2">
-									<button
-										aria-label="Edit Service"
-										class="btn btn-ghost btn-circle btn-xs sm:btn-sm"
-										onclick={() => {
-											editService(service);
-											servicesForm?.scrollIntoView({ behavior: 'smooth' });
-										}}
+		<!-- Add Service Button Skeleton -->
+		<div class="flex justify-end">
+			<div class="bg-base-300 h-8 w-32 animate-pulse rounded"></div>
+		</div>
+	</div>
+{:else}
+	<div class="space-y-6">
+		<!-- Custom Quote Option -->
+		<div class="form-control">
+			<label class="label cursor-pointer">
+				<span class="label-text font-medium">{$t('profile.services.custom_quote')}</span>
+				<input
+					type="checkbox"
+					checked={customQuoteAvailable}
+					onchange={handleCustomQuoteAvailable}
+					class="toggle toggle-primary"
+				/>
+			</label>
+			<p class="text-base-content/70 text-sm">
+				{$t('profile.services.custom_quote_desc')}
+			</p>
+		</div>
+
+		<div class="card-title flex items-center justify-between">
+			<h2 class="card-title">{$t('profile.services.title')}</h2>
+			<button
+				aria-label={$t('profile.services.add_service')}
+				class="btn btn-circle btn-outline btn-xs"
+				onclick={() => (addingService = !addingService)}
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+					<g
+						fill="none"
+						stroke="#fff"
+						stroke-dasharray="16"
+						stroke-dashoffset="16"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+					>
+						<path d="M5 12h14">
+							<animate fill="freeze" attributeName="stroke-dashoffset" dur="0.4s" values="16;0" />
+						</path>
+						{#if !addingService}
+							<path d="M12 5v14">
+								<animate
+									fill="freeze"
+									attributeName="stroke-dashoffset"
+									begin="0.4s"
+									dur="0.4s"
+									values="16;0"
+								/>
+							</path>
+						{/if}
+					</g>
+				</svg>
+			</button>
+		</div>
+
+		<div class="space-y-8" bind:this={servicesForm}>
+			<!-- Service Form -->
+			{#if isFormOpen}
+				<div class="card border-base-300 rounded-xl border p-4">
+					<h3 class="mb-4 text-lg font-medium">
+						{editingService ? $t('profile.services.edit_service') : $t('profile.services.add_service')}
+					</h3>
+
+					<div class="space-y-4">
+						<!-- Service Name -->
+						<div class="form-control">
+							<label class="label" for="serviceName">
+								<span class="label-text font-medium">{$t('profile.services.service_name')}</span>
+								<span class="label-text-alt">{$t('common.required')}</span>
+							</label>
+							<input
+								type="text"
+								id="serviceName"
+								bind:value={newService.name}
+								class="input input-bordered w-full"
+								placeholder={$t('profile.services.service_name_placeholder')}
+								required
+							/>
+						</div>
+
+						<!-- Service Description -->
+						<div class="form-control">
+							<label class="label" for="serviceDescription">
+								<span class="label-text font-medium">{$t('profile.services.description')}</span>
+								<span class="label-text-alt">{$t('common.required')}</span>
+							</label>
+							<textarea
+								id="serviceDescription"
+								bind:value={newService.description}
+								class="textarea textarea-bordered h-24 w-full rounded-xl"
+								placeholder={$t('profile.services.description_placeholder')}
+								required
+							></textarea>
+						</div>
+
+						<div class="grid gap-4 md:grid-cols-3">
+							<!-- Duration -->
+							<div class="form-control">
+								<label class="label" for="serviceDuration">
+									<span class="label-text font-medium">{$t('profile.services.duration')}</span>
+								</label>
+								<Input
+									type="number"
+									id="serviceDuration"
+									value={newService.duration?.toString()}
+									min={0}
+									step={1}
+									options={durationOptions}
+									onChange={({ value }) => {
+										newService.duration = parseInt(value);
+									}}
+								/>
+							</div>
+
+							<!-- Price and Currency -->
+							<div class="form-control">
+								<label class="label" for="servicePrice">
+									<span class="label-text font-medium">{$t('profile.services.price')}</span>
+									<span class="label-text-alt">({$t('common.required')})</span>
+								</label>
+								<div class="join">
+									<select
+										class="select select-bordered join-item w-1/3"
+										bind:value={newService.currency}
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											width="20"
-											height="20"
-											viewBox="0 0 24 24"
-											><g fill="none"
-												><path
-													stroke="#fff"
-													d="m5.93 19.283l.021-.006l2.633-.658l.045-.01c.223-.056.42-.105.599-.207s.322-.245.484-.407l.033-.033l7.194-7.194l.024-.024c.313-.313.583-.583.77-.828c.2-.263.353-.556.353-.916s-.152-.653-.353-.916c-.187-.245-.457-.515-.77-.828l-.024-.024l-.353.354l.353-.354l-.171-.171l-.024-.024c-.313-.313-.583-.583-.828-.77c-.263-.2-.556-.353-.916-.353s-.653.152-.916.353c-.245.187-.515.457-.828.77l-.024.024l-7.194 7.194l-.033.032c-.162.163-.306.306-.407.485c-.102.18-.15.376-.206.6l-.011.044l-.664 2.654l-.007.027a4 4 0 0 0-.095.464c-.015.155-.011.416.198.626s.47.213.625.197a3.4 3.4 0 0 0 .492-.101Z"
-													stroke-width="1"
-												/><path fill="#fff" d="m12.5 7.5l3-2l3 3l-2 3z" /></g
-											></svg
-										>
-									</button>
-									<button
-										class="btn btn-ghost btn-circle btn-xs sm:btn-sm text-error"
-										onclick={() => removeService(service)}
-										disabled={isRemovingService === service.id}
-									>
-										{#if isRemovingService === service.id}
-											<span class="loading loading-spinner loading-xs"></span>
-										{:else}
-											✕
-										{/if}
-									</button>
+										{#each currencies as curr}
+											<option value={curr}>{curr}</option>
+										{/each}
+									</select>
+									<input
+										type="number"
+										id="servicePrice"
+										bind:value={newService.price}
+										required={true}
+										min="0"
+										step="0.01"
+										class="input input-bordered join-item w-full {!newService.price && error
+											? 'border-error'
+											: ''}"
+									/>
 								</div>
 							</div>
 
-							<div class="mt-4 flex flex-wrap gap-2">
-								<span class="badge badge-primary">
-									{formatPrice(service.price, service.currency)}
-								</span>
-								<span class="badge badge-ghost">
-									{formatDuration(service.duration)}
-								</span>
-								{#if service.isCustomizable}
-									<span class="badge badge-secondary"> Customizable </span>
-								{/if}
+							<!-- Customizable -->
+							<div class="form-control">
+								<label class="label cursor-pointer">
+									<span class="label-text font-medium">Customizable</span>
+									<input
+										type="checkbox"
+										bind:checked={newService.isCustomizable}
+										class="checkbox checkbox-primary"
+									/>
+								</label>
 							</div>
 						</div>
+
+						<!-- Error Message -->
+						{#if error}
+							<div class="alert alert-error">
+								<span>{error}</span>
+							</div>
+						{/if}
+
+						<!-- Success Message -->
+						{#if successMessage}
+							<div class="alert alert-success">
+								<span>{successMessage}</span>
+							</div>
+						{/if}
+
+						<!-- Form Actions -->
+						<div class="flex justify-end gap-2">
+							{#if editingService}
+								<button class="btn btn-ghost" onclick={resetForm}> Cancel </button>
+							{/if}
+							<button
+								class="btn btn-primary"
+								onclick={handleSubmit}
+								disabled={isLoading || !newService.name || !newService.description}
+							>
+								{#if isLoading}
+									<span class="loading loading-spinner"></span>
+								{/if}
+								{editingService ? 'Update Service' : 'Add Service'}
+							</button>
+						</div>
 					</div>
-				{/each}
-			</div>
-		{:else}
-			<div class="alert">
-				<span>No services added yet. Add some services to start receiving bookings.</span>
-			</div>
-		{/if}
+				</div>
+			{/if}
+
+			<!-- Services List -->
+			{#if services.length > 0}
+				<div class="grid gap-4 md:grid-cols-2">
+					{#each services as service}
+						<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
+							<div class="card-body">
+								<div class="flex items-start justify-between">
+									<div>
+										<h3 class="card-title">{service.name}</h3>
+										<p class="text-base-content/70">{service.description}</p>
+									</div>
+									<div class="flex gap-2">
+										<button
+											aria-label={$t('common.edit')}
+											class="btn btn-ghost btn-circle btn-xs sm:btn-sm"
+											onclick={() => {
+												editService(service);
+												servicesForm?.scrollIntoView({ behavior: 'smooth' });
+											}}
+										>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												width="20"
+												height="20"
+												viewBox="0 0 24 24"
+												><g fill="none"
+													><path
+														stroke="#fff"
+														d="m5.93 19.283l.021-.006l2.633-.658l.045-.01c.223-.056.42-.105.599-.207s.322-.245.484-.407l.033-.033l7.194-7.194l.024-.024c.313-.313.583-.583.77-.828c.2-.263.353-.556.353-.916s-.152-.653-.353-.916c-.187-.245-.457-.515-.77-.828l-.024-.024l-.353.354l.353-.354l-.171-.171l-.024-.024c-.313-.313-.583-.583-.828-.77c-.263-.2-.556-.353-.916-.353s-.653.152-.916.353c-.245.187-.515.457-.828.77l-.024.024l-7.194 7.194l-.033.032c-.162.163-.306.306-.407.485c-.102.18-.15.376-.206.6l-.011.044l-.664 2.654l-.007.027a4 4 0 0 0-.095.464c-.015.155-.011.416.198.626s.47.213.625.197a3.4 3.4 0 0 0 .492-.101Z"
+														stroke-width="1"
+													/><path fill="#fff" d="m12.5 7.5l3-2l3 3l-2 3z" /></g
+												></svg
+											>
+										</button>
+										<button
+											class="btn btn-ghost btn-circle btn-xs sm:btn-sm text-error"
+											onclick={() => removeService(service)}
+											disabled={isRemovingService === service.id}
+										>
+											{#if isRemovingService === service.id}
+												<span class="loading loading-spinner loading-xs"></span>
+											{:else}
+												✕
+											{/if}
+										</button>
+									</div>
+								</div>
+
+								<div class="mt-4 flex flex-wrap gap-2">
+									<span class="badge badge-primary">
+										{formatPrice(service.price, service.currency)}
+									</span>
+									<span class="badge badge-ghost">
+										{formatDuration(service.duration)}
+									</span>
+									{#if service.isCustomizable}
+										<span class="badge badge-secondary"> Customizable </span>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="alert">
+					<span>{$t('profile.services.no_services')}</span>
+				</div>
+			{/if}
+		</div>
 	</div>
-</div>
+{/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Availability, TimeSlot } from '$lib/types/profile.d';
+	import { t } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { subscribeToProfileUpdates, publishAvailabilityUpdate } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
@@ -13,7 +14,7 @@
 	let maxBookingsPerDay = $state(5);
 	let breakBetweenBookings = $state('');
 	let isLoading = $state(false);
-	let loading = $state(false);
+	let isInitialLoading = $state(true);
 	let error = $state('');
 	let timeSlotError = $state({
 		day: -1,
@@ -33,7 +34,6 @@
 	onMount(async () => {
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
-				loading = true;
 				try {
 					if (
 						event.kind === 30002 &&
@@ -50,7 +50,7 @@
 					console.error('Failed to process availability update:', err);
 					error = 'Failed to load availability data. Please try again later.';
 				} finally {
-					loading = false;
+					isInitialLoading = false;
 				}
 			},
 			{
@@ -216,169 +216,233 @@
 	}
 </script>
 
-<div class="space-y-6">
-	<!-- Timezone Selection -->
-	<div class="form-control">
-		<label class="label" for="timezone">
-			<span class="label-text font-medium">Your Timezone</span>
-		</label>
-		<Input
-			id="timezone"
-			options={timezones.map((tz) => ({ label: tz, value: tz }))}
-			value={timezone}
-			onChange={({ value }) => (timezone = value)}
-			autoComplete="on"
-		/>
+{#if isInitialLoading}
+	<div class="space-y-6">
+		<!-- Timezone Selection Skeleton -->
+		<div class="form-control">
+			<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+			<div class="bg-base-300 mt-2 h-12 w-full animate-pulse rounded"></div>
+		</div>
+
+		<!-- Scheduling Preferences Skeleton -->
+		<div class="grid gap-4">
+			<!-- Minimum Notice -->
+			<div class="form-control">
+				<div class="flex justify-between">
+					<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-4 w-16 animate-pulse rounded"></div>
+				</div>
+				<div class="bg-base-300 mt-2 h-12 w-full animate-pulse rounded"></div>
+			</div>
+
+			<!-- Maximum Bookings -->
+			<div class="form-control">
+				<div class="flex justify-between">
+					<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-4 w-16 animate-pulse rounded"></div>
+				</div>
+				<div class="bg-base-300 mt-2 h-12 w-full animate-pulse rounded"></div>
+			</div>
+
+			<!-- Break Time -->
+			<div class="form-control">
+				<div class="flex justify-between">
+					<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-4 w-16 animate-pulse rounded"></div>
+				</div>
+				<div class="bg-base-300 mt-2 h-12 w-full animate-pulse rounded"></div>
+			</div>
+		</div>
+
+		<!-- Weekly Schedule Skeleton -->
+		<div class="space-y-4">
+			<div class="bg-base-300 h-6 w-36 animate-pulse rounded"></div>
+
+			{#each Array(3) as _}
+				<div class="card bg-base-200 space-y-2 rounded-xl p-4">
+					<div class="bg-base-300 h-5 w-24 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+					<div class="flex justify-end gap-2">
+						<div class="bg-base-300 h-8 w-32 animate-pulse rounded"></div>
+						<div class="bg-base-300 h-8 w-24 animate-pulse rounded"></div>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Submit Button Skeleton -->
+		<div class="flex justify-end">
+			<div class="bg-base-300 h-10 w-40 animate-pulse rounded"></div>
+		</div>
 	</div>
+{:else}
+	<div class="space-y-6">
+		<h3 class="text-lg font-medium">{$t('profile.availability.title')}</h3>
 
-	<!-- Scheduling Preferences -->
-	<div class="grid gap-4">
-		<!-- Minimum Notice -->
+		<!-- Timezone Selection -->
 		<div class="form-control">
-			<label class="label block" for="noticeHours">
-				<span class="label-text font-medium">Minimum Notice</span>
-				<span class="label-text-alt">{noticeHours} hours</span>
-			</label>
-			<input
-				type="range"
-				id="noticeHours"
-				bind:value={noticeHours}
-				min="1"
-				max="72"
-				class="range range-primary range-xs w-full"
-			/>
-		</div>
-
-		<!-- Max Bookings Per Day -->
-		<div class="form-control">
-			<label class="label" for="maxBookings">
-				<span class="label-text font-medium">Max Daily Bookings</span>
-			</label>
-			<input
-				type="number"
-				id="maxBookings"
-				bind:value={maxBookingsPerDay}
-				min="1"
-				max="20"
-				class="input input-bordered w-full"
-			/>
-		</div>
-
-		<!-- Break Between Bookings -->
-		<div class="form-control">
-			<label class="label" for="breakTime">
-				<span class="label-text font-medium">Break Between Bookings</span>
-				<span class="label-text-alt">(minutes)</span>
+			<label class="label" for="timezone">
+				<span class="label-text font-medium">{$t('profile.availability.timezone')}</span>
 			</label>
 			<Input
-				type="number"
-				id="breakTime"
-				autoComplete="off"
-				options={['15', '30', '45', '60'].map((minutes) => ({
-					label: minutes,
-					value: minutes
-				}))}
-				value={breakBetweenBookings}
-				onChange={({ value }) => (breakBetweenBookings = value)}
+				id="timezone"
+				options={timezones.map((tz) => ({ label: tz, value: tz }))}
+				value={timezone}
+				onChange={({ value }) => (timezone = value)}
+				autoComplete="on"
+				placeholder={$t('profile.availability.timezone_placeholder')}
 			/>
 		</div>
-	</div>
 
-	<!-- Weekly Schedule -->
-	<div class="space-y-4">
-		<h3 class="text-lg font-medium">Weekly Schedule</h3>
-
-		{#each days as day, index}
-			<div class="card bg-base-200 space-y-2 rounded-xl p-4">
-				<h4 class="font-medium">{day}</h4>
-
-				{#if timeSlots.filter((slot) => slot.day === index).length === 0}
-					<p class="text-base-content/70">No availability set</p>
-				{:else}
-					<div class="space-y-2">
-						{#each timeSlots.filter((slot) => slot.day === index) as slot, slotIndex}
-							<div class="relative space-y-2 rounded-xl border border-white/50 p-4 pt-10 shadow-md">
-								<div class="flex flex-col items-center gap-4 sm:flex-row">
-									<div class="flex w-full flex-row items-center justify-start gap-2">
-										<span class="text-base-content/70 w-1/5">from</span>
-										<input
-											type="time"
-											value={slot.start}
-											onchange={(e) =>
-												updateTimeSlot(
-													timeSlots.findIndex((s) => s === slot),
-													'start',
-													(e.target as HTMLInputElement).value,
-													slotIndex
-												)}
-											class="input input-bordered"
-										/>
-									</div>
-									<div class="flex w-full flex-row items-center justify-start gap-2">
-										<span class="text-base-content/70 w-1/5">to</span>
-										<input
-											type="time"
-											value={slot.end}
-											onchange={(e) =>
-												updateTimeSlot(
-													timeSlots.findIndex((s) => s === slot),
-													'end',
-													(e.target as HTMLInputElement).value,
-													slotIndex
-												)}
-											class="input input-bordered"
-										/>
-									</div>
-								</div>
-								{#if timeSlotError.day === index && timeSlotError.slotIndex === slotIndex}
-									<div class="alert alert-error w-full rounded-xl">
-										<span>{timeSlotError?.end || timeSlotError?.start}</span>
-									</div>
-								{/if}
-								<button
-									class="btn btn-ghost btn-xs btn-outline btn-circle absolute top-2 right-2"
-									onclick={() => removeTimeSlot(timeSlots.findIndex((s) => s === slot))}
-								>
-									✕
-								</button>
-							</div>
-						{/each}
-					</div>
-				{/if}
-
-				<div class="flex justify-end gap-2">
-					<button
-						class="btn btn-ghost btn-outline btn-xs sm:btn-sm"
-						onclick={() => copyToOtherDays(index)}
-					>
-						Copy to Other Days
-					</button>
-					<button class="btn btn-primary btn-xs sm:btn-sm" onclick={() => addTimeSlot(index)}>
-						Add Time Slot
-					</button>
-				</div>
+		<!-- Scheduling Preferences -->
+		<div class="grid gap-4">
+			<!-- Minimum Notice -->
+			<div class="form-control">
+				<label class="label" for="minNotice">
+					<span class="label-text font-medium">{$t('profile.availability.min_notice')}</span>
+					<span class="label-text-alt">{$t('profile.availability.min_notice_desc')}</span>
+				</label>
+				<input
+					type="range"
+					id="noticeHours"
+					bind:value={noticeHours}
+					min="1"
+					max="72"
+					class="range range-primary range-xs w-full"
+				/>
 			</div>
-		{/each}
-	</div>
 
-	<!-- Error Message -->
-	{#if error}
-		<div class="alert alert-error">
-			<span>{error}</span>
+			<!-- Maximum Bookings -->
+			<div class="form-control">
+				<label class="label" for="maxBookings">
+					<span class="label-text font-medium">{$t('profile.availability.max_bookings')}</span>
+				</label>
+				<input
+					type="number"
+					id="maxBookings"
+					bind:value={maxBookingsPerDay}
+					min="1"
+					max="20"
+					class="input input-bordered w-full"
+				/>
+			</div>
+
+			<!-- Break Time -->
+			<div class="form-control">
+				<label class="label" for="breakTime">
+					<span class="label-text font-medium">{$t('profile.availability.break_time')}</span>
+					<span class="label-text-alt">{$t('profile.availability.break_time_desc')}</span>
+				</label>
+				<Input
+					type="number"
+					id="breakTime"
+					autoComplete="off"
+					options={['15', '30', '45', '60'].map((minutes) => ({
+						label: minutes,
+						value: minutes
+					}))}
+					value={breakBetweenBookings}
+					onChange={({ value }) => (breakBetweenBookings = value)}
+				/>
+			</div>
 		</div>
-	{/if}
 
-	<!-- Submit Button -->
-	<div class="flex justify-end">
-		<button
-			class="btn btn-primary"
-			onclick={handleSubmit}
-			disabled={isLoading || timeSlots.length === 0}
-		>
-			{#if isLoading}
-				<span class="loading loading-spinner"></span>
-			{/if}
-			Save Availability
-		</button>
+		<!-- Weekly Schedule -->
+		<div class="space-y-4">
+			<h3 class="text-lg font-medium">Weekly Schedule</h3>
+
+			{#each days as day, index}
+				<div class="card bg-base-200 space-y-2 rounded-xl p-4">
+					<h4 class="font-medium">{day}</h4>
+
+					{#if timeSlots.filter((slot) => slot.day === index).length === 0}
+						<p class="text-base-content/70">No availability set</p>
+					{:else}
+						<div class="space-y-2">
+							{#each timeSlots.filter((slot) => slot.day === index) as slot, slotIndex}
+								<div class="relative space-y-2 rounded-xl border border-white/50 p-4 pt-10 shadow-md">
+									<div class="flex flex-col items-center gap-4 sm:flex-row">
+										<div class="flex w-full flex-row items-center justify-start gap-2">
+											<span class="text-base-content/70 w-1/5">from</span>
+											<input
+												type="time"
+												value={slot.start}
+												onchange={(e) =>
+													updateTimeSlot(
+														timeSlots.findIndex((s) => s === slot),
+														'start',
+														(e.target as HTMLInputElement).value,
+														slotIndex
+													)}
+												class="input input-bordered"
+											/>
+										</div>
+										<div class="flex w-full flex-row items-center justify-start gap-2">
+											<span class="text-base-content/70 w-1/5">to</span>
+											<input
+												type="time"
+												value={slot.end}
+												onchange={(e) =>
+													updateTimeSlot(
+														timeSlots.findIndex((s) => s === slot),
+														'end',
+														(e.target as HTMLInputElement).value,
+														slotIndex
+													)}
+												class="input input-bordered"
+											/>
+										</div>
+									</div>
+									{#if timeSlotError.day === index && timeSlotError.slotIndex === slotIndex}
+										<div class="alert alert-error w-full rounded-xl">
+											<span>{timeSlotError?.end || timeSlotError?.start}</span>
+										</div>
+									{/if}
+									<button
+										class="btn btn-ghost btn-xs btn-outline btn-circle absolute top-2 right-2"
+										onclick={() => removeTimeSlot(timeSlots.findIndex((s) => s === slot))}
+									>
+										✕
+									</button>
+								</div>
+							{/each}
+						</div>
+					{/if}
+
+					<div class="flex justify-end gap-2">
+						<button
+							class="btn btn-ghost btn-outline btn-xs sm:btn-sm"
+							onclick={() => copyToOtherDays(index)}
+						>
+							Copy to Other Days
+						</button>
+						<button class="btn btn-primary btn-xs sm:btn-sm" onclick={() => addTimeSlot(index)}>
+							Add Time Slot
+						</button>
+					</div>
+				</div>
+			{/each}
+		</div>
+
+		<!-- Error Message -->
+		{#if error}
+			<div class="alert alert-error">
+				<span>{error}</span>
+			</div>
+		{/if}
+
+		<!-- Submit Button -->
+		<div class="flex justify-end">
+			<button
+				class="btn btn-primary"
+				onclick={handleSubmit}
+				disabled={isLoading || timeSlots.length === 0}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner"></span>
+				{/if}
+				Save Availability
+			</button>
+		</div>
 	</div>
-</div>
+{/if}
