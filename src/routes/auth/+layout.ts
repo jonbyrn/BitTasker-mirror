@@ -30,7 +30,7 @@ export const load: LayoutLoad = async ({ url }) => {
 	} else {
 		if (url.pathname.includes('/onboarding')) {
 			if (!get(isCaptchaVerified)) {
-				redirect(303, '/auth/signup');
+				// redirect(303, '/auth/signup');
 			}
 		}
 	}

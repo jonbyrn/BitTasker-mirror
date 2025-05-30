@@ -36,7 +36,7 @@
 <div class="flex w-full flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="w-full max-w-md">
 		<div class="mb-8 flex flex-col items-center justify-center">
-			<img src="/logo.svg" alt="BitTasker" class="h-16 w-auto" />
+			<img src="/logo.svg" alt="BitTasker" class="w-auto" />
 			<h1 class="my-4 text-center text-2xl font-bold">{$t('auth.onboarding.title')}</h1>
 
 			<ul class="steps mx-auto w-full">
