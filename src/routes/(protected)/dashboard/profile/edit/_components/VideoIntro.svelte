@@ -73,7 +73,6 @@
 	// Publish video event to Nostr
 	async function publishVideoEvent(videoData: VideoIntroMetadata, relay = PUBLIC_NOSTR_RELAY_URL) {
 		try {
-			console.log('publishing video event', videoData);
 			// Publish to Nostr with extended metadata
 			const event = {
 				kind: 21, // NIP-71 Video Event

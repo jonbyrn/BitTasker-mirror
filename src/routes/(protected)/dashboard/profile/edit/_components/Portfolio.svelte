@@ -215,84 +215,139 @@
 	});
 </script>
 
-<div class="card-body">
-	<div class="card-title flex items-center justify-between">
-		<h2 class="card-title">Portfolio</h2>
-		<button
-			aria-label="Add Portfolio Item"
-			class="btn btn-circle btn-outline btn-xs"
-			onclick={() => (addingItem = !addingItem)}
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-				<g
-					fill="none"
-					stroke="#fff"
-					stroke-dasharray="16"
-					stroke-dashoffset="16"
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-				>
-					<path d="M5 12h14">
-						<animate fill="freeze" attributeName="stroke-dashoffset" dur="0.4s" values="16;0" />
-					</path>
-					{#if !addingItem}
-						<path d="M12 5v14">
-							<animate
-								fill="freeze"
-								attributeName="stroke-dashoffset"
-								begin="0.4s"
-								dur="0.4s"
-								values="16;0"
-							/>
-						</path>
-					{/if}
-				</g>
-			</svg>
-		</button>
-	</div>
-	<div class="space-y-8" bind:this={portfolioForm}>
-		<!-- Portfolio Form -->
-		{#if isFormOpen}
-			<div class="card border-base-300 rounded-xl border p-4">
-				<h3 class="mb-4 text-lg font-medium">
-					{editingItem ? 'Edit Portfolio Item' : 'Add Portfolio Item'}
-				</h3>
-
-				<div class="space-y-4">
-					<!-- Title -->
-					<div class="form-control">
-						<label class="label" for="title">
-							<span class="label-text font-medium">Title</span>
-							<span class="label-text-alt">Required</span>
-						</label>
-						<input
-							type="text"
-							id="title"
-							bind:value={title}
-							class="input input-bordered w-full"
-							placeholder="Project title"
-							required
+<div class="space-y-8" bind:this={portfolioForm}>
+	<!-- Portfolio Items -->
+	{#if portfolioItems.length > 0}
+		<div class="grid gap-6 md:grid-cols-2">
+			{#each portfolioItems as item}
+				<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
+					<figure>
+						<img
+							src={item.images.find((img) => img.isPrimary)?.url || item.images[0].url}
+							alt={item.title}
+							class="h-48 w-full object-cover"
 						/>
-					</div>
+					</figure>
+					<div class="card-body">
+						<h2 class="card-title">{item.title}</h2>
+						<p class="text-base-content/70">{item.description}</p>
 
-					<!-- Description -->
-					<div class="form-control">
-						<label class="label block" for="description">
-							<span class="label-text font-medium">Description</span>
-							<span class="label-text-alt">Required</span>
-						</label>
-						<textarea
-							id="description"
-							bind:value={description}
-							class="textarea textarea-bordered h-32 w-full rounded-xl"
-							placeholder="Describe your project, your role, and the outcomes..."
-							required
-						></textarea>
-					</div>
+						{#if skills && skills.length > 0 && item.skills && item.skills.length > 0}
+							<div class="mt-4 flex flex-wrap gap-2">
+								{#each item.skills as skill}
+									<span class="badge badge-primary badge-outline">
+										{skills.find((s) => s.id === skill)?.name}
+									</span>
+								{/each}
+							</div>
+						{/if}
 
-					<!-- Category -->
-					<!-- <div class="form-control">
+						<div class="card-actions mt-4 justify-end">
+							<button
+								class="btn btn-ghost btn-outline btn-sm"
+								onclick={() => {
+									editItem(item);
+									portfolioForm?.scrollIntoView({ behavior: 'smooth' });
+								}}
+							>
+								Edit
+							</button>
+							<button
+								class="btn btn-error btn-sm min-w-20"
+								onclick={() => removePortfolioItem(item)}
+							>
+								{#if isRemovingItem === item.id}
+									<span class="loading loading-spinner loading-xs"></span>
+								{:else}
+									Remove
+								{/if}
+							</button>
+						</div>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{:else}
+		<div class="alert">
+			<span>No portfolio items yet. Add some projects to showcase your work.</span>
+		</div>
+	{/if}
+
+	<button
+		aria-label="Add Portfolio Item"
+		class="btn btn-primary btn-sm flex items-center justify-evenly place-self-end whitespace-nowrap"
+		onclick={() => (addingItem = !addingItem)}
+	>
+		<span class="text-black">Add Project</span>
+		<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+			<g
+				fill="none"
+				stroke="#000"
+				stroke-dasharray="16"
+				stroke-dashoffset="16"
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+			>
+				<path d="M5 12h14">
+					<animate fill="freeze" attributeName="stroke-dashoffset" dur="0.4s" values="16;0" />
+				</path>
+				{#if !addingItem}
+					<path d="M12 5v14">
+						<animate
+							fill="freeze"
+							attributeName="stroke-dashoffset"
+							begin="0.4s"
+							dur="0.4s"
+							values="16;0"
+						/>
+					</path>
+				{/if}
+			</g>
+		</svg>
+	</button>
+
+	<!-- Portfolio Form -->
+	{#if isFormOpen}
+		<div class="card border-base-300 rounded-xl border p-4">
+			<h3 class="mb-4 text-lg font-medium">
+				{editingItem ? 'Edit Portfolio Item' : 'Add Portfolio Item'}
+			</h3>
+
+			<div class="space-y-4">
+				<!-- Title -->
+				<div class="form-control">
+					<label class="label" for="title">
+						<span class="label-text font-medium">Title</span>
+						<span class="label-text-alt">Required</span>
+					</label>
+					<input
+						type="text"
+						id="title"
+						bind:value={title}
+						class="input input-bordered w-full"
+						placeholder="Project title"
+						required
+					/>
+				</div>
+
+				<!-- Description -->
+				<div class="form-control">
+					<label class="label block" for="description">
+						<span class="label-text font-medium">Description</span>
+						<span class="label-text-alt">Required</span>
+					</label>
+					<textarea
+						id="description"
+						bind:value={description}
+						class="textarea textarea-bordered h-32 w-full rounded-xl"
+						placeholder="Describe your project, your role, and the outcomes..."
+						required
+					></textarea>
+				</div>
+
+				<!-- Category -->
+				<!-- <div class="form-control">
 						<label class="label" for="category">
 							<span class="label-text font-medium">Category</span>
 							<span class="label-text-alt">Required</span>
@@ -310,145 +365,81 @@
 						</select>
 					</div> -->
 
-					<!-- Completion Date -->
-					<div class="form-control">
-						<label class="label" for="completionDate">
-							<span class="label-text font-medium">Completion Date</span>
-							<span class="label-text-alt">(Required)</span>
-						</label>
-						<DatePicker
-							label="Completion Date"
-							value={completionDate}
-							onChange={(value: string) => (completionDate = value)}
-							required
-						/>
+				<!-- Completion Date -->
+				<div class="form-control">
+					<label class="label" for="completionDate">
+						<span class="label-text font-medium">Completion Date</span>
+						<span class="label-text-alt">(Required)</span>
+					</label>
+					<DatePicker
+						label="Completion Date"
+						value={completionDate}
+						onChange={(value: string) => (completionDate = value)}
+						required
+					/>
+				</div>
+
+				<!-- Skills Used -->
+				<div class="form-control">
+					<label class="label" for="skills">
+						<span class="label-text font-medium">Skills Used</span>
+					</label>
+
+					<Tags
+						selectedTags={selectedSkills}
+						options={skills.map((skill) => ({
+							id: skill.id || '',
+							name: skill.name
+						}))}
+						onChange={(value: (string | number)[]) => (selectedSkills = value as string[])}
+					/>
+				</div>
+
+				<!-- Images -->
+				<div class="form-control space-y-2">
+					<div>
+						<span class="text-base-content/80 block font-medium">Project Images</span>
+						<span class="text-base-content/70 block">Required • First image will be primary</span>
 					</div>
 
-					<!-- Skills Used -->
-					<div class="form-control">
-						<label class="label" for="skills">
-							<span class="label-text font-medium">Skills Used</span>
-						</label>
+					<Uploader
+						id="portfolioImages"
+						label="Add Images"
+						maxFiles={5}
+						files={images?.map((img) => (img instanceof File ? img : img.url))}
+						onChange={handleImageUpload}
+						onRemove={handleImageRemove}
+					/>
+				</div>
 
-						<Tags
-							selectedTags={selectedSkills}
-							options={skills.map((skill) => ({
-								id: skill.id || '',
-								name: skill.name
-							}))}
-							onChange={(value: (string | number)[]) => (selectedSkills = value as string[])}
-						/>
+				<!-- Error Message -->
+				{#if error}
+					<div class="alert alert-error">
+						<span>{error}</span>
 					</div>
+				{/if}
 
-					<!-- Images -->
-					<div class="form-control space-y-2">
-						<div>
-							<span class="text-base-content/80 block font-medium">Project Images</span>
-							<span class="text-base-content/70 block">Required • First image will be primary</span>
-						</div>
-
-						<Uploader
-							id="portfolioImages"
-							label="Add Images"
-							maxFiles={5}
-							files={images?.map((img) => (img instanceof File ? img : img.url))}
-							onChange={handleImageUpload}
-							onRemove={handleImageRemove}
-						/>
+				<!-- Success Message -->
+				{#if successMessage}
+					<div class="alert alert-success">
+						<span>{successMessage}</span>
 					</div>
+				{/if}
 
-					<!-- Error Message -->
-					{#if error}
-						<div class="alert alert-error">
-							<span>{error}</span>
-						</div>
+				<!-- Form Actions -->
+				<div class="flex justify-end gap-2">
+					<button class="btn btn-ghost btn-outline" onclick={resetForm}> Cancel </button>
+					{#if editingItem}
+						<button class="btn btn-ghost btn-outline" onclick={resetForm}> Cancel </button>
 					{/if}
-
-					<!-- Success Message -->
-					{#if successMessage}
-						<div class="alert alert-success">
-							<span>{successMessage}</span>
-						</div>
-					{/if}
-
-					<!-- Form Actions -->
-					<div class="flex justify-end gap-2">
-						{#if editingItem}
-							<button class="btn btn-ghost btn-outline" onclick={resetForm}> Cancel </button>
+					<button class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
+						{#if isLoading}
+							<span class="loading loading-spinner"></span>
 						{/if}
-						<button class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
-							{#if isLoading}
-								<span class="loading loading-spinner"></span>
-							{/if}
-							{editingItem ? 'Update Item' : 'Add Item'}
-						</button>
-					</div>
+						{editingItem ? 'Update Item' : 'Add Item'}
+					</button>
 				</div>
 			</div>
-		{/if}
-
-		<!-- Portfolio Items -->
-		{#if portfolioItems.length > 0}
-			<div class="grid gap-6 md:grid-cols-2">
-				{#each portfolioItems as item}
-					<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
-						<figure>
-							<img
-								src={item.images.find((img) => img.isPrimary)?.url || item.images[0].url}
-								alt={item.title}
-								class="h-48 w-full object-contain"
-							/>
-						</figure>
-						<div class="card-body">
-							<h2 class="card-title">{item.title}</h2>
-							<p class="text-base-content/70">{item.description}</p>
-
-							{#if skills && skills.length > 0 && item.skills && item.skills.length > 0}
-								<div class="mt-4 flex flex-wrap gap-2">
-									{#each item.skills as skill}
-										<span class="badge badge-primary badge-outline">
-											{skills.find((s) => s.id === skill)?.name}
-										</span>
-									{/each}
-								</div>
-							{/if}
-
-							<div class="card-actions mt-4 justify-end">
-								<button
-									class="btn btn-ghost btn-outline btn-sm"
-									onclick={() => {
-										editItem(item);
-										portfolioForm?.scrollIntoView({ behavior: 'smooth' });
-									}}
-								>
-									Edit
-								</button>
-								<button
-									class="btn btn-error btn-sm min-w-20"
-									onclick={() => removePortfolioItem(item)}
-								>
-									{#if isRemovingItem === item.id}
-										<span class="loading loading-spinner loading-xs"></span>
-									{:else}
-										Remove
-									{/if}
-								</button>
-							</div>
-						</div>
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<div class="alert">
-				<span>No portfolio items yet. Add some projects to showcase your work.</span>
-			</div>
-		{/if}
-	</div>
-</div>
-
-<!-- Success Toast -->
-<div id="portfolio-toast-success" class="toast toast-end" style="display: none;">
-	<div class="alert alert-success">
-		<span>Portfolio updated successfully!</span>
-	</div>
+		</div>
+	{/if}
 </div>

@@ -273,7 +273,7 @@
 						<p class="label label-text mb-2 text-[10px] sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
-						<p class="label label-text text-[8px]">
+						<p class="label label-text text-[8px] whitespace-normal text-center sm:px-2">
 							{fileTypeText} (Max. {maxFileSize}MB{durationText})
 						</p>
 					</div>

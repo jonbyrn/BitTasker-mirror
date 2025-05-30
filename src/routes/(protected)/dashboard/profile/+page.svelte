@@ -39,7 +39,7 @@
 </script>
 
 <div class="mx-auto max-w-5xl">
-	<div class="bg-base-100 mb-6 rounded-lg p-6 shadow-lg">
+	<div class="bg-base-100 mb-6 rounded-xl p-6 shadow-lg">
 		<ProfileHeader {logout} />
 
 		<ProfileStats stats={$profileStore.stats} />
