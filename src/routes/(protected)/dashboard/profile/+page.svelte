@@ -7,6 +7,7 @@
 	import ProfileStats from './_components/ProfileStats.svelte';
 	import ProfileInfoSection from './_components/ProfileInfoSection.svelte';
 	import ProfileSidebar from './_components/ProfileSidebar.svelte';
+	import { browser } from '$app/environment';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -29,11 +30,7 @@
 
 	// Initialize profile store
 	onMount(() => {
-		let timeout = setTimeout(() => {
-			profileStore.init();
-		}, 0);
-
-		return () => clearTimeout(timeout);
+		profileStore.init();
 	});
 
 	// Cleanup on destroy
