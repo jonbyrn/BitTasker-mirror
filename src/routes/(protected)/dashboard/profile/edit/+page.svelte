@@ -100,12 +100,6 @@
 		}
 	});
 
-	// Cleanup on component destroy
-	onDestroy(() => {
-		// if (cleanup) cleanup();
-		closeNostrPool();
-	});
-
 	// Section completion handlers
 	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean) {
 		completedSections[section] = completed;
