@@ -388,7 +388,7 @@
 				<div class="alert alert-error whitespace-normal">{error}</div>
 			{/if}
 
-			<div class="space-y-4">
+			<div class="space-y-4 pr-4">
 				<!-- Upload video -->
 				{#if !isLoading}
 					<Uploader
