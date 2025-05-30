@@ -19,6 +19,14 @@
 		onError = () => {}
 	}: UploaderProps = $props();
 
+	// Helper function to detect if a URL is a video
+	function isVideoURL(url: string): boolean {
+		// Check common video extensions
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const urlLower = url.toLowerCase();
+		return videoExtensions.some(ext => urlLower.endsWith(ext));
+	}
+
 	async function validateFile(file: File): Promise<boolean> {
 		// Validate file type
 		const isImage = allowedTypes.includes('image/*');
@@ -186,9 +194,29 @@
 		{#each files as file, index}
 			<div class="relative {customClass}">
 				{#if typeof file === 'string'}
-					<img src={file} alt="Preview" class="h-full w-full rounded-lg object-cover" />
+					{#if isVideoURL(file)}
+						<video
+							src={file}
+							class="h-full w-full rounded-lg object-cover cursor-pointer"
+							controls
+							muted={false}
+							autoplay={false}
+							loop={false}
+						>
+							<track kind="captions" />
+						</video>
+					{:else}
+						<img src={file} alt="Preview" class="h-full w-full rounded-lg object-cover" />
+					{/if}
 				{:else if file.type.startsWith('video/')}
-					<video src={URL.createObjectURL(file)} class="h-full w-full rounded-lg object-cover">
+					<video
+						src={URL.createObjectURL(file)}
+						class="h-full w-full rounded-lg object-cover cursor-pointer"
+						controls
+						muted={false}
+						autoplay={false}
+						loop={false}
+					>
 						<track kind="captions" />
 					</video>
 				{:else}
