@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Locales } from '$lib/stores/i18n.store';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/stores/i18n.store';
 	import { user } from '$lib/stores/user.store';
@@ -9,9 +9,18 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { showBackButton } from '$lib/stores/navigation.store';
+	import { getNpub } from '$lib/utils/nostrKeys';
+	import { profileStore } from '$lib/stores/profile.store';
+	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import 'iconify-icon';
+
+	// Languages supported by the app
+	const languages: { code: Locales; name: string }[] = [
+		{ code: 'en', name: $t('navbar.language.english') },
+		{ code: 'es', name: $t('navbar.language.spanish') }
+	];
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
@@ -25,11 +34,8 @@
 	// Create a reference to the resize handler so we can remove it later
 	let resizeHandler: (() => void) | null = null;
 
-	// Languages supported by the app
-	const languages: { code: Locales; name: string }[] = [
-		{ code: 'en', name: $t('navbar.language.english') },
-		{ code: 'es', name: $t('navbar.language.spanish') }
-	];
+	let profileImage = $state(null);
+	let subscription: { close: () => void } | null = null;
 
 	// Language switcher handler
 	const handleLanguageChange = async (code: Locales) => {
@@ -39,6 +45,63 @@
 			console.error('Error changing language:', error);
 		}
 	};
+
+	// Function to handle profile image events
+	function handleProfileImageEvent(event: any) {
+		try {
+			const images = JSON.parse(event.content);
+			if (images.length > 0) {
+				profileImage = images[0].url;
+			} else {
+				profileImage = null;
+			}
+		} catch (error) {
+			console.error('Failed to parse profile image event:', error);
+			profileImage = null;
+		}
+	}
+
+	// Function to setup profile image subscription
+	async function setupProfileImageSubscription() {
+		try {
+			const npub = await getNpub();
+			if (!npub) return;
+
+			const filter = {
+				authors: [npub],
+				kinds: [30063],
+				'#d': ['profile-images']
+			};
+
+
+			// Subscribe to future updates
+			subscription = profileStore.pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
+				onevent(event) {
+					handleProfileImageEvent(event);
+				}
+			});
+		} catch (error) {
+			console.error('Failed to setup profile image subscription:', error);
+		}
+	}
+
+	onMount(async () => {
+		if ($authState.isAuthenticated) {
+			await setupProfileImageSubscription();
+		}
+	});
+
+	$effect(() => {
+		if ($authState.isAuthenticated) {
+			setupProfileImageSubscription();
+		} else {
+			profileImage = null;
+			if (subscription) {
+				subscription.close();
+				subscription = null;
+			}
+		}
+	});
 
 	// Determine layout based on device info and PWA status
 	function checkLayoutMode() {
@@ -128,6 +191,9 @@
 		if (typeof window !== 'undefined' && resizeHandler) {
 			window.removeEventListener('resize', resizeHandler);
 		}
+		if (subscription) {
+			subscription.close();
+		}
 	});
 </script>
 
@@ -204,7 +270,7 @@
 		{#if isLoggedIn}
 			<!-- User is logged in: show profile or badge -->
 			<Avatar
-				user={{ name: $user?.name, profileImage: null }}
+				user={{ name: $user?.name, profileImage }}
 				onClick={() => goto('/dashboard/profile')}
 			/>
 		{:else}
