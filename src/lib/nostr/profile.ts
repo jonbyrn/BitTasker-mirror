@@ -1,13 +1,17 @@
-import type { NostrProfile, NostrProfileImage, Skill, SkillCertification, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
+import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
 import type { NostrEvent, Filter, EventTemplate } from 'nostr-tools';
-import { SimplePool } from 'nostr-tools/pool';
+import { profileStore } from '$lib/stores/profile.store';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
 
-// Create a pool instance for reuse
-const pool = new SimplePool();
+// Subscription store for profile updates
+let profileSubscriptions = new Map<string, {
+    sub: any;
+    callbacks: Set<(event: NostrEvent) => void>;
+    relays: string[];
+}>();
 
 // Helper function to create subscription key
 function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined }): string {
@@ -27,12 +31,6 @@ function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [
         .join('|');
     return `${npub}:${kinds}:${tags}`;
 }
-
-// Subscription store for profile updates
-let profileSubscriptions = new Map<string, {
-    sub: any;
-    callbacks: Set<(event: NostrEvent) => void>;
-}>();
 
 /**
  * Subscribe to profile updates for a given public key
@@ -93,7 +91,7 @@ export async function subscribeToProfileUpdates(
 
             // Create separate subscriptions for each filter
             const subs = filters.map(filter =>
-                pool.subscribe(relays, filter, {
+                profileStore.pool.subscribe(relays, filter, {
                     onevent(event: NostrEvent) {
                         const subs = profileSubscriptions.get(subscriptionKey);
                         if (subs) {
@@ -110,7 +108,8 @@ export async function subscribeToProfileUpdates(
                 sub: {
                     close: () => subs.forEach(sub => sub.close())
                 },
-                callbacks: new Set([callback])
+                callbacks: new Set([callback]),
+                relays
             });
         } else {
             // Add callback to existing subscription
@@ -161,7 +160,7 @@ export async function publishProfileMetadata(
             try {
                 const publishPromises = relays.map(relay =>
                     new Promise<void>((resolve, reject) => {
-                        const pub = pool.publish([relay], signedEvent);
+                        const pub = profileStore.pool.publish([relay], signedEvent);
                         const timeoutId = setTimeout(() => {
                             reject(new Error(`Publish to ${relay} timed out`));
                         }, timeout);
@@ -216,7 +215,7 @@ export async function publishMultipleImages(images: NostrProfileImage[], eventId
         }
 
         const signedEvent = await getSignedEvent(event);
-        const pub = await Promise.all(pool.publish(relays, signedEvent));
+        const pub = await Promise.all(profileStore.pool.publish(relays, signedEvent));
 
         return pub;
     } catch (error) {
@@ -247,7 +246,7 @@ export async function deleteNostrEvent(eventId: string, eventKind?: string, rela
         };
 
         const signedEvent = await getSignedEvent(event);
-        await Promise.all(pool.publish(relays, signedEvent));
+        await Promise.all(profileStore.pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Error deleting Nostr event:', error);
         throw error;
@@ -255,9 +254,11 @@ export async function deleteNostrEvent(eventId: string, eventKind?: string, rela
 }
 
 /**
- * Cleanup function
+ * Cleanup function - only use when completely shutting down
  */
 export function closeNostrPool(): void {
+    if (profileSubscriptions.size === 0) return;
+
     // Close all subscriptions
     for (const [_, subs] of profileSubscriptions) {
         subs.sub.close();
@@ -265,7 +266,7 @@ export function closeNostrPool(): void {
     profileSubscriptions.clear();
 
     // Close pool
-    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+    profileStore.pool.close([PUBLIC_NOSTR_RELAY_URL]);
 }
 
 /**
@@ -286,7 +287,7 @@ export async function publishSkillsUpdate(
 
         const signedSkillsEvent = await getSignedEvent(skillsEvent);
 
-        pool.publish(relays, signedSkillsEvent);
+        profileStore.pool.publish(relays, signedSkillsEvent);
     } catch (error) {
         console.error('Failed to publish skills update:', error);
         throw error;
@@ -333,7 +334,7 @@ export async function uploadCertification(
         const signedCertEvent = await getSignedEvent(certEvent);
 
         // Publish event
-        pool.publish(relays, signedCertEvent)
+        profileStore.pool.publish(relays, signedCertEvent)
 
         return signedCertEvent.id;
     } catch (error) {
@@ -360,7 +361,7 @@ export async function publishPortfolioItem(
         };
 
         const signedEvent = await getSignedEvent(itemEvent);
-        await Promise.all(pool.publish(relays, signedEvent));
+        await Promise.all(profileStore.pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Failed to publish portfolio item:', error);
         throw error;
@@ -387,7 +388,7 @@ export async function deletePortfolioItem(
         };
 
         const signedEvent = await getSignedEvent(deleteEvent);
-        await Promise.all(pool.publish(relays, signedEvent));
+        await Promise.all(profileStore.pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Error deleting portfolio item:', error);
         throw error;
@@ -408,7 +409,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
         };
 
         const signedEvent = await getSignedEvent(event);
-        await Promise.all(pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent));
+        await Promise.all(profileStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent));
     } catch (error) {
         console.error('Failed to publish availability update:', error);
         throw error;
@@ -430,7 +431,7 @@ export async function publishStandardServices(servicesData: NostrStandardService
         };
 
         const signedEvent = await getSignedEvent(event);
-        await Promise.all(pool.publish(relays, signedEvent));
+        await Promise.all(profileStore.pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Failed to publish standard services:', error);
         throw error;
@@ -454,7 +455,7 @@ export async function deleteStandardService(eventId: string, relays = [PUBLIC_NO
         };
 
         const signedEvent = await getSignedEvent(event);
-        await Promise.all(pool.publish(relays, signedEvent));
+        await Promise.all(profileStore.pool.publish(relays, signedEvent));
     } catch (error) {
         console.error('Failed to delete standard service:', error);
         throw error;
@@ -474,7 +475,7 @@ export async function getEventById(eventId: string, relays = [PUBLIC_NOSTR_RELAY
         };
 
         // Use get method instead of list
-        const event = await pool.get(relays, filter);
+        const event = await profileStore.pool.get(relays, filter);
         return event || null;
     } catch (error) {
         console.error('Error fetching event by ID:', error);

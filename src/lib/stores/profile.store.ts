@@ -1,4 +1,4 @@
-import type { NostrEvent } from 'nostr-tools';
+import { SimplePool, type NostrEvent } from 'nostr-tools';
 import type { Profile } from '$lib/types/profile';
 import { writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
@@ -51,6 +51,8 @@ function createProfileStore() {
     let cleanup: (() => void) | null = null;
 
     return {
+        pool: new SimplePool(),
+        
         subscribe,
 
         // Initialize the store with data from nostr

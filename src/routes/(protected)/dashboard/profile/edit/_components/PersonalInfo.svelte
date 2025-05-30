@@ -64,8 +64,8 @@
 
 	// Cleanup subscription on component destroy
 	onDestroy(() => {
-		if (cleanup) cleanup();
-		nostrPool.close([PUBLIC_NOSTR_RELAY_URL]);
+		// if (cleanup) cleanup();
+		// nostrPool.close([PUBLIC_NOSTR_RELAY_URL]);
 	});
 
 	// Derived state for form completion
