@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { VideoIntroData, VideoIntroMetadata } from '$lib/types/profile';
+	import type { VideoIntroMetadata } from '$lib/types/profile';
+	import { t } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import { getSignedEvent, publishEvent } from '$lib/utils/nostr';
@@ -19,6 +20,7 @@
 	let stream: MediaStream | null = $state(null);
 	let videoPreview: HTMLVideoElement | null = $state(null);
 	let videoEventId = $state<string | null>(null);
+	let isInitialLoading = $state(true);
 	let cleanup: (() => void) | null = null;
 
 	// Subscribe to video updates
@@ -51,6 +53,8 @@
 				} catch (err) {
 					console.error('Failed to process video update:', err);
 					error = 'Failed to connect to Nostr relay. Please try again later.';
+				} finally {
+					isInitialLoading = false;
 				}
 			},
 			{ 21: null } // Subscribe to kind 21 (video) events
@@ -359,55 +363,68 @@
 	}
 </script>
 
-<div class="space-y-6">
-	<div class="space-y-4">
-		<div>
-			<span class="text-base-content/80 block font-medium">Video Introduction</span>
-			<span class="text-base-content/70 block whitespace-normal">
-				Record or upload a short video introduction (max 3 minutes)
-			</span>
-		</div>
-
-		{#if error}
-			<div class="alert alert-error whitespace-normal">{error}</div>
-		{/if}
-
+{#if isInitialLoading}
+	<div class="space-y-6">
+		<!-- Title and Description Skeleton -->
 		<div class="space-y-4">
-			<!-- Upload video -->
-			{#if !isLoading}
-				<Uploader
-					id="videoUpload"
-					label="Upload Video"
-					allowedTypes={['video/*']}
-					maxFiles={1}
-					onChange={handleVideoUpload}
-					customClass="w-full"
-					maxDuration={180}
-					maxFileSize={100}
-					files={videoData ? [videoData.video.url] : []}
-					onRemove={removeVideo}
-				/>
-			{:else}
-				<div class="bg-base-300 h-24 w-full animate-pulse rounded-lg border"></div>
-			{/if}
+			<div>
+				<div class="bg-base-300 h-6 w-48 animate-pulse rounded"></div>
+				<div class="bg-base-300 mt-1 h-4 w-64 animate-pulse rounded"></div>
+			</div>
 
-			<!-- Record video -->
-			<!-- <div class="border-base-300 rounded-lg border p-4">
-				<div class="space-y-4">
-					{#if isRecording}
-						<video bind:this={videoPreview} class="w-full rounded-lg" muted>
-							<track kind="captions" />
-						</video>
-						<button class="btn btn-error btn-block" onclick={stopRecording} disabled={isLoading}>
-							Stop Recording
-						</button>
-					{:else}
-						<button class="btn btn-primary btn-block" onclick={startRecording} disabled={isLoading}>
-							Record Video
-						</button>
-					{/if}
-				</div>
-			</div> -->
+			<!-- Upload Area Skeleton -->
+			<div class="bg-base-300 h-24 w-full animate-pulse rounded-lg border"></div>
 		</div>
 	</div>
-</div>
+{:else}
+	<div class="space-y-6">
+		<div class="space-y-4">
+			<div>
+				<h3 class="text-lg font-medium">{$t('profile.video.title')}</h3>
+				<p class="text-base-content/70">{$t('profile.video.description')}</p>
+			</div>
+
+			{#if error}
+				<div class="alert alert-error whitespace-normal">{error}</div>
+			{/if}
+
+			<div class="space-y-4">
+				<!-- Upload video -->
+				{#if !isLoading}
+					<Uploader
+						id="videoUpload"
+						label={$t('profile.video.upload_title')}
+						allowedTypes={['video/*']}
+						maxFiles={1}
+						onChange={handleVideoUpload}
+						customClass="w-full"
+						maxDuration={180}
+						maxFileSize={100}
+						files={videoData ? [videoData.video.url] : []}
+						onRemove={removeVideo}
+					/>
+				{:else}
+					<div class="bg-base-300 h-24 w-full animate-pulse rounded-lg border"></div>
+				{/if}
+
+				<!-- Record video -->
+				<!-- <div class="border-base-300 rounded-lg border p-4">
+					<div class="space-y-4">
+						{#if isRecording}
+							<video bind:this={videoPreview} class="w-full rounded-lg" muted>
+								<track kind="captions" />
+							</video>
+							<button class="btn btn-error btn-block" onclick={stopRecording} disabled={isLoading}>
+								Stop Recording
+							</button>
+						{:else}
+							<button class="btn btn-primary btn-block" onclick={startRecording} disabled={isLoading}>
+								Record Video
+							</button>
+						{/if}
+					</div>
+				</div> -->
+			</div>
+		</div>
+	</div>
+{/if}

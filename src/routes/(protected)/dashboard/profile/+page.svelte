@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import { t } from '$lib/stores/i18n.store';
 	import { authState } from '$lib/stores/auth.store.js';
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from './_components/ProfileHeader.svelte';
@@ -40,6 +41,7 @@
 
 <div class="mx-auto max-w-5xl">
 	<div class="bg-base-100 mb-6 rounded-xl p-6 shadow-lg">
+		<h1 class="mb-4 text-2xl font-bold">{$t('profile.page.title')}</h1>
 		<ProfileHeader {logout} />
 
 		<ProfileStats stats={$profileStore.stats} />
