@@ -1,9 +1,6 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
-	import {
-		publishMultipleImages,
-		subscribeToProfileUpdates
-	} from '$lib/nostr/profile';
+	import { publishMultipleImages, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import { SimplePool } from 'nostr-tools/pool';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { onDestroy, onMount } from 'svelte';
@@ -21,7 +18,6 @@
 	let pictures = $state<(NostrProfileImage | File)[]>([]);
 	let isLoading = $state(false);
 	let error = $state('');
-	let nostrPool = $state(new SimplePool());
 	let profileEventId = $state<string | null>(null);
 	let imageEventId = $state<string | null>(null); // Track the current image event ID
 	let cleanup: (() => void) | null = null;
@@ -64,8 +60,7 @@
 
 	// Cleanup subscription on component destroy
 	onDestroy(() => {
-		// if (cleanup) cleanup();
-		// nostrPool.close([PUBLIC_NOSTR_RELAY_URL]);
+		if (cleanup) cleanup();
 	});
 
 	// Derived state for form completion

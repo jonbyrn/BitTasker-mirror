@@ -103,7 +103,7 @@
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">Portfolio</h3>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
-				<div class="grid grid-cols-1 gap-6">
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.portfolio as item}
 						<div class="card bg-base-200 rounded-xl">
 							<div class="card-body p-4">
@@ -139,7 +139,7 @@
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold">Reviews</h3>
 			{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
-				<div class="space-y-4">
+				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.reviews as review}
 						<div class="card bg-base-200">
 							<div class="card-body p-4">
