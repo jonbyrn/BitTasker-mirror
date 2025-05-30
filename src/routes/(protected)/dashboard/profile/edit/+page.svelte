@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
 	import { t } from '$lib/stores/i18n.store';
 	import PersonalInfo from './_components/PersonalInfo.svelte';
 	import Skills from './_components/Skills.svelte';
@@ -122,11 +121,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.personal_info'), 'personalInfo')}
-				<div
-					class="overflow-hidden"
-					style:height={isCollapsed.personalInfo ? '1px' : 'auto'}
-					transition:slide={{ duration: 1000, delay: 100, axis: 'y' }}
-				>
+				<div class="overflow-hidden" style:height={isCollapsed.personalInfo ? '1px' : 'auto'}>
 					<PersonalInfo
 						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
 					/>
@@ -149,11 +144,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
-				<div
-					class="overflow-hidden"
-					style:height={isCollapsed.skills ? '0' : 'auto'}
-					transition:slide={{ duration: 100, axis: 'y' }}
-				>
+				<div class="overflow-hidden" style:height={isCollapsed.skills ? '0' : 'auto'}>
 					<Skills onComplete={(completed) => handleSectionComplete('skills', completed)} />
 				</div>
 			</div>
@@ -163,11 +154,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
-				<div
-					class="overflow-hidden"
-					style:height={isCollapsed.portfolio ? '0' : 'auto'}
-					transition:slide={{ duration: 100, axis: 'y' }}
-				>
+				<div class="overflow-hidden" style:height={isCollapsed.portfolio ? '0' : 'auto'}>
 					<Portfolio onComplete={(completed) => handleSectionComplete('portfolio', completed)} />
 				</div>
 			</div>
@@ -177,11 +164,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.video'), 'videoIntro')}
-				<div
-					class="overflow-hidden"
-					style:height={isCollapsed.videoIntro ? '0' : 'auto'}
-					transition:slide={{ duration: 100, axis: 'y' }}
-				>
+				<div class="overflow-hidden" style:height={isCollapsed.videoIntro ? '0' : 'auto'}>
 					<VideoIntro onComplete={(completed) => handleSectionComplete('videoIntro', completed)} />
 				</div>
 			</div>
@@ -191,11 +174,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.availability'), 'availability')}
-				<div
-					class="overflow-hidden"
-					style:height={isCollapsed.availability ? '0' : 'auto'}
-					transition:slide={{ duration: 100, axis: 'y' }}
-				>
+				<div class="overflow-hidden" style:height={isCollapsed.availability ? '0' : 'auto'}>
 					<Availability
 						onComplete={(completed) => handleSectionComplete('availability', completed)}
 					/>
@@ -207,11 +186,7 @@
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.services'), 'standardServices')}
-				<div
-					class="overflow-hidden"
-					style:height={isCollapsed.standardServices ? '0' : 'auto'}
-					transition:slide={{ duration: 100, axis: 'y' }}
-				>
+				<div class="overflow-hidden" style:height={isCollapsed.standardServices ? '0' : 'auto'}>
 					<StandardServices
 						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
 					/>
