@@ -423,7 +423,7 @@
 		{#if services.length > 0}
 			<div class="grid gap-4 md:grid-cols-2">
 				{#each services as service}
-					<div class="card bg-base-100 border-base-300 rounded-xl border shadow-lg">
+					<div class="card bg-base-200 border-base-200 rounded-xl border shadow-lg">
 						<div class="card-body">
 							<div class="flex items-start justify-between">
 								<div>

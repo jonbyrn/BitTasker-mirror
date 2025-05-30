@@ -1,103 +1,32 @@
 <script lang="ts">
-	import type { NostrEvent } from 'nostr-tools';
-	import { closeNostrPool } from '$lib/nostr/profile';
-	import { onMount, onDestroy } from 'svelte';
 	import PersonalInfo from './_components/PersonalInfo.svelte';
-	import LocationService from './_components/LocationService.svelte';
 	import Skills from './_components/Skills.svelte';
 	import Portfolio from './_components/Portfolio.svelte';
 	import VideoIntro from './_components/VideoIntro.svelte';
 	import Availability from './_components/Availability.svelte';
 	import StandardServices from './_components/StandardServices.svelte';
-	import AIAssistant from './_components/AIAssistant.svelte';
+	import { slide } from 'svelte/transition';
 
-	// States
-	let user = $state<any>(null);
-	let isLoading = $state(true);
-	let error = $state('');
 	let completedSections = $state({
 		personalInfo: false,
-		location: false,
+		// location: false,
 		skills: false,
 		portfolio: false,
 		videoIntro: false,
 		availability: false,
-		standardServices: false,
-		aiAssistant: false
+		standardServices: false
+		// aiAssistant: false
 	});
 
-	// Derived state for form completion
-	let isFormComplete = $derived(Object.values(completedSections).every((completed) => completed));
-
-	// Load profile data
-	onMount(async () => {
-		try {
-			/* isLoading = true;
-			// Load Nostr events
-			nostrEvents = await getNostrMetadata();
-			console.log({ nostrEvents, length: nostrEvents.length });
-
-			// Load GraphQL data
-			const meStore = new MeStore();
-			const result = await meStore.fetch();
-			const initialUser = result.data?.me;
-
-			// Merge data
-			if (initialUser) {
-				user = {
-					id: initialUser.id,
-					name: initialUser.name || initialUser.displayName,
-					email: initialUser.email,
-					dob: initialUser.dob,
-					biddingAllowed: initialUser.biddingAllowed,
-					createdAt: initialUser.createdAt,
-					isEmailVerified: initialUser.isEmailVerified,
-					lastLoginAt: initialUser.lastLoginAt,
-					location: initialUser.location,
-					mobileNumber: initialUser.mobileNumber,
-					onboardingComplete: initialUser.onboardingComplete,
-					skills: initialUser.skills,
-					status: initialUser.status,
-					updatedAt: initialUser.updatedAt,
-					userRole: initialUser.userRole,
-					username: initialUser.username
-				};
-
-				if (initialUser.profilePictureUrl && initialUser.profilePictureId) {
-					user.pictures = [
-						{
-							url: initialUser.profilePictureUrl,
-							alt: 'main profile picture',
-							type: 'image',
-							key: initialUser.profilePictureId
-						}
-					];
-				}
-
-				// Subscribe to profile updates
-				cleanup = await subscribeToProfileUpdates((event) => {
-					try {
-						// Update nostrEvents with the new event
-						nostrEvents = [...nostrEvents.filter((e) => e.id !== event.id), event];
-
-						// Re-merge data with the updated nostrEvents
-						const mergedProfile = mergeNostrAndGraphQLData(nostrEvents, user);
-						user = { ...user, ...mergedProfile };
-					} catch (err) {
-						console.error('Failed to process profile update:', err);
-					}
-				});
-
-				// Initial merge
-				const mergedProfile = mergeNostrAndGraphQLData(nostrEvents, user);
-				user = { ...user, ...mergedProfile };
-			} */
-		} catch (err) {
-			console.error('Error loading profile:', err);
-			error = 'Failed to load profile data';
-		} finally {
-			isLoading = false;
-		}
+	let isCollapsed = $state({
+		personalInfo: false,
+		// location: false,
+		skills: true,
+		portfolio: true,
+		videoIntro: true,
+		availability: true,
+		standardServices: true
+		// aiAssistant: false
 	});
 
 	// Section completion handlers
@@ -113,38 +42,85 @@
 	);
 </script>
 
-<div class="mx-auto max-w-5xl p-4">
+{#snippet cardTitle(title: string, section: keyof typeof isCollapsed)}
+	<div class="flex items-center justify-between">
+		<h2 class="card-title">
+			<span class="relative mr-3 flex size-3">
+				<span
+					class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 {completedSections[
+						section
+					]
+						? 'bg-success'
+						: 'bg-error'}"
+				></span>
+				<span
+					class="relative inline-flex size-3 rounded-full {completedSections[section]
+						? 'bg-success'
+						: 'bg-error'}"
+				></span>
+			</span>
+			<span>
+				{title}
+			</span>
+		</h2>
+		<button
+			aria-label="Collapse"
+			class="btn btn-sm btn-ghost btn-circle"
+			onclick={() => (isCollapsed[section] = !isCollapsed[section])}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				width="20"
+				height="20"
+				viewBox="0 0 24 24"
+				class="{isCollapsed[section] ? 'rotate-0' : 'rotate-180'} transition-all duration-150"
+			>
+				<path
+					fill="#fff"
+					d="M7 16H5v-2h2v-2h2v-2h2V8h2v2h2v2h2v2h2v2h-2v-2h-2v-2h-2v-2h-2v2H9v2H7z"
+				/>
+			</svg>
+		</button>
+	</div>
+{/snippet}
+
+<div class="mx-auto max-w-5xl p-4 relative">
 	<div class="mb-4">
 		<h1 class="text-3xl font-bold">Edit Profile</h1>
 		<p class="text-base-content/70">Complete your profile to increase visibility and trust</p>
+	</div>
 
-		<!-- Progress Bar -->
-		<div class="bg-base-100 mt-4 rounded-xl p-4">
-			<div class="mb-1 flex justify-between">
-				<span class="text-sm font-medium">Profile Completion</span>
-				<span class="text-sm font-medium">{Math.round(progress)}%</span>
-			</div>
-			<div class="bg-base-200 h-2.5 w-full rounded-full">
-				<div class="bg-primary h-2.5 rounded-full" style="width: {progress}%"></div>
-			</div>
+	<!-- Progress Bar -->
+	<div class="bg-base-100 mt-4 rounded-xl p-4 sticky top-1 z-10 mb-4 border border-base-content/50">
+		<div class="mb-1 flex justify-between">
+			<span class="text-sm font-medium">Profile Completion</span>
+			<span class="text-sm font-medium">{Math.round(progress)}%</span>
+		</div>
+		<div class="bg-base-200 h-2.5 w-full rounded-full">
+			<div class="bg-primary h-2.5 rounded-full" style="width: {progress}%"></div>
 		</div>
 	</div>
 
-	{#if !isLoading}
-		<!-- Profile Sections -->
-		<div class="space-y-4">
-			<!-- Personal Information -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Personal Information</h2>
+	<!-- Profile Sections -->
+	<div class="space-y-4">
+		<!-- Personal Information -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body">
+				{@render cardTitle('Personal Information', 'personalInfo')}
+				<div
+					class="overflow-hidden"
+					style:height={isCollapsed.personalInfo ? '1px' : 'auto'}
+					transition:slide={{ duration: 1000, delay: 100, axis: 'y' }}
+				>
 					<PersonalInfo
 						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
 					/>
 				</div>
 			</div>
+		</div>
 
-			<!-- Location & Service Area -->
-			<!-- <div class="card bg-base-100 shadow-lg">
+		<!-- Location & Service Area -->
+		<!-- <div class="card bg-base-100 shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">Location & Service Area</h2>
 					<LocationService
@@ -154,49 +130,82 @@
 				</div>
 			</div> -->
 
-			<!-- Skills -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Skills & Expertise</h2>
+		<!-- Skills -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body">
+				{@render cardTitle('Skills & Expertise', 'skills')}
+				<div
+					class="overflow-hidden"
+					style:height={isCollapsed.skills ? '0' : 'auto'}
+					transition:slide={{ duration: 100, axis: 'y' }}
+				>
 					<Skills onComplete={(completed) => handleSectionComplete('skills', completed)} />
 				</div>
 			</div>
+		</div>
 
-			<!-- Portfolio -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<Portfolio onComplete={(completed) => handleSectionComplete('portfolio', completed)} />
+		<!-- Portfolio -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body">
+				{@render cardTitle('Portfolio', 'portfolio')}
+				<div
+					class="overflow-hidden"
+					style:height={isCollapsed.portfolio ? '0' : 'auto'}
+					transition:slide={{ duration: 100, axis: 'y' }}
+				>
+					<Portfolio onComplete={(completed) => handleSectionComplete('portfolio', completed)} />
+				</div>
 			</div>
+		</div>
 
-			<!-- Video Introduction -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Video Introduction</h2>
+		<!-- Video Introduction -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body">
+				{@render cardTitle('Video Introduction', 'videoIntro')}
+				<div
+					class="overflow-hidden"
+					style:height={isCollapsed.videoIntro ? '0' : 'auto'}
+					transition:slide={{ duration: 100, axis: 'y' }}
+				>
 					<VideoIntro onComplete={(completed) => handleSectionComplete('videoIntro', completed)} />
 				</div>
 			</div>
+		</div>
 
-			<!-- Availability Calendar -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Availability</h2>
+		<!-- Availability Calendar -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body">
+				{@render cardTitle('Availability', 'availability')}
+				<div
+					class="overflow-hidden"
+					style:height={isCollapsed.availability ? '0' : 'auto'}
+					transition:slide={{ duration: 100, axis: 'y' }}
+				>
 					<Availability
 						onComplete={(completed) => handleSectionComplete('availability', completed)}
 					/>
 				</div>
 			</div>
+		</div>
 
-			<!-- Standard Services -->
-			<div class="card bg-base-100 rounded-xl shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Standard Services</h2>
+		<!-- Standard Services -->
+		<div class="card bg-base-100 rounded-xl shadow-lg">
+			<div class="card-body">
+				{@render cardTitle('Standard Services', 'standardServices')}
+				<div
+					class="overflow-hidden"
+					style:height={isCollapsed.standardServices ? '0' : 'auto'}
+					transition:slide={{ duration: 100, axis: 'y' }}
+				>
 					<StandardServices
 						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
 					/>
 				</div>
 			</div>
+		</div>
 
-			<!-- AI Assistant -->
-			<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
+		<!-- AI Assistant -->
+		<!-- <div class="card bg-base-100 rounded-xl shadow-lg">
 				<div class="card-body">
 					<h2 class="card-title">AI Assistant</h2>
 					<AIAssistant
@@ -205,19 +214,5 @@
 					/>
 				</div>
 			</div> -->
-		</div>
-	{:else}
-		<!-- Loading skeletons -->
-		<div class="space-y-4">
-			<div class="card bg-base-100 animate-pulse rounded-xl shadow-lg">
-				<div class="card-body">
-					<div class="flex items-center justify-between">
-						<div class="bg-base-200 h-6 w-48 rounded-md"></div>
-						<div class="bg-base-200 h-6 w-24 rounded-md"></div>
-					</div>
-					<div class="bg-base-200 h-4 w-full rounded-md"></div>
-				</div>
-			</div>
-		</div>
-	{/if}
+	</div>
 </div>

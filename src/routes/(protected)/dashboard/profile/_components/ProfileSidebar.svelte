@@ -104,7 +104,7 @@
 		</div>
 	{:else if $profileStore.data}
 		<!-- Availability Card -->
-		<div class="card bg-base-200 mb-6 rounded-lg">
+		<div class="card bg-base-200 mb-6 rounded-xl">
 			<div class="card-body">
 				<h3 class="card-title text-lg">Availability</h3>
 
@@ -174,7 +174,7 @@
 		</div>
 
 		<!-- Payment Methods Card -->
-		<div class="card bg-base-200 mb-6 rounded-lg p-4">
+		<div class="card bg-base-200 mb-6 rounded-xl p-4">
 			<h3 class="mb-4 text-lg font-bold">Payment Methods</h3>
 			<div class="space-y-4">
 				<div class="flex items-center gap-2">
@@ -211,7 +211,7 @@
 		</div>
 
 		<!-- Stats Card -->
-		<div class="card bg-base-200 rounded-lg p-4">
+		<div class="card bg-base-200 rounded-xl p-4">
 			<h3 class="mb-4 text-lg font-bold">Your Stats</h3>
 			<div class="stats stats-vertical shadow">
 				<div class="stat">

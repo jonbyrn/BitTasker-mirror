@@ -1,10 +1,8 @@
 <script lang="ts">
 	import type { NostrProfile, NostrProfileImage } from '$lib/types/profile.d';
 	import { publishMultipleImages, subscribeToProfileUpdates } from '$lib/nostr/profile';
-	import { SimplePool } from 'nostr-tools/pool';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { onDestroy, onMount } from 'svelte';
-	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 

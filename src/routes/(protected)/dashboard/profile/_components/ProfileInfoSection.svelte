@@ -61,7 +61,7 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="text-base-content/70">No skills added yet.</p>
+				<p class="alert rounded-xl">No skills added yet.</p>
 			{/if}
 		</div>
 
@@ -128,7 +128,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert">
+				<div class="alert rounded-xl">
 					<span>No portfolio items added yet.</span>
 				</div>
 			{/if}
