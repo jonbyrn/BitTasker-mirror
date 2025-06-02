@@ -1,13 +1,19 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { nip04 } from 'nostr-tools';
+import { nip04, nip19 } from 'nostr-tools';
 import { getNostrKeyPair } from './nostrKeys';
 import { bytesToHex } from '@noble/hashes/utils';
-import { subscribeToEvents } from './nostr';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
+import { subscribeToEvents, getSignedEvent } from './nostr';
+import { PUBLIC_NOSTR_RELAY_URL, PUBLIC_NOSTR_RELAY_URL_MOCK4 } from '$env/static/public';
 import { appStore } from '$lib/stores/app.store';
 
 // --- Relay Configuration ---
-const DEFAULT_RELAYS = [PUBLIC_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
+const DEFAULT_RELAYS = [
+	PUBLIC_NOSTR_RELAY_URL,
+	// PUBLIC_NOSTR_RELAY_URL_MOCK1,
+	// PUBLIC_NOSTR_RELAY_URL_MOCK2,
+	// PUBLIC_NOSTR_RELAY_URL_MOCK3,
+	PUBLIC_NOSTR_RELAY_URL_MOCK4
+].filter(Boolean); // Remove any undefined values
 
 const RELAY_TIMEOUT = 10000; // 10 seconds
 const MAX_RETRY_ATTEMPTS = 3;
@@ -85,14 +91,14 @@ async function queryMultipleRelays(relays: string[], filter: Filter): Promise<No
 
 async function publishToMultipleRelays(
 	relays: string[],
-	event: Partial<NostrEvent>
+	event: NostrEvent
 ): Promise<RelayConnectionResult[]> {
 	const pool = (await import('nostr-tools/pool')).SimplePool;
 	const relayPool = new pool();
 
 	const publishPromises = relays.map(async (relay) => {
 		try {
-			const pubPromises = relayPool.publish([relay], event as NostrEvent);
+			const pubPromises = relayPool.publish([relay], event);
 			await tryWithTimeout(Promise.all(pubPromises), RELAY_TIMEOUT);
 			return { relay, success: true };
 		} catch (error) {
@@ -136,28 +142,34 @@ async function decryptDM(
 	return nip04.decrypt(recipientPrivkey, senderPubkey, ciphertext);
 }
 
-function createDMEvent(
-	ciphertext: string,
-	recipientPubkey: string,
-	senderPubkey: string,
-	tags: string[][] = []
-): Partial<NostrEvent> {
-	return {
-		kind: 4,
-		content: ciphertext,
-		tags: [['p', recipientPubkey], ...tags],
-		pubkey: senderPubkey,
-		created_at: Math.floor(Date.now() / 1000)
-	};
-}
-
 async function parseDMEvent(
 	event: NostrEvent,
-	recipientPrivkey: string
+	currentUserPrivkey: string
 ): Promise<{ plaintext: string; senderPubkey: string }> {
 	if (event.kind !== 4) throw new Error('Not a DM event');
+
 	const senderPubkey = event.pubkey;
-	const plaintext = await decryptDM(event.content, senderPubkey, recipientPrivkey);
+
+	// Get current user's public key from private key
+	const { getPublicKey } = await import('nostr-tools');
+	const { hexToBytes } = await import('@noble/hashes/utils');
+	const currentUserPubkey = getPublicKey(hexToBytes(currentUserPrivkey));
+
+	let plaintext: string;
+
+	if (senderPubkey === currentUserPubkey) {
+		// We are the sender, so we need to decrypt using the recipient's pubkey
+		const recipientTag = event.tags.find((tag) => tag[0] === 'p');
+		if (!recipientTag || !recipientTag[1]) {
+			throw new Error('No recipient found in message tags');
+		}
+		const recipientPubkey = recipientTag[1];
+		plaintext = await decryptDM(event.content, recipientPubkey, currentUserPrivkey);
+	} else {
+		// We are the recipient, decrypt using the sender's pubkey
+		plaintext = await decryptDM(event.content, senderPubkey, currentUserPrivkey);
+	}
+
 	return { plaintext, senderPubkey };
 }
 
@@ -211,13 +223,29 @@ export async function sendDirectMessage(
 	threadRootId?: string
 ): Promise<void> {
 	try {
-		const { nsec, npub } = await getNostrKeyPair();
+		const { nsec } = await getNostrKeyPair();
 		const senderPrivkey = bytesToHex(nsec);
-		const ciphertext = await encryptDM(message, recipientPubkey, senderPrivkey);
-		const tags: string[][] = threadRootId ? [['e', threadRootId, '', 'root']] : [];
-		const event = createDMEvent(ciphertext, recipientPubkey, npub, tags);
 
-		const results = await withRetry(() => publishToMultipleRelays(DEFAULT_RELAYS, event));
+		// Convert recipient pubkey to hex if it's in npub format
+		const recipientPubkeyHex = recipientPubkey.startsWith('npub')
+			? (nip19.decode(recipientPubkey).data as string)
+			: recipientPubkey;
+
+		const ciphertext = await encryptDM(message, recipientPubkeyHex, senderPrivkey);
+		const tags: string[][] = threadRootId ? [['e', threadRootId, '', 'root']] : [];
+
+		// Create event metadata for signing
+		const eventMetadata: Partial<NostrEvent> = {
+			kind: 4,
+			content: ciphertext,
+			tags: [['p', recipientPubkeyHex], ...tags],
+			created_at: Math.floor(Date.now() / 1000)
+		};
+
+		// Sign the event
+		const signedEvent = await getSignedEvent(eventMetadata);
+
+		const results = await withRetry(() => publishToMultipleRelays(DEFAULT_RELAYS, signedEvent));
 
 		// Check if at least one relay succeeded
 		const successfulRelays = results.filter((r) => r.success);
@@ -246,7 +274,7 @@ export function listenForIncomingMessages(
 	callback: (msg: { plaintext: string; senderPubkey: string; event: NostrEvent }) => void
 ): () => void {
 	let privkey: string;
-	let pubkey: string;
+	let pubkeyHex: string;
 	let unsub: (() => void) | null = null;
 	let reconnectTimeout: NodeJS.Timeout | null = null;
 	let isUnsubscribed = false;
@@ -257,25 +285,48 @@ export function listenForIncomingMessages(
 		try {
 			const { nsec, npub } = await getNostrKeyPair();
 			privkey = bytesToHex(nsec);
-			pubkey = npub;
+			// Convert npub to hex format for relay filters
+			pubkeyHex = nip19.decode(npub).data as string;
 
-			const filter: Filter = {
-				kinds: [4],
-				'#p': [pubkey],
-				limit: 100
-			};
+			// Listen for both incoming messages (where current user is in #p tag)
+			// and outgoing messages (where current user is the author)
+			const filters: Filter[] = [
+				{
+					kinds: [4],
+					'#p': [pubkeyHex], // Messages TO the current user
+					limit: 100
+				},
+				{
+					kinds: [4],
+					authors: [pubkeyHex], // Messages FROM the current user
+					limit: 100
+				}
+			];
 
 			// Try primary relay first, then fallback to others
 			for (const relay of DEFAULT_RELAYS) {
 				if (isUnsubscribed) return;
 
 				try {
-					unsub = subscribeToEvents(relay, [filter], async (event: NostrEvent) => {
+					unsub = subscribeToEvents(relay, filters, async (event: NostrEvent) => {
 						try {
+							console.log('📡 Real-time message received:');
+							console.log(`  Event ID: ${event.id}`);
+							console.log(`  Author: ${event.pubkey}`);
+							console.log(`  Timestamp: ${new Date(event.created_at * 1000).toISOString()}`);
+							console.log(`  Content: ${event.content.substring(0, 50)}...`);
+							console.log(`  Tags:`, event.tags);
+
 							const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
+
+							console.log('✅ Real-time message decrypted:');
+							console.log(`  Sender: ${senderPubkey}`);
+							console.log(`  Message: "${plaintext}"`);
+							console.log(`  Event ID: ${event.id}`);
+
 							callback({ plaintext, senderPubkey, event });
 						} catch (err: unknown) {
-							console.error('Failed to decrypt incoming message:', err);
+							console.error('❌ Failed to decrypt real-time message:', err);
 						}
 					});
 
@@ -343,36 +394,78 @@ export async function getMessageHistory(
 	try {
 		const { nsec, npub } = await getNostrKeyPair();
 		const privkey = bytesToHex(nsec);
-		const pubkey = npub;
+		// Convert npub to hex format for relay filters
+		const pubkeyHex = nip19.decode(npub).data as string;
+
+		// Convert withPubkey to hex if it's in npub format
+		const withPubkeyHex = withPubkey.startsWith('npub')
+			? (nip19.decode(withPubkey).data as string)
+			: withPubkey;
+
+		console.log('🔍 getMessageHistory - Debug Info:');
+		console.log('Current user pubkey (hex):', pubkeyHex);
+		console.log('Recipient pubkey (hex):', withPubkeyHex);
+		console.log('Private key available:', !!privkey);
 
 		const filter: Filter = {
 			kinds: [4],
-			authors: [withPubkey, pubkey],
-			'#p': [withPubkey, pubkey],
+			authors: [withPubkeyHex, pubkeyHex],
+			'#p': [withPubkeyHex, pubkeyHex],
 			limit: options?.limit || 50,
 			...(options?.since ? { since: options.since } : {}),
 			...(options?.until ? { until: options.until } : {})
 		};
 
+		console.log('📡 Filter being used:', JSON.stringify(filter, null, 2));
+
 		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
 
+		console.log('📨 Raw events received from relay:', events.length);
+		events.forEach((event, index) => {
+			console.log(`📧 Event ${index + 1}:`);
+			console.log(`  ID: ${event.id}`);
+			console.log(`  Author: ${event.pubkey}`);
+			console.log(`  Timestamp: ${new Date(event.created_at * 1000).toISOString()}`);
+			console.log(`  Content: ${event.content.substring(0, 50)}...`);
+			console.log(`  Tags:`, event.tags);
+		});
+
 		const decrypted = await Promise.all(
-			events.map(async (event) => {
+			events.map(async (event, index) => {
 				try {
+					console.log(`🔓 Attempting to decrypt event ${index + 1} (${event.id})`);
 					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
+					console.log(`✅ Successfully decrypted event ${index + 1}:`);
+					console.log(`  Sender: ${senderPubkey}`);
+					console.log(`  Message: "${plaintext}"`);
+					console.log(`  Event ID: ${event.id}`);
+					console.log(`  Timestamp: ${new Date(event.created_at * 1000).toISOString()}`);
 					return { plaintext, senderPubkey, event };
-				} catch {
+				} catch (error) {
+					console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
 					return null;
 				}
 			})
 		);
 
-		return decrypted.filter(Boolean) as {
+		const validMessages = decrypted.filter(Boolean) as {
 			plaintext: string;
 			senderPubkey: string;
 			event: NostrEvent;
 		}[];
+
+		console.log('✨ Final decrypted messages:', validMessages.length);
+		validMessages.forEach((msg, index) => {
+			console.log(`📝 Message ${index + 1}:`);
+			console.log(`  From: ${msg.senderPubkey}`);
+			console.log(`  Text: "${msg.plaintext}"`);
+			console.log(`  Time: ${new Date(msg.event.created_at * 1000).toISOString()}`);
+			console.log(`  ID: ${msg.event.id}`);
+		});
+
+		return validMessages;
 	} catch (err: unknown) {
+		console.error('💥 getMessageHistory error:', err);
 		const errorMessage = (err as Error)?.message || 'Failed to fetch message history';
 		appStore.showErrorToast(errorMessage);
 		throw err;
@@ -431,17 +524,18 @@ export async function getMessagedPeople(): Promise<
 > {
 	try {
 		const { npub } = await getNostrKeyPair();
-		const pubkey = npub;
+		// Convert npub to hex format for relay filters
+		const pubkeyHex = nip19.decode(npub).data as string;
 
 		const sentFilter: Filter = {
 			kinds: [4],
-			authors: [pubkey],
+			authors: [pubkeyHex],
 			limit: 1000 // adjust as needed for pagination
 		};
 
 		const receivedFilter: Filter = {
 			kinds: [4],
-			'#p': [pubkey],
+			'#p': [pubkeyHex],
 			limit: 1000
 		};
 
@@ -458,7 +552,7 @@ export async function getMessagedPeople(): Promise<
 
 		for (const event of allEvents) {
 			let otherPubkey: string | undefined;
-			if (event.pubkey === pubkey) {
+			if (event.pubkey === pubkeyHex) {
 				// I am the sender, recipient is in p tag
 				const pTag = event.tags.find((t) => t[0] === 'p');
 				if (pTag && pTag[1]) otherPubkey = pTag[1];
@@ -467,7 +561,7 @@ export async function getMessagedPeople(): Promise<
 				otherPubkey = event.pubkey;
 			}
 
-			if (!otherPubkey || otherPubkey === pubkey) continue;
+			if (!otherPubkey || otherPubkey === pubkeyHex) continue;
 
 			const prev = peopleMap.get(otherPubkey);
 			if (!prev || event.created_at > prev.created_at) {

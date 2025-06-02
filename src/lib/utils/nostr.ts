@@ -1,7 +1,7 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { appStore } from '$lib/stores/app.store';
 import { get } from 'svelte/store';
@@ -17,30 +17,30 @@ const pool = new SimplePool();
  * @returns The signed event
  */
 export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {
-    const { npub, nsec } = await getNostrKeyPair();
+	const { npub, nsec } = await getNostrKeyPair();
 
-    if (!npub || !nsec) {
-        throw new Error('No pubkey or private key found');
-    }
+	if (!npub || !nsec) {
+		throw new Error('No pubkey or private key found');
+	}
 
-    // Create the event
-    const event = {
-        kind: metadata.kind || 0,
-        created_at: Math.floor(Date.now() / 1000),
-        content: metadata.content || '',
-        tags: metadata.tags || [],
-        pubkey: npub
-    };
+	// Create the event
+	const event = {
+		kind: metadata.kind || 0,
+		created_at: Math.floor(Date.now() / 1000),
+		content: metadata.content || '',
+		tags: metadata.tags || [],
+		pubkey: npub
+	};
 
-    // Finalize the event (calculate id and sign)
-    const signedEvent = finalizeEvent(event, nsec);
+	// Finalize the event (calculate id and sign)
+	const signedEvent = finalizeEvent(event, nsec);
 
-    // Validate the event
-    if (!validateEvent(signedEvent)) {
-        throw new Error('Invalid event');
-    }
+	// Validate the event
+	if (!validateEvent(signedEvent)) {
+		throw new Error('Invalid event');
+	}
 
-    return signedEvent;
+	return signedEvent;
 }
 
 /**
@@ -48,23 +48,25 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
  * @param event - The event to publish
  * @param relayUrl - The URL of the relay to publish to
  */
-export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string = PUBLIC_NOSTR_RELAY_URL): Promise<void> {
-    try {
+export async function publishEvent(
+	event: Partial<NostrEvent>,
+	relayUrl: string = PUBLIC_NOSTR_RELAY_URL
+): Promise<void> {
+	try {
+		const signedEvent = await getSignedEvent(event);
 
-        const signedEvent = await getSignedEvent(event);
+		// Publish the event using the pool
+		const pub = pool.publish([relayUrl], signedEvent);
 
-        // Publish the event using the pool
-        const pub = pool.publish([relayUrl], signedEvent);
-
-        // Wait for the publish to complete
-        await Promise.race([
-            Promise.all(pub),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
-        ]);
-    } catch (error) {
-        console.error('Failed to publish event:', error);
-        throw error;
-    }
+		// Wait for the publish to complete
+		await Promise.race([
+			Promise.all(pub),
+			new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+		]);
+	} catch (error) {
+		console.error('Failed to publish event:', error);
+		throw error;
+	}
 }
 
 /**
@@ -74,16 +76,20 @@ export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string 
  * @param onEvent - The callback to handle the event
  * @returns The unsubscribe function
  */
-export function subscribeToEvents(relayUrl: string, filters: Filter[], onEvent: (event: NostrEvent) => void): () => void {
-    // Subscribe using the pool
-    const sub = pool.subscribe([relayUrl], filters[0], {
-        onevent: onEvent
-    });
+export function subscribeToEvents(
+	relayUrl: string,
+	filters: Filter[],
+	onEvent: (event: NostrEvent) => void
+): () => void {
+	// Subscribe using the pool
+	const sub = pool.subscribe([relayUrl], filters[0], {
+		onevent: onEvent
+	});
 
-    // Return unsubscribe function
-    return () => {
-        sub.close();
-    };
+	// Return unsubscribe function
+	return () => {
+		sub.close();
+	};
 }
 
 /**
@@ -93,34 +99,38 @@ export function subscribeToEvents(relayUrl: string, filters: Filter[], onEvent: 
  * @returns The profile metadata
  */
 export function fetchProfileMetadata(pubkey: string, relayUrl: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-        let timeout: NodeJS.Timeout;
+	return new Promise((resolve, reject) => {
+		let timeout: NodeJS.Timeout;
 
-        // Subscribe to profile metadata events
-        const sub = pool.subscribe([relayUrl], {
-            kinds: [0],
-            authors: [pubkey]
-        }, {
-            onevent: (event: NostrEvent) => {
-                try {
-                    console.log('event', event);
-                    const profile = JSON.parse(event.content);
-                    clearTimeout(timeout);
-                    sub.close();
-                    resolve(profile);
-                } catch (error) {
-                    console.error('Failed to parse profile metadata:', error);
-                    clearTimeout(timeout);
-                    sub.close();
-                    reject(new Error('Invalid profile metadata format'));
-                }
-            }
-        });
+		// Subscribe to profile metadata events
+		const sub = pool.subscribe(
+			[relayUrl],
+			{
+				kinds: [0],
+				authors: [pubkey]
+			},
+			{
+				onevent: (event: NostrEvent) => {
+					try {
+						console.log('event', event);
+						const profile = JSON.parse(event.content);
+						clearTimeout(timeout);
+						sub.close();
+						resolve(profile);
+					} catch (error) {
+						console.error('Failed to parse profile metadata:', error);
+						clearTimeout(timeout);
+						sub.close();
+						reject(new Error('Invalid profile metadata format'));
+					}
+				}
+			}
+		);
 
-        // Set timeout
-        timeout = setTimeout(() => {
-            sub.close();
-            reject(new Error('Profile fetch timeout'));
-        }, 5000);
-    });
-} 
+		// Set timeout
+		timeout = setTimeout(() => {
+			sub.close();
+			reject(new Error('Profile fetch timeout'));
+		}, 5000);
+	});
+}

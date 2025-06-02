@@ -62,7 +62,8 @@
 					// If this user is not in conversations, fetch their profile and add them
 					if (!conversations.some((c) => c.pubkey === hexPubkey)) {
 						try {
-							const profile = await fetchProfileMetadata(chatWithParam);
+							// fetchProfileMetadata expects hex format
+							const profile = await fetchProfileMetadata(hexPubkey);
 							newMessageProfile = profile;
 							conversations = [
 								{
@@ -181,18 +182,26 @@
 		newMessageError = '';
 		newMessageProfile = null;
 		if (!value) return;
-		let pubkey = value;
-		if (!value.startsWith('npub') && value.length === 64) {
+
+		let hexPubkey = value;
+
+		// Convert npub to hex if needed
+		if (value.startsWith('npub')) {
 			try {
-				pubkey = nip19.npubEncode(value);
+				hexPubkey = nip19.decode(value).data as string;
 			} catch {
-				newMessageError = 'Invalid hex format';
+				newMessageError = 'Invalid npub format';
 				return;
 			}
+		} else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+			newMessageError = 'Invalid public key format';
+			return;
 		}
+
 		isProfileLoading = true;
 		try {
-			const profileEvent = await fetchProfileMetadata(pubkey);
+			// fetchProfileMetadata expects hex format
+			const profileEvent = await fetchProfileMetadata(hexPubkey);
 			if (profileEvent && profileEvent.name && profileEvent.picture) {
 				newMessageProfile = { name: profileEvent.name, picture: profileEvent.picture };
 			}

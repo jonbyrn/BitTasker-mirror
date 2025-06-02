@@ -138,6 +138,24 @@
 		saveDraft();
 	});
 
+	// Cleanup old temporary messages that might have failed to send
+	$effect(() => {
+		if (messages.length > 0) {
+			const now = Math.floor(Date.now() / 1000);
+			const cleanedMessages = messages.filter((msg) => {
+				// Remove temporary messages older than 30 seconds
+				if (msg.event.id.startsWith('temp-') && now - msg.event.created_at > 30) {
+					return false;
+				}
+				return true;
+			});
+
+			if (cleanedMessages.length !== messages.length) {
+				messages = cleanedMessages;
+			}
+		}
+	});
+
 	// --- Draft persistence functions ---
 	function loadDraft() {
 		try {
@@ -201,14 +219,20 @@
 		error = '';
 
 		try {
+			console.log('🔄 Loading messages for recipient:', recipientHex());
+
 			// Fetch initial message history
 			const messageHistory = await getMessageHistory(recipientHex(), {
 				limit: MESSAGES_PER_PAGE
 			});
 
+			console.log('📥 Received message history:', messageHistory.length, 'messages');
+
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
+
+			console.log('📋 Messages set in component state:', messages.length);
 
 			// Update pagination state
 			if (sortedMessages.length > 0) {
@@ -287,9 +311,19 @@
 			unsubscribe();
 		}
 
+		console.log('🎧 Setting up real-time listener for conversation with:', recipientHex());
+
 		// Setup new subscription for real-time messages
 		unsubscribe = listenForIncomingMessages((msg) => {
 			const { plaintext, senderPubkey, event } = msg;
+
+			console.log('📨 Real-time message received in ChatView:', {
+				senderPubkey,
+				plaintext,
+				eventId: event.id,
+				currentRecipient: recipientHex(),
+				currentUser: currentUserHex()
+			});
 
 			// Only add messages that are relevant to this conversation
 			if (
@@ -297,15 +331,54 @@
 				(senderPubkey === currentUserHex() &&
 					event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex()))
 			) {
+				console.log('✅ Message is relevant to current conversation');
+
 				// Check if we already have this message to avoid duplicates
-				const messageExists = messages.some((existingMsg) => existingMsg.event.id === event.id);
-				if (!messageExists) {
-					// Insert message in chronological order
+				const existingMessageIndex = messages.findIndex((existingMsg) => {
+					// Check by event ID first (most reliable)
+					if (existingMsg.event.id === event.id) {
+						return true;
+					}
+					// Check if this is a real message replacing a temporary one
+					if (
+						existingMsg.event.id.startsWith('temp-') &&
+						existingMsg.plaintext === plaintext &&
+						existingMsg.senderPubkey === senderPubkey &&
+						Math.abs(existingMsg.event.created_at - event.created_at) < 10 // Within 10 seconds
+					) {
+						return true;
+					}
+					return false;
+				});
+
+				if (existingMessageIndex >= 0) {
+					console.log('🔄 Replacing existing message at index:', existingMessageIndex);
+					// Replace the existing message (especially if it was temporary)
+					const existingMessage = messages[existingMessageIndex];
+					if (existingMessage.event.id.startsWith('temp-')) {
+						// Replace temporary message with real one
+						const newMessage = { plaintext, senderPubkey, event };
+						messages = [
+							...messages.slice(0, existingMessageIndex),
+							newMessage,
+							...messages.slice(existingMessageIndex + 1)
+						].sort((a, b) => a.event.created_at - b.event.created_at);
+						console.log('✅ Replaced temporary message with real one');
+					} else {
+						console.log('⚠️ Duplicate message ignored');
+					}
+					// If it's not temporary, it's a duplicate, so ignore it
+				} else {
+					console.log('➕ Adding new message to conversation');
+					// Insert new message in chronological order
 					const newMessage = { plaintext, senderPubkey, event };
 					messages = [...messages, newMessage].sort(
 						(a, b) => a.event.created_at - b.event.created_at
 					);
+					console.log('📋 Total messages now:', messages.length);
 				}
+			} else {
+				console.log('❌ Message not relevant to current conversation');
 			}
 		});
 	}
@@ -314,6 +387,7 @@
 		if (!newMessageText.trim() || isSendingMessage) return;
 
 		const messageContent = newMessageText.trim();
+		const tempId = `temp-${currentUserHex()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 		isSendingMessage = true;
 
 		try {
@@ -321,7 +395,27 @@
 			newMessageText = '';
 			clearDraft();
 
-			// Send the message - real-time listener will add it to the UI
+			// Create a local message object to add to the UI immediately
+			const localMessage = {
+				plaintext: messageContent,
+				senderPubkey: currentUserHex(),
+				event: {
+					id: tempId,
+					pubkey: currentUserHex(),
+					created_at: Math.floor(Date.now() / 1000),
+					kind: 4,
+					tags: [['p', recipientHex()]],
+					content: '', // Encrypted content, not needed for display
+					sig: '' // Not needed for display
+				}
+			};
+
+			// Add the sent message to the local state immediately
+			messages = [...messages, localMessage].sort(
+				(a, b) => a.event.created_at - b.event.created_at
+			);
+
+			// Send the message
 			await sendDirectMessage(messageContent, recipientHex());
 
 			// Focus back on input
@@ -329,7 +423,8 @@
 				messageInput.focus();
 			}
 		} catch (err) {
-			// On error, restore the message text so user can retry
+			// On error, remove the temporary message and restore the input
+			messages = messages.filter((msg) => msg.event.id !== tempId);
 			newMessageText = messageContent;
 			error = err instanceof Error ? err.message : 'Failed to send message';
 			console.error('Error sending message:', err);
