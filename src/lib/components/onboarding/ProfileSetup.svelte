@@ -26,7 +26,7 @@
 	let descriptionError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
 	let pictureLoading = $state(false);
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 
 	// Event IDs for updates
 	let imageEventId = $state<string | null>(null);
@@ -44,6 +44,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					// Handle profile metadata update
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
