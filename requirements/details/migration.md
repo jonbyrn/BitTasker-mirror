@@ -19,7 +19,7 @@ We will implement a chain of cryptographically linked events that establish veri
 ```
 KIND 31000: Task Creation
 KIND 31001: Task Bid
-KIND 31002: Task Award
+KIND 31002: Task Contract
 KIND 31003: Task Completion
 KIND 31004: Task Review
 ```
@@ -44,7 +44,7 @@ KIND 31004: Task Review
   - Valid reference to existing task
   - Bidder's POW matches task requirements
 
-#### Task Award (KIND 31002)
+#### Task Contract (KIND 31002)
 - Signed by task creator
 - References:
   - Original task event
@@ -58,7 +58,7 @@ KIND 31004: Task Review
   - Task performer (completion claim)
 - References:
   - Original task
-  - Award event
+  - Contract event
 - Contains completion proof (deliverables hash)
 
 #### Review Event (KIND 31004)
@@ -71,7 +71,7 @@ KIND 31004: Task Review
 ### 3. Verification Chain
 
 ```
-Task Creation → Bid → Award → Completion → Review
+Task Creation → Bid → Contract → Completion → Review
      ↓           ↓      ↓         ↓          ↓
    [POW]      [POW]   [Sig]    [Dual-Sig]  [Sig+Refs]
 ```
