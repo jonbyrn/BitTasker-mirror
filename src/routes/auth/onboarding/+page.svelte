@@ -10,8 +10,7 @@
 
 	let { data } = $props();
 	
-	// let currentStep = $state(data.currentStep ?? 0);
-	let currentStep = $state(3);
+	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
 
 	const nextStep = () => {

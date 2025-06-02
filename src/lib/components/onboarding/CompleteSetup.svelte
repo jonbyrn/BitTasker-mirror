@@ -57,6 +57,12 @@
 						profile.about = metadata.about || '';
 						profile.picture = metadata.pictures?.[0]?.url || null;
 						checkCompletionStatus();
+					} else if (event.kind === 30063) {
+						// Handle profile images
+						const images = JSON.parse(event.content);
+						if (images.length > 0) {
+							profile.picture = images[0].url;
+						}
 					} else if (
 						event.kind === 30005 &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'location')
@@ -84,6 +90,7 @@
 			},
 			{
 				0: null, // Kind 0 for profile metadata
+				30063: { d: 'profile-images' },
 				30005: { d: 'location' } // Kind 30005 for location data
 			}
 		);
@@ -97,12 +104,12 @@
 <div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		{#if isLoading}
-		<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
-			<div>
-				<span class="loading loading-spinner loading-lg"></span>
-				<p class="text-base-content/70">Checking your onboarding status...</p>
+			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
+				<div>
+					<span class="loading loading-spinner loading-lg"></span>
+					<p class="text-base-content/70">Checking your onboarding status...</p>
+				</div>
 			</div>
-		</div>
 		{:else if error}
 			<div class="flex flex-col items-center space-y-4 text-center">
 				<div class="text-error mt-2">

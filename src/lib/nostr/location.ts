@@ -139,8 +139,7 @@ export async function getLatestLocation(
         if (!event) {
             return null;
         }
-        console.log('event', event)
-
+        
         // Decrypt and return location data
         const decryptedContent = await nip44.decrypt(event.content, conversationKey);
         return JSON.parse(decryptedContent) as Location;

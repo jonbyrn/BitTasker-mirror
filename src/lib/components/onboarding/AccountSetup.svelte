@@ -210,12 +210,6 @@
 		};
 	}
 
-	function handleUsername() {
-		if (!isCheckingUsername && username && !usernameAvailable) {
-			checkUsernameAvailability();
-		}
-	}
-
 	async function handleSubmit() {
 		try {
 			isLoading = true;
@@ -322,7 +316,7 @@
 					type="text"
 					id="username"
 					bind:value={username}
-					oninput={debounce(handleUsername, 1000)}
+					oninput={debounce(checkUsernameAvailability, 1000)}
 					class="input input-bordered w-full {usernameError
 						? 'input-error'
 						: usernameAvailable && username
