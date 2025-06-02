@@ -1,63 +1,108 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { CheckOnboardingStatusStore } from '$houdini';
+	import { onMount, onDestroy } from 'svelte';
+	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
+	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+	import { bytesToHex } from '@noble/hashes/utils';
+	import nip44 from '$lib/nostr/nip44';
 
 	let { restartSetup }: { restartSetup: () => void } = $props();
 
-	const isOnboardingCompleteStore = new CheckOnboardingStatusStore();
-	
 	// Completion status
 	let isLoading = $state(true);
 	let isComplete = $state(false);
 	let missingFields = $state<string[]>([]);
 	let error = $state('');
-	let isMounted = $state(false);
+	let cleanup: (() => void) | null = null;
+
+	// Profile data
+	let profile = $state({
+		displayName: '',
+		professionalTitle: '',
+		about: '',
+		picture: null,
+		location: null
+	});
 
 	// Handle restart setup click - destroy component first
 	function handleRestartSetup() {
 		restartSetup();
 	}
 
-	async function checkOnboardingStatus() {
-		try {
-			const { data, errors } = await isOnboardingCompleteStore.fetch({
-				policy: 'NetworkOnly' // Force network request, ignore cache
-			});
+	function checkCompletionStatus() {
+		const missing: string[] = [];
 
-			if (errors) {
-				error = errors.map((err) => err.message).join(', ');
-				return;
-			}
+		if (!profile.displayName) missing.push('Display Name');
+		if (!profile.professionalTitle) missing.push('Professional Title');
+		if (!profile.about) missing.push('About');
+		if (!profile.picture) missing.push('Profile Picture');
+		if (!profile.location) missing.push('Location');
 
-			isComplete = data?.IsOnboardingComplete.isComplete ?? false;
-			missingFields = data?.IsOnboardingComplete.missingFields ?? [];
-		} catch (err: unknown) {
-			console.error('Onboarding completion failed:', err);
-			error = err instanceof Error ? err.message : 'Onboarding completion failed';
-		} finally {
-			isLoading = false;
-		}
+		missingFields = missing;
+		isComplete = missing.length === 0;
+		isLoading = false;
 	}
 
 	onMount(async () => {
-		isMounted = true;
+		// Subscribe to profile metadata and location updates
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				isLoading = true;
+				try {
+					if (event.kind === 0) {
+						// Handle profile metadata
+						const metadata = JSON.parse(event.content);
+						profile.displayName = metadata.displayName || '';
+						profile.professionalTitle = metadata.professionalTitle || '';
+						profile.about = metadata.about || '';
+						profile.picture = metadata.pictures?.[0]?.url || null;
+						checkCompletionStatus();
+					} else if (
+						event.kind === 30005 &&
+						event.tags.find((t) => t[0] === 'd' && t[1] === 'location')
+					) {
+						// Handle location data
+						try {
+							const keyPair = await getNostrKeyPair();
+							const nsec = bytesToHex(keyPair.nsec);
+							const conversationKey = await nip44.getConversationKey(nsec, keyPair.npub);
+							const decryptedContent = await nip44.decrypt(event.content, conversationKey);
+
+							const locationData = JSON.parse(decryptedContent);
+							profile.location = locationData;
+							checkCompletionStatus();
+						} catch (err) {
+							console.error('Failed to parse location data:', err);
+						}
+					}
+				} catch (err) {
+					console.error('Failed to process profile update:', err);
+					error = 'Failed to connect to Nostr relay. Please try again later.';
+				} finally {
+					isLoading = false;
+				}
+			},
+			{
+				0: null, // Kind 0 for profile metadata
+				30005: { d: 'location' } // Kind 30005 for location data
+			}
+		);
 	});
 
-	$effect(() => {
-		if (isMounted) {
-			checkOnboardingStatus();
-		}
+	onDestroy(() => {
+		if (cleanup) cleanup();
 	});
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		{#if isLoading}
-			<div class="flex flex-col items-center space-y-4 text-center">
+		<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
+			<div>
 				<span class="loading loading-spinner loading-lg"></span>
 				<p class="text-base-content/70">Checking your onboarding status...</p>
 			</div>
+		</div>
 		{:else if error}
 			<div class="flex flex-col items-center space-y-4 text-center">
 				<div class="text-error mt-2">

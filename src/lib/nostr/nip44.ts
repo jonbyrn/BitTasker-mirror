@@ -1,7 +1,6 @@
 import { hkdf } from '@noble/hashes/hkdf';
 import { sha256 } from '@noble/hashes/sha2';
 import { hmac } from '@noble/hashes/hmac';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { chacha20poly1305 } from '@noble/ciphers/chacha';
 
@@ -65,7 +64,7 @@ function unpad(padded: Uint8Array): string {
  * @param privateKey - The sender's private key in hex format
  * @param publicKey - The recipient's public key in hex format
  */
-export async function getConversationKey(nsec: string, npub: string): Promise<Uint8Array> {
+async function getConversationKey(nsec: string, npub: string): Promise<Uint8Array> {
     // Generate shared secret using sender's private key and recipient's public key
     const sharedPoint = secp256k1.getSharedSecret(nsec, '02' + npub);
     const sharedX = sharedPoint.slice(1, 33); // Take x coordinate only
@@ -109,7 +108,7 @@ function hmacAad(key: Uint8Array, message: Uint8Array, aad: Uint8Array): Uint8Ar
 /**
  * Encrypt a message using NIP-44
  */
-export async function encrypt(
+async function encrypt(
     plaintext: string,
     conversationKey: Uint8Array,
     nonce: Uint8Array
@@ -141,7 +140,7 @@ export async function encrypt(
 /**
  * Decrypt a message using NIP-44
  */
-export async function decrypt(payload: string, conversationKey: Uint8Array): Promise<string> {
+async function decrypt(payload: string, conversationKey: Uint8Array): Promise<string> {
     // Decode base64
     const decoded = new Uint8Array(atob(payload).split('').map(c => c.charCodeAt(0)));
 
@@ -168,4 +167,12 @@ export async function decrypt(payload: string, conversationKey: Uint8Array): Pro
 
     // Unpad and return
     return unpad(padded);
-} 
+}
+
+const nip44 = {
+    getConversationKey,
+    encrypt,
+    decrypt
+}
+
+export default nip44;
