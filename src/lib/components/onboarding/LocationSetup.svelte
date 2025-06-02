@@ -2,7 +2,6 @@
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
-	import { Preferences } from '@capacitor/preferences';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, subscribeToLocation, getLatestLocation } from '$lib/nostr/location';
 
@@ -35,8 +34,6 @@
 	let mapContainerDiv: HTMLElement | null = $state(null);
 	let initRetryCount = $state(0);
 	let maxRetries = 3;
-	let cleanup: (() => void) | null = null;
-	let skipLocation = $state(false);
 
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
@@ -147,7 +144,7 @@
 			if (initRetryCount >= maxRetries) {
 				throw new Error('Failed to initialize map after multiple attempts');
 			}
-			
+
 			// Only proceed if Google Maps is ready
 			if (!googleMapsReady) {
 				initRetryCount++;
@@ -155,12 +152,18 @@
 				setTimeout(tryInitMap, 1000);
 				return;
 			}
-			
+
 			await initMap();
 			isMapLoaded = true;
-			
-			// Try to get user's geolocation
-			getUserLocation();
+
+			const savedLocation = await getLatestLocation();
+			if (savedLocation) {
+				location = savedLocation;
+				createMarkerAndCircle(savedLocation.latitude!, savedLocation.longitude!);
+			} else {
+				// Try to get user's geolocation
+				getUserLocation();
+			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error = err instanceof Error ? err.message : 'Error initializing map';
@@ -170,33 +173,20 @@
 
 	onMount(async () => {
 		try {
+			isLoading = true;
+
 			// Load Google Maps API dynamically if not already loaded
 			await loadGoogleMapsScript();
-			
+
 			// Try to initialize the map
-			tryInitMap();
-
-			// Get latest location from Nostr
-			const savedLocation = await getLatestLocation();
-			if (savedLocation) {
-				location = savedLocation;
-				createMarkerAndCircle(savedLocation.latitude!, savedLocation.longitude!);
-			}
-
-			// Subscribe to location updates
-			cleanup = await subscribeToLocation((updatedLocation) => {
-				location = updatedLocation;
-				createMarkerAndCircle(updatedLocation.latitude!, updatedLocation.longitude!);
-			});
+			await tryInitMap();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
 			hasError = true;
+		} finally {
+			isLoading = false;
 		}
-	});
-
-	onDestroy(() => {
-		if (cleanup) cleanup();
 	});
 
 	async function updateLocationWithCoordinates(lat: number, lng: number) {
@@ -217,9 +207,9 @@
 
 				if (result.results[0]) {
 					const addressComponents = result.results[0].address_components;
-					const zipCode = addressComponents.find(
-						(component) => component.types.includes('postal_code')
-					)?.short_name || '';
+					const zipCode =
+						addressComponents.find((component) => component.types.includes('postal_code'))
+							?.short_name || '';
 
 					// Update location state
 					location = {
@@ -230,9 +220,6 @@
 						zipCode,
 						locationLoaded: true
 					};
-
-					// Publish location to Nostr
-					await publishLocation(location);
 
 					// Call the callback
 					onLocationSelect(location);
@@ -433,16 +420,14 @@
 		}
 	}
 
-	async function handleSkip() {
-		skipLocation = true;
-		nextStep();
-	}
-
 	async function handleSubmit() {
 		try {
-			if (!location.locationLoaded) {
-				error = 'Please select a location or skip this step';
-				return;
+			isLoading = true;
+
+			// Don't proceed if location isn't loaded yet
+			if (location.latitude === null || location.longitude === null) {
+				error = 'Please select a location';
+				throw new Error('Please select a location');
 			}
 
 			// Publish location to Nostr
@@ -456,6 +441,8 @@
 		} catch (err: unknown) {
 			console.error('Error saving location:', err);
 			error = err instanceof Error ? err.message : 'Error saving location';
+		} finally {
+			isLoading = false;
 		}
 	}
 </script>
@@ -624,7 +611,7 @@
 			</button>
 			<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
 				{#if !isMapLoaded}
-					<div class="bg-base-200 flex h-full w-full items-center justify-center">
+					<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
 						<span class="loading loading-spinner loading-lg"></span>
 					</div>
 				{/if}
@@ -686,7 +673,13 @@
 					<h3 class="font-bold">Map loading failed</h3>
 					<div class="text-xs">Try reloading the map</div>
 				</div>
-				<button class="btn btn-sm" onclick={() => { hasError = false; loadGoogleMapsScript().then(() => tryInitMap()); }}>
+				<button
+					class="btn btn-sm"
+					onclick={() => {
+						hasError = false;
+						loadGoogleMapsScript().then(() => tryInitMap());
+					}}
+				>
 					Retry
 				</button>
 			</div>
@@ -694,15 +687,17 @@
 
 		<div class="mt-6 flex justify-between">
 			<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-			<div class="flex gap-2">
-				<button type="button" class="btn" onclick={handleSkip}>Skip</button>
-				<button type="button" class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
-					{#if isLoading}
-						<span class="loading loading-spinner"></span>
-					{/if}
-					{location.locationLoaded ? 'Save Location' : 'Continue'}
-				</button>
-			</div>
+			<button
+				type="button"
+				class="btn btn-primary"
+				onclick={handleSubmit}
+				disabled={isLoading || !location.locationLoaded}
+			>
+				{#if isLoading}
+					<span class="loading loading-spinner"></span>
+				{/if}
+				Next
+			</button>
 		</div>
 	</div>
 </div>

@@ -65,11 +65,11 @@ function unpad(padded: Uint8Array): string {
  * @param privateKey - The sender's private key in hex format
  * @param publicKey - The recipient's public key in hex format
  */
-export async function getConversationKey(privateKey: string, publicKey: string): Promise<Uint8Array> {
+export async function getConversationKey(nsec: string, npub: string): Promise<Uint8Array> {
     // Generate shared secret using sender's private key and recipient's public key
-    const sharedPoint = secp256k1.getSharedSecret(privateKey, publicKey);
+    const sharedPoint = secp256k1.getSharedSecret(nsec, '02' + npub);
     const sharedX = sharedPoint.slice(1, 33); // Take x coordinate only
-    
+
     // Use HKDF with NIP-44 v2 salt
     return hkdf(sha256, sharedX, new TextEncoder().encode('nip44-v2'), '', 32);
 }

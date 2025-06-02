@@ -1,7 +1,8 @@
 import type { Location } from '$lib/types/task';
 import type { NostrEvent, Filter } from '$lib/types/nostr';
+import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { getNpub } from '$lib/utils/nostrKeys';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { profileStore } from '$lib/stores/profile.store';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getConversationKey, encrypt, decrypt } from '$lib/nostr/nip44';
@@ -21,17 +22,16 @@ export async function publishLocation(
 ): Promise<NostrEvent> {
     try {
         // Get own public key
-        const npub = await getNpub();
-        if (!npub) {
-            throw new Error('No public key found');
-        }
+        const keyPair = await getNostrKeyPair();
+        const nsec = bytesToHex(keyPair.nsec);
+        const npub = keyPair.npub;
 
         // Create conversation key with self (for self-encryption)
-        const conversationKey = await getConversationKey(npub);
-        
+        const conversationKey = await getConversationKey(nsec, npub);
+
         // Generate random nonce
         const nonce = crypto.getRandomValues(new Uint8Array(32));
-        
+
         // Encrypt location data
         const encryptedContent = await encrypt(JSON.stringify(location), conversationKey, nonce);
 
@@ -69,13 +69,13 @@ export async function subscribeToLocation(
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<() => void> {
     try {
-        const npub = await getNpub();
-        if (!npub) {
-            throw new Error('No public key found');
-        }
+        // Get nostr keypair
+        const keyPair = await getNostrKeyPair();
+        const nsec = bytesToHex(keyPair.nsec);
+        const npub = keyPair.npub;
 
         // Get conversation key for decryption
-        const conversationKey = await getConversationKey(npub);
+        const conversationKey = await getConversationKey(nsec, npub);
 
         // Subscribe to location events
         const sub = profileStore.pool.subscribe(
@@ -88,9 +88,11 @@ export async function subscribeToLocation(
             {
                 onevent: async (event: NostrEvent) => {
                     try {
+                        console.log('event.content', event.content)
                         // Decrypt location data
                         const decryptedContent = await decrypt(event.content, conversationKey);
                         const location = JSON.parse(decryptedContent) as Location;
+                        console.log({ location })
                         callback(location);
                     } catch (err) {
                         console.error('Failed to decrypt location:', err);
@@ -105,7 +107,7 @@ export async function subscribeToLocation(
         };
     } catch (error) {
         console.error('Failed to subscribe to location:', error);
-        return () => {};
+        return () => { };
     }
 }
 
@@ -118,13 +120,12 @@ export async function getLatestLocation(
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<Location | null> {
     try {
-        const npub = await getNpub();
-        if (!npub) {
-            throw new Error('No public key found');
-        }
+        const keyPair = await getNostrKeyPair();
+        const nsec = bytesToHex(keyPair.nsec);
+        const npub = keyPair.npub;
 
         // Get conversation key for decryption
-        const conversationKey = await getConversationKey(npub);
+        const conversationKey = await getConversationKey(nsec, npub);
 
         // Get latest location event
         const event = await profileStore.pool.get(
