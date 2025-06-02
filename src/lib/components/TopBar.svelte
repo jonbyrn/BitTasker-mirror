@@ -73,7 +73,6 @@
 				'#d': ['profile-images']
 			};
 
-
 			// Subscribe to future updates
 			subscription = profileStore.pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
 				onevent(event) {
@@ -195,6 +194,12 @@
 			subscription.close();
 		}
 	});
+
+	async function logout() {
+		closeDrawer();
+		await authState.logout();
+		goto('/');
+	}
 </script>
 
 <!-- Main TopBar component -->
@@ -414,10 +419,10 @@
 
 			{#if isLoggedIn}
 				<li>
-					<a href="/logout" onclick={closeDrawer} class="flex items-center gap-2">
+					<button onclick={logout} class="flex items-center gap-2">
 						<iconify-icon icon="mdi:logout" width="20"></iconify-icon>
 						{getTranslation('navbar.logout')}
-					</a>
+					</button>
 				</li>
 			{:else}
 				<li class="mt-4 flex flex-col gap-2">

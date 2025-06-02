@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { UpdateUserProfileStore, type UpdateUserProfileInput } from '$houdini';
+	import { publishProfileMetadata, publishMultipleImages, subscribeToProfileUpdates, publishSkillsUpdate } from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-
-	// Create the store for updating user profile
-	const profileStore = new UpdateUserProfileStore();
+	import type { NostrProfile, NostrProfileImage, Skill } from '$lib/types/profile.d';
 
 	let { nextStep, prevStep } = $props<{
 		nextStep: () => void;
@@ -19,25 +17,84 @@
 	let professionalTitle = $state('');
 	let profileDescription = $state('');
 	let skillsInput = $state('');
-	let skills = $state<string[]>([]);
+	let skills = $state<Skill[]>([]);
 
 	// Status indicators
 	let isLoading = $state(false);
 	let error = $state('');
 	let nameError = $state('');
 	let descriptionError = $state('');
-	let picture = $state({ key: '', url: '' });
+	let picture = $state<NostrProfileImage | null>(null);
 	let pictureLoading = $state(false);
+	let isInitialLoading = $state(true);
 
-	// TODO: Save for later option
+	// Event IDs for updates
+	let profileEventId = $state<string | null>(null);
+	let imageEventId = $state<string | null>(null);
+	let skillsEventId = $state<string | null>(null);
 	let saveForLater = $state(false);
 	let showPrevBtn = $state(false);
+	let cleanup: (() => void) | null = null;
 
 	onMount(async () => {
 		const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 		if (!value) {
 			showPrevBtn = true;
 		}
+
+		// Subscribe to profile updates
+		cleanup = await subscribeToProfileUpdates(
+			async (event) => {
+				try {
+					// Handle profile metadata update
+					if (event.kind === 0) {
+						profileEventId = event.id;
+						const metadata = JSON.parse(event.content);
+						displayName = metadata.displayName || displayName;
+						professionalTitle = metadata.professionalTitle || professionalTitle;
+						profileDescription = metadata.about || profileDescription;
+					}
+					// Handle image metadata update
+					else if (event.kind === 30063) {
+						imageEventId = event.id;
+						const images = JSON.parse(event.content);
+						if (images.length > 0) {
+							picture = {
+								url: images[0].url,
+								type: images[0].type || 'image/jpeg',
+								alt: images[0].alt || '',
+								key: images[0].key
+							};
+						}
+					}
+					// Handle skills update
+					else if (event.kind === 30000 && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
+						skillsEventId = event.id;
+						const skillsData = JSON.parse(event.content);
+						if (Array.isArray(skillsData)) {
+							skills = skillsData.map((skill) => ({
+								...skill,
+								id: skill.id
+							}));
+						}
+					}
+				} catch (err) {
+					console.error('Failed to process profile update:', err);
+					error = 'Failed to connect to Nostr relay. Please try again later.';
+				} finally {
+					isInitialLoading = false;
+				}
+			},
+			{
+				0: null,
+				30063: { d: 'profile-images' },
+				30000: { d: 'skills' }
+			}
+		);
+	});
+
+	onDestroy(() => {
+		if (cleanup) cleanup();
 	});
 
 	// Handle image upload
@@ -47,10 +104,14 @@
 		try {
 			pictureLoading = true;
 			const uploadedFile = await uploadService.uploadSingleFile(file, 'profile');
-			picture = { key: uploadedFile.key, url: uploadedFile.url };
-		} catch (error) {
-			// Handle upload failure
-			console.error('File upload failed:', error);
+			picture = {
+				url: uploadedFile.url,
+				type: file.type,
+				alt: file.name,
+				key: uploadedFile.key
+			};
+		} catch (err) {
+			console.error('File upload failed:', err);
 			error = 'File upload failed';
 		} finally {
 			pictureLoading = false;
@@ -62,12 +123,14 @@
 		if (
 			skillsInput &&
 			skillsInput.trim() &&
-			skillsInput.trim().length > 3 &&
-			!skills.includes(skillsInput.trim()) &&
+			skillsInput.trim().length > 2 &&
+			!skills.some((skill) => skill.name === skillsInput.trim()) &&
 			skills.length < 20
 		) {
-			skills = [...skills, skillsInput.trim()];
+			skills = [...skills, { name: skillsInput.trim(), level: 1, verificationStatus: 'unverified', endorsements: 0, certifications: [], id: crypto.randomUUID() }];
 			skillsInput = '';
+		} else {
+			error = 'Skill already exists or is too short';
 		}
 	}
 
@@ -109,28 +172,23 @@
 				return;
 			}
 
-			// Create profile data
-			const profileData: UpdateUserProfileInput = {
-				displayName,
-				professionalTitle,
-				profilePictureUrl: picture.url,
-				profilePictureId: picture.key
-			};
-
-			if (!saveForLater) {
-				profileData.profileDescription = profileDescription;
-				if (skills.length > 0) {
-					profileData.skills = skills;
-				}
+			// Publish profile picture if exists
+			if (picture) {
+				await publishMultipleImages([picture], imageEventId, 'profile-images');
 			}
 
-			// Update profile using GraphQL
-			const result = await profileStore.mutate({
-				input: profileData
-			});
+			// Publish profile metadata
+			const profileData: NostrProfile = {
+				displayName,
+				professionalTitle,
+				about: profileDescription
+			};
 
-			if (result.errors) {
-				throw new Error(result.errors[0].message);
+			await publishProfileMetadata(profileData);
+
+			// Publish skills if not saving for later
+			if (!saveForLater && skills.length > 0) {
+				await publishSkillsUpdate(skills);
 			}
 
 			// Go to the next step
@@ -144,176 +202,214 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
-	<div class="card-body">
-		<form onsubmit={handleSubmit} class="space-y-4">
-			<!-- Profile Picture Upload -->
-			<div class="form-control mx-auto max-h-32 w-full max-w-32 rounded-full">
-				<Uploader
-					id="profilePicture"
-					label="Profile Picture"
-					maxFiles={1}
-					customClass="h-32 w-full"
-					onChange={(files) => handleImageUpload(files[0])}
-				/>
-			</div>
+{#if isInitialLoading}
+	<div class="card bg-base-100 w-full shadow-xl">
+		<div class="card-body">
+			<div class="space-y-6">
+				<!-- Profile Picture Skeleton -->
+				<div class="mx-auto max-h-32 w-full max-w-32">
+					<div class="bg-base-300 h-32 w-32 animate-pulse rounded-full"></div>
+				</div>
 
-			<!-- Display Name Field -->
-			<div class="form-control">
-				<label class="label" for="displayName">
-					<span class="label-text">Display Name</span>
-				</label>
-				<input
-					type="text"
-					id="displayName"
-					bind:value={displayName}
-					class="input input-bordered w-full {nameError ? 'input-error' : ''}"
-					placeholder="Your full name"
-					required
-				/>
-				{#if nameError}
+				<!-- Display Name Skeleton -->
+				<div class="space-y-2">
+					<div class="bg-base-300 h-4 w-24 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
+				</div>
+
+				<!-- Professional Title Skeleton -->
+				<div class="space-y-2">
+					<div class="bg-base-300 h-4 w-32 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
+				</div>
+
+				<!-- Description Skeleton -->
+				<div class="space-y-2">
+					<div class="bg-base-300 h-4 w-36 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-24 w-full animate-pulse rounded"></div>
+				</div>
+
+				<!-- Skills Skeleton -->
+				<div class="space-y-2">
+					<div class="bg-base-300 h-4 w-16 animate-pulse rounded"></div>
+					<div class="bg-base-300 h-12 w-full animate-pulse rounded"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+{:else}
+	<div class="card bg-base-100 w-full shadow-xl">
+		<div class="card-body">
+			<form onsubmit={handleSubmit} class="space-y-4">
+				<!-- Profile Picture Upload -->
+				<div class="form-control mx-auto max-h-32 w-full max-w-32 rounded-full">
+					<Uploader
+						id="profilePicture"
+						label="Profile Picture"
+						maxFiles={1}
+						customClass="h-32 w-full"
+						files={picture ? [picture.url] : undefined}
+						onChange={(files) => handleImageUpload(files[0])}
+					/>
+				</div>
+
+				<!-- Display Name Field -->
+				<div class="form-control">
 					<label class="label" for="displayName">
-						<span class="label-text-alt text-error">{nameError}</span>
+						<span class="label-text">Display Name</span>
 					</label>
-				{/if}
-			</div>
-
-			<!-- Professional Title Field -->
-			<div class="form-control">
-				<label class="label" for="professionalTitle">
-					<span class="label-text">Professional Title</span>
-				</label>
-				<input
-					type="text"
-					id="professionalTitle"
-					bind:value={professionalTitle}
-					class="input input-bordered w-full"
-					placeholder="e.g. Plumber, Handyman, Developer"
-				/>
-			</div>
-
-			<!-- Profile Description Field -->
-			<div class="form-control">
-				<label class="label" for="profileDescription">
-					<span class="label-text">Profile Description</span>
-					<span class="label-text-alt">{profileDescription.length}/200 min</span>
-				</label>
-				<textarea
-					id="profileDescription"
-					bind:value={profileDescription}
-					class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
-						? 'textarea-error'
-						: ''}"
-					placeholder="Tell others about yourself, your skills, and experience"
-					disabled={saveForLater}
-				></textarea>
-				{#if descriptionError}
-					<label class="label whitespace-normal" for="profileDescription">
-						<span class="label-text-alt text-error">{descriptionError}</span>
-					</label>
-				{/if}
-			</div>
-
-			<!-- Skills Tags -->
-			<div class="form-control">
-				<label class="label" for="skills">
-					<span class="label-text">Skills</span>
-					<span class="label-text-alt">{skills.length}/20</span>
-				</label>
-				<div class="join w-full">
 					<input
 						type="text"
-						id="skills"
-						bind:value={skillsInput}
-						class="input input-bordered join-item flex-1"
-						placeholder="Add skills (e.g. Carpentry, Coding)"
-						onkeydown={handleSkillKeypress}
-						disabled={saveForLater || skills.length >= 20}
+						id="displayName"
+						bind:value={displayName}
+						class="input input-bordered w-full {nameError ? 'input-error' : ''}"
+						placeholder="Your full name"
+						required
 					/>
-					<button
-						type="button"
-						class="btn btn-neutral join-item"
-						onclick={addSkill}
-						disabled={saveForLater || !skillsInput || skills.length >= 20}
-					>
-						Add
+					{#if nameError}
+						<label class="label" for="displayName">
+							<span class="label-text-alt text-error">{nameError}</span>
+						</label>
+					{/if}
+				</div>
+
+				<!-- Professional Title Field -->
+				<div class="form-control">
+					<label class="label" for="professionalTitle">
+						<span class="label-text">Professional Title</span>
+					</label>
+					<input
+						type="text"
+						id="professionalTitle"
+						bind:value={professionalTitle}
+						class="input input-bordered w-full"
+						placeholder="e.g. Plumber, Handyman, Developer"
+					/>
+				</div>
+
+				<!-- Profile Description Field -->
+				<div class="form-control">
+					<label class="label" for="profileDescription">
+						<span class="label-text">Profile Description</span>
+						<span class="label-text-alt">{profileDescription.length}/200 min</span>
+					</label>
+					<textarea
+						id="profileDescription"
+						bind:value={profileDescription}
+						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
+							? 'textarea-error'
+							: ''}"
+						placeholder="Tell others about yourself, your skills, and experience"
+						disabled={saveForLater}
+					></textarea>
+					{#if descriptionError}
+						<label class="label whitespace-normal" for="profileDescription">
+							<span class="label-text-alt text-error">{descriptionError}</span>
+						</label>
+					{/if}
+				</div>
+
+				<!-- Skills Tags -->
+				<div class="form-control">
+					<label class="label" for="skills">
+						<span class="label-text">Skills</span>
+						<span class="label-text-alt">{skills.length}/20</span>
+					</label>
+					<div class="join w-full">
+						<input
+							type="text"
+							id="skills"
+							bind:value={skillsInput}
+							class="input input-bordered join-item flex-1"
+							placeholder="Add skills (e.g. Carpentry, Coding)"
+							onkeydown={handleSkillKeypress}
+							disabled={saveForLater || skills.length >= 20}
+						/>
+						<button
+							type="button"
+							class="btn btn-neutral join-item"
+							onclick={addSkill}
+							disabled={saveForLater || !skillsInput || skills.length >= 20}
+						>
+							Add
+						</button>
+					</div>
+					<div class="mt-2 flex flex-wrap gap-2">
+						{#each skills as skill, index}
+							<div class="badge badge-lg gap-1">
+								<span class="mb-1">
+									{skill.name}
+								</span>
+								<button
+									aria-label="Remove skill"
+									type="button"
+									class="btn btn-ghost btn-xs p-0"
+									onclick={() => removeSkill(index)}
+									disabled={saveForLater}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-3 w-3"
+										viewBox="0 0 20 20"
+										fill="currentColor"
+									>
+										<path
+											fill-rule="evenodd"
+											d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+											clip-rule="evenodd"
+										/>
+									</svg>
+								</button>
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Save for Later Option -->
+				<div class="form-control space-y-2">
+					<label class="label flex cursor-pointer items-center justify-start gap-2">
+						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
+						<span class="label-text">Save for later</span>
+					</label>
+					<span class="text-base-content/70 block text-xs">
+						You can complete your profile later, but some features may be limited until you do.
+					</span>
+				</div>
+
+				{#if error}
+					<div class="alert alert-error">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span class="whitespace-normal">{error}</span>
+					</div>
+				{/if}
+
+				<!-- Form Actions -->
+				<div class="mt-6 flex justify-between">
+					{#if showPrevBtn}
+						<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+					{:else}
+						<div></div>
+					{/if}
+					<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
+						{#if isLoading}
+							<span class="loading loading-spinner"></span>
+						{/if}
+						Next
 					</button>
 				</div>
-				<div class="mt-2 flex flex-wrap gap-2">
-					{#each skills as skill, index}
-						<div class="badge badge-lg gap-1">
-							<span class="mb-1">
-								{skill}
-							</span>
-							<button
-								aria-label="Remove skill"
-								type="button"
-								class="btn btn-ghost btn-xs p-0"
-								onclick={() => removeSkill(index)}
-								disabled={saveForLater}
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-3 w-3"
-									viewBox="0 0 20 20"
-									fill="currentColor"
-								>
-									<path
-										fill-rule="evenodd"
-										d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-										clip-rule="evenodd"
-									/>
-								</svg>
-							</button>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Save for Later Option -->
-			<div class="form-control space-y-2">
-				<label class="label flex cursor-pointer items-center justify-start gap-2">
-					<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-					<span class="label-text">Save for later</span>
-				</label>
-				<span class="text-base-content/70 block text-xs">
-					You can complete your profile later, but some features may be limited until you do.
-				</span>
-			</div>
-
-			{#if error}
-				<div class="alert alert-error">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span class="whitespace-normal">{error}</span>
-				</div>
-			{/if}
-
-			<!-- Form Actions -->
-			<div class="mt-6 flex justify-between">
-				{#if showPrevBtn}
-					<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-				{:else}
-					<div></div>
-				{/if}
-				<button type="submit" class="btn btn-primary" disabled={isLoading || pictureLoading}>
-					{#if isLoading}
-						<span class="loading loading-spinner"></span>
-					{/if}
-					Next
-				</button>
-			</div>
-		</form>
+			</form>
+		</div>
 	</div>
-</div>
+{/if}

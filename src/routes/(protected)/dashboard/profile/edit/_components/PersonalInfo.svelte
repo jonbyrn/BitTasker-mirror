@@ -124,7 +124,7 @@
 			};
 
 			// Publish profile metadata with retry logic
-			await publishProfileMetadata(profileData, uploadedPictures);
+			await publishProfileMetadata(profileData);
 
 			// if (imagesToDelete.length > 0) {
 			// 	await Promise.all(imagesToDelete.map((key) => uploadService.deleteFile(key)));

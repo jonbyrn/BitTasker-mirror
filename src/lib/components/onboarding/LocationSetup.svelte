@@ -1,13 +1,10 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
 	import { Preferences } from '@capacitor/preferences';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
-	import { UpdateUserProfileStore } from '$houdini';
-
-	// Create the store for updating user profile with location
-	const profileStore = new UpdateUserProfileStore();
+	import { publishLocation, subscribeToLocation, getLatestLocation } from '$lib/nostr/location';
 
 	let { nextStep, prevStep, onLocationSelect = (location: Location) => {} } = $props();
 
@@ -38,6 +35,8 @@
 	let mapContainerDiv: HTMLElement | null = $state(null);
 	let initRetryCount = $state(0);
 	let maxRetries = 3;
+	let cleanup: (() => void) | null = null;
+	let skipLocation = $state(false);
 
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
@@ -176,11 +175,28 @@
 			
 			// Try to initialize the map
 			tryInitMap();
+
+			// Get latest location from Nostr
+			const savedLocation = await getLatestLocation();
+			if (savedLocation) {
+				location = savedLocation;
+				createMarkerAndCircle(savedLocation.latitude!, savedLocation.longitude!);
+			}
+
+			// Subscribe to location updates
+			cleanup = await subscribeToLocation((updatedLocation) => {
+				location = updatedLocation;
+				createMarkerAndCircle(updatedLocation.latitude!, updatedLocation.longitude!);
+			});
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
 			hasError = true;
 		}
+	});
+
+	onDestroy(() => {
+		if (cleanup) cleanup();
 	});
 
 	async function updateLocationWithCoordinates(lat: number, lng: number) {
@@ -200,41 +216,31 @@
 				});
 
 				if (result.results[0]) {
-					const address = result.results[0];
+					const addressComponents = result.results[0].address_components;
+					const zipCode = addressComponents.find(
+						(component) => component.types.includes('postal_code')
+					)?.short_name || '';
 
-					// Find zip/postal code
-					let postalCode = '';
-					for (const component of address.address_components) {
-						if (component.types.includes('postal_code')) {
-							postalCode = component.short_name;
-							break;
-						}
-					}
-
-					// Update location
+					// Update location state
 					location = {
-						displayName: address.formatted_address,
+						...location,
+						displayName: result.results[0].formatted_address,
 						latitude: lat,
 						longitude: lng,
-						zipCode: postalCode,
+						zipCode,
 						locationLoaded: true
 					};
 
-					// Call the callback function
-					if (onLocationSelect) {
-						onLocationSelect(location);
-					}
+					// Publish location to Nostr
+					await publishLocation(location);
 
-					// Save location to preferences
-					await Preferences.set({
-						key: 'user_location',
-						value: JSON.stringify(location)
-					});
+					// Call the callback
+					onLocationSelect(location);
 				}
 			}
-		} catch (error) {
-			console.error('Error updating location:', error);
-			error = error instanceof Error ? error.message : 'Error updating location';
+		} catch (err: unknown) {
+			console.error('Error updating location:', err);
+			error = err instanceof Error ? err.message : 'Error updating location';
 		}
 	}
 
@@ -427,41 +433,29 @@
 		}
 	}
 
+	async function handleSkip() {
+		skipLocation = true;
+		nextStep();
+	}
+
 	async function handleSubmit() {
 		try {
-			isLoading = true;
-
-			// Don't proceed if location isn't loaded yet
-			if (location.latitude === null || location.longitude === null) {
-				error = 'Please select a location';
-				throw new Error('Please select a location');
+			if (!location.locationLoaded) {
+				error = 'Please select a location or skip this step';
+				return;
 			}
 
-			// Update user location using GraphQL
-			const result = await profileStore.mutate({
-				input: {
-					location: {
-						displayName: location.displayName,
-						latitude: location.latitude,
-						longitude: location.longitude,
-						zipCode: location.zipCode,
-						serviceRadius: serviceRadius
-					}
-				}
-			});
+			// Publish location to Nostr
+			await publishLocation(location);
 
-			if (result.errors) {
-				error = result.errors.map((err) => err.message).join(', ');
-				throw new Error(result.errors[0].message);
-			}
+			// Call the callback
+			onLocationSelect(location);
 
 			// Go to next step
 			nextStep();
-		} catch (error) {
-			console.error('Error updating location:', error);
-			error = error instanceof Error ? error.message : 'Error updating location';
-		} finally {
-			isLoading = false;
+		} catch (err: unknown) {
+			console.error('Error saving location:', err);
+			error = err instanceof Error ? err.message : 'Error saving location';
 		}
 	}
 </script>
@@ -700,12 +694,21 @@
 
 		<div class="mt-6 flex justify-between">
 			<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-			<button type="button" class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
-				{#if isLoading}
-					<span class="loading loading-spinner"></span>
-				{/if}
-				Next
-			</button>
+			<div class="flex gap-2">
+				<button type="button" class="btn" onclick={handleSkip}>Skip</button>
+				<button type="button" class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
+					{#if isLoading}
+						<span class="loading loading-spinner"></span>
+					{/if}
+					{location.locationLoaded ? 'Save Location' : 'Continue'}
+				</button>
+			</div>
 		</div>
 	</div>
 </div>
+
+<style>
+	:global(.pac-container) {
+		z-index: 9999;
+	}
+</style>
