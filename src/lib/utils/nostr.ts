@@ -1,11 +1,7 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-import { appStore } from '$lib/stores/app.store';
-import { get } from 'svelte/store';
-import { decryptNsecWithBiometrics } from './helpers/auth';
 import { getNostrKeyPair } from './nostrKeys';
 
 // Initialize a pool for relay connections
@@ -85,42 +81,3 @@ export function subscribeToEvents(relayUrl: string, filters: Filter[], onEvent: 
         sub.close();
     };
 }
-
-/**
- * Fetch profile metadata
- * @param pubkey - The pubkey of the profile to fetch
- * @param relayUrl - The URL of the relay to fetch the profile from
- * @returns The profile metadata
- */
-export function fetchProfileMetadata(pubkey: string, relayUrl: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-        let timeout: NodeJS.Timeout;
-
-        // Subscribe to profile metadata events
-        const sub = pool.subscribe([relayUrl], {
-            kinds: [0],
-            authors: [pubkey]
-        }, {
-            onevent: (event: NostrEvent) => {
-                try {
-                    console.log('event', event);
-                    const profile = JSON.parse(event.content);
-                    clearTimeout(timeout);
-                    sub.close();
-                    resolve(profile);
-                } catch (error) {
-                    console.error('Failed to parse profile metadata:', error);
-                    clearTimeout(timeout);
-                    sub.close();
-                    reject(new Error('Invalid profile metadata format'));
-                }
-            }
-        });
-
-        // Set timeout
-        timeout = setTimeout(() => {
-            sub.close();
-            reject(new Error('Profile fetch timeout'));
-        }, 5000);
-    });
-} 

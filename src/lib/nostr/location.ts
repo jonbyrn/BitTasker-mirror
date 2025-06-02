@@ -5,7 +5,7 @@ import { getSignedEvent } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { profileStore } from '$lib/stores/profile.store';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-import { getConversationKey, encrypt, decrypt } from '$lib/nostr/nip44';
+import nip44 from '$lib/nostr/nip44';
 
 // Kind 30005 for replaceable location events
 const LOCATION_EVENT_KIND = 30005;
@@ -27,13 +27,13 @@ export async function publishLocation(
         const npub = keyPair.npub;
 
         // Create conversation key with self (for self-encryption)
-        const conversationKey = await getConversationKey(nsec, npub);
+        const conversationKey = await nip44.getConversationKey(nsec, npub);
 
         // Generate random nonce
         const nonce = crypto.getRandomValues(new Uint8Array(32));
 
         // Encrypt location data
-        const encryptedContent = await encrypt(JSON.stringify(location), conversationKey, nonce);
+        const encryptedContent = await nip44.encrypt(JSON.stringify(location), conversationKey, nonce);
 
         // Create event
         const event = {
@@ -75,7 +75,7 @@ export async function subscribeToLocation(
         const npub = keyPair.npub;
 
         // Get conversation key for decryption
-        const conversationKey = await getConversationKey(nsec, npub);
+        const conversationKey = await nip44.getConversationKey(nsec, npub);
 
         // Subscribe to location events
         const sub = profileStore.pool.subscribe(
@@ -88,11 +88,9 @@ export async function subscribeToLocation(
             {
                 onevent: async (event: NostrEvent) => {
                     try {
-                        console.log('event.content', event.content)
                         // Decrypt location data
-                        const decryptedContent = await decrypt(event.content, conversationKey);
+                        const decryptedContent = await nip44.decrypt(event.content, conversationKey);
                         const location = JSON.parse(decryptedContent) as Location;
-                        console.log({ location })
                         callback(location);
                     } catch (err) {
                         console.error('Failed to decrypt location:', err);
@@ -125,7 +123,7 @@ export async function getLatestLocation(
         const npub = keyPair.npub;
 
         // Get conversation key for decryption
-        const conversationKey = await getConversationKey(nsec, npub);
+        const conversationKey = await nip44.getConversationKey(nsec, npub);
 
         // Get latest location event
         const event = await profileStore.pool.get(
@@ -141,9 +139,10 @@ export async function getLatestLocation(
         if (!event) {
             return null;
         }
+        console.log('event', event)
 
         // Decrypt and return location data
-        const decryptedContent = await decrypt(event.content, conversationKey);
+        const decryptedContent = await nip44.decrypt(event.content, conversationKey);
         return JSON.parse(decryptedContent) as Location;
     } catch (error) {
         console.error('Failed to get latest location:', error);

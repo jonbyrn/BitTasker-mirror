@@ -4,7 +4,6 @@ import { profileStore } from '$lib/stores/profile.store';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { createSubscriptionKey } from '.';
 import uploadService from '$lib/api/services/upload.service';
 
 // Subscription store for profile updates
@@ -13,6 +12,25 @@ let profileSubscriptions = new Map<string, {
     callbacks: Set<(event: NostrEvent) => void>;
     relays: string[];
 }>();
+
+// Helper function to create subscription key
+export function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined }): string {
+    if (!kindFilters) {
+        return `${npub}:default`;
+    }
+    const kinds = Object.keys(kindFilters).sort().join(',');
+    const tags = Object.entries(kindFilters)
+        .map(([kind, tagFilters]) => {
+            if (!tagFilters) return '';
+            return Object.entries(tagFilters)
+                .map(([tag, value]) => `${tag}:${value}`)
+                .sort()
+                .join(';');
+        })
+        .filter(Boolean)
+        .join('|');
+    return `${npub}:${kinds}:${tags}`;
+}
 
 /**
  * Subscribe to profile updates for a given public key

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
-	import { publishLocation, subscribeToLocation, getLatestLocation } from '$lib/nostr/location';
+	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
 
 	let { nextStep, prevStep, onLocationSelect = (location: Location) => {} } = $props();
 

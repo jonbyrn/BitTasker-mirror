@@ -29,9 +29,7 @@
 	let isInitialLoading = $state(true);
 
 	// Event IDs for updates
-	let profileEventId = $state<string | null>(null);
 	let imageEventId = $state<string | null>(null);
-	let skillsEventId = $state<string | null>(null);
 	let saveForLater = $state(false);
 	let showPrevBtn = $state(false);
 	let cleanup: (() => void) | null = null;
@@ -48,7 +46,6 @@
 				try {
 					// Handle profile metadata update
 					if (event.kind === 0) {
-						profileEventId = event.id;
 						const metadata = JSON.parse(event.content);
 						displayName = metadata.displayName || displayName;
 						professionalTitle = metadata.professionalTitle || professionalTitle;
@@ -69,7 +66,6 @@
 					}
 					// Handle skills update
 					else if (event.kind === 30000 && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
-						skillsEventId = event.id;
 						const skillsData = JSON.parse(event.content);
 						if (Array.isArray(skillsData)) {
 							skills = skillsData.map((skill) => ({
