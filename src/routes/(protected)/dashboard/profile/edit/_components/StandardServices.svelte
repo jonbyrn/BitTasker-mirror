@@ -24,7 +24,7 @@
 	let isRemovingService = $state<string | null>(null);
 	let servicesForm = $state<HTMLDivElement | null>(null);
 	let currentEventId = $state<string | null>(null); // Track the current event ID
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 
 	// New service form state
 	let newService = $state<Partial<StandardService>>({
@@ -59,6 +59,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					if (
 						event.kind === 30003 &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'standard-services')

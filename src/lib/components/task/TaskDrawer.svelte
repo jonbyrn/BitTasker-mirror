@@ -120,6 +120,7 @@ let userDetails = $state({
 	});
 
 	async function loadTaskDetails(taskId: string) {
+		if (!taskId) return;
 		try {
 			loading = true;
 			errorMessage = '';

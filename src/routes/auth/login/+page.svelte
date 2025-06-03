@@ -201,7 +201,7 @@
 				</button>
 
 				<div class="mt-2 text-center">
-					<a href="/auth/recover" class="link link-primary text-sm">
+					<a href="/auth/recover/send" class="link link-primary text-sm">
 						{$t('auth.login.recover_account')}
 					</a>
 				</div>

@@ -25,7 +25,7 @@
 	let isAddingCertificate = $state(false);
 	let isEditingCertificate = $state(false);
 	let editingCertificationId = $state<string | null>(null);
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 	let cleanup: (() => void) | null = null;
 	let certification = $state<{
 		name: string;
@@ -44,6 +44,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			(event) => {
 				try {
+					isInitialLoading = true;
 					if (event.kind === 30000 && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
 						// Handle skills update
 						const skillsData = JSON.parse(event.content);
