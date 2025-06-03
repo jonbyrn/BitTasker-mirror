@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { formatDistanceToNow } from 'date-fns';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { SearchTasksStore, type SearchTasksDto } from '$houdini';
 	import {
 		TaskStatusEnum,
@@ -16,6 +17,7 @@
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
 	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
+	import { user as userStore } from '$lib/stores/user.store';
 
 	// Function to create initial search parameters conforming to SearchTasksDto
 	function getInitialSearchParams(): Partial<SearchTasksDto> {
@@ -64,11 +66,39 @@
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(null);
 	let isSidebarOpen = $state(false);
+	let bidErrorMessage = $state<string | null>(null);
 
 	// Loading states
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
 	let recommendationsLoaded = $state(false);
+	
+	// BTC price for USDT conversion
+	let btcPrice = $state<number>(63000); // Default fallback price
+	
+	/**
+	 * Fetch current BTC price
+	 */
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			console.log('Current BTC price (find-tasks):', btcPrice);
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+	
+	/**
+	 * Calculate estimated USDT value based on BTC amount
+	 */
+	function calculateUsdtEstimate(btcAmount: number): string {
+		const estimatedValue = btcAmount * btcPrice;
+		return estimatedValue.toLocaleString('en-US', {
+			maximumFractionDigits: 2,
+			minimumFractionDigits: 2
+		});
+	}
 
 	// Load more tasks (for infinite scroll)
 	async function loadMoreTasks() {
@@ -313,6 +343,9 @@
 	// Initial data fetch and setup
 	onMount(() => {
 		if (browser) {
+			// Fetch BTC price for USDT conversion
+			fetchBtcPrice();
+			
 			loadRecommendations(); // Load recommendations on mount
 			searchTasksQuery
 				.fetch({ variables: { input: searchParams } }) // Initial tasks fetch
@@ -562,7 +595,10 @@
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
 						<div class="flex items-center gap-2 text-sm">
-							<span class="font-semibold">{task.budget} BTC</span>
+							<div class="flex flex-col items-end">
+								<span class="font-semibold">{task.budget} BTC</span>
+								<span class="text-xs text-info">≈ {task.budget !== null ? calculateUsdtEstimate(task.budget) : '0.00'} USDT</span>
+							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>
 					</div>
@@ -586,10 +622,10 @@
 								</div>
 							{/if}
 
-							{#if task.client?.user}
+							{#if task.userProfile?.user}
 								<div>
 									<p class="text-base-content/60 text-sm">Posted By</p>
-									<p class="font-medium">{task.client.user.name}</p>
+									<p class="font-medium">{task.userProfile.user.username}</p>
 								</div>
 							{/if}
 						</div>
@@ -631,10 +667,25 @@
 							class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
 							onclick={() => {
 								if (task.status === TaskStatusEnum.OPEN) {
-									selectedTaskId = task.id.toString();
-									isSidebarOpen = true;
+									if (
+										task.userProfile?.user?.id &&
+										$userStore.id !== undefined &&
+										$userStore.id.toString() === task.userProfile.user.id.toString()
+									) {
+										// Set the error message
+										bidErrorMessage = "You cannot bid on your own task";
+										
+										// Auto-hide toast after 3 seconds
+										setTimeout(() => {
+											bidErrorMessage = null;
+										}, 2000);
+									} else {
+										selectedTaskId = task.id.toString();
+										isSidebarOpen = true;
+									}
 								}
 							}}
+							
 							aria-label="Bid on this task"
 						>
 							<svg
@@ -705,4 +756,13 @@
 	onApply={handleFilterApply}
 />
 
-<TaskDetailsBidDrawer taskId={selectedTaskId} onClose={handleSidebarClose} isOpen={isSidebarOpen} />
+<TaskDetailsBidDrawer taskId={selectedTaskId} onClose={() => (isSidebarOpen = false)} isOpen={isSidebarOpen} />
+
+<!-- Toast Notification for Errors -->
+{#if bidErrorMessage}
+<div class="toast toast-top toast-end z-50">
+	<div class="alert alert-error">
+		<span>{bidErrorMessage}</span>
+	</div>
+</div>
+{/if}

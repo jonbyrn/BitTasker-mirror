@@ -239,12 +239,12 @@
 		<div class="card-body">
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<!-- Profile Picture Upload -->
-				<div class="form-control mx-auto max-h-32 w-full max-w-32 rounded-full">
+				<div class="form-control mx-auto w-full">
 					<Uploader
 						id="profilePicture"
 						label="Profile Picture"
 						maxFiles={1}
-						customClass="h-32 w-full"
+						customClass="h-32 w-full max-w-32 mx-auto"
 						files={picture ? [picture.url] : undefined}
 						onChange={(files) => handleImageUpload(files[0])}
 					/>

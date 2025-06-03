@@ -9,7 +9,7 @@ import { page } from '$app/state';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
-export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET]);
+export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.TASKBOOST, TaskStepEnum.REVIEW]);
 
 function createTaskStore() {
 	const initialState = {

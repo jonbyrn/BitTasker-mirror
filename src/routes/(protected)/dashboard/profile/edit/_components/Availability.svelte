@@ -14,7 +14,7 @@
 	let maxBookingsPerDay = $state(5);
 	let breakBetweenBookings = $state('');
 	let isLoading = $state(false);
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 	let error = $state('');
 	let timeSlotError = $state({
 		day: -1,
@@ -35,6 +35,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					if (
 						event.kind === 30002 &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'availability')
@@ -96,9 +97,14 @@
 	}
 
 	// Helper function to check for time slot conflicts
-	function checkTimeSlotConflicts(day: number, start: string, end: string, excludeIndex: number): boolean {
+	function checkTimeSlotConflicts(
+		day: number,
+		start: string,
+		end: string,
+		excludeIndex: number
+	): boolean {
 		const slotsForDay = timeSlots.filter((slot, idx) => slot.day === day && idx !== excludeIndex);
-		
+
 		// Convert current slot times to minutes
 		const [startHours, startMinutes] = start.split(':').map(Number);
 		const [endHours, endMinutes] = end.split(':').map(Number);
@@ -106,14 +112,14 @@
 		const endMins = endHours * 60 + endMinutes;
 
 		// Check for conflicts with existing slots
-		return slotsForDay.some(slot => {
+		return slotsForDay.some((slot) => {
 			const [existingStartHours, existingStartMinutes] = slot.start.split(':').map(Number);
 			const [existingEndHours, existingEndMinutes] = slot.end.split(':').map(Number);
 			const existingStartMins = existingStartHours * 60 + existingStartMinutes;
 			const existingEndMins = existingEndHours * 60 + existingEndMinutes;
 
 			// Check if the new slot overlaps with existing slot
-			return (startMins < existingEndMins && endMins > existingStartMins);
+			return startMins < existingEndMins && endMins > existingStartMins;
 		});
 	}
 
@@ -298,8 +304,11 @@
 		<div class="grid gap-4">
 			<!-- Minimum Notice -->
 			<div class="form-control">
-				<label class="label" for="minNotice">
+				<label class="label" for="noticeHours">
 					<span class="label-text font-medium">{$t('profile.availability.min_notice')}</span>
+				</label>
+				<br />
+				<label for="noticeHours" class="label">
 					<span class="label-text-alt">{$t('profile.availability.min_notice_desc')}</span>
 				</label>
 				<input
@@ -331,6 +340,9 @@
 			<div class="form-control">
 				<label class="label" for="breakTime">
 					<span class="label-text font-medium">{$t('profile.availability.break_time')}</span>
+				</label>
+				<br />
+				<label for="breakTime" class="label">
 					<span class="label-text-alt">{$t('profile.availability.break_time_desc')}</span>
 				</label>
 				<Input
@@ -360,7 +372,9 @@
 					{:else}
 						<div class="space-y-2">
 							{#each timeSlots.filter((slot) => slot.day === index) as slot, slotIndex}
-								<div class="relative space-y-2 rounded-xl border border-white/50 p-4 pt-10 shadow-md">
+								<div
+									class="relative space-y-2 rounded-xl border border-white/50 p-4 pt-10 shadow-md"
+								>
 									<div class="flex flex-col items-center gap-4 sm:flex-row">
 										<div class="flex w-full flex-row items-center justify-start gap-2">
 											<span class="text-base-content/70 w-1/5">from</span>

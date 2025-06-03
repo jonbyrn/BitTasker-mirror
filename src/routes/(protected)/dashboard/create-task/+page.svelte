@@ -4,7 +4,11 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { appStore } from '$lib/stores/app.store';
-	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import {
+		BudgetTypeEnum,
+		TaskTypeEnum,
+		TaskStatusEnum
+	} from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import recurringTasksService from '$lib/api/services/recurring-tasks.service';
 	import Uploader from '$lib/components/Uploader.svelte';
@@ -15,10 +19,13 @@
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 	import { CreateTaskStore } from '$houdini';
 	import { tryCatch } from '$lib/utils/tryCatch';
+    import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Load the draft when the page is loaded
 	onMount(() => {
 		store.loadDraft();
+		// Fetch real-time BTC price
+		fetchBtcPrice();
 	});
 
 	const createTaskMutation = new CreateTaskStore();
@@ -27,6 +34,41 @@
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
+
+	// BTC to USDT estimate
+	let usdtEstimate = $state<string>('0');
+	let btcPrice = $state<number>(63000); // Default fallback price
+	
+	/**
+	 * Fetch current BTC price and update the state
+	 */
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			console.log('Current BTC price:', btcPrice);
+			
+			// Update estimate if we have a budget value
+			if ($store.task.budget) {
+				usdtEstimate = calculateUsdtEstimate($store.task.budget);
+			}
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+
+	/**
+	 * Calculate estimated USDT value based on BTC amount
+	 * Uses real-time BTC price from API
+	 */
+	function calculateUsdtEstimate(btcAmount: number): string {
+		// Calculate the estimated value and format it
+		const estimatedValue = btcAmount * btcPrice;
+		return estimatedValue.toLocaleString('en-US', {
+			maximumFractionDigits: 2,
+			minimumFractionDigits: 2
+		});
+	}
 
 	function validateCurrentStep(): boolean {
 		errors = {};
@@ -80,6 +122,12 @@
 				if (!$store.task.description?.trim()) errors.description = 'Description is required';
 				if ($store.task.description?.trim().length < 20)
 					errors.description = 'Description must be at least 20 characters long';
+				break;
+			case 'taskboost':
+				// Task boost step doesn't need validation as it's optional
+				break;
+			case 'review':
+				// Review step doesn't need validation as it's just reviewing previous inputs
 				break;
 		}
 
@@ -541,6 +589,12 @@
 							type="number"
 							id="budget"
 							value={$store.task.budget}
+							oninput={(e) => {
+								const value = parseFloat((e.target as HTMLInputElement).value);
+								store.updateTask({ budget: value });
+								// Update estimated USDT value as the user types
+								usdtEstimate = calculateUsdtEstimate(value);
+							}}
 							onchange={(e) => {
 								store.updateTask({ budget: parseFloat((e.target as HTMLInputElement).value) });
 							}}
@@ -549,6 +603,9 @@
 							min="0"
 							step="0.00000001"
 						/>
+						{#if $store.task.budget > 0}
+							<span class="label-text-alt mt-1 block text-info">≈ {usdtEstimate} USDT</span>
+						{/if}
 						{#if errors.budget}
 							<span class="label-text-alt text-error">{errors.budget}</span>
 						{/if}
@@ -597,6 +654,259 @@
 							<span class="label-text-alt text-error">{errors.description}</span>
 						{/if}
 					</div>
+				</div>
+			{:else if $store.currentStep === 'taskboost'}
+				<div
+					class="space-y-6"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
+					<h2 class="text-xl font-semibold">Boost Your Task</h2>
+					<p class="text-sm">Would you like to boost your task to get more visibility and faster responses?</p>
+
+					<!-- <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div class="card bg-base-100 shadow-md hover:shadow-lg transition-all cursor-pointer border border-transparent hover:border-primary">
+							<div class="card-body p-4">
+								<h3 class="card-title">Standard</h3>
+								<p class="text-2xl font-bold">Free</p>
+								<div class="divider my-1"></div>
+								<ul class="space-y-2">
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Standard visibility
+									</li>
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Basic search ranking
+									</li>
+								</ul>
+								<div class="card-actions justify-end mt-4">
+									<button class="btn btn-outline btn-sm">Select</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="card bg-base-100 shadow-md hover:shadow-lg transition-all cursor-pointer border-2 border-primary">
+							<div class="card-body p-4">
+								<div class="badge badge-primary mb-2">MOST POPULAR</div>
+								<h3 class="card-title">Premium</h3>
+								<p class="text-2xl font-bold">$5.99</p>
+								<div class="divider my-1"></div>
+								<ul class="space-y-2">
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Featured for 24 hours
+									</li>
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Highlighted in search results
+									</li>
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Priority notifications
+									</li>
+								</ul>
+								<div class="card-actions justify-end mt-4">
+									<button class="btn btn-primary btn-sm">Select</button>
+								</div>
+							</div>
+						</div>
+
+						<div class="card bg-base-100 shadow-md hover:shadow-lg transition-all cursor-pointer border border-transparent hover:border-primary">
+							<div class="card-body p-4">
+								<h3 class="card-title">Ultimate</h3>
+								<p class="text-2xl font-bold">$9.99</p>
+								<div class="divider my-1"></div>
+								<ul class="space-y-2">
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Featured for 72 hours
+									</li>
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Top search placement
+									</li>
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										Instant notifications
+									</li>
+									<li class="flex items-center gap-2">
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+										VIP support
+									</li>
+								</ul>
+								<div class="card-actions justify-end mt-4">
+									<button class="btn btn-outline btn-sm">Select</button>
+								</div>
+							</div>
+						</div>
+					</div> -->
+
+					<div class="alert alert-info mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+						<span>Boosting your task increases your chances of finding the right tasker faster!</span>
+					</div>
+
+					<div class="divider">Payment Options</div>
+
+					<!-- <div class="flex flex-wrap gap-3">
+						<div class="form-control">
+							<label class="cursor-pointer label gap-2">
+								<input type="radio" name="payment-option" class="radio radio-primary" checked />
+								<span class="label-text">Bitcoin</span>
+							</label>
+						</div>
+						<div class="form-control">
+							<label class="cursor-pointer label gap-2">
+								<input type="radio" name="payment-option" class="radio radio-primary" />
+								<span class="label-text">Lightning</span>
+							</label>
+						</div>
+						<div class="form-control">
+							<label class="cursor-pointer label gap-2">
+								<input type="radio" name="payment-option" class="radio radio-primary" />
+								<span class="label-text">Liquid</span>
+							</label>
+						</div>
+					</div> -->
+				</div>
+			{:else if $store.currentStep === 'review'}
+				<div
+					class="space-y-6"
+					in:fly={{
+						duration: 200,
+						easing: linear,
+						y: 0,
+						x: direction === 'forward' ? 20 : -20
+					}}
+				>
+					<h2 class="text-xl font-semibold">Review Your Task</h2>
+					
+					<div class="card bg-base-200 shadow-sm">
+						<div class="card-body p-4">
+							<h3 class="text-lg font-medium mb-2">Basic Information</h3>
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+								<div>
+									<span class="font-medium">Title:</span> 
+									<span>{$store.task.title}</span>
+								</div>
+								
+								<div>
+									<span class="font-medium">Task Type:</span> 
+									<span>{$store.task.taskType === TaskTypeEnum.IN_PERSON ? 'In Person' : 'Remote'}</span>
+								</div>
+								
+								<div>
+									<span class="font-medium">Timeline:</span> 
+									<span>
+										{#if $store.task.dateRange}
+											From {new Date($store.task.dateRange.start).toLocaleDateString()} to {new Date($store.task.dateRange.end).toLocaleDateString()}
+										{:else}
+											Deadline: {new Date($store.task.deadlineDate).toLocaleDateString()}
+										{/if}
+									</span>
+								</div>
+							</div>
+							
+							<h4 class="mt-3 font-medium">Categories</h4>
+							<div class="flex flex-wrap gap-2">
+								{#each $appStore.categories.filter(cat => $store.task.categoryIds.includes(cat.id)) as category}
+									<div class="badge badge-primary">{category.name}</div>
+								{/each}
+							</div>
+							
+							<h4 class="mt-3 font-medium">Skills</h4>
+							<div class="flex flex-wrap gap-2">
+								{#each $appStore.skills.filter(skill => $store.task.skillIds.includes(skill.id)) as skill}
+									<div class="badge badge-secondary">{skill.name}</div>
+								{/each}
+							</div>
+						</div>
+					</div>
+
+					<div class="card bg-base-200 shadow-sm">
+						<div class="card-body p-4">
+							<h3 class="text-lg font-medium mb-2">Location</h3>
+							{#if $store.isRemovals}
+								<div class="grid grid-cols-1 gap-2">
+									<div>
+										<span class="font-medium">Pickup Location:</span> 
+										<span>{$store.task.pickupLocation?.displayName}</span>
+									</div>
+									<div>
+										<span class="font-medium">Drop-off Location:</span> 
+										<span>{$store.task.dropOffLocation?.displayName}</span>
+									</div>
+								</div>
+							{:else if $store.task.taskType === TaskTypeEnum.IN_PERSON}
+								<div>
+									<span class="font-medium">Task Location:</span> 
+									<span>{$store.task.pickupLocation?.displayName}</span>
+								</div>
+							{:else}
+								<div>Remote Task - No location specified</div>
+							{/if}
+						</div>
+					</div>
+
+					<div class="card bg-base-200 shadow-sm">
+						<div class="card-body p-4">
+							<h3 class="text-lg font-medium mb-2">Budget & Details</h3>
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+								<div>
+									<span class="font-medium">Budget Type:</span> 
+									<span>{$store.task.budgetType === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}</span>
+								</div>
+								<div>
+									<span class="font-medium">Budget Amount:</span> 
+									<span>${$store.task.budget}</span>
+								</div>
+								{#if $store.task.budgetType === BudgetTypeEnum.HOURLY}
+								<div>
+									<span class="font-medium">Estimated Hours:</span> 
+									<span>{$store.task.estimatedHours}</span>
+								</div>
+								{/if}
+							</div>
+
+							<h4 class="mt-3 font-medium">Description</h4>
+							<div class="bg-base-100 p-3 rounded-md mt-1">
+								<p>{$store.task.description}</p>
+							</div>
+							
+							{#if $store.task.attachments && $store.task.attachments.length > 0}
+								<h4 class="mt-3 font-medium">Attachments</h4>
+								<div class="flex flex-wrap gap-2">
+									{#each $store.task.attachments as attachment, i}
+										<div class="badge badge-outline">
+											<span class="truncate max-w-xs">{attachment.fileName}</span>
+										</div>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					</div>
+
+					{#if $store.recurringTask.isRecurring}
+						<div class="alert alert-info">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+							<div>
+								<h3 class="font-bold">This is a recurring task!</h3>
+								<div class="text-sm">After review, you'll be asked to set up the recurring schedule.</div>
+							</div>
+						</div>
+					{/if}
+
+					{#if errors.general}
+						<div class="alert alert-error">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+							<span>{errors.general}</span>
+						</div>
+					{/if}
 				</div>
 			{:else if $store.currentStep === 'recurring'}
 				<div

@@ -4,6 +4,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { format, formatDistanceToNow } from 'date-fns';
 	import { onMount } from 'svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { t } from '$lib/stores/i18n.store';
 
 	// Props
@@ -12,6 +13,8 @@
 	}>();
 
 	const tasksStore = new TasksStore();
+	
+	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Convert status to user-friendly string
 	function formatStatus(status: Tasks$result['myTasks'][0]['status']): string {
@@ -72,12 +75,37 @@
 	function formatCurrency(amount: number): string {
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
-			currency: 'USD'
+			currency: 'BTC'
 		}).format(amount);
+	}
+	
+	/**
+	 * Fetch current BTC price
+	 */
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			console.log('Current BTC price (dashboard-tasks-panel):', btcPrice);
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+	
+	/**
+	 * Calculate estimated USDT value based on BTC amount
+	 */
+	function calculateUsdtEstimate(btcAmount: number): string {
+		const estimatedValue = btcAmount * btcPrice;
+		return estimatedValue.toLocaleString('en-US', {
+			maximumFractionDigits: 2,
+			minimumFractionDigits: 2
+		});
 	}
 
 	onMount(() => {
 		tasksStore.fetch();
+		fetchBtcPrice();
 	});
 </script>
 
@@ -136,7 +164,7 @@
 						<div class="flex justify-between">
 							<div class="flex items-center gap-2">
 								<h3 class="card-title text-lg">{task.title}</h3>
-								{#if task.clientId === $user.id}
+								{#if task?.clientId === $user.id}
 									<div class="badge badge-accent">{$t('task.role.owner')}</div>
 								{/if}
 							</div>
@@ -176,7 +204,7 @@
 						</div>
 
 						<div class="my-2 grid grid-cols-2 gap-4">
-							{#if task.budget}
+							{#if task.budget !== null && task.budget !== undefined}
 								<div>
 									<p class="text-base-content/70 text-xs">{$t('task.budget.label')}</p>
 									<p class="text-primary font-semibold">
@@ -184,6 +212,9 @@
 										{#if task.budgetType === 'HOURLY'}
 											<span class="text-xs">{$t('task.budget.hourly')}</span>
 										{/if}
+									</p>
+									<p class="text-xs text-info">
+										≈ {calculateUsdtEstimate(task.budget)} USDT
 									</p>
 								</div>
 							{/if}
@@ -258,6 +289,12 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">{$t('task.empty.no_tasks')}</h3>
+		</div>
+	{/if}
+
+	{#if $tasksStore.errors}
+		<div class="py-12 text-center">
+			<h3 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h3>
 		</div>
 	{/if}
 

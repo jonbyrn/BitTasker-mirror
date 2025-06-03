@@ -9,7 +9,7 @@
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
 	// Local state
-	let isInitialLoading = $state(true); // Add loading state for initial data fetch
+	let isInitialLoading = $state(false); // Add loading state for initial data fetch
 	let displayName = $state('');
 	let professionalTitle = $state('');
 	let profileDescription = $state('');
@@ -27,6 +27,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					// Handle profile metadata update
 					if (event.kind === 0) {
 						profileEventId = event.id;

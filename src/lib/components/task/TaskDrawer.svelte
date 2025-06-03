@@ -44,6 +44,47 @@
 		{ id: 'details', label: $t('task.drawer.details') },
 		{ id: 'bids', label: $t('task.drawer.bids') }
 	];
+	let isUserDetailsModalOpen = $state(false);
+
+// User details handling
+const openUserDetailsModal = (bidData?: TaskBid) => {
+	// If bid data is provided, update userDetails with bid data
+	if (bidData && bidData.userProfile) {
+		// Destructure data from the bid
+		const { userProfile } = bidData;
+		
+		// Update individual properties instead of reassigning the whole object
+		userDetails.name = userProfile.user.displayName || 'Anonymous';
+		userDetails.tasksCompleted = userProfile.tasksPosted || 0;
+		userDetails.bio = userProfile.bio || 'No bio available';
+		userDetails.amount = bidData.amount;
+		userDetails.currency = bidData.currency || 'BTC';
+		userDetails.userId = userProfile.userId || 0;
+		userDetails.profileId = userProfile.id || 0;
+	}
+	
+	isUserDetailsModalOpen = true;
+};
+
+const closeUserDetailsModal = () => {
+	isUserDetailsModalOpen = false;
+};
+
+// User details state - using let instead of const to allow updates
+let userDetails = $state({
+	name: 'Anonymous',
+	rating: 4.7,
+	tasksCompleted: 48,
+	memberSince: '2024-01-15',
+	skills: ['Delivery', 'Home Repair', 'Cleaning'],
+	bio: 'Experienced tasker with expertise in various home and delivery services. Always committed to providing excellent service and meeting deadlines.',
+	responseRate: '95%',
+	responseTime: '< 1 hour',
+	amount: 0,
+	currency: 'BTC',
+	userId: 0,
+	profileId: 0
+});
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -79,12 +120,14 @@
 	});
 
 	async function loadTaskDetails(taskId: string) {
+		if (!taskId) return;
 		try {
 			loading = true;
 			errorMessage = '';
 
 			const res = await taskService.getTaskById(taskId);
 			task = res;
+			console.log("🚀 ~ loadTaskDetails ~ task:", task)
 			bids = task.bids;
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -93,6 +136,8 @@
 			loading = false;
 		}
 	}
+
+	loadTaskDetails(props.taskId);
 
 	function handleTabChange(tabId: string) {
 		currentTab = tabId;
@@ -592,6 +637,7 @@
 						<!-- Bids list -->
 					{:else}
 						<div class="space-y-4">
+				
 							{#each bids as bid}
 								<!-- Bid card -->
 								<div class="card bg-base-200 shadow-sm transition-shadow hover:shadow-md">
@@ -599,9 +645,17 @@
 										<!-- Bid header with status and amount -->
 										<div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
 											<div>
-												<h3 class="text-lg font-semibold">
-													{bid?.freelancer?.user?.email || 'Anonymous'}
-												</h3>
+												<div  class="flex items-center gap-4 justify-between">
+													<h3 class="text-lg font-semibold">
+														{bid?.userProfile?.user?.displayName || 'Anonymous'}
+													</h3>
+													<button class="text-sm border-gray border-b-1 text-primary" onclick={() => openUserDetailsModal(bid)}>
+														View user details
+													</button>
+
+												</div>
+												
+								
 												<p class="text-base-content/60 text-xs">
 													Submitted {formatTimeAgo(bid.createdAt)}
 												</p>
@@ -899,6 +953,83 @@
 		</div>
 	{/if}
 </div>
+
+<!-- User Details Modal -->
+{#if isUserDetailsModalOpen}
+<div class="modal modal-open modal-bottom sm:modal-middle">
+	<div class="modal-box relative">
+		<button class="btn btn-sm btn-circle absolute right-2 top-2" onclick={closeUserDetailsModal} aria-label="Close modal">
+			✕
+		</button>
+		<h3 class="text-lg font-bold mb-4">User Profile</h3>
+		
+		<div class="flex flex-col gap-4">
+			<!-- User Header -->
+			<div class="flex items-center gap-3">
+				<div class="avatar placeholder">
+					<div class="bg-neutral text-neutral-content rounded-full w-16">
+						<span class="text-xl">{userDetails.name.charAt(0)}</span>
+					</div>
+				</div>
+				<div>
+					<h4 class="text-xl font-semibold">{userDetails.name}</h4>
+					<div class="flex items-center gap-1 text-sm">
+						<div class="rating rating-sm">
+							<input type="radio" name="rating-2" class="mask mask-star-2 bg-orange-400" disabled />
+						</div>
+						<span>{userDetails.rating} · {userDetails.tasksCompleted} tasks completed</span>
+					</div>
+					<div class="text-xs text-gray-500">Member since {new Date(userDetails.memberSince).toLocaleDateString()}</div>
+				</div>
+			</div>
+			
+			<!-- Bid Details (new section) -->
+			{#if userDetails.amount > 0}
+			<div class="bg-base-200 p-4 rounded-lg">
+				<h5 class="font-medium mb-2">Bid Details</h5>
+				<div class="flex justify-between">
+					<span>Bid Amount:</span>
+					<span class="font-bold text-primary">{formatCurrency(userDetails.amount, userDetails.currency)}</span>
+				</div>
+			</div>
+			{/if}
+			
+			<!-- Stats -->
+			<div class="stats stats-vertical lg:stats-horizontal shadow">
+				<div class="stat">
+					<div class="stat-title">Response Rate</div>
+					<div class="stat-value text-primary">{userDetails.responseRate}</div>
+				</div>
+				<div class="stat">
+					<div class="stat-title">Response Time</div>
+					<div class="stat-value text-secondary">{userDetails.responseTime}</div>
+				</div>
+			</div>
+			
+			<!-- Skills -->
+			<div>
+				<h5 class="font-medium mb-2">Skills</h5>
+				<div class="flex flex-wrap gap-2">
+					{#each userDetails.skills as skill}
+						<span class="badge badge-outline">{skill}</span>
+					{/each}
+				</div>
+			</div>
+			
+			<!-- Bio -->
+			<div>
+				<h5 class="font-medium mb-2">About</h5>
+				<p class="text-sm">{userDetails.bio}</p>
+			</div>
+			
+			<!-- Contact Button -->
+			<button class="btn btn-primary mt-2">Contact User</button>
+		</div>
+	</div>
+	<div class="modal-backdrop" role="button" tabindex="-1" onclick={closeUserDetailsModal} onkeydown={(e) => e.key === 'Escape' && closeUserDetailsModal()}></div>
+</div>
+{/if}
+
 
 <style>
 	@keyframes fadeIn {

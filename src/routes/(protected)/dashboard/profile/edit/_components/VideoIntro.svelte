@@ -20,7 +20,7 @@
 	let stream: MediaStream | null = $state(null);
 	let videoPreview: HTMLVideoElement | null = $state(null);
 	let videoEventId = $state<string | null>(null);
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 	let cleanup: (() => void) | null = null;
 
 	// Subscribe to video updates
@@ -28,6 +28,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					// Handle video metadata update (kind 21)
 					if (event.kind === 21) {
 						videoEventId = event.id;
