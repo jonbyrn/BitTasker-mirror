@@ -12,41 +12,9 @@
 		openTaskDrawer: (taskId: number, tab?: string) => void;
 	}>();
 
-	let loading = $state(true);
-	let error = $state<string | null>(null);
-	let activeFilter = $state<string>('all');
-	let btcPrice = $state<number>(63000); // Default fallback price
-
-	// Filters
-	const filters = [
-		{ id: 'all', label: 'All Tasks', icon: 'folder-open' },
-		{ id: 'in-progress', label: 'In Progress', icon: 'activity' },
-		{ id: 'completed', label: 'Completed', icon: 'check-circle' },
-		{ id: 'drafts', label: 'Drafts', icon: 'edit' }
-	];
-
-	// Task filtering
-	const getFilteredTasks = (
-		tasks: Tasks$result['myTasks'],
-		filter: string
-	): Tasks$result['myTasks'] => {
-		switch (filter) {
-			case 'in-progress':
-				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
-			case 'completed':
-				return tasks.filter((task) => task.status === TaskStatusEnum.COMPLETED);
-			case 'drafts':
-				return tasks.filter((task) => task.status === TaskStatusEnum.DRAFT);
-			default:
-				return tasks;
-		}
-	};
-
-	// Format date for display
-	function formatDate(dateString: string): string {
-		return format(new Date(dateString), 'MMM d, yyyy');
-	}
 	const tasksStore = new TasksStore();
+	
+	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Convert status to user-friendly string
 	function formatStatus(status: Tasks$result['myTasks'][0]['status']): string {
