@@ -13,7 +13,8 @@
 	let availableTabs = $state([
 		{ id: 'tasks', label: 'My Tasks' },
 		{ id: 'bids', label: 'My Bids' },
-		{ id: 'recurring', label: 'Recurring Tasks' }
+		{ id: 'recurring', label: 'Recurring Tasks' },
+		{ id: 'my-doers-tasks', label: 'My Doers Tasks' }
 	]);
 	let activeTab = $state('');
 

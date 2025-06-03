@@ -19,8 +19,10 @@ query SearchTasks($input: SearchTasksDto!) {
 							zipCode
 						}
 						userProfile {
+							id
 							user {
-								name
+								id
+								username
 							}
 						}
 						bids {
