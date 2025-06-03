@@ -19,6 +19,7 @@ def capacitor_pods
   pod 'CapacitorScreenOrientation', :path => '../../node_modules/@capacitor/screen-orientation'
   pod 'CapacitorSplashScreen', :path => '../../node_modules/@capacitor/splash-screen'
   pod 'CapacitorStatusBar', :path => '../../node_modules/@capacitor/status-bar'
+  pod 'CapawesomeCapacitorScreenOrientation', :path => '../../node_modules/@capawesome/capacitor-screen-orientation'
   pod 'CapgoCapacitorSocialLogin', :path => '../../node_modules/@capgo/capacitor-social-login'
   pod 'CapacitorNativeBiometric', :path => '../../node_modules/capacitor-native-biometric'
 end
