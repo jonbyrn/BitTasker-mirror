@@ -14,7 +14,7 @@
 	let maxBookingsPerDay = $state(5);
 	let breakBetweenBookings = $state('');
 	let isLoading = $state(false);
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 	let error = $state('');
 	let timeSlotError = $state({
 		day: -1,
@@ -35,6 +35,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					if (
 						event.kind === 30002 &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'availability')

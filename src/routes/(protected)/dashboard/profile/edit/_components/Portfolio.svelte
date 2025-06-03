@@ -32,7 +32,7 @@
 	let skills = $state<Skill[]>([]);
 	let isRemovingItem = $state<string | null>(null);
 	let portfolioForm = $state<HTMLDivElement | null>(null);
-	let isInitialLoading = $state(true);
+	let isInitialLoading = $state(false);
 
 	// Subscribe to portfolio and skills updates
 	let unsubscribePortfolio: (() => void) | undefined;
@@ -45,6 +45,7 @@
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
+					isInitialLoading = true;
 					if (event.kind === 30001) {
 						const item = JSON.parse(event.content);
 						const identifier = event.tags[0][1];
