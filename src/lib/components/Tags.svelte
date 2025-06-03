@@ -13,13 +13,13 @@
 	let isOpen = $state(false);
 	let listboxId = 'tags-listbox-' + Math.random().toString(36).substr(2, 9);
 
-	const removeTag = (tag: number, e: Event) => {
+	const removeTag = (tag: number | string, e: Event) => {
 		e.stopPropagation();
 		selectedTags = selectedTags?.filter((t) => t !== tag) || [];
 		onChange?.(selectedTags);
 	};
 
-	const addTag = (tag: number) => {
+	const addTag = (tag: number | string) => {
 		if (!selectedTags?.includes(tag)) {
 			selectedTags = [...(selectedTags || []), tag];
 			onChange?.(selectedTags);

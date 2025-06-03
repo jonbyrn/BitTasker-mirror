@@ -10,17 +10,19 @@ export interface UploaderProps {
 	error?: string;
 	width?: number;
 	height?: number;
+	maxDuration?: number;
 	customClass?: string;
 	onChange?: (files: File[]) => void;
+	onRemove?: (index: number) => void;
 	onError?: (message: string) => void;
 }
 
 export interface TagsProps {
-	options?: { id: number; name: string }[];
-	selectedTags?: number[];
+	options?: { id: number | string; name: string }[];
+	selectedTags?: (number | string)[];
 	placeholder?: string;
 	error?: string;
-	onChange?: (tags: number[]) => void;
+	onChange?: (tags: (number | string)[]) => void;
 }
 
 export interface InputProps {
@@ -47,6 +49,9 @@ export interface InputProps {
 		| 'select';
 	autoComplete?: 'on' | 'off';
 	options?: { label: string; value: string }[];
+	min?: number;
+	max?: number;
+	step?: number;
 	onChange?: (option: { label: string; value: string }) => void;
 }
 

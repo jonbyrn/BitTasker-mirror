@@ -20,7 +20,7 @@
 
 	// Get user initials for badge
 	function getUserInitials(name: string): string {
-		if (!name) return '?';
+		if (!name) return '-';
 
 		const nameParts = name.split(' ');
 		if (nameParts.length === 1) return nameParts[0].charAt(0).toUpperCase();
@@ -82,9 +82,21 @@
 	<button
 		class="avatar placeholder text-neutral-content flex h-5 w-5 cursor-pointer items-center justify-center overflow-hidden rounded-full text-center {getSizeClass(
 			size
-		)} {getRandomColor(props.user.name)}"
+		)} {getRandomColor(props.user?.name)}"
 		onclick={props.onClick}
 	>
-		<span>{getUserInitials(props.user.name)}</span>
+		{#if props.user?.name}
+			<span>{getUserInitials(props.user?.name)}</span>
+		{:else}
+			<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
+				<g fill="none" stroke="black" stroke-width="1.5">
+					<circle cx="12" cy="6" r="4" />
+					<path
+						stroke-linecap="round"
+						d="M19.998 18q.002-.246.002-.5c0-2.485-3.582-4.5-8-4.5s-8 2.015-8 4.5S4 22 12 22c2.231 0 3.84-.157 5-.437"
+					/>
+				</g>
+			</svg>
+		{/if}
 	</button>
 {/if}
