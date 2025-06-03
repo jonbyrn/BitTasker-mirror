@@ -28,3 +28,17 @@ export interface SignedNostrEvent extends NostrEvent {
   id: string;  // Will always have an ID after signing
   sig: string; // Will always have a signature after signing
 }
+
+// Interface for Nostr filter
+export interface Filter {
+  ids?: string[];
+  authors?: string[];
+  kinds?: number[];
+  '#e'?: string[];
+  '#p'?: string[];
+  '#d'?: string[];
+  since?: number;
+  until?: number;
+  limit?: number;
+  [key: `#${string}`]: string[] | undefined;
+}

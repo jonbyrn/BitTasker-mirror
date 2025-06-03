@@ -2,12 +2,8 @@
 	import type { Location } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { Geolocation } from '@capacitor/geolocation';
-	import { Preferences } from '@capacitor/preferences';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
-	import { UpdateUserProfileStore } from '$houdini';
-
-	// Create the store for updating user profile with location
-	const profileStore = new UpdateUserProfileStore();
+	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
 
 	let { nextStep, prevStep, onLocationSelect = (location: Location) => {} } = $props();
 
@@ -148,7 +144,7 @@
 			if (initRetryCount >= maxRetries) {
 				throw new Error('Failed to initialize map after multiple attempts');
 			}
-			
+
 			// Only proceed if Google Maps is ready
 			if (!googleMapsReady) {
 				initRetryCount++;
@@ -156,12 +152,18 @@
 				setTimeout(tryInitMap, 1000);
 				return;
 			}
-			
+
 			await initMap();
 			isMapLoaded = true;
-			
-			// Try to get user's geolocation
-			getUserLocation();
+
+			const savedLocation = await getLatestLocation();
+			if (savedLocation) {
+				location = savedLocation;
+				createMarkerAndCircle(savedLocation.latitude!, savedLocation.longitude!);
+			} else {
+				// Try to get user's geolocation
+				getUserLocation();
+			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error = err instanceof Error ? err.message : 'Error initializing map';
@@ -171,15 +173,19 @@
 
 	onMount(async () => {
 		try {
+			isLoading = true;
+
 			// Load Google Maps API dynamically if not already loaded
 			await loadGoogleMapsScript();
-			
+
 			// Try to initialize the map
-			tryInitMap();
+			await tryInitMap();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
 			hasError = true;
+		} finally {
+			isLoading = false;
 		}
 	});
 
@@ -200,41 +206,28 @@
 				});
 
 				if (result.results[0]) {
-					const address = result.results[0];
+					const addressComponents = result.results[0].address_components;
+					const zipCode =
+						addressComponents.find((component) => component.types.includes('postal_code'))
+							?.short_name || '';
 
-					// Find zip/postal code
-					let postalCode = '';
-					for (const component of address.address_components) {
-						if (component.types.includes('postal_code')) {
-							postalCode = component.short_name;
-							break;
-						}
-					}
-
-					// Update location
+					// Update location state
 					location = {
-						displayName: address.formatted_address,
+						...location,
+						displayName: result.results[0].formatted_address,
 						latitude: lat,
 						longitude: lng,
-						zipCode: postalCode,
+						zipCode,
 						locationLoaded: true
 					};
 
-					// Call the callback function
-					if (onLocationSelect) {
-						onLocationSelect(location);
-					}
-
-					// Save location to preferences
-					await Preferences.set({
-						key: 'user_location',
-						value: JSON.stringify(location)
-					});
+					// Call the callback
+					onLocationSelect(location);
 				}
 			}
-		} catch (error) {
-			console.error('Error updating location:', error);
-			error = error instanceof Error ? error.message : 'Error updating location';
+		} catch (err: unknown) {
+			console.error('Error updating location:', err);
+			error = err instanceof Error ? err.message : 'Error updating location';
 		}
 	}
 
@@ -437,29 +430,17 @@
 				throw new Error('Please select a location');
 			}
 
-			// Update user location using GraphQL
-			const result = await profileStore.mutate({
-				input: {
-					location: {
-						displayName: location.displayName,
-						latitude: location.latitude,
-						longitude: location.longitude,
-						zipCode: location.zipCode,
-						serviceRadius: serviceRadius
-					}
-				}
-			});
+			// Publish location to Nostr
+			await publishLocation(location);
 
-			if (result.errors) {
-				error = result.errors.map((err) => err.message).join(', ');
-				throw new Error(result.errors[0].message);
-			}
+			// Call the callback
+			onLocationSelect(location);
 
 			// Go to next step
 			nextStep();
-		} catch (error) {
-			console.error('Error updating location:', error);
-			error = error instanceof Error ? error.message : 'Error updating location';
+		} catch (err: unknown) {
+			console.error('Error saving location:', err);
+			error = err instanceof Error ? err.message : 'Error saving location';
 		} finally {
 			isLoading = false;
 		}
@@ -630,7 +611,7 @@
 			</button>
 			<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
 				{#if !isMapLoaded}
-					<div class="bg-base-200 flex h-full w-full items-center justify-center">
+					<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
 						<span class="loading loading-spinner loading-lg"></span>
 					</div>
 				{/if}
@@ -692,7 +673,13 @@
 					<h3 class="font-bold">Map loading failed</h3>
 					<div class="text-xs">Try reloading the map</div>
 				</div>
-				<button class="btn btn-sm" onclick={() => { hasError = false; loadGoogleMapsScript().then(() => tryInitMap()); }}>
+				<button
+					class="btn btn-sm"
+					onclick={() => {
+						hasError = false;
+						loadGoogleMapsScript().then(() => tryInitMap());
+					}}
+				>
 					Retry
 				</button>
 			</div>
@@ -700,7 +687,12 @@
 
 		<div class="mt-6 flex justify-between">
 			<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-			<button type="button" class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
+			<button
+				type="button"
+				class="btn btn-primary"
+				onclick={handleSubmit}
+				disabled={isLoading || !location.locationLoaded}
+			>
 				{#if isLoading}
 					<span class="loading loading-spinner"></span>
 				{/if}
@@ -709,3 +701,9 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	:global(.pac-container) {
+		z-index: 9999;
+	}
+</style>

@@ -1,14 +1,14 @@
 # Nostr Tools Documentation
 
 ## Overview
-Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines for the package.
+Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines.
 
-## Core Components
+## Core Concepts
 
 ### Event Structure
 ```typescript
 interface Event {
-  id: string;      // Event ID (32-bytes lowercase hex) - computed from the event data
+  id: string;      // Event ID (32-bytes lowercase hex) - computed from event data
   pubkey: string;  // Publisher's public key (32-bytes lowercase hex)
   created_at: number; // Unix timestamp in seconds
   kind: number;    // Event kind (0 = metadata, 1 = text note, etc.)
@@ -18,18 +18,70 @@ interface Event {
 }
 ```
 
-### Event Creation Process
+### Event Kinds
 
-When creating a new event, you only need to provide the following fields:
-```typescript
-const eventTemplate = {
-  kind: number,
-  created_at: number,
-  tags: string[][],
-  content: string,
-  pubkey: string
-};
-```
+#### Kind Ranges
+- **Regular Events (0-9999)**
+  - Core protocol events
+  - Permanent, non-replaceable events
+  - Example: kind 0 for metadata, kind 1 for text notes
+
+- **Replaceable Events (10000-19999)**
+  - Single-instance replaceable events
+  - Latest event replaces all previous ones
+  - Used for user preferences and settings
+
+- **Ephemeral Events (20000-29999)**
+  - Short-lived events
+  - Not meant to be stored long-term
+  - Used for temporary or real-time data
+
+- **Parameterized Replaceable Events (30000-39999)**
+  - Multi-instance replaceable events
+  - Latest event replaces previous ones with same parameters
+  - Used for user-specific data sets
+
+#### Common Event Kinds
+- Basic Events (0-9):
+  - `0`: Metadata (Profile)
+  - `1`: Text Note
+  - `2`: Recommend Relay
+  - `3`: Contacts
+  - `4`: Encrypted Direct Messages
+  - `5`: Event Deletion
+  - `6`: Repost
+  - `7`: Reaction
+
+- Channel Events (40-44):
+  - `40`: Channel Creation
+  - `41`: Channel Metadata
+  - `42`: Channel Message
+  - `43`: Channel Hide Message
+  - `44`: Channel Mute User
+
+- Special Purpose (1000+):
+  - `1040`: OpenTimestamps
+  - `1063`: File Metadata
+  - `1311`: Live Chat Message
+  - `1984`: Report/Reporting
+  - `1985`: Label
+
+- Zap Related:
+  - `9734`: Zap Request
+  - `9735`: Zap
+
+- Lists and Preferences (10000+):
+  - `10000`: Mutelist
+  - `10001`: Pinlist
+  - `10002`: Relay List
+  - `10003`: Bookmark List
+
+- Parameterized Events (30000+):
+  - `30000`: Followsets
+  - `30001`: Genericlists
+  - `30023`: Long Form Article
+  - `30078`: Application
+  - `30402`: Classified Listing
 
 The `id` and `sig` fields are automatically computed when you call `finalizeEvent`:
 
@@ -68,7 +120,7 @@ console.log(signedEvent.sig);  // e.g., "79e85af3cd6c43324975466d32f91f291e10af0
 
 ### Event Tags
 
-Event tags are a fundamental feature that provide additional metadata and create relationships between events, users, and other entities. They are stored in the `tags` field as an array of arrays.
+Tags provide metadata and create relationships between events, users, and other entities.
 
 #### Tag Structure
 ```typescript
@@ -179,6 +231,72 @@ const listingEvent = {
   // ... other event fields
 };
 ```
+
+### Event Deletion (NIP-09)
+
+Event deletion in Nostr is handled through kind 5 events. These are deletion requests rather than actual deletions, as the decentralized nature of Nostr means events cannot be truly deleted from all relays.
+
+#### Deletion Event Structure
+```typescript
+const deletionEvent = {
+  kind: 5,
+  created_at: number,
+  tags: [
+    ["e", eventIdToDelete],  // Event reference to delete
+    ["k", eventKindToDelete] // Optional: kind of event being deleted
+  ],
+  content: string, // Optional reason for deletion
+  // ... other event fields
+};
+```
+
+#### Key Points About Deletion
+1. **Request Nature**: Deletion events are requests, not commands. Relays and clients may choose whether to honor them.
+2. **Validation**: Only the original event author can delete their events. Clients must verify the deletion event's pubkey matches the original event's pubkey.
+3. **Multiple Events**: A single deletion event can reference multiple events to delete using multiple "e" tags.
+4. **Parameterized Events**: For NIP-33 parameterized replaceable events, use the "a" tag to delete all versions:
+   ```typescript
+   ["a", "<kind>:<pubkey>:<d-identifier>"]
+   ```
+
+#### Example Usage
+```typescript
+// Create a deletion event
+const deletionEvent = {
+  kind: 5,
+  created_at: Math.floor(Date.now() / 1000),
+  tags: [
+    ["e", "event_id_to_delete"],
+    ["k", "1"] // Indicating we're deleting a kind 1 event
+  ],
+  content: "Deleting this post",
+  pubkey: myPubkey
+};
+
+// Sign and publish the deletion event
+const signedDeletionEvent = await window.nostr.signEvent(deletionEvent);
+await pool.publish(relays, signedDeletionEvent);
+```
+
+#### Client Implementation
+When implementing deletion in a client:
+1. Check for deletion events when fetching events:
+   ```typescript
+   // Subscribe to both the events and their potential deletion events
+   pool.subscribeMany(relays, [
+     { kinds: [1], limit: 50 }, // Original events
+     { kinds: [5], '#e': [event.id] } // Deletion events
+   ]);
+   ```
+
+2. Only display events that haven't been deleted:
+   ```typescript
+   // Verify deletion event author matches original event author
+   if (deletionEvent.pubkey === originalEvent.pubkey) {
+     // Hide or mark the event as deleted
+     event.deleted = true;
+   }
+   ```
 
 ### Event Kinds
 
@@ -698,7 +816,71 @@ For handling multiple images:
 
 The `SimplePool` class from nostr-tools (v2.13.0+) is used to interact with one or multiple relays. It provides a simplified interface for querying, subscribing to, and publishing events.
 
-### Importing
+#### Query vs Subscribe: Understanding the Difference
+
+SimplePool provides two main methods for fetching events: `querySync` and `subscribe`. Each serves a different purpose:
+
+1. **querySync**
+   ```typescript
+   const events = await pool.querySync(relays, filter)
+   ```
+   - **Purpose**: One-time fetch of historical events
+   - **Behavior**: 
+     - Returns a Promise that resolves with all matching events
+     - Waits until all relays respond or timeout
+     - Useful for initial data load
+     - Good for fetching past events
+   - **Use Cases**:
+     - Loading initial state
+     - Fetching historical data
+     - One-time data retrieval
+     - Synchronous operations
+
+2. **subscribe**
+   ```typescript
+   const sub = pool.subscribe(relays, filter, {
+     onevent(event) { /* handle event */ }
+   })
+   ```
+   - **Purpose**: Real-time event monitoring
+   - **Behavior**:
+     - Maintains an open connection
+     - Receives events as they happen
+     - Continues until explicitly closed
+     - Good for real-time updates
+   - **Use Cases**:
+     - Live updates
+     - Real-time notifications
+     - Continuous monitoring
+     - Event streaming
+
+#### Best Practice: Combining Both Methods
+
+Often, the best approach is to use both methods together:
+```typescript
+async function setupEventHandling() {
+  // 1. Load initial state
+  const historicalEvents = await pool.querySync(relays, filter);
+  processEvents(historicalEvents);
+
+  // 2. Subscribe to future updates
+  const sub = pool.subscribe(relays, filter, {
+    onevent(event) {
+      processEvent(event);
+    }
+  });
+
+  return () => sub.close(); // Cleanup function
+}
+```
+
+This pattern ensures:
+- Immediate access to historical data
+- Real-time updates for new events
+- No missed events during initial load
+- Efficient resource usage
+
+#### Importing
 
 ```typescript
 import { SimplePool } from 'nostr-tools/pool'
@@ -834,8 +1016,7 @@ interface Event {
 5. Consider using multiple relays for redundancy
 6. Use appropriate timeouts for queries and subscriptions
 7. Use querySync instead of deprecated list method for fetching events
-8. Don't pass configuration options to SimplePool constructor (v2.13.0+) 
-```
+8. Don't pass configuration options to SimplePool constructor (v2.13.0+) ```
 
 ### Event Updates in Nostr
 
@@ -988,4 +1169,151 @@ pool.subscribe([relay], {
         handleDeletions(deletedIds);
     }
 });
-``` 
+```
+
+### Event Kind Selection Guide
+
+#### Understanding Event Kinds
+
+Event kinds in Nostr serve different purposes based on their number ranges:
+
+1. **Basic Events (0-9)**
+   - Core protocol events
+   - Example: kind 0 for metadata, kind 1 for notes
+   - Permanent, non-replaceable events
+
+2. **Regular Events (1000-9999)**
+   - Application-specific data
+   - Permanent, non-replaceable events
+   - Used for immutable records and file metadata
+
+3. **Replaceable Events (10000-19999)**
+   - Single-instance replaceable events
+   - Latest event replaces all previous ones
+   - Used for user preferences and settings
+
+4. **Ephemeral Events (20000-29999)**
+   - Short-lived events
+   - Not meant to be stored long-term
+   - Used for temporary or real-time data
+
+5. **Parameterized Replaceable Events (30000-39999)**
+   - Multi-instance replaceable events
+   - Latest event replaces previous ones with same parameters
+   - Used for user-specific data sets
+
+#### Choosing Event Kinds: Decision Framework
+
+1. **Data Permanence**
+   - Immutable data → Regular events (1000-9999)
+   - Updatable data → Replaceable events (10000+ or 30000+)
+   - Temporary data → Ephemeral events (20000-29999)
+
+2. **Update Pattern**
+   - Single latest version needed → Replaceable events (10000-19999)
+   - Multiple instances with parameters → Parameterized replaceable (30000-39999)
+   - Historical record needed → Regular events (1000-9999)
+
+3. **Storage Requirements**
+   - Long-term storage → Regular or replaceable events
+   - Temporary storage → Ephemeral events
+   - Version history needed → Regular events
+
+#### Example: Skills and Certifications Implementation
+
+Here's a real-world example of choosing event kinds:
+
+1. **Skills List (Kind 30000)**
+   ```typescript
+   const skillsEvent = {
+       kind: 30000,
+       tags: [['d', 'skills'], ['t', 'skill']],
+       content: JSON.stringify(skills)
+   };
+   ```
+   - Why Kind 30000?
+     - Parameterized replaceable event
+     - Only latest version matters
+     - Single source of truth for current skills
+     - No need for version history
+
+2. **Certifications (Kind 1063)**
+   ```typescript
+   const certEvent = {
+       kind: 1063,
+       tags: [
+           ['d', 'certifications'],
+           ['t', 'certification'],
+           ['skill', skillName]
+       ],
+       content: JSON.stringify(certificationData)
+   };
+   ```
+   - Why Kind 1063?
+     - Regular event for file metadata
+     - Certifications are immutable records
+     - Historical record is important
+     - Each certification is a separate verifiable document
+
+#### Best Practices for Event Kind Selection
+
+1. **Use Regular Events (1000-9999) When:**
+   - Data needs to be immutable
+   - Historical record is important
+   - Each event is unique and permanent
+   - Example: Certifications, achievements, transactions
+
+2. **Use Replaceable Events (10000-19999) When:**
+   - Only the latest version matters
+   - Single instance per user needed
+   - Previous versions can be discarded
+   - Example: User preferences, profile settings
+
+3. **Use Parameterized Replaceable Events (30000-39999) When:**
+   - Multiple replaceable instances needed
+   - Data is organized by parameters
+   - Latest version per parameter matters
+   - Example: Skills lists, custom lists, categorized data
+
+4. **Use Ephemeral Events (20000-29999) When:**
+   - Data is temporary
+   - Real-time updates needed
+   - Storage is not critical
+   - Example: Online status, temporary notifications
+
+#### Implementation Considerations
+
+1. **Event Relationships**
+   ```typescript
+   // Link events using tags
+   const event = {
+       tags: [
+           ['e', relatedEventId],  // Reference another event
+           ['p', pubkey],          // Reference a user
+           ['d', identifier]       // Parameter for replaceable events
+       ]
+   };
+   ```
+
+2. **Data Organization**
+   ```typescript
+   // Group related data in replaceable events
+   const event = {
+       kind: 30000,
+       tags: [
+           ['d', 'category'],      // Parameter
+           ['t', 'type'],         // Type identifier
+           ['version', '1.0']     // Optional metadata
+       ]
+   };
+   ```
+
+3. **Version Management**
+   ```typescript
+   // Handle updates appropriately
+   const sub = pool.subscribe(relays, {
+       kinds: [30000],            // Replaceable events
+       '#d': ['identifier'],      // Specific parameter
+       authors: [pubkey]          // Specific user
+   });
+   ``` 
