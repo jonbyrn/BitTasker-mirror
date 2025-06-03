@@ -3,10 +3,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { appStore } from '$lib/stores/app.store';
-	import {
-		publishStandardServices,
-		subscribeToProfileUpdates
-	} from '$lib/nostr/profile';
+	import { publishStandardServices, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
 
 	let { onComplete } = $props<{
@@ -328,7 +325,9 @@
 			{#if isFormOpen}
 				<div class="card border-base-300 rounded-xl border p-4">
 					<h3 class="mb-4 text-lg font-medium">
-						{editingService ? $t('profile.services.edit_service') : $t('profile.services.add_service')}
+						{editingService
+							? $t('profile.services.edit_service')
+							: $t('profile.services.add_service')}
 					</h3>
 
 					<div class="space-y-4">
@@ -363,7 +362,7 @@
 							></textarea>
 						</div>
 
-						<div class="grid gap-4 md:grid-cols-3">
+						<div class="grid gap-4 md:grid-cols-2">
 							<!-- Duration -->
 							<div class="form-control">
 								<label class="label" for="serviceDuration">
@@ -388,9 +387,9 @@
 									<span class="label-text font-medium">{$t('profile.services.price')}</span>
 									<span class="label-text-alt">({$t('common.required')})</span>
 								</label>
-								<div class="join">
+								<div class="join w-full">
 									<select
-										class="select select-bordered join-item w-1/3"
+										class="select select-bordered join-item w-1/2"
 										bind:value={newService.currency}
 									>
 										{#each currencies as curr}
@@ -410,18 +409,18 @@
 									/>
 								</div>
 							</div>
+						</div>
 
-							<!-- Customizable -->
-							<div class="form-control">
-								<label class="label cursor-pointer">
-									<span class="label-text font-medium">Customizable</span>
-									<input
-										type="checkbox"
-										bind:checked={newService.isCustomizable}
-										class="checkbox checkbox-primary"
-									/>
-								</label>
-							</div>
+						<!-- Customizable -->
+						<div class="form-control flex items-center justify-start">
+							<label class="label cursor-pointer">
+								<span class="label-text font-medium">Customizable</span>
+								<input
+									type="checkbox"
+									bind:checked={newService.isCustomizable}
+									class="checkbox checkbox-primary"
+								/>
+							</label>
 						</div>
 
 						<!-- Error Message -->

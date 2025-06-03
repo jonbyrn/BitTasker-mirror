@@ -25,7 +25,7 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 401 - Invalid signature or unauthorized access
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async loginWithNostr(event: NostrEvent , challenge: string): Promise<{ access_token: string; user: UserData }> {
+	async loginWithNostr(event: NostrEvent, challenge: string): Promise<{ access_token: string; user: UserData }> {
 		try {
 			const response = await this.post<{ access_token: string; user: UserData }>(
 				ENDPOINTS.AUTH.NOSTR_LOGIN,
@@ -177,12 +177,16 @@ export class AuthService extends BaseApiService {
 	async checkRegistrationStatus(
 		publicKey: string
 	): Promise<{ isRegistered: boolean; hasEmail: boolean; onboardingComplete: boolean }> {
-		const response = await this.post<{
-			isRegistered: boolean;
-			hasEmail: boolean;
-			onboardingComplete: boolean;
-		}>(ENDPOINTS.AUTH.CHECK_REGISTRATION, { publicKey });
-		return response.data;
+		try {
+			const response = await this.post<{
+				isRegistered: boolean;
+				hasEmail: boolean;
+				onboardingComplete: boolean;
+			}>(ENDPOINTS.AUTH.CHECK_REGISTRATION, { publicKey });
+			return response.data;
+		} catch (error: any) {
+			throw new Error(error);
+		}
 	}
 
 	/**
@@ -205,12 +209,16 @@ export class AuthService extends BaseApiService {
 		lastUsed: string;
 		revokedAt: string;
 	}> {
-		const response = await this.post(ENDPOINTS.AUTH.REGISTER_PASSKEY, {
-			publicKey,
-			deviceId,
-			deviceName
-		});
-		return response.data;
+		try {
+			const response = await this.post(ENDPOINTS.AUTH.REGISTER_PASSKEY, {
+				publicKey,
+				deviceId,
+				deviceName
+			});
+			return response.data;
+		} catch (error: any) {
+			throw new Error(error);
+		}
 	}
 
 	/**

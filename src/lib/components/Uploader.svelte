@@ -24,7 +24,7 @@
 		// Check common video extensions
 		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
 		const urlLower = url.toLowerCase();
-		return videoExtensions.some(ext => urlLower.endsWith(ext));
+		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
 	async function validateFile(file: File): Promise<boolean> {
@@ -167,25 +167,6 @@
 </script>
 
 <div class="space-y-4">
-	{#if error}
-		<div class="alert alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>{error}</span>
-		</div>
-	{/if}
-
 	<div
 		class={maxFiles > 1
 			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
@@ -197,7 +178,7 @@
 					{#if isVideoURL(file)}
 						<video
 							src={file}
-							class="h-full w-full rounded-lg object-cover cursor-pointer"
+							class="h-full w-full cursor-pointer rounded-lg object-cover"
 							controls
 							muted={false}
 							autoplay={false}
@@ -211,7 +192,7 @@
 				{:else if file.type.startsWith('video/')}
 					<video
 						src={URL.createObjectURL(file)}
-						class="h-full w-full rounded-lg object-cover cursor-pointer"
+						class="h-full w-full cursor-pointer rounded-lg object-cover"
 						controls
 						muted={false}
 						autoplay={false}
@@ -273,7 +254,7 @@
 						<p class="label label-text mb-2 text-[10px] sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
-						<p class="label label-text text-[8px] whitespace-normal text-center sm:px-2">
+						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
 							{fileTypeText} (Max. {maxFileSize}MB{durationText})
 						</p>
 					</div>
@@ -289,4 +270,23 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if error}
+		<div class="alert alert-error alert-xs sm:alert-sm py-1">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<span>{error}</span>
+		</div>
+	{/if}
 </div>

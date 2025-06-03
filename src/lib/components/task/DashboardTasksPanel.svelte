@@ -297,4 +297,10 @@
 			<h3 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h3>
 		</div>
 	{/if}
+
+	{#if $tasksStore.errors}
+		<div class="py-12 text-center">
+			<h3 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h3>
+		</div>
+	{/if}
 </div>

@@ -1,5 +1,5 @@
 import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
-import type { NostrEvent, Filter, EventTemplate } from 'nostr-tools';
+import type { NostrEvent, Filter } from 'nostr-tools';
 import { profileStore } from '$lib/stores/profile.store';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
@@ -14,7 +14,7 @@ let profileSubscriptions = new Map<string, {
 }>();
 
 // Helper function to create subscription key
-function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined }): string {
+export function createSubscriptionKey(npub: string, kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined }): string {
     if (!kindFilters) {
         return `${npub}:default`;
     }
@@ -138,7 +138,6 @@ export async function subscribeToProfileUpdates(
  */
 export async function publishProfileMetadata(
     metadata: NostrProfile,
-    images: NostrProfileImage[],
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<NostrEvent> {
     // Create metadata event
