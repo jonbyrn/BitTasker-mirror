@@ -196,7 +196,7 @@
 						<div class="flex justify-between">
 							<div class="flex items-center gap-2">
 								<h3 class="card-title text-lg">{task.title}</h3>
-								{#if task.clientId === $user.id}
+								{#if task?.clientId === $user.id}
 									<div class="badge badge-accent">{$t('task.role.owner')}</div>
 								{/if}
 							</div>

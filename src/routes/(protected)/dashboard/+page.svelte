@@ -15,7 +15,7 @@
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
 		{ id: 'bids', label: $t('dashboard.tabs.bids') },
 		{ id: 'recurring', label: $t('dashboard.tabs.recurring') },
-		{ id: 'my-doers-tasks', label: 'My Doers Tasks' }
+		// { id: 'my-doers-tasks', label: 'My Doers Tasks' }
 	]);
 	let activeTab = $state('');
 
