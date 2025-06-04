@@ -1,11 +1,16 @@
 <script lang="ts">
+	import type { NostrProfile, NostrProfileImage, Skill } from '$lib/types/profile.d';
 	import { onMount, onDestroy } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { publishProfileMetadata, publishMultipleImages, subscribeToProfileUpdates, publishSkillsUpdate } from '$lib/nostr/profile';
+	import {
+		publishProfileMetadata,
+		publishMultipleImages,
+		subscribeToProfileUpdates,
+		publishSkillsUpdate
+	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import type { NostrProfile, NostrProfileImage, Skill } from '$lib/types/profile.d';
 
 	let { nextStep, prevStep } = $props<{
 		nextStep: () => void;
@@ -66,7 +71,10 @@
 						}
 					}
 					// Handle skills update
-					else if (event.kind === 30000 && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
+					else if (
+						event.kind === 30000 &&
+						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
+					) {
 						const skillsData = JSON.parse(event.content);
 						if (Array.isArray(skillsData)) {
 							skills = skillsData.map((skill) => ({
@@ -124,7 +132,17 @@
 			!skills.some((skill) => skill.name === skillsInput.trim()) &&
 			skills.length < 20
 		) {
-			skills = [...skills, { name: skillsInput.trim(), level: 1, verificationStatus: 'unverified', endorsements: 0, certifications: [], id: crypto.randomUUID() }];
+			skills = [
+				...skills,
+				{
+					name: skillsInput.trim(),
+					level: 1,
+					verificationStatus: 'unverified',
+					endorsements: 0,
+					certifications: [],
+					id: crypto.randomUUID()
+				}
+			];
 			skillsInput = '';
 		} else {
 			error = 'Skill already exists or is too short';

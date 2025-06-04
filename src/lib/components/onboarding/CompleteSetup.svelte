@@ -55,13 +55,13 @@
 						profile.displayName = metadata.displayName || '';
 						profile.professionalTitle = metadata.professionalTitle || '';
 						profile.about = metadata.about || '';
-						profile.picture = metadata.pictures?.[0]?.url || null;
 						checkCompletionStatus();
 					} else if (event.kind === 30063) {
 						// Handle profile images
 						const images = JSON.parse(event.content);
 						if (images.length > 0) {
 							profile.picture = images[0].url;
+							checkCompletionStatus();
 						}
 					} else if (
 						event.kind === 30005 &&
