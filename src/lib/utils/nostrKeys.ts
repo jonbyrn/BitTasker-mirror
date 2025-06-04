@@ -36,7 +36,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     }
 
     const sk = await decryptNsecWithBiometrics(biometricData.password);
-    const nsec = hexToBytes(sk);
+    const nsec = hexToBytes(sk); 
     const npub = biometricData.username;
     await Preferences.set({ key: 'npub', value: npub });
     return { nsec, npub };

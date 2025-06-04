@@ -4,8 +4,9 @@
 	import { linear } from 'svelte/easing';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { nip19 } from 'nostr-tools';
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
-	import { encryptNsec, getNpubFromEncodedNsec } from '$lib/utils/helpers/auth';
+	import { encryptNsec } from '$lib/utils/helpers/auth';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
@@ -239,7 +240,7 @@
 				return;
 			}
 
-			// If importing key, validate it
+			// If importing key, validate it and convert to hex
 			if (importNostrKey) {
 				const validation = validateNostrPrivateKey(nsec);
 				if (!validation.isValid) {
@@ -247,14 +248,25 @@
 					return;
 				}
 
-				// Get npub from nsec
-				npub = getNpubFromEncodedNsec(nsec);
+				try {
+					// Convert nsec to hex format
+					const { type, data } = nip19.decode(nsec);
+					if (type !== 'nsec') {
+						nsecError = 'Invalid nsec format';
+						return;
+					}
+					// Convert Uint8Array to hex
+					nsec = bytesToHex(data);
+					// Get public key
+					npub = getPublicKey(data);
+				} catch (err) {
+					nsecError = 'Invalid private key';
+					return;
+				}
 			} else {
 				// Generate key pair
 				({ npub, nsec } = await generateKeyPair());
 			}
-
-			await register(username, npub, nsec);
 
 			// Validate recovery password if enabled
 			if (enableRecovery) {
@@ -284,9 +296,10 @@
 					passwordError = validation.error!;
 					return;
 				}
-
-				await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
 			}
+
+			await register(username, npub, nsec);
+			if (enableRecovery) await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
 
 			// Go to the next step
 			nextStep();
