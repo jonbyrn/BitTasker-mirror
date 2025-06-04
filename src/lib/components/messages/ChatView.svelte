@@ -4,7 +4,8 @@
 		getMessageHistory,
 		sendDirectMessage,
 		fetchProfileMetadata,
-		listenForIncomingMessages
+		listenForIncomingMessages,
+		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
 	import ChatMessage from './ChatMessage.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
@@ -29,6 +30,7 @@
 	let isSendingMessage = $state(false);
 	let error = $state('');
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
+	let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: 'You' });
 
 	// Pagination state
 	let isLoadingMore = $state(false);
@@ -44,8 +46,10 @@
 	let messagesContainer: HTMLDivElement;
 	let messageInput: HTMLTextAreaElement;
 
-	// Real-time subscription
+	// Real-time subscriptions
 	let unsubscribe: (() => void) | null = null;
+	let profileUnsubscribe: (() => void) | null = null;
+	let currentUserProfileUnsubscribe: (() => void) | null = null;
 
 	// Configuration
 	const MESSAGES_PER_PAGE = 50;
@@ -82,6 +86,8 @@
 			resetPagination();
 			loadMessages();
 			setupRealtimeListener();
+			setupProfileSubscription();
+			setupCurrentUserProfileSubscription();
 			loadDraft();
 		}
 
@@ -90,6 +96,14 @@
 			if (unsubscribe) {
 				unsubscribe();
 				unsubscribe = null;
+			}
+			if (profileUnsubscribe) {
+				profileUnsubscribe();
+				profileUnsubscribe = null;
+			}
+			if (currentUserProfileUnsubscribe) {
+				currentUserProfileUnsubscribe();
+				currentUserProfileUnsubscribe = null;
 			}
 		};
 	});
@@ -130,6 +144,12 @@
 	onDestroy(() => {
 		if (unsubscribe) {
 			unsubscribe();
+		}
+		if (profileUnsubscribe) {
+			profileUnsubscribe();
+		}
+		if (currentUserProfileUnsubscribe) {
+			currentUserProfileUnsubscribe();
 		}
 		if (draftSaveTimeout) {
 			clearTimeout(draftSaveTimeout);
@@ -383,6 +403,56 @@
 		});
 	}
 
+	function setupProfileSubscription() {
+		// Clean up existing subscription
+		if (profileUnsubscribe) {
+			profileUnsubscribe();
+		}
+
+		console.log('🎧 Setting up profile subscription for:', recipientPubkey);
+		console.log('🎧 recipientPubkey format check:', {
+			recipientPubkey,
+			isNpub: recipientPubkey.startsWith('npub'),
+			recipientHex: recipientHex()
+		});
+
+		// Setup new subscription for profile updates
+		profileUnsubscribe = subscribeToProfileUpdates(recipientPubkey, (profile) => {
+			console.log('📨 Profile update received in ChatView for:', recipientPubkey);
+			console.log('📨 Profile update details - name:', profile.name, 'picture:', profile.picture);
+
+			// Create a new object reference to ensure Svelte reactivity
+			recipientProfile = { ...profile };
+
+			console.log('📨 Updated recipientProfile state:', recipientProfile);
+		});
+	}
+
+	function setupCurrentUserProfileSubscription() {
+		// Clean up existing subscription
+		if (currentUserProfileUnsubscribe) {
+			currentUserProfileUnsubscribe();
+		}
+
+		console.log('🎧 Setting up current user profile subscription for:', currentUserPubkey);
+
+		// Fetch current user's initial profile
+		fetchProfileMetadata(currentUserHex())
+			.then((profile) => {
+				console.log('📨 Current user profile fetched:', profile);
+				currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
+			})
+			.catch((err) => {
+				console.error('Failed to fetch current user profile:', err);
+			});
+
+		// Setup new subscription for current user profile updates
+		currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserPubkey, (profile) => {
+			console.log('📨 Current user profile update received:', profile);
+			currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
+		});
+	}
+
 	async function sendMessage() {
 		if (!newMessageText.trim() || isSendingMessage) return;
 
@@ -470,6 +540,15 @@
 <div class="flex h-full flex-col">
 	<!-- Chat Header -->
 	<div class="border-base-300 flex items-center gap-3 border-b p-4">
+		{@html (() => {
+			console.log('🔍 Chat header rendering with recipientProfile:', {
+				name: recipientProfile.name,
+				picture: recipientProfile.picture,
+				fullProfile: recipientProfile
+			});
+			return '';
+		})()}
+
 		<Avatar
 			user={{
 				name: recipientProfile.name || 'Unknown',
@@ -581,7 +660,9 @@
 					<ChatMessage
 						{message}
 						isSender={message.senderPubkey === currentUserHex()}
-						profile={message.senderPubkey === currentUserHex() ? { name: 'You' } : recipientProfile}
+						profile={message.senderPubkey === currentUserHex()
+							? currentUserProfile
+							: recipientProfile}
 					/>
 				{/each}
 			{/if}

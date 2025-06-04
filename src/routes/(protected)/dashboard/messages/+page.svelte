@@ -3,8 +3,10 @@
 	import {
 		fetchProfileMetadata,
 		getMessagedPeople,
-		listenForIncomingMessages
+		listenForIncomingMessages,
+		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
+	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { nip19 } from 'nostr-tools';
@@ -25,6 +27,21 @@
 	let selectedPubkey = $state<string | null>(null);
 	let currentUserNpub = $state<string>('');
 
+	// Search state
+	let searchQuery = $state('');
+	let filteredConversations = $derived(
+		conversationManager.searchConversations(
+			conversations.map((c) => ({
+				pubkey: c.pubkey,
+				lastEvent: c.lastEvent,
+				lastMessage: c.lastEvent.content || '',
+				lastMessageTime: c.lastEvent.created_at,
+				profile: c.profile
+			})),
+			searchQuery
+		)
+	);
+
 	// Modal state
 	let showModal = $state(false);
 	let newMessagePubkey = $state('');
@@ -35,6 +52,9 @@
 	// Real-time subscription for conversation list updates
 	let conversationListUnsubscribe: (() => void) | null = null;
 
+	// Profile subscriptions map to track individual profile updates
+	let profileSubscriptions = new Map<string, () => void>();
+
 	// Load conversations and handle URL parameters on mount
 	onMount(async () => {
 		try {
@@ -44,6 +64,11 @@
 			// Load existing conversations
 			const people = await getMessagedPeople();
 			conversations = people;
+
+			// Setup profile subscriptions for existing conversations
+			for (const conversation of conversations) {
+				setupProfileSubscription(conversation.pubkey);
+			}
 
 			// Handle chatWith URL parameter
 			const chatWithParam = $page.url.searchParams.get('chatWith');
@@ -73,6 +98,9 @@
 								},
 								...conversations
 							];
+
+							// Setup profile subscription for new conversation
+							setupProfileSubscription(hexPubkey);
 						} catch (profileErr) {
 							console.error('Failed to fetch profile for chatWith user:', profileErr);
 						}
@@ -96,6 +124,12 @@
 		if (conversationListUnsubscribe) {
 			conversationListUnsubscribe();
 		}
+
+		// Clean up all profile subscriptions
+		for (const unsubscribe of profileSubscriptions.values()) {
+			unsubscribe();
+		}
+		profileSubscriptions.clear();
 	});
 
 	function setupConversationListListener() {
@@ -147,11 +181,39 @@
 
 					// Add to top of conversations
 					conversations = [newConversation, ...conversations];
+
+					// Setup profile subscription for new conversation
+					setupProfileSubscription(senderPubkey);
 				} catch (err) {
 					console.error('Failed to fetch profile for new conversation:', err);
 				}
 			}
 		});
+	}
+
+	function setupProfileSubscription(pubkey: string) {
+		// Don't subscribe if already subscribed
+		if (profileSubscriptions.has(pubkey)) {
+			return;
+		}
+
+		console.log('🎧 Setting up profile subscription for conversation:', pubkey);
+
+		const unsubscribe = subscribeToProfileUpdates(pubkey, (profile) => {
+			// Update the conversation with new profile data
+			const conversationIndex = conversations.findIndex((c) => c.pubkey === pubkey);
+			if (conversationIndex >= 0) {
+				conversations[conversationIndex] = {
+					...conversations[conversationIndex],
+					profile: profile
+				};
+
+				// Trigger reactivity
+				conversations = [...conversations];
+			}
+		});
+
+		profileSubscriptions.set(pubkey, unsubscribe);
 	}
 
 	// Handle conversation selection
@@ -352,6 +414,36 @@
 		{:else}
 			<!-- Conversation List -->
 			<div class="card-body p-4">
+				<!-- Search Input -->
+				{#if conversations.length > 0}
+					<div class="mb-4">
+						<div class="relative">
+							<input
+								type="text"
+								placeholder="Search conversations..."
+								class="input input-bordered w-full pl-10"
+								bind:value={searchQuery}
+							/>
+							<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 text-gray-400"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+									/>
+								</svg>
+							</div>
+						</div>
+					</div>
+				{/if}
+
 				{#if isLoading}
 					<!-- Loading State -->
 					<div class="space-y-4">
@@ -405,32 +497,59 @@
 						<button class="btn btn-primary mt-4" onclick={startNewMessage}>Start New Message</button
 						>
 					</div>
+				{:else if filteredConversations.length === 0}
+					<!-- No Search Results -->
+					<div class="py-12 text-center">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-base-content/30 mx-auto h-12 w-12"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+							/>
+						</svg>
+						<h3 class="mt-4 text-lg font-semibold">No conversations found</h3>
+						<p class="text-base-content/60 mt-1">Try a different search term</p>
+						<button class="btn btn-ghost mt-4" onclick={() => (searchQuery = '')}>
+							Clear search
+						</button>
+					</div>
 				{:else}
 					<!-- Conversation List -->
 					<div class="space-y-2">
-						{#each conversations as conversation}
+						{#each filteredConversations as conversation}
 							<button
 								class="hover:bg-base-200 flex w-full items-center gap-4 rounded-lg p-3 transition-colors"
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
-								<Avatar
-									user={{
-										name: conversation.profile.name || 'Unknown',
-										profileImage: conversation.profile.picture || null
-									}}
-									size="md"
-								/>
-								<div class="flex-1 text-left">
-									<div class="flex items-baseline justify-between">
+								<div class="flex w-10 items-center gap-2 rounded-full">
+									<img
+										src={conversation.profile.picture}
+										alt={conversation.profile.name || 'Unknown'}
+										class="h-10 w-10 rounded-full"
+										width={40}
+										height={40}
+									/>
+								</div>
+								<div class="">
+									<div class="flex flex-col items-baseline justify-between">
 										<h3 class="font-medium">
 											{conversation.profile.name || conversation.pubkey.slice(0, 8) + '...'}
 										</h3>
 										<span class="text-base-content/60 text-sm">
-											{formatTimeAgo(new Date(conversation.lastEvent.created_at * 1000))}
+											{formatTimeAgo(new Date(conversation.lastMessageTime * 1000))}
 										</span>
 									</div>
-									<p class="text-base-content/60 line-clamp-1 text-sm">
-										{conversation.lastEvent.content}
+									<p
+										class="text-base-content/60 line-clamp-1 max-w-[500px] overflow-hidden text-sm text-ellipsis"
+									>
+										{conversation.lastMessage}
 									</p>
 								</div>
 							</button>

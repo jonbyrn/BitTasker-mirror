@@ -1,10 +1,12 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import { nip04, nip19 } from 'nostr-tools';
+import { nip19 } from 'nostr-tools';
+import nip44 from '$lib/nostr/nip44';
 import { getNostrKeyPair } from './nostrKeys';
 import { bytesToHex } from '@noble/hashes/utils';
 import { subscribeToEvents, getSignedEvent } from './nostr';
 import { PUBLIC_NOSTR_RELAY_URL, PUBLIC_NOSTR_RELAY_URL_MOCK4 } from '$env/static/public';
 import { appStore } from '$lib/stores/app.store';
+import { profileCache } from './profile-cache';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [
@@ -131,7 +133,14 @@ async function encryptDM(
 	recipientPubkey: string,
 	senderPrivkey: string
 ): Promise<string> {
-	return nip04.encrypt(senderPrivkey, recipientPubkey, plaintext);
+	// Generate 32-byte nonce
+	const nonce = crypto.getRandomValues(new Uint8Array(32));
+
+	// Get conversation key
+	const conversationKey = await nip44.getConversationKey(senderPrivkey, recipientPubkey);
+
+	// Encrypt with NIP-44
+	return nip44.encrypt(plaintext, conversationKey, nonce);
 }
 
 async function decryptDM(
@@ -139,7 +148,11 @@ async function decryptDM(
 	senderPubkey: string,
 	recipientPrivkey: string
 ): Promise<string> {
-	return nip04.decrypt(recipientPrivkey, senderPubkey, ciphertext);
+	// Get conversation key
+	const conversationKey = await nip44.getConversationKey(recipientPrivkey, senderPubkey);
+
+	// Decrypt with NIP-44
+	return nip44.decrypt(ciphertext, conversationKey);
 }
 
 async function parseDMEvent(
@@ -173,41 +186,223 @@ async function parseDMEvent(
 	return { plaintext, senderPubkey };
 }
 
+/**
+ * Subscribe to profile updates for a specific pubkey
+ * Returns an unsubscribe function
+ */
+export function subscribeToProfileUpdates(
+	pubkey: string,
+	callback: (profile: { name?: string; picture?: string }) => void,
+	relays: string[] = DEFAULT_RELAYS
+): () => void {
+	let sub: any = null;
+
+	const setupSubscription = async () => {
+		const { SimplePool } = await import('nostr-tools/pool');
+		const pool = new SimplePool();
+
+		try {
+			// Convert pubkey to hex format if it's in npub format
+			const pubkeyHex = pubkey.startsWith('npub') ? (nip19.decode(pubkey).data as string) : pubkey;
+
+			const filter: Filter = {
+				kinds: [0, 1063, 30063], // Profile metadata, file metadata, and profile images
+				authors: [pubkeyHex]
+			};
+
+			console.log('📺 Setting up profile subscription for:', pubkey);
+
+			let profile: { name?: string; picture?: string } = {};
+
+			sub = pool.subscribe(relays, filter, {
+				onevent: async (event: NostrEvent) => {
+					// Create a new profile object for each update to ensure reactivity
+					let updatedProfile: { name?: string; picture?: string } = { ...profile };
+
+					if (event.kind === 0 && event.content) {
+						try {
+							const content = JSON.parse(event.content);
+							// Map displayName to name if name is not available
+							updatedProfile.name = content.name || content.displayName;
+							updatedProfile.picture = content.picture || content.avatar || content.image;
+						} catch (e) {
+							console.error('❌ Failed to parse profile metadata in subscription:', e);
+						}
+					} else if (event.kind === 30063) {
+						// Handle kind 30063 (profile images) - same as fetchProfileMetadata
+						const dTag = event.tags.find((t) => t[0] === 'd');
+
+						if (dTag && dTag[1] === 'profile-images') {
+							try {
+								const images = JSON.parse(event.content);
+
+								if (Array.isArray(images) && images.length > 0) {
+									// Use the first image as the primary profile picture
+									updatedProfile.picture = images[0].url;
+									console.log(
+										'✅ Profile subscription found picture from images:',
+										updatedProfile.picture
+									);
+								}
+							} catch (e) {
+								console.error('❌ Failed to parse profile images in subscription:', e);
+							}
+						}
+					} else if (event.kind === 1063) {
+						const urlTag = event.tags.find((t) => t[0] === 'url');
+						const altTag = event.tags.find((t) => t[0] === 'alt');
+						const mTag = event.tags.find((t) => t[0] === 'm');
+
+						if (urlTag && urlTag[1]) {
+							const alt = altTag && altTag[1] ? altTag[1].toLowerCase() : '';
+							const mime = mTag && mTag[1] ? mTag[1].toLowerCase() : '';
+
+							if (
+								alt.includes('profile') ||
+								alt.includes('avatar') ||
+								mime.startsWith('image/') ||
+								urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
+							) {
+								updatedProfile.picture = urlTag[1];
+							}
+						}
+					}
+
+					// Update the profile reference
+					profile = updatedProfile;
+
+					console.log('📺 Profile subscription update:', profile);
+
+					// Update cache
+					await profileCache.cacheProfile(pubkeyHex, profile);
+
+					// Notify callback with debug info
+					console.log('🔔 About to call profile callback with:', JSON.stringify(profile, null, 2));
+					callback(profile);
+				}
+			});
+		} catch (error) {
+			console.error('❌ Failed to setup profile subscription:', error);
+		}
+	};
+
+	// Start subscription
+	setupSubscription().catch(console.error);
+
+	// Return cleanup function
+	return () => {
+		if (sub) {
+			sub.close();
+		}
+	};
+}
+
 export async function fetchProfileMetadata(
 	pubkey: string
 ): Promise<{ name?: string; picture?: string }> {
 	try {
+		console.log('🔍 Fetching profile metadata for pubkey:', pubkey);
+
+		// First check cache
+		const cachedProfile = await profileCache.getProfile(pubkey);
+		if (cachedProfile) {
+			console.log('✅ Found cached profile:', cachedProfile);
+			return cachedProfile;
+		}
+
+		// If not in cache, fetch from relays
 		const filter: Filter = {
-			kinds: [0, 1063],
+			kinds: [0, 1063, 30063, 10002], // Profile metadata, file metadata, profile images, and NIP-65 relay list
 			authors: [pubkey],
-			limit: 10
+			limit: 20 // Increased limit to get more profile events
 		};
 
 		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+		console.log('📨 Received', events.length, 'events from relays');
 
 		let name: string | undefined = undefined;
 		let picture: string | undefined = undefined;
 
-		for (const event of events) {
+		// Sort events by created_at (newest first) to get the latest profile info
+		const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+
+		for (const event of sortedEvents) {
 			if (event.kind === 0 && event.content) {
 				try {
 					const content = JSON.parse(event.content);
-					name = content.name;
-					picture = content.picture;
+
+					// Map displayName to name if name is not available
+					if ((content.name || content.displayName) && !name) {
+						name = content.name || content.displayName;
+					}
+
+					if (content.picture && !picture) {
+						picture = content.picture;
+					}
+
+					// Also check for other common picture fields
+					if (!picture && content.avatar) {
+						picture = content.avatar;
+					}
+
+					if (!picture && content.image) {
+						picture = content.image;
+					}
 				} catch (e) {
-					console.error('Failed to parse profile metadata:', e);
+					console.error('❌ Failed to parse profile metadata:', e);
+				}
+			} else if (event.kind === 30063) {
+				// Handle kind 30063 (profile images) - same technique as profile page
+				const dTag = event.tags.find((t) => t[0] === 'd');
+
+				// Check if this is the profile-images event (same as profile page)
+				if (dTag && dTag[1] === 'profile-images' && !picture) {
+					try {
+						const images = JSON.parse(event.content);
+
+						if (Array.isArray(images) && images.length > 0) {
+							// Use the first image as the primary profile picture (same as profile page)
+							picture = images[0].url;
+							console.log('✅ Found picture from profile images (30063):', picture);
+						}
+					} catch (e) {
+						console.error('❌ Failed to parse profile images content:', e);
+					}
 				}
 			} else if (event.kind === 1063) {
 				const urlTag = event.tags.find((t) => t[0] === 'url');
-				if (urlTag && urlTag[1]) {
-					picture = urlTag[1];
+				const altTag = event.tags.find((t) => t[0] === 'alt');
+				const mTag = event.tags.find((t) => t[0] === 'm'); // MIME type
+
+				if (urlTag && urlTag[1] && !picture) {
+					// Check if this is likely a profile picture
+					const alt = altTag && altTag[1] ? altTag[1].toLowerCase() : '';
+					const mime = mTag && mTag[1] ? mTag[1].toLowerCase() : '';
+
+					if (
+						alt.includes('profile') ||
+						alt.includes('avatar') ||
+						mime.startsWith('image/') ||
+						urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
+					) {
+						picture = urlTag[1];
+						console.log('✅ Found picture from file metadata:', picture);
+					}
 				}
 			}
 		}
 
-		return { name, picture };
+		const profile = { name, picture };
+		console.log('🎯 Final profile result:', profile);
+
+		// Cache the result (even if empty, to avoid repeated failed requests)
+		await profileCache.cacheProfile(pubkey, profile);
+
+		return profile;
 	} catch (error) {
-		console.error('Failed to fetch profile metadata:', error);
+		console.error('💥 Failed to fetch profile metadata for', pubkey, ':', error);
+		// Cache empty result to avoid repeated failed requests
+		await profileCache.cacheProfile(pubkey, {});
 		return {};
 	}
 }
@@ -284,9 +479,43 @@ export function listenForIncomingMessages(
 
 		try {
 			const { nsec, npub } = await getNostrKeyPair();
+			console.log('Raw keys from getNostrKeyPair:');
+			console.log('nsec length:', nsec?.length);
+			console.log('npub:', npub);
+			console.log('npub type:', typeof npub);
+			console.log('npub length:', npub?.length);
+
+			// Validate npub format before attempting to decode
+			if (!npub || typeof npub !== 'string') {
+				throw new Error('Invalid npub: not a string or empty');
+			}
+
 			privkey = bytesToHex(nsec);
-			// Convert npub to hex format for relay filters
-			pubkeyHex = nip19.decode(npub).data as string;
+
+			// Handle both hex and npub formats
+			if (npub.startsWith('npub')) {
+				// It's already in npub format, decode it
+				try {
+					const decoded = nip19.decode(npub);
+					if (decoded.type !== 'npub') {
+						throw new Error(`Expected npub type, got: ${decoded.type}`);
+					}
+					pubkeyHex = decoded.data as string;
+				} catch (decodeError) {
+					console.error('Failed to decode npub:', decodeError);
+					throw new Error(`Failed to decode npub ${npub}: ${(decodeError as Error).message}`);
+				}
+			} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
+				// It's a hex string, use it directly
+				pubkeyHex = npub.toLowerCase();
+				console.log('Using hex pubkey directly:', pubkeyHex);
+			} else {
+				throw new Error(
+					`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
+				);
+			}
+
+			console.log('Successfully processed pubkey hex:', pubkeyHex);
 
 			// Listen for both incoming messages (where current user is in #p tag)
 			// and outgoing messages (where current user is the author)
@@ -394,8 +623,35 @@ export async function getMessageHistory(
 	try {
 		const { nsec, npub } = await getNostrKeyPair();
 		const privkey = bytesToHex(nsec);
-		// Convert npub to hex format for relay filters
-		const pubkeyHex = nip19.decode(npub).data as string;
+
+		// Validate and convert npub to hex format for relay filters
+		if (!npub || typeof npub !== 'string') {
+			throw new Error('Invalid npub: not a string or empty');
+		}
+
+		let pubkeyHex: string;
+
+		// Handle both hex and npub formats
+		if (npub.startsWith('npub')) {
+			// It's already in npub format, decode it
+			try {
+				const decoded = nip19.decode(npub);
+				if (decoded.type !== 'npub') {
+					throw new Error(`Expected npub type, got: ${decoded.type}`);
+				}
+				pubkeyHex = decoded.data as string;
+			} catch (decodeError) {
+				console.error('Failed to decode npub:', decodeError);
+				throw new Error(`Failed to decode npub ${npub}: ${(decodeError as Error).message}`);
+			}
+		} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
+			// It's a hex string, use it directly
+			pubkeyHex = npub.toLowerCase();
+		} else {
+			throw new Error(
+				`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
+			);
+		}
 
 		// Convert withPubkey to hex if it's in npub format
 		const withPubkeyHex = withPubkey.startsWith('npub')
@@ -524,8 +780,35 @@ export async function getMessagedPeople(): Promise<
 > {
 	try {
 		const { npub } = await getNostrKeyPair();
-		// Convert npub to hex format for relay filters
-		const pubkeyHex = nip19.decode(npub).data as string;
+
+		// Validate and convert npub to hex format for relay filters
+		if (!npub || typeof npub !== 'string') {
+			throw new Error('Invalid npub: not a string or empty');
+		}
+
+		let pubkeyHex: string;
+
+		// Handle both hex and npub formats
+		if (npub.startsWith('npub')) {
+			// It's already in npub format, decode it
+			try {
+				const decoded = nip19.decode(npub);
+				if (decoded.type !== 'npub') {
+					throw new Error(`Expected npub type, got: ${decoded.type}`);
+				}
+				pubkeyHex = decoded.data as string;
+			} catch (decodeError) {
+				console.error('Failed to decode npub:', decodeError);
+				throw new Error(`Failed to decode npub ${npub}: ${(decodeError as Error).message}`);
+			}
+		} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
+			// It's a hex string, use it directly
+			pubkeyHex = npub.toLowerCase();
+		} else {
+			throw new Error(
+				`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
+			);
+		}
 
 		const sentFilter: Filter = {
 			kinds: [4],

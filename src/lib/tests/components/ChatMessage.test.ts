@@ -174,6 +174,40 @@ describe('ChatMessage Component', () => {
 				});
 			}).not.toThrow();
 		});
+
+		it('should handle profile pictures from enhanced fetching system', () => {
+			const profileWithEnhancedPicture = {
+				name: 'Test User',
+				picture: 'https://example.com/profile-images/avatar.jpg' // Picture from kind 30063 events
+			};
+
+			expect(() => {
+				render(ChatMessage, {
+					message: defaultMessage,
+					isSender: false,
+					profile: profileWithEnhancedPicture
+				});
+			}).not.toThrow();
+		});
+
+		it('should handle profile picture from various sources', () => {
+			const testCases = [
+				{ name: 'User 1', picture: 'https://example.com/kind0-picture.jpg' }, // From kind 0 metadata
+				{ name: 'User 2', picture: 'https://example.com/kind30063-picture.jpg' }, // From kind 30063 profile images
+				{ name: 'User 3', picture: 'https://example.com/kind1063-picture.jpg' }, // From kind 1063 file metadata
+				{ name: 'User 4', picture: null } // No picture
+			];
+
+			testCases.forEach((profile, index) => {
+				expect(() => {
+					render(ChatMessage, {
+						message: { ...defaultMessage, plaintext: `Message ${index + 1}` },
+						isSender: false,
+						profile
+					});
+				}).not.toThrow();
+			});
+		});
 	});
 
 	describe('Error handling', () => {
