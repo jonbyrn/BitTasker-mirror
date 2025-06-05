@@ -197,8 +197,6 @@
 			return;
 		}
 
-		console.log('🎧 Setting up profile subscription for conversation:', pubkey);
-
 		const unsubscribe = subscribeToProfileUpdates(pubkey, (profile) => {
 			// Update the conversation with new profile data
 			const conversationIndex = conversations.findIndex((c) => c.pubkey === pubkey);
@@ -532,7 +530,7 @@
 									<img
 										src={conversation.profile.picture}
 										alt={conversation.profile.name || 'Unknown'}
-										class="h-10 w-10 rounded-full"
+										class="h-10 w-10 rounded-full object-cover"
 										width={40}
 										height={40}
 									/>

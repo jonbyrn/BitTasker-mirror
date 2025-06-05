@@ -209,9 +209,6 @@ export function subscribeToProfileUpdates(
 				kinds: [0, 1063, 30063], // Profile metadata, file metadata, and profile images
 				authors: [pubkeyHex]
 			};
-
-			console.log('📺 Setting up profile subscription for:', pubkey);
-
 			let profile: { name?: string; picture?: string } = {};
 
 			sub = pool.subscribe(relays, filter, {
@@ -239,10 +236,6 @@ export function subscribeToProfileUpdates(
 								if (Array.isArray(images) && images.length > 0) {
 									// Use the first image as the primary profile picture
 									updatedProfile.picture = images[0].url;
-									console.log(
-										'✅ Profile subscription found picture from images:',
-										updatedProfile.picture
-									);
 								}
 							} catch (e) {
 								console.error('❌ Failed to parse profile images in subscription:', e);
@@ -271,13 +264,10 @@ export function subscribeToProfileUpdates(
 					// Update the profile reference
 					profile = updatedProfile;
 
-					console.log('📺 Profile subscription update:', profile);
-
 					// Update cache
 					await profileCache.cacheProfile(pubkeyHex, profile);
 
 					// Notify callback with debug info
-					console.log('🔔 About to call profile callback with:', JSON.stringify(profile, null, 2));
 					callback(profile);
 				}
 			});
@@ -301,12 +291,9 @@ export async function fetchProfileMetadata(
 	pubkey: string
 ): Promise<{ name?: string; picture?: string }> {
 	try {
-		console.log('🔍 Fetching profile metadata for pubkey:', pubkey);
-
 		// First check cache
 		const cachedProfile = await profileCache.getProfile(pubkey);
 		if (cachedProfile) {
-			console.log('✅ Found cached profile:', cachedProfile);
 			return cachedProfile;
 		}
 
@@ -318,7 +305,6 @@ export async function fetchProfileMetadata(
 		};
 
 		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
-		console.log('📨 Received', events.length, 'events from relays');
 
 		let name: string | undefined = undefined;
 		let picture: string | undefined = undefined;
@@ -363,7 +349,6 @@ export async function fetchProfileMetadata(
 						if (Array.isArray(images) && images.length > 0) {
 							// Use the first image as the primary profile picture (same as profile page)
 							picture = images[0].url;
-							console.log('✅ Found picture from profile images (30063):', picture);
 						}
 					} catch (e) {
 						console.error('❌ Failed to parse profile images content:', e);
@@ -386,14 +371,12 @@ export async function fetchProfileMetadata(
 						urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
 					) {
 						picture = urlTag[1];
-						console.log('✅ Found picture from file metadata:', picture);
 					}
 				}
 			}
 		}
 
 		const profile = { name, picture };
-		console.log('🎯 Final profile result:', profile);
 
 		// Cache the result (even if empty, to avoid repeated failed requests)
 		await profileCache.cacheProfile(pubkey, profile);
@@ -479,11 +462,6 @@ export function listenForIncomingMessages(
 
 		try {
 			const { nsec, npub } = await getNostrKeyPair();
-			console.log('Raw keys from getNostrKeyPair:');
-			console.log('nsec length:', nsec?.length);
-			console.log('npub:', npub);
-			console.log('npub type:', typeof npub);
-			console.log('npub length:', npub?.length);
 
 			// Validate npub format before attempting to decode
 			if (!npub || typeof npub !== 'string') {
@@ -508,14 +486,11 @@ export function listenForIncomingMessages(
 			} else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
 				// It's a hex string, use it directly
 				pubkeyHex = npub.toLowerCase();
-				console.log('Using hex pubkey directly:', pubkeyHex);
 			} else {
 				throw new Error(
 					`Invalid pubkey format: expected npub or 64-char hex, got: ${npub.substring(0, 20)}...`
 				);
 			}
-
-			console.log('Successfully processed pubkey hex:', pubkeyHex);
 
 			// Listen for both incoming messages (where current user is in #p tag)
 			// and outgoing messages (where current user is the author)
@@ -539,19 +514,7 @@ export function listenForIncomingMessages(
 				try {
 					unsub = subscribeToEvents(relay, filters, async (event: NostrEvent) => {
 						try {
-							console.log('📡 Real-time message received:');
-							console.log(`  Event ID: ${event.id}`);
-							console.log(`  Author: ${event.pubkey}`);
-							console.log(`  Timestamp: ${new Date(event.created_at * 1000).toISOString()}`);
-							console.log(`  Content: ${event.content.substring(0, 50)}...`);
-							console.log(`  Tags:`, event.tags);
-
 							const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
-
-							console.log('✅ Real-time message decrypted:');
-							console.log(`  Sender: ${senderPubkey}`);
-							console.log(`  Message: "${plaintext}"`);
-							console.log(`  Event ID: ${event.id}`);
 
 							callback({ plaintext, senderPubkey, event });
 						} catch (err: unknown) {
@@ -560,7 +523,6 @@ export function listenForIncomingMessages(
 					});
 
 					// Successfully connected
-					console.log(`Connected to relay: ${relay}`);
 					break;
 				} catch (error) {
 					console.warn(`Failed to connect to relay ${relay}:`, error);
@@ -588,7 +550,6 @@ export function listenForIncomingMessages(
 
 		if (!isUnsubscribed) {
 			reconnectTimeout = setTimeout(() => {
-				console.log('Attempting to reconnect...');
 				setupConnection();
 			}, 5000); // Reconnect after 5 seconds
 		}
@@ -658,11 +619,6 @@ export async function getMessageHistory(
 			? (nip19.decode(withPubkey).data as string)
 			: withPubkey;
 
-		console.log('🔍 getMessageHistory - Debug Info:');
-		console.log('Current user pubkey (hex):', pubkeyHex);
-		console.log('Recipient pubkey (hex):', withPubkeyHex);
-		console.log('Private key available:', !!privkey);
-
 		const filter: Filter = {
 			kinds: [4],
 			authors: [withPubkeyHex, pubkeyHex],
@@ -672,30 +628,12 @@ export async function getMessageHistory(
 			...(options?.until ? { until: options.until } : {})
 		};
 
-		console.log('📡 Filter being used:', JSON.stringify(filter, null, 2));
-
 		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
-
-		console.log('📨 Raw events received from relay:', events.length);
-		events.forEach((event, index) => {
-			console.log(`📧 Event ${index + 1}:`);
-			console.log(`  ID: ${event.id}`);
-			console.log(`  Author: ${event.pubkey}`);
-			console.log(`  Timestamp: ${new Date(event.created_at * 1000).toISOString()}`);
-			console.log(`  Content: ${event.content.substring(0, 50)}...`);
-			console.log(`  Tags:`, event.tags);
-		});
 
 		const decrypted = await Promise.all(
 			events.map(async (event, index) => {
 				try {
-					console.log(`🔓 Attempting to decrypt event ${index + 1} (${event.id})`);
 					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
-					console.log(`✅ Successfully decrypted event ${index + 1}:`);
-					console.log(`  Sender: ${senderPubkey}`);
-					console.log(`  Message: "${plaintext}"`);
-					console.log(`  Event ID: ${event.id}`);
-					console.log(`  Timestamp: ${new Date(event.created_at * 1000).toISOString()}`);
 					return { plaintext, senderPubkey, event };
 				} catch (error) {
 					console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
@@ -709,15 +647,6 @@ export async function getMessageHistory(
 			senderPubkey: string;
 			event: NostrEvent;
 		}[];
-
-		console.log('✨ Final decrypted messages:', validMessages.length);
-		validMessages.forEach((msg, index) => {
-			console.log(`📝 Message ${index + 1}:`);
-			console.log(`  From: ${msg.senderPubkey}`);
-			console.log(`  Text: "${msg.plaintext}"`);
-			console.log(`  Time: ${new Date(msg.event.created_at * 1000).toISOString()}`);
-			console.log(`  ID: ${msg.event.id}`);
-		});
 
 		return validMessages;
 	} catch (err: unknown) {
@@ -779,7 +708,8 @@ export async function getMessagedPeople(): Promise<
 	{ pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
 > {
 	try {
-		const { npub } = await getNostrKeyPair();
+		const { nsec, npub } = await getNostrKeyPair();
+		const privkey = bytesToHex(nsec);
 
 		// Validate and convert npub to hex format for relay filters
 		if (!npub || typeof npub !== 'string') {
@@ -852,13 +782,31 @@ export async function getMessagedPeople(): Promise<
 			}
 		}
 
-		// Fetch profiles in parallel
+		// Fetch profiles and decrypt last messages in parallel
 		const results = await Promise.all(
 			Array.from(peopleMap.entries()).map(async ([pubkey, lastEvent]) => {
 				let profile = {
 					name: undefined as string | undefined,
 					picture: undefined as string | undefined
 				};
+
+				// Decrypt the last message content
+				let decryptedLastEvent = lastEvent;
+				try {
+					const { plaintext } = await parseDMEvent(lastEvent, privkey);
+					// Create a new event object with decrypted content for display
+					decryptedLastEvent = {
+						...lastEvent,
+						content: plaintext
+					};
+				} catch (decryptError) {
+					console.error('Failed to decrypt last message for', pubkey, decryptError);
+					// Keep the original event but mark content as undecryptable
+					decryptedLastEvent = {
+						...lastEvent,
+						content: '[Unable to decrypt message]'
+					};
+				}
 
 				try {
 					const fetchedProfile = await fetchProfileMetadata(pubkey);
@@ -870,7 +818,7 @@ export async function getMessagedPeople(): Promise<
 					console.error('Failed to fetch profile for', pubkey, e);
 				}
 
-				return { pubkey, lastEvent, profile };
+				return { pubkey, lastEvent: decryptedLastEvent, profile };
 			})
 		);
 

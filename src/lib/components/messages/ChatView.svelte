@@ -115,6 +115,13 @@
 		}
 	});
 
+	// Auto-resize textarea when message text changes
+	$effect(() => {
+		if (newMessageText !== undefined) {
+			autoResizeTextarea();
+		}
+	});
+
 	// Auto-scroll to bottom when new messages arrive (but not when loading more)
 	$effect(() => {
 		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
@@ -239,20 +246,14 @@
 		error = '';
 
 		try {
-			console.log('🔄 Loading messages for recipient:', recipientHex());
-
 			// Fetch initial message history
 			const messageHistory = await getMessageHistory(recipientHex(), {
 				limit: MESSAGES_PER_PAGE
 			});
 
-			console.log('📥 Received message history:', messageHistory.length, 'messages');
-
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
-
-			console.log('📋 Messages set in component state:', messages.length);
 
 			// Update pagination state
 			if (sortedMessages.length > 0) {
@@ -262,14 +263,18 @@
 				hasMoreMessages = false;
 			}
 
-			// Fetch recipient profile if not provided
+			// Fetch recipient profile if not provided or incomplete
 			if (!initialProfile || (!initialProfile.name && !initialProfile.picture)) {
 				try {
-					const profile = await fetchProfileMetadata(recipientPubkey);
-					recipientProfile = profile;
+					const profile = await fetchProfileMetadata(recipientHex());
+					if (profile && (profile.name || profile.picture)) {
+						recipientProfile = profile;
+					}
 				} catch (profileErr) {
 					console.error('Failed to fetch recipient profile:', profileErr);
 				}
+			} else {
+				recipientProfile = initialProfile;
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load messages';
@@ -331,19 +336,9 @@
 			unsubscribe();
 		}
 
-		console.log('🎧 Setting up real-time listener for conversation with:', recipientHex());
-
 		// Setup new subscription for real-time messages
 		unsubscribe = listenForIncomingMessages((msg) => {
 			const { plaintext, senderPubkey, event } = msg;
-
-			console.log('📨 Real-time message received in ChatView:', {
-				senderPubkey,
-				plaintext,
-				eventId: event.id,
-				currentRecipient: recipientHex(),
-				currentUser: currentUserHex()
-			});
 
 			// Only add messages that are relevant to this conversation
 			if (
@@ -351,8 +346,6 @@
 				(senderPubkey === currentUserHex() &&
 					event.tags.some((tag) => tag[0] === 'p' && tag[1] === recipientHex()))
 			) {
-				console.log('✅ Message is relevant to current conversation');
-
 				// Check if we already have this message to avoid duplicates
 				const existingMessageIndex = messages.findIndex((existingMsg) => {
 					// Check by event ID first (most reliable)
@@ -372,7 +365,6 @@
 				});
 
 				if (existingMessageIndex >= 0) {
-					console.log('🔄 Replacing existing message at index:', existingMessageIndex);
 					// Replace the existing message (especially if it was temporary)
 					const existingMessage = messages[existingMessageIndex];
 					if (existingMessage.event.id.startsWith('temp-')) {
@@ -383,22 +375,17 @@
 							newMessage,
 							...messages.slice(existingMessageIndex + 1)
 						].sort((a, b) => a.event.created_at - b.event.created_at);
-						console.log('✅ Replaced temporary message with real one');
 					} else {
-						console.log('⚠️ Duplicate message ignored');
 					}
 					// If it's not temporary, it's a duplicate, so ignore it
 				} else {
-					console.log('➕ Adding new message to conversation');
 					// Insert new message in chronological order
 					const newMessage = { plaintext, senderPubkey, event };
 					messages = [...messages, newMessage].sort(
 						(a, b) => a.event.created_at - b.event.created_at
 					);
-					console.log('📋 Total messages now:', messages.length);
 				}
 			} else {
-				console.log('❌ Message not relevant to current conversation');
 			}
 		});
 	}
@@ -409,22 +396,14 @@
 			profileUnsubscribe();
 		}
 
-		console.log('🎧 Setting up profile subscription for:', recipientPubkey);
-		console.log('🎧 recipientPubkey format check:', {
-			recipientPubkey,
-			isNpub: recipientPubkey.startsWith('npub'),
-			recipientHex: recipientHex()
-		});
-
-		// Setup new subscription for profile updates
-		profileUnsubscribe = subscribeToProfileUpdates(recipientPubkey, (profile) => {
-			console.log('📨 Profile update received in ChatView for:', recipientPubkey);
-			console.log('📨 Profile update details - name:', profile.name, 'picture:', profile.picture);
-
-			// Create a new object reference to ensure Svelte reactivity
-			recipientProfile = { ...profile };
-
-			console.log('📨 Updated recipientProfile state:', recipientProfile);
+		// Setup new subscription for profile updates using hex format
+		profileUnsubscribe = subscribeToProfileUpdates(recipientHex(), (profile) => {
+			// Only update if we get valid profile data, otherwise keep existing
+			if (profile && (profile.name || profile.picture)) {
+				// Create a new object reference to ensure Svelte reactivity
+				recipientProfile = { ...profile };
+			} else {
+			}
 		});
 	}
 
@@ -434,22 +413,21 @@
 			currentUserProfileUnsubscribe();
 		}
 
-		console.log('🎧 Setting up current user profile subscription for:', currentUserPubkey);
-
 		// Fetch current user's initial profile
 		fetchProfileMetadata(currentUserHex())
 			.then((profile) => {
-				console.log('📨 Current user profile fetched:', profile);
 				currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
 			})
 			.catch((err) => {
 				console.error('Failed to fetch current user profile:', err);
 			});
 
-		// Setup new subscription for current user profile updates
-		currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserPubkey, (profile) => {
-			console.log('📨 Current user profile update received:', profile);
-			currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
+		// Setup new subscription for current user profile updates using hex format
+		currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
+			// Only update if we get valid profile data
+			if (profile && (profile.name || profile.picture)) {
+				currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
+			}
 		});
 	}
 
@@ -521,6 +499,17 @@
 		}
 	}
 
+	// Auto-resize textarea based on content
+	function autoResizeTextarea() {
+		if (messageInput) {
+			// Reset height to auto to get the correct scrollHeight
+			messageInput.style.height = 'auto';
+			// Set height based on scroll height, with min and max bounds
+			const newHeight = Math.min(Math.max(messageInput.scrollHeight, 24), 120);
+			messageInput.style.height = newHeight + 'px';
+		}
+	}
+
 	function handleSubmit(event: Event) {
 		event.preventDefault();
 		sendMessage();
@@ -531,24 +520,16 @@
 		loadMoreMessages();
 	}
 
-	// Handle input changes for draft saving
+	// Handle input changes for draft saving and auto-resize
 	function handleInputChange() {
 		// The $effect will handle saving the draft automatically
+		autoResizeTextarea();
 	}
 </script>
 
 <div class="flex h-full flex-col">
 	<!-- Chat Header -->
 	<div class="border-base-300 flex items-center gap-3 border-b p-4">
-		{@html (() => {
-			console.log('🔍 Chat header rendering with recipientProfile:', {
-				name: recipientProfile.name,
-				picture: recipientProfile.picture,
-				fullProfile: recipientProfile
-			});
-			return '';
-		})()}
-
 		<Avatar
 			user={{
 				name: recipientProfile.name || 'Unknown',
@@ -556,15 +537,34 @@
 			}}
 			size="md"
 		/>
-		<div class="flex-1">
+		<div class="flex items-center gap-2">
 			<h3 class="font-semibold">
 				{recipientProfile.name || `${recipientPubkey.slice(0, 8)}...`}
 			</h3>
-			<p class="text-base-content/60 text-sm">
-				{recipientPubkey.startsWith('npub')
-					? recipientPubkey
-					: `${recipientPubkey.slice(0, 16)}...`}
-			</p>
+			<button
+				aria-label="Copy public key"
+				class="btn btn-ghost btn-sm p-1"
+				onclick={() => {
+					navigator.clipboard.writeText(recipientPubkey);
+					// Optional: Add a toast notification here
+				}}
+				title="Copy public key"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+					/>
+				</svg>
+			</button>
 		</div>
 	</div>
 
@@ -670,29 +670,32 @@
 	</div>
 
 	<!-- Message Input Area -->
-	<div class="border-base-300 border-t p-4">
-		<form onsubmit={handleSubmit} class="flex gap-3">
-			<div class="flex-1">
-				<textarea
-					bind:this={messageInput}
-					bind:value={newMessageText}
-					onkeydown={handleKeyPress}
-					oninput={handleInputChange}
-					class="textarea textarea-bordered w-full resize-none"
-					placeholder="Type a message..."
-					rows="1"
+	<div class="border-base-300 bg-base-100 border-t p-2">
+		<form onsubmit={handleSubmit} class="relative">
+			<div class="bg-base-200 flex items-end gap-2 rounded-2xl p-2">
+				<!-- Message Input -->
+				<div class="flex-1">
+					<textarea
+						bind:this={messageInput}
+						bind:value={newMessageText}
+						onkeydown={handleKeyPress}
+						oninput={handleInputChange}
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 text-base leading-6 focus:outline-none"
+						placeholder="Type a message..."
+						rows="1"
+						disabled={isSendingMessage}
+						autofocus
+						style="max-height: 120px;"
+					></textarea>
+				</div>
+
+				<!-- Attachment Button (Optional - can be expanded later) -->
+				<!-- <button
+					type="button"
+					class="btn btn-ghost btn-sm h-8 min-h-0 w-8 p-0"
+					title="Attach file"
 					disabled={isSendingMessage}
-					autofocus
-				></textarea>
-			</div>
-			<button
-				type="submit"
-				class="btn btn-primary"
-				disabled={!newMessageText.trim() || isSendingMessage}
-			>
-				{#if isSendingMessage}
-					<span class="loading loading-spinner loading-sm"></span>
-				{:else}
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-5 w-5"
@@ -704,11 +707,45 @@
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+							d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
 						/>
 					</svg>
-				{/if}
-			</button>
+				</button> -->
+
+				<!-- Send Button -->
+				<button
+					type="submit"
+					class="btn btn-primary btn-sm h-8 min-h-0 w-8 rounded-full p-0"
+					disabled={!newMessageText.trim() || isSendingMessage}
+					title="Send message"
+				>
+					{#if isSendingMessage}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+							/>
+						</svg>
+					{/if}
+				</button>
+			</div>
+
+			<!-- Typing indicator or character count could go here -->
+			{#if newMessageText.length > 1000}
+				<div class="text-warning mt-2 text-right text-sm">
+					{newMessageText.length}/2000 characters
+				</div>
+			{/if}
 		</form>
 	</div>
 </div>
