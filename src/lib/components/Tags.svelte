@@ -40,7 +40,7 @@
 
 <div class="relative w-full">
 	<div
-		class="hover:border-primary flex min-h-[40px] w-full cursor-pointer flex-wrap items-center gap-2 rounded-lg border p-2 text-left transition-colors {error
+		class="flex min-h-[40px] w-full cursor-pointer flex-wrap items-center gap-2 rounded-lg border p-2 text-left transition-colors {error
 			? 'border-error'
 			: 'border-white/20'}"
 		onclick={() => (isOpen = true)}
@@ -95,9 +95,9 @@
 			role="listbox"
 			aria-label="Available tags"
 		>
-			{#each options as tag}
+			{#each options as tag, index}
 				<div
-					class="hover:bg-base-200 text-base-content w-full cursor-pointer px-4 py-2 text-left transition-colors"
+					class="hover:bg-base-200 text-base-content w-full cursor-pointer px-4 text-left transition-colors"
 					class:text-primary={selectedTags.includes(tag.id)}
 					onclick={() => addTag(tag.id)}
 					onkeydown={(e) => e.key === 'Enter' && addTag(tag.id)}
@@ -107,6 +107,10 @@
 				>
 					{tag.name}
 				</div>
+
+				{#if index !== options.length - 1}
+					<div class="divider p-0 m-0"></div>
+				{/if}
 			{/each}
 		</div>
 	{/if}

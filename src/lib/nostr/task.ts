@@ -1,0 +1,153 @@
+import type { TaskBody } from '$lib/types/task';
+import type { Event as NostrEvent } from 'nostr-tools';
+import type { RecurrencePattern } from '$lib/types/recurring-tasks';
+import { calculatePOW } from '$lib/nostr';
+import { SimplePool } from 'nostr-tools/pool';
+import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
+import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
+import { getSignedEvent } from '$lib/utils/nostr';
+
+// Initialize a pool for relay connections
+const pool = new SimplePool();
+
+export const TASK_KINDS = {
+    TASK_CREATION: 31000,
+    TASK_UPDATE: 31005,
+    RECURRING_TASK: 31006
+};
+
+/**
+ * Generate tags for a task event
+ */
+function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][] {
+    // Normalize and validate skills
+    const normalizedSkills = taskData.skills
+        .map(skill => skill.trim().toLowerCase())
+        .filter(skill => skill.length >= 2 && skill.length <= 30)
+        .filter(skill => /^[a-z0-9\s-]+$/.test(skill))
+        .slice(0, 10); // Limit to 10 skills
+
+    const tags: string[][] = [
+        ['c', ...taskData.categoryIds.map(id => id.toString())],
+        ['s', ...normalizedSkills],
+        ['pow', ...pow]
+    ];
+
+    if (taskData.deadline) {
+        tags.push(['d', taskData.deadline]);
+    }
+
+    if (taskData.dateRange) {
+        tags.push(['d', taskData.dateRange.start, taskData.dateRange.end]);
+    }
+
+    if (taskData.budget) {
+        tags.push(['b', `${taskData.budget.amount}${taskData.budget.currency}`]);
+    }
+
+    if (taskData.pickupLocation?.locationLoaded) {
+        tags.push(['l', 'onsite', taskData.pickupLocation.displayName || '']);
+    } else {
+        tags.push(['l', 'remote']);
+    }
+
+    return tags;
+}
+
+/**
+ * Create a new task
+ */
+export async function createTask(taskData: TaskBody): Promise<string> {
+    // Calculate POW based on task value
+    const pow = await calculatePOW(taskData.budget.amount);
+    console.log({ pow });
+
+    // Create event
+    const event = {
+        kind: TASK_KINDS.TASK_CREATION,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify(taskData),
+        tags: generateTaskTags(taskData, pow)
+    };
+
+    console.log({ event });
+
+    // Sign and publish
+    const signedEvent = await getSignedEvent(event);
+    await publishToRelays(signedEvent);
+
+    return signedEvent.id;
+}
+
+/**
+ * Create a recurring task
+ */
+export async function createRecurringTask(taskData: TaskBody, schedule: {
+    isRecurring: boolean;
+    name: string;
+    description: string;
+    recurrencePattern: RecurrencePattern;
+}): Promise<string> {
+    const pow = await calculatePOW(taskData.budget.amount);
+
+    const event = {
+        kind: TASK_KINDS.RECURRING_TASK,
+        created_at: Math.floor(Date.now() / 1000),
+        content: JSON.stringify({
+            template: taskData,
+            schedule
+        }),
+        tags: [
+            ...generateTaskTags(taskData, pow),
+            ['t', 'recurring'],
+            ['f', schedule.recurrencePattern.frequency],
+            ['i', schedule.recurrencePattern.interval.toString()]
+        ]
+    };
+
+    const signedEvent = await getSignedEvent(event);
+    await publishToRelays(signedEvent);
+    return signedEvent.id;
+}
+
+/**
+ * Publish an event to relays
+ */
+export async function publishToRelays(event: NostrEvent, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+    try {
+        const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
+        await Promise.race([
+            Promise.all(pub),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+        ]);
+    } catch (error) {
+        console.error('Failed to publish to relays:', error);
+        throw error;
+    }
+}
+
+/**
+ * Subscribe to task events
+ */
+export function subscribeToTasks(
+    callback: (event: NostrEvent) => void,
+    filter: { kinds?: number[], authors?: string[], tags?: string[][] } = {},
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): () => void {
+    const sub = pool.subscribe(relays, {
+        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION, TASK_KINDS.RECURRING_TASK],
+        authors: filter.authors,
+        ...filter
+    }, {
+        onevent: callback
+    });
+
+    return () => sub.close();
+}
+
+/**
+ * Close all relay connections
+ */
+export function closePool(): void {
+    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+} 

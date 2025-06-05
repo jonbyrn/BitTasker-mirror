@@ -85,7 +85,6 @@
 			id="panel-tasks"
 			role="tabpanel"
 			aria-labelledby="tab-tasks"
-			class="card bg-base-100 shadow-xl"
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardTasksPanel {openTaskDrawer} />
@@ -96,7 +95,7 @@
 			id="panel-bids"
 			role="tabpanel"
 			aria-labelledby="tab-bids"
-			class="card bg-base-100 shadow-xl"
+			class="card bg-base-100 shadow-xl rounded-xl"
 			transition:slide={{ duration: 300 }}
 		>
 			<div class="card-body">
@@ -109,7 +108,7 @@
 			id="panel-recurring"
 			role="tabpanel"
 			aria-labelledby="tab-recurring"
-			class="card bg-base-100 shadow-xl"
+			class="card bg-base-100 shadow-xl rounded-xl"
 			transition:slide={{ duration: 300 }}
 		>
 			<div class="card-body">

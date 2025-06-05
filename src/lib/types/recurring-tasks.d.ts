@@ -1,18 +1,9 @@
-import type {
-	RECURRINGFREQUENCYENUM,
-	TIMINGTYPE,
-	LOCATIONTYPE,
-	TIMINGTIMEOFDAY,
-	BUDGETTYPE,
-	TASKSTATUS,
-	TASKCATEGORY,
-	TASKSKILL,
-	BUDGETCURRENCY
-} from '$lib/utils/enums/recurringTask.enums';
-import type { CreateTaskParams, Task } from './task';
+import type { RecurringFrequencyEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import type { BudgetCurrencyEnum } from '$lib/utils/enums/task.enum';
+import type { TaskBody, Task } from './task';
 
 export interface RecurrencePattern {
-	frequency: RECURRINGFREQUENCYENUM;
+	frequency: RecurringFrequencyEnum;
 	interval: number; // e.g., every 2 weeks
 	daysOfWeek?: number[]; // 0-6 for Sunday-Saturday
 	dayOfMonth?: number; // 1-31
@@ -39,13 +30,13 @@ export interface ServicePackage {
 	// Package details
 	bundleDiscount: number; // Percentage discount
 	totalPrice: number;
-	currency: BUDGETCURRENCY;
+	currency: BudgetCurrencyEnum;
 	isPublic: boolean;
 
 	// Metadata
 	createdAt: string;
 	createdBy: string;
-	status: TASKSTATUS;
+	status: TaskStatusEnum;
 }
 
 export interface CreateRecurringTaskParams {
@@ -53,5 +44,5 @@ export interface CreateRecurringTaskParams {
 	description: string;
 	isRecurring: boolean;
 	recurrencePattern: RecurrencePattern;
-	task: CreateTaskParams;
+	task: TaskBody;
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type MyTaskTemplates$result, type RecurrencePatternInput } from '$houdini';
-	import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
+	import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 	import Input from '../Input.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
@@ -22,7 +22,7 @@
 
 	// Use mutable state initialized from the prop
 	let localPattern = $state<RecurrencePatternInput>({
-		frequency: pattern?.frequency ?? RECURRINGFREQUENCYENUM.WEEKLY,
+		frequency: pattern?.frequency ?? RecurringFrequencyEnum.WEEKLY,
 		interval: pattern?.interval ?? 1,
 		daysOfWeek: pattern?.daysOfWeek ?? [1], // Default to Monday if null
 		dayOfMonth: pattern?.dayOfMonth ?? null,
@@ -66,31 +66,31 @@
 	}
 
 	// Handle frequency change
-	function handleFrequencyChange(value: RECURRINGFREQUENCYENUM) {
+	function handleFrequencyChange(value: RecurringFrequencyEnum) {
 		localPattern.frequency = value;
 
 		// Set reasonable defaults for the selected frequency
-		if (value === RECURRINGFREQUENCYENUM.DAILY) {
+		if (value === RecurringFrequencyEnum.DAILY) {
 			localPattern.interval = 1;
 			localPattern.daysOfWeek = null; // Daily doesn't use daysOfWeek
 			localPattern.dayOfMonth = null;
-		} else if (value === RECURRINGFREQUENCYENUM.WEEKLY) {
+		} else if (value === RecurringFrequencyEnum.WEEKLY) {
 			localPattern.interval = 1;
 			if (!localPattern.daysOfWeek?.length) {
 				localPattern.daysOfWeek = [1]; // Monday by default
 			}
 			localPattern.dayOfMonth = null;
-		} else if (value === RECURRINGFREQUENCYENUM.BIWEEKLY) {
+		} else if (value === RecurringFrequencyEnum.BIWEEKLY) {
 			localPattern.interval = 2;
 			if (!localPattern.daysOfWeek?.length) {
 				localPattern.daysOfWeek = [1]; // Monday by default
 			}
 			localPattern.dayOfMonth = null;
-		} else if (value === RECURRINGFREQUENCYENUM.MONTHLY) {
+		} else if (value === RecurringFrequencyEnum.MONTHLY) {
 			localPattern.interval = 1;
 			localPattern.dayOfMonth = localPattern.dayOfMonth ?? 1; // Keep existing or default to 1
 			localPattern.daysOfWeek = null;
-		} else if (value === RECURRINGFREQUENCYENUM.CUSTOM) {
+		} else if (value === RecurringFrequencyEnum.CUSTOM) {
 			// Custom might need specific logic or retain existing days
 			if (!localPattern.daysOfWeek?.length) {
 				localPattern.daysOfWeek = [1, 3, 5]; // Mon, Wed, Fri by default
@@ -112,7 +112,7 @@
 		if (isEditing) {
 			// Ensure the object passed matches RecurrencePatternInput (e.g., handle nulls appropriately)
 			const patternToSend: RecurrencePatternInput = {
-				frequency: localPattern.frequency as RECURRINGFREQUENCYENUM,
+				frequency: localPattern.frequency as RecurringFrequencyEnum,
 				interval: localPattern.interval,
 				daysOfWeek: localPattern.daysOfWeek,
 				dayOfMonth: localPattern.dayOfMonth,
@@ -135,20 +135,20 @@
 			id="frequency"
 			type="select"
 			value={localPattern.frequency}
-			onChange={({ value }) => handleFrequencyChange(value as RECURRINGFREQUENCYENUM)}
+			onChange={({ value }) => handleFrequencyChange(value as RecurringFrequencyEnum)}
 			options={[
-				{ value: RECURRINGFREQUENCYENUM.DAILY, label: 'Daily' },
-				{ value: RECURRINGFREQUENCYENUM.WEEKLY, label: 'Weekly' },
-				{ value: RECURRINGFREQUENCYENUM.BIWEEKLY, label: 'Every 2 weeks' },
-				{ value: RECURRINGFREQUENCYENUM.MONTHLY, label: 'Monthly' },
-				{ value: RECURRINGFREQUENCYENUM.CUSTOM, label: 'Custom' }
+				{ value: RecurringFrequencyEnum.DAILY, label: 'Daily' },
+				{ value: RecurringFrequencyEnum.WEEKLY, label: 'Weekly' },
+				{ value: RecurringFrequencyEnum.BIWEEKLY, label: 'Every 2 weeks' },
+				{ value: RecurringFrequencyEnum.MONTHLY, label: 'Monthly' },
+				{ value: RecurringFrequencyEnum.CUSTOM, label: 'Custom' }
 			]}
 		/>
 	</div>
 
 	<!-- Frequency-specific options -->
 	<div class="mb-8">
-		{#if localPattern.frequency === RECURRINGFREQUENCYENUM.DAILY}
+		{#if localPattern.frequency === RecurringFrequencyEnum.DAILY}
 			<div class="form-control">
 				<label class="label" for="interval">
 					<span class="label-text">Repeat every</span>
@@ -165,7 +165,7 @@
 					<span>day(s)</span>
 				</div>
 			</div>
-		{:else if localPattern.frequency === RECURRINGFREQUENCYENUM.WEEKLY || localPattern.frequency === RECURRINGFREQUENCYENUM.BIWEEKLY}
+		{:else if localPattern.frequency === RecurringFrequencyEnum.WEEKLY || localPattern.frequency === RecurringFrequencyEnum.BIWEEKLY}
 			<div class="form-control mb-4">
 				<label class="label" for="interval">
 					<span class="label-text">Repeat every</span>
@@ -201,7 +201,7 @@
 					{/each}
 				</div>
 			</div>
-		{:else if localPattern.frequency === RECURRINGFREQUENCYENUM.MONTHLY}
+		{:else if localPattern.frequency === RecurringFrequencyEnum.MONTHLY}
 			<div class="flex items-center justify-start gap-4">
 				<div class="form-control w-full">
 					<label class="label" for="interval">
@@ -237,7 +237,7 @@
 					</div>
 				</div>
 			</div>
-		{:else if localPattern.frequency === RECURRINGFREQUENCYENUM.CUSTOM}
+		{:else if localPattern.frequency === RecurringFrequencyEnum.CUSTOM}
 			<div class="form-control mb-4">
 				<label class="label" for="daysOfWeek">
 					<span class="label-text">Select specific days:</span>

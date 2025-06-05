@@ -20,88 +20,60 @@ export interface DateRange {
 	end: string;
 }
 
-export interface CreateTaskParams {
-	title: string;
-	description: string;
-	budget: number;
-	budgetType: BudgetTypeEnum;
-	taskType: TaskTypeEnum;
-	deadlineDate: string;
+export interface Budget {
+	amount: number;
+	currency: string;
+	type: BudgetTypeEnum;
 	estimatedHours?: number;
-	categoryIds: number[];
-	skillIds: number[];
+}
+
+export interface Attachment {
+	url: string;
+	key: string;
+	type: string;
+	alt: string;
+	size: number;
+}
+
+export interface TaskBody {
+	title: string;
+	taskType: TaskTypeEnum;
+	description: string;
+	budget: Budget;
+	deadline?: string;
+	dateRange?: DateRange;
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
-	dateRange?: DateRange;
-	attachments?: { fileName: string; fileUrl: string; fileSize: number }[];
+	skills: string[];
+	categoryIds: string[];
+	attachments?: Attachment[];
 }
 
 export interface Task {
-	id: number;
-	userProfileId: number;
+	id: string;
 	title: string;
-	description: string;
-	budget: number;
-	budgetType: BudgetTypeEnum;
-	currency?: string;
-	status: TaskStatusEnum;
 	taskType: TaskTypeEnum;
+	description: string;
+	budget: Budget;
+	status: TaskStatusEnum;
 	isRemovals: boolean;
-	deadlineDate: string | null;
-	estimatedHours: number;
+	deadline: string | null;
 	dateRange: DateRange | null;
 	pickupLocation: Location | null;
 	dropOffLocation: Location | null;
 	isBoosted: boolean;
 	boostPercentage: number | null;
+	attachments?: Attachment[];
+	
 	createdAt: string;
 	updatedAt: string;
 	completedAt: string | null;
 	cancelledAt: string | null;
 	deletedAt: string | null;
+	
 	isDeleted: boolean;
-	attachments?: { fileName: string; fileUrl: string; fileSize: number }[];
-	categories: Array<{
-		id: number;
-		taskId: number;
-		categoryId: number;
-		isPrimary: boolean;
-		createdAt: string;
-		category: {
-			id: number;
-			name: string;
-			description: string;
-			icon: string;
-			slug: string;
-			parentId: number;
-			isActive: boolean;
-			displayOrder: number;
-			createdAt: string;
-			updatedAt: string;
-			deletedAt: string | null;
-			isDeleted: boolean;
-		};
-	}>;
-	requiredSkills: Array<{
-		id: number;
-		taskId: number;
-		skillId: number;
-		importance: string;
-		experienceLevel: string | null;
-		notes: string | null;
-		createdAt: string;
-		skill: {
-			id: number;
-			name: string;
-			description: string;
-			categoryId: number;
-			isVerifiable: boolean;
-			createdAt: string;
-			updatedAt: string;
-			deletedAt: string | null;
-			isDeleted: boolean;
-		};
-	}>;
+	categories: Array<string>;
+	requiredSkills: Array<string>;
 	bids: TaskBid[];
 }
 

@@ -71,7 +71,7 @@
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<!-- Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
-			<div class="card bg-base-100 mb-6 shadow-xl">
+			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
 				<div class="card-body p-4">
 					<h2 class="card-title text-lg">Dashboard</h2>
 					<div class="divider my-2"></div>

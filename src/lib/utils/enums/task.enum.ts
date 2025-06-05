@@ -3,6 +3,13 @@ export enum BudgetTypeEnum {
 	HOURLY = 'HOURLY'
 }
 
+export enum BudgetCurrencyEnum {
+	BTC = 'BTC',
+	L_BTC = 'L-BTC',
+	USDT = 'USDt',
+	LN = 'LN'
+}
+
 export enum TaskStepEnum {
 	BASICS = 'basics',
 	LOCATION = 'location',
@@ -43,4 +50,12 @@ export enum NotificationFrequency {
 	INSTANT = 'INSTANT',
 	DAILY = 'DAILY',
 	WEEKLY = 'WEEKLY'
+}
+
+export enum RecurringFrequencyEnum {
+	DAILY = 'DAILY',
+	WEEKLY = 'WEEKLY',
+	BIWEEKLY = 'BIWEEKLY',
+	MONTHLY = 'MONTHLY',
+	CUSTOM = 'CUSTOM'
 }

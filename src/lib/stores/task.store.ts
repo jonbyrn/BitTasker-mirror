@@ -1,11 +1,11 @@
-import type { CreateTaskParams } from '$lib/types/task.d';
+import type { TaskBody } from '$lib/types/task.d';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
-import { TaskStepEnum } from '$lib/utils/enums/task.enum';
-import { StorageKeys } from '$lib/utils/constants/storage';
-import { Preferences } from '@capacitor/preferences';
-import { get, writable } from 'svelte/store';
-import { RECURRINGFREQUENCYENUM } from '$lib/utils/enums/recurringTask.enums';
 import { page } from '$app/state';
+import { get, writable } from 'svelte/store';
+import { Preferences } from '@capacitor/preferences';
+import { TaskTypeEnum, BudgetTypeEnum, TaskStepEnum } from '$lib/utils/enums/task.enum';
+import { StorageKeys } from '$lib/utils/constants/storage';
+import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
@@ -16,13 +16,20 @@ function createTaskStore() {
 		task: {
 			title: '',
 			description: '',
-			budget: 0,
-			budgetType: 'FIXED',
-			taskType: 'IN_PERSON',
+			taskType: TaskTypeEnum.IN_PERSON,
+			budget: {
+				amount: 0,
+				currency: 'BTC',
+				type: BudgetTypeEnum.FIXED,
+				estimatedHours: 0
+			},
 			deadlineDate: '',
-			estimatedHours: 0,
+			dateRange: {
+				start: new Date().toISOString(),
+				end: 'null'
+			},
 			categoryIds: [],
-			skillIds: [],
+			skills: [],
 			pickupLocation: {
 				displayName: '',
 				longitude: null,
@@ -37,12 +44,8 @@ function createTaskStore() {
 				zipCode: '',
 				locationLoaded: false
 			},
-			dateRange: {
-				start: new Date().toISOString(),
-				end: 'null'
-			},
 			attachments: []
-		} as CreateTaskParams,
+		} as TaskBody,
 		id: '',
 		isRemovals: false,
 		currentStep: TaskStepEnum.BASICS,
@@ -56,7 +59,7 @@ function createTaskStore() {
 		name: '',
 		description: '',
 		recurrencePattern: {
-			frequency: RECURRINGFREQUENCYENUM.WEEKLY,
+			frequency: RecurringFrequencyEnum.WEEKLY,
 			interval: 1,
 			daysOfWeek: [1], // Monday by default
 			dayOfMonth: 1,
@@ -137,7 +140,7 @@ function createTaskStore() {
 	};
 
 	// Update task data
-	const updateTask = (updates: Partial<CreateTaskParams>) => {
+	const updateTask = (updates: Partial<TaskBody>) => {
 		store.update((state) => ({
 			...state,
 			task: { ...state.task, ...updates }
