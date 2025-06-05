@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
 	import {
 		fetchProfileMetadata,
 		getMessagedPeople,
@@ -10,9 +11,6 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { nip19 } from 'nostr-tools';
-	import { getNpub } from '$lib/utils/nostrKeys';
-	import { page } from '$app/stores';
-	import ChatView from '$lib/components/messages/ChatView.svelte';
 
 	// State
 	let conversations = $state<
@@ -24,8 +22,6 @@
 	>([]);
 	let isLoading = $state(true);
 	let error = $state('');
-	let selectedPubkey = $state<string | null>(null);
-	let currentUserNpub = $state<string>('');
 
 	// Search state
 	let searchQuery = $state('');
@@ -55,12 +51,9 @@
 	// Profile subscriptions map to track individual profile updates
 	let profileSubscriptions = new Map<string, () => void>();
 
-	// Load conversations and handle URL parameters on mount
+	// Load conversations on mount
 	onMount(async () => {
 		try {
-			// Get current user's npub
-			currentUserNpub = await getNpub();
-
 			// Load existing conversations
 			const people = await getMessagedPeople();
 			conversations = people;
@@ -68,46 +61,6 @@
 			// Setup profile subscriptions for existing conversations
 			for (const conversation of conversations) {
 				setupProfileSubscription(conversation.pubkey);
-			}
-
-			// Handle chatWith URL parameter
-			const chatWithParam = $page.url.searchParams.get('chatWith');
-			if (chatWithParam) {
-				try {
-					let hexPubkey = chatWithParam;
-
-					// Convert npub to hex if needed
-					if (chatWithParam.startsWith('npub')) {
-						hexPubkey = nip19.decode(chatWithParam).data as string;
-					}
-
-					// Set selected conversation
-					selectedPubkey = hexPubkey;
-
-					// If this user is not in conversations, fetch their profile and add them
-					if (!conversations.some((c) => c.pubkey === hexPubkey)) {
-						try {
-							// fetchProfileMetadata expects hex format
-							const profile = await fetchProfileMetadata(hexPubkey);
-							newMessageProfile = profile;
-							conversations = [
-								{
-									pubkey: hexPubkey,
-									lastEvent: { content: '', created_at: Math.floor(Date.now() / 1000) },
-									profile: profile || {}
-								},
-								...conversations
-							];
-
-							// Setup profile subscription for new conversation
-							setupProfileSubscription(hexPubkey);
-						} catch (profileErr) {
-							console.error('Failed to fetch profile for chatWith user:', profileErr);
-						}
-					}
-				} catch (urlErr) {
-					console.error('Invalid chatWith parameter:', urlErr);
-				}
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load conversations';
@@ -216,12 +169,7 @@
 
 	// Handle conversation selection
 	function selectConversation(pubkey: string) {
-		selectedPubkey = pubkey;
-	}
-
-	// Handle going back to conversation list
-	function goBackToList() {
-		selectedPubkey = null;
+		goto(`/dashboard/messages/to/${pubkey}`);
 	}
 
 	// Handle new message
@@ -287,23 +235,14 @@
 			newMessageError = 'Invalid public key format';
 			return;
 		}
-		selectedPubkey = hexPubkey;
+
+		// Navigate to the new chat page
+		goto(`/dashboard/messages/to/${hexPubkey}`);
 		showModal = false;
-		// Optionally, add to conversations if not present
-		if (!conversations.some((c) => c.pubkey === hexPubkey)) {
-			conversations = [
-				{
-					pubkey: hexPubkey,
-					lastEvent: { content: '', created_at: Math.floor(Date.now() / 1000) },
-					profile: newMessageProfile || {}
-				},
-				...conversations
-			];
-		}
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full max-h-screen flex-col">
 	<!-- Header -->
 	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
 		<h2 class="text-2xl font-bold">Messages</h2>
@@ -325,107 +264,81 @@
 	<input type="checkbox" class="modal-toggle" checked={showModal} style="display:none" readonly />
 	{#if showModal}
 		<div class="modal modal-open">
-			<div class="modal-box">
-				<h3 class="mb-2 text-lg font-bold">Start New Message</h3>
-				<form onsubmit={submitNewMessage}>
-					<label class="form-control mb-2 w-full">
-						<span class="label-text mb-1">Recipient Public Key (npub or hex)</span>
+			<div class="modal-box max-w-md">
+				<!-- Modal Header -->
+				<div class="mb-6">
+					<h3 class="text-xl font-semibold">Start New Message</h3>
+					<p class="text-base-content/60 mt-1 text-sm">
+						Enter a public key to start a conversation
+					</p>
+				</div>
+
+				<form onsubmit={submitNewMessage} class="space-y-4">
+					<!-- Input Section -->
+					<div class="space-y-2">
+						<label class="text-sm font-medium">Recipient Public Key</label>
 						<input
 							type="text"
-							class="input input-bordered w-full"
+							class="input input-bordered w-full text-sm"
 							bind:value={newMessagePubkey}
 							oninput={handlePubkeyInput}
-							autofocus
-							placeholder="npub... or hex pubkey"
+							placeholder="npub1... or hex pubkey"
 						/>
-					</label>
+						<p class="text-base-content/50 text-xs">
+							Enter an npub (starts with npub1) or hex public key
+						</p>
+					</div>
+
+					<!-- Error Display -->
 					{#if newMessageError}
-						<div class="text-error mb-2">{newMessageError}</div>
+						<div class="alert alert-error py-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<span class="text-sm">{newMessageError}</span>
+						</div>
 					{/if}
+
+					<!-- Profile Preview -->
 					{#if isProfileLoading}
-						<div class="mb-2">Loading profile...</div>
+						<div class="bg-base-200 flex animate-pulse items-center gap-3 rounded-lg p-3">
+							<div class="bg-base-300 h-10 w-10 rounded-full"></div>
+							<div class="flex-1">
+								<div class="bg-base-300 mb-1 h-4 w-24 rounded"></div>
+								<div class="bg-base-300 h-3 w-32 rounded"></div>
+							</div>
+						</div>
 					{:else if newMessageProfile}
-						<div class="mb-2 flex items-center gap-2">
+						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 							<Avatar
 								user={{
 									name: newMessageProfile.name || 'Unknown',
 									profileImage: newMessageProfile.picture || null
 								}}
-								size="sm"
+								size="md"
 							/>
-							<span>{newMessageProfile.name}</span>
-						</div>
-					{/if}
-					<div class="modal-action">
-						<button type="button" class="btn" onclick={closeModal}>Cancel</button>
-						<button
-							type="submit"
-							class="btn btn-primary"
-							disabled={!newMessagePubkey || !!newMessageError}>Start</button
-						>
-					</div>
-				</form>
-			</div>
-			<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
-		</div>
-	{/if}
-
-	<!-- Main Content -->
-	<div class="card bg-base-100 flex-1 overflow-hidden shadow-xl">
-		{#if selectedPubkey}
-			<!-- Chat View -->
-			<div class="flex h-full flex-col">
-				<!-- Chat Header with Back Button -->
-				<div class="border-base-300 flex items-center gap-3 border-b p-4">
-					<button
-						class="btn btn-ghost btn-sm"
-						onclick={goBackToList}
-						aria-label="Go back to conversations"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M15 19l-7-7 7-7"
-							/>
-						</svg>
-					</button>
-					<h3 class="text-lg font-semibold">Back to Messages</h3>
-				</div>
-
-				<!-- ChatView Component -->
-				<div class="flex-1 overflow-hidden">
-					<ChatView
-						recipientPubkey={selectedPubkey}
-						currentUserPubkey={currentUserNpub}
-						initialProfile={newMessageProfile}
-					/>
-				</div>
-			</div>
-		{:else}
-			<!-- Conversation List -->
-			<div class="card-body p-4">
-				<!-- Search Input -->
-				{#if conversations.length > 0}
-					<div class="mb-4">
-						<div class="relative">
-							<input
-								type="text"
-								placeholder="Search conversations..."
-								class="input input-bordered w-full pl-10"
-								bind:value={searchQuery}
-							/>
-							<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+							<div class="min-w-0 flex-1">
+								<p class="truncate font-medium">{newMessageProfile.name || 'Unknown User'}</p>
+								<p class="text-base-content/60 truncate text-xs">
+									{newMessagePubkey.startsWith('npub')
+										? `${newMessagePubkey.slice(0, 16)}...`
+										: `${newMessagePubkey.slice(0, 8)}...`}
+								</p>
+							</div>
+							<div class="flex-shrink-0">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 text-gray-400"
+									class="text-success h-5 w-5"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -434,14 +347,99 @@
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+										d="M5 13l4 4L19 7"
 									/>
 								</svg>
 							</div>
 						</div>
-					</div>
-				{/if}
+					{:else if newMessagePubkey && !newMessageError}
+						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
+							<div class="bg-base-300 flex h-10 w-10 items-center justify-center rounded-full">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="text-base-content/40 h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+									/>
+								</svg>
+							</div>
+							<div class="min-w-0 flex-1">
+								<p class="text-base-content/60 font-medium">No profile found</p>
+								<p class="text-base-content/50 truncate text-xs">
+									{newMessagePubkey.startsWith('npub')
+										? `${newMessagePubkey.slice(0, 16)}...`
+										: `${newMessagePubkey.slice(0, 8)}...`}
+								</p>
+							</div>
+						</div>
+					{/if}
 
+					<!-- Action Buttons -->
+					<div class="flex gap-3 pt-4">
+						<button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							class="btn btn-primary flex-1"
+							disabled={!newMessagePubkey || !!newMessageError}
+						>
+							{#if isProfileLoading}
+								<span class="loading loading-spinner loading-sm"></span>
+								Loading...
+							{:else}
+								Start Chat
+							{/if}
+						</button>
+					</div>
+				</form>
+			</div>
+			<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
+		</div>
+	{/if}
+
+	<!-- Main Content - Conversation List Only -->
+	<div class="card bg-base-100 flex-1 overflow-hidden shadow-xl">
+		<div class="card-body flex h-full flex-col overflow-hidden p-4">
+			<!-- Search Input -->
+			{#if conversations.length > 0}
+				<div class="mb-4 flex-shrink-0">
+					<div class="relative">
+						<input
+							type="text"
+							placeholder="Search conversations..."
+							class="input input-bordered w-full pl-10"
+							bind:value={searchQuery}
+						/>
+						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 text-gray-400"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+								/>
+							</svg>
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Scrollable content area -->
+			<div class="min-h-0 flex-1 overflow-y-auto">
 				{#if isLoading}
 					<!-- Loading State -->
 					<div class="space-y-4">
@@ -555,6 +553,7 @@
 					</div>
 				{/if}
 			</div>
-		{/if}
+			<!-- Close scrollable content area -->
+		</div>
 	</div>
 </div>

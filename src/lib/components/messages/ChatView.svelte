@@ -527,51 +527,11 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
-	<!-- Chat Header -->
-	<div class="border-base-300 flex items-center gap-3 border-b p-4">
-		<Avatar
-			user={{
-				name: recipientProfile.name || 'Unknown',
-				profileImage: recipientProfile.picture || null
-			}}
-			size="md"
-		/>
-		<div class="flex items-center gap-2">
-			<h3 class="font-semibold">
-				{recipientProfile.name || `${recipientPubkey.slice(0, 8)}...`}
-			</h3>
-			<button
-				aria-label="Copy public key"
-				class="btn btn-ghost btn-sm p-1"
-				onclick={() => {
-					navigator.clipboard.writeText(recipientPubkey);
-					// Optional: Add a toast notification here
-				}}
-				title="Copy public key"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-					/>
-				</svg>
-			</button>
-		</div>
-	</div>
-
+<div class="flex flex-col">
 	<!-- Messages Area -->
 	<div
 		bind:this={messagesContainer}
-		class="flex-1 space-y-1 overflow-y-auto p-4"
+		class="max-h-[70dvh] min-h-0 flex-1 space-y-1 overflow-y-auto p-4"
 		role="log"
 		aria-live="polite"
 		aria-label="Chat messages"
@@ -670,9 +630,9 @@
 	</div>
 
 	<!-- Message Input Area -->
-	<div class="border-base-300 bg-base-100 border-t p-2">
+	<div class="border-base-300 bg-base-100 flex-shrink-0 rounded-b-[2rem] border-t p-2">
 		<form onsubmit={handleSubmit} class="relative">
-			<div class="bg-base-200 flex items-end gap-2 rounded-2xl p-2">
+			<div class="flex items-center gap-2 rounded-2xl p-1">
 				<!-- Message Input -->
 				<div class="flex-1">
 					<textarea
@@ -680,7 +640,7 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 text-base leading-6 focus:outline-none"
+						class="textarea placeholder-base-content/50 bg-base-200 min-h-0 w-full resize-none border-0 p-2 text-base leading-6 focus:outline-none"
 						placeholder="Type a message..."
 						rows="1"
 						disabled={isSendingMessage}
@@ -715,7 +675,7 @@
 				<!-- Send Button -->
 				<button
 					type="submit"
-					class="btn btn-primary btn-sm h-8 min-h-0 w-8 rounded-full p-0"
+					class="btn btn-primary btn-sm h-10 min-h-0 w-12 rounded-full"
 					disabled={!newMessageText.trim() || isSendingMessage}
 					title="Send message"
 				>
