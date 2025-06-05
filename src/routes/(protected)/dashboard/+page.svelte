@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Task } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
@@ -19,7 +20,7 @@
 	let activeTab = $state('');
 
 	// Task drawer state
-	let selectedTaskId = $state<number | null>(null);
+	let selectedTask = $state<Task | null>(null);
 	let drawerOpen = $state(false);
 	let drawerInitialTab = $state('details');
 
@@ -49,8 +50,8 @@
 	}
 
 	// Task drawer functions
-	const openTaskDrawer = (taskId: number, tab: string = 'details') => {
-		selectedTaskId = taskId;
+	const openTaskDrawer = (task: Task, tab: string = 'details') => {
+		selectedTask = task;
 		drawerInitialTab = tab;
 		drawerOpen = true;
 	};
@@ -95,7 +96,7 @@
 			id="panel-bids"
 			role="tabpanel"
 			aria-labelledby="tab-bids"
-			class="card bg-base-100 shadow-xl rounded-xl"
+			class="card bg-base-100 rounded-xl shadow-xl"
 			transition:slide={{ duration: 300 }}
 		>
 			<div class="card-body">
@@ -108,7 +109,7 @@
 			id="panel-recurring"
 			role="tabpanel"
 			aria-labelledby="tab-recurring"
-			class="card bg-base-100 shadow-xl rounded-xl"
+			class="card bg-base-100 rounded-xl shadow-xl"
 			transition:slide={{ duration: 300 }}
 		>
 			<div class="card-body">
@@ -120,7 +121,7 @@
 
 <!-- Task Drawer -->
 <TaskDrawer
-	taskId={selectedTaskId}
+	task={selectedTask}
 	isOpen={drawerOpen}
 	activeTab={drawerInitialTab}
 	onClose={closeTaskDrawer}

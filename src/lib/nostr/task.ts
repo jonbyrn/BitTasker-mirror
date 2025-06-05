@@ -1,10 +1,9 @@
 import type { TaskBody } from '$lib/types/task';
-import type { Event as NostrEvent } from 'nostr-tools';
+import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
 import { SimplePool } from 'nostr-tools/pool';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 import { getSignedEvent } from '$lib/utils/nostr';
 
 // Initialize a pool for relay connections
@@ -28,7 +27,7 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][]
         .slice(0, 10); // Limit to 10 skills
 
     const tags: string[][] = [
-        ['c', ...taskData.categoryIds.map(id => id.toString())],
+        ['c', ...taskData.categories.map(id => id.toString())],
         ['s', ...normalizedSkills],
         ['pow', ...pow]
     ];
@@ -146,8 +145,59 @@ export function subscribeToTasks(
 }
 
 /**
+ * Query tasks
+ */
+export async function queryTasks(
+    callback: (event: NostrEvent) => void,
+    filter: { kinds?: number[], authors?: string[], tags?: string[][] } = {},
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): Promise<NostrEvent[]> {
+    const query = await pool.querySync(relays, {
+        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION, TASK_KINDS.RECURRING_TASK],
+        authors: filter.authors,
+        ...filter
+    });
+
+    query.forEach(event => {
+        callback(event);
+    });
+
+    return query;
+}
+
+/**
  * Close all relay connections
  */
 export function closePool(): void {
     pool.close([PUBLIC_NOSTR_RELAY_URL]);
+}
+
+/**
+ * Get a task by its ID
+ */
+export async function getTaskById(taskId: string, author?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
+    try {
+        const filter: Filter = {
+            kinds: [TASK_KINDS.TASK_CREATION, TASK_KINDS.TASK_UPDATE],
+            ids: [taskId]
+        };
+
+        // If author is provided, add it to the filter
+        if (author) {
+            filter.authors = [author];
+        }
+
+        // Query events
+        const events = await pool.querySync(relays, filter);
+
+        if (!events || events.length === 0) {
+            return null;
+        }
+
+        // Get the most recent version of the task
+        return events.sort((a, b) => b.created_at - a.created_at)[0];
+    } catch (error) {
+        console.error('Failed to get task by ID:', error);
+        throw error;
+    }
 } 

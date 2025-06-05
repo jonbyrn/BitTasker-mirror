@@ -85,7 +85,7 @@ src/
   - Components: src/lib/components/ExampleComponent.svelte
   - Services: src/lib/services/example.service.ts
   - Utils: src/lib/utils/exampleUtil.ts
-  - Types: src/lib/types/exampleTypes.ts
+  - Types: src/lib/types/exampleTypes.d.ts
   - Tests: src/lib/tests/example.test.ts
   - Stores: src/lib/stores/example.store.ts
 

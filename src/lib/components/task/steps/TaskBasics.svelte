@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { appStore } from '$lib/stores/app.store';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import Tags from '$lib/components/Tags.svelte';
@@ -12,8 +11,8 @@
 	let skillsInput = $state('');
 
 	function handleSkillKeypress(event: KeyboardEvent) {
-		event?.preventDefault();
 		if (event.key === 'Enter' && skillsInput.trim()) {
+			event?.preventDefault();
 			store.updateTask({ skills: [...$store.task.skills, skillsInput] });
 			skillsInput = '';
 		}
@@ -90,40 +89,36 @@
 
 		{#if $store.task.dateRange}
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<div>
-					<DatePicker
-						label="Start Date"
-						value={$store.task.dateRange.start}
-						onChange={(value: string) => {
-							const start = value;
-							const end = $store.task.dateRange?.end ?? new Date().toISOString();
-							store.updateTask({
-								dateRange: {
-									start,
-									end
-								}
-							});
-						}}
-					/>
-				</div>
-				<div>
-					<DatePicker
-						label="End Date"
-						value={$store.task.dateRange.end}
-						onChange={(value: string) => {
-							const end = value;
-							const start = $store.task.dateRange?.start ?? new Date().toISOString();
-							store.updateTask({
-								dateRange: {
-									start,
-									end
-								}
-							});
-						}}
-					/>
-				</div>
+				<DatePicker
+					label="Start Date"
+					value={$store.task.dateRange.start}
+					onChange={(value: string) => {
+						const start = value;
+						const end = $store.task.dateRange?.end ?? new Date().toISOString();
+						store.updateTask({
+							dateRange: {
+								start,
+								end
+							}
+						});
+					}}
+				/>
+				<DatePicker
+					label="End Date"
+					value={$store.task.dateRange.end}
+					onChange={(value: string) => {
+						const end = value;
+						const start = $store.task.dateRange?.start ?? new Date().toISOString();
+						store.updateTask({
+							dateRange: {
+								start,
+								end
+							}
+						});
+					}}
+				/>
 				{#if errors.deadline}
-					<span class="label-text-alt text-error col-span-2 -mt-4">{errors.deadline}</span>
+					<span class="label-text-alt text-error -mt-2">{errors.deadline}</span>
 				{/if}
 			</div>
 		{:else}
@@ -170,7 +165,7 @@
 				class="input input-bordered join-item flex-1 rounded-l-lg"
 				placeholder="Add skills (e.g. Carpentry, Coding)"
 				onkeydown={handleSkillKeypress}
-				disabled={$store.task?.skills?.length >= 20}
+				disabled={$store.task?.skills?.length >= 10}
 			/>
 			<button
 				type="button"

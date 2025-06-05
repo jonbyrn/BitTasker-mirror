@@ -45,25 +45,28 @@ export interface TaskBody {
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	skills: string[];
-	categoryIds: string[];
+	categories: string[];
 	attachments?: Attachment[];
 }
 
 export interface Task {
 	id: string;
+	status: TaskStatusEnum;
 	title: string;
 	taskType: TaskTypeEnum;
 	description: string;
 	budget: Budget;
-	status: TaskStatusEnum;
-	isRemovals: boolean;
 	deadline: string | null;
 	dateRange: DateRange | null;
 	pickupLocation: Location | null;
 	dropOffLocation: Location | null;
+	skills: string[];
+	categories: Array<string>;
+	attachments?: Attachment[];
+	
+	isRemovals: boolean;
 	isBoosted: boolean;
 	boostPercentage: number | null;
-	attachments?: Attachment[];
 	
 	createdAt: string;
 	updatedAt: string;
@@ -72,7 +75,6 @@ export interface Task {
 	deletedAt: string | null;
 	
 	isDeleted: boolean;
-	categories: Array<string>;
 	requiredSkills: Array<string>;
 	bids: TaskBid[];
 }

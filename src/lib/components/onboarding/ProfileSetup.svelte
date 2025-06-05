@@ -156,8 +156,8 @@
 
 	// Handle key press for skill tags
 	function handleSkillKeypress(event: KeyboardEvent) {
-		event.preventDefault();
 		if (event.key === 'Enter' || event.key === ',') {
+			event.preventDefault();
 			addSkill();
 		}
 	}

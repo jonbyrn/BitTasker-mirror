@@ -1,24 +1,22 @@
 <script lang="ts">
-	import type { NostrEvent } from '$lib/types/nostr';
 	import type { Task } from '$lib/types/task';
 	import { t } from '$lib/stores/i18n.store';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { subscribeToTasks, TASK_KINDS } from '$lib/nostr/task';
+	import { queryTasks, TASK_KINDS } from '$lib/nostr/task';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props
 	const { openTaskDrawer } = $props<{
-		openTaskDrawer: (taskId: number, tab?: string) => void;
+		openTaskDrawer: (task: Task, tab?: string) => void;
 	}>();
 
 	let tasks = $state<Task[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let btcPrice = $state<number>(63000); // Default fallback price
-	let unsubscribe: (() => void) | null = null;
 
 	// Convert status to user-friendly string
 	function formatStatus(status: string): string {
@@ -106,24 +104,6 @@
 		});
 	}
 
-	/**
-	 * Parse task data from Nostr event
-	 */
-	function parseTaskData(event: NostrEvent): Task | null {
-		try {
-			const taskData = JSON.parse(event.content);
-			console.log('taskData (dashboard-tasks-panel):', taskData);
-			return {
-				id: event.id || '',
-				...taskData,
-				status: taskData.status
-			};
-		} catch (error) {
-			console.error('Error parsing task data:', error);
-			return null;
-		}
-	}
-
 	onMount(async () => {
 		isLoading = true;
 		error = null;
@@ -135,11 +115,19 @@
 				throw new Error('No public key found');
 			}
 
-			unsubscribe = subscribeToTasks(
+			await queryTasks(
 				(event) => {
-					const taskData = parseTaskData(event);
+					const taskData = JSON.parse(event.content);
 					if (taskData) {
-						tasks = [...tasks, taskData];
+						tasks = [
+							...tasks,
+							{
+								...taskData,
+								id: event.id,
+								author: event.pubkey,
+								status: taskData.status
+							}
+						];
 					}
 				},
 				{
@@ -157,19 +145,13 @@
 
 		fetchBtcPrice();
 	});
-
-	onDestroy(() => {
-		if (unsubscribe) {
-			unsubscribe();
-		}
-	});
 </script>
 
 <!-- Loading State -->
 {#if isLoading}
-	<div class="space-y-6">
+	<div class="space-y-2">
 		{#each Array(2) as _}
-			<div class="card bg-base-200 animate-pulse rounded-xl shadow-md">
+			<div class="card bg-base-100 animate-pulse rounded-xl shadow-md">
 				<div class="card-body">
 					<div class="flex justify-between">
 						<div class="flex items-center gap-2">
@@ -212,7 +194,7 @@
 
 <!-- Task List -->
 {#if !isLoading && tasks.length > 0}
-	<div class="grid grid-cols-1 gap-6">
+	<div class="grid grid-cols-1 gap-2">
 		{#each tasks as task}
 			{#if task}
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
@@ -310,13 +292,13 @@
 						<div class="card-actions mt-2 justify-end">
 							<button
 								class="btn btn-primary btn-sm"
-								onclick={() => openTaskDrawer(task.id, 'details')}
+								onclick={() => openTaskDrawer(task, 'details')}
 							>
 								{$t('task.actions.view_details')}
 							</button>
 							<button
 								class="btn btn-outline btn-sm"
-								onclick={() => openTaskDrawer(task.id, 'bids')}
+								onclick={() => openTaskDrawer(task, 'bids')}
 							>
 								{$t('task.actions.view_bids')}
 							</button>

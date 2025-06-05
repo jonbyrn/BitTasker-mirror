@@ -42,7 +42,7 @@
 		});
 	}
 
-    onMount(() => {
+	onMount(() => {
 		fetchBtcPrice();
 	});
 </script>
@@ -61,13 +61,17 @@
 	<div class="flex gap-4">
 		<button
 			class="btn {$store.task.budget.type === BudgetTypeEnum.FIXED ? 'btn-primary' : 'btn-outline'}"
-			onclick={() => store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.FIXED } })}
+			onclick={() =>
+				store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.FIXED } })}
 		>
 			Fixed price
 		</button>
 		<button
-			class="btn {$store.task.budget.type === BudgetTypeEnum.HOURLY ? 'btn-primary' : 'btn-outline'}"
-			onclick={() => store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.HOURLY } })}
+			class="btn {$store.task.budget.type === BudgetTypeEnum.HOURLY
+				? 'btn-primary'
+				: 'btn-outline'}"
+			onclick={() =>
+				store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.HOURLY } })}
 		>
 			Hourly rate
 		</button>
@@ -80,16 +84,8 @@
 		<input
 			type="number"
 			id="budget"
-			value={$store.task.budget}
-			oninput={(e) => {
-				const value = parseFloat((e.target as HTMLInputElement).value);
-				store.updateTask({ budget: { ...$store.task.budget, amount: value } });
-				// Update estimated USDT value as the user types
-				usdtEstimate = calculateUsdtEstimate(value);
-			}}
-			onchange={(e) => {
-				store.updateTask({ budget: { ...$store.task.budget, amount: parseFloat((e.target as HTMLInputElement).value) } });
-			}}
+			bind:value={$store.task.budget.amount}
+			oninput={() => (usdtEstimate = calculateUsdtEstimate($store.task.budget.amount))}
 			class="input input-bordered w-full {errors.budget ? 'input-error' : ''}"
 			placeholder="Enter your budget"
 			min="0"
@@ -114,7 +110,10 @@
 				value={$store.task.budget.estimatedHours}
 				onchange={(e) => {
 					store.updateTask({
-						budget: { ...$store.task.budget, estimatedHours: parseInt((e.target as HTMLInputElement).value) }
+						budget: {
+							...$store.task.budget,
+							estimatedHours: parseInt((e.target as HTMLInputElement).value)
+						}
 					});
 				}}
 				class="input input-bordered w-full"

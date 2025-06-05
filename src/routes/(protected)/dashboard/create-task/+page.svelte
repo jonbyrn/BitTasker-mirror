@@ -40,7 +40,7 @@
 				}
 				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
 					errors.deadline = 'Deadline must be in the future';
-				if ($store.task.categoryIds.length === 0)
+				if ($store.task.categories.length === 0)
 					errors.category = 'At least one category is required';
 				if ($store.task.skills.length === 0) errors.skill = 'At least one skill is required';
 				break;
@@ -110,7 +110,7 @@
 				dropOffLocation: $store.task.dropOffLocation,
 				skills: $store.task.skills,
 				attachments: $store.task.attachments,
-				categoryIds: $store.task.categoryIds
+				categories: $store.task.categories
 			};
 
 			if ($store.recurringTask.isRecurring) {
@@ -173,7 +173,7 @@
 			<TaskBasics {errors} {direction} />
 			<TaskLocation {errors} {direction} />
 			<TaskBudget {errors} {direction} />
-			<TaskRecurring {errors} {direction} />
+			<!-- <TaskRecurring {errors} {direction} /> -->
 
 			<!-- {#if $store.currentStep === 'basics'}
 				<TaskBasics {errors} {direction} />
