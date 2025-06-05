@@ -19,6 +19,7 @@ export const TASK_KINDS = {
  * Generate tags for a task event
  */
 function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][] {
+    console.log(taskData);
     // Normalize and validate skills
     const normalizedSkills = taskData.skills
         .map(skill => skill.trim().toLowerCase())
@@ -27,7 +28,7 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][]
         .slice(0, 10); // Limit to 10 skills
 
     const tags: string[][] = [
-        ['c', ...taskData.categories.map(id => id.toString())],
+        ['c', ...taskData?.categories?.map(id => id.toString())],
         ['s', ...normalizedSkills],
         ['pow', ...pow]
     ];
@@ -59,7 +60,6 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][]
 export async function createTask(taskData: TaskBody): Promise<string> {
     // Calculate POW based on task value
     const pow = await calculatePOW(taskData.budget.amount);
-    console.log({ pow });
 
     // Create event
     const event = {
@@ -68,8 +68,6 @@ export async function createTask(taskData: TaskBody): Promise<string> {
         content: JSON.stringify(taskData),
         tags: generateTaskTags(taskData, pow)
     };
-
-    console.log({ event });
 
     // Sign and publish
     const signedEvent = await getSignedEvent(event);
@@ -198,6 +196,51 @@ export async function getTaskById(taskId: string, author?: string, relays = [PUB
         return events.sort((a, b) => b.created_at - a.created_at)[0];
     } catch (error) {
         console.error('Failed to get task by ID:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update an existing task
+ */
+export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
+    try {
+        // Get the original task
+        const originalTask = await getTaskById(taskId);
+        if (!originalTask) {
+            throw new Error('Task not found');
+        }
+
+        // Calculate POW based on task value
+        const pow = await calculatePOW(updates.budget?.amount || 0);
+
+        // Create update event
+        const event = {
+            kind: TASK_KINDS.TASK_UPDATE,
+            created_at: Math.floor(Date.now() / 1000),
+            content: JSON.stringify(updates),
+            tags: [
+                ['e', taskId], // Reference to original task
+                ['p', originalTask.pubkey], // Original task creator
+                ['status', 'update'],
+                ['pow', ...pow],
+                // Add relevant tags based on what was updated
+                ...(updates.categories ? [['c', ...updates.categories.map(id => id.toString())]] : []),
+                ...(updates.skills ? [['s', ...updates.skills]] : []),
+                ...(updates.deadline ? [['d', updates.deadline]] : []),
+                ...(updates.dateRange ? [['d', updates.dateRange.start, updates.dateRange.end]] : []),
+                ...(updates.budget ? [['b', `${updates.budget.amount}${updates.budget.currency}`]] : []),
+                ...(updates.pickupLocation?.locationLoaded ? [['l', 'onsite', updates.pickupLocation.displayName || '']] : [])
+            ]
+        };
+
+        // Sign and publish
+        const signedEvent = await getSignedEvent(event);
+        await publishToRelays(signedEvent);
+
+        return signedEvent.id;
+    } catch (error) {
+        console.error('Failed to update task:', error);
         throw error;
     }
 } 

@@ -142,9 +142,9 @@
 				name: cat.name,
 				id: cat.id
 			}))}
-			selectedTags={$store.task.categoryIds}
+			selectedTags={$store.task.categories}
 			onChange={(ids) => {
-				store.updateTask({ categoryIds: ids as string[] });
+				store.updateTask({ categories: ids as string[] });
 			}}
 		/>
 		{#if errors.category}

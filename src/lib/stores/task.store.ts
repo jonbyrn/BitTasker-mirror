@@ -1,4 +1,4 @@
-import type { TaskBody } from '$lib/types/task.d';
+import type { Task, TaskBody } from '$lib/types/task.d';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { page } from '$app/state';
 import { get, writable } from 'svelte/store';
@@ -6,6 +6,7 @@ import { Preferences } from '@capacitor/preferences';
 import { TaskTypeEnum, BudgetTypeEnum, TaskStepEnum } from '$lib/utils/enums/task.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
+import { getTaskById } from '$lib/nostr/task';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
@@ -28,7 +29,7 @@ function createTaskStore() {
 				start: new Date().toISOString(),
 				end: 'null'
 			},
-			categoryIds: [],
+			categories: [],
 			skills: [],
 			pickupLocation: {
 				displayName: '',
@@ -97,6 +98,19 @@ function createTaskStore() {
 					currentStep: storeData.currentStep,
 					task: storeData.task,
 					recurringTask: storeData.recurringTask
+				})
+			});
+		}
+	};
+
+	const saveEditTaskDraft = async (id: string, task: TaskBody) => {
+		if (id && task) {
+			await Preferences.set({
+				key: STORAGE_KEY,
+				value: JSON.stringify({
+					currentStep: TaskStepEnum.BASICS,
+					task: task,
+					recurringTask: recurringTask
 				})
 			});
 		}
@@ -191,7 +205,8 @@ function createTaskStore() {
 		updateTask,
 		setupRecurringTask,
 		updateRecurringDetails,
-		updateRecurrencePattern
+		updateRecurrencePattern,
+		saveEditTaskDraft
 	};
 }
 

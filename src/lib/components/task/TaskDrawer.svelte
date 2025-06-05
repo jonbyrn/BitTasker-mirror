@@ -12,6 +12,8 @@
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import CounterOfferHistory from '$lib/components/bidding/CounterOfferHistory.svelte';
 	import EditTaskForm from './EditTaskForm.svelte';
+	import { goto } from '$app/navigation';
+	import { taskStore } from '$lib/stores/task.store';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -96,13 +98,10 @@
 
 			// Parse task data from nostr event
 			const taskData = JSON.parse(nostrEvent.content) as Task;
-			console.log(props.task, taskData);
 			task = {
 				...taskData,
 				id: nostrEvent.id,
-				createdAt: new Date(nostrEvent.created_at * 1000).toISOString(),
-				// TODO: Implement status tracking
-				status: TaskStatusEnum.OPEN
+				createdAt: new Date(nostrEvent.created_at * 1000).toISOString()
 			};
 
 			if (task) {
@@ -236,6 +235,15 @@
 			console.error(`Error ${action}ing counter offer:`, error);
 		}
 	}
+
+	function handleEditTask() {
+		const task = { ...props.task };
+		['id', 'author'].forEach((key) => {
+			delete task[key as keyof Task];
+		});
+		taskStore.saveEditTaskDraft(props.task?.id, task);
+		goto(`/dashboard/create-task`);
+	}
 </script>
 
 <!-- Drawer Overlay -->
@@ -352,7 +360,7 @@
 							</div>
 
 							{#if isOwner && task.status === TaskStatusEnum.OPEN}
-								<button class="btn btn-outline btn-sm" onclick={() => (isEditing = !isEditing)}>
+								<button class="btn btn-outline btn-sm" onclick={handleEditTask}>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="mr-1 h-4 w-4"
@@ -430,7 +438,7 @@
 									<h3 class="text-base-content/60 mb-1 text-sm">Required Skills</h3>
 									<div class="flex flex-wrap gap-1">
 										{#each task.skills as skill}
-											<span class="badge badge-primary badge-outline">{skill}</span>
+											<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
 										{/each}
 									</div>
 								</div>
@@ -442,7 +450,7 @@
 									<h3 class="text-base-content/60 mb-1 text-sm">Categories</h3>
 									<div class="flex flex-wrap gap-1">
 										{#each task.categories as category}
-											<span class="badge badge-secondary badge-outline">
+											<span class="badge badge-outline/90 pb-[2px] text-white/90">
 												{category}
 											</span>
 										{/each}
@@ -481,7 +489,7 @@
 									</div>
 								{/if}
 
-								{#if task.dropOffLocation}
+								{#if task.dropOffLocation && task.dropOffLocation.displayName}
 									<div>
 										<h3 class="text-base-content/60 mb-1 text-sm">Drop Off Location</h3>
 										<div class="flex items-center gap-1">

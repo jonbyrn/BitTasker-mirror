@@ -614,3 +614,107 @@ if (page1.hasMore) {
   - Events with the same timestamp require special handling
   - Real-time updates may affect page boundaries
   - Some relays may return events in different orders
+
+## Recurring Tasks Implementation
+
+### Overview
+Recurring tasks in Nostr can be implemented using a hybrid approach that combines Nostr events for task templates and a backend service for scheduling. Here's how it works:
+
+1. **Task Template Storage (Nostr)**
+   - Store recurring task templates as Nostr events (kind: 31006)
+   - Include all task details and recurrence pattern in the event
+   - Use tags to mark frequency and interval
+   - Allow template updates through event references
+
+2. **Instance Generation (Backend)**
+   - Backend service monitors recurring task templates
+   - Generates task instances based on schedule
+   - Creates new Nostr events (kind: 31007) for each instance
+   - Links instances to template using event references
+   - Handles timezone considerations and schedule adjustments
+
+3. **Schedule Management**
+   ```typescript
+   interface RecurringTaskSchedule {
+     frequency: 'daily' | 'weekly' | 'monthly';
+     interval: number;
+     daysOfWeek?: number[];    // For weekly recurrence
+     dayOfMonth?: number;      // For monthly recurrence
+     endDate?: string;         // Optional end date
+     maxOccurrences?: number;  // Optional max instances
+     timezone: string;         // User's timezone
+   }
+   ```
+
+4. **Backend Service Responsibilities**
+   - Maintain a queue of upcoming task instances
+   - Handle schedule modifications
+   - Process timezone-aware scheduling
+   - Manage instance creation and publication
+   - Track instance history and completion status
+   - Handle schedule interruptions and resumptions
+
+5. **Advantages of Hybrid Approach**
+   - Templates stored immutably on Nostr
+   - Reliable scheduling through backend service
+   - Timezone-aware scheduling
+   - Scalable instance generation
+   - Maintains decentralized task data
+   - Allows template modifications
+
+6. **Implementation Details**
+   ```typescript
+   // Backend scheduler service
+   class RecurringTaskScheduler {
+     async scheduleNextInstance(templateId: string): Promise<void> {
+       const template = await this.getTemplate(templateId);
+       const nextDate = this.calculateNextOccurrence(template.schedule);
+       
+       if (this.shouldCreateInstance(template, nextDate)) {
+         await this.createTaskInstance(template, nextDate);
+       }
+     }
+
+     private calculateNextOccurrence(schedule: RecurringTaskSchedule): Date {
+       // Calculate next occurrence based on frequency and interval
+       // Handle timezone conversions
+       // Consider schedule constraints
+     }
+
+     private async createTaskInstance(template: NostrEvent, date: Date): Promise<void> {
+       const instanceData = this.prepareInstanceData(template, date);
+       await createTask(instanceData); // Creates Nostr event
+     }
+   }
+   ```
+
+7. **Synchronization Strategy**
+   - Backend maintains index of recurring templates
+   - Periodically syncs with Nostr network
+   - Handles template updates and deletions
+   - Manages instance generation queue
+   - Provides API for template management
+
+8. **Error Handling and Recovery**
+   - Handle missed schedules due to downtime
+   - Recover from scheduling failures
+   - Manage conflicting template updates
+   - Handle timezone changes
+   - Process schedule modifications
+
+9. **Monitoring and Maintenance**
+   - Track instance generation status
+   - Monitor schedule adherence
+   - Handle schedule conflicts
+   - Manage resource utilization
+   - Provide status and health metrics
+
+### Conclusion
+This hybrid approach provides the best of both worlds:
+- Decentralized storage of task templates through Nostr
+- Reliable scheduling through backend service
+- Scalable instance generation
+- Flexible schedule management
+- Robust error handling and recovery
+
+The backend service acts as a facilitator for the recurring task system while keeping the core task data decentralized through Nostr. This approach ensures reliable scheduling while maintaining the benefits of decentralized task management.

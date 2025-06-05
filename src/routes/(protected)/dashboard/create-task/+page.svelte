@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { AxiosError } from 'axios';
 	import { createTask, createRecurringTask } from '$lib/nostr/task';
-	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
@@ -40,9 +40,9 @@
 				}
 				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
 					errors.deadline = 'Deadline must be in the future';
-				if ($store.task.categories.length === 0)
+				if ($store.task?.categories?.length === 0)
 					errors.category = 'At least one category is required';
-				if ($store.task.skills.length === 0) errors.skill = 'At least one skill is required';
+				if ($store.task?.skills?.length === 0) errors.skill = 'At least one skill is required';
 				break;
 			case 'location':
 				if ($store.isRemovals) {
@@ -110,7 +110,8 @@
 				dropOffLocation: $store.task.dropOffLocation,
 				skills: $store.task.skills,
 				attachments: $store.task.attachments,
-				categories: $store.task.categories
+				categories: $store.task.categories,
+				status: TaskStatusEnum.OPEN
 			};
 
 			if ($store.recurringTask.isRecurring) {
