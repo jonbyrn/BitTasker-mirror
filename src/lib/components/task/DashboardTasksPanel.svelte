@@ -5,7 +5,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { queryTasks, subscribeToTasks, TASK_KINDS } from '$lib/nostr/task';
+	import { queryTasks, TASK_KINDS } from '$lib/nostr/task';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props

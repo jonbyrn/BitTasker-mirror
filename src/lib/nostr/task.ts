@@ -126,108 +126,6 @@ export async function createRecurringTask(taskData: TaskBody, schedule: {
 }
 
 /**
- * Publish an event to relays
- */
-export async function publishToRelays(event: NostrEvent, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
-    try {
-        const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
-        await Promise.race([
-            Promise.all(pub),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
-        ]);
-    } catch (error) {
-        console.error('Failed to publish to relays:', error);
-        throw error;
-    }
-}
-
-/**
- * Subscribe to task events
- */
-export function subscribeToTasks(
-    callback: (event: NostrEvent) => void,
-    filter: { kinds?: number[], authors?: string[], tags?: string[][] } = {},
-    relays = [PUBLIC_NOSTR_RELAY_URL]
-): () => void {
-    const sub = pool.subscribe(relays, {
-        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION, TASK_KINDS.RECURRING_TASK],
-        authors: filter.authors,
-        ...filter
-    }, {
-        onevent: callback
-    });
-
-    return () => sub.close();
-}
-
-/**
- * Query tasks
- */
-export async function queryTasks(
-    callback: (event: NostrEvent) => void,
-    filter: { kinds?: number[], authors?: string[], tags?: string[][], limit?: number } = {},
-    relays = [PUBLIC_NOSTR_RELAY_URL]
-): Promise<NostrEvent[]> {
-    const query = await pool.querySync(relays, {
-        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION], // Only look for creation events
-        authors: filter.authors,
-        // limit: filter.limit || 100, // Set a reasonable default limit
-        // since: 0, // Get all historical tasks
-        // until: Math.floor(Date.now() / 1000), // Up to current time
-        ...filter
-    });
-
-    console.log('Query results:', query.length, 'events');
-
-    // Sort events by creation time to ensure consistent ordering
-    const sortedEvents = query.sort((a, b) => b.created_at - a.created_at);
-
-    // Process events in chronological order for proper state reconstruction
-    sortedEvents.forEach(event => {
-        callback(event);
-    });
-
-    return sortedEvents;
-}
-
-/**
- * Close all relay connections
- */
-export function closePool(): void {
-    pool.close([PUBLIC_NOSTR_RELAY_URL]);
-}
-
-/**
- * Get a task by its ID
- */
-export async function getTaskById(taskId: string, author?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
-    try {
-        const filter: Filter = {
-            kinds: [TASK_KINDS.TASK_CREATION], // Only look for creation events
-            ids: [taskId]
-        };
-
-        // If author is provided, add it to the filter
-        if (author) {
-            filter.authors = [author];
-        }
-
-        // Query events
-        const events = await pool.querySync(relays, filter);
-
-        if (!events || events.length === 0) {
-            return null;
-        }
-
-        // Get the most recent version of the task
-        return events.sort((a, b) => b.created_at - a.created_at)[0];
-    } catch (error) {
-        console.error('Failed to get task by ID:', error);
-        throw error;
-    }
-}
-
-/**
  * Update an existing task
  */
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
@@ -317,3 +215,105 @@ export async function deleteTask(taskId: string): Promise<string> {
         throw error;
     }
 } 
+
+/**
+ * Publish an event to relays
+ */
+export async function publishToRelays(event: NostrEvent, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+    try {
+        const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
+        await Promise.race([
+            Promise.all(pub),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Publish timeout')), 5000))
+        ]);
+    } catch (error) {
+        console.error('Failed to publish to relays:', error);
+        throw error;
+    }
+}
+
+/**
+ * Subscribe to task events
+ */
+export function subscribeToTasks(
+    callback: (event: NostrEvent) => void,
+    filter: { kinds?: number[], authors?: string[], tags?: string[][] } = {},
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): () => void {
+    const sub = pool.subscribe(relays, {
+        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION, TASK_KINDS.RECURRING_TASK],
+        authors: filter.authors,
+        ...filter
+    }, {
+        onevent: callback
+    });
+
+    return () => sub.close();
+}
+
+/**
+ * Query tasks
+ */
+export async function queryTasks(
+    callback: (event: NostrEvent) => void,
+    filter: { kinds?: number[], authors?: string[], tags?: string[][], limit?: number } = {},
+    relays = [PUBLIC_NOSTR_RELAY_URL]
+): Promise<NostrEvent[]> {
+    const query = await pool.querySync(relays, {
+        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION], // Only look for creation events
+        authors: filter.authors,
+        // limit: filter.limit || 100, // Set a reasonable default limit
+        // since: 0, // Get all historical tasks
+        // until: Math.floor(Date.now() / 1000), // Up to current time
+        ...filter
+    });
+
+    // console.log('Query results:', query.length, 'events');
+
+    // Sort events by creation time to ensure consistent ordering
+    const sortedEvents = query.sort((a, b) => b.created_at - a.created_at);
+
+    // Process events in chronological order for proper state reconstruction
+    sortedEvents.forEach(event => {
+        callback(event);
+    });
+
+    return sortedEvents;
+}
+
+/**
+ * Get a task by its ID
+ */
+export async function getTaskById(taskId: string, author?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
+    try {
+        const filter: Filter = {
+            kinds: [TASK_KINDS.TASK_CREATION], // Only look for creation events
+            ids: [taskId]
+        };
+
+        // If author is provided, add it to the filter
+        if (author) {
+            filter.authors = [author];
+        }
+
+        // Query events
+        const events = await pool.querySync(relays, filter);
+
+        if (!events || events.length === 0) {
+            return null;
+        }
+
+        // Get the most recent version of the task
+        return events.sort((a, b) => b.created_at - a.created_at)[0];
+    } catch (error) {
+        console.error('Failed to get task by ID:', error);
+        throw error;
+    }
+}
+
+/**
+ * Close all relay connections
+ */
+export function closePool(): void {
+    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+}

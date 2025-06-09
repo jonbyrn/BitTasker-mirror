@@ -12,15 +12,23 @@
 	import TaskBoost from '$lib/components/task/steps/TaskBoost.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 
-	// Load the draft when the page is loaded
-	onMount(() => {
-		store.loadDraft();
-	});
-
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isSubmitted = $state(false);
+	let isLoading = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
+
+	// Load the draft when the page is loaded
+	onMount(async () => {
+		try {
+			isLoading = true;
+			await store.loadDraft();
+		} catch (error) {
+			console.error('Error loading draft:', error);
+		} finally {
+			isLoading = false;
+		}
+	});
 
 	function validateCurrentStep(): boolean {
 		errors = {};
@@ -159,117 +167,123 @@
 			</div>
 		</div>
 
-		<!-- Recurring Task Toggle -->
-		{#if $store.currentStep !== 'recurring'}
-			<div class="form-control mt-2 mb-4 w-full max-w-xs">
-				<label class="label cursor-pointer">
-					<span class="label-text font-medium">Create as recurring task</span>
-					<input
-						type="checkbox"
-						class="toggle toggle-primary"
-						bind:checked={$store.recurringTask.isRecurring}
-						onchange={(event) =>
-							store.setupRecurringTask((event.target as HTMLInputElement).checked)}
-					/>
-				</label>
-				{#if $store.recurringTask.isRecurring}
-					<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
-				{/if}
+		{#if isLoading}
+			<div class="flex justify-center">
+				<span class="loading loading-spinner loading-lg"></span>
 			</div>
-		{/if}
+		{:else}
+			<!-- Recurring Task Toggle -->
+			{#if $store.currentStep !== 'recurring'}
+				<div class="form-control mt-2 mb-4 w-full max-w-xs">
+					<label class="label cursor-pointer">
+						<span class="label-text font-medium">Create as recurring task</span>
+						<input
+							type="checkbox"
+							class="toggle toggle-primary"
+							bind:checked={$store.recurringTask.isRecurring}
+							onchange={(event) =>
+								store.setupRecurringTask((event.target as HTMLInputElement).checked)}
+						/>
+					</label>
+					{#if $store.recurringTask.isRecurring}
+						<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
+					{/if}
+				</div>
+			{/if}
 
-		<div class="space-y-6">
-			<!-- <TaskBasics {errors} {direction} />
+			<div class="space-y-6">
+				<!-- <TaskBasics {errors} {direction} />
 			<TaskLocation {errors} {direction} />
 			<TaskBudget {errors} {direction} />
 			<TaskRecurring {errors} {direction} /> -->
 
-			{#if $store.currentStep === 'basics'}
-				<TaskBasics {errors} {direction} />
-			{:else if $store.currentStep === 'location'}
-				<TaskLocation {errors} {direction} />
-			{:else if $store.currentStep === 'budget'}
-				<TaskBudget {errors} {direction} />
-				<!-- {:else if $store.currentStep === 'taskboost'}
+				{#if $store.currentStep === 'basics'}
+					<TaskBasics {errors} {direction} />
+				{:else if $store.currentStep === 'location'}
+					<TaskLocation {errors} {direction} />
+				{:else if $store.currentStep === 'budget'}
+					<TaskBudget {errors} {direction} />
+					<!-- {:else if $store.currentStep === 'taskboost'}
 				<TaskBoost {direction} /> -->
-			{:else if $store.currentStep === 'review'}
-				<TaskReview {errors} {direction} />
-			{:else if $store.currentStep === 'recurring'}
-				<TaskRecurring {errors} {direction} />
+				{:else if $store.currentStep === 'review'}
+					<TaskReview {errors} {direction} />
+				{:else if $store.currentStep === 'recurring'}
+					<TaskRecurring {errors} {direction} />
+				{/if}
+
+				<!-- Control buttons -->
+				<div class="mt-6 flex justify-between">
+					{#if $store.currentStep !== 'basics'}
+						<button
+							class="btn"
+							onclick={() => {
+								store.previousStep();
+								direction = 'backward';
+							}}
+						>
+							Back
+						</button>
+					{:else}
+						<div></div>
+					{/if}
+
+					{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
+						<button
+							class="btn btn-primary {isSubmitting ? 'loading' : ''}"
+							onclick={handleSubmit}
+							disabled={isSubmitting}
+						>
+							{#if isSubmitting}
+								<span></span>
+							{:else if $store.recurringTask.isRecurring}
+								Create Recurring Template
+							{:else}
+								Get Quotes
+							{/if}
+						</button>
+					{:else}
+						<button class="btn btn-primary" onclick={handleNext}>Next</button>
+					{/if}
+				</div>
+			</div>
+
+			{#if isSubmitted}
+				<div class="alert alert-success mt-6 shadow-lg">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>Task created successfully!</span>
+				</div>
 			{/if}
 
-			<!-- Control buttons -->
-			<div class="mt-6 flex justify-between">
-				{#if $store.currentStep !== 'basics'}
-					<button
-						class="btn"
-						onclick={() => {
-							store.previousStep();
-							direction = 'backward';
-						}}
+			{#if errors.general}
+				<div class="alert alert-error mt-6 shadow-lg">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
 					>
-						Back
-					</button>
-				{:else}
-					<div></div>
-				{/if}
-
-				{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
-					<button
-						class="btn btn-primary {isSubmitting ? 'loading' : ''}"
-						onclick={handleSubmit}
-						disabled={isSubmitting}
-					>
-						{#if isSubmitting}
-							<span></span>
-						{:else if $store.recurringTask.isRecurring}
-							Create Recurring Template
-						{:else}
-							Get Quotes
-						{/if}
-					</button>
-				{:else}
-					<button class="btn btn-primary" onclick={handleNext}>Next</button>
-				{/if}
-			</div>
-		</div>
-
-		{#if isSubmitted}
-			<div class="alert alert-success mt-6 shadow-lg">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>Task created successfully!</span>
-			</div>
-		{/if}
-
-		{#if errors.general}
-			<div class="alert alert-error mt-6 shadow-lg">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>{errors.general}</span>
-			</div>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{errors.general}</span>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>
