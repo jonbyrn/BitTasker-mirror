@@ -77,13 +77,10 @@ export interface Task {
 	
 	isDeleted: boolean;
 	requiredSkills: string[];
-	bids: TaskBid[];
 }
 
 export interface SearchTasksParams {
 	status?: TaskStatusEnum[];
-	categoryId?: number;
-	skillId?: number;
 	taskType?: TaskTypeEnum;
 	searchTerm?: string;
 	minBudget?: number;
@@ -92,8 +89,8 @@ export interface SearchTasksParams {
 	page?: number;
 	limit?: number;
 	budgetType?: BudgetTypeEnum;
-	categoryIds?: number[];
-	skillIds?: number[];
+	categories?: string[];
+	skills?: string[];
 	location?: string;
 	radius?: number;
 	deadlineBefore?: string;
@@ -102,6 +99,12 @@ export interface SearchTasksParams {
 	sortBy?: SortByEnum;
 	sortOrder?: SortOrderEnum;
 	
+	// New fields for enhanced filtering
+	currency?: string;
+	startDate?: string;
+	endDate?: string;
+	deadline?: string;
+	
 	// Nostr-specific fields
 	since?: number;
 	until?: number;
@@ -109,8 +112,6 @@ export interface SearchTasksParams {
 	ids?: string[];
 	kinds?: number[];
 	search?: string; // NIP-50 search term
-	// filter?: NostrFilter;  // Combined Nostr filter
-	// relays?: string[];    // List of relays to query
 }
 
 export interface TaskData extends Task {
@@ -184,7 +185,6 @@ export interface TaskRecommendation {
 }
 
 export interface RecommendationParams {
-	userId: string;
 	skills?: string[];
 	categories?: string[];
 	preferredBudgetRange?: {

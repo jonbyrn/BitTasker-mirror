@@ -6,6 +6,7 @@
 <script lang="ts">
 	// TODO: Replace with SearchTasksDto from Houdini
 	import type { SearchTasksParams } from '$lib/types/task.d';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import {
 		BudgetTypeEnum,
 		TaskTypeEnum,
@@ -13,10 +14,11 @@
 		SortByEnum,
 		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
-	import { appStore } from '$lib/stores/app.store';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
 	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
+	import Tags from '$lib/components/Tags.svelte';
+	import Input from '$lib/components/Input.svelte';
 
 	// Props
 	let { isOpen, onClose, onApply } = $props<{
@@ -30,8 +32,8 @@
 		searchTerm: '',
 		status: [],
 		taskType: undefined,
-		categoryIds: [],
-		skillIds: [],
+		categories: [],
+		skills: [],
 		minBudget: undefined,
 		maxBudget: undefined,
 		budgetType: undefined,
@@ -46,14 +48,6 @@
 		sortOrder: SortOrderEnum.DESC
 	});
 
-	// Get categories and skills from app store
-	let categoryOptions = $state<{ id: number; name: string }[]>(
-		$appStore.categories.map((cat) => ({ id: cat.id, name: cat.name }))
-	);
-	let skillOptions = $state<{ id: number; name: string }[]>(
-		$appStore.skills.map((skill) => ({ id: skill.id, name: skill.name }))
-	);
-
 	// Track active filter count
 	let activeFilterCount = $state(0);
 
@@ -64,8 +58,8 @@
 		if (filters.searchTerm) count++;
 		if (filters.taskType) count++;
 		if (filters.status && filters.status.length > 0) count++;
-		if (filters.categoryIds && filters.categoryIds.length > 0) count++;
-		if (filters.skillIds && filters.skillIds.length > 0) count++;
+		if (filters.categories && filters.categories.length > 0) count++;
+		if (filters.skills && filters.skills.length > 0) count++;
 		if (filters.minBudget || filters.maxBudget) count++;
 		if (filters.budgetType) count++;
 		if (filters.location) count++;
@@ -105,8 +99,8 @@
 		filters.searchTerm = '';
 		filters.status = [];
 		filters.taskType = undefined;
-		filters.categoryIds = [];
-		filters.skillIds = [];
+		filters.categories = [];
+		filters.skills = [];
 		filters.minBudget = undefined;
 		filters.maxBudget = undefined;
 		filters.budgetType = undefined;
@@ -165,22 +159,14 @@
 		filters.budgetType = type;
 	}
 
-	// Handle category selection
-	function handleCategoryChange(categoryId: number) {
-		if (filters.categoryIds?.includes(categoryId)) {
-			filters.categoryIds = filters.categoryIds.filter((id) => id !== categoryId);
-		} else {
-			filters.categoryIds = [...(filters.categoryIds || []), categoryId];
-		}
+	// Handle category tags change
+	function handleCategoryChange(tags: string[]) {
+		filters.categories = tags.map((tag) => tag.toLowerCase());
 	}
 
-	// Handle skill selection
-	function handleSkillChange(skillId: number) {
-		if (filters.skillIds?.includes(skillId)) {
-			filters.skillIds = filters.skillIds.filter((id) => id !== skillId);
-		} else {
-			filters.skillIds = [...(filters.skillIds || []), skillId];
-		}
+	// Handle skill tags change
+	function handleSkillChange(tags: string[]) {
+		filters.skills = tags.map((tag) => tag.toLowerCase());
 	}
 
 	// Handle sort options change
@@ -364,20 +350,12 @@
 		<div class="collapse-arrow collapse mb-2">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Categories</div>
-			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each categoryOptions as category}
-						<label class="label cursor-pointer justify-start gap-2">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-primary"
-								checked={filters.categoryIds?.includes(category.id)}
-								onclick={() => handleCategoryChange(category.id)}
-							/>
-							<span>{category.name}</span>
-						</label>
-					{/each}
-				</div>
+			<div class="collapse-content z-50">
+				<Tags
+					placeholder="Add categories..."
+					options={TASK_CATEGORIES.map((cat) => ({ id: cat.id, name: cat.name }))}
+					onChange={(tags) => handleCategoryChange(tags as string[])}
+				/>
 			</div>
 		</div>
 
@@ -386,19 +364,10 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Skills</div>
 			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each skillOptions as skill}
-						<label class="label cursor-pointer justify-start gap-2">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-primary"
-								checked={filters.skillIds?.includes(skill.id)}
-								onclick={() => handleSkillChange(skill.id)}
-							/>
-							<span>{skill.name}</span>
-						</label>
-					{/each}
-				</div>
+				<Tags
+					placeholder="Add skills..."
+					onChange={(tags) => handleSkillChange(tags as string[])}
+				/>
 			</div>
 		</div>
 
@@ -447,7 +416,7 @@
 
 		<!-- Filter Actions -->
 		<div class="divider"></div>
-		<div class="mt-8 flex justify-between">
+		<div class="mt-8 mb-20 flex justify-between">
 			<button class="btn btn-ghost btn-outline" onclick={clearFilters}> Clear Filters </button>
 			<button class="btn btn-primary" onclick={applyFilters}>
 				Apply

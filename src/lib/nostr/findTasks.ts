@@ -1,40 +1,17 @@
+import type { SearchTasksParams, Task, SavedSearch, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
 import { SimplePool, type Event, type Filter } from 'nostr-tools';
-import { TaskStatusEnum, TaskTypeEnum, BudgetTypeEnum, SortByEnum, SortOrderEnum } from '$lib/utils/enums/task.enum';
-import type {
-    SearchTasksParams,
-    Task,
-    SavedSearch,
-    TaskRecommendation,
-    RecommendationParams,
-    DateRange
-} from '$lib/types/task';
 import { browser } from '$app/environment';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { TASK_KINDS } from './task';
-import { writable } from 'svelte/store';
+import { getNpub } from '$lib/utils/nostrKeys';
+import { tasksStore } from '$lib/stores/task.store';
 
 // Define NostrFilter type that extends Filter
 type NostrFilter = Filter & {
     [key: `#${string}`]: string[];
+    tags?: string[][];
 };
-
-// Store implementation
-export const tasksStore = writable<{
-    items: Task[];
-    loading: boolean;
-    error: string | null;
-    meta: {
-        currentPage: number;
-        totalItems: number;
-        hasNextPage: boolean;
-    } | null;
-}>({
-    items: [],
-    loading: false,
-    error: null,
-    meta: null
-});
 
 // Constants
 const BATCH_SIZE = 20;
@@ -52,9 +29,6 @@ const REPLACEABLE_KINDS = {
     USER_PREFERENCES: 31002, // NIP-33 Parameterized replaceable event for user preferences
 };
 
-// Initialize pool
-const pool = new SimplePool();
-
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
 
@@ -67,66 +41,63 @@ function createNostrFilter(params: SearchTasksParams): Filter {
         limit: params.limit || BATCH_SIZE
     };
 
-    // Add search criteria as tags
-    const tags: string[][] = [];
-
     // Task type filter
     if (params.taskType) {
-        tags.push(['t', params.taskType]);
+        filter['#t'] = [params.taskType];
     }
 
     // Status filter with multiple values support
     if (params.status && params.status.length > 0) {
         params.status.forEach(status => {
-            tags.push(['s', status]);
+            filter['#s'] = [status];
         });
     }
 
     // Category filter
-    if (params.categoryIds && params.categoryIds.length > 0) {
-        params.categoryIds.forEach(categoryId => {
-            tags.push(['c', categoryId.toString()]);
+    if (params.categories && params.categories.length > 0) {
+        params.categories.forEach(category => {
+            filter['#c'] = [category.toString()];
         });
     }
 
     // Skills filter
-    if (params.skillIds && params.skillIds.length > 0) {
-        params.skillIds.forEach(skillId => {
-            tags.push(['k', skillId.toString()]);
+    if (params.skills && params.skills.length > 0) {
+        params.skills.forEach(skill => {
+            filter['#s'] = [skill.toString()];
         });
-    }
-
-    // Location filter
-    if (params.location) {
-        tags.push(['l', params.location]);
-        if (params.radius) {
-            tags.push(['r', params.radius.toString()]);
-        }
     }
 
     // Budget range filter
     if (params.minBudget || params.maxBudget) {
-        if (params.minBudget) tags.push(['min', params.minBudget.toString()]);
-        if (params.maxBudget) tags.push(['max', params.maxBudget.toString()]);
-        if (params.budgetType) tags.push(['bt', params.budgetType]);
+        filter['#b'] = [`${params.minBudget || 0}${params.currency || 'BTC'}-${params.maxBudget || ''}`];
     }
 
     // Date range filter
-    if (params.dateRange) {
-        filter.since = Math.floor(new Date(params.dateRange.start).getTime() / 1000);
-        filter.until = Math.floor(new Date(params.dateRange.end).getTime() / 1000);
+    if (params.startDate || params.endDate) {
+        filter['#dateRange'] = [params.startDate || '', params.endDate || ''];
+    }
+
+    // Deadline filter
+    if (params.deadline) {
+        filter['#deadline'] = [params.deadline];
+    }
+
+    // Location filter with enhanced structure
+    if (params.location) {
+        if (params.location === 'remote') {
+            filter['#l'] = ['remote'];
+        } else {
+            filter['#l'] = ['onsite', params.location];
+            if (params.radius) {
+                filter['#r'] = [params.radius.toString()];
+            }
+        }
     }
 
     // Add NIP-50 search support
     if (params.searchTerm) {
         filter.search = params.searchTerm;
     }
-
-    // Add all tags to filter
-    if (tags.length > 0) {
-        filter['#t'] = tags.map(t => t.join(':'));
-    }
-
     return filter;
 }
 
@@ -138,6 +109,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 
     try {
         const filter = createNostrFilter(params);
+        console.log({ filter })
         const cacheKey = JSON.stringify(filter);
 
         // Check cache
@@ -162,11 +134,11 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         }
 
         // Get total count using NIP-45
-        const countResult = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const countResult = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
         const total = countResult.length;
 
         // Fetch events
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const events = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
         const tasks = events.map((event: Event) => convertEventToTask(event));
 
         // Update cache
@@ -198,23 +170,6 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         }));
         throw error;
     }
-}
-
-/**
- * Subscribe to task updates in real-time
- */
-export function subscribeToTasks(params: SearchTasksParams, onEvent: (task: Task) => void): () => void {
-    const filter = createNostrFilter(params);
-    const sub = pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
-        onevent: (event: Event) => {
-            const task = convertEventToTask(event);
-            onEvent(task);
-        }
-    });
-
-    return () => {
-        sub.close();
-    };
 }
 
 /**
@@ -252,8 +207,8 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
 
         // Publish both events
         await Promise.all([
-            pool.publish([PUBLIC_NOSTR_RELAY_URL], savedSearchEvent),
-            pool.publish([PUBLIC_NOSTR_RELAY_URL], listEvent)
+            tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], savedSearchEvent),
+            tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], listEvent)
         ]);
 
         return {
@@ -278,11 +233,11 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
         // Get the user's saved searches list
         const filter: Filter = {
             kinds: [LIST_KINDS.SAVED_SEARCHES],
-            authors: [await getCurrentPubkey()],
+            authors: [await getNpub()],
             '#d': ['saved-searches']
         };
 
-        const listEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const listEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
 
         if (!listEvents.length) {
             return [];
@@ -303,7 +258,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             ids: searchIds
         };
 
-        const savedSearchEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], savedSearchFilter);
+        const savedSearchEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], savedSearchFilter);
 
         // Convert events to SavedSearch objects
         return savedSearchEvents.map(event => ({
@@ -329,7 +284,7 @@ export async function updateSavedSearch(
 ): Promise<SavedSearch> {
     try {
         // Get the existing saved search
-        const existingEvents = await pool.querySync(
+        const existingEvents = await tasksStore.pool.querySync(
             [PUBLIC_NOSTR_RELAY_URL],
             {
                 kinds: [REPLACEABLE_KINDS.SAVED_SEARCH],
@@ -360,31 +315,31 @@ export async function updateSavedSearch(
         });
 
         // Publish update
-        await pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedEvent);
+        tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedEvent);
 
         // If name changed, update the list event
-        if (updates.name) {
-            const listEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
-                kinds: [LIST_KINDS.SAVED_SEARCHES],
-                authors: [await getCurrentPubkey()],
-                '#d': ['saved-searches']
+        const listEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
+            kinds: [LIST_KINDS.SAVED_SEARCHES],
+            authors: [await getNpub()],
+            '#d': ['saved-searches']
+        });
+
+        if (listEvents.length) {
+            const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
+            const updatedTags = latestList.tags
+                .map(tag =>
+                    tag[0] === 'e' && tag[1] === existing.id ? ['e', updatedEvent.id, updates.name] : tag
+                )
+                .filter((tag): tag is string[] => tag.every(item => item !== undefined));
+
+            const updatedList = await getSignedEvent({
+                kind: LIST_KINDS.SAVED_SEARCHES,
+                created_at: Math.floor(Date.now() / 1000),
+                content: '',
+                tags: updatedTags
             });
 
-            if (listEvents.length) {
-                const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
-                const updatedTags = latestList.tags.map(tag =>
-                    tag[0] === 'e' && tag[1] === existing.id ? ['e', updatedEvent.id, updates.name] : tag
-                );
-
-                const updatedList = await getSignedEvent({
-                    kind: LIST_KINDS.SAVED_SEARCHES,
-                    created_at: Math.floor(Date.now() / 1000),
-                    content: '',
-                    tags: updatedTags
-                });
-
-                await pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedList);
-            }
+            tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedList);
         }
 
         return {
@@ -418,9 +373,9 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
         });
 
         // Update the saved searches list to remove the deleted search
-        const listEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
+        const listEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
             kinds: [LIST_KINDS.SAVED_SEARCHES],
-            authors: [await getCurrentPubkey()],
+            authors: [await getNpub()],
             '#d': ['saved-searches']
         });
 
@@ -438,8 +393,8 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
             });
 
             await Promise.all([
-                pool.publish([PUBLIC_NOSTR_RELAY_URL], deletionEvent),
-                pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedList)
+                tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], deletionEvent),
+                tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedList)
             ]);
         }
     } catch (error) {
@@ -465,11 +420,10 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             }),
             tags: [
                 ['d', 'user-preferences'],
-                ['p', params.userId]
             ]
         });
 
-        await pool.publish([PUBLIC_NOSTR_RELAY_URL], preferencesEvent);
+        await tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], preferencesEvent);
 
         // Create recommendations list
         const recommendationsEvent = await getSignedEvent({
@@ -478,13 +432,12 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             content: '',
             tags: [
                 ['d', 'recommendations'],
-                ['p', params.userId],
                 ...params.skills?.map(skill => ['k', skill]) || [],
                 ...params.categories?.map(category => ['c', category]) || []
             ]
         });
 
-        await pool.publish([PUBLIC_NOSTR_RELAY_URL], recommendationsEvent);
+        tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], recommendationsEvent);
 
         // Fetch matching tasks
         const filter: Filter = {
@@ -519,7 +472,7 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             filter['#l'] = params.preferredLocations;
         }
 
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const events = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
 
         // Calculate recommendations with scores
         return events.map(event => {
@@ -615,64 +568,13 @@ function generateRecommendationReason(matchedSkills: string[], matchedCategories
  * Convert a Nostr event to a Task
  */
 function convertEventToTask(event: Event): Task {
-    const dateRange = event.tags.find(t => t[0] === 'dateRange')?.[1];
-    let parsedDateRange: DateRange | null = null;
-
-    if (dateRange) {
-        try {
-            parsedDateRange = JSON.parse(dateRange);
-        } catch (e) {
-            console.error('Error parsing date range:', e);
-        }
-    }
-
-    const task: Task = {
+    return {
+        ...JSON.parse(event.content),
         id: event.id,
-        // author: event.pubkey,
-        title: event.tags.find(t => t[0] === 'title')?.[1] || '',
-        description: event.content,
-        status: event.tags.find(t => t[0] === 's')?.[1] as TaskStatusEnum || TaskStatusEnum.OPEN,
-        taskType: event.tags.find(t => t[0] === 't')?.[1] as TaskTypeEnum || TaskTypeEnum.REMOTE,
-        budget: {
-            amount: Number(event.tags.find(t => t[0] === 'amount')?.[1] || 0),
-            type: event.tags.find(t => t[0] === 'bt')?.[1] as BudgetTypeEnum || BudgetTypeEnum.FIXED,
-            currency: event.tags.find(t => t[0] === 'currency')?.[1] || 'USD'
-        },
-        pickupLocation: event.tags.find(t => t[0] === 'l')?.[1] ? {
-            displayName: event.tags.find(t => t[0] === 'l')?.[1] || '',
-            longitude: event.tags.find(t => t[0] === 'geo')?.[1]?.split(',').map(Number)[0] || null,
-            latitude: event.tags.find(t => t[0] === 'geo')?.[1]?.split(',').map(Number)[1] || null,
-            zipCode: event.tags.find(t => t[0] === 'zip')?.[1] || '',
-            locationLoaded: true
-        } : null,
-        dropOffLocation: null,
-        categories: event.tags.filter(t => t[0] === 'c').map(t => t[1]).filter((t): t is string => t !== undefined),
-        skills: event.tags.filter(t => t[0] === 'k').map(t => t[1]).filter((t): t is string => t !== undefined),
-        deadline: event.tags.find(t => t[0] === 'deadline')?.[1] || null,
-        dateRange: parsedDateRange,
-        createdAt: new Date(event.created_at * 1000).toISOString(),
-        updatedAt: new Date(event.created_at * 1000).toISOString(),
-        completedAt: null,
-        cancelledAt: null,
-        deletedAt: null,
-        isDeleted: false,
-        isRemovals: false,
-        isBoosted: false,
-        boostPercentage: null,
-        requiredSkills: [],
-        bids: []
-    };
-
-    return task;
+        createdAt: event.created_at
+    }
 }
 
-/**
- * Get the current user's public key
- */
-async function getCurrentPubkey(): Promise<string> {
-    // This should be implemented based on your authentication system
-    throw new Error('Not implemented');
-}
 
 /**
  * Get recommended tasks based on user preferences
@@ -684,7 +586,6 @@ export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
 
         // Get recommendations based on preferences
         const recommendations = await getRecommendations({
-            userId: await getCurrentPubkey(),
             skills: userPrefs.skills || [],
             categories: userPrefs.categories || [],
             preferredBudgetRange: userPrefs.budgetRange,
@@ -693,14 +594,15 @@ export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
         });
 
         // Extract tasks from recommendations
-        return recommendations.map(async rec => {
-            const taskEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
+        const tasks = await Promise.all(recommendations.map(async rec => {
+            const taskEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
                 kinds: [TASK_KINDS.TASK_CREATION],
                 ids: [rec.taskId]
             });
+            return taskEvents[0] ? convertEventToTask(taskEvents[0]) : null;
+        }));
 
-            return convertEventToTask(taskEvents[0]);
-        }).filter(Boolean);
+        return tasks.filter((task): task is Task => task !== null);
     } catch (error) {
         console.error('Error getting recommended tasks:', error);
         throw error;
@@ -708,15 +610,15 @@ export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
 }
 
 /**
- * Subscribe to new tasks in real-time
+ * Subscribe to new tasks in real-time with improved handling
  */
-export function subscribeToNewTasks(): () => void {
+export function subscribeToNewTasks(relays = [PUBLIC_NOSTR_RELAY_URL]): () => void {
     const filter: NostrFilter = {
         kinds: [TASK_KINDS.TASK_CREATION],
         since: Math.floor(Date.now() / 1000)
     };
 
-    const sub = pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
+    const sub = tasksStore.pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
         onevent(event: Event) {
             const task = convertEventToTask(event);
             tasksStore.update(state => ({
@@ -740,21 +642,62 @@ async function getUserPreferences(): Promise<{
     budgetRange?: { min: number; max: number };
     locations?: string[];
 }> {
+    if (!browser) {
+        return { skills: [], categories: [] };
+    }
+
     try {
         const filter: Filter = {
             kinds: [REPLACEABLE_KINDS.USER_PREFERENCES],
-            authors: [await getCurrentPubkey()],
+            authors: [await getNpub()],
             '#d': ['user-preferences']
         };
 
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        const latest = events[0];
+        const events = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+
+        // Get the most recent preferences event
+        const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
 
         if (!latest) {
+            // If no preferences found, try to get skills and categories from user profile
+            const profileFilter: Filter = {
+                kinds: [0], // Kind 0 is for profile metadata
+                authors: [await getNpub()]
+            };
+
+            const profileEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], profileFilter);
+            const profileEvent = profileEvents[0];
+
+            if (profileEvent) {
+                try {
+                    const profile = JSON.parse(profileEvent.content);
+                    return {
+                        skills: profile.skills || [],
+                        categories: profile.categories || [],
+                        budgetRange: profile.budgetRange,
+                        locations: profile.locations
+                    };
+                } catch (e) {
+                    console.error('Error parsing profile:', e);
+                }
+            }
+
             return { skills: [], categories: [] };
         }
 
-        return JSON.parse(latest.content);
+        // Parse and validate preferences
+        try {
+            const prefs = JSON.parse(latest.content);
+            return {
+                skills: Array.isArray(prefs.skills) ? prefs.skills : [],
+                categories: Array.isArray(prefs.categories) ? prefs.categories : [],
+                budgetRange: prefs.budgetRange && typeof prefs.budgetRange === 'object' ? prefs.budgetRange : undefined,
+                locations: Array.isArray(prefs.locations) ? prefs.locations : undefined
+            };
+        } catch (e) {
+            console.error('Error parsing preferences:', e);
+            return { skills: [], categories: [] };
+        }
     } catch (error) {
         console.error('Error getting user preferences:', error);
         return { skills: [], categories: [] };
@@ -762,16 +705,18 @@ async function getUserPreferences(): Promise<{
 }
 
 /**
- * Cleanup function to handle cleanup tasks
+ * Cleanup function to handle cleanup tasks with improved subscription handling
  */
 export function cleanup(): void {
-    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+    // Close pool
+    tasksStore.pool.close([PUBLIC_NOSTR_RELAY_URL]);
     cache.clear();
 }
 
-// Cleanup pool when browser closes
+// Cleanup pool and subscriptions when browser closes
 if (browser) {
     window.addEventListener('beforeunload', () => {
-        pool.close([PUBLIC_NOSTR_RELAY_URL]);
+        console.log('Cleaning up Nostr connections');
+        cleanup();
     });
 }

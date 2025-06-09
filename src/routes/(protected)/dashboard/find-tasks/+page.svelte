@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SearchTasksParams, TaskData } from '$lib/types/task';
+	import type { SearchTasksParams, TaskData } from '$lib/types/task.d';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { formatDistanceToNow } from 'date-fns';
@@ -8,17 +8,16 @@
 		TaskStatusEnum,
 		TaskTypeEnum,
 		SortByEnum,
-		SortOrderEnum,
-		BudgetTypeEnum
+		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
+	import { user as userStore } from '$lib/stores/user.store';
+	import { findTasks, getRecommendedTasks, cleanup } from '$lib/nostr/findTasks';
+	import { tasksStore } from '$lib/stores/task.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
-	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
-	import { user as userStore } from '$lib/stores/user.store';
-	import { findTasks, getRecommendedTasks, subscribeToNewTasks, tasksStore, cleanup } from '$lib/nostr/findTasks';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -27,8 +26,8 @@
 			minBudget: undefined,
 			maxBudget: undefined,
 			budgetType: undefined,
-			categoryIds: [],
-			skillIds: [],
+			categories: [],
+			skills: [],
 			page: 1,
 			limit: 20,
 			sortBy: SortByEnum.CREATED_AT,
@@ -70,26 +69,25 @@
 	let isInitialLoad = $state(true);
 	let recommendationsLoaded = $state(false);
 	let loadingRecommendations = $state(false);
-	
+
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(63000); // Default fallback price
-	
+
 	// Cleanup function for subscriptions
 	let unsubFromNewTasks: (() => void) | null = null;
-	
+
 	/**
 	 * Fetch current BTC price
 	 */
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-			console.log('Current BTC price (find-tasks):', btcPrice);
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
 		}
 	}
-	
+
 	/**
 	 * Calculate estimated USDT value based on BTC amount
 	 */
@@ -143,7 +141,7 @@
 		const searchQueryValue = searchQuery.trim() || undefined;
 		const categoryId = selectedCategory.value ? parseInt(selectedCategory.value, 10) : undefined;
 		const taskTypeValue = selectedTaskType.value
-			? selectedTaskType.value as TaskTypeEnum
+			? (selectedTaskType.value as TaskTypeEnum)
 			: undefined;
 		let minBudgetValue = searchParams.minBudget;
 		let maxBudgetValue = searchParams.maxBudget;
@@ -241,16 +239,6 @@
 		}
 	}
 
-	// Format date display
-	function formatDate(dateString: string): string {
-		const date = new Date(dateString);
-		return date.toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
-
 	// Navigate to task details
 	function goToTaskDetails(taskId: string) {
 		window.location.href = `/tasks/${taskId}`;
@@ -280,11 +268,7 @@
 		if ('IntersectionObserver' in window) {
 			observer = new IntersectionObserver(
 				(entries) => {
-					if (
-						entries[0].isIntersecting &&
-						$tasksStore.meta?.hasNextPage &&
-						!$tasksStore.loading
-					) {
+					if (entries[0].isIntersecting && $tasksStore.meta?.hasNextPage && !$tasksStore.loading) {
 						loadMoreTasks();
 					}
 				},
@@ -334,29 +318,29 @@
 		if (browser) {
 			// Fetch BTC price for USDT conversion
 			fetchBtcPrice();
-			
+
 			// Load initial tasks
 			findTasks(searchParams);
-			
+
 			// Load recommendations
-			loadRecommendations();
-			
+			// loadRecommendations();
+
 			// Setup infinite scroll
-			setupInfiniteScroll();
-			
+			// setupInfiniteScroll();
+
 			// Subscribe to new tasks
-			unsubFromNewTasks = subscribeToNewTasks();
+			// unsubFromNewTasks = subscribeToNewTasks();
 		}
 	});
 
 	// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
-			cleanupInfiniteScroll();
-			if (unsubFromNewTasks) {
-				unsubFromNewTasks();
-			}
-			cleanup();
+			// cleanupInfiniteScroll();
+			// if (unsubFromNewTasks) {
+			// 	unsubFromNewTasks();
+			// }
+			// cleanup();
 		}
 	});
 
@@ -483,12 +467,13 @@
 				class="h-6 w-6 shrink-0 stroke-current"
 				fill="none"
 				viewBox="0 0 24 24"
-			><path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-			/></svg>
+				><path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/></svg
+			>
 			<span>Error loading tasks: {$tasksStore.error}. Please try again.</span>
 		</div>
 	{/if}
@@ -527,7 +512,7 @@
 	<!-- Task List -->
 	{#if (isInitialLoad || ($tasksStore.loading && searchParams.page === 1)) && !loadingTimeout}
 		<!-- Shimmer/Loading Placeholder -->
-		<div class="card bg-base-100 space-y-4 shadow-md">
+		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md">
 			{#each Array(4) as _}
 				<div class="card-body animate-pulse">
 					<!-- Skeleton structure -->
@@ -585,15 +570,15 @@
 			<button class="btn btn-sm" onclick={() => window.location.reload()}> Refresh </button>
 		</div>
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
-		<div class="card bg-base-100 space-y-4 shadow-md transition-shadow hover:shadow-lg">
+		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 			{#each $tasksStore.items as task, index (task.id)}
 				<div class="card-body">
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
-						<div class="flex items-center gap-2 text-sm">
-							<div class="flex flex-col items-end">
+						<div class="flex items-center justify-between gap-2 text-sm">
+							<div class="flex flex-col items-start">
 								<span class="font-semibold">{task.budget.amount} BTC</span>
-								<span class="text-xs text-info">≈ {calculateUsdtEstimate(task.budget)} USDT</span>
+								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget)} USDT</span>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>
@@ -669,8 +654,8 @@
 										$userStore.id.toString() === task.creator.id.toString()
 									) {
 										// Set the error message
-										bidErrorMessage = "You cannot bid on your own task";
-										
+										bidErrorMessage = 'You cannot bid on your own task';
+
 										// Auto-hide toast after 3 seconds
 										setTimeout(() => {
 											bidErrorMessage = null;
@@ -681,7 +666,6 @@
 									}
 								}
 							}}
-							
 							aria-label="Bid on this task"
 						>
 							<svg
@@ -752,13 +736,17 @@
 	onApply={handleFilterApply}
 />
 
-<TaskDetailsBidDrawer taskId={selectedTaskId} onClose={() => (isSidebarOpen = false)} isOpen={isSidebarOpen} />
+<TaskDetailsBidDrawer
+	taskId={selectedTaskId}
+	onClose={() => (isSidebarOpen = false)}
+	isOpen={isSidebarOpen}
+/>
 
 <!-- Toast Notification for Errors -->
 {#if bidErrorMessage}
-<div class="toast toast-top toast-end z-50">
-	<div class="alert alert-error">
-		<span>{bidErrorMessage}</span>
+	<div class="toast toast-top toast-end z-50">
+		<div class="alert alert-error">
+			<span>{bidErrorMessage}</span>
+		</div>
 	</div>
-</div>
 {/if}

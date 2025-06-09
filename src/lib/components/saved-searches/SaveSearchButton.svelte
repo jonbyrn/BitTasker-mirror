@@ -3,13 +3,13 @@
   Component that allows users to save their current search criteria
 -->
 <script lang="ts">
+	import type { SearchTasksParams } from '$lib/types/task';
 	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
-	import type { SearchTasksDto } from '$houdini';
 	import savedSearchesService from '$lib/api/services/saved-searches.service';
 
 	// Props
 	let { searchParams, onSaved } = $props<{
-		searchParams: Partial<SearchTasksDto>;
+		searchParams: Partial<SearchTasksParams>;
 		onSaved: () => void;
 	}>();
 
@@ -31,8 +31,8 @@
 			(searchParams.taskType && searchParams.taskType.length > 0) ||
 			!!searchParams.location ||
 			(searchParams.status && searchParams.status.length > 0) ||
-			(searchParams.categoryIds && searchParams.categoryIds.length > 0) ||
-			(searchParams.skillIds && searchParams.skillIds.length > 0) ||
+			(searchParams.categories && searchParams.categories.length > 0) ||
+			(searchParams.skills && searchParams.skills.length > 0) ||
 			!!searchParams.minBudget ||
 			!!searchParams.maxBudget;
 	});
@@ -48,8 +48,8 @@
 			defaultName = `${searchParams.taskType[0]} Tasks`;
 		} else if (searchParams.location) {
 			defaultName = `Tasks near ${searchParams.location}`;
-		} else if (searchParams.categoryIds && searchParams.categoryIds.length > 0) {
-			defaultName = 'Category Search';
+		} else if (searchParams.categories && searchParams.categories.length > 0) {
+			defaultName = `${searchParams.categories[0]} Tasks`;
 		} else {
 			defaultName = 'My Search';
 		}
@@ -75,17 +75,14 @@
 			isSaving = true;
 			error = null;
 
-			// The service expects SearchTasksParams, so we need to convert
 			// Convert Partial<SearchTasksDto> back to SearchTasksParams for the service
 			const paramsForService = {
 				...searchParams,
 				budgetType: searchParams.budgetType?.[0],
-				taskType: searchParams.taskType?.[0],
-				skillIds: searchParams.skillIds,
-				skills: undefined
+				taskType: searchParams.taskType?.[0]
 			};
 
-			// Remove undefined keys before sending to backend if necessary
+			// Remove undefined keys
 			Object.keys(paramsForService).forEach(
 				(key) => paramsForService[key] === undefined && delete paramsForService[key]
 			);
@@ -173,6 +170,14 @@
 
 					{#if searchParams.location}
 						<div class="badge badge-sm">{searchParams.location}</div>
+					{/if}
+
+					{#if searchParams.categories && searchParams.categories.length > 0}
+						<div class="badge badge-sm">{searchParams.categories.join(', ')}</div>
+					{/if}
+
+					{#if searchParams.skills && searchParams.skills.length > 0}
+						<div class="badge badge-sm">{searchParams.skills.join(', ')}</div>
 					{/if}
 
 					{#if searchParams.minBudget || searchParams.maxBudget}

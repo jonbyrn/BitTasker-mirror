@@ -90,7 +90,7 @@
 	{#if isOpen && options?.length}
 		<div
 			id={listboxId}
-			class="bg-base-100 border-white-300 absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border shadow-lg"
+			class="bg-base-100 border-white-300 absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border shadow-lg"
 			use:clickOutside={{ callback: handleClickOutside }}
 			role="listbox"
 			aria-label="Available tags"

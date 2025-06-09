@@ -1,11 +1,12 @@
-import type { TaskBody } from '$lib/types/task.d';
+import type { Task, TaskBody } from '$lib/types/task.d';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { page } from '$app/state';
-import { get, writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 import { TaskTypeEnum, BudgetTypeEnum, TaskStepEnum } from '$lib/utils/enums/task.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
+import { SimplePool } from 'nostr-tools';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
@@ -223,3 +224,32 @@ function createTaskStore() {
 }
 
 export const taskStore = createTaskStore();
+
+function createTasksStore() {
+	const { subscribe, set, update } = writable<{
+		pool: SimplePool,
+		items: Task[],
+		loading: boolean,
+		error: string | null,
+		meta: {
+			currentPage: number,
+			totalItems: number,
+			hasNextPage: boolean
+		} | null
+	}>({
+		pool: new SimplePool(),
+		items: [],
+		loading: false,
+		error: null,
+		meta: null
+	});
+
+	return {
+		pool: new SimplePool(),
+		subscribe,
+		set,
+		update
+	}
+}
+
+export const tasksStore = createTasksStore();
