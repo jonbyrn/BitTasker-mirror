@@ -5,7 +5,7 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { queryTasks, TASK_KINDS } from '$lib/nostr/task';
+	import { queryTasks, subscribeToTasks, TASK_KINDS } from '$lib/nostr/task';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props
@@ -133,7 +133,7 @@
 				{
 					kinds: [TASK_KINDS.TASK_CREATION],
 					// Filter for tasks created by the current user
-					authors: [npub]
+					authors: [npub],
 				}
 			);
 		} catch (err) {
@@ -296,10 +296,7 @@
 							>
 								{$t('task.actions.view_details')}
 							</button>
-							<button
-								class="btn btn-outline btn-sm"
-								onclick={() => openTaskDrawer(task, 'bids')}
-							>
+							<button class="btn btn-outline btn-sm" onclick={() => openTaskDrawer(task, 'bids')}>
 								{$t('task.actions.view_bids')}
 							</button>
 						</div>
@@ -309,7 +306,7 @@
 		{/each}
 	</div>
 {:else if !isLoading && !error}
-	<div class="py-12 text-center">
+	<div class="py-12 text-center bg-base-100 rounded-xl shadow-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			class="text-base-content/30 mx-auto h-12 w-12"

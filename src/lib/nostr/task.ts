@@ -18,8 +18,7 @@ export const TASK_KINDS = {
 /**
  * Generate tags for a task event
  */
-function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][] {
-    console.log(taskData);
+function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqueId: string): string[][] {
     // Normalize and validate skills
     const normalizedSkills = taskData.skills
         .map(skill => skill.trim().toLowerCase())
@@ -30,15 +29,16 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][]
     const tags: string[][] = [
         ['c', ...taskData?.categories?.map(id => id.toString())],
         ['s', ...normalizedSkills],
-        ['pow', ...pow]
+        ['pow', ...pow],
+        ['d', `task-${uniqueId}`] // Use uniqueId as the d tag to ensure uniqueness
     ];
 
     if (taskData.deadline) {
-        tags.push(['d', taskData.deadline]);
+        tags.push(['deadline', taskData.deadline]); // Use a different tag for deadline
     }
 
     if (taskData.dateRange) {
-        tags.push(['d', taskData.dateRange.start, taskData.dateRange.end]);
+        tags.push(['dateRange', taskData.dateRange.start, taskData.dateRange.end]);
     }
 
     if (taskData.budget) {
@@ -58,15 +58,31 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string]): string[][]
  * Create a new task
  */
 export async function createTask(taskData: TaskBody): Promise<string> {
-    // Calculate POW based on task value
-    const pow = await calculatePOW(taskData.budget.amount);
+    // Generate a unique identifier for this task
+    const uniqueId = crypto.randomUUID();
+    
+    // Add creation timestamp and unique identifier to task data
+    const taskDataWithMeta = {
+        ...taskData,
+        createdAt: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
+        uniqueId
+    };
+
+    // Calculate POW based on task value and uniqueId
+    const pow = await calculatePOW(taskData.budget.amount, uniqueId);
+
+    // Create event with millisecond precision timestamp to avoid collisions
+    const now = performance.now();
+    const timestamp = Math.floor(Date.now() / 1000);
+    const fraction = now % 1000 / 1000; // Get the fractional part of the current time
+    const preciseTimestamp = timestamp + fraction;
 
     // Create event
     const event = {
         kind: TASK_KINDS.TASK_CREATION,
-        created_at: Math.floor(Date.now() / 1000),
-        content: JSON.stringify(taskData),
-        tags: generateTaskTags(taskData, pow)
+        created_at: Math.floor(preciseTimestamp), // Use precise timestamp
+        content: JSON.stringify(taskDataWithMeta),
+        tags: generateTaskTags(taskData, pow, uniqueId)
     };
 
     // Sign and publish
@@ -85,17 +101,19 @@ export async function createRecurringTask(taskData: TaskBody, schedule: {
     description: string;
     recurrencePattern: RecurrencePattern;
 }): Promise<string> {
-    const pow = await calculatePOW(taskData.budget.amount);
+    const uniqueId = crypto.randomUUID();
+    const pow = await calculatePOW(taskData.budget.amount, uniqueId);
 
     const event = {
         kind: TASK_KINDS.RECURRING_TASK,
         created_at: Math.floor(Date.now() / 1000),
         content: JSON.stringify({
             template: taskData,
-            schedule
+            schedule,
+            uniqueId
         }),
         tags: [
-            ...generateTaskTags(taskData, pow),
+            ...generateTaskTags(taskData, pow, uniqueId),
             ['t', 'recurring'],
             ['f', schedule.recurrencePattern.frequency],
             ['i', schedule.recurrencePattern.interval.toString()]
@@ -147,20 +165,29 @@ export function subscribeToTasks(
  */
 export async function queryTasks(
     callback: (event: NostrEvent) => void,
-    filter: { kinds?: number[], authors?: string[], tags?: string[][] } = {},
+    filter: { kinds?: number[], authors?: string[], tags?: string[][], limit?: number } = {},
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<NostrEvent[]> {
     const query = await pool.querySync(relays, {
-        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION, TASK_KINDS.RECURRING_TASK],
+        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION], // Only look for creation events
         authors: filter.authors,
+        // limit: filter.limit || 100, // Set a reasonable default limit
+        // since: 0, // Get all historical tasks
+        // until: Math.floor(Date.now() / 1000), // Up to current time
         ...filter
     });
 
-    query.forEach(event => {
+    console.log('Query results:', query.length, 'events');
+
+    // Sort events by creation time to ensure consistent ordering
+    const sortedEvents = query.sort((a, b) => b.created_at - a.created_at);
+
+    // Process events in chronological order for proper state reconstruction
+    sortedEvents.forEach(event => {
         callback(event);
     });
 
-    return query;
+    return sortedEvents;
 }
 
 /**
@@ -176,7 +203,7 @@ export function closePool(): void {
 export async function getTaskById(taskId: string, author?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
     try {
         const filter: Filter = {
-            kinds: [TASK_KINDS.TASK_CREATION, TASK_KINDS.TASK_UPDATE],
+            kinds: [TASK_KINDS.TASK_CREATION], // Only look for creation events
             ids: [taskId]
         };
 
@@ -211,26 +238,46 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
             throw new Error('Task not found');
         }
 
-        // Calculate POW based on task value
-        const pow = await calculatePOW(updates.budget?.amount || 0);
+        // Parse original task data
+        const originalTaskData = JSON.parse(originalTask.content);
+        
+        // Get the original uniqueId
+        const uniqueId = originalTaskData.uniqueId;
+        if (!uniqueId) {
+            throw new Error('Original task has no uniqueId');
+        }
 
-        // Create update event
+        // Merge updates with original task data
+        const updatedTaskData = {
+            ...originalTaskData,
+            ...updates,
+            uniqueId, // Keep the same uniqueId
+            updatedAt: Math.floor(Date.now() / 1000)
+        };
+
+        // Calculate POW based on updated task value
+        const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
+
+        // Create update event using the same kind as creation for proper replacement
         const event = {
-            kind: TASK_KINDS.TASK_UPDATE,
-            created_at: Math.floor(Date.now() / 1000),
-            content: JSON.stringify(updates),
+            kind: TASK_KINDS.TASK_CREATION, // Use same kind as creation
+            // created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
+            content: JSON.stringify(updatedTaskData),
             tags: [
                 ['e', taskId], // Reference to original task
                 ['p', originalTask.pubkey], // Original task creator
+                ['d', `task-${uniqueId}`], // Use same d tag format as creation
                 ['status', 'update'],
                 ['pow', ...pow],
-                // Add relevant tags based on what was updated
-                ...(updates.categories ? [['c', ...updates.categories.map(id => id.toString())]] : []),
-                ...(updates.skills ? [['s', ...updates.skills]] : []),
-                ...(updates.deadline ? [['d', updates.deadline]] : []),
-                ...(updates.dateRange ? [['d', updates.dateRange.start, updates.dateRange.end]] : []),
-                ...(updates.budget ? [['b', `${updates.budget.amount}${updates.budget.currency}`]] : []),
-                ...(updates.pickupLocation?.locationLoaded ? [['l', 'onsite', updates.pickupLocation.displayName || '']] : [])
+                // Add all tags to maintain consistency
+                ['c', ...updatedTaskData.categories?.map((category: string) => category.toString()) || []],
+                ['s', ...(updatedTaskData.skills || [])],
+                ['b', `${updatedTaskData.budget?.amount || 0}${updatedTaskData.budget?.currency || 'BTC'}`],
+                ...(updatedTaskData.deadline ? [['deadline', updatedTaskData.deadline]] : []),
+                ...(updatedTaskData.dateRange ? [['dateRange', updatedTaskData.dateRange.start, updatedTaskData.dateRange.end]] : []),
+                ...(updatedTaskData.pickupLocation?.locationLoaded 
+                    ? [['l', 'onsite', updatedTaskData.pickupLocation.displayName || '']] 
+                    : [['l', 'remote']])
             ]
         };
 
@@ -241,6 +288,32 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
         return signedEvent.id;
     } catch (error) {
         console.error('Failed to update task:', error);
+        throw error;
+    }
+}
+
+/**
+ * Delete a task
+ */
+export async function deleteTask(taskId: string): Promise<string> {
+    try {
+        // Create deletion event (kind 5)
+        const event = {
+            kind: 5,
+            created_at: Math.floor(Date.now() / 1000),
+            content: "Task deleted",
+            tags: [
+                ['e', taskId], // Reference to event being deleted
+                ['k', '1'] // Kind of event being deleted
+            ]
+        };
+
+        // Sign and publish
+        const signedEvent = await getSignedEvent(event);
+        await publishToRelays(signedEvent);
+        return signedEvent.id;
+    } catch (error) {
+        console.error('Failed to delete task:', error);
         throw error;
     }
 } 

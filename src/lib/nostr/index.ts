@@ -1,8 +1,8 @@
 /**
- * Calculate proof of work for a task based on its budget
+ * Calculate proof of work for a task based on its budget and optional unique identifier
  * Returns [hash, nonce] where hash has the required number of leading zero bits
  */
-export async function calculatePOW(budget: number): Promise<[string, string]> {
+export async function calculatePOW(budget: number, uniqueId?: string): Promise<[string, string]> {
     let nonce = 0;
     let hash = '';
     
@@ -14,7 +14,8 @@ export async function calculatePOW(budget: number): Promise<[string, string]> {
         : 8; // Minimum difficulty for small amounts
 
     while (true) {
-        const data = `${budget}:${nonce}`;
+        // Include uniqueId in the POW calculation to ensure uniqueness
+        const data = `${budget}:${uniqueId || ''}:${nonce}`;
         hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))
             .then(buffer => Array.from(new Uint8Array(buffer))
                 .map(b => b.toString(16).padStart(2, '0'))

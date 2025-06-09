@@ -40,8 +40,8 @@
 							From {new Date($store.task.dateRange.start).toLocaleDateString()} to {new Date(
 								$store.task.dateRange.end
 							).toLocaleDateString()}
-						{:else}
-							Deadline: {new Date($store.task.deadlineDate).toLocaleDateString()}
+						{:else if $store.task.deadline}
+							Deadline: {new Date($store.task.deadline).toLocaleDateString()}
 						{/if}
 					</span>
 				</div>
@@ -49,15 +49,15 @@
 
 			<h4 class="mt-3 font-medium">Categories</h4>
 			<div class="flex flex-wrap gap-2">
-				{#each $appStore.categories.filter( (cat) => $store.task.categoryIds.includes(cat.id) ) as category}
-					<div class="badge badge-primary">{category.name}</div>
+				{#each $store.task.categories as category}
+					<div class="badge badge-primary">{category}</div>
 				{/each}
 			</div>
 
 			<h4 class="mt-3 font-medium">Skills</h4>
 			<div class="flex flex-wrap gap-2">
-				{#each $appStore.skills.filter((skill) => $store.task.skillIds.includes(skill.id)) as skill}
-					<div class="badge badge-secondary">{skill.name}</div>
+				{#each $store.task.skills as skill}
+					<div class="badge badge-secondary">{skill}</div>
 				{/each}
 			</div>
 		</div>
@@ -95,17 +95,17 @@
 				<div>
 					<span class="font-medium">Budget Type:</span>
 					<span
-						>{$store.task.budgetType === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}</span
+						>{$store.task.budget.type === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}</span
 					>
 				</div>
 				<div>
 					<span class="font-medium">Budget Amount:</span>
 					<span>${$store.task.budget}</span>
 				</div>
-				{#if $store.task.budgetType === BudgetTypeEnum.HOURLY}
+				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
 					<div>
 						<span class="font-medium">Estimated Hours:</span>
-						<span>{$store.task.estimatedHours}</span>
+						<span>{$store.task.budget.amount}</span>
 					</div>
 				{/if}
 			</div>
@@ -118,9 +118,9 @@
 			{#if $store.task.attachments && $store.task.attachments.length > 0}
 				<h4 class="mt-3 font-medium">Attachments</h4>
 				<div class="flex flex-wrap gap-2">
-					{#each $store.task.attachments as attachment, i}
+					{#each $store.task.attachments as attachment}
 						<div class="badge badge-outline">
-							<span class="max-w-xs truncate">{attachment.fileName}</span>
+							<span class="max-w-xs truncate">{attachment.alt}</span>
 						</div>
 					{/each}
 				</div>
@@ -147,25 +147,6 @@
 				<h3 class="font-bold">This is a recurring task!</h3>
 				<div class="text-sm">After review, you'll be asked to set up the recurring schedule.</div>
 			</div>
-		</div>
-	{/if}
-
-	{#if errors.general}
-		<div class="alert alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-				/></svg
-			>
-			<span>{errors.general}</span>
 		</div>
 	{/if}
 </div>

@@ -22,7 +22,7 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
     // Create the event
     const event = {
         kind: metadata.kind || 0,
-        created_at: Math.floor(Date.now() / 1000),
+        created_at: metadata.created_at || Math.floor(Date.now() / 1000),
         content: metadata.content || '',
         tags: metadata.tags || [],
         pubkey: npub

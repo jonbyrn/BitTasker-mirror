@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { AxiosError } from 'axios';
-	import { createTask, createRecurringTask } from '$lib/nostr/task';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
@@ -114,12 +115,23 @@
 				status: TaskStatusEnum.OPEN
 			};
 
-			if ($store.recurringTask.isRecurring) {
-				// Create recurring task template
-				await createRecurringTask(task, $store.recurringTask);
+			const isUpdating = page.url.searchParams.get('edit') === 'true';
+
+			if (isUpdating) {
+				await updateTask($store.id, task);
+
+				// TODO: Handle update recurring task
+
+				page.url.searchParams.delete('edit');
+				goto(page.url.pathname);
 			} else {
-				// Create a regular task
-				await createTask(task);
+				if ($store.recurringTask.isRecurring) {
+					// Create recurring task template
+					await createRecurringTask(task, $store.recurringTask);
+				} else {
+					// Create a regular task
+					await createTask(task);
+				}
 			}
 
 			isSubmitted = true;
@@ -130,11 +142,7 @@
 			}, 3000);
 		} catch (error) {
 			console.error('Error creating task:', error);
-			if (error instanceof AxiosError && error.response && error.response?.data?.message) {
-				const message = error.response.data.message;
-				if (Array.isArray(message)) errors.general = message[0];
-				else errors.general = message;
-			} else if (error instanceof Error) errors.general = error.message;
+			if (error instanceof Error) errors.general = error.message;
 			else errors.general = 'Failed to create task. Please try again.';
 		} finally {
 			isSubmitting = false;
@@ -171,24 +179,24 @@
 		{/if}
 
 		<div class="space-y-6">
-			<TaskBasics {errors} {direction} />
+			<!-- <TaskBasics {errors} {direction} />
 			<TaskLocation {errors} {direction} />
 			<TaskBudget {errors} {direction} />
-			<!-- <TaskRecurring {errors} {direction} /> -->
+			<TaskRecurring {errors} {direction} /> -->
 
-			<!-- {#if $store.currentStep === 'basics'}
+			{#if $store.currentStep === 'basics'}
 				<TaskBasics {errors} {direction} />
 			{:else if $store.currentStep === 'location'}
 				<TaskLocation {errors} {direction} />
 			{:else if $store.currentStep === 'budget'}
 				<TaskBudget {errors} {direction} />
-			{:else if $store.currentStep === 'taskboost'}
-				<TaskBoost {direction} />
+				<!-- {:else if $store.currentStep === 'taskboost'}
+				<TaskBoost {direction} /> -->
 			{:else if $store.currentStep === 'review'}
 				<TaskReview {errors} {direction} />
 			{:else if $store.currentStep === 'recurring'}
 				<TaskRecurring {errors} {direction} />
-			{/if} -->
+			{/if}
 
 			<!-- Control buttons -->
 			<div class="mt-6 flex justify-between">
@@ -223,8 +231,6 @@
 				{:else}
 					<button class="btn btn-primary" onclick={handleNext}>Next</button>
 				{/if}
-
-				<button class="btn btn-primary" onclick={handleSubmit}>Create</button>
 			</div>
 		</div>
 
