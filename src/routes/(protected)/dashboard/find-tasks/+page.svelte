@@ -1,15 +1,15 @@
 <script lang="ts">
 	import type { SearchTasksParams, TaskData } from '$lib/types/task';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { formatDistanceToNow } from 'date-fns';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { SearchTasksStore, type SearchTasksDto } from '$houdini';
 	import {
 		TaskStatusEnum,
 		TaskTypeEnum,
 		SortByEnum,
-		SortOrderEnum
+		SortOrderEnum,
+		BudgetTypeEnum
 	} from '$lib/utils/enums/task.enum';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
@@ -18,9 +18,10 @@
 	import recommendationsService from '$lib/api/services/recommendations.service';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 	import { user as userStore } from '$lib/stores/user.store';
+	import { findTasks, getRecommendedTasks, subscribeToNewTasks, tasksStore, cleanup } from '$lib/nostr/findTasks';
 
-	// Function to create initial search parameters conforming to SearchTasksDto
-	function getInitialSearchParams(): Partial<SearchTasksDto> {
+	// Function to create initial search parameters
+	function getInitialSearchParams(): SearchTasksParams {
 		return {
 			taskType: undefined,
 			minBudget: undefined,
@@ -29,14 +30,14 @@
 			categoryIds: [],
 			skillIds: [],
 			page: 1,
-			limit: 10,
+			limit: 20,
 			sortBy: SortByEnum.CREATED_AT,
 			sortOrder: SortOrderEnum.DESC
 		};
 	}
 
 	// Reactive state for search parameters and UI controls
-	let searchParams = $state<Partial<SearchTasksDto>>(getInitialSearchParams());
+	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
 	let selectedCategory = $state({ label: '', value: '' });
 	let selectedTaskType = $state({ label: '', value: '' });
@@ -45,13 +46,9 @@
 	let minBudget = $state('');
 	let maxBudget = $state('');
 
-	// Houdini Query Store
-	const searchTasksQuery = new SearchTasksStore();
-
 	// Recommendations state
 	let recommendedTasks = $state<TaskData[]>([]);
 	let showAllRecommendations = $state(false);
-	let loadingRecommendations = $state(false);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -72,9 +69,13 @@
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
 	let recommendationsLoaded = $state(false);
+	let loadingRecommendations = $state(false);
 	
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(63000); // Default fallback price
+	
+	// Cleanup function for subscriptions
+	let unsubFromNewTasks: (() => void) | null = null;
 	
 	/**
 	 * Fetch current BTC price
@@ -92,8 +93,8 @@
 	/**
 	 * Calculate estimated USDT value based on BTC amount
 	 */
-	function calculateUsdtEstimate(btcAmount: number): string {
-		const estimatedValue = btcAmount * btcPrice;
+	function calculateUsdtEstimate(budget: { amount: number; type: string }): string {
+		const estimatedValue = budget.amount * btcPrice;
 		return estimatedValue.toLocaleString('en-US', {
 			maximumFractionDigits: 2,
 			minimumFractionDigits: 2
@@ -102,11 +103,10 @@
 
 	// Load more tasks (for infinite scroll)
 	async function loadMoreTasks() {
-		if ($searchTasksQuery.data?.tasks.meta?.hasNextPage && !$searchTasksQuery.fetching) {
-			const nextPage = ($searchTasksQuery.data?.tasks.meta?.currentPage ?? 0) + 1;
+		if ($tasksStore.meta?.hasNextPage && !$tasksStore.loading) {
+			const nextPage = ($tasksStore.meta?.currentPage ?? 0) + 1;
 			searchParams = { ...searchParams, page: nextPage };
-			// Fetch with updated page param
-			await searchTasksQuery.fetch({ variables: { input: searchParams } });
+			await findTasks(searchParams);
 		}
 	}
 
@@ -116,12 +116,10 @@
 
 		try {
 			loadingRecommendations = true;
-			const response = await recommendationsService.getRecommendations(10);
-			recommendedTasks = response.recommendations.map((r) => r.task);
+			const recommendations = await getRecommendedTasks(10);
 			recommendationsLoaded = true;
 		} catch (err) {
 			console.error('Error loading recommendations:', err);
-			recommendedTasks = [];
 		} finally {
 			loadingRecommendations = false;
 		}
@@ -145,7 +143,7 @@
 		const searchQueryValue = searchQuery.trim() || undefined;
 		const categoryId = selectedCategory.value ? parseInt(selectedCategory.value, 10) : undefined;
 		const taskTypeValue = selectedTaskType.value
-			? (selectedTaskType.value as TaskTypeEnum)
+			? selectedTaskType.value as TaskTypeEnum
 			: undefined;
 		let minBudgetValue = searchParams.minBudget;
 		let maxBudgetValue = searchParams.maxBudget;
@@ -164,14 +162,14 @@
 			maxBudgetValue = undefined;
 		}
 
-		const newParams: Partial<SearchTasksDto> = {
+		const newParams: SearchTasksParams = {
 			page: currentPageValue,
 			limit: limitValue,
 			sortBy: sortByValue,
 			sortOrder: sortOrderValue,
 			searchTerm: searchQueryValue,
 			categoryIds: categoryId ? [categoryId] : [],
-			taskType: taskTypeValue ? [taskTypeValue] : undefined,
+			taskType: taskTypeValue,
 			minBudget: minBudgetValue,
 			maxBudget: maxBudgetValue
 		};
@@ -179,7 +177,7 @@
 		searchParams = { ...searchParams, ...newParams };
 
 		try {
-			await searchTasksQuery.fetch({ variables: { input: searchParams } });
+			await findTasks(searchParams);
 		} catch (err) {
 			console.error('[FindTasks] Search fetch error:', err);
 		}
@@ -194,15 +192,9 @@
 	// Handle advanced filter drawer apply
 	function handleFilterApply(filters: SearchTasksParams) {
 		isFilterDrawerOpen = false;
-		const dtoFilters: Partial<SearchTasksDto> = {
-			...filters,
-			budgetType: filters.budgetType ? [filters.budgetType] : undefined,
-			taskType: filters.taskType ? [filters.taskType] : undefined,
-			skillIds: filters.skillIds // Use skillIds from the SearchTasksParams type
-		};
 		searchParams = {
 			...searchParams,
-			...dtoFilters,
+			...filters,
 			page: 1
 		};
 
@@ -216,6 +208,8 @@
 					value: filters.taskType
 				}
 			: { label: '', value: '' };
+
+		findTasks(searchParams);
 	}
 
 	// Clear filters
@@ -230,6 +224,7 @@
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+		findTasks(searchParams);
 	}
 
 	// Format date
@@ -287,8 +282,8 @@
 				(entries) => {
 					if (
 						entries[0].isIntersecting &&
-						$searchTasksQuery.data?.tasks.meta?.hasNextPage &&
-						!$searchTasksQuery.fetching
+						$tasksStore.meta?.hasNextPage &&
+						!$tasksStore.loading
 					) {
 						loadMoreTasks();
 					}
@@ -324,20 +319,14 @@
 			searchParams = { ...searchParams, taskType: undefined, page: 1 };
 			return;
 		}
-		const currentTypes = searchParams.taskType ?? [];
-		const typeExists = currentTypes.includes(type);
 
 		searchParams = {
 			...searchParams,
-			// If type exists, filter it out. Otherwise, add it.
-			// If removing the only type results in an empty array, set to undefined.
-			taskType: typeExists
-				? currentTypes.filter((t) => t !== type).length > 0
-					? currentTypes.filter((t) => t !== type)
-					: undefined
-				: [...currentTypes, type],
+			taskType: type,
 			page: 1
 		};
+
+		findTasks(searchParams);
 	}
 
 	// Initial data fetch and setup
@@ -346,41 +335,49 @@
 			// Fetch BTC price for USDT conversion
 			fetchBtcPrice();
 			
-			loadRecommendations(); // Load recommendations on mount
-			searchTasksQuery
-				.fetch({ variables: { input: searchParams } }) // Initial tasks fetch
-				.catch((err) => console.error('[FindTasks] Initial task fetch error:', err));
+			// Load initial tasks
+			findTasks(searchParams);
+			
+			// Load recommendations
+			loadRecommendations();
+			
+			// Setup infinite scroll
 			setupInfiniteScroll();
+			
+			// Subscribe to new tasks
+			unsubFromNewTasks = subscribeToNewTasks();
 		}
-		return () => {
-			if (browser) {
-				cleanupInfiniteScroll();
+	});
+
+	// Cleanup on component destroy
+	onDestroy(() => {
+		if (browser) {
+			cleanupInfiniteScroll();
+			if (unsubFromNewTasks) {
+				unsubFromNewTasks();
 			}
-		};
+			cleanup();
+		}
 	});
 
 	// Loading state management effect
 	$effect(() => {
 		// Update initial load flag
-		if (isInitialLoad && (!$searchTasksQuery.fetching || $searchTasksQuery.data?.tasks.items)) {
+		if (isInitialLoad && (!$tasksStore.loading || $tasksStore.items.length > 0)) {
 			isInitialLoad = false;
 		}
 
-		// Condition for when page-level loading (initial or search) is active
-		const isPageLoading = $searchTasksQuery.fetching && searchParams.page === 1;
-
 		// Handle loading timeout
 		let timer: ReturnType<typeof setTimeout> | undefined;
-		if (isPageLoading) {
+		if ($tasksStore.loading && searchParams.page === 1) {
 			timer = setTimeout(() => {
-				if ($searchTasksQuery.fetching && searchParams.page === 1) {
-					// Double check state
+				if ($tasksStore.loading && searchParams.page === 1) {
 					loadingTimeout = true;
 					console.error('[FindTasks] Query timeout - fetching took too long');
 				}
 			}, 10000); // 10 second timeout
 		} else {
-			loadingTimeout = false; // Reset timeout
+			loadingTimeout = false;
 		}
 
 		return () => {
@@ -469,31 +466,30 @@
 	<!-- Results count -->
 	<div class="mb-4">
 		<p class="text-base-content/70">
-			{#if $searchTasksQuery.fetching && searchParams.page === 1}
+			{#if $tasksStore.loading && searchParams.page === 1}
 				<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
-			{:else if $searchTasksQuery.data?.tasks.meta}
-				Showing {$searchTasksQuery.data.tasks.items.length}
-				of {$searchTasksQuery.data.tasks.meta.totalItems} tasks
+			{:else if $tasksStore.meta}
+				Showing {$tasksStore.items.length}
+				of {$tasksStore.meta.totalItems} tasks
 			{/if}
 		</p>
 	</div>
 
 	<!-- Error Message -->
-	{#if $searchTasksQuery.errors}
+	{#if $tasksStore.error}
 		<div class="alert alert-error mb-4">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
 				fill="none"
 				viewBox="0 0 24 24"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/></svg
-			>
-			<span>Error loading tasks: {$searchTasksQuery.errors[0].message}. Please try again.</span>
+			><path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+			/></svg>
+			<span>Error loading tasks: {$tasksStore.error}. Please try again.</span>
 		</div>
 	{/if}
 
@@ -529,7 +525,7 @@
 	{/if}
 
 	<!-- Task List -->
-	{#if (isInitialLoad || ($searchTasksQuery.fetching && searchParams.page === 1)) && !loadingTimeout}
+	{#if (isInitialLoad || ($tasksStore.loading && searchParams.page === 1)) && !loadingTimeout}
 		<!-- Shimmer/Loading Placeholder -->
 		<div class="card bg-base-100 space-y-4 shadow-md">
 			{#each Array(4) as _}
@@ -588,16 +584,16 @@
 			</div>
 			<button class="btn btn-sm" onclick={() => window.location.reload()}> Refresh </button>
 		</div>
-	{:else if $searchTasksQuery.data?.tasks.items && $searchTasksQuery.data.tasks.items.length > 0}
+	{:else if $tasksStore.items && $tasksStore.items.length > 0}
 		<div class="card bg-base-100 space-y-4 shadow-md transition-shadow hover:shadow-lg">
-			{#each $searchTasksQuery.data.tasks.items as task, index (task.id)}
+			{#each $tasksStore.items as task, index (task.id)}
 				<div class="card-body">
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
 						<div class="flex items-center gap-2 text-sm">
 							<div class="flex flex-col items-end">
-								<span class="font-semibold">{task.budget} BTC</span>
-								<span class="text-xs text-info">≈ {task.budget !== null ? calculateUsdtEstimate(task.budget) : '0.00'} USDT</span>
+								<span class="font-semibold">{task.budget.amount} BTC</span>
+								<span class="text-xs text-info">≈ {calculateUsdtEstimate(task.budget)} USDT</span>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>
@@ -607,10 +603,10 @@
 
 					<div class="mt-2 mb-4">
 						<div class="flex flex-wrap gap-4">
-							{#if task.deadlineDate}
+							{#if task.deadline}
 								<div>
 									<p class="text-base-content/60 text-sm">Deadline</p>
-									<p class="font-medium">{formatTimeAgo(task.deadlineDate)}</p>
+									<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
 								</div>
 							{:else if task.dateRange?.start && task.dateRange?.end}
 								<div>
@@ -622,20 +618,20 @@
 								</div>
 							{/if}
 
-							{#if task.userProfile?.user}
+							{#if task.creator}
 								<div>
 									<p class="text-base-content/60 text-sm">Posted By</p>
-									<p class="font-medium">{task.userProfile.user.username}</p>
+									<p class="font-medium">{task.creator.username}</p>
 								</div>
 							{/if}
 						</div>
 					</div>
 
-					{#if task.skillIds && task.skillIds.length > 0}
+					{#if task.skills && task.skills.length > 0}
 						<div class="mb-4 flex flex-wrap gap-2">
-							{#each task.skillIds as skillItem}
-								{#if skillItem}
-									<span class="badge badge-primary badge-outline">{skillItem}</span>
+							{#each task.skills as skill}
+								{#if skill}
+									<span class="badge badge-primary badge-outline">{skill}</span>
 								{/if}
 							{/each}
 						</div>
@@ -668,9 +664,9 @@
 							onclick={() => {
 								if (task.status === TaskStatusEnum.OPEN) {
 									if (
-										task.userProfile?.user?.id &&
+										task.creator?.id &&
 										$userStore.id !== undefined &&
-										$userStore.id.toString() === task.userProfile.user.id.toString()
+										$userStore.id.toString() === task.creator.id.toString()
 									) {
 										// Set the error message
 										bidErrorMessage = "You cannot bid on your own task";
@@ -707,7 +703,7 @@
 					</div>
 				</div>
 
-				{#if index < $searchTasksQuery.data.tasks.items.length - 1}
+				{#if index < $tasksStore.items.length - 1}
 					<div class="divider mx-auto w-[90%]"></div>
 				{/if}
 			{/each}
@@ -715,13 +711,13 @@
 
 		<!-- Infinite Scroll Target -->
 		<div bind:this={scrollTarget} class="mt-4 h-10">
-			{#if $searchTasksQuery.fetching && searchParams.page && searchParams.page > 1}
+			{#if $tasksStore.loading && searchParams.page && searchParams.page > 1}
 				<div class="flex justify-center py-2">
 					<span class="loading loading-spinner loading-md"></span>
 				</div>
 			{/if}
 		</div>
-	{:else if !$searchTasksQuery.fetching}
+	{:else if !$tasksStore.loading}
 		<div class="py-12 text-center">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

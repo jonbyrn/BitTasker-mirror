@@ -19,7 +19,6 @@ const TASK_KINDS = {
   TASK_CONTRACT: 31002,     // Task contract formation
   TASK_COMPLETION: 31003,   // Task completion confirmation
   TASK_REVIEW: 31004,       // Task review
-  TASK_UPDATE: 31005,       // Task updates/edits
   RECURRING_TASK: 31006,    // Recurring task template
   TASK_INSTANCE: 31007,     // Instance of recurring task
   SAVED_SEARCH: 31008,      // Saved task search criteria
@@ -322,7 +321,7 @@ class TaskUpdateService {
 
     // Create update event that references the original task
     const event = {
-      kind: 31005, // TASK_UPDATE
+      kind: 31000, // TASK_UPDATE
       created_at: Math.floor(Date.now() / 1000),
       content: JSON.stringify(updates),
       tags: [

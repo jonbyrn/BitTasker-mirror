@@ -11,7 +11,6 @@ const pool = new SimplePool();
 
 export const TASK_KINDS = {
     TASK_CREATION: 31000,
-    TASK_UPDATE: 31005,
     RECURRING_TASK: 31006
 };
 

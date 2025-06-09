@@ -1,4 +1,5 @@
 import type { TaskBid } from './bid';
+import type { Event as NostrEvent } from 'nostr-tools';
 import {
 	BudgetTypeEnum,
 	TaskTypeEnum,
@@ -61,7 +62,7 @@ export interface Task {
 	pickupLocation: Location | null;
 	dropOffLocation: Location | null;
 	skills: string[];
-	categories: Array<string>;
+	categories: string[];
 	attachments?: Attachment[];
 	
 	isRemovals: boolean;
@@ -75,7 +76,7 @@ export interface Task {
 	deletedAt: string | null;
 	
 	isDeleted: boolean;
-	requiredSkills: Array<string>;
+	requiredSkills: string[];
 	bids: TaskBid[];
 }
 
@@ -100,6 +101,16 @@ export interface SearchTasksParams {
 	dateRange?: DateRange;
 	sortBy?: SortByEnum;
 	sortOrder?: SortOrderEnum;
+	
+	// Nostr-specific fields
+	since?: number;
+	until?: number;
+	authors?: string[];
+	ids?: string[];
+	kinds?: number[];
+	search?: string; // NIP-50 search term
+	// filter?: NostrFilter;  // Combined Nostr filter
+	// relays?: string[];    // List of relays to query
 }
 
 export interface TaskData extends Task {
@@ -139,4 +150,66 @@ export interface TaskResponse {
 		hasNextPage: boolean;
 		hasPreviousPage: boolean;
 	};
+}
+
+// Nostr-specific interfaces
+export interface NostrTaskMetadata {
+	uniqueId: string;
+	createdAt: number;
+	updatedAt?: number;
+	deletedAt?: number;
+	pow: [string, string];
+}
+
+export interface NostrTaskEvent extends NostrEvent {
+	content: string; // JSON stringified TaskBody & NostrTaskMetadata
+	tags: string[][];
+}
+
+export interface SavedSearch {
+	id: string;
+	name: string;
+	params: SearchTasksParams;
+	createdAt: number;
+	updatedAt: number;
+	notifyOnNew?: boolean;
+}
+
+export interface TaskRecommendation {
+	taskId: string;
+	score: number;
+	reason: string;
+	matchedSkills?: string[];
+	matchedCategories?: string[];
+}
+
+export interface RecommendationParams {
+	userId: string;
+	skills?: string[];
+	categories?: string[];
+	preferredBudgetRange?: {
+		min: number;
+		max: number;
+	};
+	preferredLocations?: string[];
+	limit?: number;
+}
+
+export interface NostrSearchResult {
+	tasks: Task[];
+	total: number;
+	hasMore: boolean;
+	cursor?: string;
+}
+
+// Add Nostr-specific types
+export interface NostrFilter {
+	ids?: string[];
+	authors?: string[];
+	kinds?: number[];
+	since?: number;
+	until?: number;
+	limit?: number;
+	search?: string;  // NIP-50 search
+	[key: string]: string[] | number[] | string | number | undefined;  // Allow for custom filter attributes
 }
