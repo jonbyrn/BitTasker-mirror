@@ -1,11 +1,12 @@
 import type { SearchTasksParams, Task, SavedSearch, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
-import { SimplePool, type Event, type Filter } from 'nostr-tools';
+import { SimplePool, type Event, type Filter, mergeFilters, matchFilter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { TASK_KINDS } from './task';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { tasksStore } from '$lib/stores/task.store';
+import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
 
 // Define NostrFilter type that extends Filter
 type NostrFilter = Filter & {
@@ -29,8 +30,28 @@ const REPLACEABLE_KINDS = {
     USER_PREFERENCES: 31002, // NIP-33 Parameterized replaceable event for user preferences
 };
 
+const RELAYS = [PUBLIC_NOSTR_RELAY_URL, ...SEARCH_RELAYS]
+
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
+
+/**
+ * Extract all category values from an event's tags
+ */
+function extractCategories(event: Event): string[] {
+    return event.tags
+        .filter(tag => tag[0] === 'c')
+        .flatMap(tag => tag.slice(1));
+}
+
+/**
+ * Check if an event has all the required categories
+ */
+function hasAllCategories(event: Event, requiredCategories: string[]): boolean {
+    if (!requiredCategories || requiredCategories.length === 0) return true;
+    const eventCategories = extractCategories(event);
+    return requiredCategories.every(cat => eventCategories.includes(cat));
+}
 
 /**
  * Convert search params to Nostr filter
@@ -46,25 +67,19 @@ function createNostrFilter(params: SearchTasksParams): Filter {
         filter['#t'] = [params.taskType];
     }
 
-    // Status filter with multiple values support
+    // Status filter
     if (params.status && params.status.length > 0) {
-        params.status.forEach(status => {
-            filter['#s'] = [status];
-        });
+        filter['#status'] = params.status;
     }
 
     // Category filter
     if (params.categories && params.categories.length > 0) {
-        params.categories.forEach(category => {
-            filter['#c'] = [category.toString()];
-        });
+        filter['#c'] = params.categories;
     }
 
     // Skills filter
     if (params.skills && params.skills.length > 0) {
-        params.skills.forEach(skill => {
-            filter['#s'] = [skill.toString()];
-        });
+        filter['#s'] = params.skills;
     }
 
     // Budget range filter
@@ -96,8 +111,21 @@ function createNostrFilter(params: SearchTasksParams): Filter {
 
     // Add NIP-50 search support
     if (params.searchTerm) {
-        filter.search = params.searchTerm;
+        filter.search = params.searchTerm.trim();
+        // filter.search = `title:"${params.searchTerm}" OR content:"${params.searchTerm}"`;
+        // filter.search = `content:${params.searchTerm}`;
+
+        // For phrase searches, we need to split and search each term individually
+        // const terms = params.searchTerm.trim().split(/\s+/);
+        // if (terms.length > 1) {
+        //     // Multiple terms - combine with AND
+        //     filter.search = terms.map(term => `content:${term}`).join(' AND ');
+        // } else {
+        //     // Single term - search as is
+        //     filter.search = `content:${params.searchTerm.trim()}`;
+        // }
     }
+
     return filter;
 }
 
@@ -105,9 +133,9 @@ function createNostrFilter(params: SearchTasksParams): Filter {
  * Find tasks based on search parameters
  */
 export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Task[]; total: number; hasMore: boolean }> {
-    tasksStore.update(state => ({ ...state, loading: true, error: null }));
-
     try {
+        tasksStore.update(state => ({ ...state, loading: true, error: null }));
+
         const filter = createNostrFilter(params);
         console.log({ filter })
         const cacheKey = JSON.stringify(filter);
@@ -134,11 +162,13 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         }
 
         // Get total count using NIP-45
-        const countResult = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
-        const total = countResult.length;
+        // const countResult = await tasksStore.pool.querySync(['wss://relay.nostr.band'], filter);
+        // const total = countResult.length;
 
         // Fetch events
-        const events = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const events = await tasksStore.pool.querySync(['wss://relay.nostr.band'], filter);
+        const total = events.length;
+        console.log({ events })
         const tasks = events.map((event: Event) => convertEventToTask(event));
 
         // Update cache

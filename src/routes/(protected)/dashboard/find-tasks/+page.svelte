@@ -26,12 +26,13 @@
 			minBudget: undefined,
 			maxBudget: undefined,
 			budgetType: undefined,
-			categories: [],
+			categories: ['dev', 'design'],
 			skills: [],
 			page: 1,
-			limit: 20,
+			limit: 5,
 			sortBy: SortByEnum.CREATED_AT,
-			sortOrder: SortOrderEnum.DESC
+			sortOrder: SortOrderEnum.DESC,
+			searchTerm: 'Task'
 		};
 	}
 
@@ -139,7 +140,7 @@
 		const sortByValue = sortBy.value;
 		const sortOrderValue = sortOrder.value;
 		const searchQueryValue = searchQuery.trim() || undefined;
-		const categoryId = selectedCategory.value ? parseInt(selectedCategory.value, 10) : undefined;
+		const categoryId = selectedCategory.value ? [selectedCategory.value] : [];
 		const taskTypeValue = selectedTaskType.value
 			? (selectedTaskType.value as TaskTypeEnum)
 			: undefined;
@@ -166,7 +167,7 @@
 			sortBy: sortByValue,
 			sortOrder: sortOrderValue,
 			searchTerm: searchQueryValue,
-			categoryIds: categoryId ? [categoryId] : [],
+			categories: categoryId,
 			taskType: taskTypeValue,
 			minBudget: minBudgetValue,
 			maxBudget: maxBudgetValue

@@ -5,6 +5,8 @@ import { calculatePOW } from '$lib/nostr';
 import { SimplePool } from 'nostr-tools/pool';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getSignedEvent } from '$lib/utils/nostr';
+import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
+import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -59,7 +61,7 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqueId: s
 export async function createTask(taskData: TaskBody): Promise<string> {
     // Generate a unique identifier for this task
     const uniqueId = crypto.randomUUID();
-    
+
     // Add creation timestamp and unique identifier to task data
     const taskDataWithMeta = {
         ...taskData,
@@ -86,6 +88,17 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
     // Sign and publish
     const signedEvent = await getSignedEvent(event);
+
+    // 30aade3f948fa82b4dbd0407757e245cfc5b2c5b4d607cc28c71f7d77e3c4b12
+    fetch(PUBLIC_NOSTR_RELAY_NESTJS + '/api/v1/events', {
+        method: 'POST',
+        body: JSON.stringify(signedEvent),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    });
+
+    return console.log('signedEvent', signedEvent);
     await publishToRelays(signedEvent);
 
     return signedEvent.id;
@@ -137,7 +150,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
         // Parse original task data
         const originalTaskData = JSON.parse(originalTask.content);
-        
+
         // Get the original uniqueId
         const uniqueId = originalTaskData.uniqueId;
         if (!uniqueId) {
@@ -172,8 +185,8 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
                 ['b', `${updatedTaskData.budget?.amount || 0}${updatedTaskData.budget?.currency || 'BTC'}`],
                 ...(updatedTaskData.deadline ? [['deadline', updatedTaskData.deadline]] : []),
                 ...(updatedTaskData.dateRange ? [['dateRange', updatedTaskData.dateRange.start, updatedTaskData.dateRange.end]] : []),
-                ...(updatedTaskData.pickupLocation?.locationLoaded 
-                    ? [['l', 'onsite', updatedTaskData.pickupLocation.displayName || '']] 
+                ...(updatedTaskData.pickupLocation?.locationLoaded
+                    ? [['l', 'onsite', updatedTaskData.pickupLocation.displayName || '']]
                     : [['l', 'remote']])
             ]
         };
@@ -213,7 +226,7 @@ export async function deleteTask(taskId: string): Promise<string> {
         console.error('Failed to delete task:', error);
         throw error;
     }
-} 
+}
 
 /**
  * Publish an event to relays

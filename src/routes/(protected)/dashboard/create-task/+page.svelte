@@ -142,6 +142,7 @@
 				}
 			}
 
+			return;
 			isSubmitted = true;
 			await store.clearDraft();
 
