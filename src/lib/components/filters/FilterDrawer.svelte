@@ -18,7 +18,6 @@
 	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import Tags from '$lib/components/Tags.svelte';
-	import Input from '$lib/components/Input.svelte';
 
 	// Props
 	let { isOpen, onClose, onApply } = $props<{
@@ -29,18 +28,19 @@
 
 	// State
 	const filters = $state<SearchTasksParams>({
-		searchTerm: '',
+		search: '',
 		status: [],
 		taskType: undefined,
 		categories: [],
 		skills: [],
-		minBudget: undefined,
-		maxBudget: undefined,
-		budgetType: undefined,
+		budget: {
+			tier: undefined,
+			currency: undefined,
+			type: undefined
+		},
 		location: undefined,
 		radius: undefined,
-		deadlineBefore: undefined,
-		deadlineAfter: undefined,
+		deadline: undefined,
 		dateRange: undefined,
 		page: 1,
 		limit: 10,
@@ -55,17 +55,18 @@
 		// Calculate active filter count for badge
 		let count = 0;
 
-		if (filters.searchTerm) count++;
+		if (filters.search) count++;
 		if (filters.taskType) count++;
 		if (filters.status && filters.status.length > 0) count++;
 		if (filters.categories && filters.categories.length > 0) count++;
 		if (filters.skills && filters.skills.length > 0) count++;
-		if (filters.minBudget || filters.maxBudget) count++;
-		if (filters.budgetType) count++;
+		if (filters.budget?.tier) count++;
+		if (filters.budget?.currency) count++;
+		if (filters.budget?.type) count++;
 		if (filters.location) count++;
 		if (filters.radius) count++;
 		if (filters.dateRange) count++;
-		if (filters.deadlineBefore || filters.deadlineAfter) count++;
+		if (filters.deadline) count++;
 		if (filters.sortBy !== 'createdAt' || filters.sortOrder !== 'desc') count++;
 
 		activeFilterCount = count;
@@ -96,18 +97,19 @@
 
 	// Clear all filters
 	function clearFilters() {
-		filters.searchTerm = '';
+		filters.search = '';
 		filters.status = [];
 		filters.taskType = undefined;
 		filters.categories = [];
 		filters.skills = [];
-		filters.minBudget = undefined;
-		filters.maxBudget = undefined;
-		filters.budgetType = undefined;
+		filters.budget = {
+			currency: undefined,
+			type: undefined,
+			tier: undefined
+		};
 		filters.location = undefined;
 		filters.radius = undefined;
-		filters.deadlineBefore = undefined;
-		filters.deadlineAfter = undefined;
+		filters.deadline = undefined;
 		filters.dateRange = undefined;
 		filters.sortBy = SortByEnum.CREATED_AT;
 		filters.sortOrder = SortOrderEnum.DESC;
@@ -143,20 +145,18 @@
 			filters.dateRange = { start, end };
 		}
 		if (filterMode === 'deadline') {
-			filters.deadlineBefore = start;
-			filters.deadlineAfter = end;
+			filters.deadline = start;
 		}
 	}
 
 	// Handle price range change
-	function handlePriceRangeChange(min: number | undefined, max: number | undefined) {
-		filters.minBudget = min;
-		filters.maxBudget = max;
+	function handlePriceRangeChange(tier: string) {
+		filters.budget && (filters.budget.tier = tier);
 	}
 
 	// Handle budget type change
 	function handleBudgetTypeChange(type: BudgetTypeEnum | undefined) {
-		filters.budgetType = type;
+		filters.budget && (filters.budget.type = type);
 	}
 
 	// Handle category tags change
@@ -231,7 +231,7 @@
 				type="text"
 				placeholder="Enter keywords..."
 				class="input input-bordered w-full"
-				bind:value={filters.searchTerm}
+				bind:value={filters.search}
 			/>
 		</div>
 
@@ -290,11 +290,7 @@
 			<input type="checkbox" class="peer" defaultChecked />
 			<div class="collapse-title font-medium">Budget Range</div>
 			<div class="collapse-content">
-				<PriceRangeSlider
-					minBudget={filters.minBudget}
-					maxBudget={filters.maxBudget}
-					onRangeChange={handlePriceRangeChange}
-				/>
+				<PriceRangeSlider onRangeChange={handlePriceRangeChange} />
 
 				<div class="mt-4">
 					<label class="label font-medium" for="budget-type">Budget Type</label>
@@ -302,7 +298,7 @@
 						{#each Object.values(BudgetTypeEnum) as type}
 							<button
 								class="btn btn-sm"
-								class:btn-primary={filters.budgetType === type}
+								class:btn-primary={filters.budget?.type === type}
 								onclick={() => handleBudgetTypeChange(type)}
 							>
 								{type}
@@ -310,7 +306,7 @@
 						{/each}
 						<button
 							class="btn btn-sm"
-							class:btn-primary={filters.budgetType === undefined}
+							class:btn-primary={filters.budget?.type === undefined}
 							onclick={() => handleBudgetTypeChange(undefined)}
 						>
 							Any
@@ -338,11 +334,7 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Availability</div>
 			<div class="collapse-content">
-				<AvailabilityFilter
-					deadlineBefore={filters.deadlineBefore}
-					deadlineAfter={filters.deadlineAfter}
-					onAvailabilityChange={handleAvailabilityChange}
-				/>
+				<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
 			</div>
 		</div>
 

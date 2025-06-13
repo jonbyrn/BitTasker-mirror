@@ -42,3 +42,34 @@ export interface Filter {
   limit?: number;
   [key: `#${string}`]: string[] | undefined;
 }
+
+// Interface for an array with first item as single character string
+// and remaining items as string or number
+export interface SingleCharArray extends Array<string | number> {
+  0: string; // First element must be a string
+  length: number;
+}
+
+// More specific interface using tuple types with rest elements
+export type SingleCharTuple = [string, ...(string | number)[]];
+
+// Even more specific - constraining first element to exactly one character
+export type SingleCharConstrainedTuple = [
+  string & { length: 1 }, // Single character string
+  ...(string | number)[]   // Rest can be string or number
+];
+
+// Alternative approach using template literal types for single character
+export type SingleChar =
+  | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm'
+  | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z';
+
+// Most restrictive version with predefined single characters
+export type StrictSingleCharTuple = [SingleChar, ...(string | number)[]];
+
+// Usage examples:
+// const example1: SingleCharTuple = ['a', 'hello', 123, 'world', 456];
+// const example2: SingleCharConstrainedTuple = ['x', 'test', 42, 'data'];
+// const example3: StrictSingleCharTuple = ['!', 'command', 1, 2, 3, 'end']; 

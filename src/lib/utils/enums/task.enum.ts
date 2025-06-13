@@ -29,8 +29,8 @@ export enum TaskStatusEnum {
 }
 
 export enum TaskTypeEnum {
-	REMOTE = 'REMOTE',
-	IN_PERSON = 'IN_PERSON'
+	REMOTE = 'remote',
+	IN_PERSON = 'onsite'
 }
 
 export enum SortByEnum {

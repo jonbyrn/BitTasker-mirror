@@ -7,6 +7,9 @@ import { TASK_KINDS } from './task';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { tasksStore } from '$lib/stores/task.store';
 import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
+import { getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
+import { getDateTiersForRange, getDateTiersForSingleDate } from '$lib/utils/helpers/dateTier';
+import nostrEventsService from '$lib/api/services/nostr/events';
 
 // Define NostrFilter type that extends Filter
 type NostrFilter = Filter & {
@@ -15,7 +18,7 @@ type NostrFilter = Filter & {
 };
 
 // Constants
-const BATCH_SIZE = 20;
+const BATCH_SIZE = 20; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // NIP-51 List Kinds
@@ -34,6 +37,36 @@ const RELAYS = [PUBLIC_NOSTR_RELAY_URL, ...SEARCH_RELAYS]
 
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
+
+/**
+ * Convert Nostr filter to API query parameters
+ * The API expects tag filters without the '#' prefix
+ */
+export function convertFilterToApiParams(filter: Filter): Record<string, any> {
+    const params: Record<string, any> = {};
+
+    // Direct mappings
+    if (filter.ids) params.ids = filter.ids;
+    if (filter.authors) params.authors = filter.authors;
+    if (filter.kinds) params.kinds = filter.kinds;
+    if (filter.since) params.since = filter.since;
+    if (filter.until) params.until = filter.until;
+    if (filter.limit) params.limit = filter.limit;
+    if (filter.search) params.search = filter.search;
+
+    // Convert tag filters from #tagname to tagname
+    Object.keys(filter).forEach(key => {
+        if (key.startsWith('#')) {
+            // const tagName = key.substring(1); // Remove the '#'
+            const value = filter[key as keyof Filter];
+            if (Array.isArray(value)) {
+                params[key] = value;
+            }
+        }
+    });
+
+    return params;
+}
 
 /**
  * Extract all category values from an event's tags
@@ -56,77 +89,96 @@ function hasAllCategories(event: Event, requiredCategories: string[]): boolean {
 /**
  * Convert search params to Nostr filter
  */
-function createNostrFilter(params: SearchTasksParams): Filter {
-    const filter: Filter = {
+function createTaskFilter(params: SearchTasksParams): Filter {
+    const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
         kinds: [TASK_KINDS.TASK_CREATION],
         limit: params.limit || BATCH_SIZE
     };
 
     // Task type filter
     if (params.taskType) {
-        filter['#t'] = [params.taskType];
+        filter['l'] = [params.taskType];
     }
 
     // Status filter
     if (params.status && params.status.length > 0) {
-        filter['#status'] = params.status;
+        filter['S'] = params.status;
     }
 
     // Category filter
     if (params.categories && params.categories.length > 0) {
-        filter['#c'] = params.categories;
+        filter['c'] = params.categories;
     }
 
     // Skills filter
     if (params.skills && params.skills.length > 0) {
-        filter['#s'] = params.skills;
+        filter['s'] = params.skills;
     }
 
-    // Budget range filter
-    if (params.minBudget || params.maxBudget) {
-        filter['#b'] = [`${params.minBudget || 0}${params.currency || 'BTC'}-${params.maxBudget || ''}`];
+    // Budget filters
+    if (params.budget?.tier) {
+        filter['b'] = [params.budget.tier];
+    }
+    if (params.budget?.currency) {
+        filter['p'] = [params.budget.currency];
+    }
+    if (params.budget?.type) {
+        filter['t'] = [params.budget.type];
     }
 
-    // Date range filter
-    if (params.startDate || params.endDate) {
-        filter['#dateRange'] = [params.startDate || '', params.endDate || ''];
+    // Date tier filtering
+    if (params.dateRange) {
+        const dateTiers = getDateTiersForRange(params.dateRange?.start, params.dateRange?.end);
+
+        // Set start date filter if we have start tiers
+        if (dateTiers.startTiers.length > 0) {
+            filter['r'] = dateTiers.startTiers;
+        }
+
+        // Set end date filter if we have end tiers
+        if (dateTiers.endTiers.length > 0) {
+            filter['R'] = dateTiers.endTiers;
+        }
     }
 
-    // Deadline filter
+    // Deadline filter using tier system (single date)
     if (params.deadline) {
-        filter['#deadline'] = [params.deadline];
+        const deadlineTiers = getDateTiersForSingleDate(params.deadline);
+        if (deadlineTiers.length > 0) {
+            filter['R'] = deadlineTiers;
+        }
     }
 
     // Location filter with enhanced structure
     if (params.location) {
         if (params.location === 'remote') {
-            filter['#l'] = ['remote'];
+            filter['l'] = ['remote'];
         } else {
-            filter['#l'] = ['onsite', params.location];
+            filter['l'] = ['onsite', params.location];
             if (params.radius) {
-                filter['#r'] = [params.radius.toString()];
+                filter['r'] = [params.radius.toString()];
             }
         }
     }
 
     // Add NIP-50 search support
-    if (params.searchTerm) {
-        filter.search = params.searchTerm.trim();
-        // filter.search = `title:"${params.searchTerm}" OR content:"${params.searchTerm}"`;
-        // filter.search = `content:${params.searchTerm}`;
-
-        // For phrase searches, we need to split and search each term individually
-        // const terms = params.searchTerm.trim().split(/\s+/);
-        // if (terms.length > 1) {
-        //     // Multiple terms - combine with AND
-        //     filter.search = terms.map(term => `content:${term}`).join(' AND ');
-        // } else {
-        //     // Single term - search as is
-        //     filter.search = `content:${params.searchTerm.trim()}`;
-        // }
+    if (params.search) {
+        filter.search = params.search.trim();
     }
 
     return filter;
+}
+
+/**
+ * Convert a Nostr event to a Task
+ */
+function convertEventToTask(event: Event): Task {
+    return {
+        ...JSON.parse(event.content),
+        id: event.id,
+        npub: event.pubkey,
+        createdAt: event.created_at
+    }
 }
 
 /**
@@ -136,8 +188,10 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
     try {
         tasksStore.update(state => ({ ...state, loading: true, error: null }));
 
-        const filter = createNostrFilter(params);
-        console.log({ filter })
+        console.log('Params:', params);
+        const filter = createTaskFilter(params);
+        console.log('Filter:', filter);
+
         const cacheKey = JSON.stringify(filter);
 
         // Check cache
@@ -161,36 +215,76 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             };
         }
 
-        // Get total count using NIP-45
-        // const countResult = await tasksStore.pool.querySync(['wss://relay.nostr.band'], filter);
-        // const total = countResult.length;
+        try {
+            const response = await nostrEventsService.findEvents(filter);
+            // console.log('API response:', response);
 
-        // Fetch events
-        const events = await tasksStore.pool.querySync(['wss://relay.nostr.band'], filter);
-        const total = events.length;
-        console.log({ events })
-        const tasks = events.map((event: Event) => convertEventToTask(event));
+            const events = response.data || [];
+            console.log('events', events);
+            const total = events.length;
+            // console.log('Events found:', events.length);
 
-        // Update cache
-        cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
+            // TODO: To be removed and handled by the find-tasks page for better performance
+            const tasks = events.map((event: Event) => convertEventToTask(event));
 
-        // Update store
-        tasksStore.update(state => ({
-            ...state,
-            items: tasks,
-            loading: false,
-            meta: {
-                currentPage: params.page || 1,
-                totalItems: total,
-                hasNextPage: tasks.length >= (params.limit || BATCH_SIZE)
+            // Update cache
+            cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
+
+            // Update store
+            tasksStore.update(state => ({
+                ...state,
+                items: tasks,
+                loading: false,
+                meta: {
+                    currentPage: params.page || 1,
+                    totalItems: total,
+                    hasNextPage: tasks.length >= (params.limit || BATCH_SIZE)
+                }
+            }));
+
+            return {
+                tasks,
+                total,
+                hasMore: tasks.length >= (params.limit || BATCH_SIZE)
+            };
+        } catch (apiError) {
+            console.error('API request failed, falling back to direct pool query:', apiError);
+
+            return {
+                tasks: [],
+                total: 0,
+                hasMore: false
             }
-        }));
 
-        return {
-            tasks,
-            total,
-            hasMore: tasks.length >= (params.limit || BATCH_SIZE)
-        };
+            /* TODO: To be tested 
+            // Fallback to direct pool query if API fails
+            const events = await tasksStore.pool.querySync(RELAYS, filter);
+            const total = events.length;
+            console.log('Fallback events found:', events.length);
+            
+            const tasks = events.map((event: Event) => convertEventToTask(event));
+
+            // Update cache
+            cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
+
+            // Update store
+            tasksStore.update(state => ({
+                ...state,
+                items: tasks,
+                loading: false,
+                meta: {
+                    currentPage: params.page || 1,
+                    totalItems: total,
+                    hasNextPage: tasks.length >= (params.limit || BATCH_SIZE)
+                }
+            }));
+
+            return {
+                tasks,
+                total,
+                hasMore: tasks.length >= (params.limit || BATCH_SIZE)
+            }; */
+        }
     } catch (error) {
         console.error('Error finding tasks:', error);
         tasksStore.update(state => ({
@@ -235,10 +329,10 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
             ]
         });
 
-        // Publish both events
+        // Publish both events using the API
         await Promise.all([
-            tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], savedSearchEvent),
-            tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], listEvent)
+            nostrEventsService.publishNewEvent(savedSearchEvent),
+            nostrEventsService.publishNewEvent(listEvent)
         ]);
 
         return {
@@ -267,7 +361,9 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             '#d': ['saved-searches']
         };
 
-        const listEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const apiParams = convertFilterToApiParams(filter);
+        const listResponse = await nostrEventsService.findEvents(apiParams);
+        const listEvents = listResponse.data || [];
 
         if (!listEvents.length) {
             return [];
@@ -288,7 +384,9 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             ids: searchIds
         };
 
-        const savedSearchEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], savedSearchFilter);
+        const savedSearchApiParams = convertFilterToApiParams(savedSearchFilter);
+        const savedSearchResponse = await nostrEventsService.findEvents(savedSearchApiParams);
+        const savedSearchEvents = savedSearchResponse.data || [];
 
         // Convert events to SavedSearch objects
         return savedSearchEvents.map(event => ({
@@ -314,13 +412,13 @@ export async function updateSavedSearch(
 ): Promise<SavedSearch> {
     try {
         // Get the existing saved search
-        const existingEvents = await tasksStore.pool.querySync(
-            [PUBLIC_NOSTR_RELAY_URL],
-            {
-                kinds: [REPLACEABLE_KINDS.SAVED_SEARCH],
-                '#d': [searchId]
-            }
-        );
+        const existingFilter = {
+            kinds: [REPLACEABLE_KINDS.SAVED_SEARCH],
+            '#d': [searchId]
+        };
+        const existingApiParams = convertFilterToApiParams(existingFilter);
+        const existingResponse = await nostrEventsService.findEvents(existingApiParams);
+        const existingEvents = existingResponse.data || [];
 
         if (!existingEvents.length) {
             throw new Error('Saved search not found');
@@ -344,15 +442,18 @@ export async function updateSavedSearch(
             ]
         });
 
-        // Publish update
-        tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedEvent);
+        // Publish update using the API
+        await nostrEventsService.publishNewEvent(updatedEvent);
 
         // If name changed, update the list event
-        const listEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
+        const listFilter = {
             kinds: [LIST_KINDS.SAVED_SEARCHES],
             authors: [await getNpub()],
             '#d': ['saved-searches']
-        });
+        };
+        const listApiParams = convertFilterToApiParams(listFilter);
+        const listResponse = await nostrEventsService.findEvents(listApiParams);
+        const listEvents = listResponse.data || [];
 
         if (listEvents.length) {
             const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
@@ -369,7 +470,7 @@ export async function updateSavedSearch(
                 tags: updatedTags
             });
 
-            tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedList);
+            await nostrEventsService.publishNewEvent(updatedList);
         }
 
         return {
@@ -403,11 +504,14 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
         });
 
         // Update the saved searches list to remove the deleted search
-        const listEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
+        const listFilter = {
             kinds: [LIST_KINDS.SAVED_SEARCHES],
             authors: [await getNpub()],
             '#d': ['saved-searches']
-        });
+        };
+        const listApiParams = convertFilterToApiParams(listFilter);
+        const listResponse = await nostrEventsService.findEvents(listApiParams);
+        const listEvents = listResponse.data || [];
 
         if (listEvents.length) {
             const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
@@ -423,8 +527,8 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
             });
 
             await Promise.all([
-                tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], deletionEvent),
-                tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedList)
+                nostrEventsService.publishNewEvent(deletionEvent),
+                nostrEventsService.publishNewEvent(updatedList)
             ]);
         }
     } catch (error) {
@@ -453,7 +557,7 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             ]
         });
 
-        await tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], preferencesEvent);
+        await nostrEventsService.publishNewEvent(preferencesEvent);
 
         // Create recommendations list
         const recommendationsEvent = await getSignedEvent({
@@ -467,7 +571,7 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             ]
         });
 
-        tasksStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], recommendationsEvent);
+        await nostrEventsService.publishNewEvent(recommendationsEvent);
 
         // Fetch matching tasks
         const filter: Filter = {
@@ -502,7 +606,9 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             filter['#l'] = params.preferredLocations;
         }
 
-        const events = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const apiParams = convertFilterToApiParams(filter);
+        const response = await nostrEventsService.findEvents(apiParams);
+        const events = response.data || [];
 
         // Calculate recommendations with scores
         return events.map(event => {
@@ -595,18 +701,6 @@ function generateRecommendationReason(matchedSkills: string[], matchedCategories
 }
 
 /**
- * Convert a Nostr event to a Task
- */
-function convertEventToTask(event: Event): Task {
-    return {
-        ...JSON.parse(event.content),
-        id: event.id,
-        createdAt: event.created_at
-    }
-}
-
-
-/**
  * Get recommended tasks based on user preferences
  */
 export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
@@ -625,10 +719,13 @@ export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
 
         // Extract tasks from recommendations
         const tasks = await Promise.all(recommendations.map(async rec => {
-            const taskEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], {
+            const taskFilter = {
                 kinds: [TASK_KINDS.TASK_CREATION],
                 ids: [rec.taskId]
-            });
+            };
+            const taskApiParams = convertFilterToApiParams(taskFilter);
+            const taskResponse = await nostrEventsService.findEvents(taskApiParams);
+            const taskEvents = taskResponse.data || [];
             return taskEvents[0] ? convertEventToTask(taskEvents[0]) : null;
         }));
 
@@ -683,7 +780,9 @@ async function getUserPreferences(): Promise<{
             '#d': ['user-preferences']
         };
 
-        const events = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+        const apiParams = convertFilterToApiParams(filter);
+        const response = await nostrEventsService.findEvents(apiParams);
+        const events = response.data || [];
 
         // Get the most recent preferences event
         const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
@@ -695,7 +794,9 @@ async function getUserPreferences(): Promise<{
                 authors: [await getNpub()]
             };
 
-            const profileEvents = await tasksStore.pool.querySync([PUBLIC_NOSTR_RELAY_URL], profileFilter);
+            const profileApiParams = convertFilterToApiParams(profileFilter);
+            const profileResponse = await nostrEventsService.findEvents(profileApiParams);
+            const profileEvents = profileResponse.data || [];
             const profileEvent = profileEvents[0];
 
             if (profileEvent) {

@@ -52,6 +52,7 @@ export interface TaskBody {
 
 export interface Task {
 	id: string;
+	npub: string;
 	status: TaskStatusEnum;
 	title: string;
 	taskType: TaskTypeEnum;
@@ -64,52 +65,50 @@ export interface Task {
 	skills: string[];
 	categories: string[];
 	attachments?: Attachment[];
-	
+
 	isRemovals: boolean;
 	isBoosted: boolean;
 	boostPercentage: number | null;
-	
+
 	createdAt: string;
 	updatedAt: string;
 	completedAt: string | null;
 	cancelledAt: string | null;
 	deletedAt: string | null;
-	
+
 	isDeleted: boolean;
 	requiredSkills: string[];
+	creator?: {
+		username: string;
+		avatar: string;
+	};
+
+	bids?: TaskBid[];
 }
 
 export interface SearchTasksParams {
 	status?: TaskStatusEnum[];
 	taskType?: TaskTypeEnum;
-	searchTerm?: string;
-	minBudget?: number;
-	maxBudget?: number;
-	includeDeleted?: boolean;
 	page?: number;
 	limit?: number;
-	budgetType?: BudgetTypeEnum;
 	categories?: string[];
 	skills?: string[];
 	location?: string;
 	radius?: number;
-	deadlineBefore?: string;
-	deadlineAfter?: string;
+	deadline?: string;
 	dateRange?: DateRange;
 	sortBy?: SortByEnum;
 	sortOrder?: SortOrderEnum;
-	
-	// New fields for enhanced filtering
-	currency?: string;
-	startDate?: string;
-	endDate?: string;
-	deadline?: string;
-	
+
+	budget?: {
+		tier?: string;
+		currency?: string;
+		type?: BudgetTypeEnum;
+	};
+
 	// Nostr-specific fields
 	since?: number;
 	until?: number;
-	authors?: string[];
-	ids?: string[];
 	kinds?: number[];
 	search?: string; // NIP-50 search term
 }

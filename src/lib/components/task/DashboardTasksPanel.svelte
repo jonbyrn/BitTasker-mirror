@@ -5,8 +5,9 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { queryTasks, TASK_KINDS } from '$lib/nostr/task';
+	import { TASK_KINDS } from '$lib/nostr/task';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import nostrEventsService from '$lib/api/services/nostr/events';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -115,27 +116,20 @@
 				throw new Error('No public key found');
 			}
 
-			await queryTasks(
-				(event) => {
-					const taskData = JSON.parse(event.content);
-					if (taskData) {
-						tasks = [
-							...tasks,
-							{
-								...taskData,
-								id: event.id,
-								author: event.pubkey,
-								status: taskData.status
-							}
-						];
-					}
-				},
-				{
-					kinds: [TASK_KINDS.TASK_CREATION],
-					// Filter for tasks created by the current user
-					authors: [npub],
-				}
-			);
+			const { data: events } = await nostrEventsService.findEvents({
+				kinds: [TASK_KINDS.TASK_CREATION],
+				authors: [npub]
+			});
+
+			tasks = events.map((event) => {
+				const content = JSON.parse(event.content);
+
+				return {
+					...content,
+					id: event.id,
+					author: event.pubkey
+				};
+			});
 		} catch (err) {
 			console.error('Error subscribing to tasks:', err);
 			error = 'Failed to load tasks';
@@ -306,7 +300,7 @@
 		{/each}
 	</div>
 {:else if !isLoading && !error}
-	<div class="py-12 text-center bg-base-100 rounded-xl shadow-md">
+	<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			class="text-base-content/30 mx-auto h-12 w-12"

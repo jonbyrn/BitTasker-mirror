@@ -2,11 +2,11 @@
 	import type { Task } from '$lib/types/task';
 	import type { TaskBid } from '$lib/types/bid';
 	import { t } from '$lib/stores/i18n.store';
-	import { getTaskById } from '$lib/nostr/task';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import BidsTab from './details/BidsTab.svelte';
 	import TaskTab from './details/TaskTab.svelte';
+	import nostrEventsService from '$lib/api/services/nostr/events';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -40,6 +40,38 @@
 		document.body.classList.remove('overflow-hidden');
 	};
 
+	async function loadTaskDetails(id: string) {
+		if (!id) return;
+		try {
+			loading = true;
+			errorMessage = '';
+
+			const { data: event } = await nostrEventsService.findEventById(id);
+
+			if (!event) {
+				errorMessage = $t('task.drawer.error.load');
+				return;
+			}
+
+			// Parse task data from nostr event
+			const taskData = JSON.parse(event.content) as Task;
+			task = {
+				...taskData,
+				id: event.id,
+				createdAt: new Date(event.created_at * 1000).toISOString()
+			};
+
+			if (task) {
+				bids = task.bids || [];
+			}
+		} catch (error) {
+			console.error('Failed to load task details:', error);
+			errorMessage = $t('task.drawer.error.load');
+		} finally {
+			loading = false;
+		}
+	}
+
 	// Handle drawer state changes
 	$effect(() => {
 		if (props.isOpen) {
@@ -66,37 +98,6 @@
 		// Handle cleanup when component is unmounted
 		return enableBodyScroll;
 	});
-
-	async function loadTaskDetails(id: string) {
-		if (!id) return;
-		try {
-			loading = true;
-			errorMessage = '';
-
-			let nostrEvent = await getTaskById(id);
-			if (!nostrEvent) {
-				errorMessage = $t('task.drawer.error.load');
-				return;
-			}
-
-			// Parse task data from nostr event
-			const taskData = JSON.parse(nostrEvent.content) as Task;
-			task = {
-				...taskData,
-				id: nostrEvent.id,
-				createdAt: new Date(nostrEvent.created_at * 1000).toISOString()
-			};
-
-			if (task) {
-				bids = task.bids || [];
-			}
-		} catch (error) {
-			console.error('Failed to load task details:', error);
-			errorMessage = $t('task.drawer.error.load');
-		} finally {
-			loading = false;
-		}
-	}
 
 	function handleTabChange(tabId: string) {
 		currentTab = tabId;

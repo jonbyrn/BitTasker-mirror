@@ -52,6 +52,7 @@ export interface InputProps {
 	min?: number;
 	max?: number;
 	step?: number;
+	className?: string;
 	onChange?: (option: { label: string; value: string }) => void;
 }
 

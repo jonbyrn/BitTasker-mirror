@@ -5,8 +5,12 @@ import { calculatePOW } from '$lib/nostr';
 import { SimplePool } from 'nostr-tools/pool';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
+import { user } from '$lib/stores/user.store';
+import { get } from 'svelte/store';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
+import { getDateTier } from '$lib/utils/helpers/dateTier';
+import nostrEventsService from '$lib/api/services/nostr/events';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -15,6 +19,30 @@ export const TASK_KINDS = {
     TASK_CREATION: 31000,
     RECURRING_TASK: 31006
 };
+
+/**
+ * Get the budget bucket (tier) based on amount and currency
+ * Supports USD and BTC only
+ */
+function getBudgetBucket(amount: number, currency: string): string {
+    const upperCurrency = currency.toUpperCase();
+
+    // Bitcoin ranges (in BTC)
+    if (upperCurrency === 'BTC') {
+        if (amount < 0.001) return 'micro';           // < 0.001 BTC (~$40)
+        if (amount < 0.01) return 'small';            // 0.001-0.01 BTC (~$40-400)
+        if (amount < 0.1) return 'medium';            // 0.01-0.1 BTC (~$400-4000)
+        if (amount < 1) return 'large';               // 0.1-1 BTC (~$4000-40000)
+        return 'enterprise';                          // 1+ BTC (~$40000+)
+    }
+
+    // USD ranges (default for all non-BTC)
+    if (amount < 100) return 'micro';                 // < $100
+    if (amount < 500) return 'small';                 // $100-500
+    if (amount < 1000) return 'medium';               // $500-1000
+    if (amount < 5000) return 'large';               // $1000-5000
+    return 'enterprise';                              // $5000+
+}
 
 /**
  * Generate tags for a task event
@@ -27,23 +55,37 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqueId: s
         .filter(skill => /^[a-z0-9\s-]+$/.test(skill))
         .slice(0, 10); // Limit to 10 skills
 
-    const tags: string[][] = [
+    const tags: [string, ...any][] = [
         ['c', ...taskData?.categories?.map(id => id.toString())],
         ['s', ...normalizedSkills],
         ['pow', ...pow],
-        ['d', `task-${uniqueId}`] // Use uniqueId as the d tag to ensure uniqueness
+        ['d', `task-${uniqueId}`], // Use uniqueId as the d tag to ensure uniqueness
+        ['S', TaskStatusEnum.OPEN], // Default status - OPEN
     ];
 
     if (taskData.deadline) {
-        tags.push(['deadline', taskData.deadline]); // Use a different tag for deadline
+        // Single deadline - use 'R' tag for deadline
+        const deadlineTier = getDateTier(taskData.deadline);
+        tags.push(['R', deadlineTier]);
     }
 
     if (taskData.dateRange) {
-        tags.push(['dateRange', taskData.dateRange.start, taskData.dateRange.end]);
+        // Date range - use 'r' for start and 'R' for end
+        if (taskData.dateRange.start) {
+            const startTier = getDateTier(taskData.dateRange.start);
+            tags.push(['r', startTier]);
+        }
+        if (taskData.dateRange.end && taskData.dateRange.end !== 'null') {
+            const endTier = getDateTier(taskData.dateRange.end);
+            tags.push(['R', endTier]);
+        }
     }
 
     if (taskData.budget) {
-        tags.push(['b', `${taskData.budget.amount}${taskData.budget.currency}`]);
+        const budgetTier = getBudgetBucket(taskData.budget.amount, taskData.budget.currency);
+        tags.push(['b', budgetTier]);
+        tags.push(['p', taskData.budget.currency]);
+        tags.push(['t', taskData.budget.type]);
     }
 
     if (taskData.pickupLocation?.locationLoaded) {
@@ -62,9 +104,16 @@ export async function createTask(taskData: TaskBody): Promise<string> {
     // Generate a unique identifier for this task
     const uniqueId = crypto.randomUUID();
 
+    const userData = get(user);
+    const creator = {
+        username: userData?.name,
+        avatar: userData?.avatar
+    };
+
     // Add creation timestamp and unique identifier to task data
     const taskDataWithMeta = {
         ...taskData,
+        creator,
         createdAt: Math.floor(Date.now() / 1000), // Unix timestamp in seconds
         uniqueId
     };
@@ -89,17 +138,12 @@ export async function createTask(taskData: TaskBody): Promise<string> {
     // Sign and publish
     const signedEvent = await getSignedEvent(event);
 
-    // 30aade3f948fa82b4dbd0407757e245cfc5b2c5b4d607cc28c71f7d77e3c4b12
-    fetch(PUBLIC_NOSTR_RELAY_NESTJS + '/api/v1/events', {
-        method: 'POST',
-        body: JSON.stringify(signedEvent),
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    });
-
-    return console.log('signedEvent', signedEvent);
-    await publishToRelays(signedEvent);
+    try {
+        await nostrEventsService.publishNewEvent(signedEvent);
+    } catch (error) {
+        console.error('Failed to create task:', error);
+        throw error;
+    }
 
     return signedEvent.id;
 }
@@ -177,14 +221,20 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
                 ['e', taskId], // Reference to original task
                 ['p', originalTask.pubkey], // Original task creator
                 ['d', `task-${uniqueId}`], // Use same d tag format as creation
-                ['status', 'update'],
+                ['S', TaskStatusEnum.OPEN],
                 ['pow', ...pow],
                 // Add all tags to maintain consistency
                 ['c', ...updatedTaskData.categories?.map((category: string) => category.toString()) || []],
                 ['s', ...(updatedTaskData.skills || [])],
-                ['b', `${updatedTaskData.budget?.amount || 0}${updatedTaskData.budget?.currency || 'BTC'}`],
-                ...(updatedTaskData.deadline ? [['deadline', updatedTaskData.deadline]] : []),
-                ...(updatedTaskData.dateRange ? [['dateRange', updatedTaskData.dateRange.start, updatedTaskData.dateRange.end]] : []),
+                ['p', updatedTaskData.budget?.currency || 'BTC'],
+                ['t', updatedTaskData.budget?.type || 'FIXED'],
+                ['b', getBudgetBucket(updatedTaskData.budget?.amount, updatedTaskData.budget?.currency)],
+                // Handle dates with tiers
+                ...(updatedTaskData.deadline ? [['R', getDateTier(updatedTaskData.deadline)]] : []),
+                ...(updatedTaskData.dateRange ? [
+                    ...(updatedTaskData.dateRange.start ? [['r', getDateTier(updatedTaskData.dateRange.start)]] : []),
+                    ...(updatedTaskData.dateRange.end && updatedTaskData.dateRange.end !== 'null' ? [['R', getDateTier(updatedTaskData.dateRange.end)]] : [])
+                ] : []),
                 ...(updatedTaskData.pickupLocation?.locationLoaded
                     ? [['l', 'onsite', updatedTaskData.pickupLocation.displayName || '']]
                     : [['l', 'remote']])

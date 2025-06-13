@@ -1,7 +1,7 @@
 import type { Task, TaskBody } from '$lib/types/task.d';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { page } from '$app/state';
-import { get, writable, type Writable } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 import { TaskTypeEnum, BudgetTypeEnum, TaskStepEnum } from '$lib/utils/enums/task.enum';
 import { StorageKeys } from '$lib/utils/constants/storage';

@@ -9,7 +9,6 @@
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
 	import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
-	import TaskBoost from '$lib/components/task/steps/TaskBoost.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 
 	let errors = $state<Record<string, string>>({});
@@ -193,19 +192,12 @@
 			{/if}
 
 			<div class="space-y-6">
-				<!-- <TaskBasics {errors} {direction} />
-			<TaskLocation {errors} {direction} />
-			<TaskBudget {errors} {direction} />
-			<TaskRecurring {errors} {direction} /> -->
-
 				{#if $store.currentStep === 'basics'}
 					<TaskBasics {errors} {direction} />
 				{:else if $store.currentStep === 'location'}
 					<TaskLocation {errors} {direction} />
 				{:else if $store.currentStep === 'budget'}
 					<TaskBudget {errors} {direction} />
-					<!-- {:else if $store.currentStep === 'taskboost'}
-				<TaskBoost {direction} /> -->
 				{:else if $store.currentStep === 'review'}
 					<TaskReview {errors} {direction} />
 				{:else if $store.currentStep === 'recurring'}

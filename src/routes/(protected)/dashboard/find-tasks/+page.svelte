@@ -10,7 +10,7 @@
 		SortByEnum,
 		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
-	import { user as userStore } from '$lib/stores/user.store';
+	import { user } from '$lib/stores/user.store';
 	import { findTasks, getRecommendedTasks, cleanup } from '$lib/nostr/findTasks';
 	import { tasksStore } from '$lib/stores/task.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
@@ -23,16 +23,18 @@
 	function getInitialSearchParams(): SearchTasksParams {
 		return {
 			taskType: undefined,
-			minBudget: undefined,
-			maxBudget: undefined,
-			budgetType: undefined,
-			categories: ['dev', 'design'],
+			categories: [],
 			skills: [],
 			page: 1,
 			limit: 5,
 			sortBy: SortByEnum.CREATED_AT,
 			sortOrder: SortOrderEnum.DESC,
-			searchTerm: 'Task'
+			budget: {
+				tier: undefined,
+				currency: undefined,
+				type: undefined
+			},
+			search: ''
 		};
 	}
 
@@ -134,43 +136,11 @@
 	}
 
 	// Debounced function to update searchParams
-	const debouncedUpdateSearchParams = debounce(async () => {
-		const currentPageValue = 1;
-		const limitValue = searchParams.limit;
-		const sortByValue = sortBy.value;
-		const sortOrderValue = sortOrder.value;
-		const searchQueryValue = searchQuery.trim() || undefined;
-		const categoryId = selectedCategory.value ? [selectedCategory.value] : [];
-		const taskTypeValue = selectedTaskType.value
-			? (selectedTaskType.value as TaskTypeEnum)
-			: undefined;
-		let minBudgetValue = searchParams.minBudget;
-		let maxBudgetValue = searchParams.maxBudget;
-
-		if (minBudget && maxBudget && parseFloat(minBudget) < parseFloat(maxBudget)) {
-			minBudgetValue = parseFloat(minBudget);
-			maxBudgetValue = parseFloat(maxBudget);
-		} else if (minBudget && parseFloat(minBudget) > 0) {
-			minBudgetValue = parseFloat(minBudget);
-			maxBudgetValue = undefined;
-		} else if (maxBudget && parseFloat(maxBudget) > 0) {
-			minBudgetValue = undefined;
-			maxBudgetValue = parseFloat(maxBudget);
-		} else {
-			minBudgetValue = undefined;
-			maxBudgetValue = undefined;
-		}
-
+	const debouncedSearch = debounce(async () => {
 		const newParams: SearchTasksParams = {
-			page: currentPageValue,
-			limit: limitValue,
-			sortBy: sortByValue,
-			sortOrder: sortOrderValue,
-			searchTerm: searchQueryValue,
-			categories: categoryId,
-			taskType: taskTypeValue,
-			minBudget: minBudgetValue,
-			maxBudget: maxBudgetValue
+			...searchParams,
+			page: 1,
+			search: searchQuery.trim()
 		};
 
 		searchParams = { ...searchParams, ...newParams };
@@ -182,12 +152,6 @@
 		}
 	}, 1000);
 
-	// Handle simple filter changes (search input, quick task type toggles)
-	function handleSimpleFilterChange() {
-		searchParams.page = 1;
-		debouncedUpdateSearchParams();
-	}
-
 	// Handle advanced filter drawer apply
 	function handleFilterApply(filters: SearchTasksParams) {
 		isFilterDrawerOpen = false;
@@ -198,9 +162,7 @@
 		};
 
 		// Update UI controls based on applied filters
-		searchQuery = filters.searchTerm || '';
-		minBudget = filters.minBudget ? String(filters.minBudget) : '';
-		maxBudget = filters.maxBudget ? String(filters.maxBudget) : '';
+		searchQuery = filters.search || '';
 		selectedTaskType = filters.taskType
 			? {
 					label: filters.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In Person',
@@ -387,7 +349,7 @@
 				class="input input-bordered w-full pl-10"
 				placeholder="Search tasks..."
 				bind:value={searchQuery}
-				oninput={handleSimpleFilterChange}
+				oninput={debouncedSearch}
 			/>
 			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
 				<svg
@@ -604,12 +566,10 @@
 								</div>
 							{/if}
 
-							{#if task.creator}
-								<div>
-									<p class="text-base-content/60 text-sm">Posted By</p>
-									<p class="font-medium">{task.creator.username}</p>
-								</div>
-							{/if}
+							<div>
+								<p class="text-base-content/60 text-sm">Posted By</p>
+								<p class="font-medium">{task?.creator?.username || 'N/A'}</p>
+							</div>
 						</div>
 					</div>
 
@@ -649,11 +609,7 @@
 							class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
 							onclick={() => {
 								if (task.status === TaskStatusEnum.OPEN) {
-									if (
-										task.creator?.id &&
-										$userStore.id !== undefined &&
-										$userStore.id.toString() === task.creator.id.toString()
-									) {
+									if (task?.npub === $user?.npub) {
 										// Set the error message
 										bidErrorMessage = 'You cannot bid on your own task';
 

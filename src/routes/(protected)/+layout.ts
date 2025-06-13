@@ -6,7 +6,6 @@ import { authState } from '$lib/stores/auth.store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { tryCatch } from '$lib/utils/tryCatch';
 import { user } from '$lib/stores/user.store';
-import userService from '$lib/api/services/user.service';
 
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
@@ -17,8 +16,7 @@ export const load: LayoutLoad = async () => {
 			console.log('No token exists, redirecting to auth');
 			throw redirect(303, '/auth/login');
 		} else {
-			const { data: userData } = await tryCatch(userService.getUserProfile());
-			user.set(userData);
+			await tryCatch(user.getUserData());
 			authState.login();
 		}
 	}
