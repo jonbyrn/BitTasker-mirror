@@ -6,22 +6,21 @@
 	import { getBudgetTiersForCurrency, getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
 	import Input from '$lib/components/Input.svelte';
 	// Props
-	let { onRangeChange } = $props<{
+	let { onRangeChange, currency = $bindable() } = $props<{
 		onRangeChange: (tier: string) => void;
+		currency: string | undefined;
 	}>();
 
 	// Default price range settings
 	const ABSOLUTE_MIN = 0;
 	const ABSOLUTE_MAX = 10000000000; // Default 10 billion
 
-	let { minBudget, maxBudget, currency } = $state<{
+	let { minBudget, maxBudget } = $state<{
 		minBudget: number | undefined;
 		maxBudget: number | undefined;
-		currency: string | undefined;
 	}>({
 		minBudget: undefined,
-		maxBudget: undefined,
-		currency: undefined
+		maxBudget: undefined
 	});
 
 	// Apply changes when direct input is provided
@@ -44,6 +43,11 @@
 		// Notify parent component
 		onRangeChange(tier);
 	}
+
+	const handleCurrencyChange = (option: { value: string; label: string }) => {
+		currency = option.value;
+		onRangeChange();
+	};
 </script>
 
 <!-- Direct input fields -->
@@ -60,7 +64,7 @@
 			]}
 			value={currency}
 			className="input-sm"
-			onChange={(option) => (currency = option.value)}
+			onChange={handleCurrencyChange}
 		/>
 	</div>
 	<div>

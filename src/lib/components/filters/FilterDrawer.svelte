@@ -290,7 +290,10 @@
 			<input type="checkbox" class="peer" defaultChecked />
 			<div class="collapse-title font-medium">Budget Range</div>
 			<div class="collapse-content">
-				<PriceRangeSlider onRangeChange={handlePriceRangeChange} />
+				<PriceRangeSlider
+					onRangeChange={handlePriceRangeChange}
+					bind:currency={filters.budget!.currency}
+				/>
 
 				<div class="mt-4">
 					<label class="label font-medium" for="budget-type">Budget Type</label>
