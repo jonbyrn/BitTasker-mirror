@@ -36,7 +36,8 @@ interface HandleEventDto extends NostrEvent {
 
 class NostrEventsService extends BaseApiService {
     constructor() {
-        super(PUBLIC_NOSTR_RELAY_NESTJS);
+        // super(PUBLIC_NOSTR_RELAY_NESTJS);
+        super('http://localhost:8001');
     }
 
     // POST /events
@@ -59,6 +60,12 @@ class NostrEventsService extends BaseApiService {
     // POST /events/request
     async requestEvents(dto: RequestEventsDto): Promise<RequestEventsVo> {
         const response = await this.post<RequestEventsVo>(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);
+        return response.data;
+    }
+
+    // DELETE /events
+    async deleteEvent(event: NostrEvent): Promise<{ deleteCount: number, message: string }> {
+        const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, { data: event });
         return response.data;
     }
 }

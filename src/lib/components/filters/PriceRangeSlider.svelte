@@ -45,7 +45,7 @@
 	}
 
 	const handleCurrencyChange = (option: { value: string; label: string }) => {
-		currency = option.value;
+		currency = option.value === 'All' ? undefined : option.value;
 		onRangeChange();
 	};
 </script>
@@ -59,6 +59,7 @@
 		<Input
 			type="select"
 			options={[
+				{ value: 'All', label: 'All' },
 				{ value: 'USD', label: 'USD' },
 				{ value: 'BTC', label: 'BTC' }
 			]}

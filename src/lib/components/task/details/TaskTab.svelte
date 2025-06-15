@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { deleteTask } from '$lib/nostr/task';
 	import { taskStore } from '$lib/stores/task.store';
+	import { myTasksStore } from '$lib/stores/task.store';
 	import { formatDistanceToNow, format } from 'date-fns';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -43,6 +44,7 @@
 			isDeleting = true;
 			if (!task?.id) return;
 			await deleteTask(task.id);
+			$myTasksStore.items = $myTasksStore.items.filter((t) => t.id !== task.id);
 			onClose();
 		} catch (error) {
 			console.error('Failed to delete task:', error);

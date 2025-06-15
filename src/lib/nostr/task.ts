@@ -264,14 +264,16 @@ export async function deleteTask(taskId: string): Promise<string> {
             content: "Task deleted",
             tags: [
                 ['e', taskId], // Reference to event being deleted
-                ['k', '1'] // Kind of event being deleted
             ]
         };
 
         // Sign and publish
         const signedEvent = await getSignedEvent(event);
-        await publishToRelays(signedEvent);
-        return signedEvent.id;
+        const response = await nostrEventsService.deleteEvent(signedEvent);
+        if (response.deleteCount === 0) {
+            throw new Error('Failed to delete task');
+        }
+        return response.message;
     } catch (error) {
         console.error('Failed to delete task:', error);
         throw error;

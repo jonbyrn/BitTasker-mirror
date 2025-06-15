@@ -223,6 +223,7 @@ function createTaskStore() {
 	};
 }
 
+// Create task store
 export const taskStore = createTaskStore();
 
 function createTasksStore() {
@@ -252,4 +253,15 @@ function createTasksStore() {
 	}
 }
 
+// Find tasks store
 export const tasksStore = createTasksStore();
+
+export const myTasksStore = writable<{
+	items: Task[],
+	loading: boolean,
+	error: string | null
+}>({
+	items: [],
+	loading: false,
+	error: null
+})

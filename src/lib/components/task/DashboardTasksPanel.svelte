@@ -2,10 +2,11 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from '$lib/stores/i18n.store';
 	import { onMount } from 'svelte';
+	import { TASK_KINDS } from '$lib/nostr/task';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
+	import { myTasksStore } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { TASK_KINDS } from '$lib/nostr/task';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 
@@ -14,9 +15,6 @@
 		openTaskDrawer: (task: Task, tab?: string) => void;
 	}>();
 
-	let tasks = $state<Task[]>([]);
-	let isLoading = $state(true);
-	let error = $state<string | null>(null);
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Convert status to user-friendly string
@@ -106,8 +104,8 @@
 	}
 
 	onMount(async () => {
-		isLoading = true;
-		error = null;
+		$myTasksStore.loading = true;
+		$myTasksStore.error = null;
 
 		// Subscribe to tasks
 		try {
@@ -121,7 +119,7 @@
 				authors: [npub]
 			});
 
-			tasks = events.map((event) => {
+			$myTasksStore.items = events.map((event) => {
 				const content = JSON.parse(event.content);
 
 				return {
@@ -132,9 +130,9 @@
 			});
 		} catch (err) {
 			console.error('Error subscribing to tasks:', err);
-			error = 'Failed to load tasks';
+			$myTasksStore.error = 'Failed to load tasks';
 		} finally {
-			isLoading = false;
+			$myTasksStore.loading = false;
 		}
 
 		fetchBtcPrice();
@@ -142,7 +140,7 @@
 </script>
 
 <!-- Loading State -->
-{#if isLoading}
+{#if $myTasksStore.loading}
 	<div class="space-y-2">
 		{#each Array(2) as _}
 			<div class="card bg-base-100 animate-pulse rounded-xl shadow-md">
@@ -187,9 +185,9 @@
 {/if}
 
 <!-- Task List -->
-{#if !isLoading && tasks.length > 0}
+{#if !$myTasksStore.loading && $myTasksStore.items.length > 0}
 	<div class="grid grid-cols-1 gap-2">
-		{#each tasks as task}
+		{#each $myTasksStore.items as task}
 			{#if task}
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
@@ -299,7 +297,7 @@
 			{/if}
 		{/each}
 	</div>
-{:else if !isLoading && !error}
+{:else if !$myTasksStore.loading && !$myTasksStore.error}
 	<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -319,7 +317,7 @@
 	</div>
 {/if}
 
-{#if error}
+{#if $myTasksStore.error}
 	<div class="py-12 text-center">
 		<h3 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h3>
 	</div>
