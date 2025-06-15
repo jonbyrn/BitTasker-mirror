@@ -41,8 +41,9 @@ class NostrEventsService extends BaseApiService {
     }
 
     // POST /events
-    async publishNewEvent(event: HandleEventDto): Promise<void> {
-        await this.post(ENDPOINTS.NOSTR.EVENTS, event);
+    async publishEvent(event: HandleEventDto): Promise<EventEntity> {
+        const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);
+        return response.data;
     }
 
     // GET /events

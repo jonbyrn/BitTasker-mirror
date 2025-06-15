@@ -139,7 +139,7 @@ export async function createTask(taskData: TaskBody): Promise<string> {
     const signedEvent = await getSignedEvent(event);
 
     try {
-        await nostrEventsService.publishNewEvent(signedEvent);
+        await nostrEventsService.publishEvent(signedEvent);
     } catch (error) {
         console.error('Failed to create task:', error);
         throw error;
@@ -187,7 +187,7 @@ export async function createRecurringTask(taskData: TaskBody, schedule: {
 export async function updateTask(taskId: string, updates: Partial<TaskBody>): Promise<string> {
     try {
         // Get the original task
-        const originalTask = await getTaskById(taskId);
+        const { data: originalTask } = await nostrEventsService.findEventById(taskId);
         if (!originalTask) {
             throw new Error('Task not found');
         }
@@ -243,7 +243,9 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
         // Sign and publish
         const signedEvent = await getSignedEvent(event);
-        await publishToRelays(signedEvent);
+        const response = await nostrEventsService.publishEvent(signedEvent);
+        console.log('response', response);
+        // await publishToRelays(signedEvent);
 
         return signedEvent.id;
     } catch (error) {

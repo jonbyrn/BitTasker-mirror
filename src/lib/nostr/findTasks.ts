@@ -331,8 +331,8 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
 
         // Publish both events using the API
         await Promise.all([
-            nostrEventsService.publishNewEvent(savedSearchEvent),
-            nostrEventsService.publishNewEvent(listEvent)
+            nostrEventsService.publishEvent(savedSearchEvent),
+            nostrEventsService.publishEvent(listEvent)
         ]);
 
         return {
@@ -443,7 +443,7 @@ export async function updateSavedSearch(
         });
 
         // Publish update using the API
-        await nostrEventsService.publishNewEvent(updatedEvent);
+        await nostrEventsService.publishEvent(updatedEvent);
 
         // If name changed, update the list event
         const listFilter = {
@@ -470,7 +470,7 @@ export async function updateSavedSearch(
                 tags: updatedTags
             });
 
-            await nostrEventsService.publishNewEvent(updatedList);
+            await nostrEventsService.publishEvent(updatedList);
         }
 
         return {
@@ -527,8 +527,8 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
             });
 
             await Promise.all([
-                nostrEventsService.publishNewEvent(deletionEvent),
-                nostrEventsService.publishNewEvent(updatedList)
+                nostrEventsService.publishEvent(deletionEvent),
+                nostrEventsService.publishEvent(updatedList)
             ]);
         }
     } catch (error) {
@@ -557,7 +557,7 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             ]
         });
 
-        await nostrEventsService.publishNewEvent(preferencesEvent);
+        await nostrEventsService.publishEvent(preferencesEvent);
 
         // Create recommendations list
         const recommendationsEvent = await getSignedEvent({
@@ -571,7 +571,7 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             ]
         });
 
-        await nostrEventsService.publishNewEvent(recommendationsEvent);
+        await nostrEventsService.publishEvent(recommendationsEvent);
 
         // Fetch matching tasks
         const filter: Filter = {
