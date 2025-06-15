@@ -63,3 +63,8 @@ export interface LocationProps {
 	defaultLocation?: Location;
 	onLocationSelect: (location: Location) => void;
 }
+
+export interface Tag {
+	id: string;
+	value: string;
+}

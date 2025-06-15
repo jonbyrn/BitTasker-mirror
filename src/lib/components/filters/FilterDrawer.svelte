@@ -18,6 +18,7 @@
 	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import Tags from '$lib/components/Tags.svelte';
+	import TagsInput from '../TagsInput.svelte';
 
 	// Props
 	let { isOpen, onClose, onApply } = $props<{
@@ -185,6 +186,10 @@
 		filters.location = location;
 		filters.radius = radius;
 	}
+
+	$effect(() => {
+		console.log(filters.skills);
+	});
 </script>
 
 <!-- Drawer Overlay -->
@@ -359,9 +364,9 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Skills</div>
 			<div class="collapse-content">
-				<Tags
+				<TagsInput
 					placeholder="Add skills..."
-					onChange={(tags) => handleSkillChange(tags as string[])}
+					tags={filters.skills?.map((skill) => ({ id: skill, value: skill })) || []}
 				/>
 			</div>
 		</div>
