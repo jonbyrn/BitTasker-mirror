@@ -84,7 +84,7 @@ function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqueId: s
     if (taskData.budget) {
         const budgetTier = getBudgetBucket(taskData.budget.amount, taskData.budget.currency);
         tags.push(['b', budgetTier]);
-        tags.push(['p', taskData.budget.currency]);
+        tags.push(['P', taskData.budget.currency]);
         tags.push(['t', taskData.budget.type]);
     }
 
@@ -226,7 +226,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
                 // Add all tags to maintain consistency
                 ['c', ...updatedTaskData.categories?.map((category: string) => category.toString()) || []],
                 ['s', ...(updatedTaskData.skills || [])],
-                ['p', updatedTaskData.budget?.currency || 'BTC'],
+                ['P', updatedTaskData.budget?.currency || 'BTC'],
                 ['t', updatedTaskData.budget?.type || 'FIXED'],
                 ['b', getBudgetBucket(updatedTaskData.budget?.amount, updatedTaskData.budget?.currency)],
                 // Handle dates with tiers
@@ -243,8 +243,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
         // Sign and publish
         const signedEvent = await getSignedEvent(event);
-        const response = await nostrEventsService.publishEvent(signedEvent);
-        console.log('response', response);
+        await nostrEventsService.publishEvent(signedEvent);
         // await publishToRelays(signedEvent);
 
         return signedEvent.id;

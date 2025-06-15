@@ -48,6 +48,13 @@
 		currency = option.value === 'All' ? undefined : option.value;
 		onRangeChange();
 	};
+
+	// Clear budget tier
+	const clearBudgetTier = () => {
+		minBudget = undefined;
+		maxBudget = undefined;
+		onRangeChange(undefined);
+	};
 </script>
 
 <!-- Direct input fields -->
@@ -100,6 +107,7 @@
 <div>
 	<label class="label mb-1 p-0" for="presetRanges">
 		<span class="label-text">Common Ranges</span>
+		<button class="btn btn-xs" onclick={clearBudgetTier}>Clear</button>
 	</label>
 	<div class="flex flex-wrap gap-2">
 		{#each getBudgetTiersForCurrency(currency || 'USD') as preset}

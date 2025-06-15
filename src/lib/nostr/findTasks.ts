@@ -120,7 +120,7 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['b'] = [params.budget.tier];
     }
     if (params.budget?.currency) {
-        filter['p'] = [params.budget.currency];
+        filter['P'] = [params.budget.currency]; // P for price
     }
     if (params.budget?.type) {
         filter['t'] = [params.budget.type];
@@ -188,7 +188,6 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
     try {
         tasksStore.update(state => ({ ...state, loading: true, error: null }));
 
-        console.log('Params:', params);
         const filter = createTaskFilter(params);
         console.log('Filter:', filter);
 
