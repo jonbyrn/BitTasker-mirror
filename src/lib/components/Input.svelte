@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { InputProps } from '$lib/types/props';
+	import type { InputProps } from '$lib/types/props.d';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	let {

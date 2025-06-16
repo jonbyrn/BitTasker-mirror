@@ -9,8 +9,9 @@ import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
-import { getDateTier } from '$lib/utils/helpers/dateTier';
+import { getDateRangeTags, getDateTier } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import { getNpub } from '$lib/utils/nostrKeys';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -47,38 +48,33 @@ function getBudgetBucket(amount: number, currency: string): string {
 /**
  * Generate tags for a task event
  */
-function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqueId: string): string[][] {
+async function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqueId: string): Promise<string[][]> {
     // Normalize and validate skills
     const normalizedSkills = taskData.skills
         .map(skill => skill.trim().toLowerCase())
         .filter(skill => skill.length >= 2 && skill.length <= 30)
         .filter(skill => /^[a-z0-9\s-]+$/.test(skill))
-        .slice(0, 10); // Limit to 10 skills
+        .slice(0, 10); // Limit to 10 skills 
 
     const tags: [string, ...any][] = [
         ['c', ...taskData?.categories?.map(id => id.toString())],
         ['s', ...normalizedSkills],
+        ['p', await getNpub()],
         ['pow', ...pow],
         ['d', `task-${uniqueId}`], // Use uniqueId as the d tag to ensure uniqueness
         ['S', TaskStatusEnum.OPEN], // Default status - OPEN
     ];
 
     if (taskData.deadline) {
-        // Single deadline - use 'R' tag for deadline
-        const deadlineTier = getDateTier(taskData.deadline);
-        tags.push(['R', deadlineTier]);
+        const dateRangeTags = getDateRangeTags(taskData.deadline);
+        tags.push(['M', ...dateRangeTags.months]); // M for months
+        tags.push(['D', ...dateRangeTags.days]); // D for days
     }
 
     if (taskData.dateRange) {
-        // Date range - use 'r' for start and 'R' for end
-        if (taskData.dateRange.start) {
-            const startTier = getDateTier(taskData.dateRange.start);
-            tags.push(['r', startTier]);
-        }
-        if (taskData.dateRange.end && taskData.dateRange.end !== 'null') {
-            const endTier = getDateTier(taskData.dateRange.end);
-            tags.push(['R', endTier]);
-        }
+        const dateRangeTags = getDateRangeTags(taskData.dateRange.end, taskData.dateRange.start);
+        tags.push(['M', ...dateRangeTags.months]); // M for months
+        tags.push(['D', ...dateRangeTags.days]); // D for days
     }
 
     if (taskData.budget) {
@@ -132,7 +128,7 @@ export async function createTask(taskData: TaskBody): Promise<string> {
         kind: TASK_KINDS.TASK_CREATION,
         created_at: Math.floor(preciseTimestamp), // Use precise timestamp
         content: JSON.stringify(taskDataWithMeta),
-        tags: generateTaskTags(taskData, pow, uniqueId)
+        tags: await generateTaskTags(taskData, pow, uniqueId)
     };
 
     // Sign and publish
@@ -169,7 +165,7 @@ export async function createRecurringTask(taskData: TaskBody, schedule: {
             uniqueId
         }),
         tags: [
-            ...generateTaskTags(taskData, pow, uniqueId),
+            ...(await generateTaskTags(taskData, pow, uniqueId)),
             ['t', 'recurring'],
             ['f', schedule.recurrencePattern.frequency],
             ['i', schedule.recurrencePattern.interval.toString()]
@@ -211,34 +207,12 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
 
         // Calculate POW based on updated task value
         const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
-
         // Create update event using the same kind as creation for proper replacement
         const event = {
             kind: TASK_KINDS.TASK_CREATION, // Use same kind as creation
             // created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
             content: JSON.stringify(updatedTaskData),
-            tags: [
-                ['e', taskId], // Reference to original task
-                ['p', originalTask.pubkey], // Original task creator
-                ['d', `task-${uniqueId}`], // Use same d tag format as creation
-                ['S', TaskStatusEnum.OPEN],
-                ['pow', ...pow],
-                // Add all tags to maintain consistency
-                ['c', ...updatedTaskData.categories?.map((category: string) => category.toString()) || []],
-                ['s', ...(updatedTaskData.skills || [])],
-                ['P', updatedTaskData.budget?.currency || 'BTC'],
-                ['t', updatedTaskData.budget?.type || 'FIXED'],
-                ['b', getBudgetBucket(updatedTaskData.budget?.amount, updatedTaskData.budget?.currency)],
-                // Handle dates with tiers
-                ...(updatedTaskData.deadline ? [['R', getDateTier(updatedTaskData.deadline)]] : []),
-                ...(updatedTaskData.dateRange ? [
-                    ...(updatedTaskData.dateRange.start ? [['r', getDateTier(updatedTaskData.dateRange.start)]] : []),
-                    ...(updatedTaskData.dateRange.end && updatedTaskData.dateRange.end !== 'null' ? [['R', getDateTier(updatedTaskData.dateRange.end)]] : [])
-                ] : []),
-                ...(updatedTaskData.pickupLocation?.locationLoaded
-                    ? [['l', 'onsite', updatedTaskData.pickupLocation.displayName || '']]
-                    : [['l', 'remote']])
-            ]
+            tags: await generateTaskTags(updatedTaskData, pow, uniqueId)
         };
 
         // Sign and publish

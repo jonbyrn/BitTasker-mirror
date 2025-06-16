@@ -8,7 +8,7 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { tasksStore } from '$lib/stores/task.store';
 import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
 import { getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
-import { getDateTiersForRange, getDateTiersForSingleDate } from '$lib/utils/helpers/dateTier';
+import { getDateRangeTags, getDateTiersForRange, getDateTiersForSingleDate } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 
 // Define NostrFilter type that extends Filter
@@ -128,7 +128,10 @@ function createTaskFilter(params: SearchTasksParams): Filter {
 
     // Date tier filtering
     if (params.dateRange) {
-        const dateTiers = getDateTiersForRange(params.dateRange?.start, params.dateRange?.end);
+        const dateRangeTags = getDateRangeTags(params.dateRange?.end, params.dateRange?.start);
+        filter['M'] = dateRangeTags.months;
+        filter['D'] = dateRangeTags.days;
+        /* const dateTiers = getDateTiersForRange(params.dateRange?.start, params.dateRange?.end);
 
         // Set start date filter if we have start tiers
         if (dateTiers.startTiers.length > 0) {
@@ -138,15 +141,19 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         // Set end date filter if we have end tiers
         if (dateTiers.endTiers.length > 0) {
             filter['R'] = dateTiers.endTiers;
-        }
+        } */
+
     }
 
     // Deadline filter using tier system (single date)
     if (params.deadline) {
-        const deadlineTiers = getDateTiersForSingleDate(params.deadline);
+        const dateRangeTags = getDateRangeTags(params.deadline);
+        filter['M'] = dateRangeTags.months;
+        filter['D'] = dateRangeTags.days;
+        /* const deadlineTiers = getDateTiersForSingleDate(params.deadline);
         if (deadlineTiers.length > 0) {
             filter['R'] = deadlineTiers;
-        }
+        } */
     }
 
     // Location filter with enhanced structure

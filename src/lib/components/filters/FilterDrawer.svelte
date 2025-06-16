@@ -4,7 +4,6 @@
   for task discovery
 -->
 <script lang="ts">
-	// TODO: Replace with SearchTasksDto from Houdini
 	import type { SearchTasksParams } from '$lib/types/task.d';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import {
@@ -48,6 +47,8 @@
 		sortBy: SortByEnum.CREATED_AT,
 		sortOrder: SortOrderEnum.DESC
 	});
+
+	let skillTags = $derived(filters.skills?.map((skill) => ({ id: skill, value: skill })) || []);
 
 	// Track active filter count
 	let activeFilterCount = $state(0);
@@ -118,6 +119,7 @@
 
 	// Apply filters and close drawer
 	function applyFilters() {
+		filters.skills = skillTags.map((tag) => tag.value);
 		onApply({ ...filters });
 		onClose();
 	}
@@ -165,11 +167,6 @@
 		filters.categories = tags.map((tag) => tag.toLowerCase());
 	}
 
-	// Handle skill tags change
-	function handleSkillChange(tags: string[]) {
-		filters.skills = tags.map((tag) => tag.toLowerCase());
-	}
-
 	// Handle sort options change
 	function handleSortChange(field: string) {
 		if (filters.sortBy === field) {
@@ -186,10 +183,6 @@
 		filters.location = location;
 		filters.radius = radius;
 	}
-
-	$effect(() => {
-		console.log(filters.skills);
-	});
 </script>
 
 <!-- Drawer Overlay -->
@@ -339,7 +332,7 @@
 
 		<!-- Availability -->
 		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" />
+			<input type="checkbox" class="peer" defaultChecked />
 			<div class="collapse-title font-medium">Availability</div>
 			<div class="collapse-content">
 				<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
@@ -347,12 +340,13 @@
 		</div>
 
 		<!-- Categories -->
-		<div class="collapse-arrow collapse mb-2">
+		<div class="collapse-arrow collapse mb-2 z-50" style="overflow: visible;">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Categories</div>
-			<div class="collapse-content z-50">
+			<div class="collapse-content">
 				<Tags
 					placeholder="Add categories..."
+					selectedTags={filters.categories}
 					options={TASK_CATEGORIES.map((cat) => ({ id: cat.id, name: cat.name }))}
 					onChange={(tags) => handleCategoryChange(tags as string[])}
 				/>
@@ -364,10 +358,7 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Skills</div>
 			<div class="collapse-content">
-				<TagsInput
-					placeholder="Add skills..."
-					tags={filters.skills?.map((skill) => ({ id: skill, value: skill })) || []}
-				/>
+				<TagsInput placeholder="Add skills..." bind:tags={skillTags} />
 			</div>
 		</div>
 

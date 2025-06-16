@@ -29,7 +29,7 @@
 		if (tags.some((tag: Tag) => tag.value === trimmedValue)) return;
 
 		const newTag: Tag = {
-			id: crypto.randomUUID(),
+			id: '',
 			value: trimmedValue
 		};
 

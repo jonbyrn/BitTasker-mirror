@@ -107,10 +107,10 @@ export interface SearchTasksParams {
 	};
 
 	// Nostr-specific fields
-	since?: number;
-	until?: number;
+	since?: number;      // Unix timestamp in seconds
+	until?: number;      // Unix timestamp in seconds
 	kinds?: number[];
-	search?: string; // NIP-50 search term
+	search?: string;     // NIP-50 search term
 }
 
 export interface TaskData extends Task {

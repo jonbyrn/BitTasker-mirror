@@ -18,6 +18,7 @@
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
+	import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {

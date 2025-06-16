@@ -118,7 +118,7 @@
 	{/if}
 
 	<!-- Time Preferences -->
-	<div>
+	<!-- <div>
 		<label class="label" for="time-preferences">
 			<span class="label-text font-medium">Time Preferences</span>
 		</label>
@@ -133,7 +133,7 @@
 				</button>
 			{/each}
 		</div>
-	</div>
+	</div> -->
 
 	{#if filterMode === 'deadline'}
 		<!-- Deadline Before -->
