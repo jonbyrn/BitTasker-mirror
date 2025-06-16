@@ -7,8 +7,7 @@ import { TASK_KINDS } from './task';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { tasksStore } from '$lib/stores/task.store';
 import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
-import { getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
-import { getDateRangeTags, getDateTiersForRange, getDateTiersForSingleDate } from '$lib/utils/helpers/dateTier';
+import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 
 // Define NostrFilter type that extends Filter
@@ -131,18 +130,6 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         const dateRangeTags = getDateRangeTags(params.dateRange?.end, params.dateRange?.start);
         filter['M'] = dateRangeTags.months;
         filter['D'] = dateRangeTags.days;
-        /* const dateTiers = getDateTiersForRange(params.dateRange?.start, params.dateRange?.end);
-
-        // Set start date filter if we have start tiers
-        if (dateTiers.startTiers.length > 0) {
-            filter['r'] = dateTiers.startTiers;
-        }
-
-        // Set end date filter if we have end tiers
-        if (dateTiers.endTiers.length > 0) {
-            filter['R'] = dateTiers.endTiers;
-        } */
-
     }
 
     // Deadline filter using tier system (single date)
@@ -150,10 +137,6 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         const dateRangeTags = getDateRangeTags(params.deadline);
         filter['M'] = dateRangeTags.months;
         filter['D'] = dateRangeTags.days;
-        /* const deadlineTiers = getDateTiersForSingleDate(params.deadline);
-        if (deadlineTiers.length > 0) {
-            filter['R'] = deadlineTiers;
-        } */
     }
 
     // Location filter with enhanced structure
@@ -200,7 +183,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 
         const cacheKey = JSON.stringify(filter);
 
-        // TODO:Check cache
+        // TODO: Check cache
         /* const cached = cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
             console.log({ cached })

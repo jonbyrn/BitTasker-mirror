@@ -7,11 +7,11 @@ import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
-import { getDateRangeTags, getDateTier } from '$lib/utils/helpers/dateTier';
-import nostrEventsService from '$lib/api/services/nostr/events';
 import { getNpub } from '$lib/utils/nostrKeys';
+import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
+import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
+import nostrEventsService from '$lib/api/services/nostr/events';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -20,30 +20,6 @@ export const TASK_KINDS = {
     TASK_CREATION: 31000,
     RECURRING_TASK: 31006
 };
-
-/**
- * Get the budget bucket (tier) based on amount and currency
- * Supports USD and BTC only
- */
-function getBudgetBucket(amount: number, currency: string): string {
-    const upperCurrency = currency.toUpperCase();
-
-    // Bitcoin ranges (in BTC)
-    if (upperCurrency === 'BTC') {
-        if (amount < 0.001) return 'micro';           // < 0.001 BTC (~$40)
-        if (amount < 0.01) return 'small';            // 0.001-0.01 BTC (~$40-400)
-        if (amount < 0.1) return 'medium';            // 0.01-0.1 BTC (~$400-4000)
-        if (amount < 1) return 'large';               // 0.1-1 BTC (~$4000-40000)
-        return 'enterprise';                          // 1+ BTC (~$40000+)
-    }
-
-    // USD ranges (default for all non-BTC)
-    if (amount < 100) return 'micro';                 // < $100
-    if (amount < 500) return 'small';                 // $100-500
-    if (amount < 1000) return 'medium';               // $500-1000
-    if (amount < 5000) return 'large';               // $1000-5000
-    return 'enterprise';                              // $5000+
-}
 
 /**
  * Generate tags for a task event
