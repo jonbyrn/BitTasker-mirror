@@ -94,11 +94,6 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         limit: params.limit || BATCH_SIZE
     };
 
-    // Task type filter
-    if (params.taskType) {
-        filter['l'] = [params.taskType];
-    }
-
     // Status filter
     if (params.status && params.status.length > 0) {
         filter['S'] = params.status;
@@ -139,16 +134,16 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['D'] = dateRangeTags.days;
     }
 
+
+    // Task type filter (onsite or remote)
+    if (params.taskType) {
+        filter['T'] = [params.taskType];
+    }
+
     // Location filter with enhanced structure
     if (params.location) {
-        if (params.location === 'remote') {
-            filter['l'] = ['remote'];
-        } else {
-            filter['l'] = ['onsite', params.location];
-            if (params.radius) {
-                filter['r'] = [params.radius.toString()];
-            }
-        }
+        filter['T'] = ['onsite'];
+        filter['L'] = [params.location];
     }
 
     // Add NIP-50 search support

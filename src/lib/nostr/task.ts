@@ -61,9 +61,10 @@ async function generateTaskTags(taskData: TaskBody, pow: [string, string], uniqu
     }
 
     if (taskData.pickupLocation?.locationLoaded) {
-        tags.push(['l', 'onsite', taskData.pickupLocation.displayName || '']);
+        tags.push(['T', 'onsite']); // T for task type
+        tags.push(['L', taskData.pickupLocation.displayName || '']); // L for location
     } else {
-        tags.push(['l', 'remote']);
+        tags.push(['T', 'remote']); // T for task type
     }
 
     return tags;

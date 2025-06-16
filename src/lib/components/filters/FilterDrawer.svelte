@@ -18,6 +18,7 @@
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import TagsInput from '../TagsInput.svelte';
+	import LocationAutoComplete from '../LocationAutoComplete.svelte';
 
 	// Props
 	let { isOpen, onClose, onApply } = $props<{
@@ -318,21 +319,27 @@
 		</div>
 
 		<!-- Location -->
-		<div class="collapse-arrow collapse mb-2">
+		<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Location</div>
 			<div class="collapse-content">
-				<LocationFilter
-					location={filters.location}
-					radius={filters.radius}
-					onLocationChange={handleLocationChange}
+				<LocationAutoComplete
+					placeholder="Search for a location..."
+					location={{
+						displayName: filters.location || '',
+						longitude: 0,
+						latitude: 0,
+						zipCode: '',
+						locationLoaded: false
+					}}
+					onLocationSelect={(location) => (filters.location = location.displayName)}
 				/>
 			</div>
 		</div>
 
 		<!-- Availability -->
 		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" defaultChecked />
+			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Availability</div>
 			<div class="collapse-content">
 				<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
@@ -340,7 +347,7 @@
 		</div>
 
 		<!-- Categories -->
-		<div class="collapse-arrow collapse mb-2 z-50" style="overflow: visible;">
+		<div class="collapse-arrow collapse z-50 mb-2" style="overflow: visible;">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Categories</div>
 			<div class="collapse-content">
@@ -363,7 +370,7 @@
 		</div>
 
 		<!-- Sort Options -->
-		<div class="collapse-arrow collapse mb-2">
+		<!-- <div class="collapse-arrow collapse mb-2">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Sort By</div>
 			<div class="collapse-content">
@@ -403,7 +410,7 @@
 					{/each}
 				</div>
 			</div>
-		</div>
+		</div> -->
 
 		<!-- Filter Actions -->
 		<div class="divider"></div>

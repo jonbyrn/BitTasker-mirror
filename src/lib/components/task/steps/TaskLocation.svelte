@@ -114,7 +114,7 @@
 
 		<div class="flex gap-4">
 			<button
-				class="btn {$store.task?.taskType === 'IN_PERSON' ? 'btn-primary' : 'btn-outline'}"
+				class="btn {$store.task?.taskType === TaskTypeEnum.IN_PERSON ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 			>
 				In-person
