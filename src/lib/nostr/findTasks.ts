@@ -166,13 +166,9 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         tasksStore.update(state => ({ ...state, loading: true, error: null }));
 
         const filter = createTaskFilter(params);
-        console.log('Filter:', filter);
-
+        
         const cacheKey = JSON.stringify(filter);
-
-        // TODO: Check cache
         const cached = cache.get(cacheKey);
-        console.log({ cached, cacheKey });
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
             const tasks = cached.data;
             tasksStore.update(state => ({
@@ -193,7 +189,6 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             const response = await nostrEventsService.findEvents(filter);
 
             const events = response.data || [];
-            console.log('events', events);
             const total = events.length;
 
             // TODO: To be removed and handled by the find-tasks page for better performance
