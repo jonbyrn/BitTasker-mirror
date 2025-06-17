@@ -1,21 +1,30 @@
 <script lang="ts">
+	import type { Attachment } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
-	import { BudgetTypeEnum, TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { appStore } from '$lib/stores/app.store';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
+	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
+	import {
+		BudgetTypeEnum,
+		TaskStatusEnum,
+		TaskStepEnum,
+		TaskTypeEnum
+	} from '$lib/utils/enums/task.enum';
 	import TaskBasics from '$lib/components/task/steps/TaskBasics.svelte';
 	import TaskLocation from '$lib/components/task/steps/TaskLocation.svelte';
 	import TaskBudget from '$lib/components/task/steps/TaskBudget.svelte';
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
+	import uploadService from '$lib/api/services/upload.service';
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
-	let isSubmitted = $state(false);
 	let isLoading = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
+	let newFiles = $state<File[]>([]);
+	let attachmentsToRemove = $state<Attachment[]>([]);
 
 	// Load the draft when the page is loaded
 	onMount(async () => {
@@ -93,12 +102,73 @@
 		return Object.keys(errors).length === 0;
 	}
 
-	const handleNext = () => {
-		if (validateCurrentStep()) {
-			store.nextStep();
-			store.saveDraft();
-			direction = 'forward';
+	const handleRemoveAttachment = () => {
+		if (attachmentsToRemove.length > 0) {
+			attachmentsToRemove.forEach((attachment) => {
+				uploadService.deleteFile(attachment.key).then(() => {
+					attachmentsToRemove = [];
+					store.saveDraft();
+				});
+			});
 		}
+	};
+
+	const uploadImages = async (pictures: (Attachment | File)[]): Promise<Attachment[]> => {
+		const uploadPromises = pictures.map(async (picture) => {
+			if (picture instanceof File) {
+				const uploadResult = await uploadService.uploadSingleFile(picture, 'task');
+				return {
+					key: uploadResult.key,
+					url: uploadResult.url,
+					type: picture.type,
+					alt: picture.name,
+					size: picture.size
+				};
+			} else {
+				return picture;
+			}
+		});
+
+		return Promise.all(uploadPromises);
+	};
+
+	const handleNext = async () => {
+		if (!validateCurrentStep()) return;
+
+		// Start image upload in the background if we're in the location step
+		if ($store.currentStep === TaskStepEnum.LOCATION) {
+			if (newFiles.length !== 0) {
+				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
+					appStore.showErrorToast('You can only upload up to 5 images');
+					return;
+				}
+
+				// Show upload started toast
+				appStore.showInfoToast('Uploading images in background...');
+
+				// Start upload in background
+				uploadImages(newFiles)
+					.then((uploadedFiles) => {
+						$store.task.attachments = [...($store.task.attachments || []), ...uploadedFiles];
+						newFiles = [];
+						store.saveDraft();
+						appStore.showSuccessToast('Images uploaded successfully!');
+					})
+					.catch((error) => {
+						console.error('Failed to upload images:', error);
+						appStore.showErrorToast(
+							'Failed to upload some images. You can try uploading them again in the review step.'
+						);
+					});
+			}
+
+			handleRemoveAttachment();
+		}
+
+		// Proceed to next step immediately
+		store.nextStep();
+		store.saveDraft();
+		direction = 'forward';
 	};
 
 	async function handleSubmit() {
@@ -129,25 +199,23 @@
 
 				// TODO: Handle update recurring task
 
+				appStore.showSuccessToast('Task updated successfully!');
 				page.url.searchParams.delete('edit');
 				goto(page.url.pathname);
 			} else {
 				if ($store.recurringTask.isRecurring) {
-					// Create recurring task template
+					// TODO: Create recurring task template
 					await createRecurringTask(task, $store.recurringTask);
 				} else {
 					// Create a regular task
 					await createTask(task);
 				}
+
+				appStore.showSuccessToast('Task created successfully!');
 			}
 
-			return;
-			isSubmitted = true;
 			await store.clearDraft();
-
-			setTimeout(() => {
-				isSubmitted = false;
-			}, 3000);
+			goto('/dashboard');
 		} catch (error) {
 			console.error('Error creating task:', error);
 			if (error instanceof Error) errors.general = error.message;
@@ -192,15 +260,15 @@
 			{/if}
 
 			<div class="space-y-6">
-				{#if $store.currentStep === 'basics'}
+				{#if $store.currentStep === TaskStepEnum.BASICS}
 					<TaskBasics {errors} {direction} />
-				{:else if $store.currentStep === 'location'}
-					<TaskLocation {errors} {direction} />
-				{:else if $store.currentStep === 'budget'}
+				{:else if $store.currentStep === TaskStepEnum.LOCATION}
+					<TaskLocation {errors} {direction} bind:newFiles bind:attachmentsToRemove />
+				{:else if $store.currentStep === TaskStepEnum.BUDGET}
 					<TaskBudget {errors} {direction} />
-				{:else if $store.currentStep === 'review'}
-					<TaskReview {errors} {direction} />
-				{:else if $store.currentStep === 'recurring'}
+				{:else if $store.currentStep === TaskStepEnum.REVIEW}
+					<TaskReview {direction} />
+				{:else if $store.currentStep === TaskStepEnum.RECURRING}
 					<TaskRecurring {errors} {direction} />
 				{/if}
 
@@ -239,25 +307,6 @@
 					{/if}
 				</div>
 			</div>
-
-			{#if isSubmitted}
-				<div class="alert alert-success mt-6 shadow-lg">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>Task created successfully!</span>
-				</div>
-			{/if}
 
 			{#if errors.general}
 				<div class="alert alert-error mt-6 shadow-lg">

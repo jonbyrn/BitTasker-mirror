@@ -8,8 +8,8 @@
 
 	let { errors, direction } = $props();
 
-	// BTC to USDT estimate
-	let usdtEstimate = $state<string>('0');
+	// BTC to USD conversion state
+	let usdAmount = $state<number>(0);
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	/**
@@ -19,9 +19,9 @@
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 
-			// Update estimate if we have a budget value
+			// Update USD amount if we have a BTC value
 			if ($store.task.budget.amount) {
-				usdtEstimate = calculateUsdtEstimate($store.task.budget.amount);
+				usdAmount = $store.task.budget.amount * btcPrice;
 			}
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
@@ -30,16 +30,38 @@
 	}
 
 	/**
-	 * Calculate estimated USDT value based on BTC amount
-	 * Uses real-time BTC price from API
+	 * Handle USD input changes
 	 */
-	function calculateUsdtEstimate(btcAmount: number): string {
-		// Calculate the estimated value and format it
-		const estimatedValue = btcAmount * btcPrice;
-		return estimatedValue.toLocaleString('en-US', {
-			maximumFractionDigits: 2,
-			minimumFractionDigits: 2
-		});
+	function handleUsdChange(event: Event) {
+		const value = parseFloat((event.target as HTMLInputElement).value);
+		if (!isNaN(value)) {
+			usdAmount = value;
+			// Convert to BTC
+			const btcValue = value / btcPrice;
+			store.updateTask({
+				budget: {
+					...$store.task.budget,
+					amount: btcValue
+				}
+			});
+		}
+	}
+
+	/**
+	 * Handle BTC input changes
+	 */
+	function handleBtcChange(event: Event) {
+		const value = parseFloat((event.target as HTMLInputElement).value);
+		if (!isNaN(value)) {
+			store.updateTask({
+				budget: {
+					...$store.task.budget,
+					amount: value
+				}
+			});
+			// Convert to USD
+			usdAmount = value * btcPrice;
+		}
 	}
 
 	onMount(() => {
@@ -79,23 +101,45 @@
 
 	<div class="w-full">
 		<label for="budget" class="label">
-			<span class="label-text">Budget (in BTC)</span>
+			<span class="label-text">Budget</span>
 		</label>
-		<input
-			type="number"
-			id="budget"
-			bind:value={$store.task.budget.amount}
-			oninput={() => (usdtEstimate = calculateUsdtEstimate($store.task.budget.amount))}
-			class="input input-bordered w-full {errors.budget ? 'input-error' : ''}"
-			placeholder="Enter your budget"
-			min="0"
-			step="0.00000001"
-		/>
-		{#if $store.task.budget.amount > 0}
-			<span class="label-text-alt text-info mt-1 block">≈ {usdtEstimate} USDT</span>
-		{/if}
+		<div class="flex gap-2">
+			<div class="relative">
+				<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"> $ </span>
+				<input
+					type="number"
+					id="budget-usd"
+					value={usdAmount}
+					onchange={handleUsdChange}
+					oninput={handleUsdChange}
+					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
+					placeholder="Enter USD amount"
+					min="0"
+					step="0.01"
+				/>
+			</div>
+			<div class="relative">
+				<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"> BTC </span>
+				<input
+					type="number"
+					id="budget-btc"
+					value={$store.task.budget.amount}
+					onchange={handleBtcChange}
+					oninput={handleBtcChange}
+					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
+					placeholder="Enter BTC amount"
+					min="0"
+					step="0.00000001"
+				/>
+			</div>
+		</div>
 		{#if errors.budget}
 			<span class="label-text-alt text-error">{errors.budget}</span>
+		{/if}
+		{#if $store.task.budget.amount > 0}
+			<span class="label-text-alt text-info mt-1 block"
+				>Current BTC Price: ${btcPrice.toLocaleString()}</span
+			>
 		{/if}
 	</div>
 
@@ -135,7 +179,9 @@
 				onchange={(e) => {
 					store.updateTask({ description: (e.target as HTMLTextAreaElement).value });
 				}}
-				class="textarea textarea-bordered h-32 w-full {errors.description ? 'textarea-error' : ''}"
+				class="textarea textarea-bordered h-32 w-full rounded-xl {errors.description
+					? 'textarea-error'
+					: ''}"
 				placeholder="Describe your task in detail"
 			></textarea>
 		</label>

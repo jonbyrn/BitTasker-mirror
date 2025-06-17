@@ -49,8 +49,6 @@
 		sortOrder: SortOrderEnum.DESC
 	});
 
-	let skillTags = $derived(filters.skills?.map((skill) => ({ id: skill, value: skill })) || []);
-
 	// Track active filter count
 	let activeFilterCount = $state(0);
 
@@ -120,7 +118,6 @@
 
 	// Apply filters and close drawer
 	function applyFilters() {
-		filters.skills = skillTags.map((tag) => tag.value);
 		onApply({ ...filters });
 		onClose();
 	}
@@ -365,7 +362,7 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Skills</div>
 			<div class="collapse-content">
-				<TagsInput placeholder="Add skills..." bind:tags={skillTags} />
+				<TagsInput placeholder="Add skills..." bind:tags={filters.skills} />
 			</div>
 		</div>
 

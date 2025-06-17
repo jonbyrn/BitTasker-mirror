@@ -5,6 +5,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import Tags from '$lib/components/Tags.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import TagsInput from '$lib/components/TagsInput.svelte';
 
 	let { errors, direction } = $props();
 
@@ -137,16 +138,14 @@
 
 	<div class="w-full">
 		<label for="category" class="label">Category (3 max)</label>
-		<Tags
-			options={TASK_CATEGORIES.map((cat) => ({
-				name: cat.name,
-				id: cat.id
-			}))}
-			selectedTags={$store.task.categories}
-			onChange={(ids) => {
-				store.updateTask({ categories: ids as string[] });
-			}}
+		<TagsInput
+			options={TASK_CATEGORIES.map((cat) => cat.id)}
+			bind:tags={$store.task.categories}
+			autoComplete="on"
+			maxTags={3}
+			className="w-full h-full rounded-xl"
 		/>
+
 		{#if errors.category}
 			<span class="label-text-alt text-error">{errors.category}</span>
 		{/if}
@@ -157,54 +156,7 @@
 			<span class="label-text">Required Skills (10 max)</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
-		<div class="join w-full">
-			<input
-				type="text"
-				id="skills"
-				bind:value={skillsInput}
-				class="input input-bordered join-item flex-1 rounded-l-lg"
-				placeholder="Add skills (e.g. Carpentry, Coding)"
-				onkeydown={handleSkillKeypress}
-				disabled={$store.task?.skills?.length >= 10}
-			/>
-			<button
-				type="button"
-				class="btn btn-neutral join-item rounded-r-lg"
-				onclick={addSkill}
-				disabled={!skillsInput || $store.task?.skills?.length >= 10}
-			>
-				Add
-			</button>
-		</div>
-		<div class="mt-2 flex flex-wrap gap-2">
-			{#each $store.task?.skills as skill, index}
-				<div class="badge badge-lg gap-1">
-					<span class="mb-1">
-						{skill}
-					</span>
-					<button
-						aria-label="Remove skill"
-						type="button"
-						class="btn btn-ghost btn-xs p-0"
-						onclick={() =>
-							store.updateTask({ skills: $store.task?.skills?.filter((_, i) => i !== index) })}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-3 w-3"
-							viewBox="0 0 20 20"
-							fill="currentColor"
-						>
-							<path
-								fill-rule="evenodd"
-								d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-								clip-rule="evenodd"
-							/>
-						</svg>
-					</button>
-				</div>
-			{/each}
-		</div>
+		<TagsInput bind:tags={$store.task.skills} maxTags={10} className="w-full h-full rounded-xl" />
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>
 		{/if}

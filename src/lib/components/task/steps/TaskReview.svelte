@@ -1,11 +1,41 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
+	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
-	import { appStore } from '$lib/stores/app.store';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
-	let { errors, direction } = $props();
+	let { direction } = $props();
+
+	// BTC price state
+	let btcPrice = $state<number>(63000); // Default fallback price
+
+	// TODO: Refactor by adding to app store global state
+	/**
+	 * Fetch current BTC price
+	 */
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+			btcPrice = 63000;
+		}
+	}
+
+	/**
+	 * Calculate USD value based on BTC amount
+	 */
+	function calculateUsdValue(btcAmount: number): string {
+		const usdValue = btcAmount * btcPrice;
+		return formatCurrency(usdValue, 'USD');
+	}
+
+	// Fetch BTC price on mount
+	onMount(fetchBtcPrice);
 </script>
 
 <div
@@ -50,14 +80,14 @@
 			<h4 class="mt-3 font-medium">Categories</h4>
 			<div class="flex flex-wrap gap-2">
 				{#each $store.task.categories as category}
-					<div class="badge badge-primary">{category}</div>
+					<div class="badge badge-primary pb-[4px]">{category}</div>
 				{/each}
 			</div>
 
 			<h4 class="mt-3 font-medium">Skills</h4>
 			<div class="flex flex-wrap gap-2">
 				{#each $store.task.skills as skill}
-					<div class="badge badge-secondary">{skill}</div>
+					<div class="badge badge-primary pb-[4px]">{skill}</div>
 				{/each}
 			</div>
 		</div>
@@ -95,12 +125,18 @@
 				<div>
 					<span class="font-medium">Budget Type:</span>
 					<span
-						>{$store.task.budget.type === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}</span
+						>{$store.task.budget.type === BudgetTypeEnum.FIXED
+							? 'Fixed Price'
+							: 'Hourly Rate'}</span
 					>
 				</div>
 				<div>
 					<span class="font-medium">Budget Amount:</span>
-					<span>${$store.task.budget}</span>
+					<span>
+						{formatCurrency($store.task.budget.amount, 'BTC')} ({calculateUsdValue(
+							$store.task.budget.amount
+						)})
+					</span>
 				</div>
 				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
 					<div>
@@ -117,10 +153,28 @@
 
 			{#if $store.task.attachments && $store.task.attachments.length > 0}
 				<h4 class="mt-3 font-medium">Attachments</h4>
-				<div class="flex flex-wrap gap-2">
+				<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
 					{#each $store.task.attachments as attachment}
-						<div class="badge badge-outline">
-							<span class="max-w-xs truncate">{attachment.alt}</span>
+						<div class="relative overflow-hidden rounded-lg">
+							{#if attachment.type?.startsWith('video/')}
+								<video
+									src={attachment.url}
+									class="h-32 w-full object-cover"
+									controls
+									muted={false}
+									autoplay={false}
+									loop={false}
+								>
+									<track kind="captions" />
+								</video>
+							{:else}
+								<img
+									src={attachment.url}
+									alt={attachment.alt}
+									class="h-32 w-full object-cover"
+									loading="lazy"
+								/>
+							{/if}
 						</div>
 					{/each}
 				</div>

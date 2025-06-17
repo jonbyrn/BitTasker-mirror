@@ -1,39 +1,41 @@
 <script lang="ts">
+	import type { Attachment } from '$lib/types/task';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { appStore } from '$lib/stores/app.store';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
-	import uploadService from '$lib/api/services/upload.service';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 
-	let { errors, direction } = $props();
+	let {
+		errors,
+		direction,
+		newFiles = $bindable(),
+		attachmentsToRemove = $bindable()
+	} = $props<{
+		errors: Record<string, string>;
+		direction: 'forward' | 'backward';
+		newFiles: File[];
+		attachmentsToRemove: Attachment[];
+	}>();
 
 	const handleFileUpload = async (files: File[]) => {
+		if (($store.task.attachments?.length || 0) + files.length > 5) return;
 		if (!files || files.length === 0) return;
+		files.forEach((file) => {
+			if (file instanceof File) {
+				newFiles.push(file);
+			}
+		});
+	};
 
-		try {
-			const uploadedFiles = await uploadService.uploadMultipleFiles(files);
-			uploadedFiles.forEach((file, index) => {
-				if (!$store.task.attachments) return;
-				$store.task.attachments.push({
-					url: file.url,
-					key: file.key,
-					type: files[index].type,
-					alt: files[index].name,
-					size: files[index].size
-				});
-			});
-
-			// Save to localStorage immediately after adding attachments
-			store.saveDraft();
-			appStore.showSuccessToast('Files uploaded successfully');
-		} catch (error) {
-			// Handle upload failure
-			console.error('File upload failed:', error);
-			errors.attachments = 'Failed to upload attachments. Please go back and try again.';
-			appStore.showErrorToast('Failed to upload attachments. Please go back and try again.');
+	const handleFileRemove = (index: number, file?: File | string) => {
+		if (file && file instanceof File) {
+			newFiles = newFiles.filter((f: File) => f !== file);
+		} else {
+			const attachment = $store.task.attachments?.[index];
+			attachmentsToRemove.push(attachment);
+			$store.task.attachments?.splice(index, 1);
 		}
 	};
 </script>
@@ -47,7 +49,7 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h3 class="text-lg font-semibold">Is this a removals task?</h3>
+	<h3 class="text-lg font-semibold">Do you need something moved to another location?</h3>
 	<div class="flex gap-4">
 		<button
 			class="btn min-w-1/3 text-xl {$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
@@ -110,11 +112,13 @@
 			<span class="label-text-alt text-error block">{errors.location}</span>
 		{/if}
 	{:else}
-		<p class="text-md font-semibold">Where do you need this done?</p>
+		<p class="text-lg font-semibold">Where do you need this done?</p>
 
 		<div class="flex gap-4">
 			<button
-				class="btn {$store.task?.taskType === TaskTypeEnum.IN_PERSON ? 'btn-primary' : 'btn-outline'}"
+				class="btn {$store.task?.taskType === TaskTypeEnum.IN_PERSON
+					? 'btn-primary'
+					: 'btn-outline'}"
 				onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 			>
 				In-person
@@ -168,8 +172,16 @@
 	{/if}
 
 	<div class="w-full">
-		<label for="attachments" class="label"> Attachments </label>
+		<div class="my-5">
+			<label for="attachments" class="label block font-semibold text-white text-lg">
+				Add videos and images
+			</label>
+			<label for="attachments" class="label-text-alt block text-white/70">
+				Improve bid estimates by showing taskers what needs to be done
+			</label>
+		</div>
 
+		<!-- TODO: Add support for videos -->
 		<Uploader
 			id="attachments"
 			label="Attachments"
@@ -177,6 +189,7 @@
 			maxFiles={5}
 			maxFileSize={10}
 			onChange={handleFileUpload}
+			onRemove={handleFileRemove}
 		/>
 	</div>
 </div>

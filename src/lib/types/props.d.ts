@@ -13,7 +13,7 @@ export interface UploaderProps {
 	maxDuration?: number;
 	customClass?: string;
 	onChange?: (files: File[]) => void;
-	onRemove?: (index: number) => void;
+	onRemove?: (index: number, file?: File | string) => void;
 	onError?: (message: string) => void;
 }
 
@@ -62,9 +62,4 @@ export interface LocationProps {
 	location?: Location;
 	defaultLocation?: Location;
 	onLocationSelect: (location: Location) => void;
-}
-
-export interface Tag {
-	id: string;
-	value: string;
 }

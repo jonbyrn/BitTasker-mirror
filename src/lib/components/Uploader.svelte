@@ -146,8 +146,9 @@
 	}
 
 	function removeFile(index: number) {
+		const file = files[index];
 		files = files.filter((_, i) => i !== index);
-		onRemove(index);
+		onRemove(index, file);
 		error = '';
 	}
 

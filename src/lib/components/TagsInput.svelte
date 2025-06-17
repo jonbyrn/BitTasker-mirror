@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { Tag } from '$lib/types/props.d';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	let {
@@ -8,48 +7,83 @@
 		placeholder = 'Add tags...',
 		error = '',
 		className = '',
-		tags = $bindable<Tag[]>([])
+		options = [],
+		maxTags = 10,
+		autoComplete = 'off',
+		tags = $bindable<string[]>([])
 	} = $props<{
 		id?: string;
 		label?: string;
 		placeholder?: string;
 		error?: string;
 		className?: string;
-		tags?: Tag[];
+		tags?: string[];
+		options?: string[];
+		maxTags?: number;
+		autoComplete?: 'on' | 'off';
 	}>();
 
+	let isOpen = $state(false);
 	let inputValue = $state('');
 	let isInputFocused = $state(false);
+	let filteredOptions = $state<string[]>(options);
 
-	function addTag(value: string) {
-		const trimmedValue = value.trim();
-		if (!trimmedValue) return;
+	function filterOptions(searchTerm: string): string[] {
+		if (!options.length || autoComplete === 'off') return options;
+		if (!searchTerm) return options;
 
-		// Check if tag already exists
-		if (tags.some((tag: Tag) => tag.value === trimmedValue)) return;
+		// show filtered options on top of the options
+		const filteredOptions = options.filter((option: string) =>
+			option.toLowerCase().includes(searchTerm.toLowerCase())
+		);
 
-		const newTag: Tag = {
-			id: '',
-			value: trimmedValue
-		};
+		// show the options that are not in the filtered options
+		const remainingOptions = options.filter((option: string) => !filteredOptions.includes(option));
 
-		tags = [...tags, newTag];
-		inputValue = '';
+		return [...filteredOptions, ...remainingOptions];
 	}
 
-	function removeTag(tagId: string) {
-		tags = tags.filter((tag: Tag) => tag.id !== tagId);
+	$effect(() => {
+		filteredOptions = filterOptions(inputValue);
+	});
+
+	function addTag(value: string) {
+		if (tags.length >= maxTags) return;
+		if (tags.includes(value)) return;
+
+		if (options.length && autoComplete === 'on') {
+			// pick the first option that matches the input value
+			let option = options.find((option: string) => option.toLowerCase() === value.toLowerCase());
+			if (!option) option = filteredOptions[0];
+			tags = [...tags, option];
+			inputValue = '';
+			return;
+		} else {
+			const trimmedValue = value.trim();
+			if (!trimmedValue) return;
+
+			// Check if tag already exists
+			if (tags.some((tag: string) => tag === trimmedValue)) return;
+
+			tags = [...tags, trimmedValue];
+			inputValue = '';
+		}
+	}
+
+	function removeTag(tag: string) {
+		tags = tags.filter((t: string) => t !== tag);
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
 		const target = e.target as HTMLInputElement;
+		isOpen = autoComplete === 'on';
 
 		if (e.key === 'Enter' || e.key === ',') {
 			e.preventDefault();
 			addTag(target.value);
 		} else if (e.key === 'Backspace' && !inputValue && tags.length > 0) {
 			// Remove last tag when backspace is pressed on empty input
-			removeTag(tags[tags.length - 1].id);
+			removeTag(tags[tags.length - 1]);
 		}
 	}
 
@@ -58,6 +92,8 @@
 		const pastedText = e.clipboardData?.getData('text');
 		if (!pastedText) return;
 
+		isOpen = autoComplete === 'on';
+
 		// Split pasted text by commas and add each as a tag
 		const values = pastedText.split(',');
 		values.forEach((value) => addTag(value));
@@ -65,8 +101,15 @@
 
 	function handleClickOutside() {
 		isInputFocused = false;
+		isOpen = false;
 		if (inputValue) {
 			addTag(inputValue);
+		}
+	}
+
+	function handleClick() {
+		if (options.length && autoComplete === 'on') {
+			isOpen = !isOpen;
 		}
 	}
 </script>
@@ -84,14 +127,14 @@
 				? 'input-error'
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
 		>
-			{#each tags as tag (tag.id)}
+			{#each tags as tag}
 				<span class="badge badge-primary py-3" role="listitem" aria-label="tag">
-                    <span class="text-base font-normal mb-[4px]">
-                        {tag.value}
-                    </span>
+					<span class="mb-[4px] text-base font-normal">
+						{tag}
+					</span>
 					<button
 						type="button"
-						class="btn btn-ghost btn-xs p-0 focus:bg-none bg-none"
+						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none"
 						onclick={() => removeTag(tag.id)}
 						aria-label="Remove tag"
 					>
@@ -116,14 +159,40 @@
 			<input
 				type="text"
 				{id}
-				{placeholder}
+				placeholder={tags.length < maxTags ? placeholder : ''}
 				bind:value={inputValue}
 				class="flex-1 border-none bg-transparent p-1 outline-none"
 				onkeydown={handleKeyDown}
+				onclick={handleClick}
 				onpaste={handlePaste}
 				onfocus={() => (isInputFocused = true)}
 			/>
 		</div>
+
+		{#if isOpen && filteredOptions.length > 0}
+			<ul
+				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-lg"
+				role="listbox"
+				aria-label="options"
+			>
+				{#each filteredOptions as option, index}
+					<li
+						class="hover:bg-base-300 flex cursor-pointer flex-col gap-1 px-4 py-2 {filteredOptions[
+							index
+						] === inputValue
+							? 'bg-base-300'
+							: ''}"
+						onclick={() => addTag(option)}
+						onkeydown={(e) => e.key === 'Enter' && addTag(option)}
+						role="option"
+						aria-selected={filteredOptions[index] === inputValue}
+						tabindex="0"
+					>
+						<span class="font-medium">{option}</span>
+					</li>
+				{/each}
+			</ul>
+		{/if}
 
 		{#if error}
 			<span class="label-text-alt text-error">{error}</span>
