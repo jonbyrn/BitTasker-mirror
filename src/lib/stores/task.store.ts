@@ -10,7 +10,7 @@ import { SimplePool } from 'nostr-tools';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
-export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, /* TaskStepEnum.TASKBOOST, */ TaskStepEnum.REVIEW]);
+export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.REVIEW]);
 
 const getInitialState = () => ({
 	task: {

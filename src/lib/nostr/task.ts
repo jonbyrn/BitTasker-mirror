@@ -276,15 +276,10 @@ export async function queryTasks(
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): Promise<NostrEvent[]> {
     const query = await pool.querySync(relays, {
+        ...filter,
         kinds: filter.kinds || [TASK_KINDS.TASK_CREATION], // Only look for creation events
-        authors: filter.authors,
-        // limit: filter.limit || 100, // Set a reasonable default limit
-        // since: 0, // Get all historical tasks
-        // until: Math.floor(Date.now() / 1000), // Up to current time
-        ...filter
+        authors: filter.authors
     });
-
-    // console.log('Query results:', query.length, 'events');
 
     // Sort events by creation time to ensure consistent ordering
     const sortedEvents = query.sort((a, b) => b.created_at - a.created_at);

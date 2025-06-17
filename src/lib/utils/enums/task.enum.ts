@@ -5,9 +5,7 @@ export enum BudgetTypeEnum {
 
 export enum BudgetCurrencyEnum {
 	BTC = 'BTC',
-	L_BTC = 'L-BTC',
-	USDT = 'USDt',
-	LN = 'LN'
+	USDT = 'USDt'
 }
 
 export enum TaskStepEnum {

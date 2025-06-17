@@ -1,12 +1,11 @@
 import type { SearchTasksParams, Task, SavedSearch, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
-import { SimplePool, type Event, type Filter, mergeFilters, matchFilter } from 'nostr-tools';
+import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { TASK_KINDS } from './task';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { tasksStore } from '$lib/stores/task.store';
-import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 

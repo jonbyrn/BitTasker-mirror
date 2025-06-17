@@ -40,7 +40,7 @@ export interface UserData {
 	npub: string;
 	avatar: string;
 
-	// TODO: Refact & check utility of these fields
+	// TODO: Refactor & check utility of these fields
 	password?: string | null;
 	onboardingComplete?: boolean;
 	isEmailVerified?: boolean;
