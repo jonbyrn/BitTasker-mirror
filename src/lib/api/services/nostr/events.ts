@@ -36,8 +36,7 @@ interface HandleEventDto extends NostrEvent {
 
 class NostrEventsService extends BaseApiService {
     constructor() {
-        // super(PUBLIC_NOSTR_RELAY_NESTJS);
-        super('http://localhost:8001');
+        super(PUBLIC_NOSTR_RELAY_NESTJS);
     }
 
     // POST /events

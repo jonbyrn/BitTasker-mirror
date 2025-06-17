@@ -197,12 +197,12 @@
 
 							<div class="mt-2 flex items-center justify-between">
 								<div class="badge badge-outline">
-									{recommendation.task.taskType === 'REMOTE' ? 'Remote' : 'In Person'}
+									{recommendation.task.taskType === 'remote' ? 'Remote' : 'In Person'}
 								</div>
 
 								<div class="font-semibold">
-									{recommendation.task.budget}
-									{recommendation.task.currency || 'BTC'}
+									{recommendation.task.budget.amount}
+									{recommendation.task.budget.currency}
 								</div>
 							</div>
 

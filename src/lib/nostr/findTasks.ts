@@ -10,12 +10,6 @@ import { SEARCH_RELAYS } from '$lib/utils/constants/relays';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 
-// Define NostrFilter type that extends Filter
-type NostrFilter = Filter & {
-    [key: `#${string}`]: string[];
-    tags?: string[][];
-};
-
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -32,8 +26,6 @@ const REPLACEABLE_KINDS = {
     USER_PREFERENCES: 31002, // NIP-33 Parameterized replaceable event for user preferences
 };
 
-const RELAYS = [PUBLIC_NOSTR_RELAY_URL, ...SEARCH_RELAYS]
-
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
 
@@ -41,7 +33,7 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
  * Convert Nostr filter to API query parameters
  * The API expects tag filters without the '#' prefix
  */
-export function convertFilterToApiParams(filter: Filter): Record<string, any> {
+function convertFilterToApiParams(filter: Filter): Record<string, any> {
     const params: Record<string, any> = {};
 
     // Direct mappings
@@ -91,7 +83,8 @@ function hasAllCategories(event: Event, requiredCategories: string[]): boolean {
 function createTaskFilter(params: SearchTasksParams): Filter {
     const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
         kinds: [TASK_KINDS.TASK_CREATION],
-        limit: params.limit || BATCH_SIZE
+        limit: params.limit || BATCH_SIZE,
+        until: params.until || undefined
     };
 
     // Status filter
@@ -179,30 +172,26 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         const cacheKey = JSON.stringify(filter);
 
         // TODO: Check cache
-        /* const cached = cache.get(cacheKey);
+        const cached = cache.get(cacheKey);
+        console.log({ cached, cacheKey });
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            console.log({ cached })
             const tasks = cached.data;
             tasksStore.update(state => ({
                 ...state,
                 items: tasks,
                 loading: false,
-                meta: {
-                    currentPage: params.page || 1,
-                    totalItems: tasks.length,
-                    hasNextPage: tasks.length >= (params.limit || BATCH_SIZE)
-                }
+                currentPage: params.page || 1,
+                hasMore: tasks.length >= (params.limit || BATCH_SIZE),
             }));
             return {
                 tasks,
                 total: tasks.length,
                 hasMore: tasks.length >= (params.limit || BATCH_SIZE)
             };
-        } */
+        }
 
         try {
             const response = await nostrEventsService.findEvents(filter);
-            // console.log('API response:', response);
 
             const events = response.data || [];
             console.log('events', events);
@@ -217,13 +206,10 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             // Update store
             tasksStore.update(state => ({
                 ...state,
-                items: tasks,
+                items: [...state.items, ...tasks],
                 loading: false,
-                meta: {
-                    currentPage: params.page || 1,
-                    totalItems: total,
-                    hasNextPage: tasks.length >= (params.limit || BATCH_SIZE)
-                }
+                currentPage: params.page || 1,
+                hasMore: tasks.length >= (params.limit || BATCH_SIZE),
             }));
 
             return {
@@ -239,35 +225,6 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
                 total: 0,
                 hasMore: false
             }
-
-            /* TODO: To be tested 
-            // Fallback to direct pool query if API fails
-            const events = await tasksStore.pool.querySync(RELAYS, filter);
-            const total = events.length;
-            console.log('Fallback events found:', events.length);
-            
-            const tasks = events.map((event: Event) => convertEventToTask(event));
-
-            // Update cache
-            cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
-
-            // Update store
-            tasksStore.update(state => ({
-                ...state,
-                items: tasks,
-                loading: false,
-                meta: {
-                    currentPage: params.page || 1,
-                    totalItems: total,
-                    hasNextPage: tasks.length >= (params.limit || BATCH_SIZE)
-                }
-            }));
-
-            return {
-                tasks,
-                total,
-                hasMore: tasks.length >= (params.limit || BATCH_SIZE)
-            }; */
         }
     } catch (error) {
         console.error('Error finding tasks:', error);
@@ -721,30 +678,6 @@ export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
 }
 
 /**
- * Subscribe to new tasks in real-time with improved handling
- */
-export function subscribeToNewTasks(relays = [PUBLIC_NOSTR_RELAY_URL]): () => void {
-    const filter: NostrFilter = {
-        kinds: [TASK_KINDS.TASK_CREATION],
-        since: Math.floor(Date.now() / 1000)
-    };
-
-    const sub = tasksStore.pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
-        onevent(event: Event) {
-            const task = convertEventToTask(event);
-            tasksStore.update(state => ({
-                ...state,
-                items: [task, ...state.items]
-            }));
-        }
-    });
-
-    return () => {
-        sub.close();
-    };
-}
-
-/**
  * Get user preferences from NIP-33 parameterized replaceable event
  */
 async function getUserPreferences(): Promise<{
@@ -768,10 +701,7 @@ async function getUserPreferences(): Promise<{
         const response = await nostrEventsService.findEvents(apiParams);
         const events = response.data || [];
 
-        // Get the most recent preferences event
-        const latest = events.sort((a, b) => b.created_at - a.created_at)[0];
-
-        if (!latest) {
+        if (!events) {
             // If no preferences found, try to get skills and categories from user profile
             const profileFilter: Filter = {
                 kinds: [0], // Kind 0 is for profile metadata
@@ -802,7 +732,7 @@ async function getUserPreferences(): Promise<{
 
         // Parse and validate preferences
         try {
-            const prefs = JSON.parse(latest.content);
+            const prefs = JSON.parse(events[0].content);
             return {
                 skills: Array.isArray(prefs.skills) ? prefs.skills : [],
                 categories: Array.isArray(prefs.categories) ? prefs.categories : [],

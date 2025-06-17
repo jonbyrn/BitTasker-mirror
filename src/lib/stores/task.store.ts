@@ -226,23 +226,22 @@ function createTaskStore() {
 // Create task store
 export const taskStore = createTaskStore();
 
-function createTasksStore() {
+// Find tasks store
+export const tasksStore = (() => {
 	const { subscribe, set, update } = writable<{
 		pool: SimplePool,
 		items: Task[],
 		loading: boolean,
 		error: string | null,
-		meta: {
-			currentPage: number,
-			totalItems: number,
-			hasNextPage: boolean
-		} | null
+		currentPage: number,
+		hasMore: boolean
 	}>({
 		pool: new SimplePool(),
 		items: [],
 		loading: false,
-		error: null,
-		meta: null
+		currentPage: 1,
+		hasMore: true,
+		error: null
 	});
 
 	return {
@@ -251,11 +250,9 @@ function createTasksStore() {
 		set,
 		update
 	}
-}
+})()
 
-// Find tasks store
-export const tasksStore = createTasksStore();
-
+// My tasks store
 export const myTasksStore = writable<{
 	items: Task[],
 	loading: boolean,

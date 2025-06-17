@@ -18,7 +18,6 @@
 	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
-	import { appStore } from '$lib/stores/app.store';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -103,15 +102,6 @@
 		});
 	}
 
-	// Load more tasks (for infinite scroll)
-	async function loadMoreTasks() {
-		if ($tasksStore.meta?.hasNextPage && !$tasksStore.loading) {
-			const nextPage = ($tasksStore.meta?.currentPage ?? 0) + 1;
-			searchParams = { ...searchParams, page: nextPage };
-			await findTasks(searchParams);
-		}
-	}
-
 	// Load recommendations
 	async function loadRecommendations() {
 		if (recommendationsLoaded || !browser) return;
@@ -119,6 +109,7 @@
 		try {
 			loadingRecommendations = true;
 			const recommendations = await getRecommendedTasks(10);
+			console.log('recommendations', recommendations);
 			recommendationsLoaded = true;
 		} catch (err) {
 			console.error('Error loading recommendations:', err);
@@ -225,6 +216,24 @@
 		}, 300);
 	}
 
+	// Load more tasks (for infinite scroll)
+	async function loadMoreTasks() {
+		if ($tasksStore.hasMore && !$tasksStore.loading) {
+			const nextPage = $tasksStore.currentPage + 1;
+			const lastItem = $tasksStore.items[$tasksStore.items.length - 1];
+
+			// Subtract 1 second from the last item's timestamp to exclude it from the next batch
+			const untilTimestamp = lastItem.createdAt - 1;
+
+			searchParams = {
+				...searchParams,
+				page: nextPage,
+				until: untilTimestamp
+			};
+			await findTasks(searchParams);
+		}
+	}
+
 	// Setup intersection observer for infinite scroll
 	function setupInfiniteScroll() {
 		if (!browser) return;
@@ -232,7 +241,7 @@
 		if ('IntersectionObserver' in window) {
 			observer = new IntersectionObserver(
 				(entries) => {
-					if (entries[0].isIntersecting && $tasksStore.meta?.hasNextPage && !$tasksStore.loading) {
+					if (entries[0].isIntersecting && $tasksStore.hasMore && !$tasksStore.loading) {
 						loadMoreTasks();
 					}
 				},
@@ -247,6 +256,15 @@
 
 	// Cleanup observer
 	function cleanupInfiniteScroll() {
+		tasksStore.update((state) => {
+			return {
+				...state,
+				items: [],
+				currentPage: 1,
+				hasMore: true,
+				error: null
+			};
+		});
 		if (observer && scrollTarget) {
 			observer.unobserve(scrollTarget);
 		}
@@ -289,22 +307,18 @@
 			// Load recommendations
 			// loadRecommendations();
 
-			// Setup infinite scroll
-			// setupInfiniteScroll();
-
-			// Subscribe to new tasks
-			// unsubFromNewTasks = subscribeToNewTasks();
+			// Setup infinite scroll - waiting for DOM to be ready
+			setTimeout(() => {
+				setupInfiniteScroll();
+			}, 1000);
 		}
 	});
 
 	// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
-			// cleanupInfiniteScroll();
-			// if (unsubFromNewTasks) {
-			// 	unsubFromNewTasks();
-			// }
-			// cleanup();
+			cleanupInfiniteScroll();
+			cleanup();
 		}
 	});
 
@@ -416,9 +430,8 @@
 		<p class="text-base-content/70">
 			{#if $tasksStore.loading && searchParams.page === 1}
 				<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
-			{:else if $tasksStore.meta}
-				Showing {$tasksStore.items.length}
-				of {$tasksStore.meta.totalItems} tasks
+			{:else if $tasksStore.items.length > 0}
+				Showing {$tasksStore.items.length} tasks
 			{/if}
 		</p>
 	</div>
@@ -535,7 +548,7 @@
 		</div>
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
 		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
-			{#each $tasksStore.items as task, index (task.id)}
+			{#each $tasksStore.items as task, index}
 				<div class="card-body">
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
@@ -576,7 +589,7 @@
 
 					{#if task.skills && task.skills.length > 0}
 						<div class="mb-4 flex flex-wrap gap-2">
-							{#each task.skills as skill}
+							{#each task.skills as skill, index}
 								{#if skill}
 									<span class="badge badge-primary badge-outline">{skill}</span>
 								{/if}
@@ -682,9 +695,9 @@
 	{/if}
 
 	<!-- Saved Searches Section -->
-	{#if showSavedSearches}
+	<!-- {#if showSavedSearches}
 		<SavedSearchList />
-	{/if}
+	{/if} -->
 </div>
 
 <!-- Advanced Filter Drawer Component -->

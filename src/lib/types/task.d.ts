@@ -70,7 +70,7 @@ export interface Task {
 	isBoosted: boolean;
 	boostPercentage: number | null;
 
-	createdAt: string;
+	createdAt: number;
 	updatedAt: string;
 	completedAt: string | null;
 	cancelledAt: string | null;
