@@ -67,7 +67,7 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<div class="bg-base-200 mx-auto w-full flex-grow flex flex-row gap-8 sm:px-4 sm:py-8">
+<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 sm:px-4 sm:py-8">
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<!-- Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
@@ -94,7 +94,7 @@
 	{/if}
 
 	<!-- Main Content -->
-	<div class="overflow-y-visible w-full">
+	<div class="min-h-0 w-full flex-1 overflow-hidden">
 		{@render children()}
 	</div>
 </div>
