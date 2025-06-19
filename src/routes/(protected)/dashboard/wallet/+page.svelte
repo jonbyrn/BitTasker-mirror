@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { wallet } from '$lib/utils/consts';
 	import { formatBtcToSats } from '$lib/utils/helpers/crypto';
-
+	import { getMnemonic } from '$lib/wallet/helper';
+	import { goto } from '$app/navigation';
+	
 	// UI state
 	let activeTab = $state('balance'); // balance, receive, send, transactions
 	let selectedAddress = $state(wallet.addresses.find((a) => a.isDefault) || wallet.addresses[0]);
@@ -97,6 +99,18 @@
 		sendAddress = '';
 		sendNetworkFee = 'medium';
 	}
+
+	$effect.pre(() => {
+		getMnemonic()
+			.then(() => {
+				console.log('mnemonic found, staying on wallet page');
+			})
+			.catch((error) => {
+				console.error('Error getting mnemonic', error);
+				goto('/dashboard/wallet/error?type=no-mnemonic');
+				return;
+			});
+	});
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
