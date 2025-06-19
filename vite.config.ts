@@ -6,6 +6,8 @@ import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
 import Icons from 'unplugin-icons/vite';
 import pkg from './package.json';
+import wasm from 'vite-plugin-wasm';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
@@ -13,6 +15,8 @@ export default defineConfig({
 		houdini(), 
 		tailwindcss(), 
 		sveltekit(), 
+		wasm(),
+		topLevelAwait(),
 		Icons({
 			compiler: 'svelte',
 			autoInstall: true,
@@ -23,7 +27,8 @@ export default defineConfig({
 		visualizer({ open: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
 	],
 	define: {
-		__APP_VERSION__: JSON.stringify(pkg.version)
+		__APP_VERSION__: JSON.stringify(pkg.version),
+		global: 'globalThis'
 	},
 	resolve: {
 		alias: {
@@ -83,6 +88,10 @@ export default defineConfig({
 				secure: false // Allow insecure requests
 			}
 		}
+	},
+	optimizeDeps: {
+		exclude: ['@breeztech/breez-sdk-liquid/web'],
+		include: ['buffer']
 	},
 	test: {
 		globals: true,
