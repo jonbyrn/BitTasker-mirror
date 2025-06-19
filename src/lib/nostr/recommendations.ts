@@ -1,11 +1,14 @@
-import type { SearchTasksParams, Task, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
+import type { Task, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
 import { type Event, type Filter, SimplePool } from 'nostr-tools';
 import { browser } from '$app/environment';
+import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-import { getNpub } from '$lib/utils/nostrKeys';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
+import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 
 // Constants
@@ -49,17 +52,16 @@ function createRecommendationFilter(params: RecommendationParams): Filter {
         filter['c'] = params.categories;
     }
 
-    // TODO: Budget range filter using the same budget tier system
-    // if (params.preferredBudgetRange) {
-    //     if (params.preferredBudgetRange.min !== undefined && params.preferredBudgetRange.max !== undefined) {
-    //         // Create a synthetic budget tier for range filtering
-    //         const avgBudget = (params.preferredBudgetRange.min + params.preferredBudgetRange.max) / 2;
-    //         let budgetTier = 'low';
-    //         if (avgBudget > 500) budgetTier = 'high';
-    //         else if (avgBudget > 100) budgetTier = 'medium';
-    //         filter['b'] = [budgetTier];
-    //     }
-    // }
+    // Budget filters - same structure as findTasks
+    if (params.preferredBudget?.tier) {
+        filter['b'] = [params.preferredBudget.tier];
+    }
+    if (params.preferredBudget?.currency) {
+        filter['P'] = [params.preferredBudget.currency]; // P for price
+    }
+    if (params.preferredBudget?.type) {
+        filter['t'] = [params.preferredBudget.type];
+    }
 
     // Location filter with enhanced structure - same as task search
     if (params.preferredLocations && params.preferredLocations.length > 0) {
@@ -81,7 +83,9 @@ function calculateRecommendationScore(
     matches: {
         matchedSkills: string[];
         matchedCategories: string[];
-        budgetRange?: { min: number; max: number };
+        budgetTier?: string;
+        budgetCurrency?: string;
+        budgetType?: string;
         locations?: string[];
     }
 ): number {
@@ -101,13 +105,22 @@ function calculateRecommendationScore(
         score += categoriesScore;
     }
 
-    // Budget match (20% weight) - with null safety
-    if (matches.budgetRange && task.budget?.amount) {
-        const budgetInRange = (
-            (!matches.budgetRange.min || task.budget.amount >= matches.budgetRange.min) &&
-            (!matches.budgetRange.max || task.budget.amount <= matches.budgetRange.max)
-        );
-        if (budgetInRange) score += 20;
+    // Budget tier match (15% weight) - with null safety
+    if (matches.budgetTier && task.budget) {
+        const taskTier = getBudgetBucket(task.budget.amount, task.budget.currency);
+        if (taskTier === matches.budgetTier) {
+            score += 15;
+        }
+    }
+
+    // Budget currency match (3% weight)
+    if (matches.budgetCurrency && task.budget?.currency === matches.budgetCurrency) {
+        score += 3;
+    }
+
+    // Budget type match (2% weight)
+    if (matches.budgetType && task.budget?.type === matches.budgetType) {
+        score += 2;
     }
 
     // Location match (10% weight) - with null safety
@@ -132,7 +145,11 @@ function calculateRecommendationScore(
 /**
  * Generate recommendation reason based on matches - improved with better messaging
  */
-function generateRecommendationReason(matchedSkills: string[], matchedCategories: string[]): string {
+function generateRecommendationReason(
+    matchedSkills: string[],
+    matchedCategories: string[],
+    budgetTierMatch?: boolean
+): string {
     const reasons: string[] = [];
 
     if (matchedSkills.length > 0) {
@@ -149,6 +166,10 @@ function generateRecommendationReason(matchedSkills: string[], matchedCategories
         const categoriesText = displayCategories.join(', ');
         const extraCategories = matchedCategories.length > 2 ? ` (+${matchedCategories.length - 2} more)` : '';
         reasons.push(`In your preferred ${categoryText}: ${categoriesText}${extraCategories}`);
+    }
+
+    if (budgetTierMatch) {
+        reasons.push('Matches your budget preference');
     }
 
     // Provide fallback messages for different scenarios
@@ -170,11 +191,20 @@ function calculateTaskRecommendation(task: Task, params: RecommendationParams): 
         params.categories?.includes(category)
     );
 
+    // Check if budget tier matches
+    let budgetTierMatch = false;
+    if (params.preferredBudget?.tier && task.budget) {
+        const taskTier = getBudgetBucket(task.budget.amount, task.budget.currency);
+        budgetTierMatch = taskTier === params.preferredBudget.tier;
+    }
+
     // Calculate score based on matches
     const score = calculateRecommendationScore(task, {
         matchedSkills,
         matchedCategories,
-        budgetRange: params.preferredBudgetRange,
+        budgetTier: params.preferredBudget?.tier,
+        budgetCurrency: params.preferredBudget?.currency,
+        budgetType: params.preferredBudget?.type,
         locations: params.preferredLocations
     });
 
@@ -182,7 +212,7 @@ function calculateTaskRecommendation(task: Task, params: RecommendationParams): 
         taskId: task.id,
         task,
         score,
-        reason: generateRecommendationReason(matchedSkills, matchedCategories),
+        reason: generateRecommendationReason(matchedSkills, matchedCategories, budgetTierMatch),
         matchedSkills,
         matchedCategories
     };
@@ -249,14 +279,22 @@ async function getProfileData(userNpub: string): Promise<{
         const events = await profilePool.querySync([PUBLIC_NOSTR_RELAY_URL], eventFilter);
 
         if (events && events.length > 0) {
-            events.forEach(event => {
+            await Promise.all(events.map(async (event) => {
                 if (event.kind === KINDS.PROFILE_SKILLS) {
                     const content = JSON.parse(event.content);
                     result.skills = content?.map((skill: any) => skill.name);
                 } else if (event.kind === KINDS.PROFILE_LOCATION) {
-                    // TODO: To be decrypted - Only generate this recommendation on the client request
+                    // TODO: Disactivated until location radius filter is implemented
+                    /* // Get own public key
+                    const keyPair = await getNostrKeyPair();
+                    const nsec = bytesToHex(keyPair.nsec);
+                    const npub = keyPair.npub;
+                    const conversationKey = await nip44.getConversationKey(nsec, npub);
+                    const decryptedContent = await nip44.decrypt(event.content, conversationKey);
+                    const location = JSON.parse(decryptedContent);
+                    result.locations.push(location.displayName); */
                 }
-            });
+            }));
         }
 
         return result;
@@ -272,7 +310,11 @@ async function getProfileData(userNpub: string): Promise<{
 async function getUserPreferences(): Promise<{
     skills: string[];
     categories: string[];
-    budgetRange?: { min: number; max: number };
+    budget?: {
+        tier?: string;
+        currency?: string;
+        type?: string;
+    };
     locations?: string[];
 }> {
     if (!browser) {
@@ -291,14 +333,13 @@ async function getUserPreferences(): Promise<{
         };
 
         const preferences = await profilePool.querySync([PUBLIC_NOSTR_RELAY_URL], preferencesFilter);
-
         if (preferences && preferences.length > 0 && preferences[0].content) {
             try {
                 const prefs = JSON.parse(preferences[0].content);
                 return {
                     skills: Array.isArray(prefs.skills) ? prefs.skills : [],
                     categories: Array.isArray(prefs.categories) ? prefs.categories : [],
-                    budgetRange: prefs.budgetRange && typeof prefs.budgetRange === 'object' ? prefs.budgetRange : undefined,
+                    budget: prefs.budget && typeof prefs.budget === 'object' ? prefs.budget : undefined,
                     locations: Array.isArray(prefs.locations) ? prefs.locations : undefined
                 };
             } catch (e) {
@@ -346,7 +387,7 @@ export async function getRecommendedTasks(limit: number = 10): Promise<TaskRecom
         const recommendations = await getRecommendations({
             skills: userPrefs.skills,
             categories: userPrefs.categories,
-            preferredBudgetRange: userPrefs.budgetRange,
+            preferredBudget: userPrefs.budget,
             preferredLocations: userPrefs.locations,
             limit
         });
@@ -356,7 +397,7 @@ export async function getRecommendedTasks(limit: number = 10): Promise<TaskRecom
         const cacheKey = `recommendations_${JSON.stringify({
             skills: userPrefs.skills,
             categories: userPrefs.categories,
-            preferredBudgetRange: userPrefs.budgetRange,
+            preferredBudget: userPrefs.budget,
             preferredLocations: userPrefs.locations,
             limit
         })}`;
@@ -377,7 +418,11 @@ export async function getRecommendedTasks(limit: number = 10): Promise<TaskRecom
 export async function saveUserPreferences(preferences: {
     skills: string[];
     categories: string[];
-    budgetRange?: { min: number; max: number };
+    budget?: {
+        tier?: string;
+        currency?: string;
+        type?: string;
+    };
     locations?: string[];
 }): Promise<void> {
     try {
@@ -386,7 +431,7 @@ export async function saveUserPreferences(preferences: {
             content: JSON.stringify({
                 skills: preferences.skills || [],
                 categories: preferences.categories || [],
-                budgetRange: preferences.budgetRange,
+                budget: preferences.budget,
                 locations: preferences.locations || [],
                 updatedAt: Date.now()
             }),
@@ -404,8 +449,6 @@ export async function saveUserPreferences(preferences: {
         // Clear cache to force refresh of recommendations
         const cacheKeys = Array.from(cache.keys()).filter(key => key.startsWith('recommendations_'));
         cacheKeys.forEach(key => cache.delete(key));
-
-        console.log('User preferences saved successfully');
     } catch (error) {
         console.error('Error saving user preferences:', error);
         throw error;
@@ -418,7 +461,11 @@ export async function saveUserPreferences(preferences: {
 export async function updateUserPreferences(updates: Partial<{
     skills: string[];
     categories: string[];
-    budgetRange: { min: number; max: number };
+    budget: {
+        tier?: string;
+        currency?: string;
+        type?: string;
+    };
     locations: string[];
 }>): Promise<void> {
     try {
@@ -427,7 +474,7 @@ export async function updateUserPreferences(updates: Partial<{
         const updatedPrefs = {
             skills: updates.skills ?? currentPrefs.skills,
             categories: updates.categories ?? currentPrefs.categories,
-            budgetRange: updates.budgetRange ?? currentPrefs.budgetRange,
+            budget: updates.budget ?? currentPrefs.budget,
             locations: updates.locations ?? currentPrefs.locations
         };
 
@@ -453,23 +500,23 @@ export async function updatePreferencesFromFeedback(
             // Positive feedback: Add matched skills/categories to preferences if not already there
             const updatedSkills = [...new Set([...currentPrefs.skills, ...matchedSkills])];
             const updatedCategories = [...new Set([...currentPrefs.categories, ...matchedCategories])];
-            
+
             await updateUserPreferences({
                 skills: updatedSkills,
                 categories: updatedCategories
             });
-            
+
             console.log('Added to preferences:', { skills: matchedSkills, categories: matchedCategories });
         } else {
             // Negative feedback: Remove matched skills/categories from preferences
             const updatedSkills = currentPrefs.skills.filter(skill => !matchedSkills.includes(skill));
             const updatedCategories = currentPrefs.categories.filter(category => !matchedCategories.includes(category));
-            
+
             await updateUserPreferences({
                 skills: updatedSkills,
                 categories: updatedCategories
             });
-            
+
             console.log('Removed from preferences:', { skills: matchedSkills, categories: matchedCategories });
         }
     } catch (error) {

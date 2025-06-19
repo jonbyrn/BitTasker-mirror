@@ -187,9 +187,10 @@ export interface TaskRecommendation {
 export interface RecommendationParams {
 	skills?: string[];
 	categories?: string[];
-	preferredBudgetRange?: {
-		min: number;
-		max: number;
+	preferredBudget?: {
+		tier?: string;
+		currency?: string;
+		type?: string;
 	};
 	preferredLocations?: string[];
 	limit?: number;

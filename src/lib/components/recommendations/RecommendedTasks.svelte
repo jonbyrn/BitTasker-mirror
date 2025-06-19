@@ -33,7 +33,6 @@
 			error = null;
 
 			recommendations = await getRecommendedTasks(limit);
-			console.log('recommendations', recommendations);
 		} catch (err) {
 			error = 'Failed to load recommendations. Please try again.';
 			console.error('Error loading recommendations:', err);
@@ -183,13 +182,13 @@
 						</div>
 					</div>
 
-					{#if item.matchedSkills && item.matchedSkills.length > 0}
+					{#if item.task.skills && item.task.skills.length > 0}
 						<div class="mt-1 flex flex-wrap gap-1">
-							{#each item.matchedSkills.slice(0, 3) as skill}
+							{#each item.task.skills.slice(0, 3) as skill}
 								<span class="badge badge-sm badge-primary">{skill}</span>
 							{/each}
-							{#if item.matchedSkills.length > 3}
-								<span class="badge badge-sm badge-ghost">+{item.matchedSkills.length - 3}</span>
+							{#if item.task.skills.length > 3}
+								<span class="badge badge-sm badge-ghost">+{item.task.skills.length - 3}</span>
 							{/if}
 						</div>
 					{/if}
