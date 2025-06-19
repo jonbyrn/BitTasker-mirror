@@ -57,8 +57,7 @@
 			const taskData = JSON.parse(event.content) as Task;
 			task = {
 				...taskData,
-				id: event.id,
-				createdAt: new Date(event.created_at * 1000).toISOString()
+				id: event.id
 			};
 
 			if (task) {
@@ -124,32 +123,32 @@
 	class:translate-x-full={!props.isOpen}
 	class:overflow-hidden={showCounterOfferForm}
 >
-	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 border-b p-4">
-		<div class="flex items-center justify-between">
-			<h2 class="text-xl font-bold">
-				{loading ? 'Loading...' : task ? task.title : 'Task Details'}
-			</h2>
-			<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M6 18L18 6M6 6l12 12"
-					/>
-				</svg>
-			</button>
-		</div>
-	</div>
-
 	<div class="relative">
+		<!-- Header -->
+		<div class="bg-base-200 sticky top-0 z-10 border-b p-4">
+			<div class="flex items-center justify-between">
+				<h2 class="text-xl font-bold">
+					{loading ? 'Loading...' : task ? task.title : 'Task Details'}
+				</h2>
+				<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+				</button>
+			</div>
+		</div>
+
 		<!-- Loading state -->
 		{#if loading}
 			<div class="flex h-[calc(100vh-4rem)] items-center justify-center p-4">
