@@ -5,6 +5,7 @@
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
 
+	// TODO: Check usability of onLocationSelect prop
 	let { nextStep, prevStep, onLocationSelect = (location: Location) => {} } = $props();
 
 	// State

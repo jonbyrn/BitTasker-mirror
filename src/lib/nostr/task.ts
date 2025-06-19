@@ -12,14 +12,10 @@ import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import KINDS from '$lib/utils/constants/kinds';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
-
-export const TASK_KINDS = {
-    TASK_CREATION: 31000,
-    RECURRING_TASK: 31006
-};
 
 /**
  * Generate tags for a task event
@@ -102,7 +98,7 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
     // Create event
     const event = {
-        kind: TASK_KINDS.TASK_CREATION,
+        kind: KINDS.TASK_CREATION,
         created_at: Math.floor(preciseTimestamp), // Use precise timestamp
         content: JSON.stringify(taskDataWithMeta),
         tags: await generateTaskTags(taskData, pow, uniqueId)
@@ -134,7 +130,7 @@ export async function createRecurringTask(taskData: TaskBody, schedule: {
     const pow = await calculatePOW(taskData.budget.amount, uniqueId);
 
     const event = {
-        kind: TASK_KINDS.RECURRING_TASK,
+        kind: KINDS.RECURRING_TASK,
         created_at: Math.floor(Date.now() / 1000),
         content: JSON.stringify({
             template: taskData,
@@ -186,7 +182,7 @@ export async function updateTask(taskId: string, updates: Partial<TaskBody>): Pr
         const pow = await calculatePOW(updatedTaskData.budget?.amount || 0, uniqueId);
         // Create update event using the same kind as creation for proper replacement
         const event = {
-            kind: TASK_KINDS.TASK_CREATION, // Use same kind as creation
+            kind: KINDS.TASK_CREATION, // Use same kind as creation
             // created_at: Math.floor(originalTask.created_at + 0.000001), // Add a microsecond to original timestamp for update
             content: JSON.stringify(updatedTaskData),
             tags: await generateTaskTags(updatedTaskData, pow, uniqueId)
@@ -257,7 +253,7 @@ export function subscribeToTasks(
     relays = [PUBLIC_NOSTR_RELAY_URL]
 ): () => void {
     const sub = pool.subscribe(relays, {
-        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION, TASK_KINDS.RECURRING_TASK],
+        kinds: filter.kinds || [KINDS.TASK_CREATION, KINDS.RECURRING_TASK],
         authors: filter.authors,
         ...filter
     }, {
@@ -267,6 +263,7 @@ export function subscribeToTasks(
     return () => sub.close();
 }
 
+// TODO: This is not used anywhere, to be removed
 /**
  * Query tasks
  */
@@ -277,7 +274,7 @@ export async function queryTasks(
 ): Promise<NostrEvent[]> {
     const query = await pool.querySync(relays, {
         ...filter,
-        kinds: filter.kinds || [TASK_KINDS.TASK_CREATION], // Only look for creation events
+        kinds: filter.kinds || [KINDS.TASK_CREATION], // Only look for creation events
         authors: filter.authors
     });
 
@@ -298,7 +295,7 @@ export async function queryTasks(
 export async function getTaskById(taskId: string, author?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
     try {
         const filter: Filter = {
-            kinds: [TASK_KINDS.TASK_CREATION], // Only look for creation events
+            kinds: [KINDS.TASK_CREATION], // Only look for creation events
             ids: [taskId]
         };
 

@@ -177,6 +177,7 @@ export interface SavedSearch {
 
 export interface TaskRecommendation {
 	taskId: string;
+	task: Task;
 	score: number;
 	reason: string;
 	matchedSkills?: string[];

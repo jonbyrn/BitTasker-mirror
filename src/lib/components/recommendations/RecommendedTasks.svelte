@@ -4,102 +4,90 @@
   with explanations of why they're recommended
 -->
 <script lang="ts">
-	import type { TaskData } from '$lib/types/task.d';
-	import recommendationsService from '$lib/api/services/recommendations.service';
-	import RecommendationReason from '$lib/components/recommendations/RecommendationReason.svelte';
+	import type { Task, TaskRecommendation } from '$lib/types/task.d';
+	import { user } from '$lib/stores/user.store';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
 
-	// Props
-	let { limit, onTaskClick } = $props<{ limit: number; onTaskClick: (taskId: string) => void }>();
+	let { onSelectTask } = $props<{
+		onSelectTask: (task: Task) => void;
+	}>();
 
 	// State
-	let recommendations = $state<
-		Array<{
-			task: TaskData;
-			reason: {
-				type:
-					| 'skill_match'
-					| 'category_preference'
-					| 'location_based'
-					| 'budget_range'
-					| 'client_history';
-				score: number;
-				description: string;
-			};
-		}>
-	>([]);
-
-	let isLoading = $state(false);
+	let limit = 10;
+	let recommendations = $state<TaskRecommendation[]>([]);
+	let loaders = $state({
+		data: false,
+		feedbackPositive: false,
+		feedbackNegative: false
+	});
 	let error = $state<string | null>(null);
 
 	// Load recommendations on component mount
 	loadRecommendations();
 
-	// Function to load recommendations
+	// Function to load recommendations using Nostr=
 	async function loadRecommendations() {
 		try {
-			isLoading = true;
+			loaders.data = true;
 			error = null;
 
-			const response = await recommendationsService.getRecommendations(limit);
-			recommendations = response.recommendations;
+			recommendations = await getRecommendedTasks(limit);
+			console.log('recommendations', recommendations);
 		} catch (err) {
 			error = 'Failed to load recommendations. Please try again.';
 			console.error('Error loading recommendations:', err);
 		} finally {
-			isLoading = false;
+			loaders.data = false;
 		}
 	}
 
-	// Refresh recommendations
+	// Refresh recommendations - same as load since Nostr system handles caching
 	async function refreshRecommendations() {
+		await loadRecommendations();
+	}
+
+	// Enhanced feedback tracking that updates user preferences
+	async function provideRecommendationFeedback(index: number, isRelevant: boolean) {
+		if (index === -1) return;
+
+		const recommendation = recommendations[index];
+
 		try {
-			isLoading = true;
-			error = null;
+			loaders.feedbackPositive = isRelevant;
+			// Update user preferences based on feedback
+			await updatePreferencesFromFeedback(
+				isRelevant,
+				recommendation.matchedSkills || [],
+				recommendation.matchedCategories || []
+			);
 
-			const response = await recommendationsService.generateFreshRecommendations();
-			recommendations = response.recommendations;
-		} catch (err) {
-			error = 'Failed to refresh recommendations. Please try again.';
-			console.error('Error refreshing recommendations:', err);
+			// Update the reason text to show feedback was recorded
+			recommendations[index] = {
+				...recommendations[index],
+				reason: isRelevant
+					? "Thanks for your feedback! We'll show you more tasks like this."
+					: "We'll show you fewer tasks like this."
+			};
+		} catch (error) {
+			console.error('Error updating preferences from feedback:', error);
+
+			// Fallback to visual feedback only if preference update fails
+			recommendations[index] = {
+				...recommendations[index],
+				reason: isRelevant ? 'Thanks for your feedback!' : "We'll show you fewer tasks like this."
+			};
 		} finally {
-			isLoading = false;
+			loaders.feedbackPositive = false;
 		}
-	}
-
-	// Handle task click
-	function handleTaskClick(taskId: string) {
-		// Record the interaction for improved recommendations
-		recommendationsService
-			.markRecommendationViewed(taskId, 'clicked')
-			.catch((err) => console.error('Error recording recommendation view:', err));
-
-		// Call the parent handler
-		onTaskClick(taskId);
-	}
-
-	// Provide feedback on recommendation
-	function provideRecommendationFeedback(taskId: string, isRelevant: boolean) {
-		recommendationsService
-			.provideFeedback(taskId, isRelevant)
-			.then(() => {
-				// Visual feedback to user that their input was recorded
-				const task = recommendations.find((rec) => rec.task.id.toString() === taskId);
-				if (task) {
-					// Update the UI to show feedback was recorded
-					task.reason.description = isRelevant
-						? 'Thanks for your positive feedback!'
-						: "We'll show you fewer tasks like this.";
-				}
-			})
-			.catch((err) => console.error('Error providing recommendation feedback:', err));
 	}
 </script>
 
 <section class="bg-base-200 mb-8">
 	<div class="mb-4 flex items-center justify-between">
 		<h2 class="text-xl font-bold">Recommended For You</h2>
-		<button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={isLoading}>
-			{#if isLoading}
+		<button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
+			{#if loaders.data}
 				<div class="loading loading-spinner loading-xs"></div>
 			{:else}
 				<svg
@@ -140,7 +128,7 @@
 			<span>{error}</span>
 			<button class="btn btn-sm" onclick={loadRecommendations}>Try Again</button>
 		</div>
-	{:else if isLoading}
+	{:else if loaders.data}
 		<div class="flex justify-center p-10">
 			<div class="loading loading-spinner loading-lg"></div>
 		</div>
@@ -171,101 +159,148 @@
 		</div>
 	{:else}
 		<!-- Recommendations carousel -->
-		<div class="carousel carousel-center rounded-box max-w-full space-x-4 p-2">
-			{#each recommendations as recommendation}
-				<div class="carousel-item w-full p-2 md:w-96">
-					<div
-						role="button"
-						tabindex="0"
-						onkeydown={(e) => {
-							e.preventDefault();
-							handleTaskClick(recommendation.task.id.toString());
-						}}
-						class="card bg-base-100 transform cursor-pointer shadow-md transition hover:scale-[1.02]"
-						onclick={() => handleTaskClick(recommendation.task.id.toString())}
-					>
-						<!-- Task info -->
-						<div class="card-body">
-							<div class="flex items-start justify-between">
-								<h3 class="card-title text-lg">{recommendation.task.title}</h3>
-								{#if recommendation.task.isBoosted}
-									<div class="badge badge-secondary">Featured</div>
-								{/if}
-							</div>
+		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md">
+			{#each recommendations as item, index}
+				<!-- Task info -->
+				<div class="card-body">
+					<div class="flex items-start justify-between">
+						<h3 class="card-title text-lg">{item.task.title}</h3>
+						{#if item.task.isBoosted}
+							<div class="badge badge-secondary">Featured</div>
+						{/if}
+					</div>
 
-							<p class="line-clamp-2 text-sm">{recommendation.task.description}</p>
+					<p class="line-clamp-2 text-sm">{item.task.description}</p>
 
-							<div class="mt-2 flex items-center justify-between">
-								<div class="badge badge-outline">
-									{recommendation.task.taskType === 'remote' ? 'Remote' : 'In Person'}
-								</div>
+					<div class="mt-2 flex items-center justify-between">
+						<div class="badge badge-outline">
+							{item.task.taskType === 'remote' ? 'Remote' : 'In Person'}
+						</div>
 
-								<div class="font-semibold">
-									{recommendation.task.budget.amount}
-									{recommendation.task.budget.currency}
-								</div>
-							</div>
+						<div class="font-semibold">
+							{item.task.budget?.amount || 'TBD'}
+							{item.task.budget?.currency || ''}
+						</div>
+					</div>
 
-							<!-- Recommendation reason -->
-							<div class="mt-3 border-t pt-2">
-								<RecommendationReason
-									type={recommendation.reason.type}
-									description={recommendation.reason.description}
+					{#if item.matchedSkills && item.matchedSkills.length > 0}
+						<div class="mt-1 flex flex-wrap gap-1">
+							{#each item.matchedSkills.slice(0, 3) as skill}
+								<span class="badge badge-sm badge-primary">{skill}</span>
+							{/each}
+							{#if item.matchedSkills.length > 3}
+								<span class="badge badge-sm badge-ghost">+{item.matchedSkills.length - 3}</span>
+							{/if}
+						</div>
+					{/if}
+
+					<!-- Recommendation reason -->
+					<div class="mt-3 border-t pt-2">
+						<div class="flex items-center gap-1 text-xs">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-3 w-3"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 10V3L4 14h7v7l9-11h-7z"
 								/>
+							</svg>
+							{item.reason}
+						</div>
 
-								<!-- Feedback buttons -->
-								<div class="mt-2 flex justify-end gap-2">
-									<button
-										class="btn btn-xs btn-ghost"
-										onclick={(e) => {
-											e.stopPropagation();
-											provideRecommendationFeedback(recommendation.task.id.toString(), false);
-										}}
+						<!-- Feedback buttons -->
+						<div class="mt-2 flex items-center justify-end gap-2">
+							<button
+								class="btn btn-xs btn-neutral"
+								onclick={(e) => {
+									e.stopPropagation();
+									provideRecommendationFeedback(index, false);
+								}}
+							>
+								{#if loaders.feedbackNegative}
+									<div class="loading loading-spinner loading-xs"></div>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M6 18L18 6M6 6l12 12"
-											/>
-										</svg>
-										Not for me
-									</button>
-									<button
-										class="btn btn-xs btn-ghost"
-										onclick={(e) => {
-											e.stopPropagation();
-											provideRecommendationFeedback(recommendation.task.id.toString(), true);
-										}}
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+								{/if}
+								Not for me
+							</button>
+							<button
+								class="btn btn-xs btn-neutral"
+								onclick={(e) => {
+									e.stopPropagation();
+									provideRecommendationFeedback(index, true);
+								}}
+							>
+								{#if loaders.feedbackPositive}
+									<div class="loading loading-spinner loading-xs"></div>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
 									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-4 w-4"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017a2 2 0 01-1.386-.54l-2.892-2.893a2 2 0 012.77-2.883L12 17l6-6z"
-											/>
-										</svg>
-										Relevant
-									</button>
-								</div>
-							</div>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017a2 2 0 01-1.386-.54l-2.892-2.893a2 2 0 012.77-2.883L12 17l6-6z"
+										/>
+									</svg>
+								{/if}
+								Relevant
+							</button>
+
+							<button
+								class="btn btn-primary btn-xs self-end"
+								class:btn-disabled={item.task.status !== TaskStatusEnum.OPEN ||
+									item.task?.npub === $user?.npub}
+								onclick={() => onSelectTask(item.task)}
+								aria-label="Bid on this task"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 4v16m8-8H4"
+									/>
+								</svg>
+								{item.task.status === TaskStatusEnum.OPEN ? 'Bid Now' : 'Bidding closed'}
+							</button>
 						</div>
 					</div>
 				</div>
+
+				{#if index < recommendations.length - 1}
+					<div class="divider mx-auto w-[90%]"></div>
+				{/if}
 			{/each}
 		</div>
 

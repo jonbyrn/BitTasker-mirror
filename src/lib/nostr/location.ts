@@ -6,9 +6,7 @@ import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { profileStore } from '$lib/stores/profile.store';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import nip44 from '$lib/nostr/nip44';
-
-// Kind 30005 for replaceable location events
-const LOCATION_EVENT_KIND = 30005;
+import KINDS from '$lib/utils/constants/kinds';
 
 /**
  * Publish encrypted location data to Nostr
@@ -37,7 +35,7 @@ export async function publishLocation(
 
         // Create event
         const event = {
-            kind: LOCATION_EVENT_KIND,
+            kind: KINDS.PROFILE_LOCATION,
             created_at: Math.floor(Date.now() / 1000),
             tags: [
                 ['d', 'location'], // Identifier for this replaceable event
@@ -49,7 +47,7 @@ export async function publishLocation(
 
         // Sign and publish event
         const signedEvent = await getSignedEvent(event);
-        await Promise.all(profileStore.pool.publish(relays, signedEvent));
+        profileStore.pool.publish(relays, signedEvent);
 
         return signedEvent;
     } catch (error) {
@@ -82,7 +80,7 @@ export async function subscribeToLocation(
             relays,
             {
                 authors: [npub],
-                kinds: [LOCATION_EVENT_KIND],
+                kinds: [KINDS.PROFILE_LOCATION],
                 '#d': ['location']
             } as Filter,
             {
@@ -130,7 +128,7 @@ export async function getLatestLocation(
             relays,
             {
                 authors: [npub],
-                kinds: [LOCATION_EVENT_KIND],
+                kinds: [KINDS.PROFILE_LOCATION],
                 '#d': ['location'],
                 limit: 1
             } as Filter

@@ -1,22 +1,23 @@
 <script lang="ts">
-	import type { SearchTasksParams, TaskData } from '$lib/types/task.d';
+	import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { formatDistanceToNow } from 'date-fns';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { user } from '$lib/stores/user.store';
+	import { appStore } from '$lib/stores/app.store';
+	import { tasksStore } from '$lib/stores/task.store';
+	import { findTasks, cleanup } from '$lib/nostr/findTasks';
 	import {
 		TaskStatusEnum,
 		TaskTypeEnum,
 		SortByEnum,
 		SortOrderEnum
 	} from '$lib/utils/enums/task.enum';
-	import { user } from '$lib/stores/user.store';
-	import { findTasks, getRecommendedTasks, cleanup } from '$lib/nostr/findTasks';
-	import { tasksStore } from '$lib/stores/task.store';
-	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
-	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
 	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
+	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
+	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 
 	// Function to create initial search parameters
@@ -49,12 +50,10 @@
 	let maxBudget = $state('');
 
 	// Recommendations state
-	let recommendedTasks = $state<TaskData[]>([]);
 	let showAllRecommendations = $state(false);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
-	let showRecommendations = $state(true);
 	let showSavedSearches = $state(true);
 	let showHistorySuggestions = $state(true);
 
@@ -65,19 +64,13 @@
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(null);
 	let isSidebarOpen = $state(false);
-	let bidErrorMessage = $state<string | null>(null);
 
 	// Loading states
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
-	let recommendationsLoaded = $state(false);
-	let loadingRecommendations = $state(false);
 
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(63000); // Default fallback price
-
-	// Cleanup function for subscriptions
-	let unsubFromNewTasks: (() => void) | null = null;
 
 	/**
 	 * Fetch current BTC price
@@ -100,22 +93,6 @@
 			maximumFractionDigits: 2,
 			minimumFractionDigits: 2
 		});
-	}
-
-	// Load recommendations
-	async function loadRecommendations() {
-		if (recommendationsLoaded || !browser) return;
-
-		try {
-			loadingRecommendations = true;
-			const recommendations = await getRecommendedTasks(10);
-			console.log('recommendations', recommendations);
-			recommendationsLoaded = true;
-		} catch (err) {
-			console.error('Error loading recommendations:', err);
-		} finally {
-			loadingRecommendations = false;
-		}
 	}
 
 	// Debounce function
@@ -192,11 +169,6 @@
 			console.error('[FindTasks] Error formatting date:', error);
 			return 'Invalid date';
 		}
-	}
-
-	// Navigate to task details
-	function goToTaskDetails(taskId: string) {
-		window.location.href = `/tasks/${taskId}`;
 	}
 
 	// Handle save search success
@@ -304,9 +276,6 @@
 			// Load initial tasks
 			findTasks(searchParams);
 
-			// Load recommendations
-			// loadRecommendations();
-
 			// Setup infinite scroll - waiting for DOM to be ready
 			setTimeout(() => {
 				setupInfiniteScroll();
@@ -346,6 +315,17 @@
 			if (timer) clearTimeout(timer);
 		};
 	});
+
+	const onSelectTask = (task: Task) => {
+		if (task.status === TaskStatusEnum.OPEN) {
+			if (task?.npub === $user?.npub) {
+				appStore.showErrorToast('You cannot bid on your own task');
+			} else {
+				selectedTaskId = task.id.toString();
+				isSidebarOpen = true;
+			}
+		}
+	};
 </script>
 
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
@@ -455,36 +435,7 @@
 		</div>
 	{/if}
 
-	<!-- Personalized Recommendations Section -->
-	{#if showRecommendations}
-		{#if loadingRecommendations}
-			<div class="mb-8">
-				<div class="mb-4 flex items-center justify-between">
-					<div class="bg-base-300 h-7 w-64 animate-pulse rounded"></div>
-					<div class="bg-base-300 h-6 w-24 animate-pulse rounded"></div>
-				</div>
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-					{#each Array(3) as _}
-						<div class="card bg-base-100 h-64 animate-pulse shadow-md">
-							<div class="card-body p-4">
-								<div class="bg-base-300 mb-2 h-6 w-3/4 rounded"></div>
-								<div class="bg-base-300 mb-4 h-4 w-1/2 rounded"></div>
-								<div class="bg-base-300 mb-2 h-4 w-full rounded"></div>
-								<div class="bg-base-300 mb-2 h-4 w-full rounded"></div>
-								<div class="bg-base-300 mb-6 h-4 w-2/3 rounded"></div>
-								<div class="mt-auto flex justify-between">
-									<div class="bg-base-300 h-5 w-20 rounded"></div>
-									<div class="bg-base-300 h-8 w-24 rounded"></div>
-								</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{:else}
-			<RecommendedTasks limit={3} onTaskClick={goToTaskDetails} />
-		{/if}
-	{/if}
+	<RecommendedTasks {onSelectTask} />
 
 	<!-- Task List -->
 	{#if (isInitialLoad || ($tasksStore.loading && searchParams.page === 1)) && !loadingTimeout}
@@ -526,7 +477,7 @@
 		</div>
 	{:else if loadingTimeout}
 		<!-- Loading Timeout Warning -->
-		<div class="alert alert-warning mb-4">
+		<div class="alert alert-warning mb-4 rounded-xl text-black">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -547,6 +498,8 @@
 			<button class="btn btn-sm" onclick={() => window.location.reload()}> Refresh </button>
 		</div>
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
+		<h2 class="mb-4 text-xl font-bold">Other Tasks</h2>
+
 		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 			{#each $tasksStore.items as task, index}
 				<div class="card-body">
@@ -620,23 +573,8 @@
 
 						<button
 							class="btn btn-primary btn-sm"
-							class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
-							onclick={() => {
-								if (task.status === TaskStatusEnum.OPEN) {
-									if (task?.npub === $user?.npub) {
-										// Set the error message
-										bidErrorMessage = 'You cannot bid on your own task';
-
-										// Auto-hide toast after 3 seconds
-										setTimeout(() => {
-											bidErrorMessage = null;
-										}, 2000);
-									} else {
-										selectedTaskId = task.id.toString();
-										isSidebarOpen = true;
-									}
-								}
-							}}
+							class:btn-disabled={task.status !== TaskStatusEnum.OPEN || task?.npub === $user?.npub}
+							onclick={() => onSelectTask(task)}
 							aria-label="Bid on this task"
 						>
 							<svg
@@ -712,12 +650,3 @@
 	onClose={() => (isSidebarOpen = false)}
 	isOpen={isSidebarOpen}
 />
-
-<!-- Toast Notification for Errors -->
-{#if bidErrorMessage}
-	<div class="toast toast-top toast-end z-50">
-		<div class="alert alert-error">
-			<span>{bidErrorMessage}</span>
-		</div>
-	</div>
-{/if}

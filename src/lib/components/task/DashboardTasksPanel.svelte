@@ -2,14 +2,14 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from '$lib/stores/i18n.store';
 	import { onMount } from 'svelte';
-	import { TASK_KINDS } from '$lib/nostr/task';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { myTasksStore } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
-
+	import KINDS from '$lib/utils/constants/kinds';
+	
 	// Props
 	const { openTaskDrawer } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
@@ -115,7 +115,7 @@
 			}
 
 			const { data: events } = await nostrEventsService.findEvents({
-				kinds: [TASK_KINDS.TASK_CREATION],
+				kinds: [KINDS.TASK_CREATION],
 				authors: [npub]
 			});
 

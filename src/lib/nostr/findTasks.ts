@@ -1,32 +1,23 @@
-import type { SearchTasksParams, Task, SavedSearch, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
-import { type Event, type Filter } from 'nostr-tools';
+import type { SearchTasksParams, Task, SavedSearch } from '$lib/types/task.d';
+import { type Event, type Filter, SimplePool } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-import { TASK_KINDS } from './task';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { tasksStore } from '$lib/stores/task.store';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
+import KINDS from '$lib/utils/constants/kinds';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// NIP-51 List Kinds
-const LIST_KINDS = {
-    SAVED_SEARCHES: 30001, // NIP-51 List for saved searches
-    RECOMMENDATIONS: 30002, // NIP-51 List for recommendations
-};
-
-// NIP-33 Parameterized Replaceable Event Kinds
-const REPLACEABLE_KINDS = {
-    SAVED_SEARCH: 31001, // NIP-33 Parameterized replaceable event for saved searches
-    USER_PREFERENCES: 31002, // NIP-33 Parameterized replaceable event for user preferences
-};
-
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
+
+// Pool for profile data queries (general Nostr network)
+const profilePool = new SimplePool();
 
 /**
  * Convert Nostr filter to API query parameters
@@ -81,7 +72,7 @@ function hasAllCategories(event: Event, requiredCategories: string[]): boolean {
  */
 function createTaskFilter(params: SearchTasksParams): Filter {
     const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
-        kinds: [TASK_KINDS.TASK_CREATION],
+        kinds: [KINDS.TASK_CREATION],
         limit: params.limit || BATCH_SIZE,
         until: params.until || undefined
     };
@@ -166,7 +157,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         tasksStore.update(state => ({ ...state, loading: true, error: null }));
 
         const filter = createTaskFilter(params);
-        
+
         const cacheKey = JSON.stringify(filter);
         const cached = cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -241,7 +232,7 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
 
         // Create the saved search as a parameterized replaceable event (NIP-33)
         const savedSearchEvent = await getSignedEvent({
-            kind: REPLACEABLE_KINDS.SAVED_SEARCH,
+            kind: KINDS.SAVED_SEARCH,
             created_at: Math.floor(Date.now() / 1000),
             content: JSON.stringify(params),
             tags: [
@@ -254,7 +245,7 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
 
         // Add the saved search to the user's list (NIP-51)
         const listEvent = await getSignedEvent({
-            kind: LIST_KINDS.SAVED_SEARCHES,
+            kind: KINDS.SAVED_SEARCHES,
             created_at: Math.floor(Date.now() / 1000),
             content: '',
             tags: [
@@ -291,7 +282,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
     try {
         // Get the user's saved searches list
         const filter: Filter = {
-            kinds: [LIST_KINDS.SAVED_SEARCHES],
+            kinds: [KINDS.SAVED_SEARCHES],
             authors: [await getNpub()],
             '#d': ['saved-searches']
         };
@@ -315,7 +306,7 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
             .map(tag => tag[1]);
 
         const savedSearchFilter: Filter = {
-            kinds: [REPLACEABLE_KINDS.SAVED_SEARCH],
+            kinds: [KINDS.SAVED_SEARCH],
             ids: searchIds
         };
 
@@ -348,7 +339,7 @@ export async function updateSavedSearch(
     try {
         // Get the existing saved search
         const existingFilter = {
-            kinds: [REPLACEABLE_KINDS.SAVED_SEARCH],
+            kinds: [KINDS.SAVED_SEARCH],
             '#d': [searchId]
         };
         const existingApiParams = convertFilterToApiParams(existingFilter);
@@ -366,7 +357,7 @@ export async function updateSavedSearch(
 
         // Create updated event
         const updatedEvent = await getSignedEvent({
-            kind: REPLACEABLE_KINDS.SAVED_SEARCH,
+            kind: KINDS.SAVED_SEARCH,
             created_at: Math.floor(Date.now() / 1000),
             content: JSON.stringify({ ...existingParams, ...updates.params }),
             tags: [
@@ -382,7 +373,7 @@ export async function updateSavedSearch(
 
         // If name changed, update the list event
         const listFilter = {
-            kinds: [LIST_KINDS.SAVED_SEARCHES],
+            kinds: [KINDS.SAVED_SEARCHES],
             authors: [await getNpub()],
             '#d': ['saved-searches']
         };
@@ -399,7 +390,7 @@ export async function updateSavedSearch(
                 .filter((tag): tag is string[] => tag.every(item => item !== undefined));
 
             const updatedList = await getSignedEvent({
-                kind: LIST_KINDS.SAVED_SEARCHES,
+                kind: KINDS.SAVED_SEARCHES,
                 created_at: Math.floor(Date.now() / 1000),
                 content: '',
                 tags: updatedTags
@@ -440,7 +431,7 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
 
         // Update the saved searches list to remove the deleted search
         const listFilter = {
-            kinds: [LIST_KINDS.SAVED_SEARCHES],
+            kinds: [KINDS.SAVED_SEARCHES],
             authors: [await getNpub()],
             '#d': ['saved-searches']
         };
@@ -455,7 +446,7 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
             );
 
             const updatedList = await getSignedEvent({
-                kind: LIST_KINDS.SAVED_SEARCHES,
+                kind: KINDS.SAVED_SEARCHES,
                 created_at: Math.floor(Date.now() / 1000),
                 content: '',
                 tags: updatedTags
@@ -473,282 +464,14 @@ export async function deleteSavedSearch(searchId: string): Promise<void> {
 }
 
 /**
- * Get task recommendations based on user preferences
- */
-export async function getRecommendations(params: RecommendationParams): Promise<TaskRecommendation[]> {
-    try {
-        // Create user preferences as a parameterized replaceable event if not exists
-        const preferencesEvent = await getSignedEvent({
-            kind: REPLACEABLE_KINDS.USER_PREFERENCES,
-            created_at: Math.floor(Date.now() / 1000),
-            content: JSON.stringify({
-                skills: params.skills,
-                categories: params.categories,
-                budgetRange: params.preferredBudgetRange,
-                locations: params.preferredLocations
-            }),
-            tags: [
-                ['d', 'user-preferences'],
-            ]
-        });
-
-        await nostrEventsService.publishEvent(preferencesEvent);
-
-        // Create recommendations list
-        const recommendationsEvent = await getSignedEvent({
-            kind: LIST_KINDS.RECOMMENDATIONS,
-            created_at: Math.floor(Date.now() / 1000),
-            content: '',
-            tags: [
-                ['d', 'recommendations'],
-                ...params.skills?.map(skill => ['k', skill]) || [],
-                ...params.categories?.map(category => ['c', category]) || []
-            ]
-        });
-
-        await nostrEventsService.publishEvent(recommendationsEvent);
-
-        // Fetch matching tasks
-        const filter: Filter = {
-            kinds: [TASK_KINDS.TASK_CREATION],
-            limit: params.limit || 10
-        };
-
-        // Add skill and category filters
-        const tags: string[][] = [];
-        if (params.skills?.length) {
-            params.skills.forEach(skill => tags.push(['k', skill]));
-        }
-        if (params.categories?.length) {
-            params.categories.forEach(category => tags.push(['c', category]));
-        }
-        if (tags.length) {
-            filter['#t'] = tags.map(t => t.join(':'));
-        }
-
-        // Add budget range filter
-        if (params.preferredBudgetRange) {
-            if (params.preferredBudgetRange.min) {
-                filter['#min'] = [params.preferredBudgetRange.min.toString()];
-            }
-            if (params.preferredBudgetRange.max) {
-                filter['#max'] = [params.preferredBudgetRange.max.toString()];
-            }
-        }
-
-        // Add location filter
-        if (params.preferredLocations?.length) {
-            filter['#l'] = params.preferredLocations;
-        }
-
-        const apiParams = convertFilterToApiParams(filter);
-        const response = await nostrEventsService.findEvents(apiParams);
-        const events = response.data || [];
-
-        // Calculate recommendations with scores
-        return events.map(event => {
-            const task = convertEventToTask(event);
-            const matchedSkills = task.skills.filter(skill =>
-                params.skills?.includes(skill)
-            );
-            const matchedCategories = task.categories.filter(category =>
-                params.categories?.includes(category)
-            );
-
-            // Calculate score based on matches
-            const score = calculateRecommendationScore(task, {
-                matchedSkills,
-                matchedCategories,
-                budgetRange: params.preferredBudgetRange,
-                locations: params.preferredLocations
-            });
-
-            return {
-                taskId: task.id,
-                score,
-                reason: generateRecommendationReason(matchedSkills, matchedCategories),
-                matchedSkills,
-                matchedCategories
-            };
-        }).sort((a, b) => b.score - a.score);
-    } catch (error) {
-        console.error('Error getting recommendations:', error);
-        throw error;
-    }
-}
-
-/**
- * Calculate recommendation score based on matches
- */
-function calculateRecommendationScore(
-    task: Task,
-    matches: {
-        matchedSkills: string[];
-        matchedCategories: string[];
-        budgetRange?: { min: number; max: number };
-        locations?: string[];
-    }
-): number {
-    let score = 0;
-
-    // Skills match (40% weight)
-    const skillsScore = matches.matchedSkills.length / Math.max(task.skills.length, 1) * 40;
-    score += skillsScore;
-
-    // Categories match (30% weight)
-    const categoriesScore = matches.matchedCategories.length / Math.max(task.categories.length, 1) * 30;
-    score += categoriesScore;
-
-    // Budget match (20% weight)
-    if (matches.budgetRange && task.budget) {
-        const budgetInRange = (
-            (!matches.budgetRange.min || task.budget.amount >= matches.budgetRange.min) &&
-            (!matches.budgetRange.max || task.budget.amount <= matches.budgetRange.max)
-        );
-        if (budgetInRange) score += 20;
-    }
-
-    // Location match (10% weight)
-    if (matches.locations?.length && task.pickupLocation) {
-        if (matches.locations.includes(task.pickupLocation.displayName)) {
-            score += 10;
-        }
-    }
-
-    return Math.min(score, 100); // Cap at 100
-}
-
-/**
- * Generate recommendation reason based on matches
- */
-function generateRecommendationReason(matchedSkills: string[], matchedCategories: string[]): string {
-    const reasons: string[] = [];
-
-    if (matchedSkills.length) {
-        reasons.push(`Matches ${matchedSkills.length} of your skills: ${matchedSkills.join(', ')}`);
-    }
-
-    if (matchedCategories.length) {
-        reasons.push(`Matches ${matchedCategories.length} of your preferred categories: ${matchedCategories.join(', ')}`);
-    }
-
-    return reasons.join('. ') || 'Based on your preferences';
-}
-
-/**
- * Get recommended tasks based on user preferences
- */
-export async function getRecommendedTasks(limit: number = 10): Promise<Task[]> {
-    try {
-        // Get user preferences
-        const userPrefs = await getUserPreferences();
-
-        // Get recommendations based on preferences
-        const recommendations = await getRecommendations({
-            skills: userPrefs.skills || [],
-            categories: userPrefs.categories || [],
-            preferredBudgetRange: userPrefs.budgetRange,
-            preferredLocations: userPrefs.locations || [],
-            limit
-        });
-
-        // Extract tasks from recommendations
-        const tasks = await Promise.all(recommendations.map(async rec => {
-            const taskFilter = {
-                kinds: [TASK_KINDS.TASK_CREATION],
-                ids: [rec.taskId]
-            };
-            const taskApiParams = convertFilterToApiParams(taskFilter);
-            const taskResponse = await nostrEventsService.findEvents(taskApiParams);
-            const taskEvents = taskResponse.data || [];
-            return taskEvents[0] ? convertEventToTask(taskEvents[0]) : null;
-        }));
-
-        return tasks.filter((task): task is Task => task !== null);
-    } catch (error) {
-        console.error('Error getting recommended tasks:', error);
-        throw error;
-    }
-}
-
-/**
- * Get user preferences from NIP-33 parameterized replaceable event
- */
-async function getUserPreferences(): Promise<{
-    skills: string[];
-    categories: string[];
-    budgetRange?: { min: number; max: number };
-    locations?: string[];
-}> {
-    if (!browser) {
-        return { skills: [], categories: [] };
-    }
-
-    try {
-        const filter: Filter = {
-            kinds: [REPLACEABLE_KINDS.USER_PREFERENCES],
-            authors: [await getNpub()],
-            '#d': ['user-preferences']
-        };
-
-        const apiParams = convertFilterToApiParams(filter);
-        const response = await nostrEventsService.findEvents(apiParams);
-        const events = response.data || [];
-
-        if (!events) {
-            // If no preferences found, try to get skills and categories from user profile
-            const profileFilter: Filter = {
-                kinds: [0], // Kind 0 is for profile metadata
-                authors: [await getNpub()]
-            };
-
-            const profileApiParams = convertFilterToApiParams(profileFilter);
-            const profileResponse = await nostrEventsService.findEvents(profileApiParams);
-            const profileEvents = profileResponse.data || [];
-            const profileEvent = profileEvents[0];
-
-            if (profileEvent) {
-                try {
-                    const profile = JSON.parse(profileEvent.content);
-                    return {
-                        skills: profile.skills || [],
-                        categories: profile.categories || [],
-                        budgetRange: profile.budgetRange,
-                        locations: profile.locations
-                    };
-                } catch (e) {
-                    console.error('Error parsing profile:', e);
-                }
-            }
-
-            return { skills: [], categories: [] };
-        }
-
-        // Parse and validate preferences
-        try {
-            const prefs = JSON.parse(events[0].content);
-            return {
-                skills: Array.isArray(prefs.skills) ? prefs.skills : [],
-                categories: Array.isArray(prefs.categories) ? prefs.categories : [],
-                budgetRange: prefs.budgetRange && typeof prefs.budgetRange === 'object' ? prefs.budgetRange : undefined,
-                locations: Array.isArray(prefs.locations) ? prefs.locations : undefined
-            };
-        } catch (e) {
-            console.error('Error parsing preferences:', e);
-            return { skills: [], categories: [] };
-        }
-    } catch (error) {
-        console.error('Error getting user preferences:', error);
-        return { skills: [], categories: [] };
-    }
-}
-
-/**
  * Cleanup function to handle cleanup tasks with improved subscription handling
  */
 export function cleanup(): void {
-    // Close pool
+    // Close task pool
     tasksStore.pool.close([PUBLIC_NOSTR_RELAY_URL]);
+    // Close profile pool
+    profilePool.close([PUBLIC_NOSTR_RELAY_URL]);
+
     cache.clear();
 }
 
