@@ -20,24 +20,31 @@
 	}>();
 
 	const handleFileUpload = async (files: File[]) => {
-		if (($store.task.attachments?.length || 0) + files.length > 5) return;
-		if (!files || files.length === 0) return;
-		files.forEach((file) => {
-			if (file instanceof File) {
-				newFiles.push(file);
-			}
-		});
+		if (!files || files.length === 0 || files.length > 5) return;
+		
+		// Extract only the new files (beyond saved attachments)
+		const savedAttachmentsCount = $store.task.attachments?.length || 0;
+		newFiles = files.slice(savedAttachmentsCount).filter(file => file instanceof File);
 	};
 
 	const handleFileRemove = (index: number, file?: File | string) => {
-		if (file && file instanceof File) {
-			newFiles = newFiles.filter((f: File) => f !== file);
-		} else {
+		const savedAttachmentsCount = $store.task.attachments?.length || 0;
+		
+		if (index < savedAttachmentsCount) {
+			// Removing a saved attachment
 			const attachment = $store.task.attachments?.[index];
-			attachmentsToRemove.push(attachment);
-			$store.task.attachments?.splice(index, 1);
+			if (attachment) {
+				attachmentsToRemove.push(attachment);
+				$store.task.attachments?.splice(index, 1);
+			}
 		}
 	};
+
+	// Combine saved attachments (as URLs) with new files for the Uploader
+	let uploaderFiles = $derived((() => {
+		const savedAttachments = $store.task.attachments?.map((file) => file.url) || [];
+		return [...savedAttachments, ...newFiles];
+	})());
 </script>
 
 <div
@@ -126,22 +133,17 @@
 			<button
 				class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => {
-					store.updateTask({ taskType: TaskTypeEnum.REMOTE });
+					const defaultLocation = {
+                        displayName: '',
+                        longitude: null,
+                        latitude: null,
+                        zipCode: '',
+                        locationLoaded: false
+                    };
 					store.updateTask({
-						pickupLocation: {
-							displayName: '',
-							longitude: null,
-							latitude: null,
-							zipCode: '',
-							locationLoaded: false
-						},
-						dropOffLocation: {
-							displayName: '',
-							longitude: null,
-							latitude: null,
-							zipCode: '',
-							locationLoaded: false
-						}
+						taskType: TaskTypeEnum.REMOTE,
+						pickupLocation: defaultLocation,
+						dropOffLocation: defaultLocation
 					});
 				}}
 			>
@@ -173,7 +175,7 @@
 
 	<div class="w-full">
 		<div class="my-5">
-			<label for="attachments" class="label block font-semibold text-white text-lg">
+			<label for="attachments" class="label block text-lg font-semibold text-white">
 				Add videos and images
 			</label>
 			<label for="attachments" class="label-text-alt block text-white/70">
@@ -181,13 +183,15 @@
 			</label>
 		</div>
 
-		<!-- TODO: Add support for videos -->
 		<Uploader
 			id="attachments"
 			label="Attachments"
-			files={$store.task.attachments?.map((file) => file.url)}
+			allowedTypes={['image/*', 'video/*']}
+			files={uploaderFiles}
 			maxFiles={5}
-			maxFileSize={10}
+			maxFileSize={100}
+			maxDuration={30}
+			className="w-full"
 			onChange={handleFileUpload}
 			onRemove={handleFileRemove}
 		/>

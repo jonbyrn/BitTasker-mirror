@@ -113,19 +113,19 @@
 		}
 	};
 
-	const uploadImages = async (pictures: (Attachment | File)[]): Promise<Attachment[]> => {
-		const uploadPromises = pictures.map(async (picture) => {
-			if (picture instanceof File) {
-				const uploadResult = await uploadService.uploadSingleFile(picture, 'task');
+	const uploadFiles = async (files: (Attachment | File)[]): Promise<Attachment[]> => {
+		const uploadPromises = files.map(async (file) => {
+			if (file instanceof File) {
+				const uploadResult = await uploadService.uploadSingleFile(file, 'task');
 				return {
 					key: uploadResult.key,
 					url: uploadResult.url,
-					type: picture.type,
-					alt: picture.name,
-					size: picture.size
+					type: file.type,
+					alt: file.name,
+					size: file.size
 				};
 			} else {
-				return picture;
+				return file;
 			}
 		});
 
@@ -139,25 +139,25 @@
 		if ($store.currentStep === TaskStepEnum.LOCATION) {
 			if (newFiles.length !== 0) {
 				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
-					appStore.showErrorToast('You can only upload up to 5 images');
+					appStore.showErrorToast('You can only upload up to 5 files');
 					return;
 				}
 
 				// Show upload started toast
-				appStore.showInfoToast('Uploading images in background...');
+				appStore.showInfoToast('Uploading files in background...');
 
 				// Start upload in background
-				uploadImages(newFiles)
+				uploadFiles(newFiles)
 					.then((uploadedFiles) => {
 						$store.task.attachments = [...($store.task.attachments || []), ...uploadedFiles];
 						newFiles = [];
 						store.saveDraft();
-						appStore.showSuccessToast('Images uploaded successfully!');
+						appStore.showSuccessToast('Files uploaded successfully!');
 					})
 					.catch((error) => {
-						console.error('Failed to upload images:', error);
+						console.error('Failed to upload files:', error);
 						appStore.showErrorToast(
-							'Failed to upload some images. You can try uploading them again in the review step.'
+							'Failed to upload some files. You can try uploading them again in the review step.'
 						);
 					});
 			}
@@ -228,7 +228,7 @@
 
 <div class="card bg-base-100 mx-auto mt-2 max-w-3xl rounded-xl shadow-xl sm:mt-0">
 	<div class="card-body">
-		<div class="flex items-center justify-between">
+		<div class="mb-4 flex items-center justify-between">
 			<h2 class="card-title text-2xl">Create a New Task</h2>
 			<div class="text-sm">
 				Step {$STEPS.indexOf($store.currentStep) + 1} of {$STEPS.length}
@@ -240,8 +240,8 @@
 				<span class="loading loading-spinner loading-lg"></span>
 			</div>
 		{:else}
-			<!-- Recurring Task Toggle -->
-			{#if $store.currentStep !== 'recurring'}
+			<!-- TODO: Recurring Task Toggle -->
+			<!-- {#if $store.currentStep !== 'recurring'}
 				<div class="form-control mt-2 mb-4 w-full max-w-xs">
 					<label class="label cursor-pointer">
 						<span class="label-text font-medium">Create as recurring task</span>
@@ -257,7 +257,7 @@
 						<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
 					{/if}
 				</div>
-			{/if}
+			{/if} -->
 
 			<div class="space-y-6">
 				{#if $store.currentStep === TaskStepEnum.BASICS}

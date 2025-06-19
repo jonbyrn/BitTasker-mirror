@@ -30,6 +30,13 @@
 		return format(dateObj, 'MMM d, yyyy');
 	};
 
+	// Helper function to detect video files
+	function isVideoFile(url: string): boolean {
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const urlLower = url.toLowerCase();
+		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
 	function handleEditTask() {
 		const editTask = { ...task };
 		['id', 'author'].forEach((key) => {
@@ -237,36 +244,84 @@
 		<div class={!isOwner ? 'mb-20 sm:mb-0' : ''}>
 			<h3 class="text-base-content/60 mb-1 text-sm">Attachments</h3>
 			<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-				{#each task.attachments as image, i}
+				{#each task.attachments as attachment, i}
 					<button
 						class="group rounded-box relative overflow-hidden"
-						onclick={() => (selectedImage = image.url)}
+						onclick={() => (selectedImage = attachment.url)}
 						aria-label="View attachment {i + 1}"
 					>
-						<img
-							src={image.url}
-							alt="Task attachment {i + 1}"
-							loading="lazy"
-							class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
-						/>
-						<div
-							class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-8 w-8 text-white"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
+						{#if isVideoFile(attachment.url)}
+							<video
+								src={attachment.url}
+								class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
+								muted
+								preload="metadata"
 							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-								/>
-							</svg>
-						</div>
+								<track kind="captions" />
+							</video>
+							<div
+								class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									width="20"
+									height="20"
+									viewBox="0 0 24 24"
+									class="h-8 w-8 text-white"
+								>
+									<path
+										fill="#fff"
+										fill-opacity="0"
+										stroke="#fff"
+										stroke-dasharray="40"
+										stroke-dashoffset="40"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 6l10 6l-10 6Z"
+									>
+										<animate
+											fill="freeze"
+											attributeName="fill-opacity"
+											begin="0.5s"
+											dur="0.5s"
+											values="0;1"
+										/>
+										<animate
+											fill="freeze"
+											attributeName="stroke-dashoffset"
+											dur="0.5s"
+											values="40;0"
+										/>
+									</path>
+								</svg>
+							</div>
+						{:else}
+							<img
+								src={attachment.url}
+								alt="Task attachment {i + 1}"
+								loading="lazy"
+								class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
+							/>
+							<div
+								class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-8 w-8 text-white"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+									/>
+								</svg>
+							</div>
+						{/if}
 					</button>
 				{/each}
 			</div>
@@ -304,7 +359,7 @@
 		onkeydown={(e) => e.key === 'Escape' && (selectedImage = null)}
 		role="dialog"
 		aria-modal="true"
-		aria-label="Image preview"
+		aria-label="Media preview"
 		tabindex="-1"
 	>
 		<button
@@ -313,7 +368,7 @@
 				e.stopPropagation();
 				selectedImage = null;
 			}}
-			aria-label="Close image preview"
+			aria-label="Close media preview"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -331,11 +386,22 @@
 			</svg>
 		</button>
 		<div class="max-h-[90vh] max-w-[90vw] overflow-auto">
-			<img
-				src={selectedImage}
-				alt="Task attachment preview"
-				class="max-h-full max-w-full rounded-lg object-contain"
-			/>
+			{#if isVideoFile(selectedImage)}
+				<video
+					src={selectedImage}
+					controls
+					class="max-h-full max-w-full rounded-lg"
+					onclick={(e) => e.stopPropagation()}
+				>
+					<track kind="captions" />
+				</video>
+			{:else}
+				<img
+					src={selectedImage}
+					alt="Task attachment preview"
+					class="max-h-full max-w-full rounded-lg object-contain"
+				/>
+			{/if}
 		</div>
 	</div>
 {/if}

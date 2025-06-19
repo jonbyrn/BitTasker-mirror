@@ -262,7 +262,7 @@
 						id="profilePicture"
 						label="Profile Picture"
 						maxFiles={1}
-						customClass="h-32 w-full max-w-32 mx-auto"
+						className="h-32 w-full max-w-32 mx-auto"
 						files={picture ? [picture.url] : undefined}
 						onChange={(files) => handleImageUpload(files[0])}
 					/>

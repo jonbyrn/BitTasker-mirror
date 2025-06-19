@@ -131,12 +131,7 @@
 			});
 
 			// Upload video
-			// TODO: Remove this once we have a real upload service
-			// const uploadedVideo = await uploadService.uploadSingleFile(videoFile, 'videos');
-			const uploadedVideo = {
-				url: 'https://pub-9749cc3802084a9da8131640ddfd3403.r2.dev/videos/1748615625057-14c1a9a5a24f5930.mp4',
-				key: 'videos/1748615625057-14c1a9a5a24f5930.mp4'
-			};
+			const uploadedVideo = await uploadService.uploadSingleFile(videoFile, 'videos-intro');
 
 			// Set video to a specific time to avoid black frame
 			video.currentTime = 0.1;
@@ -398,7 +393,7 @@
 						allowedTypes={['video/*']}
 						maxFiles={1}
 						onChange={handleVideoUpload}
-						customClass="w-full"
+						className="w-full"
 						maxDuration={180}
 						maxFileSize={100}
 						files={videoData ? [videoData.video.url] : []}
@@ -408,7 +403,7 @@
 					<div class="bg-base-300 h-24 w-full animate-pulse rounded-lg border"></div>
 				{/if}
 
-				<!-- Record video -->
+				<!-- TODO:Record video -->
 				<!-- <div class="border-base-300 rounded-lg border p-4">
 					<div class="space-y-4">
 						{#if isRecording}
