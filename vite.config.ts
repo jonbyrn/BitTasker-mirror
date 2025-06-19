@@ -3,10 +3,15 @@ import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import wasm from 'vite-plugin-wasm';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
-	plugins: [houdini(), tailwindcss(), sveltekit()],
+	plugins: [houdini(), tailwindcss(), sveltekit(), wasm(), topLevelAwait()],
+	define: {
+		global: 'globalThis'
+	},
 	server: {
 		allowedHosts: true,
 		proxy: {
@@ -16,6 +21,10 @@ export default defineConfig({
 				secure: false // Allow insecure requests
 			}
 		}
+	},
+	optimizeDeps: {
+		exclude: ['@breeztech/breez-sdk-liquid/web'],
+		include: ['buffer']
 	},
 	test: {
 		globals: true,
