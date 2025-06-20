@@ -95,7 +95,7 @@
 				streetViewControl: false,
 				zoomControl: true,
 				gestureHandling: 'cooperative',
-				mapId: 'DEMO_MAP_ID' // Required for AdvancedMarkerElement //TODO: Get map id from console dataset  
+				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
 			});
 
 			// Create markers and directions if needed
@@ -140,7 +140,7 @@
 			// Check if AdvancedMarkerElement is available
 			if (window.google.maps.marker?.AdvancedMarkerElement) {
 				const pickupMarkerElement = createMarkerElement('#10B981', 'P');
-				
+
 				pickupMarker = new google.maps.marker.AdvancedMarkerElement({
 					position: pickupPosition,
 					map,
@@ -182,7 +182,7 @@
 			// Check if AdvancedMarkerElement is available
 			if (window.google.maps.marker?.AdvancedMarkerElement) {
 				const dropoffMarkerElement = createMarkerElement('#EF4444', 'D');
-				
+
 				dropoffMarker = new google.maps.marker.AdvancedMarkerElement({
 					position: dropoffPosition,
 					map,
@@ -265,13 +265,13 @@
 		// Create a simple straight line between pickup and dropoff points
 		// This avoids the legacy Directions API warnings
 		const path = [origin, destination];
-		
+
 		const polyline = new google.maps.Polyline({
 			path: path,
 			geodesic: true,
 			strokeColor: '#3B82F6',
 			strokeOpacity: 0.8,
-			strokeWeight: 4,
+			strokeWeight: 4
 		});
 
 		polyline.setMap(map);

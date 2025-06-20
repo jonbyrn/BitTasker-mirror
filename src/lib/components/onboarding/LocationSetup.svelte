@@ -5,8 +5,7 @@
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
 
-	// TODO: Check usability of onLocationSelect prop
-	let { nextStep, prevStep, onLocationSelect = (location: Location) => {} } = $props();
+	let { nextStep, prevStep } = $props();
 
 	// State
 	let map: google.maps.Map | null = null;
@@ -93,7 +92,7 @@
 				mapTypeControl: false,
 				fullscreenControl: false,
 				streetViewControl: false,
-				mapId: 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
+				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
 			});
 
 			// Add map click event to place marker
@@ -222,9 +221,6 @@
 						zipCode,
 						locationLoaded: true
 					};
-
-					// Call the callback
-					onLocationSelect(location);
 				}
 			}
 		} catch (err: unknown) {
@@ -455,9 +451,6 @@
 
 			// Publish location to Nostr
 			await publishLocation(location);
-
-			// Call the callback
-			onLocationSelect(location);
 
 			// Go to next step
 			nextStep();
