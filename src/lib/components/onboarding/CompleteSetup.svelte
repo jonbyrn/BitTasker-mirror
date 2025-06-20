@@ -10,6 +10,7 @@
 
 	// Completion status
 	let isLoading = $state(true);
+	let isRedirecting = $state(false);
 	let isComplete = $state(false);
 	let missingFields = $state<string[]>([]);
 	let error = $state('');
@@ -209,8 +210,20 @@
 						<li>Explore the platform features</li>
 					</ul>
 				</div>
-				<button class="btn btn-primary mt-6" onclick={() => goto('/dashboard/find-tasks')}>
-					Find Tasks
+				<button
+					class="btn btn-primary mt-6 min-w-10"
+					onclick={() => {
+						isRedirecting = true;
+						goto('/dashboard/find-tasks').finally(() => {
+							isRedirecting = false;
+						});
+					}}
+				>
+					{#if isRedirecting}
+						<span class="loading loading-spinner loading-sm"></span>
+					{:else}
+						Find Tasks
+					{/if}
 				</button>
 			</div>
 		{/if}

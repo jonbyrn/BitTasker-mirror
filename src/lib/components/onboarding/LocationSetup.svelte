@@ -12,7 +12,7 @@
 	let map: google.maps.Map | null = null;
 	let mapElement: HTMLElement;
 	let searchInput: HTMLInputElement;
-	let marker: google.maps.Marker | null = null;
+	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 	let circle: google.maps.Circle | null = null;
 	let serviceRadius = $state(10); // Default to 10 km
 	let location = $state<Location>({
@@ -50,7 +50,7 @@
 
 				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 				const script = document.createElement('script');
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places`;
+				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,marker&loading=async`;
 				script.async = true;
 				script.defer = true;
 
@@ -92,7 +92,8 @@
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: false,
 				fullscreenControl: false,
-				streetViewControl: false
+				streetViewControl: false,
+				mapId: 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
 			});
 
 			// Add map click event to place marker
@@ -232,49 +233,60 @@
 		}
 	}
 
-	function createMarkerAndCircle(lat: number, lng: number) {
+	async function createMarkerAndCircle(lat: number, lng: number) {
 		if (!map || !googleMapsReady || !window.google?.maps) return;
 
 		const position = { lat, lng };
 
 		// Remove existing marker and circle
-		if (marker) marker.setMap(null);
+		if (marker) marker.map = null;
 		if (circle) circle.setMap(null);
 
-		// Create new marker
-		marker = new google.maps.Marker({
-			position,
-			map,
-			draggable: true,
-			animation: google.maps.Animation.DROP
-		});
+		try {
+			// Import the marker library
+			const { AdvancedMarkerElement } = (await google.maps.importLibrary(
+				'marker'
+			)) as google.maps.MarkerLibrary;
 
-		// Create circle for service radius
-		circle = new google.maps.Circle({
-			strokeColor: '#4CAF50',
-			strokeOpacity: 0.8,
-			strokeWeight: 2,
-			fillColor: '#4CAF50',
-			fillOpacity: 0.2,
-			map,
-			center: position,
-			radius: serviceRadius * 1000 // Convert km to meters
-		});
+			// Create new advanced marker
+			marker = new AdvancedMarkerElement({
+				position,
+				map,
+				gmpDraggable: true
+			});
 
-		// Add drag event to marker
-		marker.addListener('dragend', () => {
-			const newLat = marker?.getPosition()?.lat();
-			const newLng = marker?.getPosition()?.lng();
-			if (newLat && newLng) {
-				// Update circle position
-				if (circle) circle.setCenter({ lat: newLat, lng: newLng });
-				// Update location data
-				updateLocationWithCoordinates(newLat, newLng);
-			}
-		});
+			// Create circle for service radius
+			circle = new google.maps.Circle({
+				strokeColor: '#4CAF50',
+				strokeOpacity: 0.8,
+				strokeWeight: 2,
+				fillColor: '#4CAF50',
+				fillOpacity: 0.2,
+				map,
+				center: position,
+				radius: serviceRadius * 1000 // Convert km to meters
+			});
 
-		// Pan map to new location
-		map.panTo(position);
+			// Add drag event to marker
+			marker.addListener('dragend', () => {
+				const position = marker?.position;
+				if (position) {
+					const newLat = typeof position.lat === 'function' ? position.lat() : position.lat;
+					const newLng = typeof position.lng === 'function' ? position.lng() : position.lng;
+					if (newLat && newLng) {
+						// Update circle position
+						if (circle) circle.setCenter({ lat: newLat, lng: newLng });
+						// Update location data
+						updateLocationWithCoordinates(newLat, newLng);
+					}
+				}
+			});
+
+			// Pan map to new location
+			map.panTo(position);
+		} catch (error) {
+			console.error('Error creating advanced marker:', error);
+		}
 	}
 
 	// Handle service radius change
@@ -386,8 +398,13 @@
 		// Trigger resize to update map
 		if (map) {
 			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.getPosition()) {
-				map.setCenter(marker.getPosition()!);
+			if (marker && marker.position) {
+				const position = marker.position;
+				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+				if (lat && lng) {
+					map.setCenter({ lat, lng });
+				}
 			}
 		}
 	}
@@ -415,8 +432,13 @@
 		// Trigger resize to update map
 		if (map) {
 			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.getPosition()) {
-				map.setCenter(marker.getPosition()!);
+			if (marker && marker.position) {
+				const position = marker.position;
+				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+				if (lat && lng) {
+					map.setCenter({ lat, lng });
+				}
 			}
 		}
 	}

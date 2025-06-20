@@ -14,8 +14,8 @@
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
-		{ id: 'bids', label: $t('dashboard.tabs.bids') },
-		{ id: 'recurring', label: $t('dashboard.tabs.recurring') }
+		// { id: 'bids', label: $t('dashboard.tabs.bids') },
+		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
 	let activeTab = $state('');
 
@@ -104,8 +104,7 @@
 		>
 			<DashboardTasksPanel {openTaskDrawer} />
 		</div>
-	{:else if activeTab === 'bids'}
-		<!-- Bids Panel -->
+	<!-- {:else if activeTab === 'bids'}
 		<div
 			id="panel-bids"
 			role="tabpanel"
@@ -118,7 +117,6 @@
 			</div>
 		</div>
 	{:else if activeTab === 'recurring'}
-		<!-- Recurring Tasks Panel -->
 		<div
 			id="panel-recurring"
 			role="tabpanel"
@@ -129,7 +127,7 @@
 			<div class="card-body">
 				<RecurringTasksPanel />
 			</div>
-		</div>
+		</div> -->
 	{/if}
 </div>
 
