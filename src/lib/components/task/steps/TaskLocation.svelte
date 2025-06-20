@@ -191,7 +191,7 @@
 			maxFiles={5}
 			maxFileSize={100}
 			maxDuration={30}
-			className="w-full"
+			className="w-full h-full min-h-28"
 			onChange={handleFileUpload}
 			onRemove={handleFileRemove}
 		/>

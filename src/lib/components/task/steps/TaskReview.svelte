@@ -6,6 +6,7 @@
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 
 	let { direction } = $props();
 
@@ -95,26 +96,7 @@
 
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
-			<h3 class="mb-2 text-lg font-medium">Location</h3>
-			{#if $store.isRemovals}
-				<div class="grid grid-cols-1 gap-2">
-					<div>
-						<span class="font-medium">Pickup Location:</span>
-						<span>{$store.task.pickupLocation?.displayName}</span>
-					</div>
-					<div>
-						<span class="font-medium">Drop-off Location:</span>
-						<span>{$store.task.dropOffLocation?.displayName}</span>
-					</div>
-				</div>
-			{:else if $store.task.taskType === TaskTypeEnum.IN_PERSON}
-				<div>
-					<span class="font-medium">Task Location:</span>
-					<span>{$store.task.pickupLocation?.displayName}</span>
-				</div>
-			{:else}
-				<div>Remote Task - No location specified</div>
-			{/if}
+			<TaskReviewLocation task={$store.task} isRemovals={$store.isRemovals} />
 		</div>
 	</div>
 
@@ -124,11 +106,9 @@
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				<div>
 					<span class="font-medium">Budget Type:</span>
-					<span
-						>{$store.task.budget.type === BudgetTypeEnum.FIXED
-							? 'Fixed Price'
-							: 'Hourly Rate'}</span
-					>
+					<span>
+						{$store.task.budget.type === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}
+					</span>
 				</div>
 				<div>
 					<span class="font-medium">Budget Amount:</span>

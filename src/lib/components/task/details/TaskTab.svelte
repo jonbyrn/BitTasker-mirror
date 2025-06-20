@@ -260,7 +260,7 @@
 								<track kind="captions" />
 							</video>
 							<div
-								class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+								class="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -304,7 +304,7 @@
 								class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
 							/>
 							<div
-								class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity group-hover:opacity-100"
+								class="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
