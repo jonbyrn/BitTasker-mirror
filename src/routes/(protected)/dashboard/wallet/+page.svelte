@@ -2,11 +2,14 @@
 	import { wallet } from '$lib/utils/consts';
 	import { getMnemonic } from '$lib/wallet/helper';
 	import { goto } from '$app/navigation';
+	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
+	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
+	// import NetworkSelection from './_components/receiveTab/NetworkSelection.svelte';
+	import TransactionHistory from './_components/transactionsTab/TransactionHistory.svelte';
 	// UI state
 	let activeTab = $state('balance'); // balance, receive, send, transactions
 	let selectedAddress = $state(wallet.addresses.find((a) => a.isDefault) || wallet.addresses[0]);
 	let showQR = $state(false);
-	let copiedAddress = $state(false);
 
 	// Send form
 	let sendAmount = $state('');
@@ -17,41 +20,6 @@
 	// Format number with a specific number of decimals
 	function formatNumber(number: number, decimals: number): string {
 		return number.toFixed(decimals);
-	}
-
-	// Format timestamp to human-readable date
-	function formatDate(timestamp: number): string {
-		const date = new Date(timestamp);
-		return date.toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
-
-	// Truncate address for display
-	function truncateAddress(address: string, prefixLength = 8, suffixLength = 4): string {
-		if (address.length <= prefixLength + suffixLength) {
-			return address;
-		}
-		return `${address.substring(0, prefixLength)}...${address.substring(address.length - suffixLength)}`;
-	}
-
-	// Copy address to clipboard
-	function copyToClipboard(text: string): void {
-		navigator.clipboard.writeText(text).then(() => {
-			copiedAddress = true;
-			setTimeout(() => {
-				copiedAddress = false;
-			}, 2000);
-		});
-	}
-
-	// Toggle QR code visibility
-	function toggleQR(): void {
-		showQR = !showQR;
 	}
 
 	// Select address type
@@ -146,14 +114,7 @@
 	{#if activeTab === 'balance'}
 		<div class="space-y-6">
 			<!-- Balance Card -->
-			<div class="card bg-primary text-primary-content">
-				<div class="card-body">
-					<h3 class="card-title mb-2 text-lg">Total Balance</h3>
-					<p class="text-4xl font-bold">{formatNumber(wallet.balance.btc, 8)} BTC</p>
-					<p class="opacity-80">{wallet.balance.sats.toLocaleString()} sats</p>
-					<p class="opacity-80">≈ ${wallet.balance.usdValue.toLocaleString()}</p>
-				</div>
-			</div>
+			<BalanceCard />
 
 			<!-- Quick Actions -->
 			<div class="grid grid-cols-2 gap-4">
@@ -194,58 +155,7 @@
 			</div>
 
 			<!-- Recent Transactions -->
-			<div>
-				<h3 class="mb-3 text-lg font-semibold">Recent Transactions</h3>
-				{#if wallet.transactions.length > 0}
-					<div class="overflow-x-auto">
-						<table class="table w-full">
-							<thead>
-								<tr>
-									<th>Type</th>
-									<th>Amount</th>
-									<th>Date</th>
-									<th>Network</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each wallet.transactions.slice(0, 3) as tx}
-									<tr>
-										<td>
-											<div class="flex items-center gap-2">
-												{#if tx.type === 'received'}
-													<div class="badge badge-success">Received</div>
-												{:else}
-													<div class="badge badge-warning">Sent</div>
-												{/if}
-											</div>
-										</td>
-										<td>
-											<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
-												{tx.type === 'received' ? '+' : '-'}{formatNumber(tx.amount, 8)} BTC
-											</span>
-										</td>
-										<td>{formatDate(tx.timestamp)}</td>
-										<td>
-											<div class="badge">
-												{tx.network}
-											</div>
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-					<div class="mt-4 text-center">
-						<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'transactions')}>
-							View all transactions
-						</button>
-					</div>
-				{:else}
-					<div class="alert">
-						<span>No transactions found.</span>
-					</div>
-				{/if}
-			</div>
+			<RecentTransactions {activeTab} />
 		</div>
 	{/if}
 
@@ -254,80 +164,8 @@
 			<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
 
 			<!-- Network Selection -->
-			<div class="tabs tabs-boxed">
-				{#each wallet.addresses as address}
-					<button
-						class="tab {selectedAddress.type === address.type ? 'tab-active' : ''}"
-						onclick={() => selectAddress(address.type)}
-					>
-						{address.type}
-					</button>
-				{/each}
-			</div>
-
-			<!-- Address Display -->
-			<div class="card bg-base-200">
-				<div class="card-body">
-					<h4 class="card-title text-base">{selectedAddress.type} Address</h4>
-					<div class="bg-base-300 flex items-center justify-between rounded-lg p-3">
-						<div class="font-mono text-sm break-all">
-							{selectedAddress.address}
-						</div>
-						<button
-							class="btn btn-ghost btn-sm"
-							onclick={() => copyToClipboard(selectedAddress.address)}
-						>
-							{#if copiedAddress}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
-									viewBox="0 0 20 20"
-									fill="currentColor"
-								>
-									<path
-										fill-rule="evenodd"
-										d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-										clip-rule="evenodd"
-									/>
-								</svg>
-							{:else}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-									/>
-								</svg>
-							{/if}
-						</button>
-					</div>
-
-					<!-- QR Code Toggle -->
-					<div class="mt-4">
-						<button class="btn btn-primary btn-block" onclick={toggleQR}>
-							{showQR ? 'Hide QR Code' : 'Show QR Code'}
-						</button>
-					</div>
-
-					{#if showQR}
-						<div class="mt-4 flex justify-center">
-							<div class="rounded-lg bg-white p-4">
-								<!-- In a real implementation, this would be an actual QR code -->
-								<div class="bg-base-100 flex h-60 w-60 items-center justify-center">
-									<span class="text-base-content">QR Code Placeholder</span>
-								</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-			</div>
+			<!-- TODO: Implement this section -->
+			<!-- <NetworkSelection /> -->
 
 			<!-- Request Payment Form -->
 			<div class="card bg-base-200">
@@ -508,76 +346,6 @@
 	{/if}
 
 	{#if activeTab === 'transactions'}
-		<div class="space-y-6">
-			<h3 class="mb-3 text-lg font-semibold">Transaction History</h3>
-
-			{#if wallet.transactions.length > 0}
-				<div class="overflow-x-auto">
-					<table class="table w-full">
-						<thead>
-							<tr>
-								<th>Type</th>
-								<th>Amount</th>
-								<th>Date</th>
-								<th>Address</th>
-								<th>Status</th>
-								<th>Network</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each wallet.transactions as tx}
-								<tr>
-									<td>
-										<div class="flex items-center gap-2">
-											{#if tx.type === 'received'}
-												<div class="badge badge-success">Received</div>
-											{:else}
-												<div class="badge badge-warning">Sent</div>
-											{/if}
-										</div>
-									</td>
-									<td>
-										<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
-											{tx.type === 'received' ? '+' : '-'}{formatNumber(tx.amount, 8)} BTC
-										</span>
-									</td>
-									<td>{formatDate(tx.timestamp)}</td>
-									<td>
-										{#if tx.type === 'received'}
-											<span class="font-mono text-xs">From: {truncateAddress(tx.sender)}</span>
-										{:else}
-											<span class="font-mono text-xs">To: {truncateAddress(tx.recipient)}</span>
-										{/if}
-									</td>
-									<td>
-										{#if tx.network === 'Lightning'}
-											<div class="badge badge-success">Confirmed</div>
-										{:else if tx.confirmations === 0}
-											<div class="badge badge-warning">Pending</div>
-										{:else}
-											<div class="indicator">
-												<span class="indicator-item badge badge-xs">
-													{tx.confirmations}
-												</span>
-												<div class="badge badge-success">Confirmations</div>
-											</div>
-										{/if}
-									</td>
-									<td>
-										<div class="badge">
-											{tx.network}
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<div class="alert">
-					<span>No transactions found.</span>
-				</div>
-			{/if}
-		</div>
+		<TransactionHistory />
 	{/if}
 </div>

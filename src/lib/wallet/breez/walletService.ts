@@ -83,6 +83,7 @@ export const fetchFiatRates = async (): Promise<breezSdk.Rate[]> => {
 };
 
 // Event handling
+// Not used for now
 export const addEventListener = async (
 	callback: (event: breezSdk.SdkEvent) => void
 ): Promise<string> => {
