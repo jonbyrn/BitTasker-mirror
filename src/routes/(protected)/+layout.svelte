@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { authState } from '$lib/stores/auth.store';
 	import { appStore } from '$lib/stores/app.store';
-	import { initWasm } from '$lib/wallet/breez/wasmLoader';
 	const { children } = $props();
 
 	// Load global data when authenticated
 	$effect.pre(() => {
 		if ($authState.isAuthenticated) {
 			appStore.loadGlobalData();
-			initWasm();
 		}
 	});
 </script>
