@@ -5,25 +5,21 @@ let sdk: breezSdk.BindingLiquidSdk | null = null;
 
 export const initWallet = async (mnemonic: string): Promise<void> => {
 	try {
-		const config = breezSdk.defaultConfig('testnet');
-		// Configure working directory and cache dir
-		config.workingDir = './breez_data';
-
-		// Get the API key from environment variables
 		const breezApiKey = import.meta.env.VITE_BREEZ_API_KEY;
 
 		if (!breezApiKey) {
 			throw new Error('Breez API key not found in environment variables');
 		}
 
-		config.breezApiKey = breezApiKey;
+		const config = breezSdk.defaultConfig('testnet', breezApiKey);
+		// Configure working directory and cache dir
+		config.workingDir = './breez_data';
 
 		// Connect to Breez network with user mnemonic
 		sdk = await breezSdk.connect({
 			config,
 			mnemonic
 		});
-
 		console.log('Wallet initialized successfully');
 		// Return void instead of the SDK instance
 	} catch (error) {

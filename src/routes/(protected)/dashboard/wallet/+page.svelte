@@ -1,35 +1,30 @@
 <script lang="ts">
+	import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
 	import { wallet } from '$lib/utils/consts';
 	import { formatBtcToSats } from '$lib/utils/helpers/crypto';
 	import { getMnemonic } from '$lib/wallet/helper';
 	import { goto } from '$app/navigation';
 	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
 	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
+	import PaymentRequestForm from './_components/receiveTab/PaymentRequestForm.svelte';
 	// import NetworkSelection from './_components/receiveTab/NetworkSelection.svelte';
 	import TransactionHistory from './_components/transactionsTab/TransactionHistory.svelte';
-
+	import { onMount } from 'svelte';
+	import { fetchLightningLimits, initWallet } from '$lib/wallet/breez/walletService';
+	import { initWasm } from '$lib/wallet/breez/wasmLoader';
 	// UI state
-	let activeTab = $state('balance'); // balance, receive, send, transactions
-	let selectedAddress = $state(wallet.addresses.find((a) => a.isDefault) || wallet.addresses[0]);
-	let showQR = $state(false);
+	let activeTab = $state<'balance' | 'receive' | 'send' | 'transactions'>('balance');
 
 	// Send form
 	let sendAmount = $state('');
 	let sendAddress = $state('');
-	let sendNetworkFee = $state('medium'); // low, medium, high
+	let sendNetworkFee = $state<'low' | 'medium' | 'high'>('medium');
 	let sendError = $state('');
+	let limits = $state<breezSdk.LightningPaymentLimitsResponse | null>(null);
 
 	// Format number with a specific number of decimals
 	function formatNumber(number: number, decimals: number): string {
 		return number.toFixed(decimals);
-	}
-
-	// Select address type
-	function selectAddress(type: string): void {
-		const found = wallet.addresses.find((a) => a.type === type);
-		if (found) {
-			selectedAddress = found;
-		}
 	}
 
 	// Validate send form
@@ -70,8 +65,11 @@
 
 	$effect.pre(() => {
 		getMnemonic()
-			.then(() => {
+			.then((mnemonic) => {
 				console.log('mnemonic found, staying on wallet page');
+				initWasm().then(async () => {
+					await initWallet(mnemonic);
+				});
 			})
 			.catch((error) => {
 				console.error('Error getting mnemonic', error);
@@ -238,39 +236,7 @@
 			<!-- <NetworkSelection /> -->
 
 			<!-- Request Payment Form -->
-			<div class="card bg-base-200">
-				<div class="card-body">
-					<h4 class="card-title text-base">Request Specific Amount</h4>
-
-					<div class="form-control">
-						<div class="label">
-							<span class="label-text">Amount (BTC)</span>
-						</div>
-						<div class="input-group">
-							<input type="number" placeholder="0.00000000" class="input input-bordered w-full" />
-							<select class="select select-bordered">
-								<option value="BTC">BTC</option>
-								<option value="sats">sats</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="form-control mt-4">
-						<div class="label">
-							<span class="label-text">Description (optional)</span>
-						</div>
-						<input
-							type="text"
-							placeholder="What's this payment for?"
-							class="input input-bordered w-full"
-						/>
-					</div>
-
-					<div class="mt-4">
-						<button class="btn btn-primary btn-block"> Generate Payment Request </button>
-					</div>
-				</div>
-			</div>
+			<PaymentRequestForm />
 		</div>
 	{/if}
 
