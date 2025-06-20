@@ -2,7 +2,7 @@
 	import type { Task } from '$lib/types/task';
 	import { formatDistanceToNow, format } from 'date-fns';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
-	import taskService from '$lib/api/services/task.service';
+	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidCreationForm from './BidCreationForm.svelte';
 
 	// Props using Svelte 5 runes syntax
@@ -63,12 +63,25 @@
 	});
 
 	async function loadTaskDetails(taskId: string) {
+		if (!taskId) return;
+
 		try {
 			loading = true;
 			errorMessage = '';
 
-			const taskData = await taskService.getTaskById(taskId);
-			task = taskData;
+			const { data: event } = await nostrEventsService.findEventById(taskId);
+
+			if (!event) {
+				errorMessage = 'Failed to load task details. Please try again.';
+				return;
+			}
+
+			// Parse task data from nostr event
+			const taskData = JSON.parse(event.content) as Task;
+			task = {
+				...taskData,
+				id: event.id
+			};
 
 			// Default to showing the bid form
 			showBidForm = true;
@@ -93,8 +106,10 @@
 
 	const handleClose = () => props.onClose();
 
-	const formatTimeAgo = (date: string): string =>
-		formatDistanceToNow(new Date(date), { addSuffix: true });
+	const formatTimeAgo = (date: string | number): string =>
+		formatDistanceToNow(typeof date === 'number' ? new Date(date * 1000) : new Date(date), {
+			addSuffix: true
+		});
 </script>
 
 <!-- Drawer Overlay -->
@@ -208,12 +223,22 @@
 		<div class="p-4">
 			<!-- Task details section -->
 			<div class="mb-6">
-				<h3 class="mb-3 text-lg font-semibold">{task.title}</h3>
+				<div class="mb-4 flex items-center justify-between">
+					<h3 class="text-lg font-semibold">{task.title}</h3>
+					<div class="flex items-center gap-2">
+						<span class="badge badge-primary badge-outline">
+							{task.status}
+						</span>
+					</div>
+				</div>
 
 				<div class="mb-4 grid grid-cols-2 gap-x-4 gap-y-2">
 					<div>
 						<span class="text-base-content/60 text-sm">Budget:</span>
-						<div class="font-semibold">{task.budget} {task.budgetType}</div>
+						<div class="font-semibold">
+							{task.budget.amount}
+							{task.budget.currency} ({task.budget.type})
+						</div>
 					</div>
 
 					<div>
@@ -223,10 +248,10 @@
 						</div>
 					</div>
 
-					{#if task.deadlineDate}
+					{#if task.deadline}
 						<div>
 							<span class="text-base-content/60 text-sm">Deadline:</span>
-							<div class="font-semibold">{formatTimeAgo(task.deadlineDate)}</div>
+							<div class="font-semibold">{formatTimeAgo(task.deadline)}</div>
 						</div>
 					{:else if task.dateRange}
 						<div>
@@ -249,12 +274,12 @@
 					<p class="mt-1 whitespace-pre-line">{task.description}</p>
 				</div>
 
-				{#if task.requiredSkills?.length > 0}
+				{#if task.skills?.length > 0}
 					<div class="mb-4">
 						<span class="text-base-content/60 text-sm">Required Skills:</span>
 						<div class="mt-1 flex flex-wrap gap-1">
-							{#each task.requiredSkills as skillItem}
-								<span class="badge badge-primary badge-outline">{skillItem.skill.name}</span>
+							{#each task.skills as skill}
+								<span class="badge badge-primary badge-outline">{skill}</span>
 							{/each}
 						</div>
 					</div>
@@ -265,7 +290,196 @@
 						<span class="text-base-content/60 text-sm">Categories:</span>
 						<div class="mt-1 flex flex-wrap gap-1">
 							{#each task.categories as category}
-								<span class="badge badge-secondary badge-outline">{category.category.name}</span>
+								<span class="badge badge-primary badge-outline">{category}</span>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Location Information -->
+				{#if task.pickupLocation || task.dropOffLocation}
+					<div class="mb-4">
+						<span class="text-base-content/60 text-sm">Location Details:</span>
+						<div class="mt-2 space-y-2">
+							{#if task.pickupLocation}
+								<div class="flex items-start gap-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="mt-0.5 h-4 w-4 text-green-600"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+									</svg>
+									<div>
+										<div class="text-sm font-medium">Pickup Location</div>
+										<div class="text-base-content/70 text-sm">
+											{task.pickupLocation.displayName}
+											{#if task.pickupLocation.zipCode}
+												<br /><span class="text-base-content/60 text-xs"
+													>ZIP: {task.pickupLocation.zipCode}</span
+												>
+											{/if}
+										</div>
+									</div>
+								</div>
+							{/if}
+
+							{#if task.dropOffLocation}
+								<div class="flex items-start gap-2">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="mt-0.5 h-4 w-4 text-red-600"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+									</svg>
+									<div>
+										<div class="text-sm font-medium">Drop-off Location</div>
+										<div class="text-base-content/70 text-sm">
+											{task.dropOffLocation.displayName}
+											{#if task.dropOffLocation.zipCode}
+												<br /><span class="text-base-content/60 text-xs"
+													>ZIP: {task.dropOffLocation.zipCode}</span
+												>
+											{/if}
+										</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Creator Information -->
+				{#if task.creator}
+					<div class="mb-4">
+						<span class="text-base-content/60 text-sm">Posted by:</span>
+						<div class="mt-2 flex items-center gap-3">
+							{#if task.creator.avatar}
+								<img
+									src={task.creator.avatar}
+									alt={task.creator.username}
+									class="h-10 w-10 rounded-full object-cover"
+								/>
+							{:else}
+								<div class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-full">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-primary h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+										/>
+									</svg>
+								</div>
+							{/if}
+							<div>
+								<div class="text-sm font-medium">
+									{task.creator.username}
+								</div>
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Attachments -->
+				{#if task.attachments && task.attachments.length > 0}
+					<div class="mb-4">
+						<span class="text-base-content/60 text-sm">Attachments:</span>
+						<div class="mt-2 grid grid-cols-2 gap-2">
+							{#each task.attachments as attachment}
+								<div class="h-full max-h-64 min-h-32 w-full max-w-full rounded-lg">
+									{#if attachment.type.startsWith('image/')}
+										<!-- Image Display -->
+										<img
+											src={attachment.url}
+											alt={attachment.alt || 'Task attachment'}
+											class="object-contain w-full h-full"
+											loading="lazy"
+										/>
+									{:else if attachment.type.startsWith('video/')}
+										<!-- Video Display -->
+										<video controls class="w-full h-full" preload="metadata">
+											<track kind="captions" />
+											<source src={attachment.url} type={attachment.type} />
+											Your browser does not support the video tag.
+										</video>
+									{:else}
+										<!-- Other File Types -->
+										<div class="flex items-center gap-3">
+											<div class="bg-primary/20 flex h-12 w-12 items-center justify-center rounded">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-primary h-6 w-6"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+													/>
+												</svg>
+											</div>
+											<a
+												aria-label="Open attachment"
+												href={attachment.url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="btn btn-ghost btn-sm"
+											>
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-4 w-4"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+													/>
+												</svg>
+											</a>
+										</div>
+									{/if}
+								</div>
 							{/each}
 						</div>
 					</div>
@@ -276,7 +490,7 @@
 
 			<!-- Bid form -->
 			{#if showBidForm && task.status === TaskStatusEnum.OPEN}
-				<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
+				<BidCreationForm taskId={Number(task.id)} onClose={() => handleClose()} />
 			{:else}
 				<p class="text-base-content/60 mt-4">Task is not open for bidding.</p>
 			{/if}
