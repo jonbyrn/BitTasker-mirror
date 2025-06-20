@@ -1,5 +1,4 @@
 <script lang="ts">
-	import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
 	import { onMount } from 'svelte';
 
 	import { fetchLightningLimits, receivePayment } from '$lib/wallet/breez/walletService';
@@ -105,81 +104,110 @@
 	}
 </script>
 
-<div class="card bg-base-200">
-	<div class="card-body">
+<div class="card bg-base-200 rounded-xl shadow-md">
+	<div class="card-body p-6">
 		{#if invoice === null}
-			<h4 class="card-title text-base">Request Specific Amount</h4>
+			<h4 class="card-title mb-4 text-lg font-bold">Request Specific Amount</h4>
 
-			<div class="form-control">
-				<div class="label">
-					<span class="label-text">Amount ({tokenType === 'BTC' ? 'BTC' : 'sats'})</span>
-				</div>
-				<div class="input-group">
+			<div class="form-control mb-4">
+				<label class="label pb-1">
+					<span class="label-text text-sm font-medium"
+						>Amount ({tokenType === 'BTC' ? 'BTC' : 'sats'})</span
+					>
+				</label>
+				<div class="flex">
 					<input
 						type="number"
 						placeholder="0.00000000"
-						class="input input-bordered w-full"
+						class="input input-bordered w-full rounded-r-none focus:border-amber-500 focus:outline-none"
 						bind:value={amount}
 					/>
-					<select class="select select-bordered" bind:value={tokenType}>
+					<select
+						class="select select-bordered bg-base-300 rounded-l-none border-l-0 focus:outline-none"
+						bind:value={tokenType}
+					>
 						<option value="BTC">BTC</option>
 						<option value="sats">sats</option>
 					</select>
 				</div>
+				{#if errorMessage}
+					<label class="label pt-1">
+						<span class="label-text-alt text-error">{errorMessage}</span>
+					</label>
+				{/if}
 			</div>
 
-			<div class="form-control mt-4">
-				<div class="label">
-					<span class="label-text">Description (optional)</span>
-				</div>
+			<div class="form-control mb-6">
+				<label class="label pb-1">
+					<span class="label-text text-sm font-medium">Description (optional)</span>
+				</label>
 				<input
 					type="text"
 					placeholder="What's this payment for?"
-					class="input input-bordered w-full"
+					class="input input-bordered w-full focus:border-amber-500 focus:outline-none"
 					bind:value={description}
 				/>
 			</div>
 
-			<div class="mt-4">
+			<div>
 				<button
-					class="btn btn-primary btn-block"
+					class="btn btn-primary btn-block h-12 rounded-lg border-none bg-amber-500 font-medium text-black transition-all duration-200 hover:bg-amber-600"
 					onclick={generatePaymentRequest}
 					disabled={isLoading}
 				>
-					{isLoading ? 'Loading...' : 'Generate Payment Request'}
+					{#if isLoading}
+						<span class="loading loading-spinner loading-sm mr-2"></span>
+						Loading...
+					{:else}
+						Generate Payment Request
+					{/if}
 				</button>
 			</div>
 		{:else if isLoading}
-			<div class="card-body">
-				<h4 class="card-title text-lg">Loading...</h4>
-				<div class="flex items-center gap-2">
-					<span class="loading loading-spinner loading-sm"></span>
+			<div>
+				<h4 class="card-title mb-4 text-lg">Loading...</h4>
+				<div class="flex items-center gap-3 py-4">
+					<span class="loading loading-spinner loading-md text-amber-500"></span>
 					<span>Generating invoice... please wait</span>
 				</div>
 			</div>
 		{:else}
-			<div class="card-body">
-				<h4 class="card-title text-lg">Your Invoice</h4>
-				<p class="text-sm text-gray-500">Share this invoice with the payer</p>
-				<div class="mt-4 flex flex-col gap-2">
+			<div>
+				<h4 class="card-title mb-1 text-lg font-bold">Your Invoice</h4>
+				<p class="mb-6 text-sm text-gray-500">Share this invoice with the payer</p>
+				<div class="flex flex-col gap-4">
 					<div class="flex items-center gap-2">
-						<span class="font-bold">Amount</span>
-						<span class="text-amber-500">{amount} {tokenType === 'BTC' ? 'BTC' : 'sats'}</span>
+						<span class="font-medium text-gray-400">Amount:</span>
+						<span class="font-bold text-amber-500"
+							>{amount} {tokenType === 'BTC' ? 'BTC' : 'sats'}</span
+						>
 					</div>
-					<div class="flex flex-col items-start gap-2">
-						<span class="font-bold">Invoice (click to copy)</span>
+
+					{#if description}
+						<div class="flex flex-col gap-1">
+							<span class="font-medium text-gray-400">Description:</span>
+							<span class="text-sm">{description}</span>
+						</div>
+					{/if}
+
+					<div class="mt-2 flex flex-col gap-2">
+						<span class="font-medium text-gray-400">Invoice:</span>
 						<button
-							class="bg-base-300 hover:bg-base-400 w-full cursor-pointer rounded-md px-2 py-4 text-left"
+							class="bg-base-300 hover:bg-base-100 border-base-300 w-full cursor-pointer rounded-lg border px-4 py-3 text-left transition-colors duration-200"
 							title="Copy to clipboard"
 							onclick={copyToClipboard}
 						>
 							<pre class="truncate text-xs">{invoice}</pre>
 						</button>
+						<span class="mt-1 text-center text-xs text-gray-500">Click to copy</span>
 					</div>
-					<div class="flex flex-col items-start gap-2">
-						<span class="font-bold">Description:</span>
-						<span>{description}</span>
-					</div>
+
+					<button
+						class="btn btn-outline mt-4 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black"
+						onclick={() => (invoice = null)}
+					>
+						Create New Request
+					</button>
 				</div>
 			</div>
 		{/if}
