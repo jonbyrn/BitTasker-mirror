@@ -5,7 +5,7 @@
 <script lang="ts">
 	import type { SearchTasksParams } from '$lib/types/task';
 	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
-	import savedSearchesService from '$lib/api/services/saved-searches.service';
+	import { saveSearch } from '$lib/nostr/findTasks';
 
 	// Props
 	let { searchParams, onSaved } = $props<{
@@ -25,16 +25,17 @@
 	// Has active search parameters
 	let hasActiveParams = $state(false);
 	$effect(() => {
-		// Check if there are any meaningful search parameters set based on DTO
+		// Check if there are any meaningful search parameters set - using correct property names
 		hasActiveParams =
-			!!searchParams.searchTerm ||
-			(searchParams.taskType && searchParams.taskType.length > 0) ||
+			!!searchParams.search ||
+			!!searchParams.taskType ||
 			!!searchParams.location ||
 			(searchParams.status && searchParams.status.length > 0) ||
 			(searchParams.categories && searchParams.categories.length > 0) ||
 			(searchParams.skills && searchParams.skills.length > 0) ||
-			!!searchParams.minBudget ||
-			!!searchParams.maxBudget;
+			!!searchParams.budget?.tier ||
+			!!searchParams.budget?.currency ||
+			!!searchParams.budget?.type;
 	});
 
 	// Open save search modal
@@ -42,10 +43,10 @@
 		// Generate a default name based on search criteria
 		let defaultName = '';
 
-		if (searchParams.searchTerm) {
-			defaultName = `"${searchParams.searchTerm}"`;
-		} else if (searchParams.taskType && searchParams.taskType.length > 0) {
-			defaultName = `${searchParams.taskType[0]} Tasks`;
+		if (searchParams.search) {
+			defaultName = `"${searchParams.search}"`;
+		} else if (searchParams.taskType) {
+			defaultName = `${searchParams.taskType} Tasks`;
 		} else if (searchParams.location) {
 			defaultName = `Tasks near ${searchParams.location}`;
 		} else if (searchParams.categories && searchParams.categories.length > 0) {
@@ -65,7 +66,7 @@
 	}
 
 	// Save search
-	async function saveSearch() {
+	async function saveSearchToNostr() {
 		if (!searchName.trim()) {
 			error = 'Please enter a name for your search.';
 			return;
@@ -75,24 +76,35 @@
 			isSaving = true;
 			error = null;
 
-			// Convert Partial<SearchTasksDto> back to SearchTasksParams for the service
-			const paramsForService = {
-				...searchParams,
-				budgetType: searchParams.budgetType?.[0],
-				taskType: searchParams.taskType?.[0]
-			};
+			// Clean up the search params - remove undefined values
+			const cleanParams: SearchTasksParams = {};
+			
+			// Copy defined properties
+			if (searchParams.search) cleanParams.search = searchParams.search;
+			if (searchParams.taskType) cleanParams.taskType = searchParams.taskType;
+			if (searchParams.location) cleanParams.location = searchParams.location;
+			if (searchParams.status) cleanParams.status = searchParams.status;
+			if (searchParams.categories) cleanParams.categories = searchParams.categories;
+			if (searchParams.skills) cleanParams.skills = searchParams.skills;
+			if (searchParams.budget) cleanParams.budget = searchParams.budget;
+			if (searchParams.deadline) cleanParams.deadline = searchParams.deadline;
+			if (searchParams.dateRange) cleanParams.dateRange = searchParams.dateRange;
+			if (searchParams.radius) cleanParams.radius = searchParams.radius;
+			if (searchParams.sortBy) cleanParams.sortBy = searchParams.sortBy;
+			if (searchParams.sortOrder) cleanParams.sortOrder = searchParams.sortOrder;
+			if (searchParams.page) cleanParams.page = searchParams.page;
+			if (searchParams.limit) cleanParams.limit = searchParams.limit;
 
-			// Remove undefined keys
-			Object.keys(paramsForService).forEach(
-				(key) => paramsForService[key] === undefined && delete paramsForService[key]
-			);
-
-			// Save search with notification preferences and active status
-			await savedSearchesService.createSavedSearch(
+			// Save search with notification preferences
+			await saveSearch(
 				searchName,
-				paramsForService,
+				cleanParams,
 				notifyOnMatch,
-				notificationFrequency
+				{
+					notifyOnMatch,
+					isActive,
+					notificationFrequency
+				}
 			);
 
 			closeModal();
@@ -160,12 +172,12 @@
 			<div class="bg-base-200 mb-4 rounded-md p-3">
 				<h4 class="mb-2 font-medium">Search Criteria:</h4>
 				<div class="mb-2 flex flex-wrap gap-1">
-					{#if searchParams.searchTerm}
-						<div class="badge badge-sm">{searchParams.searchTerm}</div>
+					{#if searchParams.search}
+						<div class="badge badge-sm">{searchParams.search}</div>
 					{/if}
 
-					{#if searchParams.taskType && searchParams.taskType.length > 0}
-						<div class="badge badge-sm">{searchParams.taskType.join(', ')}</div>
+					{#if searchParams.taskType}
+						<div class="badge badge-sm">{searchParams.taskType}</div>
 					{/if}
 
 					{#if searchParams.location}
@@ -180,9 +192,9 @@
 						<div class="badge badge-sm">{searchParams.skills.join(', ')}</div>
 					{/if}
 
-					{#if searchParams.minBudget || searchParams.maxBudget}
+					{#if searchParams.budget?.tier}
 						<div class="badge badge-sm">
-							Budget: {searchParams.minBudget ?? 0} - {searchParams.maxBudget ?? '∞'}
+							Budget tier: {searchParams.budget.tier}
 						</div>
 					{/if}
 				</div>
@@ -198,36 +210,37 @@
 					class="input input-bordered w-full"
 					placeholder="Name your search"
 					bind:value={searchName}
+					disabled={isSaving}
 				/>
 			</div>
 
-			<!-- Notification Options -->
+			<!-- Notification Settings -->
 			<div class="form-control mb-4">
-				<label class="label cursor-pointer justify-start gap-2" for="notifyOnMatch">
+				<label class="label flex cursor-pointer justify-start gap-2" for="notifyOnMatch">
 					<input
 						id="notifyOnMatch"
 						type="checkbox"
 						class="checkbox checkbox-primary"
 						bind:checked={notifyOnMatch}
+						disabled={isSaving}
 					/>
-					<span class="label-text">Notify on matching tasks</span>
+					<span>Notify me when new matching tasks are posted</span>
 				</label>
 			</div>
 
 			<div class="form-control mb-4">
-				<label class="label cursor-pointer justify-start gap-2" for="isActive">
+				<label class="label flex cursor-pointer justify-start gap-2" for="isActive">
 					<input
 						id="isActive"
 						type="checkbox"
 						class="checkbox checkbox-primary"
 						bind:checked={isActive}
+						disabled={isSaving}
 					/>
-					<span class="label-text">Active search</span>
+					<span>Active search</span>
 				</label>
 				<label class="label" for="isActive">
-					<span class="label-text-alt whitespace-normal"
-						>Inactive searches won't appear in your dashboard</span
-					>
+					<span class="label-text-alt">Inactive searches won't appear in your dashboard</span>
 				</label>
 			</div>
 
@@ -236,28 +249,31 @@
 					<label class="label" for="notificationFrequency">
 						<span class="label-text">Notification Frequency</span>
 					</label>
-					<select class="select select-bordered w-full" bind:value={notificationFrequency}>
-						<option value="immediate">Immediate</option>
-						<option value="daily">Daily Digest</option>
-						<option value="weekly">Weekly Digest</option>
+					<select 
+						class="select select-bordered w-full" 
+						bind:value={notificationFrequency}
+						disabled={isSaving}
+					>
+						<option value={NotificationFrequency.INSTANT}>Immediate</option>
+						<option value={NotificationFrequency.DAILY}>Daily Digest</option>
+						<option value={NotificationFrequency.WEEKLY}>Weekly Digest</option>
 					</select>
-					<label class="label" for="notificationFrequency">
-						<span class="label-text-alt whitespace-normal"
-							>How often you'll receive notifications about new matching tasks</span
-						>
-					</label>
 				</div>
 			{/if}
 
 			<!-- Action Buttons -->
 			<div class="modal-action">
-				<button class="btn" onclick={closeModal}>Cancel</button>
-				<button class="btn btn-primary" onclick={saveSearch} disabled={isSaving}>
+				<button class="btn" onclick={closeModal} disabled={isSaving}>Cancel</button>
+				<button 
+					class="btn btn-primary" 
+					onclick={saveSearchToNostr} 
+					disabled={isSaving || !searchName.trim()}
+				>
 					{#if isSaving}
-						<div class="loading loading-spinner loading-xs"></div>
+						<span class="loading loading-spinner loading-sm"></span>
 						Saving...
 					{:else}
-						Save
+						Save Search
 					{/if}
 				</button>
 			</div>

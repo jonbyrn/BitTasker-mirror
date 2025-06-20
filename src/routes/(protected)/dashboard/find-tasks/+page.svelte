@@ -55,8 +55,7 @@
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
 	let showSavedSearches = $state(true);
-	let showHistorySuggestions = $state(true);
-
+	
 	// Infinite scroll state
 	let observer: IntersectionObserver | null = null;
 	let scrollTarget = $state<HTMLElement | null>(null);
@@ -633,9 +632,9 @@
 	{/if}
 
 	<!-- Saved Searches Section -->
-	<!-- {#if showSavedSearches}
+	{#if showSavedSearches}
 		<SavedSearchList />
-	{/if} -->
+	{/if}
 </div>
 
 <!-- Advanced Filter Drawer Component -->

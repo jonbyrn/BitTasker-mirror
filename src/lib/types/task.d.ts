@@ -173,6 +173,11 @@ export interface SavedSearch {
 	createdAt: number;
 	updatedAt: number;
 	notifyOnNew?: boolean;
+	// Enhanced notification features
+	notifyOnMatch?: boolean;
+	isActive?: boolean;
+	notificationFrequency?: string; // 'INSTANT' | 'DAILY' | 'WEEKLY'
+	unreadNotifications?: number;
 }
 
 export interface TaskRecommendation {

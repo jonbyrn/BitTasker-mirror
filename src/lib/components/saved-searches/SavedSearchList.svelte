@@ -3,9 +3,15 @@
   Component that displays and manages saved searches
 -->
 <script lang="ts">
-	import type { SavedSearch } from '$lib/types/saved-search';
+	import type { SavedSearch } from '$lib/types/task';
 	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
-	import savedSearchesService from '$lib/api/services/saved-searches.service';
+	import {
+		getSavedSearches,
+		updateSavedSearch,
+		deleteSavedSearch,
+		updateNotificationPreferences,
+		markNotificationsAsRead
+	} from '$lib/nostr/findTasks';
 	import Input from '../Input.svelte';
 
 	// State
@@ -23,7 +29,7 @@
 		try {
 			isLoading = true;
 			error = null;
-			savedSearches = await savedSearchesService.getSavedSearches();
+			savedSearches = await getSavedSearches();
 		} catch (err) {
 			console.error('Error loading saved searches:', err);
 			error = 'Failed to load saved searches. Please try again.';
@@ -32,9 +38,9 @@
 		}
 	}
 
-	// Format date for display
-	function formatDate(dateString: string): string {
-		return new Date(dateString).toLocaleDateString('en-US', {
+	// Format date for display (convert from unix timestamp)
+	function formatDate(timestamp: number): string {
+		return new Date(timestamp * 1000).toLocaleDateString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric'
@@ -58,7 +64,7 @@
 		if (!editingSearch) return;
 
 		try {
-			await savedSearchesService.updateSavedSearch(editingSearch.id, {
+			const updatedSearch = await updateSavedSearch(editingSearch.id, {
 				name: editingSearch.name,
 				notifyOnMatch: editingSearch.notifyOnMatch,
 				isActive: editingSearch.isActive,
@@ -67,7 +73,7 @@
 
 			// Update local state
 			savedSearches = savedSearches.map((search) =>
-				search.id === editingSearch?.id ? editingSearch : search
+				search.id === editingSearch?.id ? updatedSearch : search
 			);
 
 			closeEditModal();
@@ -80,7 +86,7 @@
 	// Delete saved search
 	async function deleteSearch(id: string) {
 		try {
-			await savedSearchesService.deleteSavedSearch(id);
+			await deleteSavedSearch(id);
 
 			// Update local state
 			savedSearches = savedSearches.filter((search) => search.id !== id);
@@ -94,10 +100,10 @@
 	// Toggle notifications
 	async function toggleNotifications(search: SavedSearch) {
 		try {
-			await savedSearchesService.updateNotificationPreferences(
+			await updateNotificationPreferences(
 				search.id,
 				!search.notifyOnMatch,
-				search.notificationFrequency
+				search.notificationFrequency || 'DAILY'
 			);
 
 			// Update local state
@@ -111,9 +117,9 @@
 	}
 
 	// Mark all notifications as read
-	async function markNotificationsAsRead(searchId: string) {
+	async function markNotificationsAsReadForSearch(searchId: string) {
 		try {
-			await savedSearchesService.markNotificationsAsRead(searchId);
+			await markNotificationsAsRead(searchId);
 
 			// Update local state
 			savedSearches = savedSearches.map((search) =>
@@ -126,7 +132,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mb-6 p-4">
+<div class="card bg-base-100 mb-6 rounded-xl p-4">
 	<h2 class="mb-4 text-xl font-bold">Your Saved Searches</h2>
 
 	{#if error}
@@ -184,11 +190,11 @@
 						<div class="flex items-start justify-between">
 							<h3 class="card-title text-md">{search.name}</h3>
 
-							{#if search.unreadNotifications > 0}
+							{#if (search.unreadNotifications ?? 0) > 0}
 								<button
 									class="badge badge-primary tooltip"
 									data-tip="New matching tasks"
-									onclick={() => markNotificationsAsRead(search.id)}
+									onclick={() => markNotificationsAsReadForSearch(search.id)}
 								>
 									{search.unreadNotifications} new
 								</button>
@@ -198,24 +204,22 @@
 						<!-- Search criteria summary -->
 						<div class="mt-1 text-sm text-gray-600">
 							<div class="flex flex-wrap gap-1">
-								{#if search.searchParams.searchTerm}
-									<div class="badge badge-outline badge-sm">{search.searchParams.searchTerm}</div>
+								{#if search.params.search}
+									<div class="badge badge-outline badge-sm">{search.params.search}</div>
 								{/if}
 
-								{#if search.searchParams.taskType}
-									<div class="badge badge-outline badge-sm">{search.searchParams.taskType}</div>
+								{#if search.params.taskType}
+									<div class="badge badge-outline badge-sm">{search.params.taskType}</div>
 								{/if}
 
-								{#if search.searchParams.location}
-									<div class="badge badge-outline badge-sm">{search.searchParams.location}</div>
+								{#if search.params.location}
+									<div class="badge badge-outline badge-sm">{search.params.location}</div>
 								{/if}
 							</div>
 
-							{#if search.searchParams.minBudget || search.searchParams.maxBudget}
+							{#if search.params.budget?.tier}
 								<div class="mt-1">
-									Budget:
-									{search.searchParams.minBudget ?? 0} -
-									{search.searchParams.maxBudget ?? '∞'}
+									Budget tier: {search.params.budget.tier}
 								</div>
 							{/if}
 						</div>
@@ -230,7 +234,7 @@
 								<label class="swap swap-flip">
 									<input
 										type="checkbox"
-										checked={search.notifyOnMatch}
+										checked={search.notifyOnMatch ?? false}
 										onclick={() => toggleNotifications(search)}
 									/>
 

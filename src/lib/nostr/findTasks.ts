@@ -17,7 +17,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
 
 // Pool for profile data queries (general Nostr network)
-const profilePool = new SimplePool();
+const pool = new SimplePool();
 
 /**
  * Convert Nostr filter to API query parameters
@@ -223,9 +223,38 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 }
 
 /**
- * Save a search using NIP-51 Lists and NIP-33 Parameterized Replaceable Events
+ * SAVED SEARCHES - Simplified Nostr Implementation
+ * 
+ * Uses NIP-33 Parameterized Replaceable Events only
+ * - Each saved search = one NIP-33 event with d-tag as unique ID
+ * - Updates = replace the event (NIP-33 behavior)
+ * - Deletion = NIP-09 deletion event (kind 5)
+ * - Query = get all by author+kind, filter out deleted ones
+ * 
+ * Single character tags used per Nostr conventions:
+ * - d: unique identifier
+ * - n: name
+ * - y: notify (legacy)
+ * - m: notifyOnMatch
+ * - a: isActive  
+ * - f: frequency
+ * - u: unreadNotifications
+ * - t: type
  */
-export async function saveSearch(name: string, params: SearchTasksParams, notifyOnNew = false): Promise<SavedSearch> {
+
+/**
+ * Save a search using NIP-33 Parameterized Replaceable Events
+ */
+export async function saveSearch(
+    name: string, 
+    params: SearchTasksParams, 
+    notifyOnNew = false,
+    options: {
+        notifyOnMatch?: boolean;
+        isActive?: boolean;
+        notificationFrequency?: string;
+    } = {}
+): Promise<SavedSearch> {
     try {
         // Create a unique identifier for this saved search
         const searchId = crypto.randomUUID();
@@ -237,29 +266,19 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
             content: JSON.stringify(params),
             tags: [
                 ['d', searchId], // Unique identifier
-                ['name', name],
-                ['notify', notifyOnNew.toString()],
-                ['type', 'saved-search']
+                ['n', name], // name
+                ['y', notifyOnNew.toString()], // notify (legacy)
+                ['m', (options.notifyOnMatch ?? true).toString()], // notifyOnMatch
+                ['a', (options.isActive ?? true).toString()], // isActive
+                ['f', options.notificationFrequency ?? 'DAILY'], // frequency
+                ['u', '0'], // unreadNotifications
+                ['t', 'saved-search'] // type
             ]
         });
 
-        // Add the saved search to the user's list (NIP-51)
-        const listEvent = await getSignedEvent({
-            kind: KINDS.SAVED_SEARCHES,
-            created_at: Math.floor(Date.now() / 1000),
-            content: '',
-            tags: [
-                ['d', 'saved-searches'], // List identifier
-                ['e', savedSearchEvent.id], // Reference to the saved search event
-                ['name', name]
-            ]
-        });
-
-        // Publish both events using the API
-        await Promise.all([
-            nostrEventsService.publishEvent(savedSearchEvent),
-            nostrEventsService.publishEvent(listEvent)
-        ]);
+        console.log('savedSearchEvent', savedSearchEvent);
+        // Publish single event to the relay
+        pool.publish([PUBLIC_NOSTR_RELAY_URL], savedSearchEvent);
 
         return {
             id: searchId,
@@ -267,7 +286,11 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
             params,
             createdAt: savedSearchEvent.created_at,
             updatedAt: savedSearchEvent.created_at,
-            notifyOnNew
+            notifyOnNew,
+            notifyOnMatch: options.notifyOnMatch ?? true,
+            isActive: options.isActive ?? true,
+            notificationFrequency: options.notificationFrequency ?? 'DAILY',
+            unreadNotifications: 0
         };
     } catch (error) {
         console.error('Error saving search:', error);
@@ -276,53 +299,52 @@ export async function saveSearch(name: string, params: SearchTasksParams, notify
 }
 
 /**
- * Get saved searches using NIP-51 Lists
+ * Get saved searches using direct NIP-33 query
  */
 export async function getSavedSearches(): Promise<SavedSearch[]> {
     try {
-        // Get the user's saved searches list
+        // Get all saved searches directly by author and kind
         const filter: Filter = {
-            kinds: [KINDS.SAVED_SEARCHES],
-            authors: [await getNpub()],
-            '#d': ['saved-searches']
-        };
-
-        const apiParams = convertFilterToApiParams(filter);
-        const listResponse = await nostrEventsService.findEvents(apiParams);
-        const listEvents = listResponse.data || [];
-
-        if (!listEvents.length) {
-            return [];
-        }
-
-        // Get the most recent list event
-        const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
-
-        // Get all saved search events referenced in the list
-        const searchIds = latestList.tags
-            .filter((tag: string[]): tag is [string, string, ...string[]] =>
-                tag[0] === 'e' && typeof tag[1] === 'string'
-            )
-            .map(tag => tag[1]);
-
-        const savedSearchFilter: Filter = {
             kinds: [KINDS.SAVED_SEARCH],
-            ids: searchIds
+            authors: [await getNpub()],
+            '#t': ['saved-search'] // Filter by type tag
         };
 
-        const savedSearchApiParams = convertFilterToApiParams(savedSearchFilter);
-        const savedSearchResponse = await nostrEventsService.findEvents(savedSearchApiParams);
-        const savedSearchEvents = savedSearchResponse.data || [];
+        const savedSearchEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
 
-        // Convert events to SavedSearch objects
-        return savedSearchEvents.map(event => ({
-            id: event.tags.find(t => t[0] === 'd')?.[1] || event.id,
-            name: event.tags.find(t => t[0] === 'name')?.[1] || '',
-            params: JSON.parse(event.content),
-            createdAt: event.created_at,
-            updatedAt: event.created_at,
-            notifyOnNew: event.tags.find(t => t[0] === 'notify')?.[1] === 'true'
-        }));
+        // TODO: To be rechecked
+        // Get deletion events to filter out deleted searches
+        const deletionFilter: Filter = {
+            kinds: [5], // Deletion events
+            authors: [await getNpub()],
+            '#k': [KINDS.SAVED_SEARCH.toString()]
+        };
+        const deletionEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], deletionFilter);
+        
+        // Get IDs of deleted events
+        const deletedEventIds = new Set(
+            deletionEvents.flatMap(event => 
+                event.tags
+                    .filter(tag => tag[0] === 'e')
+                    .map(tag => tag[1])
+            )
+        );
+
+        // Convert events to SavedSearch objects and filter out deleted ones
+        return savedSearchEvents
+            .filter(event => !deletedEventIds.has(event.id))
+            .map(event => ({
+                id: event.tags.find(t => t[0] === 'd')?.[1] || event.id,
+                name: event.tags.find(t => t[0] === 'n')?.[1] || '',
+                params: JSON.parse(event.content),
+                createdAt: event.created_at,
+                updatedAt: event.created_at,
+                notifyOnNew: event.tags.find(t => t[0] === 'y')?.[1] === 'true',
+                notifyOnMatch: event.tags.find(t => t[0] === 'm')?.[1] === 'true',
+                isActive: event.tags.find(t => t[0] === 'a')?.[1] !== 'false',
+                notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'DAILY',
+                unreadNotifications: parseInt(event.tags.find(t => t[0] === 'u')?.[1] || '0', 10)
+            }));
     } catch (error) {
         console.error('Error getting saved searches:', error);
         throw error;
@@ -334,7 +356,15 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
  */
 export async function updateSavedSearch(
     searchId: string,
-    updates: Partial<{ name: string; params: SearchTasksParams; notifyOnNew: boolean }>
+    updates: Partial<{ 
+        name: string; 
+        params: SearchTasksParams; 
+        notifyOnNew: boolean;
+        notifyOnMatch: boolean;
+        isActive: boolean;
+        notificationFrequency: string;
+        unreadNotifications: number;
+    }>
 ): Promise<SavedSearch> {
     try {
         // Get the existing saved search
@@ -342,9 +372,7 @@ export async function updateSavedSearch(
             kinds: [KINDS.SAVED_SEARCH],
             '#d': [searchId]
         };
-        const existingApiParams = convertFilterToApiParams(existingFilter);
-        const existingResponse = await nostrEventsService.findEvents(existingApiParams);
-        const existingEvents = existingResponse.data || [];
+        const existingEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], existingFilter);
 
         if (!existingEvents.length) {
             throw new Error('Saved search not found');
@@ -352,8 +380,12 @@ export async function updateSavedSearch(
 
         const existing = existingEvents[0];
         const existingParams = JSON.parse(existing.content);
-        const existingName = existing.tags.find(t => t[0] === 'name')?.[1] || '';
-        const existingNotify = existing.tags.find(t => t[0] === 'notify')?.[1] === 'true';
+        const existingName = existing.tags.find(t => t[0] === 'n')?.[1] || '';
+        const existingNotify = existing.tags.find(t => t[0] === 'y')?.[1] === 'true';
+        const existingNotifyOnMatch = existing.tags.find(t => t[0] === 'm')?.[1] === 'true';
+        const existingIsActive = existing.tags.find(t => t[0] === 'a')?.[1] !== 'false';
+        const existingNotificationFrequency = existing.tags.find(t => t[0] === 'f')?.[1] || 'DAILY';
+        const existingUnreadNotifications = parseInt(existing.tags.find(t => t[0] === 'u')?.[1] || '0', 10);
 
         // Create updated event
         const updatedEvent = await getSignedEvent({
@@ -362,42 +394,18 @@ export async function updateSavedSearch(
             content: JSON.stringify({ ...existingParams, ...updates.params }),
             tags: [
                 ['d', searchId],
-                ['name', updates.name || existingName],
-                ['notify', (updates.notifyOnNew ?? existingNotify).toString()],
-                ['type', 'saved-search']
+                ['n', updates.name || existingName],
+                ['y', (updates.notifyOnNew ?? existingNotify).toString()],
+                ['m', (updates.notifyOnMatch ?? existingNotifyOnMatch).toString()],
+                ['a', (updates.isActive ?? existingIsActive).toString()],
+                ['f', updates.notificationFrequency || existingNotificationFrequency],
+                ['u', (updates.unreadNotifications ?? existingUnreadNotifications).toString()],
+                ['t', 'saved-search']
             ]
         });
 
-        // Publish update using the API
-        await nostrEventsService.publishEvent(updatedEvent);
-
-        // If name changed, update the list event
-        const listFilter = {
-            kinds: [KINDS.SAVED_SEARCHES],
-            authors: [await getNpub()],
-            '#d': ['saved-searches']
-        };
-        const listApiParams = convertFilterToApiParams(listFilter);
-        const listResponse = await nostrEventsService.findEvents(listApiParams);
-        const listEvents = listResponse.data || [];
-
-        if (listEvents.length) {
-            const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
-            const updatedTags = latestList.tags
-                .map(tag =>
-                    tag[0] === 'e' && tag[1] === existing.id ? ['e', updatedEvent.id, updates.name] : tag
-                )
-                .filter((tag): tag is string[] => tag.every(item => item !== undefined));
-
-            const updatedList = await getSignedEvent({
-                kind: KINDS.SAVED_SEARCHES,
-                created_at: Math.floor(Date.now() / 1000),
-                content: '',
-                tags: updatedTags
-            });
-
-            await nostrEventsService.publishEvent(updatedList);
-        }
+        // Publish update to the relay
+        pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedEvent);
 
         return {
             id: searchId,
@@ -405,7 +413,11 @@ export async function updateSavedSearch(
             params: { ...existingParams, ...updates.params },
             createdAt: existing.created_at,
             updatedAt: updatedEvent.created_at,
-            notifyOnNew: updates.notifyOnNew ?? existingNotify
+            notifyOnNew: updates.notifyOnNew ?? existingNotify,
+            notifyOnMatch: updates.notifyOnMatch ?? existingNotifyOnMatch,
+            isActive: updates.isActive ?? existingIsActive,
+            notificationFrequency: updates.notificationFrequency || existingNotificationFrequency,
+            unreadNotifications: updates.unreadNotifications ?? existingUnreadNotifications
         };
     } catch (error) {
         console.error('Error updating saved search:', error);
@@ -414,49 +426,57 @@ export async function updateSavedSearch(
 }
 
 /**
+ * Update notification preferences for a saved search
+ */
+export async function updateNotificationPreferences(
+    searchId: string,
+    notifyOnMatch: boolean,
+    notificationFrequency: string
+): Promise<void> {
+    await updateSavedSearch(searchId, {
+        notifyOnMatch,
+        notificationFrequency
+    });
+}
+
+/**
+ * Mark notifications as read for a saved search
+ */
+export async function markNotificationsAsRead(searchId: string): Promise<void> {
+    await updateSavedSearch(searchId, {
+        unreadNotifications: 0
+    });
+}
+
+/**
  * Delete a saved search
  */
 export async function deleteSavedSearch(searchId: string): Promise<void> {
     try {
-        // Create deletion event for the saved search
+        // Get the existing saved search event to reference in deletion
+        const existingFilter = {
+            kinds: [KINDS.SAVED_SEARCH],
+            '#d': [searchId]
+        };
+        const existingEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], existingFilter);
+
+        if (!existingEvents.length) {
+            throw new Error('Saved search not found');
+        }
+
+        // Create deletion event for the saved search (NIP-09)
         const deletionEvent = await getSignedEvent({
-            kind: 5,
+            kind: 5, // Deletion event
             created_at: Math.floor(Date.now() / 1000),
-            content: '',
+            content: 'Deleted saved search',
             tags: [
-                ['d', searchId],
-                ['type', 'saved-search']
+                ['e', existingEvents[0].id], // Reference to the event being deleted
+                ['k', KINDS.SAVED_SEARCH.toString()] // Kind of event being deleted
             ]
         });
 
-        // Update the saved searches list to remove the deleted search
-        const listFilter = {
-            kinds: [KINDS.SAVED_SEARCHES],
-            authors: [await getNpub()],
-            '#d': ['saved-searches']
-        };
-        const listApiParams = convertFilterToApiParams(listFilter);
-        const listResponse = await nostrEventsService.findEvents(listApiParams);
-        const listEvents = listResponse.data || [];
-
-        if (listEvents.length) {
-            const latestList = listEvents.sort((a: Event, b: Event) => b.created_at - a.created_at)[0];
-            const updatedTags = latestList.tags.filter(tag =>
-                !(tag[0] === 'e' && tag[2] === searchId)
-            );
-
-            const updatedList = await getSignedEvent({
-                kind: KINDS.SAVED_SEARCHES,
-                created_at: Math.floor(Date.now() / 1000),
-                content: '',
-                tags: updatedTags
-            });
-
-            await Promise.all([
-                nostrEventsService.publishEvent(deletionEvent),
-                nostrEventsService.publishEvent(updatedList)
-            ]);
-        }
+        // Publish deletion event
+        pool.publish([PUBLIC_NOSTR_RELAY_URL], deletionEvent);
     } catch (error) {
         console.error('Error deleting saved search:', error);
         throw error;
@@ -470,7 +490,7 @@ export function cleanup(): void {
     // Close task pool
     tasksStore.pool.close([PUBLIC_NOSTR_RELAY_URL]);
     // Close profile pool
-    profilePool.close([PUBLIC_NOSTR_RELAY_URL]);
+    pool.close([PUBLIC_NOSTR_RELAY_URL]);
 
     cache.clear();
 }

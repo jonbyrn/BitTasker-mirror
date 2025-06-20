@@ -18,8 +18,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
 
 // Pool for profile data queries (general Nostr network)
-const profilePool = new SimplePool();
-
+const pool = new SimplePool();
 
 /**
  * Convert a Nostr event to a Task
@@ -276,7 +275,7 @@ async function getProfileData(userNpub: string): Promise<{
             // TODO: Make a funtion to handle multiple tags identifiers for each kind
         }
 
-        const events = await profilePool.querySync([PUBLIC_NOSTR_RELAY_URL], eventFilter);
+        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], eventFilter);
 
         if (events && events.length > 0) {
             await Promise.all(events.map(async (event) => {
@@ -332,7 +331,7 @@ async function getUserPreferences(): Promise<{
             limit: 1
         };
 
-        const preferences = await profilePool.querySync([PUBLIC_NOSTR_RELAY_URL], preferencesFilter);
+        const preferences = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], preferencesFilter);
         if (preferences && preferences.length > 0 && preferences[0].content) {
             try {
                 const prefs = JSON.parse(preferences[0].content);
@@ -444,7 +443,7 @@ export async function saveUserPreferences(preferences: {
             ]
         });
 
-        profilePool.publish([PUBLIC_NOSTR_RELAY_URL], preferencesEvent);
+        pool.publish([PUBLIC_NOSTR_RELAY_URL], preferencesEvent);
 
         // Clear cache to force refresh of recommendations
         const cacheKeys = Array.from(cache.keys()).filter(key => key.startsWith('recommendations_'));
