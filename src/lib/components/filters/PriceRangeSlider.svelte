@@ -77,7 +77,7 @@
 	</div>
 	<div>
 		<label class="label mb-1 p-0" for="min">
-			<span class="label-text">Min <small>({currency})</small></span>
+			<span class="label-text">Min <small>({currency || 'All'})</small></span>
 		</label>
 		<input
 			type="number"
@@ -90,7 +90,7 @@
 	</div>
 	<div>
 		<label class="label mb-1 p-0" for="max">
-			<span class="label-text">Max <small>({currency})</small></span>
+			<span class="label-text">Max <small>({currency || 'All'})</small></span>
 		</label>
 		<input
 			type="number"

@@ -18,7 +18,6 @@ export enum TaskStepEnum {
 }
 
 export enum TaskStatusEnum {
-	DRAFT = 'DRAFT',
 	OPEN = 'OPEN',
 	IN_PROGRESS = 'IN_PROGRESS',
 	COMPLETED = 'COMPLETED',

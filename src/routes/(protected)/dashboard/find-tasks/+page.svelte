@@ -28,8 +28,6 @@
 			skills: [],
 			page: 1,
 			limit: 5,
-			sortBy: SortByEnum.CREATED_AT,
-			sortOrder: SortOrderEnum.DESC,
 			budget: {
 				tier: undefined,
 				currency: undefined,

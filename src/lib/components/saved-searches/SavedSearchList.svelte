@@ -12,7 +12,7 @@
 		updateNotificationPreferences,
 		markNotificationsAsRead
 	} from '$lib/nostr/findTasks';
-	import Input from '../Input.svelte';
+	import Input from '$lib/components/Input.svelte';
 
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
@@ -184,7 +184,7 @@
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search}
-				<div class="card border shadow-sm">
+				<div class="card border-base-content/10 rounded-xl border shadow-sm">
 					<div class="card-body p-4">
 						<!-- Header with name and notification indicator -->
 						<div class="flex items-start justify-between">
@@ -202,7 +202,7 @@
 						</div>
 
 						<!-- Search criteria summary -->
-						<div class="mt-1 text-sm text-gray-600">
+						<div class="mt-1 text-sm">
 							<div class="flex flex-wrap gap-1">
 								{#if search.params.search}
 									<div class="badge badge-outline badge-sm">{search.params.search}</div>
@@ -224,7 +224,7 @@
 							{/if}
 						</div>
 
-						<div class="mt-2 text-xs text-gray-500">
+						<div class="mt-2 text-xs text-white/90">
 							Created: {formatDate(search.createdAt)}
 						</div>
 
@@ -363,9 +363,9 @@
 					<span>Active search</span>
 				</label>
 				<label class="label" for="isActive">
-					<span class="label-text-alt whitespace-normal"
-						>Inactive searches won't appear in your dashboard</span
-					>
+					<span class="label-text-alt text-xs whitespace-normal">
+						Inactive searches won't appear in your dashboard
+					</span>
 				</label>
 			</div>
 

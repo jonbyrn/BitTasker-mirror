@@ -6,12 +6,19 @@
 	import type { SearchTasksParams } from '$lib/types/task';
 	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 	import { saveSearch } from '$lib/nostr/findTasks';
+	import Input from '$lib/components/Input.svelte';
 
 	// Props
 	let { searchParams, onSaved } = $props<{
 		searchParams: Partial<SearchTasksParams>;
 		onSaved: () => void;
 	}>();
+
+	const notificationFrequencyOptions = [
+		{ label: 'Immediate', value: NotificationFrequency.INSTANT },
+		{ label: 'Daily Digest', value: NotificationFrequency.DAILY },
+		{ label: 'Weekly Digest', value: NotificationFrequency.WEEKLY }
+	];
 
 	// State
 	let isModalOpen = $state(false);
@@ -44,13 +51,13 @@
 		let defaultName = '';
 
 		if (searchParams.search) {
-			defaultName = `"${searchParams.search}"`;
+			defaultName = `${searchParams.search}`;
 		} else if (searchParams.taskType) {
-			defaultName = `${searchParams.taskType} Tasks`;
+			defaultName = `${searchParams.taskType} tasks`;
 		} else if (searchParams.location) {
 			defaultName = `Tasks near ${searchParams.location}`;
 		} else if (searchParams.categories && searchParams.categories.length > 0) {
-			defaultName = `${searchParams.categories[0]} Tasks`;
+			defaultName = `${searchParams.categories[0]} tasks`;
 		} else {
 			defaultName = 'My Search';
 		}
@@ -78,7 +85,7 @@
 
 			// Clean up the search params - remove undefined values
 			const cleanParams: SearchTasksParams = {};
-			
+
 			// Copy defined properties
 			if (searchParams.search) cleanParams.search = searchParams.search;
 			if (searchParams.taskType) cleanParams.taskType = searchParams.taskType;
@@ -90,22 +97,15 @@
 			if (searchParams.deadline) cleanParams.deadline = searchParams.deadline;
 			if (searchParams.dateRange) cleanParams.dateRange = searchParams.dateRange;
 			if (searchParams.radius) cleanParams.radius = searchParams.radius;
-			if (searchParams.sortBy) cleanParams.sortBy = searchParams.sortBy;
-			if (searchParams.sortOrder) cleanParams.sortOrder = searchParams.sortOrder;
 			if (searchParams.page) cleanParams.page = searchParams.page;
 			if (searchParams.limit) cleanParams.limit = searchParams.limit;
 
 			// Save search with notification preferences
-			await saveSearch(
-				searchName,
-				cleanParams,
+			await saveSearch(searchName, cleanParams, {
 				notifyOnMatch,
-				{
-					notifyOnMatch,
-					isActive,
-					notificationFrequency
-				}
-			);
+				isActive,
+				notificationFrequency
+			});
 
 			closeModal();
 			onSaved();
@@ -145,7 +145,7 @@
 <!-- Save Search Modal -->
 {#if isModalOpen}
 	<div class="bg-opacity-50 fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-full max-w-md rounded-lg p-6">
+		<div class="bg-base-100 w-[95%] max-w-md rounded-lg p-6">
 			<h3 class="mb-4 text-lg font-bold">Save Search</h3>
 
 			{#if error}
@@ -216,7 +216,7 @@
 
 			<!-- Notification Settings -->
 			<div class="form-control mb-4">
-				<label class="label flex cursor-pointer justify-start gap-2" for="notifyOnMatch">
+				<label class="label flex cursor-pointer justify-start gap-2 whitespace-normal" for="notifyOnMatch">
 					<input
 						id="notifyOnMatch"
 						type="checkbox"
@@ -240,7 +240,9 @@
 					<span>Active search</span>
 				</label>
 				<label class="label" for="isActive">
-					<span class="label-text-alt">Inactive searches won't appear in your dashboard</span>
+					<span class="label-text-alt text-xs">
+						Inactive searches won't appear in your dashboard
+					</span>
 				</label>
 			</div>
 
@@ -249,24 +251,24 @@
 					<label class="label" for="notificationFrequency">
 						<span class="label-text">Notification Frequency</span>
 					</label>
-					<select 
-						class="select select-bordered w-full" 
-						bind:value={notificationFrequency}
-						disabled={isSaving}
-					>
-						<option value={NotificationFrequency.INSTANT}>Immediate</option>
-						<option value={NotificationFrequency.DAILY}>Daily Digest</option>
-						<option value={NotificationFrequency.WEEKLY}>Weekly Digest</option>
-					</select>
+					<Input
+						type="select"
+						value={notificationFrequencyOptions.find(
+							(option) => option.value === notificationFrequency
+						)?.label ?? ''}
+						placeholder="Select frequency"
+						options={notificationFrequencyOptions}
+						onChange={({ value }) => (notificationFrequency = value as NotificationFrequency)}
+					/>
 				</div>
 			{/if}
 
 			<!-- Action Buttons -->
 			<div class="modal-action">
 				<button class="btn" onclick={closeModal} disabled={isSaving}>Cancel</button>
-				<button 
-					class="btn btn-primary" 
-					onclick={saveSearchToNostr} 
+				<button
+					class="btn btn-primary"
+					onclick={saveSearchToNostr}
 					disabled={isSaving || !searchName.trim()}
 				>
 					{#if isSaving}

@@ -9,12 +9,9 @@
 	import {
 		BudgetTypeEnum,
 		TaskTypeEnum,
-		TaskStatusEnum,
-		SortByEnum,
-		SortOrderEnum
+		TaskStatusEnum
 	} from '$lib/utils/enums/task.enum';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
-	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import Tags from '$lib/components/Tags.svelte';
 	import TagsInput from '../TagsInput.svelte';
@@ -30,7 +27,6 @@
 	// State
 	const filters = $state<SearchTasksParams>({
 		search: '',
-		status: [],
 		taskType: undefined,
 		categories: [],
 		skills: [],
@@ -44,9 +40,7 @@
 		deadline: undefined,
 		dateRange: undefined,
 		page: 1,
-		limit: 10,
-		sortBy: SortByEnum.CREATED_AT,
-		sortOrder: SortOrderEnum.DESC
+		limit: 10
 	});
 
 	// Track active filter count
@@ -58,7 +52,6 @@
 
 		if (filters.search) count++;
 		if (filters.taskType) count++;
-		if (filters.status && filters.status.length > 0) count++;
 		if (filters.categories && filters.categories.length > 0) count++;
 		if (filters.skills && filters.skills.length > 0) count++;
 		if (filters.budget?.tier) count++;
@@ -68,7 +61,6 @@
 		if (filters.radius) count++;
 		if (filters.dateRange) count++;
 		if (filters.deadline) count++;
-		if (filters.sortBy !== 'createdAt' || filters.sortOrder !== 'desc') count++;
 
 		activeFilterCount = count;
 	});
@@ -99,7 +91,6 @@
 	// Clear all filters
 	function clearFilters() {
 		filters.search = '';
-		filters.status = [];
 		filters.taskType = undefined;
 		filters.categories = [];
 		filters.skills = [];
@@ -112,8 +103,6 @@
 		filters.radius = undefined;
 		filters.deadline = undefined;
 		filters.dateRange = undefined;
-		filters.sortBy = SortByEnum.CREATED_AT;
-		filters.sortOrder = SortOrderEnum.DESC;
 	}
 
 	// Apply filters and close drawer
@@ -163,17 +152,6 @@
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
 		filters.categories = tags.map((tag) => tag.toLowerCase());
-	}
-
-	// Handle sort options change
-	function handleSortChange(field: string) {
-		if (filters.sortBy === field) {
-			filters.sortOrder =
-				filters.sortOrder === SortOrderEnum.ASC ? SortOrderEnum.DESC : SortOrderEnum.ASC;
-		} else {
-			filters.sortBy = field as SortByEnum;
-			filters.sortOrder = SortOrderEnum.DESC;
-		}
 	}
 
 	// Handle location filter changes
@@ -263,7 +241,7 @@
 		</div>
 
 		<!-- Task Status -->
-		<div class="collapse-arrow collapse mb-2">
+		<!-- <div class="collapse-arrow collapse mb-2">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Status</div>
 			<div class="collapse-content">
@@ -279,7 +257,7 @@
 					{/each}
 				</div>
 			</div>
-		</div>
+		</div> -->
 
 		<!-- Budget Range -->
 		<div class="collapse-arrow collapse mb-2">
@@ -365,49 +343,6 @@
 				<TagsInput placeholder="Add skills..." bind:tags={filters.skills} />
 			</div>
 		</div>
-
-		<!-- Sort Options -->
-		<!-- <div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" />
-			<div class="collapse-title font-medium">Sort By</div>
-			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each ['createdAt', 'budget', 'deadlineDate', 'title'] as field}
-						<button
-							class="btn btn-sm w-full justify-between"
-							class:btn-primary={filters.sortBy === field}
-							onclick={() => handleSortChange(field)}
-						>
-							<span>
-								{field === 'createdAt'
-									? 'Date'
-									: field === 'budget'
-										? 'Budget'
-										: field === 'deadline'
-											? 'Deadline'
-											: 'Title'}
-							</span>
-							{#if filters.sortBy === field}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d={filters.sortOrder === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}
-									/>
-								</svg>
-							{/if}
-						</button>
-					{/each}
-				</div>
-			</div>
-		</div> -->
 
 		<!-- Filter Actions -->
 		<div class="divider"></div>

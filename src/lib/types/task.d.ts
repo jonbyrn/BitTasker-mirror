@@ -97,8 +97,6 @@ export interface SearchTasksParams {
 	radius?: number;
 	deadline?: string;
 	dateRange?: DateRange;
-	sortBy?: SortByEnum;
-	sortOrder?: SortOrderEnum;
 
 	budget?: {
 		tier?: string;
@@ -171,9 +169,6 @@ export interface SavedSearch {
 	name: string;
 	params: SearchTasksParams;
 	createdAt: number;
-	updatedAt: number;
-	notifyOnNew?: boolean;
-	// Enhanced notification features
 	notifyOnMatch?: boolean;
 	isActive?: boolean;
 	notificationFrequency?: string; // 'INSTANT' | 'DAILY' | 'WEEKLY'
