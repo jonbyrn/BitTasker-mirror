@@ -1,25 +1,19 @@
-<!-- 
-  SavedSearchList.svelte
-  Component that displays and manages saved searches
--->
 <script lang="ts">
 	import type { SavedSearch } from '$lib/types/task';
-	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 	import {
 		getSavedSearches,
-		updateSavedSearch,
 		deleteSavedSearch,
 		updateNotificationPreferences,
 		markNotificationsAsRead
-	} from '$lib/nostr/findTasks';
-	import Input from '$lib/components/Input.svelte';
+	} from '$lib/nostr/savedSearch';
+	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let editingSearch = $state<SavedSearch | null>(null);
-	let isEditModalOpen = $state(false);
+	let isEditFormOpen = $state(false);
 	let confirmDeleteId = $state<string | null>(null);
 
 	// Load saved searches on component mount
@@ -47,40 +41,23 @@
 		});
 	}
 
-	// Open edit modal
-	function openEditModal(search: SavedSearch) {
+	// Open edit form
+	function openEditForm(search: SavedSearch) {
 		editingSearch = { ...search };
-		isEditModalOpen = true;
+		isEditFormOpen = true;
 	}
 
-	// Close edit modal
-	function closeEditModal() {
+	// Close edit form
+	function closeEditForm() {
 		editingSearch = null;
-		isEditModalOpen = false;
+		isEditFormOpen = false;
 	}
 
-	// Save edited search
-	async function saveEditedSearch() {
-		if (!editingSearch) return;
-
-		try {
-			const updatedSearch = await updateSavedSearch(editingSearch.id, {
-				name: editingSearch.name,
-				notifyOnMatch: editingSearch.notifyOnMatch,
-				isActive: editingSearch.isActive,
-				notificationFrequency: editingSearch.notificationFrequency
-			});
-
-			// Update local state
-			savedSearches = savedSearches.map((search) =>
-				search.id === editingSearch?.id ? updatedSearch : search
-			);
-
-			closeEditModal();
-		} catch (err) {
-			console.error('Error updating saved search:', err);
-			error = 'Failed to update saved search.';
-		}
+	// Handle successful search update
+	function handleSearchUpdated() {
+		closeEditForm();
+		// Reload saved searches to get the updated data
+		loadSavedSearches();
 	}
 
 	// Delete saved search
@@ -282,7 +259,7 @@
 								<button
 									aria-label="Edit saved search"
 									class="btn btn-sm btn-ghost btn-square"
-									onclick={() => openEditModal(search)}
+									onclick={() => openEditForm(search)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -329,75 +306,19 @@
 	{/if}
 </div>
 
-<!-- Edit Modal -->
-{#if isEditModalOpen && editingSearch}
-	<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-full max-w-md rounded-lg p-6">
-			<h3 class="mb-4 text-lg font-bold">Edit Saved Search</h3>
-
-			<div class="form-control mb-4">
-				<label class="label" for="name">Name</label>
-				<input type="text" class="input input-bordered" bind:value={editingSearch.name} />
-			</div>
-
-			<div class="form-control mb-4">
-				<label class="label flex cursor-pointer justify-start gap-2" for="notifyOnMatch">
-					<input
-						id="notifyOnMatch"
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						bind:checked={editingSearch.notifyOnMatch}
-					/>
-					<span>Notify on matching tasks</span>
-				</label>
-			</div>
-
-			<div class="form-control mb-4">
-				<label class="label flex cursor-pointer justify-start gap-2" for="isActive">
-					<input
-						id="isActive"
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						bind:checked={editingSearch.isActive}
-					/>
-					<span>Active search</span>
-				</label>
-				<label class="label" for="isActive">
-					<span class="label-text-alt text-xs whitespace-normal">
-						Inactive searches won't appear in your dashboard
-					</span>
-				</label>
-			</div>
-
-			{#if editingSearch.notifyOnMatch}
-				<div class="form-control mb-4">
-					<label class="label" for="notificationFrequency">Notification Frequency</label>
-					<Input
-						type="select"
-						value={editingSearch.notificationFrequency}
-						placeholder="Select frequency"
-						options={[
-							{ label: 'Immediate', value: NotificationFrequency.INSTANT },
-							{ label: 'Daily Digest', value: NotificationFrequency.DAILY },
-							{ label: 'Weekly Digest', value: NotificationFrequency.WEEKLY }
-						]}
-						onChange={({ value }) => editingSearch && (editingSearch.notificationFrequency = value)}
-					/>
-				</div>
-			{/if}
-
-			<div class="modal-action">
-				<button class="btn" onclick={closeEditModal}>Cancel</button>
-				<button class="btn btn-primary" onclick={saveEditedSearch}>Save Changes</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<!-- Edit Form -->
+<SaveSearchForm
+	isOpen={isEditFormOpen}
+	searchParams={editingSearch?.params ?? {}}
+	existingSavedSearch={editingSearch}
+	onClose={closeEditForm}
+	onSaved={handleSearchUpdated}
+/>
 
 <!-- Delete Confirmation -->
 {#if confirmDeleteId}
 	<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-full max-w-sm rounded-lg p-6">
+		<div class="bg-base-100 w-[90%] max-w-sm rounded-lg p-6">
 			<h3 class="mb-2 text-lg font-bold">Confirm Delete</h3>
 			<p>Are you sure you want to delete this saved search? This cannot be undone.</p>
 

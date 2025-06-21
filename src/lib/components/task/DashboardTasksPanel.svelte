@@ -22,8 +22,6 @@
 		switch (status) {
 			case TaskStatusEnum.IN_PROGRESS:
 				return $t('task.status.in_progress');
-			case TaskStatusEnum.DRAFT:
-				return $t('task.status.draft');
 			case TaskStatusEnum.OPEN:
 				return $t('task.status.open');
 			case TaskStatusEnum.COMPLETED:
@@ -42,8 +40,6 @@
 		switch (status) {
 			case TaskStatusEnum.IN_PROGRESS:
 				return 'badge-primary';
-			case TaskStatusEnum.DRAFT:
-				return 'badge-secondary';
 			case TaskStatusEnum.OPEN:
 				return 'badge-info';
 			case TaskStatusEnum.COMPLETED:

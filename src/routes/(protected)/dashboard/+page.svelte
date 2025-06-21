@@ -7,13 +7,13 @@
 	import { t } from '$lib/stores/i18n.store';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
-	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
-	import RecurringTasksPanel from '$lib/components/task/RecurringTasksPanel.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
+	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
+		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
 		// { id: 'bids', label: $t('dashboard.tabs.bids') },
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
@@ -91,7 +91,7 @@
 	<Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} />
 
 	{#if isLoading}
-		<div class="flex justify-center h-full">
+		<div class="flex h-full justify-center">
 			<span class="loading loading-spinner loading-lg"></span>
 		</div>
 	{:else if activeTab === 'tasks'}
@@ -104,7 +104,16 @@
 		>
 			<DashboardTasksPanel {openTaskDrawer} />
 		</div>
-	<!-- {:else if activeTab === 'bids'}
+	{:else if activeTab === 'saved-searches'}
+		<div
+			id="panel-saved-searches"
+			role="tabpanel"
+			aria-labelledby="tab-saved-searches"
+			transition:slide={{ duration: 300 }}
+		>
+			<DashboardSavedSearchesPanel />
+		</div>
+		<!-- {:else if activeTab === 'bids'}
 		<div
 			id="panel-bids"
 			role="tabpanel"

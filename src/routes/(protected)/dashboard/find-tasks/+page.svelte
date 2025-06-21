@@ -15,8 +15,7 @@
 	} from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
-	import SavedSearchList from '$lib/components/saved-searches/SavedSearchList.svelte';
-	import SaveSearchButton from '$lib/components/saved-searches/SaveSearchButton.svelte';
+	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 
@@ -52,8 +51,10 @@
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
-	let showSavedSearches = $state(true);
-	
+
+	// Save search state
+	let isSaveSearchOpen = $state(false);
+
 	// Infinite scroll state
 	let observer: IntersectionObserver | null = null;
 	let scrollTarget = $state<HTMLElement | null>(null);
@@ -65,6 +66,22 @@
 	// Loading states
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
+
+	// Has active search parameters for save search button
+	let hasActiveParams = $state(false);
+	$effect(() => {
+		// Check if there are any meaningful search parameters set
+		hasActiveParams =
+			!!searchParams.search ||
+			!!searchParams.taskType ||
+			!!searchParams.location ||
+			(searchParams.status && searchParams.status.length > 0) ||
+			(searchParams.categories && searchParams.categories.length > 0) ||
+			(searchParams.skills && searchParams.skills.length > 0) ||
+			!!searchParams.budget?.tier ||
+			!!searchParams.budget?.currency ||
+			!!searchParams.budget?.type;
+	});
 
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(63000); // Default fallback price
@@ -166,23 +183,6 @@
 			console.error('[FindTasks] Error formatting date:', error);
 			return 'Invalid date';
 		}
-	}
-
-	// Handle save search success
-	function handleSearchSaved() {
-		const currentState = showSavedSearches;
-		showSavedSearches = false;
-		setTimeout(() => {
-			showSavedSearches = !currentState ? currentState : true;
-		}, 100);
-	}
-
-	// Handle sidebar close
-	function handleSidebarClose() {
-		isSidebarOpen = false;
-		setTimeout(() => {
-			selectedTaskId = null;
-		}, 300);
 	}
 
 	// Load more tasks (for infinite scroll)
@@ -399,7 +399,28 @@
 		</button>
 
 		<!-- Save Search Button -->
-		<SaveSearchButton {searchParams} onSaved={handleSearchSaved} />
+		<button
+			class="btn btn-sm btn-primary gap-2"
+			onclick={() => (isSaveSearchOpen = true)}
+			disabled={!hasActiveParams}
+			title={!hasActiveParams ? 'Add search filters to save' : 'Save your search criteria'}
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+				/>
+			</svg>
+			Save Search
+		</button>
 	</div>
 
 	<!-- Results count -->
@@ -600,7 +621,7 @@
 		</div>
 
 		<!-- Infinite Scroll Target -->
-		<div bind:this={scrollTarget} class="mt-4 h-10">
+		<div bind:this={scrollTarget} class="mt-2">
 			{#if $tasksStore.loading && searchParams.page && searchParams.page > 1}
 				<div class="flex justify-center py-2">
 					<span class="loading loading-spinner loading-md"></span>
@@ -628,11 +649,6 @@
 			<button class="btn btn-primary mt-4" onclick={clearFilters}>Clear Filters</button>
 		</div>
 	{/if}
-
-	<!-- Saved Searches Section -->
-	{#if showSavedSearches}
-		<SavedSearchList />
-	{/if}
 </div>
 
 <!-- Advanced Filter Drawer Component -->
@@ -646,4 +662,13 @@
 	taskId={selectedTaskId}
 	onClose={() => (isSidebarOpen = false)}
 	isOpen={isSidebarOpen}
+/>
+
+<SaveSearchForm
+	isOpen={isSaveSearchOpen}
+	{searchParams}
+	onClose={() => (isSaveSearchOpen = false)}
+	onSaved={() => {
+		// Could add success toast or other actions here
+	}}
 />
