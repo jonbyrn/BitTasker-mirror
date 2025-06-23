@@ -17,9 +17,11 @@
 	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
+	import PasskeyImport from '$lib/components/PasskeyImport.svelte';
 
 	let error = $state('');
 	let isLoading = $state(false);
+	let showPasskeyImport = $state(false);
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
@@ -93,8 +95,13 @@
 				// Login flow
 				await login(biometricData, deviceId);
 			} else {
-				// Show error message
-				error = $t('auth.login.errors.no_account');
+				// Show passkey import option if WebAuthn is available
+				if (authMethods.webAuthn) {
+					showPasskeyImport = true;
+					error = 'No saved credentials found. You may have an existing passkey to import.';
+				} else {
+					error = $t('auth.login.errors.no_account');
+				}
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
@@ -191,6 +198,14 @@
 							/>
 						</svg>
 						<span>{error}</span>
+						{#if authMethods.webAuthn && error.includes('No saved credentials')}
+							<button 
+								class="btn btn-primary btn-sm"
+								onclick={() => showPasskeyImport = true}
+							>
+								Import Passkey
+							</button>
+						{/if}
 					</div>
 				{/if}
 
@@ -208,4 +223,32 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- Passkey Import Modal -->
+	{#if showPasskeyImport}
+		<div class="modal modal-open">
+			<div class="modal-box">
+				<div class="flex justify-between items-center mb-4">
+					<h3 class="font-bold text-lg">Recover Existing Passkey</h3>
+					<button 
+						class="btn btn-sm btn-circle btn-ghost"
+						onclick={() => showPasskeyImport = false}
+					>
+						✕
+					</button>
+				</div>
+				
+				<PasskeyImport />
+				
+				<div class="modal-action">
+					<button 
+						class="btn btn-outline"
+						onclick={() => showPasskeyImport = false}
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+		</div>
+	{/if}
 </div>

@@ -25,7 +25,7 @@ const WEBAUTHN_VERIFY_OPTIONS: WebAuthnVerifyOptions = {
 	authenticatorSelection: {
 		authenticatorAttachment: 'platform',
 		userVerification: 'required',
-		requireResidentKey: false
+		requireResidentKey: true
 	},
 	reason: 'Secure your BitTasker account',
 	title: 'BitTasker Authentication',
@@ -88,7 +88,67 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 };
 
 /**
- * Verify user identity using WebAuthn
+ * Discover available credentials using conditional UI
+ * This allows users to authenticate even if localStorage is cleared
+ */
+export async function discoverCredentials(): Promise<string[] | null> {
+	try {
+		if (!(await checkWebBiometricAvailability())) {
+			return null;
+		}
+
+		// Check if conditional UI is supported
+		const isConditionalMediationAvailable = await PublicKeyCredential.isConditionalMediationAvailable();
+		
+		if (!isConditionalMediationAvailable) {
+			console.log('Conditional mediation not available, using standard discovery');
+		}
+
+		// Use empty allowCredentials to trigger discoverable credential selection
+		const authOptions: PublicKeyCredentialRequestOptions = {
+			challenge: generateChallenge(),
+			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
+			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
+			// Empty allowCredentials array enables credential discovery
+			allowCredentials: []
+		};
+		console.log('authOptions', authOptions);
+
+		const credential = (await navigator.credentials.get({
+			publicKey: authOptions,
+			// Use conditional mediation if available
+			mediation: isConditionalMediationAvailable ? 'conditional' : 'optional'
+		})) as PublicKeyCredential;
+		console.log('credential', credential);
+
+		if (!credential) {
+			return null;
+		}
+
+		// Extract user handle (which contains our publicKey)
+		const response = credential.response as AuthenticatorAssertionResponse;
+		if (response.userHandle) {
+			const userHandle = new TextDecoder().decode(response.userHandle);
+			const credentialId = arrayBufferToBase64(credential.rawId);
+			
+			// Cache the discovered credential ID for this session
+			await Preferences.set({
+				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
+				value: credentialId
+			});
+
+			return [userHandle]; // Return the public key(s) associated with discovered credentials
+		}
+
+		return null;
+	} catch (err) {
+		console.error('Credential discovery failed:', err);
+		return null;
+	}
+}
+
+/**
+ * Verify user identity using WebAuthn with automatic credential discovery
  */
 export async function verifyIdentity(
 	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
@@ -98,28 +158,37 @@ export async function verifyIdentity(
 			throw new Error('WebAuthn is not available on this device');
 		}
 
-		// Get the stored credential ID
+		// First, try to get stored credential ID
 		const { value: credentialId } = await Preferences.get({
 			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
 		});
 
-		if (!credentialId) {
-			console.error('No WebAuthn credential found. Please register first.');
-			return false;
-		}
+		let authOptions: PublicKeyCredentialRequestOptions;
 
-		// Create authentication options
-		const authOptions: PublicKeyCredentialRequestOptions = {
-			challenge: generateChallenge(),
-			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
-			allowCredentials: [
-				{
-					id: base64ToArrayBuffer(credentialId),
-					type: 'public-key'
-				}
-			]
-		};
+		if (credentialId) {
+			// Use stored credential ID
+			authOptions = {
+				challenge: generateChallenge(),
+				timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
+				userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
+				allowCredentials: [
+					{
+						id: base64ToArrayBuffer(credentialId),
+						type: 'public-key'
+					}
+				]
+			};
+		} else {
+			// No stored credential ID - use credential discovery
+			console.log('No stored credential ID found, attempting credential discovery...');
+			authOptions = {
+				challenge: generateChallenge(),
+				timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
+				userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
+				// Empty allowCredentials enables discovery
+				allowCredentials: []
+			};
+		}
 
 		// Request authentication
 		const credential = (await navigator.credentials.get({
@@ -130,6 +199,15 @@ export async function verifyIdentity(
 			return false;
 		}
 
+		// If we discovered a new credential, cache its ID
+		if (!credentialId) {
+			const newCredentialId = arrayBufferToBase64(credential.rawId);
+			await Preferences.set({
+				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
+				value: newCredentialId
+			});
+		}
+
 		return true;
 	} catch (err) {
 		console.error('Biometric verification failed:', err);
@@ -138,7 +216,7 @@ export async function verifyIdentity(
 }
 
 /**
- * Register WebAuthn credential and store encrypted data
+ * Register WebAuthn credential and store encrypted data with discoverable credentials
  */
 export async function setWebBiometricKey(
 	publicKey: string,
@@ -152,7 +230,7 @@ export async function setWebBiometricKey(
 		// Create user info for WebAuthn
 		const userId = await generateDeviceKey();
 
-		// Create registration options
+		// Create registration options with discoverable credentials
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
 			challenge: generateChallenge(),
 			rp: {
@@ -160,7 +238,7 @@ export async function setWebBiometricKey(
 				id: window.location.hostname
 			},
 			user: {
-				id: stringToArrayBuffer(userId),
+				id: stringToArrayBuffer(publicKey), // Use publicKey as user ID for discovery
 				name: publicKey,
 				displayName: 'BitTasker User'
 			},
@@ -170,7 +248,11 @@ export async function setWebBiometricKey(
 			],
 			timeout: 60000,
 			attestation: WEBAUTHN_VERIFY_OPTIONS.attestation,
-			authenticatorSelection: WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection
+			authenticatorSelection: {
+				...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
+				requireResidentKey: true, // CRITICAL: Makes credentials discoverable
+				residentKey: 'required' // Explicitly require resident keys
+			}
 		};
 
 		// Create credential
@@ -178,6 +260,7 @@ export async function setWebBiometricKey(
 			publicKey: registrationOptions
 		})) as PublicKeyCredential;
 
+		// Clean up any old credentials
 		const { value: currentCredentials } = await Preferences.get({
 			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
 		});
@@ -187,7 +270,7 @@ export async function setWebBiometricKey(
 			await Preferences.remove({ key: `webAuthn_${currentCredentials}` });
 		}
 
-		// Store credential ID for future authentication
+		// Store credential ID for performance (but not required for security)
 		const credentialId = arrayBufferToBase64(credential.rawId);
 		await Preferences.set({
 			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
@@ -200,11 +283,19 @@ export async function setWebBiometricKey(
 			server: userId
 		};
 
-		// Store the encrypted data
-		await Preferences.set({
-			key: `webAuthn_${credentialId}`,
-			value: JSON.stringify(data)
-		});
+		// Store the encrypted data with multiple keys for redundancy
+		await Promise.all([
+			// Primary storage using credential ID
+			Preferences.set({
+				key: `webAuthn_${credentialId}`,
+				value: JSON.stringify(data)
+			}),
+			// Backup storage using public key (for discovery scenarios)
+			Preferences.set({
+				key: `webAuthn_pubkey_${publicKey}`,
+				value: JSON.stringify(data)
+			})
+		]);
 
 		appStore.update((state) => ({ ...state, biometricData: data }));
 		await Preferences.set({ key: 'npub', value: publicKey });
@@ -217,30 +308,88 @@ export async function setWebBiometricKey(
 }
 
 /**
- * Get stored credentials after biometric verification
+ * Get stored credentials after biometric verification with automatic discovery
  */
 export async function getWebBiometricData(): Promise<Credentials | null> {
 	try {
 		const verified = await verifyIdentity();
 		if (!verified) return null;
 
+		// Try to get credential ID
 		const { value: credentialId } = await Preferences.get({
 			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
 		});
 
-		if (!credentialId) {
-			return null;
+		let storedData: string | null = null;
+
+		if (credentialId) {
+			// Try primary storage
+			const { value } = await Preferences.get({
+				key: `webAuthn_${credentialId}`
+			});
+			storedData = value;
 		}
 
-		const { value: storedData } = await Preferences.get({
-			key: `webAuthn_${credentialId}`
-		});
+		// If no data found, try credential discovery and backup storage
+		if (!storedData) {
+			console.log('Primary storage failed, attempting credential discovery...');
+			
+			const discoveredKeys = await discoverCredentials();
+			if (discoveredKeys && discoveredKeys.length > 0) {
+				// Try backup storage using discovered public key
+				const { value } = await Preferences.get({
+					key: `webAuthn_pubkey_${discoveredKeys[0]}`
+				});
+				storedData = value;
+			}
+		}
 
 		if (!storedData) return null;
 
 		return JSON.parse(storedData) as Credentials;
 	} catch (err) {
 		console.error('Failed to get biometric key:', err);
+		return null;
+	}
+}
+
+/**
+ * Import existing passkey credentials for users who have lost localStorage
+ */
+export async function importExistingPasskey(): Promise<Credentials | null> {
+	try {
+		console.log('Starting passkey import process...');
+		
+		const discoveredKeys = await discoverCredentials();
+		if (!discoveredKeys || discoveredKeys.length === 0) {
+			console.log('No discoverable credentials found');
+			return null;
+		}
+
+		console.log(`Found ${discoveredKeys.length} discoverable credential(s)`);
+
+		// Try to find stored data for any discovered credential
+		for (const publicKey of discoveredKeys) {
+			const { value: storedData } = await Preferences.get({
+				key: `webAuthn_pubkey_${publicKey}`
+			});
+
+			if (storedData) {
+				console.log(`Successfully imported passkey for public key: ${publicKey}`);
+				const credentials = JSON.parse(storedData) as Credentials;
+				
+				// Update app store with recovered credentials
+				appStore.update((state) => ({ ...state, biometricData: credentials }));
+				await Preferences.set({ key: 'npub', value: publicKey });
+				
+				return credentials;
+			}
+		}
+
+		console.log('Credentials found but no associated data in storage');
+		return null;
+	} catch (err) {
+		console.error('Failed to import existing passkey:', err);
 		return null;
 	}
 }
