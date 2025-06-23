@@ -8,6 +8,8 @@
 // Base route segments
 const API_PATH = '/api';
 const API_VERSION = 'v1';
+const NOSTR_API_PATH = '/api';
+const NOSTR_API_VERSION = 'v1';
 const AUTH = 'auth';
 const USERS = 'users';
 const TASKS = 'tasks';
@@ -130,5 +132,14 @@ export const ENDPOINTS = {
 	LOCATION: {
 		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
 		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
+	},
+
+	NOSTR: {
+		EVENTS: `${API_PATH}/${API_VERSION}/events`,
+		EVENTS_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/events/${id}`,
+		EVENTS_REQUEST: `${API_PATH}/${API_VERSION}/events/request`,
+		WOT_TRUSTED: (pubkey: string) => `${API_PATH}/${API_VERSION}/wot/trusted/${pubkey}`,
+		NIP05: `${API_PATH}/${API_VERSION}/nip-05`,
+		NIP05_BY_NAME: (name: string) => `${API_PATH}/${API_VERSION}/nip-05/${name}`
 	}
 };

@@ -191,8 +191,8 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-auto rounded-lg shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">Place your bid</h2>
+<div class="bg-base-100 relative mx-auto rounded-lg opacity-30 shadow-lg">
+	<h2 class="mb-6 text-2xl font-bold">Place your bid (Coming Soon)</h2>
 
 	{#if bidSubmitted}
 		<div
@@ -409,7 +409,9 @@
 					class:input-error={bidFormErrors.estimatedDuration}
 					placeholder={$t('bid.form.estimated_duration.placeholder')}
 					aria-invalid={bidFormErrors.estimatedDuration ? 'true' : undefined}
-					aria-describedby={bidFormErrors.estimatedDuration ? 'estimated-duration-error' : undefined}
+					aria-describedby={bidFormErrors.estimatedDuration
+						? 'estimated-duration-error'
+						: undefined}
 					bind:value={estimatedDuration}
 				/>
 				{#if bidFormErrors.estimatedDuration}
@@ -643,7 +645,7 @@
 								</div>
 							</div>
 
-							<div class="mt-2 grid grid-cols-2 gap-4">
+							<div class="mt-2 grid w-full gap-4 sm:grid-cols-2">
 								<!-- Due Date field -->
 								<div class="form-control w-full">
 									<label class="label" for={`milestone-due-date-${i}`}>
@@ -657,21 +659,7 @@
 											milestones = newMilestones;
 										}}
 									/>
-									<!-- <input
-										id={`milestone-due-date-${i}`}
-										type="date"
-										class="input input-bordered w-full"
-										value={milestone.dueDate}
-										oninput={(e) => {
-											const newMilestones = [...milestones];
-											newMilestones[i] = { ...newMilestones[i], dueDate: (e.target as HTMLInputElement).value };
-											milestones = newMilestones;
-										}}
-									/> -->
 								</div>
-
-								<!-- Sequence field (hidden, auto-calculated) -->
-								<input type="hidden" value={i + 1} id={`milestone-sequence-${i}`} />
 							</div>
 
 							<!-- Deliverables field -->
@@ -681,7 +669,7 @@
 								</label>
 								<textarea
 									id={`milestone-deliverables-${i}`}
-									class="textarea textarea-bordered h-20 w-full"
+									class="textarea textarea-bordered h-20 w-full rounded-xl"
 									value={milestone.deliverables}
 									oninput={(e) => {
 										const newMilestones = [...milestones];
@@ -718,4 +706,6 @@
 			{/if}
 		</form>
 	{/if}
+
+	<div class="absolute top-0 left-0 h-full w-full"></div>
 </div>

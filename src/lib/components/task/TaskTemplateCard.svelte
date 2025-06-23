@@ -1,11 +1,8 @@
 <script lang="ts">
 	import type { MyTaskTemplates$result } from '$houdini';
 	import { format } from 'date-fns';
-	import {
-		TASKSTATUS,
-		RECURRINGFREQUENCYENUM,
-		BUDGETTYPE
-	} from '$lib/utils/enums/recurringTask.enums';
+	import { TaskStatusEnum, RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
+	import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 
 	// Props
 	let { template, onStatusChange, onDelete, onUpdate } = $props<{
@@ -30,11 +27,11 @@
 	};
 
 	const frequencyText = {
-		[RECURRINGFREQUENCYENUM.DAILY]: 'Daily',
-		[RECURRINGFREQUENCYENUM.WEEKLY]: 'Weekly',
-		[RECURRINGFREQUENCYENUM.BIWEEKLY]: 'Every 2 weeks',
-		[RECURRINGFREQUENCYENUM.MONTHLY]: 'Monthly',
-		[RECURRINGFREQUENCYENUM.CUSTOM]: 'Custom'
+		[RecurringFrequencyEnum.DAILY]: 'Daily',
+		[RecurringFrequencyEnum.WEEKLY]: 'Weekly',
+		[RecurringFrequencyEnum.BIWEEKLY]: 'Every 2 weeks',
+		[RecurringFrequencyEnum.MONTHLY]: 'Monthly',
+		[RecurringFrequencyEnum.CUSTOM]: 'Custom'
 	};
 
 	// Functions
@@ -79,19 +76,19 @@
 
 		const { frequency, interval, daysOfWeek, dayOfMonth } = template.recurrencePattern;
 
-		if (frequency === RECURRINGFREQUENCYENUM.DAILY) {
+		if (frequency === RecurringFrequencyEnum.DAILY) {
 			return interval === 1 ? 'Every day' : `Every ${interval} days`;
 		}
 
-		if (frequency === RECURRINGFREQUENCYENUM.WEEKLY) {
+		if (frequency === RecurringFrequencyEnum.WEEKLY) {
 			return interval === 1 ? 'Every week' : `Every ${interval} weeks`;
 		}
 
-		if (frequency === RECURRINGFREQUENCYENUM.BIWEEKLY) {
+		if (frequency === RecurringFrequencyEnum.BIWEEKLY) {
 			return 'Every 2 weeks';
 		}
 
-		if (frequency === RECURRINGFREQUENCYENUM.MONTHLY) {
+		if (frequency === RecurringFrequencyEnum.MONTHLY) {
 			if (dayOfMonth) {
 				return interval === 1
 					? `Monthly on day ${dayOfMonth}`
@@ -100,7 +97,7 @@
 			return interval === 1 ? 'Monthly' : `Every ${interval} months`;
 		}
 
-		if (frequency === RECURRINGFREQUENCYENUM.CUSTOM && daysOfWeek?.length) {
+		if (frequency === RecurringFrequencyEnum.CUSTOM && daysOfWeek?.length) {
 			const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 			const days = daysOfWeek.map((day) => dayNames[day]).join(', ');
 			return `Custom: ${days}`;
@@ -198,7 +195,7 @@
 							<p class="text-sm">
 								{template.task.budget}
 								{template.task.currency || 'BTC'}
-								{#if template.task.budgetType === BUDGETTYPE.HOURLY}
+								{#if template.task.budgetType === BudgetTypeEnum.HOURLY}
 									/hr ({template.task.estimatedHours || 0} hrs)
 								{/if}
 							</p>
@@ -250,9 +247,9 @@
 				<button
 					class="btn btn-primary btn-sm"
 					onclick={toggleStatus}
-					disabled={template.status !== TASKSTATUS.ACTIVE && template.status !== TASKSTATUS.PAUSED}
+					disabled={template.status !== TaskStatusEnum.OPEN && template.status !== TaskStatusEnum.IN_PROGRESS}
 				>
-					{template.status === TASKSTATUS.ACTIVE ? 'Pause' : 'Resume'}
+					{template.status === TaskStatusEnum.OPEN ? 'Pause' : 'Resume'}
 				</button>
 			</div>
 		</div>
@@ -299,7 +296,7 @@
 						<div class="text-sm font-medium">
 							{template.task.budget}
 							{template.task.currency || 'BTC'}
-							{#if template.task.budgetType === BUDGETTYPE.HOURLY}
+							{#if template.task.budgetType === BudgetTypeEnum.HOURLY}
 								/hr ({template.task.estimatedHours || 0} hrs)
 							{/if}
 						</div>
@@ -350,9 +347,9 @@
 				<button
 					class="btn btn-primary btn-xs"
 					onclick={toggleStatus}
-					disabled={template.status !== TASKSTATUS.ACTIVE && template.status !== TASKSTATUS.PAUSED}
+					disabled={template.status !== TaskStatusEnum.OPEN && template.status !== TaskStatusEnum.IN_PROGRESS}
 				>
-					{template.status === TASKSTATUS.ACTIVE ? 'Pause' : 'Resume'}
+					{template.status === TaskStatusEnum.OPEN ? 'Pause' : 'Resume'}
 				</button>
 			</div>
 		</div>

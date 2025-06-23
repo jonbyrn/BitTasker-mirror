@@ -19,13 +19,13 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
         throw new Error('No pubkey or private key found');
     }
 
-    // Create the event
+    // Create the event with required properties in correct order
     const event = {
-        kind: metadata.kind || 0,
-        created_at: Math.floor(Date.now() / 1000),
-        content: metadata.content || '',
+        pubkey: npub,
+        created_at: metadata.created_at || Math.floor(Date.now() / 1000),
+        kind: metadata.kind!,
         tags: metadata.tags || [],
-        pubkey: npub
+        content: metadata.content || ''
     };
 
     // Finalize the event (calculate id and sign)

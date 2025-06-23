@@ -1,19 +1,19 @@
-<!-- 
-  SavedSearchList.svelte
-  Component that displays and manages saved searches
--->
 <script lang="ts">
-	import type { SavedSearch } from '$lib/types/saved-search';
-	import { NotificationFrequency } from '$lib/utils/enums/task.enum';
-	import savedSearchesService from '$lib/api/services/saved-searches.service';
-	import Input from '../Input.svelte';
+	import type { SavedSearch } from '$lib/types/task';
+	import {
+		getSavedSearches,
+		deleteSavedSearch,
+		updateNotificationPreferences,
+		markNotificationsAsRead
+	} from '$lib/nostr/savedSearch';
+	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let editingSearch = $state<SavedSearch | null>(null);
-	let isEditModalOpen = $state(false);
+	let isEditFormOpen = $state(false);
 	let confirmDeleteId = $state<string | null>(null);
 
 	// Load saved searches on component mount
@@ -23,7 +23,7 @@
 		try {
 			isLoading = true;
 			error = null;
-			savedSearches = await savedSearchesService.getSavedSearches();
+			savedSearches = await getSavedSearches();
 		} catch (err) {
 			console.error('Error loading saved searches:', err);
 			error = 'Failed to load saved searches. Please try again.';
@@ -32,55 +32,38 @@
 		}
 	}
 
-	// Format date for display
-	function formatDate(dateString: string): string {
-		return new Date(dateString).toLocaleDateString('en-US', {
+	// Format date for display (convert from unix timestamp)
+	function formatDate(timestamp: number): string {
+		return new Date(timestamp * 1000).toLocaleDateString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric'
 		});
 	}
 
-	// Open edit modal
-	function openEditModal(search: SavedSearch) {
+	// Open edit form
+	function openEditForm(search: SavedSearch) {
 		editingSearch = { ...search };
-		isEditModalOpen = true;
+		isEditFormOpen = true;
 	}
 
-	// Close edit modal
-	function closeEditModal() {
+	// Close edit form
+	function closeEditForm() {
 		editingSearch = null;
-		isEditModalOpen = false;
+		isEditFormOpen = false;
 	}
 
-	// Save edited search
-	async function saveEditedSearch() {
-		if (!editingSearch) return;
-
-		try {
-			await savedSearchesService.updateSavedSearch(editingSearch.id, {
-				name: editingSearch.name,
-				notifyOnMatch: editingSearch.notifyOnMatch,
-				isActive: editingSearch.isActive,
-				notificationFrequency: editingSearch.notificationFrequency
-			});
-
-			// Update local state
-			savedSearches = savedSearches.map((search) =>
-				search.id === editingSearch?.id ? editingSearch : search
-			);
-
-			closeEditModal();
-		} catch (err) {
-			console.error('Error updating saved search:', err);
-			error = 'Failed to update saved search.';
-		}
+	// Handle successful search update
+	function handleSearchUpdated() {
+		// Reload saved searches to get the updated data
+		closeEditForm();
+		loadSavedSearches();
 	}
 
 	// Delete saved search
 	async function deleteSearch(id: string) {
 		try {
-			await savedSearchesService.deleteSavedSearch(id);
+			await deleteSavedSearch(id);
 
 			// Update local state
 			savedSearches = savedSearches.filter((search) => search.id !== id);
@@ -94,10 +77,10 @@
 	// Toggle notifications
 	async function toggleNotifications(search: SavedSearch) {
 		try {
-			await savedSearchesService.updateNotificationPreferences(
+			await updateNotificationPreferences(
 				search.id,
 				!search.notifyOnMatch,
-				search.notificationFrequency
+				search.notificationFrequency || 'DAILY'
 			);
 
 			// Update local state
@@ -111,9 +94,9 @@
 	}
 
 	// Mark all notifications as read
-	async function markNotificationsAsRead(searchId: string) {
+	async function markNotificationsAsReadForSearch(searchId: string) {
 		try {
-			await savedSearchesService.markNotificationsAsRead(searchId);
+			await markNotificationsAsRead(searchId);
 
 			// Update local state
 			savedSearches = savedSearches.map((search) =>
@@ -126,7 +109,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 mb-6 p-4">
+<div class="card bg-base-100 mb-6 rounded-xl p-4">
 	<h2 class="mb-4 text-xl font-bold">Your Saved Searches</h2>
 
 	{#if error}
@@ -178,17 +161,17 @@
 	{:else}
 		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{#each savedSearches as search}
-				<div class="card border shadow-sm">
+				<div class="card border-base-content/10 rounded-xl border shadow-sm">
 					<div class="card-body p-4">
 						<!-- Header with name and notification indicator -->
 						<div class="flex items-start justify-between">
 							<h3 class="card-title text-md">{search.name}</h3>
 
-							{#if search.unreadNotifications > 0}
+							{#if (search.unreadNotifications ?? 0) > 0}
 								<button
 									class="badge badge-primary tooltip"
 									data-tip="New matching tasks"
-									onclick={() => markNotificationsAsRead(search.id)}
+									onclick={() => markNotificationsAsReadForSearch(search.id)}
 								>
 									{search.unreadNotifications} new
 								</button>
@@ -196,31 +179,29 @@
 						</div>
 
 						<!-- Search criteria summary -->
-						<div class="mt-1 text-sm text-gray-600">
+						<div class="mt-1 text-sm">
 							<div class="flex flex-wrap gap-1">
-								{#if search.searchParams.searchTerm}
-									<div class="badge badge-outline badge-sm">{search.searchParams.searchTerm}</div>
+								{#if search.params.search}
+									<div class="badge badge-outline badge-sm">{search.params.search}</div>
 								{/if}
 
-								{#if search.searchParams.taskType}
-									<div class="badge badge-outline badge-sm">{search.searchParams.taskType}</div>
+								{#if search.params.taskType}
+									<div class="badge badge-outline badge-sm">{search.params.taskType}</div>
 								{/if}
 
-								{#if search.searchParams.location}
-									<div class="badge badge-outline badge-sm">{search.searchParams.location}</div>
+								{#if search.params.location}
+									<div class="badge badge-outline badge-sm">{search.params.location}</div>
 								{/if}
 							</div>
 
-							{#if search.searchParams.minBudget || search.searchParams.maxBudget}
+							{#if search.params.budget?.tier}
 								<div class="mt-1">
-									Budget:
-									{search.searchParams.minBudget ?? 0} -
-									{search.searchParams.maxBudget ?? '∞'}
+									Budget tier: {search.params.budget.tier}
 								</div>
 							{/if}
 						</div>
 
-						<div class="mt-2 text-xs text-gray-500">
+						<div class="mt-2 text-xs text-white/90">
 							Created: {formatDate(search.createdAt)}
 						</div>
 
@@ -230,7 +211,7 @@
 								<label class="swap swap-flip">
 									<input
 										type="checkbox"
-										checked={search.notifyOnMatch}
+										checked={search.notifyOnMatch ?? false}
 										onclick={() => toggleNotifications(search)}
 									/>
 
@@ -278,7 +259,7 @@
 								<button
 									aria-label="Edit saved search"
 									class="btn btn-sm btn-ghost btn-square"
-									onclick={() => openEditModal(search)}
+									onclick={() => openEditForm(search)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -325,75 +306,19 @@
 	{/if}
 </div>
 
-<!-- Edit Modal -->
-{#if isEditModalOpen && editingSearch}
-	<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-full max-w-md rounded-lg p-6">
-			<h3 class="mb-4 text-lg font-bold">Edit Saved Search</h3>
-
-			<div class="form-control mb-4">
-				<label class="label" for="name">Name</label>
-				<input type="text" class="input input-bordered" bind:value={editingSearch.name} />
-			</div>
-
-			<div class="form-control mb-4">
-				<label class="label flex cursor-pointer justify-start gap-2" for="notifyOnMatch">
-					<input
-						id="notifyOnMatch"
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						bind:checked={editingSearch.notifyOnMatch}
-					/>
-					<span>Notify on matching tasks</span>
-				</label>
-			</div>
-
-			<div class="form-control mb-4">
-				<label class="label flex cursor-pointer justify-start gap-2" for="isActive">
-					<input
-						id="isActive"
-						type="checkbox"
-						class="checkbox checkbox-primary"
-						bind:checked={editingSearch.isActive}
-					/>
-					<span>Active search</span>
-				</label>
-				<label class="label" for="isActive">
-					<span class="label-text-alt whitespace-normal"
-						>Inactive searches won't appear in your dashboard</span
-					>
-				</label>
-			</div>
-
-			{#if editingSearch.notifyOnMatch}
-				<div class="form-control mb-4">
-					<label class="label" for="notificationFrequency">Notification Frequency</label>
-					<Input
-						type="select"
-						value={editingSearch.notificationFrequency}
-						placeholder="Select frequency"
-						options={[
-							{ label: 'Immediate', value: NotificationFrequency.INSTANT },
-							{ label: 'Daily Digest', value: NotificationFrequency.DAILY },
-							{ label: 'Weekly Digest', value: NotificationFrequency.WEEKLY }
-						]}
-						onChange={({ value }) => editingSearch && (editingSearch.notificationFrequency = value)}
-					/>
-				</div>
-			{/if}
-
-			<div class="modal-action">
-				<button class="btn" onclick={closeEditModal}>Cancel</button>
-				<button class="btn btn-primary" onclick={saveEditedSearch}>Save Changes</button>
-			</div>
-		</div>
-	</div>
-{/if}
+<!-- Edit Form -->
+<SaveSearchForm
+	isOpen={isEditFormOpen}
+	searchParams={editingSearch?.params ?? {}}
+	existingSavedSearch={editingSearch}
+	onClose={closeEditForm}
+	onSaved={handleSearchUpdated}
+/>
 
 <!-- Delete Confirmation -->
 {#if confirmDeleteId}
 	<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
-		<div class="bg-base-100 w-full max-w-sm rounded-lg p-6">
+		<div class="bg-base-100 w-[90%] max-w-sm rounded-lg p-6">
 			<h3 class="mb-2 text-lg font-bold">Confirm Delete</h3>
 			<p>Are you sure you want to delete this saved search? This cannot be undone.</p>
 

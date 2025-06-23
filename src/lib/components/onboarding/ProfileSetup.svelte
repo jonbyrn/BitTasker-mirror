@@ -30,6 +30,7 @@
 	let nameError = $state('');
 	let descriptionError = $state('');
 	let picture = $state<NostrProfileImage | null>(null);
+	let selectedFile = $state<File | null>(null);
 	let pictureLoading = $state(false);
 	let isInitialLoading = $state(false);
 
@@ -64,8 +65,8 @@
 						if (images.length > 0) {
 							picture = {
 								url: images[0].url,
-								type: images[0].type || 'image/jpeg',
-								alt: images[0].alt || '',
+								type: images[0].type,
+								alt: images[0].alt,
 								key: images[0].key
 							};
 						}
@@ -102,24 +103,27 @@
 		if (cleanup) cleanup();
 	});
 
-	// Handle image upload
-	async function handleImageUpload(file: File) {
-		if (!file) return;
-
-		try {
-			pictureLoading = true;
-			const uploadedFile = await uploadService.uploadSingleFile(file, 'profile');
-			picture = {
-				url: uploadedFile.url,
-				type: file.type,
-				alt: file.name,
-				key: uploadedFile.key
-			};
-		} catch (err) {
-			console.error('File upload failed:', err);
-			error = 'File upload failed';
-		} finally {
-			pictureLoading = false;
+	// Handle image selection (store locally, don't upload yet)
+	async function handleImageUpload() {
+		if (selectedFile) {
+			try {
+				pictureLoading = true;
+				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, 'profile');
+				const uploadedPicture = {
+					url: uploadedFile.url,
+					type: selectedFile.type,
+					alt: selectedFile.name,
+					key: uploadedFile.key
+				};
+				await publishMultipleImages([uploadedPicture], imageEventId, 'profile-images');
+			} catch (uploadErr) {
+				console.error('File upload failed:', uploadErr);
+				error = 'File upload failed';
+				isLoading = false;
+				return;
+			} finally {
+				pictureLoading = false;
+			}
 		}
 	}
 
@@ -187,10 +191,8 @@
 				return;
 			}
 
-			// Publish profile picture if exists
-			if (picture) {
-				await publishMultipleImages([picture], imageEventId, 'profile-images');
-			}
+			// Upload and publish profile picture if a new file is selected
+			await handleImageUpload();
 
 			// Publish profile metadata
 			const profileData: NostrProfile = {
@@ -262,9 +264,20 @@
 						id="profilePicture"
 						label="Profile Picture"
 						maxFiles={1}
-						customClass="h-32 w-full max-w-32 mx-auto"
-						files={picture ? [picture.url] : undefined}
-						onChange={(files) => handleImageUpload(files[0])}
+						className="h-32 w-full max-w-32 mx-auto"
+						files={selectedFile
+							? [URL.createObjectURL(selectedFile)]
+							: picture
+								? [picture.url]
+								: undefined}
+						onChange={(files) => {
+							if (!files[0]) return;
+							selectedFile = files[0];
+							// Clear any previous uploaded picture since we have a new file
+							if (!picture) {
+								picture = null;
+							}
+						}}
 					/>
 				</div>
 

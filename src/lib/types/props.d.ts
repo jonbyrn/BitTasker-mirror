@@ -11,9 +11,9 @@ export interface UploaderProps {
 	width?: number;
 	height?: number;
 	maxDuration?: number;
-	customClass?: string;
+	className?: string;
 	onChange?: (files: File[]) => void;
-	onRemove?: (index: number) => void;
+	onRemove?: (index: number, file?: File | string) => void;
 	onError?: (message: string) => void;
 }
 
@@ -52,6 +52,7 @@ export interface InputProps {
 	min?: number;
 	max?: number;
 	step?: number;
+	className?: string;
 	onChange?: (option: { label: string; value: string }) => void;
 }
 

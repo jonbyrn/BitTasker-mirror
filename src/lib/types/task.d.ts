@@ -1,4 +1,5 @@
 import type { TaskBid } from './bid';
+import type { Event as NostrEvent } from 'nostr-tools';
 import {
 	BudgetTypeEnum,
 	TaskTypeEnum,
@@ -20,112 +21,94 @@ export interface DateRange {
 	end: string;
 }
 
-export interface CreateTaskParams {
-	title: string;
-	description: string;
-	budget: number;
-	budgetType: BudgetTypeEnum;
-	taskType: TaskTypeEnum;
-	deadlineDate: string;
+export interface Budget {
+	amount: number;
+	currency: string;
+	type: BudgetTypeEnum;
 	estimatedHours?: number;
-	categoryIds: number[];
-	skillIds: number[];
+}
+
+export interface Attachment {
+	url: string;
+	key: string;
+	type: string;
+	alt: string;
+	size: number;
+}
+
+export interface TaskBody {
+	title: string;
+	taskType: TaskTypeEnum;
+	description: string;
+	budget: Budget;
+	deadline?: string;
+	dateRange?: DateRange;
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
-	dateRange?: DateRange;
-	attachments?: { fileName: string; fileUrl: string; fileSize: number }[];
+	skills: string[];
+	categories: string[];
+	attachments?: Attachment[];
 }
 
 export interface Task {
-	id: number;
-	userProfileId: number;
-	title: string;
-	description: string;
-	budget: number;
-	budgetType: BudgetTypeEnum;
-	currency?: string;
+	id: string;
+	npub: string;
 	status: TaskStatusEnum;
+	title: string;
 	taskType: TaskTypeEnum;
-	isRemovals: boolean;
-	deadlineDate: string | null;
-	estimatedHours: number;
+	description: string;
+	budget: Budget;
+	deadline: string | null;
 	dateRange: DateRange | null;
 	pickupLocation: Location | null;
 	dropOffLocation: Location | null;
+	skills: string[];
+	categories: string[];
+	attachments?: Attachment[];
+
+	isRemovals: boolean;
 	isBoosted: boolean;
 	boostPercentage: number | null;
-	createdAt: string;
+
+	createdAt: number;
 	updatedAt: string;
 	completedAt: string | null;
 	cancelledAt: string | null;
 	deletedAt: string | null;
+
 	isDeleted: boolean;
-	attachments?: { fileName: string; fileUrl: string; fileSize: number }[];
-	categories: Array<{
-		id: number;
-		taskId: number;
-		categoryId: number;
-		isPrimary: boolean;
-		createdAt: string;
-		category: {
-			id: number;
-			name: string;
-			description: string;
-			icon: string;
-			slug: string;
-			parentId: number;
-			isActive: boolean;
-			displayOrder: number;
-			createdAt: string;
-			updatedAt: string;
-			deletedAt: string | null;
-			isDeleted: boolean;
-		};
-	}>;
-	requiredSkills: Array<{
-		id: number;
-		taskId: number;
-		skillId: number;
-		importance: string;
-		experienceLevel: string | null;
-		notes: string | null;
-		createdAt: string;
-		skill: {
-			id: number;
-			name: string;
-			description: string;
-			categoryId: number;
-			isVerifiable: boolean;
-			createdAt: string;
-			updatedAt: string;
-			deletedAt: string | null;
-			isDeleted: boolean;
-		};
-	}>;
-	bids: TaskBid[];
+	requiredSkills: string[];
+	creator?: {
+		username: string;
+		avatar: string;
+	};
+
+	bids?: TaskBid[];
 }
 
 export interface SearchTasksParams {
 	status?: TaskStatusEnum[];
-	categoryId?: number;
-	skillId?: number;
 	taskType?: TaskTypeEnum;
-	searchTerm?: string;
-	minBudget?: number;
-	maxBudget?: number;
-	includeDeleted?: boolean;
 	page?: number;
 	limit?: number;
-	budgetType?: BudgetTypeEnum;
-	categoryIds?: number[];
-	skillIds?: number[];
+	categories?: string[];
+	skills?: string[];
 	location?: string;
 	radius?: number;
-	deadlineBefore?: string;
-	deadlineAfter?: string;
+	deadline?: string;
 	dateRange?: DateRange;
-	sortBy?: SortByEnum;
-	sortOrder?: SortOrderEnum;
+
+	budget?: {
+		tier?: string;
+		currency?: string;
+		type?: BudgetTypeEnum;
+	};
+
+	// Nostr-specific fields
+	since?: number;      // Unix timestamp in seconds
+	until?: number;      // Unix timestamp in seconds
+	kinds?: number[];
+	search?: string;     // NIP-50 search term
 }
 
 export interface TaskData extends Task {
@@ -165,4 +148,69 @@ export interface TaskResponse {
 		hasNextPage: boolean;
 		hasPreviousPage: boolean;
 	};
+}
+
+// Nostr-specific interfaces
+export interface NostrTaskMetadata {
+	uniqueId: string;
+	createdAt: number;
+	updatedAt?: number;
+	deletedAt?: number;
+	pow: [string, string];
+}
+
+export interface NostrTaskEvent extends NostrEvent {
+	content: string; // JSON stringified TaskBody & NostrTaskMetadata
+	tags: string[][];
+}
+
+export interface SavedSearch {
+	id: string;
+	name: string;
+	params: SearchTasksParams;
+	createdAt: number;
+	notifyOnMatch?: boolean;
+	isActive?: boolean;
+	notificationFrequency?: string; // 'INSTANT' | 'DAILY' | 'WEEKLY'
+	unreadNotifications?: number;
+}
+
+export interface TaskRecommendation {
+	taskId: string;
+	task: Task;
+	score: number;
+	reason: string;
+	matchedSkills?: string[];
+	matchedCategories?: string[];
+}
+
+export interface RecommendationParams {
+	skills?: string[];
+	categories?: string[];
+	preferredBudget?: {
+		tier?: string;
+		currency?: string;
+		type?: string;
+	};
+	preferredLocations?: string[];
+	limit?: number;
+}
+
+export interface NostrSearchResult {
+	tasks: Task[];
+	total: number;
+	hasMore: boolean;
+	cursor?: string;
+}
+
+// Add Nostr-specific types
+export interface NostrFilter {
+	ids?: string[];
+	authors?: string[];
+	kinds?: number[];
+	since?: number;
+	until?: number;
+	limit?: number;
+	search?: string;  // NIP-50 search
+	[key: string]: string[] | number[] | string | number | undefined;  // Allow for custom filter attributes
 }

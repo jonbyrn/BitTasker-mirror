@@ -38,12 +38,14 @@ export interface UserData {
 	email: string;
 	name: string;
 	npub: string;
+	avatar: string;
+
+	// TODO: Refactor & check utility of these fields
 	password?: string | null;
 	onboardingComplete?: boolean;
 	isEmailVerified?: boolean;
 	lastLoginAt?: string;
 	status?: 'ACTIVE' | 'INACTIVE';
-	userRole?: 'CLIENT' | 'ADMIN';
 	createdAt?: Date;
 	updatedAt?: Date;
 	deletedAt?: Date;

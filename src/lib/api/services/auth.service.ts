@@ -8,7 +8,6 @@ import type {
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
-import type { NDKRawEvent } from '@nostr-dev-kit/ndk';
 import type { NostrEvent } from '$lib/types/nostr';
 
 /**

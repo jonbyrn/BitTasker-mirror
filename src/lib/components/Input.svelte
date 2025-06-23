@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { InputProps } from '$lib/types/props';
+	import type { InputProps } from '$lib/types/props.d';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	let {
@@ -15,6 +15,7 @@
 		min = undefined,
 		max = undefined,
 		step = undefined,
+		className = '',
 		onChange
 	}: InputProps = $props();
 
@@ -116,7 +117,7 @@
 				{step}
 				{value}
 				autocomplete={autoComplete === 'on' ? 'on' : 'off'}
-				class="input input-bordered w-full {error ? 'input-error' : ''}"
+				class="input input-bordered w-full {error ? 'input-error' : ''} {className}"
 				oninput={handleInput}
 				onclick={handleClick}
 				onkeydown={handleKeyDown}

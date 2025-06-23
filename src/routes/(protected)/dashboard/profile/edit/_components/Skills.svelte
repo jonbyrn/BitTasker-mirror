@@ -486,7 +486,7 @@
 												id="certificationFile"
 												label={$t('profile.skills.cert_upload')}
 												maxFiles={1}
-												customClass="w-full"
+												className="w-full"
 												files={certification.file ? [certification.file] : undefined}
 												onChange={handleCertificationUpload}
 											/>

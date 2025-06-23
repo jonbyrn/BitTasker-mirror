@@ -6,14 +6,14 @@
 		id = 'image-uploader',
 		label = $t('uploader.uploadImage'),
 		maxFiles = 1,
-		maxDuration = 60,
-		maxFileSize = 8,
+		maxDuration = 30, // In seconds
+		maxFileSize = 8, // In MB
 		allowedTypes = ['image/*'],
 		files = [],
 		error = '',
 		width,
 		height,
-		customClass = 'aspect-square h-20 w-20 sm:h-24 sm:w-24',
+		className = 'aspect-square h-20 w-20 sm:h-24 sm:w-24',
 		onChange = () => {},
 		onRemove = () => {},
 		onError = () => {}
@@ -29,23 +29,30 @@
 
 	async function validateFile(file: File): Promise<boolean> {
 		// Validate file type
-		const isImage = allowedTypes.includes('image/*');
-		const isVideo = allowedTypes.includes('video/*');
+		const isImageAllowed = allowedTypes.includes('image/*');
+		const isVideoAllowed = allowedTypes.includes('video/*');
+		const isImageFile = file.type.startsWith('image/');
+		const isVideoFile = file.type.startsWith('video/');
 
-		if (isImage && !file.type.startsWith('image/')) {
-			error = $t('uploader.invalidTypeError');
-			onError(error);
-			return false;
+		// Check if the file type is valid
+		let isValidType = false;
+		
+		if (isImageAllowed && isImageFile) {
+			isValidType = true;
+		} else if (isVideoAllowed && isVideoFile) {
+			isValidType = true;
 		}
 
-		if (isVideo && !file.type.startsWith('video/')) {
-			error = $t('uploader.invalidFileType') + ' Only MP4, WebM and OGG videos are allowed';
-			onError(error);
-			return false;
-		}
-
-		if (!isImage && !isVideo && !allowedTypes.includes(file.type)) {
-			error = $t('uploader.invalidFileType');
+		if (!isValidType) {
+			if (isImageAllowed && isVideoAllowed) {
+				error = $t('uploader.invalidFileType') + ' Only images and videos are allowed';
+			} else if (isImageAllowed) {
+				error = $t('uploader.invalidTypeError');
+			} else if (isVideoAllowed) {
+				error = $t('uploader.invalidFileType') + ' Only MP4, WebM and OGG videos are allowed';
+			} else {
+				error = $t('uploader.invalidFileType');
+			}
 			onError(error);
 			return false;
 		}
@@ -58,7 +65,7 @@
 		}
 
 		// Validate video duration if applicable
-		if (isVideo && maxDuration && file.type.startsWith('video/')) {
+		if (isVideoAllowed && maxDuration && isVideoFile) {
 			try {
 				const video = document.createElement('video');
 				video.preload = 'metadata';
@@ -85,7 +92,7 @@
 		}
 
 		// Validate image dimensions if specified
-		if (isImage && (width || height)) {
+		if (isImageAllowed && (width || height) && isImageFile) {
 			try {
 				const img = new Image();
 				img.src = URL.createObjectURL(file);
@@ -146,8 +153,9 @@
 	}
 
 	function removeFile(index: number) {
+		const file = files[index];
 		files = files.filter((_, i) => i !== index);
-		onRemove(index);
+		onRemove(index, file);
 		error = '';
 	}
 
@@ -173,7 +181,7 @@
 			: 'h-full w-full'}
 	>
 		{#each files as file, index}
-			<div class="relative {customClass}">
+			<div class="relative {className}">
 				{#if typeof file === 'string'}
 					{#if isVideoURL(file)}
 						<video
@@ -230,14 +238,14 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative overflow-hidden {customClass}">
+			<div class="relative overflow-hidden {className}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
 						<svg
-							class="label label-text mb-2 h-4 w-4 sm:h-8 sm:w-8"
+							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
 							aria-hidden="true"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -251,7 +259,7 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="label label-text mb-2 text-[10px] sm:text-xs">
+						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
 						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">

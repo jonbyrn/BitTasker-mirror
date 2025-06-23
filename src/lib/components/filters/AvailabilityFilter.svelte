@@ -5,13 +5,7 @@
 -->
 <script lang="ts">
 	// Props
-	let {
-		deadlineBefore = undefined,
-		deadlineAfter = undefined,
-		onAvailabilityChange = () => {}
-	} = $props<{
-		deadlineBefore?: string;
-		deadlineAfter?: string;
+	let { onAvailabilityChange = () => {} } = $props<{
 		onAvailabilityChange?: (
 			filterMode: 'date_range' | 'deadline',
 			start: string,
@@ -24,6 +18,7 @@
 		start: '',
 		end: ''
 	});
+	let deadline = $state<string>('');
 
 	let timePreferences = $state<string[]>([]);
 	const timeOptions = $state([
@@ -34,13 +29,7 @@
 	]);
 
 	// Deadline filter modes
-	let filterMode = $state<'date_range' | 'deadline'>('date_range');
-
-	// Deadline filters
-	let hasDeadlineBefore = $state(false);
-	let hasDeadlineAfter = $state(false);
-	let deadlineBeforeDate = $state(deadlineBefore || '');
-	let deadlineAfterDate = $state(deadlineAfter || '');
+	let filterMode = $state<'date_range' | 'deadline'>('deadline');
 
 	// Toggle time preference
 	function toggleTimePreference(value: string) {
@@ -56,10 +45,6 @@
 		dateRange.start = '';
 		dateRange.end = '';
 		timePreferences = [];
-		hasDeadlineBefore = false;
-		hasDeadlineAfter = false;
-		deadlineBeforeDate = '';
-		deadlineAfterDate = '';
 	}
 
 	// Apply availability filter changes
@@ -67,20 +52,7 @@
 		if (filterMode === 'date_range') {
 			return onAvailabilityChange('date_range', dateRange.start, dateRange.end);
 		} else if (filterMode === 'deadline') {
-			// Determine which deadline filters to apply based on mode and inputs
-			let beforeDate: string | undefined = undefined;
-			let afterDate: string | undefined = undefined;
-
-			// Apply deadline filters if the user has specified them
-			if (hasDeadlineBefore && deadlineBeforeDate) {
-				beforeDate = deadlineBeforeDate;
-			}
-
-			if (hasDeadlineAfter && deadlineAfterDate) {
-				afterDate = deadlineAfterDate;
-			}
-
-			return onAvailabilityChange('deadline', beforeDate, afterDate);
+			return onAvailabilityChange('deadline', deadline);
 		}
 	}
 
@@ -146,7 +118,7 @@
 	{/if}
 
 	<!-- Time Preferences -->
-	<div>
+	<!-- <div>
 		<label class="label" for="time-preferences">
 			<span class="label-text font-medium">Time Preferences</span>
 		</label>
@@ -161,45 +133,17 @@
 				</button>
 			{/each}
 		</div>
-	</div>
+	</div> -->
 
 	{#if filterMode === 'deadline'}
 		<!-- Deadline Before -->
 		<div>
-			<label class="label flex cursor-pointer justify-start gap-2" for="deadline-before-filter">
-				<input type="checkbox" class="checkbox checkbox-primary" bind:checked={hasDeadlineBefore} />
-				<span class="label-text font-medium">Tasks due before</span>
-			</label>
-
-			{#if hasDeadlineBefore}
-				<div class="mt-2">
-					<input
-						type="date"
-						class="input input-bordered input-sm w-full"
-						bind:value={deadlineBeforeDate}
-						id="deadline-before-date"
-					/>
-				</div>
-			{/if}
-		</div>
-
-		<!-- Deadline After -->
-		<div>
-			<label class="label flex cursor-pointer justify-start gap-2" for="deadline-after-filter">
-				<input type="checkbox" class="checkbox checkbox-primary" bind:checked={hasDeadlineAfter} />
-				<span class="label-text font-medium">Tasks due after</span>
-			</label>
-
-			{#if hasDeadlineAfter}
-				<div class="mt-2">
-					<input
-						type="date"
-						class="input input-bordered input-sm w-full"
-						bind:value={deadlineAfterDate}
-						id="deadline-after-date"
-					/>
-				</div>
-			{/if}
+			<input
+				type="date"
+				class="input input-bordered input-sm w-full"
+				bind:value={deadline}
+				id="deadline-before-date"
+			/>
 		</div>
 	{/if}
 
