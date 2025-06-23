@@ -1,8 +1,7 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
+import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
-import { getNostrKeyPair } from './nostrKeys';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -44,7 +43,7 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
  * @param event - The event to publish
  * @param relayUrl - The URL of the relay to publish to
  */
-export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string = PUBLIC_NOSTR_RELAY_URL): Promise<void> {
+export async function publishEvent(event: Partial<NostrEvent>, relayUrl: string = import.meta.env.VITE_NOSTR_RELAY_URL): Promise<void> {
     try {
 
         const signedEvent = await getSignedEvent(event);

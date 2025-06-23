@@ -1,6 +1,5 @@
 import { BaseApiService } from '../../apiService';
 import { ENDPOINTS } from '../../endpoints';
-import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
 
 interface Nip05Query {
   name: string;
@@ -16,7 +15,7 @@ interface Nip05Response {
 
 class NostrNip05Service extends BaseApiService {
   constructor() {
-    super(PUBLIC_NOSTR_RELAY_NESTJS);
+    super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);
   }
 
   // GET /nip-05?name=xxx

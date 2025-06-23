@@ -1,10 +1,11 @@
 import type { NostrProfile, NostrProfileImage, Skill, PortfolioItem, Availability, NostrStandardServices } from '$lib/types/profile.d';
 import type { NostrEvent, Filter } from 'nostr-tools';
 import { profileStore } from '$lib/stores/profile.store';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
+
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
 
 // Subscription store for profile updates
 let profileSubscriptions = new Map<string, {
@@ -42,7 +43,7 @@ export function createSubscriptionKey(npub: string, kindFilters?: { [kind: numbe
 export async function subscribeToProfileUpdates(
     callback: (event: NostrEvent) => void,
     kindFilters?: { [kind: number]: { [tag: string]: string } | null | undefined },
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<() => void> {
     let npub: string;
 
@@ -138,7 +139,7 @@ export async function subscribeToProfileUpdates(
  */
 export async function publishProfileMetadata(
     metadata: NostrProfile,
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<NostrEvent> {
     // Create metadata event
     const event: Partial<NostrEvent> = {
@@ -197,7 +198,7 @@ export async function publishProfileMetadata(
  * @param relays 
  * @returns 
  */
-export async function publishMultipleImages(images: NostrProfileImage[], eventId: string | null, identifier: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<string[]> {
+export async function publishMultipleImages(images: NostrProfileImage[], eventId: string | null, identifier: string, relays = RELAYS): Promise<string[]> {
     try {
         // Always use kind 30063 for replaceable events
         const event: Partial<NostrEvent> = {
@@ -228,7 +229,7 @@ export async function publishMultipleImages(images: NostrProfileImage[], eventId
  * @param eventId The ID of the event to delete
  * @param relays Optional array of relay URLs
  */
-export async function deleteNostrEvent(eventId: string, eventKind?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+export async function deleteNostrEvent(eventId: string, eventKind?: string, relays = RELAYS): Promise<void> {
     try {
         const npub = await getNpub();
         if (!npub) {
@@ -265,7 +266,7 @@ export function closeNostrPool(): void {
     profileSubscriptions.clear();
 
     // Close pool
-    profileStore.pool.close([PUBLIC_NOSTR_RELAY_URL]);
+    profileStore.pool.close(RELAYS);
 }
 
 /**
@@ -273,7 +274,7 @@ export function closeNostrPool(): void {
  */
 export async function publishSkillsUpdate(
     skills: Skill[],
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<void> {
     try {
         // Create skills event (kind 30000 is replaceable)
@@ -304,7 +305,7 @@ export async function uploadCertification(
         date: string,
         file: File
     },
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<string> {
     try {
         // Upload file
@@ -348,7 +349,7 @@ export async function uploadCertification(
 export async function publishPortfolioItem(
     item: PortfolioItem,
     tags: string[][],
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<void> {
     try {
         // Create portfolio item event
@@ -372,7 +373,7 @@ export async function publishPortfolioItem(
  */
 export async function deletePortfolioItem(
     id: string,
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<void> {
     try {
         // Create deletion event according to NIP-09
@@ -408,7 +409,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
         };
 
         const signedEvent = await getSignedEvent(event);
-        await Promise.all(profileStore.pool.publish([PUBLIC_NOSTR_RELAY_URL], signedEvent));
+        await Promise.all(profileStore.pool.publish(RELAYS, signedEvent));
     } catch (error) {
         console.error('Failed to publish availability update:', error);
         throw error;
@@ -420,7 +421,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
  * @param servicesData The services data to publish
  * @param tags Additional tags to include
  */
-export async function publishStandardServices(servicesData: NostrStandardServices, tags: string[][], relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+export async function publishStandardServices(servicesData: NostrStandardServices, tags: string[][], relays = RELAYS): Promise<void> {
     try {
         const event = {
             kind: 30003,
@@ -441,7 +442,7 @@ export async function publishStandardServices(servicesData: NostrStandardService
  * Deletes a standard service event from Nostr
  * @param eventId The ID of the event to delete
  */
-export async function deleteStandardService(eventId: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+export async function deleteStandardService(eventId: string, relays = RELAYS): Promise<void> {
     try {
         const event = {
             kind: 5,
@@ -467,7 +468,7 @@ export async function deleteStandardService(eventId: string, relays = [PUBLIC_NO
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the event or null if not found
  */
-export async function getEventById(eventId: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
+export async function getEventById(eventId: string, relays = RELAYS): Promise<NostrEvent | null> {
     try {
         const filter: Filter = {
             ids: [eventId]

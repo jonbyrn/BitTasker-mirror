@@ -1,8 +1,9 @@
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import type { UserData } from '$lib/types/auth';
-import { getNpub } from '$lib/utils/nostrKeys';
+import { writable } from 'svelte/store';
 import { SimplePool } from 'nostr-tools';
-import { get, writable } from 'svelte/store';
+import { getNpub } from '$lib/utils/nostrKeys';
+
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
 
 // Initial States
 const initialProfile: UserData = {
@@ -39,7 +40,7 @@ const createUserStore = () => {
 				kinds: [0, 30063],
 			};
 
-			const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
+			const events = await pool.querySync(RELAYS, filter);
 			events.forEach((event) => {
 				if (event.kind === 0) {
 					const content = JSON.parse(event.content);
