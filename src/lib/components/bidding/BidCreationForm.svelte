@@ -192,7 +192,7 @@
 </script>
 
 <div class="bg-base-100 relative mx-auto rounded-lg opacity-30 shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">Place your bid (UPCOMING)</h2>
+	<h2 class="mb-6 text-2xl font-bold">Place your bid (Coming Soon)</h2>
 
 	{#if bidSubmitted}
 		<div
