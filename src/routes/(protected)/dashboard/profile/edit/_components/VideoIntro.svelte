@@ -2,7 +2,6 @@
 	import type { VideoIntroMetadata } from '$lib/types/profile';
 	import { t } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
-	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import { getSignedEvent, publishEvent } from '$lib/utils/nostr';
 	import { subscribeToProfileUpdates, deleteNostrEvent } from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
@@ -76,7 +75,7 @@
 	});
 
 	// Publish video event to Nostr
-	async function publishVideoEvent(videoData: VideoIntroMetadata, relay = PUBLIC_NOSTR_RELAY_URL) {
+	async function publishVideoEvent(videoData: VideoIntroMetadata, relay = import.meta.env.VITE_NOSTR_RELAY_URL) {
 		try {
 			// Publish to Nostr with extended metadata
 			const event = {

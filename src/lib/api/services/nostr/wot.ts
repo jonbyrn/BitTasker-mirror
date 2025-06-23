@@ -1,6 +1,5 @@
 import { BaseApiService } from '../../apiService';
 import { ENDPOINTS } from '../../endpoints';
-import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
 
 interface WotTrustedVo {
   data: string[]; // List of trusted pubkeys
@@ -8,7 +7,7 @@ interface WotTrustedVo {
 
 class NostrWotService extends BaseApiService {
   constructor() {
-    super(PUBLIC_NOSTR_RELAY_NESTJS);
+    super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);
   }
 
   // GET /wot/trusted/{pubkey}

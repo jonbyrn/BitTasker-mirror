@@ -11,7 +11,6 @@
 	import { showBackButton } from '$lib/stores/navigation.store';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { profileStore } from '$lib/stores/profile.store';
-	import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import 'iconify-icon';
@@ -75,7 +74,7 @@
 
 			// TODO: To be replaced with user data from nostr - use user.store.ts
 			// Subscribe to future updates
-			subscription = profileStore.pool.subscribe([PUBLIC_NOSTR_RELAY_URL], filter, {
+			subscription = profileStore.pool.subscribe([import.meta.env.VITE_NOSTR_RELAY_URL], filter, {
 				onevent(event) {
 					handleProfileImageEvent(event);
 				}

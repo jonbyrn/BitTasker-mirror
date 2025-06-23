@@ -3,7 +3,6 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { RecurrencePattern } from '$lib/types/recurring-tasks';
 import { calculatePOW } from '$lib/nostr';
 import { SimplePool } from 'nostr-tools/pool';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { user } from '$lib/stores/user.store';
 import { get } from 'svelte/store';
@@ -13,6 +12,8 @@ import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -231,7 +232,7 @@ export async function deleteTask(taskId: string): Promise<string> {
 /**
  * Publish an event to relays
  */
-export async function publishToRelays(event: NostrEvent, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<void> {
+export async function publishToRelays(event: NostrEvent, relays = RELAYS): Promise<void> {
     try {
         const pub = pool.publish(relays, event as any); // Type cast to any to bypass type check
         await Promise.race([
@@ -250,7 +251,7 @@ export async function publishToRelays(event: NostrEvent, relays = [PUBLIC_NOSTR_
 export function subscribeToTasks(
     callback: (event: NostrEvent) => void,
     filter: { kinds?: number[], authors?: string[], tags?: string[][] } = {},
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): () => void {
     const sub = pool.subscribe(relays, {
         kinds: filter.kinds || [KINDS.TASK_CREATION, KINDS.RECURRING_TASK],
@@ -270,7 +271,7 @@ export function subscribeToTasks(
 export async function queryTasks(
     callback: (event: NostrEvent) => void,
     filter: { kinds?: number[], authors?: string[], tags?: string[][], limit?: number } = {},
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<NostrEvent[]> {
     const query = await pool.querySync(relays, {
         ...filter,
@@ -292,7 +293,7 @@ export async function queryTasks(
 /**
  * Get a task by its ID
  */
-export async function getTaskById(taskId: string, author?: string, relays = [PUBLIC_NOSTR_RELAY_URL]): Promise<NostrEvent | null> {
+export async function getTaskById(taskId: string, author?: string, relays = RELAYS): Promise<NostrEvent | null> {
     try {
         const filter: Filter = {
             kinds: [KINDS.TASK_CREATION], // Only look for creation events
@@ -323,5 +324,5 @@ export async function getTaskById(taskId: string, author?: string, relays = [PUB
  * Close all relay connections
  */
 export function closePool(): void {
-    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+    pool.close(RELAYS);
 }

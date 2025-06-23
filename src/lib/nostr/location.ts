@@ -4,9 +4,10 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { profileStore } from '$lib/stores/profile.store';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
+
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
 
 /**
  * Publish encrypted location data to Nostr
@@ -14,10 +15,7 @@ import KINDS from '$lib/utils/constants/kinds';
  * @param relays Optional array of relay URLs
  * @returns Promise resolving to the published event
  */
-export async function publishLocation(
-    location: Location,
-    relays = [PUBLIC_NOSTR_RELAY_URL]
-): Promise<NostrEvent> {
+export async function publishLocation(location: Location, relays = RELAYS): Promise<NostrEvent> {
     try {
         // Get own public key
         const keyPair = await getNostrKeyPair();
@@ -64,7 +62,7 @@ export async function publishLocation(
  */
 export async function subscribeToLocation(
     callback: (location: Location) => void,
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<() => void> {
     try {
         // Get nostr keypair
@@ -113,7 +111,7 @@ export async function subscribeToLocation(
  * @returns Promise resolving to the location data or null if not found
  */
 export async function getLatestLocation(
-    relays = [PUBLIC_NOSTR_RELAY_URL]
+    relays = RELAYS
 ): Promise<Location | null> {
     try {
         const keyPair = await getNostrKeyPair();
@@ -137,7 +135,7 @@ export async function getLatestLocation(
         if (!event) {
             return null;
         }
-        
+
         // Decrypt and return location data
         const decryptedContent = await nip44.decrypt(event.content, conversationKey);
         return JSON.parse(decryptedContent) as Location;

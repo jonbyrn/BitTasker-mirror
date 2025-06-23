@@ -1,7 +1,6 @@
 import type { NostrEvent } from '$lib/types/nostr';
 import { ENDPOINTS } from '$lib/api/endpoints';
 import { BaseApiService } from '$lib/api/apiService';
-import { PUBLIC_NOSTR_RELAY_NESTJS } from '$env/static/public';
 
 // Types for API responses (from swagger)
 interface EventEntity {
@@ -36,7 +35,7 @@ interface HandleEventDto extends NostrEvent {
 
 class NostrEventsService extends BaseApiService {
     constructor() {
-        super(PUBLIC_NOSTR_RELAY_NESTJS);
+        super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);
     }
 
     // POST /events

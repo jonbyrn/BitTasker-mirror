@@ -3,13 +3,14 @@ import { type Event, type Filter, SimplePool } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
+
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
 
 // Constants
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
@@ -275,7 +276,7 @@ async function getProfileData(userNpub: string): Promise<{
             // TODO: Make a funtion to handle multiple tags identifiers for each kind
         }
 
-        const events = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], eventFilter);
+        const events = await pool.querySync(RELAYS, eventFilter);
 
         if (events && events.length > 0) {
             await Promise.all(events.map(async (event) => {
@@ -331,7 +332,7 @@ async function getUserPreferences(): Promise<{
             limit: 1
         };
 
-        const preferences = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], preferencesFilter);
+        const preferences = await pool.querySync(RELAYS, preferencesFilter);
         if (preferences && preferences.length > 0 && preferences[0].content) {
             try {
                 const prefs = JSON.parse(preferences[0].content);
@@ -443,7 +444,7 @@ export async function saveUserPreferences(preferences: {
             ]
         });
 
-        pool.publish([PUBLIC_NOSTR_RELAY_URL], preferencesEvent);
+        pool.publish(RELAYS, preferencesEvent);
 
         // Clear cache to force refresh of recommendations
         const cacheKeys = Array.from(cache.keys()).filter(key => key.startsWith('recommendations_'));
@@ -526,7 +527,7 @@ export async function updatePreferencesFromFeedback(
 
 export async function cleanup(): Promise<void> {
     // Close task pool
-    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+    pool.close(RELAYS);
 
     cache.clear();
 }
