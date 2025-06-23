@@ -4,17 +4,15 @@ import nip44 from '$lib/nostr/nip44';
 import { getNostrKeyPair } from './nostrKeys';
 import { bytesToHex } from '@noble/hashes/utils';
 import { subscribeToEvents, getSignedEvent } from './nostr';
-import { PUBLIC_NOSTR_RELAY_URL, PUBLIC_NOSTR_RELAY_URL_MOCK4 } from '$env/static/public';
 import { appStore } from '$lib/stores/app.store';
 import { profileCache } from './profile-cache';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [
-	PUBLIC_NOSTR_RELAY_URL,
-	// PUBLIC_NOSTR_RELAY_URL_MOCK1,
-	// PUBLIC_NOSTR_RELAY_URL_MOCK2,
-	// PUBLIC_NOSTR_RELAY_URL_MOCK3,
-	PUBLIC_NOSTR_RELAY_URL_MOCK4
+	import.meta.env.VITE_NOSTR_RELAY_URL,
+	// import.meta.env.VITE_NOSTR_RELAY_URL_MOCK1,
+	// import.meta.env.VITE_NOSTR_RELAY_URL_MOCK2,
+	// import.meta.env.VITE_NOSTR_RELAY_URL_MOCK3,
 ].filter(Boolean); // Remove any undefined values
 
 const RELAY_TIMEOUT = 10000; // 10 seconds
