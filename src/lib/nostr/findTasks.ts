@@ -1,8 +1,7 @@
 import type { SearchTasksParams, Task } from '$lib/types/task.d';
-import { type Event, type Filter, SimplePool } from 'nostr-tools';
+import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { tasksStore } from '$lib/stores/task.store';
-import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
@@ -14,9 +13,6 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Memory cache
 const cache = new Map<string, { data: Task[]; timestamp: number }>();
-
-// Pool for nostr queries (general Nostr network)
-const pool = new SimplePool();
 
 /**
  * Convert search params to Nostr filter
@@ -156,7 +152,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
                 hasMore: tasks.length >= (params.limit || BATCH_SIZE)
             };
         } catch (apiError) {
-            console.error('API request failed, falling back to direct pool query:', apiError);
+            console.error('API request failed - ', apiError);
 
             return {
                 tasks: [],
@@ -179,11 +175,6 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
  * Cleanup function to handle cleanup tasks with improved subscription handling
  */
 export function cleanup(): void {
-    // Close task pool
-    tasksStore.pool.close([PUBLIC_NOSTR_RELAY_URL]);
-    // Close profile pool
-    pool.close([PUBLIC_NOSTR_RELAY_URL]);
-
     cache.clear();
 }
 
@@ -191,6 +182,6 @@ export function cleanup(): void {
 if (browser) {
     window.addEventListener('beforeunload', () => {
         console.log('Cleaning up Nostr connections');
-        cleanup();
+        cache.clear();
     });
 }

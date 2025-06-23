@@ -7,12 +7,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { tasksStore } from '$lib/stores/task.store';
 	import { findTasks, cleanup } from '$lib/nostr/findTasks';
-	import {
-		TaskStatusEnum,
-		TaskTypeEnum,
-		SortByEnum,
-		SortOrderEnum
-	} from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
@@ -39,15 +34,7 @@
 	// Reactive state for search parameters and UI controls
 	let searchParams = $state<SearchTasksParams>(getInitialSearchParams());
 	let searchQuery = $state('');
-	let selectedCategory = $state({ label: '', value: '' });
 	let selectedTaskType = $state({ label: '', value: '' });
-	let sortBy = $state({ label: 'Created Date', value: SortByEnum.CREATED_AT });
-	let sortOrder = $state({ label: 'Descending', value: SortOrderEnum.DESC });
-	let minBudget = $state('');
-	let maxBudget = $state('');
-
-	// Recommendations state
-	let showAllRecommendations = $state(false);
 
 	// Enhanced discovery features
 	let isFilterDrawerOpen = $state(false);
@@ -159,12 +146,7 @@
 	// Clear filters
 	function clearFilters() {
 		searchQuery = '';
-		selectedCategory = { label: '', value: '' };
 		selectedTaskType = { label: '', value: '' };
-		sortBy = { label: 'Created Date', value: SortByEnum.CREATED_AT };
-		sortOrder = { label: 'Descending', value: SortOrderEnum.DESC };
-		minBudget = '';
-		maxBudget = '';
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
@@ -242,12 +224,7 @@
 			observer = null;
 		}
 	}
-
-	// Toggle all recommendations
-	function toggleAllRecommendations() {
-		showAllRecommendations = !showAllRecommendations;
-	}
-
+	
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
 		if (!type) {
@@ -668,7 +645,5 @@
 	isOpen={isSaveSearchOpen}
 	{searchParams}
 	onClose={() => (isSaveSearchOpen = false)}
-	onSaved={() => {
-		// Could add success toast or other actions here
-	}}
+	onSaved={() => {}}
 />

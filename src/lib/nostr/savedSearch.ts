@@ -6,6 +6,7 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { PUBLIC_NOSTR_RELAY_URL } from '$env/static/public';
 import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 import KINDS from '$lib/utils/constants/kinds';
+import { browser } from '$app/environment';
 
 
 // Pool for nostr queries (general Nostr network)
@@ -63,7 +64,7 @@ export async function saveSearch(
         });
 
         // Publish single event to the relay
-        pool.publish([PUBLIC_NOSTR_RELAY_URL], savedSearchEvent);
+        await Promise.any(pool.publish([PUBLIC_NOSTR_RELAY_URL], savedSearchEvent));
 
         appStore.showSuccessToast('Search saved successfully');
 
@@ -99,17 +100,16 @@ export async function getSavedSearches(): Promise<SavedSearch[]> {
         const savedSearchEvents = await pool.querySync([PUBLIC_NOSTR_RELAY_URL], filter);
 
         // Convert events to SavedSearch objects and filter out deleted ones
-        return savedSearchEvents
-            .map(event => ({
-                id: event.id,
-                name: event.tags.find(t => t[0] === 'n')?.[1] || '',
-                params: JSON.parse(event.content),
-                createdAt: event.created_at,
-                notifyOnMatch: event.tags.find(t => t[0] === 'm')?.[1] === 'true',
-                isActive: event.tags.find(t => t[0] === 'a')?.[1] !== 'false',
-                notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'DAILY',
-                unreadNotifications: parseInt(event.tags.find(t => t[0] === 'u')?.[1] || '0', 10)
-            }));
+        return savedSearchEvents.sort((a, b) => b.created_at - a.created_at).map(event => ({
+            id: event.id,
+            name: event.tags.find(t => t[0] === 'n')?.[1] || '',
+            params: JSON.parse(event.content),
+            createdAt: event.created_at,
+            notifyOnMatch: event.tags.find(t => t[0] === 'm')?.[1] === 'true',
+            isActive: event.tags.find(t => t[0] === 'a')?.[1] !== 'false',
+            notificationFrequency: event.tags.find(t => t[0] === 'f')?.[1] || 'DAILY',
+            unreadNotifications: parseInt(event.tags.find(t => t[0] === 'u')?.[1] || '0', 10)
+        }));
     } catch (error) {
         console.error('Error getting saved searches:', error);
         throw error;
@@ -170,7 +170,7 @@ export async function updateSavedSearch(
         });
 
         // Publish update to the relay
-        pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedEvent);
+        await Promise.any(pool.publish([PUBLIC_NOSTR_RELAY_URL], updatedEvent));
 
         return {
             id: eventId,
@@ -230,9 +230,22 @@ export async function deleteSavedSearch(eventId: string): Promise<void> {
         });
 
         // Publish deletion event
-        pool.publish([PUBLIC_NOSTR_RELAY_URL], deletionEvent);
+        await Promise.any(pool.publish([PUBLIC_NOSTR_RELAY_URL], deletionEvent));
     } catch (error) {
         console.error('Error deleting saved search:', error);
         throw error;
     }
+}
+
+export async function cleanup(): Promise<void> {
+    // Close saved search pool
+    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+}
+
+// Cleanup pool and subscriptions when browser closes
+if (browser) {
+    window.addEventListener('beforeunload', () => {
+        console.log('Cleaning up Nostr connections');
+        cleanup();
+    });
 }

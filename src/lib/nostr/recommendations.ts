@@ -523,3 +523,18 @@ export async function updatePreferencesFromFeedback(
         throw error;
     }
 }
+
+export async function cleanup(): Promise<void> {
+    // Close task pool
+    pool.close([PUBLIC_NOSTR_RELAY_URL]);
+
+    cache.clear();
+}
+
+// Cleanup pool and subscriptions when browser closes
+if (browser) {
+    window.addEventListener('beforeunload', () => {
+        console.log('Cleaning up Nostr connections');
+        cleanup();
+    });
+}

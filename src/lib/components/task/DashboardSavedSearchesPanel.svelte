@@ -55,8 +55,8 @@
 
 	// Handle successful search update
 	function handleSearchUpdated() {
-		closeEditForm();
 		// Reload saved searches to get the updated data
+		closeEditForm();
 		loadSavedSearches();
 	}
 
