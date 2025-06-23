@@ -302,14 +302,5 @@
 				{/if}
 			{/each}
 		</div>
-
-		<!-- Navigation dots -->
-		{#if recommendations.length > 1}
-			<div class="flex w-full justify-center gap-2 py-2">
-				{#each recommendations as _, i}
-					<button class="btn btn-xs btn-circle">{i + 1}</button>
-				{/each}
-			</div>
-		{/if}
 	{/if}
 </section>

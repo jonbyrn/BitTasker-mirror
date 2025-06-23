@@ -21,7 +21,7 @@
 			categories: [],
 			skills: [],
 			page: 1,
-			limit: 5,
+			limit: 10,
 			budget: {
 				tier: undefined,
 				currency: undefined,
@@ -224,7 +224,7 @@
 			observer = null;
 		}
 	}
-	
+
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
 		if (!type) {
@@ -400,17 +400,6 @@
 		</button>
 	</div>
 
-	<!-- Results count -->
-	<div class="mb-4">
-		<p class="text-base-content/70">
-			{#if $tasksStore.loading && searchParams.page === 1}
-				<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
-			{:else if $tasksStore.items.length > 0}
-				Showing {$tasksStore.items.length} tasks
-			{/if}
-		</p>
-	</div>
-
 	<!-- Error Message -->
 	{#if $tasksStore.error}
 		<div class="alert alert-error mb-4">
@@ -493,7 +482,16 @@
 			<button class="btn btn-sm" onclick={() => window.location.reload()}> Refresh </button>
 		</div>
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
-		<h2 class="mb-4 text-xl font-bold">Other Tasks</h2>
+		<h2 class="mb-4 text-xl font-bold">
+			Other Tasks
+			<span class="text-base-content/70 font-normal text-sm ml-2">
+				{#if $tasksStore.loading && searchParams.page === 1}
+					<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
+				{:else if $tasksStore.items.length > 0}
+					(Showing {$tasksStore.items.length} tasks)
+				{/if}
+			</span>
+		</h2>
 
 		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 			{#each $tasksStore.items as task, index}
