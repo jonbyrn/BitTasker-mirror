@@ -20,7 +20,6 @@
 	} from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
-	// import PasskeyImport from '$lib/components/PasskeyImport.svelte';
 
 	let error = $state('');
 	let isLoading = $state(false);
@@ -222,29 +221,4 @@
 			</div>
 		</div>
 	</div>
-
-	<!-- Passkey Import Modal -->
-	<!-- {#if showPasskeyImport}
-		<div class="modal modal-open">
-			<div class="modal-box">
-				<div class="mb-4 flex items-center justify-between">
-					<h3 class="text-lg font-bold">Recover Existing Passkey</h3>
-					<button
-						class="btn btn-sm btn-circle btn-ghost"
-						onclick={() => (showPasskeyImport = false)}
-					>
-						✕
-					</button>
-				</div>
-
-				<PasskeyImport />
-
-				<div class="modal-action">
-					<button class="btn btn-outline" onclick={() => (showPasskeyImport = false)}>
-						Cancel
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if} -->
 </div>
