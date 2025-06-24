@@ -23,7 +23,6 @@
 
 	let error = $state('');
 	let isLoading = $state(false);
-	let showPasskeyImport = $state(false);
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
@@ -97,12 +96,7 @@
 				// Login flow
 				await login(biometricData, deviceId);
 			} else {
-				// Show passkey import option if WebAuthn is available
-				if (authMethods.webAuthn) {
-					error = 'No saved credentials found. You may have an existing passkey to import.';
-				} else {
-					error = $t('auth.login.errors.no_account');
-				}
+				error = $t('auth.login.errors.no_account');
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
@@ -199,11 +193,6 @@
 							/>
 						</svg>
 						<span>{error}</span>
-						{#if authMethods.webAuthn && error.includes('No saved credentials')}
-							<button class="btn btn-primary btn-sm" onclick={() => (showPasskeyImport = true)}>
-								Import Passkey
-							</button>
-						{/if}
 					</div>
 				{/if}
 

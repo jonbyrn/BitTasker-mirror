@@ -22,7 +22,9 @@ export const StorageKeys = {
 	// App state
 	LAST_SYNC: 'bittasker_last_sync',
 	APP_VERSION: 'bittasker_app_version',
-	DEVICE_UNIQUE_ID: 'device_unique_id'
+	DEVICE_UNIQUE_ID: 'device_unique_id',
+
+	NPUB: 'npub'
 } as const;
 
 // Type to get autocomplete for storage keys

@@ -1,11 +1,11 @@
 /**
  * WebAuthentication (WebAuthn) implementation for web-based biometric authentication
  * This provides similar functionality to the Capacitor Native Biometric features
- * but uses IndexedDB for persistent encrypted data storage
  */
 
-import type { Credentials, BiometricVerifyOptions, EncryptionData } from '$lib/types/auth';
+import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { getDeviceIdentifier } from './deviceIdentity';
+import { bytesToHex, hexToBytes } from '$lib/utils/helpers/encoding';
 import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
@@ -223,7 +223,7 @@ export async function setWebBiometricKey(
 }
 
 /**
- * Get stored credentials after biometric verification with data from IndexedDB
+ * Get stored credentials after biometric verification
  */
 export async function getWebBiometricData(): Promise<Credentials | null> {
 	try {
@@ -235,9 +235,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		const authOptions: PublicKeyCredentialRequestOptions = {
 			challenge: generateChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
-			// Empty allowCredentials enables discovery of resident keys
-			// allowCredentials: []
+			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification
 		};
 
 		// Request authentication
@@ -273,26 +271,6 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		console.error('Failed to get biometric data:', err);
 		throw new Error('Failed to get biometric data');
 	}
-}
-
-/**
- * Convert hex string to bytes array
- */
-function hexToBytes(hex: string): Uint8Array {
-	const bytes = new Uint8Array(hex.length / 2);
-	for (let i = 0; i < hex.length; i += 2) {
-		bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
-	}
-	return bytes;
-}
-
-/**
- * Convert bytes array to hex string
- */
-function bytesToHex(bytes: Uint8Array): string {
-	return Array.from(bytes)
-		.map(b => b.toString(16).padStart(2, '0'))
-		.join('');
 }
 
 /**
