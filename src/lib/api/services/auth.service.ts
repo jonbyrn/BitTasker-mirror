@@ -93,12 +93,18 @@ export class AuthService extends BaseApiService {
 				throw new Error('Missing required registration data');
 			}
 
-			const response = await this.post<{ publicKey: string; user: UserData }>(
+			const response = await this.post<{ publicKey: string; user: UserData; error: any }>(
 				ENDPOINTS.AUTH.REGISTER_NOSTR,
 				registrationData
 			);
+
+			if (response?.data?.error) {
+				throw new Error(response.data.error?.message);
+			}
+
 			return response.data;
 		} catch (error: any) {
+			console.log('error', error);
 			throw new Error(error);
 		}
 	}
@@ -193,12 +199,14 @@ export class AuthService extends BaseApiService {
 	 * @param publicKey User's Nostr public key
 	 * @param deviceId Unique device identifier
 	 * @param deviceName Device name
+	 * @param credentialId Credential ID used for WebAuthn passkey
 	 * @returns Promise with passkey registration response
 	 */
 	async registerPasskeyDevice(
 		publicKey: string,
 		deviceId: string,
-		deviceName: string
+		deviceName: string,
+		credentialId?: string
 	): Promise<{
 		id: number;
 		userId: number;
@@ -207,17 +215,41 @@ export class AuthService extends BaseApiService {
 		createdAt: string;
 		lastUsed: string;
 		revokedAt: string;
+		credentialId: string;
 	}> {
 		try {
-			const response = await this.post(ENDPOINTS.AUTH.REGISTER_PASSKEY, {
+			const data = {
 				publicKey,
 				deviceId,
-				deviceName
-			});
+				deviceName,
+				credentialId
+			};
+
+			if (!credentialId) delete data.credentialId;
+
+			const response = await this.post(ENDPOINTS.AUTH.REGISTER_PASSKEY, data);
 			return response.data;
 		} catch (error: any) {
 			throw new Error(error);
 		}
+	}
+
+	/**
+	 * Get encrypted key using passkey credential id
+	 * @param publicKey User's Nostr public key
+	 * @param deviceId Unique device identifier
+	 * @param credentialId Credential ID used for WebAuthn passkey
+	 * @returns Promise with encrypted key data
+	 */
+	async getEncryptedKey(
+		publicKey: string,
+		deviceId: string,
+		credentialId: string
+	): Promise<{ encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string }> {
+		const response = await this.get(
+			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${publicKey}?deviceId=${deviceId}&credentialId=${credentialId}`
+		);
+		return response.data;
 	}
 
 	/**

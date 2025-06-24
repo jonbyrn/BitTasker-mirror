@@ -126,9 +126,24 @@
 				authMethod: 'passkey'
 			});
 
+			// Check available authentication methods
+			const isMobileBiometrics = await checkBiometricAvailability();
+
 			// Register device with server
 			const deviceName = await getDeviceName();
-			await authService.registerPasskeyDevice(npub, deviceId, deviceName);
+			if (isMobileBiometrics) {
+				await setBiometricKey(npub, {
+					key: exportedKey,
+					iv: encrypted.iv,
+					authTag: encrypted.authTag,
+					data: encrypted.data,
+					salt
+				});
+				await authService.registerPasskeyDevice(npub, deviceId, deviceName);
+			} else {
+				const credentialId = await setWebBiometricKey(npub, exportedKey, username);
+				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+			}
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
@@ -136,34 +151,6 @@
 					key: StorageKeys.ACCESS_TOKEN,
 					value: response.access_token
 				});
-			}
-
-			// Check available authentication methods
-			const isMobileBiometrics = await checkBiometricAvailability();
-
-			// Store encryption data with biometrics
-			let success = false;
-			if (isMobileBiometrics) {
-				success = await setBiometricKey(npub, {
-					key: exportedKey,
-					iv: encrypted.iv,
-					authTag: encrypted.authTag,
-					data: encrypted.data,
-					salt
-				});
-			} else {
-				success = await setWebBiometricKey(npub, {
-					key: exportedKey,
-					iv: encrypted.iv,
-					authTag: encrypted.authTag,
-					data: encrypted.data,
-					salt
-				});
-			}
-
-			if (!success) {
-				console.error('Failed to set up biometric data');
-				error = 'Failed to set up biometric data';
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);
@@ -174,7 +161,6 @@
 		}
 	}
 
-	// TODO:Handle next step if recovery password is failed
 	async function setupAccRecovery(npub: string, nsec: string, password: string, email: string) {
 		try {
 			isLoading = true;

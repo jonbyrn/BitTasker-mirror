@@ -1,13 +1,12 @@
 /**
  * WebAuthentication (WebAuthn) implementation for web-based biometric authentication
  * This provides similar functionality to the Capacitor Native Biometric features
- * but uses the browser's WebAuthn API for web platforms
+ * but uses IndexedDB for persistent encrypted data storage
  */
 
 import type { Credentials, BiometricVerifyOptions, EncryptionData } from '$lib/types/auth';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
-import { appStore } from '$lib/stores/app.store';
+import { getDeviceIdentifier } from './deviceIdentity';
+import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -88,67 +87,8 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 };
 
 /**
- * Discover available credentials using conditional UI
- * This allows users to authenticate even if localStorage is cleared
- */
-export async function discoverCredentials(): Promise<string[] | null> {
-	try {
-		if (!(await checkWebBiometricAvailability())) {
-			return null;
-		}
-
-		// Check if conditional UI is supported
-		const isConditionalMediationAvailable = await PublicKeyCredential.isConditionalMediationAvailable();
-		
-		if (!isConditionalMediationAvailable) {
-			console.log('Conditional mediation not available, using standard discovery');
-		}
-
-		// Use empty allowCredentials to trigger discoverable credential selection
-		const authOptions: PublicKeyCredentialRequestOptions = {
-			challenge: generateChallenge(),
-			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
-			// Empty allowCredentials array enables credential discovery
-			allowCredentials: []
-		};
-		console.log('authOptions', authOptions);
-
-		const credential = (await navigator.credentials.get({
-			publicKey: authOptions,
-			// Use conditional mediation if available
-			mediation: isConditionalMediationAvailable ? 'conditional' : 'optional'
-		})) as PublicKeyCredential;
-		console.log('credential', credential);
-
-		if (!credential) {
-			return null;
-		}
-
-		// Extract user handle (which contains our publicKey)
-		const response = credential.response as AuthenticatorAssertionResponse;
-		if (response.userHandle) {
-			const userHandle = new TextDecoder().decode(response.userHandle);
-			const credentialId = arrayBufferToBase64(credential.rawId);
-			
-			// Cache the discovered credential ID for this session
-			await Preferences.set({
-				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
-				value: credentialId
-			});
-
-			return [userHandle]; // Return the public key(s) associated with discovered credentials
-		}
-
-		return null;
-	} catch (err) {
-		console.error('Credential discovery failed:', err);
-		return null;
-	}
-}
-
-/**
  * Verify user identity using WebAuthn with automatic credential discovery
+ * Returns the credentials if authentication is successful
  */
 export async function verifyIdentity(
 	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
@@ -158,57 +98,28 @@ export async function verifyIdentity(
 			throw new Error('WebAuthn is not available on this device');
 		}
 
-		// First, try to get stored credential ID
-		const { value: credentialId } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
+		// Use credential discovery - empty allowCredentials enables discovery
+		const authOptions: PublicKeyCredentialRequestOptions = {
+			challenge: generateChallenge(),
+			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
+			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
+			// Empty allowCredentials enables discovery of resident keys
+			allowCredentials: []
+		};
+
+		// Request authentication with timeout protection
+		const credentialPromise = navigator.credentials.get({
+			publicKey: authOptions
+		}) as Promise<PublicKeyCredential>;
+
+		// Add manual timeout to prevent hanging
+		const timeoutPromise = new Promise<null>((_, reject) => {
+			setTimeout(() => reject(new Error('Authentication timeout')), 35000);
 		});
 
-		let authOptions: PublicKeyCredentialRequestOptions;
+		const credential = await Promise.race([credentialPromise, timeoutPromise]);
 
-		if (credentialId) {
-			// Use stored credential ID
-			authOptions = {
-				challenge: generateChallenge(),
-				timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-				userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
-				allowCredentials: [
-					{
-						id: base64ToArrayBuffer(credentialId),
-						type: 'public-key'
-					}
-				]
-			};
-		} else {
-			// No stored credential ID - use credential discovery
-			console.log('No stored credential ID found, attempting credential discovery...');
-			authOptions = {
-				challenge: generateChallenge(),
-				timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
-				userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
-				// Empty allowCredentials enables discovery
-				allowCredentials: []
-			};
-		}
-
-		// Request authentication
-		const credential = (await navigator.credentials.get({
-			publicKey: authOptions
-		})) as PublicKeyCredential;
-
-		if (!credential) {
-			return false;
-		}
-
-		// If we discovered a new credential, cache its ID
-		if (!credentialId) {
-			const newCredentialId = arrayBufferToBase64(credential.rawId);
-			await Preferences.set({
-				key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
-				value: newCredentialId
-			});
-		}
-
-		return true;
+		return credential !== null;
 	} catch (err) {
 		console.error('Biometric verification failed:', err);
 		return false;
@@ -216,21 +127,60 @@ export async function verifyIdentity(
 }
 
 /**
- * Register WebAuthn credential and store encrypted data with discoverable credentials
+ * Create a user-friendly identifier from public key (handles both hex and npub formats)
+ */
+function createUserFriendlyName(publicKey: string): string {
+	if (publicKey.startsWith('npub')) {
+		// For npub format, take meaningful part after 'npub'
+		const npubPart = publicKey.slice(4); // Remove 'npub' prefix
+		const prefix = npubPart.slice(0, 8);
+		const suffix = npubPart.slice(-6); // Take last 6 chars (before checksum)
+		return `npub${prefix}...${suffix}`;
+	} else {
+		// For hex format, take first 8 and last 8 characters
+		const prefix = publicKey.slice(0, 8);
+		const suffix = publicKey.slice(-8);
+		return `${prefix}...${suffix}`;
+	}
+}
+
+/**
+ * Create display name with timestamp for uniqueness
+ */
+function createDisplayName(publicKey: string, customName?: string): string {
+	if (customName) {
+		return `BitTasker ${customName}`;
+	}
+	
+	const friendlyId = createUserFriendlyName(publicKey);
+	const date = new Date().toLocaleDateString();
+	return `BitTasker ${friendlyId} (${date})`;
+}
+
+/**
+ * Register WebAuthn credentials
+ * @param publicKey User's Nostr public key  
+ * @param exportedKey The exported private key for decryption
+ * @param customName Optional custom name for the passkey
+ * @returns Promise with credential ID
  */
 export async function setWebBiometricKey(
 	publicKey: string,
-	encryptionData: EncryptionData
-): Promise<boolean> {
+	exportedKey: string,
+	customName?: string
+): Promise<string> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
 		}
 
-		// Create user info for WebAuthn
-		const userId = await generateDeviceKey();
+		const packedKeys = packKeys(publicKey, exportedKey);
 
-		// Create registration options with discoverable credentials
+		// Create descriptive names for the passkey
+		const userName = customName || createUserFriendlyName(publicKey);
+		const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
+
+		// Create registration options
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
 			challenge: generateChallenge(),
 			rp: {
@@ -238,9 +188,9 @@ export async function setWebBiometricKey(
 				id: window.location.hostname
 			},
 			user: {
-				id: stringToArrayBuffer(publicKey), // Use publicKey as user ID for discovery
-				name: publicKey,
-				displayName: 'BitTasker User'
+				id: packedKeys, // * MAX of 64 bytes
+				name: userName, // Short identifier like "8e52b613...de2612a"
+				displayName: displayName // Full display name like "BitTasker 8e52b613...de2612a (12/20/2024)"
 			},
 			pubKeyCredParams: [
 				{ type: 'public-key', alg: -7 }, // ES256
@@ -250,8 +200,8 @@ export async function setWebBiometricKey(
 			attestation: WEBAUTHN_VERIFY_OPTIONS.attestation,
 			authenticatorSelection: {
 				...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
-				requireResidentKey: true, // CRITICAL: Makes credentials discoverable
-				residentKey: 'required' // Explicitly require resident keys
+				requireResidentKey: true,
+				residentKey: 'required'
 			}
 		};
 
@@ -260,139 +210,143 @@ export async function setWebBiometricKey(
 			publicKey: registrationOptions
 		})) as PublicKeyCredential;
 
-		// Clean up any old credentials
-		const { value: currentCredentials } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
-
-		if (currentCredentials) {
-			await Preferences.remove({ key: currentCredentials });
-			await Preferences.remove({ key: `webAuthn_${currentCredentials}` });
+		if (!credential) {
+			throw new Error('Failed to create WebAuthn credential');
 		}
 
-		// Store credential ID for performance (but not required for security)
-		const credentialId = arrayBufferToBase64(credential.rawId);
-		await Preferences.set({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
-			value: credentialId
-		});
+		return credential.id;
 
-		const data = {
-			username: publicKey,
-			password: JSON.stringify(encryptionData),
-			server: userId
-		};
-
-		// Store the encrypted data with multiple keys for redundancy
-		await Promise.all([
-			// Primary storage using credential ID
-			Preferences.set({
-				key: `webAuthn_${credentialId}`,
-				value: JSON.stringify(data)
-			}),
-			// Backup storage using public key (for discovery scenarios)
-			Preferences.set({
-				key: `webAuthn_pubkey_${publicKey}`,
-				value: JSON.stringify(data)
-			})
-		]);
-
-		appStore.update((state) => ({ ...state, biometricData: data }));
-		await Preferences.set({ key: 'npub', value: publicKey });
-
-		return true;
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		return false;
+		throw new Error('Failed to set biometric key');
 	}
 }
 
 /**
- * Get stored credentials after biometric verification with automatic discovery
+ * Get stored credentials after biometric verification with data from IndexedDB
  */
 export async function getWebBiometricData(): Promise<Credentials | null> {
 	try {
-		const verified = await verifyIdentity();
-		if (!verified) return null;
-
-		// Try to get credential ID
-		const { value: credentialId } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
-
-		let storedData: string | null = null;
-
-		if (credentialId) {
-			// Try primary storage
-			const { value } = await Preferences.get({
-				key: `webAuthn_${credentialId}`
-			});
-			storedData = value;
+		if (!(await checkWebBiometricAvailability())) {
+			throw new Error('WebAuthn is not available on this device');
 		}
 
-		// If no data found, try credential discovery and backup storage
-		if (!storedData) {
-			console.log('Primary storage failed, attempting credential discovery...');
-			
-			const discoveredKeys = await discoverCredentials();
-			if (discoveredKeys && discoveredKeys.length > 0) {
-				// Try backup storage using discovered public key
-				const { value } = await Preferences.get({
-					key: `webAuthn_pubkey_${discoveredKeys[0]}`
-				});
-				storedData = value;
-			}
+		// Use credential discovery
+		const authOptions: PublicKeyCredentialRequestOptions = {
+			challenge: generateChallenge(),
+			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
+			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
+			// Empty allowCredentials enables discovery of resident keys
+			// allowCredentials: []
+		};
+
+		// Request authentication
+		const credential = await navigator.credentials.get({
+			publicKey: authOptions
+		}) as PublicKeyCredential;
+
+		if (!credential) {
+			throw new Error('No credential selected by user');
 		}
 
-		if (!storedData) return null;
+		// Extract combined data from the user handle
+		const response = credential.response as AuthenticatorAssertionResponse;
+		if (!response.userHandle) {
+			console.error('No user handle in credential response');
+			throw new Error('Invalid credential format. This passkey may be from an older version.');
+		}
 
-		return JSON.parse(storedData) as Credentials;
+		const unpackedKeys = unPackKeys(response.userHandle);
+
+		const publicKey = unpackedKeys.publicKey;
+		const exportedKey = unpackedKeys.exportedKey;
+
+		const deviceId = await getDeviceIdentifier();
+
+		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id);
+		return {
+			username: publicKey,
+			password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+			server: deviceId
+		};
 	} catch (err) {
-		console.error('Failed to get biometric key:', err);
-		return null;
+		console.error('Failed to get biometric data:', err);
+		throw new Error('Failed to get biometric data');
 	}
 }
 
 /**
- * Import existing passkey credentials for users who have lost localStorage
+ * Import existing passkey credentials with IndexedDB data support
  */
 export async function importExistingPasskey(): Promise<Credentials | null> {
 	try {
 		console.log('Starting passkey import process...');
-		
-		const discoveredKeys = await discoverCredentials();
-		if (!discoveredKeys || discoveredKeys.length === 0) {
-			console.log('No discoverable credentials found');
+
+		if (!(await checkWebBiometricAvailability())) {
+			throw new Error('WebAuthn is not available on this device');
+		}
+
+		// Direct authentication attempt
+		const authOptions: PublicKeyCredentialRequestOptions = {
+			challenge: generateChallenge(),
+			timeout: 60000,
+			userVerification: 'required',
+			// Empty allowCredentials triggers credential selection UI
+			allowCredentials: []
+		};
+
+		// Direct authentication attempt - this will show credential picker
+		const credential = await navigator.credentials.get({
+			publicKey: authOptions
+		}) as PublicKeyCredential;
+
+		if (!credential) {
+			console.log('No credential selected by user');
 			return null;
 		}
 
-		console.log(`Found ${discoveredKeys.length} discoverable credential(s)`);
+		console.log('User selected a credential, extracting data...');
 
-		// Try to find stored data for any discovered credential
-		for (const publicKey of discoveredKeys) {
-			const { value: storedData } = await Preferences.get({
-				key: `webAuthn_pubkey_${publicKey}`
-			});
+		// Extract public key from the user handle
+		const response = credential.response as AuthenticatorAssertionResponse;
+		if (!response.userHandle) {
+			console.log('No user handle in credential response');
+			throw new Error('Invalid credential format. This passkey may be from an older version.');
+		}
 
-			if (storedData) {
-				console.log(`Successfully imported passkey for public key: ${publicKey}`);
-				const credentials = JSON.parse(storedData) as Credentials;
-				
-				// Update app store with recovered credentials
-				appStore.update((state) => ({ ...state, biometricData: credentials }));
-				await Preferences.set({ key: 'npub', value: publicKey });
-				
-				return credentials;
+		const unpackedKeys = unPackKeys(response.userHandle);
+
+		const publicKey = unpackedKeys.publicKey;
+		const exportedKey = unpackedKeys.exportedKey;
+
+		const deviceId = await getDeviceIdentifier();
+
+		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id);
+		return {
+			username: publicKey,
+			password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+			server: deviceId
+		};
+	} catch (err) {
+		console.error('Failed to import existing passkey:', err);
+
+		// Provide more specific error messages
+		if (err instanceof Error) {
+			if (err.name === 'NotAllowedError') {
+				throw new Error('Passkey authentication was cancelled or no passkeys found.');
+			} else if (err.name === 'InvalidStateError') {
+				throw new Error('Invalid passkey state. Please try again.');
+			} else if (err.name === 'NotSupportedError') {
+				throw new Error('Passkeys are not supported on this device.');
+			} else if (err.message.includes('Invalid credential format')) {
+				throw err; // Re-throw our custom error
 			}
 		}
 
-		console.log('Credentials found but no associated data in storage');
-		return null;
-	} catch (err) {
-		console.error('Failed to import existing passkey:', err);
-		return null;
+		throw new Error('Failed to import passkey. Please try again or register a new account.');
 	}
 }
+
 
 /**
  * Generate device-specific key as hex string (same as in biometrics.ts)
@@ -410,4 +364,78 @@ async function generateDeviceKey(): Promise<string> {
 	return Array.from(new Uint8Array(keyData))
 		.map((b) => b.toString(16).padStart(2, '0'))
 		.join('');
+}
+
+/**
+ * Convert hex string to bytes array
+ */
+function hexToBytes(hex: string): Uint8Array {
+	const bytes = new Uint8Array(hex.length / 2);
+	for (let i = 0; i < hex.length; i += 2) {
+		bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+	}
+	return bytes;
+}
+
+/**
+ * Convert bytes array to hex string
+ */
+function bytesToHex(bytes: Uint8Array): string {
+	return Array.from(bytes)
+		.map(b => b.toString(16).padStart(2, '0'))
+		.join('');
+}
+
+/**
+ * Pack public key and exported key into 64 bytes using binary optimization
+ * Stores public key as raw bytes (32 bytes) + exported key as raw bytes (32 bytes)
+ */
+function packKeys(publicKey: string, exportedKey: string): ArrayBuffer {
+	// Convert hex public key to raw bytes (64 chars -> 32 bytes)
+	const pubKeyBytes = hexToBytes(publicKey);
+	
+	// Decode base64 exported key to raw bytes
+	const exportedKeyBytes = Uint8Array.from(atob(exportedKey), c => c.charCodeAt(0));
+
+	// Check if both fit exactly in 64 bytes
+	if (pubKeyBytes.length + exportedKeyBytes.length > 64) {
+		throw new Error(`Data too large: ${pubKeyBytes.length + exportedKeyBytes.length} bytes (max 64)`);
+	}
+	
+	// Create 64-byte buffer: 32 bytes pubkey + 32 bytes exported key
+	const packed = new Uint8Array(64);
+	packed.set(pubKeyBytes, 0);
+	packed.set(exportedKeyBytes, 32);
+	
+	return packed.buffer;
+}
+
+/**
+ * Unpack user data from 64-byte buffer (binary format)
+ * Returns original public key and exported key with no data loss
+ */
+function unPackKeys(userHandle: ArrayBuffer): { publicKey: string; exportedKey: string } {
+	const bytes = new Uint8Array(userHandle);
+	
+	// Extract public key bytes (first 32 bytes) and convert back to hex
+	const pubKeyBytes = bytes.slice(0, 32);
+	const publicKey = bytesToHex(pubKeyBytes);
+	
+	// Extract exported key bytes (last 32 bytes) and remove zero padding
+	const exportedKeyBytes = bytes.slice(32, 64);
+	
+	// Find the actual length by looking for the last non-zero byte
+	let actualLength = 32;
+	for (let i = 31; i >= 0; i--) {
+		if (exportedKeyBytes[i] !== 0) {
+			actualLength = i + 1;
+			break;
+		}
+	}
+	
+	// Convert back to base64
+	const actualExportedKeyBytes = exportedKeyBytes.slice(0, actualLength);
+	const exportedKey = btoa(String.fromCharCode(...actualExportedKeyBytes));
+	
+	return { publicKey, exportedKey };
 }

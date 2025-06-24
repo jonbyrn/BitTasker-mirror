@@ -12,12 +12,15 @@
 	import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
-		getWebBiometricData
+		getWebBiometricData,
 	} from '$lib/utils/helpers/webBiometrics';
-	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
+	import {
+		decryptNsecWithBiometrics,
+		signLoginChallenge
+	} from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
-	import PasskeyImport from '$lib/components/PasskeyImport.svelte';
+	// import PasskeyImport from '$lib/components/PasskeyImport.svelte';
 
 	let error = $state('');
 	let isLoading = $state(false);
@@ -97,7 +100,6 @@
 			} else {
 				// Show passkey import option if WebAuthn is available
 				if (authMethods.webAuthn) {
-					showPasskeyImport = true;
 					error = 'No saved credentials found. You may have an existing passkey to import.';
 				} else {
 					error = $t('auth.login.errors.no_account');
@@ -199,10 +201,7 @@
 						</svg>
 						<span>{error}</span>
 						{#if authMethods.webAuthn && error.includes('No saved credentials')}
-							<button 
-								class="btn btn-primary btn-sm"
-								onclick={() => showPasskeyImport = true}
-							>
+							<button class="btn btn-primary btn-sm" onclick={() => (showPasskeyImport = true)}>
 								Import Passkey
 							</button>
 						{/if}
@@ -225,30 +224,27 @@
 	</div>
 
 	<!-- Passkey Import Modal -->
-	{#if showPasskeyImport}
+	<!-- {#if showPasskeyImport}
 		<div class="modal modal-open">
 			<div class="modal-box">
-				<div class="flex justify-between items-center mb-4">
-					<h3 class="font-bold text-lg">Recover Existing Passkey</h3>
-					<button 
+				<div class="mb-4 flex items-center justify-between">
+					<h3 class="text-lg font-bold">Recover Existing Passkey</h3>
+					<button
 						class="btn btn-sm btn-circle btn-ghost"
-						onclick={() => showPasskeyImport = false}
+						onclick={() => (showPasskeyImport = false)}
 					>
 						✕
 					</button>
 				</div>
-				
+
 				<PasskeyImport />
-				
+
 				<div class="modal-action">
-					<button 
-						class="btn btn-outline"
-						onclick={() => showPasskeyImport = false}
-					>
+					<button class="btn btn-outline" onclick={() => (showPasskeyImport = false)}>
 						Cancel
 					</button>
 				</div>
 			</div>
 		</div>
-	{/if}
+	{/if} -->
 </div>

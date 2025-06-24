@@ -9,6 +9,7 @@
 	let error = $state('');
 	let success = $state(false);
 	let isAvailable = $state(false);
+	let showInstructions = $state(false);
 
 	onMount(async () => {
 		isAvailable = await checkWebBiometricAvailability();
@@ -34,7 +35,7 @@
 					goto('/dashboard');
 				}, 2000);
 			} else {
-				error = 'No existing passkeys found or passkey data could not be recovered. You may need to set up biometric authentication again.';
+				error = 'No existing passkeys found or import was cancelled. You may need to set up biometric authentication again.';
 			}
 		} catch (err: unknown) {
 			console.error('Passkey import failed:', err);
@@ -70,6 +71,33 @@
 					</p>
 				</div>
 			</div>
+
+			{#if showInstructions}
+				<div class="alert alert-warning">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						class="h-6 w-6 shrink-0 stroke-current"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+						/>
+					</svg>
+					<div class="text-sm">
+						<p class="font-semibold">What will happen:</p>
+						<ul class="list-disc list-inside mt-1 space-y-1">
+							<li>Your browser/device will show available passkeys</li>
+							<li>Select the BitTasker passkey you want to use</li>
+							<li>Complete the biometric verification (fingerprint, face, etc.)</li>
+							<li>Your account access will be restored</li>
+						</ul>
+					</div>
+				</div>
+			{/if}
 
 			{#if success}
 				<div class="alert alert-success">
@@ -109,7 +137,7 @@
 				</div>
 			{/if}
 
-			<div class="card-actions justify-center">
+			<div class="card-actions justify-center space-y-2">
 				<button 
 					class="btn btn-primary w-full"
 					onclick={handleImport}
@@ -123,6 +151,13 @@
 					{:else}
 						Import Existing Passkey
 					{/if}
+				</button>
+
+				<button 
+					class="btn btn-ghost btn-sm w-full"
+					onclick={() => showInstructions = !showInstructions}
+				>
+					{showInstructions ? 'Hide' : 'Show'} Instructions
 				</button>
 			</div>
 
