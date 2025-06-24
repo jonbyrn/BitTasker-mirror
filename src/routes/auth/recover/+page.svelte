@@ -92,7 +92,6 @@
 				salt: salt,
 				iterations: iterations
 			};
-			// if (provider === 'passkey') data.authMethod = 'passkey';
 
 			const res = await authService.setupAccountRecoveryPassword(data);
 
@@ -109,12 +108,21 @@
 						kind: 22242,
 						created_at: Math.floor(Date.now() / 1000),
 						content: challenge,
-						tags: [],
+						tags: [
+							['relay', window.location.origin],
+							['challenge', challenge]
+						],
 						pubkey: signerUser.pubkey
 					};
-					const signedEvent = await signer.sign(event);
 
-					const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+					if (!window.nostr) {
+						throw new Error('Nostr extension not available');
+					}
+
+					const rawSignedEvent = await window.nostr?.signEvent(event);
+
+					const res = await authService.loginWithNostr(rawSignedEvent, challenge);
+
 					if (res.access_token) accessToken = res.access_token;
 				} else if (provider === 'passkey') {
 					const deviceId = await getDeviceIdentifier();
@@ -139,7 +147,7 @@
 	}
 </script>
 
-<div class="flex flex-col items-center justify-center gap-4 px-4 flex-grow">
+<div class="flex flex-grow flex-col items-center justify-center gap-4 px-4">
 	<div class="alert alert-warning w-full max-w-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"

@@ -44,7 +44,7 @@ export class AuthService extends BaseApiService {
 				throw new Error('Internal server error. Please try again later.');
 			}
 
-			throw new Error('Login failed. Please try again.');
+			throw new Error(error || 'Login failed. Please try again.');
 		}
 	}
 
