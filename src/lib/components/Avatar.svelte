@@ -27,7 +27,6 @@
 		if (props.user.profileImage) {
 			imageError = false;
 			imageLoading = true;
-			console.log('🖼️ Loading profile image:', props.user.profileImage);
 		}
 	});
 
@@ -83,13 +82,11 @@
 
 	function handleImageLoad() {
 		imageLoading = false;
-		console.log('✅ Profile image loaded successfully:', props.user.profileImage);
 	}
 
 	function handleImageError() {
 		imageError = true;
 		imageLoading = false;
-		console.log('❌ Profile image failed to load:', props.user.profileImage);
 	}
 </script>
 

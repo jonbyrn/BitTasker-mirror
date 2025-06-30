@@ -39,7 +39,7 @@
 			if (!window.nostr) {
 				throw new Error('Nostr extension not available');
 			}
-			
+
 			const pubkey = await window.nostr.getPublicKey();
 			if (!pubkey) {
 				throw new Error('No public key returned from Nostr extension');
@@ -64,21 +64,31 @@
 			if (!window.nostr) {
 				throw new Error('Nostr extension not available');
 			}
-		
+
 			// signEvent returns the event with a signature and id added
-			const rawSignedEvent = await window.nostr.signEvent(event) as SignedNostrEvent;
-			
+			const rawSignedEvent = (await window.nostr.signEvent(event)) as SignedNostrEvent;
+
 			// Pass the complete event with ID and signature to the login method
 			const res = await authService.loginWithNostr(rawSignedEvent, challenge);
-			
+
 			if (res.access_token) {
 				await Preferences.set({
 					key: StorageKeys.ACCESS_TOKEN,
 					value: res.access_token
 				});
+				// TODO: To be removed after getting auth method from the server
+				await Preferences.set({
+					key: StorageKeys.AUTH_METHOD,
+					value: 'alby'
+				});
+				await Preferences.set({
+					key: StorageKeys.NPUB,
+					value: pubkey
+				});
 				user.updateProfile(res.user);
 				authState.login();
-				goto('/dashboard');
+				goto('/dashboard').then(() => {
+				});
 			}
 		} catch (err) {
 			console.error('Nostr login error:', err);

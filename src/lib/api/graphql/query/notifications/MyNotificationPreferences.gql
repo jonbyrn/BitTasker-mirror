@@ -1,0 +1,15 @@
+query MyNotificationPreferences {
+	myNotificationPreferences {
+		id
+		pushTaskMatches
+		pushBidUpdates
+		pushMessages
+		pushPayments
+		pushSystemUpdates
+		email
+		inApp
+		push
+		createdAt
+		updatedAt
+	}
+}

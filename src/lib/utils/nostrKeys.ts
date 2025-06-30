@@ -37,7 +37,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     }
 
     const sk = await decryptNsecWithBiometrics(biometricData.password);
-    const nsec = hexToBytes(sk); 
+    const nsec = hexToBytes(sk);
     const npub = biometricData.username;
     await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return { nsec, npub };
@@ -50,6 +50,17 @@ export const getNpub = async (): Promise<string> => {
         return value;
     }
 
+    const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+
+    if (authMethod === 'alby') {
+        const npub = await window.nostr?.getPublicKey();
+        if (!npub) {
+            throw new Error('No public key returned from Nostr extension');
+        }
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+        return npub;
+    }
+    
     const currentState = get(appStore);
 
     if (currentState.biometricData) {

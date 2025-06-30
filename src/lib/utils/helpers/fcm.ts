@@ -1,0 +1,113 @@
+/**
+ * Firebase Cloud Messaging Utilities
+ * 
+ * This module provides utilities for working with FCM on web platforms,
+ * including dynamically updating the service worker with configuration.
+ */
+
+/**
+ * Registers the Firebase Messaging Service Worker
+ * The service worker will fetch its config from /firebase-config.json endpoint
+ */
+export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+	if (!('serviceWorker' in navigator)) {
+		console.warn('Service workers are not supported in this browser');
+		return null;
+	}
+
+	try {
+		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+		// console.log('Firebase Messaging Service Worker registered:', registration);
+
+		// Send Firebase config to service worker
+		if (registration.active) {
+			console.log('Sending Firebase config to service worker');
+			registration.active.postMessage({
+				type: 'FIREBASE_CONFIG',
+				config: getFirebaseWebConfig()
+			});
+		}
+
+		// Set up navigation message handler
+		setupNavigationHandler();
+
+		return registration;
+	} catch (error) {
+		console.error('Service Worker registration failed:', error);
+		return null;
+	}
+}
+
+/**
+ * Sets up message handler for navigation from service worker
+ */
+function setupNavigationHandler(): void {
+	if ('serviceWorker' in navigator) {
+		navigator.serviceWorker.addEventListener('message', (event) => {
+			if (event.data && event.data.type === 'NAVIGATE') {
+				// Use your router's navigation method here
+				// For now, using window.location as fallback
+				window.location.href = event.data.url;
+			}
+		});
+	}
+}
+
+/**
+ * Checks if the browser supports notifications
+ */
+export function isNotificationSupported(): boolean {
+	return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+}
+
+/**
+ * Gets the current notification permission status
+ */
+export function getNotificationPermission(): NotificationPermission {
+	return Notification.permission;
+}
+
+/**
+ * Requests notification permission from the user
+ */
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+	if (!isNotificationSupported()) {
+		throw new Error('Notifications are not supported in this browser');
+	}
+
+	return await Notification.requestPermission();
+}
+
+/**
+ * Shows a test notification to verify setup
+ */
+export function showTestNotification(): void {
+	if (Notification.permission === 'granted') {
+		new Notification('Bittasker Notifications', {
+			body: 'Push notifications are now enabled!',
+			icon: '/favicon.ico',
+			tag: 'test-notification'
+		});
+	}
+}
+
+/**
+ * Firebase configuration object for web
+ */
+export function getFirebaseWebConfig() {
+	return {
+		apiKey: import.meta.env.VITE_FIREBASE_WEB_API_KEY,
+		authDomain: import.meta.env.VITE_FIREBASE_WEB_AUTH_DOMAIN,
+		projectId: import.meta.env.VITE_FIREBASE_WEB_PROJECT_ID,
+		storageBucket: import.meta.env.VITE_FIREBASE_WEB_STORAGE_BUCKET,
+		messagingSenderId: import.meta.env.VITE_FIREBASE_WEB_MESSAGING_SENDER_ID,
+		appId: import.meta.env.VITE_FIREBASE_WEB_APP_ID
+	};
+}
+
+/**
+ * VAPID key for FCM web push
+ */
+export function getVapidKey(): string {
+	return import.meta.env.VITE_FIREBASE_VAPID_KEY;
+}

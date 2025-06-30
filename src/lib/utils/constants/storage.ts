@@ -24,7 +24,8 @@ export const StorageKeys = {
 	APP_VERSION: 'bittasker_app_version',
 	DEVICE_UNIQUE_ID: 'device_unique_id',
 
-	NPUB: 'npub'
+	NPUB: 'npub',
+	AUTH_METHOD: 'auth_method' // alby | passkey
 } as const;
 
 // Type to get autocomplete for storage keys

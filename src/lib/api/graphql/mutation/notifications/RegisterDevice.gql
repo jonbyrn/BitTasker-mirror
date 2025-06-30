@@ -1,0 +1,11 @@
+mutation RegisterDevice($input: RegisterDeviceInput!) {
+  registerDevice(input: $input) {
+    id
+    deviceId
+    platform
+    isActive
+    fcmToken
+    appVersion
+    lastTokenRefresh
+  }
+} 

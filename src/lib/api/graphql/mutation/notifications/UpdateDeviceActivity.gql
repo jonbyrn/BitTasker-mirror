@@ -1,0 +1,6 @@
+mutation UpdateDeviceActivity($deviceId: String!) {
+	updateDeviceActivity(deviceId: $deviceId) {
+		success
+		message
+	}
+}

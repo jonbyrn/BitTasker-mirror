@@ -221,6 +221,19 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+"""Device platform types"""
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+type DeviceStatistics {
+  activeDevices: Int!
+  platformDistribution: [PlatformDistribution!]!
+  totalDevices: Int!
+}
+
 input LocationInput {
   displayName: String
   latitude: Float
@@ -258,13 +271,26 @@ type Mutation {
   deleteTaskTemplate(id: Int!): Boolean!
   login(input: LoginInput!): Auth!
   register(input: RegisterInput!): Auth!
+  registerDevice(input: RegisterDeviceInput!): UserDevice!
   rejectBid(id: Int!): BidResponse!
+  revokeAllDevices: NotificationResponse!
+  revokeDevice(deviceId: String!): NotificationResponse!
+  sendTestNotification(input: SendTestNotificationInput!): NotificationResponse!
+  subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
+  unsubscribeFromTopic(input: SubscribeToTopicInput!): NotificationResponse!
   updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
+  updateDevice(deviceId: String!, input: UpdateDeviceInput!): UserDevice!
+  updateDeviceActivity(deviceId: String!): NotificationResponse!
   updateTask(id: Int!, input: UpdateTaskInput!): Task!
   updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
   updateUserProfile(input: UpdateUserProfileInput!): User!
   verifyTurnstileToken(input: TurnstileVerificationInput!): TurnstileVerificationResult!
   withdrawBid(id: Int!, reason: String): Boolean!
+}
+
+type NotificationResponse {
+  message: String!
+  success: Boolean!
 }
 
 type OnboardingStatusDto {
@@ -287,6 +313,11 @@ type PaginationMeta {
   totalPages: Int!
 }
 
+type PlatformDistribution {
+  count: Int!
+  platform: String!
+}
+
 type Query {
   IsOnboardingComplete: OnboardingStatusDto!
   bid(id: Int!): Bid!
@@ -295,8 +326,11 @@ type Query {
   categories: [Category!]!
   category(id: Int!): Category
   checkUsernameAvailability(username: String!): Boolean!
+  deviceStatistics: DeviceStatistics!
   getUsernameHistory(userId: Int!): [String!]!
   me: User!
+  myDevices: [UserDevice!]!
+  myNotificationPreferences: UserNotificationPreferences
   myTasks: [Task!]!
   searchSkills(query: String!): [String!]!
   skill(id: Int!): Skill
@@ -344,6 +378,14 @@ enum RecurrenceType {
   WEEKLY
 }
 
+input RegisterDeviceInput {
+  appVersion: String
+  deviceId: String
+  deviceName: String
+  fcmToken: String!
+  platform: DevicePlatform!
+}
+
 input RegisterInput {
   email: String!
   name: String
@@ -376,6 +418,12 @@ input SearchTasksDto {
   taskType: [TaskType!]
 }
 
+input SendTestNotificationInput {
+  body: String!
+  deviceId: String
+  title: String!
+}
+
 type Skill {
   approved: Boolean
   categoryId: Float
@@ -390,6 +438,10 @@ enum SkillImportance {
   BONUS
   PREFERRED
   REQUIRED
+}
+
+input SubscribeToTopicInput {
+  topic: String!
 }
 
 type Task {
@@ -482,6 +534,13 @@ input UpdateBidInput {
   visibility: BidVisibility
 }
 
+input UpdateDeviceInput {
+  appVersion: String
+  deviceName: String
+  fcmToken: String
+  isActive: Boolean
+}
+
 input UpdateTaskInput {
   addressLine1: String
   addressLine2: String
@@ -564,6 +623,25 @@ type UserBidsResponse {
   submitted: BidsWithPaginationDto!
 }
 
+type UserDevice {
+  appVersion: String
+  createdAt: DateTime!
+  credentialId: String
+  deviceId: String!
+  deviceName: String
+  deviceType: String!
+  fcmToken: String
+  id: ID!
+  isActive: Boolean!
+  lastTokenRefresh: DateTime
+  lastUsedAt: DateTime
+  platform: String
+  pushToken: String
+  revokedAt: DateTime
+  updatedAt: DateTime!
+  userId: Int!
+}
+
 type UserLocation {
   createdAt: DateTime!
   displayName: String!
@@ -572,6 +650,21 @@ type UserLocation {
   serviceRadius: Float
   updatedAt: DateTime!
   zipCode: String
+}
+
+type UserNotificationPreferences {
+  createdAt: DateTime!
+  email: Boolean!
+  id: ID!
+  inApp: Boolean!
+  push: Boolean!
+  pushBidUpdates: Boolean!
+  pushMessages: Boolean!
+  pushPayments: Boolean!
+  pushSystemUpdates: Boolean!
+  pushTaskMatches: Boolean!
+  updatedAt: DateTime!
+  userId: Int!
 }
 
 type UserProfileOutput {

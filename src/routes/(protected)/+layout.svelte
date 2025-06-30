@@ -1,15 +1,7 @@
 <script lang="ts">
 	import { authState } from '$lib/stores/auth.store';
-	import { appStore } from '$lib/stores/app.store';
 
 	const { children } = $props();
-
-	// Load global data when authenticated
-	$effect.pre(() => {
-		if ($authState.isAuthenticated) {
-			appStore.loadGlobalData();
-		}
-	});
 </script>
 
 {#if $authState.isLoading}
