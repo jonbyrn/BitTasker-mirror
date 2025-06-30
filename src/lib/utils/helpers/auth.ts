@@ -10,7 +10,6 @@ import {
 	exportKey
 } from '$lib/utils/helpers/crypto';
 import { getPublicKey } from 'nostr-tools/pure';
-import { hexToBytes } from '$lib/utils/helpers/encoding';
 import { nip19 } from 'nostr-tools';
 
 export async function encryptNsec(

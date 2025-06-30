@@ -1,13 +1,12 @@
 /**
  * WebAuthentication (WebAuthn) implementation for web-based biometric authentication
  * This provides similar functionality to the Capacitor Native Biometric features
- * but uses the browser's WebAuthn API for web platforms
  */
 
-import type { Credentials, BiometricVerifyOptions, EncryptionData } from '$lib/types/auth';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
-import { appStore } from '$lib/stores/app.store';
+import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
+import { getDeviceIdentifier } from './deviceIdentity';
+import { bytesToHex, hexToBytes } from '$lib/utils/helpers/encoding';
+import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -25,7 +24,7 @@ const WEBAUTHN_VERIFY_OPTIONS: WebAuthnVerifyOptions = {
 	authenticatorSelection: {
 		authenticatorAttachment: 'platform',
 		userVerification: 'required',
-		requireResidentKey: false
+		requireResidentKey: true
 	},
 	reason: 'Secure your BitTasker account',
 	title: 'BitTasker Authentication',
@@ -88,7 +87,8 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
 };
 
 /**
- * Verify user identity using WebAuthn
+ * Verify user identity using WebAuthn with automatic credential discovery
+ * Returns the credentials if authentication is successful
  */
 export async function verifyIdentity(
 	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
@@ -98,39 +98,28 @@ export async function verifyIdentity(
 			throw new Error('WebAuthn is not available on this device');
 		}
 
-		// Get the stored credential ID
-		const { value: credentialId } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
-
-		if (!credentialId) {
-			console.error('No WebAuthn credential found. Please register first.');
-			return false;
-		}
-
-		// Create authentication options
+		// Use credential discovery - empty allowCredentials enables discovery
 		const authOptions: PublicKeyCredentialRequestOptions = {
 			challenge: generateChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
 			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
-			allowCredentials: [
-				{
-					id: base64ToArrayBuffer(credentialId),
-					type: 'public-key'
-				}
-			]
+			// Empty allowCredentials enables discovery of resident keys
+			allowCredentials: []
 		};
 
-		// Request authentication
-		const credential = (await navigator.credentials.get({
+		// Request authentication with timeout protection
+		const credentialPromise = navigator.credentials.get({
 			publicKey: authOptions
-		})) as PublicKeyCredential;
+		}) as Promise<PublicKeyCredential>;
 
-		if (!credential) {
-			return false;
-		}
+		// Add manual timeout to prevent hanging
+		const timeoutPromise = new Promise<null>((_, reject) => {
+			setTimeout(() => reject(new Error('Authentication timeout')), 35000);
+		});
 
-		return true;
+		const credential = await Promise.race([credentialPromise, timeoutPromise]);
+
+		return credential !== null;
 	} catch (err) {
 		console.error('Biometric verification failed:', err);
 		return false;
@@ -138,19 +127,58 @@ export async function verifyIdentity(
 }
 
 /**
- * Register WebAuthn credential and store encrypted data
+ * Create a user-friendly identifier from public key (handles both hex and npub formats)
+ */
+function createUserFriendlyName(publicKey: string): string {
+	if (publicKey.startsWith('npub')) {
+		// For npub format, take meaningful part after 'npub'
+		const npubPart = publicKey.slice(4); // Remove 'npub' prefix
+		const prefix = npubPart.slice(0, 8);
+		const suffix = npubPart.slice(-6); // Take last 6 chars (before checksum)
+		return `npub${prefix}...${suffix}`;
+	} else {
+		// For hex format, take first 8 and last 8 characters
+		const prefix = publicKey.slice(0, 8);
+		const suffix = publicKey.slice(-8);
+		return `${prefix}...${suffix}`;
+	}
+}
+
+/**
+ * Create display name with timestamp for uniqueness
+ */
+function createDisplayName(publicKey: string, customName?: string): string {
+	if (customName) {
+		return `BitTasker ${customName}`;
+	}
+	
+	const friendlyId = createUserFriendlyName(publicKey);
+	const date = new Date().toLocaleDateString();
+	return `BitTasker ${friendlyId} (${date})`;
+}
+
+/**
+ * Register WebAuthn credentials
+ * @param publicKey User's Nostr public key  
+ * @param exportedKey The exported private key for decryption
+ * @param customName Optional custom name for the passkey
+ * @returns Promise with credential ID
  */
 export async function setWebBiometricKey(
 	publicKey: string,
-	encryptionData: EncryptionData
-): Promise<boolean> {
+	exportedKey: string,
+	customName?: string
+): Promise<string> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
 		}
 
-		// Create user info for WebAuthn
-		const userId = await generateDeviceKey();
+		const packedKeys = packKeys(publicKey, exportedKey);
+
+		// Create descriptive names for the passkey
+		const userName = customName || createUserFriendlyName(publicKey);
+		const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
 
 		// Create registration options
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
@@ -160,9 +188,9 @@ export async function setWebBiometricKey(
 				id: window.location.hostname
 			},
 			user: {
-				id: stringToArrayBuffer(userId),
-				name: publicKey,
-				displayName: 'BitTasker User'
+				id: packedKeys, // * MAX of 64 bytes
+				name: userName, // Short identifier like "8e52b613...de2612a"
+				displayName: displayName // Full display name like "BitTasker 8e52b613...de2612a (12/20/2024)"
 			},
 			pubKeyCredParams: [
 				{ type: 'public-key', alg: -7 }, // ES256
@@ -170,7 +198,11 @@ export async function setWebBiometricKey(
 			],
 			timeout: 60000,
 			attestation: WEBAUTHN_VERIFY_OPTIONS.attestation,
-			authenticatorSelection: WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection
+			authenticatorSelection: {
+				...WEBAUTHN_VERIFY_OPTIONS.authenticatorSelection,
+				requireResidentKey: true,
+				residentKey: 'required'
+			}
 		};
 
 		// Create credential
@@ -178,41 +210,15 @@ export async function setWebBiometricKey(
 			publicKey: registrationOptions
 		})) as PublicKeyCredential;
 
-		const { value: currentCredentials } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
-
-		if (currentCredentials) {
-			await Preferences.remove({ key: currentCredentials });
-			await Preferences.remove({ key: `webAuthn_${currentCredentials}` });
+		if (!credential) {
+			throw new Error('Failed to create WebAuthn credential');
 		}
 
-		// Store credential ID for future authentication
-		const credentialId = arrayBufferToBase64(credential.rawId);
-		await Preferences.set({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID,
-			value: credentialId
-		});
+		return credential.id;
 
-		const data = {
-			username: publicKey,
-			password: JSON.stringify(encryptionData),
-			server: userId
-		};
-
-		// Store the encrypted data
-		await Preferences.set({
-			key: `webAuthn_${credentialId}`,
-			value: JSON.stringify(data)
-		});
-
-		appStore.update((state) => ({ ...state, biometricData: data }));
-		await Preferences.set({ key: 'npub', value: publicKey });
-
-		return true;
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		return false;
+		throw new Error('Failed to set biometric key');
 	}
 }
 
@@ -221,44 +227,102 @@ export async function setWebBiometricKey(
  */
 export async function getWebBiometricData(): Promise<Credentials | null> {
 	try {
-		const verified = await verifyIdentity();
-		if (!verified) return null;
-
-		const { value: credentialId } = await Preferences.get({
-			key: StorageKeys.WEB_AUTHN_CREDENTIAL_ID
-		});
-
-		if (!credentialId) {
-			return null;
+		if (!(await checkWebBiometricAvailability())) {
+			throw new Error('WebAuthn is not available on this device');
 		}
 
-		const { value: storedData } = await Preferences.get({
-			key: `webAuthn_${credentialId}`
-		});
+		// Use credential discovery
+		const authOptions: PublicKeyCredentialRequestOptions = {
+			challenge: generateChallenge(),
+			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
+			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification
+		};
 
-		if (!storedData) return null;
+		// Request authentication
+		const credential = await navigator.credentials.get({
+			publicKey: authOptions
+		}) as PublicKeyCredential;
 
-		return JSON.parse(storedData) as Credentials;
+		if (!credential) {
+			throw new Error('No credential selected by user');
+		}
+
+		// Extract combined data from the user handle
+		const response = credential.response as AuthenticatorAssertionResponse;
+		if (!response.userHandle) {
+			console.error('No user handle in credential response');
+			throw new Error('Invalid credential format. This passkey may be from an older version.');
+		}
+
+		const unpackedKeys = unPackKeys(response.userHandle);
+
+		const publicKey = unpackedKeys.publicKey;
+		const exportedKey = unpackedKeys.exportedKey;
+
+		const deviceId = await getDeviceIdentifier();
+
+		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id);
+		return {
+			username: publicKey,
+			password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+			server: deviceId
+		};
 	} catch (err) {
-		console.error('Failed to get biometric key:', err);
-		return null;
+		console.error('Failed to get biometric data:', err);
+		throw new Error('Failed to get biometric data');
 	}
 }
 
 /**
- * Generate device-specific key as hex string (same as in biometrics.ts)
+ * Pack public key and exported key into 64 bytes using binary optimization
+ * Stores public key as raw bytes (32 bytes) + exported key as raw bytes (32 bytes)
  */
-async function generateDeviceKey(): Promise<string> {
-	const userAgent = navigator.userAgent;
-	// @ts-ignore
-	const platform = navigator?.userAgentData?.platform || navigator.platform || 'unknown';
-	const deviceId = `${userAgent}_${platform}_BitTasker`;
+function packKeys(publicKey: string, exportedKey: string): ArrayBuffer {
+	// Convert hex public key to raw bytes (64 chars -> 32 bytes)
+	const pubKeyBytes = hexToBytes(publicKey);
+	
+	// Decode base64 exported key to raw bytes
+	const exportedKeyBytes = Uint8Array.from(atob(exportedKey), c => c.charCodeAt(0));
 
-	const encoder = new TextEncoder();
-	const deviceData = encoder.encode(deviceId);
-	const keyData = await crypto.subtle.digest('SHA-256', deviceData);
+	// Check if both fit exactly in 64 bytes
+	if (pubKeyBytes.length + exportedKeyBytes.length > 64) {
+		throw new Error(`Data too large: ${pubKeyBytes.length + exportedKeyBytes.length} bytes (max 64)`);
+	}
+	
+	// Create 64-byte buffer: 32 bytes pubkey + 32 bytes exported key
+	const packed = new Uint8Array(64);
+	packed.set(pubKeyBytes, 0);
+	packed.set(exportedKeyBytes, 32);
+	
+	return packed.buffer;
+}
 
-	return Array.from(new Uint8Array(keyData))
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
+/**
+ * Unpack user data from 64-byte buffer (binary format)
+ * Returns original public key and exported key with no data loss
+ */
+function unPackKeys(userHandle: ArrayBuffer): { publicKey: string; exportedKey: string } {
+	const bytes = new Uint8Array(userHandle);
+	
+	// Extract public key bytes (first 32 bytes) and convert back to hex
+	const pubKeyBytes = bytes.slice(0, 32);
+	const publicKey = bytesToHex(pubKeyBytes);
+	
+	// Extract exported key bytes (last 32 bytes) and remove zero padding
+	const exportedKeyBytes = bytes.slice(32, 64);
+	
+	// Find the actual length by looking for the last non-zero byte
+	let actualLength = 32;
+	for (let i = 31; i >= 0; i--) {
+		if (exportedKeyBytes[i] !== 0) {
+			actualLength = i + 1;
+			break;
+		}
+	}
+	
+	// Convert back to base64
+	const actualExportedKeyBytes = exportedKeyBytes.slice(0, actualLength);
+	const exportedKey = btoa(String.fromCharCode(...actualExportedKeyBytes));
+	
+	return { publicKey, exportedKey };
 }

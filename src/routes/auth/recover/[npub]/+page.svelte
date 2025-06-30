@@ -9,7 +9,7 @@
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { signLoginChallenge } from '$lib/utils/helpers/auth';
 	import { validatePassword } from '$lib/utils/helpers/validators';
-	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import { decryptNsecWithPassword, encryptNsec } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
@@ -96,13 +96,9 @@
 				salt
 			});
 		} else if (authMethods.webAuthn) {
-			await setWebBiometricKey(npub, {
-				key: exportedKey,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				data: encrypted.data,
-				salt
-			});
+			const credentialId = await setWebBiometricKey(npub, exportedKey);
+			const deviceName = await getDeviceName();
+			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 		}
 	};
 
@@ -149,14 +145,25 @@
 
 			// Try to login
 			const { challenge } = await authService.getLoginChallenge();
-			// Sign challenge with private key
-			const signedChallenge = await signLoginChallenge(challenge, privateKey);
 
-			if (!signedChallenge) {
-				throw new Error('Failed to sign login challenge');
+			const event = {
+				kind: 22242,
+				created_at: Math.floor(Date.now() / 1000),
+				content: challenge,
+				tags: [
+					['relay', window.location.origin],
+					['challenge', challenge]
+				],
+				pubkey: npub
+			};
+
+			if (!window.nostr) {
+				throw new Error('Nostr extension not available');
 			}
 
-			const loginResponse = await authService.loginWithNostr(npub, challenge, signedChallenge);
+			const rawSignedEvent = await window.nostr?.signEvent(event);
+
+			const loginResponse = await authService.loginWithNostr(rawSignedEvent, challenge);
 
 			await Preferences.set({
 				key: StorageKeys.ACCESS_TOKEN,

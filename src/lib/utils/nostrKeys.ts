@@ -4,6 +4,7 @@ import { appStore } from '$lib/stores/app.store';
 import { hexToBytes } from '@noble/hashes/utils'
 import { decryptNsecWithBiometrics } from '$lib/utils/helpers/auth';
 import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from './constants/storage';
 
 export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: string }> => {
     const currentState = get(appStore);
@@ -12,7 +13,7 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
         const sk = await decryptNsecWithBiometrics(currentState.biometricData.password);
         const nsec = hexToBytes(sk);
         const npub = currentState.biometricData.username;
-        await Preferences.set({ key: 'npub', value: npub });
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
         return { nsec, npub };
     }
 
@@ -38,12 +39,12 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     const sk = await decryptNsecWithBiometrics(biometricData.password);
     const nsec = hexToBytes(sk); 
     const npub = biometricData.username;
-    await Preferences.set({ key: 'npub', value: npub });
+    await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return { nsec, npub };
 };
 
 export const getNpub = async (): Promise<string> => {
-    const { value } = await Preferences.get({ key: 'npub' });
+    const { value } = await Preferences.get({ key: StorageKeys.NPUB });
 
     if (value) {
         return value;
@@ -53,7 +54,7 @@ export const getNpub = async (): Promise<string> => {
 
     if (currentState.biometricData) {
         const npub = currentState.biometricData.username;
-        await Preferences.set({ key: 'npub', value: npub });
+        await Preferences.set({ key: StorageKeys.NPUB, value: npub });
         return npub;
     }
 
@@ -77,6 +78,6 @@ export const getNpub = async (): Promise<string> => {
     }
 
     const npub = biometricData.username;
-    await Preferences.set({ key: 'npub', value: npub });
+    await Preferences.set({ key: StorageKeys.NPUB, value: npub });
     return npub;
 };

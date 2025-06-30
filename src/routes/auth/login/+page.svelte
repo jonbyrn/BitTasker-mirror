@@ -12,9 +12,12 @@
 	import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
-		getWebBiometricData
+		getWebBiometricData,
 	} from '$lib/utils/helpers/webBiometrics';
-	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
+	import {
+		decryptNsecWithBiometrics,
+		signLoginChallenge
+	} from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 
@@ -93,7 +96,6 @@
 				// Login flow
 				await login(biometricData, deviceId);
 			} else {
-				// Show error message
 				error = $t('auth.login.errors.no_account');
 			}
 		} catch (err: unknown) {
