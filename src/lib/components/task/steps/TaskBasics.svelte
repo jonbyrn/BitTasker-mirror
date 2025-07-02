@@ -3,34 +3,10 @@
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import Tags from '$lib/components/Tags.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import TagsInput from '$lib/components/TagsInput.svelte';
 
 	let { errors, direction } = $props();
-
-	let skillsInput = $state('');
-
-	function handleSkillKeypress(event: KeyboardEvent) {
-		if (event.key === 'Enter' && skillsInput.trim()) {
-			event?.preventDefault();
-			store.updateTask({ skills: [...$store.task.skills, skillsInput] });
-			skillsInput = '';
-		}
-	}
-
-	function addSkill() {
-		if (
-			skillsInput &&
-			skillsInput.trim() &&
-			skillsInput.trim().length > 2 &&
-			!$store.task?.skills?.some((skill) => skill === skillsInput.trim().toLowerCase()) &&
-			$store.task?.skills?.length < 10
-		) {
-			store.updateTask({ skills: [...$store.task.skills, skillsInput.trim()] });
-			skillsInput = '';
-		}
-	}
 </script>
 
 <div
@@ -93,6 +69,7 @@
 				<DatePicker
 					label="Start Date"
 					value={$store.task.dateRange.start}
+					minDate={new Date().toISOString()}
 					onChange={(value: string) => {
 						const start = value;
 						const end = $store.task.dateRange?.end ?? new Date().toISOString();
@@ -107,6 +84,7 @@
 				<DatePicker
 					label="End Date"
 					value={$store.task.dateRange.end}
+					minDate={new Date().toISOString()}
 					onChange={(value: string) => {
 						const end = value;
 						const start = $store.task.dateRange?.start ?? new Date().toISOString();
@@ -126,6 +104,7 @@
 			<div>
 				<DatePicker
 					label="Deadline"
+					minDate={new Date().toISOString()}
 					value={$store.task.deadline}
 					onChange={(value: string) => store.updateTask({ deadline: value })}
 				/>

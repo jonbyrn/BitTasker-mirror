@@ -9,6 +9,7 @@
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
+	import { SimplePool } from 'nostr-tools';
 
 	// Tab management
 	let availableTabs = $state([

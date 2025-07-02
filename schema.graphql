@@ -108,10 +108,22 @@ type BidsWithPaginationDto {
   pagination: BidPaginationDto!
 }
 
+input BudgetInput {
+  currency: String
+  tier: String
+  type: BudgetTypeEnum
+}
+
 enum BudgetType {
   FIXED
   HOURLY
   RANGE
+}
+
+"""The type of budget (fixed or hourly)"""
+enum BudgetTypeEnum {
+  FIXED
+  HOURLY
 }
 
 type Category {
@@ -277,6 +289,8 @@ type Mutation {
   revokeDevice(deviceId: String!): NotificationResponse!
   sendTestNotification(input: SendTestNotificationInput!): NotificationResponse!
   subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
+  triggerBatchTaskCheck: SavedSearchNotificationResult!
+  triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
   unsubscribeFromTopic(input: SubscribeToTopicInput!): NotificationResponse!
   updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
   updateDevice(deviceId: String!, input: UpdateDeviceInput!): UserDevice!
@@ -286,6 +300,13 @@ type Mutation {
   updateUserProfile(input: UpdateUserProfileInput!): User!
   verifyTurnstileToken(input: TurnstileVerificationInput!): TurnstileVerificationResult!
   withdrawBid(id: Int!, reason: String): Boolean!
+}
+
+"""The frequency of notifications for saved searches"""
+enum NotificationFrequency {
+  DAILY
+  INSTANT
+  WEEKLY
 }
 
 type NotificationResponse {
@@ -327,6 +348,7 @@ type Query {
   category(id: Int!): Category
   checkUsernameAvailability(username: String!): Boolean!
   deviceStatistics: DeviceStatistics!
+  getUserSavedSearches: [SavedSearchInfo!]!
   getUsernameHistory(userId: Int!): [String!]!
   me: User!
   myDevices: [UserDevice!]!
@@ -390,6 +412,22 @@ input RegisterInput {
   email: String!
   name: String
   password: String!
+}
+
+type SavedSearchInfo {
+  createdAt: String!
+  id: String!
+  isActive: Boolean!
+  name: String!
+  notificationFrequency: NotificationFrequency!
+  notifyOnMatch: Boolean!
+  unreadNotifications: Int!
+}
+
+type SavedSearchNotificationResult {
+  matchCount: Int
+  message: String
+  success: Boolean!
 }
 
 input SearchTasksDto {
@@ -471,6 +509,16 @@ type Task {
   visibility: TaskVisibility!
 }
 
+input TaskBodyInput {
+  budget: BudgetInput
+  categories: [String!]!
+  deadline: String
+  description: String!
+  skills: [String!]!
+  taskType: TaskTypeEnum!
+  title: String!
+}
+
 enum TaskStatus {
   CANCELLED
   COMPLETED
@@ -493,6 +541,12 @@ type TaskTemplateResponse {
 }
 
 enum TaskType {
+  IN_PERSON
+  REMOTE
+}
+
+"""The type of task (remote or in-person)"""
+enum TaskTypeEnum {
   IN_PERSON
   REMOTE
 }

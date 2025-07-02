@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
+	import { TriggerSavedSearchCheckStore } from '$houdini';	
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import {
@@ -25,6 +26,50 @@
 	let direction: 'forward' | 'backward' = $state('forward');
 	let newFiles = $state<File[]>([]);
 	let attachmentsToRemove = $state<Attachment[]>([]);
+
+	// Houdini store for triggering saved search checks
+	const triggerSavedSearchStore = new TriggerSavedSearchCheckStore();
+
+	// Background function to trigger saved search checks
+	const triggerSavedSearchChecks = async (taskData: any) => {
+		try {
+
+			// "Variable \"$task\" got invalid value \"remote\" at \"task.taskType\"; Value \"remote\" does not exist in \"TaskTypeEnum\" enum. Did you mean the enum value \"REMOTE\"?"
+
+			// Convert the task data to TaskBodyInput format
+			const taskBodyInput = {
+				title: taskData.title,
+				description: taskData.description,
+				taskType: taskData.taskType,
+				skills: taskData.skills || [],
+				categories: taskData.categories || [],
+				deadline: taskData.deadline,
+				budget: taskData.budget ? {
+					currency: taskData.budget.currency,
+					type: taskData.budget.type,
+					tier: taskData.budget.tier // This might need adjustment based on your budget structure
+				} : undefined
+			};
+
+			const result = await triggerSavedSearchStore.mutate({
+				task: taskBodyInput
+			});
+
+			if (result.errors) {
+				console.warn('⚠️ Saved search check failed:', result.errors);
+			} else if (result.data?.triggerSavedSearchCheck.success) {
+				const { matchCount, message } = result.data.triggerSavedSearchCheck;
+				console.log('✅ Saved search check completed:', { matchCount, message });
+				
+				if (matchCount && matchCount > 0) {
+					console.log(`📧 ${matchCount} saved search notifications sent`);
+				}
+			}
+		} catch (error) {
+			// Silently handle errors in background operation - don't interrupt user flow
+			console.warn('⚠️ Background saved search check failed:', error);
+		}
+	};
 
 	// Load the draft when the page is loaded
 	onMount(async () => {
@@ -176,21 +221,22 @@
 
 		isSubmitting = true;
 
+		const task = {
+			title: $store.task.title,
+			description: $store.task.description,
+			budget: $store.task.budget,
+			deadline: $store.task.deadline,
+			dateRange: $store.task.dateRange,
+			taskType: $store.task.taskType,
+			pickupLocation: $store.task.pickupLocation,
+			dropOffLocation: $store.task.dropOffLocation,
+			skills: $store.task.skills,
+			attachments: $store.task.attachments,
+			categories: $store.task.categories,
+			status: TaskStatusEnum.OPEN
+		};
+		
 		try {
-			const task = {
-				title: $store.task.title,
-				description: $store.task.description,
-				budget: $store.task.budget,
-				deadline: $store.task.deadline,
-				dateRange: $store.task.dateRange,
-				taskType: $store.task.taskType,
-				pickupLocation: $store.task.pickupLocation,
-				dropOffLocation: $store.task.dropOffLocation,
-				skills: $store.task.skills,
-				attachments: $store.task.attachments,
-				categories: $store.task.categories,
-				status: TaskStatusEnum.OPEN
-			};
 
 			const isUpdating = page.url.searchParams.get('edit') === 'true';
 
@@ -222,6 +268,8 @@
 			else errors.general = 'Failed to create task. Please try again.';
 		} finally {
 			isSubmitting = false;
+			// Trigger saved search checks in the background (non-blocking)
+			triggerSavedSearchChecks(task);
 		}
 	}
 </script>
