@@ -238,8 +238,10 @@ export async function getRecommendations(params: RecommendationParams): Promise<
             const response = await nostrEventsService.findEvents(filter);
             const events = response.data || [];
 
+            const npub = await getNpub();
+
             // Convert events to tasks - same pattern as findTasks
-            const tasks = events.map((event: Event) => convertEventToTask(event));
+            const tasks = events.filter((event: Event) => event.pubkey !== npub).map((event: Event) => convertEventToTask(event));
 
             // Update cache with tasks
             cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
