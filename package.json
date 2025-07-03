@@ -25,6 +25,7 @@
 		"build-storybook": "storybook build"
 	},
 	"devDependencies": {
+		"@capacitor/assets": "^3.0.5",
 		"@chromatic-com/storybook": "^3.2.5",
 		"@eslint/compat": "^1.2.5",
 		"@eslint/js": "^9.18.0",
@@ -76,7 +77,9 @@
 		"@capacitor/geolocation": "^7.1.1",
 		"@capacitor/ios": "^7.1.0",
 		"@capacitor/keyboard": "^7.0.1",
+		"@capacitor/local-notifications": "^7.0.1",
 		"@capacitor/preferences": "^7.0.0",
+		"@capacitor/push-notifications": "^7.0.1",
 		"@capacitor/screen-orientation": "^7.0.1",
 		"@capacitor/splash-screen": "^7.0.1",
 		"@capacitor/status-bar": "^7.0.1",
@@ -91,6 +94,7 @@
 		"axios": "^1.8.4",
 		"capacitor-native-biometric": "^4.2.2",
 		"date-fns": "^4.1.0",
+		"firebase": "^11.9.1",
 		"iconify-icon": "^2.3.0",
 		"nostr-tools": "^2.13.0",
 		"swiper": "^11.2.6",

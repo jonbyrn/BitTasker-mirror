@@ -29,6 +29,13 @@ const config: CapacitorConfig = {
 			resize: 'body',
 			style: 'DARK',
 			resizeOnFullScreen: true
+		},
+		SplashScreen: {
+			androidSplashResourceName: 'splash',
+			androidScaleType: 'CENTER',
+		},
+		PushNotifications: {
+			presentationOptions: ['badge', 'sound', 'alert']
 		}
 	}
 };

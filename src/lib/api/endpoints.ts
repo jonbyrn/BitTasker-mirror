@@ -20,6 +20,7 @@ const SERVICE_PACKAGES = 'service-packages';
 const SAVED_SEARCHES = 'saved-searches';
 const RECOMMENDATIONS = 'recommendations';
 const LOCATION = 'location';
+const NOTIFICATIONS = 'notifications';
 
 // Full endpoint paths
 export const ENDPOINTS = {
@@ -132,6 +133,12 @@ export const ENDPOINTS = {
 	LOCATION: {
 		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
 		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
+	},
+
+	// Notifications endpoints
+	NOTIFICATIONS: {
+		REGISTER: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/register`,
+		UNREGISTER: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/unregister`
 	},
 
 	NOSTR: {

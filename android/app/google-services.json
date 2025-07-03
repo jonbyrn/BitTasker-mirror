@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "256658163015",
+    "project_id": "bittasker-928ff",
+    "storage_bucket": "bittasker-928ff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:256658163015:android:29307c3f4ccfe4b0597862",
+        "android_client_info": {
+          "package_name": "com.bittasker.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUVLPMM0sVl9X6NpqPb0vyCpnH4o-OeqU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

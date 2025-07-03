@@ -2,12 +2,12 @@
  * Different views of the user dashboard
  */
 export const sections = [
-	{ id: '', label: 'My Tasks', icon: 'mdi:home' }, // Default section
-	{ id: 'create-task', label: 'Create', icon: 'ic:baseline-create' },
-	{ id: 'find-tasks', label: 'Find', icon: 'mdi:magnify' },
-	{ id: 'wallet', label: 'Wallet', icon: 'mdi:wallet' },
-	{ id: 'profile', label: 'Profile', icon: 'mdi:account' },
-	{ id: 'messages', label: 'Messages', icon: 'mdi:message' }
+	{ id: '', label: 'My Tasks', icon: 'mdi:home', mobile: true }, // Default section
+	{ id: 'create-task', label: 'Create', icon: 'ic:baseline-create', mobile: true },
+	{ id: 'find-tasks', label: 'Find', icon: 'mdi:magnify', mobile: true },
+	{ id: 'wallet', label: 'Wallet', icon: 'mdi:wallet', mobile: true },
+	{ id: 'profile', label: 'Profile', icon: 'mdi:account', mobile: false },
+	{ id: 'messages', label: 'Messages', icon: 'mdi:message', mobile: true }
 ];
 
 /**

@@ -41,6 +41,8 @@ declare global {
 		turnstile: TurnstileWidget;
 		onloadTurnstileCallback: () => void;
 	}
+
+	const __APP_VERSION__: string;
 }
 
 export { };

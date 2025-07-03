@@ -2,6 +2,8 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from './constants/storage';
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();
@@ -12,30 +14,59 @@ const pool = new SimplePool();
  * @returns The signed event
  */
 export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {
-    const { npub, nsec } = await getNostrKeyPair();
-
-    if (!npub || !nsec) {
-        throw new Error('No pubkey or private key found');
-    }
-
-    // Create the event with required properties in correct order
-    const event = {
-        pubkey: npub,
+    const initialEvent = {
         created_at: metadata.created_at || Math.floor(Date.now() / 1000),
         kind: metadata.kind!,
         tags: metadata.tags || [],
         content: metadata.content || ''
     };
 
-    // Finalize the event (calculate id and sign)
-    const signedEvent = finalizeEvent(event, nsec);
+    const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
 
-    // Validate the event
-    if (!validateEvent(signedEvent)) {
-        throw new Error('Invalid event');
+    // TODO: To be improved by getting auth method from the server
+    if (authMethod === 'alby') {
+        if (!window || !window.nostr) {
+            throw new Error('Nostr extension not available');
+        }
+
+        let { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+
+        if (!npub) {
+            const pubkey = await window.nostr.getPublicKey();
+            if (!pubkey) {
+                throw new Error('No public key returned from Nostr extension');
+            }
+            npub = pubkey;
+        }
+
+        const signedEvent = await window.nostr.signEvent({
+            ...initialEvent,
+            pubkey: npub
+        });
+        return signedEvent;
+    } else {
+        const { npub, nsec } = await getNostrKeyPair();
+
+        if (!npub || !nsec) {
+            throw new Error('No pubkey or private key found');
+        }
+
+        // Create the event with required properties in correct order
+        const event = {
+            ...initialEvent,
+            pubkey: npub
+        };
+        
+        // Finalize the event (calculate id and sign)
+        const signedEvent = finalizeEvent(event, nsec);
+
+        // Validate the event
+        if (!validateEvent(signedEvent)) {
+            throw new Error('Invalid event');
+        }
+
+        return signedEvent;
     }
-
-    return signedEvent;
 }
 
 /**

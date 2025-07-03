@@ -23,6 +23,8 @@ const createAuthStore = () => {
 		},
 		logout: async () => {
 			await Preferences.remove({ key: StorageKeys.ACCESS_TOKEN });
+			await Preferences.remove({ key: StorageKeys.NPUB });
+			await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
 			user.reset();
 			set(initialAuthState);
 		}

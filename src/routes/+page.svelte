@@ -1,15 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import OnboardingSlider from '$lib/components/OnboardingSlider.svelte';
-
-	onMount(async () => {
-		if ($deviceInfo !== null && $deviceInfo.platform !== 'web') {
-			const main = document.getElementById('main');
-			main?.style.setProperty('margin-top', '3rem');
-		}
-	});
 </script>
 
 {#if $deviceInfo !== null && $deviceInfo?.platform !== 'web'}

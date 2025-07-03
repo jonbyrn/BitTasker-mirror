@@ -6,6 +6,7 @@ import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
+import { getNpub } from '$lib/utils/nostrKeys';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
@@ -131,8 +132,10 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             const events = response.data || [];
             const total = events.length;
 
+            const npub = await getNpub();
+            
             // TODO: To be removed and handled by the find-tasks page for better performance
-            const tasks = events.map((event: Event) => convertEventToTask(event));
+            const tasks = events.filter((event: Event) => event.pubkey !== npub).map((event: Event) => convertEventToTask(event));
 
             // Update cache
             cache.set(cacheKey, { data: tasks, timestamp: Date.now() });

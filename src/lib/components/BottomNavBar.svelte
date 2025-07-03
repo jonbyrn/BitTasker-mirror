@@ -21,13 +21,13 @@
 		if (window.innerWidth <= 768) {
 			const handleScroll = () => {
 				const currentScroll = window.scrollY;
-				
+
 				if (currentScroll > lastScrollPosition && currentScroll > 50) {
 					isScrollingDown = true;
 				} else {
 					isScrollingDown = false;
 				}
-				
+
 				// Add a small delay before actually hiding/showing to prevent flickering
 				if (isScrollingDown && isVisible) {
 					setTimeout(() => {
@@ -38,30 +38,31 @@
 						isVisible = true;
 					}, 100);
 				}
-				
+
 				lastScrollPosition = currentScroll;
 			};
 
 			window.addEventListener('scroll', handleScroll, { passive: true });
-			
+
 			return () => {
 				window.removeEventListener('scroll', handleScroll);
 			};
 		}
 	});
-
 </script>
 
 <!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
 <div class="dock" class:hidden={!isVisible}>
-    {#each sections as section}
-        <a
-            href={`/dashboard/${section.id}`}
-            class={currentSection === section.id ? 'dock-active' : ''}
-            data-sveltekit-reload="off"
-        >
-            <iconify-icon icon={section.icon}></iconify-icon>
-            <span class="dock-label">{section.label}</span>
-        </a>
-    {/each}
+	{#each sections as section}
+		{#if section.mobile}
+			<a
+				href={`/dashboard/${section.id}`}
+				class={currentSection === section.id ? 'dock-active' : ''}
+				data-sveltekit-reload="off"
+			>
+				<iconify-icon icon={section.icon}></iconify-icon>
+				<span class="dock-label">{section.label}</span>
+			</a>
+		{/if}
+	{/each}
 </div>
