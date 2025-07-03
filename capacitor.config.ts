@@ -31,24 +31,12 @@ const config: CapacitorConfig = {
 			resizeOnFullScreen: true
 		},
 		SplashScreen: {
-			// launchShowDuration: 0,
-			// launchAutoHide: true,
-			// backgroundColor: '#2d2d2d',
 			androidSplashResourceName: 'splash',
 			androidScaleType: 'CENTER',
 		},
 		PushNotifications: {
 			presentationOptions: ['badge', 'sound', 'alert']
-		},
-		// LocalNotifications: {
-		// 	iconColor: '#488AFF',
-		// 	smallIcon: 'ic_stat_icon_config_sample',
-		// 	sound: 'default',
-		// 	// icon: 'ic_stat_name',
-		// 	// style: 'Default',
-		// 	// layout: 'default',
-		// 	// channel: 'default'
-		// }
+		}
 	}
 };
 
