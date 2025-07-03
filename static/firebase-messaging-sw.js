@@ -46,8 +46,6 @@ self.addEventListener('message', (event) => {
 		// Re-initialize with correct config if needed
 		if (!firebase.apps.length) {
 			initializeFirebase(event.data.config);
-			// firebase.initializeApp(event.data.config);
-			// messaging = firebase.messaging();
 		}
 	}
 });
