@@ -3,6 +3,7 @@
  * Supports USD and BTC only
  */
 export function getBudgetBucket(amount: number, currency: string): string {
+    if(!amount || amount === 0) return 'micro';
     const upperCurrency = currency.toUpperCase();
     
     // Bitcoin ranges (in BTC)

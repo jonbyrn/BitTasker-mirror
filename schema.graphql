@@ -512,10 +512,14 @@ type Task {
 input TaskBodyInput {
   budget: BudgetInput
   categories: [String!]!
+  dateRange: String
   deadline: String
   description: String!
+  dropOffLocation: LocationInput
+  eventId: String
+  pickupLocation: LocationInput
   skills: [String!]!
-  taskType: TaskTypeEnum!
+  taskType: TaskType!
   title: String!
 }
 
@@ -541,12 +545,6 @@ type TaskTemplateResponse {
 }
 
 enum TaskType {
-  IN_PERSON
-  REMOTE
-}
-
-"""The type of task (remote or in-person)"""
-enum TaskTypeEnum {
   IN_PERSON
   REMOTE
 }
@@ -683,7 +681,6 @@ type UserDevice {
   credentialId: String
   deviceId: String!
   deviceName: String
-  deviceType: String!
   fcmToken: String
   id: ID!
   isActive: Boolean!

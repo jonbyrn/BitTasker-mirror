@@ -29,7 +29,19 @@ const config: CapacitorConfig = {
 			resize: 'body',
 			style: 'DARK',
 			resizeOnFullScreen: true
-		}
+		},
+		PushNotifications: {
+			presentationOptions: ['badge', 'sound', 'alert']
+		},
+		// LocalNotifications: {
+		// 	iconColor: '#488AFF',
+		// 	smallIcon: 'ic_stat_icon_config_sample',
+		// 	sound: 'default',
+		// 	// icon: 'ic_stat_name',
+		// 	// style: 'Default',
+		// 	// layout: 'default',
+		// 	// channel: 'default'
+		// }
 	}
 };
 

@@ -48,6 +48,7 @@ export interface TaskBody {
 	skills: string[];
 	categories: string[];
 	attachments?: Attachment[];
+	status?: TaskStatusEnum;
 }
 
 export interface Task {

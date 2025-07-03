@@ -107,6 +107,7 @@ export async function createTask(taskData: TaskBody): Promise<string> {
 
     // Sign and publish
     const signedEvent = await getSignedEvent(event);
+    console.log(signedEvent);
 
     try {
         await nostrEventsService.publishEvent(signedEvent);

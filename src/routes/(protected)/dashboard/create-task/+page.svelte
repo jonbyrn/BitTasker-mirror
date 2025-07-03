@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Attachment } from '$lib/types/task';
+	import type { Attachment, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
-	import { TriggerSavedSearchCheckStore } from '$houdini';	
+	import { TriggerSavedSearchCheckStore, type TaskBodyInput } from '$houdini';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import {
@@ -19,6 +19,7 @@
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
@@ -26,29 +27,36 @@
 	let direction: 'forward' | 'backward' = $state('forward');
 	let newFiles = $state<File[]>([]);
 	let attachmentsToRemove = $state<Attachment[]>([]);
+	let signedEventId = $state<string | null>(null);
 
 	// Houdini store for triggering saved search checks
 	const triggerSavedSearchStore = new TriggerSavedSearchCheckStore();
 
 	// Background function to trigger saved search checks
-	const triggerSavedSearchChecks = async (taskData: any) => {
+	const triggerSavedSearchChecks = async (taskData: TaskBody) => {
 		try {
+			// Convert taskType value to GraphQL enum key
+			let graphqlTaskType: TaskBodyInput['taskType'] = 'REMOTE';
+			if (taskData.taskType === TaskTypeEnum.IN_PERSON) graphqlTaskType = 'IN_PERSON';
 
-			// "Variable \"$task\" got invalid value \"remote\" at \"task.taskType\"; Value \"remote\" does not exist in \"TaskTypeEnum\" enum. Did you mean the enum value \"REMOTE\"?"
+			const budgetTier = getBudgetBucket(taskData.budget.amount, taskData.budget.currency);
 
 			// Convert the task data to TaskBodyInput format
-			const taskBodyInput = {
+			const taskBodyInput: TaskBodyInput = {
+				eventId: signedEventId || '',
 				title: taskData.title,
 				description: taskData.description,
-				taskType: taskData.taskType,
+				taskType: graphqlTaskType,
 				skills: taskData.skills || [],
 				categories: taskData.categories || [],
 				deadline: taskData.deadline,
-				budget: taskData.budget ? {
-					currency: taskData.budget.currency,
-					type: taskData.budget.type,
-					tier: taskData.budget.tier // This might need adjustment based on your budget structure
-				} : undefined
+				budget: taskData.budget
+					? {
+							currency: taskData.budget.currency,
+							type: taskData.budget.type,
+							tier: budgetTier
+						}
+					: undefined
 			};
 
 			const result = await triggerSavedSearchStore.mutate({
@@ -60,7 +68,7 @@
 			} else if (result.data?.triggerSavedSearchCheck.success) {
 				const { matchCount, message } = result.data.triggerSavedSearchCheck;
 				console.log('✅ Saved search check completed:', { matchCount, message });
-				
+
 				if (matchCount && matchCount > 0) {
 					console.log(`📧 ${matchCount} saved search notifications sent`);
 				}
@@ -221,7 +229,7 @@
 
 		isSubmitting = true;
 
-		const task = {
+		const task: TaskBody = {
 			title: $store.task.title,
 			description: $store.task.description,
 			budget: $store.task.budget,
@@ -235,13 +243,12 @@
 			categories: $store.task.categories,
 			status: TaskStatusEnum.OPEN
 		};
-		
-		try {
 
+		try {
 			const isUpdating = page.url.searchParams.get('edit') === 'true';
 
 			if (isUpdating) {
-				await updateTask($store.id, task);
+				signedEventId = await updateTask($store.id, task);
 
 				// TODO: Handle update recurring task
 
@@ -254,7 +261,7 @@
 					await createRecurringTask(task, $store.recurringTask);
 				} else {
 					// Create a regular task
-					await createTask(task);
+					signedEventId = await createTask(task);
 				}
 
 				appStore.showSuccessToast('Task created successfully!');

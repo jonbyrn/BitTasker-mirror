@@ -43,11 +43,20 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
  */
 function setupNavigationHandler(): void {
 	if ('serviceWorker' in navigator) {
-		navigator.serviceWorker.addEventListener('message', (event) => {
+		navigator.serviceWorker.addEventListener('message', async (event) => {
 			if (event.data && event.data.type === 'NAVIGATE') {
-				// Use your router's navigation method here
-				// For now, using window.location as fallback
-				window.location.href = event.data.url;
+				console.log('🔄 Service worker navigation request:', event.data.url);
+				
+				try {
+					// Use SvelteKit navigation
+					const { goto } = await import('$app/navigation');
+					await goto(event.data.url);
+					console.log('✅ Navigation successful:', event.data.url);
+				} catch (error) {
+					console.error('❌ Navigation error, falling back to window.location:', error);
+					// Fallback to window.location for critical navigation
+					window.location.href = event.data.url;
+				}
 			}
 		});
 	}
