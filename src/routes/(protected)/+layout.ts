@@ -19,7 +19,7 @@ export const load: LayoutLoad = async () => {
 		} else {
 			await tryCatch(user.getUserData());
 			authState.login();
-			await pushNotificationService.init();
+			await tryCatch(pushNotificationService.init());
 		}
 	}
 };

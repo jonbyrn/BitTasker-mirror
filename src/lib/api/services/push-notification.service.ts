@@ -55,15 +55,14 @@ class PushNotificationService {
 		try {
 			if (Capacitor.isNativePlatform()) {
 				this.addListeners();
-				await this.createPushNotificationChannel();
 				await this.requestPermissions();
+				await this.createPushNotificationChannel();
 				await this.registerDevice();
 				this.addDeepLinkListener();
 			} else {
 				await this.initWebPushNotifications();
 			}
 		} catch (error) {
-			console.error('❌ Error initializing push notifications:', error);
 			throw error;
 		}
 	}
@@ -102,7 +101,7 @@ class PushNotificationService {
 			});
 
 			// Register service worker for background messages
-			await this.registerServiceWorker();
+			await registerServiceWorker();
 
 		} catch (error) {
 			console.error('❌ Error initializing web push notifications:', error);
@@ -132,7 +131,6 @@ class PushNotificationService {
 			});
 
 			if (token) {
-				console.log('🎯 FCM token received:', token.substring(0, 20) + '...');
 				await this.registerTokenOnServer(token);
 			} else {
 				console.warn('⚠️ No registration token available.');
@@ -140,14 +138,6 @@ class PushNotificationService {
 		} catch (error) {
 			console.error('❌ An error occurred while retrieving token:', error);
 			throw error;
-		}
-	}
-
-	private async registerServiceWorker(): Promise<void> {
-		try {
-			await registerServiceWorker();
-		} catch (error) {
-			console.error('Service Worker registration failed:', error);
 		}
 	}
 
