@@ -80,7 +80,6 @@ class PushNotificationService {
 			const { getMessaging, onMessage } = await import('firebase/messaging');
 
 			const firebaseConfig = getFirebaseWebConfig();
-			console.log(firebaseConfig)
 
 			// Validate Firebase config
 			if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
