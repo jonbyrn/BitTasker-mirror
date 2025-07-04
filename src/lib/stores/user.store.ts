@@ -3,7 +3,8 @@ import { writable } from 'svelte/store';
 import { SimplePool } from 'nostr-tools';
 import { getNpub } from '$lib/utils/nostrKeys';
 
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
+// Define relay URLs with fallbacks
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 // Initial States
 const initialProfile: UserData = {
@@ -34,6 +35,11 @@ const createUserStore = () => {
 				...state,
 				npub: npub
 			}));
+
+			// Check if we have any valid relays
+			if (RELAYS.length === 0) {
+				throw new Error('No valid relay URLs available');
+			}
 
 			const filter = {
 				authors: [npub],

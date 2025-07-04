@@ -13,7 +13,8 @@ import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
+// Define relay URLs with fallbacks
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 // Initialize a pool for relay connections
 const pool = new SimplePool();

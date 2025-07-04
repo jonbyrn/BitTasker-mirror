@@ -60,9 +60,16 @@
 		}
 	}
 
+	// Define relay URLs with fallbacks
+	const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
+
 	// Function to setup profile image subscription
 	async function setupProfileImageSubscription() {
 		try {
+			if (RELAYS.length === 0) {
+				throw new Error('No valid relay URLs available');
+			}
+
 			const npub = await getNpub();
 			if (!npub) return;
 
@@ -74,7 +81,7 @@
 
 			// TODO: To be replaced with user data from nostr - use user.store.ts
 			// Subscribe to future updates
-			subscription = profileStore.pool.subscribe([import.meta.env.VITE_NOSTR_RELAY_URL], filter, {
+			subscription = profileStore.pool.subscribe(RELAYS, filter, {
 				onevent(event) {
 					handleProfileImageEvent(event);
 				}

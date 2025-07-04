@@ -5,7 +5,8 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
 
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
+// Define relay URLs with fallbacks
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 // Subscription store for profile updates
 let profileSubscriptions = new Map<string, {

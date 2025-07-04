@@ -7,7 +7,8 @@ import { profileStore } from '$lib/stores/profile.store';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
+// Define relay URLs with fallbacks
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 /**
  * Publish encrypted location data to Nostr

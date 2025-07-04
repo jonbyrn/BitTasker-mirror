@@ -7,8 +7,8 @@ import { getSignedEvent } from '$lib/utils/nostr';
 import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 import KINDS from '$lib/utils/constants/kinds';
 
-const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
-
+// Define relay URLs with fallbacks
+const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 // Pool for nostr queries (general Nostr network)
 const pool = new SimplePool();
