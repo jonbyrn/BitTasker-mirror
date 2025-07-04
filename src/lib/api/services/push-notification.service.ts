@@ -269,7 +269,7 @@ class PushNotificationService {
 
 	private async addListeners(): Promise<void> {
 		PushNotifications.addListener('registration', (token: Token) => {
-			console.log('Push registration success, token: ', token.value);
+			console.log('Push registration token success');
 			this.registerTokenOnServer(token.value);
 		});
 
@@ -555,7 +555,7 @@ class PushNotificationService {
 				throw new Error(result.errors[0].message);
 			}
 
-			console.log('✅ Successfully registered device on server:', result.data?.registerDevice);
+			console.log('✅ Successfully registered device on server');
 		} catch (error) {
 			console.error('❌ Error registering device on server:', error);
 			throw error;

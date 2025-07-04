@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { LocationInput } from '$houdini';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { subscribeToProfileUpdates } from '$lib/nostr/profile';
@@ -22,7 +23,7 @@
 		professionalTitle: '',
 		about: '',
 		picture: null,
-		location: null
+		location: null as LocationInput | null
 	});
 
 	// Handle restart setup click - destroy component first
@@ -37,7 +38,7 @@
 		if (!profile.professionalTitle) missing.push('Professional Title');
 		if (!profile.about) missing.push('About');
 		if (!profile.picture) missing.push('Profile Picture');
-		if (!profile.location) missing.push('Location');
+		if (!profile.location || !profile.location?.locationLoaded) missing.push('Location');
 
 		missingFields = missing;
 		isComplete = missing.length === 0;
