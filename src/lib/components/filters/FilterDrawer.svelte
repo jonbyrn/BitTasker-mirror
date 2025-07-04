@@ -5,17 +5,17 @@
 -->
 <script lang="ts">
 	import type { SearchTasksParams } from '$lib/types/task.d';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import {
 		BudgetTypeEnum,
 		TaskTypeEnum,
-		TaskStatusEnum,
-		SortByEnum,
-		SortOrderEnum
+		TaskStatusEnum
 	} from '$lib/utils/enums/task.enum';
-	import { appStore } from '$lib/stores/app.store';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
-	import LocationFilter from '$lib/components/filters/LocationFilter.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
+	import Tags from '$lib/components/Tags.svelte';
+	import TagsInput from '../TagsInput.svelte';
+	import LocationAutoComplete from '../LocationAutoComplete.svelte';
 
 	// Props
 	let { isOpen, onClose, onApply } = $props<{
@@ -26,32 +26,22 @@
 
 	// State
 	const filters = $state<SearchTasksParams>({
-		searchTerm: '',
-		status: [],
+		search: '',
 		taskType: undefined,
-		categoryIds: [],
+		categories: [],
 		skills: [],
-		minBudget: undefined,
-		maxBudget: undefined,
-		budgetType: undefined,
+		budget: {
+			tier: undefined,
+			currency: undefined,
+			type: undefined
+		},
 		location: undefined,
 		radius: undefined,
-		deadlineBefore: undefined,
-		deadlineAfter: undefined,
+		deadline: undefined,
 		dateRange: undefined,
 		page: 1,
-		limit: 10,
-		sortBy: SortByEnum.CREATED_AT,
-		sortOrder: SortOrderEnum.DESC
+		limit: 10
 	});
-
-	// Get categories and skills from app store
-	let categoryOptions = $state<{ id: number; name: string }[]>(
-		$appStore.categories.map((cat) => ({ id: cat.id, name: cat.name }))
-	);
-	let skillOptions = $state<{ id: number; name: string }[]>(
-		$appStore.skills.map((skill) => ({ id: skill.id, name: skill.name }))
-	);
 
 	// Track active filter count
 	let activeFilterCount = $state(0);
@@ -60,18 +50,17 @@
 		// Calculate active filter count for badge
 		let count = 0;
 
-		if (filters.searchTerm) count++;
+		if (filters.search) count++;
 		if (filters.taskType) count++;
-		if (filters.status && filters.status.length > 0) count++;
-		if (filters.categoryIds && filters.categoryIds.length > 0) count++;
+		if (filters.categories && filters.categories.length > 0) count++;
 		if (filters.skills && filters.skills.length > 0) count++;
-		if (filters.minBudget || filters.maxBudget) count++;
-		if (filters.budgetType) count++;
+		if (filters.budget?.tier) count++;
+		if (filters.budget?.currency) count++;
+		if (filters.budget?.type) count++;
 		if (filters.location) count++;
 		if (filters.radius) count++;
 		if (filters.dateRange) count++;
-		if (filters.deadlineBefore || filters.deadlineAfter) count++;
-		if (filters.sortBy !== 'createdAt' || filters.sortOrder !== 'desc') count++;
+		if (filters.deadline) count++;
 
 		activeFilterCount = count;
 	});
@@ -101,21 +90,19 @@
 
 	// Clear all filters
 	function clearFilters() {
-		filters.searchTerm = '';
-		filters.status = [];
+		filters.search = '';
 		filters.taskType = undefined;
-		filters.categoryIds = [];
+		filters.categories = [];
 		filters.skills = [];
-		filters.minBudget = undefined;
-		filters.maxBudget = undefined;
-		filters.budgetType = undefined;
+		filters.budget = {
+			currency: undefined,
+			type: undefined,
+			tier: undefined
+		};
 		filters.location = undefined;
 		filters.radius = undefined;
-		filters.deadlineBefore = undefined;
-		filters.deadlineAfter = undefined;
+		filters.deadline = undefined;
 		filters.dateRange = undefined;
-		filters.sortBy = SortByEnum.CREATED_AT;
-		filters.sortOrder = SortOrderEnum.DESC;
 	}
 
 	// Apply filters and close drawer
@@ -148,49 +135,23 @@
 			filters.dateRange = { start, end };
 		}
 		if (filterMode === 'deadline') {
-			filters.deadlineBefore = start;
-			filters.deadlineAfter = end;
+			filters.deadline = start;
 		}
 	}
 
 	// Handle price range change
-	function handlePriceRangeChange(min: number | undefined, max: number | undefined) {
-		filters.minBudget = min;
-		filters.maxBudget = max;
+	function handlePriceRangeChange(tier: string) {
+		filters.budget && (filters.budget.tier = tier);
 	}
 
 	// Handle budget type change
 	function handleBudgetTypeChange(type: BudgetTypeEnum | undefined) {
-		filters.budgetType = type;
+		filters.budget && (filters.budget.type = type);
 	}
 
-	// Handle category selection
-	function handleCategoryChange(categoryId: number) {
-		if (filters.categoryIds?.includes(categoryId)) {
-			filters.categoryIds = filters.categoryIds.filter((id) => id !== categoryId);
-		} else {
-			filters.categoryIds = [...(filters.categoryIds || []), categoryId];
-		}
-	}
-
-	// Handle skill selection
-	function handleSkillChange(skillId: number) {
-		if (filters.skills?.includes(skillId)) {
-			filters.skills = filters.skills.filter((id) => id !== skillId);
-		} else {
-			filters.skills = [...(filters.skills || []), skillId];
-		}
-	}
-
-	// Handle sort options change
-	function handleSortChange(field: string) {
-		if (filters.sortBy === field) {
-			filters.sortOrder =
-				filters.sortOrder === SortOrderEnum.ASC ? SortOrderEnum.DESC : SortOrderEnum.ASC;
-		} else {
-			filters.sortBy = field as SortByEnum;
-			filters.sortOrder = SortOrderEnum.DESC;
-		}
+	// Handle category tags change
+	function handleCategoryChange(tags: string[]) {
+		filters.categories = tags.map((tag) => tag.toLowerCase());
 	}
 
 	// Handle location filter changes
@@ -244,7 +205,7 @@
 				type="text"
 				placeholder="Enter keywords..."
 				class="input input-bordered w-full"
-				bind:value={filters.searchTerm}
+				bind:value={filters.search}
 			/>
 		</div>
 
@@ -280,7 +241,7 @@
 		</div>
 
 		<!-- Task Status -->
-		<div class="collapse-arrow collapse mb-2">
+		<!-- <div class="collapse-arrow collapse mb-2">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Status</div>
 			<div class="collapse-content">
@@ -296,7 +257,7 @@
 					{/each}
 				</div>
 			</div>
-		</div>
+		</div> -->
 
 		<!-- Budget Range -->
 		<div class="collapse-arrow collapse mb-2">
@@ -304,9 +265,8 @@
 			<div class="collapse-title font-medium">Budget Range</div>
 			<div class="collapse-content">
 				<PriceRangeSlider
-					minBudget={filters.minBudget}
-					maxBudget={filters.maxBudget}
 					onRangeChange={handlePriceRangeChange}
+					bind:currency={filters.budget!.currency}
 				/>
 
 				<div class="mt-4">
@@ -315,7 +275,7 @@
 						{#each Object.values(BudgetTypeEnum) as type}
 							<button
 								class="btn btn-sm"
-								class:btn-primary={filters.budgetType === type}
+								class:btn-primary={filters.budget?.type === type}
 								onclick={() => handleBudgetTypeChange(type)}
 							>
 								{type}
@@ -323,7 +283,7 @@
 						{/each}
 						<button
 							class="btn btn-sm"
-							class:btn-primary={filters.budgetType === undefined}
+							class:btn-primary={filters.budget?.type === undefined}
 							onclick={() => handleBudgetTypeChange(undefined)}
 						>
 							Any
@@ -334,14 +294,20 @@
 		</div>
 
 		<!-- Location -->
-		<div class="collapse-arrow collapse mb-2">
+		<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Location</div>
 			<div class="collapse-content">
-				<LocationFilter
-					location={filters.location}
-					radius={filters.radius}
-					onLocationChange={handleLocationChange}
+				<LocationAutoComplete
+					placeholder="Search for a location..."
+					location={{
+						displayName: filters.location || '',
+						longitude: 0,
+						latitude: 0,
+						zipCode: '',
+						locationLoaded: false
+					}}
+					onLocationSelect={(location) => (filters.location = location.displayName)}
 				/>
 			</div>
 		</div>
@@ -351,32 +317,21 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Availability</div>
 			<div class="collapse-content">
-				<AvailabilityFilter
-					deadlineBefore={filters.deadlineBefore}
-					deadlineAfter={filters.deadlineAfter}
-					onAvailabilityChange={handleAvailabilityChange}
-				/>
+				<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
 			</div>
 		</div>
 
 		<!-- Categories -->
-		<div class="collapse-arrow collapse mb-2">
+		<div class="collapse-arrow collapse z-50 mb-2" style="overflow: visible;">
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Categories</div>
 			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each categoryOptions as category}
-						<label class="label cursor-pointer justify-start gap-2">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-primary"
-								checked={filters.categoryIds?.includes(category.id)}
-								onclick={() => handleCategoryChange(category.id)}
-							/>
-							<span>{category.name}</span>
-						</label>
-					{/each}
-				</div>
+				<Tags
+					placeholder="Add categories..."
+					selectedTags={filters.categories}
+					options={TASK_CATEGORIES.map((cat) => ({ id: cat.id, name: cat.name }))}
+					onChange={(tags) => handleCategoryChange(tags as string[])}
+				/>
 			</div>
 		</div>
 
@@ -385,68 +340,13 @@
 			<input type="checkbox" class="peer" />
 			<div class="collapse-title font-medium">Skills</div>
 			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each skillOptions as skill}
-						<label class="label cursor-pointer justify-start gap-2">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-primary"
-								checked={filters.skills?.includes(skill.id)}
-								onclick={() => handleSkillChange(skill.id)}
-							/>
-							<span>{skill.name}</span>
-						</label>
-					{/each}
-				</div>
-			</div>
-		</div>
-
-		<!-- Sort Options -->
-		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" />
-			<div class="collapse-title font-medium">Sort By</div>
-			<div class="collapse-content">
-				<div class="flex flex-col gap-2">
-					{#each ['createdAt', 'budget', 'deadlineDate', 'title'] as field}
-						<button
-							class="btn btn-sm w-full justify-between"
-							class:btn-primary={filters.sortBy === field}
-							onclick={() => handleSortChange(field)}
-						>
-							<span>
-								{field === 'createdAt'
-									? 'Date'
-									: field === 'budget'
-										? 'Budget'
-										: field === 'deadline'
-											? 'Deadline'
-											: 'Title'}
-							</span>
-							{#if filters.sortBy === field}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d={filters.sortOrder === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'}
-									/>
-								</svg>
-							{/if}
-						</button>
-					{/each}
-				</div>
+				<TagsInput placeholder="Add skills..." bind:tags={filters.skills} />
 			</div>
 		</div>
 
 		<!-- Filter Actions -->
 		<div class="divider"></div>
-		<div class="mt-8 flex justify-between">
+		<div class="mt-8 mb-20 flex justify-between">
 			<button class="btn btn-ghost btn-outline" onclick={clearFilters}> Clear Filters </button>
 			<button class="btn btn-primary" onclick={applyFilters}>
 				Apply

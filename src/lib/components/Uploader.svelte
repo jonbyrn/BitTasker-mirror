@@ -1,27 +1,132 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
+	import { t } from '$lib/stores/i18n.store';
 
 	let {
 		id = 'image-uploader',
-		label = 'Upload Image',
+		label = $t('uploader.uploadImage'),
 		maxFiles = 1,
-		maxFileSize = 8,
+		maxDuration = 30, // In seconds
+		maxFileSize = 8, // In MB
 		allowedTypes = ['image/*'],
 		files = [],
 		error = '',
 		width,
 		height,
+		className = 'aspect-square h-20 w-20 sm:h-24 sm:w-24',
 		onChange = () => {},
+		onRemove = () => {},
 		onError = () => {}
 	}: UploaderProps = $props();
 
-	function handleFileChange(event: Event) {
+	// Helper function to detect if a URL is a video
+	function isVideoURL(url: string): boolean {
+		// Check common video extensions
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const urlLower = url.toLowerCase();
+		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	async function validateFile(file: File): Promise<boolean> {
+		// Validate file type
+		const isImageAllowed = allowedTypes.includes('image/*');
+		const isVideoAllowed = allowedTypes.includes('video/*');
+		const isImageFile = file.type.startsWith('image/');
+		const isVideoFile = file.type.startsWith('video/');
+
+		// Check if the file type is valid
+		let isValidType = false;
+		
+		if (isImageAllowed && isImageFile) {
+			isValidType = true;
+		} else if (isVideoAllowed && isVideoFile) {
+			isValidType = true;
+		}
+
+		if (!isValidType) {
+			if (isImageAllowed && isVideoAllowed) {
+				error = $t('uploader.invalidFileType') + ' Only images and videos are allowed';
+			} else if (isImageAllowed) {
+				error = $t('uploader.invalidTypeError');
+			} else if (isVideoAllowed) {
+				error = $t('uploader.invalidFileType') + ' Only MP4, WebM and OGG videos are allowed';
+			} else {
+				error = $t('uploader.invalidFileType');
+			}
+			onError(error);
+			return false;
+		}
+
+		// Validate file size
+		if (file.size > maxFileSize * 1024 * 1024) {
+			error = `File size must be less than ${maxFileSize}MB`;
+			onError(error);
+			return false;
+		}
+
+		// Validate video duration if applicable
+		if (isVideoAllowed && maxDuration && isVideoFile) {
+			try {
+				const video = document.createElement('video');
+				video.preload = 'metadata';
+				video.src = URL.createObjectURL(file);
+
+				await new Promise((resolve) => {
+					video.onloadedmetadata = () => resolve(null);
+				});
+
+				if (video.duration > maxDuration) {
+					error = `Video must be ${maxDuration} seconds or shorter`;
+					onError(error);
+					URL.revokeObjectURL(video.src);
+					return false;
+				}
+
+				URL.revokeObjectURL(video.src);
+			} catch (err) {
+				console.error('Failed to validate video duration:', err);
+				error = $t('uploader.failedToValidateVideo');
+				onError(error);
+				return false;
+			}
+		}
+
+		// Validate image dimensions if specified
+		if (isImageAllowed && (width || height) && isImageFile) {
+			try {
+				const img = new Image();
+				img.src = URL.createObjectURL(file);
+
+				await new Promise((resolve) => {
+					img.onload = () => resolve(null);
+				});
+
+				if ((width && img.width !== width) || (height && img.height !== height)) {
+					error = `Image dimensions must be ${width}x${height}px`;
+					onError(error);
+					URL.revokeObjectURL(img.src);
+					return false;
+				}
+
+				URL.revokeObjectURL(img.src);
+			} catch (err) {
+				console.error('Failed to validate image dimensions:', err);
+				error = $t('uploader.failedToLoadImage');
+				onError(error);
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	async function handleFileChange(event: Event) {
 		const input = event.target as HTMLInputElement;
 		const selectedFiles = input.files;
 		if (!selectedFiles) return;
 
 		if (files?.length + selectedFiles.length > maxFiles) {
-			error = `Maximum ${maxFiles} images allowed`;
+			error = `Maximum of ${maxFiles} files allowed`;
 			onError?.(error);
 			return;
 		}
@@ -29,106 +134,91 @@
 		// Create a new array to collect the processed files
 		const newFiles = [...files];
 		let hasErrors = false;
-		let processedCount = 0;
-		const totalToProcess = selectedFiles.length;
 
-		Array.from(selectedFiles).forEach((file) => {
-			// Validate file type
-			if (allowedTypes?.includes('image/*')) {
-				if (!file.type.startsWith('image/')) {
-					error = 'Invalid file type. Only images are allowed';
-					onError(error);
-					hasErrors = true;
-					return;
-				}
-			} else if (!allowedTypes?.includes(file.type)) {
-				error = 'Invalid file type. Only JPG, PNG and WebP images are allowed';
-				onError(error);
+		// Process files sequentially to avoid memory issues with large files
+		for (const file of Array.from(selectedFiles)) {
+			const isValid = await validateFile(file);
+			if (!isValid) {
 				hasErrors = true;
-				return;
+				break;
 			}
+			newFiles.push(file);
+		}
 
-			// Validate file size
-			if (file.size > maxFileSize * 1024 * 1024) {
-				error = `File size must be less than ${maxFileSize}MB`;
-				onError(error);
-				hasErrors = true;
-				return;
-			}
-
-			// Check image dimensions if specified
-			const img = new Image();
-			img.src = URL.createObjectURL(file);
-			img.onload = () => {
-				if ((width && img.width !== width) || (height && img.height !== height)) {
-					error = `Image dimensions must be ${width}x${height}px`;
-					onError(error);
-					hasErrors = true;
-				} else {
-					// Add the file to our collection
-					newFiles.push(file);
-				}
-
-				// Increment processed count
-				processedCount++;
-
-				// If this is the last file and there are no errors, update the files array
-				if (processedCount === totalToProcess && !hasErrors) {
-					files = newFiles;
-					error = '';
-					// Call onChange with the updated files array
-					onChange(files as File[]);
-				}
-			};
-
-			img.onerror = () => {
-				error = 'Failed to load image for validation';
-				onError(error);
-				hasErrors = true;
-				processedCount++;
-			};
-		});
+		if (!hasErrors) {
+			files = newFiles;
+			error = '';
+			onChange(files as File[]);
+		}
 	}
 
 	function removeFile(index: number) {
+		const file = files[index];
 		files = files.filter((_, i) => i !== index);
-		onChange(files as File[]);
+		onRemove(index, file);
 		error = '';
 	}
+
+	// Get file type display text
+	let fileTypeText = $derived(
+		allowedTypes
+			.map((type) => {
+				if (type === 'image/*') return 'Images';
+				if (type === 'video/*') return 'Videos';
+				return type.split('/')[1].toUpperCase();
+			})
+			.join(', ')
+	);
+
+	// Get duration text if applicable
+	let durationText = $derived(maxDuration ? ` (Max. ${maxDuration / 60} minutes)` : '');
 </script>
 
 <div class="space-y-4">
-	{#if error}
-		<div class="alert alert-error">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>{error}</span>
-		</div>
-	{/if}
-
-	<div class="grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+	<div
+		class={maxFiles > 1
+			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
+			: 'h-full w-full'}
+	>
 		{#each files as file, index}
-			<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
-				<img
-					src={typeof file === 'string' ? file : URL.createObjectURL(file)}
-					alt="Preview"
-					class="h-full w-full rounded-lg object-cover"
-				/>
+			<div class="relative {className}">
+				{#if typeof file === 'string'}
+					{#if isVideoURL(file)}
+						<video
+							src={file}
+							class="h-full w-full cursor-pointer rounded-lg object-cover"
+							controls
+							muted={false}
+							autoplay={false}
+							loop={false}
+						>
+							<track kind="captions" />
+						</video>
+					{:else}
+						<img src={file} alt="Preview" class="h-full w-full rounded-lg object-cover" />
+					{/if}
+				{:else if file.type.startsWith('video/')}
+					<video
+						src={URL.createObjectURL(file)}
+						class="h-full w-full cursor-pointer rounded-lg object-cover"
+						controls
+						muted={false}
+						autoplay={false}
+						loop={false}
+					>
+						<track kind="captions" />
+					</video>
+				{:else}
+					<img
+						src={URL.createObjectURL(file)}
+						alt="Preview"
+						class="h-full w-full rounded-lg object-cover"
+					/>
+				{/if}
 				<button
-					aria-label="Remove image"
+					aria-label="Remove file"
 					type="button"
-					class="absolute -top-2 -right-2 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
+					class="absolute -top-2 -right-2 h-6 w-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
 				>
 					<svg
@@ -148,14 +238,14 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative aspect-square h-20 overflow-hidden sm:h-24 sm:w-24">
+			<div class="relative overflow-hidden {className}">
 				<label
 					for="file-upload-{id}"
-					class="bg-base-200 border-base-300 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border"
+					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
 						<svg
-							class="mb-2 h-4 w-4 text-gray-500 sm:h-8 sm:w-8"
+							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
 							aria-hidden="true"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -169,11 +259,11 @@
 								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
 							/>
 						</svg>
-						<p class="mb-2 text-[10px] text-gray-500 sm:text-xs">
+						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
 							<span class="font-semibold">{label}</span>
 						</p>
-						<p class="text-[8px] text-gray-500">
-							{allowedTypes.map((type) => type.split('/')[1].toUpperCase()).join(', ')} (Max. {maxFileSize}MB)
+						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
+							{fileTypeText} (Max. {maxFileSize}MB{durationText})
 						</p>
 					</div>
 				</label>
@@ -188,4 +278,23 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if error}
+		<div class="alert alert-error alert-xs sm:alert-sm py-1">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<span>{error}</span>
+		</div>
+	{/if}
 </div>

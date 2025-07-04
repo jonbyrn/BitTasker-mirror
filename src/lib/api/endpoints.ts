@@ -8,6 +8,8 @@
 // Base route segments
 const API_PATH = '/api';
 const API_VERSION = 'v1';
+const NOSTR_API_PATH = '/api';
+const NOSTR_API_VERSION = 'v1';
 const AUTH = 'auth';
 const USERS = 'users';
 const TASKS = 'tasks';
@@ -18,6 +20,7 @@ const SERVICE_PACKAGES = 'service-packages';
 const SAVED_SEARCHES = 'saved-searches';
 const RECOMMENDATIONS = 'recommendations';
 const LOCATION = 'location';
+const NOTIFICATIONS = 'notifications';
 
 // Full endpoint paths
 export const ENDPOINTS = {
@@ -25,7 +28,6 @@ export const ENDPOINTS = {
 	AUTH: {
 		ONBOARDING: `${API_PATH}/${API_VERSION}/${AUTH}/onboarding`,
 		LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/login`,
-		LOGOUT: `${API_PATH}/${API_VERSION}/${AUTH}/logout`,
 		REFRESH_TOKEN: `${API_PATH}/${API_VERSION}/${AUTH}/refresh-token`,
 		NOSTR_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/nostr/login`,
 		NOSTR_CHALLENGE: `${API_PATH}/${API_VERSION}/${AUTH}/nostr/challenge`,
@@ -36,7 +38,13 @@ export const ENDPOINTS = {
 		ENCRYPTED_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/encrypted-key`,
 		REGISTER_PASSKEY: `${API_PATH}/${API_VERSION}/${AUTH}/register/passkey-device`,
 		PASSKEY_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/login/passkey`,
-		REVOKE_DEVICE: `${API_PATH}/${API_VERSION}/${AUTH}/revoke-device`
+		REVOKE_DEVICE: `${API_PATH}/${API_VERSION}/${AUTH}/revoke-device`,
+		ACCOUNT_RECOVERY_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/update/nostr/recovery-key`,
+		NOSTR_RECOVERY_INITIATE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/initiate`,
+		NOSTR_RECOVERY_COMPLETE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/complete`,
+		NOSTR_RECOVERY_DATA: (npub: string) =>
+			`${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`,
+		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`
 	},
 
 	// User endpoints
@@ -95,9 +103,10 @@ export const ENDPOINTS = {
 		GET: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}`, // get all user packages
 		GET_PUBLIC: `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/public`, // get all public packages
 		GET_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, // get services package by id
-		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`, 
+		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
 		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}`,
-		PURCHASE_PACKAGE: (id: string) => `${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
+		PURCHASE_PACKAGE: (id: string) =>
+			`${API_PATH}/${API_VERSION}/${SERVICE_PACKAGES}/${id}/purchase`
 	},
 
 	// Saved Searches endpoints
@@ -107,7 +116,8 @@ export const ENDPOINTS = {
 		DETAILS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
 		UPDATE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
 		DELETE: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}`,
-		NOTIFICATIONS: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/notifications`,
+		NOTIFICATIONS: (id: string) =>
+			`${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/notifications`,
 		MARK_AS_READ: (id: string) => `${API_PATH}/${API_VERSION}/${SAVED_SEARCHES}/${id}/mark-as-read`
 	},
 
@@ -123,5 +133,20 @@ export const ENDPOINTS = {
 	LOCATION: {
 		SEARCH: `${API_PATH}/${API_VERSION}/${LOCATION}/search`,
 		REVERSE_GEOCODE: `${API_PATH}/${API_VERSION}/${LOCATION}/reverse-geocode`
+	},
+
+	// Notifications endpoints
+	NOTIFICATIONS: {
+		REGISTER: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/register`,
+		UNREGISTER: `${API_PATH}/${API_VERSION}/${NOTIFICATIONS}/unregister`
+	},
+
+	NOSTR: {
+		EVENTS: `${API_PATH}/${API_VERSION}/events`,
+		EVENTS_BY_ID: (id: string) => `${API_PATH}/${API_VERSION}/events/${id}`,
+		EVENTS_REQUEST: `${API_PATH}/${API_VERSION}/events/request`,
+		WOT_TRUSTED: (pubkey: string) => `${API_PATH}/${API_VERSION}/wot/trusted/${pubkey}`,
+		NIP05: `${API_PATH}/${API_VERSION}/nip-05`,
+		NIP05_BY_NAME: (name: string) => `${API_PATH}/${API_VERSION}/nip-05/${name}`
 	}
 };

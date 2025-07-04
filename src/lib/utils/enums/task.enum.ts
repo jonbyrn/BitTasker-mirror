@@ -3,15 +3,21 @@ export enum BudgetTypeEnum {
 	HOURLY = 'HOURLY'
 }
 
+export enum BudgetCurrencyEnum {
+	BTC = 'BTC',
+	USDT = 'USDt'
+}
+
 export enum TaskStepEnum {
 	BASICS = 'basics',
 	LOCATION = 'location',
 	BUDGET = 'budget',
-	RECURRING = 'recurring'
+	REVIEW = 'review',
+	RECURRING = 'recurring',
+	TASKBOOST = 'taskboost'
 }
 
 export enum TaskStatusEnum {
-	DRAFT = 'DRAFT',
 	OPEN = 'OPEN',
 	IN_PROGRESS = 'IN_PROGRESS',
 	COMPLETED = 'COMPLETED',
@@ -20,8 +26,8 @@ export enum TaskStatusEnum {
 }
 
 export enum TaskTypeEnum {
-	REMOTE = 'REMOTE',
-	IN_PERSON = 'IN_PERSON'
+	REMOTE = 'remote',
+	IN_PERSON = 'onsite'
 }
 
 export enum SortByEnum {
@@ -38,7 +44,15 @@ export enum SortOrderEnum {
 }
 
 export enum NotificationFrequency {
-  INSTANT = 'INSTANT',
-  DAILY = 'DAILY',
-  WEEKLY = 'WEEKLY'
+	INSTANT = 'INSTANT',
+	DAILY = 'DAILY',
+	WEEKLY = 'WEEKLY'
+}
+
+export enum RecurringFrequencyEnum {
+	DAILY = 'DAILY',
+	WEEKLY = 'WEEKLY',
+	BIWEEKLY = 'BIWEEKLY',
+	MONTHLY = 'MONTHLY',
+	CUSTOM = 'CUSTOM'
 }

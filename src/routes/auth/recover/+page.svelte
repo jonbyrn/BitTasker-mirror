@@ -1,16 +1,16 @@
 <script lang="ts">
-	import type { NostrRegistrationData } from '$lib/types/auth';
+	import type { AccountRecoveryData } from '$lib/types/auth';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { bytesToHex } from '@noble/hashes/utils';
-	import { validateNostrPrivateKey, validatePassword } from '$lib/utils/helpers/validators';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
-	import { encryptNostrPrivateKeyWithPassword } from '$lib/utils/helpers/auth';
+	import { t } from '$lib/stores/i18n.store';
+	import { encryptNsec } from '$lib/utils/helpers/auth';
 	import { NDKNip07Signer } from '@nostr-dev-kit/ndk';
 	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { validateNostrPrivateKey, validatePassword } from '$lib/utils/helpers/validators';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
 
@@ -23,6 +23,8 @@
 	let isLoading = $state(false);
 	let error = $state('');
 	let passwordError = $state('');
+	let showPassword = $state(false);
+	let showNsec = $state(false);
 
 	// Fetch nsec using the token
 	$effect.pre(() => {
@@ -33,8 +35,8 @@
 					nsec = storedNsec.value;
 					await Preferences.remove({ key: token });
 				} else {
-					error = 'Recovery token expired or invalid';
-					goto('/auth');
+					error = $t('auth.recover.errors.token_expired');
+					goto('/auth/login');
 				}
 			})();
 		}
@@ -49,12 +51,12 @@
 			passwordError = '';
 
 			if (!password || !confirmPassword) {
-				error = 'All fields are required';
+				error = $t('auth.recover.errors.required_fields');
 				return;
 			}
 
 			if (password !== confirmPassword) {
-				passwordError = 'Passwords do not match';
+				passwordError = $t('auth.recover.errors.password_mismatch');
 				return;
 			}
 
@@ -80,18 +82,18 @@
 				npub = getPublicKey(sk);
 			}
 
-			const { encrypted, salt } = await encryptNostrPrivateKeyWithPassword(nsec, password);
+			const { encrypted, salt, iterations } = await encryptNsec(nsec, password);
 
-			const data: NostrRegistrationData = {
+			const data: AccountRecoveryData = {
 				publicKey: npub,
-				encryptedPrivateKey: encrypted.data,
+				recoveryPrivateKey: encrypted.data,
 				iv: encrypted.iv,
 				authTag: encrypted.authTag,
 				salt: salt,
-				iterations: 100000
+				iterations: iterations
 			};
-			if (provider === 'passkey') data.authMethod = 'passkey';
-			const res = await authService.registerWithNostr(data);
+
+			const res = await authService.setupAccountRecoveryPassword(data);
 
 			if (res.publicKey) {
 				let accessToken: string | null = null;
@@ -100,18 +102,27 @@
 					const signer = new NDKNip07Signer();
 					const signerUser = await signer.user();
 					if (!signerUser) {
-						throw new Error('No user returned from Nostr');
+						throw new Error($t('auth.recover.errors.no_nostr_user'));
 					}
 					const event = {
 						kind: 22242,
 						created_at: Math.floor(Date.now() / 1000),
 						content: challenge,
-						tags: [],
+						tags: [
+							['relay', window.location.origin],
+							['challenge', challenge]
+						],
 						pubkey: signerUser.pubkey
 					};
-					const signedEvent = await signer.sign(event);
 
-					const res = await authService.loginWithNostr(signerUser.pubkey, challenge, signedEvent);
+					if (!window.nostr) {
+						throw new Error('Nostr extension not available');
+					}
+
+					const rawSignedEvent = await window.nostr?.signEvent(event);
+
+					const res = await authService.loginWithNostr(rawSignedEvent, challenge);
+
 					if (res.access_token) accessToken = res.access_token;
 				} else if (provider === 'passkey') {
 					const deviceId = await getDeviceIdentifier();
@@ -124,20 +135,19 @@
 						key: StorageKeys.ACCESS_TOKEN,
 						value: accessToken
 					});
-					user.updateProfile(res.user);
 					authState.login();
 					goto('/onboarding');
 				}
 			}
 		} catch (err: any) {
-			error = err || 'Registration failed';
+			error = err.message || $t('auth.recover.errors.registration_failed');
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
 
-<div class="bg-base-200 flex flex-col items-center justify-center gap-4 px-4 py-10 md:pt-20">
+<div class="flex flex-grow flex-col items-center justify-center gap-4 px-4">
 	<div class="alert alert-warning w-full max-w-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
@@ -152,59 +162,156 @@
 			/></svg
 		>
 		<div class="inline-block">
-			<h3 class="font-bold">Important Security Notice</h3>
+			<h3 class="font-bold">{$t('auth.recover.security_notice.title')}</h3>
 			<p class="text-sm">
-				This password will be used to encrypt your account recovery key. If you lose this password,
-				there will be no way to recover your account. Please store it securely.
+				{$t('auth.recover.security_notice.description')}
 			</p>
 		</div>
 	</div>
 
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Complete Registration</h2>
+			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('auth.recover.title')}</h2>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<div class="form-control space-y-1">
 					<label class="label" for="nsec">
-						<span class="label-text">Private key</span>
+						<span class="label-text">{$t('auth.recover.private_key.label')}</span>
 					</label>
-					<input
-						type="password"
-						id="nsec"
-						bind:value={nsec}
-						placeholder="Enter your private nostr key"
-						class="input input-bordered w-full"
-						required
-					/>
+					<div class="relative">
+						<input
+							type={showNsec ? 'text' : 'password'}
+							id="nsec"
+							bind:value={nsec}
+							placeholder={$t('auth.recover.private_key.placeholder')}
+							class="input input-bordered w-full pr-10"
+							readonly={provider === 'passkey'}
+							required
+						/>
+						<button
+							type="button"
+							class="absolute inset-y-0 right-0 flex items-center pr-3"
+							onclick={() => (showNsec = !showNsec)}
+						>
+							{#if showNsec}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+									/>
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+									/>
+								</svg>
+							{/if}
+						</button>
+					</div>
+					{#if provider === 'passkey'}
+						<span class="text-info text-xs">
+							This key was generated using {provider} authentication
+						</span>
+					{/if}
 				</div>
 
 				<div class="form-control space-y-1">
 					<label class="label" for="password">
-						<span class="label-text">Recovery Password</span>
+						<span class="label-text">{$t('auth.recover.password.label')}</span>
 					</label>
-					<input
-						type="password"
-						id="password"
-						bind:value={password}
-						placeholder="Enter a strong password"
-						class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-						required
-					/>
+					<div class="relative">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="password"
+							bind:value={password}
+							placeholder={$t('auth.recover.password.placeholder')}
+							class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+							required
+						/>
+						<button
+							type="button"
+							class="absolute inset-y-0 right-0 flex items-center pr-3"
+							onclick={() => (showPassword = !showPassword)}
+						>
+							{#if showPassword}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+									/>
+								</svg>
+							{:else}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+									/>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+									/>
+								</svg>
+							{/if}
+						</button>
+					</div>
 				</div>
 
 				<div class="form-control space-y-1">
 					<label class="label" for="confirmPassword">
-						<span class="label-text">Confirm Recovery Password</span>
+						<span class="label-text">{$t('auth.recover.confirm_password.label')}</span>
 					</label>
-					<input
-						type="password"
-						id="confirmPassword"
-						bind:value={confirmPassword}
-						placeholder="Confirm your password"
-						class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-						required
-					/>
+					<div class="relative">
+						<input
+							type={showPassword ? 'text' : 'password'}
+							id="confirmPassword"
+							bind:value={confirmPassword}
+							placeholder={$t('auth.recover.confirm_password.placeholder')}
+							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
+							required
+						/>
+					</div>
 					{#if passwordError}
 						<span class="text-error text-sm">{passwordError}</span>
 					{/if}
@@ -216,6 +323,7 @@
 							<li>Use at least 8 characters</li>
 							<li>Include numbers and special characters</li>
 							<li>Avoid using personal information</li>
+							<li>Store this password in a secure place</li>
 						</ul>
 					</div>
 				</div>
@@ -230,7 +338,7 @@
 			</form>
 
 			{#if error}
-				<div class="alert alert-error">
+				<div class="alert alert-error mt-4">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6 shrink-0 stroke-current"

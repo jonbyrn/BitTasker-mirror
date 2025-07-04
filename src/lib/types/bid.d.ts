@@ -111,6 +111,7 @@ export interface TaskBid extends Bid {
 			email: string;
 		};
 	};
+	userProfile: UserProfileOutput;
 }
 
 export interface BidsResponse {

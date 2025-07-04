@@ -6,3 +6,12 @@ docker-run:
 
 docker-stop:
 	docker-compose down
+
+codegen:
+	npm run codegen
+
+dev:
+	npm run dev
+
+setup-certs:
+	node setup-certs.js

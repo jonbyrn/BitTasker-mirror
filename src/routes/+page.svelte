@@ -1,21 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import OnboardingSlider from '$lib/components/OnboardingSlider.svelte';
-
-	onMount(async () => {
-		if ($deviceInfo !== null && $deviceInfo.platform !== 'web') {
-			const main = document.getElementById('main');
-			main?.style.setProperty('margin-top', '3rem');
-		}
-	});
 </script>
 
 {#if $deviceInfo !== null && $deviceInfo?.platform !== 'web'}
-	<div class="min-h-[90vh]">
-		<OnboardingSlider />
-	</div>
+	<OnboardingSlider />
 {:else}
 	<div class="min-h-screen">
 		<!-- Hero Section -->
@@ -131,7 +121,7 @@
 			<div class="relative z-10 mx-auto max-w-3xl text-center">
 				<h2 class="mb-4 text-3xl font-bold">{$t('homepage.cta.title')}</h2>
 				<p class="mb-6">{$t('homepage.cta.description')}</p>
-				<a href="/auth" class="btn btn-secondary">{$t('homepage.cta.button')}</a>
+				<a href="/auth/login" class="btn btn-secondary">{$t('homepage.cta.button')}</a>
 			</div>
 		</div>
 	</div>

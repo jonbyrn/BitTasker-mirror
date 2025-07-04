@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { formatDate, timeAgo } from '$lib/utils/helpers/dateFormatter';
 
 describe('Date Formatter', () => {
@@ -113,11 +113,14 @@ describe('Date Formatter', () => {
 		});
 
 		it('should catch errors during calculation', () => {
-			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-			const originalNow = Date.now;
+			// First restore real timers
+			vi.useRealTimers();
 
-			// Mock Date.now to throw an error
-			Date.now = () => {
+			const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const originalGetTime = Date.prototype.getTime;
+
+			// Mock Date.prototype.getTime instead of Date.now to force an error in the calculation
+			Date.prototype.getTime = function () {
 				throw new Error('Test error');
 			};
 
@@ -125,8 +128,12 @@ describe('Date Formatter', () => {
 			expect(consoleSpy).toHaveBeenCalled();
 
 			// Restore original implementation
-			Date.now = originalNow;
+			Date.prototype.getTime = originalGetTime;
 			consoleSpy.mockRestore();
+
+			// Reset fake timers for other tests
+			vi.useFakeTimers();
+			vi.setSystemTime(new Date('2023-01-15T12:00:00Z'));
 		});
 	});
 });

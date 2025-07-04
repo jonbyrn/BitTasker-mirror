@@ -1,17 +1,20 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
+	zoomEnabled: false,
 	appId: 'com.bittasker.app',
-	appName: 'bittasker',
+	appName: 'BitTasker',
 	webDir: 'build',
 	server: {
 		url: process.env.VITE_CLIENT_URL,
-		cleartext: true
+		cleartext: true,
+		androidScheme: 'https',
 	},
 	plugins: {
 		StatusBar: {
 			overlaysWebView: false,
-			backgroundColor: '#ffffff'
+			style: 'DEFAULT',
+			backgroundColor: '#00000000'
 		},
 		SocialLogin: {
 			google: {
@@ -21,6 +24,18 @@ const config: CapacitorConfig = {
 				scopes: ['profile', 'email'],
 				responseType: 'token'
 			}
+		},
+		Keyboard: {
+			resize: 'body',
+			style: 'DARK',
+			resizeOnFullScreen: true
+		},
+		SplashScreen: {
+			androidSplashResourceName: 'splash',
+			androidScaleType: 'CENTER',
+		},
+		PushNotifications: {
+			presentationOptions: ['badge', 'sound', 'alert']
 		}
 	}
 };

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { InputProps } from '$lib/types/props';
+	import type { InputProps } from '$lib/types/props.d';
 	import { clickOutside } from '$lib/utils/clickOutside';
 
 	let {
@@ -12,11 +12,14 @@
 		autoComplete = 'off',
 		required = false,
 		type = 'text',
+		min = undefined,
+		max = undefined,
+		step = undefined,
+		className = '',
 		onChange
 	}: InputProps = $props();
 
 	let isOpen = $state(false);
-	let inputValue = $state(value);
 	let selectedIndex = $state(-1);
 	let filteredOptions = $state<{ label: string; value: string }[]>(options);
 
@@ -24,24 +27,30 @@
 		if (!options.length || autoComplete === 'off') return options;
 		if (!searchTerm) return options;
 
-		return options.filter((option) =>
+		// show filtered options on top of the options
+		const filteredOptions = options.filter((option) =>
 			option.label.toLowerCase().includes(searchTerm.toLowerCase())
 		);
+
+		// show the options that are not in the filtered options
+		const remainingOptions = options.filter((option) => !filteredOptions.includes(option));
+
+		return [...filteredOptions, ...remainingOptions];
 	}
 
 	$effect(() => {
-		filteredOptions = filterOptions(inputValue);
+		filteredOptions = filterOptions(value);
 	});
 
 	function selectOption(option: { label: string; value: string }) {
-		inputValue = option.label;
+		value = option.label;
 		isOpen = false;
 		onChange?.(option);
 	}
 
 	function handleInput(e: Event) {
 		const target = e.target as HTMLInputElement;
-		inputValue = target.value;
+		value = target.value;
 
 		if (options.length && autoComplete === 'off') {
 			// Handle as select - don't update on input
@@ -103,16 +112,19 @@
 				{placeholder}
 				{type}
 				{required}
-				value={inputValue}
+				{min}
+				{max}
+				{step}
+				{value}
 				autocomplete={autoComplete === 'on' ? 'on' : 'off'}
-				class="input input-bordered w-full {error ? 'input-error' : ''}"
+				class="input input-bordered w-full {error ? 'input-error' : ''} {className}"
 				oninput={handleInput}
 				onclick={handleClick}
 				onkeydown={handleKeyDown}
 				readonly={options.length > 0 && autoComplete === 'off'}
 			/>
 
-			{#if options.length > 0 && autoComplete === 'off'}
+			{#if options.length > 0}
 				<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2">
 					<svg class="h-4 w-4 fill-current" viewBox="0 0 20 20">
 						<path

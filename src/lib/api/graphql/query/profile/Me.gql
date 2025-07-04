@@ -1,0 +1,31 @@
+query Me {
+	me {
+		id
+		email
+		name
+		displayName
+		username
+		profilePictureUrl
+		profilePictureId
+		onboardingComplete
+		biddingAllowed
+		isEmailVerified
+		status
+		userRole
+		dob
+		location {
+			displayName
+			latitude
+			longitude
+			zipCode
+		}
+		skills {
+			id
+			name
+		}
+		mobileNumber
+		lastLoginAt
+		createdAt
+		updatedAt
+	}
+}

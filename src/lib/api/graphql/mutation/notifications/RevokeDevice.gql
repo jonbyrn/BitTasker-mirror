@@ -1,0 +1,6 @@
+mutation RevokeDevice($deviceId: String!) {
+  revokeDevice(deviceId: $deviceId) {
+    success
+    message
+  }
+} 

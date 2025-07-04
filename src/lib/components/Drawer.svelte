@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * Reusable Drawer Component for BitTasker
-	 * 
+	 *
 	 * A customizable side drawer that can be used throughout the application
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
@@ -9,12 +9,13 @@
 	// Props
 	const props = $props<{
 		isOpen: boolean;
-		title: string;
+		title?: string;
 		onClose: () => void;
 		position?: 'left' | 'right';
-		width?: 'sm' | 'md' | 'lg' | 'full';
+		width?: 'sm' | 'md' | 'lg' | 'full' | string;
 		isScrollable?: boolean;
 		children?: import('svelte').Snippet;
+		footer?: import('svelte').Snippet;
 	}>();
 
 	// Set defaults
@@ -46,20 +47,32 @@
 
 	// Get CSS classes for width
 	function getWidthClass(width: string): string {
+		if (width.split('').includes('%')) {
+			return `w-[${width}] sm:w-[400px]`;
+		}
+
 		switch (width) {
-			case 'sm': return 'w-full sm:w-[400px]';
-			case 'md': return 'w-full sm:w-[70%]';
-			case 'lg': return 'w-full sm:w-[85%]';
-			case 'full': return 'w-full';
-			default: return 'w-full sm:w-[70%]';
+			case 'sm':
+				return 'w-full sm:w-[400px]';
+			case 'md':
+				return 'w-full sm:w-[70%]';
+			case 'lg':
+				return 'w-full sm:w-[85%]';
+			case 'full':
+				return 'w-full';
+			default:
+				return 'w-full sm:w-[70%]';
 		}
 	}
 
 	// Get CSS classes for position transform
-	function getPositionTransform(position: string): string {
-		return position === 'left' ? 
-			`translate-x-${props.isOpen ? '0' : '-full'}` : 
-			`translate-x-${props.isOpen ? '0' : 'full'}`;
+	function getPositionTransform(position: string) {
+		if (!props.isOpen) {
+			if (position === 'left') return 'translateX(-100%)';
+			if (position === 'right') return 'translateX(100%)';
+		} else {
+			return 'translateX(0)';
+		}
 	}
 
 	// Escape key handler
@@ -86,15 +99,23 @@
 
 <!-- Drawer Panel -->
 <div
-	class="bg-base-100 fixed top-0 {position === 'left' ? 'left-0' : 'right-0'} z-50 h-full {getWidthClass(width)} 
+	class="bg-base-100 fixed top-0 {position === 'left'
+		? 'left-0'
+		: 'right-0'} z-50 h-full {getWidthClass(width)} 
 		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
 		transform shadow-xl transition-transform duration-300"
 	style="transform: {getPositionTransform(position)};"
 >
 	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
+	<div
+		class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
+			? 'bg-base-200 border-b'
+			: ''}"
+	>
 		<h2 id="drawer-title" class="text-xl font-bold">
-			{props.title}
+			{#if props.title}
+				{props.title}
+			{/if}
 		</h2>
 		<button class="btn btn-ghost btn-circle" onclick={props.onClose} aria-label="Close drawer">
 			<svg
@@ -120,9 +141,9 @@
 	</div>
 
 	<!-- Footer (Optional) -->
-	{#if props.footer?.()}
+	{#if props?.footer?.()}
 		<div class="bg-base-200 sticky bottom-0 border-t p-4">
-			{@render props.footer()}
+			{@render props.footer?.()}
 		</div>
 	{/if}
 </div>

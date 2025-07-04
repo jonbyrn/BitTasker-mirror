@@ -16,10 +16,16 @@ export const StorageKeys = {
 	ACCESS_TOKEN: 'access_token',
 	REFRESH_TOKEN: 'refresh_token',
 
+	// WebAuthn
+	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId',
+
 	// App state
 	LAST_SYNC: 'bittasker_last_sync',
 	APP_VERSION: 'bittasker_app_version',
-	DEVICE_UNIQUE_ID: 'device_unique_id'
+	DEVICE_UNIQUE_ID: 'device_unique_id',
+
+	NPUB: 'npub',
+	AUTH_METHOD: 'auth_method' // alby | passkey
 } as const;
 
 // Type to get autocomplete for storage keys

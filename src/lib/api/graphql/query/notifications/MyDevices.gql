@@ -1,0 +1,11 @@
+query MyDevices {
+	myDevices {
+		id
+		deviceId
+		platform
+		isActive
+		fcmToken
+		appVersion
+		lastTokenRefresh
+	}
+}

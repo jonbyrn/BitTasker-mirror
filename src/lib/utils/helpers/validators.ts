@@ -86,3 +86,15 @@ export function validateNostrPrivateKey(nsec: string): { isValid: boolean; error
 
 	return { isValid: true };
 }
+
+export function validateUsername(username: string): ValidationResult {
+	if (!username) {
+		return { isValid: false, error: 'Username is required' };
+	}
+
+	if (username.length < 3) {
+		return { isValid: false, error: 'Username must be at least 3 characters long' };
+	}
+
+	return { isValid: true };
+}

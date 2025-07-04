@@ -4,7 +4,7 @@
 
 	// Props
 	let {
-		label = 'Location',
+		label = '',
 		placeholder = 'Enter address',
 		location = {
 			displayName: '',
@@ -86,9 +86,11 @@
 </script>
 
 <div class="form-control relative w-full">
-	<label class="label" for="location-search">
-		<span class="label-text">{label}</span>
-	</label>
+	{#if label}
+		<label class="label" for="location-search">
+			<span class="label-text">{label}</span>
+		</label>
+	{/if}
 	<div class="relative">
 		<input
 			bind:this={searchInput}

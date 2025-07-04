@@ -30,7 +30,7 @@
 	<!-- Steps -->
 	<div class="relative z-10 mx-auto max-w-5xl">
 		<ul class="steps steps-vertical lg:steps-horizontal mb-20 w-full">
-			<li class="step step-primary">{$t('how_it_works.steps.signup')}</li>
+			<li class="step step-primary">{$t('auth.signup.button')}</li>
 			<li class="step step-primary">{$t('how_it_works.steps.create_profile')}</li>
 			<li class="step step-primary">{$t('how_it_works.steps.find_tasks')}</li>
 			<li class="step step-primary">{$t('how_it_works.steps.complete_work')}</li>
@@ -184,7 +184,7 @@
 	<div class="relative z-10 mt-20 text-center">
 		<h3 class="mb-6 text-3xl font-bold">{$t('how_it_works.cta.title')}</h3>
 		<div class="flex justify-center gap-6">
-			<a href="/auth" class="btn btn-primary btn-lg">{$t('how_it_works.cta.create_account')}</a>
+			<a href="/auth/signup" class="btn btn-primary btn-lg">{$t('how_it_works.cta.create_account')}</a>
 		</div>
 	</div>
 </div>

@@ -1,0 +1,755 @@
+"""
+Indicates exactly one field must be supplied and this field must not be `null`.
+"""
+directive @oneOf on INPUT_OBJECT
+
+input AttachmentInput {
+  fileName: String!
+  fileSize: Float
+  fileUrl: String!
+}
+
+type AttachmentOutput {
+  fileName: String!
+  fileSize: Float
+  fileUrl: String!
+}
+
+type Auth {
+  access_token: String!
+  expires_in: Int!
+  token_type: String!
+  user: User!
+}
+
+type Bid {
+  amount: Float!
+  clicks: Int!
+  clientResponse: String
+  clientViewed: Boolean!
+  clientViewedAt: DateTime
+  competitiveScore: Float
+  coverLetter: String
+  createdAt: DateTime!
+  currency: String
+  description: String
+  estimatedDuration: String
+  estimatedHours: Int
+  expiresAt: DateTime
+  featured: Boolean!
+  freelancerId: Int @deprecated(reason: "Use userProfileId instead")
+  hourlyRate: Float
+  id: ID!
+  impressions: Int!
+  isWithdrawn: Boolean!
+  milestones: [BidMilestoneOutput!]
+  paymentType: BidPaymentType!
+  proposedApproach: String
+  rank: Int
+  responseTime: Int
+  status: BidStatus!
+  updatedAt: DateTime!
+  userProfile: UserProfileOutput
+  userProfileId: Int
+  visibility: BidVisibility!
+  withdrawnReason: String
+}
+
+type BidMilestoneOutput {
+  amount: Float!
+  deliverables: String
+  description: String!
+  dueDate: DateTime
+  estimatedHours: Int
+  sequence: Int
+  title: String!
+}
+
+type BidPaginationDto {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  limit: Int!
+  page: Int!
+  total: Int!
+  totalPages: Int!
+}
+
+enum BidPaymentType {
+  FIXED
+  HOURLY
+  MILESTONE_BASED
+}
+
+type BidResponse {
+  bid: Bid!
+  message: String!
+}
+
+enum BidStatus {
+  ACCEPTED
+  APPROVED
+  CLIENT_CANCELLED
+  EXPIRED
+  FREELANCER_CANCELLED
+  NEGOTIATION
+  PENDING
+  REJECTED
+  WITHDRAWN
+}
+
+enum BidVisibility {
+  FEATURED
+  PRIVATE
+  PUBLIC
+}
+
+type BidsWithPaginationDto {
+  data: [Bid!]!
+  pagination: BidPaginationDto!
+}
+
+input BudgetInput {
+  currency: String
+  tier: String
+  type: BudgetTypeEnum
+}
+
+enum BudgetType {
+  FIXED
+  HOURLY
+  RANGE
+}
+
+"""The type of budget (fixed or hourly)"""
+enum BudgetTypeEnum {
+  FIXED
+  HOURLY
+}
+
+type Category {
+  createdAt: DateTime!
+  description: String
+  displayOrder: Float!
+  icon: String
+  id: ID!
+  isActive: Boolean!
+  name: String!
+  parentId: Float
+  slug: String!
+  updatedAt: DateTime!
+}
+
+input ChangePasswordInput {
+  currentPassword: String!
+  newPassword: String!
+}
+
+input CreateBidInput {
+  amount: Float!
+  coverLetter: String
+  currency: String = "USD"
+  description: String
+  estimatedDuration: String
+  estimatedHours: Int
+  hourlyRate: Float
+  milestones: [CreateBidMilestoneInput!]
+  paymentType: BidPaymentType! = FIXED
+  proposedApproach: String
+  responseTime: Int
+  taskId: Int!
+  visibility: BidVisibility = PUBLIC
+}
+
+input CreateBidMilestoneInput {
+  amount: Float!
+  deliverables: String
+  description: String!
+  dueDate: DateTime
+  estimatedHours: Int
+  sequence: Int
+  title: String!
+}
+
+input CreateTaskFromTemplateDto {
+  taskOverrides: UpdateTaskInput
+}
+
+input CreateTaskInput {
+  addressLine1: String
+  addressLine2: String
+  attachments: [AttachmentInput!]
+  boostAmount: Float
+  boostDuration: Int
+  boostTask: Boolean
+  budget: Float
+  budgetType: BudgetType = FIXED
+  categoryIds: [Int!]
+  city: String
+  country: String
+  dateRange: DateRangeInput
+  deadlineDate: String
+  description: String!
+  dropOffLocation: LocationInput
+  estimatedHours: Float
+  imageUrls: [String!]
+  isRemovals: Boolean
+  latitude: Float
+  longitude: Float
+  pickupLocation: LocationInput
+  postalCode: String
+  saveAsTemplate: Boolean
+  skillIds: [Int!]
+  skillImportance: SkillImportance
+  state: String
+  taskType: TaskType
+  templateId: Int
+  templateName: String
+  title: String!
+  visibility: TaskVisibility
+}
+
+input CreateTaskTemplateInput {
+  description: String
+  existingTaskId: Int
+  isRecurring: Boolean = false
+  name: String!
+  recurrencePattern: RecurrencePatternInput
+  recurrenceType: RecurrenceType
+  task: CreateTaskInput
+}
+
+input DateRangeInput {
+  end: String
+  start: String
+}
+
+type DateRangeOutput {
+  end: String
+  start: String
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+"""Device platform types"""
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+type DeviceStatistics {
+  activeDevices: Int!
+  platformDistribution: [PlatformDistribution!]!
+  totalDevices: Int!
+}
+
+input LocationInput {
+  displayName: String
+  latitude: Float
+
+  """Whether location data is loaded"""
+  locationLoaded: Boolean! = true
+  longitude: Float
+  zipCode: String
+}
+
+type LocationOutput {
+  displayName: String
+  latitude: Float
+
+  """Whether location data is loaded"""
+  locationLoaded: Boolean!
+  longitude: Float
+  zipCode: String
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  acceptBid(id: Int!): BidResponse!
+  changePassword(input: ChangePasswordInput!): Boolean!
+  changeTaskStatus(status: TaskStatus!, taskId: ID!): Task!
+  createBid(input: CreateBidInput!): BidResponse!
+  createTask(input: CreateTaskInput!): Task!
+  createTaskFromTemplate(input: CreateTaskFromTemplateDto, templateId: Int!): Task!
+  createTaskTemplate(input: CreateTaskTemplateInput!): TaskTemplateResponse!
+  deleteTask(id: Int!): Boolean!
+  deleteTaskTemplate(id: Int!): Boolean!
+  login(input: LoginInput!): Auth!
+  register(input: RegisterInput!): Auth!
+  registerDevice(input: RegisterDeviceInput!): UserDevice!
+  rejectBid(id: Int!): BidResponse!
+  revokeAllDevices: NotificationResponse!
+  revokeDevice(deviceId: String!): NotificationResponse!
+  sendTestNotification(input: SendTestNotificationInput!): NotificationResponse!
+  subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
+  triggerBatchTaskCheck: SavedSearchNotificationResult!
+  triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
+  unsubscribeFromTopic(input: SubscribeToTopicInput!): NotificationResponse!
+  updateBid(id: Int!, input: UpdateBidInput!): BidResponse!
+  updateDevice(deviceId: String!, input: UpdateDeviceInput!): UserDevice!
+  updateDeviceActivity(deviceId: String!): NotificationResponse!
+  updateTask(id: Int!, input: UpdateTaskInput!): Task!
+  updateTaskTemplate(id: Int!, input: UpdateTaskTemplateInput!): TaskTemplateResponse!
+  updateUserProfile(input: UpdateUserProfileInput!): User!
+  verifyTurnstileToken(input: TurnstileVerificationInput!): TurnstileVerificationResult!
+  withdrawBid(id: Int!, reason: String): Boolean!
+}
+
+"""The frequency of notifications for saved searches"""
+enum NotificationFrequency {
+  DAILY
+  INSTANT
+  WEEKLY
+}
+
+type NotificationResponse {
+  message: String!
+  success: Boolean!
+}
+
+type OnboardingStatusDto {
+  isComplete: Boolean!
+  missingFields: [String!]!
+}
+
+type PaginatedTasksResponse {
+  items: [Task!]!
+  meta: PaginationMeta!
+}
+
+type PaginationMeta {
+  currentPage: Int!
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  itemCount: Int!
+  itemsPerPage: Int!
+  totalItems: Int!
+  totalPages: Int!
+}
+
+type PlatformDistribution {
+  count: Int!
+  platform: String!
+}
+
+type Query {
+  IsOnboardingComplete: OnboardingStatusDto!
+  bid(id: Int!): Bid!
+  bids: UserBidsResponse!
+  bidsByTask(taskId: Int!): [Bid!]!
+  categories: [Category!]!
+  category(id: Int!): Category
+  checkUsernameAvailability(username: String!): Boolean!
+  deviceStatistics: DeviceStatistics!
+  getUserSavedSearches: [SavedSearchInfo!]!
+  getUsernameHistory(userId: Int!): [String!]!
+  me: User!
+  myDevices: [UserDevice!]!
+  myNotificationPreferences: UserNotificationPreferences
+  myTasks: [Task!]!
+  searchSkills(query: String!): [String!]!
+  skill(id: Int!): Skill
+  skills: [Skill!]!
+  task(id: Int!): Task!
+  taskTemplateById(id: Int!): TaskTemplateResponse!
+  taskTemplates: [TaskTemplateResponse!]!
+  tasks(input: SearchTasksDto!): PaginatedTasksResponse!
+  user(id: Int!): User!
+  users: [User!]!
+  verifyToken(token: String!): TokenVerificationResult!
+}
+
+enum RecurrenceFrequency {
+  BIWEEKLY
+  CUSTOM
+  DAILY
+  MONTHLY
+  WEEKLY
+}
+
+type RecurrencePattern {
+  dayOfMonth: Int
+  daysOfWeek: [Int!]
+  endDate: DateTime
+  frequency: RecurrenceFrequency!
+  interval: Int!
+  maxOccurrences: Int
+}
+
+input RecurrencePatternInput {
+  dayOfMonth: Int
+  daysOfWeek: [Int!]
+  endDate: DateTime
+  frequency: RecurrenceFrequency!
+  interval: Int!
+  maxOccurrences: Int
+}
+
+enum RecurrenceType {
+  BIWEEKLY
+  CUSTOM
+  DAILY
+  MONTHLY
+  WEEKLY
+}
+
+input RegisterDeviceInput {
+  appVersion: String
+  deviceId: String
+  deviceName: String
+  fcmToken: String!
+  platform: DevicePlatform!
+}
+
+input RegisterInput {
+  email: String!
+  name: String
+  password: String!
+}
+
+type SavedSearchInfo {
+  createdAt: String!
+  id: String!
+  isActive: Boolean!
+  name: String!
+  notificationFrequency: NotificationFrequency!
+  notifyOnMatch: Boolean!
+  unreadNotifications: Int!
+}
+
+type SavedSearchNotificationResult {
+  matchCount: Int
+  message: String
+  success: Boolean!
+}
+
+input SearchTasksDto {
+  budgetType: [BudgetType!]
+  categoryId: Int
+  categoryIds: [Int!]
+  deadlineAfter: String
+  deadlineBefore: String
+  deadlineDateRange: DateRangeInput
+  includeDeleted: Boolean = false
+  latitude: Float
+  limit: Int = 10
+  location: String
+  longitude: Float
+  maxBudget: Float
+  minBudget: Float
+  onlyBoostedTasks: Boolean = false
+  page: Int = 1
+  radius: Float
+  search: String = ""
+  searchTerm: String
+  skillIds: [Int!]
+  sortBy: String = "createdAt"
+  sortOrder: String = "desc"
+  status: [TaskStatus!]
+  taskType: [TaskType!]
+}
+
+input SendTestNotificationInput {
+  body: String!
+  deviceId: String
+  title: String!
+}
+
+type Skill {
+  approved: Boolean
+  categoryId: Float
+  createdAt: DateTime!
+  id: ID!
+  isVerifiable: Boolean
+  name: String!
+  updatedAt: DateTime!
+}
+
+enum SkillImportance {
+  BONUS
+  PREFERRED
+  REQUIRED
+}
+
+input SubscribeToTopicInput {
+  topic: String!
+}
+
+type Task {
+  attachments: [AttachmentOutput!]
+  bids: [Bid!]
+  budget: Float
+  budgetType: BudgetType!
+  categoryIds: [Int!]
+  createdAt: String!
+  dateRange: DateRangeOutput
+  deadlineDate: String
+  deletedAt: String
+  description: String!
+  dropOffLocation: LocationOutput
+  estimatedHours: Int
+  id: ID!
+  imageUrls: [String!]
+  isRemovals: Boolean!
+  pickupLocation: LocationOutput
+  skillIds: [Int!]
+  status: TaskStatus!
+  taskType: TaskType!
+  title: String!
+  updatedAt: String!
+  userProfile: UserProfileOutput!
+  userProfileId: Int!
+  visibility: TaskVisibility!
+}
+
+input TaskBodyInput {
+  budget: BudgetInput
+  categories: [String!]!
+  dateRange: String
+  deadline: String
+  description: String!
+  dropOffLocation: LocationInput
+  eventId: String
+  pickupLocation: LocationInput
+  skills: [String!]!
+  taskType: TaskType!
+  title: String!
+}
+
+enum TaskStatus {
+  CANCELLED
+  COMPLETED
+  DISPUTED
+  DRAFT
+  IN_PROGRESS
+  OPEN
+}
+
+type TaskTemplateResponse {
+  createdAt: String
+  description: String
+  id: ID!
+  isRecurring: Boolean!
+  name: String
+  recurrencePattern: RecurrencePattern
+  task: Task!
+  updatedAt: String
+  userId: Int
+}
+
+enum TaskType {
+  IN_PERSON
+  REMOTE
+}
+
+enum TaskVisibility {
+  FOLLOWERS_ONLY
+  INVITE_ONLY
+  PRIVATE
+  PUBLIC
+}
+
+type TokenVerificationResult {
+  isValid: Boolean!
+  user: User
+}
+
+input TurnstileVerificationInput {
+  action: String
+  token: String!
+}
+
+type TurnstileVerificationResult {
+  message: String
+  success: Boolean!
+}
+
+input UpdateBidInput {
+  amount: Float
+  coverLetter: String
+  currency: String
+  description: String
+  estimatedDuration: String
+  estimatedHours: Int
+  hourlyRate: Float
+  milestones: [CreateBidMilestoneInput!]
+  paymentType: BidPaymentType
+  proposedApproach: String
+  responseTime: Int
+  visibility: BidVisibility
+}
+
+input UpdateDeviceInput {
+  appVersion: String
+  deviceName: String
+  fcmToken: String
+  isActive: Boolean
+}
+
+input UpdateTaskInput {
+  addressLine1: String
+  addressLine2: String
+  attachments: [AttachmentInput!]
+  budget: Float
+  budgetType: BudgetType
+  categoryIds: [Int!]
+  city: String
+  country: String
+  dateRange: DateRangeInput
+  deadlineDate: String
+  description: String
+  dropOffLocation: LocationInput
+  estimatedHours: Float
+  imageUrls: [String!]
+  isRemovals: Boolean
+  latitude: Float
+  longitude: Float
+  pickupLocation: LocationInput
+  postalCode: String
+  skillIds: [Int!]
+  skillImportance: SkillImportance
+  state: String
+  status: TaskStatus
+  taskType: TaskType
+  title: String
+  visibility: TaskVisibility
+}
+
+input UpdateTaskTemplateInput {
+  recurrencePattern: RecurrencePatternInput
+  task: UpdateTaskInput
+}
+
+input UpdateUserLocationInput {
+  displayName: String!
+  latitude: Float!
+  longitude: Float!
+  serviceRadius: Float
+  zipCode: String
+}
+
+input UpdateUserProfileInput {
+  displayName: String
+  location: UpdateUserLocationInput
+  professionalTitle: String
+  profileDescription: String
+  profilePictureId: String
+  profilePictureUrl: String
+  skills: [String!]
+  username: String
+}
+
+type User {
+  biddingAllowed: Boolean!
+  createdAt: DateTime!
+  deletedAt: DateTime
+  displayName: String
+  dob: DateTime
+  email: String
+  id: ID!
+  isEmailVerified: Boolean!
+  lastLoginAt: DateTime
+  location: UserLocation
+  mobileNumber: String
+  name: String
+  onboardingComplete: Boolean!
+  profilePictureId: String
+  profilePictureUrl: String
+  skills: [Skill!]!
+  status: UserStatus!
+  updatedAt: DateTime!
+  userProfile: UserProfileOutput
+  userRole: UserRole!
+  username: String
+}
+
+type UserBidsResponse {
+  received: BidsWithPaginationDto!
+  submitted: BidsWithPaginationDto!
+}
+
+type UserDevice {
+  appVersion: String
+  createdAt: DateTime!
+  credentialId: String
+  deviceId: String!
+  deviceName: String
+  fcmToken: String
+  id: ID!
+  isActive: Boolean!
+  lastTokenRefresh: DateTime
+  lastUsedAt: DateTime
+  platform: String
+  pushToken: String
+  revokedAt: DateTime
+  updatedAt: DateTime!
+  userId: Int!
+}
+
+type UserLocation {
+  createdAt: DateTime!
+  displayName: String!
+  latitude: Float!
+  longitude: Float!
+  serviceRadius: Float
+  updatedAt: DateTime!
+  zipCode: String
+}
+
+type UserNotificationPreferences {
+  createdAt: DateTime!
+  email: Boolean!
+  id: ID!
+  inApp: Boolean!
+  push: Boolean!
+  pushBidUpdates: Boolean!
+  pushMessages: Boolean!
+  pushPayments: Boolean!
+  pushSystemUpdates: Boolean!
+  pushTaskMatches: Boolean!
+  updatedAt: DateTime!
+  userId: Int!
+}
+
+type UserProfileOutput {
+  averageRating: Float
+  createdAt: DateTime
+  experiencePoints: Int
+  feeDiscount: Float
+  id: ID!
+  identityVerified: Boolean
+  level: Int
+  monthlyActivityPoints: Int
+  professionalTitle: String
+  profileDescription: String
+  promotionalVideo: String
+  reputationScore: Float
+  standardRates: Float
+  successRate: Float
+  tasksCompleted: Int
+  tasksPosted: Int
+  updatedAt: DateTime
+  user: User
+  userId: ID!
+  verificationLevel: Int
+  yearsExperience: Int
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  BANNED
+  INACTIVE
+  SUSPENDED
+}

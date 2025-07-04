@@ -1,7 +1,14 @@
-import type { NostrRegistrationData, UserData } from '$lib/types/auth';
+import type {
+	AccountRecoveryData,
+	NostrRecoveryCompleteData,
+	NostrRecoveryData,
+	NostrRegistrationData,
+	UserData
+} from '$lib/types/auth';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
+import type { NostrEvent } from '$lib/types/nostr';
 
 /**
  * Authentication Service
@@ -10,23 +17,18 @@ import type { OnboardingRequest, OnboardingResponse } from '../types';
 export class AuthService extends BaseApiService {
 	/**
 	 * Login with Nostr
-	 * @param pubkey User's public key
+	 * @param event Nostr event
 	 * @param challenge Login challenge
-	 * @param signature Signed login challenge
 	 * @returns Promise with the login response
 	 * @throws {Error} 400 - No account associated with Nostr key or missing data
 	 * @throws {Error} 401 - Invalid signature or unauthorized access
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async loginWithNostr(
-		pubkey: string,
-		challenge: string,
-		signature: string
-	): Promise<{ access_token: string; user: UserData }> {
+	async loginWithNostr(event: NostrEvent, challenge: string): Promise<{ access_token: string; user: UserData }> {
 		try {
 			const response = await this.post<{ access_token: string; user: UserData }>(
 				ENDPOINTS.AUTH.NOSTR_LOGIN,
-				{ pubkey, challenge, signature }
+				{ event, challenge }
 			);
 			return response.data;
 		} catch (error: any) {
@@ -42,7 +44,7 @@ export class AuthService extends BaseApiService {
 				throw new Error('Internal server error. Please try again later.');
 			}
 
-			throw new Error('Login failed. Please try again.');
+			throw new Error(error || 'Login failed. Please try again.');
 		}
 	}
 
@@ -91,25 +93,19 @@ export class AuthService extends BaseApiService {
 				throw new Error('Missing required registration data');
 			}
 
-			const response = await this.post<{ publicKey: string; user: UserData }>(
+			const response = await this.post<{ publicKey: string; user: UserData; error: any }>(
 				ENDPOINTS.AUTH.REGISTER_NOSTR,
 				registrationData
 			);
+
+			if (response?.data?.error) {
+				throw new Error(response.data.error?.message);
+			}
+
 			return response.data;
 		} catch (error: any) {
-			if (error?.status === 409) {
-				throw new Error('Email already registered');
-			} else if (error?.status === 400) {
-				throw new Error('Invalid registration data');
-			} else if (error?.status === 422) {
-				throw new Error('Invalid encryption format');
-			} else if (error?.status === 500) {
-				throw new Error('Server error occurred during registration');
-			} else if (error.message) {
-				throw error;
-			} else {
-				throw new Error('Failed to register user');
-			}
+			console.log('error', error);
+			throw new Error(error);
 		}
 	}
 
@@ -186,12 +182,16 @@ export class AuthService extends BaseApiService {
 	async checkRegistrationStatus(
 		publicKey: string
 	): Promise<{ isRegistered: boolean; hasEmail: boolean; onboardingComplete: boolean }> {
-		const response = await this.post<{
-			isRegistered: boolean;
-			hasEmail: boolean;
-			onboardingComplete: boolean;
-		}>(ENDPOINTS.AUTH.CHECK_REGISTRATION, { publicKey });
-		return response.data;
+		try {
+			const response = await this.post<{
+				isRegistered: boolean;
+				hasEmail: boolean;
+				onboardingComplete: boolean;
+			}>(ENDPOINTS.AUTH.CHECK_REGISTRATION, { publicKey });
+			return response.data;
+		} catch (error: any) {
+			throw new Error(error);
+		}
 	}
 
 	/**
@@ -199,12 +199,14 @@ export class AuthService extends BaseApiService {
 	 * @param publicKey User's Nostr public key
 	 * @param deviceId Unique device identifier
 	 * @param deviceName Device name
+	 * @param credentialId Credential ID used for WebAuthn passkey
 	 * @returns Promise with passkey registration response
 	 */
 	async registerPasskeyDevice(
 		publicKey: string,
 		deviceId: string,
-		deviceName: string
+		deviceName: string,
+		credentialId?: string
 	): Promise<{
 		id: number;
 		userId: number;
@@ -213,12 +215,40 @@ export class AuthService extends BaseApiService {
 		createdAt: string;
 		lastUsed: string;
 		revokedAt: string;
+		credentialId: string;
 	}> {
-		const response = await this.post(ENDPOINTS.AUTH.REGISTER_PASSKEY, {
-			publicKey,
-			deviceId,
-			deviceName
-		});
+		try {
+			const data = {
+				publicKey,
+				deviceId,
+				deviceName,
+				credentialId
+			};
+
+			if (!credentialId) delete data.credentialId;
+
+			const response = await this.post(ENDPOINTS.AUTH.REGISTER_PASSKEY, data);
+			return response.data;
+		} catch (error: any) {
+			throw new Error(error);
+		}
+	}
+
+	/**
+	 * Get encrypted key using passkey credential id
+	 * @param publicKey User's Nostr public key
+	 * @param deviceId Unique device identifier
+	 * @param credentialId Credential ID used for WebAuthn passkey
+	 * @returns Promise with encrypted key data
+	 */
+	async getEncryptedKey(
+		publicKey: string,
+		deviceId: string,
+		credentialId: string
+	): Promise<{ encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string }> {
+		const response = await this.get(
+			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${publicKey}?deviceId=${deviceId}&credentialId=${credentialId}`
+		);
 		return response.data;
 	}
 
@@ -261,10 +291,64 @@ export class AuthService extends BaseApiService {
 	}
 
 	/**
-	 * Log out the current user
+	 * Initiate nostr recovery process
+	 * @param email User's email
+	 * @response 200 - Recovery email sent successfully
+	 * @response 400 - Bad request
+	 * @returns Promise with recovery response
 	 */
-	async logout(): Promise<void> {
-		await this.post(ENDPOINTS.AUTH.LOGOUT);
+	async initiateNostrRecovery(email: string): Promise<void> {
+		await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
+	}
+
+	/**
+	 * Get nostr recovery data
+	 * @param npub User's Nostr public key
+	 * @response 200 - Recovery data retrieved successfully
+	 * @response 404 - No recovery data found
+	 * @returns Promise with recovery data
+	 */
+	async getNostrRecoveryData(npub: string): Promise<NostrRecoveryData> {
+		const response = await this.get(ENDPOINTS.AUTH.NOSTR_RECOVERY_DATA(npub));
+		return response.data;
+	}
+
+	/**
+	 * Complete nostr recovery process
+	 * @param data Nostr recovery complete data
+	 * @response 200 - Recovery completed successfully
+	 * @response 400 - Bad request
+	 * @response 404 - User not found
+	 * @returns Promise with recovery response
+	 */
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<void> {
+		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
+		return response.data;
+	}
+
+	/**
+	 * Setup account recovery password
+	 * @param data Account recovery data
+	 * @returns Promise with recovery response
+	 */
+	async setupAccountRecoveryPassword(data: AccountRecoveryData): Promise<{
+		success: boolean;
+		userId: number;
+		publicKey: string;
+	}> {
+		const response = await this.post(ENDPOINTS.AUTH.ACCOUNT_RECOVERY_KEY, data);
+		return response.data;
+	}
+
+	/**
+	 * Verify email using token
+	 * @param token Verification token
+	 * @response 200 - Email verified successfully
+	 * @response 400 - Invalid token or token expired
+	 * @returns Promise with verification response
+	 */
+	async verifyEmail(token: string): Promise<void> {
+		await this.get(ENDPOINTS.AUTH.EMAIL_VERIFICATION, { params: { token } });
 	}
 }
 

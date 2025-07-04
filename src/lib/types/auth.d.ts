@@ -1,29 +1,12 @@
-export interface EncryptedNostrKey {
-	accessTokenEncrypted: {
-		data: string;
-		iv: string;
-	};
-	recoveryEncrypted: {
-		data: string;
-		iv: string;
-	};
-	salt: string;
-}
-
 export interface Credentials {
 	username: string;
 	password: string;
 	server: string;
 }
 
-export interface EncryptedKeyData {
-	data: string;
-	iv: string;
-}
-
 export interface NostrRegistrationData {
-	name?: string;
 	email?: string;
+	username?: string;
 	publicKey: string;
 	encryptedPrivateKey: string;
 	iv: string;
@@ -35,7 +18,7 @@ export interface NostrRegistrationData {
 	password?: string;
 }
 
-export interface NostrKeyData {
+interface NostrKeyData {
 	id: number;
 	userId: number;
 	publicKey: string;
@@ -55,30 +38,19 @@ export interface UserData {
 	email: string;
 	name: string;
 	npub: string;
+	avatar: string;
+
+	// TODO: Refactor & check utility of these fields
 	password?: string | null;
 	onboardingComplete?: boolean;
 	isEmailVerified?: boolean;
 	lastLoginAt?: string;
 	status?: 'ACTIVE' | 'INACTIVE';
-	userRole?: 'CLIENT' | 'ADMIN';
 	createdAt?: Date;
 	updatedAt?: Date;
 	deletedAt?: Date;
 	deleted?: boolean;
 	nostrKey?: NostrKeyData;
-}
-
-export interface AuthMethod {
-	id: number;
-	userId: number;
-	type: string;
-	identifier: string;
-	credentials: Record<string, any>; // TODO: Define the type for credentials
-	isVerified: boolean;
-	lastUsedAt: string;
-	createdAt: string;
-	updatedAt: string;
-	providerDetails: any; // TODO: Define the type for provider details
 }
 
 export interface Location {
@@ -92,43 +64,6 @@ export interface Location {
 	country: string;
 	latitude: number;
 	longitude: number;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface Client {
-	id: number;
-	userId: number;
-	tasksCompleted: number;
-	tasksPosted: number;
-	averageRating: number | null;
-	level: number;
-	experiencePoints: number;
-	verificationLevel: string;
-	createdAt: string;
-	updatedAt: string;
-}
-
-export interface Freelancer {
-	id: number;
-	userId: number;
-	professionalTitle: string | null;
-	bio: string | null;
-	promotionalVideo: string | null;
-	yearsExperience: number | null;
-	specialties: string[];
-	standardRates: any; // TODO: Define the type for standard rates
-	tasksCompleted: number;
-	bidsSent: number;
-	successRate: number | null;
-	averageRating: number | null;
-	level: number;
-	experiencePoints: number;
-	reputationScore: number;
-	feeDiscount: number;
-	monthlyActivityPoints: number;
-	verificationLevel: string;
-	identityVerified: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -209,19 +144,6 @@ export interface ApiUserProfile {
 	updatedAt: string;
 }
 
-export interface AuthResponse {
-	user: UserData;
-	access_token: string;
-}
-
-export interface LoginResponse {
-	publicKey: string;
-	encryptedPrivateKey: string;
-	iv: string;
-	authTag: string;
-	token: string;
-}
-
 export interface EncryptedData {
 	data: string;
 	iv: string;
@@ -249,4 +171,32 @@ export interface AuthState {
 	isAuthenticated: boolean;
 	isLoading: boolean;
 	error: string | null;
+}
+
+export interface AccountRecoveryData {
+	publicKey: string;
+	recoveryPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
+	email?: string;
+}
+
+export interface NostrRecoveryCompleteData {
+	publicKey: string;
+	otp: string;
+	recoveryPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
+}
+
+export interface NostrRecoveryData {
+	recoveryPrivateKey: string;
+	iv: string;
+	salt: string;
+	authTag: string;
+	iterations: number;
 }

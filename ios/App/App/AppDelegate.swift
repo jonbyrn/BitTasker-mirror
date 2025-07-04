@@ -1,6 +1,7 @@
 import GoogleSignIn
 import UIKit
 import Capacitor
+import CapawesomeCapacitorScreenOrientation
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -42,7 +43,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
         handled = GIDSignIn.sharedInstance.handle(url)
         if handled {
-        return true
+            return true
         }
 
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
@@ -54,5 +55,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // tracking app url opens, make sure to keep this call
         return ApplicationDelegateProxy.shared.application(application, continue: userActivity, restorationHandler: restorationHandler)
     }
-
+    
+    // Required for ScreenOrientation plugin
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        return ScreenOrientation.getSupportedInterfaceOrientations()
+    }
 }
