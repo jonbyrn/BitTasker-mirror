@@ -80,6 +80,7 @@ class PushNotificationService {
 			const { getMessaging, onMessage } = await import('firebase/messaging');
 
 			const firebaseConfig = getFirebaseWebConfig();
+			console.log(firebaseConfig)
 
 			// Validate Firebase config
 			if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
@@ -223,7 +224,7 @@ class PushNotificationService {
 		if (Capacitor.isNativePlatform()) {
 			try {
 				await this.ensureNotificationChannel();
-				
+
 				const notificationId = this.generateNotificationId();
 				const localNotificationData = {
 					title: notification.title || 'New Notification',
@@ -306,7 +307,7 @@ class PushNotificationService {
 		if (Capacitor.isNativePlatform()) {
 			LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
 				console.log('🔔 Local notification action performed:', notification);
-				
+
 				// Handle the local notification tap the same way as push notifications
 				if (notification.notification.extra) {
 					this.handleNotificationData(notification.notification.extra);
@@ -324,7 +325,7 @@ class PushNotificationService {
 	private addDeepLinkListener(): void {
 		App.addListener('appUrlOpen', (data) => {
 			console.log('🔗 App opened with URL:', data);
-			
+
 			// Parse the URL to extract the path for internal navigation
 			if (data.url) {
 				try {
@@ -360,11 +361,11 @@ class PushNotificationService {
 	private async handleNativeNotification(notification: PushNotificationSchema): Promise<void> {
 		// Handle native notification received in foreground
 		console.log('📱 Foreground notification received:', notification);
-		
+
 		try {
 			// Show a local notification in the notification bar even when app is in foreground
 			await this.showLocalNotification(notification);
-			
+
 			// Also show a subtle toast for immediate feedback
 			appStore.showInfoToast(notification.title || 'New notification received');
 		} catch (error) {
