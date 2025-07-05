@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300" fill="none">
-  <rect width="400" height="300" rx="8" fill="#222222"/>
-  <circle cx="200" cy="150" r="80" fill="#7B1AF7"/>
-  <path d="M200 70L165 150H195L180 230L245 140H205L220 70H200Z" fill="#F6E05E" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round"/>
-  <text x="200" y="250" font-family="Arial, sans-serif" font-size="18" fill="#ffffff" text-anchor="middle">Lightning Fast Payments</text>
-</svg>
