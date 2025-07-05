@@ -7,7 +7,7 @@ export type Locales = 'en' | 'es';
 
 const DEFAULT_LANGUAGE: Locales = 'en';
 const locales = ['en', 'es'];
-const locale = writable<Locales>(DEFAULT_LANGUAGE);
+export const locale = writable<Locales>(DEFAULT_LANGUAGE);
 
 // Load the saved language preference
 const loadSavedLanguage = async () => {
@@ -45,14 +45,19 @@ export const setLocale = async (newLocale: Locales) => {
 
 const translate = (
 	locale: Locales,
-	key: keyof (typeof translations)[typeof locale],
+	key: keyof (typeof translations)['en'], // Use 'en' as the source of truth for keys
 	variables: Map<string, unknown>
 ) => {
 	try {
-		let text = translations[locale][key];
+		// Use 'as any' to bypass type checking for other locales, assuming they have the same keys.
+		let text = (translations[locale] as any)[key];
 
 		if (!text || typeof text !== 'string') {
-			throw new Error('Translation not found');
+			// Fallback to English if translation is missing
+			text = translations['en'][key];
+			if (!text || typeof text !== 'string') {
+				throw new Error(`Translation not found for key: ${key}`);
+			}
 		}
 
 		Array.from(variables.entries()).forEach(([k, v]) => {
@@ -70,7 +75,7 @@ export const t = derived(
 	locale,
 	($locale) =>
 		(
-			key: keyof (typeof translations)[typeof $locale],
+			key: keyof (typeof translations)['en'], // Use 'en' as the source of truth for keys
 			variables: Map<string, unknown> = new Map()
 		) =>
 			translate($locale, key, variables)
