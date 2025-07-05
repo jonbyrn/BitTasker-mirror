@@ -55,15 +55,14 @@ class PushNotificationService {
 		try {
 			if (Capacitor.isNativePlatform()) {
 				this.addListeners();
-				await this.createPushNotificationChannel();
 				await this.requestPermissions();
+				await this.createPushNotificationChannel();
 				await this.registerDevice();
 				this.addDeepLinkListener();
 			} else {
 				await this.initWebPushNotifications();
 			}
 		} catch (error) {
-			console.error('❌ Error initializing push notifications:', error);
 			throw error;
 		}
 	}
@@ -102,7 +101,7 @@ class PushNotificationService {
 			});
 
 			// Register service worker for background messages
-			await this.registerServiceWorker();
+			await registerServiceWorker();
 
 		} catch (error) {
 			console.error('❌ Error initializing web push notifications:', error);
@@ -132,7 +131,6 @@ class PushNotificationService {
 			});
 
 			if (token) {
-				console.log('🎯 FCM token received:', token.substring(0, 20) + '...');
 				await this.registerTokenOnServer(token);
 			} else {
 				console.warn('⚠️ No registration token available.');
@@ -140,14 +138,6 @@ class PushNotificationService {
 		} catch (error) {
 			console.error('❌ An error occurred while retrieving token:', error);
 			throw error;
-		}
-	}
-
-	private async registerServiceWorker(): Promise<void> {
-		try {
-			await registerServiceWorker();
-		} catch (error) {
-			console.error('Service Worker registration failed:', error);
 		}
 	}
 
@@ -279,7 +269,7 @@ class PushNotificationService {
 
 	private async addListeners(): Promise<void> {
 		PushNotifications.addListener('registration', (token: Token) => {
-			console.log('Push registration success, token: ', token.value);
+			console.log('Push registration token success');
 			this.registerTokenOnServer(token.value);
 		});
 
@@ -565,7 +555,7 @@ class PushNotificationService {
 				throw new Error(result.errors[0].message);
 			}
 
-			console.log('✅ Successfully registered device on server:', result.data?.registerDevice);
+			console.log('✅ Successfully registered device on server');
 		} catch (error) {
 			console.error('❌ Error registering device on server:', error);
 			throw error;

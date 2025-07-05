@@ -12,6 +12,7 @@
 			profileImage: string | null;
 		};
 		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+		loading?: boolean;
 		onClick?: () => void;
 	}>();
 
@@ -20,15 +21,6 @@
 
 	// State for image loading
 	let imageError = $state(false);
-	let imageLoading = $state(true);
-
-	// Reset image states when profileImage changes
-	$effect(() => {
-		if (props.user.profileImage) {
-			imageError = false;
-			imageLoading = true;
-		}
-	});
 
 	// Get user initials for badge
 	function getUserInitials(name: string): string {
@@ -79,15 +71,6 @@
 				return 'w-10 h-10 text-base';
 		}
 	}
-
-	function handleImageLoad() {
-		imageLoading = false;
-	}
-
-	function handleImageError() {
-		imageError = true;
-		imageLoading = false;
-	}
 </script>
 
 {#if props.user.profileImage && !imageError}
@@ -96,20 +79,18 @@
 		class="overflow-hidden rounded-full {getSizeClass(size)} relative cursor-pointer"
 		onclick={props.onClick}
 	>
-		{#if imageLoading}
-			<!-- Loading placeholder -->
+		{#if props?.user?.profileImage}
+			<img
+				src={props.user.profileImage}
+				alt={props.user.name}
+				class="h-full w-full object-cover"
+				onerror={() => (imageError = true)}
+			/>
+		{:else if props.loading}
 			<div class="bg-base-300 absolute inset-0 flex animate-pulse items-center justify-center">
 				<div class="loading loading-spinner loading-xs"></div>
 			</div>
 		{/if}
-		<img
-			src={props.user.profileImage}
-			alt={props.user.name}
-			class="h-full w-full object-cover"
-			class:opacity-0={imageLoading}
-			onload={handleImageLoad}
-			onerror={handleImageError}
-		/>
 	</button>
 {:else}
 	<!-- Show initials badge as fallback -->

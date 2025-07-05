@@ -443,7 +443,14 @@
 		try {
 			isLoading = true;
 
-			// Don't proceed if location isn't loaded yet
+			// If map failed to load, allow user to proceed without setting location
+			if (hasError && !isMapLoaded) {
+				console.log('Map failed to load, proceeding without location');
+				nextStep();
+				return;
+			}
+
+			// Don't proceed if location isn't loaded yet (only when map is working)
 			if (location.latitude === null || location.longitude === null) {
 				error = 'Please select a location';
 				throw new Error('Please select a location');
@@ -707,7 +714,7 @@
 				type="button"
 				class="btn btn-primary"
 				onclick={handleSubmit}
-				disabled={isLoading || !location.locationLoaded}
+				disabled={isLoading || (!location.locationLoaded && !hasError && !isMapLoaded)}
 			>
 				{#if isLoading}
 					<span class="loading loading-spinner"></span>

@@ -74,7 +74,7 @@
 		user.updateProfile(response.user);
 		authState.login();
 		appStore.update((state) => ({ ...state, biometricData }));
-		await Preferences.set({ key: 'npub', value: pubKey });
+		await Preferences.set({ key: StorageKeys.NPUB, value: pubKey });
 		goto('/dashboard');
 	}
 

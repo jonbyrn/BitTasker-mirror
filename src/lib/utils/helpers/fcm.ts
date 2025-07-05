@@ -17,7 +17,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 	try {
 		const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-		// console.log('Firebase Messaging Service Worker registered:', registration);
 
 		// Send Firebase config to service worker
 		if (registration.active) {
