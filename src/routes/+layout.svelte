@@ -102,11 +102,14 @@
 			<div class="container mx-auto px-4 text-center">
 				<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
 				<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
-				<div class="mt-8 flex flex-wrap justify-center gap-4">
-					<a href="/auth" class="btn bg-black hover:bg-gray-800 text-white border-none btn-lg shadow-lg">{$t('homepage.v2.finalcta.client_cta')}</a>
-					<a href="/auth/register" class="btn bg-white hover:bg-gray-100 text-black border-none btn-lg shadow-lg"
-						>{$t('homepage.v2.finalcta.freelancer_cta')}</a
-					>
+				<div class="mt-8 flex flex-col items-center space-y-6">
+					<div class="flex flex-wrap justify-center gap-4">
+						<a href="/browse-tasks" class="btn bg-black hover:bg-gray-800 text-white border-none btn-lg shadow-lg">{$t('homepage.v2.finalcta.client_cta')}</a>
+						<a href="/browse-freelancers" class="btn bg-black hover:bg-gray-800 text-white border-none btn-lg shadow-lg">{$t('homepage.v2.finalcta.freelancer_cta')}</a>
+					</div>
+					<div>
+						<a href="/auth/signup" class="btn bg-white hover:bg-primary hover:text-white text-black border-none btn-lg shadow-lg px-8">{$t('homepage.v2.finalcta.get_started')}</a>
+					</div>
 				</div>
 			</div>
 		</section>
