@@ -7,7 +7,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 150,
 		proposals: 8,
 		timeLeft: '3 hours',
-		image: 'https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?q=80&w=1887&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1542013936693-884638332954?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '2',
@@ -15,7 +15,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 200,
 		proposals: 5,
 		timeLeft: '1 day',
-		image: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=1887&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '3',
@@ -23,7 +23,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 175,
 		proposals: 4,
 		timeLeft: '2 days',
-		image: 'https://images.unsplash.com/photo-1621417443338-55db8643545f?q=80&w=1740&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '4',
@@ -31,7 +31,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 80,
 		proposals: 12,
 		timeLeft: '4 hours',
-		image: 'https://images.unsplash.com/photo-1589923188900-85e36be4a125?q=80&w=2532&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1690068023694-053da714f95f?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 	},
 	{
 		id: '5',
@@ -39,7 +39,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 1200,
 		proposals: 7,
 		timeLeft: '3 days',
-		image: 'https://images.unsplash.com/photo-1562259929-b4e1fd3aef09?q=80&w=2671&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '6',
@@ -47,7 +47,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 300,
 		proposals: 3,
 		timeLeft: '1 day',
-		image: 'https://images.unsplash.com/photo-1620321023374-d1a68fbc720d?q=80&w=2497&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1518546305927-5a555bb7020d?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '7',
@@ -55,7 +55,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 250,
 		proposals: 10,
 		timeLeft: '12 hours',
-		image: 'https://images.unsplash.com/photo-1581141849291-1125c7b692b5?q=80&w=2674&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '8',
@@ -63,7 +63,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 600,
 		proposals: 4,
 		timeLeft: '2 days',
-		image: 'https://images.unsplash.com/photo-1621189406926-9a5747bb3047?q=80&w=2670&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1545259742-b4fd8fea67e4?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 	},
 	{
 		id: '9',
@@ -71,7 +71,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 400,
 		proposals: 5,
 		timeLeft: '4 days',
-		image: 'https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=2532&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1516245834210-c4c142787335?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '10',
@@ -79,7 +79,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 350,
 		proposals: 8,
 		timeLeft: '1 day',
-		image: 'https://images.unsplash.com/photo-1523876352784-20fc775c72c3?q=80&w=2670&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1700076275772-382f5132876c?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 	},
 	{
 		id: '11',
@@ -87,7 +87,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 500,
 		proposals: 6,
 		timeLeft: '3 days',
-		image: 'https://images.unsplash.com/photo-1599744255341-96e7a62eb66c?q=80&w=2400&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1697623317093-7a50b4aaf676?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 	},
 	{
 		id: '12',
@@ -95,7 +95,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 800,
 		proposals: 3,
 		timeLeft: '5 days',
-		image: 'https://images.unsplash.com/photo-1616577583909-ea7a1c1e7825?q=80&w=2532&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1623039405147-547794f92e9e?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '13',
@@ -103,7 +103,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 150,
 		proposals: 9,
 		timeLeft: '1 day',
-		image: 'https://images.unsplash.com/photo-1584179307804-e8687def56f5?q=80&w=2564&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1581578017093-cd30fce4eeb7?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 	},
 	{
 		id: '14',
@@ -111,7 +111,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 100,
 		proposals: 15,
 		timeLeft: '6 hours',
-		image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=2670&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=800'
 	},
 	{
 		id: '15',
@@ -119,7 +119,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 180,
 		proposals: 7,
 		timeLeft: '2 days',
-		image: 'https://images.unsplash.com/photo-1558015358-1a5fa6f35f1e?q=80&w=2670&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1675747158954-4a32e28812c0?q=80&w=800&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 	},
 	{
 		id: '16',
@@ -127,7 +127,7 @@ export const liveTasks: LiveTask[] = [
 		budget: 120,
 		proposals: 4,
 		timeLeft: '3 days',
-		image: 'https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=2532&auto=format&fit=crop'
+		image: 'https://images.unsplash.com/photo-1516245834210-c4c142787335?auto=format&fit=crop&w=800'
 	}
 ];
 
