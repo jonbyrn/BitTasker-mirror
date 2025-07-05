@@ -2,9 +2,9 @@
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/stores/i18n.store';
 	import { user } from '$lib/stores/user.store';
 	import { darkMode } from '$lib/stores/theme.store';
+	import { t, locale } from '$lib/stores/i18n.store';
 	import { setLocale } from '$lib/stores/i18n.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
@@ -15,11 +15,15 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import 'iconify-icon';
 
-	// Languages supported by the app
-	const languages: { code: Locales; name: string }[] = [
-		{ code: 'en', name: $t('navbar.language.english') },
-		{ code: 'es', name: $t('navbar.language.spanish') }
+	const languages: { code: Locales; name: string; flag: string }[] = [
+		{ code: 'en', name: 'English', flag: '🇺🇸' },
+		{ code: 'es', name: 'Español', flag: '🇪🇸' }
 	];
+
+	const getCurrentLanguageFlag = () => {
+		const currentLang = languages.find(lang => lang.code === $locale);
+		return currentLang?.flag || '🇺🇸';
+	};
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
@@ -210,11 +214,12 @@
 </script>
 
 <!-- Main TopBar component -->
-<div class="navbar bg-base-100/80 border-base-300 pt-safe z-40 w-full border-b backdrop-blur-sm">
+<div class="navbar bg-base-100/80 border-base-300 pt-safe z-50 w-full border-b backdrop-blur-sm {isDesktopLayout ? 'fixed top-0 left-0 right-0' : ''}">
 	<div class="navbar-start">
 		{#if isDesktopLayout || (!isLoggedIn && !$showBackButton)}
 			<!-- Desktop or Mobile not logged in: BitTasker on the left -->
-			<a href="/" class="btn btn-ghost text-xl normal-case">BitTasker</a>
+			<!-- <a href="/" class="btn btn-ghost text-xl normal-case">BitTasker</a>-->
+			<a href="/"><img src={$darkMode ? "/images/Bittasker-logo-no-tagline-dark.svg" : "/images/Bittasker-logo-no-tagline-light.svg"} alt="BitTasker Logo" class="mx-auto block ml-6 mt-1 max-h-10"></a>
 		{:else if $showBackButton}
 			<!-- Mobile: Back button when applicable -->
 			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
@@ -251,25 +256,19 @@
 		{#if isDesktopLayout}
 			<!-- Desktop: Center menu -->
 			<ul class="menu menu-horizontal px-1">
-				<li><a href="/" class="hover:bg-base-200 rounded-lg">{$t('navbar.home')}</a></li>
+				<!-- <li><a href="/">{$t('navbar.home')}</a></li> -->
 				<li>
-					<a href="/how-it-works" class="hover:bg-base-200 rounded-lg"
-						>{$t('navbar.how_it_works')}</a
-					>
+					<a href="/how-it-works">{$t('navbar.how_it_works')}</a>
+				</li>
+
+				<li>
+					<a href="/browse-freelancers">{$t('navbar.browse_freelancers')}</a>
 				</li>
 				<li>
-					<details class="dropdown">
-						<summary class="hover:bg-base-200 rounded-lg">{$t('navbar.language')}</summary>
-						<ul class="menu dropdown-content bg-base-100 rounded-box z-50 w-52 p-2 shadow">
-							{#each languages as { code, name }}
-								<li>
-									<button class="text-left" onclick={() => handleLanguageChange(code)}>
-										{name}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					</details>
+					<a href="/browse-tasks">{$t('navbar.browse_tasks')}</a>
+				</li>
+				<li>
+					<a href="/fees">{$t('navbar.fees')}</a>
 				</li>
 			</ul>
 		{:else if isLoggedIn && !$showBackButton}
@@ -289,7 +288,7 @@
 			<!-- Login and Signup buttons, replacing the Get Started button -->
 			<div class="flex w-full items-center justify-end gap-2">
 				<!-- User is not logged in: show dark mode toggle, Login, and Signup buttons -->
-				<label class="swap swap-rotate btn btn-xs sm:btn-sm btn-ghost btn-circle">
+				<label class="swap swap-rotate btn btn-xs sm:btn-sm btn-ghost btn-circle tooltip tooltip-bottom" data-tip={$darkMode ? $t('navbar.tooltip.dark_mode') : $t('navbar.tooltip.light_mode')}>
 					<input type="checkbox" checked={$darkMode} onchange={() => ($darkMode = !$darkMode)} />
 
 					<!-- sun icon -->
@@ -314,6 +313,25 @@
 						/>
 					</svg>
 				</label>
+				<!-- Language dropdown with flags -->
+				<div class="dropdown mr-2 tooltip tooltip-bottom" data-tip="{$t('navbar.tooltip.language', new Map([['name', languages.find(lang => lang.code === $locale)?.name || 'English']]))}">
+					<div tabindex="0" role="button" class="btn btn-ghost">
+						<span class="text-xl mr-1">{getCurrentLanguageFlag()}</span>
+						<span class="font-medium uppercase">{$locale}</span>
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+						</svg>
+					</div>
+					<ul class="dropdown-content menu bg-base-100 rounded-box z-[1] mt-4 w-52 p-2 shadow">
+						{#each languages as { code, name, flag }}
+							<li>
+								<button class="text-left" onclick={() => handleLanguageChange(code)}>
+									<span class="mr-2">{flag}</span> {name}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
 				<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">Login</a>
 				<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">Sign up</a>
 			</div>
@@ -328,7 +346,8 @@
 			<!-- Dark mode toggle -->
 			<li>
 				<button
-					class="flex items-center justify-between gap-2 py-2"
+					class="flex items-center justify-between gap-2 py-2 tooltip tooltip-bottom"
+					data-tip={$darkMode ? $t('navbar.tooltip.dark_mode') : $t('navbar.tooltip.light_mode')}
 					onclick={() => ($darkMode = !$darkMode)}
 				>
 					<span class="flex items-center gap-2">

@@ -15,10 +15,32 @@ const config = {
 		extend: {
 			fontFamily: {
 				sans: ['Inter var', ...defaultTheme.fontFamily.sans]
+			},
+			keyframes: {
+				'fade-in': {
+					'0%': { opacity: '0' },
+					'100%': { opacity: '1' }
+				}
+			},
+			animation: {
+				'fade-in': 'fade-in 0.5s ease-in-out'
 			}
 		}
 	},
-	plugins: [daisyui],
+	plugins: [
+		function({ addUtilities }) {
+			addUtilities({
+				'.scrollbar-hide': {
+					'-ms-overflow-style': 'none',
+					'scrollbar-width': 'none',
+					'&::-webkit-scrollbar': {
+						display: 'none'
+					}
+				}
+			});
+		},
+		daisyui
+	],
 	daisyui: {
 		themes: ['dark'],
 		darkTheme: 'dark'

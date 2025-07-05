@@ -1,0 +1,68 @@
+/* FontAwesome CSS - Direct Implementation */
+
+/* Font Face Declarations */
+@font-face {
+  font-family: 'Font Awesome 6 Brands';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/assets/fonts/fa-brands-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Font Awesome 6 Free';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url('/assets/fonts/fa-solid-900.woff2') format('woff2');
+}
+
+/* Base Icon Styles */
+.fa-brands, .fa-solid {
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-rendering: auto;
+}
+
+/* Brand Icons */
+.fa-brands {
+  font-family: 'Font Awesome 6 Brands';
+}
+
+.fa-solid {
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+}
+
+/* Icons we need */
+.fa-x-twitter:before {
+  content: "\e61b";
+}
+
+.fa-facebook:before {
+  content: "\f09a";
+}
+
+.fa-instagram:before {
+  content: "\f16d";
+}
+
+.fa-youtube:before {
+  content: "\f167";
+}
+
+.fa-linkedin:before {
+  content: "\f08c";
+}
+
+.fa-reddit:before {
+  content: "\f1a1";
+}
+
+.fa-play:before {
+  content: "\f04b";
+}
