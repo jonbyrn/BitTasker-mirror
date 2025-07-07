@@ -515,8 +515,7 @@
 		gap: 0.5rem;
 	}
 
-	.navbar-center .menu-horizontal li a,
-	.navbar-center .menu-horizontal li summary {
+	.navbar-center .menu-horizontal li a {
 		padding: 0.5rem 0.75rem;
 		font-weight: 500;
 		transition: all 0.2s ease;
