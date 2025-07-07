@@ -4,6 +4,10 @@ import daisyui from 'daisyui';
 
 const config = {
 	content: ['./src/**/*.{html,js,svelte,ts}', './**/*.{ts,js}'],
+	safelist: [
+		// Dynamic width classes for Drawer component
+		'w-[10%]', 'w-[20%]', 'w-[30%]', 'w-[40%]', 'w-[50%]', 'w-[55%]', 'w-[60%]', 'w-[65%]', 'w-[70%]', 'w-[75%]', 'w-[80%]', 'w-[85%]', 'w-[90%]', 'w-[95%]', 'w-[100%]'
+	],
 	theme: {
 		container: {
 			center: true,
@@ -28,7 +32,7 @@ const config = {
 		}
 	},
 	plugins: [
-		function({ addUtilities }) {
+		function ({ addUtilities }) {
 			addUtilities({
 				'.scrollbar-hide': {
 					'-ms-overflow-style': 'none',

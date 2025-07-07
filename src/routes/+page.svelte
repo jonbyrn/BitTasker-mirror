@@ -112,12 +112,12 @@
 					<div class="space-y-6">
 						<!-- Two secondary buttons on top row -->
 						<div class="flex flex-col sm:flex-row justify-center gap-4">
-							<a href="/browse-tasks" class="btn btn-secondary w-64 sm:w-auto mx-auto sm:mx-0">{$t('navbar.browse_tasks')}</a>
-							<a href="/browse-freelancers" class="btn btn-secondary w-64 sm:w-auto mx-auto sm:mx-0">{$t('navbar.browse_freelancers')}</a>
+							<a href="/dashboard/find-tasks" class="btn btn-secondary w-64 sm:w-auto mx-auto sm:mx-0">{$t('navbar.browse_tasks')}</a>
+							<a href="/dashboard/professionals" class="btn btn-secondary w-64 sm:w-auto mx-auto sm:mx-0">{$t('navbar.browse_freelancers')}</a>
 						</div>
 						<!-- Large primary button below -->
 						<div class="flex justify-center">
-							<a href="/auth/signup" class="btn btn-primary btn-lg shadow-lg px-8 w-72 sm:w-auto">{$t('homepage.v2.hero.cta')}</a>
+							<a href="/auth/signup" class="btn btn-primary btn-lg shadow-lg px-8 w-64 sm:w-auto">{$t('homepage.v2.hero.cta')}</a>
 						</div>
 					</div>
 				</div>
@@ -229,7 +229,7 @@
 			<div class="container mx-auto px-4">
 				<div class="mb-8 flex items-center justify-between">
 					<h2 class="text-3xl font-bold">{$t('homepage.v2.livetasks.title')}</h2>
-					<a href="/tasks" class="btn btn-link text-primary">{$t('common.view_all')} 
+					<a href="/dashboard/find-tasks" class="btn btn-link text-primary">{$t('common.view_all')} 
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ml-1 h-5 w-5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
 						</svg>
@@ -283,7 +283,7 @@
 			<div class="container mx-auto px-4">
 				<div class="mb-8 flex items-center justify-between">
 					<h2 class="text-3xl font-bold">{$t('homepage.v2.freelancers.title')}</h2>
-					<a href="/freelancers" class="btn btn-link text-primary">{$t('common.view_all')}
+					<a href="/dashboard/professionals" class="btn btn-link text-primary">{$t('common.view_all')}
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ml-1 h-5 w-5">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
 						</svg>
