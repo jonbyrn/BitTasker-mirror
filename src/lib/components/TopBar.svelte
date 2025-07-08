@@ -4,8 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/stores/user.store';
 	import { darkMode } from '$lib/stores/theme.store';
-	import { t, locale } from '$lib/stores/i18n.store';
-	import { setLocale } from '$lib/stores/i18n.store';
+	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { showBackButton } from '$lib/stores/navigation.store';
@@ -14,16 +13,6 @@
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import 'iconify-icon';
-
-	const languages: { code: Locales; name: string; flag: string }[] = [
-		{ code: 'en', name: 'English', flag: '🇺🇸' },
-		{ code: 'es', name: 'Español', flag: '🇪🇸' }
-	];
-
-	const getCurrentLanguageFlag = () => {
-		const currentLang = languages.find((lang) => lang.code === $locale);
-		return currentLang?.flag || '🇺🇸';
-	};
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
@@ -228,7 +217,7 @@
 						? '/images/Bittasker-logo-no-tagline-dark.svg'
 						: '/images/Bittasker-logo-no-tagline-light.svg'}
 					alt="BitTasker Logo"
-					class="mx-auto mt-1 ml-6 block max-h-10"
+					class="mx-auto block max-h-10"
 				/>
 			</a>
 		{:else if $showBackButton}
@@ -272,10 +261,10 @@
 				</li>
 
 				<li>
-					<a href="/browse-freelancers">{$t('navbar.browse_freelancers')}</a>
+					<a href="/dashboard/professionals">{$t('navbar.browse_freelancers')}</a>
 				</li>
 				<li>
-					<a href="/browse-tasks">{$t('navbar.browse_tasks')}</a>
+					<a href="/dashboard/find-tasks">{$t('navbar.browse_tasks')}</a>
 				</li>
 				<li>
 					<a href="/fees">{$t('navbar.fees')}</a>
@@ -286,10 +275,12 @@
 					class="dropdown tooltip tooltip-bottom"
 					data-tip={$t(
 						'navbar.tooltip.language',
-						new Map([['name', languages.find((lang) => lang.code === $locale)?.name || 'English']])
+						new Map([['name', LANGUAGES.find((lang) => lang.code === $locale)?.name || 'English']])
 					)}
 				>
-					<div tabindex="0" role="button" class="btn btn-ghost">
+					<div tabindex="0" role="button" class="btn btn-ghost flex items-center gap-2">
+						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
+						></iconify-icon>
 						<span class="font-medium uppercase">{$locale}</span>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -306,12 +297,20 @@
 							/>
 						</svg>
 					</div>
-					<ul class="dropdown-content menu bg-base-100 rounded-lg z-[1] mt-4 w-52 p-2 shadow">
-						{#each languages as { code, name, flag }}
+					<ul class="dropdown-content menu bg-base-100 z-[1] mt-4 w-52 rounded-lg p-2 shadow">
+						{#each LANGUAGES as { code, name, flag }}
 							<li>
-								<button class="text-left" onclick={() => handleLanguageChange(code)}>
-									<span class="mr-2">{flag}</span>
-									{name}
+								<button
+									class="flex w-full items-center gap-2 text-left"
+									onclick={() => handleLanguageChange(code)}
+									class:bg-base-200={code === $locale}
+								>
+									<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
+									<span>{name}</span>
+									{#if code === $locale}
+										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"
+										></iconify-icon>
+									{/if}
 								</button>
 							</li>
 						{/each}
@@ -417,22 +416,28 @@
 			<!-- Language submenu -->
 			<li>
 				<details class="w-[98%]">
-					<summary>
-						<iconify-icon icon="mdi:translate" width="20"></iconify-icon>
+					<summary class="flex items-center gap-2">
+						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
+						></iconify-icon>
 						{$t('navbar.language')}
 					</summary>
 					<ul>
-						{#each languages as { code, name }}
+						{#each LANGUAGES as { code, name, flag }}
 							<li>
 								<button
-									class="flex items-center gap-2"
+									class="flex w-full items-center gap-2 text-left"
+									class:bg-base-200={code === $locale}
 									onclick={() => {
 										handleLanguageChange(code);
 										closeDrawer();
 									}}
 								>
-									<iconify-icon icon="mdi:translate" width="18"></iconify-icon>
-									{name}
+									<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
+									<span>{name}</span>
+									{#if code === $locale}
+										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"
+										></iconify-icon>
+									{/if}
 								</button>
 							</li>
 						{/each}

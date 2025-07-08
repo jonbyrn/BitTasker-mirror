@@ -13,11 +13,11 @@ const pool = new SimplePool();
  * @param metadata - The metadata for the event
  * @returns The signed event
  */
-export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {
+export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {        
     const initialEvent = {
         created_at: metadata.created_at || Math.floor(Date.now() / 1000),
         kind: metadata.kind!,
-        tags: metadata.tags || [],
+        tags: [...(metadata.tags || []), ['v', __APP_VERSION__]],
         content: metadata.content || ''
     };
 
