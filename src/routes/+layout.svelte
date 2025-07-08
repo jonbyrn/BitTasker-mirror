@@ -72,7 +72,7 @@
 <main
 	data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
 	id="main"
-	class="flex h-[100dvh] flex-col"
+	class="min-h-[100dvh] flex flex-col"
 >
 	<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 	{#if showTopBar}
