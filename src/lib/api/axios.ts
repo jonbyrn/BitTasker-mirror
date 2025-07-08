@@ -9,7 +9,8 @@ interface RequestConfig extends AxiosRequestConfig {
 const createAxiosInstance = (config: RequestConfig = {}) => {
 	const instance = axios.create({
 		headers: {
-			'Content-Type': 'application/json'
+			'Content-Type': 'application/json',
+			'ngrok-skip-browser-warning': 'true'
 		},
 		...config
 	});

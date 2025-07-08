@@ -4,8 +4,9 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
-	import { TriggerSavedSearchCheckStore, type TaskBodyInput } from '$houdini';
+	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 	import { taskStore as store, STEPS } from '$lib/stores/task.store';
+	import { TriggerSavedSearchCheckStore, type TaskBodyInput } from '$houdini';
 	import { createTask, createRecurringTask, updateTask } from '$lib/nostr/task';
 	import {
 		BudgetTypeEnum,
@@ -19,7 +20,6 @@
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);

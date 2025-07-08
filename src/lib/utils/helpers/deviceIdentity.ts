@@ -150,3 +150,21 @@ function generateRandomId(): string {
 	crypto.getRandomValues(array);
 	return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
+
+/**
+ * Create a user-friendly identifier from public key (handles both hex and npub formats)
+ */
+export function createUserFriendlyName(publicKey: string): string {
+	if (publicKey.startsWith('npub')) {
+		// For npub format, take meaningful part after 'npub'
+		const npubPart = publicKey.slice(4); // Remove 'npub' prefix
+		const prefix = npubPart.slice(0, 8);
+		const suffix = npubPart.slice(-6); // Take last 6 chars (before checksum)
+		return `npub${prefix}...${suffix}`;
+	} else {
+		// For hex format, take first 8 and last 8 characters
+		const prefix = publicKey.slice(0, 8);
+		const suffix = publicKey.slice(-8);
+		return `${prefix}...${suffix}`;
+	}
+}
