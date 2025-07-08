@@ -135,7 +135,7 @@
 					<button
 						type="button"
 						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none"
-						onclick={() => removeTag(tag.id)}
+						onclick={() => removeTag(tag)}
 						aria-label="Remove tag"
 					>
 						<svg

@@ -191,7 +191,7 @@
 							<h3 class="card-title text-lg">{task.title}</h3>
 
 							<!-- Bid Information -->
-							<div class="badge badge-sm badge-info gap-1">
+							<div class="badge badge-sm badge-info gap-1 whitespace-nowrap">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-4 w-4"
