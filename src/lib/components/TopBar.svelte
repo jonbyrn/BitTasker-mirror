@@ -261,10 +261,10 @@
 				</li>
 
 				<li>
-					<a href="/browse-freelancers">{$t('navbar.browse_freelancers')}</a>
+					<a href="/dashboard/professionals">{$t('navbar.browse_freelancers')}</a>
 				</li>
 				<li>
-					<a href="/browse-tasks">{$t('navbar.browse_tasks')}</a>
+					<a href="/dashboard/find-tasks">{$t('navbar.browse_tasks')}</a>
 				</li>
 				<li>
 					<a href="/fees">{$t('navbar.fees')}</a>
