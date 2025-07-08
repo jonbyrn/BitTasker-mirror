@@ -19,6 +19,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
+	import { appStore } from '$lib/stores/app.store';
 
 	let {
 		nextStep,
@@ -131,19 +132,18 @@
 
 			// Register device with server
 			const deviceName = await getDeviceName();
+			let credentialId = '';
 			if (isMobileBiometrics) {
-				await setBiometricKey(npub, {
-					key: exportedKey,
-					iv: encrypted.iv,
-					authTag: encrypted.authTag,
-					data: encrypted.data,
-					salt
-				});
-				await authService.registerPasskeyDevice(npub, deviceId, deviceName);
+				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
 			} else {
-				const credentialId = await setWebBiometricKey(npub, exportedKey, username);
-				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+				credentialId = await setWebBiometricKey(npub, exportedKey, username);
 			}
+
+			if (!credentialId) {
+				throw new Error('Failed to get credential ID');
+			}
+
+			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
@@ -151,6 +151,22 @@
 					key: StorageKeys.ACCESS_TOKEN,
 					value: response.access_token
 				});
+				await Preferences.set({
+					key: StorageKeys.NPUB,
+					value: npub
+				});
+				await Preferences.set({
+					key: StorageKeys.AUTH_METHOD,
+					value: 'passkey'
+				});
+				appStore.update((state) => ({
+					...state,
+					biometricData: {
+						username: npub,
+						password: JSON.stringify({ key: exportedKey, data: encrypted.data, iv: encrypted.iv, authTag: encrypted.authTag, salt }),
+						server: deviceId
+					}
+				}));
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);

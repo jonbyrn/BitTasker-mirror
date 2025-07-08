@@ -46,7 +46,7 @@ class PushNotificationService {
 		});
 	}
 
-	// TODO: Get this from your app config or package.json
+	// Get this from your app config or package.json
 	private getAppVersion(): string {
 		return __APP_VERSION__;
 	}

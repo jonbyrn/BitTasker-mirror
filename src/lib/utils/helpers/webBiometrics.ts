@@ -4,8 +4,8 @@
  */
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
-import { getDeviceIdentifier } from './deviceIdentity';
-import { bytesToHex, hexToBytes } from '$lib/utils/helpers/encoding';
+import { createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
+import { packKeys, unPackKeys } from '$lib/utils/helpers/encoding';
 import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
@@ -44,33 +44,6 @@ function generateChallenge(): ArrayBuffer {
 }
 
 /**
- * Convert string to ArrayBuffer
- */
-function stringToArrayBuffer(str: string): ArrayBuffer {
-	const encoder = new TextEncoder();
-	return encoder.encode(str).buffer;
-}
-
-/**
- * Convert ArrayBuffer to Base64 string
- */
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-	return btoa(String.fromCharCode(...new Uint8Array(buffer)));
-}
-
-/**
- * Convert Base64 string to ArrayBuffer
- */
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
-	const binaryString = atob(base64);
-	const bytes = new Uint8Array(binaryString.length);
-	for (let i = 0; i < binaryString.length; i++) {
-		bytes[i] = binaryString.charCodeAt(i);
-	}
-	return bytes.buffer;
-}
-
-/**
  * Check if WebAuthn is available in the current browser
  */
 export const checkWebBiometricAvailability = async (): Promise<boolean> => {
@@ -90,9 +63,7 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
  * Verify user identity using WebAuthn with automatic credential discovery
  * Returns the credentials if authentication is successful
  */
-export async function verifyIdentity(
-	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
-): Promise<boolean> {
+export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS): Promise<boolean> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
@@ -127,31 +98,13 @@ export async function verifyIdentity(
 }
 
 /**
- * Create a user-friendly identifier from public key (handles both hex and npub formats)
- */
-function createUserFriendlyName(publicKey: string): string {
-	if (publicKey.startsWith('npub')) {
-		// For npub format, take meaningful part after 'npub'
-		const npubPart = publicKey.slice(4); // Remove 'npub' prefix
-		const prefix = npubPart.slice(0, 8);
-		const suffix = npubPart.slice(-6); // Take last 6 chars (before checksum)
-		return `npub${prefix}...${suffix}`;
-	} else {
-		// For hex format, take first 8 and last 8 characters
-		const prefix = publicKey.slice(0, 8);
-		const suffix = publicKey.slice(-8);
-		return `${prefix}...${suffix}`;
-	}
-}
-
-/**
  * Create display name with timestamp for uniqueness
  */
 function createDisplayName(publicKey: string, customName?: string): string {
 	if (customName) {
 		return `BitTasker ${customName}`;
 	}
-	
+
 	const friendlyId = createUserFriendlyName(publicKey);
 	const date = new Date().toLocaleDateString();
 	return `BitTasker ${friendlyId} (${date})`;
@@ -262,6 +215,11 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		const deviceId = await getDeviceIdentifier();
 
 		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id);
+
+		if (!encryptedPrivateKey) {
+			throw new Error('No encrypted data found');
+		}
+
 		return {
 			username: publicKey,
 			password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
@@ -269,60 +227,6 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		};
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
-		throw new Error('Failed to get biometric data');
+		throw new Error('Failed to get biometric data' + err);
 	}
-}
-
-/**
- * Pack public key and exported key into 64 bytes using binary optimization
- * Stores public key as raw bytes (32 bytes) + exported key as raw bytes (32 bytes)
- */
-function packKeys(publicKey: string, exportedKey: string): ArrayBuffer {
-	// Convert hex public key to raw bytes (64 chars -> 32 bytes)
-	const pubKeyBytes = hexToBytes(publicKey);
-	
-	// Decode base64 exported key to raw bytes
-	const exportedKeyBytes = Uint8Array.from(atob(exportedKey), c => c.charCodeAt(0));
-
-	// Check if both fit exactly in 64 bytes
-	if (pubKeyBytes.length + exportedKeyBytes.length > 64) {
-		throw new Error(`Data too large: ${pubKeyBytes.length + exportedKeyBytes.length} bytes (max 64)`);
-	}
-	
-	// Create 64-byte buffer: 32 bytes pubkey + 32 bytes exported key
-	const packed = new Uint8Array(64);
-	packed.set(pubKeyBytes, 0);
-	packed.set(exportedKeyBytes, 32);
-	
-	return packed.buffer;
-}
-
-/**
- * Unpack user data from 64-byte buffer (binary format)
- * Returns original public key and exported key with no data loss
- */
-function unPackKeys(userHandle: ArrayBuffer): { publicKey: string; exportedKey: string } {
-	const bytes = new Uint8Array(userHandle);
-	
-	// Extract public key bytes (first 32 bytes) and convert back to hex
-	const pubKeyBytes = bytes.slice(0, 32);
-	const publicKey = bytesToHex(pubKeyBytes);
-	
-	// Extract exported key bytes (last 32 bytes) and remove zero padding
-	const exportedKeyBytes = bytes.slice(32, 64);
-	
-	// Find the actual length by looking for the last non-zero byte
-	let actualLength = 32;
-	for (let i = 31; i >= 0; i--) {
-		if (exportedKeyBytes[i] !== 0) {
-			actualLength = i + 1;
-			break;
-		}
-	}
-	
-	// Convert back to base64
-	const actualExportedKeyBytes = exportedKeyBytes.slice(0, actualLength);
-	const exportedKey = btoa(String.fromCharCode(...actualExportedKeyBytes));
-	
-	return { publicKey, exportedKey };
 }

@@ -87,17 +87,13 @@
 		const deviceId = await getDeviceIdentifier();
 		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
 
+		const deviceName = await getDeviceName();
+		
 		if (authMethods.biometric) {
-			await setBiometricKey(npub, {
-				key: exportedKey,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				data: encrypted.data,
-				salt
-			});
+			const credentialId = await setBiometricKey(npub, exportedKey);
+			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 		} else if (authMethods.webAuthn) {
 			const credentialId = await setWebBiometricKey(npub, exportedKey);
-			const deviceName = await getDeviceName();
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 		}
 	};
