@@ -76,6 +76,9 @@ export async function setBiometricKey(
 			username: userName,
 			password: JSON.stringify(credentialData),
 			server: deviceId
+		}).catch(err => {
+			console.error('Failed to set biometric key:', err);
+			throw new Error('Failed to set biometric key');
 		});
 
 
@@ -83,7 +86,7 @@ export async function setBiometricKey(
 		return credentialId;
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		throw new Error('Failed to set biometric key');
+		throw new Error('Failed to set biometric key' + err);
 	}
 }
 

@@ -20,6 +20,7 @@
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
 	import { appStore } from '$lib/stores/app.store';
+	import { authState } from '$lib/stores/auth.store';
 
 	let {
 		nextStep,
@@ -115,18 +116,6 @@
 			// Encrypt the private key with device ID as the password
 			const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
 
-			// Register with server
-			await authService.registerWithNostr({
-				username,
-				publicKey: npub,
-				encryptedPrivateKey: encrypted.data,
-				iv: encrypted.iv,
-				salt: salt,
-				authTag: encrypted.authTag,
-				iterations,
-				authMethod: 'passkey'
-			});
-
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
@@ -143,30 +132,40 @@
 				throw new Error('Failed to get credential ID');
 			}
 
+			// Register with server
+			await authService.registerWithNostr({
+				username,
+				publicKey: npub,
+				encryptedPrivateKey: encrypted.data,
+				iv: encrypted.iv,
+				salt: salt,
+				authTag: encrypted.authTag,
+				iterations,
+				authMethod: 'passkey'
+			});
+
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
-				await Preferences.set({
-					key: StorageKeys.ACCESS_TOKEN,
-					value: response.access_token
-				});
-				await Preferences.set({
-					key: StorageKeys.NPUB,
-					value: npub
-				});
-				await Preferences.set({
-					key: StorageKeys.AUTH_METHOD,
-					value: 'passkey'
-				});
-				appStore.update((state) => ({
-					...state,
-					biometricData: {
-						username: npub,
-						password: JSON.stringify({ key: exportedKey, data: encrypted.data, iv: encrypted.iv, authTag: encrypted.authTag, salt }),
-						server: deviceId
-					}
-				}));
+				const biometricData = {
+					username: npub,
+					password: JSON.stringify({
+						key: exportedKey,
+						data: encrypted.data,
+						iv: encrypted.iv,
+						authTag: encrypted.authTag,
+						salt
+					}),
+					server: deviceId
+				};
+				authState.setupAuthData(
+					response.access_token,
+					'passkey',
+					npub,
+					response.user,
+					biometricData
+				);
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);

@@ -76,22 +76,7 @@
 			const res = await authService.loginWithNostr(rawSignedEvent, challenge);
 
 			if (res.access_token) {
-				await Preferences.set({
-					key: StorageKeys.ACCESS_TOKEN,
-					value: res.access_token
-				});
-				// TODO: To be removed after getting auth method from the server
-				await Preferences.set({
-					key: StorageKeys.AUTH_METHOD,
-					value: 'alby'
-				});
-				await Preferences.set({
-					key: StorageKeys.NPUB,
-					value: pubkey
-				});
-				user.updateProfile(res.user);
-				authState.login();
-				goto('/dashboard').then(() => {});
+				authState.setupAuthData(res.access_token, 'alby', pubkey, res.user);
 			}
 		} catch (err) {
 			console.error('Nostr login error:', err);
@@ -200,4 +185,3 @@
 		</div>
 	{/if}
 {/if}
-

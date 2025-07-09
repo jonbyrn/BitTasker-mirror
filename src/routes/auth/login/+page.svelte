@@ -61,18 +61,7 @@
 			throw new Error($t('auth.login.errors.no_token'));
 		}
 
-		// Store access token securely
-		await Preferences.set({
-			key: StorageKeys.ACCESS_TOKEN,
-			value: response.access_token
-		});
-
-		// Update user state and navigate to dashboard
-		user.updateProfile(response.user);
-		authState.login();
-		appStore.update((state) => ({ ...state, biometricData }));
-		await Preferences.set({ key: StorageKeys.NPUB, value: pubKey });
-		goto('/dashboard');
+		authState.setupAuthData(response.access_token, 'passkey', pubKey, response.user, biometricData);
 	}
 
 	async function authenticate() {
