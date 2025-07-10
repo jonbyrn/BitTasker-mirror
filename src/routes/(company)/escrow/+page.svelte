@@ -1,9 +1,135 @@
-<script lang="ts">
-	import ComingSoon from '$lib/components/ComingSoon.svelte';
-</script>
+<div class="container mx-auto p-4 py-8 md:p-12">
+	<div class="text-center">
+		<h1 class="text-4xl font-bold">Bitcoin-Powered Escrow</h1>
+		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+			Our automated escrow system ensures every transaction is secure, transparent, and fair. Funds
+			are only released when the work is done or conditions are met, protecting both clients and
+			freelancers.
+		</p>
+	</div>
 
-<ComingSoon 
-	title="Escrow Information" 
-	subtitle="Bitcoin-Powered Security" 
-	description="Learn about our revolutionary Bitcoin escrow system that keeps your payments secure. Detailed information coming soon!" 
-/>
+	<div class="mt-12">
+		<!-- Simplified Section -->
+		<div class="prose mx-auto max-w-4xl lg:prose-lg">
+			<h2 class="text-center">Peace of Mind Payments: A Simple Guide to Escrow</h2>
+			<p>
+				Think of our escrow as a <strong class="text-primary">smart, digital safe deposit box</strong>
+				that holds the payment for a task until everyone agrees the job is done. It's designed to be
+				fair, automatic, and secure, all powered by Bitcoin technology.
+			</p>
+
+			<h3>Step 1: Funding the Task</h3>
+			<p>
+				When a client hires a freelancer, they place the payment into the shared digital lockbox.
+				From this moment on, the funds are safe and can only be moved when specific conditions are
+				met. Neither the client nor the freelancer can access the funds alone.
+			</p>
+
+			<h3>Step 2: Completing the Task & Getting Paid</h3>
+			<p>
+				Once the freelancer finishes the work, they mark the task as complete. The client then
+				reviews the work.
+			</p>
+			<ul>
+				<li>
+					<strong>If the client is happy</strong>, they approve the payment, and the funds are
+					instantly released from the lockbox to the freelancer.
+				</li>
+				<li>
+					<strong>Safety Net:</strong> If the client doesn't take any action within 7 days, the
+					system automatically pays the freelancer. This protects freelancers from unresponsive
+					clients.
+				</li>
+			</ul>
+
+			<h3>What If Something Goes Wrong?</h3>
+			<p>Our system has built-in rules to handle common issues automatically and fairly.</p>
+			<ul>
+				<li>
+					<strong>Cancellations:</strong> If the task is cancelled by either the client or the
+					freelancer for a valid reason, the money is returned to the client. It's that simple.
+				</li>
+				<li>
+					<strong>Changing the Job (Rescoping):</strong> If the job changes, the freelancer can
+					initiate a "rescope." A small portion (10%) is released to the freelancer for their
+					time, and the rest is returned to the client to fund a new, updated task.
+				</li>
+				<li>
+					<strong>Disputes:</strong> If the client isn't satisfied, they can raise a dispute. The
+					funds stay locked while both parties discuss a fair solution, like a partial refund.
+					If they can't agree, the system follows a clear, time-based process that ultimately
+					returns the funds to the client.
+				</li>
+			</ul>
+		</div>
+
+		<div class="divider mx-auto my-12 max-w-4xl"></div>
+
+		<!-- Technical Section -->
+		<div class="prose mx-auto max-w-4xl lg:prose-lg">
+			<h2 class="text-center">Under the Hood: A Technical Look at Our Bitcoin Escrow</h2>
+			<p>
+				Our escrow system is built on the <strong class="text-primary">Liquid Network</strong>, a
+				Bitcoin sidechain that enables fast, confidential transactions. We leverage
+				<strong class="text-primary">2-of-2 multisignature wallets</strong>, cryptographic
+				<strong class="text-primary">timelocks</strong>, and
+				<strong class="text-primary">pre-signed transactions</strong> to create a fully automated,
+				non-custodial, and trustless process.
+			</p>
+
+			<h3>The Core Mechanism: 2-of-2 Multisig & Pre-Signed Transactions</h3>
+			<p>
+				Every escrow wallet requires two signatures to authorize a transaction, ensuring no single
+				party can control the funds. At each stage, the system generates pre-signed transactions
+				for every possible outcome (e.g., payment, refund). These transactions are held off-chain
+				and only become valid when a corresponding timelock expires or the other party provides
+				the second signature.
+			</p>
+
+			<h3>The Escrow Lifecycle</h3>
+			<ol>
+				<li>
+					<strong>Initial Setup:</strong> A client funds a 2-of-2 multisig wallet. A pre-signed
+					refund transaction is created with a 14-day timelock. If the freelancer is unresponsive,
+					this ensures an automatic refund to the client.
+				</li>
+				<li>
+					<strong>Cancellation:</strong> If either party cancels, the platform facilitates the
+					signing of a refund transaction, and the client receives a full refund (platform fees
+					are also refunded).
+				</li>
+				<li>
+					<strong>Task Completion:</strong> When the freelancer marks the task as done, funds move to
+					a 2-of-2 “done wallet.” This new wallet has a 7-day timelock for automatic payment to
+					the freelancer. The client can immediately co-sign the payment transaction or initiate a
+					dispute.
+				</li>
+				<li>
+					<strong>Dispute Process:</strong>
+					<ul>
+						<li>
+							If a dispute is opened, funds move to a “dispute wallet” with a 14-day timelock
+							set to refund the client. This is the default outcome if no agreement is reached.
+						</li>
+						<li>
+							Either party can propose a split by creating and single-signing a new transaction.
+							If the other party agrees and signs, the new outcome is executed immediately.
+						</li>
+						<li>
+							If the first proposal is rejected, funds move to a final dispute wallet with a
+							30-day timelock favoring the client. This serves as the final, unchangeable
+							fallback to ensure resolution.
+						</li>
+					</ul>
+				</li>
+			</ol>
+
+			<h3>Platform Fees</h3>
+			<p>
+				Platform fees are charged upon successful completion of a task (when the client accepts or
+				the 7-day timelock expires) and during dispute resolutions. Fees are fully refunded in
+				the case of a valid cancellation.
+			</p>
+		</div>
+	</div>
+</div>
