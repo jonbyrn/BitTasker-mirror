@@ -66,3 +66,26 @@
 .fa-play:before {
   content: "\f04b";
 }
+
+/* Sizing */
+.fa-lg {
+  font-size: 1.25em;
+  line-height: 0.05em;
+  vertical-align: -0.075em;
+}
+
+.fa-xl {
+  font-size: 1.5em;
+  line-height: 0.0417em;
+  vertical-align: -0.125em;
+}
+
+.fa-2xl {
+  font-size: 2em;
+  line-height: 0.0313em;
+  vertical-align: -0.1875em;
+}
+
+.fa-envelope:before {
+  content: "\f0e0";
+}

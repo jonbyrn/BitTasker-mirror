@@ -204,7 +204,7 @@
 								<li>
 									<a href="/how-it-works" class="hover:text-primary">{$t('footer.how_it_works')}</a>
 								</li>
-								<li><a href="/fees" class="hover:text-primary">{$t('footer.fees')}</a></li>
+								<li><a href="/client-fees" class="hover:text-primary">{$t('footer.client_fees')}</a></li>
 								<li><a href="/escrow" class="hover:text-primary">{$t('footer.escrow')}</a></li>
 								<li><a href="/faq" class="hover:text-primary">{$t('footer.faq')}</a></li>
 							</ul>
@@ -225,7 +225,7 @@
 									>
 								</li>
 								<li>
-									<a href="/fees" class="hover:text-primary">{$t('footer.tasker_fees')}</a>
+									<a href="/tasker-fees" class="hover:text-primary">{$t('footer.tasker_fees')}</a>
 								</li>
 								<li>
 									<a href="/tasker-principles" class="hover:text-primary"
