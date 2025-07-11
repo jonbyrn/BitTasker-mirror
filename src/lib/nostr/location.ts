@@ -2,7 +2,7 @@ import type { Location } from '$lib/types/task';
 import type { NostrEvent, Filter } from '$lib/types/nostr';
 import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
-import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
 import { profileStore } from '$lib/stores/profile.store';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
@@ -115,30 +115,65 @@ export async function getLatestLocation(
     relays = RELAYS
 ): Promise<Location | null> {
     try {
-        const keyPair = await getNostrKeyPair();
-        const nsec = bytesToHex(keyPair.nsec);
-        const npub = keyPair.npub;
+        // Get authentication method to determine decryption approach
+        const { Preferences } = await import('@capacitor/preferences');
+        const { StorageKeys } = await import('$lib/utils/constants/storage');
+        const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
 
-        // Get conversation key for decryption
-        const conversationKey = await nip44.getConversationKey(nsec, npub);
+        let npub: string;
+        let decryptedContent: string;
 
-        // Get latest location event
-        const event = await profileStore.pool.get(
-            relays,
-            {
-                authors: [npub],
-                kinds: [KINDS.PROFILE_LOCATION],
-                '#d': ['location'],
-                limit: 1
-            } as Filter
-        );
+        if (authMethod === 'alby') {
+            npub = await getNpub();
 
-        if (!event) {
-            return null;
+            // Get latest location event
+            const event = await profileStore.pool.get(
+                relays,
+                {
+                    authors: [npub],
+                    kinds: [KINDS.PROFILE_LOCATION],
+                    '#d': ['location'],
+                    limit: 1
+                } as Filter
+            );
+
+            if (!event) return null;
+
+            // Use Alby's NIP-44 decryption if available
+            if (window.nostr?.nip44?.decrypt) {
+                decryptedContent = await window.nostr.nip44.decrypt(npub, event.content);
+                console.log('decryptedContent', decryptedContent);
+            } else {
+                throw new Error('NIP-44 decryption not supported by Nostr extension');
+            }
+        } else {
+            // For passkeys, use the existing logic with getNostrKeyPair
+            const keyPair = await getNostrKeyPair();
+            const nsec = bytesToHex(keyPair.nsec);
+            npub = keyPair.npub;
+
+            // Get conversation key for decryption
+            const conversationKey = await nip44.getConversationKey(nsec, npub);
+
+            // Get latest location event
+            const event = await profileStore.pool.get(
+                relays,
+                {
+                    authors: [npub],
+                    kinds: [KINDS.PROFILE_LOCATION],
+                    '#d': ['location'],
+                    limit: 1
+                } as Filter
+            );
+
+            if (!event) {
+                return null;
+            }
+
+            // Decrypt using the custom NIP-44 implementation
+            decryptedContent = await nip44.decrypt(event.content, conversationKey);
         }
 
-        // Decrypt and return location data
-        const decryptedContent = await nip44.decrypt(event.content, conversationKey);
         return JSON.parse(decryptedContent) as Location;
     } catch (error) {
         console.error('Failed to get latest location:', error);

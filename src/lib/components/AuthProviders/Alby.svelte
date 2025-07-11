@@ -1,12 +1,8 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
-	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/stores/user.store';
-	import { authState } from '$lib/stores/auth.store';
-	import { StorageKeys } from '$lib/utils/constants/storage';
-	import authService from '$lib/api/services/auth.service';
 	import type { NostrEvent, SignedNostrEvent } from '$lib/types/nostr';
+	import { browser } from '$app/environment';
+	import { authState } from '$lib/stores/auth.store';
+	import authService from '$lib/api/services/auth.service';
 
 	let { disabled = false } = $props();
 
@@ -76,22 +72,7 @@
 			const res = await authService.loginWithNostr(rawSignedEvent, challenge);
 
 			if (res.access_token) {
-				await Preferences.set({
-					key: StorageKeys.ACCESS_TOKEN,
-					value: res.access_token
-				});
-				// TODO: To be removed after getting auth method from the server
-				await Preferences.set({
-					key: StorageKeys.AUTH_METHOD,
-					value: 'alby'
-				});
-				await Preferences.set({
-					key: StorageKeys.NPUB,
-					value: pubkey
-				});
-				user.updateProfile(res.user);
-				authState.login();
-				goto('/dashboard').then(() => {});
+				authState.setupAuthData(res.access_token, 'alby', pubkey, res.user);
 			}
 		} catch (err) {
 			console.error('Nostr login error:', err);
@@ -200,4 +181,3 @@
 		</div>
 	{/if}
 {/if}
-

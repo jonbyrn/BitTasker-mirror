@@ -53,6 +53,18 @@
 				<string>com.googleusercontent.apps.34873600037-buauqumc2ntu2vsg0faref5oi6ht6r3q</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>BitTasker Auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bittasker</string>
+			</array>
+		</dict>
 	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>This app uses Bluetooth to discover nearby devices for passkey authentication</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>This app uses Bluetooth to discover nearby devices for passkey authentication</string>
 </dict>
 </plist>

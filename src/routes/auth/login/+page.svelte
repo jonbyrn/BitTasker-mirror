@@ -2,19 +2,15 @@
 	import type { Credentials } from '$lib/types/auth';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Preferences } from '@capacitor/preferences';
 	import { t } from '$lib/stores/i18n.store';
-	import { user } from '$lib/stores/user.store';
-	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
 		getWebBiometricData
 	} from '$lib/utils/helpers/webBiometrics';
-	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 
@@ -61,18 +57,7 @@
 			throw new Error($t('auth.login.errors.no_token'));
 		}
 
-		// Store access token securely
-		await Preferences.set({
-			key: StorageKeys.ACCESS_TOKEN,
-			value: response.access_token
-		});
-
-		// Update user state and navigate to dashboard
-		user.updateProfile(response.user);
-		authState.login();
-		appStore.update((state) => ({ ...state, biometricData }));
-		await Preferences.set({ key: StorageKeys.NPUB, value: pubKey });
-		goto('/dashboard');
+		authState.setupAuthData(response.access_token, 'passkey', pubKey, response.user, biometricData);
 	}
 
 	async function authenticate() {

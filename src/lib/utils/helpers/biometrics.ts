@@ -1,8 +1,9 @@
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { Capacitor } from '@capacitor/core';
 import { NativeBiometric } from 'capacitor-native-biometric';
-import { bytesToBase64, packKeys, unPackKeys } from '$lib/utils/helpers/encoding';
-import { createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { bytesToBase64, packKeysMobile, unPackKeysMobile, unPackKeys } from '$lib/utils/helpers/encoding';
+import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
+import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import authService from '$lib/api/services/auth.service';
 
 const BIOMETRIC_VERIFY_OPTIONS: BiometricVerifyOptions = {
@@ -40,6 +41,16 @@ function generateCredentialId(): string {
 	return bytesToBase64(randomBytes);
 }
 
+function generateChallenge(): string {
+	const arr = new Uint8Array(32);
+	crypto.getRandomValues(arr);
+	// Convert to base64url format
+	return btoa(String.fromCharCode(...arr))
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=/g, '');
+}
+
 /**
  * Set biometric key using shared packKeys format - matches web implementation exactly
  * @param publicKey User's Nostr public key  
@@ -53,37 +64,81 @@ export async function setBiometricKey(
 	customName?: string
 ): Promise<string> {
 	try {
-		const deviceId = await getDeviceIdentifier();
-
-		// Generate unique credential ID for this mobile passkey
-		const credentialId = generateCredentialId();
+		let credentialId: string | null = null;
 
 		// Use the same packKeys function as web implementation
-		const packedKeys = packKeys(publicKey, exportedKey);
+		const packedKeysBase64 = packKeysMobile(publicKey, exportedKey);
 
-		// Convert ArrayBuffer to base64 for mobile storage
-		const packedKeysBase64 = btoa(String.fromCharCode(...new Uint8Array(packedKeys)));
+		const userName = createUserFriendlyName(publicKey);
 
-		const userName = customName || createUserFriendlyName(publicKey);
+		try {
+			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
+			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
-		// Store packed keys + credential ID together
-		const credentialData = {
-			keys: packedKeysBase64,
-			credentialId: credentialId
-		};
+			const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
 
-		await NativeBiometric.setCredentials({
-			username: userName,
-			password: JSON.stringify(credentialData),
-			server: deviceId
-		});
+			const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
+				challenge: generateChallenge(),
+				rp: {
+					name: 'BitTasker',
+					id: window.location.hostname
+				},
+				user: {
+					id: packedKeysBase64,
+					name: userName,
+					displayName: displayName
+				},
+				pubKeyCredParams: [
+					{ type: 'public-key', alg: -7 }, // ES256
+					{ type: 'public-key', alg: -257 } // RS256
+				],
+				timeout: 60000,
+				attestation: 'none',
+				authenticatorSelection: {
+					// authenticatorAttachment: 'platform',
+					userVerification: 'required',
+					requireResidentKey: true,
+					residentKey: 'required'
+				}
+			}
+			console.log({ options: registrationOptions });
 
+			const result = await Webauthn.startRegistration(registrationOptions);
+
+			console.log('result', result);
+			credentialId = result.id;
+		} catch (err) {
+			console.error('capacitor-webauthn error', err);
+			// Generate unique credential ID for this mobile passkey
+			credentialId = generateCredentialId();
+
+			// Store packed keys + credential ID together
+			const credentialData = {
+				keys: packedKeysBase64,
+				credentialId: credentialId
+			};
+
+			const deviceId = await getDeviceIdentifier();
+
+			await NativeBiometric.setCredentials({
+				username: userName,
+				password: JSON.stringify(credentialData),
+				server: deviceId
+			}).catch(err => {
+				console.error('Failed to set native biometrics:', err);
+				throw new Error('Failed to set native biometric' + err);
+			});
+		}
+
+		if (!credentialId) {
+			throw new Error('No credential ID found');
+		}
 
 		// Return credential ID like WebAuthn does
 		return credentialId;
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		throw new Error('Failed to set biometric key');
+		throw new Error('Failed to set biometric key' + err);
 	}
 }
 
@@ -93,49 +148,95 @@ export async function setBiometricKey(
  */
 export async function getBiometricData(): Promise<Credentials | null> {
 	try {
-		const verified = await verifyIdentity();
-		if (!verified) return null;
+		try {
+			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
+			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
-		const deviceId = await getDeviceIdentifier();
+			const options: PublicKeyCredentialRequestOptionsJSON = {
+				challenge: generateChallenge(),
+				timeout: 60000,
+				userVerification: 'required',
+				rpId: window.location.hostname,
+				allowCredentials: []
+			}
+			const credentials = await Webauthn.startAuthentication(options);
 
-		const credentials = await NativeBiometric.getCredentials({
-			server: deviceId
-		});
+			if (!credentials) throw new Error('No credentials found');
 
-		// Parse the stored credential data
-		const credentialData = JSON.parse(credentials.password);
-		const packedKeysBase64 = credentialData.keys;
-		const credentialId = credentialData.credentialId;
+			const response = credentials.response;
 
-		// Convert base64 back to ArrayBuffer
-		const binaryString = atob(packedKeysBase64);
-		const bytes = new Uint8Array(binaryString.length);
-		for (let i = 0; i < binaryString.length; i++) {
-			bytes[i] = binaryString.charCodeAt(i);
+			if (!response.userHandle) {
+				console.error('No user handle in credential response');
+				throw new Error('No user handle in credential response');
+			}
+
+			const packedKeysBase64 = response.userHandle;
+
+			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
+			const publicKey = unpackedKeys.publicKey;
+			const exportedKey = unpackedKeys.exportedKey;
+			console.log('Mobile unpacked keys:', { publicKey: publicKey.substring(0, 16) + '...', exportedKeyLength: exportedKey.length });
+
+			const deviceId = await getDeviceIdentifier();
+
+			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credentials.id);
+
+			if (!encryptedPrivateKey) {
+				throw new Error('No encrypted data found');
+			}
+
+			return {
+				username: publicKey,
+				password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+				server: deviceId
+			};
+		} catch (err) {
+			console.error('capacitor-webauthn error', err);
+
+			const verified = await verifyIdentity();
+			if (!verified) return null;
+
+			const deviceId = await getDeviceIdentifier();
+
+			const credentials = await NativeBiometric.getCredentials({
+				server: deviceId
+			});
+
+			// Parse the stored credential data
+			const credentialData = JSON.parse(credentials.password);
+			const packedKeysBase64 = credentialData.keys;
+			const credentialId = credentialData.credentialId;
+
+			// Convert base64 back to ArrayBuffer
+			const binaryString = atob(packedKeysBase64);
+			const bytes = new Uint8Array(binaryString.length);
+			for (let i = 0; i < binaryString.length; i++) {
+				bytes[i] = binaryString.charCodeAt(i);
+			}
+			const packedKeys = bytes.buffer;
+
+			// Use the same unPackKeys function as web implementation
+			const unpackedKeys = unPackKeys(packedKeys);
+
+			// Get encrypted data from backend using the stored credential ID
+			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
+				unpackedKeys.publicKey,
+				deviceId,
+				credentialId // Use the actual stored credential ID
+			);
+
+			return {
+				username: unpackedKeys.publicKey,
+				password: JSON.stringify({
+					key: unpackedKeys.exportedKey,
+					data: encryptedPrivateKey,
+					iv,
+					authTag,
+					salt
+				}),
+				server: deviceId
+			};
 		}
-		const packedKeys = bytes.buffer;
-
-		// Use the same unPackKeys function as web implementation
-		const unpackedKeys = unPackKeys(packedKeys);
-
-		// Get encrypted data from backend using the stored credential ID
-		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
-			unpackedKeys.publicKey,
-			deviceId,
-			credentialId // Use the actual stored credential ID
-		);
-
-		return {
-			username: unpackedKeys.publicKey,
-			password: JSON.stringify({
-				key: unpackedKeys.exportedKey,
-				data: encryptedPrivateKey,
-				iv,
-				authTag,
-				salt
-			}),
-			server: deviceId
-		};
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
 		return null;

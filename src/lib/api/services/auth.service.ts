@@ -247,7 +247,7 @@ export class AuthService extends BaseApiService {
 		credentialId: string
 	): Promise<{ encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string }> {
 		const response = await this.get(
-			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${publicKey}?deviceId=${deviceId}&credentialId=${credentialId}`
+			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}`
 		);
 		return response.data;
 	}

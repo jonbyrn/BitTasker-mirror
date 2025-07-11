@@ -6,9 +6,17 @@ const config: CapacitorConfig = {
 	appName: 'BitTasker',
 	webDir: 'build',
 	server: {
-		url: process.env.VITE_CLIENT_URL,
+		// url: process.env.VITE_CLIENT_URL,
+		url: 'https://dev.bittasker.com',
 		cleartext: true,
 		androidScheme: 'https',
+	},
+	android: {
+		allowMixedContent: true,
+		webContentsDebuggingEnabled: true
+	},
+	ios: {
+		scheme: 'BitTasker'
 	},
 	plugins: {
 		StatusBar: {

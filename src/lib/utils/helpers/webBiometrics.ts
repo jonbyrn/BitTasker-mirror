@@ -4,7 +4,7 @@
  */
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
-import { createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
+import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
 import { packKeys, unPackKeys } from '$lib/utils/helpers/encoding';
 import authService from '$lib/api/services/auth.service';
 
@@ -98,19 +98,6 @@ export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_
 }
 
 /**
- * Create display name with timestamp for uniqueness
- */
-function createDisplayName(publicKey: string, customName?: string): string {
-	if (customName) {
-		return `BitTasker ${customName}`;
-	}
-
-	const friendlyId = createUserFriendlyName(publicKey);
-	const date = new Date().toLocaleDateString();
-	return `BitTasker ${friendlyId} (${date})`;
-}
-
-/**
  * Register WebAuthn credentials
  * @param publicKey User's Nostr public key  
  * @param exportedKey The exported private key for decryption
@@ -197,7 +184,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		}) as PublicKeyCredential;
 
 		if (!credential) {
-			throw new Error('No credential selected by user');
+			throw new Error('No credential found');
 		}
 
 		// Extract combined data from the user handle
