@@ -117,7 +117,8 @@
 							<li>
 								<strong>All-Inclusive Offers:</strong> Your offer must cover the entire cost of the
 									task, including any materials or expenses. Do not ask for more money after
-									your offer is accepted.
+									your offer is accepted, except in the event that the scope of work was not clearly
+									outlined in the task description.
 							</li>
 							<li>
 								<strong>Only Offer on Tasks You Can Do:</strong> Only make offers on tasks you are

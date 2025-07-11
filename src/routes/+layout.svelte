@@ -239,11 +239,12 @@
 						</div>
 					</div>
 
-					<!-- Legal -->
+					<!-- Company -->
 					<div class="lg:col-span-1">
 						<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company')}</h3>
 						<ul class="space-y-2">
 							<li><a href="/about" class="hover:text-primary">{$t('footer.about_us')}</a></li>
+							<li><a href="/security" class="hover:text-primary">{$t('footer.security')}</a></li>
 							<li><a href="/careers" class="hover:text-primary">{$t('footer.careers')}</a></li>
 							<li><a href="/press" class="hover:text-primary">{$t('footer.press')}</a></li>
 							<li><a href="/terms" class="hover:text-primary">{$t('footer.terms')}</a></li>

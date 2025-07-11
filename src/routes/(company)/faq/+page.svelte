@@ -59,7 +59,7 @@
 								profiles, ratings, and reviews.
 							</li>
 							<li>
-								<strong>Hire & Fund:</strong> Choose the best Tasker and fund the task with Bitcoin.
+								<strong>Hire & Fund:</strong> Choose the best Tasker and fund the task with Bitcoin or fiat.
 								The payment is held securely in our escrow until the task is done.
 							</li>
 							<li>
@@ -94,7 +94,7 @@
 					<div class="collapse-content prose">
 						<p>
 							Review each Tasker's profile, completion rate, and reviews from other clients. You
-							can also ask them questions in the comment section to ensure they're the right fit
+							can also ask them questions via chat to ensure they're the right fit
 							before accepting an offer.
 						</p>
 					</div>
@@ -125,8 +125,11 @@
 					<div class="collapse-content prose">
 						<p>
 							Once you complete the task and request payment, the client will review your work and
-							release the Bitcoin from escrow directly to your wallet. Our automated system also
-							ensures you get paid if the client is unresponsive after 7 days.
+							release the funds from escrow directly to your wallet. Since the agreements are made
+							directly between you and the client without BitTasker as an intermediary, the funds are
+							released to you as soon as you and the client agree that the work is complete. Our
+							automated system also ensures that you get paid if the client is unresponsive after 7 days,
+							and doesn't open a dispute.
 						</p>
 					</div>
 				</div>
@@ -144,7 +147,7 @@
 					<div class="collapse-content prose">
 						<p>
 							Bitcoin enables faster, cheaper, and more secure global payments without relying on
-							traditional banks. We use the Liquid Network for confidential, near-instant
+							traditional banks. We use the Liquid Network for low cost, near-instant
 							transactions.
 						</p>
 					</div>
@@ -159,6 +162,12 @@
 							This fee helps us operate the platform, provide support, and build new features.
 							The fee is a percentage of the task price and is shown to you when you make an
 							offer.
+						</p>
+						<p>
+							In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are
+							charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) 
+							and are not under our control, nor do we receive them. For the Liquid and Lightning networks, 
+							these fees are typically very small, often $0.01 or less.
 						</p>
 					</div>
 				</div>

@@ -20,9 +20,18 @@
 
 			<h3>Step 1: Funding the Task</h3>
 			<p>
-				When a client hires a freelancer, they place the payment into the shared digital lockbox.
+				When a client hires a freelancer, they place the payment into the shared digital lockbox (escrow).
 				From this moment on, the funds are safe and can only be moved when specific conditions are
-				met. Neither the client nor the freelancer can access the funds alone.
+				met. Neither the client nor the freelancer can access the funds alone, but can access them at any point,
+				provided they both agree on the outcome.
+			</p>
+			<p>
+				The escrow period is set to 14 days after the estimated task completion date, with the option to extend
+				it if needed.  At this point, if the freelancer has not marked the task as complete, the funds are automatically returned to the client.
+			</p>
+			<p>
+				This escrow process is achieved through the use of a 2-of-2 multisig wallet, which requires both the client and the freelancer to agree on the outcome of the task.
+				As these agreements are made directly between the client and freelancer, BitTasker is unable to intervene in the process, creating a true peer-to-peer escrow process.
 			</p>
 
 			<h3>Step 2: Completing the Task & Getting Paid</h3>
@@ -33,12 +42,12 @@
 			<ul>
 				<li>
 					<strong>If the client is happy</strong>, they approve the payment, and the funds are
-					instantly released from the lockbox to the freelancer.
+					instantly released from the escrow to the freelancer.
 				</li>
 				<li>
 					<strong>Safety Net:</strong> If the client doesn't take any action within 7 days, the
-					system automatically pays the freelancer. This protects freelancers from unresponsive
-					clients.
+					system automatically releases the funds to the freelancer. This protects freelancers from unresponsive,
+					or forgetful clients.
 				</li>
 			</ul>
 
@@ -58,7 +67,8 @@
 					<strong>Disputes:</strong> If the client isn't satisfied, they can raise a dispute. The
 					funds stay locked while both parties discuss a fair solution, like a partial refund.
 					If they can't agree, the system follows a clear, time-based process that ultimately
-					returns the funds to the client.
+					returns the funds to the client. Depending on the dispute avenue and outcome, this takes
+					place either 14 days, or 30 days after the dispute is raised.
 				</li>
 			</ul>
 		</div>
@@ -82,7 +92,7 @@
 				Every escrow wallet requires two signatures to authorize a transaction, ensuring no single
 				party can control the funds. At each stage, the system generates pre-signed transactions
 				for every possible outcome (e.g., payment, refund). These transactions are held off-chain
-				and only become valid when a corresponding timelock expires or the other party provides
+				and only become valid when a corresponding timelock expires, or the other party provides
 				the second signature.
 			</p>
 
@@ -91,7 +101,8 @@
 				<li>
 					<strong>Initial Setup:</strong> A client funds a 2-of-2 multisig wallet. A pre-signed
 					refund transaction is created with a 14-day timelock. If the freelancer is unresponsive,
-					this ensures an automatic refund to the client.
+					this ensures an automatic refund to the client. The freelancer can also, at any time, 
+					agree to refund the client (if either the client or freelancer needs to cancel, for example).
 				</li>
 				<li>
 					<strong>Cancellation:</strong> If either party cancels, the platform facilitates the
@@ -101,8 +112,8 @@
 				<li>
 					<strong>Task Completion:</strong> When the freelancer marks the task as done, funds move to
 					a 2-of-2 “done wallet.” This new wallet has a 7-day timelock for automatic payment to
-					the freelancer. The client can immediately co-sign the payment transaction or initiate a
-					dispute.
+					the freelancer. The client can co-sign the payment transaction at any time within this 7-day
+					window and pay the freelancer immediately, or initiate a dispute.
 				</li>
 				<li>
 					<strong>Dispute Process:</strong>
@@ -123,6 +134,11 @@
 					</ul>
 				</li>
 			</ol>
+
+			<p>
+				This system favors the client as the client ultimately has more to lose. However, it also forces
+				the client to wait to get refunded, incentivizing the client to choose a fair outcome to avoid waiting the full escrow period.
+			</p>
 
 			<h3>Platform Fees</h3>
 			<p>

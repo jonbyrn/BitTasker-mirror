@@ -156,6 +156,9 @@
 				<p class="text-sm mt-3 opacity-80">
 					Example: For a $100 repeat task, you'll earn $97 with standard payment or $99 with Bitcoin!
 				</p>
+				<p class="text-sm mt-3 opacity-80">
+					Booking repeat work with a client counts towards your 30 day rolling tasks to maintain your tier.
+				</p>
 			</div>
 		</div>
 

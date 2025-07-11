@@ -1,4 +1,15 @@
+<script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+</script>
+
 <div class="container mx-auto px-4 py-12 md:px-8">
+	<img
+		src={$darkMode
+			? '/images/Bittasker-logo-tagline-dark.svg'
+			: '/images/Bittasker-logo-tagline-light.svg'}
+		alt="BitTasker Logo"
+		class="mx-auto mb-8 block w-full max-w-lg"
+	/>
 	<div class="text-center">
 		<h1 class="text-4xl font-bold">Our Tasker Principles</h1>
 		<p class="mx-auto mt-4 max-w-2xl text-lg text-base-content/80">

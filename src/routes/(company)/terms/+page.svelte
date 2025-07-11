@@ -26,7 +26,7 @@
 			Throughout these Terms of Service, when we say:
 		</p>
 		<ul>
-			<li><strong>"BitTasker,"</strong> "we," "us," or "our" refers to BitTasker, Inc., the company that develops and maintains the BitTasker platform.</li>
+			<li><strong>"BitTasker,"</strong> "we," "us," or "our" refers to BitTasker, the company that develops and maintains the BitTasker platform.</li>
 			<li><strong>"Services"</strong> refers to the features and functions provided by the BitTasker platform.</li>
 			<li><strong>"Platform"</strong> refers to our website, mobile applications, and other related services.</li>
 			<li><strong>"User,"</strong> "you," or "your" refers to individuals who use our platform in any capacity.</li>
@@ -43,10 +43,10 @@
 			<p class="m-0 font-semibold">1.1 Basic Principles</p>
 			<ul class="ml-5">
 				<li>BitTasker provides a decentralized platform that enables Posters to publish task requests and Taskers to make offers to complete these tasks.</li>
-				<li>The platform uses the Nostr protocol for identity, data storage, and communications, with Bitcoin as the payment method.</li>
+				<li>The platform uses the Nostr protocol for identity, data storage, and communications, with Bitcoin and fiat as payment methods.</li>
 				<li>When a Poster accepts a Tasker's offer, a Task Contract is created directly between these parties.</li>
-				<li>Upon task completion and confirmation, Bitcoin funds are released from escrow to the Tasker.</li>
-				<li>Both parties are encouraged to review and provide feedback after task completion.</li>
+				<li>Upon task completion and confirmation, funds are released from escrow to the Tasker.</li>
+				<li>Both parties are encouraged to review and provide feedback after task completion, to help the community.</li>
 			</ul>
 		</div>
 
@@ -60,7 +60,7 @@
 					<ul>
 						<li>BitTasker does not store your private keys or have access to your encrypted messages.</li>
 						<li>BitTasker cannot recover lost keys or passwords.</li>
-						<li>BitTasker does not have the ability to reverse Bitcoin transactions.</li>
+						<li>BitTasker does not have the ability to reverse, or intervene, in transactions.</li>
 					</ul>
 				</li>
 				<li>BitTasker accepts no liability for any aspect of the interaction between Posters and Taskers, including but not limited to the description, performance, or delivery of services.</li>
@@ -98,21 +98,21 @@
 			<ul class="ml-5">
 				<li>Users acknowledge that Bitcoin transactions are irreversible and BitTasker cannot recover funds sent to incorrect addresses.</li>
 				<li>BitTasker uses multi-signature escrow for task payments to provide security for both parties.</li>
-				<li>When a Task Contract is created, the Poster must deposit the agreed Bitcoin amount into escrow.</li>
+				<li>When a Task Contract is created, the Poster must deposit the agreed amount into escrow.</li>
 				<li>Service Fees are deducted from the task payment when funds are released from escrow.</li>
 				<li>Bitcoin price volatility: Both parties acknowledge that the value of Bitcoin can fluctuate and agree that once a price is set in Bitcoin for a task, it will not be adjusted due to price fluctuations.</li>
-				<li>Users are responsible for any taxes or regulatory compliance related to their Bitcoin transactions.</li>
+				<li>Users are responsible for any taxes or regulatory compliance related to their transactions.</li>
 			</ul>
 		</div>
 
-		<h2>5. Gamification and Dynamic Fee Structure</h2>
+		<h2>5. Dynamic Fee Structure</h2>
 		<div class="p-4 bg-base-100 rounded-box border border-base-300 mb-4">
 			<ul class="ml-5">
 				<li>BitTasker implements a level-based system that rewards active users with benefits.</li>
 				<li>Users can earn levels by successfully completing tasks (as Taskers) or hiring Taskers (as Posters).</li>
 				<li>Higher levels may result in reduced Service Fees and additional platform privileges.</li>
 				<li>The dynamic fee structure is designed to reward repeat business and active platform participation.</li>
-				<li>BitTasker reserves the right to modify the gamification system and fee structure with appropriate notice to users.</li>
+				<li>BitTasker reserves the right to modify the fee structure at any time.</li>
 			</ul>
 		</div>
 
@@ -133,6 +133,7 @@
 				<li>BitTasker offers automatic translation features to facilitate communication between users who speak different languages.</li>
 				<li>While we strive for accuracy, users acknowledge that automatic translations may not be perfect and could sometimes lead to misunderstandings.</li>
 				<li>In case of any discrepancy between different language versions of these Terms, the English version shall prevail.</li>
+				<li>To avoid any confusion, it is recommended to be as clear as possible in communications.</li>
 			</ul>
 		</div>
 
@@ -143,16 +144,17 @@
 				<li>If the parties cannot reach a resolution, our escrow system will be used to resolve the dispute.</li>
 				<li>Escrow is implemented with 2:2 multisig wallets where only the client and tasker have the keys.</li>
 				<li>Since BitTasker does not have access to your funds, we are unable to intervene in the event that a client and tasker have a dispute.</li>
+				<li>See our detailed <a href="/escrow"  class="link link-primary">escrow page</a> for more information.</li>
 			</ul>
 		</div>
 
 		<h2>9. Intellectual Property</h2>
 		<div class="p-4 bg-base-100 rounded-box border border-base-300 mb-4">
 			<ul class="ml-5">
-				<li>The BitTasker name, logo, and platform are protected by intellectual property rights owned by BitTasker, Inc.</li>
+				<li>The BitTasker name, logo, and platform are protected by intellectual property rights owned by BitTasker.</li>
 				<li>You may not use our trademarks, logos, or other proprietary information without our prior written consent.</li>
-				<li>Content you create and post on BitTasker remains your intellectual property, but you grant BitTasker a license to use, reproduce, and display such content for the purpose of providing and promoting the platform.</li>
-				<li>This license ends when you delete your content from the platform, except in cases where your content has been shared with others who have not deleted it.</li>
+				<li>Content you create and post on BitTasker remains your intellectual property, but you grant BitTasker a license to use, store, reproduce, and display such content for the purpose of providing and promoting the platform.</li>
+				<li>This license is perpetual and ends when you delete your content from the platform, except in cases where your content has been shared with others who have not deleted it.</li>
 			</ul>
 		</div>
 
@@ -187,8 +189,8 @@
 		<h2>13. Governing Law</h2>
 		<div class="p-4 bg-base-100 rounded-box border border-base-300 mb-4">
 			<ul class="ml-5">
-				<li>These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which BitTasker is incorporated, without regard to its conflict of law provisions.</li>
-				<li>Any legal action or proceeding arising out of these Terms shall be brought exclusively in the courts located in that jurisdiction.</li>
+				<li>These Terms shall be governed by and construed in accordance with the laws of the jurisdiction in which BitTasker is incorporated, El Salvador, without regard to its conflict of law provisions.</li>
+				<li>Any legal action or proceeding arising out of these Terms shall be brought exclusively in the courts located in El Salvador.</li>
 			</ul>
 		</div>
 
