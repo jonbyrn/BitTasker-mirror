@@ -55,6 +55,66 @@ export function packKeys(publicKey: string, exportedKey: string): ArrayBuffer {
 	return packed.buffer;
 }
 
+/**
+ * Convert base64 to base64url (more compact, URL-safe)
+ */
+export function base64ToBase64Url(base64: string): string {
+	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+/**
+ * Convert base64url back to base64
+ */
+export function base64UrlToBase64(base64url: string): string {
+	// Add padding if needed
+	let padded = base64url.replace(/-/g, '+').replace(/_/g, '/');
+	while (padded.length % 4) {
+		padded += '=';
+	}
+	return padded;
+}
+
+/**
+ * Pack keys for mobile devices - generates the same 64-byte data as web
+ * but returns it as a base64url string that fits mobile WebAuthn requirements
+ */
+export function packKeysMobile(publicKey: string, exportedKey: string): string {
+	// Create the exact same 64-byte packed format as web
+	const packedKeys = packKeys(publicKey, exportedKey);
+	const packedBytes = new Uint8Array(packedKeys);
+	
+	// Convert to base64url (URL-safe, no padding)
+	const base64 = bytesToBase64(packedBytes);
+	const base64url = base64ToBase64Url(base64);
+	
+	// Log the length for debugging
+	console.log(`Mobile packed keys length: ${base64url.length} characters`);
+	
+	if (base64url.length > 64) {
+		console.warn(`Packed keys (${base64url.length} chars) exceed 64 character limit`);
+	}
+	
+	return base64url;
+}
+
+/**
+ * Unpack keys for mobile devices - reconstructs from the same 64-byte format
+ */
+export function unPackKeysMobile(packedString: string): { publicKey: string; exportedKey: string } {
+	// Convert base64url back to base64
+	const base64 = base64UrlToBase64(packedString);
+	
+	// Convert back to bytes
+	const bytes = base64ToBytes(base64);
+	
+	// Create an ArrayBuffer from the bytes
+	const buffer = new ArrayBuffer(bytes.length);
+	const view = new Uint8Array(buffer);
+	view.set(bytes);
+	
+	// Use the original unPackKeys function - this ensures exact reconstruction
+	return unPackKeys(buffer);
+}
 
 /**
  * Unpack user data from 64-byte buffer (binary format)

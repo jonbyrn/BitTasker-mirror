@@ -76,6 +76,7 @@
 	"dependencies": {
 		"@capacitor/android": "^7.0.1",
 		"@capacitor/app": "^7.0.0",
+		"@capacitor/browser": "^7.0.1",
 		"@capacitor/cli": "^7.0.1",
 		"@capacitor/core": "^7.0.1",
 		"@capacitor/device": "^7.0.0",
@@ -99,6 +100,7 @@
 		"@types/google.maps": "^3.58.1",
 		"axios": "^1.8.4",
 		"capacitor-native-biometric": "^4.2.2",
+		"capacitor-webauthn": "^0.0.12",
 		"date-fns": "^4.1.0",
 		"firebase": "^11.9.1",
 		"iconify-icon": "^2.3.0",
