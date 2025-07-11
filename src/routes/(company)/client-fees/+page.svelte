@@ -39,7 +39,7 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 1</div>
 					<h3 class="card-title">Nakamoto Newbie</h3>
-					<p class="text-sm">For new clients posting 0-3 tasks in the last 30 days</p>
+					<p class="text-sm">For clients posting 0-3 tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
 							<div class="stat">
@@ -98,7 +98,7 @@
 
 		<h2>Bitcoin Payments: Lower Fees, Same Great Service</h2>
 		<p>
-			Save even more when you pay with Bitcoin! We offer reduced rates for clients who choose to use cryptocurrency.
+			Save even more when you pay with Bitcoin! We offer reduced rates for clients who choose to use Bitcoin.
 		</p>
 
 		<div class="overflow-x-auto my-6">
@@ -156,6 +156,9 @@
 				</ul>
 				<p class="text-sm mt-3 opacity-80">
 					Example: Rebooking a $100 task costs just $103 with standard payment or $101 with Bitcoin!
+				</p>
+				<p class="text-sm mt-3 opacity-80">
+					Booking repeat work with a professional counts towards your 30 day rolling tasks to maintain your tier.
 				</p>
 			</div>
 		</div>

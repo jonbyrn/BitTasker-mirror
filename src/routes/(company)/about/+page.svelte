@@ -1,12 +1,20 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
 </script>
 
-<div class="container mx-auto px-4 py-16 md:px-8">
+<div class="container mx-auto px-4 py-8 md:px-8">
 	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-16">
-		<div class="hero-content text-center">
+	<div class="hero bg-base-200 py-8">
+		<div class="hero-content text-center flex-col">
+			<img
+			src={$darkMode
+				? '/images/Bittasker-logo-tagline-dark.svg'
+				: '/images/Bittasker-logo-tagline-light.svg'}
+			alt="BitTasker Logo"
+			class="mx-auto mb-8 block w-full max-w-lg"
+			/>
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">Powering Human Freedom—One Task at a Time</h1>
+				<h1 class="text-5xl font-bold">Powering Human Freedom<br />One Task at a Time</h1>
 			</div>
 		</div>
 	</div>
@@ -32,7 +40,7 @@
 					<div class="card-body">
 						<h3 class="card-title text-2xl">Bitcoin is Liberation</h3>
 						<p>
-							We embrace Bitcoin and Lightning as tools to unlock global earning potential for the
+							We embrace Bitcoin as the tool to unlock global earning potential for the
 							unbanked, underpaid, and overregulated.
 						</p>
 					</div>

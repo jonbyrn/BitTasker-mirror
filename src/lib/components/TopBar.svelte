@@ -252,75 +252,50 @@
 		{/if}
 	</div>
 
-	<div class="navbar-center">
-		{#if isDesktopLayout}
-			<!-- Desktop: Center menu -->
-			<ul class="menu menu-horizontal px-1">
-				<li>
-					<a href="/how-it-works">{$t('navbar.how_it_works')}</a>
-				</li>
-
-				<li>
-					<a href="/dashboard/professionals">{$t('navbar.browse_freelancers')}</a>
-				</li>
-				<li>
-					<a href="/dashboard/find-tasks">{$t('navbar.browse_tasks')}</a>
-				</li>
-				<li>
-					<a href="/fees">{$t('navbar.fees')}</a>
-				</li>
-
-				<!-- Language dropdown with flags -->
-				<li
-					class="dropdown tooltip tooltip-bottom"
-					data-tip={$t(
-						'navbar.tooltip.language',
-						new Map([['name', LANGUAGES.find((lang) => lang.code === $locale)?.name || 'English']])
-					)}
-				>
-					<div tabindex="0" role="button" class="btn btn-ghost flex items-center gap-2">
-						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
-						></iconify-icon>
-						<span class="font-medium uppercase">{$locale}</span>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="ml-1 h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M19 9l-7 7-7-7"
-							/>
-						</svg>
-					</div>
-					<ul class="dropdown-content menu bg-base-100 z-[1] mt-4 w-52 rounded-lg p-2 shadow">
-						{#each LANGUAGES as { code, name, flag }}
-							<li>
-								<button
-									class="flex w-full items-center gap-2 text-left"
-									onclick={() => handleLanguageChange(code)}
-									class:bg-base-200={code === $locale}
-								>
-									<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
-									<span>{name}</span>
-									{#if code === $locale}
-										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"
-										></iconify-icon>
-									{/if}
-								</button>
-							</li>
-						{/each}
+	<div class="navbar-center hidden lg:flex">
+		<ul class="menu menu-horizontal px-1">
+			<li>
+				<a href="/how-it-works">{$t('footer.how_it_works')}</a>
+			</li>
+			<li>
+				<details class="dropdown">
+					<summary class="btn btn-ghost">{$t('footer.for_clients')}</summary>
+					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+						<li><a href="/dashboard/create-task">{$t('footer.post_task')}</a></li>
+						<li><a href="/how-it-works">{$t('footer.how_it_works')}</a></li>
+						<li><a href="/client-fees">{$t('footer.client_fees')}</a></li>
+						<li><a href="/escrow">{$t('footer.escrow')}</a></li>
+						<li><a href="/faq">{$t('footer.faq')}</a></li>
 					</ul>
-				</li>
-			</ul>
-		{:else if isLoggedIn && !$showBackButton}
-			<!-- Mobile with logged in user: BitTasker in center -->
-			<a href="/" class="btn btn-ghost text-xl normal-case">BitTasker</a>
-		{/if}
+				</details>
+			</li>
+			<li>
+				<details class="dropdown">
+					<summary class="btn btn-ghost">{$t('footer.for_taskers')}</summary>
+					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+						<li><a href="/dashboard/find-tasks">{$t('footer.start_earning')}</a></li>
+						<li><a href="/community-guidelines">{$t('footer.community_guidelines')}</a></li>
+						<li><a href="/tasker-fees">{$t('footer.tasker_fees')}</a></li>
+						<li><a href="/tasker-principles">{$t('footer.tasker_principles')}</a></li>
+						<li><a href="/faq">{$t('footer.tasker_faq')}</a></li>
+					</ul>
+				</details>
+			</li>
+			<li>
+				<details class="dropdown">
+					<summary class="btn btn-ghost">{$t('footer.company')}</summary>
+					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+						<li><a href="/about">{$t('footer.about_us')}</a></li>
+						<li><a href="/security">{$t('footer.security')}</a></li>
+						<li><a href="/careers">{$t('footer.careers')}</a></li>
+						<li><a href="/press">{$t('footer.press')}</a></li>
+						<li><a href="/terms">{$t('footer.terms')}</a></li>
+						<li><a href="/privacy">{$t('footer.privacy')}</a></li>
+						<li><a href="/contact">{$t('footer.contact')}</a></li>
+					</ul>
+				</details>
+			</li>
+		</ul>
 	</div>
 
 	<div class="navbar-end">
@@ -331,15 +306,13 @@
 				onClick={() => goto('/dashboard/profile')}
 			/>
 		{:else}
-			<!-- Login and Signup buttons, replacing the Get Started button -->
 			<div class="flex w-full items-center justify-end gap-2">
-				<!-- User is not logged in: show dark mode toggle, Login, and Signup buttons -->
+				<!-- Dark mode toggle -->
 				<label
 					class="swap swap-rotate btn btn-xs sm:btn-sm btn-ghost btn-circle tooltip tooltip-bottom"
 					data-tip={$darkMode ? $t('navbar.tooltip.dark_mode') : $t('navbar.tooltip.light_mode')}
 				>
 					<input type="checkbox" checked={$darkMode} onchange={() => ($darkMode = !$darkMode)} />
-
 					<!-- sun icon -->
 					<svg
 						class="swap-on mx-auto h-5 w-5 fill-current"
@@ -350,7 +323,6 @@
 							d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05a1,1,0,0,0,.7.29,1,1,0,0,0,.71-.29,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,4.93,6.34Zm12,.29a1,1,0,0,0,.7-.29l.71-.71a1,1,0,1,0-1.41-1.41L17,5.64a1,1,0,0,0,0,1.41A1,1,0,0,0,17.66,7.34ZM21,11H20a1,1,0,0,0,0,2h1a1,1,0,0,0,0-2Zm-9,8a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V20A1,1,0,0,0,12,19ZM18.36,17A1,1,0,0,0,17,18.36l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"
 						/>
 					</svg>
-
 					<!-- moon icon -->
 					<svg
 						class="swap-off mx-auto h-5 w-5 fill-current"
@@ -362,6 +334,43 @@
 						/>
 					</svg>
 				</label>
+
+				<!-- Language dropdown with flags -->
+				<li
+					class="tooltip tooltip-bottom"
+					data-tip={$t(
+						'navbar.tooltip.language',
+						new Map([['name', LANGUAGES.find((lang) => lang.code === $locale)?.name || 'English']])
+					)}
+				>
+					<details class="dropdown">
+						<summary class="btn btn-ghost flex items-center gap-2">
+							<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"></iconify-icon>
+							<span class="font-medium uppercase">{$locale}</span>
+												<svg class="ml-1 h-4 w-4 transition-transform duration-200" fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
+						<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+					</svg>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+							{#each LANGUAGES as { code, name, flag }}
+								<li>
+									<button
+										class="flex w-full items-center gap-2 text-left"
+										onclick={() => handleLanguageChange(code)}
+										class:bg-base-200={code === $locale}
+									>
+										<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
+										<span>{name}</span>
+										{#if code === $locale}
+											<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"></iconify-icon>
+										{/if}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</details>
+				</li>
+
 				<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">Login</a>
 				<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">Sign up</a>
 			</div>
@@ -524,5 +533,10 @@
 		padding: 0.5rem 0.75rem;
 		font-weight: 500;
 		transition: all 0.2s ease;
+	}
+
+	/* Rotate arrow when dropdown is open */
+	.dropdown[open] summary svg {
+		transform: rotate(180deg);
 	}
 </style>

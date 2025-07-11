@@ -1,178 +1,431 @@
 <script lang="ts">
 	import { t } from '$lib/stores/i18n.store';
+	import { darkMode } from '$lib/stores/theme.store';
+
+	// State to track which detailed step section is open
+	let openStepSection = $state<number>(-1);
+
+	// State for client/freelancer tabs in step 3
+	let openSection = $state<number>(0); // Default to client tab
+
+	// Function to toggle between step sections
+	function toggleStepSection(index: number): void {
+		if (openStepSection === index) {
+			openStepSection = -1; // Close if already open
+		} else {
+			openStepSection = index; // Open the new one
+		}
+	}
+
+	// Function to toggle between client and freelancer tabs
+	function toggleSection(index: number): void {
+		openSection = index;
+	}
 </script>
 
-<div class="bg-base-100 glow-effect min-h-screen px-4 py-16">
-	<!-- Glow Effects -->
-	<div class="glow-container">
-		<div
-			class="glow-blur glow-primary"
-			style="width: 30vw; height: 30vw; top: 10%; left: 5%; animation-delay: 0s;"
-		></div>
-		<div
-			class="glow-blur glow-secondary"
-			style="width: 25vw; height: 25vw; bottom: 15%; right: 10%; animation-delay: -5s;"
-		></div>
-		<div
-			class="glow-blur glow-accent"
-			style="width: 20vw; height: 20vw; top: 40%; right: 25%; animation-delay: -10s;"
-		></div>
+<div class="container mx-auto px-4 py-8 md:px-8">
+	<!-- Hero Section -->
+	<div class="hero bg-base-200 py-8">
+		<div class="hero-content text-center flex-col">
+			<img
+				src={$darkMode
+					? '/images/Bittasker-logo-tagline-dark.svg'
+					: '/images/Bittasker-logo-tagline-light.svg'}
+				alt="BitTasker Logo"
+				class="mx-auto mb-8 block w-full max-w-lg"
+			/>
+			<div class="max-w-3xl">
+				<h1 class="text-5xl font-bold">How BitTasker Works</h1>
+				<p class="py-6 text-lg text-base-content/80">
+					BitTasker connects skilled professionals with people who need tasks done. Our Bitcoin-powered
+					platform makes hiring, working, and getting paid simple, secure, and borderless.
+				</p>
+			</div>
+		</div>
 	</div>
 
-	<!-- Header -->
-	<div class="relative z-10 mb-20 text-center">
-		<h1 class="mb-6 text-5xl font-bold">{$t('how_it_works.title')}</h1>
-		<p class="mx-auto max-w-2xl text-xl leading-relaxed">
-			{$t('how_it_works.subtitle')}
-		</p>
-	</div>
-
-	<!-- Steps -->
-	<div class="relative z-10 mx-auto max-w-5xl">
-		<ul class="steps steps-vertical lg:steps-horizontal mb-20 w-full">
-			<li class="step step-primary">{$t('auth.signup.button')}</li>
-			<li class="step step-primary">{$t('how_it_works.steps.create_profile')}</li>
-			<li class="step step-primary">{$t('how_it_works.steps.find_tasks')}</li>
-			<li class="step step-primary">{$t('how_it_works.steps.complete_work')}</li>
-			<li class="step step-primary">{$t('how_it_works.steps.get_paid')}</li>
-		</ul>
-
-		<!-- Detailed Steps -->
-		<div class="space-y-16">
-			<div
-				class="card bg-base-200 bg-opacity-70 backdrop-blur-sm transition-all duration-300 hover:shadow-md"
-			>
-				<div class="card-body p-8">
-					<h3 class="card-title mb-4 text-3xl font-extrabold">{$t('how_it_works.step1.title')}</h3>
-					<p class="textarea-base leading-relaxed">
-						{$t('how_it_works.step1.description')}
-					</p>
-				</div>
-			</div>
-
-			<div
-				class="card bg-base-200 bg-opacity-70 backdrop-blur-sm transition-all duration-300 hover:shadow-md"
-			>
-				<div class="card-body p-8">
-					<h3 class="card-title mb-4 text-3xl font-extrabold">{$t('how_it_works.step2.title')}</h3>
-					<p class="textarea-base leading-relaxed">
-						{$t('how_it_works.step2.description')}
-					</p>
-					<div class="mt-6">
-						<h4 class="mb-3 text-xl font-semibold">{$t('how_it_works.step2.key_elements')}</h4>
-						<ul class="list-inside list-disc space-y-3 pl-4">
-							<li class="text-base">{$t('how_it_works.step2.elements.skills')}</li>
-							<li class="text-base">{$t('how_it_works.step2.elements.experience')}</li>
-							<li class="text-base">{$t('how_it_works.step2.elements.portfolio')}</li>
-							<li class="text-base">{$t('how_it_works.step2.elements.payment')}</li>
-						</ul>
+	<!-- Overview Section -->
+	<div class="mx-auto max-w-4xl py-8">
+		<div class="text-center mb-12">
+			<h2 class="text-4xl font-bold">The BitTasker Process</h2>
+			<p class="mt-4 text-lg text-base-content/80">
+				From signup to payment, our platform makes it easy to find work, hire professionals, and
+				complete tasks with confidence and security.
+			</p>
+		</div>
+		
+		<div class="card shadow-lg mb-8 bg-primary/10 border-l-4 border-primary">
+			<div class="card-body py-4">
+				<div class="flex items-center">
+					<i class="fa-solid fa-circle-info text-primary text-xl mr-4"></i>
+					<div>
+						<p class="m-0"><strong>New to BitTasker?</strong> Our platform uses <a href="/security" class="link link-primary">secure passkeys</a> instead of passwords and <a href="/escrow" class="link link-primary">Bitcoin-powered escrow</a> for all payments, providing a safer experience than traditional platforms.</p>
 					</div>
 				</div>
 			</div>
+		</div>
 
-			<div
-				class="card bg-base-200 bg-opacity-70 backdrop-blur-sm transition-all duration-300 hover:shadow-md"
-			>
-				<div class="card-body p-8">
-					<h3 class="card-title mb-4 text-3xl font-extrabold">{$t('how_it_works.step3.title')}</h3>
-					<div class="divider my-6">{$t('how_it_works.step3.for_clients')}</div>
-					<div class="space-y-6">
-						<p class="textarea-base leading-relaxed">
-							{$t('how_it_works.step3.clients_description')}
-						</p>
-						<div class="alert bg-opacity-80 p-5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-								class="h-6 w-6 shrink-0 stroke-current"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-								></path></svg
-							>
-							<span class="text-base">{$t('how_it_works.step3.budget_info')}</span>
+		<!-- Steps Overview -->
+		<div class="steps steps-vertical md:steps-horizontal w-full mb-12">
+			<div class="step step-primary">
+				<div>Sign Up</div>
+			</div>
+			<div class="step step-primary">
+				<div>Create Profile</div>
+			</div>
+			<div class="step step-primary">
+				<div>Find Tasks/Talent</div>
+			</div>
+			<div class="step step-primary">
+				<div>Complete Work</div>
+			</div>
+			<div class="step step-primary">
+				<div>Get Paid</div>
+			</div>
+		</div>
+
+		<!-- Detailed Steps Section -->
+		<div class="mx-auto max-w-4xl">
+			<h3 class="text-2xl font-bold mb-6 text-center">Detailed Process Guide</h3>
+			
+			<!-- Step 1: Sign Up -->
+			<div class="mb-8">
+				<div class="flex items-center gap-4 mb-4">
+					<div class="badge badge-primary badge-lg">1</div>
+					<h3 class="text-2xl font-bold">Sign Up with BitTasker</h3>
+				</div>
+				
+				<div class="card bg-base-100 shadow-lg mb-4">
+					<div class="card-body">
+						<p class="mb-4">Create your BitTasker account using our secure passkey system - no passwords needed! Our modern authentication approach uses your device's biometric security (fingerprint or face recognition) to keep your account safe.</p>
+						
+						<div class="flex flex-col md:flex-row gap-4 mt-4">
+							<div class="flex-1">
+								<h4 class="font-semibold mb-2">Quick and Secure</h4>
+								<ul class="list-disc list-inside space-y-1">
+									<li>Register in under 60 seconds</li>
+									<li>No password to remember or risk being stolen</li>
+									<li>Phishing-resistant technology</li>
+								</ul>
+							</div>
+							<div class="flex-1">
+								<h4 class="font-semibold mb-2">What You'll Need</h4>
+								<ul class="list-disc list-inside space-y-1">
+									<li>Modern device with biometric capability</li>
+									<li>Optional: recovery email for account backup</li>
+								</ul>
+							</div>
 						</div>
-					</div>
-					<div class="divider my-6">{$t('how_it_works.step3.for_freelancers')}</div>
-					<div class="space-y-6">
-						<p class="textarea-base leading-relaxed">
-							{$t('how_it_works.step3.freelancers_description')}
-						</p>
+						
+						<div class="card shadow-sm bg-base-200 mt-4">
+							<div class="card-body p-4">
+								<div class="flex items-start">
+									<i class="fa-solid fa-lightbulb text-warning mr-3 mt-1"></i>
+									<div>
+										<p class="text-sm">Learn more about our <a href="/security" class="link link-primary">security approach</a> and how we protect your account better than traditional password-based platforms.</p>
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
 
-			<div
-				class="card bg-base-200 bg-opacity-70 backdrop-blur-sm transition-all duration-300 hover:shadow-md"
-			>
-				<div class="card-body p-8">
-					<h3 class="card-title mb-4 text-3xl font-extrabold">{$t('how_it_works.step4.title')}</h3>
-					<p class="textarea-base leading-relaxed">
-						{$t('how_it_works.step4.description')}
-					</p>
-					<ul class="mt-6 list-inside list-disc space-y-3 pl-4">
-						<li class="text-base">{$t('how_it_works.step4.tools.messaging')}</li>
-						<li class="text-base">{$t('how_it_works.step4.tools.files')}</li>
-						<li class="text-base">{$t('how_it_works.step4.tools.milestones')}</li>
-						<li class="text-base">{$t('how_it_works.step4.tools.progress')}</li>
-					</ul>
+			<!-- Step 2: Create Profile -->
+			<div class="mb-8">
+				<div class="flex items-center gap-4 mb-4">
+					<div class="badge badge-primary badge-lg">2</div>
+					<h3 class="text-2xl font-bold">Create Your Professional Profile</h3>
+				</div>
+				
+				<div class="card bg-base-100 shadow-lg mb-4">
+					<div class="card-body">
+						<p class="mb-4">Your profile is your digital reputation on BitTasker. Whether you're hiring or being hired, a complete profile builds trust and increases your chances of success on the platform.</p>
+						
+						<div class="divider">Key Profile Elements</div>
+						
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title text-lg">Skills & Expertise</h4>
+									<p>Highlight what you do best. Be specific about your skills so clients can find you for the right tasks.</p>
+								</div>
+							</div>
+							
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title text-lg">Experience & Portfolio</h4>
+									<p>Share your work history, qualifications, and examples of previous projects to establish credibility.</p>
+								</div>
+							</div>
+							
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title text-lg">Rates & Availability</h4>
+									<p>Set your hourly or project-based rates, and use our calendar system to manage your available working hours.</p>
+								</div>
+							</div>
+							
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title text-lg">Payment Methods</h4>
+									<p>Begin accepting payments immediately with our built-in wallets.</p>
+								</div>
+							</div>
+						</div>
+						
+						<div class="card shadow-lg bg-success/10 border-l-4 border-success mt-6">
+							<div class="card-body py-4">
+								<div class="flex items-center">
+									<i class="fa-solid fa-circle-info text-success text-xl mr-4"></i>
+									<div>
+										<p class="m-0"><strong>Pro tip:</strong> Profiles with a profile photo, verified skills, and complete information get up to 5x more work opportunities. Take time to make yours stand out!</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 
-			<div
-				class="card bg-base-200 bg-opacity-70 backdrop-blur-sm transition-all duration-300 hover:shadow-md"
-			>
-				<div class="card-body p-8">
-					<h3 class="card-title mb-4 text-3xl font-extrabold">{$t('how_it_works.step5.title')}</h3>
-					<p class="textarea-base leading-relaxed">{$t('how_it_works.step5.description')}</p>
-					<div class="mt-6 space-y-5">
-						<div class="alert bg-opacity-80 p-5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/></svg
-							>
-							<span class="text-base">{$t('how_it_works.step5.features.escrow')}</span>
+			<!-- Step 3: Find Tasks/Talent -->
+			<div class="mb-8">
+				<div class="flex items-center gap-4 mb-4">
+					<div class="badge badge-primary badge-lg">3</div>
+					<h3 class="text-2xl font-bold">Find Tasks or Talent</h3>
+				</div>
+				
+				<div class="card bg-base-100 shadow-lg mb-4">
+					<div class="card-body">
+						<p class="mb-4">BitTasker's matching system connects clients with the right freelancers and helps professionals find work that matches their skills.</p>
+						
+						<div class="tabs tabs-boxed mb-6">
+							<button type="button" 
+								class="tab grow" 
+								class:tab-active={openSection == 0}
+								onclick={() => toggleSection(0)}
+							>For Clients</button>
+							<button type="button" 
+								class="tab grow" 
+								class:tab-active={openSection == 1}
+								onclick={() => toggleSection(1)}
+							>For Freelancers</button>
 						</div>
-						<div class="alert bg-opacity-80 p-5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/></svg
-							>
-							<span class="text-base">{$t('how_it_works.step5.features.auto_release')}</span>
+						
+						<!-- For Clients Content -->
+						<div class="{openSection == 0 ? 'block' : 'hidden'}">
+							<h4 class="font-bold text-xl mb-4">Post a Task, Get Offers</h4>
+							
+							<div class="space-y-4">
+								<div class="flex gap-4 items-start">
+									<div class="badge badge-outline">1</div>
+									<div>
+										<p class="font-semibold">Describe your task</p>
+										<p class="text-base-content/80">Be specific about what you need, when you need it, and your budget.</p>
+									</div>
+								</div>
+								
+								<div class="flex gap-4 items-start">
+									<div class="badge badge-outline">2</div>
+									<div>
+										<p class="font-semibold">Review offers from qualified professionals</p>
+										<p class="text-base-content/80">Compare skills, ratings, and price quotes to find the perfect match.</p>
+									</div>
+								</div>
+								
+								<div class="flex gap-4 items-start">
+									<div class="badge badge-outline">3</div>
+									<div>
+										<p class="font-semibold">Hire and pay through secure escrow</p>
+										<p class="text-base-content/80">Our <a href="/escrow" class="link link-primary">escrow system</a> protects both parties during the transaction.</p>
+									</div>
+								</div>
+							</div>
+							
+							<div class="card shadow-lg bg-info/10 border-l-4 border-info mt-6">
+								<div class="card-body py-4">
+									<div class="flex items-center">
+										<i class="fa-solid fa-circle-info text-info text-xl mr-4"></i>
+										<div>
+											<p class="m-0"><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskers.</p>
+										</div>
+									</div>
+								</div>
+							</div>
 						</div>
-						<div class="alert bg-opacity-80 p-5">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6 shrink-0 stroke-current"
-								fill="none"
-								viewBox="0 0 24 24"
-								><path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/></svg
-							>
-							<span class="text-base">{$t('how_it_works.step5.features.instant')}</span>
+						
+						<!-- For Freelancers Content -->
+						<div class="{openSection == 1 ? 'block' : 'hidden'}">
+							<h4 class="font-bold text-xl mb-4">Find Work That Matches Your Skills</h4>
+							
+							<div class="space-y-4">
+								<div class="flex gap-4 items-start">
+									<div class="badge badge-outline">1</div>
+									<div>
+										<p class="font-semibold">Browse available tasks</p>
+										<p class="text-base-content/80">Filter by category, location, budget, and project type to find your ideal match.</p>
+									</div>
+								</div>
+								
+								<div class="flex gap-4 items-start">
+									<div class="badge badge-outline">2</div>
+									<div>
+										<p class="font-semibold">Send compelling offers</p>
+										<p class="text-base-content/80">Explain why you're perfect for the job, your approach, timeline, and pricing.</p>
+									</div>
+								</div>
+								
+								<div class="flex gap-4 items-start">
+									<div class="badge badge-outline">3</div>
+									<div>
+										<p class="font-semibold">Negotiate and accept terms</p>
+										<p class="text-base-content/80">When hired, you'll receive clear tasks, milestones, and payment terms through our platform.</p>
+									</div>
+								</div>
+							</div>
+							
+							<div class="card shadow-lg bg-info/10 border-l-4 border-info mt-6">
+								<div class="card-body py-4">
+									<div class="flex items-center">
+										<i class="fa-solid fa-lightbulb text-info text-xl mr-4"></i>
+										<div>
+											<p class="m-0"><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Clients are more likely to hire freelancers who address their specific needs.</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Step 4: Complete Work -->
+			<div class="mb-8">
+				<div class="flex items-center gap-4 mb-4">
+					<div class="badge badge-primary badge-lg">4</div>
+					<h3 class="text-2xl font-bold">Complete the Work</h3>
+				</div>
+				
+				<div class="card bg-base-100 shadow-lg mb-4">
+					<div class="card-body">
+						<p class="mb-4">BitTasker provides all the tools you need to successfully complete projects, track progress, and maintain clear communication throughout.</p>
+						
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<div class="flex items-center gap-3">
+										<i class="fa-solid fa-comments text-primary"></i>
+										<h4 class="font-bold">End-to-End Encrypted Messaging</h4>
+									</div>
+									<p class="mt-2">Private and secure communication between clients and freelancers with <a href="/security" class="link link-primary">end-to-end encryption</a>.</p>
+								</div>
+							</div>
+							
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<div class="flex items-center gap-3">
+										<i class="fa-solid fa-file-arrow-up text-primary"></i>
+										<h4 class="font-bold">File Sharing</h4>
+									</div>
+									<p class="mt-2">Securely exchange documents, images, and files necessary for project completion.</p>
+								</div>
+							</div>
+							
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<div class="flex items-center gap-3">
+										<i class="fa-solid fa-flag text-primary"></i>
+										<h4 class="font-bold">Milestone Tracking</h4>
+									</div>
+									<p class="mt-2">Break projects into manageable milestones with individual escrow payments for each completed phase.</p>
+								</div>
+							</div>
+							
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<div class="flex items-center gap-3">
+										<i class="fa-solid fa-handshake text-primary"></i>
+										<h4 class="font-bold">Task Completion</h4>
+									</div>
+									<p class="mt-2">Mark tasks as complete when finished, triggering the escrow release process for payment.</p>
+								</div>
+							</div>
+						</div>
+						
+						<div class="card shadow-lg bg-warning/10 border-l-4 border-warning mt-6">
+							<div class="card-body py-4">
+								<div class="flex items-center">
+									<i class="fa-solid fa-shield text-warning text-xl mr-4"></i>
+									<div>
+										<p class="m-0"><strong>Important:</strong> Always communicate through the BitTasker platform to ensure protection under our <a href="/community-guidelines" class="link link-primary">community guidelines</a> and dispute resolution process.</p>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Step 5: Get Paid -->
+			<div class="mb-8">
+				<div class="flex items-center gap-4 mb-4">
+					<div class="badge badge-primary badge-lg">5</div>
+					<h3 class="text-2xl font-bold">Get Paid in Bitcoin and Fiat</h3>
+				</div>
+				
+				<div class="card bg-base-100 shadow-lg mb-4">
+					<div class="card-body">
+						<p class="mb-4">BitTasker's flexible payment system supports both Bitcoin and traditional fiat currencies, ensuring freelancers receive their earnings securely and promptly with multiple withdrawal options.</p>
+						
+						<div class="divider">Key Payment Features</div>
+						
+						<div class="space-y-6">
+							<div class="card shadow-sm bg-base-200">
+								<div class="card-body p-4">
+									<div class="flex items-center">
+										<i class="fa-solid fa-lock text-success text-xl mr-4"></i>
+										<div>
+											<h4 class="font-semibold">Secure Escrow System</h4>
+											<p>Client funds are secured in our <a href="/escrow" class="link link-primary">secure escrow system</a> until work is approved, protecting both parties throughout the transaction regardless of payment method.</p>
+										</div>
+									</div>
+								</div>
+							</div>
+							
+							<div class="card shadow-sm bg-base-200">
+								<div class="card-body p-4">
+									<div class="flex items-center">
+										<i class="fa-solid fa-clock text-success text-xl mr-4"></i>
+										<div>
+											<h4 class="font-semibold">Automatic Payment Release</h4>
+											<p>Funds are automatically released to freelancers 7 days after marking a task complete if the client hasn't taken action, ensuring you never wait indefinitely for payment.</p>
+										</div>
+									</div>
+								</div>
+							</div>
+							
+							<div class="card shadow-sm bg-base-200">
+								<div class="card-body p-4">
+									<div class="flex items-center">
+										<i class="fa-solid fa-bolt text-success text-xl mr-4"></i>
+										<div>
+											<h4 class="font-semibold">Flexible Withdrawal Options</h4>
+											<p>Withdraw earnings to your personal Bitcoin wallet (on-chain, Liquid, or Lightning Network) or receive fiat payments via traditional banking methods with competitive fees.</p>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+						
+						<div class="card shadow-lg bg-primary/10 border-l-4 border-primary mt-6">
+							<div class="card-body py-4">
+								<div class="flex items-center">
+									<i class="fa-solid fa-circle-info text-primary text-xl mr-4"></i>
+									<div>
+										<p class="m-0"><strong>Fee Advantage:</strong> BitTasker's <a href="/tasker-fees" class="link link-primary">dynamic fee structure</a> rewards active users with progressively lower fees. The more you use the platform, the less you pay!</p>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -180,11 +433,33 @@
 		</div>
 	</div>
 
-	<!-- CTA -->
-	<div class="relative z-10 mt-20 text-center">
-		<h3 class="mb-6 text-3xl font-bold">{$t('how_it_works.cta.title')}</h3>
-		<div class="flex justify-center gap-6">
-			<a href="/auth/signup" class="btn btn-primary btn-lg">{$t('how_it_works.cta.create_account')}</a>
+	<!-- CTA Section -->
+	<div class="mx-auto max-w-4xl py-16 text-center">
+		<h3 class="text-3xl font-bold mb-4">Ready to Get Started?</h3>
+		<p class="mx-auto max-w-2xl text-lg text-base-content/80 mb-8">
+			Join BitTasker today and experience a better way to find work or hire skilled professionals. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.
+		</p>
+		<div class="flex flex-col sm:flex-row justify-center gap-4">
+			<a href="/auth/signup" class="btn btn-primary btn-lg">Create Your Account</a>
+			<a href="/faq" class="btn btn-outline btn-lg">Browse FAQ</a>
+		</div>
+		
+		<div class="mt-12 flex flex-wrap justify-center gap-6">
+			<a href="/security" class="link link-hover flex items-center gap-2">
+				<i class="fa-solid fa-shield-halved"></i> Security
+			</a>
+			<a href="/privacy" class="link link-hover flex items-center gap-2">
+				<i class="fa-solid fa-user-shield"></i> Privacy
+			</a>
+			<a href="/escrow" class="link link-hover flex items-center gap-2">
+				<i class="fa-solid fa-vault"></i> Escrow System
+			</a>
+			<a href="/tasker-principles" class="link link-hover flex items-center gap-2">
+				<i class="fa-solid fa-medal"></i> Tasker Principles
+			</a>
+			<a href="/community-guidelines" class="link link-hover flex items-center gap-2">
+				<i class="fa-solid fa-handshake"></i> Community Guidelines
+			</a>
 		</div>
 	</div>
 </div>
