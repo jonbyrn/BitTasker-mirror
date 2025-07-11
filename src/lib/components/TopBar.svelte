@@ -33,6 +33,7 @@
 	const handleLanguageChange = async (code: Locales) => {
 		try {
 			await setLocale(code);
+			closeDropdowns(); // Close dropdown after language change
 		} catch (error) {
 			console.error('Error changing language:', error);
 		}
@@ -87,6 +88,11 @@
 	onMount(async () => {
 		if ($authState.isAuthenticated) {
 			await setupProfileImageSubscription();
+		}
+		
+		// Add click outside handler for dropdowns
+		if (typeof document !== 'undefined') {
+			document.addEventListener('click', handleClickOutside);
 		}
 	});
 
@@ -193,12 +199,59 @@
 		if (subscription) {
 			subscription.close();
 		}
+		
+		// Remove click outside handler
+		if (typeof document !== 'undefined') {
+			document.removeEventListener('click', handleClickOutside);
+		}
 	});
 
 	async function logout() {
 		closeDrawer();
 		await authState.logout();
 		goto('/');
+	}
+
+	// Function to close all dropdown menus
+	function closeDropdowns() {
+		// Close all details elements (dropdowns)
+		const dropdowns = document.querySelectorAll('details[open]');
+		dropdowns.forEach(dropdown => {
+			dropdown.removeAttribute('open');
+		});
+	}
+
+	// Function to close other dropdown menus except the current one
+	function closeOtherDropdowns(currentDropdown: HTMLDetailsElement) {
+		const dropdowns = document.querySelectorAll('details[open]');
+		dropdowns.forEach(dropdown => {
+			if (dropdown !== currentDropdown) {
+				dropdown.removeAttribute('open');
+			}
+		});
+	}
+
+	// Handle dropdown summary clicks
+	function handleDropdownClick(event: MouseEvent) {
+		const summary = event.currentTarget as HTMLElement;
+		const dropdown = summary.closest('details') as HTMLDetailsElement;
+		
+		// Close other dropdowns when this one is about to open
+		if (dropdown && !dropdown.hasAttribute('open')) {
+			closeOtherDropdowns(dropdown);
+		}
+	}
+
+	// Handle clicks outside dropdowns to close them
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		
+		// Check if click is outside any dropdown
+		const isInsideDropdown = target.closest('details.dropdown');
+		
+		if (!isInsideDropdown) {
+			closeDropdowns();
+		}
 	}
 </script>
 
@@ -259,39 +312,39 @@
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost">{$t('footer.for_clients')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_clients')}</summary>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/dashboard/create-task">{$t('footer.post_task')}</a></li>
-						<li><a href="/how-it-works">{$t('footer.how_it_works')}</a></li>
-						<li><a href="/client-fees">{$t('footer.client_fees')}</a></li>
-						<li><a href="/escrow">{$t('footer.escrow')}</a></li>
-						<li><a href="/faq">{$t('footer.faq')}</a></li>
+						<li><a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a></li>
+						<li><a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a></li>
+						<li><a href="/client-fees" onclick={closeDropdowns}>{$t('footer.client_fees')}</a></li>
+						<li><a href="/escrow" onclick={closeDropdowns}>{$t('footer.escrow')}</a></li>
+						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.faq')}</a></li>
 					</ul>
 				</details>
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost">{$t('footer.for_taskers')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_taskers')}</summary>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/dashboard/find-tasks">{$t('footer.start_earning')}</a></li>
-						<li><a href="/community-guidelines">{$t('footer.community_guidelines')}</a></li>
-						<li><a href="/tasker-fees">{$t('footer.tasker_fees')}</a></li>
-						<li><a href="/tasker-principles">{$t('footer.tasker_principles')}</a></li>
-						<li><a href="/faq">{$t('footer.tasker_faq')}</a></li>
+						<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>{$t('footer.start_earning')}</a></li>
+						<li><a href="/community-guidelines" onclick={closeDropdowns}>{$t('footer.community_guidelines')}</a></li>
+						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
+						<li><a href="/tasker-principles" onclick={closeDropdowns}>{$t('footer.tasker_principles')}</a></li>
+						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.tasker_faq')}</a></li>
 					</ul>
 				</details>
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost">{$t('footer.company')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.company')}</summary>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/about">{$t('footer.about_us')}</a></li>
-						<li><a href="/security">{$t('footer.security')}</a></li>
-						<li><a href="/careers">{$t('footer.careers')}</a></li>
-						<li><a href="/press">{$t('footer.press')}</a></li>
-						<li><a href="/terms">{$t('footer.terms')}</a></li>
-						<li><a href="/privacy">{$t('footer.privacy')}</a></li>
-						<li><a href="/contact">{$t('footer.contact')}</a></li>
+						<li><a href="/about" onclick={closeDropdowns}>{$t('footer.about_us')}</a></li>
+						<li><a href="/security" onclick={closeDropdowns}>{$t('footer.security')}</a></li>
+						<li><a href="/careers" onclick={closeDropdowns}>{$t('footer.careers')}</a></li>
+						<li><a href="/press" onclick={closeDropdowns}>{$t('footer.press')}</a></li>
+						<li><a href="/terms" onclick={closeDropdowns}>{$t('footer.terms')}</a></li>
+						<li><a href="/privacy" onclick={closeDropdowns}>{$t('footer.privacy')}</a></li>
+						<li><a href="/contact" onclick={closeDropdowns}>{$t('footer.contact')}</a></li>
 					</ul>
 				</details>
 			</li>
@@ -344,7 +397,7 @@
 					)}
 				>
 					<details class="dropdown">
-						<summary class="btn btn-ghost flex items-center gap-2">
+						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
 							<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"></iconify-icon>
 							<span class="font-medium uppercase">{$locale}</span>
 												<svg class="ml-1 h-4 w-4 transition-transform duration-200" fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
