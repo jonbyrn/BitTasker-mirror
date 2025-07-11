@@ -25,7 +25,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="@string/app_domain" />
-                <!-- <data android:scheme="https" android:host="local.bittasker.com" /> -->
             </intent-filter>
 
             <!-- Intent filter for custom URL scheme -->
