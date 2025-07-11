@@ -1,12 +1,14 @@
 <script lang="ts">
 	import type { AccountRecoveryData } from '$lib/types/auth';
-	import { fly } from 'svelte/transition';
-	import { linear } from 'svelte/easing';
-	import { bytesToHex } from '$lib/utils/helpers/encoding';
-	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { nip19 } from 'nostr-tools';
-	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
+	import { linear } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
+	import { authState } from '$lib/stores/auth.store';
 	import { encryptNsec } from '$lib/utils/helpers/auth';
+	import { bytesToHex } from '$lib/utils/helpers/encoding';
+	import { CheckUsernameAvailabilityStore } from '$houdini';
+	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
 	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
@@ -15,12 +17,7 @@
 		validatePassword,
 		validateEmail
 	} from '$lib/utils/helpers/validators';
-	import { CheckUsernameAvailabilityStore } from '$houdini';
-	import { Preferences } from '@capacitor/preferences';
-	import { StorageKeys } from '$lib/utils/constants/storage';
 	import authService from '$lib/api/services/auth.service';
-	import { appStore } from '$lib/stores/app.store';
-	import { authState } from '$lib/stores/auth.store';
 
 	let {
 		nextStep,
@@ -120,10 +117,9 @@
 			const isMobileBiometrics = await checkBiometricAvailability();
 
 			// Register device with server
-			const deviceName = await getDeviceName();
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setBiometricKey(npub, exportedKey, username);
 			} else {
 				credentialId = await setWebBiometricKey(npub, exportedKey, username);
 			}
@@ -143,6 +139,8 @@
 				iterations,
 				authMethod: 'passkey'
 			});
+
+			const deviceName = await getDeviceName();
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
@@ -164,7 +162,8 @@
 					'passkey',
 					npub,
 					response.user,
-					biometricData
+					biometricData,
+					false
 				);
 			}
 		} catch (err: unknown) {
@@ -646,7 +645,7 @@
 			{/if}
 
 			{#if error}
-				<div class="alert alert-error">
+				<div class="alert alert-error whitespace-normal">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6 shrink-0 stroke-current"

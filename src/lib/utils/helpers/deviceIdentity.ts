@@ -168,3 +168,16 @@ export function createUserFriendlyName(publicKey: string): string {
 		return `${prefix}...${suffix}`;
 	}
 }
+
+/**
+ * Create display name with timestamp for uniqueness
+ */
+export function createDisplayName(publicKey: string, customName?: string): string {
+	if (customName) {
+		return `BitTasker ${customName}`;
+	}
+
+	const friendlyId = createUserFriendlyName(publicKey);
+	const date = new Date().toLocaleDateString();
+	return `BitTasker ${friendlyId} (${date})`;
+}

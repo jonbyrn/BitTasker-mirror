@@ -2,19 +2,15 @@
 	import type { Credentials } from '$lib/types/auth';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Preferences } from '@capacitor/preferences';
 	import { t } from '$lib/stores/i18n.store';
-	import { user } from '$lib/stores/user.store';
-	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
 		getWebBiometricData
 	} from '$lib/utils/helpers/webBiometrics';
-	import { decryptNsecWithBiometrics, signLoginChallenge } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 

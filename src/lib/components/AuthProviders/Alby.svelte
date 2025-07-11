@@ -1,12 +1,8 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
-	import { Preferences } from '@capacitor/preferences';
-	import { user } from '$lib/stores/user.store';
-	import { authState } from '$lib/stores/auth.store';
-	import { StorageKeys } from '$lib/utils/constants/storage';
-	import authService from '$lib/api/services/auth.service';
 	import type { NostrEvent, SignedNostrEvent } from '$lib/types/nostr';
+	import { browser } from '$app/environment';
+	import { authState } from '$lib/stores/auth.store';
+	import authService from '$lib/api/services/auth.service';
 
 	let { disabled = false } = $props();
 

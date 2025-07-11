@@ -1,4 +1,4 @@
-import type { AuthState, Credentials } from '$lib/types/auth';
+import type { AuthState, Credentials, UserData } from '$lib/types/auth';
 import { user } from './user.store';
 import { writable } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
@@ -24,28 +24,16 @@ const createAuthStore = () => {
 		set(initialAuthState);
 	}
 
-	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, user: any, biometricData?: Credentials) => {
-		await Preferences.set({
-			key: StorageKeys.ACCESS_TOKEN,
-			value: accessToken
-		});
+	const setupAuthData = async (accessToken: string, authMethod: string, npub: string, userData: Partial<UserData>, biometricData?: Credentials, redirect: boolean = true) => {
+		await Preferences.set({ key: StorageKeys.ACCESS_TOKEN, value: accessToken });
 		// TODO: To be removed after getting auth method from the server
-		await Preferences.set({
-			key: StorageKeys.AUTH_METHOD,
-			value: authMethod
-		});
-		await Preferences.set({
-			key: StorageKeys.NPUB,
-			value: npub
-		});
-		if (user) {
-			user.updateProfile(user);
-		}
+		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
+		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		if (userData) user.updateProfile(userData);
 		authState.login();
-		if (biometricData) {
-			appStore.update((state) => ({ ...state, biometricData }));
-		}
-		goto('/dashboard/find-tasks');
+
+		if (biometricData) appStore.update((state) => ({ ...state, biometricData }));
+		if (redirect) goto('/dashboard/find-tasks');
 	}
 
 	return {
