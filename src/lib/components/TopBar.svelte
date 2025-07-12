@@ -398,7 +398,7 @@
 				>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"></iconify-icon>
+							<span class="text-lg">{getCurrentLanguageFlag($locale)}</span>
 							<span class="font-medium uppercase">{$locale}</span>
 												<svg class="ml-1 h-4 w-4 transition-transform duration-200" fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
 						<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
@@ -412,7 +412,7 @@
 										onclick={() => handleLanguageChange(code)}
 										class:bg-base-200={code === $locale}
 									>
-										<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
+										<span class="text-lg">{flag}</span>
 										<span>{name}</span>
 										{#if code === $locale}
 											<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"></iconify-icon>
@@ -479,8 +479,7 @@
 			<li>
 				<details class="w-[98%]">
 					<summary class="flex items-center gap-2">
-						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
-						></iconify-icon>
+						<span class="text-lg">{getCurrentLanguageFlag($locale)}</span>
 						{$t('navbar.language')}
 					</summary>
 					<ul>
@@ -494,7 +493,7 @@
 										closeDrawer();
 									}}
 								>
-									<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
+									<span class="text-lg">{flag}</span>
 									<span>{name}</span>
 									{#if code === $locale}
 										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"
