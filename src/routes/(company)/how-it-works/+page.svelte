@@ -45,7 +45,7 @@
 	</div>
 
 	<!-- Overview Section -->
-	<div class="mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl py-8">
 		<div class="text-center mb-12">
 			<h2 class="text-4xl font-bold">The BitTasker Process</h2>
 			<p class="mt-4 text-lg text-base-content/80">
@@ -54,15 +54,11 @@
 			</p>
 		</div>
 		
-		<div class="card shadow-lg mb-8 bg-primary/10 border-l-4 border-primary">
-			<div class="card-body py-4">
-				<div class="flex items-center">
-					<i class="fa-solid fa-circle-info text-primary text-xl mr-4"></i>
-					<div>
-						<p class="m-0"><strong>New to BitTasker?</strong> Our platform uses <a href="/security" class="link link-primary">secure passkeys</a> instead of passwords and <a href="/escrow" class="link link-primary">Bitcoin-powered escrow</a> for all payments, providing a safer experience than traditional platforms.</p>
-					</div>
-				</div>
-			</div>
+		<div class="alert alert-primary alert-outline mb-8">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<span><strong>New to BitTasker?</strong> Our platform uses <a href="/security" class="link link-primary">secure passkeys</a> instead of passwords and <a href="/escrow" class="link link-primary">Bitcoin-powered escrow</a> for all payments, providing a safer experience than traditional platforms.</span>
 		</div>
 
 		<!-- Steps Overview -->
@@ -174,15 +170,11 @@
 							</div>
 						</div>
 						
-						<div class="card shadow-lg bg-success/10 border-l-4 border-success mt-6">
-							<div class="card-body py-4">
-								<div class="flex items-center">
-									<i class="fa-solid fa-circle-info text-success text-xl mr-4"></i>
-									<div>
-										<p class="m-0"><strong>Pro tip:</strong> Profiles with a profile photo, verified skills, and complete information get up to 5x more work opportunities. Take time to make yours stand out!</p>
-									</div>
-								</div>
-							</div>
+						<div class="alert alert-success alert-outline mt-6">
+							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							<span><strong>Pro tip:</strong> Profiles with a profile photo, verified skills, and complete information get up to 5x more work opportunities. Take time to make yours stand out!</span>
 						</div>
 					</div>
 				</div>
@@ -242,15 +234,11 @@
 								</div>
 							</div>
 							
-							<div class="card shadow-lg bg-info/10 border-l-4 border-info mt-6">
-								<div class="card-body py-4">
-									<div class="flex items-center">
-										<i class="fa-solid fa-circle-info text-info text-xl mr-4"></i>
-										<div>
-											<p class="m-0"><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskers.</p>
-										</div>
-									</div>
-								</div>
+							<div class="alert alert-info alert-outline mt-6">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+								</svg>
+								<span><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskers.</span>
 							</div>
 						</div>
 						
@@ -284,15 +272,11 @@
 								</div>
 							</div>
 							
-							<div class="card shadow-lg bg-info/10 border-l-4 border-info mt-6">
-								<div class="card-body py-4">
-									<div class="flex items-center">
-										<i class="fa-solid fa-lightbulb text-info text-xl mr-4"></i>
-										<div>
-											<p class="m-0"><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Clients are more likely to hire freelancers who address their specific needs.</p>
-										</div>
-									</div>
-								</div>
+							<div class="alert alert-info alert-outline mt-6">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+								</svg>
+								<span><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Clients are more likely to hire freelancers who address their specific needs.</span>
 							</div>
 						</div>
 					</div>
@@ -352,15 +336,11 @@
 							</div>
 						</div>
 						
-						<div class="card shadow-lg bg-warning/10 border-l-4 border-warning mt-6">
-							<div class="card-body py-4">
-								<div class="flex items-center">
-									<i class="fa-solid fa-shield text-warning text-xl mr-4"></i>
-									<div>
-										<p class="m-0"><strong>Important:</strong> Always communicate through the BitTasker platform to ensure protection under our <a href="/community-guidelines" class="link link-primary">community guidelines</a> and dispute resolution process.</p>
-									</div>
-								</div>
-							</div>
+						<div class="alert alert-warning alert-outline mt-6">
+							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z" />
+							</svg>
+							<span><strong>Important:</strong> Always communicate through the BitTasker platform to ensure protection under our <a href="/community-guidelines" class="link link-primary">community guidelines</a> and dispute resolution process.</span>
 						</div>
 					</div>
 				</div>
@@ -417,15 +397,11 @@
 							</div>
 						</div>
 						
-						<div class="card shadow-lg bg-primary/10 border-l-4 border-primary mt-6">
-							<div class="card-body py-4">
-								<div class="flex items-center">
-									<i class="fa-solid fa-circle-info text-primary text-xl mr-4"></i>
-									<div>
-										<p class="m-0"><strong>Fee Advantage:</strong> BitTasker's <a href="/tasker-fees" class="link link-primary">dynamic fee structure</a> rewards active users with progressively lower fees. The more you use the platform, the less you pay!</p>
-									</div>
-								</div>
-							</div>
+						<div class="alert alert-primary alert-outline mt-6">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+							</svg>
+							<span><strong>Fee Advantage:</strong> BitTasker's <a href="/tasker-fees" class="link link-primary">dynamic fee structure</a> rewards active users with progressively lower fees. The more you use the platform, the less you pay!</span>
 						</div>
 					</div>
 				</div>

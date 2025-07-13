@@ -38,7 +38,7 @@
 	</div>
 
 	<!-- Security Overview -->
-	<div class="mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl py-8">
 		<div class="text-center mb-12">
 			<h2 class="text-4xl font-bold">Our Security Approach</h2>
 			<p class="mt-4 text-lg text-base-content/80">
@@ -140,15 +140,11 @@
 						isn't stored in a central database that could be compromised—it exists as a cryptographic key pair 
 						that you control.
 					</p>
-					<div class="card shadow-lg mt-4 bg-info/10 border-l-4 border-info">
-						<div class="card-body py-4">
-							<div class="flex items-center">
-								<i class="fa-solid fa-circle-info text-info text-xl mr-4"></i>
-								<div>
-									<p class="m-0">Your identity can be portable across applications that support the Nostr protocol, giving you true data sovereignty.</p>
-								</div>
-							</div>
-						</div>
+					<div class="alert alert-info alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<span>Your identity can be portable across applications that support the Nostr protocol, giving you true data sovereignty.</span>
 					</div>
 				</div>
 			</div>
@@ -161,15 +157,11 @@
 						access funds unilaterally. This provides security for both clients and taskers without requiring 
 						BitTasker to hold your funds.
 					</p>
-					<div class="card shadow-lg mt-4 bg-info/10 border-l-4 border-info">
-						<div class="card-body py-4">
-							<div class="flex items-center">
-								<i class="fa-solid fa-circle-info text-info text-xl mr-4"></i>
-								<div>
-									<p class="m-0">Timelock mechanisms ensure that disputes have clear resolution paths without requiring trusted third parties.</p>
-								</div>
-							</div>
-						</div>
+					<div class="alert alert-info alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<span>Timelock mechanisms ensure that disputes have clear resolution paths without requiring trusted third parties.</span>
 					</div>
 				</div>
 			</div>
@@ -189,15 +181,11 @@
 		<div class="mt-16">
 			<h2 class="text-3xl font-bold text-center mb-8">Security Best Practices</h2>
 			
-			<div class="card shadow-lg mb-8 bg-warning/10 border-l-4 border-warning">
-				<div class="card-body py-4">
-					<div class="flex items-center">
-						<i class="fa-solid fa-shield text-warning text-xl mr-4"></i>
-						<div>
-							<p class="m-0"><strong>Your security is in your hands.</strong> While BitTasker implements strong platform security, following these best practices will help keep your account and funds safe.</p>
-						</div>
-					</div>
-				</div>
+			<div class="alert alert-warning alert-outline mb-8">
+				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z" />
+				</svg>
+				<span><strong>Your security is in your hands.</strong> While BitTasker implements strong platform security, following these best practices will help keep your account and funds safe.</span>
 			</div>
 			
 			<div class="collapse collapse-arrow bg-base-100 shadow border border-base-300 mb-4" class:collapse-open={openPractice === 0}>

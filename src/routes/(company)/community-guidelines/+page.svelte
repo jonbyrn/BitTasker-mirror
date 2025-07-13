@@ -33,7 +33,7 @@
 		</button>
 	</div>
 
-	<div class="rounded-b-box rounded-t-none bg-base-100 p-6 pt-8">
+	<div class="prose rounded-b-box rounded-t-none bg-base-100 p-6 pt-8">
 		{#if activeTab === 'posters'}
 			<!-- Content for Task Posters -->
 			<div class="space-y-4">

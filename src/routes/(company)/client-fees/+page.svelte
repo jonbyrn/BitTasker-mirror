@@ -22,15 +22,11 @@
 			At BitTasker, we believe in rewarding loyalty. The more tasks you post, the less you pay in fees. Our dynamic tier system ensures that our most active clients enjoy the best rates.
 		</p>
 
-		<div class="card shadow-lg mb-8 bg-success/10 border-l-4 border-success">
-			<div class="card-body py-4">
-				<div class="flex items-center">
-					<i class="fa-solid fa-circle-info text-success text-xl mr-4"></i>
-					<div>
-						<p class="m-0"><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active clients with progressively lower fees.</p>
-					</div>
-				</div>
-			</div>
+		<div class="alert alert-success alert-outline mb-8">
+			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+			</svg>
+			<span><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active clients with progressively lower fees.</span>
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
@@ -130,15 +126,11 @@
 			</table>
 		</div>
 		
-		<div class="card shadow-lg my-8 bg-info/10 border-l-4 border-info">
-			<div class="card-body py-4">
-				<div class="flex items-center">
-					<i class="fa-solid fa-bitcoin-sign text-info text-xl mr-4"></i>
-					<div>
-						<p class="m-0"><strong>Bitcoin Example:</strong> As a <strong class="text-primary">Hash Master</strong> tier client, a $100 task paid with Bitcoin would cost just $101.50 total!</p>
-					</div>
-				</div>
-			</div>
+		<div class="alert alert-info alert-outline my-8">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<span><strong>Bitcoin Example:</strong> As a <strong class="text-primary">Hash Master</strong> tier client, a $100 task paid with Bitcoin would cost just $101.50 total!</span>
 		</div>
 
 		<h2>Rebooking Discount</h2>

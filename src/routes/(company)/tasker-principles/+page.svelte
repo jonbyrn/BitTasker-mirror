@@ -10,13 +10,14 @@
 		alt="BitTasker Logo"
 		class="mx-auto mb-8 block w-full max-w-lg"
 	/>
-	<div class="text-center">
-		<h1 class="text-4xl font-bold">Our Tasker Principles</h1>
-		<p class="mx-auto mt-4 max-w-2xl text-lg text-base-content/80">
-			At BitTasker, great Taskers are the heart of our community. These four principles are the
-			foundation for success, helping you build a stellar reputation and earn more.
-		</p>
-	</div>
+	<div class="prose mx-auto max-w-4xl">
+		<div class="text-center">
+			<h1 class="text-4xl font-bold">Our Tasker Principles</h1>
+			<p class="mx-auto mt-4 max-w-2xl text-lg text-base-content/80">
+				At BitTasker, great Taskers are the heart of our community. These four principles are the
+				foundation for success, helping you build a stellar reputation and earn more.
+			</p>
+		</div>
 
 		<div class="mt-12 grid gap-8 md:grid-cols-2">
 		<!-- Principle 1: Be Professional -->
@@ -74,5 +75,6 @@
 				</ul>
 			</div>
 		</div>
+	</div>
 	</div>
 </div>

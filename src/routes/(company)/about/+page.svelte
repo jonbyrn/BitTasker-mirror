@@ -20,7 +20,7 @@
 	</div>
 
 	<!-- Our Mission Section -->
-	<div class="container mx-auto px-4 py-16 md:px-8">
+	<div class="prose container mx-auto px-4 py-16 md:px-8">
 		<div class="mx-auto max-w-3xl text-center">
 			<h2 class="text-4xl font-bold">Our Mission</h2>
 			<p class="mt-4 text-lg text-base-content/80">
