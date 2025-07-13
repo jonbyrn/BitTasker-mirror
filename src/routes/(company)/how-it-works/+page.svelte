@@ -5,8 +5,8 @@
 	// State to track which detailed step section is open
 	let openStepSection = $state<number>(-1);
 
-	// State for client/freelancer tabs in step 3
-	let openSection = $state<number>(0); // Default to client tab
+	// State for client/freelancer accordion in step 3
+	let openTaskTalentSection = $state<number>(-1); // Default to closed
 
 	// Function to toggle between step sections
 	function toggleStepSection(index: number): void {
@@ -17,9 +17,13 @@
 		}
 	}
 
-	// Function to toggle between client and freelancer tabs
-	function toggleSection(index: number): void {
-		openSection = index;
+	// Function to toggle between client and freelancer accordion
+	function toggleTaskTalentSection(index: number): void {
+		if (openTaskTalentSection === index) {
+			openTaskTalentSection = -1; // Close if already open
+		} else {
+			openTaskTalentSection = index; // Open the new one
+		}
 	}
 </script>
 
@@ -62,21 +66,23 @@
 		</div>
 
 		<!-- Steps Overview -->
-		<div class="steps steps-vertical md:steps-horizontal w-full mb-12">
-			<div class="step step-primary">
-				<div>Sign Up</div>
-			</div>
-			<div class="step step-primary">
-				<div>Create Profile</div>
-			</div>
-			<div class="step step-primary">
-				<div>Find Tasks/Talent</div>
-			</div>
-			<div class="step step-primary">
-				<div>Complete Work</div>
-			</div>
-			<div class="step step-primary">
-				<div>Get Paid</div>
+		<div class="flex justify-center mb-12">
+			<div class="steps steps-vertical md:steps-horizontal">
+				<div class="step step-primary">
+					<div>Sign Up</div>
+				</div>
+				<div class="step step-primary">
+					<div>Create Profile</div>
+				</div>
+				<div class="step step-primary">
+					<div>Find Tasks/Talent</div>
+				</div>
+				<div class="step step-primary">
+					<div>Complete Work</div>
+				</div>
+				<div class="step step-primary">
+					<div>Get Paid</div>
+				</div>
 			</div>
 		</div>
 
@@ -86,7 +92,7 @@
 			
 			<!-- Step 1: Sign Up -->
 			<div class="mb-8">
-				<div class="flex items-center gap-4 mb-4">
+				<div class="flex items-baseline gap-4 mb-4">
 					<div class="badge badge-primary badge-lg">1</div>
 					<h3 class="text-2xl font-bold">Sign Up with BitTasker</h3>
 				</div>
@@ -129,7 +135,7 @@
 
 			<!-- Step 2: Create Profile -->
 			<div class="mb-8">
-				<div class="flex items-center gap-4 mb-4">
+				<div class="flex items-baseline gap-4 mb-4">
 					<div class="badge badge-primary badge-lg">2</div>
 					<h3 class="text-2xl font-bold">Create Your Professional Profile</h3>
 				</div>
@@ -182,7 +188,7 @@
 
 			<!-- Step 3: Find Tasks/Talent -->
 			<div class="mb-8">
-				<div class="flex items-center gap-4 mb-4">
+				<div class="flex items-baseline gap-4 mb-4">
 					<div class="badge badge-primary badge-lg">3</div>
 					<h3 class="text-2xl font-bold">Find Tasks or Talent</h3>
 				</div>
@@ -191,92 +197,87 @@
 					<div class="card-body">
 						<p class="mb-4">BitTasker's matching system connects clients with the right freelancers and helps professionals find work that matches their skills.</p>
 						
-						<div class="tabs tabs-boxed mb-6">
-							<button type="button" 
-								class="tab grow" 
-								class:tab-active={openSection == 0}
-								onclick={() => toggleSection(0)}
-							>For Clients</button>
-							<button type="button" 
-								class="tab grow" 
-								class:tab-active={openSection == 1}
-								onclick={() => toggleSection(1)}
-							>For Freelancers</button>
-						</div>
-						
-						<!-- For Clients Content -->
-						<div class="{openSection == 0 ? 'block' : 'hidden'}">
-							<h4 class="font-bold text-xl mb-4">Post a Task, Get Offers</h4>
-							
-							<div class="space-y-4">
-								<div class="flex gap-4 items-start">
-									<div class="badge badge-outline">1</div>
-									<div>
-										<p class="font-semibold">Describe your task</p>
-										<p class="text-base-content/80">Be specific about what you need, when you need it, and your budget.</p>
+						<div class="join join-vertical w-full">
+							<!-- For Clients -->
+							<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openTaskTalentSection === 0}>
+								<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleTaskTalentSection(0)}>
+									For Clients: Post a Task, Get Offers
+								</button>
+								<div class="collapse-content">
+									<div class="space-y-4">
+										<div class="flex gap-4 items-center">
+											<div class="badge badge-outline">1</div>
+											<div>
+												<p class="font-semibold">Describe your task</p>
+												<p class="text-base-content/80">Be specific about what you need, when you need it, and your budget.</p>
+											</div>
+										</div>
+										
+										<div class="flex gap-4 items-center">
+											<div class="badge badge-outline">2</div>
+											<div>
+												<p class="font-semibold">Review offers from qualified professionals</p>
+												<p class="text-base-content/80">Compare skills, ratings, and price quotes to find the perfect match.</p>
+											</div>
+										</div>
+										
+										<div class="flex gap-4 items-center">
+											<div class="badge badge-outline">3</div>
+											<div>
+												<p class="font-semibold">Hire and pay through secure escrow</p>
+												<p class="text-base-content/80">Our <a href="/escrow" class="link link-primary">escrow system</a> protects both parties during the transaction.</p>
+											</div>
+										</div>
 									</div>
-								</div>
-								
-								<div class="flex gap-4 items-start">
-									<div class="badge badge-outline">2</div>
-									<div>
-										<p class="font-semibold">Review offers from qualified professionals</p>
-										<p class="text-base-content/80">Compare skills, ratings, and price quotes to find the perfect match.</p>
-									</div>
-								</div>
-								
-								<div class="flex gap-4 items-start">
-									<div class="badge badge-outline">3</div>
-									<div>
-										<p class="font-semibold">Hire and pay through secure escrow</p>
-										<p class="text-base-content/80">Our <a href="/escrow" class="link link-primary">escrow system</a> protects both parties during the transaction.</p>
-									</div>
-								</div>
-							</div>
-							
-							<div class="alert alert-info alert-outline mt-6">
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-								</svg>
-								<span><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskers.</span>
-							</div>
-						</div>
-						
-						<!-- For Freelancers Content -->
-						<div class="{openSection == 1 ? 'block' : 'hidden'}">
-							<h4 class="font-bold text-xl mb-4">Find Work That Matches Your Skills</h4>
-							
-							<div class="space-y-4">
-								<div class="flex gap-4 items-start">
-									<div class="badge badge-outline">1</div>
-									<div>
-										<p class="font-semibold">Browse available tasks</p>
-										<p class="text-base-content/80">Filter by category, location, budget, and project type to find your ideal match.</p>
-									</div>
-								</div>
-								
-								<div class="flex gap-4 items-start">
-									<div class="badge badge-outline">2</div>
-									<div>
-										<p class="font-semibold">Send compelling offers</p>
-										<p class="text-base-content/80">Explain why you're perfect for the job, your approach, timeline, and pricing.</p>
-									</div>
-								</div>
-								
-								<div class="flex gap-4 items-start">
-									<div class="badge badge-outline">3</div>
-									<div>
-										<p class="font-semibold">Negotiate and accept terms</p>
-										<p class="text-base-content/80">When hired, you'll receive clear tasks, milestones, and payment terms through our platform.</p>
+									
+									<div class="alert alert-info alert-outline mt-6">
+										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+										</svg>
+										<span><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskers.</span>
 									</div>
 								</div>
 							</div>
 							
-							<div class="alert alert-info alert-outline mt-6">
-								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-								</svg>
-								<span><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Clients are more likely to hire freelancers who address their specific needs.</span>
+							<!-- For Freelancers -->
+							<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openTaskTalentSection === 1}>
+								<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleTaskTalentSection(1)}>
+									For Freelancers: Find Work That Matches Your Skills
+								</button>
+								<div class="collapse-content">
+									<div class="space-y-4">
+										<div class="flex gap-4 items-center">
+											<div class="badge badge-outline">1</div>
+											<div>
+												<p class="font-semibold">Browse available tasks</p>
+												<p class="text-base-content/80">Filter by category, location, budget, and project type to find your ideal match.</p>
+											</div>
+										</div>
+										
+										<div class="flex gap-4 items-center">
+											<div class="badge badge-outline">2</div>
+											<div>
+												<p class="font-semibold">Send compelling offers</p>
+												<p class="text-base-content/80">Explain why you're perfect for the job, your approach, timeline, and pricing.</p>
+											</div>
+										</div>
+										
+										<div class="flex gap-4 items-center">
+											<div class="badge badge-outline">3</div>
+											<div>
+												<p class="font-semibold">Negotiate and accept terms</p>
+												<p class="text-base-content/80">When hired, you'll receive clear tasks, milestones, and payment terms through our platform.</p>
+											</div>
+										</div>
+									</div>
+									
+									<div class="alert alert-info alert-outline mt-6">
+										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+										</svg>
+										<span><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Clients are more likely to hire freelancers who address their specific needs.</span>
+									</div>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -285,7 +286,7 @@
 
 			<!-- Step 4: Complete Work -->
 			<div class="mb-8">
-				<div class="flex items-center gap-4 mb-4">
+				<div class="flex items-baseline gap-4 mb-4">
 					<div class="badge badge-primary badge-lg">4</div>
 					<h3 class="text-2xl font-bold">Complete the Work</h3>
 				</div>
@@ -348,7 +349,7 @@
 
 			<!-- Step 5: Get Paid -->
 			<div class="mb-8">
-				<div class="flex items-center gap-4 mb-4">
+				<div class="flex items-baseline gap-4 mb-4">
 					<div class="badge badge-primary badge-lg">5</div>
 					<h3 class="text-2xl font-bold">Get Paid in Bitcoin and Fiat</h3>
 				</div>

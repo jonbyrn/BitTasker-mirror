@@ -13,7 +13,6 @@
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
 			Simple, transparent pricing designed to reward loyal clients
 		</p>
-		<p class="text-sm text-base-content/70 mt-2">Last Updated: {currentDate}</p>
 	</div>
 
 	<div class="prose mx-auto mt-8 max-w-4xl">

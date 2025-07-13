@@ -13,7 +13,6 @@
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
 			Maximize your earnings with our loyalty-rewarding fee structure
 		</p>
-		<p class="text-sm text-base-content/70 mt-2">Last Updated: {currentDate}</p>
 	</div>
 
 	<div class="prose mx-auto mt-8 max-w-4xl">
@@ -172,7 +171,7 @@
 
 		<div class="divider my-8"></div>
 
-		<div class="flex flex-col items-center my-6">
+		<div class="flex flex-col items-center my-6 text-center">
 			<h3>Ready to start earning with the most competitive fees in the industry?</h3>
 			<a href="/sign-up" class="btn btn-primary mt-4">Join BitTasker Today</a>
 		</div>
