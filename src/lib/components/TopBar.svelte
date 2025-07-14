@@ -279,6 +279,7 @@
 	<!-- Hide navbar-start on mobile -->
 	<div class="navbar-start hidden sm:flex flex-1">
 		{#if isDesktopLayout || (!isLoggedIn && !$showBackButton)}
+			<!-- Desktop layout or logged-out users without back button: no navbar-start content needed -->
 		{:else if $showBackButton}
 			<!-- Mobile: Back button when applicable -->
 			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
@@ -612,11 +613,6 @@
 		padding: 0.5rem 0.75rem;
 		font-weight: 500;
 		transition: all 0.2s ease;
-	}
-
-	/* Rotate arrow when dropdown is open */
-	.dropdown[open] summary svg {
-		transform: rotate(180deg);
 	}
 
 	/* Add bottom spacing when bottom nav is present */
