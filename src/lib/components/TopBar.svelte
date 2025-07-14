@@ -90,7 +90,7 @@
 		if ($authState.isAuthenticated) {
 			await setupProfileImageSubscription();
 		}
-		
+
 		// Add click outside handler for dropdowns
 		if (typeof document !== 'undefined') {
 			document.addEventListener('click', handleClickOutside);
@@ -212,12 +212,12 @@
 		if (subscription) {
 			subscription.close();
 		}
-		
+
 		// Remove click outside handler
 		if (typeof document !== 'undefined') {
 			document.removeEventListener('click', handleClickOutside);
 		}
-		
+
 		// Remove bottom nav class
 		if (typeof document !== 'undefined') {
 			document.body.classList.remove('bottom-nav-active');
@@ -234,7 +234,7 @@
 	function closeDropdowns() {
 		// Close all details elements (dropdowns)
 		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach(dropdown => {
+		dropdowns.forEach((dropdown) => {
 			dropdown.removeAttribute('open');
 		});
 	}
@@ -242,7 +242,7 @@
 	// Function to close other dropdown menus except the current one
 	function closeOtherDropdowns(currentDropdown: HTMLDetailsElement) {
 		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach(dropdown => {
+		dropdowns.forEach((dropdown) => {
 			if (dropdown !== currentDropdown) {
 				dropdown.removeAttribute('open');
 			}
@@ -253,7 +253,7 @@
 	function handleDropdownClick(event: MouseEvent) {
 		const summary = event.currentTarget as HTMLElement;
 		const dropdown = summary.closest('details') as HTMLDetailsElement;
-		
+
 		// Close other dropdowns when this one is about to open
 		if (dropdown && !dropdown.hasAttribute('open')) {
 			closeOtherDropdowns(dropdown);
@@ -263,10 +263,10 @@
 	// Handle clicks outside dropdowns to close them
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
-		
+
 		// Check if click is outside any dropdown
 		const isInsideDropdown = target.closest('details.dropdown');
-		
+
 		if (!isInsideDropdown) {
 			closeDropdowns();
 		}
@@ -275,11 +275,22 @@
 
 <!-- Main TopBar component -->
 <div
-	class="navbar bg-base-100/80 border-base-300 pt-safe w-full border-b backdrop-blur-sm sticky top-0 z-50 {isDesktopLayout ? 'fixed top-0 right-0 left-0' : ''}">
+	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm {isDesktopLayout
+		? 'fixed top-0 right-0 left-0'
+		: ''}"
+>
 	<!-- Hide navbar-start on mobile -->
-	<div class="navbar-start hidden sm:flex flex-1">
+	<div class="navbar-start flex-1 sm:flex {isLoggedIn ? '' : 'hidden'}">
 		{#if isDesktopLayout || (!isLoggedIn && !$showBackButton)}
-			<!-- Desktop layout or logged-out users without back button: no navbar-start content needed -->
+			<a href="/">
+				<img
+					src={$darkMode
+						? '/images/Bittasker-logo-no-tagline-dark.svg'
+						: '/images/Bittasker-logo-no-tagline-light.svg'}
+					alt="BitTasker Logo"
+					class="mx-auto block max-h-10"
+				/>
+			</a>
 		{:else if $showBackButton}
 			<!-- Mobile: Back button when applicable -->
 			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
@@ -313,17 +324,23 @@
 	</div>
 
 	<!-- Hide navbar-center on mobile -->
-	<div class="navbar-center hidden lg:flex mx-auto">
+	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
 			<li>
 				<a href="/how-it-works" class="btn btn-ghost">{$t('footer.how_it_works')}</a>
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_clients')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}
+						>{$t('footer.for_clients')}</summary
+					>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a></li>
-						<li><a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a></li>
+						<li>
+							<a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a>
+						</li>
+						<li>
+							<a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a>
+						</li>
 						<li><a href="/client-fees" onclick={closeDropdowns}>{$t('footer.client_fees')}</a></li>
 						<li><a href="/escrow" onclick={closeDropdowns}>{$t('footer.escrow')}</a></li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.faq')}</a></li>
@@ -332,19 +349,35 @@
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_taskers')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}
+						>{$t('footer.for_taskers')}</summary
+					>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>{$t('footer.start_earning')}</a></li>
-						<li><a href="/community-guidelines" onclick={closeDropdowns}>{$t('footer.community_guidelines')}</a></li>
+						<li>
+							<a href="/dashboard/find-tasks" onclick={closeDropdowns}
+								>{$t('footer.start_earning')}</a
+							>
+						</li>
+						<li>
+							<a href="/community-guidelines" onclick={closeDropdowns}
+								>{$t('footer.community_guidelines')}</a
+							>
+						</li>
 						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
-						<li><a href="/tasker-principles" onclick={closeDropdowns}>{$t('footer.tasker_principles')}</a></li>
+						<li>
+							<a href="/tasker-principles" onclick={closeDropdowns}
+								>{$t('footer.tasker_principles')}</a
+							>
+						</li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.tasker_faq')}</a></li>
 					</ul>
 				</details>
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.company')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}
+						>{$t('footer.company')}</summary
+					>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
 						<li><a href="/about" onclick={closeDropdowns}>{$t('footer.about_us')}</a></li>
 						<li><a href="/security" onclick={closeDropdowns}>{$t('footer.security')}</a></li>
@@ -360,9 +393,9 @@
 			<li class="tooltip tooltip-bottom hidden lg:list-item">
 				<details class="dropdown">
 					<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-						<span class="text-lg">{getCurrentLanguageFlag($locale)}</span>
+						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
+						></iconify-icon>
 						<span class="font-medium uppercase">{$locale}</span>
-						<!-- Removed custom SVG arrow -->
 					</summary>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
 						{#each LANGUAGES as { code, name, flag }}
@@ -372,10 +405,11 @@
 									onclick={() => handleLanguageChange(code)}
 									class:bg-base-200={code === $locale}
 								>
-									<span class="text-lg">{flag}</span>
+									<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
 									<span>{name}</span>
 									{#if code === $locale}
-										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"></iconify-icon>
+										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"
+										></iconify-icon>
 									{/if}
 								</button>
 							</li>
@@ -387,7 +421,7 @@
 	</div>
 
 	<!-- Navbar End: always contains dark mode and language controls -->
-	<div class="navbar-end w-full flex items-center justify-end gap-2 flex-1">
+	<div class="navbar-end flex w-full flex-1 items-center justify-end gap-2">
 		<!-- Dark mode toggle -->
 		<label
 			class="swap swap-rotate btn btn-xs sm:btn-sm btn-ghost btn-circle tooltip tooltip-bottom"
@@ -416,11 +450,12 @@
 			</svg>
 		</label>
 		<!-- Language dropdown for mobile only -->
-		<ul class="menu block lg:hidden p-0 m-0 bg-transparent shadow-none">
+		<ul class="menu m-0 block bg-transparent p-0 shadow-none lg:hidden">
 			<li class="tooltip tooltip-bottom">
 				<details class="dropdown">
 					<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-						<span class="text-lg">{getCurrentLanguageFlag($locale)}</span>
+						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
+						></iconify-icon>
 						<span class="font-medium uppercase">{$locale}</span>
 					</summary>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
@@ -431,10 +466,11 @@
 									onclick={() => handleLanguageChange(code)}
 									class:bg-base-200={code === $locale}
 								>
-									<span class="text-lg">{flag}</span>
+									<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
 									<span>{name}</span>
 									{#if code === $locale}
-										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"></iconify-icon>
+										<iconify-icon icon="mdi:check" class="text-primary ml-auto" width="16"
+										></iconify-icon>
 									{/if}
 								</button>
 							</li>
@@ -449,14 +485,13 @@
 				<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
 				<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 			</span>
+		{:else}
+			<Avatar
+				user={{ name: $user?.name, profileImage }}
+				onClick={() => goto('/dashboard/profile')}
+			/>
 		{/if}
-		<!-- (other right-side controls remain unchanged) -->
 	</div>
-</div>
-
-<!-- Bottom Navigation for mobile and tablet only -->
-<div class="block lg:hidden">
-	<BottomNavBar />
 </div>
 
 <!-- Mobile Drawer -->
@@ -507,7 +542,8 @@
 			<li>
 				<details class="w-[98%]">
 					<summary class="flex items-center gap-2">
-						<span class="text-lg">{getCurrentLanguageFlag($locale)}</span>
+						<iconify-icon icon={getCurrentLanguageFlag($locale)} width="20" height="15"
+						></iconify-icon>
 						{$t('navbar.language')}
 					</summary>
 					<ul>
