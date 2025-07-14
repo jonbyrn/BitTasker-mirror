@@ -432,38 +432,6 @@
 		background: hsl(var(--p) / 0.8);
 	}
 
-	/* Add a subtle entrance animation for menu items when opening */
-	.menu-slide-up ul {
-		animation: fadeInUp 0.4s ease-out 0.1s both;
-	}
-
-	/* Fade out menu items when closing */
-	.menu-slide-down ul {
-		animation: fadeOutDown 0.25s ease-out forwards;
-	}
-
-	@keyframes fadeInUp {
-		from {
-			opacity: 0;
-			transform: translateY(20px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	@keyframes fadeOutDown {
-		from {
-			opacity: 1;
-			transform: translateY(0);
-		}
-		to {
-			opacity: 0;
-			transform: translateY(15px);
-		}
-	}
-
 	/* Improve button animations */
 	.bottom-nav-bar button {
 		transition: all 0.15s ease-out;

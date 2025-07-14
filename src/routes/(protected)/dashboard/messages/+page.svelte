@@ -276,8 +276,9 @@
 				<form onsubmit={submitNewMessage} class="space-y-4">
 					<!-- Input Section -->
 					<div class="space-y-2">
-						<label class="text-sm font-medium">Recipient Public Key</label>
+						<label for="recipient-pubkey" class="text-sm font-medium">Recipient Public Key</label>
 						<input
+							id="recipient-pubkey"
 							type="text"
 							class="input input-bordered w-full text-sm"
 							bind:value={newMessagePubkey}
