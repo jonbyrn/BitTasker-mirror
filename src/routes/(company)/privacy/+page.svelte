@@ -5,10 +5,10 @@
 			Your privacy isn't just a policy, it's our architecture. At BitTasker, we've built a
 			platform where you are in control of your data.
 		</p>
+		<p class="text-sm text-base-content/70 mt-2">Last Updated: July 13, 2025</p>
 	</div>
 
 	<div class="prose mx-auto mt-12 max-w-4xl">
-		<p class="text-sm text-base-content/70">Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
 
 		<h2>Our Philosophy: You Are in Control</h2>
 		<p>

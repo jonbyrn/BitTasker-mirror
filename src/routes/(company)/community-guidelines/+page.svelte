@@ -1,46 +1,39 @@
 <script lang="ts">
-	let activeTab = $state<'posters' | 'taskers'>('posters');
+	let openAccordion = $state({
+		posters: -1,
+		taskers: -1
+	});
+
+	function toggleAccordion(category: keyof typeof openAccordion, index: number) {
+		if (openAccordion[category] === index) {
+			openAccordion[category] = -1; // Close if already open
+		} else {
+			openAccordion[category] = index; // Open the new one
+		}
+	}
 </script>
 
 <div class="container mx-auto p-4 py-8 md:p-12">
-	<h1 class="mb-4 text-center text-4xl font-bold">Community Guidelines</h1>
-	<p class="mb-8 text-center text-lg text-base-content/80">
-		Welcome to BitTasker!
-	</p>
-	<p class="mb-8 text-center text-lg text-base-content/80">
-		Our guidelines are designed to ensure a safe, respectful, and reliable
-		experience for everyone.
-		<br />
-		By using our platform, you agree to uphold these standards.
-	</p>
-
-	<div role="tablist" class="tabs-lifted tabs tabs-lg">
-		<button
-			role="tab"
-			class="tab"
-			class:tab-active={activeTab === 'posters'}
-			onclick={() => (activeTab = 'posters')}
-		>
-			For Task Posters
-		</button>
-		<button
-			role="tab"
-			class="tab"
-			class:tab-active={activeTab === 'taskers'}
-			onclick={() => (activeTab = 'taskers')}
-		>
-			For Taskers
-		</button>
+	<div class="text-center">
+		<h1 class="text-4xl font-bold">Community Guidelines</h1>
+		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+			Welcome to BitTasker! Our guidelines are designed to ensure a safe, respectful, and reliable experience for everyone.
+		</p>
+		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+			By using our platform, you agree to uphold these standards.
+		</p>
 	</div>
 
-	<div class="rounded-b-box rounded-t-none bg-base-100 p-6 pt-8">
-		{#if activeTab === 'posters'}
-			<!-- Content for Task Posters -->
-			<div class="space-y-4">
-				<div class="collapse collapse-plus bg-base-200">
-					<input type="checkbox" />
-					<div class="collapse-title text-xl font-medium">1. Posting a Task</div>
-					<div class="collapse-content">
+	<div class="mx-auto mt-12 max-w-4xl space-y-8">
+		<!-- For Task Posters -->
+		<div class="bg-base-100 rounded-box p-6">
+			<h2 class="mb-4 text-2xl font-bold">For Task Posters</h2>
+			<div class="join join-vertical w-full">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.posters === 0}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('posters', 0)}>
+						1. Posting a Task
+					</button>
+					<div class="collapse-content prose">
 						<ul class="list-inside list-disc space-y-2">
 							<li>
 								<strong>Be Clear and Detailed:</strong> Provide a clear title and a thorough
@@ -59,10 +52,11 @@
 						</ul>
 					</div>
 				</div>
-				<div class="collapse collapse-plus bg-base-200">
-					<input type="checkbox" />
-					<div class="collapse-title text-xl font-medium">2. Payments and Fees</div>
-					<div class="collapse-content">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.posters === 1}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('posters', 1)}>
+						2. Payments and Fees
+					</button>
+					<div class="collapse-content prose">
 						<ul class="list-inside list-disc space-y-2">
 							<li>
 								<strong>Secure Escrow:</strong> All payments (Bitcoin or fiat) are held in our
@@ -82,55 +76,63 @@
 						</ul>
 					</div>
 				</div>
-				<div class="collapse collapse-plus bg-base-200">
-					<input type="checkbox" />
-					<div class="collapse-title text-xl font-medium">3. Conduct and Communication</div>
-					<div class="collapse-content">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.posters === 2}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('posters', 2)}>
+						3. Communication and Conduct
+					</button>
+					<div class="collapse-content prose">
 						<ul class="list-inside list-disc space-y-2">
 							<li>
-								<strong>Respectful Interaction:</strong> Treat all Taskers with respect and
-									professionalism. Harassment, discrimination, or abusive language will not be
-									tolerated.
+								<strong>Respectful Communication:</strong> Treat Taskers with respect and
+									professionalism. Constructive feedback helps improve the platform for everyone.
 							</li>
 							<li>
-								<strong>Protect Private Information:</strong> Do not share personal contact details
-									(phone numbers, emails, social media) in public comments. Use the private
-									chat after an offer is accepted.
+								<strong>Keep It On-Platform:</strong> For security and protection reasons, all
+									communication should remain within the BitTasker platform.
+							</li>
+							<li>
+								<strong>Timely Responses:</strong> Be prompt in responding to messages and
+									accepting or declining offers. This helps maintain a smooth experience for all
+									users.
 							</li>
 						</ul>
 					</div>
 				</div>
 			</div>
-		{:else}
-			<!-- Content for Taskers -->
-			<div class="space-y-4">
-				<div class="collapse collapse-plus bg-base-200">
-					<input type="checkbox" />
-					<div class="collapse-title text-xl font-medium">1. Your Profile and Offers</div>
-					<div class="collapse-content">
+		</div>
+
+		<!-- For Taskers -->
+		<div class="bg-base-100 rounded-box p-6">
+			<h2 class="mb-4 text-2xl font-bold">For Taskers</h2>
+			<div class="join join-vertical w-full">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 0}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 0)}>
+						1. Making an Offer
+					</button>
+					<div class="collapse-content prose">
 						<ul class="list-inside list-disc space-y-2">
 							<li>
-								<strong>Honest Representation:</strong> Your profile is your professional resume.
-									Use a clear photo of yourself and provide accurate information about your
-									skills and experience.
+								<strong>Skill-Based Offers:</strong> Only offer on tasks you can complete
+									competently. Misrepresenting your skills or qualifications is not permitted.
 							</li>
 							<li>
-								<strong>All-Inclusive Offers:</strong> Your offer must cover the entire cost of the
-									task, including any materials or expenses. Do not ask for more money after
-									your offer is accepted, except in the event that the scope of work was not clearly
-									outlined in the task description.
+								<strong>Fair and Realistic Pricing:</strong> Provide offers that reflect the
+									effort, skill, and time required. Extreme underbidding or overbidding damages
+									the platform's integrity.
 							</li>
 							<li>
-								<strong>Only Offer on Tasks You Can Do:</strong> Only make offers on tasks you are
-									qualified and available to complete to a high standard.
+								<strong>No Spam or Bots:</strong> Don't send templated or automated messages.
+									Personalized offers that address the specific task are more likely to be
+									accepted.
 							</li>
 						</ul>
 					</div>
 				</div>
-				<div class="collapse collapse-plus bg-base-200">
-					<input type="checkbox" />
-					<div class="collapse-title text-xl font-medium">2. Completing a Task</div>
-					<div class="collapse-content">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 1}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 1)}>
+						2. Completing a Task
+					</button>
+					<div class="collapse-content prose">
 						<ul class="list-inside list-disc space-y-2">
 							<li>
 								<strong>Uphold Quality:</strong> Complete the task to the best of your ability, as
@@ -149,10 +151,11 @@
 						</ul>
 					</div>
 				</div>
-				<div class="collapse collapse-plus bg-base-200">
-					<input type="checkbox" />
-					<div class="collapse-title text-xl font-medium">3. Payments and Conduct</div>
-					<div class="collapse-content">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 2}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 2)}>
+						3. Payments and Conduct
+					</button>
+					<div class="collapse-content prose">
 						<ul class="list-inside list-disc space-y-2">
 							<li>
 								<strong>Secure Payments Only:</strong> All payments are processed through our
@@ -170,7 +173,7 @@
 					</div>
 				</div>
 			</div>
-		{/if}
+		</div>
 	</div>
 
 	<div class="mt-8 rounded-lg bg-base-200 p-6 text-center">

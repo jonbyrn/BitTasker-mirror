@@ -27,7 +27,7 @@
 	</div>
 
 	<!-- Our Culture Section -->
-	<div class="py-8">
+	<div class="prose mx-auto max-w-4xl py-8">
 		<div class="mx-auto max-w-3xl text-center">
 			<h2 class="text-4xl font-bold">Our Culture</h2>
 			<p class="mt-4 text-lg text-base-content/80">
