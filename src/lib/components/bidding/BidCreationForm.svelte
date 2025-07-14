@@ -700,7 +700,7 @@
 				{/if}
 			</button>
 			{#if bidFormErrors.general}
-				<div class="alert alert-error">
+				<div class="alert alert-error alert-outline">
 					<span>{bidFormErrors.general}</span>
 				</div>
 			{/if}
