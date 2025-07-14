@@ -72,7 +72,7 @@
 <main
 	data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
 	id="main"
-	class="min-h-[100dvh] flex flex-col"
+	class="flex min-h-[100dvh] flex-col"
 >
 	<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 	{#if showTopBar}
@@ -204,7 +204,9 @@
 								<li>
 									<a href="/how-it-works" class="hover:text-primary">{$t('footer.how_it_works')}</a>
 								</li>
-								<li><a href="/client-fees" class="hover:text-primary">{$t('footer.client_fees')}</a></li>
+								<li>
+									<a href="/client-fees" class="hover:text-primary">{$t('footer.client_fees')}</a>
+								</li>
 								<li><a href="/escrow" class="hover:text-primary">{$t('footer.escrow')}</a></li>
 								<li><a href="/faq" class="hover:text-primary">{$t('footer.faq')}</a></li>
 							</ul>
@@ -261,7 +263,7 @@
 		</footer>
 	{/if}
 
-	{#if showBottomBar && ($deviceInfo?.platform !== 'web' || width <= 768)}
+	{#if $deviceInfo?.platform !== 'web' || width <= 768}
 		<div class="pb-safe right-0 bottom-0 left-0 z-50">
 			<BottomNavBar />
 		</div>
