@@ -11,8 +11,8 @@ export const LANGUAGES: Array<{
 	name: string;
 	flag: string;
 }> = [
-	{ code: 'en', name: 'English', flag: '🇺🇸' },
-	{ code: 'es', name: 'Español', flag: '🇪🇸' }
+	{ code: 'en', name: 'English', flag: 'flag:us-4x3' },
+	{ code: 'es', name: 'Español', flag: 'flag:es-4x3' }
 ];
 
 // Derived values from the main LANGUAGES array

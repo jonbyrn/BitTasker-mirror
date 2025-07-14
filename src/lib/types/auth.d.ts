@@ -1,7 +1,7 @@
 export interface Credentials {
 	username: string;
-	password: string;
-	server: string;
+	password: string; // encrytpion data
+	server: string; // device id
 }
 
 export interface NostrRegistrationData {

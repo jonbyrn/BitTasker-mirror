@@ -117,8 +117,8 @@ export async function setWebBiometricKey(
 		const packedKeys = packKeys(publicKey, exportedKey);
 
 		// Create descriptive names for the passkey
-		const userName = customName || createUserFriendlyName(publicKey);
-		const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
+		const displayName = customName || createUserFriendlyName(publicKey);
+		const userName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
 
 		// Create registration options
 		const registrationOptions: PublicKeyCredentialCreationOptions = {

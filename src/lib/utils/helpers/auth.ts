@@ -15,10 +15,11 @@ import { nip19 } from 'nostr-tools';
 export async function encryptNsec(
 	nsec: string,
 	password: string,
-	iterations: number = 100000
+	iterations: number = 100000,
+	_salt?: string
 ): Promise<{ encrypted: EncryptedData; salt: string; exportedKey: string; iterations: number }> {
 	// Generate a random salt for recovery password
-	const salt = randomBytes(16);
+	const salt = _salt ? base64ToBytes(_salt) : randomBytes(16);
 
 	// Derive key from recovery password
 	const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
