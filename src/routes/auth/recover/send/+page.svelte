@@ -67,7 +67,7 @@
 			</form>
 
 			{#if success}
-				<div class="alert alert-success mb-4">
+				<div class="alert alert-success alert-outline mb-4">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -90,7 +90,7 @@
 			{/if}
 
 			{#if error}
-				<div class="alert alert-error mb-4">
+				<div class="alert alert-error alert-outline mb-4">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"

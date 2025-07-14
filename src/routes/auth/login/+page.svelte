@@ -160,7 +160,7 @@
 				{/if}
 
 				{#if error}
-					<div class="alert alert-error mt-2">
+					<div class="alert alert-error alert-outline mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
