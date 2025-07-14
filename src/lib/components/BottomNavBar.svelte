@@ -438,8 +438,8 @@
 					class={currentSection === section.id ? 'dock-active' : ''}
 					data-sveltekit-reload="off"
 				>
-					<iconify-icon icon={section.icon}></iconify-icon>
-					<span class="dock-label">{section.label}</span>
+					<iconify-icon icon={section.icon} width="24" class="text-primary-content"></iconify-icon>
+					<span class="dock-label font-medium">{section.label}</span>
 				</a>
 			{/if}
 		{/each}
