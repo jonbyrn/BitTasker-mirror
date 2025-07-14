@@ -301,7 +301,7 @@
 
   <!-- Error Message -->
   {#if error}
-    <div class="alert alert-error">
+    <div class="alert alert-error alert-outline">
       <span>{error}</span>
     </div>
   {/if}
@@ -319,7 +319,7 @@
 
 <!-- Success Toast -->
 <div id="location-toast-success" class="toast toast-end" style="display: none;">
-  <div class="alert alert-success">
+  <div class="alert alert-success alert-outline">
     <span>Location updated successfully!</span>
   </div>
 </div>

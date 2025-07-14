@@ -292,7 +292,7 @@
 
 					<!-- Error Display -->
 					{#if newMessageError}
-						<div class="alert alert-error py-2">
+						<div class="alert alert-error alert-outline py-2">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-4 w-4 shrink-0 stroke-current"
@@ -456,7 +456,7 @@
 					</div>
 				{:else if error}
 					<!-- Error State -->
-					<div class="alert alert-error">
+					<div class="alert alert-error alert-outline">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"

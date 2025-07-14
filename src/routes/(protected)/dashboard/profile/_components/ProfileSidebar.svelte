@@ -234,7 +234,7 @@
 			</div>
 		</div>
 	{:else if $profileStore.error}
-		<div class="alert alert-error">
+		<div class="alert alert-outline alert-error">
 			<span>Failed to load profile data. Please try again later.</span>
 		</div>
 	{/if}

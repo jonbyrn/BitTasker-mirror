@@ -61,7 +61,7 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="alert rounded-xl">No skills added yet.</p>
+				<p class="alert alert-outline rounded-xl">No skills added yet.</p>
 			{/if}
 		</div>
 
@@ -93,7 +93,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert rounded-xl">
+				<div class="alert alert-outline rounded-xl">
 					<span>No certifications listed yet.</span>
 				</div>
 			{/if}
@@ -128,7 +128,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert rounded-xl">
+				<div class="alert alert-outline rounded-xl">
 					<span>No portfolio items added yet.</span>
 				</div>
 			{/if}
@@ -196,7 +196,7 @@
 			{/if}
 		</div>
 	{:else if $profileStore.error}
-		<div class="alert alert-error">
+		<div class="alert alert-error alert-outline">
 			<span>Failed to load profile data. Please try again later.</span>
 		</div>
 	{/if}
