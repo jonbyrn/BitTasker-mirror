@@ -116,7 +116,6 @@ export const homePageTranslations = {
 	es: {
 		'footer.company_description':
 			'Conectamos a personas que buscan servicios con profesionales que ofrecen esos servicios, impulsados por Bitcoin e identidad descentralizada.',
-		'footer.for_clients': 'Para Clientes',
 		'footer.for_taskers': 'Para Taskers',
 		'footer.post_task': 'Publicar Tarea',
 		'footer.how_it_works': 'Cómo Funciona',
