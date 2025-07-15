@@ -1,7 +1,7 @@
 export interface Credentials {
 	username: string;
-	password: string;
-	server: string;
+	password: string; // encrytpion data
+	server: string; // device id
 }
 
 export interface NostrRegistrationData {
@@ -16,6 +16,7 @@ export interface NostrRegistrationData {
 	googleToken?: string; // Optional Google token for social registration
 	authMethod?: 'passkey';
 	password?: string;
+	deviceId?: string;
 }
 
 interface NostrKeyData {
@@ -31,6 +32,7 @@ interface NostrKeyData {
 	updatedAt: string;
 	deletedAt: string | null;
 	deleted: boolean;
+	deviceId?: string;
 }
 
 export interface UserData {

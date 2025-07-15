@@ -2,11 +2,61 @@
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
+	import { t, setLocale } from '$lib/stores/i18n.store';
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
+	import { page } from '$app/state';
+	import { sections } from '$lib/utils/consts';
+	import { authState } from '$lib/stores/auth.store';
 	import 'iconify-icon';
+
+	let currentSection = $state('');
+	let lastScrollPosition = $state(0);
+	let isScrollingDown = $state(false);
+	let isVisible = $state(true);
+	let protectedRoute = $state(false);
+
+	$effect.pre(() => {
+		const path = page.url.pathname;
+		currentSection = path.split('dashboard/')[1] || '';
+		protectedRoute = page.url.pathname.includes('dashboard');
+	});
+
+	// Handle scroll visibility - hide when scrolling down, show when scrolling up
+	// TODO: This solution is not working as expected, need to fix
+	onMount(() => {
+		// Only apply scroll hide on devices with small screens
+		if (window.innerWidth <= 768) {
+			const handleScroll = () => {
+				const currentScroll = window.scrollY;
+
+				if (currentScroll > lastScrollPosition && currentScroll > 50) {
+					isScrollingDown = true;
+				} else {
+					isScrollingDown = false;
+				}
+
+				// Add a small delay before actually hiding/showing to prevent flickering
+				if (isScrollingDown && isVisible) {
+					setTimeout(() => {
+						isVisible = false;
+					}, 100);
+				} else if (!isScrollingDown && !isVisible) {
+					setTimeout(() => {
+						isVisible = true;
+					}, 100);
+				}
+
+				lastScrollPosition = currentScroll;
+			};
+
+			window.addEventListener('scroll', handleScroll, { passive: true });
+
+			return () => {
+				window.removeEventListener('scroll', handleScroll);
+			};
+		}
+	});
 
 	// Control menu visibility
 	let isMenuOpen = $state(false);
@@ -14,8 +64,9 @@
 
 	// Control individual collapse states
 	let isLanguageOpen = $state(false);
-	let isClientsOpen = $state(false);
 	let isTaskersOpen = $state(false);
+	let isTaskeesOpen = $state(false);
+	
 	let isCompanyOpen = $state(false);
 
 	// Language switcher handler
@@ -55,8 +106,9 @@
 	// Close all collapse menus
 	function closeAllCollapses() {
 		isLanguageOpen = false;
-		isClientsOpen = false;
 		isTaskersOpen = false;
+		isTaskeesOpen = false;
+		isTaskeesOpen = false;
 		isCompanyOpen = false;
 	}
 
@@ -69,19 +121,19 @@
 		}
 	}
 
-	function toggleClients() {
-		const wasOpen = isClientsOpen;
-		closeAllCollapses();
-		if (!wasOpen) {
-			isClientsOpen = true;
-		}
-	}
-
 	function toggleTaskers() {
 		const wasOpen = isTaskersOpen;
 		closeAllCollapses();
 		if (!wasOpen) {
 			isTaskersOpen = true;
+		}
+	}
+
+	function toggleTaskees() {
+		const wasOpen = isTaskeesOpen;
+		closeAllCollapses();
+		if (!wasOpen) {
+			isTaskeesOpen = true;
 		}
 	}
 
@@ -96,10 +148,10 @@
 	// Handle clicks outside menu to close it
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
-		
+
 		// Check if click is inside the expanded menu area
 		const isInsideExpandedMenu = target.closest('.bottom-nav-menu');
-		
+
 		// Check if click is on the menu button itself (center button)
 		const isMenuButton = target.closest('[data-menu-button]');
 		// Close menu if clicking outside the expanded menu and not on the menu button
@@ -126,33 +178,33 @@
 <!-- Sliding Menu Overlay - Behind the navigation -->
 {#if isMenuOpen || isMenuClosing}
 	<div
-		class="bottom-nav-menu fixed left-0 right-0 bg-base-100/80 border-t border-base-300 rounded-t-2xl shadow-lg z-40 backdrop-blur-sm"
+		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
 		style="bottom: 64px; overflow: hidden;"
 		class:menu-expand={isMenuOpen && !isMenuClosing}
 		class:menu-collapse={isMenuClosing}
 	>
-		<div class="max-h-[52rem] overflow-y-auto pt-4 pb-safe">
+		<div class="pb-safe max-h-[52rem] overflow-y-auto pt-4">
 			<div class="p-4">
+				<!-- Auth buttons at the top -->
+				<div class="mb-2 flex items-center justify-around">
+					<a
+						href="/auth/login"
+						class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
+						onclick={closeMenu}
+					>
+						<iconify-icon icon="mdi:login" width="20"></iconify-icon>
+						{$t('navbar.login')}
+					</a>
+					<a
+						href="/auth/signup"
+						class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
+						onclick={closeMenu}
+					>
+						<iconify-icon icon="mdi:account-plus" width="20"></iconify-icon>
+						{$t('navbar.signup')}
+					</a>
+				</div>
 				<ul class="menu w-full">
-					<!-- Auth buttons at the top -->
-					<li class="mb-2 flex flex-col gap-3">
-						<a
-							href="/auth/login"
-							class="btn btn-secondary btn-block flex items-center justify-center gap-2"
-							onclick={closeMenu}
-						>
-							<iconify-icon icon="mdi:login" width="20"></iconify-icon>
-							{$t('navbar.login')}
-						</a>
-						<a
-							href="/auth/signup"
-							class="btn btn-primary btn-block flex items-center justify-center gap-2"
-							onclick={closeMenu}
-						>
-							<iconify-icon icon="mdi:account-plus" width="20"></iconify-icon>
-							{$t('navbar.signup')}
-						</a>
-					</li>
 					<div class="divider"></div>
 					<!-- Main menu items - matching desktop nav structure -->
 					<li>
@@ -163,101 +215,135 @@
 					</li>
 					<li>
 						<a href="/how-it-works" onclick={closeMenu} class="min-h-[48px] py-3">
-							<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary"></iconify-icon>
+							<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary"
+							></iconify-icon>
 							<span class="font-medium">{$t('footer.how_it_works')}</span>
 						</a>
 					</li>
 
-					<!-- For Clients collapse -->
-					<li>
-						<button
-							onclick={toggleClients}
-							class="min-h-[48px] py-3"
-						>
-							<iconify-icon icon="mdi:briefcase-outline" width="24" class="text-primary"></iconify-icon>
-							<span class="font-medium">{$t('footer.for_clients')}</span>
-							<svg class="ml-auto h-4 w-4 dropdown-arrow" class:dropdown-open={isClientsOpen} fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
-								<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-							</svg>
-						</button>
-					</li>
-					{#if isClientsOpen}
-						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-							<li>
-								<a href="/dashboard/create-task" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:plus-circle-outline" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.post_task')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/how-it-works" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.how_it_works')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/client-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.client_fees')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/escrow" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.escrow')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/faq" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.faq')}</span>
-								</a>
-							</li>
-						</div>
-					{/if}
-
+					<!-- For Taskers collapse -->
 					<!-- For Taskers collapse -->
 					<li>
-						<button
-							onclick={toggleTaskers}
-							class="min-h-[48px] py-3"
-						>
-							<iconify-icon icon="mdi:account-hard-hat" width="24" class="text-primary"></iconify-icon>
+						<button onclick={toggleTaskers} class="min-h-[48px] py-3">
+							<iconify-icon icon="mdi:briefcase-outline" width="24" class="text-primary"
+							></iconify-icon>
 							<span class="font-medium">{$t('footer.for_taskers')}</span>
-							<svg class="ml-auto h-4 w-4 dropdown-arrow" class:dropdown-open={isTaskersOpen} fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
-								<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+							<svg
+								class="dropdown-arrow ml-auto h-4 w-4"
+								class:dropdown-open={isTaskersOpen}
+								fill="currentColor"
+								viewBox="0 0 20 20"
+								stroke="currentColor"
+								stroke-width="1"
+							>
+								<path
+									fill-rule="evenodd"
+									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+									clip-rule="evenodd"
+								/>
 							</svg>
 						</button>
 					</li>
 					{#if isTaskersOpen}
 						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 							<li>
-								<a href="/dashboard/find-tasks" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:currency-btc" width="20" class="text-primary"></iconify-icon>
+								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:plus-circle-outline" width="20" class="text-primary"
+									></iconify-icon>
+									<span class="font-medium">{$t('footer.post_task')}</span>
+								</a>
+							</li>
+							<li>
+								<a href="/how-it-works" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"
+									></iconify-icon>
+									<span class="font-medium">{$t('footer.how_it_works')}</span>
+								</a>
+							</li>
+							<li>
+								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"
+									></iconify-icon>
+									<span class="font-medium">{$t('footer.tasker_fees')}</span>
+								</a>
+							</li>
+							<li>
+								<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"
+									></iconify-icon>
+									<span class="font-medium">{$t('footer.escrow')}</span>
+								</a>
+							</li>
+							<li>
+								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon
+										icon="mdi:frequently-asked-questions"
+										width="20"
+										class="text-primary"
+									></iconify-icon>
+									<span class="font-medium">{$t('footer.faq')}</span>
+								</a>
+							</li>
+						</div>
+					{/if}
+
+					<!-- For Taskees collapse -->
+					<li>
+						<button onclick={toggleTaskees} class="min-h-[48px] py-3">
+							<iconify-icon icon="mdi:account-hard-hat" width="24" class="text-primary"
+							></iconify-icon>
+							<span class="font-medium">{$t('footer.for_taskees')}</span>
+							<svg
+								class="dropdown-arrow ml-auto h-4 w-4"
+								class:dropdown-open={isTaskeesOpen}
+								fill="currentColor"
+								viewBox="0 0 20 20"
+								stroke="currentColor"
+								stroke-width="1"
+							>
+								<path
+									fill-rule="evenodd"
+									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+									clip-rule="evenodd"
+								/>
+							</svg>
+						</button>
+					</li>
+					{#if isTaskeesOpen}
+						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<li>
+								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:currency-btc" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.start_earning')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/community-guidelines" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:account-group" width="20" class="text-primary"></iconify-icon>
+								<a href="/community-guidelines" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:account-group" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.community_guidelines')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/tasker-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
 									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/tasker-principles" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+								<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<iconify-icon icon="mdi:handshake" width="20" class="text-primary"></iconify-icon>
 									<span class="font-medium">{$t('footer.tasker_principles')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/faq" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
+								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon
+										icon="mdi:frequently-asked-questions"
+										width="20"
+										class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.tasker_faq')}</span>
 								</a>
 							</li>
@@ -266,58 +352,72 @@
 
 					<!-- Company collapse -->
 					<li>
-						<button
-							onclick={toggleCompany}
-							class="min-h-[48px] py-3"
-						>
+						<button onclick={toggleCompany} class="min-h-[48px] py-3">
 							<iconify-icon icon="mdi:domain" width="24" class="text-primary"></iconify-icon>
 							<span class="font-medium">{$t('footer.company')}</span>
-							<svg class="ml-auto h-4 w-4 dropdown-arrow" class:dropdown-open={isCompanyOpen} fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
-								<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+							<svg
+								class="dropdown-arrow ml-auto h-4 w-4"
+								class:dropdown-open={isCompanyOpen}
+								fill="currentColor"
+								viewBox="0 0 20 20"
+								stroke="currentColor"
+								stroke-width="1"
+							>
+								<path
+									fill-rule="evenodd"
+									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+									clip-rule="evenodd"
+								/>
 							</svg>
 						</button>
 					</li>
 					{#if isCompanyOpen}
 						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 							<li>
-								<a href="/about" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"></iconify-icon>
+								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.about_us')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/security" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"></iconify-icon>
+								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.security')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/careers" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"></iconify-icon>
+								<a href="/careers" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.careers')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/press" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+								<a href="/press" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<iconify-icon icon="mdi:newspaper" width="20" class="text-primary"></iconify-icon>
 									<span class="font-medium">{$t('footer.press')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/terms" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"></iconify-icon>
+								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.terms')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/privacy" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"></iconify-icon>
+								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.privacy')}</span>
 								</a>
 							</li>
 							<li>
-								<a href="/contact" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"></iconify-icon>
+								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"
+									></iconify-icon>
 									<span class="font-medium">{$t('footer.contact')}</span>
 								</a>
 							</li>
@@ -330,72 +430,89 @@
 {/if}
 
 <!-- Bottom Navigation Bar -->
-<div class="fixed bottom-0 left-0 right-0 z-50 bg-primary/95 backdrop-blur-sm pb-safe">
-	<!-- Bottom Navigation Icons -->
-	<div class="bottom-nav-bar flex items-center justify-between px-4 py-1">
+{#if protectedRoute}
+	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
+	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black" class:hidden={!isVisible}>
+		{#each sections as section}
+			{#if section.mobile}
+				<a
+					href={`/dashboard/${section.id}`}
+					class={currentSection === section.id ? 'dock-active' : ''}
+					data-sveltekit-reload="off"
+				>
+					<iconify-icon icon={section.icon} width="24" class="text-primary-content"></iconify-icon>
+					<span class="dock-label font-medium">{section.label}</span>
+				</a>
+			{/if}
+		{/each}
+	</div>
+{:else}
+	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm">
 		<!-- Home -->
 		<button
-			class="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors hover:bg-primary-content/10 min-h-[48px] min-w-[48px]"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors"
 			onclick={() => goto('/')}
 		>
 			<iconify-icon icon="mdi:home" width="24" class="text-primary-content"></iconify-icon>
-			<span class="text-xs font-medium text-primary-content">{$t('navbar.home')}</span>
+			<span class="text-primary-content text-xs font-medium">{$t('navbar.home')}</span>
 		</button>
 
 		<!-- About -->
 		<button
-			class="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors hover:bg-primary-content/10 min-h-[48px] min-w-[48px]"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors"
 			onclick={() => goto('/about')}
 		>
-			<iconify-icon icon="mdi:information-outline" width="24" class="text-primary-content"></iconify-icon>
-			<span class="text-xs font-medium text-primary-content">{$t('navbar.about')}</span>
+			<iconify-icon icon="mdi:information-outline" width="24" class="text-primary-content"
+			></iconify-icon>
+			<span class="text-primary-content text-xs font-medium">{$t('navbar.about')}</span>
 		</button>
 
 		<!-- Center Menu Button (Hamburger/X) -->
 		<button
 			data-menu-button
-			class="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors hover:bg-primary-content/10 min-h-[48px] min-w-[48px]"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors"
 			onclick={toggleMenu}
 			aria-label={isMenuOpen ? $t('navbar.close_menu') : $t('navbar.menu')}
 		>
 			<div class="flex h-6 w-6 flex-col items-center justify-center">
 				<span
-					class="block h-0.5 w-5 bg-primary-content transition-transform duration-300 ease-in-out"
+					class="bg-primary-content block h-0.5 w-5 transition-transform duration-300 ease-in-out"
 					class:rotate-45={isMenuOpen && !isMenuClosing}
 					class:translate-y-2={isMenuOpen && !isMenuClosing}
 				></span>
 				<span
-					class="my-1 block h-0.5 w-5 bg-primary-content transition-opacity duration-300"
+					class="bg-primary-content my-1 block h-0.5 w-5 transition-opacity duration-300"
 					class:opacity-0={isMenuOpen && !isMenuClosing}
 				></span>
 				<span
-					class="block h-0.5 w-5 bg-primary-content transition-transform duration-300 ease-in-out"
+					class="bg-primary-content block h-0.5 w-5 transition-transform duration-300 ease-in-out"
 					class:-rotate-45={isMenuOpen && !isMenuClosing}
 					class:-translate-y-1={isMenuOpen && !isMenuClosing}
 				></span>
 			</div>
-			<span class="text-xs font-medium text-primary-content">{$t('navbar.menu')}</span>
+			<span class="text-primary-content text-xs font-medium">{$t('navbar.menu')}</span>
 		</button>
 
 		<!-- How It Works -->
 		<button
-			class="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors hover:bg-primary-content/10 min-h-[48px] min-w-[48px]"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors"
 			onclick={() => goto('/how-it-works')}
 		>
-			<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary-content"></iconify-icon>
-			<span class="text-xs font-medium text-primary-content">{$t('navbar.help')}</span>
+			<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary-content"
+			></iconify-icon>
+			<span class="text-primary-content text-xs font-medium">{$t('navbar.help')}</span>
 		</button>
 
 		<!-- Sign Up -->
 		<button
-			class="flex flex-col items-center gap-1 p-3 rounded-lg transition-colors hover:bg-primary-content/10 min-h-[48px] min-w-[48px]"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors"
 			onclick={() => goto('/auth/signup')}
 		>
 			<iconify-icon icon="mdi:account-plus" width="24" class="text-primary-content"></iconify-icon>
-			<span class="text-xs font-medium text-primary-content">{$t('navbar.signup')}</span>
+			<span class="text-primary-content text-xs font-medium">{$t('navbar.signup')}</span>
 		</button>
 	</div>
-</div>
+{/if}
 
 <style>
 	.pb-safe {
@@ -432,22 +549,13 @@
 		background: hsl(var(--p) / 0.8);
 	}
 
-	/* Improve button animations */
-	.bottom-nav-bar button {
-		transition: all 0.15s ease-out;
-	}
-
-	.bottom-nav-bar button:active {
-		transform: scale(0.95);
-	}
-
 	/* Enhanced arrow animations for dropdown buttons */
 	.dropdown-arrow {
 		transform-origin: center;
 		transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 		transform: rotate(0deg);
 	}
-	
+
 	.dropdown-arrow.dropdown-open {
 		transform: rotate(180deg);
 	}
@@ -456,7 +564,7 @@
 	.menu li > button:hover .dropdown-arrow {
 		transform: scale(1.1) rotate(0deg);
 	}
-	
+
 	.menu li > button:hover .dropdown-arrow.dropdown-open {
 		transform: scale(1.1) rotate(180deg);
 	}

@@ -137,7 +137,8 @@
 				salt: salt,
 				authTag: encrypted.authTag,
 				iterations,
-				authMethod: 'passkey'
+				authMethod: 'passkey',
+				deviceId
 			});
 
 			const deviceName = await getDeviceName();

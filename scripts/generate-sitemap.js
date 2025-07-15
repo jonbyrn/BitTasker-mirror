@@ -19,7 +19,7 @@ const urls = [
 	// Company pages
 	'/about',
 	'/careers',
-	'/client-fees',
+	'/tasker-fees',
 	'/community-guidelines',
 	'/contact',
 	'/escrow',
@@ -28,7 +28,7 @@ const urls = [
 	'/press',
 	'/privacy',
 	'/security',
-	'/tasker-fees',
+	'/taskee-fees',
 	'/tasker-principles',
 	'/terms',
 	// Auth pages
