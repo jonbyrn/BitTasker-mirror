@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { derived, writable } from 'svelte/store';
-import translations from '$lib/utils/translations';
+import translations from '$lib/utils/translations/';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 
@@ -123,7 +124,7 @@ const translate = (
 			// Fallback to English if translation is missing
 			text = translations['en'][key];
 			if (!text || typeof text !== 'string') {
-				throw new Error(`Translation not found for key: ${key}`);
+				throw new Error(`Translation not found for key: ${String(key)}`);
 			}
 		}
 

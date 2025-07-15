@@ -380,7 +380,7 @@
 			</div>
 
 			{#if error}
-				<div class="alert alert-error whitespace-normal">{error}</div>
+				<div class="alert alert-error alert-outline whitespace-normal">{error}</div>
 			{/if}
 
 			<div class="space-y-4 pr-4">

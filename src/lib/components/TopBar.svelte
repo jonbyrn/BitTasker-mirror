@@ -332,16 +332,12 @@
 			<li>
 				<details class="dropdown">
 					<summary class="btn btn-ghost" onclick={handleDropdownClick}
-						>{$t('footer.for_clients')}</summary
+						>{$t('footer.for_taskers')}</summary
 					>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li>
-							<a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a>
-						</li>
-						<li>
-							<a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a>
-						</li>
-						<li><a href="/client-fees" onclick={closeDropdowns}>{$t('footer.client_fees')}</a></li>
+						<li><a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a></li>
+						<li><a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a></li>
+						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
 						<li><a href="/escrow" onclick={closeDropdowns}>{$t('footer.escrow')}</a></li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.faq')}</a></li>
 					</ul>
@@ -349,26 +345,12 @@
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}
-						>{$t('footer.for_taskers')}</summary
-					>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_taskees')}</summary>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li>
-							<a href="/dashboard/find-tasks" onclick={closeDropdowns}
-								>{$t('footer.start_earning')}</a
-							>
-						</li>
-						<li>
-							<a href="/community-guidelines" onclick={closeDropdowns}
-								>{$t('footer.community_guidelines')}</a
-							>
-						</li>
-						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
-						<li>
-							<a href="/tasker-principles" onclick={closeDropdowns}
-								>{$t('footer.tasker_principles')}</a
-							>
-						</li>
+						<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>{$t('footer.start_earning')}</a></li>
+						<li><a href="/community-guidelines" onclick={closeDropdowns}>{$t('footer.community_guidelines')}</a></li>
+						<li><a href="/taskee-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
+						<li><a href="/tasker-principles" onclick={closeDropdowns}>{$t('footer.tasker_principles')}</a></li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.tasker_faq')}</a></li>
 					</ul>
 				</details>

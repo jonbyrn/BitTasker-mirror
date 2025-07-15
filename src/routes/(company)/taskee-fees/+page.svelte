@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+
 	// Current date for the "last updated" timestamp
 	const currentDate = new Date().toLocaleDateString('en-US', {
 		year: 'numeric',
@@ -8,24 +10,31 @@
 </script>
 
 <div class="container mx-auto p-4 py-8 md:p-12">
+	<img
+	src={$darkMode
+		? '/images/Bittasker-logo-tagline-dark.svg'
+		: '/images/Bittasker-logo-tagline-light.svg'}
+	alt="BitTasker Logo"
+	class="mx-auto mb-4 block md:min-w-[500px]"
+	/>
 	<div class="text-center">
-		<h1 class="text-4xl font-bold">Client Fees & Pricing</h1>
+		<h1 class="text-4xl font-bold">Taskee Fees & Pricing</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Simple, transparent pricing designed to reward loyal clients
+			Simple, transparent pricing designed to reward loyal taskees
 		</p>
 	</div>
 
 	<div class="prose mx-auto mt-8 max-w-4xl">
-		<h2>Client Fee Structure</h2>
+		<h2>Taskee Fee Structure</h2>
 		<p>
-			At BitTasker, we believe in rewarding loyalty. The more tasks you post, the less you pay in fees. Our dynamic tier system ensures that our most active clients enjoy the best rates.
+			At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.
 		</p>
 
 		<div class="alert alert-success alert-outline mb-8">
 			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 			</svg>
-			<span><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active clients with progressively lower fees.</span>
+			<span><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees.</span>
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
@@ -34,7 +43,7 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 1</div>
 					<h3 class="card-title">Nakamoto Newbie</h3>
-					<p class="text-sm">For clients posting 0-3 tasks in the last 30 days</p>
+					<p class="text-sm">For taskees who complete 0-3 tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
 							<div class="stat">
@@ -44,7 +53,7 @@
 						</div>
 					</div>
 					<div class="text-sm opacity-80">
-						<p>Example: For a $100 task, you'll pay $112.50 total.</p>
+						<p>Example: For a $100 task, you'll receive $87.50.</p>
 					</div>
 				</div>
 			</div>
@@ -54,7 +63,7 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 2</div>
 					<h3 class="card-title">Satoshi Stacker</h3>
-					<p class="text-sm">For clients posting 4-10 tasks in the last 30 days</p>
+					<p class="text-sm">For taskees who complete 4-10 tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
 							<div class="stat">
@@ -64,7 +73,7 @@
 						</div>
 					</div>
 					<div class="text-sm opacity-80">
-						<p>Example: For a $100 task, you'll pay $110 total.</p>
+						<p>Example: For a $100 task, you'll receive $90.</p>
 					</div>
 				</div>
 			</div>
@@ -74,8 +83,7 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 3</div>
 					<h3 class="card-title">Hash Master</h3>
-					<p class="text-sm">For our most active clients with 11+ tasks in the last 30 days</p>
-
+					<p class="text-sm">For our most active taskees with 11+ tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
 							<div class="stat">
@@ -85,41 +93,41 @@
 						</div>
 					</div>
 					<div class="text-sm opacity-80">
-						<p>Example: For a $100 task, you'll pay $107.50 total.</p>
+						<p>Example: For a $100 task, you'll receive $92.50.</p>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<h2>Bitcoin Payments: Lower Fees, Same Great Service</h2>
+		<h2>Bitcoin Payments: Keep More of What You Earn</h2>
 		<p>
-			Save even more when you pay with Bitcoin! We offer reduced rates for clients who choose to use Bitcoin.
+			Earn even more when taskers pay with Bitcoin! We offer reduced fees for Bitcoin transactions.
 		</p>
 
 		<div class="overflow-x-auto my-6">
 			<table class="table table-zebra">
 				<thead>
 					<tr>
-						<th>Client Tier</th>
+						<th>Taskee Tier</th>
 						<th>Bitcoin Fee Rate</th>
-						<th>Savings vs. Standard</th>
+						<th>Improvement vs. Standard</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
 						<td>Nakamoto Newbie</td>
 						<td>2.5%</td>
-						<td>10% lower!</td>
+						<td>Keep 10% more!</td>
 					</tr>
 					<tr>
 						<td>Satoshi Stacker</td>
 						<td>2%</td>
-						<td>8% lower!</td>
+						<td>Keep 8% more!</td>
 					</tr>
 					<tr>
 						<td>Hash Master</td>
 						<td>1.5%</td>
-						<td>6% lower!</td>
+						<td>Keep 6% more!</td>
 					</tr>
 				</tbody>
 			</table>
@@ -129,46 +137,52 @@
 			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 			</svg>
-			<span><strong>Bitcoin Example:</strong> As a <strong class="text-primary">Hash Master</strong> tier client, a $100 task paid with Bitcoin would cost just $101.50 total!</span>
+			<span><strong>Bitcoin Example:</strong> As a <strong class="text-primary">Hash Master</strong> tier taskee, a $100 task paid with Bitcoin would net you $98.50 instead of $92.50!</span>
 		</div>
 
-		<h2>Rebooking Discount</h2>
+		<h2>Repeat Taskee Bonus</h2>
 		<p>
-			Love working with a particular professional? We reward repeat partnerships with significantly reduced fees!
+			Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!
 		</p>
 		
 		<div class="card bg-base-100 shadow-lg my-6 border border-success">
 			<div class="card-body">
-				<h3 class="card-title">Rebook & Save!</h3>
-				<p>When you rebook a professional you've worked with before:</p>
+				<h3 class="card-title">Returning Taskees = Higher Earnings!</h3>
+				<p>When a taskee books you for a repeat task:</p>
 				<ul>
 					<li>Standard payments: Just <strong>3% fee</strong> (down from 7.5-12.5%)</li>
 					<li>Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5-2.5%)</li>
 				</ul>
 				<p class="text-sm mt-3 opacity-80">
-					Example: Rebooking a $100 task costs just $103 with standard payment or $101 with Bitcoin!
+					Example: For a $100 repeat task, you'll earn $97 with standard payment or $99 with Bitcoin!
 				</p>
 				<p class="text-sm mt-3 opacity-80">
-					Booking repeat work with a professional counts towards your 30 day rolling tasks to maintain your tier.
+					Booking repeat work with a taskee counts towards your 30 day rolling tasks to maintain your tier.
 				</p>
 			</div>
 		</div>
 
-		<h2>Client Benefits & Visibility</h2>
+		<h2>Taskee Benefits & Visibility</h2>
 		<p>
-			Higher tier clients enjoy additional benefits beyond reduced fees:
+			Higher tier taskees enjoy additional benefits beyond reduced fees:
 		</p>
 		<ul>
+			<li><strong>Enhanced Visibility:</strong> Higher tier taskees appear at the top of search results</li>
 			<li><strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile</li>
-			<li><strong>Priority Attention:</strong> Higher tier clients may receive more proposals from top professionals</li>
-			<li><strong>Enhanced Profile:</strong> Your tier status signals to professionals that you're an active and trusted client</li>
+			<li><strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes</li>
+			<li><strong>Competitive Edge:</strong> When comparing similar taskees, taskees can see your tier status, giving you an advantage</li>
 		</ul>
+		
+		<h2>Tier Advancement & Maintenance</h2>
+		<p>
+			Your tier status is calculated based on your activity over the past 30 days, and is updated daily. The more tasks you complete, the higher your tier and the lower your fees.
+		</p>
 
 		<div class="divider my-8"></div>
 
-		<div class="flex flex-col items-center my-6">
-			<h3>Ready to hire professionals with transparent pricing?</h3>
-			<a href="/post-task" class="btn btn-primary mt-4">Post a Task Now</a>
+		<div class="flex flex-col items-center my-6 text-center">
+			<h3>Ready to start earning with the most competitive fees in the industry?</h3>
+			<a href="/sign-up" class="btn btn-primary mt-4">Join BitTasker Today</a>
 		</div>
 	</div>
 </div>

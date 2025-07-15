@@ -1,4 +1,4 @@
-import type { LiveTask, FeaturedFreelancer } from '$lib/types/homepage';
+import type { LiveTask, FeaturedTaskee } from '$lib/types/homepage';
 
 export const liveTasks: LiveTask[] = [
 	{
@@ -131,7 +131,7 @@ export const liveTasks: LiveTask[] = [
 	}
 ];
 
-export const featuredFreelancers: FeaturedFreelancer[] = [
+export const featuredTaskees: FeaturedTaskee[] = [
 	{
 		id: '1',
 		name: 'Mike Rivera',

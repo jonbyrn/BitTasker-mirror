@@ -75,7 +75,7 @@
 		</div>
 	{:else if $profileStore.error}
 		<!-- Error State -->
-		<div class="alert alert-error">
+		<div class="alert alert-error alert-outline">
 			<span>Failed to load profile data. Please try again later.</span>
 		</div>
 	{/if}

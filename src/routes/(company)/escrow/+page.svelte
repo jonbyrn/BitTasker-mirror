@@ -1,10 +1,19 @@
+<script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+</script>
+
 <div class="container mx-auto p-4 py-8 md:p-12">
+	<img
+	src={$darkMode
+		? '/images/Bittasker-logo-tagline-dark.svg'
+		: '/images/Bittasker-logo-tagline-light.svg'}
+	alt="BitTasker Logo"
+	class="mx-auto mb-4 block md:min-w-[500px]"
+	/>
 	<div class="text-center">
 		<h1 class="text-4xl font-bold">Bitcoin-Powered Escrow</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Our automated escrow system ensures every transaction is secure, transparent, and fair. Funds
-			are only released when the work is done or conditions are met, protecting both clients and
-			freelancers.
+			Our Bitcoin escrow system protects both taskers and taskees throughout the entire task process.
 		</p>
 	</div>
 
@@ -20,34 +29,34 @@
 
 			<h3>Step 1: Funding the Task</h3>
 			<p>
-				When a client hires a freelancer, they place the payment into the shared digital lockbox (escrow).
+				When a Tasker hires a Taskee, they place the payment into the shared digital lockbox (escrow).
 				From this moment on, the funds are safe and can only be moved when specific conditions are
-				met. Neither the client nor the freelancer can access the funds alone, but can access them at any point,
+				met. Neither the Tasker nor the Taskee can access the funds alone, but can access them at any point,
 				provided they both agree on the outcome.
 			</p>
 			<p>
 				The escrow period is set to 14 days after the estimated task completion date, with the option to extend
-				it if needed.  At this point, if the freelancer has not marked the task as complete, the funds are automatically returned to the client.
+				it if needed.  At this point, if the Taskee has not marked the task as complete, the funds are automatically returned to the Tasker.
 			</p>
 			<p>
-				This escrow process is achieved through the use of a 2-of-2 multisig wallet, which requires both the client and the freelancer to agree on the outcome of the task.
-				As these agreements are made directly between the client and freelancer, BitTasker is unable to intervene in the process, creating a true peer-to-peer escrow process.
+				This escrow process is achieved through the use of a 2-of-2 multisig wallet, which requires both the Tasker and the Taskee to agree on the outcome of the task.
+				As these agreements are made directly between the Tasker and Taskee, BitTasker is unable to intervene in the process, creating a true peer-to-peer escrow process.
 			</p>
 
 			<h3>Step 2: Completing the Task & Getting Paid</h3>
 			<p>
-				Once the freelancer finishes the work, they mark the task as complete. The client then
+				Once the Taskee finishes the work, they mark the task as complete. The Tasker then
 				reviews the work.
 			</p>
 			<ul>
 				<li>
-					<strong>If the client is happy</strong>, they approve the payment, and the funds are
-					instantly released from the escrow to the freelancer.
+					<strong>If the Tasker is happy</strong>, they approve the payment, and the funds are
+					instantly released from the escrow to the Taskee.
 				</li>
 				<li>
-					<strong>Safety Net:</strong> If the client doesn't take any action within 7 days, the
-					system automatically releases the funds to the freelancer. This protects freelancers from unresponsive,
-					or forgetful clients.
+					<strong>Safety Net:</strong> If the Tasker doesn't take any action within 7 days, the
+					system automatically releases the funds to the Taskee. This protects Taskees from unresponsive,
+					or forgetful Taskers.
 				</li>
 			</ul>
 
@@ -55,19 +64,19 @@
 			<p>Our system has built-in rules to handle common issues automatically and fairly.</p>
 			<ul>
 				<li>
-					<strong>Cancellations:</strong> If the task is cancelled by either the client or the
-					freelancer for a valid reason, the money is returned to the client. It's that simple.
+					<strong>Cancellations:</strong> If the task is cancelled by either the Tasker or the
+					Taskee for a valid reason, the money is returned to the Tasker. It's that simple.
 				</li>
 				<li>
-					<strong>Changing the Job (Rescoping):</strong> If the job changes, the freelancer can
-					initiate a "rescope." A small portion (10%) is released to the freelancer for their
-					time, and the rest is returned to the client to fund a new, updated task.
+					<strong>Changing the Job (Rescoping):</strong> If the job changes, the Taskee can
+					initiate a "rescope." A small portion (10%) is released to the Taskee for their
+					time, and the rest is returned to the Tasker to fund a new, updated task.
 				</li>
 				<li>
-					<strong>Disputes:</strong> If the client isn't satisfied, they can raise a dispute. The
+					<strong>Disputes:</strong> If the Tasker isn't satisfied, they can raise a dispute. The
 					funds stay locked while both parties discuss a fair solution, like a partial refund.
 					If they can't agree, the system follows a clear, time-based process that ultimately
-					returns the funds to the client. Depending on the dispute avenue and outcome, this takes
+					returns the funds to the Tasker. Depending on the dispute avenue and outcome, this takes
 					place either 14 days, or 30 days after the dispute is raised.
 				</li>
 			</ul>
@@ -99,28 +108,28 @@
 			<h3>The Escrow Lifecycle</h3>
 			<ol>
 				<li>
-					<strong>Initial Setup:</strong> A client funds a 2-of-2 multisig wallet. A pre-signed
-					refund transaction is created with a 14-day timelock. If the freelancer is unresponsive,
-					this ensures an automatic refund to the client. The freelancer can also, at any time, 
-					agree to refund the client (if either the client or freelancer needs to cancel, for example).
+					<strong>Initial Setup:</strong> A Tasker funds a 2-of-2 multisig wallet. A pre-signed
+					refund transaction is created with a 14-day timelock. If the Taskee is unresponsive,
+					this ensures an automatic refund to the Tasker. The Taskee can also, at any time, 
+					agree to refund the Tasker (if either the Tasker or Taskee needs to cancel, for example).
 				</li>
 				<li>
 					<strong>Cancellation:</strong> If either party cancels, the platform facilitates the
-					signing of a refund transaction, and the client receives a full refund (platform fees
+					signing of a refund transaction, and the Tasker receives a full refund (platform fees
 					are also refunded).
 				</li>
 				<li>
-					<strong>Task Completion:</strong> When the freelancer marks the task as done, funds move to
+					<strong>Task Completion:</strong> When the Taskee marks the task as done, funds move to
 					a 2-of-2 “done wallet.” This new wallet has a 7-day timelock for automatic payment to
-					the freelancer. The client can co-sign the payment transaction at any time within this 7-day
-					window and pay the freelancer immediately, or initiate a dispute.
+					the Taskee. The Tasker can co-sign the payment transaction at any time within this 7-day
+					window and pay the Taskee immediately, or initiate a dispute.
 				</li>
 				<li>
 					<strong>Dispute Process:</strong>
 					<ul>
 						<li>
 							If a dispute is opened, funds move to a “dispute wallet” with a 14-day timelock
-							set to refund the client. This is the default outcome if no agreement is reached.
+							set to refund the Tasker. This is the default outcome if no agreement is reached.
 						</li>
 						<li>
 							Either party can propose a split by creating and single-signing a new transaction.
@@ -128,7 +137,7 @@
 						</li>
 						<li>
 							If the first proposal is rejected, funds move to a final dispute wallet with a
-							30-day timelock favoring the client. This serves as the final, unchangeable
+							30-day timelock favoring the Tasker. This serves as the final, unchangeable
 							fallback to ensure resolution.
 						</li>
 					</ul>
@@ -136,13 +145,13 @@
 			</ol>
 
 			<p>
-				This system favors the client as the client ultimately has more to lose. However, it also forces
-				the client to wait to get refunded, incentivizing the client to choose a fair outcome to avoid waiting the full escrow period.
+				This system favors the Tasker as the Tasker ultimately has more to lose. However, it also forces
+				the Tasker to wait to get refunded, incentivizing the Tasker to choose a fair outcome to avoid waiting the full escrow period.
 			</p>
 
 			<h3>Platform Fees</h3>
 			<p>
-				Platform fees are charged upon successful completion of a task (when the client accepts or
+				Platform fees are charged upon successful completion of a task (when the Tasker accepts or
 				the 7-day timelock expires) and during dispute resolutions. Fees are fully refunded in
 				the case of a valid cancellation.
 			</p>

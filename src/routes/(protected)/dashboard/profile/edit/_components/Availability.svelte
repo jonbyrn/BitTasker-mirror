@@ -408,7 +408,7 @@
 										</div>
 									</div>
 									{#if timeSlotError.day === index && timeSlotError.slotIndex === slotIndex}
-										<div class="alert alert-error w-full rounded-xl">
+										<div class="alert alert-outline alert-error w-full rounded-xl">
 											<span>{timeSlotError?.end || timeSlotError?.start}</span>
 										</div>
 									{/if}
@@ -440,7 +440,7 @@
 
 		<!-- Error Message -->
 		{#if error}
-			<div class="alert alert-error">
+			<div class="alert alert-error alert-outline">
 				<span>{error}</span>
 			</div>
 		{/if}

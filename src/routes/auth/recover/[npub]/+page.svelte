@@ -368,7 +368,7 @@
 						{/if}
 					</div>
 
-					<div class="alert alert-info">
+					<div class="alert alert-info alert-outline">
 						<div class="flex items-start gap-3">
 							<ul class="list-inside list-disc text-sm">
 								<li>Use at least 8 characters</li>
@@ -411,7 +411,7 @@
 			{/if}
 
 			{#if error}
-				<div class="alert alert-error mt-4">
+				<div class="alert alert-error alert-outline mt-4">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6 shrink-0 stroke-current"

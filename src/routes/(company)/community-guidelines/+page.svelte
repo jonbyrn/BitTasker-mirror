@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+
 	let openAccordion = $state({
 		posters: -1,
 		taskers: -1
@@ -15,6 +17,13 @@
 
 <div class="container mx-auto p-4 py-8 md:p-12">
 	<div class="text-center">
+		<img
+		src={$darkMode
+			? '/images/Bittasker-logo-tagline-dark.svg'
+			: '/images/Bittasker-logo-tagline-light.svg'}
+		alt="BitTasker Logo"
+		class="mx-auto mb-4 block md:min-w-[500px]"
+		/>
 		<h1 class="text-4xl font-bold">Community Guidelines</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
 			Welcome to BitTasker! Our guidelines are designed to ensure a safe, respectful, and reliable experience for everyone.
@@ -25,150 +34,97 @@
 	</div>
 
 	<div class="mx-auto mt-12 max-w-4xl space-y-8">
-		<!-- For Task Posters -->
+		<!-- For Taskers (was: For Task Posters) -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Task Posters</h2>
+			<h2 class="mb-4 text-2xl font-bold">For Taskers</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.posters === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('posters', 0)}>
 						1. Posting a Task
 					</button>
 					<div class="collapse-content prose">
-						<ul class="list-inside list-disc space-y-2">
-							<li>
-								<strong>Be Clear and Detailed:</strong> Provide a clear title and a thorough
-									description of the task. The more information you give, the better the offers
-									you'll receive.
-							</li>
-							<li>
-								<strong>Set a Fair Budget:</strong> Your budget should reflect the effort and skill
-									required. This ensures you attract skilled Taskers and get quality results.
-							</li>
-							<li>
-								<strong>Prohibited Tasks:</strong> Do not post tasks that are illegal, unethical, or
-									dangerous. This includes academic assignments, illicit activities, or anything
-									that violates our terms of service.
-							</li>
+						<ul class="list-inside list-disc">
+							<li>Be clear and specific about what you need</li>
+							<li>Provide accurate location and timing requirements</li>
+							<li>Set fair and reasonable budgets</li>
+							<li>Include all relevant details upfront</li>
+							<li>Respond promptly to questions from taskees</li>
 						</ul>
 					</div>
 				</div>
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.posters === 1}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('posters', 1)}>
-						2. Payments and Fees
+						2. During Task Completion
 					</button>
 					<div class="collapse-content prose">
-						<ul class="list-inside list-disc space-y-2">
-							<li>
-								<strong>Secure Escrow:</strong> All payments (Bitcoin or fiat) are held in our
-									secure escrow system. Funds are only released to the Tasker once you confirm the
-									task is complete.
-							</li>
-							<li>
-								<strong>No Off-Platform Payments:</strong> To protect all parties, you must not
-									pay or be asked to pay outside the BitTasker platform. This voids any
-									protection we can offer.
-							</li>
-							<li>
-								<strong>All-Inclusive Offers:</strong> The offer you accept is the final price.
-									Do not negotiate separate charges. Any additional work should be handled as a
-									new task or by adjusting the task price before completion.
-							</li>
+						<ul class="list-inside list-disc">
+							<li>Communicate clearly and professionally</li>
+							<li>Be available for questions and updates</li>
+							<li>Provide constructive feedback</li>
+							<li>Respect the taskee's time and expertise</li>
+							<li>Address concerns promptly and fairly</li>
 						</ul>
 					</div>
 				</div>
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.posters === 2}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('posters', 2)}>
-						3. Communication and Conduct
+						3. Payment and Reviews
 					</button>
 					<div class="collapse-content prose">
-						<ul class="list-inside list-disc space-y-2">
-							<li>
-								<strong>Respectful Communication:</strong> Treat Taskers with respect and
-									professionalism. Constructive feedback helps improve the platform for everyone.
-							</li>
-							<li>
-								<strong>Keep It On-Platform:</strong> For security and protection reasons, all
-									communication should remain within the BitTasker platform.
-							</li>
-							<li>
-								<strong>Timely Responses:</strong> Be prompt in responding to messages and
-									accepting or declining offers. This helps maintain a smooth experience for all
-									users.
-							</li>
+						<ul class="list-inside list-disc">
+							<li>Release escrow funds promptly when work is completed satisfactorily</li>
+							<li>Leave honest, constructive reviews</li>
+							<li>Address any issues through our dispute resolution process</li>
+							<li>Maintain confidentiality of taskee information</li>
 						</ul>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<!-- For Taskers -->
+		<!-- For Taskees (was: For Taskers) -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Taskers</h2>
+			<h2 class="mb-4 text-2xl font-bold">For Taskees</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 0)}>
-						1. Making an Offer
+						1. Profile and Bidding
 					</button>
 					<div class="collapse-content prose">
-						<ul class="list-inside list-disc space-y-2">
-							<li>
-								<strong>Skill-Based Offers:</strong> Only offer on tasks you can complete
-									competently. Misrepresenting your skills or qualifications is not permitted.
-							</li>
-							<li>
-								<strong>Fair and Realistic Pricing:</strong> Provide offers that reflect the
-									effort, skill, and time required. Extreme underbidding or overbidding damages
-									the platform's integrity.
-							</li>
-							<li>
-								<strong>No Spam or Bots:</strong> Don't send templated or automated messages.
-									Personalized offers that address the specific task are more likely to be
-									accepted.
-							</li>
+						<ul class="list-inside list-disc">
+							<li>Complete your profile with accurate information</li>
+							<li>Showcase relevant skills and experience</li>
+							<li>Submit competitive and realistic bids</li>
+							<li>Ask clarifying questions before bidding</li>
+							<li>Only bid on tasks you can realistically complete</li>
 						</ul>
 					</div>
 				</div>
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 1}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 1)}>
-						2. Completing a Task
+						2. Task Execution
 					</button>
 					<div class="collapse-content prose">
-						<ul class="list-inside list-disc space-y-2">
-							<li>
-								<strong>Uphold Quality:</strong> Complete the task to the best of your ability, as
-									outlined in the description. Professionalism and high-quality work lead to
-									better reviews and more opportunities.
-							</li>
-							<li>
-								<strong>Meet Deadlines:</strong> Punctuality is key. If you are running late or
-									need to reschedule, communicate with the Task Poster immediately.
-							</li>
-							<li>
-								<strong>Honour Your Commitment:</strong> Once you accept a task, you are expected
-									to complete it. Frequent cancellations will negatively impact your reputation
-									and platform standing.
-							</li>
+						<ul class="list-inside list-disc">
+							<li>Deliver work according to agreed specifications</li>
+							<li>Communicate progress and any issues promptly</li>
+							<li>Meet deadlines or negotiate changes in advance</li>
+							<li>Maintain high standards of quality</li>
+							<li>Be professional in all interactions</li>
 						</ul>
 					</div>
 				</div>
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 2}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 2)}>
-						3. Payments and Conduct
+						3. Professional Standards
 					</button>
 					<div class="collapse-content prose">
-						<ul class="list-inside list-disc space-y-2">
-							<li>
-								<strong>Secure Payments Only:</strong> All payments are processed through our
-									escrow system. Never solicit or accept payments outside of BitTasker.
-							</li>
-							<li>
-								<strong>Professionalism:</strong> Maintain a high standard of professionalism,
-									respect, and integrity. You are the face of BitTasker.
-							</li>
-							<li>
-								<strong>Protect Private Information:</strong> Keep all communication and personal
-									details within the private chat. Do not share contact information publicly.
-							</li>
+						<ul class="list-inside list-disc">
+							<li>Honor your commitments and agreements</li>
+							<li>Provide excellent customer service</li>
+							<li>Respect tasker property and privacy</li>
+							<li>Follow all applicable laws and regulations</li>
+							<li>Build long-term relationships based on trust</li>
 						</ul>
 					</div>
 				</div>

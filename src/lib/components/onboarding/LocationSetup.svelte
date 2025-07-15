@@ -642,7 +642,7 @@
 		</div>
 
 		{#if error}
-			<div class="alert alert-error mx-4 mt-4">
+			<div class="alert alert-error alert-outline mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
@@ -660,7 +660,7 @@
 		{/if}
 
 		{#if location.locationLoaded}
-			<div class="alert alert-success mx-4 mt-4">
+			<div class="alert alert-success alert-outline mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
@@ -676,7 +676,7 @@
 				<span>Location set: {location.displayName}</span>
 			</div>
 		{:else}
-			<div class="alert alert-info mx-4 mt-4">
+			<div class="alert alert-info alert-outline mx-4 mt-4">
 				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48"
 					><g
 						fill="none"

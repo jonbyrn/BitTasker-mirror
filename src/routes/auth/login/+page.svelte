@@ -160,8 +160,7 @@
 			const res = await authService.loginWithNostr(signedEvent, challenge);
 
 			if (res.access_token) {
-				const deviceId = await getDeviceIdentifier();
-
+				const deviceId = res.user.nostrKey?.deviceId || (await getDeviceIdentifier());
 				// Encrypt the private key with device ID as the password
 				const { exportedKey } = await encryptNsec(nsec, deviceId, 100000, res.user.nostrKey?.salt);
 
@@ -267,7 +266,13 @@
 							<Alby />
 						{/if}
 
-						<button class="btn btn-outline w-full" onclick={() => (isNostrLogin = true)}>
+						<button
+							class="btn btn-outline w-full"
+							onclick={() => {
+								error = '';
+								isNostrLogin = true;
+							}}
+						>
 							<!-- https://github.com/mbarulli/nostr-logo/blob/main/SVG/nostr-icon-purple-on-white.svg -->
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6"
 								><path
@@ -365,7 +370,7 @@
 				{/if}
 
 				{#if error}
-					<div class="alert alert-error mt-2">
+					<div class="alert alert-error alert-outline mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"

@@ -305,7 +305,7 @@
 				{/each}
 			</div>
 		{:else}
-			<div class="alert">
+			<div class="alert alert-outline">
 				<span>{$t('profile.portfolio.no_items')}</span>
 			</div>
 		{/if}

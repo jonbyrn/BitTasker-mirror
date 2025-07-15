@@ -97,7 +97,7 @@
 						</div>
 					</div> -->
 
-	<div class="alert alert-info mt-4">
+	<div class="alert alert-info alert-outline mt-4">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
 			fill="none"

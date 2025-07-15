@@ -425,14 +425,14 @@
 
 						<!-- Error Message -->
 						{#if error}
-							<div class="alert alert-error">
+							<div class="alert alert-error alert-outline">
 								<span>{error}</span>
 							</div>
 						{/if}
 
 						<!-- Success Message -->
 						{#if successMessage}
-							<div class="alert alert-success">
+							<div class="alert alert-success alert-outline">
 								<span>{successMessage}</span>
 							</div>
 						{/if}
@@ -521,7 +521,7 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="alert">
+				<div class="alert alert-outline">
 					<span>{$t('profile.services.no_services')}</span>
 				</div>
 			{/if}

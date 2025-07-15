@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
 	// Obfuscate email address to make it harder for simple bots to scrape
 	// This is constructed on the client-side
 	const user = 'careers';
@@ -18,6 +19,13 @@
 	<div class="hero bg-base-200 py-8">
 		<div class="hero-content text-center">
 			<div class="max-w-3xl">
+				<img
+				src={$darkMode
+					? '/images/Bittasker-logo-tagline-dark.svg'
+					: '/images/Bittasker-logo-tagline-light.svg'}
+				alt="BitTasker Logo"
+				class="mx-auto mb-4 block md:min-w-[500px]"
+				/>
 				<h1 class="text-5xl font-bold">Join Our Revolution</h1>
 				<p class="py-6 text-lg">
 					Help us build the decentralized future of work and empower people around the globe

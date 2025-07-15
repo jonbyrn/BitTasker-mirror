@@ -109,13 +109,13 @@
 							href="/dashboard/find-tasks"
 							class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
 						>
-							{$t('homepage.v2.finalcta.client_cta')}
+							{$t('homepage.v2.finalcta.tasker_cta')}
 						</a>
 						<a
-							href="/dashboard/professionals"
+							href="/dashboard/taskees"
 							class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
 						>
-							{$t('homepage.v2.finalcta.freelancer_cta')}
+							{$t('homepage.v2.finalcta.taskee_cta')}
 						</a>
 					</div>
 					<div>
@@ -190,11 +190,11 @@
 						</div>
 					</div>
 
-					<!-- Client and Tasker Columns (side by side on mobile) -->
+					<!-- Tasker and Taskee Columns (side by side on mobile) -->
 					<div class="grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-2">
-						<!-- For Clients -->
+						<!-- For Taskers -->
 						<div>
-							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_clients')}</h3>
+							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h3>
 							<ul class="space-y-2">
 								<li>
 									<a href="/dashboard/create-task" class="hover:text-primary"
@@ -204,17 +204,15 @@
 								<li>
 									<a href="/how-it-works" class="hover:text-primary">{$t('footer.how_it_works')}</a>
 								</li>
-								<li>
-									<a href="/client-fees" class="hover:text-primary">{$t('footer.client_fees')}</a>
-								</li>
+								<li><a href="/tasker-fees" class="hover:text-primary">{$t('footer.tasker_fees')}</a></li>
 								<li><a href="/escrow" class="hover:text-primary">{$t('footer.escrow')}</a></li>
 								<li><a href="/faq" class="hover:text-primary">{$t('footer.faq')}</a></li>
 							</ul>
 						</div>
 
-						<!-- For Taskers -->
+						<!-- For Taskees -->
 						<div>
-							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h3>
+							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h3>
 							<ul class="space-y-2">
 								<li>
 									<a href="/dashboard/find-tasks" class="hover:text-primary">
@@ -227,7 +225,7 @@
 									>
 								</li>
 								<li>
-									<a href="/tasker-fees" class="hover:text-primary">{$t('footer.tasker_fees')}</a>
+									<a href="/taskee-fees" class="hover:text-primary">{$t('footer.taskee_fees')}</a>
 								</li>
 								<li>
 									<a href="/tasker-principles" class="hover:text-primary"
