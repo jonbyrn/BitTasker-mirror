@@ -349,7 +349,7 @@
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
 						<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>{$t('footer.start_earning')}</a></li>
 						<li><a href="/community-guidelines" onclick={closeDropdowns}>{$t('footer.community_guidelines')}</a></li>
-						<li><a href="/taskee-fees" onclick={closeDropdowns}>{$t('footer.taskee_fees')}</a></li>
+						<li><a href="/taskee-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
 						<li><a href="/tasker-principles" onclick={closeDropdowns}>{$t('footer.tasker_principles')}</a></li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.tasker_faq')}</a></li>
 					</ul>

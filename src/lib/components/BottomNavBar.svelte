@@ -66,7 +66,7 @@
 	let isLanguageOpen = $state(false);
 	let isTaskersOpen = $state(false);
 	let isTaskeesOpen = $state(false);
-	let isTaskeesOpen = $state(false);
+	
 	let isCompanyOpen = $state(false);
 
 	// Language switcher handler
@@ -328,7 +328,7 @@
 							<li>
 								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
 									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.taskee_fees')}</span>
+									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li>
