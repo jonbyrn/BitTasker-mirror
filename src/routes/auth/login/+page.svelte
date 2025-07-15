@@ -164,6 +164,7 @@
 
 				// Encrypt the private key with device ID as the password
 				const { exportedKey } = await encryptNsec(nsec, deviceId, 100000, res.user.nostrKey?.salt);
+				console.log({ exportedKey, deviceId });
 
 				let credentialId = '';
 				if (authMethods.biometric) {
