@@ -9,11 +9,11 @@
 
 <div class="container mx-auto p-4 py-8 md:p-12">
 	<img
-		src={$darkMode
-			? '/images/Bittasker-logo-tagline-dark.svg'
-			: '/images/Bittasker-logo-tagline-light.svg'}
-		alt="BitTasker Logo"
-		class="mx-auto mb-8 block w-full max-w-lg"
+	src={$darkMode
+		? '/images/Bittasker-logo-tagline-dark.svg'
+		: '/images/Bittasker-logo-tagline-light.svg'}
+	alt="BitTasker Logo"
+	class="mx-auto mb-4 block md:min-w-[500px]"
 	/>
 	<div class="text-center">
 		<h1 class="text-4xl font-bold">Get in Touch</h1>

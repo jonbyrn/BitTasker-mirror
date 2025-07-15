@@ -1,9 +1,19 @@
+<script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+</script>
+
 <div class="container mx-auto p-4 py-8 md:p-12">
 	<div class="text-center">
+		<img
+			src={$darkMode
+				? '/images/Bittasker-logo-tagline-dark.svg'
+				: '/images/Bittasker-logo-tagline-light.svg'}
+			alt="BitTasker Logo"
+			class="mx-auto mb-4 block md:min-w-[500px]"
+		/>
 		<h1 class="text-4xl font-bold">Privacy Policy</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Your privacy isn't just a policy, it's our architecture. At BitTasker, we've built a
-			platform where you are in control of your data.
+			How we protect your privacy and handle your data when you use BitTasker to connect with taskers and taskees.
 		</p>
 		<p class="text-sm text-base-content/70 mt-2">Last Updated: July 13, 2025</p>
 	</div>

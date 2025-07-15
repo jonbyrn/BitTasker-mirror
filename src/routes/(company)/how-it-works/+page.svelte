@@ -5,7 +5,7 @@
 	// State to track which detailed step section is open
 	let openStepSection = $state<number>(-1);
 
-	// State for client/freelancer accordion in step 3
+	// State for tasker/taskee accordion in step 3
 	let openTaskTalentSection = $state<number>(-1); // Default to closed
 
 	// Function to toggle between step sections
@@ -17,7 +17,7 @@
 		}
 	}
 
-	// Function to toggle between client and freelancer accordion
+	// Function to toggle between tasker and taskee accordion
 	function toggleTaskTalentSection(index: number): void {
 		if (openTaskTalentSection === index) {
 			openTaskTalentSection = -1; // Close if already open
@@ -32,17 +32,16 @@
 	<div class="hero bg-base-200 py-8">
 		<div class="hero-content text-center flex-col">
 			<img
-				src={$darkMode
-					? '/images/Bittasker-logo-tagline-dark.svg'
-					: '/images/Bittasker-logo-tagline-light.svg'}
-				alt="BitTasker Logo"
-				class="mx-auto mb-8 block w-full max-w-lg"
+			src={$darkMode
+				? '/images/Bittasker-logo-tagline-dark.svg'
+				: '/images/Bittasker-logo-tagline-light.svg'}
+			alt="BitTasker Logo"
+			class="mx-auto mb-4 block md:min-w-[500px]"
 			/>
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">How BitTasker Works</h1>
 				<p class="py-6 text-lg text-base-content/80">
-					BitTasker connects skilled professionals with people who need tasks done. Our Bitcoin-powered
-					platform makes hiring, working, and getting paid simple, secure, and borderless.
+					A simple, secure way to connect taskees with taskers using Bitcoin-powered escrow.
 				</p>
 			</div>
 		</div>
@@ -53,7 +52,7 @@
 		<div class="text-center mb-12">
 			<h2 class="text-4xl font-bold">The BitTasker Process</h2>
 			<p class="mt-4 text-lg text-base-content/80">
-				From signup to payment, our platform makes it easy to find work, hire professionals, and
+				From signup to payment, our platform makes it easy to find work, hire taskees, and
 				complete tasks with confidence and security.
 			</p>
 		</div>
@@ -150,7 +149,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<h4 class="card-title text-lg">Skills & Expertise</h4>
-									<p>Highlight what you do best. Be specific about your skills so clients can find you for the right tasks.</p>
+									<p>Highlight what you do best. Be specific about your skills so taskees can find you for the right tasks.</p>
 								</div>
 							</div>
 							
@@ -195,13 +194,13 @@
 				
 				<div class="card bg-base-100 shadow-lg mb-4">
 					<div class="card-body">
-						<p class="mb-4">BitTasker's matching system connects clients with the right freelancers and helps professionals find work that matches their skills.</p>
+						<p class="mb-4">BitTasker's matching system connects taskers with the right taskees and helps taskees find work that matches their skills.</p>
 						
 						<div class="join join-vertical w-full">
-							<!-- For Clients -->
+							<!-- For Taskers -->
 							<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openTaskTalentSection === 0}>
 								<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleTaskTalentSection(0)}>
-									For Clients: Post a Task, Get Offers
+									For Taskers: Post a Task, Get Offers
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
@@ -216,7 +215,7 @@
 										<div class="flex gap-4 items-center">
 											<div class="badge badge-outline">2</div>
 											<div>
-												<p class="font-semibold">Review offers from qualified professionals</p>
+												<p class="font-semibold">Review offers from qualified taskees</p>
 												<p class="text-base-content/80">Compare skills, ratings, and price quotes to find the perfect match.</p>
 											</div>
 										</div>
@@ -234,15 +233,15 @@
 										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 										</svg>
-										<span><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskers.</span>
+										<span><strong>Budget Tip:</strong> Set a realistic budget range for your project with our fixed-price payment model. Be as detailed and accurate as possible with your tasks to ensure accurate bids and avoid rescopes from taskees.</span>
 									</div>
 								</div>
 							</div>
 							
-							<!-- For Freelancers -->
+							<!-- For Taskees -->
 							<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openTaskTalentSection === 1}>
 								<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleTaskTalentSection(1)}>
-									For Freelancers: Find Work That Matches Your Skills
+									For Taskees: Find Work That Matches Your Skills
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
@@ -275,7 +274,7 @@
 										<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 										</svg>
-										<span><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Clients are more likely to hire freelancers who address their specific needs.</span>
+										<span><strong>Success Tip:</strong> Customize each proposal instead of sending generic responses. Taskees are more likely to hire taskees who address their specific needs.</span>
 									</div>
 								</div>
 							</div>
@@ -302,7 +301,7 @@
 										<i class="fa-solid fa-comments text-primary"></i>
 										<h4 class="font-bold">End-to-End Encrypted Messaging</h4>
 									</div>
-									<p class="mt-2">Private and secure communication between clients and freelancers with <a href="/security" class="link link-primary">end-to-end encryption</a>.</p>
+									<p class="mt-2">Private and secure communication between taskers and taskees with <a href="/security" class="link link-primary">end-to-end encryption</a>.</p>
 								</div>
 							</div>
 							
@@ -356,7 +355,7 @@
 				
 				<div class="card bg-base-100 shadow-lg mb-4">
 					<div class="card-body">
-						<p class="mb-4">BitTasker's flexible payment system supports both Bitcoin and traditional fiat currencies, ensuring freelancers receive their earnings securely and promptly with multiple withdrawal options.</p>
+						<p class="mb-4">BitTasker's flexible payment system supports both Bitcoin and traditional fiat currencies, ensuring taskees receive their earnings securely and promptly with multiple withdrawal options.</p>
 						
 						<div class="divider">Key Payment Features</div>
 						
@@ -367,7 +366,7 @@
 										<i class="fa-solid fa-lock text-success text-xl mr-4"></i>
 										<div>
 											<h4 class="font-semibold">Secure Escrow System</h4>
-											<p>Client funds are secured in our <a href="/escrow" class="link link-primary">secure escrow system</a> until work is approved, protecting both parties throughout the transaction regardless of payment method.</p>
+											<p>Tasker funds are secured in our <a href="/escrow" class="link link-primary">secure escrow system</a> until work is approved, protecting both parties throughout the transaction regardless of payment method.</p>
 										</div>
 									</div>
 								</div>
@@ -379,7 +378,7 @@
 										<i class="fa-solid fa-clock text-success text-xl mr-4"></i>
 										<div>
 											<h4 class="font-semibold">Automatic Payment Release</h4>
-											<p>Funds are automatically released to freelancers 7 days after marking a task complete if the client hasn't taken action, ensuring you never wait indefinitely for payment.</p>
+											<p>Funds are automatically released to taskees 7 days after marking a task complete if the tasker hasn't taken action, ensuring you never wait indefinitely for payment.</p>
 										</div>
 									</div>
 								</div>
@@ -402,7 +401,7 @@
 							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 							</svg>
-							<span><strong>Fee Advantage:</strong> BitTasker's <a href="/tasker-fees" class="link link-primary">dynamic fee structure</a> rewards active users with progressively lower fees. The more you use the platform, the less you pay!</span>
+							<span><strong>Fee Advantage:</strong> BitTasker's <a href="/taskee-fees" class="link link-primary">dynamic fee structure</a> rewards active users with progressively lower fees. The more you use the platform, the less you pay!</span>
 						</div>
 					</div>
 				</div>
@@ -414,7 +413,7 @@
 	<div class="mx-auto max-w-4xl py-16 text-center">
 		<h3 class="text-3xl font-bold mb-4">Ready to Get Started?</h3>
 		<p class="mx-auto max-w-2xl text-lg text-base-content/80 mb-8">
-			Join BitTasker today and experience a better way to find work or hire skilled professionals. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.
+			Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.
 		</p>
 		<div class="flex flex-col sm:flex-row justify-center gap-4">
 			<a href="/auth/signup" class="btn btn-primary btn-lg">Create Your Account</a>
@@ -431,8 +430,8 @@
 			<a href="/escrow" class="link link-hover flex items-center gap-2">
 				<i class="fa-solid fa-vault"></i> Escrow System
 			</a>
-			<a href="/tasker-principles" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-medal"></i> Tasker Principles
+			<a href="/taskee-principles" class="link link-hover flex items-center gap-2">
+				<i class="fa-solid fa-medal"></i> Taskee Principles
 			</a>
 			<a href="/community-guidelines" class="link link-hover flex items-center gap-2">
 				<i class="fa-solid fa-handshake"></i> Community Guidelines

@@ -7,7 +7,7 @@ export interface LiveTask {
 	image: string;
 }
 
-export interface FeaturedFreelancer {
+export interface FeaturedTaskee {
 	id: string;
 	name: string;
 	skills: string;

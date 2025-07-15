@@ -11,7 +11,7 @@
 				? '/images/Bittasker-logo-tagline-dark.svg'
 				: '/images/Bittasker-logo-tagline-light.svg'}
 			alt="BitTasker Logo"
-			class="mx-auto mb-8 block w-full max-w-lg"
+			class="mx-auto mb-4 block md:min-w-[500px]"
 			/>
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">Powering Human Freedom<br />One Task at a Time</h1>

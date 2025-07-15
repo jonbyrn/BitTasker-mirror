@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+
 	let openAccordion = $state({
 		general: -1,
-		client: -1,
-		tasker: -1,
+		taskers: -1,
+		taskees: -1,
 		payment: -1,
 		safety: -1
 	});
@@ -18,10 +20,16 @@
 
 <div class="container mx-auto p-4 py-8 md:p-12">
 	<div class="text-center">
+		<img
+			src={$darkMode
+				? '/images/Bittasker-logo-tagline-dark.svg'
+				: '/images/Bittasker-logo-tagline-light.svg'}
+			alt="BitTasker Logo"
+			class="mx-auto mb-4 block md:min-w-[500px]"
+		/>
 		<h1 class="text-4xl font-bold">Frequently Asked Questions</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Have a question? We've got answers. Find help with posting tasks, getting paid in Bitcoin, our
-			secure escrow system, and more.
+			Common questions about how BitTasker works for both taskers and taskees.
 		</p>
 	</div>
 
@@ -55,48 +63,18 @@
 								Posting is free!
 							</li>
 							<li>
-								<strong>Review Offers:</strong> Receive offers from skilled Taskers. Compare their
+								<strong>Review Offers:</strong> Receive offers from skilled Taskees. Compare their
 								profiles, ratings, and reviews.
 							</li>
 							<li>
-								<strong>Hire & Fund:</strong> Choose the best Tasker and fund the task with Bitcoin or fiat.
+								<strong>Hire & Fund:</strong> Choose the best Taskee and fund the task with Bitcoin or fiat.
 								The payment is held securely in our escrow until the task is done.
 							</li>
 							<li>
 								<strong>Task Complete:</strong> Once you're satisfied, release the payment to the
-								Tasker. Leave a review to help the community!
+								Taskee. Leave a review to help the community!
 							</li>
 						</ol>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- For Clients -->
-		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Clients</h2>
-			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.client === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('client', 0)}>
-						How do I post a task?
-					</button>
-					<div class="collapse-content prose">
-						<p>
-							Click the 'Post a Task' button, fill in the details: what you need done, where, and
-							your budget. The more detail you provide, the better the offers you'll receive.
-						</p>
-					</div>
-				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.client === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('client', 1)}>
-						How do I choose the right Tasker?
-					</button>
-					<div class="collapse-content prose">
-						<p>
-							Review each Tasker's profile, completion rate, and reviews from other clients. You
-							can also ask them questions via chat to ensure they're the right fit
-							before accepting an offer.
-						</p>
 					</div>
 				</div>
 			</div>
@@ -106,30 +84,109 @@
 		<div class="bg-base-100 rounded-box p-6">
 			<h2 class="mb-4 text-2xl font-bold">For Taskers</h2>
 			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.tasker === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('tasker', 0)}>
-						How do I start earning money?
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 0}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 0)}>
+						How do I post a task?
 					</button>
 					<div class="collapse-content prose">
 						<p>
-							Complete your profile, browse tasks in your area, and start making offers on jobs
-							that match your skills. A great offer explains why you're the best person for the
-							job.
+							Simply create an account, click "Post a Task," and fill in the details. Provide a clear description, set a fair budget, and specify your timeline. The more details you provide, the better offers you'll receive from taskees.
 						</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.tasker === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('tasker', 1)}>
-						When do I get paid?
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 1}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 1)}>
+						How does payment work?
 					</button>
 					<div class="collapse-content prose">
 						<p>
-							Once you complete the task and request payment, the client will review your work and
-							release the funds from escrow directly to your wallet. Since the agreements are made
-							directly between you and the client without BitTasker as an intermediary, the funds are
-							released to you as soon as you and the client agree that the work is complete. Our
-							automated system also ensures that you get paid if the client is unresponsive after 7 days,
-							and doesn't open a dispute.
+							When you accept a bid, your payment is immediately secured in our Bitcoin escrow system. Once the taskee completes the work to your satisfaction, you release the payment. If you don't take action within 7 days, the payment is automatically released to the taskee.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 2}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 2)}>
+						What if I'm not satisfied with the work?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							If you're not satisfied with the work, you can initiate a dispute. The payment stays locked while both parties work toward a fair solution. Our dispute resolution process is designed to be fair and transparent.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 3}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 3)}>
+						Can I cancel a task?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							Yes, you can cancel a task at any time. If you cancel before work begins, you'll receive a full refund. If work has already started, you may need to pay a partial amount depending on the progress made.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 4}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 4)}>
+						What are the fees for taskers?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href="/taskee-fees" class="text-primary hover:underline">Taskee Fees</a> page for full details.
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="bg-base-100 rounded-box p-6">
+			<h2 class="mb-4 text-2xl font-bold">For Taskees</h2>
+			<div class="join join-vertical w-full">
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 0}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 0)}>
+						How do I find tasks?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							Browse available tasks in your area and skill set. You can filter by category, location, budget, and deadline. When you find a task that matches your skills, submit a competitive bid with your proposed approach and timeline.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 1}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 1)}>
+						How do I get paid?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							When a tasker accepts your bid, the payment is immediately secured in escrow. Once you complete the work and the tasker approves it, the payment is released to your Bitcoin wallet. If the tasker doesn't respond within 7 days, you're automatically paid.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 2}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 2)}>
+						What if the tasker doesn't approve my work?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							If a tasker disputes your work, you can discuss the issue and work toward a solution. Our dispute resolution process is fair and transparent. If no agreement is reached, the system follows a clear process to ensure fair outcomes.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 3}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 3)}>
+						What are the fees for taskees?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href="/taskee-fees" class="text-primary hover:underline">Taskee Fees</a> page for full details.
+						</p>
+					</div>
+				</div>
+				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 4}>
+					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 4)}>
+						Do I need to own Bitcoin?
+					</button>
+					<div class="collapse-content prose">
+						<p>
+							No, you don't need to own Bitcoin to use BitTasker, you can also use fiat currency. You can receive payments in Bitcoin or USDT and convert them to your local currency if desired.
 						</p>
 					</div>
 				</div>
@@ -146,9 +203,8 @@
 					</button>
 					<div class="collapse-content prose">
 						<p>
-							Bitcoin enables faster, cheaper, and more secure global payments without relying on
-							traditional banks. We use the Liquid Network for low cost, near-instant
-							transactions.
+							Bitcoin is liberation; an unstoppable cross-border currency that can enable you to make payments to anyone, anywhere, at any time.
+							We use the Liquid Network for low cost, near-instant transactions.
 						</p>
 					</div>
 				</div>
@@ -158,7 +214,7 @@
 					</button>
 					<div class="collapse-content prose">
 						<p>
-							BitTasker charges a service fee to the Tasker upon successful completion of a task.
+							BitTasker charges a service fee upon successful completion of a task.
 							This fee helps us operate the platform, provide support, and build new features.
 							The fee is a percentage of the task price and is shown to you when you make an
 							offer.
@@ -167,7 +223,7 @@
 							In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are
 							charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) 
 							and are not under our control, nor do we receive them. For the Liquid and Lightning networks, 
-							these fees are typically very small, often $0.01 or less.
+							these fees are typically very small, typically $0.01 or less.
 						</p>
 					</div>
 				</div>
@@ -184,10 +240,10 @@
 					</button>
 					<div class="collapse-content prose">
 						<p>
-							Absolutely. When you fund a task, your Bitcoin is held in a secure 2-of-2
-							multisignature escrow wallet. This means neither you nor the Tasker can move the
+							Yes. When a Tasker funds a task, the funds are held in a secure 2-of-2
+							multisignature escrow wallet. This means neither the Tasker nor the Taskeee can move the
 							funds alone. Payment is only released when the task is marked as complete and
-							approved.
+							approved, or when the Tasker and Taskee agree on a different outcome.
 						</p>
 					</div>
 				</div>

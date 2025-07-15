@@ -64,8 +64,8 @@
 
 	// Control individual collapse states
 	let isLanguageOpen = $state(false);
-	let isClientsOpen = $state(false);
 	let isTaskersOpen = $state(false);
+	let isTaskeesOpen = $state(false);
 	let isCompanyOpen = $state(false);
 
 	// Language switcher handler
@@ -105,8 +105,8 @@
 	// Close all collapse menus
 	function closeAllCollapses() {
 		isLanguageOpen = false;
-		isClientsOpen = false;
 		isTaskersOpen = false;
+		isTaskeesOpen = false;
 		isCompanyOpen = false;
 	}
 
@@ -119,19 +119,19 @@
 		}
 	}
 
-	function toggleClients() {
-		const wasOpen = isClientsOpen;
-		closeAllCollapses();
-		if (!wasOpen) {
-			isClientsOpen = true;
-		}
-	}
-
 	function toggleTaskers() {
 		const wasOpen = isTaskersOpen;
 		closeAllCollapses();
 		if (!wasOpen) {
 			isTaskersOpen = true;
+		}
+	}
+
+	function toggleTaskees() {
+		const wasOpen = isTaskeesOpen;
+		closeAllCollapses();
+		if (!wasOpen) {
+			isTaskeesOpen = true;
 		}
 	}
 
@@ -219,29 +219,20 @@
 						</a>
 					</li>
 
-					<!-- For Clients collapse -->
+					<!-- For Taskers collapse -->
 					<li>
-						<button onclick={toggleClients} class="min-h-[48px] py-3">
-							<iconify-icon icon="mdi:briefcase-outline" width="24" class="text-primary"
-							></iconify-icon>
-							<span class="font-medium">{$t('footer.for_clients')}</span>
-							<svg
-								class="dropdown-arrow ml-auto h-4 w-4"
-								class:dropdown-open={isClientsOpen}
-								fill="currentColor"
-								viewBox="0 0 20 20"
-								stroke="currentColor"
-								stroke-width="1"
-							>
-								<path
-									fill-rule="evenodd"
-									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-									clip-rule="evenodd"
-								/>
+						<button
+							onclick={toggleTaskers}
+							class="min-h-[48px] py-3"
+						>
+							<iconify-icon icon="mdi:briefcase-outline" width="24" class="text-primary"></iconify-icon>
+							<span class="font-medium">{$t('footer.for_taskers')}</span>
+							<svg class="ml-auto h-4 w-4 dropdown-arrow" class:dropdown-open={isTaskersOpen} fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
+								<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
 							</svg>
 						</button>
 					</li>
-					{#if isClientsOpen}
+					{#if isTaskersOpen}
 						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 							<li>
 								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
@@ -258,10 +249,9 @@
 								</a>
 							</li>
 							<li>
-								<a href="/client-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.client_fees')}</span>
+								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li>
@@ -284,29 +274,20 @@
 						</div>
 					{/if}
 
-					<!-- For Taskers collapse -->
+					<!-- For Taskees collapse -->
 					<li>
-						<button onclick={toggleTaskers} class="min-h-[48px] py-3">
-							<iconify-icon icon="mdi:account-hard-hat" width="24" class="text-primary"
-							></iconify-icon>
-							<span class="font-medium">{$t('footer.for_taskers')}</span>
-							<svg
-								class="dropdown-arrow ml-auto h-4 w-4"
-								class:dropdown-open={isTaskersOpen}
-								fill="currentColor"
-								viewBox="0 0 20 20"
-								stroke="currentColor"
-								stroke-width="1"
-							>
-								<path
-									fill-rule="evenodd"
-									d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-									clip-rule="evenodd"
-								/>
+						<button
+							onclick={toggleTaskees}
+							class="min-h-[48px] py-3"
+						>
+							<iconify-icon icon="mdi:account-hard-hat" width="24" class="text-primary"></iconify-icon>
+							<span class="font-medium">{$t('footer.for_taskees')}</span>
+							<svg class="ml-auto h-4 w-4 dropdown-arrow" class:dropdown-open={isTaskeesOpen} fill="currentColor" viewBox="0 0 20 20" stroke="currentColor" stroke-width="1">
+								<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
 							</svg>
 						</button>
 					</li>
-					{#if isTaskersOpen}
+					{#if isTaskeesOpen}
 						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 							<li>
 								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
@@ -323,10 +304,9 @@
 								</a>
 							</li>
 							<li>
-								<a href="/tasker-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.tasker_fees')}</span>
+								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+									<span class="font-medium">{$t('footer.taskee_fees')}</span>
 								</a>
 							</li>
 							<li>

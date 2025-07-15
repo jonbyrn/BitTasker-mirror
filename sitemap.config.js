@@ -7,7 +7,7 @@ const sitemap = createSitemap('https://bittasker.com', {
 		// Company pages
 		'/about',
 		'/careers',
-		'/client-fees',
+		'/tasker-fees',
 		'/community-guidelines',
 		'/contact',
 		'/escrow',
@@ -16,7 +16,7 @@ const sitemap = createSitemap('https://bittasker.com', {
 		'/press',
 		'/privacy',
 		'/security',
-		'/tasker-fees',
+		'/taskee-fees',
 		'/tasker-principles',
 		'/terms',
 		// Auth pages

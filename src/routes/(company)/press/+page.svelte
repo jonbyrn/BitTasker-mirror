@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+
 	const emailUser = 'press';
 	const emailDomain = 'bittasker.com';
 	const mailtoHref = `mailto:${emailUser}@${emailDomain}`;
@@ -6,10 +8,16 @@
 
 <div class="container mx-auto p-4 py-8 md:p-12">
 	<div class="text-center">
+		<img
+			src={$darkMode
+				? '/images/Bittasker-logo-tagline-dark.svg'
+				: '/images/Bittasker-logo-tagline-light.svg'}
+			alt="BitTasker Logo"
+			class="mx-auto mb-4 block md:min-w-[500px]"
+		/>
 		<h1 class="text-4xl font-bold">Press & Media</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Welcome to the BitTasker media hub. Here you'll find official resources, brand assets, and
-			contact information for press inquiries.
+			BitTasker is revolutionizing how taskers and taskees connect, work, and get paid through Bitcoin-powered escrow.
 		</p>
 	</div>
 
