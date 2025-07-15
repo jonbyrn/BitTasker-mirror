@@ -331,7 +331,9 @@
 			</li>
 			<li>
 				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_taskers')}</summary>
+					<summary class="btn btn-ghost" onclick={handleDropdownClick}
+						>{$t('footer.for_taskers')}</summary
+					>
 					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
 						<li><a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a></li>
 						<li><a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a></li>
