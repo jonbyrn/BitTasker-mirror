@@ -225,7 +225,7 @@
 									>
 								</li>
 								<li>
-									<a href="/tasker-fees" class="hover:text-primary">{$t('footer.tasker_fees')}</a>
+									<a href="/taskee-fees" class="hover:text-primary">{$t('footer.taskee_fees')}</a>
 								</li>
 								<li>
 									<a href="/tasker-principles" class="hover:text-primary"
