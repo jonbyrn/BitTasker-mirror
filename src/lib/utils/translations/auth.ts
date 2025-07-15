@@ -4,6 +4,7 @@ export const authTranslations = {
 		'auth.login.subtitle': 'Hire for gigs, pay in Bitcoin or Fiat',
 		'auth.login.login_with': 'Login with your',
 		'auth.login.passkey_info': 'Login with your Passkey/Biometrics, or Alby Connect account',
+		'auth.login.login_with_nsec': 'Login with nsec',
 		'auth.login.continue_biometrics': 'Continue with Biometrics',
 		'auth.login.continue_passkey': 'Continue with Passkey',
 		'auth.login.alby_connect': 'Alby Connect',
