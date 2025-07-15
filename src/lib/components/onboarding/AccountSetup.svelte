@@ -454,7 +454,7 @@
 				</label>
 				{#if !enableRecovery}
 					<div
-						class="alert alert-warning mt-4 rounded-2xl text-xs text-black"
+						class="alert alert-warning alert-outline mt-4 rounded-2xl text-xs text-black"
 						in:fly={{ duration: 100, y: -20, easing: linear }}
 					>
 						<svg

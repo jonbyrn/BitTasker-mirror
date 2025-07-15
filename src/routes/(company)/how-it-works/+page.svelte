@@ -39,10 +39,9 @@
 				class="mx-auto mb-8 block w-full max-w-lg"
 			/>
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">How BitTasker Works</h1>
+				<h1 class="text-5xl font-bold">{$t('how_it_works.title')}</h1>
 				<p class="py-6 text-lg text-base-content/80">
-					BitTasker connects skilled professionals with people who need tasks done. Our Bitcoin-powered
-					platform makes hiring, working, and getting paid simple, secure, and borderless.
+					{$t('how_it_works.hero.description')}
 				</p>
 			</div>
 		</div>
