@@ -100,12 +100,12 @@ const authPlugin: ClientPlugin = () => {
 
 		// Handle auth errors in responses
 		end: async (ctx, { value, resolve }) => {
+			console.log({ value });
 			if (value.errors && value.errors.length > 0) {
 				console.warn('encountered errors:', value.errors);
 
 				const authError = value.errors.find(
 					(err: GraphQLError) =>
-						err.message === 'Authentication failed: Unauthorized' &&
 						err.extensions?.code === 'UNAUTHENTICATED' &&
 						err.extensions?.originalError?.statusCode === 401
 				);
