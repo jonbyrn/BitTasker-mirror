@@ -549,7 +549,7 @@
 				</div>
 			</div>
 		{:else}
-			<div class="alert">
+			<div class="alert alert-outline">
 				<span>{$t('profile.skills.no_skills')}</span>
 			</div>
 		{/if}

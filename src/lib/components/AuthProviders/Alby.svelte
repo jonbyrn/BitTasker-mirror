@@ -176,7 +176,7 @@
 		</div>
 	</button>
 	{#if error}
-		<div class="alert alert-error">
+		<div class="alert alert-error alert-outline">
 			<span>{error}</span>
 		</div>
 	{/if}

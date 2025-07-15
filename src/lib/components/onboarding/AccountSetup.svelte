@@ -137,7 +137,8 @@
 				salt: salt,
 				authTag: encrypted.authTag,
 				iterations,
-				authMethod: 'passkey'
+				authMethod: 'passkey',
+				deviceId
 			});
 
 			const deviceName = await getDeviceName();
@@ -422,7 +423,7 @@
 				</div>
 			{:else}
 				<div
-					class="alert alert-info mt-2 rounded-2xl text-xs text-black"
+					class="alert alert-info alert-outline mt-2 rounded-2xl text-xs text-black"
 					in:fly={{ duration: 100, y: -20, easing: linear }}
 				>
 					<svg

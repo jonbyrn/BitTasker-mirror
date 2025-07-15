@@ -80,7 +80,7 @@
 
 		<!-- Error State -->
 	{:else if error || $bidsStore.errors || !$bidsStore.data}
-		<div class="alert alert-error" role="alert">
+		<div class="alert alert-error alert-outline" role="alert">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"

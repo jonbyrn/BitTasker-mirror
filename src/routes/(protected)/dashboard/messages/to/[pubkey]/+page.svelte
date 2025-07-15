@@ -75,7 +75,7 @@
 	{:else if error}
 		<!-- Error State -->
 		<div class="flex h-full flex-col items-center justify-center">
-			<div class="alert alert-error max-w-md">
+			<div class="alert alert-error alert-outline max-w-md">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
