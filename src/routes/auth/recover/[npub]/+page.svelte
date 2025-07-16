@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { validatePassword } from '$lib/utils/helpers/validators';
-	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import { decryptRecoveryNsec, encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
@@ -123,7 +123,7 @@
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
-			const deviceName = await getDeviceName();
+			const deviceName = await createUserDeviceShortName(npub);
 
 			// Register device with server
 			let credentialId = '';

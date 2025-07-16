@@ -1,9 +1,55 @@
+<script lang="ts">
+	import { darkMode } from '$lib/stores/theme.store';
+	
+	let { data } = $props();
+	const seo = data.seo;
+</script>
+
+<svelte:head>
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<meta name="author" content="BitTasker" />
+	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href={seo.canonical} />
+	
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:image" content={seo.image} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Privacy Policy - BitTasker" />
+	<meta property="og:site_name" content="BitTasker" />
+	
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+	<meta property="twitter:image" content={seo.image} />
+	<meta property="twitter:image:alt" content="BitTasker Logo" />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+	
+	<!-- Structured Data -->
+	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+</svelte:head>
+
 <div class="container mx-auto p-4 py-8 md:p-12">
 	<div class="text-center">
+		<img
+			src={$darkMode
+				? '/images/Bittasker-logo-tagline-dark.svg'
+				: '/images/Bittasker-logo-tagline-light.svg'}
+			alt="BitTasker Logo"
+			class="mx-auto mb-4 block md:min-w-[500px]"
+		/>
 		<h1 class="text-4xl font-bold">Privacy Policy</h1>
 		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Your privacy isn't just a policy, it's our architecture. At BitTasker, we've built a
-			platform where you are in control of your data.
+			How we protect your privacy and handle your data when you use BitTasker to connect with taskers and taskees.
 		</p>
 		<p class="text-sm text-base-content/70 mt-2">Last Updated: July 13, 2025</p>
 	</div>

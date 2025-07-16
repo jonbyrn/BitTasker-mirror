@@ -3,9 +3,9 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
-	import { liveTasks, featuredFreelancers } from '$lib/utils/constants/homepage.constants';
+	import { liveTasks, featuredTaskees } from '$lib/utils/constants/homepage.constants';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
-	import FreelancerCard from '$lib/components/homepage/FreelancerCard.svelte';
+	import TaskeeCard from '$lib/components/homepage/TaskeeCard.svelte';
 
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
@@ -109,7 +109,7 @@
 							>{$t('navbar.browse_tasks')}</a
 						>
 						<a
-							href="/dashboard/professionals"
+							href="/dashboard/taskees"
 							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_freelancers')}</a
 						>
@@ -302,8 +302,8 @@
 	<section class="bg-base-200 py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
-				<h2 class="text-3xl font-bold">{$t('homepage.v2.freelancers.title')}</h2>
-				<a href="/dashboard/professionals" class="btn btn-link text-primary"
+				<h2 class="text-3xl font-bold">{$t('homepage.v2.taskees.title')}</h2>
+				<a href="/dashboard/taskees" class="btn btn-link text-primary"
 					>{$t('common.view_all')}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -326,9 +326,9 @@
 					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-6 md:px-4"
 					style="scrollbar-width:none;"
 				>
-					{#each featuredFreelancers as freelancer (freelancer.id)}
+					{#each featuredTaskees as taskee (taskee.id)}
 						<div class="w-80 flex-shrink-0 snap-start">
-							<FreelancerCard {freelancer} />
+							<TaskeeCard {taskee} />
 						</div>
 					{/each}
 				</div>

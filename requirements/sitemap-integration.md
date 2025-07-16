@@ -35,7 +35,7 @@ The sitemap includes the following public URLs:
 - `/` (Home page)
 - `/about`
 - `/careers`
-- `/client-fees`
+- `/tasker-fees`
 - `/community-guidelines`
 - `/contact`
 - `/escrow`
@@ -44,7 +44,7 @@ The sitemap includes the following public URLs:
 - `/press`
 - `/privacy`
 - `/security`
-- `/tasker-fees`
+- `/taskee-fees`
 - `/tasker-principles`
 - `/terms`
 

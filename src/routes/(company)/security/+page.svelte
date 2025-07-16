@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores/theme.store';
+	
+	let { data } = $props();
+	const seo = data.seo;
+	
     const user = 'hello';
 	const domain = 'bittasker.com';
 	const mailtoHref = `mailto:${user}@${domain}`;
@@ -16,6 +20,39 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<meta name="author" content="BitTasker" />
+	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href={seo.canonical} />
+	
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:image" content={seo.image} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Security & Safety - BitTasker" />
+	<meta property="og:site_name" content="BitTasker" />
+	
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+	<meta property="twitter:image" content={seo.image} />
+	<meta property="twitter:image:alt" content="BitTasker Logo" />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+	
+	<!-- Structured Data -->
+	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+</svelte:head>
+
 <div class="container mx-auto px-4 py-8 md:px-8">
 	<!-- Hero Section -->
 	<div class="hero bg-base-200 py-8">
@@ -25,13 +62,12 @@
 				? '/images/Bittasker-logo-tagline-dark.svg'
 				: '/images/Bittasker-logo-tagline-light.svg'}
 			alt="BitTasker Logo"
-			class="mx-auto mb-8 block w-full max-w-lg"
+			class="mx-auto mb-4 block md:min-w-[500px]"
 			/>
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">Security First</h1>
-				<p class="py-6 text-lg">
-					At BitTasker, security isn't an afterthought—it's built into our foundation. Learn how we protect your 
-					identity, data, and funds through advanced cryptography and user-controlled security.
+				<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+					How we secure your account, protect your data, and keep both taskers and taskees safe on our platform.
 				</p>
 			</div>
 		</div>
@@ -46,6 +82,16 @@
 				Instead of asking you to trust us with your sensitive information, we've built systems where 
 				you maintain control of your own security.
 			</p>
+			
+			<div class="alert alert-warning alert-outline mt-8">
+				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+				</svg>
+				<div>
+					<p class="font-semibold">Important Security Disclaimer</p>
+					<p class="text-sm">While we implement industry-standard security measures, no system is completely immune to security risks. Users are responsible for following security best practices and maintaining the security of their own devices and accounts. BitTasker cannot guarantee absolute security and is not liable for security breaches resulting from user negligence or third-party vulnerabilities.</p>
+				</div>
+			</div>
 		</div>
 
 		<!-- Security Features -->
@@ -57,16 +103,21 @@
 						<span class="badge badge-primary mr-2">1</span>Passkeys, Not Passwords
 					</h3>
 					<p>
-						We've replaced traditional passwords with more secure passkeys, which provide stronger 
-						protection against phishing and data breaches. Passkeys use public-key cryptography to 
-						create unique authentication credentials that never leave your device.
+						We've implemented passkey authentication, which provides enhanced security compared to traditional passwords. Passkeys use public-key cryptography to 
+						create unique authentication credentials that remain on your device.
 					</p>
 					<ul class="list-disc ml-5 mt-2">
-						<li>Immune to password-based attacks</li>
+						<li>Designed to resist password-based attacks</li>
 						<li>No shared secrets stored on our servers</li>
-						<li>Biometric verification on your device for enhanced security</li>
-						<li>FIDO2 standard compliance for maximum compatibility</li>
+						<li>Biometric verification on supported devices</li>
+						<li>FIDO2 standard compliance where supported</li>
 					</ul>
+					<div class="alert alert-info alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<span class="text-sm"><strong>User Responsibility:</strong> Passkey security depends on your device's security. Keep your device updated and secure to maintain the effectiveness of this authentication method.</span>
+					</div>
 				</div>
 			</div>
 
@@ -74,18 +125,24 @@
 			<div class="card bg-base-100 shadow-lg border border-base-300">
 				<div class="card-body">
 					<h3 class="card-title text-2xl">
-						<span class="badge badge-primary mr-2">2</span>Secure Account Recovery
+						<span class="badge badge-primary mr-2">2</span>Account Recovery System
 					</h3>
 					<p>
-						We understand that sometimes passkeys can be lost due to device changes or other circumstances. 
-						Our email-based recovery system allows you to regain access to your account without compromising security.
+						We provide email-based recovery options for situations where passkeys become inaccessible. 
+						Our recovery system is designed to balance security with accessibility.
 					</p>
 					<ul class="list-disc ml-5 mt-2">
-						<li>Email verification with additional recovery password</li>
-						<li>Multi-factor authentication during recovery process</li>
-						<li>Recovery process designed to prevent unauthorized access</li>
-						<li>Time-limited recovery windows to prevent abuse</li>
+						<li>Email verification with recovery authentication</li>
+						<li>Multi-factor authentication during recovery</li>
+						<li>Time-limited recovery processes</li>
+						<li>Security monitoring during recovery attempts</li>
 					</ul>
+					<div class="alert alert-info alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<span class="text-sm"><strong>User Responsibility:</strong> Account recovery security depends on your email security. Use strong email security practices and two-factor authentication on your recovery email account.</span>
+					</div>
 				</div>
 			</div>
 
@@ -96,15 +153,21 @@
 						<span class="badge badge-primary mr-2">3</span>Client-Side Encryption
 					</h3>
 					<p>
-						Your Bitcoin wallet and Nostr private keys are encrypted directly on your device 
-						using your passkey. This encryption happens before any data is synchronized with our servers.
+						Your Bitcoin wallet and Nostr private keys are encrypted on your device 
+						using your authentication credentials before synchronization with our servers.
 					</p>
 					<ul class="list-disc ml-5 mt-2">
-						<li>Keys are never stored in plaintext</li>
-						<li>Even BitTasker cannot access your private keys</li>
-						<li>End-to-end encryption for all sensitive data</li>
-						<li>Advanced AES-256 encryption standards</li>
+						<li>Keys are stored in encrypted format</li>
+						<li>BitTasker does not have access to your private keys</li>
+						<li>Encryption occurs on your device</li>
+						<li>Industry-standard encryption protocols</li>
 					</ul>
+					<div class="alert alert-info alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<span class="text-sm"><strong>User Responsibility:</strong> If you lose access to your authentication credentials, we cannot recover your encrypted keys. Maintain secure backups of your recovery information.</span>
+					</div>
 				</div>
 			</div>
 
@@ -115,15 +178,21 @@
 						<span class="badge badge-primary mr-2">4</span>Bitcoin Wallet Security
 					</h3>
 					<p>
-						BitTasker provides a hot wallet for convenience in transacting on the platform. This wallet is designed 
-						for active use rather than long-term storage of large amounts of Bitcoin.
+						BitTasker provides an integrated wallet designed for platform transactions. This wallet is intended 
+						for active use rather than long-term storage of significant Bitcoin amounts.
 					</p>
 					<ul class="list-disc ml-5 mt-2">
-						<li>Full control to withdraw your Bitcoin at any time</li>
-						<li>No withdrawal limitations or lockup periods</li>
+						<li>Withdrawal capabilities maintained for user control</li>
+						<li>No imposed withdrawal limitations under normal operation</li>
 						<li>Transaction signing occurs on your device</li>
-						<li>We recommend transferring larger amounts to cold storage</li>
+						<li>Designed for convenience in platform transactions</li>
 					</ul>
+					<div class="alert alert-warning alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+						</svg>
+						<span class="text-sm"><strong>Security Recommendation:</strong> As with any hot wallet, we recommend transferring larger Bitcoin amounts to cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage.</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -137,42 +206,46 @@
 					<h3 class="card-title text-2xl">Decentralized Identity</h3>
 					<p>
 						BitTasker leverages the Nostr protocol for decentralized identity management. Your identity 
-						isn't stored in a central database that could be compromised—it exists as a cryptographic key pair 
-						that you control.
+						is based on cryptographic key pairs that you control, rather than being stored in a central database.
 					</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 						</svg>
-						<span>Your identity can be portable across applications that support the Nostr protocol, giving you true data sovereignty.</span>
+						<span>Your identity can be portable across applications that support the Nostr protocol. However, the security and reliability of this system depends on the broader Nostr network and relay infrastructure.</span>
 					</div>
 				</div>
 			</div>
 			
 			<div class="card bg-base-100 shadow-lg border border-base-300 mb-8">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">Secure Escrow System</h3>
+					<h3 class="card-title text-2xl">Escrow System Security</h3>
 					<p>
-						Our Bitcoin escrow system uses 2-of-2 multisignature technology to ensure that neither party can 
-						access funds unilaterally. This provides security for both clients and taskers without requiring 
-						BitTasker to hold your funds.
+						Our Bitcoin escrow system uses 2-of-2 multisignature technology designed to ensure that neither party can 
+						access funds unilaterally. This system aims to provide security for both taskers and taskees.
 					</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 						</svg>
-						<span>Timelock mechanisms ensure that disputes have clear resolution paths without requiring trusted third parties.</span>
+						<span>While our escrow system is designed with security in mind, users should understand that Bitcoin transactions are irreversible and dispute resolution follows predetermined timelock mechanisms.</span>
 					</div>
 				</div>
 			</div>
 			
 			<div class="card bg-base-100 shadow-lg border border-base-300">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">Privacy By Design</h3>
+					<h3 class="card-title text-2xl">Privacy-Focused Communication</h3>
 					<p>
-						BitTasker is built with privacy as a core principle. End-to-end encryption is used for all private 
-						messages between users, meaning that not even BitTasker can read your conversations.
+						BitTasker implements end-to-end encryption for private messages between users, designed so that 
+						BitTasker cannot read your conversations.
 					</p>
+					<div class="alert alert-info alert-outline mt-4">
+						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						<span>Message security depends on the proper implementation of encryption protocols and the security of the devices used for communication.</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -183,9 +256,9 @@
 			
 			<div class="alert alert-warning alert-outline mb-8">
 				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z" />
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
 				</svg>
-				<span><strong>Your security is in your hands.</strong> While BitTasker implements strong platform security, following these best practices will help keep your account and funds safe.</span>
+				<span><strong>Your security is primarily your responsibility.</strong> While BitTasker implements security measures, following these best practices is essential for protecting your account and funds. BitTasker cannot be held responsible for losses resulting from failure to follow security best practices.</span>
 			</div>
 			
 			<div class="collapse collapse-arrow bg-base-100 shadow border border-base-300 mb-4" class:collapse-open={openPractice === 0}>
@@ -193,7 +266,7 @@
 					Keep Your Recovery Information Secure
 				</button>
 				<div class="collapse-content"> 
-					<p>Store your recovery password in a secure password manager and ensure your recovery email account is protected with strong security measures, including two-factor authentication if possible.</p>
+					<p>Store your recovery information in a secure password manager and ensure your recovery email account is protected with strong security measures. You are solely responsible for maintaining access to your recovery information.</p>
 				</div>
 			</div>
 			
@@ -202,7 +275,7 @@
 					Use Cold Storage for Large Bitcoin Holdings
 				</button>
 				<div class="collapse-content"> 
-					<p>While BitTasker's wallet is secure for platform transactions, we recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them.</p>
+					<p>While BitTasker's wallet implements security measures for platform transactions, we strongly recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage.</p>
 				</div>
 			</div>
 			
@@ -211,7 +284,7 @@
 					Verify Transaction Details Carefully
 				</button>
 				<div class="collapse-content"> 
-					<p>Always double-check Bitcoin addresses before sending transactions. Once confirmed on the blockchain, transactions cannot be reversed.</p>
+					<p>Always double-check Bitcoin addresses and transaction amounts before confirming. Bitcoin transactions are irreversible, and BitTasker cannot recover funds sent to incorrect addresses or reverse confirmed transactions.</p>
 				</div>
 			</div>
 			
@@ -220,7 +293,7 @@
 					Keep Your Devices Secure
 				</button>
 				<div class="collapse-content"> 
-					<p>Since BitTasker relies on client-side security, keeping your devices free from malware and updated with the latest security patches is essential for maintaining the security of your account and wallet.</p>
+					<p>Since BitTasker relies on client-side security, keeping your devices free from malware and updated with the latest security patches is essential. Use reputable antivirus software and avoid accessing your account from public or compromised devices.</p>
 				</div>
 			</div>
 		</div>
@@ -229,16 +302,25 @@
 		<div class="mt-16 text-center">
 			<h2 class="text-3xl font-bold mb-4">Our Security Commitment</h2>
 			<p class="text-lg max-w-2xl mx-auto">
-				BitTasker is committed to continually improving our security practices as technology evolves.
+				BitTasker is committed to implementing and maintaining reasonable security practices as technology evolves. 
+				However, we cannot guarantee absolute security and users must take responsibility for their own security practices.
 			</p>
+			
+			<div class="alert alert-warning alert-outline mt-8 max-w-2xl mx-auto">
+				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+				</svg>
+				<span class="text-sm"><strong>Security Limitations:</strong> No security system is perfect. BitTasker disclaims liability for security breaches caused by factors beyond our reasonable control, including but not limited to user negligence, third-party vulnerabilities, or sophisticated attacks.</span>
+			</div>
+			
 			<div class="card bg-base-100 shadow-lg border border-base-300 mt-8 max-w-lg mx-auto">
 				<div class="card-body items-center text-center">
 					<h3 class="card-title">Have a security question?</h3>
-					<p>We're always here to help with any security concerns or questions.</p>
+					<p>We're here to help with security concerns and questions about our platform.</p>
 					<div class="card-actions">
 						<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
                             <i class="fa-solid fa-envelope fa-xl"></i>
-                            Send Us An Email
+                            Get in touch
                         </a>
 					</div>
 				</div>

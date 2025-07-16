@@ -10,7 +10,7 @@ export const GET: RequestHandler = async () => {
 		// Company pages
 		'/about',
 		'/careers',
-		'/client-fees',
+		'/tasker-fees',
 		'/community-guidelines',
 		'/contact',
 		'/escrow',
@@ -19,7 +19,7 @@ export const GET: RequestHandler = async () => {
 		'/press',
 		'/privacy',
 		'/security',
-		'/tasker-fees',
+		'/taskee-fees',
 		'/tasker-principles',
 		'/terms',
 		// Auth pages

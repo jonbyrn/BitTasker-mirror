@@ -3,13 +3,17 @@
 	import { nip19 } from 'nostr-tools';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
-	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
 		validateNostrPrivateKey,
@@ -116,8 +120,8 @@
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
-			const deviceName = await getDeviceName();
-			
+			const deviceName = await createUserDeviceShortName(npub);
+
 			// Register device with server
 			let credentialId = '';
 			if (isMobileBiometrics) {
@@ -191,9 +195,9 @@
 
 			await authService.setupAccountRecoveryPassword(data);
 		} catch (err: unknown) {
-			console.error('Failed to setup account recovery:', err);
-			error = err instanceof Error ? err.message : 'Failed to setup account recovery';
-			throw new Error(error);
+			appStore.showErrorToast(
+				err instanceof Error ? err.message : 'Failed to setup account recovery'
+			);
 		} finally {
 			isLoading = false;
 		}
@@ -217,6 +221,9 @@
 			passwordError = '';
 			emailError = '';
 
+			let pubKey = npub;
+			let privKey = nsec;
+
 			// Validate username
 			if (!username) {
 				usernameError = 'Username is required';
@@ -239,7 +246,7 @@
 
 			// If importing key, validate it and convert to hex
 			if (importNostrKey) {
-				const validation = validateNostrPrivateKey(nsec);
+				const validation = validateNostrPrivateKey(privKey);
 				if (!validation.isValid) {
 					nsecError = validation.error!;
 					return;
@@ -247,22 +254,22 @@
 
 				try {
 					// Convert nsec to hex format
-					const { type, data } = nip19.decode(nsec);
+					const { type, data } = nip19.decode(privKey);
 					if (type !== 'nsec') {
 						nsecError = 'Invalid nsec format';
 						return;
 					}
 					// Convert Uint8Array to hex
-					nsec = bytesToHex(data);
+					privKey = bytesToHex(data);
 					// Get public key
-					npub = getPublicKey(data);
+					pubKey = getPublicKey(data);
 				} catch (err) {
 					nsecError = 'Invalid private key';
 					return;
 				}
 			} else {
 				// Generate key pair
-				({ npub, nsec } = await generateKeyPair());
+				({ npub: pubKey, nsec: privKey } = await generateKeyPair());
 			}
 
 			// Validate recovery password if enabled
@@ -295,12 +302,12 @@
 				}
 			}
 
-			await register(username, npub, nsec).then(async () => {
-				if (enableRecovery) await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
+			await register(username, pubKey, privKey).then(async () => {
+				// Go to the next step
+				nextStep();
+				if (enableRecovery)
+					await setupAccRecovery(pubKey, privKey, recoveryPassword, recoveryEmail);
 			});
-
-			// Go to the next step
-			nextStep();
 		} catch (err: unknown) {
 			console.error('Account setup failed:', err);
 			error = err instanceof Error ? err.message : 'Account setup failed';
@@ -452,7 +459,7 @@
 				</label>
 				{#if !enableRecovery}
 					<div
-						class="alert alert-warning mt-4 rounded-2xl text-xs text-black"
+						class="alert alert-warning alert-outline mt-4 rounded-2xl text-xs text-black"
 						in:fly={{ duration: 100, y: -20, easing: linear }}
 					>
 						<svg

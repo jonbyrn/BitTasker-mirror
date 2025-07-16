@@ -1,80 +1,95 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores/theme.store';
+	
+	let { data } = $props();
+	const seo = data.seo;
 </script>
+
+<svelte:head>
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<meta name="author" content="BitTasker" />
+	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href={seo.canonical} />
+	
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:image" content={seo.image} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content="Taskee Principles - BitTasker" />
+	<meta property="og:site_name" content="BitTasker" />
+	
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+	<meta property="twitter:image" content={seo.image} />
+	<meta property="twitter:image:alt" content="BitTasker Logo" />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+	
+	<!-- Structured Data -->
+	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+</svelte:head>
 
 <div class="container mx-auto px-4 py-12 md:px-8">
 	<img
-		src={$darkMode
-			? '/images/Bittasker-logo-tagline-dark.svg'
-			: '/images/Bittasker-logo-tagline-light.svg'}
-		alt="BitTasker Logo"
-		class="mx-auto mb-8 block w-full max-w-lg"
+	src={$darkMode
+		? '/images/Bittasker-logo-tagline-dark.svg'
+		: '/images/Bittasker-logo-tagline-light.svg'}
+	alt="BitTasker Logo"
+	class="mx-auto mb-4 block md:min-w-[500px]"
 	/>
 	<div class="prose mx-auto max-w-4xl">
 		<div class="text-center">
-			<h1 class="text-4xl font-bold">Our Tasker Principles</h1>
-			<p class="mx-auto mt-4 max-w-2xl text-lg text-base-content/80">
-				At BitTasker, great Taskers are the heart of our community. These four principles are the
-				foundation for success, helping you build a stellar reputation and earn more.
+			<h1 class="text-4xl font-bold">Taskee Principles</h1>
+			<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+				The values that guide how taskees should conduct themselves on BitTasker.
 			</p>
 		</div>
 
-		<div class="mt-12 grid gap-8 md:grid-cols-2">
-		<!-- Principle 1: Be Professional -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body">
-				<h2 class="card-title text-2xl">1. Be Professional</h2>
-				<p class="font-semibold">Uphold Quality & Expertise</p>
-				<ul class="mt-2 list-inside list-disc space-y-1">
-					<li>Take pride in delivering 5-star work.</li>
-					<li>Only offer on tasks you have the skills for.</li>
-					<li>Price your work fairly and accurately.</li>
-					<li>Prioritize safety for yourself and others.</li>
-				</ul>
+		<h2>Our Taskee Principles</h2>
+		<p>
+			These principles guide how taskees should conduct themselves on BitTasker. They represent the values that make our platform trustworthy and beneficial for both taskers and taskees.
+		</p>
+		<h3 class="text-2xl font-bold mb-4">For Taskees</h3>
+		<div class="space-y-4">
+			<div class="bg-base-100 rounded-box p-4">
+				<h4 class="font-bold">1. Deliver Excellence</h4>
+				<p class="text-base-content/80">
+					Complete every task to the highest possible standard. Your reputation depends on consistent quality work.
+				</p>
+			</div>
+			<div class="bg-base-100 rounded-box p-4">
+				<h4 class="font-bold">2. Communicate Clearly</h4>
+				<p class="text-base-content/80">
+					Keep taskers informed about progress, potential issues, and any changes to the agreed scope.
+				</p>
+			</div>
+			<div class="bg-base-100 rounded-box p-4">
+				<h4 class="font-bold">3. Be Reliable</h4>
+				<p class="text-base-content/80">
+					Honor your commitments and meet deadlines. If issues arise, communicate early and work toward solutions.
+				</p>
+			</div>
+			<div class="bg-base-100 rounded-box p-4">
+				<h4 class="font-bold">4. Respect Privacy</h4>
+				<p class="text-base-content/80">
+					Protect confidential information and respect the privacy of taskers and their business.
+				</p>
+			</div>
+			<div class="bg-base-100 rounded-box p-4">
+				<h4 class="font-bold">5. Be Professional</h4>
+				<p class="text-base-content/80">
+					Maintain professional conduct in all interactions and represent BitTasker with integrity.
+				</p>
 			</div>
 		</div>
-
-		<!-- Principle 2: Be Reliable -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body">
-				<h2 class="card-title text-2xl">2. Be Reliable</h2>
-				<p class="font-semibold">Honor Your Commitments</p>
-				<ul class="mt-2 list-inside list-disc space-y-1">
-					<li>Show up on time, every time.</li>
-					<li>Complete the task as agreed upon.</li>
-					<li>Keep cancellations to an absolute minimum.</li>
-					<li>Manage the Poster's expectations clearly.</li>
-				</ul>
-			</div>
-		</div>
-
-		<!-- Principle 3: Be Responsive -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body">
-				<h2 class="card-title text-2xl">3. Be Responsive</h2>
-				<p class="font-semibold">Communicate Clearly & Promptly</p>
-				<ul class="mt-2 list-inside list-disc space-y-1">
-					<li>Ask questions to clarify task details.</li>
-					<li>Personalize your offers to the task.</li>
-					<li>Keep the Poster updated on your progress.</li>
-					<li>Confirm completion when the work is done.</li>
-				</ul>
-			</div>
-		</div>
-
-		<!-- Principle 4: Be Honest & Trustworthy -->
-		<div class="card bg-base-100 shadow-xl">
-			<div class="card-body">
-				<h2 class="card-title text-2xl">4. Be Honest & Trustworthy</h2>
-				<p class="font-semibold">Build Trust Through Transparency</p>
-				<ul class="mt-2 list-inside list-disc space-y-1">
-					<li>Be truthful in your profile and offers.</li>
-					<li>Keep all payments on the platform for security.</li>
-					<li>Treat everyone with respect.</li>
-					<li>Follow our Community Guidelines.</li>
-				</ul>
-			</div>
-		</div>
-	</div>
 	</div>
 </div>
