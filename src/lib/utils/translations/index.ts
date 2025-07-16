@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { authTranslations } from './auth';
 import { commonTranslation } from './common';
+import { companyTranslations } from './company';
 import { bidTranslations } from './dashboard/bid';
 import { dashboardTranslations } from './dashboard/dashboard';
 import { taskTranslations } from './dashboard/task';
@@ -32,5 +33,6 @@ export default deepMergeTranslations(
 	bidTranslations,
 	taskTranslations,
 	dashboardTranslations,
-	recommendationTranslations
+	recommendationTranslations,
+	companyTranslations
 );
