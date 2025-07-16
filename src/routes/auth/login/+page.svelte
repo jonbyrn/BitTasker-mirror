@@ -164,16 +164,16 @@
 				// Encrypt the private key with device ID as the password
 				const { exportedKey } = await encryptNsec(nsec, deviceId, 100000, res.user.nostrKey?.salt);
 
+				const deviceName = await getDeviceName();
+
 				let credentialId = '';
 				if (authMethods.biometric) {
-					credentialId = await setBiometricKey(npub, exportedKey);
+					credentialId = await setBiometricKey(npub, exportedKey, deviceName);
 				} else {
-					credentialId = await setWebBiometricKey(npub, exportedKey);
+					credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 				}
 
 				if (!credentialId) throw new Error('Failed to set biometric key');
-
-				const deviceName = await getDeviceName();
 
 				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
