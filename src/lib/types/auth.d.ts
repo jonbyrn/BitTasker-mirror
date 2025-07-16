@@ -19,6 +19,18 @@ export interface NostrRegistrationData {
 	deviceId?: string;
 }
 
+export interface NostrLoginData {
+	event: NostrEvent;
+	challenge: string;
+	encryptedPrivateKey?: string;
+	iv?: string;
+	salt?: string;
+	authTag?: string;
+	iterations?: number;
+	authMethod?: 'passkey' | 'alby';
+	deviceId?: string;
+}
+
 interface NostrKeyData {
 	id: number;
 	userId: number;

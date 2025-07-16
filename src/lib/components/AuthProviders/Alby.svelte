@@ -69,7 +69,11 @@
 			const rawSignedEvent = (await window.nostr.signEvent(event)) as SignedNostrEvent;
 
 			// Pass the complete event with ID and signature to the login method
-			const res = await authService.loginWithNostr(rawSignedEvent, challenge);
+			const res = await authService.loginWithNostr({
+				event: rawSignedEvent,
+				challenge,
+				authMethod: 'alby'
+			});
 
 			if (res.access_token) {
 				authState.setupAuthData(res.access_token, 'alby', pubkey, res.user);
