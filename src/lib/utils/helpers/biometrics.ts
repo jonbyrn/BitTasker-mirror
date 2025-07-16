@@ -101,11 +101,8 @@ export async function setBiometricKey(
 					residentKey: 'required'
 				}
 			}
-			console.log({ options: registrationOptions });
-
 			const result = await Webauthn.startRegistration(registrationOptions);
 
-			console.log('result', result);
 			credentialId = result.id;
 		} catch (err) {
 			console.error('capacitor-webauthn error', err);
@@ -175,7 +172,6 @@ export async function getBiometricData(): Promise<Credentials | null> {
 			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
 			const publicKey = unpackedKeys.publicKey;
 			const exportedKey = unpackedKeys.exportedKey;
-			console.log('Mobile unpacked keys:', { publicKey: publicKey.substring(0, 16) + '...', exportedKeyLength: exportedKey.length });
 
 			const deviceId = await getDeviceIdentifier();
 

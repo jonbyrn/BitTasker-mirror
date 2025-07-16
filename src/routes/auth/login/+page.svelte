@@ -111,6 +111,9 @@
 
 	async function handleNsecLogin() {
 		try {
+			isLoading = true;
+			error = '';
+
 			const { challenge } = await authService.getLoginChallenge();
 
 			const validation = validateNostrPrivateKey(nsec);
@@ -159,32 +162,83 @@
 				throw new Error('Invalid event');
 			}
 
-			const res = await authService.loginWithNostr(signedEvent, challenge);
+			let deviceId = await getDeviceIdentifier();
+
+			let { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
+			console.log({ encrypted, salt, exportedKey, iterations });
+
+			const res = await authService.loginWithNostr({
+				event: signedEvent,
+				challenge,
+				encryptedPrivateKey: encrypted.data,
+				iv: encrypted.iv,
+				authTag: encrypted.authTag,
+				salt,
+				iterations,
+				authMethod: 'passkey',
+				deviceId
+			});
 
 			if (res.access_token) {
-				const deviceId = res.user.nostrKey?.deviceId || (await getDeviceIdentifier());
-
-				// Encrypt the private key with device ID as the password
-				const { exportedKey } = await encryptNsec(nsec, deviceId, 100000, res.user.nostrKey?.salt);
-
 				const deviceName = await createUserDeviceShortName(npub);
-
 				let credentialId = '';
-				if (authMethods.biometric) {
-					credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+
+				if (res.isNewUser) {
+					if (authMethods.biometric) {
+						credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+					} else {
+						credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+					}
 				} else {
-					credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+					deviceId = res.user.nostrKey?.deviceId!;
+
+					// Encrypt the private key with device ID as the password
+					({ encrypted, salt, exportedKey, iterations } = await encryptNsec(
+						nsec,
+						deviceId,
+						100000,
+						res.user.nostrKey?.salt
+					));
+					console.log('encrypted2 ---------------');
+					console.log({ encrypted, salt, exportedKey, iterations });
+
+					const deviceName = await createUserDeviceShortName(npub);
+
+					if (authMethods.biometric) {
+						credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+					} else {
+						credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+					}
 				}
 
 				if (!credentialId) throw new Error('Failed to set biometric key');
 
 				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
-				authState.setupAuthData(res.access_token, 'nsec', npub, res.user);
+				const biometricData = {
+					username: npub,
+					password: JSON.stringify({
+						key: exportedKey,
+						data: encrypted.data,
+						iv: encrypted.iv,
+						authTag: encrypted.authTag,
+						salt
+					}),
+					server: deviceId
+				};
+				console.log({ biometricData });
+
+				authState
+					.setupAuthData(res.access_token, 'nsec', npub, res.user, biometricData, false)
+					.then(() => {
+						goto('/auth/onboarding');
+					});
 			}
 		} catch (err) {
 			console.error('Error:', err);
 			error = err instanceof Error ? err.message : $t('auth.login.errors.failed');
+		} finally {
+			isLoading = false;
 		}
 	}
 </script>
@@ -362,6 +416,7 @@
 						<button
 							class="btn btn-block btn-outline"
 							onclick={() => {
+								error = '';
 								isNostrLogin = false;
 								nsec = '';
 							}}
