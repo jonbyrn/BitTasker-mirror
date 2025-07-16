@@ -635,6 +635,7 @@
 			<div class="flex items-center gap-2 rounded-2xl p-1">
 				<!-- Message Input -->
 				<div class="flex-1">
+					<!-- svelte-ignore a11y_autofocus -->
 					<textarea
 						bind:this={messageInput}
 						bind:value={newMessageText}

@@ -136,8 +136,7 @@ class PushNotificationService {
 				console.warn('⚠️ No registration token available.');
 			}
 		} catch (error) {
-			console.error('❌ An error occurred while retrieving token:', error);
-			throw error;
+			throw error || new Error('❌ An error occurred while retrieving token');
 		}
 	}
 
@@ -557,8 +556,7 @@ class PushNotificationService {
 
 			console.log('✅ Successfully registered device on server');
 		} catch (error) {
-			console.error('❌ Error registering device on server:', error);
-			throw error;
+			throw error || new Error('❌ An error occurred while registering device on server');
 		}
 	}
 
