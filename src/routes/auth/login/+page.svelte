@@ -165,7 +165,6 @@
 			let deviceId = await getDeviceIdentifier();
 
 			let { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
-			console.log({ encrypted, salt, exportedKey, iterations });
 
 			const res = await authService.loginWithNostr({
 				event: signedEvent,
@@ -199,8 +198,6 @@
 						100000,
 						res.user.nostrKey?.salt
 					));
-					console.log('encrypted2 ---------------');
-					console.log({ encrypted, salt, exportedKey, iterations });
 
 					const deviceName = await createUserDeviceShortName(npub);
 
@@ -226,7 +223,6 @@
 					}),
 					server: deviceId
 				};
-				console.log({ biometricData });
 
 				authState
 					.setupAuthData(res.access_token, 'nsec', npub, res.user, biometricData, false)
