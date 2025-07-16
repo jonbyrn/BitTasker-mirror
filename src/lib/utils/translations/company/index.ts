@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { aboutTranslations } from './about';
+import { careersTranslations } from './careers';
+import { pressTranslations } from './press';
+import { securityTranslations } from './security';
 
 function deepMergeTranslations(...sources: any[]) {
 	const result: any = {};
@@ -12,7 +15,8 @@ function deepMergeTranslations(...sources: any[]) {
 }
 
 export const companyTranslations = deepMergeTranslations(
-	aboutTranslations
-	// careersTranslations,
-	// faqTranslations,
+	aboutTranslations,
+	securityTranslations,
+	careersTranslations,
+	pressTranslations
 );
