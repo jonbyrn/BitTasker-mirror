@@ -3,6 +3,8 @@
 	import { nip19 } from 'nostr-tools';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { authState } from '$lib/stores/auth.store';
+	import { encryptRecoveryNsec } from '$lib/utils/helpers/auth';
+	import authService from '$lib/api/services/auth.service';
 
 	let loading = $state(false);
 	let error = $state('');
@@ -67,6 +69,28 @@
 
 	async function logout() {
 		await authState.logout();
+	}
+
+	async function handleTestAccRecovery(
+		password: string,
+		email: string
+	) {
+		try {
+			const npub = '8df588c3e319e852d29d5a9409e99b3b0b1e470c9bec869c231810246024bbf3';
+			const nsec = 'nsec1qzpwj7cgszrrvcerdqdny8fja4pckdsqsruy0p2cfug8zltj7ydqhjdxjd';
+
+			const { encrypted } = await encryptRecoveryNsec(nsec, password);
+
+			const data = {
+				publicKey: npub,
+				recoveryPrivateKey: encrypted,
+				email
+			};
+
+			await authService.setupAccountRecoveryPassword(data);
+		} catch (err: unknown) {
+			console.log(err);
+		}
 	}
 </script>
 
