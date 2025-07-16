@@ -9,7 +9,7 @@
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
-	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
 		validateNostrPrivateKey,
@@ -116,7 +116,7 @@
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
-			const deviceName = await getDeviceName();
+			const deviceName = await createUserDeviceShortName(npub);
 			
 			// Register device with server
 			let credentialId = '';
@@ -217,6 +217,9 @@
 			passwordError = '';
 			emailError = '';
 
+			let pubKey = npub;
+			let privKey = nsec;
+
 			// Validate username
 			if (!username) {
 				usernameError = 'Username is required';
@@ -239,7 +242,7 @@
 
 			// If importing key, validate it and convert to hex
 			if (importNostrKey) {
-				const validation = validateNostrPrivateKey(nsec);
+				const validation = validateNostrPrivateKey(privKey);
 				if (!validation.isValid) {
 					nsecError = validation.error!;
 					return;
@@ -247,22 +250,22 @@
 
 				try {
 					// Convert nsec to hex format
-					const { type, data } = nip19.decode(nsec);
+					const { type, data } = nip19.decode(privKey);
 					if (type !== 'nsec') {
 						nsecError = 'Invalid nsec format';
 						return;
 					}
 					// Convert Uint8Array to hex
-					nsec = bytesToHex(data);
+					privKey = bytesToHex(data);
 					// Get public key
-					npub = getPublicKey(data);
+					pubKey = getPublicKey(data);
 				} catch (err) {
 					nsecError = 'Invalid private key';
 					return;
 				}
 			} else {
 				// Generate key pair
-				({ npub, nsec } = await generateKeyPair());
+				({ npub: pubKey, nsec: privKey } = await generateKeyPair());
 			}
 
 			// Validate recovery password if enabled
@@ -295,8 +298,8 @@
 				}
 			}
 
-			await register(username, npub, nsec).then(async () => {
-				if (enableRecovery) await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
+			await register(username, pubKey, privKey).then(async () => {
+				if (enableRecovery) await setupAccRecovery(pubKey, privKey, recoveryPassword, recoveryEmail);
 			});
 
 			// Go to the next step

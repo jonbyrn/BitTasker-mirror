@@ -19,7 +19,7 @@
 
 	// Control for showing top and bottom bars - can be overridden by child layouts
 	let showTopBar = $state(true);
-	let showBottomBar = $state(false); // Default to false, enabled in protected routes as needed
+	let showFooterSection = $state(false); // Default to false, enabled in protected routes as needed
 	let width = $state(375);
 	let height = $state(window.innerHeight);
 	let isLandingPage = $state(false);
@@ -34,7 +34,7 @@
 		showTopBar = !path.includes('/onboarding');
 
 		// Only show bottom bar in dashboard routes
-		showBottomBar = path.includes('/dashboard');
+		showFooterSection = path.includes('/dashboard');
 	});
 
 	$effect(() => {
@@ -91,13 +91,13 @@
 		{:else}
 			<div
 				class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
-				style={showBottomBar ? 'padding-bottom: var(--dock-height, 5rem);' : ''}
+				style={showFooterSection ? 'padding-bottom: var(--dock-height, 5rem);' : ''}
 			>
 				{@render children()}
 			</div>
 		{/if}
 	</div>
-	{#if !showBottomBar && showTopBar}
+	{#if !showFooterSection && showTopBar}
 		<!-- Section 7: Final Call to Action (CTA) -->
 		<section class="bg-primary text-primary-content py-16">
 			<div class="container mx-auto px-4 text-center">
@@ -261,7 +261,7 @@
 		</footer>
 	{/if}
 
-	{#if $deviceInfo?.platform !== 'web' || width <= 768}
+	{#if ($deviceInfo?.platform !== 'web' || width <= 768) && showTopBar}
 		<div class="pb-safe right-0 bottom-0 left-0 z-50">
 			<BottomNavBar />
 		</div>
