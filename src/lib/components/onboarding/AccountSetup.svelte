@@ -3,13 +3,17 @@
 	import { nip19 } from 'nostr-tools';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
-	import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
 		validateNostrPrivateKey,
@@ -117,7 +121,7 @@
 			const isMobileBiometrics = await checkBiometricAvailability();
 
 			const deviceName = await createUserDeviceShortName(npub);
-			
+
 			// Register device with server
 			let credentialId = '';
 			if (isMobileBiometrics) {
@@ -191,9 +195,9 @@
 
 			await authService.setupAccountRecoveryPassword(data);
 		} catch (err: unknown) {
-			console.error('Failed to setup account recovery:', err);
-			error = err instanceof Error ? err.message : 'Failed to setup account recovery';
-			throw new Error(error);
+			appStore.showErrorToast(
+				err instanceof Error ? err.message : 'Failed to setup account recovery'
+			);
 		} finally {
 			isLoading = false;
 		}
@@ -299,11 +303,11 @@
 			}
 
 			await register(username, pubKey, privKey).then(async () => {
-				if (enableRecovery) await setupAccRecovery(pubKey, privKey, recoveryPassword, recoveryEmail);
+				// Go to the next step
+				nextStep();
+				if (enableRecovery)
+					await setupAccRecovery(pubKey, privKey, recoveryPassword, recoveryEmail);
 			});
-
-			// Go to the next step
-			nextStep();
 		} catch (err: unknown) {
 			console.error('Account setup failed:', err);
 			error = err instanceof Error ? err.message : 'Account setup failed';
