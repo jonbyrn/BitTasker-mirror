@@ -107,6 +107,19 @@
 			// Encrypt private key with new password
 			const { encrypted: secondaryEncrypted } = await encryptRecoveryNsec(privateKey, newPassword);
 
+			// Complete recovery
+			await authService.completeNostrRecovery({
+				publicKey: npub,
+				otp: recoveryCode,
+				recoveryPrivateKey: secondaryEncrypted,
+				encryptedPrivateKey: primaryEncrypted.data,
+				iv: primaryEncrypted.iv,
+				authTag: primaryEncrypted.authTag,
+				salt: primarySalt,
+				iterations: primaryIterations,
+				deviceId
+			});
+
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
@@ -125,19 +138,6 @@
 			}
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-
-			// Complete recovery
-			await authService.completeNostrRecovery({
-				publicKey: npub,
-				otp: recoveryCode,
-				recoveryPrivateKey: secondaryEncrypted,
-				encryptedPrivateKey: primaryEncrypted.data,
-				iv: primaryEncrypted.iv,
-				authTag: primaryEncrypted.authTag,
-				salt: primarySalt,
-				iterations: primaryIterations,
-				deviceId
-			});
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
