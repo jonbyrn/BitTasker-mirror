@@ -4,7 +4,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { authState } from '$lib/stores/auth.store';
-	import { encryptNsec } from '$lib/utils/helpers/auth';
+	import { encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -116,12 +116,14 @@
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
+			const deviceName = await getDeviceName();
+			
 			// Register device with server
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, username);
+				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
 			} else {
-				credentialId = await setWebBiometricKey(npub, exportedKey, username);
+				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 			}
 
 			if (!credentialId) {
@@ -140,8 +142,6 @@
 				authMethod: 'passkey',
 				deviceId
 			});
-
-			const deviceName = await getDeviceName();
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
@@ -181,15 +181,11 @@
 			isLoading = true;
 			error = '';
 
-			const { encrypted, salt, iterations } = await encryptNsec(nsec, password);
+			const { encrypted } = await encryptRecoveryNsec(nsec, password);
 
 			const data: AccountRecoveryData = {
 				publicKey: npub,
-				recoveryPrivateKey: encrypted.data,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				salt: salt,
-				iterations: iterations,
+				recoveryPrivateKey: encrypted,
 				email
 			};
 
@@ -299,8 +295,9 @@
 				}
 			}
 
-			await register(username, npub, nsec);
-			if (enableRecovery) await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
+			await register(username, npub, nsec).then(async () => {
+				if (enableRecovery) await setupAccRecovery(npub, nsec, recoveryPassword, recoveryEmail);
+			});
 
 			// Go to the next step
 			nextStep();

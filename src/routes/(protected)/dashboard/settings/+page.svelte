@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
-	import { t } from '$lib/stores/i18n.store';
+	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { authState } from '$lib/stores/auth.store';
-	import { bytesToHex } from '@noble/hashes/utils';
 
 	let loading = $state(false);
 	let error = $state('');
