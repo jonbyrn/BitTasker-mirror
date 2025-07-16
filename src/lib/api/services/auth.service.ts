@@ -1,5 +1,6 @@
 import type {
 	AccountRecoveryData,
+	NostrLoginData,
 	NostrRecoveryCompleteData,
 	NostrRecoveryData,
 	NostrRegistrationData,
@@ -8,7 +9,6 @@ import type {
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
-import type { NostrEvent } from '$lib/types/nostr';
 
 /**
  * Authentication Service
@@ -24,11 +24,11 @@ export class AuthService extends BaseApiService {
 	 * @throws {Error} 401 - Invalid signature or unauthorized access
 	 * @throws {Error} 500 - Internal server error
 	 */
-	async loginWithNostr(event: NostrEvent, challenge: string): Promise<{ access_token: string; user: UserData }> {
+	async loginWithNostr(data: NostrLoginData): Promise<{ access_token: string; user: UserData; isNewUser: boolean }> {
 		try {
-			const response = await this.post<{ access_token: string; user: UserData }>(
+			const response = await this.post<{ access_token: string; user: UserData; isNewUser: boolean }>(
 				ENDPOINTS.AUTH.NOSTR_LOGIN,
-				{ event, challenge }
+				data
 			);
 			return response.data;
 		} catch (error: any) {

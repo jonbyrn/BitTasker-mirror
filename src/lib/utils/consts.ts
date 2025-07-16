@@ -7,7 +7,8 @@ export const sections = [
 	{ id: 'find-tasks', label: 'Find', icon: 'mdi:magnify', mobile: true },
 	{ id: 'wallet', label: 'Wallet', icon: 'mdi:wallet', mobile: true },
 	{ id: 'profile', label: 'Profile', icon: 'mdi:account', mobile: false },
-	{ id: 'messages', label: 'Messages', icon: 'mdi:message', mobile: true }
+	{ id: 'messages', label: 'Messages', icon: 'mdi:message', mobile: true },
+	{ id: 'settings', label: 'Settings', icon: 'mdi:cog', mobile: false }
 ];
 
 /**
