@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
+	import { t } from '$lib/stores/i18n.store';
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { authState } from '$lib/stores/auth.store';
 	import { encryptRecoveryNsec } from '$lib/utils/helpers/auth';
@@ -44,14 +45,14 @@
 			if (authMethod === 'alby') {
 				// Handle Alby authentication
 				if (!window?.nostr) {
-					throw new Error('Alby extension not found. Please ensure Alby is installed and enabled.');
+					throw new Error($t('settings.error.albyNotFound'));
 				}
 
 				try {
 					// Get public key from Alby
 					const publicKey = await window.nostr.getPublicKey();
 					if (!publicKey) {
-						throw new Error('Unable to get public key from Alby extension.');
+						throw new Error($t('settings.error.publicKeyAlby'));
 					}
 
 					// Convert to npub format if it's hex
@@ -60,11 +61,11 @@
 					} else if (/^[0-9a-fA-F]{64}$/.test(publicKey)) {
 						npub = nip19.npubEncode(publicKey);
 					} else {
-						throw new Error('Invalid public key format from Alby.');
+						throw new Error($t('settings.error.invalidPublicKey'));
 					}
 
 					// For Alby, we can't access the private key directly
-					nsec = 'Private key managed by Alby extension';
+					nsec = $t('settings.nostr.privateKey.managed');
 				} catch (albyError) {
 					throw new Error(
 						`Alby error: ${albyError instanceof Error ? albyError.message : 'Unknown error'}`
@@ -81,7 +82,7 @@
 					// It's a hex string, convert to npub format
 					npub = nip19.npubEncode(keyPair.npub);
 				} else {
-					throw new Error('Invalid public key format');
+					throw new Error($t('settings.error.invalidKeyFormat'));
 				}
 
 				// Convert the private key (Uint8Array) to nsec format
@@ -90,15 +91,15 @@
 						nsec = nip19.nsecEncode(keyPair.nsec);
 					} catch (err) {
 						console.error('Error encoding nsec:', err);
-						nsec = 'Error formatting private key';
+						nsec = $t('settings.error.encodingNsec');
 					}
 				} else {
-					nsec = 'Invalid private key data';
+					nsec = $t('settings.error.invalidPrivateKey');
 				}
 			}
 		} catch (err) {
 			console.error('Error loading keys:', err);
-			error = err instanceof Error ? err.message : 'Failed to load keys';
+			error = err instanceof Error ? err.message : $t('settings.error.loadKeys');
 		} finally {
 			loading = false;
 		}
@@ -126,7 +127,7 @@
 
 		// Validate email using existing validator
 		if (!recoveryEmail) {
-			emailError = 'Recovery email is required';
+			emailError = $t('settings.validation.emailRequired');
 			return false;
 		}
 
@@ -138,12 +139,12 @@
 
 		// Validate password using existing validator
 		if (!recoveryPassword) {
-			passwordError = 'Recovery password is required';
+			passwordError = $t('settings.validation.passwordRequired');
 			return false;
 		}
 
 		if (recoveryPassword !== confirmRecoveryPassword) {
-			passwordError = 'Passwords do not match';
+			passwordError = $t('settings.validation.passwordMismatch');
 			return false;
 		}
 
@@ -168,7 +169,7 @@
 
 			// Get current user's keys in proper format
 			if (!nsec.startsWith('nsec') || !npub) {
-				throw new Error('Invalid Nostr keys. Please refresh and try again.');
+				throw new Error($t('settings.error.invalidNostrKeys'));
 			}
 
 			// Extract hex format from npub for API (remove npub prefix and decode)
@@ -185,7 +186,7 @@
 
 			await authService.setupAccountRecoveryPassword(data);
 
-			recoverySuccess = 'Account recovery has been set up successfully!';
+			recoverySuccess = $t('settings.recovery.success');
 
 			// Clear the form
 			recoveryEmail = '';
@@ -194,7 +195,7 @@
 		} catch (err: unknown) {
 			console.error('Failed to setup account recovery:', err);
 			recoveryError =
-				err instanceof Error ? err.message : 'Failed to setup account recovery. Please try again.';
+				err instanceof Error ? err.message : $t('settings.error.recoverySetup');
 		} finally {
 			recoveryLoading = false;
 		}
@@ -207,8 +208,8 @@
 
 <div class="container mx-auto max-w-4xl p-6">
 	<div class="mb-8">
-		<h1 class="text-base-content text-3xl font-bold">Settings</h1>
-		<p class="text-base-content/70 mt-2">Manage your account settings and Nostr identity</p>
+		<h1 class="text-base-content text-3xl font-bold">{$t('settings.title')}</h1>
+		<p class="text-base-content/70 mt-2">{$t('settings.subtitle')}</p>
 	</div>
 
 	{#if loading}
@@ -251,7 +252,7 @@
 							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 						/>
 					</svg>
-					Retry
+					{$t('settings.retry')}
 				{/if}
 			</button>
 		</div>
@@ -270,16 +271,16 @@
 							d="M210.8 199.4c0 3.1-2.5 5.7-5.7 5.7h-68c-3.1 0-5.7-2.5-5.7-5.7v-15.5c.3-19 2.3-37.2 6.5-45.5 2.5-5 6.7-7.7 11.5-9.1 9.1-2.7 24.9-.9 31.7-1.2 0 0 20.4.8 20.4-10.7s-9.1-8.6-9.1-8.6c-10 .3-17.7-.4-22.6-2.4-8.3-3.3-8.6-9.2-8.6-11.2-.4-23.1-34.5-25.9-64.5-20.1-32.8 6.2.4 53.3.4 116.1v8.4c0 3.1-2.6 5.6-5.7 5.6H57.7c-3.1 0-5.7-2.5-5.7-5.7v-144c0-3.1 2.5-5.7 5.7-5.7h31.7c3.1 0 5.7 2.5 5.7 5.7 0 4.7 5.2 7.2 9 4.5 11.4-8.2 26-12.5 42.4-12.5 36.6 0 64.4 21.4 64.4 68.7v83.2ZM150 99.3c0-6.7-5.4-12.1-12.1-12.1s-12.1 5.4-12.1 12.1 5.4 12.1 12.1 12.1S150 106 150 99.3Z"
 						/>
 					</svg>
-					<h2 class="card-title">Nostr Identity</h2>
+					<h2 class="card-title">{$t('settings.nostr.title')}</h2>
 				</div>
 				<p class="text-base-content/70 mb-6">
-					Your decentralized identity on the Nostr network. Keep your private key secure!
+					{$t('settings.nostr.description')}
 				</p>
 
 				<!-- Public Key (NPub) -->
 				<div class="mb-6">
 					<label class="label" for="npub">
-						<span class="label-text font-semibold">Nostr Public Key</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.publicKey')}</span>
 					</label>
 					<div class="flex gap-2">
 						<input
@@ -287,7 +288,7 @@
 							readonly
 							value={npub}
 							class="input input-bordered bg-base-200 flex-1 font-mono text-sm"
-							placeholder="Loading..."
+							placeholder={$t('settings.loading')}
 						/>
 						<button
 							class="btn btn-square btn-outline"
@@ -329,7 +330,7 @@
 					</div>
 					<div class="label">
 						<span class="label-text-alt text-base-content/60 whitespace-normal">
-							This is your public identity on Nostr. Safe to share publicly.
+							{$t('settings.nostr.publicKey.description')}
 						</span>
 					</div>
 				</div>
@@ -337,7 +338,7 @@
 				<!-- Private Key (NSec) -->
 				<div class="mb-4">
 					<label class="label" for="nsec">
-						<span class="label-text font-semibold">Nostr Private Key</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.privateKey')}</span>
 					</label>
 					<div class="flex gap-2">
 						<div class="relative flex-1">
@@ -346,9 +347,9 @@
 								readonly
 								value={nsec}
 								class="input input-bordered bg-base-200 w-full pr-12 font-mono text-sm"
-								placeholder="Loading..."
+								placeholder={$t('settings.loading')}
 							/>
-							{#if authMethod !== 'alby' && nsec !== 'Private key managed by Alby extension'}
+							{#if authMethod !== 'alby' && nsec !== $t('settings.nostr.privateKey.managed')}
 								<button
 									class="absolute inset-y-0 right-2 flex items-center"
 									onclick={toggleNsecVisibility}
@@ -394,7 +395,7 @@
 								</button>
 							{/if}
 						</div>
-						{#if authMethod !== 'alby' && nsec !== 'Private key managed by Alby extension'}
+						{#if authMethod !== 'alby' && nsec !== $t('settings.nostr.privateKey.managed')}
 							<button
 								class="btn btn-square btn-outline"
 								onclick={() => copyToClipboard(nsec, 'nsec')}
@@ -437,12 +438,11 @@
 					<div class="label">
 						{#if authMethod === 'alby'}
 							<span class="label-text-alt text-info font-semibold whitespace-normal">
-								ℹ️ Your private key is securely managed by the Alby extension and cannot be accessed
-								directly.
+								{$t('settings.nostr.privateKey.alby')}
 							</span>
 						{:else}
 							<span class="label-text-alt text-warning font-semibold whitespace-normal">
-								⚠️ Keep this private! Never share your private key with anyone.
+								{$t('settings.nostr.privateKey.warning')}
 							</span>
 						{/if}
 					</div>
@@ -464,11 +464,10 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
 							/>
 						</svg>
-						<h3 class="font-bold">Security Reminder</h3>
+						<h3 class="font-bold">{$t('settings.security.title')}</h3>
 					</div>
 					<div class="text-sm">
-						Your private key (nsec) gives full control over your Nostr identity. Store it safely and
-						never share it with anyone.
+						{$t('settings.security.description')}
 					</div>
 				</div>
 			</div>
@@ -493,25 +492,24 @@
 								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<h2 class="card-title">Account Recovery</h2>
+						<h2 class="card-title">{$t('settings.recovery.title')}</h2>
 					</div>
 					<p class="text-base-content/70 mb-6">
-						Set up email and password recovery to secure your account. This allows you to recover
-						your account if you lose access to your primary login method.
+						{$t('settings.recovery.description')}
 					</p>
 
 					<form onsubmit={setupAccountRecovery} class="space-y-4">
 						<!-- Recovery Email Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-email">
-								<span class="label-text font-semibold">Recovery Email</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.email')}</span>
 							</label>
 							<input
 								type="email"
 								id="recovery-email"
 								bind:value={recoveryEmail}
 								class="input input-bordered w-full {emailError ? 'input-error' : ''}"
-								placeholder="Enter your recovery email address"
+								placeholder={$t('settings.recovery.email.placeholder')}
 								required
 								disabled={recoveryLoading}
 							/>
@@ -525,7 +523,7 @@
 						<!-- Recovery Password Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-password">
-								<span class="label-text font-semibold">Recovery Password</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.password')}</span>
 							</label>
 							<div class="relative">
 								<input
@@ -533,7 +531,7 @@
 									id="recovery-password"
 									bind:value={recoveryPassword}
 									class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
-									placeholder="Create a strong recovery password"
+									placeholder={$t('settings.recovery.password.placeholder')}
 									required
 									disabled={recoveryLoading}
 								/>
@@ -587,14 +585,14 @@
 						<!-- Confirm Recovery Password Field -->
 						<div class="form-control">
 							<label class="label" for="confirm-recovery-password">
-								<span class="label-text font-semibold">Confirm Recovery Password</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.confirmPassword')}</span>
 							</label>
 							<input
 								type={showRecoveryPassword ? 'text' : 'password'}
 								id="confirm-recovery-password"
 								bind:value={confirmRecoveryPassword}
 								class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-								placeholder="Confirm your recovery password"
+								placeholder={$t('settings.recovery.confirmPassword.placeholder')}
 								required
 								disabled={recoveryLoading}
 							/>
@@ -608,34 +606,34 @@
 						<!-- Password Guidelines -->
 						{#if recoveryPassword}
 							<div class="space-y-1 text-sm">
-								<p class="font-medium">Password requirements:</p>
+								<p class="font-medium">{$t('settings.recovery.requirements')}</p>
 								<div class="flex flex-wrap gap-x-4 gap-y-1">
 									<span
 										class={recoveryPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}
 									>
-										✓ 8+ characters
+										✓ {$t('settings.recovery.requirements.length')}
 									</span>
 									<span
 										class={/[A-Z]/.test(recoveryPassword) ? 'text-success' : 'text-base-content/60'}
 									>
-										✓ Uppercase
+										✓ {$t('settings.recovery.requirements.uppercase')}
 									</span>
 									<span
 										class={/[a-z]/.test(recoveryPassword) ? 'text-success' : 'text-base-content/60'}
 									>
-										✓ Lowercase
+										✓ {$t('settings.recovery.requirements.lowercase')}
 									</span>
 									<span
 										class={/[0-9]/.test(recoveryPassword) ? 'text-success' : 'text-base-content/60'}
 									>
-										✓ Numbers
+										✓ {$t('settings.recovery.requirements.numbers')}
 									</span>
 									<span
 										class={/[!@#$%^&*(),.?":{}|<>]/.test(recoveryPassword)
 											? 'text-success'
 											: 'text-base-content/60'}
 									>
-										✓ Special chars
+										✓ {$t('settings.recovery.requirements.special')}
 									</span>
 								</div>
 							</div>
@@ -653,9 +651,9 @@
 							>
 								{#if recoveryLoading}
 									<span class="loading loading-spinner loading-sm"></span>
-									Setting up recovery...
+									{$t('settings.recovery.setting')}
 								{:else}
-									Setup Account Recovery
+									{$t('settings.recovery.setup')}
 								{/if}
 							</button>
 						</div>
@@ -715,10 +713,9 @@
 							/>
 						</svg>
 						<div class="text-sm">
-							<p class="font-semibold">Important:</p>
+							<p class="font-semibold">{$t('settings.recovery.notice.title')}</p>
 							<p>
-								Your recovery email and password will be used to restore access to your account if
-								you lose your primary authentication method. Keep them secure and accessible.
+								{$t('settings.recovery.notice.description')}
 							</p>
 						</div>
 					</div>
@@ -729,8 +726,8 @@
 		<!-- Account Actions Section -->
 		<div class="card bg-base-100 shadow-xl">
 			<div class="card-body">
-				<h2 class="card-title text-error">Account Actions</h2>
-				<p class="text-base-content/70 mb-4">Manage your account settings and authentication.</p>
+				<h2 class="card-title text-error">{$t('settings.actions.title')}</h2>
+				<p class="text-base-content/70 mb-4">{$t('settings.actions.description')}</p>
 
 				<div class="flex flex-col gap-4">
 					<button class="btn btn-error btn-outline" onclick={logout}>
@@ -748,7 +745,7 @@
 								d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
 							/>
 						</svg>
-						Logout
+						{$t('settings.actions.logout')}
 					</button>
 				</div>
 			</div>
