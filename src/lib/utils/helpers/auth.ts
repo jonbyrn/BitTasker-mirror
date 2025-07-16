@@ -98,6 +98,80 @@ export async function decryptNsecWithPassword({
 	}
 }
 
+export async function encryptRecoveryNsec(
+	nsec: string,
+	password: string,
+	iterations: number = 100000,
+	_salt?: string
+): Promise<{ encrypted: string; exportedKey: string }> {
+	// Generate a random salt for recovery password
+	const salt = _salt ? base64ToBytes(_salt) : randomBytes(16);
+
+	// Derive key from recovery password
+	const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
+
+	// Encrypt with recovery password key
+	const encryptedData = await encrypt(nsec, derivedKey);
+
+	// Export the derived key
+	const exportedKey = await exportKey(derivedKey);
+
+	// Format: salt:iterations:iv:authTag:ciphertext (all base64 encoded except iterations)
+	const encryptedString = [
+		bytesToBase64(salt),
+		iterations.toString(),
+		encryptedData.iv,
+		encryptedData.authTag,
+		encryptedData.data
+	].join(':');
+
+	return {
+		encrypted: encryptedString,
+		exportedKey
+	};
+}
+
+export async function decryptRecoveryNsec(
+	encryptedString: string,
+	password: string
+): Promise<string> {
+	try {
+		// Parse the encrypted string format: salt:iterations:iv:authTag:ciphertext
+		const parts = encryptedString.split(':');
+		if (parts.length !== 5) {
+			throw new Error('Invalid encrypted string format');
+		}
+
+		const [saltB64, iterationsStr, iv, authTag, data] = parts;
+		
+		// Convert back to proper types
+		const salt = base64ToBytes(saltB64);
+		const iterations = parseInt(iterationsStr);
+		
+		// Validate iterations
+		if (isNaN(iterations) || iterations <= 0) {
+			throw new Error('Invalid iterations value');
+		}
+
+		// Derive the same key from password
+		const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
+
+		// Reconstruct the EncryptedData object
+		const encryptedData = {
+			data,
+			iv,
+			authTag
+		};
+
+		// Decrypt the nsec
+		const decryptedNsec = await decrypt(encryptedData, derivedKey);
+
+		return decryptedNsec;
+	} catch (error) {
+		throw new Error(`Failed to decrypt recovery nsec: ${error instanceof Error ? error.message : 'Unknown error'}`);
+	}
+}
+
 export async function generateLoginChallenge() {
 	const array = randomBytes(32);
 	const challenge = Array.from(array)

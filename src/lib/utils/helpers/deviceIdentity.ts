@@ -170,6 +170,24 @@ export function createUserFriendlyName(publicKey: string): string {
 }
 
 /**
+ * Create a user-friendly device short name
+ */
+export async function createUserDeviceShortName(publicKey: string): Promise<string> {
+	const deviceName = await getDeviceName();
+
+	if (publicKey.startsWith('npub')) {
+		// For npub format, take meaningful part after 'npub'
+		const npubPart = publicKey.slice(4); // Remove 'npub' prefix
+		const prefix = npubPart.slice(0, 8);
+		return `${deviceName}-${prefix}`;
+	} else {
+		// For hex format, take first 8 and last 8 characters
+		const prefix = publicKey.slice(0, 8);
+		return `${deviceName}-${prefix}`;
+	}
+}
+
+/**
  * Create display name with timestamp for uniqueness
  */
 export function createDisplayName(publicKey: string, customName?: string): string {

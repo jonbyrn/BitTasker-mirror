@@ -1,11 +1,15 @@
 <script lang="ts">
 	import type { Credentials } from '$lib/types/auth';
+	import type { NostrEvent } from '$lib/types/nostr';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
 	import { t } from '$lib/stores/i18n.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
 		decryptNsecWithBiometrics,
@@ -25,8 +29,6 @@
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
-	import type { NostrEvent } from '$lib/types/nostr';
-	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 
@@ -161,19 +163,20 @@
 
 			if (res.access_token) {
 				const deviceId = res.user.nostrKey?.deviceId || (await getDeviceIdentifier());
+
 				// Encrypt the private key with device ID as the password
 				const { exportedKey } = await encryptNsec(nsec, deviceId, 100000, res.user.nostrKey?.salt);
 
+				const deviceName = await createUserDeviceShortName(npub);
+
 				let credentialId = '';
 				if (authMethods.biometric) {
-					credentialId = await setBiometricKey(npub, exportedKey);
+					credentialId = await setBiometricKey(npub, exportedKey, deviceName);
 				} else {
-					credentialId = await setWebBiometricKey(npub, exportedKey);
+					credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 				}
 
 				if (!credentialId) throw new Error('Failed to set biometric key');
-
-				const deviceName = await getDeviceName();
 
 				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 

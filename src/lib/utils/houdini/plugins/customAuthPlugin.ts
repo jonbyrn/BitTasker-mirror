@@ -105,7 +105,6 @@ const authPlugin: ClientPlugin = () => {
 
 				const authError = value.errors.find(
 					(err: GraphQLError) =>
-						err.message === 'Authentication failed: Unauthorized' &&
 						err.extensions?.code === 'UNAUTHENTICATED' &&
 						err.extensions?.originalError?.statusCode === 401
 				);

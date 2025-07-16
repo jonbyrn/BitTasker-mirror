@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
-	import { t } from '$lib/stores/i18n.store';
+	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { authState } from '$lib/stores/auth.store';
-	import { bytesToHex } from '@noble/hashes/utils';
+	import { encryptRecoveryNsec } from '$lib/utils/helpers/auth';
+	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
+	import authService from '$lib/api/services/auth.service';
 
 	let loading = $state(false);
 	let error = $state('');
@@ -12,6 +13,17 @@
 	let nsec = $state('');
 	let showNsec = $state(false);
 	let copySuccess = $state('');
+
+	// Recovery setup state
+	let recoveryLoading = $state(false);
+	let recoveryError = $state('');
+	let recoverySuccess = $state('');
+	let recoveryEmail = $state('');
+	let recoveryPassword = $state('');
+	let confirmRecoveryPassword = $state('');
+	let showRecoveryPassword = $state(false);
+	let emailError = $state('');
+	let passwordError = $state('');
 
 	onMount(async () => {
 		await loadKeys();
@@ -67,8 +79,107 @@
 		showNsec = !showNsec;
 	}
 
+	function validateRecoveryForm(): boolean {
+		emailError = '';
+		passwordError = '';
+
+		// Validate email using existing validator
+		if (!recoveryEmail) {
+			emailError = 'Recovery email is required';
+			return false;
+		}
+
+		const emailValidation = validateEmail(recoveryEmail);
+		if (!emailValidation.isValid) {
+			emailError = emailValidation.error!;
+			return false;
+		}
+
+		// Validate password using existing validator
+		if (!recoveryPassword) {
+			passwordError = 'Recovery password is required';
+			return false;
+		}
+
+		if (recoveryPassword !== confirmRecoveryPassword) {
+			passwordError = 'Passwords do not match';
+			return false;
+		}
+
+		const passwordValidation = validatePassword(recoveryPassword);
+		if (!passwordValidation.isValid) {
+			passwordError = passwordValidation.error!;
+			return false;
+		}
+
+		return true;
+	}
+
+	async function setupAccountRecovery(event: Event) {
+		event.preventDefault();
+
+		if (!validateRecoveryForm()) return;
+
+		try {
+			recoveryLoading = true;
+			recoveryError = '';
+			recoverySuccess = '';
+
+			// Get current user's keys in proper format
+			if (!nsec.startsWith('nsec') || !npub) {
+				throw new Error('Invalid Nostr keys. Please refresh and try again.');
+			}
+
+			// Extract hex format from npub for API (remove npub prefix and decode)
+			const { data: publicKeyHex } = nip19.decode(npub);
+
+			// Encrypt the nsec with the recovery password
+			const { encrypted } = await encryptRecoveryNsec(nsec, recoveryPassword);
+
+			const data = {
+				publicKey: publicKeyHex as string,
+				recoveryPrivateKey: encrypted,
+				email: recoveryEmail
+			};
+
+			await authService.setupAccountRecoveryPassword(data);
+
+			recoverySuccess = 'Account recovery has been set up successfully!';
+
+			// Clear the form
+			recoveryEmail = '';
+			recoveryPassword = '';
+			confirmRecoveryPassword = '';
+		} catch (err: unknown) {
+			console.error('Failed to setup account recovery:', err);
+			recoveryError =
+				err instanceof Error ? err.message : 'Failed to setup account recovery. Please try again.';
+		} finally {
+			recoveryLoading = false;
+		}
+	}
+
 	async function logout() {
 		await authState.logout();
+	}
+
+	async function handleTestAccRecovery(password: string, email: string) {
+		try {
+			const npub = '8df588c3e319e852d29d5a9409e99b3b0b1e470c9bec869c231810246024bbf3';
+			const nsec = 'nsec1qzpwj7cgszrrvcerdqdny8fja4pckdsqsruy0p2cfug8zltj7ydqhjdxjd';
+
+			const { encrypted } = await encryptRecoveryNsec(nsec, password);
+
+			const data = {
+				publicKey: npub,
+				recoveryPrivateKey: encrypted,
+				email
+			};
+
+			await authService.setupAccountRecoveryPassword(data);
+		} catch (err: unknown) {
+			console.log(err);
+		}
 	}
 </script>
 
@@ -302,6 +413,256 @@
 					<div class="text-sm">
 						Your private key (nsec) gives full control over your Nostr identity. Store it safely and
 						never share it with anyone.
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Account Recovery Section -->
+		<div class="card bg-base-100 mb-6 shadow-xl">
+			<div class="card-body">
+				<div class="mb-4 flex items-center gap-2">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<h2 class="card-title">Account Recovery</h2>
+				</div>
+				<p class="text-base-content/70 mb-6">
+					Set up email and password recovery to secure your account. This allows you to recover your
+					account if you lose access to your primary login method.
+				</p>
+
+				<form onsubmit={setupAccountRecovery} class="space-y-4">
+					<!-- Recovery Email Field -->
+					<div class="form-control">
+						<label class="label" for="recovery-email">
+							<span class="label-text font-semibold">Recovery Email</span>
+						</label>
+						<input
+							type="email"
+							id="recovery-email"
+							bind:value={recoveryEmail}
+							class="input input-bordered w-full {emailError ? 'input-error' : ''}"
+							placeholder="Enter your recovery email address"
+							required
+							disabled={recoveryLoading}
+						/>
+						{#if emailError}
+							<label class="label" for="recovery-email">
+								<span class="label-text-alt text-error">{emailError}</span>
+							</label>
+						{/if}
+					</div>
+
+					<!-- Recovery Password Field -->
+					<div class="form-control">
+						<label class="label" for="recovery-password">
+							<span class="label-text font-semibold">Recovery Password</span>
+						</label>
+						<div class="relative">
+							<input
+								type={showRecoveryPassword ? 'text' : 'password'}
+								id="recovery-password"
+								bind:value={recoveryPassword}
+								class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+								placeholder="Create a strong recovery password"
+								required
+								disabled={recoveryLoading}
+							/>
+							<button
+								type="button"
+								class="absolute inset-y-0 right-0 flex items-center pr-3"
+								onclick={() => (showRecoveryPassword = !showRecoveryPassword)}
+								disabled={recoveryLoading}
+							>
+								{#if showRecoveryPassword}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+										/>
+									</svg>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+										/>
+									</svg>
+								{/if}
+							</button>
+						</div>
+					</div>
+
+					<!-- Confirm Recovery Password Field -->
+					<div class="form-control">
+						<label class="label" for="confirm-recovery-password">
+							<span class="label-text font-semibold">Confirm Recovery Password</span>
+						</label>
+						<input
+							type={showRecoveryPassword ? 'text' : 'password'}
+							id="confirm-recovery-password"
+							bind:value={confirmRecoveryPassword}
+							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
+							placeholder="Confirm your recovery password"
+							required
+							disabled={recoveryLoading}
+						/>
+						{#if passwordError}
+							<label class="label" for="confirm-recovery-password">
+								<span class="label-text-alt text-error">{passwordError}</span>
+							</label>
+						{/if}
+					</div>
+
+					<!-- Password Guidelines -->
+					{#if recoveryPassword}
+						<div class="space-y-1 text-sm">
+							<p class="font-medium">Password requirements:</p>
+							<div class="flex flex-wrap gap-x-4 gap-y-1">
+								<span
+									class={recoveryPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ 8+ characters
+								</span>
+								<span
+									class={/[A-Z]/.test(recoveryPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Uppercase
+								</span>
+								<span
+									class={/[a-z]/.test(recoveryPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Lowercase
+								</span>
+								<span
+									class={/[0-9]/.test(recoveryPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Numbers
+								</span>
+								<span
+									class={/[!@#$%^&*(),.?":{}|<>]/.test(recoveryPassword)
+										? 'text-success'
+										: 'text-base-content/60'}
+								>
+									✓ Special chars
+								</span>
+							</div>
+						</div>
+					{/if}
+
+					<!-- Submit Button -->
+					<div class="flex justify-end pt-4">
+						<button
+							type="submit"
+							class="btn btn-primary"
+							disabled={recoveryLoading ||
+								!recoveryEmail ||
+								!recoveryPassword ||
+								!confirmRecoveryPassword}
+						>
+							{#if recoveryLoading}
+								<span class="loading loading-spinner loading-sm"></span>
+								Setting up recovery...
+							{:else}
+								Setup Account Recovery
+							{/if}
+						</button>
+					</div>
+				</form>
+
+				{#if recoverySuccess}
+					<div class="alert alert-success mb-4">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span>{recoverySuccess}</span>
+					</div>
+				{/if}
+
+				{#if recoveryError}
+					<div class="alert alert-error mb-4">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span>{recoveryError}</span>
+					</div>
+				{/if}
+
+				<!-- Security Notice -->
+				<div class="alert alert-info mt-4">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<div class="text-sm">
+						<p class="font-semibold">Important:</p>
+						<p>
+							Your recovery email and password will be used to restore access to your account if you
+							lose your primary authentication method. Keep them secure and accessible.
+						</p>
 					</div>
 				</div>
 			</div>

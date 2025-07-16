@@ -3,14 +3,10 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { user } from '$lib/stores/user.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { Preferences } from '@capacitor/preferences';
-	import { StorageKeys } from '$lib/utils/constants/storage';
-	import { signLoginChallenge } from '$lib/utils/helpers/auth';
 	import { validatePassword } from '$lib/utils/helpers/validators';
-	import { getDeviceIdentifier, getDeviceName } from '$lib/utils/helpers/deviceIdentity';
-	import { decryptNsecWithPassword, encryptNsec } from '$lib/utils/helpers/auth';
+	import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import { decryptRecoveryNsec, encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
@@ -63,14 +59,7 @@
 
 			// Decrypt private key with current password
 			try {
-				privateKey = await decryptNsecWithPassword({
-					encryptedPrivateKey: recoveryData.recoveryPrivateKey,
-					iv: recoveryData.iv,
-					authTag: recoveryData.authTag,
-					password: currentPassword,
-					salt: recoveryData.salt,
-					iterations: recoveryData.iterations
-				});
+				privateKey = await decryptRecoveryNsec(recoveryData.recoveryPrivateKey, currentPassword);
 				step = 2;
 			} catch (err: any) {
 				console.error('Detailed decryption error:', err);
@@ -82,21 +71,6 @@
 			isLoading = false;
 		}
 	}
-
-	const setNewBiometricKey = async (npub: string, nsec: string) => {
-		const deviceId = await getDeviceIdentifier();
-		const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
-
-		const deviceName = await getDeviceName();
-		
-		if (authMethods.biometric) {
-			const credentialId = await setBiometricKey(npub, exportedKey);
-			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-		} else if (authMethods.webAuthn) {
-			const credentialId = await setWebBiometricKey(npub, exportedKey);
-			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-		}
-	};
 
 	async function completeRecovery(event: Event) {
 		event.preventDefault();
@@ -122,54 +96,71 @@
 				return;
 			}
 
+			const deviceId = await getDeviceIdentifier();
+			const {
+				encrypted: primaryEncrypted,
+				salt: primarySalt,
+				exportedKey: exportedKey,
+				iterations: primaryIterations
+			} = await encryptNsec(privateKey, deviceId);
+
 			// Encrypt private key with new password
-			const { encrypted, salt, iterations } = await encryptNsec(privateKey, newPassword);
+			const { encrypted: secondaryEncrypted } = await encryptRecoveryNsec(privateKey, newPassword);
 
 			// Complete recovery
 			await authService.completeNostrRecovery({
 				publicKey: npub,
 				otp: recoveryCode,
-				recoveryPrivateKey: encrypted.data,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				salt,
-				iterations
+				recoveryPrivateKey: secondaryEncrypted,
+				encryptedPrivateKey: primaryEncrypted.data,
+				iv: primaryEncrypted.iv,
+				authTag: primaryEncrypted.authTag,
+				salt: primarySalt,
+				iterations: primaryIterations,
+				deviceId
 			});
 
-			// Set new biometric key encrypted with device ID
-			await setNewBiometricKey(npub, privateKey);
+			// Check available authentication methods
+			const isMobileBiometrics = await checkBiometricAvailability();
 
-			// Try to login
-			const { challenge } = await authService.getLoginChallenge();
+			const deviceName = await createUserDeviceShortName(npub);
 
-			const event = {
-				kind: 22242,
-				created_at: Math.floor(Date.now() / 1000),
-				content: challenge,
-				tags: [
-					['relay', window.location.origin],
-					['challenge', challenge]
-				],
-				pubkey: npub
-			};
-
-			if (!window.nostr) {
-				throw new Error('Nostr extension not available');
+			// Register device with server
+			let credentialId = '';
+			if (isMobileBiometrics) {
+				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+			} else {
+				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 			}
 
-			const rawSignedEvent = await window.nostr?.signEvent(event);
+			if (!credentialId) {
+				throw new Error('Failed to register device');
+			}
 
-			const loginResponse = await authService.loginWithNostr(rawSignedEvent, challenge);
+			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
-			await Preferences.set({
-				key: StorageKeys.ACCESS_TOKEN,
-				value: loginResponse.access_token
-			});
-
-			user.updateProfile(loginResponse.user);
-			authState.login();
-
-			goto('/dashboard');
+			const response = await authService.loginWithPasskey(npub, deviceId);
+			if (response && response.access_token) {
+				const biometricData = {
+					username: npub,
+					password: JSON.stringify({
+						key: exportedKey,
+						data: primaryEncrypted.data,
+						iv: primaryEncrypted.iv,
+						authTag: primaryEncrypted.authTag,
+						salt: primarySalt
+					}),
+					server: deviceId
+				};
+				authState.setupAuthData(
+					response.access_token,
+					'passkey',
+					npub,
+					response.user,
+					biometricData,
+					false
+				);
+			}
 		} catch (err: any) {
 			error = err.message || 'Recovery failed';
 		} finally {

@@ -178,21 +178,19 @@ export interface AuthState {
 export interface AccountRecoveryData {
 	publicKey: string;
 	recoveryPrivateKey: string;
-	iv: string;
-	salt: string;
-	authTag: string;
-	iterations: number;
 	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {
 	publicKey: string;
 	otp: string;
-	recoveryPrivateKey: string;
+	encryptedPrivateKey: string;
 	iv: string;
 	salt: string;
 	authTag: string;
 	iterations: number;
+	deviceId: string;
+	recoveryPrivateKey: string;
 }
 
 export interface NostrRecoveryData {
