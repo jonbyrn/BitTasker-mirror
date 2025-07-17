@@ -125,7 +125,7 @@
 			// Register device with server
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
 			} else {
 				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 			}
@@ -145,9 +145,9 @@
 				iterations,
 				authMethod: 'passkey',
 				deviceId
+			}).then(async () => {
+				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 			});
-
-			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
@@ -164,7 +164,7 @@
 				};
 				authState.setupAuthData(
 					response.access_token,
-					'passkey',
+					'biometrics',
 					npub,
 					response.user,
 					biometricData,

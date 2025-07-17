@@ -25,7 +25,7 @@ export const StorageKeys = {
 	DEVICE_UNIQUE_ID: 'device_unique_id',
 
 	NPUB: 'npub',
-	AUTH_METHOD: 'auth_method' // alby | passkey
+	AUTH_METHOD: 'auth_method' // alby | passkey | biometrics
 } as const;
 
 // Type to get autocomplete for storage keys

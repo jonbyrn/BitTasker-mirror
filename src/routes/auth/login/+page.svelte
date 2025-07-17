@@ -25,7 +25,8 @@
 	import {
 		checkWebBiometricAvailability,
 		getWebBiometricData,
-		setWebBiometricKey
+		setWebBiometricKey,
+		getWebAuthnProviderDescription
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
 	import Alby from '$lib/components/AuthProviders/Alby.svelte';
@@ -37,6 +38,7 @@
 	let isNostrLogin = $state(false);
 	let showNsec = $state(false);
 	let nsec = $state('');
+	let webAuthnProvider = $state('');
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
@@ -47,6 +49,7 @@
 			// Check available authentication methods
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
+			webAuthnProvider = getWebAuthnProviderDescription();
 		} catch (err) {
 			console.error('Error checking authentication methods:', err);
 		}
@@ -55,7 +58,7 @@
 	/**
 	 * Login with biometric authentication
 	 */
-	async function login(biometricData: Credentials, deviceId: string) {
+	async function login(biometricData: Credentials, deviceId: string, authMethod: string) {
 		const pubKey = biometricData.username;
 		const encryptedKey = biometricData.password;
 
@@ -78,10 +81,16 @@
 			throw new Error($t('auth.login.errors.no_token'));
 		}
 
-		authState.setupAuthData(response.access_token, 'passkey', pubKey, response.user, biometricData);
+		authState.setupAuthData(
+			response.access_token,
+			authMethod,
+			pubKey,
+			response.user,
+			biometricData
+		);
 	}
 
-	async function authenticate() {
+	async function authenticate(authMethod: 'biometrics' | 'passkey') {
 		try {
 			isLoading = true;
 			error = '';
@@ -90,14 +99,13 @@
 			let biometricData = null;
 
 			if (authMethods.biometric) {
-				biometricData = await getBiometricData();
+				biometricData = await getBiometricData(authMethod);
 			} else if (authMethods.webAuthn) {
 				biometricData = await getWebBiometricData();
 			}
 
 			if (biometricData) {
-				// Login flow
-				await login(biometricData, deviceId);
+				await login(biometricData, deviceId, authMethod);
 			} else {
 				error = $t('auth.login.errors.no_account');
 			}
@@ -109,6 +117,7 @@
 		}
 	}
 
+	// Login with Nostr private key
 	async function handleNsecLogin() {
 		try {
 			isLoading = true;
@@ -184,7 +193,7 @@
 
 				if (res.isNewUser) {
 					if (authMethods.biometric) {
-						credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+						credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
 					} else {
 						credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 					}
@@ -202,7 +211,7 @@
 					const deviceName = await createUserDeviceShortName(npub);
 
 					if (authMethods.biometric) {
-						credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+						credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
 					} else {
 						credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 					}
@@ -277,27 +286,43 @@
 						}}
 					>
 						{#if authMethods.biometric}
-							<button class="btn btn-primary" onclick={authenticate} disabled={isLoading}>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke-width="1.5"
-									stroke="currentColor"
-									class="size-6"
+							<div class="flex flex-col gap-2">
+								<button
+									class="btn btn-primary"
+									onclick={() => authenticate('biometrics')}
+									disabled={isLoading}
 								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
-									/>
-								</svg>
-								{isLoading ? $t('common.processing') + '...' : $t('auth.login.continue_biometrics')}
-							</button>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke-width="1.5"
+										stroke="currentColor"
+										class="size-6"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
+										/>
+									</svg>
+									{isLoading
+										? $t('common.processing') + '...'
+										: $t('auth.login.continue_biometrics')}
+								</button>
+								<p class="text-base-content/60 text-start text-xs">
+									Uses your device's native biometric authentication (Face ID, Touch ID,
+									Fingerprint)
+								</p>
+							</div>
 						{/if}
 
-						{#if authMethods.webAuthn}
-							<button class="btn btn-primary" onclick={authenticate} disabled={isLoading}>
+						<div class="flex flex-col gap-2">
+							<button
+								class="btn btn-primary"
+								onclick={() => authenticate('passkey')}
+								disabled={isLoading}
+							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									fill="none"
@@ -314,7 +339,12 @@
 								</svg>
 								{isLoading ? $t('common.processing') + '...' : $t('auth.login.continue_passkey')}
 							</button>
-						{/if}
+							{#if authMethods.biometric}
+								<p class="text-base-content/60 text-start text-xs">
+									Uses your default password manager: {webAuthnProvider}
+								</p>
+							{/if}
+						</div>
 
 						{#if !authMethods.biometric}
 							<Alby />
@@ -439,7 +469,7 @@
 								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>{error}</span>
+						<span class="overflow-wrap-anywhere break-all whitespace-normal">{error}</span>
 					</div>
 				{/if}
 
