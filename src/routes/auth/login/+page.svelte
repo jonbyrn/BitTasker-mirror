@@ -227,7 +227,8 @@
 				authState
 					.setupAuthData(res.access_token, 'nsec', npub, res.user, biometricData, false)
 					.then(() => {
-						goto('/auth/onboarding');
+						if (res.isNewUser) goto('/auth/onboarding');
+						else goto('/dashboard/find-tasks');
 					});
 			}
 		} catch (err) {
