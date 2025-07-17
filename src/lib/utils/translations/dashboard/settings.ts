@@ -49,7 +49,24 @@ export const settingsTranslations = {
 		'settings.validation.passwordRequired': 'Recovery password is required',
 		'settings.validation.passwordMismatch': 'Passwords do not match',
 		'settings.copy.success': 'Copied!',
-		'settings.copy.failed': 'Failed to copy'
+		'settings.copy.failed': 'Failed to copy',
+	
+		// Passkey Sync translations
+		'settings.passkey.title': 'Passkey Sync',
+		'settings.passkey.description': 'Set up a WebAuthn passkey to sync your biometric authentication across devices and browsers.',
+		'settings.passkey.setup': 'Setup Passkey',
+		'settings.passkey.setting': 'Setting up passkey...',
+		'settings.passkey.success': 'Passkey has been set up successfully!',
+		'settings.passkey.error.setup': 'Failed to setup passkey. Please try again.',
+		'settings.passkey.error.webauthn': 'WebAuthn is not available in this browser.',
+		'settings.passkey.error.keys': 'Unable to retrieve biometric keys for passkey setup.',
+		'settings.passkey.provider': 'This will use {{provider}} for authentication',
+		'settings.passkey.notice.title': 'About Passkeys:',
+		'settings.passkey.notice.description': 'Passkeys allow you to authenticate using the same biometric data across different browsers and devices. Once set up, you can use this passkey to log in from other devices.',
+		'settings.passkey.already.setup': 'Passkey already configured',
+		'settings.passkey.test': 'Test Passkey',
+		'settings.passkey.test.success': 'Passkey test successful!',
+		'settings.passkey.test.error': 'Passkey test failed. Please try again.'
 	},
 	es: {
 		'settings.title': 'Configuración',
@@ -101,6 +118,23 @@ export const settingsTranslations = {
 		'settings.validation.passwordRequired': 'La contraseña de recuperación es requerida',
 		'settings.validation.passwordMismatch': 'Las contraseñas no coinciden',
 		'settings.copy.success': '¡Copiado!',
-		'settings.copy.failed': 'Error al copiar'
+		'settings.copy.failed': 'Error al copiar',
+	
+		// Passkey Sync translations
+		'settings.passkey.title': 'Sincronización de Passkey',
+		'settings.passkey.description': 'Configura un passkey WebAuthn para sincronizar tu autenticación biométrica en diferentes dispositivos y navegadores.',
+		'settings.passkey.setup': 'Configurar Passkey',
+		'settings.passkey.setting': 'Configurando passkey...',
+		'settings.passkey.success': '¡El passkey se ha configurado exitosamente!',
+		'settings.passkey.error.setup': 'Error al configurar el passkey. Por favor intenta de nuevo.',
+		'settings.passkey.error.webauthn': 'WebAuthn no está disponible en este navegador.',
+		'settings.passkey.error.keys': 'No se pudieron recuperar las claves biométricas para la configuración del passkey.',
+		'settings.passkey.provider': 'Esto usará {{provider}} para la autenticación',
+		'settings.passkey.notice.title': 'Sobre Passkeys:',
+		'settings.passkey.notice.description': 'Los passkeys te permiten autenticarte utilizando los mismos datos biométricos en diferentes navegadores y dispositivos. Una vez configurado, puedes usar este passkey para iniciar sesión desde otros dispositivos.',
+		'settings.passkey.already.setup': 'Passkey ya configurado',
+		'settings.passkey.test': 'Probar Passkey',
+		'settings.passkey.test.success': '¡Probar passkey exitoso!',
+		'settings.passkey.test.error': '¡Probar passkey fallido. Por favor intenta de nuevo.'
 	}
 };

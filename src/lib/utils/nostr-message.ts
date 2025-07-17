@@ -8,12 +8,7 @@ import { appStore } from '$lib/stores/app.store';
 import { profileCache } from './profile-cache';
 
 // --- Relay Configuration ---
-const DEFAULT_RELAYS = [
-	import.meta.env.VITE_NOSTR_RELAY_URL,
-	// import.meta.env.VITE_NOSTR_RELAY_URL_MOCK1,
-	// import.meta.env.VITE_NOSTR_RELAY_URL_MOCK2,
-	// import.meta.env.VITE_NOSTR_RELAY_URL_MOCK3,
-].filter(Boolean); // Remove any undefined values
+const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
 
 const RELAY_TIMEOUT = 10000; // 10 seconds
 const MAX_RETRY_ATTEMPTS = 3;
