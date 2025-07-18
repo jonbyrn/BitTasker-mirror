@@ -324,7 +324,7 @@
 							<Avatar
 								user={{
 									name: newMessageProfile.name || 'Unknown',
-									profileImage: newMessageProfile.picture || null
+									picture: newMessageProfile.picture || null
 								}}
 								size="md"
 							/>

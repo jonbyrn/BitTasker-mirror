@@ -143,6 +143,7 @@ export interface VideoIntroMetadata {
 export type Profile = {
     name?: string;
     about?: string;
+    picture?: string;
     pictures?: NostrProfileImage[];
     website?: string;
     professionalTitle?: string;
