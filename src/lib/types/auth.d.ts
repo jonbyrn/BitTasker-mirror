@@ -52,7 +52,7 @@ export interface UserData {
 	email: string;
 	name: string;
 	npub: string;
-	avatar: string;
+	picture: string;
 
 	// TODO: Refactor & check utility of these fields
 	password?: string | null;
