@@ -24,7 +24,7 @@
 		<Avatar
 			user={{
 				name: profile.name || (isSender ? 'You' : 'Unknown'),
-				profileImage: profile.picture || null
+				picture: profile.picture || null
 			}}
 			size="sm"
 		/>

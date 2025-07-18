@@ -25,7 +25,7 @@
 				<Avatar
 					user={{
 						name: $profileStore.data.name || '',
-						profileImage: $profileStore.data.pictures?.[0]?.url || null
+						picture: $profileStore.data.picture || null
 					}}
 					size="xl"
 				/>

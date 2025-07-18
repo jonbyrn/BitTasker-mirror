@@ -9,7 +9,7 @@
 	const props = $props<{
 		user: {
 			name: string;
-			profileImage: string | null;
+			picture: string | null;
 		};
 		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 		loading?: boolean;
@@ -73,15 +73,15 @@
 	}
 </script>
 
-{#if props.user.profileImage && !imageError}
+{#if props.user.picture && !imageError}
 	<!-- Show user image if available and no error -->
 	<button
 		class="overflow-hidden rounded-full {getSizeClass(size)} relative cursor-pointer"
 		onclick={props.onClick}
 	>
-		{#if props?.user?.profileImage}
+		{#if props?.user?.picture}
 			<img
-				src={props.user.profileImage}
+				src={props.user.picture}
 				alt={props.user.name}
 				class="h-full w-full object-cover"
 				onerror={() => (imageError = true)}

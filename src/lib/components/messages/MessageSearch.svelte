@@ -40,10 +40,10 @@
 
 	// Refs
 	let searchInput: HTMLInputElement;
-	let resultsContainer: HTMLElement;
+	let resultsContainer: HTMLElement | null = $state(null);
 
 	// Debounced search
-	let searchTimeout: number | undefined = undefined;
+	let searchTimeout: NodeJS.Timeout | undefined = undefined;
 
 	function debounceSearch() {
 		if (searchTimeout) clearTimeout(searchTimeout);
@@ -267,14 +267,14 @@
 
 			<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 				<div class="form-control">
-					<label class="label">
+					<label class="label" for="dateRangeStart">
 						<span class="label-text">From date</span>
 					</label>
 					<input type="date" bind:value={dateRangeStart} class="input input-bordered input-sm" />
 				</div>
 
 				<div class="form-control">
-					<label class="label">
+					<label class="label" for="dateRangeEnd">
 						<span class="label-text">To date</span>
 					</label>
 					<input type="date" bind:value={dateRangeEnd} class="input input-bordered input-sm" />
@@ -324,7 +324,7 @@
 									<Avatar
 										user={{
 											name: profile.name || 'Unknown',
-											profileImage: profile.picture || null
+											picture: profile.picture || null
 										}}
 										size="sm"
 									/>

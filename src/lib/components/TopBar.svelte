@@ -8,8 +8,6 @@
 	import { authState } from '$lib/stores/auth.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { showBackButton } from '$lib/stores/navigation.store';
-	import { getNpub } from '$lib/utils/nostrKeys';
-	import { profileStore } from '$lib/stores/profile.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import 'iconify-icon';
@@ -26,9 +24,6 @@
 	// Create a reference to the resize handler so we can remove it later
 	let resizeHandler: (() => void) | null = null;
 
-	let profileImage = $state(null);
-	let subscription: { close: () => void } | null = null;
-
 	// Language switcher handler
 	const handleLanguageChange = async (code: Locales) => {
 		try {
@@ -39,72 +34,10 @@
 		}
 	};
 
-	// Function to handle profile image events
-	function handleProfileImageEvent(event: any) {
-		try {
-			const images = JSON.parse(event.content);
-			if (images.length > 0) {
-				profileImage = images[0].url;
-			} else {
-				profileImage = null;
-			}
-		} catch (error) {
-			console.error('Failed to parse profile image event:', error);
-			profileImage = null;
-		}
-	}
-
-	// Define relay URLs with fallbacks
-	const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
-
-	// Function to setup profile image subscription
-	async function setupProfileImageSubscription() {
-		try {
-			if (RELAYS.length === 0) {
-				throw new Error('No valid relay URLs available');
-			}
-
-			const npub = await getNpub();
-			if (!npub) return;
-
-			const filter = {
-				authors: [npub],
-				kinds: [30063],
-				'#d': ['profile-images']
-			};
-
-			// TODO: To be replaced with user data from nostr - use user.store.ts
-			// Subscribe to future updates
-			subscription = profileStore.pool.subscribe(RELAYS, filter, {
-				onevent(event) {
-					handleProfileImageEvent(event);
-				}
-			});
-		} catch (error) {
-			console.error('Failed to setup profile image subscription:', error);
-		}
-	}
-
 	onMount(async () => {
-		if ($authState.isAuthenticated) {
-			await setupProfileImageSubscription();
-		}
-
 		// Add click outside handler for dropdowns
 		if (typeof document !== 'undefined') {
 			document.addEventListener('click', handleClickOutside);
-		}
-	});
-
-	$effect(() => {
-		if ($authState.isAuthenticated) {
-			setupProfileImageSubscription();
-		} else {
-			profileImage = null;
-			if (subscription) {
-				subscription.close();
-				subscription = null;
-			}
 		}
 	});
 
@@ -207,9 +140,6 @@
 	onDestroy(() => {
 		if (typeof window !== 'undefined' && resizeHandler) {
 			window.removeEventListener('resize', resizeHandler);
-		}
-		if (subscription) {
-			subscription.close();
 		}
 
 		// Remove click outside handler
@@ -432,7 +362,9 @@
 							></iconify-icon>
 							<span class="font-medium uppercase">{$locale}</span>
 						</summary>
-						<ul class="menu dropdown-content right-0 bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+						<ul
+							class="menu dropdown-content bg-base-100 rounded-box right-0 z-1 w-52 p-2 shadow-sm"
+						>
 							{#each LANGUAGES as { code, name, flag }}
 								<li>
 									<button
@@ -488,7 +420,7 @@
 				<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 			{:else}
 				<Avatar
-					user={{ name: $user?.name, profileImage }}
+					user={{ name: $user?.name, picture: $user?.picture }}
 					onClick={() => goto('/dashboard/profile')}
 				/>
 			{/if}

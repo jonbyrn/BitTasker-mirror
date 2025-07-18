@@ -23,6 +23,7 @@ const initialState: ProfileState = {
     data: {
         name: '',
         about: '',
+        picture: '',
         pictures: [],
         website: '',
         professionalTitle: '',
@@ -77,10 +78,11 @@ function createProfileStore() {
                                             ...state,
                                             data: {
                                                 ...state.data,
-                                                name: content.name,
+                                                name: content.display_name || content.name || '',
                                                 about: content.about,
                                                 website: content.website,
-                                                professionalTitle: content.professionalTitle
+                                                professionalTitle: content.professionalTitle,
+                                                picture: content.picture || ''
                                             }
                                         };
                                     case 30063: // Images
