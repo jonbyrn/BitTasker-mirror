@@ -217,3 +217,59 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		throw new Error('Failed to get biometric data' + err);
 	}
 }
+
+/**
+ * Detect the WebAuthn password manager provider based on platform and browser
+ * @returns string describing the password manager that will be used
+ */
+export function getWebAuthnProviderDescription(): string {
+	const userAgent = navigator.userAgent.toLowerCase();
+	const platform = navigator.platform.toLowerCase();
+	
+	// iOS devices
+	if (/iphone|ipad|ipod/.test(userAgent) || platform.includes('mac')) {
+		if (/safari/.test(userAgent) && !/chrome/.test(userAgent)) {
+			return 'iCloud Keychain';
+		}
+		if (/chrome/.test(userAgent)) {
+			return 'Google Password Manager';
+		}
+		return 'iCloud Keychain'; // Default for macOS/iOS
+	}
+	
+	// Android devices
+	if (/android/.test(userAgent)) {
+		if (/chrome/.test(userAgent)) {
+			return 'Google Password Manager';
+		}
+		return 'Google Password Manager'; // Default for Android
+	}
+	
+	// Windows
+	if (/windows/.test(userAgent) || platform.includes('win')) {
+		if (/edge/.test(userAgent)) {
+			return 'Microsoft Authenticator';
+		}
+		if (/chrome/.test(userAgent)) {
+			return 'Google Password Manager';
+		}
+		if (/firefox/.test(userAgent)) {
+			return 'Firefox Password Manager';
+		}
+		return 'Windows Hello'; // Default for Windows
+	}
+	
+	// Linux
+	if (/linux/.test(userAgent) || platform.includes('linux')) {
+		if (/chrome/.test(userAgent)) {
+			return 'Google Password Manager';
+		}
+		if (/firefox/.test(userAgent)) {
+			return 'Firefox Password Manager';
+		}
+		return 'Browser Password Manager';
+	}
+	
+	// Fallback
+	return 'Browser Password Manager';
+}

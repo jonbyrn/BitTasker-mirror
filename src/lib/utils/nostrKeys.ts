@@ -53,7 +53,9 @@ export const getNostrKeyPair = async (): Promise<{ nsec: Uint8Array, npub: strin
     const isBiometricAvailable = await checkBiometricAvailability();
 
     if (isBiometricAvailable) {
-        biometricData = await getBiometricData();
+        const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+        
+        biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey');
         appStore.update((state) => ({ ...state, biometricData }));
     } else {
         const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');
@@ -133,7 +135,7 @@ export const getNpub = async (): Promise<string> => {
     const isBiometricAvailable = await checkBiometricAvailability();
 
     if (isBiometricAvailable) {
-        biometricData = await getBiometricData();
+        biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey');
         appStore.update((state) => ({ ...state, biometricData }));
     } else {
         const { getWebBiometricData } = await import('$lib/utils/helpers/webBiometrics');

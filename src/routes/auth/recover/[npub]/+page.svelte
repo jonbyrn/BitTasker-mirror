@@ -128,7 +128,7 @@
 			// Register device with server
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
 			} else {
 				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 			}
@@ -154,7 +154,7 @@
 				};
 				authState.setupAuthData(
 					response.access_token,
-					'passkey',
+					'biometrics',
 					npub,
 					response.user,
 					biometricData,
