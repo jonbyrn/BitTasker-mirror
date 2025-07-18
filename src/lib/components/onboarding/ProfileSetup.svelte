@@ -54,8 +54,7 @@
 					// Handle profile metadata update (NIP-01 + NIP-24)
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
-						console.log('Metadata:', metadata);
-
+						
 						// Basic NIP-01 fields
 						displayName =
 							metadata.display_name || metadata.displayName || metadata.name || displayName;
