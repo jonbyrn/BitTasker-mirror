@@ -80,6 +80,13 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 1</div>
 					<h3 class="card-title">Nakamoto Newbie</h3>
+					<div class="flex justify-center mb-4">
+						<img 
+							src="/images/BitTasker-Nakamoto-Newbie-512x512.webp" 
+							alt="Nakamoto Newbie Badge" 
+							class="w-48 h-48 object-contain"
+						/>
+					</div>
 					<p class="text-sm">For taskees who complete 0-3 tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
@@ -100,6 +107,13 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 2</div>
 					<h3 class="card-title">Satoshi Stacker</h3>
+					<div class="flex justify-center mb-4">
+						<img 
+							src="/images/BitTasker-Satoshi-Stacker-512x512.webp" 
+							alt="Satoshi Stacker Badge" 
+							class="w-48 h-48 object-contain"
+						/>
+					</div>
 					<p class="text-sm">For taskees who complete 4-10 tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
@@ -120,6 +134,13 @@
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">Tier 3</div>
 					<h3 class="card-title">Hash Master</h3>
+					<div class="flex justify-center mb-4">
+						<img 
+							src="/images/BitTasker-Hash-Master-512x512.webp" 
+							alt="Hash Master Badge" 
+							class="w-48 h-48 object-contain"
+						/>
+					</div>
 					<p class="text-sm">For our most active taskees with 11+ tasks in the last 30 days</p>
 					<div class="flex justify-center my-4">
 						<div class="stats shadow">
