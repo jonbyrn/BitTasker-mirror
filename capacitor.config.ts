@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
 	webDir: 'build',
 	server: {
 		// url: process.env.VITE_CLIENT_URL,
+		// TODO: Change to production URL
 		url: 'https://dev.bittasker.com',
 		cleartext: true,
 		androidScheme: 'https',
