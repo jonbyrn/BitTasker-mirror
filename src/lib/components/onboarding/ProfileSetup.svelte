@@ -51,24 +51,49 @@
 			async (event) => {
 				try {
 					isInitialLoading = true;
-					// Handle profile metadata update
+					// Handle profile metadata update (NIP-01 + NIP-24)
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
-						displayName = metadata.displayName || displayName;
+						
+						// Basic NIP-01 fields
+						displayName =
+							metadata.display_name || metadata.displayName || metadata.name || displayName;
 						professionalTitle = metadata.professionalTitle || professionalTitle;
 						profileDescription = metadata.about || profileDescription;
+
+						// NIP-24 extended metadata fields
+						// Handle profile picture - priority: picture > banner (if no picture exists)
+						if (metadata.picture) {
+							picture = {
+								url: metadata.picture,
+								type: 'image/png', // Default type, might be overridden later
+								alt: 'Profile picture',
+								key: metadata.picture // Use URL as key for external images
+							};
+						} else if (metadata.banner && !picture) {
+							// Use banner as profile picture if no picture is set
+							picture = {
+								url: metadata.banner,
+								type: 'image/png',
+								alt: 'Profile banner used as picture',
+								key: metadata.banner
+							};
+						}
 					}
 					// Handle image metadata update
 					else if (event.kind === 30063) {
 						imageEventId = event.id;
 						const images = JSON.parse(event.content);
 						if (images.length > 0) {
-							picture = {
-								url: images[0].url,
-								type: images[0].type,
-								alt: images[0].alt,
-								key: images[0].key
-							};
+							// Only update picture if we don't have one from metadata
+							if (!picture) {
+								picture = {
+									url: images[0].url,
+									type: images[0].type,
+									alt: images[0].alt,
+									key: images[0].key
+								};
+							}
 						}
 					}
 					// Handle skills update
@@ -92,7 +117,7 @@
 				}
 			},
 			{
-				0: null,
+				0: null, // Subscribe to all kind 0 (metadata) events for NIP-24 support
 				30063: { d: 'profile-images' },
 				30000: { d: 'skills' }
 			}
@@ -196,10 +221,16 @@
 
 			// Publish profile metadata
 			const profileData: NostrProfile = {
-				displayName,
+				name: displayName, // Use 'name' as primary field per NIP-24
+				display_name: displayName,
 				professionalTitle,
 				about: profileDescription
 			};
+
+			// Include picture URL if available (NIP-24)
+			if (picture?.url) {
+				profileData.picture = picture.url;
+			}
 
 			await publishProfileMetadata(profileData);
 

@@ -9,15 +9,25 @@ export interface NostrProfileImage {
 }
 
 export interface NostrProfile {
+    // NIP-01 basic fields
     name?: string;
-    displayName?: string;
+    display_name?: string;
     about?: string;
-    pictures?: NostrProfileImage[];
-    banner?: string;
-    website?: string;
-    nip05?: string;
-    lud16?: string;
+    
+    // NIP-24 extended metadata fields
+    picture?: string; // URL to profile picture
+    banner?: string; // URL to profile banner/header image
+    website?: string; // Personal website URL
+    nip05?: string; // NIP-05 verification identifier
+    lud16?: string; // Lightning address for zaps
+    lud06?: string; // LNURL-pay for zaps (legacy)
+    
+    // Additional common fields
     professionalTitle?: string;
+    location?: string; // Geographic location
+    
+    // Deprecated/internal fields (for backwards compatibility)
+    pictures?: NostrProfileImage[]; // Legacy field, prefer picture
 }
 
 export interface NostrSkill {
