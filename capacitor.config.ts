@@ -1,4 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { loadEnv } from 'vite';
+
+// Load environment variables
+const env = loadEnv('', process.cwd(), '');
 
 const config: CapacitorConfig = {
 	zoomEnabled: false,
@@ -6,8 +10,8 @@ const config: CapacitorConfig = {
 	appName: 'BitTasker',
 	webDir: 'build',
 	server: {
-		// url: process.env.VITE_CLIENT_URL,
-		url: 'https://dev.bittasker.com',
+		// Load server URL from environment variable, fallback to dev URL
+		url: env.VITE_CLIENT_URL || 'https://master.bittasker.com',
 		cleartext: true,
 		androidScheme: 'https',
 	},
@@ -26,9 +30,9 @@ const config: CapacitorConfig = {
 		},
 		SocialLogin: {
 			google: {
-				clientId: process.env.VITE_GOOGLE_CLIENT_ID,
-				serverClientId: process.env.VITE_GOOGLE_CLIENT_ID,
-				redirectUrl: process.env.VITE_GOOGLE_REDIRECT_URI,
+				clientId: env.VITE_GOOGLE_CLIENT_ID,
+				serverClientId: env.VITE_GOOGLE_CLIENT_ID,
+				redirectUrl: env.VITE_GOOGLE_REDIRECT_URI,
 				scopes: ['profile', 'email'],
 				responseType: 'token'
 			}

@@ -117,7 +117,7 @@
 
 			// Prepare profile data
 			const profileData: NostrProfile = {
-				displayName,
+				display_name: displayName,
 				professionalTitle,
 				about: profileDescription,
 				website
