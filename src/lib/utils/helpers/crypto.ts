@@ -110,3 +110,9 @@ export async function deriveKeyFromPassword(
 		throw new Error('Failed to derive key from password');
 	}
 }
+
+export function btcToSatsWithLabel(btc: number): string {
+	const sats = Math.round(btc * 100_000_000);
+	const label = sats === 1 ? 'sat' : 'sats';
+	return `${sats.toLocaleString('en-US')} ${label}`;
+}
