@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { aboutTranslations } from './about';
 import { careersTranslations } from './careers';
+import { contactTranslations } from './contact';
 import { pressTranslations } from './press';
 import { privacyPolicyTranslations } from './privacy-policy';
 import { securityTranslations } from './security';
@@ -22,5 +23,6 @@ export const companyTranslations = deepMergeTranslations(
 	careersTranslations,
 	pressTranslations,
 	termsTranslations,
-	privacyPolicyTranslations
+	privacyPolicyTranslations,
+	contactTranslations
 );
