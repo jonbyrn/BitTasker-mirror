@@ -5,6 +5,7 @@ import { companyTranslations } from './company';
 import { bidTranslations } from './dashboard/bid';
 import { dashboardTranslations } from './dashboard/dashboard';
 import { taskTranslations } from './dashboard/task';
+import { settingsTranslations } from './dashboard/settings';
 import { homePageTranslations } from './home';
 import { howItWorksTranslations } from './how_it_works';
 import { onboardingTranslations } from './onboarding';
@@ -34,5 +35,6 @@ export default deepMergeTranslations(
 	taskTranslations,
 	dashboardTranslations,
 	recommendationTranslations,
-	companyTranslations
+	companyTranslations,
+	settingsTranslations
 );

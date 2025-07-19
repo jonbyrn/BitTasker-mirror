@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
 	import {
 		fetchProfileMetadata,
@@ -7,10 +8,9 @@
 		listenForIncomingMessages,
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
+	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { nip19 } from 'nostr-tools';
 
 	// State
 	let conversations = $state<
@@ -242,7 +242,7 @@
 	}
 </script>
 
-<div class="flex h-full max-h-screen flex-col">
+<div class="mx-auto flex h-full max-w-7xl flex-col p-4 sm:p-0">
 	<!-- Header -->
 	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
 		<h2 class="text-2xl font-bold">Messages</h2>
@@ -324,7 +324,7 @@
 							<Avatar
 								user={{
 									name: newMessageProfile.name || 'Unknown',
-									profileImage: newMessageProfile.picture || null
+									picture: newMessageProfile.picture || null
 								}}
 								size="md"
 							/>

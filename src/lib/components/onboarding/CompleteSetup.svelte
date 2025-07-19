@@ -54,17 +54,12 @@
 					if (event.kind === 0) {
 						// Handle profile metadata
 						const metadata = JSON.parse(event.content);
-						profile.displayName = metadata.displayName || '';
+						profile.displayName =
+							metadata.display_name || metadata.displayName || metadata.name || '';
 						profile.professionalTitle = metadata.professionalTitle || '';
 						profile.about = metadata.about || '';
+						profile.picture = metadata.picture || '';
 						checkCompletionStatus();
-					} else if (event.kind === 30063) {
-						// Handle profile images
-						const images = JSON.parse(event.content);
-						if (images.length > 0) {
-							profile.picture = images[0].url;
-							checkCompletionStatus();
-						}
 					} else if (
 						event.kind === 30005 &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'location')
@@ -92,7 +87,6 @@
 			},
 			{
 				0: null, // Kind 0 for profile metadata
-				30063: { d: 'profile-images' },
 				30005: { d: 'location' } // Kind 30005 for location data
 			}
 		);

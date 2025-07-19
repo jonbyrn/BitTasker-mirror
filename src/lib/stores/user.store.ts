@@ -11,7 +11,7 @@ const initialProfile: UserData = {
 	name: '',
 	email: '',
 	npub: '',
-	avatar: '',
+	picture: '',
 	createdAt: new Date(),
 	updatedAt: new Date()
 };
@@ -43,7 +43,7 @@ const createUserStore = () => {
 
 			const filter = {
 				authors: [npub],
-				kinds: [0, 30063],
+				kinds: [0]
 			};
 
 			const events = await pool.querySync(RELAYS, filter);
@@ -52,14 +52,8 @@ const createUserStore = () => {
 					const content = JSON.parse(event.content);
 					update((state) => ({
 						...state,
-						name: content.displayName,
-					}));
-				}
-				if (event.kind === 30063 && event.tags.find((t) => t[0] === 'd' && t[1] === 'profile-images')) {
-					const content = JSON.parse(event.content);
-					update((state) => ({
-						...state,
-						avatar: content[0].url
+						name: content.display_name || content.displayName || content.name || '',
+						picture: content.picture || ''
 					}));
 				}
 			});

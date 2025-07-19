@@ -55,13 +55,16 @@ function generateChallenge(): string {
  * Set biometric key using shared packKeys format - matches web implementation exactly
  * @param publicKey User's Nostr public key  
  * @param exportedKey The exported private key for decryption
+ * @param authMethod Authentication method: 'biometrics' for native, 'passkey' for WebAuthn
  * @param customName Optional custom name for the passkey (mobile device name)
  * @returns Promise with credential ID (like WebAuthn)
  */
 export async function setBiometricKey(
 	publicKey: string,
 	exportedKey: string,
-	customName?: string
+	authMethod: 'biometrics' | 'passkey' = 'biometrics',
+	customName?: string,
+	credId?: string // used when updating a native passkey
 ): Promise<string> {
 	try {
 		let credentialId: string | null = null;
@@ -71,7 +74,7 @@ export async function setBiometricKey(
 
 		const userName = createUserFriendlyName(publicKey);
 
-		try {
+		if (authMethod === 'passkey') {
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
@@ -101,16 +104,12 @@ export async function setBiometricKey(
 					residentKey: 'required'
 				}
 			}
-			console.log({ options: registrationOptions });
-
 			const result = await Webauthn.startRegistration(registrationOptions);
 
-			console.log('result', result);
 			credentialId = result.id;
-		} catch (err) {
-			console.error('capacitor-webauthn error', err);
+		} else {
 			// Generate unique credential ID for this mobile passkey
-			credentialId = generateCredentialId();
+			credentialId = credId ? credId : generateCredentialId();
 
 			// Store packed keys + credential ID together
 			const credentialData = {
@@ -144,11 +143,13 @@ export async function setBiometricKey(
 
 /**
  * Get biometric data using shared unPackKeys format
+ * @param authMethod Authentication method: 'biometrics' for native, 'passkey' for WebAuthn
  * @returns Promise<Credentials | null>
  */
-export async function getBiometricData(): Promise<Credentials | null> {
+export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'biometrics'): Promise<Credentials | null> {
 	try {
-		try {
+		// Force WebAuthn if authMethod is 'passkey'
+		if (authMethod === 'passkey') {
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
@@ -175,7 +176,6 @@ export async function getBiometricData(): Promise<Credentials | null> {
 			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
 			const publicKey = unpackedKeys.publicKey;
 			const exportedKey = unpackedKeys.exportedKey;
-			console.log('Mobile unpacked keys:', { publicKey: publicKey.substring(0, 16) + '...', exportedKeyLength: exportedKey.length });
 
 			const deviceId = await getDeviceIdentifier();
 
@@ -190,9 +190,8 @@ export async function getBiometricData(): Promise<Credentials | null> {
 				password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
 				server: deviceId
 			};
-		} catch (err) {
-			console.error('capacitor-webauthn error', err);
-
+		} else {
+			// Use native biometrics
 			const verified = await verifyIdentity();
 			if (!verified) return null;
 
@@ -207,16 +206,8 @@ export async function getBiometricData(): Promise<Credentials | null> {
 			const packedKeysBase64 = credentialData.keys;
 			const credentialId = credentialData.credentialId;
 
-			// Convert base64 back to ArrayBuffer
-			const binaryString = atob(packedKeysBase64);
-			const bytes = new Uint8Array(binaryString.length);
-			for (let i = 0; i < binaryString.length; i++) {
-				bytes[i] = binaryString.charCodeAt(i);
-			}
-			const packedKeys = bytes.buffer;
-
-			// Use the same unPackKeys function as web implementation
-			const unpackedKeys = unPackKeys(packedKeys);
+			// Use unPackKeysMobile to properly decode the base64url string
+			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
 
 			// Get encrypted data from backend using the stored credential ID
 			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
@@ -238,7 +229,6 @@ export async function getBiometricData(): Promise<Credentials | null> {
 			};
 		}
 	} catch (err) {
-		console.error('Failed to get biometric data:', err);
-		return null;
+		throw new Error(err instanceof Error ? err.message : 'Failed to get biometric data');
 	}
 }

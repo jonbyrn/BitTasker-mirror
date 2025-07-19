@@ -123,7 +123,7 @@
 					<Avatar
 						user={{
 							name: recipientProfile?.name || 'Unknown',
-							profileImage: recipientProfile?.picture || null
+							picture: recipientProfile?.picture || null
 						}}
 						size="sm"
 					/>

@@ -17,7 +17,6 @@
 	let pictures = $state<(NostrProfileImage | File)[]>([]);
 	let isLoading = $state(false);
 	let error = $state('');
-	let profileEventId = $state<string | null>(null);
 	let imageEventId = $state<string | null>(null); // Track the current image event ID
 	let imagesToDelete = $state<string[]>([]);
 	let cleanup: (() => void) | null = null;
@@ -30,9 +29,8 @@
 					isInitialLoading = true;
 					// Handle profile metadata update
 					if (event.kind === 0) {
-						profileEventId = event.id;
 						const metadata = JSON.parse(event.content);
-						displayName = metadata.displayName || displayName;
+						displayName = metadata.display_name || metadata.displayName || metadata.name || displayName;
 						professionalTitle = metadata.professionalTitle || professionalTitle;
 						profileDescription = metadata.about || profileDescription;
 						website = metadata.website || website;
@@ -117,7 +115,7 @@
 
 			// Prepare profile data
 			const profileData: NostrProfile = {
-				displayName,
+				display_name: displayName,
 				professionalTitle,
 				about: profileDescription,
 				website
