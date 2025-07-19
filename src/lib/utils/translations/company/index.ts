@@ -2,7 +2,9 @@
 import { aboutTranslations } from './about';
 import { careersTranslations } from './careers';
 import { pressTranslations } from './press';
+import { privacyPolicyTranslations } from './privacy-policy';
 import { securityTranslations } from './security';
+import { termsTranslations } from './terms';
 
 function deepMergeTranslations(...sources: any[]) {
 	const result: any = {};
@@ -18,5 +20,7 @@ export const companyTranslations = deepMergeTranslations(
 	aboutTranslations,
 	securityTranslations,
 	careersTranslations,
-	pressTranslations
+	pressTranslations,
+	termsTranslations,
+	privacyPolicyTranslations
 );
