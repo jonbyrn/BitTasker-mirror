@@ -270,7 +270,7 @@
 						<li>
 							<a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a>
 						</li>
-						<li><a href="/client-fees" onclick={closeDropdowns}>{$t('footer.taskee_fees')}</a></li>
+						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
 						<li><a href="/escrow" onclick={closeDropdowns}>{$t('footer.escrow')}</a></li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.faq')}</a></li>
 					</ul>
@@ -292,7 +292,7 @@
 								>{$t('footer.community_guidelines')}</a
 							>
 						</li>
-						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
+						<li><a href="/taskee-fees" onclick={closeDropdowns}>{$t('footer.taskee_fees')}</a></li>
 						<li>
 							<a href="/tasker-principles" onclick={closeDropdowns}
 								>{$t('footer.tasker_principles')}</a
