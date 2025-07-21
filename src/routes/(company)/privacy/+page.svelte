@@ -19,7 +19,7 @@
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="Privacy Policy - BitTasker" />
@@ -30,7 +30,7 @@
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />

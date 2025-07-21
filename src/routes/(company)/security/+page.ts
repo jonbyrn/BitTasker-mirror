@@ -1,4 +1,6 @@
+
 import type { PageLoad } from './$types';
+
 
 export const load: PageLoad = async () => {
 	const seo = {
@@ -17,22 +19,7 @@ export const load: PageLoad = async () => {
 			'name': 'Security & Safety - BitTasker',
 			'description': 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 			'url': 'https://bittasker.com/security',
-			'isPartOf': {
-				'@type': 'WebSite',
-				'name': 'BitTasker',
-				'url': 'https://bittasker.com'
-			},
-			'about': {
-				'@type': 'Organization',
-				'name': 'BitTasker',
-				'description': 'Decentralized Bitcoin task marketplace connecting taskers and taskees globally',
-				'url': 'https://bittasker.com',
-				'sameAs': [
-					'https://twitter.com/BitTaskerdotcom',
-					'https://www.linkedin.com/company/bittasker',
-					'https://www.facebook.com/BitTaskerdotcom/'
-				]
-			},
+
 			'mainEntity': {
 				'@type': 'Article',
 				'headline': 'Security & Safety - BitTasker Platform Protection',

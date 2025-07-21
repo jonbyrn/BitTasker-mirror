@@ -1,3 +1,6 @@
+
+
+
 export async function load({ url }) {
 	const seo = {
 		title: 'Tasker Fees & Pricing - BitTasker | Bitcoin Task Costs',
@@ -15,31 +18,7 @@ export async function load({ url }) {
 			'name': 'Tasker Fees & Pricing - BitTasker',
 			'description': 'Transparent fee structure for task posters on BitTasker with tiered pricing based on activity level',
 			'url': 'https://bittasker.com/tasker-fees',
-			'isPartOf': {
-				'@type': 'WebSite',
-				'name': 'BitTasker',
-				'url': 'https://bittasker.com'
-			},
-			'about': {
-				'@type': 'Organization',
-				'name': 'BitTasker',
-				'description': 'Decentralized Bitcoin task marketplace connecting taskers and taskees globally',
-				'url': 'https://bittasker.com',
-				'logo': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
-				'sameAs': [
-					'https://twitter.com/BitTaskerdotcom',
-					'https://www.linkedin.com/company/bittasker',
-					'https://www.facebook.com/BitTaskerdotcom/'
-				],
-				'founder': {
-					'@type': 'Person',
-					'name': 'BitTasker Team'
-				},
-				'foundingDate': '2024',
-				'industry': 'Technology',
-				'numberOfEmployees': '1-10',
-				'slogan': 'Powering Human Freedom One Task at a Time'
-			},
+
 			'mainEntity': {
 				'@type': 'PriceSpecification',
 				name: 'BitTasker Tasker Fees',

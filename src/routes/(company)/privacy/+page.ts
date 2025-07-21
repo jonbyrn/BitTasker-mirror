@@ -1,4 +1,6 @@
+
 import type { PageLoad } from './$types';
+
 
 export const load: PageLoad = async () => {
 	const seo = {
@@ -10,29 +12,15 @@ export const load: PageLoad = async () => {
 		ogDescription: 'Learn about BitTasker\'s privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.',
 		twitterTitle: 'Privacy Policy - BitTasker | Data Protection & User Privacy',
 		twitterDescription: 'Learn about BitTasker\'s privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.',
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
+		image: BITTASKER_LOGO,
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
 			'name': 'Privacy Policy - BitTasker',
 			'description': 'Learn about BitTasker\'s privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.',
 			'url': 'https://bittasker.com/privacy',
-			'isPartOf': {
-				'@type': 'WebSite',
-				'name': 'BitTasker',
-				'url': 'https://bittasker.com'
-			},
-			'about': {
-				'@type': 'Organization',
-				'name': 'BitTasker',
-				'description': 'Decentralized Bitcoin task marketplace connecting taskers and taskees globally',
-				'url': 'https://bittasker.com',
-				'sameAs': [
-					'https://twitter.com/BitTaskerdotcom',
-					'https://www.linkedin.com/company/bittasker',
-					'https://www.facebook.com/BitTaskerdotcom/'
-				]
-			},
+			'isPartOf': BITTASKER_WEBSITE_JSONLD,
+			'about': BITTASKER_ORG_JSONLD,
 			'mainEntity': {
 				'@type': 'WebPageElement',
 				'name': 'Privacy Policy',

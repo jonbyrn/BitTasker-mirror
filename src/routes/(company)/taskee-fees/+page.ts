@@ -1,3 +1,6 @@
+
+
+
 export async function load({ url }) {
 	const seo = {
 		title: 'Taskee Fees & Earnings - BitTasker | Bitcoin Workers',
@@ -15,31 +18,7 @@ export async function load({ url }) {
 			'name': 'Taskee Fees & Earnings - BitTasker',
 			'description': 'Transparent fee structure for task workers on BitTasker with tiered pricing based on activity level',
 			'url': 'https://bittasker.com/taskee-fees',
-			'isPartOf': {
-				'@type': 'WebSite',
-				'name': 'BitTasker',
-				'url': 'https://bittasker.com'
-			},
-			'about': {
-				'@type': 'Organization',
-				'name': 'BitTasker',
-				'description': 'Decentralized Bitcoin task marketplace connecting taskers and taskees globally',
-				'url': 'https://bittasker.com',
-				'logo': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
-				'sameAs': [
-					'https://twitter.com/BitTaskerdotcom',
-					'https://www.linkedin.com/company/bittasker',
-					'https://www.facebook.com/BitTaskerdotcom/'
-				],
-				'founder': {
-					'@type': 'Person',
-					'name': 'BitTasker Team'
-				},
-				'foundingDate': '2024',
-				'industry': 'Technology',
-				'numberOfEmployees': '1-10',
-				'slogan': 'Powering Human Freedom One Task at a Time'
-			},
+
 			'mainEntity': {
 				'@type': 'PriceSpecification',
 				name: 'BitTasker Taskee Fees',

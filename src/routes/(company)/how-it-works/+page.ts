@@ -1,3 +1,6 @@
+
+
+
 export async function load({ url }) {
 	const seo = {
 		title: 'How BitTasker Works - Bitcoin Task Marketplace Guide',

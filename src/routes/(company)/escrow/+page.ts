@@ -1,3 +1,5 @@
+import { BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
+
 export async function load({ url }) {
 	const seo = {
 		title: 'Bitcoin Escrow Service - Secure Task Payments | BitTasker',
@@ -13,11 +15,6 @@ export async function load({ url }) {
 			'@context': 'https://schema.org',
 			'@type': 'Service',
 			name: 'Bitcoin Escrow Service',
-			provider: {
-				'@type': 'Organization',
-				name: 'BitTasker',
-				url: 'https://bittasker.com'
-			},
 			serviceType: 'Bitcoin Escrow',
 			description: 'Secure Bitcoin escrow service for task-based transactions using multi-signature wallets and smart contracts.',
 			areaServed: 'Worldwide',

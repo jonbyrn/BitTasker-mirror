@@ -1,3 +1,6 @@
+
+import { BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
+
 export async function load({ url }) {
 	const seo = {
 		title: 'Contact BitTasker - Support & Partnership Inquiries',
@@ -13,9 +16,6 @@ export async function load({ url }) {
 			'@context': 'https://schema.org',
 			'@type': 'ContactPage',
 			mainEntity: {
-				'@type': 'Organization',
-				name: 'BitTasker',
-				url: 'https://bittasker.com',
 				contactPoint: {
 					'@type': 'ContactPoint',
 					email: 'hello@bittasker.com',

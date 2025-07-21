@@ -1,3 +1,6 @@
+
+
+
 export async function load({ url }) {
 	const seo = {
 		title: 'BitTasker FAQ - Bitcoin Task Marketplace Questions',

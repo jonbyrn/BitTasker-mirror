@@ -1,3 +1,6 @@
+
+
+
 export async function load({ url }) {
 	const seo = {
 		title: 'Careers at BitTasker - Bitcoin Jobs | Remote Opportunities',
@@ -14,11 +17,7 @@ export async function load({ url }) {
 			'@type': 'JobPosting',
 			title: 'Software Developer - Bitcoin & Lightning Network',
 			description: 'Join BitTasker to build the future of decentralized work. We\'re looking for passionate developers to help create a Bitcoin-powered task marketplace.',
-			hiringOrganization: {
-				'@type': 'Organization',
-				name: 'BitTasker',
-				sameAs: 'https://bittasker.com'
-			},
+
 			employmentType: 'FULL_TIME',
 			jobLocation: {
 				'@type': 'Place',
