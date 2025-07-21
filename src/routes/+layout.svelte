@@ -12,8 +12,8 @@
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
 
-// Global SEO JSON-LD
-import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD, BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
+	// Global SEO JSON-LD
+	import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD, BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
 
 	// Import FontAwesome CSS
 	import '$lib/styles/fontawesome.css';
@@ -90,14 +90,20 @@ import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATI
 </script>
 
 <svelte:head>
-  <!-- Global JSON-LD structured data for SEO -->
-  {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
-  {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
-  {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
-  {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_LOGO)}</script>`}
-{#if $page.url.pathname !== '/'}
-	  {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
-{/if}
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="BitTasker" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Global JSON-LD structured data for SEO -->
+    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
+    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
+    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+    {#if $page.url.pathname !== '/'}
+	    {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
+    {/if}
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
@@ -303,3 +309,4 @@ import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATI
 	<!-- Toast notifications -->
 	<Toast />
 </main>
+

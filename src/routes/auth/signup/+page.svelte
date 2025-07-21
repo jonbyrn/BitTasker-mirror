@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { VerifyTrunstileStore } from '$houdini';
@@ -106,7 +107,7 @@
 <div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full p-4 shadow-xl">
 		<div class="flex flex-col items-center justify-center">
-			<img src="/logo.svg" alt="BitTasker" class="w-auto" />
+			<Logo class="w-auto" />
 			<h1 class="mt-6 text-center text-2xl font-bold">{$t('auth.signup.title')}</h1>
 			<br />
 			<p class="mx-auto space-y-2 text-center">

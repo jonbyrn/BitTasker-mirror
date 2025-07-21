@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
 
@@ -49,13 +50,7 @@
 <div class="container mx-auto px-4 py-8 md:px-8">
 	<div class="hero bg-base-200 py-8">
 		<div class="hero-content flex-col text-center">
-			<img
-				src={$darkMode
-					? '/images/Bittasker-logo-tagline-dark.svg'
-					: '/images/Bittasker-logo-tagline-light.svg'}
-				alt="BitTasker Logo"
-				class="mx-auto mb-4 block md:min-w-[500px]"
-			/>
+			<Logo />
 
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">{$t('fees.title')}</h1>
