@@ -12,15 +12,12 @@ export const load: PageLoad = async () => {
 		ogDescription: 'Learn about BitTasker\'s privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.',
 		twitterTitle: 'Privacy Policy - BitTasker | Data Protection & User Privacy',
 		twitterDescription: 'Learn about BitTasker\'s privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.',
-		image: BITTASKER_LOGO,
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
 			'name': 'Privacy Policy - BitTasker',
 			'description': 'Learn about BitTasker\'s privacy policy, data protection practices, and how we handle your personal information on our Bitcoin task marketplace platform.',
 			'url': 'https://bittasker.com/privacy',
-			'isPartOf': BITTASKER_WEBSITE_JSONLD,
-			'about': BITTASKER_ORG_JSONLD,
 			'mainEntity': {
 				'@type': 'WebPageElement',
 				'name': 'Privacy Policy',

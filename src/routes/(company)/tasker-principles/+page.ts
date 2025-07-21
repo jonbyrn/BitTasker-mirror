@@ -12,15 +12,12 @@ export const load: PageLoad = async () => {
 		ogDescription: 'Learn about BitTasker\'s taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.',
 		twitterTitle: 'Taskee Principles - BitTasker | Worker Guidelines & Platform Values',
 		twitterDescription: 'Learn about BitTasker\'s taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.',
-		image: BITTASKER_LOGO,
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
 			'name': 'Taskee Principles - BitTasker',
 			'description': 'Learn about BitTasker\'s taskee principles, worker guidelines, and platform values. Understand how to be a successful taskee on our Bitcoin task marketplace.',
 			'url': 'https://bittasker.com/tasker-principles',
-			'isPartOf': BITTASKER_WEBSITE_JSONLD,
-			'about': BITTASKER_ORG_JSONLD,
 			'mainEntity': {
 				'@type': 'Article',
 				'headline': 'Taskee Principles - BitTasker Worker Guidelines',
