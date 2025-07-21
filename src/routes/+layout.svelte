@@ -94,6 +94,7 @@ import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATI
   {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
   {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
   {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+  {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_LOGO)}</script>`}
 {#if $page.url.pathname !== '/'}
 	  {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
 {/if}
