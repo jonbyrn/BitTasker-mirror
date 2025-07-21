@@ -22,37 +22,8 @@ export const load: PageLoad = async () => {
 				'@type': 'WebPageElement',
 				'name': 'Terms of Service',
 				'description': 'Legal terms and conditions governing the use of the BitTasker platform',
-				'author': {
-					'@type': 'Organization',
-					'name': 'BitTasker'
-				},
-				'publisher': {
-					'@type': 'Organization',
-					'name': 'BitTasker',
-					'logo': {
-						'@type': 'ImageObject',
-						'url': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg'
-					}
-				},
 				'datePublished': '2024-01-15',
 				'dateModified': '2025-07-13'
-			},
-			'breadcrumb': {
-				'@type': 'BreadcrumbList',
-				'itemListElement': [
-					{
-						'@type': 'ListItem',
-						'position': 1,
-						'name': 'Home',
-						'item': 'https://bittasker.com'
-					},
-					{
-						'@type': 'ListItem',
-						'position': 2,
-						'name': 'Terms of Service',
-						'item': 'https://bittasker.com/terms'
-					}
-				]
 			}
 		}
 	};

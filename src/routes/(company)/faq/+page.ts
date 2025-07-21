@@ -7,7 +7,6 @@ export async function load({ url }) {
 		description: 'Find answers to frequently asked questions about BitTasker, including how to use our Bitcoin task marketplace, escrow system, fees, and payment process.',
 		keywords: 'BitTasker FAQ, Bitcoin task marketplace questions, Lightning Network FAQ, Bitcoin escrow questions, task marketplace help, cryptocurrency gig economy, Bitcoin payment questions',
 		canonical: url.href,
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
 		ogTitle: 'BitTasker FAQ - Your Questions Answered',
 		ogDescription: 'Get answers to common questions about BitTasker\'s Bitcoin task marketplace, including how our escrow system works, fees, and payment process.',
 		twitterTitle: 'BitTasker FAQ - Common Questions Answered',

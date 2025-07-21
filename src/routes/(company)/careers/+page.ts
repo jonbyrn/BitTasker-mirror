@@ -1,5 +1,4 @@
-
-
+import { BITTASKER_ORG_JSONLD } from '$lib/utils/constants/seo.constants';
 
 export async function load({ url }) {
 	const seo = {
@@ -7,7 +6,6 @@ export async function load({ url }) {
 		description: 'Join BitTasker\'s mission to democratize work through Bitcoin and decentralized technology. Remote Bitcoin jobs available. Help build the future of work.',
 		keywords: 'BitTasker careers, Bitcoin jobs, remote cryptocurrency jobs, Bitcoin developers, decentralized work, Lightning Network jobs, blockchain careers, Bitcoin startup jobs, remote work Bitcoin, cryptocurrency careers',
 		canonical: url.href,
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
 		ogTitle: 'Careers at BitTasker - Join the Bitcoin Revolution',
 		ogDescription: 'Help us build the decentralized future of work. Remote Bitcoin jobs available at BitTasker. Join our mission to empower global earning through Bitcoin technology.',
 		twitterTitle: 'Join BitTasker - Remote Bitcoin Jobs Available',
@@ -17,7 +15,8 @@ export async function load({ url }) {
 			'@type': 'JobPosting',
 			title: 'Software Developer - Bitcoin & Lightning Network',
 			description: 'Join BitTasker to build the future of decentralized work. We\'re looking for passionate developers to help create a Bitcoin-powered task marketplace.',
-
+			hiringOrganization: BITTASKER_ORG_JSONLD,
+			datePosted: '2025-07-21',
 			employmentType: 'FULL_TIME',
 			jobLocation: {
 				'@type': 'Place',

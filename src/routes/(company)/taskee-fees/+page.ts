@@ -1,13 +1,10 @@
 
-
-
 export async function load({ url }) {
 	const seo = {
 		title: 'Taskee Fees & Earnings - BitTasker | Bitcoin Workers',
 		description: 'Learn about BitTasker\'s taskee fee structure and maximize your Bitcoin earnings. Transparent pricing with loyalty rewards for active workers.',
 		keywords: 'BitTasker taskee fees, Bitcoin earning fees, task worker pricing, cryptocurrency earnings, Bitcoin marketplace fees, decentralized work fees, Lightning Network earnings',
 		canonical: url.href,
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
 		ogTitle: 'Taskee Fees & Earnings - BitTasker',
 		ogDescription: 'Maximize your Bitcoin earnings on BitTasker with our transparent taskee fee structure. Loyalty rewards for active workers.',
 		twitterTitle: 'BitTasker Taskee Fees - Maximize Your Bitcoin Earnings',
@@ -55,23 +52,6 @@ export async function load({ url }) {
 							price: 7.5,
 							priceCurrency: 'PERCENT'
 						}
-					}
-				]
-			},
-			'breadcrumb': {
-				'@type': 'BreadcrumbList',
-				'itemListElement': [
-					{
-						'@type': 'ListItem',
-						'position': 1,
-						'name': 'Home',
-						'item': 'https://bittasker.com'
-					},
-					{
-						'@type': 'ListItem',
-						'position': 2,
-						'name': 'Taskee Fees',
-						'item': 'https://bittasker.com/taskee-fees'
 					}
 				]
 			}

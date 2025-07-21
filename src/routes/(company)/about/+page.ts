@@ -1,4 +1,4 @@
-import { BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
+
 
 export async function load({ url }) {
 	const seo = {
@@ -12,10 +12,11 @@ export async function load({ url }) {
 		twitterTitle: 'About BitTasker - Powering Human Freedom One Task at a Time',
 		twitterDescription: 'Learn how BitTasker is building a decentralized Bitcoin task marketplace that empowers financial freedom and removes barriers to global earning.',
 		jsonLd: {
-		'@context': 'https://schema.org',
-		numberOfEmployees: '1-10',
-		slogan: 'Powering Human Freedom One Task at a Time'
-		// Add any other page-specific JSON-LD fields here
+			'@context': 'https://schema.org',
+			'@type': 'WebPage',
+			name: 'About BitTasker',
+			description: 'Learn about BitTasker\'s mission to empower global earning through Bitcoin and decentralized technology.',
+			url: url.href
 		}
 	};
 

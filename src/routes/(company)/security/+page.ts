@@ -12,7 +12,6 @@ export const load: PageLoad = async () => {
 		ogDescription: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
 		twitterTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',
 		twitterDescription: 'Learn about BitTasker\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
@@ -24,37 +23,8 @@ export const load: PageLoad = async () => {
 				'@type': 'Article',
 				'headline': 'Security & Safety - BitTasker Platform Protection',
 				'description': 'Comprehensive security measures and best practices for Bitcoin transactions and user safety',
-				'author': {
-					'@type': 'Organization',
-					'name': 'BitTasker'
-				},
-				'publisher': {
-					'@type': 'Organization',
-					'name': 'BitTasker',
-					'logo': {
-						'@type': 'ImageObject',
-						'url': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg'
-					}
-				},
 				'datePublished': '2024-01-15',
 				'dateModified': '2024-01-15'
-			},
-			'breadcrumb': {
-				'@type': 'BreadcrumbList',
-				'itemListElement': [
-					{
-						'@type': 'ListItem',
-						'position': 1,
-						'name': 'Home',
-						'item': 'https://bittasker.com'
-					},
-					{
-						'@type': 'ListItem',
-						'position': 2,
-						'name': 'Security',
-						'item': 'https://bittasker.com/security'
-					}
-				]
 			}
 		}
 	};

@@ -12,7 +12,6 @@ export const load: PageLoad = async () => {
 		ogDescription: 'Latest news, press releases, and media coverage about BitTasker, the decentralized Bitcoin task marketplace. Get media kits and company updates.',
 		twitterTitle: 'Press & Media - BitTasker | Company News & Media Coverage',
 		twitterDescription: 'Latest news, press releases, and media coverage about BitTasker, the decentralized Bitcoin task marketplace. Get media kits and company updates.',
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
 		jsonLd: {
 			'@context': 'https://schema.org',
 			'@type': 'WebPage',
@@ -24,26 +23,8 @@ export const load: PageLoad = async () => {
 				'@type': 'NewsArticle',
 				'headline': 'BitTasker Press & Media Information',
 				'description': 'Official press information and media resources for BitTasker',
-				'author': {
-					'@type': 'Organization',
-					'name': 'BitTasker'
-				},
-				'publisher': {
-					'@type': 'Organization',
-					'name': 'BitTasker',
-					'logo': {
-						'@type': 'ImageObject',
-						'url': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg'
-					}
-				},
 				'datePublished': '2024-01-15',
 				'dateModified': '2024-01-15'
-			},
-			'contactPoint': {
-				'@type': 'ContactPoint',
-				'contactType': 'Press Inquiries',
-				'email': 'press@bittasker.com',
-				'availableLanguage': 'English'
 			}
 		}
 	};

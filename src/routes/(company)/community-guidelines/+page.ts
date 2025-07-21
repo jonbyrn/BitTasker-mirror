@@ -23,18 +23,6 @@ export const load: PageLoad = async () => {
 				'@type': 'Article',
 				'headline': 'Community Guidelines - BitTasker Platform Rules',
 				'description': 'Comprehensive guidelines for proper behavior and conduct on the BitTasker platform',
-				'author': {
-					'@type': 'Organization',
-					'name': 'BitTasker'
-				},
-				'publisher': {
-					'@type': 'Organization',
-					'name': 'BitTasker',
-					'logo': {
-						'@type': 'ImageObject',
-						'url': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg'
-					}
-				},
 				'datePublished': '2024-01-15',
 				'dateModified': '2024-01-15'
 			}
