@@ -253,13 +253,7 @@
 									<span class="font-medium">{$t('footer.post_task')}</span>
 								</a>
 							</li>
-							<li>
-								<a href="/how-it-works" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.how_it_works')}</span>
-								</a>
-							</li>
+						
 							<li>
 								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"

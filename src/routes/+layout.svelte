@@ -196,14 +196,8 @@
 						<div>
 							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h3>
 							<ul class="space-y-2">
-								<li>
-									<a href="/dashboard/create-task" class="hover:text-primary"
-										>{$t('footer.post_task')}</a
-									>
-								</li>
-								<li>
-									<a href="/how-it-works" class="hover:text-primary">{$t('footer.how_it_works')}</a>
-								</li>
+								
+								
 								<li><a href="/tasker-fees" class="hover:text-primary">{$t('footer.tasker_fees')}</a></li>
 								<li><a href="/escrow" class="hover:text-primary">{$t('footer.escrow')}</a></li>
 								<li><a href="/faq" class="hover:text-primary">{$t('footer.faq')}</a></li>

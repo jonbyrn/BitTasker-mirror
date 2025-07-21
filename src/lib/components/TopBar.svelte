@@ -267,9 +267,7 @@
 						<li>
 							<a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a>
 						</li>
-						<li>
-							<a href="/how-it-works" onclick={closeDropdowns}>{$t('footer.how_it_works')}</a>
-						</li>
+						
 						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
 						<li><a href="/escrow" onclick={closeDropdowns}>{$t('footer.escrow')}</a></li>
 						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.faq')}</a></li>
