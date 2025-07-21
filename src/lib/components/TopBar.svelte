@@ -213,9 +213,7 @@
 		{#if isDesktopLayout || (!isLoggedIn && !$showBackButton)}
 			<a href="/">
 				<img
-					src={$darkMode
-						? '/images/Bittasker-logo-no-tagline-dark.svg'
-						: '/images/Bittasker-logo-no-tagline-light.svg'}
+					src="/images/Logos/BitTasker-square-logo.svg"
 					alt="BitTasker Logo"
 					class="mx-auto block max-h-10"
 				/>
@@ -361,7 +359,7 @@
 							<span class="font-medium uppercase">{$locale}</span>
 						</summary>
 						<ul
-							class="menu dropdown-content bg-base-100 rounded-box right-0 z-1 w-52 p-2 shadow-sm"
+							class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
 						>
 							{#each LANGUAGES as { code, name, flag }}
 								<li>

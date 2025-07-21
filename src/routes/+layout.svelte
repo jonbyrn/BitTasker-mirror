@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { Preferences } from '@capacitor/preferences';
-	import { page } from '$app/state';
+	import { page } from '$app/stores';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
 	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
@@ -11,6 +11,9 @@
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
+
+	// Global SEO JSON-LD
+	import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD, BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
 
 	// Import FontAwesome CSS
 	import '$lib/styles/fontawesome.css';
@@ -24,9 +27,11 @@
 	let height = $state(window.innerHeight);
 	let isLandingPage = $state(false);
 
+	let breadcrumbList = $state({});
+
 	// Update layout based on current route
 	$effect(() => {
-		const path = page.url.pathname;
+		const path = $page.url.pathname;
 		// Determine if on landing page (homepage, how-it-works, etc.)
 		isLandingPage = path === '/' || path === '/how-it-works' || path.startsWith('/auth');
 
@@ -35,6 +40,23 @@
 
 		// Only show bottom bar in dashboard routes
 		showFooterSection = path.includes('/dashboard');
+
+		// Generate breadcrumbs
+		if (path !== '/') {
+			const segments = path.split('/').filter(Boolean);
+			breadcrumbList = {
+				'@context': 'https://schema.org',
+				'@type': 'BreadcrumbList',
+				itemListElement: segments.map((segment, i) => ({
+					'@type': 'ListItem',
+					position: i + 1,
+					name: segment.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+					item: `https://bittasker.com/${segments.slice(0, i + 1).join('/')}`
+				}))
+			};
+		} else {
+			breadcrumbList = {};
+		}
 	});
 
 	$effect(() => {
@@ -66,6 +88,23 @@
 		return cleanup;
 	});
 </script>
+
+<svelte:head>
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="BitTasker" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Global JSON-LD structured data for SEO -->
+    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
+    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
+    {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
+    {#if $page.url.pathname !== '/'}
+	    {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
+    {/if}
+</svelte:head>
 
 <svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
@@ -264,3 +303,4 @@
 	<!-- Toast notifications -->
 	<Toast />
 </main>
+

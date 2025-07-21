@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
 
@@ -19,7 +20,7 @@
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="Taskee Principles - BitTasker" />
@@ -30,7 +31,7 @@
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
@@ -42,13 +43,7 @@
 <div class="container mx-auto px-4 py-12 md:px-8">
 	<div class="hero bg-base-200 mb-8 py-8">
 		<div class="hero-content flex-col text-center">
-			<img
-				src={$darkMode
-					? '/images/Bittasker-logo-tagline-dark.svg'
-					: '/images/Bittasker-logo-tagline-light.svg'}
-				alt="BitTasker Logo"
-				class="mx-auto mb-4 block md:min-w-[500px]"
-			/>
+			<Logo />
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">{$t('taskee_principles.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">{$t('taskee_principles.subtitle')}</p>

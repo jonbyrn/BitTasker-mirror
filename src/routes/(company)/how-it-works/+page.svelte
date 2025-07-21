@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { darkMode } from '$lib/stores/theme.store';
 
@@ -43,7 +44,7 @@
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="How BitTasker Works - Bitcoin Task Marketplace" />
@@ -54,7 +55,7 @@
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
@@ -67,13 +68,7 @@
 	<!-- Hero Section -->
 	<div class="hero bg-base-200 py-8">
 		<div class="hero-content flex-col text-center">
-			<img
-				src={$darkMode
-					? '/images/Bittasker-logo-tagline-dark.svg'
-					: '/images/Bittasker-logo-tagline-light.svg'}
-				alt="BitTasker Logo"
-				class="mx-auto mb-4 block md:min-w-[500px]"
-			/>
+			<Logo />
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">{$t('how_it_works.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">

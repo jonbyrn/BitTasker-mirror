@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
 
@@ -25,7 +26,7 @@
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="Contact BitTasker - Support & Partnership Inquiries" />
@@ -36,7 +37,7 @@
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
@@ -46,13 +47,7 @@
 </svelte:head>
 
 <div class="container mx-auto p-4 py-8 md:p-12">
-	<img
-		src={$darkMode
-			? '/images/Bittasker-logo-tagline-dark.svg'
-			: '/images/Bittasker-logo-tagline-light.svg'}
-		alt="BitTasker Logo"
-		class="mx-auto mb-4 block md:min-w-[500px]"
-	/>
+	<Logo />
 	<div class="text-center">
 		<h1 class="text-4xl font-bold">{$t('contact.title')}</h1>
 		<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">

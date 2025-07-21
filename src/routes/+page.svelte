@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { onMount, onDestroy } from 'svelte';
 	import { darkMode } from '$lib/stores/theme.store';
@@ -91,16 +92,10 @@
 
 <div class="min-h-screen">
 	<!-- Section 1: Hero Section -->
-	<section class="hero bg-base-100 text-base-content min-h-[60vh]">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content text-center">
 			<div class="max-w-2xl">
-				<img
-					src={$darkMode
-						? '/images/Bittasker-logo-tagline-dark.svg'
-						: '/images/Bittasker-logo-tagline-light.svg'}
-					alt="BitTasker Logo"
-					class="mx-auto mb-4 block md:min-w-[500px]"
-				/>
+				<Logo />
 				<p class="py-6">{$t('homepage.v2.hero.description')}</p>
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
