@@ -228,7 +228,7 @@
 	<section class="bg-base-200 py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
-				<h2 class="text-3xl font-bold">{$t('homepage.v2.livetasks.title')}</h2>
+				<h2 class="text-base">{$t('homepage.v2.livetasks.title')}</h2>
 				<a href="/dashboard/find-tasks" class="btn btn-link text-primary"
 					>{$t('common.view_all')}
 					<svg

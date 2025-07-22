@@ -12,7 +12,7 @@
 	</figure>
 	<div class="card-body flex-1 flex flex-col">
 		<div class="h-14 mb-2"> <!-- Fixed height container for title -->
-			<h2 class="card-title text-lg line-clamp-2 min-h-[3.5rem]">{task.title}</h2>
+			<h6 class="card-title text-lg line-clamp-2 min-h-[3.5rem]">{task.title}</h6>
 		</div>
 		<div class="flex items-center justify-between">
 			<span class="text-lg font-bold text-accent">${task.budget}</span>
