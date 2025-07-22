@@ -53,7 +53,7 @@
 			<Logo />
 
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('fees.title')}</h1>
+				<h1 class="text-5xl">{$t('fees.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('fees.subtitle')}
 				</p>
@@ -61,10 +61,10 @@
 		</div>
 	</section>
 
-	<div class="prose mx-auto max-w-4xl pb-12 px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12">
-			<h2 class="text-2xl font-bold">{$t('fees.structure.title')}</h2>
-			<p class="text-base-content/80 mt-4 text-lg">
+							<h2>{$t('fees.structure.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
 				{$t('fees.structure.description')}
 			</p>
 		</div>
@@ -93,7 +93,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.1.badge')}</div>
-					<h3 class="card-title text-lg">{$t('fees.tiers.1.title')}</h3>
+					<h3 class="card-title">{$t('fees.tiers.1.title')}</h3>
 					<div class="mb-4 flex justify-center">
 						<img
 							src="/images/BitTasker-Nakamoto-Newbie-512x512.webp"
@@ -110,7 +110,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
+					<div class="text-sm text-base-content/80">
 						<p>{$t('fees.tiers.1.example')}</p>
 					</div>
 				</div>
@@ -120,7 +120,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.2.badge')}</div>
-					<h3 class="card-title text-lg font-bold">{$t('fees.tiers.2.title')}</h3>
+					<h3 class="card-title">{$t('fees.tiers.2.title')}</h3>
 					<div class="mb-4 flex justify-center">
 						<img
 							src="/images/BitTasker-Satoshi-Stacker-512x512.webp"
@@ -137,7 +137,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
+					<div class="text-sm text-base-content/80">
 						<p>{$t('fees.tiers.2.example')}</p>
 					</div>
 				</div>
@@ -147,7 +147,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.3.badge')}</div>
-					<h3 class="card-title text-lg font-bold">{$t('fees.tiers.3.title')}</h3>
+					<h3 class="card-title">{$t('fees.tiers.3.title')}</h3>
 					<div class="mb-4 flex justify-center">
 						<img
 							src="/images/BitTasker-Hash-Master-512x512.webp"
@@ -164,15 +164,15 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
+					<div class="text-sm text-base-content/80">
 						<p>{$t('fees.tiers.3.example')}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<h2 class="text-2xl">{$t('fees.bitcoin.title')}</h2>
-		<p class="text-base-content/80 mt-4 text-lg">
+		<h2>{$t('fees.bitcoin.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">
 			{@html $t('fees.bitcoin.description')}
 		</p>
 
@@ -222,8 +222,8 @@
 			<span>{@html $t('fees.bitcoin.example')}</span>
 		</div>
 
-		<h2 class="text-2xl font-bold">{$t('fees.repeat.title')}</h2>
-		<p class="text-base-content/80 mt-4 text-lg">{$t('fees.repeat.description')}</p>
+		<h2>{$t('fees.repeat.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">{$t('fees.repeat.description')}</p>
 
 		<div class="card bg-base-100 border-success my-6 border shadow-lg">
 			<div class="card-body">
@@ -233,13 +233,13 @@
 					<li>{@html $t('fees.repeat_bonus.item_1')}</li>
 					<li>{@html $t('fees.repeat_bonus.item_2')}</li>
 				</ul>
-				<p class="mt-3 text-sm opacity-80">{$t('fees.repeat_bonus.note_1')}</p>
-				<p class="mt-3 text-sm opacity-80">{$t('fees.repeat_bonus.note_2')}</p>
+									<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_1')}</p>
+					<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_2')}</p>
 			</div>
 		</div>
 
-		<h2 class="text-2xl font-bold">{$t('fees.benefits.title')}</h2>
-		<p class="text-base-content/80 mt-4 text-lg">{$t('fees.benefits.description')}</p>
+		<h2>{$t('fees.benefits.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">{$t('fees.benefits.description')}</p>
 		<ul class="text-base-content/80 mt-4 list-inside list-disc">
 			<li>{@html $t('fees.benefits.item_1')}</li>
 			<li>{@html $t('fees.benefits.item_2')}</li>
@@ -247,13 +247,13 @@
 			<li>{@html $t('fees.benefits.item_4')}</li>
 		</ul>
 
-		<h2 class="mt-10 text-2xl font-bold">{$t('fees.maintenance.title')}</h2>
-		<p class="text-base-content/80 mt-4 text-lg">{$t('fees.maintenance.description')}</p>
+		<h2 class="mt-10">{$t('fees.maintenance.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">{$t('fees.maintenance.description')}</p>
 
 		<div class="divider my-8"></div>
 
 		<div class="mt-6 mb-12 flex flex-col items-center text-center">
-			<h3 class="text-xl font-semibold">{$t('fees.cta.title')}</h3>
+			<h3>{$t('fees.cta.title')}</h3>
 			<a href="/sign-up" class="btn btn-primary mt-4">{$t('fees.cta.button')}</a>
 		</div>
 	</div>

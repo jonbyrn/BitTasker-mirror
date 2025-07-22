@@ -58,21 +58,21 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl font-bold">{$t('guidelines.title')}</h1>
+					<h1 class="text-5xl">{$t('guidelines.title')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
 						{@html $t('guidelines.intro')}
 					</p>
-					<p class="text-base-content/70 text-sm">
+					<p class="text-base-content/80 text-sm">
 						{$t('guidelines.last_updated')}
 					</p>
 				</div>
 			</div>
 	</section>
 
-	<div class="mx-auto my-8 max-w-4xl px-8 py-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-4 flex items-baseline gap-4">
 			<div class="badge badge-primary badge-lg">1</div>
-			<h3 class="text-2xl font-bold">{$t('guidelines.section_taskers.title')}</h3>
+			<h3>{$t('guidelines.section_taskers.title')}</h3>
 		</div>
 
 		<div class="card bg-base-100 my-4 shadow-lg">
@@ -106,7 +106,7 @@
 
 		<div class="my-4 flex items-baseline gap-4 pt-8">
 			<div class="badge badge-primary badge-lg">2</div>
-			<h3 class="text-2xl font-bold">{$t('guidelines.section_taskees.title')}</h3>
+			<h3>{$t('guidelines.section_taskees.title')}</h3>
 		</div>
 
 		<div class="card bg-base-100 mt-4 shadow-lg">
@@ -140,9 +140,9 @@
 	</div>
 
 	<!-- Trust & Safety Section -->
-	<div class="flex justify-center px-8 pb-12">
+	<div class="flex justify-center px-8 my-16">
 		<div class="bg-base-200 rounded-box w-full max-w-4xl p-6 text-center">
-			<h3 class="mb-4 text-2xl font-bold">{$t('guidelines.trust.title')}</h3>
+			<h3 class="mb-4">{$t('guidelines.trust.title')}</h3>
 			<p class="text-base-content/80 mb-4">
 				{@html $t('guidelines.trust.part1')}
 			</p>

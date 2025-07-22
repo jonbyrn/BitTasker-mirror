@@ -70,7 +70,7 @@
 		</div>
 	</section>
 
-	<div class="mx-auto mt-12 max-w-4xl space-y-8 px-8 pb-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6">
 			<h2 class="mb-4 text-2xl font-bold">{$t('faq.general')}</h2>

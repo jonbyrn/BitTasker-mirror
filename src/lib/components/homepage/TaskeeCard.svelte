@@ -14,7 +14,7 @@
 				<img src={taskee.avatar} alt="Avatar of {taskee.name}" />
 			</div>
 		</div>
-		<h3 class="card-title mt-4">{taskee.name}</h3>
+		<h6 class="card-title mt-4">{taskee.name}</h6>
 		<p class="text-base-content/70 h-12 line-clamp-2 overflow-hidden">{taskee.skills}</p>
 		<div class="mt-2 flex items-center gap-2">
 			<div class="badge badge-accent font-bold">★ {taskee.rating.toFixed(1)}</div>

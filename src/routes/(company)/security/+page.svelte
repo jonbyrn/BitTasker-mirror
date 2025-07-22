@@ -60,7 +60,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('about.security.title')}</h1>
+				<h1 class="text-5xl">{$t('about.security.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('about.security.description')}
 				</p>
@@ -69,10 +69,10 @@
 	</section>
 
 	<!-- Security Overview -->
-	<div class="prose mx-auto max-w-4xl pb-12 px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2 class="text-4xl font-bold">{$t('about.security_approach.title')}</h2>
-			<p class="text-base-content/80 mt-4 text-lg">
+			<h2>{$t('about.security_approach.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about.security_approach.description')}
 			</p>
 
@@ -91,7 +91,7 @@
 					></path>
 				</svg>
 				<div>
-					<p class="font-semibold">{$t('about.security_approach.alert_title')}</p>
+					<p class="font-medium">{$t('about.security_approach.alert_title')}</p>
 					<p class="text-sm">
 						{$t('about.security_approach.alert_text')}
 					</p>
@@ -104,7 +104,7 @@
 			<!-- Passkeys -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
+					<h3 class="card-title">
 						<span class="badge badge-primary mr-2">1</span>{$t('about.security_passkeys.title')}
 					</h3>
 					<p>
@@ -142,7 +142,7 @@
 			<!-- Account Recovery -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
+					<h3 class="card-title">
 						<span class="badge badge-primary mr-2">2</span>{$t('about.security_recovery.title')}
 					</h3>
 					<p>{$t('about.security_recovery.description')}</p>
@@ -177,7 +177,7 @@
 			<!-- Client-Side Encryption -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
+					<h3 class="card-title">
 						<span class="badge badge-primary mr-2">3</span>{$t('about.security_encryption.title')}
 					</h3>
 					<p>{$t('about.security_encryption.description')}</p>
@@ -212,7 +212,7 @@
 			<!-- Bitcoin Wallet Security -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
+					<h3 class="card-title">
 						<span class="badge badge-primary mr-2">4</span>{$t('about.security_wallet.title')}
 					</h3>
 					<p>{$t('about.security_wallet.description')}</p>
@@ -247,12 +247,12 @@
 
 		<!-- Additional Security Measures -->
 		<div class="mt-16">
-			<h2 class="mb-8 text-center text-3xl font-bold">{$t('about.additional_security.title')}</h2>
+			<h2 class="mb-8 text-center">{$t('about.additional_security.title')}</h2>
 
 			<!-- Decentralized Identity -->
 			<div class="card bg-base-100 border-base-300 mb-8 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">{$t('about.additional_security.identity_title')}</h3>
+					<h3 class="card-title">{$t('about.additional_security.identity_title')}</h3>
 					<p>{$t('about.additional_security.identity_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg
@@ -276,7 +276,7 @@
 			<!-- Escrow System Security -->
 			<div class="card bg-base-100 border-base-300 mb-8 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">{$t('about.additional_security.escrow_title')}</h3>
+					<h3 class="card-title">{$t('about.additional_security.escrow_title')}</h3>
 					<p>{$t('about.additional_security.escrow_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg
@@ -300,7 +300,7 @@
 			<!-- Privacy-Focused Communication -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">{$t('about.additional_security.privacy_title')}</h3>
+					<h3 class="card-title">{$t('about.additional_security.privacy_title')}</h3>
 					<p>{$t('about.additional_security.privacy_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg
@@ -324,7 +324,7 @@
 
 		<!-- Security Best Practices -->
 		<div class="mt-16">
-			<h2 class="mb-8 text-center text-3xl font-bold">{$t('about.security_practices.title')}</h2>
+			<h2 class="mb-8 text-center">{$t('about.security_practices.title')}</h2>
 
 			<div class="alert alert-warning alert-outline mb-8">
 				<svg
@@ -417,7 +417,7 @@
 
 		<!-- Security Commitment -->
 		<div class="mt-16 text-center">
-			<h2 class="mb-4 text-3xl font-bold">{$t('about.security_commitment.title')}</h2>
+			<h2 class="mb-4">{$t('about.security_commitment.title')}</h2>
 			<p class="mx-auto max-w-2xl text-lg">
 				{$t('about.security_commitment.description')}
 			</p>

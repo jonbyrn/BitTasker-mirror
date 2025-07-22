@@ -67,6 +67,10 @@
   content: "\f04b";
 }
 
+.fa-tiktok:before {
+  content: "\e07b";
+}
+
 /* Sizing */
 .fa-lg {
   font-size: 1.25em;

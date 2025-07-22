@@ -220,6 +220,13 @@
 								<i class="fa-brands fa-reddit"></i>
 							</a>
 							<a
+								href="https://tiktok.com/@bittasker"
+								class="hover:text-primary text-lg"
+								aria-label="BitTasker on TikTok"
+							>
+								<i class="fa-brands fa-tiktok"></i>
+							</a>
+							<a
 								href="https://rumble.com/c/bittasker"
 								class="hover:text-primary text-lg"
 								aria-label="BitTasker on Rumble"

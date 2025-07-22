@@ -46,7 +46,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl font-bold">{$t('how_it_works.hero.heading')}</h1>
+					<h1 class="text-5xl">{$t('how_it_works.hero.heading')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('how_it_works.hero.tagline')}
 					</p>
@@ -55,10 +55,10 @@
 	</section>
 
 	<!-- Our Mission Section -->
-	<div class="prose mx-auto max-w-4xl py-8 px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2 class="text-4xl font-bold">{$t('about.mission.title')}</h2>
-			<p class="text-base-content/80 mt-4 text-lg">
+			<h2>{$t('about.mission.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about.mission.description')}
 			</p>
 		</div>
@@ -67,7 +67,7 @@
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
 				<div class="mb-6 text-center">
-					<h2 class="text-4xl font-bold">{$t('about.core_beliefs.title')}</h2>
+					<h2>{$t('about.core_beliefs.title')}</h2>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
@@ -81,21 +81,21 @@
 						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">{$t('about.core_beliefs.bitcoin_title')}</h4>
+									<h4 class="card-title">{$t('about.core_beliefs.bitcoin_title')}</h4>
 									<p>{$t('about.core_beliefs.bitcoin_text')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">{$t('about.core_beliefs.tasks_title')}</h4>
+									<h4 class="card-title">{$t('about.core_beliefs.tasks_title')}</h4>
 									<p>{$t('about.core_beliefs.tasks_text')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">
+									<h4 class="card-title">
 										{$t('about.core_beliefs.decentralization_title')}
 									</h4>
 									<p>{$t('about.core_beliefs.decentralization_text')}</p>
@@ -104,7 +104,7 @@
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">{$t('about.core_beliefs.sovereignty_title')}</h4>
+									<h4 class="card-title">{$t('about.core_beliefs.sovereignty_title')}</h4>
 									<p>{$t('about.core_beliefs.sovereignty_text')}</p>
 								</div>
 							</div>
@@ -117,7 +117,7 @@
 		<!-- Step 6: Our Platform -->
 		<div class="mb-12">
 			<div class="mb-6 text-center">
-				<h2 class="text-4xl font-bold">{$t('about.platform.title')}</h2>
+				<h2>{$t('about.platform.title')}</h2>
 				<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
 					{$t('about.platform.description')}
 				</p>
@@ -128,7 +128,7 @@
 					<div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
-								<h4 class="card-title text-lg font-semibold">
+								<h4 class="card-title">
 									{$t('about.platform.features.communication.title')}
 								</h4>
 								<p class="text-base-content/80">
@@ -139,7 +139,7 @@
 
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
-								<h4 class="card-title text-lg font-semibold">
+								<h4 class="card-title">
 									{$t('about.platform.features.lightning.title')}
 								</h4>
 								<p class="text-base-content/80">
@@ -150,7 +150,7 @@
 
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
-								<h4 class="card-title text-lg font-semibold">
+								<h4 class="card-title">
 									{$t('about.platform.features.escrow.title')}
 								</h4>
 								<p class="text-base-content/80">
@@ -161,7 +161,7 @@
 
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
-								<h4 class="card-title text-lg font-semibold">
+								<h4 class="card-title">
 									{$t('about.platform.features.fiat.title')}
 								</h4>
 								<p class="text-base-content/80">{$t('about.platform.features.fiat.description')}</p>
@@ -171,7 +171,7 @@
 
 					<div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
 						<div class="flex-1">
-							<h4 class="mb-2 text-lg font-semibold">
+							<h4 class="mb-2">
 								{$t('about.platform.features.marketplace.title')}
 							</h4>
 							<ul class="text-base-content/80 list-inside list-disc space-y-1">
@@ -181,7 +181,7 @@
 						</div>
 
 						<div class="flex-1">
-							<h4 class="mb-2 text-lg font-semibold">
+							<h4 class="mb-2">
 								{$t('about.platform.features.global.title')}
 							</h4>
 							<ul class="text-base-content/80 list-inside list-disc space-y-1">

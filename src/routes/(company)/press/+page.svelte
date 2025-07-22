@@ -49,7 +49,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('press.title')}</h1>
+				<h1 class="text-5xl">{$t('press.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('press.description')}
 				</p>
@@ -58,11 +58,11 @@
 	</section>
 
 	<!-- Content Sections -->
-	<div class="mx-auto max-w-4xl space-y-12 py-16 px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- Media Kit -->
 		<div class="card bg-base-100 shadow-lg">
 			<div class="card-body">
-				<h2 class="mb-4 text-2xl font-bold">{$t('press.media_kit.title')}</h2>
+				<h2 class="mb-4">{$t('press.media_kit.title')}</h2>
 				<p class="mb-6">{$t('press.media_kit.description')}</p>
 				<div class="flex flex-wrap gap-4">
 					<a
@@ -80,20 +80,20 @@
 						{$t('press.media_kit.guidelines')}
 					</a>
 				</div>
-				<p class="text-base-content/60 mt-4 text-sm">{$t('press.media_kit.coming_soon')}</p>
+				<p class="text-base-content/80 mt-4 text-sm">{$t('press.media_kit.coming_soon')}</p>
 			</div>
 		</div>
 
 		<!-- About BitTasker -->
 		<div class="prose max-w-none">
-			<h2 class="text-2xl font-bold">{$t('press.about.title')}</h2>
+			<h2>{$t('press.about.title')}</h2>
 			<p>{$t('press.about.description')}</p>
 		</div>
 
 		<!-- Media Inquiries -->
 		<div class="card bg-base-100 text-center shadow-lg">
 			<div class="card-body text-center">
-				<h2 class="mb-4 text-2xl font-bold">{$t('press.inquiries.title')}</h2>
+				<h2 class="mb-4">{$t('press.inquiries.title')}</h2>
 				<p class="mx-auto mb-6 max-w-lg">{$t('press.inquiries.description')}</p>
 				<div class="card-actions mt-4 flex justify-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide">
