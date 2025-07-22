@@ -61,7 +61,7 @@
 			<Logo />
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">{$t('about.security.title')}</h1>
-				<p class="text-base-content/80 mx-auto mt-4 max-w-3xl text-lg">
+				<p class="text-base-content/80 py-6 text-lg">
 					{$t('about.security.description')}
 				</p>
 			</div>

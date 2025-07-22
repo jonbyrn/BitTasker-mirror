@@ -59,9 +59,9 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 			<div class="hero-content flex-col text-center">
 				<Logo />
-				<div class="text-center">
-					<h1 class="text-4xl font-bold">Frequently Asked Questions</h1>
-					<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+				<div class="text-center max-w-3xl">
+					<h1 class="text-5xl font-bold">Frequently Asked Questions</h1>
+					<p class="text-base-content/80 py-6 text-lg">
 						Common questions about how BitTasker works for both taskers and taskees.
 					</p>
 				</div>

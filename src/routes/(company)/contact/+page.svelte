@@ -50,9 +50,9 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 			<div class="hero-content flex-col text-center">
 				<Logo />
-				<div class="text-center">
-					<h1 class="text-4xl font-bold">{$t('contact.title')}</h1>
-					<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
+				<div class="text-center max-w-3xl">
+					<h1 class="text-5xl font-bold">{$t('contact.title')}</h1>
+					<p class="text-base-content/80 py-6 text-lg">
 						{$t('contact.description')}
 					</p>
 				</div>

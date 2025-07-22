@@ -45,8 +45,8 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-4xl font-bold">{$t('privacy.title')}</h1>
-				<p class="text-base-content/80 mx-auto mt-4 max-w-3xl text-lg">
+				<h1 class="text-5xl font-bold">{$t('privacy.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">
 					{$t('privacy.subtitle')}
 				</p>
 				<p class="text-base-content/70 mt-2 text-sm">
