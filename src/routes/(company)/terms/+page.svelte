@@ -40,19 +40,23 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-12 md:py-16">
-	<div class="text-center">
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+		<div class="hero-content flex-col text-center">
 		<Logo />
-		<h1 class="text-4xl font-bold">{$t('terms.title')}</h1>
-		<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
-			{$t('terms.subtitle')}
-		</p>
-		<p class="text-base-content/70 mt-2 text-sm">
-			{$t('terms.last_updated')}
-		</p>
-	</div>
+			<div class="max-w-3xl">
+				<h1 class="text-4xl font-bold">{$t('terms.title')}</h1>
+				<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
+					{$t('terms.subtitle')}
+				</p>
+				<p class="text-base-content/70 mt-2 text-sm">
+					{$t('terms.last_updated')}
+				</p>
+			</div>
+		</div>
+	</section>
 
-	<div class="prose mx-auto mt-12 max-w-4xl">
+	<div class="prose mx-auto mt-12 max-w-4xl px-8 pb-12">
 		<!-- Aquí empieza el contenido de los términos -->
 
 		<p>{@html $t('terms.intro')}</p>

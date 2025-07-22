@@ -55,16 +55,20 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto p-4 py-8 md:p-12">
-	<div class="text-center">
-		<Logo />
-		<h1 class="text-4xl font-bold">Frequently Asked Questions</h1>
-		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Common questions about how BitTasker works for both taskers and taskees.
-		</p>
-	</div>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+			<div class="hero-content flex-col text-center">
+				<Logo />
+				<div class="text-center">
+					<h1 class="text-4xl font-bold">Frequently Asked Questions</h1>
+					<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
+						Common questions about how BitTasker works for both taskers and taskees.
+					</p>
+				</div>
+			</div>
+	</section>
 
-	<div class="mx-auto mt-12 max-w-4xl space-y-8">
+	<div class="mx-auto mt-12 max-w-4xl space-y-8 px-8 pb-12">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6">
 			<h2 class="mb-4 text-2xl font-bold">General</h2>

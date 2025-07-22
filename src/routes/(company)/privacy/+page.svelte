@@ -40,19 +40,23 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto p-4 py-8 md:p-12">
-	<div class="text-center">
-		<Logo />
-		<h1 class="text-4xl font-bold">{$t('privacy.title')}</h1>
-		<p class="text-base-content/80 mx-auto mt-4 max-w-3xl text-lg">
-			{$t('privacy.subtitle')}
-		</p>
-		<p class="text-base-content/70 mt-2 text-sm">
-			{$t('privacy.last_updated')}
-		</p>
-	</div>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl">
+				<h1 class="text-4xl font-bold">{$t('privacy.title')}</h1>
+				<p class="text-base-content/80 mx-auto mt-4 max-w-3xl text-lg">
+					{$t('privacy.subtitle')}
+				</p>
+				<p class="text-base-content/70 mt-2 text-sm">
+					{$t('privacy.last_updated')}
+				</p>
+			</div>
+		</div>
+	</section>
 
-	<div class="prose mx-auto mt-12 max-w-4xl">
+	<div class="prose mx-auto mt-12 max-w-4xl px-8 pb-12">
 		<h2>{$t('privacy.sections.philosophy.title')}</h2>
 		<p>{@html $t('privacy.sections.philosophy.content')}</p>
 

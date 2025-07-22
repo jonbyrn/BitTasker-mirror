@@ -64,9 +64,8 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
@@ -76,10 +75,10 @@
 				</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<!-- Overview Section -->
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl py-8 px-8">
 		<div class="mb-12 text-center">
 			<h2 class="text-4xl font-bold">{$t('how_it_works.overview.title')}</h2>
 			<p class="text-base-content/80 mt-4 text-lg">
@@ -535,7 +534,7 @@
 	</div>
 
 	<!-- CTA Section -->
-	<div class="mx-auto max-w-4xl py-16 text-center">
+	<div class="mx-auto max-w-4xl py-16 text-center px-8">
 		<h3 class="mb-4 text-3xl font-bold">{$t('common.cta_title')}</h3>
 		<p class="text-base-content/80 mx-auto mb-8 max-w-2xl text-lg">
 			{$t('common.cta_description')}

@@ -40,8 +40,8 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-12 md:px-8">
-	<div class="hero bg-base-200 mb-8 py-8">
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
@@ -49,9 +49,9 @@
 				<p class="text-base-content/80 py-6 text-lg">{$t('taskee_principles.subtitle')}</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
-	<div class="mx-auto mb-8 max-w-4xl">
+	<div class="mx-auto mb-8 max-w-4xl px-8 py-12">
 		<div class="mb-4 flex items-baseline gap-4">
 			<h3 class="text-2xl font-bold">{$t('taskee_principles.title')}</h3>
 		</div>

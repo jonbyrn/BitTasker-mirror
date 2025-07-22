@@ -47,17 +47,10 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<div class="hero bg-base-200 py-8">
+<div class="min-h-screen">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
-			<img
-				src={$darkMode
-					? '/images/Bittasker-logo-tagline-dark.svg'
-					: '/images/Bittasker-logo-tagline-light.svg'}
-				alt="BitTasker Logo"
-				class="mx-auto mb-4 block md:min-w-[500px]"
-			/>
-
+			<Logo />
 			<div class="max-w-3xl">
 				<h1 class="text-5xl font-bold">{$t('tasker.fees.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
@@ -65,7 +58,7 @@
 				</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<div class="prose mx-auto max-w-4xl py-8">
 		<div class="mb-12">
@@ -73,6 +66,7 @@
 			<p class="text-base-content/80 mt-4 text-lg">
 				{$t('tasker.fees.structure.description')}
 			</p>
+			<span><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskers with progressively lower fees.</span>
 		</div>
 
 		<div class="alert alert-success alert-outline mb-8">

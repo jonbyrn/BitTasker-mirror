@@ -44,9 +44,8 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
@@ -56,10 +55,10 @@
 				</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<!-- Content Sections -->
-	<div class="mx-auto max-w-4xl space-y-12 py-16">
+	<div class="mx-auto max-w-4xl space-y-12 py-16 px-8">
 		<!-- Media Kit -->
 		<div class="card bg-base-100 shadow-lg">
 			<div class="card-body">

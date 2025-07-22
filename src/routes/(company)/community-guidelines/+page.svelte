@@ -53,30 +53,29 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
-		<div class="hero-content flex-col text-center">
-			<Logo />
-			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('guidelines.title')}</h1>
-				<p class="text-base-content/80 py-6 text-lg">
-					{@html $t('guidelines.intro')}
-				</p>
-				<p class="text-base-content/70 text-sm">
-					{$t('guidelines.last_updated')}
-				</p>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+			<div class="hero-content flex-col text-center">
+				<Logo />
+				<div class="max-w-3xl">
+					<h1 class="text-5xl font-bold">{$t('guidelines.title')}</h1>
+					<p class="text-base-content/80 py-6 text-lg">
+						{@html $t('guidelines.intro')}
+					</p>
+					<p class="text-base-content/70 text-sm">
+						{$t('guidelines.last_updated')}
+					</p>
+				</div>
 			</div>
-		</div>
-	</div>
+	</section>
 
-	<div class="mx-auto mb-8 max-w-4xl">
+	<div class="mx-auto my-8 max-w-4xl px-8 py-8">
 		<div class="mb-4 flex items-baseline gap-4">
 			<div class="badge badge-primary badge-lg">1</div>
 			<h3 class="text-2xl font-bold">{$t('guidelines.section_taskers.title')}</h3>
 		</div>
 
-		<div class="card bg-base-100 mb-4 shadow-lg">
+		<div class="card bg-base-100 my-4 shadow-lg">
 			<div class="card-body">
 				<div class="join join-vertical w-full">
 					<!-- Taskers Accordion Items -->
@@ -105,12 +104,12 @@
 			</div>
 		</div>
 
-		<div class="mb-4 flex items-baseline gap-4">
+		<div class="my-4 flex items-baseline gap-4 pt-8">
 			<div class="badge badge-primary badge-lg">2</div>
 			<h3 class="text-2xl font-bold">{$t('guidelines.section_taskees.title')}</h3>
 		</div>
 
-		<div class="card bg-base-100 mb-4 shadow-lg">
+		<div class="card bg-base-100 mt-4 shadow-lg">
 			<div class="card-body">
 				<div class="join join-vertical w-full">
 					<!-- Taskees Accordion Items -->
@@ -141,7 +140,7 @@
 	</div>
 
 	<!-- Trust & Safety Section -->
-	<div class="mt-12 flex justify-center">
+	<div class="flex justify-center px-8 pb-12">
 		<div class="bg-base-200 rounded-box w-full max-w-4xl p-6 text-center">
 			<h3 class="mb-4 text-2xl font-bold">{$t('guidelines.trust.title')}</h3>
 			<p class="text-base-content/80 mb-4">

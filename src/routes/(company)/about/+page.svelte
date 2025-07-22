@@ -41,21 +41,21 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<div class="hero bg-base-200 py-8">
-		<div class="hero-content flex-col text-center">
-			<Logo />
-			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('how_it_works.hero.heading')}</h1>
-				<p class="text-base-content/80 py-6 text-lg">
-					{$t('how_it_works.hero.tagline')}
-				</p>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+			<div class="hero-content flex-col text-center">
+				<Logo />
+				<div class="max-w-3xl">
+					<h1 class="text-5xl font-bold">{$t('how_it_works.hero.heading')}</h1>
+					<p class="text-base-content/80 py-6 text-lg">
+						{$t('how_it_works.hero.tagline')}
+					</p>
+				</div>
 			</div>
-		</div>
-	</div>
+	</section>
 
 	<!-- Our Mission Section -->
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl py-8 px-8">
 		<div class="mb-12 text-center">
 			<h2 class="text-4xl font-bold">{$t('about.mission.title')}</h2>
 			<p class="text-base-content/80 mt-4 text-lg">

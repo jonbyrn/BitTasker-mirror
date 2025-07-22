@@ -55,9 +55,8 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
@@ -67,10 +66,10 @@
 				</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<!-- Security Overview -->
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl pb-12 px-8">
 		<div class="mb-12 text-center">
 			<h2 class="text-4xl font-bold">{$t('about.security_approach.title')}</h2>
 			<p class="text-base-content/80 mt-4 text-lg">

@@ -53,22 +53,21 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
-		<div class="hero-content flex-col text-center">
-			<Logo />
-			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('about.join.title')}</h1>
-				<p class="text-base-content/80 py-6 text-lg">
-					{$t('about.join.description')}
-				</p>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+			<div class="hero-content flex-col text-center">
+				<Logo />
+				<div class="max-w-3xl">
+					<h1 class="text-5xl font-bold">{$t('about.join.title')}</h1>
+					<p class="text-base-content/80 py-6 text-lg">
+						{$t('about.join.description')}
+					</p>
+				</div>
 			</div>
-		</div>
-	</div>
+	</section>
 
 	<!-- Our Culture Section -->
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl px-8">
 		<div class="mb-12 text-center">
 			<h2 class="text-4xl font-bold">{$t('about.culture.title')}</h2>
 			<p class="text-base-content/80 mt-4 text-lg">
@@ -77,7 +76,7 @@
 		</div>
 	</div>
 	<!-- Why Join BitTasker Section -->
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl px-8">
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
@@ -155,7 +154,7 @@
 	</div>
 
 	<!-- Open Positions -->
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl pb-8 px-8">
 		<div class="mb-4 flex items-baseline gap-4">
 			<div class="badge badge-primary badge-lg">{$t('careers.step_number')}</div>
 			<h3 class="text-2xl font-bold">{$t('careers.section_title')}</h3>
@@ -217,7 +216,7 @@
 	</div>
 
 	<!-- How to Apply Section -->
-	<div class="bg-base-200 py-16">
+	<div class="bg-base-200 pb-12 px-8">
 		<div class="container mx-auto px-4 md:px-8">
 			<div class="mx-auto max-w-3xl text-center">
 				<h2 class="mb-6 text-3xl font-bold">{$t('careers.how_to_apply.title')}</h2>
