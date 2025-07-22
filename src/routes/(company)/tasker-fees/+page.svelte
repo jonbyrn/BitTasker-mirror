@@ -47,7 +47,7 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="min-h-screen">
+<div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
@@ -60,7 +60,7 @@
 		</div>
 	</section>
 
-	<div class="prose mx-auto max-w-4xl py-8">
+	<div class="prose mx-auto max-w-4xl px-8 pb-12">
 		<div class="mb-12">
 			<h2 class="text-2xl font-bold">{$t('tasker.fees.structure.title')}</h2>
 			<p class="text-base-content/80 mt-4 text-lg">
