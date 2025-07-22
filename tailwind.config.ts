@@ -6,7 +6,9 @@ const config = {
 	content: ['./src/**/*.{html,js,svelte,ts}', './**/*.{ts,js}'],
 	safelist: [
 		// Dynamic width classes for Drawer component
-		'w-[10%]', 'w-[20%]', 'w-[30%]', 'w-[40%]', 'w-[50%]', 'w-[55%]', 'w-[60%]', 'w-[65%]', 'w-[70%]', 'w-[75%]', 'w-[80%]', 'w-[85%]', 'w-[90%]', 'w-[95%]', 'w-[100%]'
+		'w-[10%]', 'w-[20%]', 'w-[30%]', 'w-[40%]', 'w-[50%]', 'w-[55%]', 'w-[60%]', 'w-[65%]', 'w-[70%]', 'w-[75%]', 'w-[80%]', 'w-[85%]', 'w-[90%]', 'w-[95%]', 'w-[100%]',
+		// Font utility classes
+		'font-heading', 'font-display'
 	],
 	theme: {
 		container: {
@@ -18,7 +20,10 @@ const config = {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Inter var', ...defaultTheme.fontFamily.sans]
+				sans: ['Poppins', ...defaultTheme.fontFamily.sans],
+				heading: ['Droid Serif', 'Georgia', ...defaultTheme.fontFamily.serif],
+				display: ['Droid Serif', 'Georgia', ...defaultTheme.fontFamily.serif],
+				mono: ['JetBrains Mono', 'Fira Code', ...defaultTheme.fontFamily.mono]
 			},
 			keyframes: {
 				'fade-in': {
@@ -32,7 +37,7 @@ const config = {
 		}
 	},
 	plugins: [
-		function ({ addUtilities }) {
+		function ({ addUtilities, theme }) {
 			addUtilities({
 				'.scrollbar-hide': {
 					'-ms-overflow-style': 'none',
@@ -40,6 +45,12 @@ const config = {
 					'&::-webkit-scrollbar': {
 						display: 'none'
 					}
+				},
+				'.font-heading': {
+					'font-family': theme('fontFamily.heading').join(', ')
+				},
+				'.font-display': {
+					'font-family': theme('fontFamily.display').join(', ')
 				}
 			});
 		},

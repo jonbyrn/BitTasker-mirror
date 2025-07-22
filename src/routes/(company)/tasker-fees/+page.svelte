@@ -52,7 +52,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('tasker.fees.title')}</h1>
+				<h1 class="text-5xl">{$t('tasker.fees.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('tasker.fees.subtitle')}
 				</p>
@@ -60,10 +60,10 @@
 		</div>
 	</section>
 
-	<div class="prose mx-auto max-w-4xl px-8 pb-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12">
-			<h2 class="text-2xl font-bold">{$t('tasker.fees.structure.title')}</h2>
-			<p class="text-base-content/80 mt-4 text-lg">
+			<h2>{$t('tasker.fees.structure.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
 				{$t('tasker.fees.structure.description')}
 			</p>
 			<span><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskers with progressively lower fees.</span>
@@ -111,7 +111,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
+					<div class="text-sm text-base-content/80">
 						<p>{$t('tasker.fees.tier1.example')}</p>
 					</div>
 				</div>
@@ -138,7 +138,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
+					<div class="text-sm text-base-content/80">
 						<p>{$t('tasker.fees.tier2.example')}</p>
 					</div>
 				</div>
@@ -165,7 +165,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
+					<div class="text-sm text-base-content/80">
 						<p>{$t('tasker.fees.tier3.example')}</p>
 					</div>
 				</div>
@@ -232,8 +232,8 @@
 					<li>{@html $t('tasker.fees.rebooking.standard_fee')}</li>
 					<li>{@html $t('tasker.fees.rebooking.btc_fee')}</li>
 				</ul>
-				<p class="mt-3 text-sm opacity-80">{$t('tasker.fees.rebooking.example')}</p>
-				<p class="mt-3 text-sm opacity-80">{$t('tasker.fees.rebooking.counts_toward_tier')}</p>
+									<p class="mt-3 text-sm text-base-content/80">{$t('tasker.fees.rebooking.example')}</p>
+					<p class="mt-3 text-sm text-base-content/80">{$t('tasker.fees.rebooking.counts_toward_tier')}</p>
 			</div>
 		</div>
 

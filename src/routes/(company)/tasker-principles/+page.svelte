@@ -45,15 +45,15 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('taskee_principles.title')}</h1>
+				<h1 class="text-5xl">{$t('taskee_principles.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">{$t('taskee_principles.subtitle')}</p>
 			</div>
 		</div>
 	</section>
 
-	<div class="mx-auto mb-8 max-w-4xl px-8 py-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-4 flex items-baseline gap-4">
-			<h3 class="text-2xl font-bold">{$t('taskee_principles.title')}</h3>
+			<h3>{$t('taskee_principles.title')}</h3>
 		</div>
 
 		<div class="card bg-base-100 mb-4 shadow-lg">
@@ -70,7 +70,7 @@
 							<div class="flex items-center">
 								<i class="fa-solid fa-star text-primary mr-4 text-xl"></i>
 								<div>
-									<h4 class="font-semibold">{$t('taskee_principles.1.title')}</h4>
+									<h4 class="font-medium">{$t('taskee_principles.1.title')}</h4>
 									<p>{$t('taskee_principles.1.text')}</p>
 								</div>
 							</div>
@@ -82,7 +82,7 @@
 							<div class="flex items-center">
 								<i class="fa-solid fa-comments text-primary mr-4 text-xl"></i>
 								<div>
-									<h4 class="font-semibold">{$t('taskee_principles.2.title')}</h4>
+									<h4 class="font-medium">{$t('taskee_principles.2.title')}</h4>
 									<p>{$t('taskee_principles.2.text')}</p>
 								</div>
 							</div>
@@ -94,7 +94,7 @@
 							<div class="flex items-center">
 								<i class="fa-solid fa-check-circle text-primary mr-4 text-xl"></i>
 								<div>
-									<h4 class="font-semibold">{$t('taskee_principles.3.title')}</h4>
+									<h4 class="font-medium">{$t('taskee_principles.3.title')}</h4>
 									<p>{$t('taskee_principles.3.text')}</p>
 								</div>
 							</div>
@@ -106,7 +106,7 @@
 							<div class="flex items-center">
 								<i class="fa-solid fa-user-shield text-primary mr-4 text-xl"></i>
 								<div>
-									<h4 class="font-semibold">{$t('taskee_principles.4.title')}</h4>
+									<h4 class="font-medium">{$t('taskee_principles.4.title')}</h4>
 									<p>{$t('taskee_principles.4.text')}</p>
 								</div>
 							</div>
@@ -118,7 +118,7 @@
 							<div class="flex items-center">
 								<i class="fa-solid fa-handshake text-primary mr-4 text-xl"></i>
 								<div>
-									<h4 class="font-semibold">{$t('taskee_principles.5.title')}</h4>
+									<h4 class="font-medium">{$t('taskee_principles.5.title')}</h4>
 									<p>{$t('taskee_principles.5.text')}</p>
 								</div>
 							</div>

@@ -58,7 +58,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl font-bold">{$t('about.join.title')}</h1>
+					<h1 class="text-5xl">{$t('about.join.title')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('about.join.description')}
 					</p>
@@ -67,20 +67,20 @@
 	</section>
 
 	<!-- Our Culture Section -->
-	<div class="prose mx-auto max-w-4xl px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2 class="text-4xl font-bold">{$t('about.culture.title')}</h2>
-			<p class="text-base-content/80 mt-4 text-lg">
+			<h2>{$t('about.culture.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about.culture.description')}
 			</p>
 		</div>
 	</div>
 	<!-- Why Join BitTasker Section -->
-	<div class="prose mx-auto max-w-4xl px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<h3 class="text-2xl font-bold">{$t('why.join.bittasker')}</h3>
+					<h3>{$t('why.join.bittasker')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
@@ -94,7 +94,7 @@
 						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">{$t('careers.why_join.bitcoin_first.title')}</h4>
+									<h4 class="card-title">{$t('careers.why_join.bitcoin_first.title')}</h4>
 									<p>
 										{$t('careers.why_join.bitcoin_first.description')}
 									</p>
@@ -103,14 +103,14 @@
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">{$t('careers.why_join.fully_remote.title')}</h4>
+									<h4 class="card-title">{$t('careers.why_join.fully_remote.title')}</h4>
 									<p>{$t('careers.why_join.fully_remote.description')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">
+									<h4 class="card-title">
 										{$t('careers.why_join.innovation_driven.title')}
 									</h4>
 									<p>
@@ -121,7 +121,7 @@
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title text-lg">{$t('careers.why_join.mission_focused.title')}</h4>
+									<h4 class="card-title">{$t('careers.why_join.mission_focused.title')}</h4>
 									<p>
 										{$t('careers.why_join.mission_focused.description')}
 									</p>
@@ -154,10 +154,10 @@
 	</div>
 
 	<!-- Open Positions -->
-	<div class="prose mx-auto max-w-4xl pb-8 px-8">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-4 flex items-baseline gap-4">
 			<div class="badge badge-primary badge-lg">{$t('careers.step_number')}</div>
-			<h3 class="text-2xl font-bold">{$t('careers.section_title')}</h3>
+							<h3>{$t('careers.section_title')}</h3>
 		</div>
 
 		<div class="card bg-base-100 mb-4 shadow-lg">
@@ -180,10 +180,10 @@
 						</button>
 						<div class="collapse-content">
 							<div class="mt-4 space-y-4">
-								<h4 class="font-bold">{$t('careers.positions.dev.about_title')}</h4>
+								<h4 class="font-medium">{$t('careers.positions.dev.about_title')}</h4>
 								<p>{$t('careers.positions.dev.about_description')}</p>
 
-								<h4 class="font-bold">{$t('careers.positions.dev.responsibilities_title')}</h4>
+								<h4 class="font-medium">{$t('careers.positions.dev.responsibilities_title')}</h4>
 								<ul class="ml-5 list-disc space-y-1">
 									<li>{$t('careers.positions.dev.responsibility_1')}</li>
 									<li>{$t('careers.positions.dev.responsibility_2')}</li>
@@ -192,7 +192,7 @@
 									<li>{$t('careers.positions.dev.responsibility_5')}</li>
 								</ul>
 
-								<h4 class="font-bold">{$t('careers.positions.dev.qualifications_title')}</h4>
+								<h4 class="font-medium">{$t('careers.positions.dev.qualifications_title')}</h4>
 								<ul class="ml-5 list-disc space-y-1">
 									<li>{$t('careers.positions.dev.qual_1')}</li>
 									<li>{$t('careers.positions.dev.qual_2')}</li>
@@ -216,10 +216,10 @@
 	</div>
 
 	<!-- How to Apply Section -->
-	<div class="bg-base-200 pb-12 px-8">
-		<div class="container mx-auto px-4 md:px-8">
+	<div class="bg-base-200 my-16 px-8">
+		<div class="w-full py-16">
 			<div class="mx-auto max-w-3xl text-center">
-				<h2 class="mb-6 text-3xl font-bold">{$t('careers.how_to_apply.title')}</h2>
+				<h2 class="mb-6">{$t('careers.how_to_apply.title')}</h2>
 				<p class="mb-6">{$t('careers.how_to_apply.description')}</p>
 
 				<div class="card-body items-center text-center">

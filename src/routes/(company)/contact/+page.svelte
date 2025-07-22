@@ -50,8 +50,8 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 			<div class="hero-content flex-col text-center">
 				<Logo />
-				<div class="text-center max-w-3xl">
-					<h1 class="text-5xl font-bold">{$t('contact.title')}</h1>
+				<div class="max-w-3xl">
+					<h1 class="text-5xl">{$t('contact.title')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('contact.description')}
 					</p>
@@ -59,10 +59,11 @@
 			</div>
 	</section>
 
-	<div class="mt-12 flex justify-center pb-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
+		<div class="flex justify-center">
 		<div class="card border-base-300 bg-base-100 w-full max-w-md border shadow-xl">
 			<div class="card-body items-center text-center">
-				<h2 class="card-title text-2xl">{$t('contact.general_inquiries')}</h2>
+				<h2 class="card-title">{$t('contact.general_inquiries')}</h2>
 				<p>{$t('contact.general_info')}</p>
 				<div class="card-actions justify-end">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
@@ -72,5 +73,6 @@
 				</div>
 			</div>
 		</div>
+	</div>
 	</div>
 </div>

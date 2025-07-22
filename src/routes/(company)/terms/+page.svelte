@@ -45,18 +45,18 @@
 		<div class="hero-content flex-col text-center">
 		<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('terms.title')}</h1>
+				<h1 class="text-5xl">{$t('terms.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('terms.subtitle')}
 				</p>
-				<p class="text-base-content/70 mt-2 text-sm">
+				<p class="text-base-content/80 mt-2 text-sm">
 					{$t('terms.last_updated')}
 				</p>
 			</div>
 		</div>
 	</section>
 
-	<div class="prose mx-auto mt-12 max-w-4xl px-8 pb-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- Aquí empieza el contenido de los términos -->
 
 		<p>{@html $t('terms.intro')}</p>
@@ -79,7 +79,7 @@
 
 		<h2>{$t('terms.scope.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<p class="m-0 font-semibold">{$t('terms.scope.subsection')}</p>
+			<p class="m-0 font-medium">{$t('terms.scope.subsection')}</p>
 			<ul class="ml-5">
 				<li>{$t('terms.scope.point1')}</li>
 				<li>{$t('terms.scope.point2')}</li>

@@ -42,20 +42,19 @@
 
 <div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-		<div class="hero-content flex-col text-center">
-			<Logo />
-			<div class="max-w-3xl text-center">
-				<h1 class="text-5xl font-bold">{$t('title')}</h1>
-				<p class="text-base-content/80 py-6 text-lg">
-					{$t('subtitle')}
-				</p>
+			<div class="hero-content flex-col text-center">
+				<Logo />
+				<div class="max-w-3xl">
+					<h1 class="text-5xl">{$t('title')}</h1>
+					<p class="text-base-content/80 py-6 text-lg">
+						{$t('subtitle')}
+					</p>
+				</div>
 			</div>
 		</div>
 	</section>
 
-	<div class="mt-12 px-8 pb-12">
-		<!-- Simplified Section -->
-		<div class="prose lg:prose-lg mx-auto max-w-4xl">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 			<h2 class="text-center">{$t('guideTitle')}</h2>
 			<p>
 				{@html $t('guideIntro')}
@@ -100,12 +99,9 @@
 					{@html $t('whatIfList3')}
 				</li>
 			</ul>
-		</div>
-
-		<div class="divider mx-auto my-12 max-w-4xl"></div>
+		<div class="divider my-12"></div>
 
 		<!-- Technical Section -->
-		<div class="prose lg:prose-lg mx-auto max-w-4xl">
 			<h2 class="text-center">{$t('techTitle')}</h2>
 			<p>
 				{@html $t('techIntro')}
@@ -141,5 +137,4 @@
 				{$t('feesText')}
 			</p>
 		</div>
-	</div>
 </div>

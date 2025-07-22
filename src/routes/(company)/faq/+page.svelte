@@ -59,8 +59,8 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 			<div class="hero-content flex-col text-center">
 				<Logo />
-				<div class="text-center max-w-3xl">
-					<h1 class="text-5xl font-bold">Frequently Asked Questions</h1>
+				<div class="max-w-3xl">
+					<h1 class="text-5xl">Frequently Asked Questions</h1>
 					<p class="text-base-content/80 py-6 text-lg">
 						Common questions about how BitTasker works for both taskers and taskees.
 					</p>
@@ -68,10 +68,10 @@
 			</div>
 	</section>
 
-	<div class="mx-auto mt-12 max-w-4xl space-y-8 px-8 pb-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">General</h2>
+			<h2 class="mb-4">General</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.general === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('general', 0)}>
@@ -117,7 +117,7 @@
 
 		<!-- For Taskers -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Taskers</h2>
+			<h2 class="mb-4">For Taskers</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 0)}>
@@ -173,7 +173,7 @@
 		</div>
 
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Taskees</h2>
+			<h2 class="mb-4">For Taskees</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 0)}>
@@ -230,7 +230,7 @@
 
 		<!-- Payments & Bitcoin -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">Payments & Bitcoin</h2>
+			<h2 class="mb-4">Payments & Bitcoin</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.payment === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('payment', 0)}>
@@ -267,7 +267,7 @@
 
 		<!-- Trust & Safety -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">Trust & Safety</h2>
+			<h2 class="mb-4">Trust & Safety</h2>
 			<div class="join join-vertical w-full">
 				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.safety === 0}>
 					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('safety', 0)}>

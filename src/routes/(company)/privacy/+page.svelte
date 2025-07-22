@@ -45,18 +45,18 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">{$t('privacy.title')}</h1>
+				<h1 class="text-5xl">{$t('privacy.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('privacy.subtitle')}
 				</p>
-				<p class="text-base-content/70 mt-2 text-sm">
+				<p class="text-base-content/80 mt-2 text-sm">
 					{$t('privacy.last_updated')}
 				</p>
 			</div>
 		</div>
 	</section>
 
-	<div class="prose mx-auto mt-12 max-w-4xl px-8 pb-12">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<h2>{$t('privacy.sections.philosophy.title')}</h2>
 		<p>{@html $t('privacy.sections.philosophy.content')}</p>
 
