@@ -51,7 +51,6 @@
 					</p>
 				</div>
 			</div>
-		</div>
 	</section>
 
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
