@@ -67,7 +67,7 @@ export const homePageTranslations = {
 		'homepage.v2.hero.description':
 			'Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.',
 		'homepage.v2.hero.cta': 'Get Started',
-		'homepage.v2.trust.title': 'Trusted by Innovators Worldwide',
+		'homepage.v2.trust.title': 'Trusted Worldwide',
 		'homepage.v2.trust.nostr.title': 'Powered by Nostr',
 		'homepage.v2.trust.nostr.description':
 			'BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship.',
@@ -102,9 +102,9 @@ export const homePageTranslations = {
 		'homepage.v2.benefits.ownership.title': 'True Data Ownership',
 		'homepage.v2.benefits.ownership.description':
 			"Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network.",
-		'homepage.v2.benefits.fees.title': 'Lower Fees',
+		'homepage.v2.benefits.fees.title': 'Lightning-Fast Payments',
 		'homepage.v2.benefits.fees.description':
-			'Our decentralized model means lower overhead and more value for both taskers and taskees.',
+			'No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT.',
 		'homepage.v2.taskees.title': 'Featured Taskees',
 		'homepage.v2.finalcta.title': 'Join the Future of Work',
 		'homepage.v2.finalcta.description':
@@ -181,7 +181,7 @@ export const homePageTranslations = {
 		'homepage.v2.hero.description':
 			'Contrata profesionales para cualquier tarea. Paga con Bitcoin o moneda fiat. Construido sobre Nostr.',
 		'homepage.v2.hero.cta': 'Comienza',
-		'homepage.v2.trust.title': 'Con la Confianza de Innovadores en Todo el Mundo',
+		'homepage.v2.trust.title': 'Confiado en Todo el Mundo',
 		'homepage.v2.trust.nostr.title': 'Impulsado por Nostr',
 		'homepage.v2.trust.nostr.description':
 			'BitTasker está construido sobre Nostr, un protocolo descentralizado. Esto significa que tu identidad, datos y reputación son verdaderamente tuyos, libres del control y la censura corporativa.',
@@ -216,9 +216,9 @@ export const homePageTranslations = {
 		'homepage.v2.benefits.ownership.title': 'Verdadera Propiedad de los Datos',
 		'homepage.v2.benefits.ownership.description':
 			'Tu identidad, datos y reputación son tuyos para controlar, impulsados por la red descentralizada de Nostr.',
-		'homepage.v2.benefits.fees.title': 'Comisiones Más Bajas',
+		'homepage.v2.benefits.fees.title': 'Pagos Relámpago',
 		'homepage.v2.benefits.fees.description':
-			'Nuestro modelo descentralizado significa menos gastos generales y más valor tanto para taskers como para taskees.',
+			'Sin intermediarios ni retrasos de procesamiento, recibe pagos instantáneos de persona a persona en Bitcoin o USDT.',
 		'homepage.v2.taskees.title': 'Taskees Destacados',
 		'homepage.v2.finalcta.title': 'Únete al Futuro del Trabajo',
 		'homepage.v2.finalcta.description':

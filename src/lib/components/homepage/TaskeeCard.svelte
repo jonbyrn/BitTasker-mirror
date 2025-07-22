@@ -7,7 +7,7 @@
 	}>();
 </script>
 
-<div class="card bg-base-100 text-center shadow-xl transition-transform hover:scale-105">
+<div class="card bg-base-100 text-center shadow-xl transition-transform hover:scale-105 p-2">
 	<div class="card-body items-center">
 		<div class="avatar">
 			<div class="w-24 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100">

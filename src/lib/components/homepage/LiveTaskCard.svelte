@@ -6,7 +6,7 @@
 	}>();
 </script>
 
-<div class="card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col">
+<div class="card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col p-2">
 	<figure>
 		<img src={task.image} alt={task.title} class="h-48 w-full object-cover" />
 	</figure>

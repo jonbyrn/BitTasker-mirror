@@ -23,7 +23,6 @@
 	// Control for showing top and bottom bars - can be overridden by child layouts
 	let showTopBar = $state(true);
 	let showFooterSection = $state(false); // Default to false, enabled in protected routes as needed
-	let width = $state(375);
 	let height = $state(window.innerHeight);
 	let isLandingPage = $state(false);
 
@@ -106,7 +105,7 @@
     {/if}
 </svelte:head>
 
-<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
+<svelte:window bind:innerHeight={height} />
 
 <main
 	data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
@@ -119,12 +118,10 @@
 	{/if}
 
 	<div
-		class="flex flex-1 flex-col overflow-auto {$deviceInfo?.platform === 'web' && width > 768
-			? 'pt-16'
-			: ''}"
+		class="flex flex-1 flex-col overflow-auto {$deviceInfo?.platform === 'web' ? 'lg:pt-16' : ''}"
 	>
-		{#if $deviceInfo?.platform === 'web' && width > 768 && !isLandingPage}
-			<div class="bg-base-200 flex flex-grow">
+		{#if $deviceInfo?.platform === 'web' && !isLandingPage}
+			<div class="bg-base-200 flex flex-grow lg:block">
 				{@render children()}
 			</div>
 		{:else}
@@ -173,7 +170,7 @@
 				<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
 					<!-- Company Info -->
 					<div class="md:col-span-2 lg:col-span-1">
-						<h3 class="text-base-content mb-4 text-lg font-bold">BitTasker</h3>
+						<h4 class="text-base-content mb-4 text-lg font-bold">BitTasker</h4>
 						<p class="mb-4">{$t('footer.company_description')}</p>
 						<!-- Social media icons -->
 						<div class="flex space-x-4">
@@ -240,7 +237,7 @@
 					<div class="grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-2">
 						<!-- For Taskers -->
 						<div>
-							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h3>
+							<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskers')}</h4>
 							<ul class="space-y-2">
 								
 								
@@ -252,7 +249,7 @@
 
 						<!-- For Taskees -->
 						<div>
-							<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h3>
+							<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h4>
 							<ul class="space-y-2">
 								<li>
 									<a href="/dashboard/find-tasks" class="hover:text-primary">
@@ -281,7 +278,7 @@
 
 					<!-- Company -->
 					<div class="lg:col-span-1">
-						<h3 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company')}</h3>
+						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company')}</h4>
 						<ul class="space-y-2">
 							<li><a href="/about" class="hover:text-primary">{$t('footer.about_us')}</a></li>
 							<li><a href="/security" class="hover:text-primary">{$t('footer.security')}</a></li>
@@ -296,13 +293,25 @@
 
 				<div class="border-base-content/10 mt-12 border-t pt-8 text-center">
 					<p>© {new Date().getFullYear()} BitTasker. {$t('footer.copyright')}</p>
+					<p class="mt-2 text-sm">
+						Made with 
+						<svg class="inline-block w-4 h-4 mx-1" fill="currentColor" viewBox="0 0 24 24" style="color: #ef4444;">
+							<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+						</svg>
+						and 
+						<svg class="inline-block w-4 h-4 mx-1" viewBox="0 0 512 512" style="color: #F7931B;">
+							<path d="M362.199,243.996c24.913-12.74,40.767-35.39,37.088-73.044    c-4.814-51.526-47.131-68.796-103.188-73.607V26.001H252.5v69.362c-11.325,0-22.932,0.283-34.539,0.564V26.001h-43.6v71.344    c-16.029,0.484-34.698,0.248-87.479,0v46.43c34.423-0.609,52.483-2.821,56.623,19.251V358.37    c-2.629,17.515-16.643,14.991-47.846,14.438l-8.775,51.809c79.495,0,87.479,0.284,87.479,0.284v61.099h43.601v-60.25    c11.888,0.285,23.498,0.285,34.539,0.285v59.965h43.599V424.9c73.043-3.964,121.871-22.366,128.384-91.16    C429.579,278.535,403.531,253.903,362.199,243.996z M218.811,146.889c24.631,0,101.639-7.643,101.639,43.599    c0,48.979-77.007,43.315-101.639,43.315V146.889z M218.811,373.093v-95.691c29.445,0,119.608-8.209,119.608,47.847    C338.418,379.321,248.255,373.093,218.811,373.093L218.811,373.093z" fill="currentColor"/>
+						</svg>
+						in El Salvador
+					</p>
 				</div>
 			</div>
 		</footer>
 	{/if}
 
-	{#if ($deviceInfo?.platform !== 'web' || width <= 768) && showTopBar}
-		<div class="pb-safe right-0 bottom-0 left-0 z-50">
+	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) and native platforms -->
+	{#if showTopBar}
+		<div class="pb-safe right-0 bottom-0 left-0 z-50 {$deviceInfo?.platform === 'web' ? 'lg:hidden' : ''}">
 			<BottomNavBar />
 		</div>
 	{/if}

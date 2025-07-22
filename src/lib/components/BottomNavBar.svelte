@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Locales } from '$lib/stores/i18n.store';
+
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { t, setLocale } from '$lib/stores/i18n.store';
@@ -7,7 +7,6 @@
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
-	import { authState } from '$lib/stores/auth.store';
 	import 'iconify-icon';
 
 	let currentSection = $state('');
@@ -24,60 +23,16 @@
 
 	// Handle scroll visibility - hide when scrolling down, show when scrolling up
 	// TODO: This solution is not working as expected, need to fix
-	onMount(() => {
-		// Only apply scroll hide on devices with small screens
-		if (window.innerWidth <= 768) {
-			const handleScroll = () => {
-				const currentScroll = window.scrollY;
-
-				if (currentScroll > lastScrollPosition && currentScroll > 50) {
-					isScrollingDown = true;
-				} else {
-					isScrollingDown = false;
-				}
-
-				// Add a small delay before actually hiding/showing to prevent flickering
-				if (isScrollingDown && isVisible) {
-					setTimeout(() => {
-						isVisible = false;
-					}, 100);
-				} else if (!isScrollingDown && !isVisible) {
-					setTimeout(() => {
-						isVisible = true;
-					}, 100);
-				}
-
-				lastScrollPosition = currentScroll;
-			};
-
-			window.addEventListener('scroll', handleScroll, { passive: true });
-
-			return () => {
-				window.removeEventListener('scroll', handleScroll);
-			};
-		}
-	});
+	let scrollCleanup: (() => void) | undefined;
 
 	// Control menu visibility
 	let isMenuOpen = $state(false);
 	let isMenuClosing = $state(false);
 
 	// Control individual collapse states
-	let isLanguageOpen = $state(false);
 	let isTaskersOpen = $state(false);
 	let isTaskeesOpen = $state(false);
-	
 	let isCompanyOpen = $state(false);
-
-	// Language switcher handler
-	const handleLanguageChange = async (code: Locales) => {
-		try {
-			await setLocale(code);
-			closeMenu(); // Close menu with animation after language change
-		} catch (error) {
-			console.error('Error changing language:', error);
-		}
-	};
 
 	// Toggle menu
 	function toggleMenu() {
@@ -105,20 +60,9 @@
 
 	// Close all collapse menus
 	function closeAllCollapses() {
-		isLanguageOpen = false;
 		isTaskersOpen = false;
 		isTaskeesOpen = false;
-		isTaskeesOpen = false;
 		isCompanyOpen = false;
-	}
-
-	// Toggle individual collapse sections
-	function toggleLanguage() {
-		const wasOpen = isLanguageOpen;
-		closeAllCollapses();
-		if (!wasOpen) {
-			isLanguageOpen = true;
-		}
 	}
 
 	function toggleTaskers() {
@@ -161,6 +105,37 @@
 	}
 
 	onMount(() => {
+		// Only apply scroll hide on mobile devices (not tablets)
+		if (window.innerWidth <= 768) {
+			const handleScroll = () => {
+				const currentScroll = window.scrollY;
+
+				if (currentScroll > lastScrollPosition && currentScroll > 50) {
+					isScrollingDown = true;
+				} else {
+					isScrollingDown = false;
+				}
+
+				// Add a small delay before actually hiding/showing to prevent flickering
+				if (isScrollingDown && isVisible) {
+					setTimeout(() => {
+						isVisible = false;
+					}, 100);
+				} else if (!isScrollingDown && !isVisible) {
+					setTimeout(() => {
+						isVisible = true;
+					}, 100);
+				}
+
+				lastScrollPosition = currentScroll;
+			};
+
+			window.addEventListener('scroll', handleScroll, { passive: true });
+			scrollCleanup = () => {
+				window.removeEventListener('scroll', handleScroll);
+			};
+		}
+
 		// Add click outside handler
 		if (typeof document !== 'undefined') {
 			document.addEventListener('click', handleClickOutside);
@@ -168,6 +143,11 @@
 	});
 
 	onDestroy(() => {
+		// Remove scroll handler
+		if (scrollCleanup) {
+			scrollCleanup();
+		}
+
 		// Remove click outside handler
 		if (typeof document !== 'undefined') {
 			document.removeEventListener('click', handleClickOutside);
@@ -221,7 +201,6 @@
 						</a>
 					</li>
 
-					<!-- For Taskers collapse -->
 					<!-- For Taskers collapse -->
 					<li>
 						<button onclick={toggleTaskers} class="min-h-[48px] py-3">
