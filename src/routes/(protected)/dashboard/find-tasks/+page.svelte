@@ -484,7 +484,7 @@
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
 		<h2 class="mb-4 text-xl font-bold">
 			Other Tasks
-			<span class="text-base-content/70 font-normal text-sm ml-2">
+			<span class="text-base-content/70 ml-2 text-sm font-normal">
 				{#if $tasksStore.loading && searchParams.page === 1}
 					<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
 				{:else if $tasksStore.items.length > 0}
@@ -500,7 +500,7 @@
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
 						<div class="flex items-center justify-between gap-2 text-sm">
 							<div class="flex flex-col items-start">
-								<span class="font-semibold">{task.budget.amount} BTC</span>
+								<span class="font-semibold">{JSON.stringify(task.budget)}</span>
 								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget)} USDT</span>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>

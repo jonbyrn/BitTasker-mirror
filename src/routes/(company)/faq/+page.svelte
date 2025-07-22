@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
+	import { t } from '$lib/stores/i18n.store';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -57,57 +58,68 @@
 
 <div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-			<div class="hero-content flex-col text-center">
-				<Logo />
-				<div class="text-center max-w-3xl">
-					<h1 class="text-5xl font-bold">Frequently Asked Questions</h1>
-					<p class="text-base-content/80 py-6 text-lg">
-						Common questions about how BitTasker works for both taskers and taskees.
-					</p>
-				</div>
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl text-center">
+				<!-- FAQ Section Header -->
+				<h1 class="text-5xl font-bold">{$t('faq.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('faq.description')}
+				</p>
 			</div>
+		</div>
 	</section>
 
 	<div class="mx-auto mt-12 max-w-4xl space-y-8 px-8 pb-12">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">General</h2>
+			<h2 class="mb-4 text-2xl font-bold">{$t('faq.general')}</h2>
 			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.general === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('general', 0)}>
-						What is BitTasker?
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.general === 0}
+				>
+					<!-- FAQ Item: What is BitTasker? -->
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('general', 0)}
+					>
+						{$t('faq.general.0.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							BitTasker is a trusted community platform that connects people who need to outsource
-							tasks and find local services with people who are looking to earn money and ready to
-							work. From simple to complicated tasks, BitTasker can help you complete your home
-							cleaning, handyman jobs, admin work, photography, graphic design or even build a
-							website.
-						</p>
+						<p>{$t('faq.general.0.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.general === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('general', 1)}>
-						How does BitTasker work?
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.general === 1}
+				>
+					<!-- FAQ Item: How does BitTasker work? -->
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('general', 1)}
+					>
+						{$t('faq.general.1.question')}
 					</button>
 					<div class="collapse-content prose">
 						<ol>
 							<li>
-								<strong>Post Your Task:</strong> Describe what you need done and set a fair budget.
-								Posting is free!
+								<strong>{@html $t('faq.general.1.step_1_title')}</strong>
+								{@html $t('faq.general.1.step_1_text')}
 							</li>
 							<li>
-								<strong>Review Offers:</strong> Receive offers from skilled Taskees. Compare their
-								profiles, ratings, and reviews.
+								<strong>{@html $t('faq.general.1.step_2_title')}</strong>
+								{@html $t('faq.general.1.step_2_text')}
 							</li>
 							<li>
-								<strong>Hire & Fund:</strong> Choose the best Taskee and fund the task with Bitcoin or fiat.
-								The payment is held securely in our escrow until the task is done.
+								<strong>{@html $t('faq.general.1.step_3_title')}</strong>
+								{@html $t('faq.general.1.step_3_text')}
 							</li>
 							<li>
-								<strong>Task Complete:</strong> Once you're satisfied, release the payment to the
-								Taskee. Leave a review to help the community!
+								<strong>{@html $t('faq.general.1.step_4_title')}</strong>
+								{@html $t('faq.general.1.step_4_text')}
 							</li>
 						</ol>
 					</div>
@@ -117,112 +129,176 @@
 
 		<!-- For Taskers -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Taskers</h2>
+			<h2 class="mb-4 text-2xl font-bold">{$t('faq.taskers')}</h2>
 			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 0)}>
-						How do I post a task?
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskers === 0}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskers', 0)}
+					>
+						{$t('faq.taskers.0.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							Simply create an account, click "Post a Task," and fill in the details. Provide a clear description, set a fair budget, and specify your timeline. The more details you provide, the better offers you'll receive from taskees.
-						</p>
+						<p>{@html $t('faq.taskers.0.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 1)}>
-						How does payment work?
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskers === 1}
+				>
+					<!-- FAQ Item: Taskers - How does payment work? -->
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskers', 1)}
+					>
+						{$t('faq.taskers.1.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							When you accept a bid, your payment is immediately secured in our Bitcoin escrow system. Once the taskee completes the work to your satisfaction, you release the payment. If you don't take action within 7 days, the payment is automatically released to the taskee.
-						</p>
+						<p>{@html $t('faq.taskers.1.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 2}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 2)}>
-						What if I'm not satisfied with the work?
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-200 collapse border-b"
+					class:collapse-open={openAccordion.taskers === 2}
+				>
+					<!-- FAQ Item: Taskers - What if I'm not satisfied with the work? -->
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskers', 2)}
+					>
+						{$t('faq.taskers.2.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							If you're not satisfied with the work, you can initiate a dispute. The payment stays locked while both parties work toward a fair solution. Our dispute resolution process is designed to be fair and transparent.
-						</p>
+						<p class="text-base-content/80">{@html $t('faq.taskers.2.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 3}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 3)}>
-						Can I cancel a task?
+				<!-- FAQ Item: Taskers - Can I cancel a task? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskers === 3}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskers', 3)}
+					>
+						{$t('faq.taskers.3.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							Yes, you can cancel a task at any time. If you cancel before work begins, you'll receive a full refund. If work has already started, you may need to pay a partial amount depending on the progress made.
-						</p>
+						<p>{@html $t('faq.taskers.3.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskers === 4}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskers', 4)}>
-						What are the fees for taskers?
+
+				<!-- FAQ Item: Taskers - What are the fees for taskers? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskers === 4}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskers', 4)}
+					>
+						{$t('faq.taskers.4.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href="/taskee-fees" class="text-primary hover:underline">Taskee Fees</a> page for full details.
-						</p>
+						<p>{@html $t('faq.taskers.4.answer')}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">For Taskees</h2>
+			<h2 class="mb-4 text-2xl font-bold">{$t('faq.taskees')}</h2>
 			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 0)}>
-						How do I find tasks?
+				<!-- FAQ Taskees - How do I find tasks? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskees === 0}
+				>
+					<button
+						type="button"
+						class="text-base-content/80 collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskees', 0)}
+					>
+						{$t('faq.taskees.0.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							Browse available tasks in your area and skill set. You can filter by category, location, budget, and deadline. When you find a task that matches your skills, submit a competitive bid with your proposed approach and timeline.
-						</p>
+						<p>{$t('faq.taskees.0.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 1)}>
-						How do I get paid?
+
+				<!-- FAQ Taskees - How do I get paid? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskees === 1}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskees', 1)}
+					>
+						{$t('faq.taskees.1.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							When a tasker accepts your bid, the payment is immediately secured in escrow. Once you complete the work and the tasker approves it, the payment is released to your Bitcoin wallet. If the tasker doesn't respond within 7 days, you're automatically paid.
-						</p>
+						<p>{$t('faq.taskees.1.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 2}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 2)}>
-						What if the tasker doesn't approve my work?
+
+				<!-- FAQ Taskees - What if the tasker doesn't approve my work? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskees === 2}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskees', 2)}
+					>
+						{$t('faq.taskees.2.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							If a tasker disputes your work, you can discuss the issue and work toward a solution. Our dispute resolution process is fair and transparent. If no agreement is reached, the system follows a clear process to ensure fair outcomes.
-						</p>
+						<p>{$t('faq.taskees.2.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 3}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 3)}>
-						What are the fees for taskees?
+
+				<!-- FAQ Taskees - What are the fees for taskees? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskees === 3}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskees', 3)}
+					>
+						{$t('faq.taskees.3.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href="/taskee-fees" class="text-primary hover:underline">Taskee Fees</a> page for full details.
-						</p>
+						<p>{@html $t('faq.taskees.3.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.taskees === 4}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('taskees', 4)}>
-						Do I need to own Bitcoin?
+
+				<!-- FAQ Taskees - Do I need to own Bitcoin? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.taskees === 4}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('taskees', 4)}
+					>
+						{$t('faq.taskees.4.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							No, you don't need to own Bitcoin to use BitTasker, you can also use fiat currency. You can receive payments in Bitcoin or USDT and convert them to your local currency if desired.
-						</p>
+						<p>{$t('faq.taskees.4.answer')}</p>
 					</div>
 				</div>
 			</div>
@@ -230,36 +306,40 @@
 
 		<!-- Payments & Bitcoin -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">Payments & Bitcoin</h2>
+			<h2 class="mb-4 text-2xl font-bold">{$t('faq.payment.title')}</h2>
 			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.payment === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('payment', 0)}>
-						Why use Bitcoin?
+				<!-- Why use Bitcoin? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.payment === 0}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('payment', 0)}
+					>
+						{$t('faq.payment.0.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							Bitcoin is liberation; an unstoppable cross-border currency that can enable you to make payments to anyone, anywhere, at any time.
-							We use the Liquid Network for low cost, near-instant transactions.
-						</p>
+						<p>{$t('faq.payment.0.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.payment === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('payment', 1)}>
-						What are the fees?
+
+				<!-- What are the fees? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.payment === 1}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('payment', 1)}
+					>
+						{$t('faq.payment.1.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							BitTasker charges a service fee upon successful completion of a task.
-							This fee helps us operate the platform, provide support, and build new features.
-							The fee is a percentage of the task price and is shown to you when you make an
-							offer.
-						</p>
-						<p>
-							In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are
-							charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment)
-							and are not under our control, nor do we receive them. For the Liquid and Lightning networks,
-							these fees are typically very small, typically $0.01 or less.
-						</p>
+						<p>{$t('faq.payment.1.answer_1')}</p>
+						<p>{$t('faq.payment.1.answer_2')}</p>
 					</div>
 				</div>
 			</div>
@@ -267,31 +347,39 @@
 
 		<!-- Trust & Safety -->
 		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">Trust & Safety</h2>
+			<h2 class="mb-4 text-2xl font-bold">{$t('faq.safety.title')}</h2>
 			<div class="join join-vertical w-full">
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.safety === 0}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('safety', 0)}>
-						Is my payment secure?
+				<!-- Is my payment secure? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.safety === 0}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('safety', 0)}
+					>
+						{$t('faq.safety.0.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							Yes. When a Tasker funds a task, the funds are held in a secure 2-of-2
-							multisignature escrow wallet. This means neither the Tasker nor the Taskeee can move the
-							funds alone. Payment is only released when the task is marked as complete and
-							approved, or when the Tasker and Taskee agree on a different outcome.
-						</p>
+						<p>{$t('faq.safety.0.answer')}</p>
 					</div>
 				</div>
-				<div class="collapse collapse-arrow join-item border-b border-base-300" class:collapse-open={openAccordion.safety === 1}>
-					<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => toggleAccordion('safety', 1)}>
-						What happens if something goes wrong?
+
+				<!-- What happens if something goes wrong? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.safety === 1}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('safety', 1)}
+					>
+						{$t('faq.safety.1.question')}
 					</button>
 					<div class="collapse-content prose">
-						<p>
-							Our automated escrow system has built-in rules for cancellations, changes, and
-							disputes to ensure a fair outcome. If you can't resolve an issue directly with the
-							other party, the escrow system ensures the fairest outcome.
-						</p>
+						<p>{$t('faq.safety.1.answer')}</p>
 					</div>
 				</div>
 			</div>
