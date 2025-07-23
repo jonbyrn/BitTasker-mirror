@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document explains the sitemap integration for the Bittasker application, which automatically generates a sitemap.xml file for SEO purposes.
+This document explains the sitemap integration for the BitTasker application, which automatically generates a sitemap.xml file for SEO purposes.
 
 ## Features
 

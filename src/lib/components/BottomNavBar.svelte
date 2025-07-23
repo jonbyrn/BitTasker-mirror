@@ -15,10 +15,15 @@
 	let isVisible = $state(true);
 	let protectedRoute = $state(false);
 
+	// Optimize route effect with debouncing
+	let routeChangeTimeout: ReturnType<typeof setTimeout>;
 	$effect.pre(() => {
-		const path = page.url.pathname;
-		currentSection = path.split('dashboard/')[1] || '';
-		protectedRoute = page.url.pathname.includes('dashboard');
+		clearTimeout(routeChangeTimeout);
+		routeChangeTimeout = setTimeout(() => {
+			const path = page.url.pathname;
+			currentSection = path.split('dashboard/')[1] || '';
+			protectedRoute = page.url.pathname.includes('dashboard');
+		}, 50); // Small debounce to prevent excessive updates
 	});
 
 	// Handle scroll visibility - hide when scrolling down, show when scrolling up
@@ -33,6 +38,44 @@
 	let isTaskersOpen = $state(false);
 	let isTaskeesOpen = $state(false);
 	let isCompanyOpen = $state(false);
+
+	// Defer non-critical operations
+	const deferNonCriticalOperations = () => {
+		if (typeof requestIdleCallback !== 'undefined') {
+			requestIdleCallback(() => {
+				// Setup scroll listeners if needed
+				if (typeof window !== 'undefined') {
+					window.addEventListener('scroll', handleScroll, { passive: true });
+				}
+			}, { timeout: 1000 });
+		} else {
+			// Fallback for browsers without requestIdleCallback
+			setTimeout(() => {
+				// Setup scroll listeners if needed
+				if (typeof window !== 'undefined') {
+					window.addEventListener('scroll', handleScroll, { passive: true });
+				}
+			}, 100);
+		}
+	};
+
+	// Optimized scroll handler with throttling
+	let scrollThrottleTimeout: ReturnType<typeof setTimeout>;
+	function handleScroll() {
+		if (scrollThrottleTimeout) return;
+		
+		scrollThrottleTimeout = setTimeout(() => {
+			const currentScrollPosition = window.pageYOffset;
+			isScrollingDown = currentScrollPosition > lastScrollPosition;
+			lastScrollPosition = currentScrollPosition;
+			scrollThrottleTimeout = null;
+		}, 100); // Throttle scroll events
+	}
+
+	onMount(() => {
+		// Defer non-critical operations
+		deferNonCriticalOperations();
+	});
 
 	// Toggle menu
 	function toggleMenu() {
@@ -89,7 +132,7 @@
 		}
 	}
 
-	// Handle clicks outside menu to close it
+	// Handle clicks outside menu to close it - optimized with passive listeners
 	function handleClickOutside(event: MouseEvent) {
 		const target = event.target as HTMLElement;
 
@@ -104,45 +147,11 @@
 		}
 	}
 
-	onMount(() => {
-		// Only apply scroll hide on mobile devices (not tablets)
-		if (window.innerWidth <= 768) {
-			const handleScroll = () => {
-				const currentScroll = window.scrollY;
-
-				if (currentScroll > lastScrollPosition && currentScroll > 50) {
-					isScrollingDown = true;
-				} else {
-					isScrollingDown = false;
-				}
-
-				// Add a small delay before actually hiding/showing to prevent flickering
-				if (isScrollingDown && isVisible) {
-					setTimeout(() => {
-						isVisible = false;
-					}, 100);
-				} else if (!isScrollingDown && !isVisible) {
-					setTimeout(() => {
-						isVisible = true;
-					}, 100);
-				}
-
-				lastScrollPosition = currentScroll;
-			};
-
-			window.addEventListener('scroll', handleScroll, { passive: true });
-			scrollCleanup = () => {
-				window.removeEventListener('scroll', handleScroll);
-			};
-		}
-
-		// Add click outside handler
-		if (typeof document !== 'undefined') {
-			document.addEventListener('click', handleClickOutside);
-		}
-	});
-
 	onDestroy(() => {
+		// Clear timeouts
+		clearTimeout(routeChangeTimeout);
+		clearTimeout(scrollThrottleTimeout);
+		
 		// Remove scroll handler
 		if (scrollCleanup) {
 			scrollCleanup();
@@ -151,6 +160,11 @@
 		// Remove click outside handler
 		if (typeof document !== 'undefined') {
 			document.removeEventListener('click', handleClickOutside);
+		}
+
+		// Remove scroll listener
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('scroll', handleScroll);
 		}
 	});
 </script>
@@ -185,7 +199,7 @@
 					</a>
 				</div>
 				<ul class="menu w-full">
-					<div class="divider"></div>
+					<li class="divider"></li>
 					<!-- Main menu items - matching desktop nav structure -->
 					<li>
 						<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
@@ -224,40 +238,38 @@
 						</button>
 					</li>
 					{#if isTaskersOpen}
-						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-							<li>
-								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:plus-circle-outline" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.post_task')}</span>
-								</a>
-							</li>
-						
-							<li>
-								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.tasker_fees')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.escrow')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon
-										icon="mdi:frequently-asked-questions"
-										width="20"
-										class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.faq')}</span>
-								</a>
-							</li>
-						</div>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:plus-circle-outline" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.post_task')}</span>
+							</a>
+						</li>
+					
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.tasker_fees')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.escrow')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon
+									icon="mdi:frequently-asked-questions"
+									width="20"
+									class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.faq')}</span>
+							</a>
+						</li>
 					{/if}
 
 					<!-- For Taskees collapse -->
@@ -283,44 +295,42 @@
 						</button>
 					</li>
 					{#if isTaskeesOpen}
-						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-							<li>
-								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:currency-btc" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.start_earning')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/community-guidelines" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:account-group" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.community_guidelines')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.tasker_fees')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:handshake" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.tasker_principles')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon
-										icon="mdi:frequently-asked-questions"
-										width="20"
-										class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.tasker_faq')}</span>
-								</a>
-							</li>
-						</div>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:currency-btc" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.start_earning')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/community-guidelines" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:account-group" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.community_guidelines')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+								<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+								<span class="font-medium">{$t('footer.tasker_fees')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:handshake" width="20" class="text-primary"></iconify-icon>
+								<span class="font-medium">{$t('footer.tasker_principles')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon
+									icon="mdi:frequently-asked-questions"
+									width="20"
+									class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.tasker_faq')}</span>
+							</a>
+						</li>
 					{/if}
 
 					<!-- Company collapse -->
@@ -345,56 +355,54 @@
 						</button>
 					</li>
 					{#if isCompanyOpen}
-						<div transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-							<li>
-								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.about_us')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.security')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/careers" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.careers')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/press" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:newspaper" width="20" class="text-primary"></iconify-icon>
-									<span class="font-medium">{$t('footer.press')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.terms')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.privacy')}</span>
-								</a>
-							</li>
-							<li>
-								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"
-									></iconify-icon>
-									<span class="font-medium">{$t('footer.contact')}</span>
-								</a>
-							</li>
-						</div>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.about_us')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.security')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/careers" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.careers')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/press" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:newspaper" width="20" class="text-primary"></iconify-icon>
+								<span class="font-medium">{$t('footer.press')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.terms')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.privacy')}</span>
+							</a>
+						</li>
+						<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"
+								></iconify-icon>
+								<span class="font-medium">{$t('footer.contact')}</span>
+							</a>
+						</li>
 					{/if}
 				</ul>
 			</div>

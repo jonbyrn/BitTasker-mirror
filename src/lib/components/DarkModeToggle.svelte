@@ -13,7 +13,16 @@ function toggle() {
 	class="swap swap-rotate btn btn-xs sm:btn-sm btn-ghost btn-circle tooltip tooltip-bottom {className}"
 	data-tip={tooltip || ($darkMode ? $t('navbar.tooltip.dark_mode') : $t('navbar.tooltip.light_mode'))}
 >
-	<input type="checkbox" checked={$darkMode} onchange={() => ($darkMode = !$darkMode)} />
+	<input 
+		type="checkbox" 
+		checked={$darkMode} 
+		onchange={() => ($darkMode = !$darkMode)}
+		aria-label={$darkMode ? $t('navbar.tooltip.light_mode') : $t('navbar.tooltip.dark_mode')}
+		aria-describedby="dark-mode-toggle"
+	/>
+	<span id="dark-mode-toggle" class="sr-only">
+		{$darkMode ? $t('navbar.tooltip.light_mode') : $t('navbar.tooltip.dark_mode')}
+	</span>
 	<!-- sun icon -->
 	<svg
 		class="swap-on mx-auto h-5 w-5 fill-current"

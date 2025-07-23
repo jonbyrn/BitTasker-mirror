@@ -25,73 +25,49 @@ const LANGUAGE_FLAGS = LANGUAGES.reduce((acc, lang) => {
 
 const DEFAULT_LANGUAGE: Locales = 'en';
 
-// Function to detect user's browser language
-const detectBrowserLanguage = (): Locales => {
-	if (typeof window === 'undefined') return DEFAULT_LANGUAGE;
-	
-	// Get the user's preferred languages from the browser
-	const browserLanguages = navigator.languages || [navigator.language];
-	
-	// Check each browser language preference
-	for (const lang of browserLanguages) {
-		// Extract the language code (e.g., 'en-US' -> 'en')
-		const langCode = lang?.split('-')[0]?.toLowerCase();
-		
-		// Check if we support this language
-		if (SUPPORTED_LOCALES.includes(langCode as Locales)) {
-			return langCode as Locales;
+// Synchronous locale detection using localStorage and navigator.language
+function getInitialLocale(): Locales {
+	// Try localStorage first
+	if (typeof localStorage !== 'undefined') {
+		const saved = localStorage.getItem('language');
+		if (saved && SUPPORTED_LOCALES.includes(saved as Locales)) {
+			return saved as Locales;
 		}
 	}
-	
-	// Fallback to default language if no supported language found
+	// Fallback to browser language
+	if (typeof navigator !== 'undefined') {
+		const browserLanguages = navigator.languages || [navigator.language];
+		for (const lang of browserLanguages) {
+			const langCode = lang?.split('-')[0]?.toLowerCase();
+			if (SUPPORTED_LOCALES.includes(langCode as Locales)) {
+				return langCode as Locales;
+			}
+		}
+	}
+	// Default
 	return DEFAULT_LANGUAGE;
-};
+}
 
-export const locale = writable<Locales>(DEFAULT_LANGUAGE);
+export const locale = writable<Locales>(getInitialLocale());
 
-// Load the saved language preference or detect browser language
-const loadSavedLanguage = async () => {
-	try {
-		const { value } = await Preferences.get({ key: StorageKeys.LANGUAGE_PREFERENCE_KEY });
-		
-		if (value && SUPPORTED_LOCALES.includes(value as Locales)) {
-			// Use saved preference if available
-			locale.set(value as Locales);
-		} else {
-			// Detect browser language if no saved preference
-			const browserLang = detectBrowserLanguage();
-			locale.set(browserLang);
-			
-			// Save the detected language as preference
-			await saveLanguage(browserLang);
-		}
-	} catch (error) {
-		console.error('Error loading language preference:', error);
-		// Fallback to browser detection or default
-		const browserLang = detectBrowserLanguage();
-		locale.set(browserLang);
+// Save the language preference to localStorage and Capacitor Preferences (async, after render)
+const saveLanguage = (language: Locales) => {
+	if (typeof localStorage !== 'undefined') {
+		localStorage.setItem('language', language);
 	}
-};
-
-// Save the language preference
-const saveLanguage = async (language: Locales) => {
-	try {
-		await Preferences.set({
+	// Save to Capacitor Preferences in the background
+	setTimeout(() => {
+		Preferences.set({
 			key: StorageKeys.LANGUAGE_PREFERENCE_KEY,
 			value: language
 		});
-	} catch (error) {
-		console.error('Error saving language preference:', error);
-	}
+	}, 0);
 };
 
-// Initialize by loading the saved language or detecting browser language
-loadSavedLanguage();
-
-export const setLocale = async (newLocale: Locales) => {
+export const setLocale = (newLocale: Locales) => {
 	if (SUPPORTED_LOCALES.includes(newLocale)) {
 		locale.set(newLocale);
-		await saveLanguage(newLocale);
+		saveLanguage(newLocale);
 	}
 };
 

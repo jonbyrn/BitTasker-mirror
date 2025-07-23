@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { AuthService } from '$lib/api/services/auth.service';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -8,7 +8,7 @@
 	let isVerifying = $state(true);
 
 	onMount(async () => {
-		const token = $page.url.searchParams.get('token');
+		const token = page.url.searchParams.get('token');
 
 		if (!token) {
 			error = 'Invalid verification link. No token provided.';

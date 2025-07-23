@@ -714,12 +714,12 @@ class PushNotificationService {
 
 			if (Capacitor.isNativePlatform()) {
 				// For native platforms, we'll use the sendTestNotification mutation
-				await this.sendTestNotification('Test Notification', 'This is a test notification from Bittasker');
+				await this.sendTestNotification('Test Notification', 'This is a test notification from BitTasker');
 			} else {
 				// For web, show a local notification
 				if (Notification.permission === 'granted') {
 					new Notification('Test Notification', {
-						body: 'This is a test notification from Bittasker',
+						body: 'This is a test notification from BitTasker',
 						icon: '/favicon.ico',
 						tag: 'test-notification'
 					});

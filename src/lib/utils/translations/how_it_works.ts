@@ -1,6 +1,6 @@
 export const howItWorksTranslations = {
 	en: {
-		'how_it_works.title': 'How Bittasker Works',
+		'how_it_works.title': 'How BitTasker Works',
 		'how_it_works.subtitle':
 			"Your guide to using the world's first Bitcoin-powered freelance marketplace",
 		'how_it_works.hero.description':

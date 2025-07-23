@@ -58,7 +58,7 @@ setTimeout(() => {
 
 			const { notification, data } = payload;
 
-			const notificationTitle = notification?.title || 'Bittasker';
+			const notificationTitle = notification?.title || 'BitTasker';
 			const notificationOptions = {
 				body: notification?.body || 'You have a new notification',
 				icon: notification?.icon || '/favicon.ico',

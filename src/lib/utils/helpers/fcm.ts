@@ -91,7 +91,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  */
 export function showTestNotification(): void {
 	if (Notification.permission === 'granted') {
-		new Notification('Bittasker Notifications', {
+		new Notification('BitTasker Notifications', {
 			body: 'Push notifications are now enabled!',
 			icon: '/favicon.ico',
 			tag: 'test-notification'

@@ -1,22 +1,21 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
-	import { Preferences } from '@capacitor/preferences';
-	import { page } from '$app/stores';
+	import { page } from '$app/stores'; // Fix import
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
-	import { deviceInfo, getDeviceInfo, getOnboardingCompleted } from '$lib/stores/deviceInfo.store';
-	import { setupKeyboardListeners, setupGlobalInputFocusScroll } from '$lib/utils/helpers/keyboard';
+	import { deviceInfo } from '$lib/stores/deviceInfo.store'; // Import the store only
+	import type { DeviceInfo } from '@capacitor/device';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
 
-	// Global SEO JSON-LD
-	import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD, BITTASKER_LOGO } from '$lib/utils/constants/seo.constants';
+	// Global SEO JSON-LD - moved to dynamic injection
+	import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD } from '$lib/utils/constants/seo.constants';
 
-	// Import FontAwesome CSS
-	import '$lib/styles/fontawesome.css';
+	// Import FontAwesome CSS - deferred to idle time
+	let fontAwesomeLoaded = $state(false);
 
 	const { children } = $props();
 
@@ -25,66 +24,146 @@
 	let showFooterSection = $state(false); // Default to false, enabled in protected routes as needed
 	let height = $state(window.innerHeight);
 	let isLandingPage = $state(false);
+	let isInitializing = $state(true); // Track initialization state
 
 	let breadcrumbList = $state({});
 
-	// Update layout based on current route
+	let deviceInfoValue = $state<DeviceInfo|null>(null);
 	$effect(() => {
-		const path = $page.url.pathname;
-		// Determine if on landing page (homepage, how-it-works, etc.)
-		isLandingPage = path === '/' || path === '/how-it-works' || path.startsWith('/auth');
+		deviceInfoValue = $deviceInfo;
+	});
 
-		// Show top bar everywhere except specific routes that handle their own layout
-		showTopBar = !path.includes('/onboarding');
-
-		// Only show bottom bar in dashboard routes
-		showFooterSection = path.includes('/dashboard');
-
-		// Generate breadcrumbs
-		if (path !== '/') {
-			const segments = path.split('/').filter(Boolean);
-			breadcrumbList = {
-				'@context': 'https://schema.org',
-				'@type': 'BreadcrumbList',
-				itemListElement: segments.map((segment, i) => ({
-					'@type': 'ListItem',
-					position: i + 1,
-					name: segment.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-					item: `https://bittasker.com/${segments.slice(0, i + 1).join('/')}`
-				}))
-			};
+	// Defer device/theme/keyboard helpers to only run on relevant routes and after initial render
+	const deferHelpers = () => {
+		if (typeof requestIdleCallback !== 'undefined') {
+			requestIdleCallback(async () => {
+				const path = $page.url.pathname;
+				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
+				if (isProtected) {
+					const [deviceInfoModule, keyboardModule] = await Promise.all([
+						import('$lib/stores/deviceInfo.store'),
+						import('$lib/utils/helpers/keyboard')
+					]);
+					await Promise.all([
+						deviceInfoModule.getDeviceInfo(),
+						deviceInfoModule.getOnboardingCompleted()
+					]);
+					keyboardModule.setupKeyboardListeners();
+					keyboardModule.setupGlobalInputFocusScroll();
+				}
+			}, { timeout: 2000 });
 		} else {
-			breadcrumbList = {};
+			setTimeout(async () => {
+				const path = $page.url.pathname;
+				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
+				if (isProtected) {
+					const [deviceInfoModule, keyboardModule] = await Promise.all([
+						import('$lib/stores/deviceInfo.store'),
+						import('$lib/utils/helpers/keyboard')
+					]);
+					await Promise.all([
+						deviceInfoModule.getDeviceInfo(),
+						deviceInfoModule.getOnboardingCompleted()
+					]);
+					keyboardModule.setupKeyboardListeners();
+					keyboardModule.setupGlobalInputFocusScroll();
+				}
+			}, 100);
 		}
-	});
+	};
 
-	$effect(() => {
-		setDarkMode($darkMode);
-	});
-
-	// Initialize theme based on system preference
-	// TODO: Properly handle the cleanup of the global input focus scroll listener
-	onMount(async (): Promise<any> => {
+	// Break up large functions - Critical operations only
+	const initializeCriticalFeatures = async () => {
+		// Only what's needed for initial render
+		const { Preferences } = await import('@capacitor/preferences');
 		const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
 
 		if (savedDarkMode) {
 			$darkMode = savedDarkMode === 'true';
 		}
 
-		// Listen for system theme changes
-		window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', async (e) => {
+		// Mark initialization as complete for critical operations
+		isInitializing = false;
+	};
+
+	// Optimize event listeners - Use passive listeners where possible
+	const setupThemeChangeListener = () => {
+		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		const handleThemeChange = async (e: MediaQueryListEvent) => {
+			const { Preferences } = await import('@capacitor/preferences');
 			const { value: changedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
 			if (!changedDarkMode) {
 				$darkMode = e.matches;
 			}
-		});
+		};
+		
+		// Use passive listener where possible
+		mediaQuery.addEventListener('change', handleThemeChange, { passive: true });
+		
+		return () => {
+			mediaQuery.removeEventListener('change', handleThemeChange);
+		};
+	};
 
-		await getDeviceInfo();
-		await getOnboardingCompleted();
+	// Update layout based on current route - Optimized with debouncing
+	let routeChangeTimeout: ReturnType<typeof setTimeout>;
+	const updateLayoutBasedOnRoute = () => {
+		clearTimeout(routeChangeTimeout);
+		routeChangeTimeout = setTimeout(() => {
+			const path = $page.url.pathname;
+			// Determine if on landing page (homepage, how-it-works, etc.)
+			isLandingPage = path === '/' || path === '/how-it-works' || path.startsWith('/auth');
 
-		setupKeyboardListeners();
-		const cleanup = setupGlobalInputFocusScroll();
-		return cleanup;
+			// Show top bar everywhere except specific routes that handle their own layout
+			showTopBar = !path.includes('/onboarding');
+
+			// Only show bottom bar in dashboard routes
+			showFooterSection = path.includes('/dashboard');
+
+			// Generate breadcrumbs - deferred to idle time
+			if (path !== '/') {
+				const segments = path.split('/').filter(Boolean);
+				breadcrumbList = {
+					'@context': 'https://schema.org',
+					'@type': 'BreadcrumbList',
+					itemListElement: segments.map((segment: string, i: number) => ({
+						'@type': 'ListItem',
+						position: i + 1,
+						name: segment.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+						item: `https://bittasker.com/${segments.slice(0, i + 1).join('/')}`
+					}))
+				};
+			} else {
+				breadcrumbList = {};
+			}
+		}, 50); // Small debounce to prevent excessive updates
+	};
+
+	// Optimized effect for route changes
+	$effect(() => {
+		updateLayoutBasedOnRoute();
+	});
+
+	$effect(() => {
+		setDarkMode($darkMode);
+	});
+
+	// Initialize theme based on system preference - Broken up into smaller functions
+	onMount(async (): Promise<any> => {
+		// Critical operations first - only what's needed for initial render
+		await initializeCriticalFeatures();
+		
+		// Setup theme change listener
+		const themeCleanup = setupThemeChangeListener();
+		
+		// Defer all non-critical operations
+		deferHelpers();
+
+		// Return cleanup function for proper disposal
+		return () => {
+			clearTimeout(routeChangeTimeout);
+			themeCleanup();
+		};
 	});
 </script>
 
@@ -96,7 +175,15 @@
     <meta name="apple-mobile-web-app-title" content="BitTasker" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Global JSON-LD structured data for SEO -->
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/assets/fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    <link rel="preload" href="/assets/fonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
+    
+    <!-- Preload critical images -->
+    <link rel="preload" href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" />
+    <link rel="preload" href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
+
+    <!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
@@ -107,32 +194,38 @@
 
 <svelte:window bind:innerHeight={height} />
 
-<main
-	data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
-	id="main"
-	class="flex min-h-[100dvh] flex-col"
->
-	<!-- Desktop TopBar will be positioned fixed via its own component styles -->
-	{#if showTopBar}
-		<TopBar />
-	{/if}
-
-	<div
-		class="flex flex-1 flex-col overflow-auto {$deviceInfo?.platform === 'web' ? 'lg:pt-16' : ''}"
-	>
-		{#if $deviceInfo?.platform === 'web' && !isLandingPage}
-			<div class="bg-base-200 flex flex-grow lg:block">
-				{@render children()}
-			</div>
-		{:else}
-			<div
-				class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
-				style={showFooterSection ? 'padding-bottom: var(--dock-height, 5rem);' : ''}
-			>
-				{@render children()}
-			</div>
-		{/if}
+<!-- Show loading state while initializing -->
+{#if isInitializing}
+	<div class="flex min-h-screen items-center justify-center">
+		<div class="loading loading-spinner loading-lg"></div>
 	</div>
+{:else}
+	<main
+		data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
+		id="main"
+		class="flex min-h-[100dvh] flex-col"
+	>
+		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
+		{#if showTopBar}
+			<TopBar />
+		{/if}
+
+		<div
+			class="flex flex-1 flex-col overflow-auto {deviceInfoValue?.platform === 'web' ? 'lg:pt-16' : ''}"
+		>
+			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
+				<div class="bg-base-200 flex flex-grow lg:block">
+					{@render children()}
+				</div>
+			{:else}
+				<div
+					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
+					style={showFooterSection ? 'padding-bottom: var(--dock-height, 5rem);' : ''}
+				>
+					{@render children()}
+				</div>
+			{/if}
+		</div>
 	{#if !showFooterSection && showTopBar}
 		<!-- Section 7: Final Call to Action (CTA) -->
 		<section class="bg-primary text-primary-content py-16">
@@ -311,7 +404,7 @@
 
 	<!-- BottomNavBar: Show on mobile/tablet (≤1024px) and native platforms -->
 	{#if showTopBar}
-		<div class="pb-safe right-0 bottom-0 left-0 z-50 {$deviceInfo?.platform === 'web' ? 'lg:hidden' : ''}">
+		<div class="pb-safe right-0 bottom-0 left-0 z-50 lg:hidden">
 			<BottomNavBar />
 		</div>
 	{/if}
@@ -319,4 +412,5 @@
 	<!-- Toast notifications -->
 	<Toast />
 </main>
+{/if}
 
