@@ -13,6 +13,7 @@
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
+	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -71,7 +72,7 @@
 	});
 
 	// BTC price for USDT conversion
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(120000); // Default fallback price
 
 	/**
 	 * Fetch current BTC price
@@ -83,17 +84,6 @@
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
 		}
-	}
-
-	/**
-	 * Calculate estimated USDT value based on BTC amount
-	 */
-	function calculateUsdtEstimate(budget: { amount: number; type: string }): string {
-		const estimatedValue = budget.amount * btcPrice;
-		return estimatedValue.toLocaleString('en-US', {
-			maximumFractionDigits: 2,
-			minimumFractionDigits: 2
-		});
 	}
 
 	// Debounce function
@@ -500,8 +490,8 @@
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
 						<div class="flex items-center justify-between gap-2 text-sm">
 							<div class="flex flex-col items-start">
-								<span class="font-semibold">{JSON.stringify(task.budget)}</span>
-								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget)} USDT</span>
+								<span class="font-semibold">{formatBtcToSats(task.budget.amount)}</span>
+								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget, btcPrice)} USDT</span>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>

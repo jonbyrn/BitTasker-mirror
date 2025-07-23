@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { wallet } from '$lib/utils/consts';
-	import { btcToSatsWithLabel } from '$lib/utils/helpers/crypto';
+	import { formatBtcToSats } from '$lib/utils/helpers/crypto';
 
 	// UI state
 	let activeTab = $state('balance'); // balance, receive, send, transactions
@@ -146,9 +146,8 @@
 						</div>
 					</div>
 
-					<p class="text-4xl font-bold">{btcToSatsWithLabel(wallet.balance.btc)}</p>
-					<p class="opacity-80">{wallet.balance.sats} sats</p>
-					<p class="opacity-80">≈ ${wallet.balance.usdValue}</p>
+					<p class="text-4xl font-bold">{formatBtcToSats(wallet.balance.btc)}</p>
+					<p class="opacity-80">{wallet.balance.usdValue} USDT</p>
 				</div>
 			</div>
 

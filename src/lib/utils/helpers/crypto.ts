@@ -111,8 +111,32 @@ export async function deriveKeyFromPassword(
 	}
 }
 
-export function btcToSatsWithLabel(btc: number): string {
-	const sats = Math.round(btc * 100_000_000);
-	const label = sats === 1 ? 'sat' : 'sats';
-	return `${sats.toLocaleString('en-US')} ${label}`;
+/**
+ * Calculate estimated USDT value based on BTC amount
+ */
+export function calculateUsdtEstimate(
+	budget: { amount: number; type: string },
+	btcPrice: number
+): string {
+	const estimatedValue = budget.amount * btcPrice;
+	return estimatedValue.toLocaleString('en-US', {
+		maximumFractionDigits: 2,
+		minimumFractionDigits: 2
+	});
+}
+
+export function formatBtcToSats(amountBtc: number | string): string {
+	let str = amountBtc.toString();
+
+	if (/[eE]/.test(str)) {
+		str = Number(str).toFixed(8);
+	}
+
+	const [whole = '0', decimals = ''] = str.split('.');
+	const padded = (decimals + '0'.repeat(8)).slice(0, 8);
+
+	const satsBig = BigInt(whole) * 100_000_000n + BigInt(padded);
+	const formatted = Intl.NumberFormat('en-US').format(Number(satsBig));
+
+	return `${formatted} Sats`;
 }
