@@ -7,6 +7,7 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
+	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 
 	let { direction } = $props();
 
@@ -112,12 +113,9 @@
 				</div>
 				<div>
 					<span class="font-medium">Budget Amount:</span>
-					<span>
-						{formatCurrency($store.task.budget.amount, 'BTC')} ({calculateUsdValue(
-							$store.task.budget.amount
-						)})
-					</span>
+					<span>{formatNumberForInput($store.task.budget.amount)} Sats</span>
 				</div>
+
 				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
 					<div>
 						<span class="font-medium">Estimated Hours:</span>

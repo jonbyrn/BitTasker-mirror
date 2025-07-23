@@ -5,6 +5,7 @@
 	import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { formatNumberForInput, SATS_PER_BTC, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 
 	let { errors, direction } = $props();
 
@@ -12,83 +13,48 @@
 	let usdAmount = $state<number>(0);
 	let btcPrice = $state<number>(63000); // Default fallback price
 
-	/**
-	 * Fetch current BTC price and update the state
-	 */
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 
-			// Update USD amount if we have a BTC value
 			if ($store.task.budget.amount) {
-				usdAmount = $store.task.budget.amount * btcPrice;
+				// amount = sats -> pásalo a BTC y luego a USD
+				usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
 			}
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
 		}
 	}
 
-	/**
-	 * Handle USD input changes
-	 */
 	function handleUsdChange(event: Event) {
-		let input = (event.target as HTMLInputElement).value;
-		input = cleanInput(input);
-
-		// Opcional: actualiza el valor mostrado para evitar letras en el input
+		let input = cleanInput((event.target as HTMLInputElement).value);
 		(event.target as HTMLInputElement).value = input;
 
-		const rawValue = input.replace(/,/g, '');
-		const usdValue = parseFloat(rawValue);
-
+		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
 			usdAmount = usdValue;
-
-			const satsValue = Math.round((usdValue / btcPrice) * 100_000_000);
+			const satsValue = satsFromUsd(usdValue, btcPrice);
 			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: satsValue
-				}
+				budget: { ...$store.task.budget, amount: satsValue }
 			});
-		} else if (rawValue === '') {
+		} else {
 			usdAmount = 0;
-			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: 0
-				}
-			});
+			store.updateTask({ budget: { ...$store.task.budget, amount: 0 } });
 		}
 	}
 
 	function handleBtcChange(event: Event) {
-		let input = (event.target as HTMLInputElement).value;
-		input = cleanInput(input);
-
+		let input = cleanInput((event.target as HTMLInputElement).value);
 		(event.target as HTMLInputElement).value = input;
 
-		const rawValue = input.replace(/,/g, '');
-		const satsValue = parseInt(rawValue, 10);
-
+		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: satsValue
-				}
+				budget: { ...$store.task.budget, amount: satsValue }
 			});
-
-			const btcValue = satsValue / 100_000_000;
-			usdAmount = btcValue * btcPrice;
-		} else if (rawValue === '') {
-			store.updateTask({
-				budget: {
-					...$store.task.budget,
-					amount: 0
-				}
-			});
+			usdAmount = usdFromSats(satsValue, btcPrice);
+		} else {
+			store.updateTask({ budget: { ...$store.task.budget, amount: 0 } });
 			usdAmount = 0;
 		}
 	}
@@ -96,15 +62,6 @@
 	function cleanInput(value: string): string {
 		// Solo permite dígitos, comas y punto
 		return value.replace(/[^0-9.,]/g, '');
-	}
-
-	function formatNumberForInput(value: number | undefined): string {
-		if (value == null || isNaN(value)) return '';
-		// Para USD con 2 decimales, usa esta línea (opcional):
-		// return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-		// Para sats o enteros, solo separador de miles:
-		return Math.floor(value).toLocaleString('en-US');
 	}
 
 	onMount(() => {
@@ -158,7 +115,6 @@
 					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
 					placeholder="Enter USD amount"
 					min="0"
-					step="0.01"
 				/>
 			</div>
 			<div class="relative">
@@ -174,7 +130,6 @@
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
 					placeholder="Enter sats amount"
 					min="0"
-					step="0.00000001"
 				/>
 			</div>
 		</div>

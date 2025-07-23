@@ -217,7 +217,7 @@
 										</td>
 										<td>
 											<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
-												{tx.type === 'received' ? '+' : '-'}{formatNumber(tx.amount, 8)} BTC
+												{tx.type === 'received' ? '+' : '-'}{formatBtcToSats(tx.amount)}
 											</span>
 										</td>
 										<td>{formatDate(tx.timestamp)}</td>
@@ -534,7 +534,7 @@
 									</td>
 									<td>
 										<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
-											{tx.type === 'received' ? '+' : '-'}{formatNumber(tx.amount, 8)} BTC
+											{tx.type === 'received' ? '+' : '-'}{formatBtcToSats(tx.amount)}
 										</span>
 									</td>
 									<td>{formatDate(tx.timestamp)}</td>

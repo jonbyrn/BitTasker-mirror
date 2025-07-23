@@ -140,3 +140,18 @@ export function formatBtcToSats(amountBtc: number | string): string {
 
 	return `${formatted} Sats`;
 }
+
+export const SATS_PER_BTC = 100_000_000;
+
+export function satsFromUsd(usd: number, price: number) {
+	return Math.round((usd / price) * SATS_PER_BTC);
+}
+
+export function usdFromSats(sats: number, price: number) {
+	return (sats / SATS_PER_BTC) * price;
+}
+
+export function formatNumberForInput(value: number | undefined): string {
+	if (value == null || isNaN(value)) return '';
+	return Math.floor(value).toLocaleString('en-US');
+}
