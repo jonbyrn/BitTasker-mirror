@@ -20,24 +20,45 @@
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
+	// Defer non-critical operations
+	const deferNonCriticalOperations = () => {
+		if (typeof requestIdleCallback !== 'undefined') {
+			requestIdleCallback(() => {
+				// Add click outside handler for dropdowns
+				if (typeof document !== 'undefined') {
+					document.addEventListener('click', handleClickOutside, { passive: true });
+				}
+			}, { timeout: 1000 });
+		} else {
+			// Fallback for browsers without requestIdleCallback
+			setTimeout(() => {
+				// Add click outside handler for dropdowns
+				if (typeof document !== 'undefined') {
+					document.addEventListener('click', handleClickOutside, { passive: true });
+				}
+			}, 100);
+		}
+	};
 
 	onMount(async () => {
-		// Add click outside handler for dropdowns
-		if (typeof document !== 'undefined') {
-			document.addEventListener('click', handleClickOutside);
-		}
+		// Defer non-critical operations
+		deferNonCriticalOperations();
 	});
 
-	// Add body class for bottom navigation spacing
+	// Optimize body class management with debouncing
+	let bodyClassTimeout: ReturnType<typeof setTimeout>;
 	$effect(() => {
-		if (typeof document !== 'undefined') {
-			const body = document.body;
-			if (!isLoggedIn) {
-				body.classList.add('bottom-nav-active');
-			} else {
-				body.classList.remove('bottom-nav-active');
+		clearTimeout(bodyClassTimeout);
+		bodyClassTimeout = setTimeout(() => {
+			if (typeof document !== 'undefined') {
+				const body = document.body;
+				if (!isLoggedIn) {
+					body.classList.add('bottom-nav-active');
+				} else {
+					body.classList.remove('bottom-nav-active');
+				}
 			}
-		}
+		}, 50); // Small debounce to prevent excessive updates
 	});
 
 	// Go back function for the back button
@@ -57,6 +78,8 @@
 
 	// Cleanup on component destroy
 	onDestroy(() => {
+		clearTimeout(bodyClassTimeout);
+		
 		if (typeof window !== 'undefined') {
 			// Remove click outside handler
 			if (typeof document !== 'undefined') {
@@ -76,7 +99,7 @@
 		goto('/');
 	}
 
-	// Function to close all dropdown menus
+	// Function to close all dropdown menus - optimized with passive listeners
 	function closeDropdowns() {
 		// Close all details elements (dropdowns)
 		const dropdowns = document.querySelectorAll('details[open]');
@@ -95,7 +118,7 @@
 		});
 	}
 
-	// Handle dropdown summary clicks
+	// Handle dropdown summary clicks - optimized with passive listeners
 	function handleDropdownClick(event: MouseEvent) {
 		const summary = event.currentTarget as HTMLElement;
 		const dropdown = summary.closest('details') as HTMLDetailsElement;
@@ -131,6 +154,9 @@
 					src="/images/Logos/BitTasker-square-logo.svg"
 					alt="BitTasker Logo"
 					class="mx-auto block max-h-10"
+					width="40"
+					height="40"
+					style="aspect-ratio: 1/1;"
 				/>
 			</a>
 			<div class="flex md:hidden items-center">
@@ -256,7 +282,7 @@
 				</li>
 			{/if}
 
-			<div class="divider"></div>
+			<li class="divider"></li>
 
 			<li>
 				<a href="/" onclick={closeDrawer} class="flex items-center gap-2">
@@ -277,7 +303,7 @@
 				</a>
 			</li>
 
-			<div class="divider"></div>
+			<li class="divider"></li>
 
 			<!-- Additional menu items -->
 

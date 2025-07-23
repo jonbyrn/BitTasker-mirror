@@ -15,10 +15,10 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | Bittasker</title>
+	<title>Dashboard | BitTasker</title>
 	<meta
 		name="description"
-		content="Manage your tasks, bids, and wallet on Bittasker's dashboard."
+		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."
 	/>
 
 	<script>

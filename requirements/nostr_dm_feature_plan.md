@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-This document outlines the plan for implementing a secure, end-to-end encrypted Direct Messaging (DM) feature within Bittasker using the Nostr protocol. The feature will allow users to:
+This document outlines the plan for implementing a secure, end-to-end encrypted Direct Messaging (DM) feature within BitTasker using the Nostr protocol. The feature will allow users to:
 
 - ✅ View a list of their existing conversations.
 - ✅ Open and view the full chat history with a selected contact.

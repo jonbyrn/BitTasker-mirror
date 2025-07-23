@@ -693,14 +693,14 @@ const npub = nip19.npubEncode(publicKey);
 const nsec = nip19.nsecEncode(privateKey);
 ```
 
-## Integration with Bittasker
+## Integration with BitTasker
 
 ### Profile Updates
 
-For profile updates in Bittasker, we use kind 0 events with additional custom fields:
+For profile updates in BitTasker, we use kind 0 events with additional custom fields:
 
 ```typescript
-interface BittaskerProfile extends ProfileMetadata {
+interface BitTaskerProfile extends ProfileMetadata {
 	professionalTitle?: string;
 	additionalPictures?: string[];
 	skills?: string[];
@@ -737,7 +737,7 @@ import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { finalizeEvent } from 'nostr-tools/pure';
 
 export async function publishProfileUpdate(
-	profile: BittaskerProfile,
+	profile: BitTaskerProfile,
 	privateKey: string
 ): Promise<void> {
 	const pool = new SimplePool();

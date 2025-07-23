@@ -2,7 +2,7 @@
 	import { darkMode } from '$lib/stores/theme.store';
 	import { locale } from '$lib/stores/i18n.store';
 
-				let { class: className = 'block mx-auto mt-8 mb-8 w-full max-w-xs sm:max-w-sm md:max-w-md' } = $props<{ class?: string }>();
+	let { class: className = 'block mx-auto mt-8 mb-8 w-full max-w-xs sm:max-w-sm md:max-w-md' } = $props<{ class?: string }>();
 	let logoUrl = $state('');
 
 	$effect(() => {
@@ -13,4 +13,11 @@
 	});
 </script>
 
-<img src={logoUrl} alt="BitTasker Logo" class={className} />
+<img 
+	src={logoUrl} 
+	alt="BitTasker Logo" 
+	class={className}
+	width="200"
+	height="60"
+	style="aspect-ratio: 200/60;"
+/>

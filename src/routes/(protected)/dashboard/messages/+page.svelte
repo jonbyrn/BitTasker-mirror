@@ -261,7 +261,14 @@
 	</div>
 
 	<!-- Modal -->
-	<input type="checkbox" class="modal-toggle" checked={showModal} style="display:none" readonly />
+	<input 
+		type="checkbox" 
+		class="modal-toggle" 
+		checked={showModal} 
+		style="display:none" 
+		readonly 
+		aria-label="Toggle new message modal"
+	/>
 	{#if showModal}
 		<div class="modal modal-open">
 			<div class="modal-box max-w-md">
