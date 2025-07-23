@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { onMount, onDestroy } from 'svelte';
 	import { darkMode } from '$lib/stores/theme.store';
@@ -91,16 +92,10 @@
 
 <div class="min-h-screen">
 	<!-- Section 1: Hero Section -->
-	<section class="hero bg-base-100 text-base-content min-h-[60vh]">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content text-center">
 			<div class="max-w-2xl">
-				<img
-					src={$darkMode
-						? '/images/Bittasker-logo-tagline-dark.svg'
-						: '/images/Bittasker-logo-tagline-light.svg'}
-					alt="BitTasker Logo"
-					class="mx-auto mb-4 block md:min-w-[500px]"
-				/>
+				<Logo />
 				<p class="py-6">{$t('homepage.v2.hero.description')}</p>
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
@@ -129,11 +124,11 @@
 	<section class="bg-base-200 text-base-content py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 text-center">
-				<h2 class="text-3xl font-bold">{$t('homepage.v2.trust.title')}</h2>
+				<h2>{$t('homepage.v2.trust.title')}</h2>
 			</div>
 
 			<!-- DaisyUI Carousel -->
-			<div class="mx-auto max-w-5xl">
+			<div class="w-full">
 				<!-- Single card that changes content based on active feature -->
 				<div class="card bg-base-100 w-full overflow-hidden rounded-xl shadow-xl">
 					<div class="md:flex">
@@ -148,7 +143,7 @@
 
 						<!-- Content section (right on desktop, bottom on mobile) -->
 						<div class="card-body p-6 md:w-1/2 md:p-8">
-							<h3 class="card-title text-2xl">
+							<h3 class="card-title">
 								{$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 							</h3>
 							<p class="text-base-content/80">
@@ -166,7 +161,7 @@
 								activeFeatureIndex = index;
 								resetCarouselRotation();
 							}}
-							class="btn btn-circle btn-md {activeFeatureIndex === index
+							class="btn btn-circle btn-xs {activeFeatureIndex === index
 								? 'btn-primary'
 								: 'btn-outline btn-neutral'}"
 							aria-label={$t('common.slide') + ' ' + (index + 1)}
@@ -182,7 +177,7 @@
 	<!-- Section 3: How It Works -->
 	<section class="bg-base-100 text-base-content py-16">
 		<div class="container mx-auto px-4 text-center">
-			<h2 class="mb-12 text-3xl font-bold">{$t('homepage.v2.howitworks.title')}</h2>
+			<h2 class="mb-12">{$t('homepage.v2.howitworks.title')}</h2>
 			<div class="grid grid-cols-1 gap-8 md:grid-cols-3">
 				<!-- Step 1 -->
 				<div class="flex flex-col items-center">
@@ -191,7 +186,7 @@
 					>
 						<span class="text-2xl font-bold">1</span>
 					</div>
-					<h3 class="mt-4 text-xl font-semibold">{$t('homepage.v2.howitworks.step1.title')}</h3>
+					<h3 class="mt-4">{$t('homepage.v2.howitworks.step1.title')}</h3>
 					<p class="text-base-content/80 mt-2">
 						{$t('homepage.v2.howitworks.step1.description')}
 					</p>
@@ -203,7 +198,7 @@
 					>
 						<span class="text-2xl font-bold">2</span>
 					</div>
-					<h3 class="mt-4 text-xl font-semibold">{$t('homepage.v2.howitworks.step2.title')}</h3>
+					<h3 class="mt-4">{$t('homepage.v2.howitworks.step2.title')}</h3>
 					<p class="text-base-content/80 mt-2">
 						{$t('homepage.v2.howitworks.step2.description')}
 					</p>
@@ -215,7 +210,7 @@
 					>
 						<span class="text-2xl font-bold">3</span>
 					</div>
-					<h3 class="mt-4 text-xl font-semibold">{$t('homepage.v2.howitworks.step3.title')}</h3>
+					<h3 class="mt-4">{$t('homepage.v2.howitworks.step3.title')}</h3>
 					<p class="text-base-content/80 mt-2">
 						{$t('homepage.v2.howitworks.step3.description')}
 					</p>
@@ -233,7 +228,7 @@
 	<section class="bg-base-200 py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
-				<h2 class="text-3xl font-bold">{$t('homepage.v2.livetasks.title')}</h2>
+				<h2>{$t('homepage.v2.livetasks.title')}</h2>
 				<a href="/dashboard/find-tasks" class="btn btn-link text-primary"
 					>{$t('common.view_all')}
 					<svg
@@ -252,9 +247,9 @@
 					</svg>
 				</a>
 			</div>
-			<div class="-mx-4 overflow-hidden">
+			<div class="overflow-hidden">
 				<div
-					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-6 md:px-4"
+					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6 pl-8 pt-4 pr-0 md:px-4"
 					style="scrollbar-width:none;"
 				>
 					{#each liveTasks as task (task.id)}
@@ -264,35 +259,81 @@
 					{/each}
 				</div>
 			</div>
+
+			<!-- Browse Tasks Button -->
+			<div class="mt-12 text-center">
+				<a href="/dashboard/find-tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
+			</div>
 		</div>
 	</section>
 
 	<!-- Section 5: Core Benefits -->
 	<section class="bg-base-100 py-16">
 		<div class="container mx-auto px-4">
-			<h2 class="mb-12 text-center text-3xl font-bold">{$t('homepage.v2.benefits.title')}</h2>
-			<div class="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
-				<div class="text-center">
-					<h3 class="text-xl font-semibold">{$t('homepage.v2.benefits.payments.title')}</h3>
-					<p class="text-base-content/80 mt-2">
-						{$t('homepage.v2.benefits.payments.description')}
-					</p>
+			<h2 class="mb-12 text-center">{$t('homepage.v2.benefits.title')}</h2>
+			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+					<div class="card-body flex flex-col">
+						<div class="flex justify-center mb-4">
+							<div class="bg-primary/10 text-primary p-3 rounded-full">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75m18 0v.375c0 .621-.504 1.125-1.125 1.125h-9.75c-.621 0-1.125-.504-1.125-1.125V6.75" />
+								</svg>
+							</div>
+						</div>
+						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.payments.title')}</h3>
+						<p class="text-base-content/80 flex-grow">
+							{$t('homepage.v2.benefits.payments.description')}
+						</p>
+					</div>
 				</div>
-				<div class="text-center">
-					<h3 class="text-xl font-semibold">{$t('homepage.v2.benefits.escrow.title')}</h3>
-					<p class="text-base-content/80 mt-2">
-						{$t('homepage.v2.benefits.escrow.description')}
-					</p>
+				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+					<div class="card-body flex flex-col">
+						<div class="flex justify-center mb-4">
+							<div class="bg-primary/10 text-primary p-3 rounded-full">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 12 21a11.99 11.99 0 0 0 8.402-15.036A11.959 11.959 0 0 1 12 2.25Z" />
+								</svg>
+							</div>
+						</div>
+						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.escrow.title')}</h3>
+						<p class="text-base-content/80 flex-grow">
+							{$t('homepage.v2.benefits.escrow.description')}
+						</p>
+					</div>
 				</div>
-				<div class="text-center">
-					<h3 class="text-xl font-semibold">{$t('homepage.v2.benefits.ownership.title')}</h3>
-					<p class="text-base-content/80 mt-2">
-						{$t('homepage.v2.benefits.ownership.description')}
-					</p>
+				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+					<div class="card-body flex flex-col">
+						<div class="flex justify-center mb-4">
+							<div class="bg-primary/10 text-primary p-3 rounded-full">
+								<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8">
+									<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+								</svg>
+							</div>
+						</div>
+						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.ownership.title')}</h3>
+						<p class="text-base-content/80 flex-grow">
+							{$t('homepage.v2.benefits.ownership.description')}
+						</p>
+					</div>
 				</div>
-				<div class="text-center">
-					<h3 class="text-xl font-semibold">{$t('homepage.v2.benefits.fees.title')}</h3>
-					<p class="text-base-content/80 mt-2">{$t('homepage.v2.benefits.fees.description')}</p>
+				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
+					<div class="card-body flex flex-col">
+						<div class="flex justify-center mb-4">
+							<div class="bg-primary/10 text-primary p-3 rounded-full">
+								<svg height="32px" style="enable-background:new 0 0 512 512;" version="1.1" viewBox="0 0 512 512" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+									<g id="_x34_5-bitcoin">
+										<g>
+											<path d="M362.199,243.996c24.913-12.74,40.767-35.39,37.088-73.044    c-4.814-51.526-47.131-68.796-103.188-73.607V26.001H252.5v69.362c-11.325,0-22.932,0.283-34.539,0.564V26.001h-43.6v71.344    c-16.029,0.484-34.698,0.248-87.479,0v46.43c34.423-0.609,52.483-2.821,56.623,19.251V358.37    c-2.629,17.515-16.643,14.991-47.846,14.438l-8.775,51.809c79.495,0,87.479,0.284,87.479,0.284v61.099h43.601v-60.25    c11.888,0.285,23.498,0.285,34.539,0.285v59.965h43.599V424.9c73.043-3.964,121.871-22.366,128.384-91.16    C429.579,278.535,403.531,253.903,362.199,243.996z M218.811,146.889c24.631,0,101.639-7.643,101.639,43.599    c0,48.979-77.007,43.315-101.639,43.315V146.889z M218.811,373.093v-95.691c29.445,0,119.608-8.209,119.608,47.847    C338.418,379.321,248.255,373.093,218.811,373.093L218.811,373.093z" style="fill:#F7931B;"/>
+										</g>
+									</g>
+									<g id="Layer_1"/>
+								</svg>
+							</div>
+						</div>
+						<h3 class="text-lg font-semibold mb-4 min-h-[3rem] flex items-center justify-center">{$t('homepage.v2.benefits.fees.title')}</h3>
+						<p class="text-base-content/80 flex-grow">{$t('homepage.v2.benefits.fees.description')}</p>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -302,7 +343,7 @@
 	<section class="bg-base-200 py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
-				<h2 class="text-3xl font-bold">{$t('homepage.v2.taskees.title')}</h2>
+				<h2>{$t('homepage.v2.taskees.title')}</h2>
 				<a href="/dashboard/taskees" class="btn btn-link text-primary"
 					>{$t('common.view_all')}
 					<svg
@@ -321,9 +362,9 @@
 					</svg>
 				</a>
 			</div>
-			<div class="-mx-4 overflow-hidden">
+			<div class="overflow-hidden">
 				<div
-					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-6 md:px-4"
+					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6 pl-8 pt-4 pr-0 md:px-4"
 					style="scrollbar-width:none;"
 				>
 					{#each featuredTaskees as taskee (taskee.id)}
@@ -332,6 +373,11 @@
 						</div>
 					{/each}
 				</div>
+			</div>
+
+			<!-- Browse Taskees Button -->
+			<div class="mt-12 text-center">
+				<a href="/dashboard/taskees" class="btn btn-primary">{$t('navbar.browse_freelancers')}</a>
 			</div>
 		</div>
 	</section>

@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { authTranslations } from './auth';
 import { commonTranslation } from './common';
+import { companyTranslations } from './company';
 import { bidTranslations } from './dashboard/bid';
-import { dashboardTranslations } from './dashboard/dashboard';
 import { taskTranslations } from './dashboard/task';
 import { settingsTranslations } from './dashboard/settings';
 import { homePageTranslations } from './home';
@@ -11,6 +11,9 @@ import { onboardingTranslations } from './onboarding';
 import { profileTranslations } from './profile';
 import { recommendationTranslations } from './recomendation';
 import { uploaderTranslations } from './uploader';
+import { dashboardTranslations } from './dashboard';
+import { taskersTranslations } from './taskers';
+import { taskeesTranslations } from './taskees';
 
 function deepMergeTranslations(...sources: any[]) {
 	const result: any = {};
@@ -34,5 +37,9 @@ export default deepMergeTranslations(
 	taskTranslations,
 	dashboardTranslations,
 	recommendationTranslations,
-	settingsTranslations
+	companyTranslations,
+	settingsTranslations,
+
+	taskersTranslations,
+	taskeesTranslations
 );

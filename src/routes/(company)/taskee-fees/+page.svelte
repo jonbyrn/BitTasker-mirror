@@ -1,7 +1,8 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
-	
+
 	let { data } = $props();
 	const seo = data.seo;
 
@@ -20,206 +21,240 @@
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
-	
+
 	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="Taskee Fees & Earnings - BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
-	
+
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
-	
+
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto p-4 py-8 md:p-12">
-	<img
-	src={$darkMode
-		? '/images/Bittasker-logo-tagline-dark.svg'
-		: '/images/Bittasker-logo-tagline-light.svg'}
-	alt="BitTasker Logo"
-	class="mx-auto mb-4 block md:min-w-[500px]"
-	/>
-	<div class="text-center">
-		<h1 class="text-4xl font-bold">Taskee Fees & Pricing</h1>
-		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			Simple, transparent pricing designed to reward loyal taskees
-		</p>
-	</div>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+		<div class="hero-content flex-col text-center">
+			<Logo />
 
-	<div class="prose mx-auto mt-8 max-w-4xl">
-		<h2>Taskee Fee Structure</h2>
-		<p>
-			At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.
-		</p>
+			<div class="max-w-3xl">
+				<h1 class="text-5xl">{$t('fees.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('fees.subtitle')}
+				</p>
+			</div>
+		</div>
+	</section>
+
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
+		<div class="mb-12">
+							<h2>{$t('fees.structure.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
+				{$t('fees.structure.description')}
+			</p>
+		</div>
 
 		<div class="alert alert-success alert-outline mb-8">
-			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="h-6 w-6 shrink-0 stroke-current"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				></path>
 			</svg>
-			<span><strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees.</span>
+			<span>
+				{@html $t('fees.structure.note')}
+			</span>
 		</div>
 
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
+		<div class="my-8 grid grid-cols-1 gap-6 md:grid-cols-3">
 			<!-- Tier 1 -->
 			<div class="card bg-base-100 shadow-xl">
-				<div class="card-body">
-					<div class="badge badge-primary mb-2">Tier 1</div>
-					<h3 class="card-title">Nakamoto Newbie</h3>
-					<p class="text-sm">For taskees who complete 0-3 tasks in the last 30 days</p>
-					<div class="flex justify-center my-4">
+				<div class="card-body text-center">
+					<div class="badge badge-primary mb-2">{$t('fees.tiers.1.badge')}</div>
+					<h3 class="card-title">{$t('fees.tiers.1.title')}</h3>
+					<div class="mb-4 flex justify-center">
+						<img
+							src="/images/BitTasker-Nakamoto-Newbie-512x512.webp"
+							alt="Nakamoto Newbie Badge"
+							class="h-48 w-48 object-contain"
+						/>
+					</div>
+					<p class="text-sm">{$t('fees.tiers.1.criteria')}</p>
+					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">Fee Rate</div>
-								<div class="stat-value text-primary">12.5%</div>
+								<div class="stat-title">{$t('fees.tiers.1.fee_label')}</div>
+								<div class="stat-value text-primary">{$t('fees.tiers.1.fee_rate')}</div>
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
-						<p>Example: For a $100 task, you'll receive $87.50.</p>
+					<div class="text-sm text-base-content/80">
+						<p>{$t('fees.tiers.1.example')}</p>
 					</div>
 				</div>
 			</div>
-			
+
 			<!-- Tier 2 -->
 			<div class="card bg-base-100 shadow-xl">
-				<div class="card-body">
-					<div class="badge badge-primary mb-2">Tier 2</div>
-					<h3 class="card-title">Satoshi Stacker</h3>
-					<p class="text-sm">For taskees who complete 4-10 tasks in the last 30 days</p>
-					<div class="flex justify-center my-4">
+				<div class="card-body text-center">
+					<div class="badge badge-primary mb-2">{$t('fees.tiers.2.badge')}</div>
+					<h3 class="card-title">{$t('fees.tiers.2.title')}</h3>
+					<div class="mb-4 flex justify-center">
+						<img
+							src="/images/BitTasker-Satoshi-Stacker-512x512.webp"
+							alt="Satoshi Stacker Badge"
+							class="h-48 w-48 object-contain"
+						/>
+					</div>
+					<p class="text-sm">{$t('fees.tiers.2.criteria')}</p>
+					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">Fee Rate</div>
-								<div class="stat-value text-primary">10%</div>
+								<div class="stat-title">{$t('fees.tiers.2.fee_label')}</div>
+								<div class="stat-value text-primary">{$t('fees.tiers.2.fee_rate')}</div>
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
-						<p>Example: For a $100 task, you'll receive $90.</p>
+					<div class="text-sm text-base-content/80">
+						<p>{$t('fees.tiers.2.example')}</p>
 					</div>
 				</div>
 			</div>
-			
+
 			<!-- Tier 3 -->
 			<div class="card bg-base-100 shadow-xl">
-				<div class="card-body">
-					<div class="badge badge-primary mb-2">Tier 3</div>
-					<h3 class="card-title">Hash Master</h3>
-					<p class="text-sm">For our most active taskees with 11+ tasks in the last 30 days</p>
-					<div class="flex justify-center my-4">
+				<div class="card-body text-center">
+					<div class="badge badge-primary mb-2">{$t('fees.tiers.3.badge')}</div>
+					<h3 class="card-title">{$t('fees.tiers.3.title')}</h3>
+					<div class="mb-4 flex justify-center">
+						<img
+							src="/images/BitTasker-Hash-Master-512x512.webp"
+							alt="Hash Master Badge"
+							class="h-48 w-48 object-contain"
+						/>
+					</div>
+					<p class="text-sm">{$t('fees.tiers.3.criteria')}</p>
+					<div class="my-4 flex justify-center">
 						<div class="stats shadow">
 							<div class="stat">
-								<div class="stat-title">Fee Rate</div>
-								<div class="stat-value text-primary">7.5%</div>
+								<div class="stat-title">{$t('fees.tiers.3.fee_label')}</div>
+								<div class="stat-value text-primary">{$t('fees.tiers.3.fee_rate')}</div>
 							</div>
 						</div>
 					</div>
-					<div class="text-sm opacity-80">
-						<p>Example: For a $100 task, you'll receive $92.50.</p>
+					<div class="text-sm text-base-content/80">
+						<p>{$t('fees.tiers.3.example')}</p>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<h2>Bitcoin Payments: Keep More of What You Earn</h2>
-		<p>
-			Earn even more when taskers pay with Bitcoin! We offer reduced fees for Bitcoin transactions.
+		<h2>{$t('fees.bitcoin.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">
+			{@html $t('fees.bitcoin.description')}
 		</p>
 
-		<div class="overflow-x-auto my-6">
-			<table class="table table-zebra">
+		<div class="my-6 overflow-x-auto">
+			<table class="table-zebra table w-full">
 				<thead>
 					<tr>
-						<th>Taskee Tier</th>
-						<th>Bitcoin Fee Rate</th>
-						<th>Improvement vs. Standard</th>
+						<th>{$t('fees.bitcoin.table.header.tier')}</th>
+						<th>{$t('fees.bitcoin.table.header.rate')}</th>
+						<th>{$t('fees.bitcoin.table.header.improvement')}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
-						<td>Nakamoto Newbie</td>
-						<td>2.5%</td>
-						<td>Keep 10% more!</td>
+						<td>{$t('fees.bitcoin.table.row.1.tier')}</td>
+						<td>{$t('fees.bitcoin.table.row.1.rate')}</td>
+						<td>{$t('fees.bitcoin.table.row.1.improvement')}</td>
 					</tr>
 					<tr>
-						<td>Satoshi Stacker</td>
-						<td>2%</td>
-						<td>Keep 8% more!</td>
+						<td>{$t('fees.bitcoin.table.row.2.tier')}</td>
+						<td>{$t('fees.bitcoin.table.row.2.rate')}</td>
+						<td>{$t('fees.bitcoin.table.row.2.improvement')}</td>
 					</tr>
 					<tr>
-						<td>Hash Master</td>
-						<td>1.5%</td>
-						<td>Keep 6% more!</td>
+						<td>{$t('fees.bitcoin.table.row.3.tier')}</td>
+						<td>{$t('fees.bitcoin.table.row.3.rate')}</td>
+						<td>{$t('fees.bitcoin.table.row.3.improvement')}</td>
 					</tr>
 				</tbody>
 			</table>
 		</div>
-		
+
 		<div class="alert alert-info alert-outline my-8">
-			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="h-6 w-6 shrink-0 stroke-current"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				></path>
 			</svg>
-			<span><strong>Bitcoin Example:</strong> As a <strong class="text-primary">Hash Master</strong> tier taskee, a $100 task paid with Bitcoin would net you $98.50 instead of $92.50!</span>
+			<span>{@html $t('fees.bitcoin.example')}</span>
 		</div>
 
-		<h2>Repeat Taskee Bonus</h2>
-		<p>
-			Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!
-		</p>
-		
-		<div class="card bg-base-100 shadow-lg my-6 border border-success">
+		<h2>{$t('fees.repeat.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">{$t('fees.repeat.description')}</p>
+
+		<div class="card bg-base-100 border-success my-6 border shadow-lg">
 			<div class="card-body">
-				<h3 class="card-title">Returning Taskees = Higher Earnings!</h3>
-				<p>When a taskee books you for a repeat task:</p>
+				<h3 class="card-title">{$t('fees.repeat_bonus.title')}</h3>
+				<p>{$t('fees.repeat_bonus.description')}</p>
 				<ul>
-					<li>Standard payments: Just <strong>3% fee</strong> (down from 7.5-12.5%)</li>
-					<li>Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5-2.5%)</li>
+					<li>{@html $t('fees.repeat_bonus.item_1')}</li>
+					<li>{@html $t('fees.repeat_bonus.item_2')}</li>
 				</ul>
-				<p class="text-sm mt-3 opacity-80">
-					Example: For a $100 repeat task, you'll earn $97 with standard payment or $99 with Bitcoin!
-				</p>
-				<p class="text-sm mt-3 opacity-80">
-					Booking repeat work with a taskee counts towards your 30 day rolling tasks to maintain your tier.
-				</p>
+									<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_1')}</p>
+					<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_2')}</p>
 			</div>
 		</div>
 
-		<h2>Taskee Benefits & Visibility</h2>
-		<p>
-			Higher tier taskees enjoy additional benefits beyond reduced fees:
-		</p>
-		<ul>
-			<li><strong>Enhanced Visibility:</strong> Higher tier taskees appear at the top of search results</li>
-			<li><strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile</li>
-			<li><strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes</li>
-			<li><strong>Competitive Edge:</strong> When comparing similar taskees, taskees can see your tier status, giving you an advantage</li>
+		<h2>{$t('fees.benefits.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">{$t('fees.benefits.description')}</p>
+		<ul class="text-base-content/80 mt-4 list-inside list-disc">
+			<li>{@html $t('fees.benefits.item_1')}</li>
+			<li>{@html $t('fees.benefits.item_2')}</li>
+			<li>{@html $t('fees.benefits.item_3')}</li>
+			<li>{@html $t('fees.benefits.item_4')}</li>
 		</ul>
-		
-		<h2>Tier Advancement & Maintenance</h2>
-		<p>
-			Your tier status is calculated based on your activity over the past 30 days, and is updated daily. The more tasks you complete, the higher your tier and the lower your fees.
-		</p>
+
+		<h2 class="mt-10">{$t('fees.maintenance.title')}</h2>
+		<p class="text-base-content/80 py-6 text-lg">{$t('fees.maintenance.description')}</p>
 
 		<div class="divider my-8"></div>
 
-		<div class="flex flex-col items-center my-6 text-center">
-			<h3>Ready to start earning with the most competitive fees in the industry?</h3>
-			<a href="/sign-up" class="btn btn-primary mt-4">Join BitTasker Today</a>
+		<div class="mt-6 mb-12 flex flex-col items-center text-center">
+			<h3>{$t('fees.cta.title')}</h3>
+			<a href="/sign-up" class="btn btn-primary mt-4">{$t('fees.cta.button')}</a>
 		</div>
 	</div>
 </div>

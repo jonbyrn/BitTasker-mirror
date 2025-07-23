@@ -33,35 +33,78 @@
 	 * Handle USD input changes
 	 */
 	function handleUsdChange(event: Event) {
-		const value = parseFloat((event.target as HTMLInputElement).value);
-		if (!isNaN(value)) {
-			usdAmount = value;
-			// Convert to BTC
-			const btcValue = value / btcPrice;
+		let input = (event.target as HTMLInputElement).value;
+		input = cleanInput(input);
+
+		// Opcional: actualiza el valor mostrado para evitar letras en el input
+		(event.target as HTMLInputElement).value = input;
+
+		const rawValue = input.replace(/,/g, '');
+		const usdValue = parseFloat(rawValue);
+
+		if (!isNaN(usdValue)) {
+			usdAmount = usdValue;
+
+			const satsValue = Math.round((usdValue / btcPrice) * 100_000_000);
 			store.updateTask({
 				budget: {
 					...$store.task.budget,
-					amount: btcValue
+					amount: satsValue
+				}
+			});
+		} else if (rawValue === '') {
+			usdAmount = 0;
+			store.updateTask({
+				budget: {
+					...$store.task.budget,
+					amount: 0
 				}
 			});
 		}
 	}
 
-	/**
-	 * Handle BTC input changes
-	 */
 	function handleBtcChange(event: Event) {
-		const value = parseFloat((event.target as HTMLInputElement).value);
-		if (!isNaN(value)) {
+		let input = (event.target as HTMLInputElement).value;
+		input = cleanInput(input);
+
+		(event.target as HTMLInputElement).value = input;
+
+		const rawValue = input.replace(/,/g, '');
+		const satsValue = parseInt(rawValue, 10);
+
+		if (!isNaN(satsValue)) {
 			store.updateTask({
 				budget: {
 					...$store.task.budget,
-					amount: value
+					amount: satsValue
 				}
 			});
-			// Convert to USD
-			usdAmount = value * btcPrice;
+
+			const btcValue = satsValue / 100_000_000;
+			usdAmount = btcValue * btcPrice;
+		} else if (rawValue === '') {
+			store.updateTask({
+				budget: {
+					...$store.task.budget,
+					amount: 0
+				}
+			});
+			usdAmount = 0;
 		}
+	}
+
+	function cleanInput(value: string): string {
+		// Solo permite dígitos, comas y punto
+		return value.replace(/[^0-9.,]/g, '');
+	}
+
+	function formatNumberForInput(value: number | undefined): string {
+		if (value == null || isNaN(value)) return '';
+		// Para USD con 2 decimales, usa esta línea (opcional):
+		// return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+		// Para sats o enteros, solo separador de miles:
+		return Math.floor(value).toLocaleString('en-US');
 	}
 
 	onMount(() => {
@@ -107,9 +150,9 @@
 			<div class="relative">
 				<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"> $ </span>
 				<input
-					type="number"
+					type="text"
 					id="budget-usd"
-					value={usdAmount}
+					value={formatNumberForInput(usdAmount)}
 					onchange={handleUsdChange}
 					oninput={handleUsdChange}
 					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
@@ -119,15 +162,17 @@
 				/>
 			</div>
 			<div class="relative">
-				<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"> BTC </span>
+				<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2">
+					Sats
+				</span>
 				<input
-					type="number"
+					type="text"
 					id="budget-btc"
-					value={$store.task.budget.amount}
+					value={formatNumberForInput($store.task.budget.amount)}
 					onchange={handleBtcChange}
 					oninput={handleBtcChange}
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
-					placeholder="Enter BTC amount"
+					placeholder="Enter sats amount"
 					min="0"
 					step="0.00000001"
 				/>

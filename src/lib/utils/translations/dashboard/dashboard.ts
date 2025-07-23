@@ -1,4 +1,4 @@
-export const dashboardTranslations = {
+export const dashboardPageTranslations = {
 	en: {
 		'dashboard.title': 'My Dashboard',
 		'dashboard.create_task': 'Create Task',

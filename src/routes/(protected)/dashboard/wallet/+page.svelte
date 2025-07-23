@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { wallet } from '$lib/utils/consts';
+	import { btcToSatsWithLabel } from '$lib/utils/helpers/crypto';
 
 	// UI state
 	let activeTab = $state('balance'); // balance, receive, send, transactions
@@ -135,10 +136,19 @@
 			<!-- Balance Card -->
 			<div class="card bg-primary text-primary-content">
 				<div class="card-body">
-					<h3 class="card-title mb-2 text-lg">Total Balance</h3>
-					<p class="text-4xl font-bold">{formatNumber(wallet.balance.btc, 8)} BTC</p>
-					<p class="opacity-80">{wallet.balance.sats.toLocaleString()} sats</p>
-					<p class="opacity-80">≈ ${wallet.balance.usdValue.toLocaleString()}</p>
+					<div class="mb-2 flex items-center justify-between">
+						<h3 class="card-title text-lg">Total Balance</h3>
+						<div class="form-control">
+							<label class="label cursor-pointer">
+								<span class="label-text text-primary-content mr-2">Show in BTC</span>
+								<input type="checkbox" class="toggle toggle-primary toggle-lg" checked={true} />
+							</label>
+						</div>
+					</div>
+
+					<p class="text-4xl font-bold">{btcToSatsWithLabel(wallet.balance.btc)}</p>
+					<p class="opacity-80">{wallet.balance.sats} sats</p>
+					<p class="opacity-80">≈ ${wallet.balance.usdValue}</p>
 				</div>
 			</div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import type { Credentials } from '$lib/types/auth';
 	import type { NostrEvent } from '$lib/types/nostr';
 	import { onMount } from 'svelte';
@@ -253,7 +254,7 @@
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
-				<img src="/logo.svg" alt="BitTasker" class="w-auto" />
+				<Logo class="w-auto" />
 				<h1 class="mt-6 text-center text-2xl font-bold">{$t('auth.login.title')}</h1>
 				<br />
 				<p class="text-base-content/70 mt-3 text-center text-sm">

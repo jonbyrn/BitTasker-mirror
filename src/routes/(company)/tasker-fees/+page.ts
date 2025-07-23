@@ -1,10 +1,10 @@
+
 export async function load({ url }) {
 	const seo = {
 		title: 'Tasker Fees & Pricing - BitTasker | Bitcoin Task Costs',
 		description: 'Discover BitTasker\'s transparent tasker fee structure with tiered pricing that rewards loyalty. Learn about our competitive rates for posting Bitcoin tasks.',
 		keywords: 'BitTasker tasker fees, task posting fees, Bitcoin marketplace pricing, transparent pricing, task platform costs, cryptocurrency task fees, tiered pricing structure',
 		canonical: url.href,
-		image: 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
 		ogTitle: 'Tasker Fees & Pricing - BitTasker',
 		ogDescription: 'Learn about BitTasker\'s transparent tasker fee structure with tiered pricing that rewards active users. Competitive rates for posting tasks.',
 		twitterTitle: 'BitTasker Tasker Fees - Transparent Pricing',
@@ -15,31 +15,7 @@ export async function load({ url }) {
 			'name': 'Tasker Fees & Pricing - BitTasker',
 			'description': 'Transparent fee structure for task posters on BitTasker with tiered pricing based on activity level',
 			'url': 'https://bittasker.com/tasker-fees',
-			'isPartOf': {
-				'@type': 'WebSite',
-				'name': 'BitTasker',
-				'url': 'https://bittasker.com'
-			},
-			'about': {
-				'@type': 'Organization',
-				'name': 'BitTasker',
-				'description': 'Decentralized Bitcoin task marketplace connecting taskers and taskees globally',
-				'url': 'https://bittasker.com',
-				'logo': 'https://bittasker.com/images/Bittasker-logo-tagline-dark.svg',
-				'sameAs': [
-					'https://twitter.com/BitTaskerdotcom',
-					'https://www.linkedin.com/company/bittasker',
-					'https://www.facebook.com/BitTaskerdotcom/'
-				],
-				'founder': {
-					'@type': 'Person',
-					'name': 'BitTasker Team'
-				},
-				'foundingDate': '2024',
-				'industry': 'Technology',
-				'numberOfEmployees': '1-10',
-				'slogan': 'Powering Human Freedom One Task at a Time'
-			},
+
 			'mainEntity': {
 				'@type': 'PriceSpecification',
 				name: 'BitTasker Tasker Fees',
@@ -76,23 +52,6 @@ export async function load({ url }) {
 							price: 7.5,
 							priceCurrency: 'PERCENT'
 						}
-					}
-				]
-			},
-			'breadcrumb': {
-				'@type': 'BreadcrumbList',
-				'itemListElement': [
-					{
-						'@type': 'ListItem',
-						'position': 1,
-						'name': 'Home',
-						'item': 'https://bittasker.com'
-					},
-					{
-						'@type': 'ListItem',
-						'position': 2,
-						'name': 'Tasker Fees',
-						'item': 'https://bittasker.com/tasker-fees'
 					}
 				]
 			}

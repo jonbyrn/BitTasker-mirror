@@ -1,7 +1,10 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
-	
-	let { data } = $props();
+	import { t } from '$lib/stores/i18n.store';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
 	const seo = data.seo;
 </script>
 
@@ -12,139 +15,199 @@
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
-	
+
 	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="BitTasker - Decentralized Bitcoin Task Marketplace" />
 	<meta property="og:site_name" content="BitTasker" />
-	
+
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
-	
+
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
-		<div class="hero-content text-center flex-col">
-			<img
-			src={$darkMode
-				? '/images/Bittasker-logo-tagline-dark.svg'
-				: '/images/Bittasker-logo-tagline-light.svg'}
-			alt="BitTasker Logo"
-			class="mx-auto mb-4 block md:min-w-[500px]"
-			/>
-			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">Powering Human Freedom<br />One Task at a Time</h1>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+			<div class="hero-content flex-col text-center">
+				<Logo />
+				<div class="max-w-3xl">
+					<h1 class="text-5xl">{$t('how_it_works.hero.heading')}</h1>
+					<p class="text-base-content/80 py-6 text-lg">
+						{$t('how_it_works.hero.tagline')}
+					</p>
+				</div>
 			</div>
-		</div>
-	</div>
+	</section>
 
 	<!-- Our Mission Section -->
-	<div class="prose container mx-auto px-4 py-16 md:px-8">
-		<div class="mx-auto max-w-3xl text-center">
-			<h2 class="text-4xl font-bold">Our Mission</h2>
-			<p class="mt-4 text-lg text-base-content/80">
-				BitTasker exists to empower everyday people to earn, trade, and thrive—without borders,
-				banks, or barriers. We are building a platform where skills become currency, and Bitcoin
-				becomes the bridge between sovereign individuals.
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
+		<div class="mb-12 text-center">
+			<h2>{$t('about.mission.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
+				{$t('about.mission.description')}
 			</p>
 		</div>
-	</div>
 
-	<!-- Our Beliefs Section -->
-	<div class="bg-base-200 py-16">
-		<div class="container mx-auto px-4 md:px-8">
-			<h2 class="mb-12 text-center text-4xl font-bold">Our Core Beliefs</h2>
-			<div class="grid gap-8 md:grid-cols-2">
-				<div class="card bg-base-100 shadow-lg">
-					<div class="card-body">
-						<h3 class="card-title text-2xl">Bitcoin is Liberation</h3>
-						<p>
-							We embrace Bitcoin as the tool to unlock global earning potential for the
-							unbanked, underpaid, and overregulated.
-						</p>
-					</div>
+		<!-- Our Beliefs Section -->
+		<div class="mx-auto max-w-4xl">
+			<div class="mb-8">
+				<div class="mb-6 text-center">
+					<h2>{$t('about.core_beliefs.title')}</h2>
 				</div>
-				<div class="card bg-base-100 shadow-lg">
+
+				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
-						<h3 class="card-title text-2xl">Tasks are Dignity</h3>
-						<p>
-							Every person has value. BitTasker connects hands-on skills with global demand—no
-							resumé, no gatekeepers, just proof of value.
+						<p class="mb-4">
+							{$t('about.core_beliefs.description')}
 						</p>
-					</div>
-				</div>
-				<div class="card bg-base-100 shadow-lg">
-					<div class="card-body">
-						<h3 class="card-title text-2xl">Decentralization is Key</h3>
-						<p>
-							Legacy platforms extract value through censorship and excessive fees. We choose a
-							better path: peer-to-peer, open, and fair.
-						</p>
-					</div>
-				</div>
-				<div class="card bg-base-100 shadow-lg">
-					<div class="card-body">
-						<h3 class="card-title text-2xl">Sovereignty Starts with Income</h3>
-						<p>
-							We help people own their time, money, and future by enabling direct,
-							censorship-resistant earning.
-						</p>
+
+						<div class="divider">{$t('about.core_beliefs.divider')}</div>
+
+						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title">{$t('about.core_beliefs.bitcoin_title')}</h4>
+									<p>{$t('about.core_beliefs.bitcoin_text')}</p>
+								</div>
+							</div>
+
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title">{$t('about.core_beliefs.tasks_title')}</h4>
+									<p>{$t('about.core_beliefs.tasks_text')}</p>
+								</div>
+							</div>
+
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title">
+										{$t('about.core_beliefs.decentralization_title')}
+									</h4>
+									<p>{$t('about.core_beliefs.decentralization_text')}</p>
+								</div>
+							</div>
+
+							<div class="card bg-base-200 shadow-sm">
+								<div class="card-body p-4">
+									<h4 class="card-title">{$t('about.core_beliefs.sovereignty_title')}</h4>
+									<p>{$t('about.core_beliefs.sovereignty_text')}</p>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
-	</div>
 
-	<!-- Our Platform Section -->
-	<div class="container mx-auto px-4 py-16 md:px-8">
-		<div class="text-center">
-			<h2 class="text-4xl font-bold">Our Platform</h2>
-			<p class="mx-auto mt-4 max-w-2xl text-lg text-base-content/80">
-				BitTasker is not just a company—it's a mission to decentralize income and make Bitcoin
-				useful in everyday life.
-			</p>
-		</div>
-		<div class="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-			<div class="text-center">
-				<h3 class="text-xl font-semibold">Decentralized Communication</h3>
-				<p class="text-base-content/80">Censorship-resistant messaging via Nostr.</p>
+		<!-- Step 6: Our Platform -->
+		<div class="mb-12">
+			<div class="mb-6 text-center">
+				<h2>{$t('about.platform.title')}</h2>
+				<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
+					{$t('about.platform.description')}
+				</p>
 			</div>
-			<div class="text-center">
-				<h3 class="text-xl font-semibold">Bitcoin Lightning Payments</h3>
-				<p class="text-base-content/80">Instant, borderless, and nearly free.</p>
-			</div>
-			<div class="text-center">
-				<h3 class="text-xl font-semibold">Automated Escrow & Reputation</h3>
-				<p class="text-base-content/80">Trust without intermediaries.</p>
-			</div>
-			<div class="text-center">
-				<h3 class="text-xl font-semibold">Fiat On-Ramp</h3>
-				<p class="text-base-content/80">Mainstream accessibility.</p>
-			</div>
-			<div class="text-center">
-				<h3 class="text-xl font-semibold">Multi-Category Marketplace</h3>
-				<p class="text-base-content/80">From tech to trades, pets to plumbing.</p>
-			</div>
-			<div class="text-center">
-				<h3 class="text-xl font-semibold">Built for Global Inclusion</h3>
-				<p class="text-base-content/80">No borders, no bias.</p>
+
+			<div class="card bg-base-100 shadow-lg">
+				<div class="card-body">
+					<div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+						<div class="card bg-base-200 shadow-sm">
+							<div class="card-body p-4">
+								<h4 class="card-title">
+									{$t('about.platform.features.communication.title')}
+								</h4>
+								<p class="text-base-content/80">
+									{$t('about.platform.features.communication.description')}
+								</p>
+							</div>
+						</div>
+
+						<div class="card bg-base-200 shadow-sm">
+							<div class="card-body p-4">
+								<h4 class="card-title">
+									{$t('about.platform.features.lightning.title')}
+								</h4>
+								<p class="text-base-content/80">
+									{$t('about.platform.features.lightning.description')}
+								</p>
+							</div>
+						</div>
+
+						<div class="card bg-base-200 shadow-sm">
+							<div class="card-body p-4">
+								<h4 class="card-title">
+									{$t('about.platform.features.escrow.title')}
+								</h4>
+								<p class="text-base-content/80">
+									{$t('about.platform.features.escrow.description')}
+								</p>
+							</div>
+						</div>
+
+						<div class="card bg-base-200 shadow-sm">
+							<div class="card-body p-4">
+								<h4 class="card-title">
+									{$t('about.platform.features.fiat.title')}
+								</h4>
+								<p class="text-base-content/80">{$t('about.platform.features.fiat.description')}</p>
+							</div>
+						</div>
+					</div>
+
+					<div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+						<div class="flex-1">
+							<h4 class="mb-2">
+								{$t('about.platform.features.marketplace.title')}
+							</h4>
+							<ul class="text-base-content/80 list-inside list-disc space-y-1">
+								<li>{$t('about.platform.features.marketplace.item1')}</li>
+								<li>{$t('about.platform.features.marketplace.item2')}</li>
+							</ul>
+						</div>
+
+						<div class="flex-1">
+							<h4 class="mb-2">
+								{$t('about.platform.features.global.title')}
+							</h4>
+							<ul class="text-base-content/80 list-inside list-disc space-y-1">
+								<li>{$t('about.platform.features.global.item1')}</li>
+								<li>{$t('about.platform.features.global.item2')}</li>
+							</ul>
+						</div>
+					</div>
+
+					<div class="alert alert-info alert-outline mt-6">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span>{$t('about.platform.alert')}</span>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

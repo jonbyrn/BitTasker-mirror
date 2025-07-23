@@ -1,6 +1,8 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
-	
+	import { t } from '$lib/stores/i18n.store';
+
 	let { data } = $props();
 	const seo = data.seo;
 </script>
@@ -12,154 +14,94 @@
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
-	
+
 	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="Privacy Policy - BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
-	
+
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
-	
+
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto p-4 py-8 md:p-12">
-	<div class="text-center">
-		<img
-			src={$darkMode
-				? '/images/Bittasker-logo-tagline-dark.svg'
-				: '/images/Bittasker-logo-tagline-light.svg'}
-			alt="BitTasker Logo"
-			class="mx-auto mb-4 block md:min-w-[500px]"
-		/>
-		<h1 class="text-4xl font-bold">Privacy Policy</h1>
-		<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-			How we protect your privacy and handle your data when you use BitTasker to connect with taskers and taskees.
-		</p>
-		<p class="text-sm text-base-content/70 mt-2">Last Updated: July 13, 2025</p>
-	</div>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl">
+				<h1 class="text-5xl">{$t('privacy.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('privacy.subtitle')}
+				</p>
+				<p class="text-base-content/80 mt-2 text-sm">
+					{$t('privacy.last_updated')}
+				</p>
+			</div>
+		</div>
+	</section>
 
-	<div class="prose mx-auto mt-12 max-w-4xl">
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
+		<h2>{$t('privacy.sections.philosophy.title')}</h2>
+		<p>{@html $t('privacy.sections.philosophy.content')}</p>
 
-		<h2>Our Philosophy: You Are in Control</h2>
-		<p>
-			BitTasker is fundamentally different from traditional gig platforms. We are built on
-			<a href="https://nostr.com/" target="_blank" rel="noopener noreferrer">Nostr</a>, a
-			decentralized network. This means <strong>you own your identity and your data</strong>. You
-			interact with the platform using a cryptographic key pair (a public and private key) that only
-			you control. We never have access to your private key.
-		</p>
+		<h2>{$t('privacy.sections.data_collection.title')}</h2>
+		<p>{$t('privacy.sections.data_collection.content')}</p>
 
-		<h2>What Information Do We Collect? (Almost None)</h2>
-		<p>
-			Because of our decentralized design, we do not have access to or store any of your non-public
-			personally identifiable information (PII). We cannot see your real name, your email address,
-			or your physical address unless you choose to make it public.
-		</p>
-
-		<h3>Information That is Public By Default</h3>
-		<p>
-			When you use a decentralized network like Nostr, some information is public by its very
-			nature. This includes:
-		</p>
+		<h3>{$t('privacy.sections.public_data.title')}</h3>
+		<p>{$t('privacy.sections.public_data.intro')}</p>
 		<ul>
-			<li>
-				<strong>Your Nostr Public Key (npub):</strong> This is your public identifier, like a
-				username.
-			</li>
-			<li>
-				<strong>Your Public Profile:</strong> Any information you add to your profile, such as a
-				username, avatar, or bio, is publicly visible.
-			</li>
-			<li>
-				<strong>Public Actions:</strong> Posting a task or leaving a review are public events on the Nostr network.
-			</li>
-			<li>
-				<strong>Bitcoin Transactions:</strong> Transactions on the Bitcoin blockchain are public
-				by nature, though they do not contain personal identifiers beyond wallet addresses.
-			</li>
+			<li>{$t('privacy.sections.public_data.npub')}</li>
+			<li>{$t('privacy.sections.public_data.profile')}</li>
+			<li>{$t('privacy.sections.public_data.actions')}</li>
+			<li>{$t('privacy.sections.public_data.transactions')}</li>
 		</ul>
-		<p>
-			We strongly encourage you to use caution and discretion when deciding what information to make
-			public.
-		</p>
+		<p>{$t('privacy.sections.public_data.warning')}</p>
 
-		<h3>Information That is Private</h3>
-		<p>
-			<strong>All direct messages between users on BitTasker are end-to-end encrypted (E2EE)</strong>.
-			We, the platform operators, cannot read your private conversations. Only you and the person
-			you are communicating with can decrypt and view the messages.
-		</p>
+		<h3>{$t('privacy.sections.private_data.title')}</h3>
+		<p>{@html $t('privacy.sections.private_data.content')}</p>
 
-		<h2>Marketing Analytics</h2>
+		<h2>{$t('privacy.sections.analytics.title')}</h2>
+		<p>{$t('privacy.sections.analytics.intro')}</p>
 		<p>
-			BitTasker may use marketing analytics tools to gather aggregate data for the purpose of measuring
-			and improving our marketing efforts. These tools help us understand how users interact with our
-			website and which marketing channels are most effective.
+			<strong>{$t('privacy.sections.analytics.warning_title')}</strong>
+			{$t('privacy.sections.analytics.warning_body')}
 		</p>
-		<p>
-			<strong>Important:</strong> We do not collect personally identifiable information (PII) through
-			these marketing tools, nor do we wish to collect such information. Any data collected is anonymous
-			and aggregated, used solely to enhance user experience and optimize our marketing strategies.
-		</p>
-		<p>
-			These analytics may include:
-		</p>
+		<p>{$t('privacy.sections.analytics.details_intro')}</p>
 		<ul>
-			<li><strong>Anonymous Usage Patterns:</strong> How users navigate through our website</li>
-			<li><strong>Referral Sources:</strong> Which websites or platforms directed traffic to BitTasker</li>
-			<li><strong>Campaign Performance:</strong> How different marketing initiatives perform</li>
+			<li>{$t('privacy.sections.analytics.usage')}</li>
+			<li>{$t('privacy.sections.analytics.referrals')}</li>
+			<li>{$t('privacy.sections.analytics.performance')}</li>
 		</ul>
 
-		<h2>How We Use Information</h2>
-		<p>
-			Since we don't have access to your private data, we can't use it. We do not sell, rent, or
-			share any personal information with third parties for marketing or any other purpose.
-		</p>
+		<h2>{$t('privacy.sections.use_of_info.title')}</h2>
+		<p>{$t('privacy.sections.use_of_info.content')}</p>
 
-		<h2>Data Storage and Retention</h2>
-		<p>
-			Your public data is stored on the distributed network of Nostr relays. You can choose which
-			relays you connect to, giving you further control over your data's distribution. BitTasker
-			does not operate a central database of user content, but does provide a Nostr relay to BitTasker users at no cost.
-			Your data exists on the network for as long as the relays you've published to choose to store it.
-		</p>
+		<h2>{$t('privacy.sections.storage.title')}</h2>
+		<p>{$t('privacy.sections.storage.content')}</p>
 
-		<h2>Your Rights and Choices</h2>
-		<p>
-			You have the ultimate right to your data. You can choose to stop using BitTasker at any time.
-			Since you control your keys, you control your data. You can also connect to the Nostr
-			network with other clients to manage the data associated with your public key, and export
-			your private Nostr key to use on other Nostr clients while retaining your data and reputation.
-		</p>
+		<h2>{$t('privacy.sections.rights.title')}</h2>
+		<p>{$t('privacy.sections.rights.content')}</p>
 
-		<h2>Changes to This Policy</h2>
-		<p>
-			We may update this Privacy Policy from time to time. We will notify you of any changes by
-			posting the new policy on this page. We encourage you to review this Privacy Policy
-			periodically for any changes. By using BitTasker, you agree to the Privacy Policy in effect
-			at the time of your use.
-		</p>
+		<h2>{$t('privacy.sections.changes.title')}</h2>
+		<p>{$t('privacy.sections.changes.content')}</p>
 
-		<h2>Contact Us</h2>
-		<p>
-			If you have any questions about this Privacy Policy, you can <a href="/contact">contact us</a>.
-		</p>
+		<h2>{$t('privacy.sections.contact.title')}</h2>
+		<p>{@html $t('privacy.sections.contact.content')}</p>
 	</div>
 </div>
-

@@ -1,10 +1,12 @@
 <script lang="ts">
+	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
-	
+	import { t } from '$lib/stores/i18n.store';
+
 	let { data } = $props();
 	const seo = data.seo;
-	
-    const user = 'hello';
+
+	const user = 'hello';
 	const domain = 'bittasker.com';
 	const mailtoHref = `mailto:${user}@${domain}`;
 
@@ -27,171 +29,217 @@
 	<meta name="author" content="BitTasker" />
 	<meta name="robots" content="index, follow" />
 	<link rel="canonical" href={seo.canonical} />
-	
+
 	<!-- Open Graph / Facebook -->
 	<meta property="og:type" content="website" />
 	<meta property="og:url" content={seo.canonical} />
 	<meta property="og:title" content={seo.ogTitle} />
 	<meta property="og:description" content={seo.ogDescription} />
-	<meta property="og:image" content={seo.image} />
+
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
 	<meta property="og:image:alt" content="Security & Safety - BitTasker" />
 	<meta property="og:site_name" content="BitTasker" />
-	
+
 	<!-- Twitter -->
 	<meta property="twitter:card" content="summary_large_image" />
 	<meta property="twitter:url" content={seo.canonical} />
 	<meta property="twitter:title" content={seo.twitterTitle} />
 	<meta property="twitter:description" content={seo.twitterDescription} />
-	<meta property="twitter:image" content={seo.image} />
+
 	<meta property="twitter:image:alt" content="BitTasker Logo" />
 	<meta property="twitter:site" content="@BitTaskerdotcom" />
 	<meta property="twitter:creator" content="@BitTaskerdotcom" />
-	
+
 	<!-- Structured Data -->
 	{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
 </svelte:head>
 
-<div class="container mx-auto px-4 py-8 md:px-8">
-	<!-- Hero Section -->
-	<div class="hero bg-base-200 py-8">
-		<div class="hero-content text-center flex-col">
-			<img
-			src={$darkMode
-				? '/images/Bittasker-logo-tagline-dark.svg'
-				: '/images/Bittasker-logo-tagline-light.svg'}
-			alt="BitTasker Logo"
-			class="mx-auto mb-4 block md:min-w-[500px]"
-			/>
+<div class="w-full">
+	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
+		<div class="hero-content flex-col text-center">
+			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl font-bold">Security First</h1>
-				<p class="mx-auto mt-4 max-w-3xl text-lg text-base-content/80">
-					How we secure your account, protect your data, and keep both taskers and taskees safe on our platform.
+				<h1 class="text-5xl">{$t('about.security.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('about.security.description')}
 				</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<!-- Security Overview -->
-	<div class="prose mx-auto max-w-4xl py-8">
-		<div class="text-center mb-12">
-			<h2 class="text-4xl font-bold">Our Security Approach</h2>
-			<p class="mt-4 text-lg text-base-content/80">
-				BitTasker takes a fundamentally different approach to security compared to traditional platforms. 
-				Instead of asking you to trust us with your sensitive information, we've built systems where 
-				you maintain control of your own security.
+	<div class="prose mx-auto max-w-4xl my-16 px-8">
+		<div class="mb-12 text-center">
+			<h2>{$t('about.security_approach.title')}</h2>
+			<p class="text-base-content/80 py-6 text-lg">
+				{$t('about.security_approach.description')}
 			</p>
-			
+
 			<div class="alert alert-warning alert-outline mt-8">
-				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
+					></path>
 				</svg>
 				<div>
-					<p class="font-semibold">Important Security Disclaimer</p>
-					<p class="text-sm">While we implement industry-standard security measures, no system is completely immune to security risks. Users are responsible for following security best practices and maintaining the security of their own devices and accounts. BitTasker cannot guarantee absolute security and is not liable for security breaches resulting from user negligence or third-party vulnerabilities.</p>
+					<p class="font-medium">{$t('about.security_approach.alert_title')}</p>
+					<p class="text-sm">
+						{$t('about.security_approach.alert_text')}
+					</p>
 				</div>
 			</div>
 		</div>
 
 		<!-- Security Features -->
-		<div class="grid gap-8 md:grid-cols-2 mt-8">
+		<div class="mt-8 grid gap-8 md:grid-cols-2">
 			<!-- Passkeys -->
-			<div class="card bg-base-100 shadow-lg border border-base-300">
+			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
-						<span class="badge badge-primary mr-2">1</span>Passkeys, Not Passwords
+					<h3 class="card-title">
+						<span class="badge badge-primary mr-2">1</span>{$t('about.security_passkeys.title')}
 					</h3>
 					<p>
-						We've implemented passkey authentication, which provides enhanced security compared to traditional passwords. Passkeys use public-key cryptography to 
-						create unique authentication credentials that remain on your device.
+						{$t('about.security_passkeys.description')}
 					</p>
-					<ul class="list-disc ml-5 mt-2">
-						<li>Designed to resist password-based attacks</li>
-						<li>No shared secrets stored on our servers</li>
-						<li>Biometric verification on supported devices</li>
-						<li>FIDO2 standard compliance where supported</li>
+					<ul class="mt-2 ml-5 list-disc">
+						<li>{$t('about.security_passkeys.point_1')}</li>
+						<li>{$t('about.security_passkeys.point_2')}</li>
+						<li>{$t('about.security_passkeys.point_3')}</li>
+						<li>{$t('about.security_passkeys.point_4')}</li>
 					</ul>
 					<div class="alert alert-info alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							></path>
 						</svg>
-						<span class="text-sm"><strong>User Responsibility:</strong> Passkey security depends on your device's security. Keep your device updated and secure to maintain the effectiveness of this authentication method.</span>
+						<span class="text-sm">
+							<strong>{$t('about.security_passkeys.alert_title')}:</strong>
+							{$t('about.security_passkeys.alert_text')}
+						</span>
 					</div>
 				</div>
 			</div>
 
 			<!-- Account Recovery -->
-			<div class="card bg-base-100 shadow-lg border border-base-300">
+			<!-- Account Recovery -->
+			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
-						<span class="badge badge-primary mr-2">2</span>Account Recovery System
+					<h3 class="card-title">
+						<span class="badge badge-primary mr-2">2</span>{$t('about.security_recovery.title')}
 					</h3>
-					<p>
-						We provide email-based recovery options for situations where passkeys become inaccessible. 
-						Our recovery system is designed to balance security with accessibility.
-					</p>
-					<ul class="list-disc ml-5 mt-2">
-						<li>Email verification with recovery authentication</li>
-						<li>Multi-factor authentication during recovery</li>
-						<li>Time-limited recovery processes</li>
-						<li>Security monitoring during recovery attempts</li>
+					<p>{$t('about.security_recovery.description')}</p>
+					<ul class="mt-2 ml-5 list-disc">
+						<li>{$t('about.security_recovery.point_1')}</li>
+						<li>{$t('about.security_recovery.point_2')}</li>
+						<li>{$t('about.security_recovery.point_3')}</li>
+						<li>{$t('about.security_recovery.point_4')}</li>
 					</ul>
 					<div class="alert alert-info alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
 						</svg>
-						<span class="text-sm"><strong>User Responsibility:</strong> Account recovery security depends on your email security. Use strong email security practices and two-factor authentication on your recovery email account.</span>
+						<span class="text-sm"
+							><strong>{$t('about.security_recovery.alert_title')}:</strong>
+							{$t('about.security_recovery.alert_text')}</span
+						>
 					</div>
 				</div>
 			</div>
 
-			<!-- Encrypted Keys -->
-			<div class="card bg-base-100 shadow-lg border border-base-300">
+			<!-- Client-Side Encryption -->
+			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
-						<span class="badge badge-primary mr-2">3</span>Client-Side Encryption
+					<h3 class="card-title">
+						<span class="badge badge-primary mr-2">3</span>{$t('about.security_encryption.title')}
 					</h3>
-					<p>
-						Your Bitcoin wallet and Nostr private keys are encrypted on your device 
-						using your authentication credentials before synchronization with our servers.
-					</p>
-					<ul class="list-disc ml-5 mt-2">
-						<li>Keys are stored in encrypted format</li>
-						<li>BitTasker does not have access to your private keys</li>
-						<li>Encryption occurs on your device</li>
-						<li>Industry-standard encryption protocols</li>
+					<p>{$t('about.security_encryption.description')}</p>
+					<ul class="mt-2 ml-5 list-disc">
+						<li>{$t('about.security_encryption.point_1')}</li>
+						<li>{$t('about.security_encryption.point_2')}</li>
+						<li>{$t('about.security_encryption.point_3')}</li>
+						<li>{$t('about.security_encryption.point_4')}</li>
 					</ul>
 					<div class="alert alert-info alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
 						</svg>
-						<span class="text-sm"><strong>User Responsibility:</strong> If you lose access to your authentication credentials, we cannot recover your encrypted keys. Maintain secure backups of your recovery information.</span>
+						<span class="text-sm"
+							><strong>{$t('about.security_encryption.alert_title')}:</strong>
+							{$t('about.security_encryption.alert_text')}</span
+						>
 					</div>
 				</div>
 			</div>
 
-			<!-- Wallet Security -->
-			<div class="card bg-base-100 shadow-lg border border-base-300">
+			<!-- Bitcoin Wallet Security -->
+			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">
-						<span class="badge badge-primary mr-2">4</span>Bitcoin Wallet Security
+					<h3 class="card-title">
+						<span class="badge badge-primary mr-2">4</span>{$t('about.security_wallet.title')}
 					</h3>
-					<p>
-						BitTasker provides an integrated wallet designed for platform transactions. This wallet is intended 
-						for active use rather than long-term storage of significant Bitcoin amounts.
-					</p>
-					<ul class="list-disc ml-5 mt-2">
-						<li>Withdrawal capabilities maintained for user control</li>
-						<li>No imposed withdrawal limitations under normal operation</li>
-						<li>Transaction signing occurs on your device</li>
-						<li>Designed for convenience in platform transactions</li>
+					<p>{$t('about.security_wallet.description')}</p>
+					<ul class="mt-2 ml-5 list-disc">
+						<li>{$t('about.security_wallet.point_1')}</li>
+						<li>{$t('about.security_wallet.point_2')}</li>
+						<li>{$t('about.security_wallet.point_3')}</li>
+						<li>{$t('about.security_wallet.point_4')}</li>
 					</ul>
 					<div class="alert alert-warning alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
 						</svg>
-						<span class="text-sm"><strong>Security Recommendation:</strong> As with any hot wallet, we recommend transferring larger Bitcoin amounts to cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage.</span>
+						<span class="text-sm"
+							><strong>{$t('about.security_wallet.alert_title')}:</strong>
+							{$t('about.security_wallet.alert_text')}</span
+						>
 					</div>
 				</div>
 			</div>
@@ -199,52 +247,76 @@
 
 		<!-- Additional Security Measures -->
 		<div class="mt-16">
-			<h2 class="text-3xl font-bold text-center mb-8">Additional Security Measures</h2>
-			
-			<div class="card bg-base-100 shadow-lg border border-base-300 mb-8">
+			<h2 class="mb-8 text-center">{$t('about.additional_security.title')}</h2>
+
+			<!-- Decentralized Identity -->
+			<div class="card bg-base-100 border-base-300 mb-8 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">Decentralized Identity</h3>
-					<p>
-						BitTasker leverages the Nostr protocol for decentralized identity management. Your identity 
-						is based on cryptographic key pairs that you control, rather than being stored in a central database.
-					</p>
+					<h3 class="card-title">{$t('about.additional_security.identity_title')}</h3>
+					<p>{$t('about.additional_security.identity_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
 						</svg>
-						<span>Your identity can be portable across applications that support the Nostr protocol. However, the security and reliability of this system depends on the broader Nostr network and relay infrastructure.</span>
+						<span>{$t('about.additional_security.identity_alert')}</span>
 					</div>
 				</div>
 			</div>
-			
-			<div class="card bg-base-100 shadow-lg border border-base-300 mb-8">
+
+			<!-- Escrow System Security -->
+			<div class="card bg-base-100 border-base-300 mb-8 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">Escrow System Security</h3>
-					<p>
-						Our Bitcoin escrow system uses 2-of-2 multisignature technology designed to ensure that neither party can 
-						access funds unilaterally. This system aims to provide security for both taskers and taskees.
-					</p>
+					<h3 class="card-title">{$t('about.additional_security.escrow_title')}</h3>
+					<p>{$t('about.additional_security.escrow_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
 						</svg>
-						<span>While our escrow system is designed with security in mind, users should understand that Bitcoin transactions are irreversible and dispute resolution follows predetermined timelock mechanisms.</span>
+						<span>{$t('about.additional_security.escrow_alert')}</span>
 					</div>
 				</div>
 			</div>
-			
-			<div class="card bg-base-100 shadow-lg border border-base-300">
+
+			<!-- Privacy-Focused Communication -->
+			<div class="card bg-base-100 border-base-300 border shadow-lg">
 				<div class="card-body">
-					<h3 class="card-title text-2xl">Privacy-Focused Communication</h3>
-					<p>
-						BitTasker implements end-to-end encryption for private messages between users, designed so that 
-						BitTasker cannot read your conversations.
-					</p>
+					<h3 class="card-title">{$t('about.additional_security.privacy_title')}</h3>
+					<p>{$t('about.additional_security.privacy_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
-						<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-6 w-6 shrink-0 stroke-current"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
 						</svg>
-						<span>Message security depends on the proper implementation of encryption protocols and the security of the devices used for communication.</span>
+						<span>{$t('about.additional_security.privacy_alert')}</span>
 					</div>
 				</div>
 			</div>
@@ -252,76 +324,133 @@
 
 		<!-- Security Best Practices -->
 		<div class="mt-16">
-			<h2 class="text-3xl font-bold text-center mb-8">Security Best Practices</h2>
-			
+			<h2 class="mb-8 text-center">{$t('about.security_practices.title')}</h2>
+
 			<div class="alert alert-warning alert-outline mb-8">
-				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
+					/>
 				</svg>
-				<span><strong>Your security is primarily your responsibility.</strong> While BitTasker implements security measures, following these best practices is essential for protecting your account and funds. BitTasker cannot be held responsible for losses resulting from failure to follow security best practices.</span>
+				<span
+					><strong>{$t('about.security_practices.alert.title')}</strong>
+					{$t('about.security_practices.alert.description')}</span
+				>
 			</div>
-			
-			<div class="collapse collapse-arrow bg-base-100 shadow border border-base-300 mb-4" class:collapse-open={openPractice === 0}>
-				<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => togglePractice(0)}>
-					Keep Your Recovery Information Secure
+
+			<!-- Practice 1 -->
+			<div
+				class="collapse-arrow bg-base-100 border-base-300 collapse mb-4 border shadow"
+				class:collapse-open={openPractice === 0}
+			>
+				<button
+					type="button"
+					class="collapse-title text-left text-xl font-medium"
+					onclick={() => togglePractice(0)}
+				>
+					{$t('about.security_practices.recovery.title')}
 				</button>
-				<div class="collapse-content"> 
-					<p>Store your recovery information in a secure password manager and ensure your recovery email account is protected with strong security measures. You are solely responsible for maintaining access to your recovery information.</p>
+				<div class="collapse-content">
+					<p>{$t('about.security_practices.recovery.description')}</p>
 				</div>
 			</div>
-			
-			<div class="collapse collapse-arrow bg-base-100 shadow border border-base-300 mb-4" class:collapse-open={openPractice === 1}>
-				<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => togglePractice(1)}>
-					Use Cold Storage for Large Bitcoin Holdings
+
+			<!-- Practice 2 -->
+			<div
+				class="collapse-arrow bg-base-100 border-base-300 collapse mb-4 border shadow"
+				class:collapse-open={openPractice === 1}
+			>
+				<button
+					type="button"
+					class="collapse-title text-left text-xl font-medium"
+					onclick={() => togglePractice(1)}
+				>
+					{$t('about.security_practices.cold_storage.title')}
 				</button>
-				<div class="collapse-content"> 
-					<p>While BitTasker's wallet implements security measures for platform transactions, we strongly recommend transferring larger Bitcoin amounts to hardware wallets or other cold storage solutions when not actively using them. Hot wallets are inherently less secure than cold storage.</p>
+				<div class="collapse-content">
+					<p>{$t('about.security_practices.cold_storage.description')}</p>
 				</div>
 			</div>
-			
-			<div class="collapse collapse-arrow bg-base-100 shadow border border-base-300 mb-4" class:collapse-open={openPractice === 2}>
-				<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => togglePractice(2)}>
-					Verify Transaction Details Carefully
+
+			<!-- Practice 3 -->
+			<div
+				class="collapse-arrow bg-base-100 border-base-300 collapse mb-4 border shadow"
+				class:collapse-open={openPractice === 2}
+			>
+				<button
+					type="button"
+					class="collapse-title text-left text-xl font-medium"
+					onclick={() => togglePractice(2)}
+				>
+					{$t('about.security_practices.transaction_verification.title')}
 				</button>
-				<div class="collapse-content"> 
-					<p>Always double-check Bitcoin addresses and transaction amounts before confirming. Bitcoin transactions are irreversible, and BitTasker cannot recover funds sent to incorrect addresses or reverse confirmed transactions.</p>
+				<div class="collapse-content">
+					<p>{$t('about.security_practices.transaction_verification.description')}</p>
 				</div>
 			</div>
-			
-			<div class="collapse collapse-arrow bg-base-100 shadow border border-base-300" class:collapse-open={openPractice === 3}>
-				<button type="button" class="collapse-title text-xl font-medium text-left" onclick={() => togglePractice(3)}>
-					Keep Your Devices Secure
+
+			<!-- Practice 4 -->
+			<div
+				class="collapse-arrow bg-base-100 border-base-300 collapse border shadow"
+				class:collapse-open={openPractice === 3}
+			>
+				<button
+					type="button"
+					class="collapse-title text-left text-xl font-medium"
+					onclick={() => togglePractice(3)}
+				>
+					{$t('about.security_practices.device_security.title')}
 				</button>
-				<div class="collapse-content"> 
-					<p>Since BitTasker relies on client-side security, keeping your devices free from malware and updated with the latest security patches is essential. Use reputable antivirus software and avoid accessing your account from public or compromised devices.</p>
+				<div class="collapse-content">
+					<p>{$t('about.security_practices.device_security.description')}</p>
 				</div>
 			</div>
 		</div>
-		
+
 		<!-- Security Commitment -->
 		<div class="mt-16 text-center">
-			<h2 class="text-3xl font-bold mb-4">Our Security Commitment</h2>
-			<p class="text-lg max-w-2xl mx-auto">
-				BitTasker is committed to implementing and maintaining reasonable security practices as technology evolves. 
-				However, we cannot guarantee absolute security and users must take responsibility for their own security practices.
+			<h2 class="mb-4">{$t('about.security_commitment.title')}</h2>
+			<p class="mx-auto max-w-2xl text-lg">
+				{$t('about.security_commitment.description')}
 			</p>
-			
-			<div class="alert alert-warning alert-outline mt-8 max-w-2xl mx-auto">
-				<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+
+			<div class="alert alert-warning alert-outline mx-auto mt-8 max-w-2xl">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
+					/>
 				</svg>
-				<span class="text-sm"><strong>Security Limitations:</strong> No security system is perfect. BitTasker disclaims liability for security breaches caused by factors beyond our reasonable control, including but not limited to user negligence, third-party vulnerabilities, or sophisticated attacks.</span>
+				<span class="text-sm">
+					<strong>{$t('about.security_commitment.warning_title')}</strong>
+					{$t('about.security_commitment.warning_text')}
+				</span>
 			</div>
-			
-			<div class="card bg-base-100 shadow-lg border border-base-300 mt-8 max-w-lg mx-auto">
+
+			<div class="card bg-base-100 border-base-300 mx-auto mt-8 max-w-lg border shadow-lg">
 				<div class="card-body items-center text-center">
-					<h3 class="card-title">Have a security question?</h3>
-					<p>We're here to help with security concerns and questions about our platform.</p>
+					<h3 class="card-title">{$t('about.security_commitment.question_title')}</h3>
+					<p>{$t('about.security_commitment.question_description')}</p>
 					<div class="card-actions">
 						<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-                            <i class="fa-solid fa-envelope fa-xl"></i>
-                            Get in touch
-                        </a>
+							<i class="fa-solid fa-envelope fa-xl"></i>
+							{$t('about.security_commitment.contact')}
+						</a>
 					</div>
 				</div>
 			</div>
