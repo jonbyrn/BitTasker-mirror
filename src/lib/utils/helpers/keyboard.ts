@@ -13,31 +13,69 @@ let listenersSet = false;
 
 export async function setupKeyboardListeners() {
 	if (!browser) return;
-	const info = await Device.getInfo();
-	if (info.platform === 'web') return; // Only run on mobile
+	
+	// Defer to prevent blocking main thread
+	const deferSetup = () => {
+		if ('requestIdleCallback' in window) {
+			requestIdleCallback(async () => {
+				const info = await Device.getInfo();
+				if (info.platform === 'web') return; // Only run on mobile
 
-	// Remove previous listeners if any
-	if (keyboardShowListener) keyboardShowListener.remove();
-	if (keyboardHideListener) keyboardHideListener.remove();
-	if (listenersSet) return;
-	listenersSet = true;
+				// Remove previous listeners if any
+				if (keyboardShowListener) keyboardShowListener.remove();
+				if (keyboardHideListener) keyboardHideListener.remove();
+				if (listenersSet) return;
+				listenersSet = true;
 
-	Keyboard.addListener('keyboardWillShow', (info) => {
-		keyboardVisible.set(true);
-		keyboardHeight.set(info.keyboardHeight || 0);
-	});
-	Keyboard.addListener('keyboardDidShow', (info) => {
-		keyboardVisible.set(true);
-		keyboardHeight.set(info.keyboardHeight || 0);
-	});
-	Keyboard.addListener('keyboardWillHide', () => {
-		keyboardVisible.set(false);
-		keyboardHeight.set(0);
-	});
-	Keyboard.addListener('keyboardDidHide', () => {
-		keyboardVisible.set(false);
-		keyboardHeight.set(0);
-	});
+				Keyboard.addListener('keyboardWillShow', (info) => {
+					keyboardVisible.set(true);
+					keyboardHeight.set(info.keyboardHeight || 0);
+				});
+				Keyboard.addListener('keyboardDidShow', (info) => {
+					keyboardVisible.set(true);
+					keyboardHeight.set(info.keyboardHeight || 0);
+				});
+				Keyboard.addListener('keyboardWillHide', () => {
+					keyboardVisible.set(false);
+					keyboardHeight.set(0);
+				});
+				Keyboard.addListener('keyboardDidHide', () => {
+					keyboardVisible.set(false);
+					keyboardHeight.set(0);
+				});
+			}, { timeout: 1000 });
+		} else {
+			setTimeout(async () => {
+				const info = await Device.getInfo();
+				if (info.platform === 'web') return; // Only run on mobile
+
+				// Remove previous listeners if any
+				if (keyboardShowListener) keyboardShowListener.remove();
+				if (keyboardHideListener) keyboardHideListener.remove();
+				if (listenersSet) return;
+				listenersSet = true;
+
+				Keyboard.addListener('keyboardWillShow', (info) => {
+					keyboardVisible.set(true);
+					keyboardHeight.set(info.keyboardHeight || 0);
+				});
+				Keyboard.addListener('keyboardDidShow', (info) => {
+					keyboardVisible.set(true);
+					keyboardHeight.set(info.keyboardHeight || 0);
+				});
+				Keyboard.addListener('keyboardWillHide', () => {
+					keyboardVisible.set(false);
+					keyboardHeight.set(0);
+				});
+				Keyboard.addListener('keyboardDidHide', () => {
+					keyboardVisible.set(false);
+					keyboardHeight.set(0);
+				});
+			}, 100);
+		}
+	};
+	
+	deferSetup();
 }
 
 function cleanupKeyboardListeners() {

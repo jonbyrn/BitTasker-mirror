@@ -211,8 +211,14 @@
 
 		<!-- Task Type -->
 		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" defaultChecked />
-			<div class="collapse-title font-medium">Task Type</div>
+			<input 
+				type="checkbox" 
+				class="peer" 
+				defaultChecked 
+				aria-label="Toggle Task Type filter section"
+				aria-describedby="task-type-section"
+			/>
+			<div class="collapse-title font-medium" id="task-type-section">Task Type</div>
 			<div class="collapse-content">
 				<div class="flex flex-wrap gap-2">
 					<button
@@ -261,8 +267,14 @@
 
 		<!-- Budget Range -->
 		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" defaultChecked />
-			<div class="collapse-title font-medium">Budget Range</div>
+			<input 
+				type="checkbox" 
+				class="peer" 
+				defaultChecked 
+				aria-label="Toggle Budget Range filter section"
+				aria-describedby="budget-range-section"
+			/>
+			<div class="collapse-title font-medium" id="budget-range-section">Budget Range</div>
 			<div class="collapse-content">
 				<PriceRangeSlider
 					onRangeChange={handlePriceRangeChange}
@@ -295,8 +307,13 @@
 
 		<!-- Location -->
 		<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
-			<input type="checkbox" class="peer" />
-			<div class="collapse-title font-medium">Location</div>
+			<input 
+				type="checkbox" 
+				class="peer" 
+				aria-label="Toggle Location filter section"
+				aria-describedby="location-section"
+			/>
+			<div class="collapse-title font-medium" id="location-section">Location</div>
 			<div class="collapse-content">
 				<LocationAutoComplete
 					placeholder="Search for a location..."
@@ -314,8 +331,13 @@
 
 		<!-- Availability -->
 		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" />
-			<div class="collapse-title font-medium">Availability</div>
+			<input 
+				type="checkbox" 
+				class="peer" 
+				aria-label="Toggle Availability filter section"
+				aria-describedby="availability-section"
+			/>
+			<div class="collapse-title font-medium" id="availability-section">Availability</div>
 			<div class="collapse-content">
 				<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
 			</div>
@@ -323,8 +345,13 @@
 
 		<!-- Categories -->
 		<div class="collapse-arrow collapse z-50 mb-2" style="overflow: visible;">
-			<input type="checkbox" class="peer" />
-			<div class="collapse-title font-medium">Categories</div>
+			<input 
+				type="checkbox" 
+				class="peer" 
+				aria-label="Toggle Categories filter section"
+				aria-describedby="categories-section"
+			/>
+			<div class="collapse-title font-medium" id="categories-section">Categories</div>
 			<div class="collapse-content">
 				<Tags
 					placeholder="Add categories..."
@@ -337,8 +364,13 @@
 
 		<!-- Skills -->
 		<div class="collapse-arrow collapse mb-2">
-			<input type="checkbox" class="peer" />
-			<div class="collapse-title font-medium">Skills</div>
+			<input 
+				type="checkbox" 
+				class="peer" 
+				aria-label="Toggle Skills filter section"
+				aria-describedby="skills-section"
+			/>
+			<div class="collapse-title font-medium" id="skills-section">Skills</div>
 			<div class="collapse-content">
 				<TagsInput placeholder="Add skills..." bind:tags={filters.skills} />
 			</div>

@@ -1,11 +1,11 @@
 @import 'tailwindcss';
 @plugin "@tailwindcss/typography";
 @plugin "daisyui";
+@tailwind base;
+@tailwind components;
 @tailwind utilities;
 
-/* Global Font Configuration */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap');
+/* Fonts are now loaded via HTML link tags for better performance */
 
 * {
 	box-sizing: border-box;
@@ -18,27 +18,27 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-	@apply text-4xl md:text-5xl lg:text-6xl;
+	@apply text-4xl md:text-5xl lg:text-5xl;
 }
 
 h2 {
-	@apply text-3xl md:text-4xl lg:text-5xl;
+	@apply text-3xl md:text-4xl lg:text-4xl;
 }
 
 h3 {
-	@apply text-2xl md:text-3xl lg:text-4xl;
+	@apply text-2xl md:text-3xl lg:text-3xl;
 }
 
 h4 {
-	@apply text-xl md:text-2xl lg:text-3xl;
+	@apply text-xl md:text-2xl lg:text-2xl;
 }
 
 h5 {
-	@apply text-lg md:text-xl lg:text-2xl;
+	@apply text-lg md:text-xl lg:text-xl;
 }
 
 h6 {
-	@apply text-base md:text-lg lg:text-xl;
+	@apply text-base md:text-lg lg:text-lg;
 }
 
 /* Body text styling */
@@ -52,7 +52,7 @@ code, pre {
 }
 
 input, textarea {
-	@apply focus:outline-none
+	@apply focus:outline-none;
 }
 
 /* Glow animations */
@@ -142,23 +142,23 @@ input, textarea {
 	--color-base-100: #2d2d2d;
 	--color-base-200: #363636;
 	--color-base-300: #3f3f3f;
-	--color-base-content: oklch(100% 0 0);
+	--color-base-content: #ffffff; /* fallback for oklch(100% 0 0) */
 	--color-primary: #f7931a;
-	--color-primary-content: oklch(0% 0 0);
+	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
 	--color-secondary: #3a3a3a;
-	--color-secondary-content: oklch(100% 0 0);
+	--color-secondary-content: #ffffff; /* fallback for oklch(100% 0 0) */
 	--color-accent: #b35f00;
-	--color-accent-content: oklch(100% 0 0);
+	--color-accent-content: #ffffff; /* fallback for oklch(100% 0 0) */
 	--color-neutral: #5c5c5c;
-	--color-neutral-content: oklch(98% 0.002 247.839);
+	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0.002 247.839) */
 	--color-info: #3daeff;
-	--color-info-content: oklch(100% 0 0);
+	--color-info-content: #ffffff; /* fallback for oklch(100% 0 0) */
 	--color-success: #22c55e;
-	--color-success-content: oklch(98% 0.031 120.757);
+	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
 	--color-warning: #facc15;
-	--color-warning-content: oklch(98% 0.016 73.684);
+	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
 	--color-error: #ef4444;
-	--color-error-content: oklch(96% 0.015 12.422);
+	--color-error-content: #f5f5f5; /* fallback for oklch(96% 0.015 12.422) */
 	--radius-selector: 2rem;
 	--radius-field: 2rem;
 	--radius-box: 2rem;
@@ -174,26 +174,26 @@ input, textarea {
 	default: false;
 	prefersdark: false;
 	color-scheme: 'light';
-	--color-base-100: oklch(98% 0 0);
+	--color-base-100: #fafafa; /* fallback for oklch(98% 0 0) */
 	--color-base-200: #f1f3f5;
 	--color-base-300: #e5e7eb;
 	--color-base-content: #121212;
 	--color-primary: #f7931a;
-	--color-primary-content: oklch(0% 0 0);
-	--color-secondary: oklch(100% 0 0);
+	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
+	--color-secondary: #ffffff; /* fallback for oklch(100% 0 0) */
 	--color-secondary-content: #121212;
 	--color-accent: #ffd8a8;
-	--color-accent-content: oklch(28% 0.109 3.907);
+	--color-accent-content: #8b4513; /* fallback for oklch(28% 0.109 3.907) */
 	--color-neutral: #6b7280;
-	--color-neutral-content: oklch(98% 0 0);
+	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0 0) */
 	--color-info: #2563eb;
-	--color-info-content: oklch(97% 0.013 236.62);
+	--color-info-content: #f7f7f7; /* fallback for oklch(97% 0.013 236.62) */
 	--color-success: #16a34a;
-	--color-success-content: oklch(98% 0.031 120.757);
+	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
 	--color-warning: #eab308;
-	--color-warning-content: oklch(98% 0.016 73.684);
+	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
 	--color-error: #dc2626;
-	--color-error-content: oklch(97% 0.013 17.38);
+	--color-error-content: #f7f7f7; /* fallback for oklch(97% 0.013 17.38) */
 	--radius-selector: 2rem;
 	--radius-field: 2rem;
 	--radius-box: 2rem;
@@ -210,76 +210,9 @@ input, textarea {
 }
 
 @layer base {
-	* {
-		@apply border-gray-200 dark:border-gray-700;
-	}
-
 	body {
-		@apply bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100;
-	}
-
-	:root {
-		--background: 0 0% 100%;
-		--foreground: 224 71.4% 4.1%;
-
-		--muted: 220 14.3% 95.9%;
-		--muted-foreground: 220 8.9% 46.1%;
-
-		--popover: 0 0% 100%;
-		--popover-foreground: 224 71.4% 4.1%;
-
-		--card: 0 0% 100%;
-		--card-foreground: 224 71.4% 4.1%;
-
-		--border: 220 13% 91%;
-		--input: 220 13% 91%;
-
-		--primary: 220.9 39.3% 11%;
-		--primary-foreground: 210 20% 98%;
-
-		--secondary: 220 14.3% 95.9%;
-		--secondary-foreground: 220.9 39.3% 11%;
-
-		--accent: 220 14.3% 95.9%;
-		--accent-foreground: 220.9 39.3% 11%;
-
-		--destructive: 0 72.2% 50.6%;
-		--destructive-foreground: 210 20% 98%;
-
-		--ring: 224 71.4% 4.1%;
-
-		--radius: 0.5rem;
-	}
-
-	.dark {
-		--background: 224 71.4% 4.1%;
-		--foreground: 210 20% 98%;
-
-		--muted: 215 27.9% 16.9%;
-		--muted-foreground: 217.9 10.6% 64.9%;
-
-		--popover: 224 71.4% 4.1%;
-		--popover-foreground: 210 20% 98%;
-
-		--card: 224 71.4% 4.1%;
-		--card-foreground: 210 20% 98%;
-
-		--border: 215 27.9% 16.9%;
-		--input: 215 27.9% 16.9%;
-
-		--primary: 210 20% 98%;
-		--primary-foreground: 220.9 39.3% 11%;
-
-		--secondary: 215 27.9% 16.9%;
-		--secondary-foreground: 210 20% 98%;
-
-		--accent: 215 27.9% 16.9%;
-		--accent-foreground: 210 20% 98%;
-
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 210 20% 98%;
-
-		--ring: 216 12.2% 83.9%;
+		@apply text-gray-900 dark:text-gray-100;
+		background-color: var(--color-base-300);
 	}
 }
 
@@ -300,6 +233,21 @@ input, textarea {
 
 	.h-screen {
 		height: 100dvh;
+	}
+}
+
+/* Fallback for browsers that don't support dvh */
+@supports not (height: 100dvh) {
+	.min-h-screen {
+		min-height: 100vh;
+	}
+
+	.max-h-screen {
+		max-height: 100vh;
+	}
+
+	.h-screen {
+		height: 100vh;
 	}
 }
 

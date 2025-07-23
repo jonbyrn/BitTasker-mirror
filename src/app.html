@@ -4,18 +4,20 @@
 		<meta charset="utf-8" />
 		<meta
 			name="viewport"
-			content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+			content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0"
 		/>
 		<meta name="theme-color" content="#f7931a" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="BitTasker" />
 		
-		<!-- Font Configuration -->
-		<!-- Note: You can add font links here, but it's better to use CSS imports in app.css -->
-		<!-- <link rel="preconnect" href="https://fonts.googleapis.com"> -->
-		<!-- <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin> -->
-		<!-- <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"> -->
+		<!-- Font Optimization: Preconnect, Preload, and font-display: swap -->
+		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" />
+		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" />
+		<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" media="all" />
+		<link href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" rel="stylesheet" media="all" />
 		
 		%sveltekit.head%
 	</head>
