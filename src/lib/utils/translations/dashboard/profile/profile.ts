@@ -1,4 +1,4 @@
-export const profileTranslations = {
+export const profileTranslation = {
 	en: {
 		'profile.personal_info.title': 'Personal Information',
 		'profile.personal_info.pictures': 'Profile Pictures',
@@ -34,7 +34,6 @@ export const profileTranslations = {
 		'profile.skills.cert_date': 'Issue Date',
 		'profile.skills.cert_upload': 'Upload Certificate',
 		'profile.skills.save': 'Save Skills',
-		'profile.video.title': 'Video Introduction',
 		'profile.video.description': 'Upload a short video introducing yourself and your services',
 		'profile.video.upload_title': 'Upload Video',
 		'profile.video.upload_desc': 'Drag and drop your video here or click to browse',
@@ -52,7 +51,6 @@ export const profileTranslations = {
 		'profile.portfolio.images': 'Project Images',
 		'profile.portfolio.images_desc': 'Upload project screenshots or images',
 		'profile.portfolio.delete_confirm': 'Are you sure you want to delete this project?',
-		'profile.availability.title': 'Availability Settings',
 		'profile.availability.timezone': 'Your Timezone',
 		'profile.availability.timezone_placeholder': 'Select your timezone',
 		'profile.availability.min_notice': 'Minimum Booking Notice (hours)',
@@ -66,7 +64,6 @@ export const profileTranslations = {
 		'profile.availability.day': 'Day',
 		'profile.availability.start_time': 'Start Time',
 		'profile.availability.end_time': 'End Time',
-		'profile.services.title': 'Standard Services',
 		'profile.services.add_service': 'Add New Service',
 		'profile.services.edit_service': 'Edit service',
 		'profile.services.service_title': 'Service Title',
@@ -79,7 +76,6 @@ export const profileTranslations = {
 		'profile.services.duration_placeholder': 'Select duration',
 		'profile.services.delete_confirm': 'Are you sure you want to delete this service?',
 		'profile.services.custom_quote': 'Custom Quote',
-		'profile.services.custom_quote_desc': 'Allow clients to request custom quotes',
 		'profile.services.no_services':
 			'No services added yet. Add some services to start receiving bookings.',
 		'profile.services.service_name': 'Service Name',
@@ -93,6 +89,7 @@ export const profileTranslations = {
 		'profile.portfolio.add_images': 'Add Images',
 		'profile.page.title': 'My Profile',
 		'profile.page.edit_profile': 'Edit Profile',
+		'profile.page.logout_profile': 'Logout',
 		'profile.page.completion': 'Profile Completion',
 		'profile.page.completion_desc': 'Complete your profile to increase visibility and trust',
 		'profile.page.sections.personal_info': 'Personal Information',
@@ -100,7 +97,27 @@ export const profileTranslations = {
 		'profile.page.sections.portfolio': 'Portfolio',
 		'profile.page.sections.video': 'Video Introduction',
 		'profile.page.sections.availability': 'Availability',
-		'profile.page.sections.services': 'Standard Services'
+		'profile.page.sections.services': 'Standard Services',
+		'profile.page.sections.error': 'Failed to load profile data. Please try again later.',
+		'stats.tasksCompleted': 'Tasks Completed',
+		'stats.rating': 'Rating',
+		'stats.responseRate': 'Response Rate',
+		'stats.onTimeRate': 'On-Time Rate',
+		'profile.about': 'About',
+		'profile.noDescription': 'No description added yet.',
+		'profile.skills': 'Skills',
+		'profile.noSkills': 'No skills added yet.',
+		'profile.certifications': 'Certifications',
+		'profile.verified': 'Verified',
+		'profile.unverified': 'Unverified',
+		'profile.since': 'Since',
+		'profile.years': 'years',
+		'profile.noCertifications': 'No certifications listed yet.',
+		'profile.portfolio': 'Portfolio',
+		'profile.noPortfolio': 'No portfolio items added yet.',
+		'profile.reviews': 'Reviews',
+		'profile.noReviews': 'No reviews yet.',
+		'profile.loadError': 'Failed to load profile data. Please try again later.'
 	},
 
 	es: {
@@ -138,7 +155,6 @@ export const profileTranslations = {
 		'profile.skills.cert_date': 'Fecha de Emisión',
 		'profile.skills.cert_upload': 'Subir Certificado',
 		'profile.skills.save': 'Guardar Habilidades',
-		'profile.video.title': 'Video de Introducción',
 		'profile.video.description': 'Sube un video corto de introducción (máximo 3 minutos)',
 		'profile.video.upload_title': 'Subir Video',
 		'profile.video.upload_desc': 'Graba o sube un video corto de introducción',
@@ -156,7 +172,6 @@ export const profileTranslations = {
 		'profile.portfolio.images': 'Imágenes del Proyecto',
 		'profile.portfolio.images_desc': 'Requerido • La primera imagen será la principal',
 		'profile.portfolio.add_images': 'Agregar Imágenes',
-		'profile.availability.title': 'Disponibilidad',
 		'profile.availability.timezone': 'Tu Zona Horaria',
 		'profile.availability.timezone_placeholder': 'Selecciona tu zona horaria',
 		'profile.availability.min_notice': 'Aviso Mínimo (horas)',
@@ -170,7 +185,6 @@ export const profileTranslations = {
 		'profile.availability.day': 'Día',
 		'profile.availability.start_time': 'Hora de Inicio',
 		'profile.availability.end_time': 'Hora de Fin',
-		'profile.services.title': 'Servicios Estándar',
 		'profile.services.add_service': 'Agregar Servicio',
 		'profile.services.edit_service': 'Editar Servicio',
 		'profile.services.service_name': 'Nombre del Servicio',
@@ -181,8 +195,6 @@ export const profileTranslations = {
 		'profile.services.duration': 'Duración (minutos)',
 		'profile.services.delete_confirm': '¿Estás seguro de que quieres eliminar este servicio?',
 		'profile.services.custom_quote': 'Permitir Solicitudes de Cotización Personalizada',
-		'profile.services.custom_quote_desc':
-			'Permite que los clientes soliciten cotizaciones personalizadas para servicios no listados',
 		'profile.services.no_services':
 			'Aún no hay servicios agregados. Agrega algunos servicios para comenzar a recibir reservas.',
 		'profile.services.save': 'Guardar Servicios',
@@ -192,6 +204,7 @@ export const profileTranslations = {
 		'profile.portfolio.edit_project': 'Editar Elemento del Portafolio',
 		'profile.page.title': 'Mi Perfil',
 		'profile.page.edit_profile': 'Editar Perfil',
+		'profile.page.logout_profile': 'Cerrar sesión',
 		'profile.page.completion': 'Completado del Perfil',
 		'profile.page.completion_desc': 'Completa tu perfil para aumentar la visibilidad y confianza',
 		'profile.page.sections.personal_info': 'Información Personal',
@@ -199,6 +212,28 @@ export const profileTranslations = {
 		'profile.page.sections.portfolio': 'Portafolio',
 		'profile.page.sections.video': 'Video de Introducción',
 		'profile.page.sections.availability': 'Disponibilidad',
-		'profile.page.sections.services': 'Servicios Estándar'
+		'profile.page.sections.services': 'Servicios Estándar',
+		'profile.page.sections.error':
+			'Error al cargar los datos del perfil. Por favor, inténtalo de nuevo más tarde.',
+		'stats.tasksCompleted': 'Tareas Completadas',
+		'stats.rating': 'Calificación',
+		'stats.responseRate': 'Tasa de Respuesta',
+		'stats.onTimeRate': 'Tasa de Puntualidad',
+		'profile.about': 'Acerca de',
+		'profile.noDescription': 'Aún no se ha agregado una descripción.',
+		'profile.skills': 'Habilidades',
+		'profile.noSkills': 'Aún no se han agregado habilidades.',
+		'profile.certifications': 'Certificaciones',
+		'profile.verified': 'Verificado',
+		'profile.unverified': 'No verificado',
+		'profile.since': 'Desde',
+		'profile.years': 'años',
+		'profile.noCertifications': 'Aún no se han listado certificaciones.',
+		'profile.portfolio': 'Portafolio',
+		'profile.noPortfolio': 'Aún no se han agregado elementos al portafolio.',
+		'profile.reviews': 'Reseñas',
+		'profile.noReviews': 'Aún no hay reseñas.',
+		'profile.loadError':
+			'No se pudo cargar la información del perfil. Por favor, inténtalo más tarde.'
 	}
 };

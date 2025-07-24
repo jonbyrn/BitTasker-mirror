@@ -279,13 +279,9 @@
 					class="toggle toggle-primary"
 				/>
 			</label>
-			<p class="text-base-content/70 text-sm">
-				{$t('profile.services.custom_quote_desc')}
-			</p>
 		</div>
 
 		<div class="card-title flex items-center justify-between">
-			<h2 class="card-title">{$t('profile.services.title')}</h2>
 			<button
 				aria-label={$t('profile.services.add_service')}
 				class="btn btn-circle btn-outline btn-xs"

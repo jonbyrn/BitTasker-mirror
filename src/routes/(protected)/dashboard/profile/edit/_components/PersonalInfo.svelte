@@ -5,6 +5,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import { t } from '$lib/stores/i18n.store';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -30,7 +31,8 @@
 					// Handle profile metadata update
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
-						displayName = metadata.display_name || metadata.displayName || metadata.name || displayName;
+						displayName =
+							metadata.display_name || metadata.displayName || metadata.name || displayName;
 						professionalTitle = metadata.professionalTitle || professionalTitle;
 						profileDescription = metadata.about || profileDescription;
 						website = metadata.website || website;
@@ -201,9 +203,9 @@
 		<!-- Profile Pictures -->
 		<div class="space-y-4">
 			<div>
-				<span class="text-base-content/80 block font-medium">Profile Pictures - 5 max</span>
+				<span class="text-base-content/80 block font-medium">{$t('profile.photosLimit')}</span>
 				<span class="text-base-content/70 block whitespace-normal">
-					First picture will be your primary profile picture
+					{$t('profile.primaryPhotoNote')}
 				</span>
 			</div>
 
@@ -223,7 +225,7 @@
 		<!-- Display Name -->
 		<div class="form-control">
 			<label class="label" for="displayName">
-				<span class="label-text">Display Name</span>
+				<span class="label-text">{$t('profile.displayName')}</span>
 			</label>
 			<input
 				type="text"
@@ -237,7 +239,7 @@
 		<!-- Professional Title -->
 		<div class="form-control">
 			<label class="label" for="professionalTitle">
-				<span class="label-text">Professional Title</span>
+				<span class="label-text">{$t('profile.professionalTitle')}</span>
 			</label>
 			<input
 				type="text"
@@ -251,7 +253,7 @@
 		<!-- Website -->
 		<div class="form-control">
 			<label class="label" for="website">
-				<span class="label-text">Website</span>
+				<span class="label-text">{$t('profile.website')}</span>
 			</label>
 			<input
 				type="url"
@@ -265,13 +267,13 @@
 		<!-- Profile Description -->
 		<div class="form-control">
 			<label class="label" for="profileDescription">
-				<span class="label-text">Profile Description</span>
+				<span class="label-text">{$t('profile.profileDescription')}</span>
 			</label>
 			<textarea
 				id="profileDescription"
 				bind:value={profileDescription}
 				class="textarea textarea-bordered h-32 w-full rounded-xl"
-				placeholder="Tell clients about your professional background, expertise, and what makes you unique..."
+				placeholder={$t('profile.profileDescriptionPlaceholder')}
 				maxlength="2000"
 				rows="4"
 			></textarea>
@@ -290,7 +292,7 @@
 				{#if isLoading}
 					<span class="loading loading-spinner"></span>
 				{/if}
-				Save Personal Information
+				{$t('profile.savePersonalInfo')}
 			</button>
 		</div>
 	</form>

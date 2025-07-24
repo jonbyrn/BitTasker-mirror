@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
+	import { t } from '$lib/stores/i18n.store';
 
 	let { formatDate, yearsFrom } = $props<{
 		formatDate: (date: string) => string;
@@ -8,7 +9,7 @@
 </script>
 
 <!-- Profile Info Section -->
-<div class="flex-1 mb-8">
+<div class="mb-8 flex-1">
 	{#if $profileStore.isLoading}
 		<div class="space-y-6">
 			<div class="animate-pulse space-y-4">
@@ -20,17 +21,17 @@
 	{:else if $profileStore.data}
 		<!-- About -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">About</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
 				<p class="text-base-content/70 max-w-2xl whitespace-pre-line">{$profileStore.data.about}</p>
 			{:else}
-				<p class="text-base-content/70 max-w-2xl">No description added yet.</p>
+				<p class="text-base-content/70 max-w-2xl">{$t('profile.noDescription')}</p>
 			{/if}
 		</div>
 
 		<!-- Skills Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">Skills</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.skills')}</h3>
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each $profileStore.data.skills as skill}
@@ -61,13 +62,13 @@
 					{/each}
 				</div>
 			{:else}
-				<p class="alert alert-outline rounded-xl">No skills added yet.</p>
+				<p class="alert alert-outline rounded-xl">{$t('profile.noSkills')}</p>
 			{/if}
 		</div>
 
 		<!-- Certifications Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">Certifications</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.certifications')}</h3>
 			{#if $profileStore.data.certifications && $profileStore.data.certifications.length > 0}
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 					{#each $profileStore.data.certifications as cert}
@@ -77,16 +78,18 @@
 								<div class="flex items-start justify-between">
 									<h4 class="card-title text-base">{cert.name}</h4>
 									{#if cert.verified}
-										<div class="badge badge-success">Verified</div>
+										<div class="badge badge-success">{$t('profile.verified')}</div>
 									{:else}
-										<div class="badge badge-warning text-black">Unverified</div>
+										<div class="badge badge-warning text-black">{$t('profile.unverified')}</div>
 									{/if}
 								</div>
 								<p class="text-base-content/70 text-sm">{cert.issuer}</p>
 								<p class="text-sm">
-									<span class="text-base-content/70">Since </span>
+									<span class="text-base-content/70">{$t('profile.since')} </span>
 									{formatDate(cert.date)}
-									<span class="text-base-content/70">({yearsFrom(cert.date)} years)</span>
+									<span class="text-base-content/70"
+										>({yearsFrom(cert.date)} {$t('profile.years')})</span
+									>
 								</p>
 							</div>
 						</div>
@@ -94,14 +97,14 @@
 				</div>
 			{:else}
 				<div class="alert alert-outline rounded-xl">
-					<span>No certifications listed yet.</span>
+					<span>{$t('profile.noCertifications')}</span>
 				</div>
 			{/if}
 		</div>
 
 		<!-- Portfolio Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">Portfolio</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio')}</h3>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.portfolio as item}
@@ -129,15 +132,14 @@
 				</div>
 			{:else}
 				<div class="alert alert-outline rounded-xl">
-					<span>No portfolio items added yet.</span>
+					<span>{$t('profile.noPortfolio')}</span>
 				</div>
 			{/if}
 		</div>
 
 		<!-- Reviews Section -->
-		<!-- Reviews Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">Reviews</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.reviews')}</h3>
 			{#if $profileStore.data.reviews && $profileStore.data.reviews.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.reviews as review}
@@ -191,13 +193,13 @@
 							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
 						/>
 					</svg>
-					<p class="text-base-content/70 mt-4">No reviews yet.</p>
+					<p class="text-base-content/70 mt-4">{$t('profile.noReviews')}</p>
 				</div>
 			{/if}
 		</div>
 	{:else if $profileStore.error}
 		<div class="alert alert-error alert-outline">
-			<span>Failed to load profile data. Please try again later.</span>
+			<span>{$t('profile.loadError')}</span>
 		</div>
 	{/if}
 </div>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '$lib/stores/i18n.store';
 	let { stats } = $props<{
 		stats: {
 			tasksCompleted: number;
@@ -13,13 +14,13 @@
 <div class="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">Tasks Completed</div>
+			<div class="stat-title">{$t('stats.tasksCompleted')}</div>
 			<div class="stat-value text-xl">{stats.tasksCompleted}</div>
 		</div>
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">Rating</div>
+			<div class="stat-title">{$t('stats.rating')}</div>
 			<div class="stat-value flex items-center text-xl">
 				{stats.rating}
 				<svg
@@ -39,13 +40,13 @@
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">Response Rate</div>
+			<div class="stat-title">{$t('stats.responseRate')}</div>
 			<div class="stat-value text-xl">{stats.responseRate}%</div>
 		</div>
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">On-Time Rate</div>
+			<div class="stat-title">{$t('stats.onTimeRate')}</div>
 			<div class="stat-value text-xl">{stats.onTimeRate}%</div>
 		</div>
 	</div>
