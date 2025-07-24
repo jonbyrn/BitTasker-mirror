@@ -1,5 +1,4 @@
 import type { AuthState, Credentials, UserData } from '$lib/types/auth';
-import { user } from './user.store';
 import { writable } from 'svelte/store';
 import { StorageKeys } from '$lib/utils/constants/storage';
 import { Preferences } from '@capacitor/preferences';
@@ -20,6 +19,9 @@ const createAuthStore = () => {
 		await Preferences.remove({ key: StorageKeys.NPUB });
 		await Preferences.remove({ key: StorageKeys.AUTH_METHOD });
 		appStore.update((state) => ({ ...state, biometricData: null }));
+		
+		// Lazy load user store only when needed
+		const { user } = await import('./user.store');
 		user.reset();
 		set(initialAuthState);
 	}
@@ -29,6 +31,9 @@ const createAuthStore = () => {
 		// TODO: To be removed after getting auth method from the server
 		await Preferences.set({ key: StorageKeys.AUTH_METHOD, value: authMethod });
 		await Preferences.set({ key: StorageKeys.NPUB, value: npub });
+		
+		// Lazy load user store only when needed
+		const { user } = await import('./user.store');
 		if (userData) user.updateProfile(userData);
 		authState.login();
 

@@ -2,7 +2,6 @@
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { user } from '$lib/stores/user.store';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
 	import { authState } from '$lib/stores/auth.store';
@@ -148,30 +147,31 @@
 >
 	<!-- Hide navbar-start on mobile -->
 	<div class="navbar-start flex-1 sm:flex">
-		{#if !isLoggedIn}
-			<a href="/" class="block">
-				<img
-					src="/images/Logos/BitTasker-square-logo.svg"
-					alt="BitTasker Logo"
-					class="mx-auto block max-h-10"
-					width="40"
-					height="40"
-					style="aspect-ratio: 1/1;"
-				/>
-			</a>
+		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
+			<img
+				src="/images/Logos/BitTasker-square-logo.svg"
+				alt="BitTasker Logo"
+				class="mx-auto block max-h-10"
+				width="40"
+				height="40"
+				style="aspect-ratio: 1/1;"
+			/>
+		</a>
+		<LanguageDropdown onLanguageChange={closeDropdowns} />
+		<!-- {#if !isLoggedIn}
 			<div class="flex md:hidden items-center">
-				<LanguageDropdown onLanguageChange={closeDropdowns} />
+				
 				<DarkModeToggle />
 			</div>
-		{/if}
-		{#if $showBackButton}
-			<!-- Mobile: Back button when applicable -->
+		{/if} -->
+		<!-- g{#if $showBackButton}
+			<!-- Mobile: Back button when applicable --
 			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
 				<iconify-icon icon="mdi:arrow-left" width="24"></iconify-icon>
 			</button>
 		{/if}
 		{#if !$showBackButton && isLoggedIn}
-			<!-- Mobile logged in: Hamburger menu that animates to X -->
+			<!-- Mobile logged in: Hamburger menu that animates to X --
 			<button
 				class="btn btn-ghost btn-circle relative md:hidden"
 				onclick={toggleDrawer}
@@ -194,71 +194,193 @@
 					></span>
 				</div>
 			</button>
-		{/if}
+		{/if} -->
 	</div>
 
 	<!-- Hide navbar-center on mobile and tablet -->
 	<div class="navbar-center mx-auto hidden lg:flex">
 		<ul class="menu menu-horizontal px-1">
-			<li>
-				<a href="/how-it-works" class="btn btn-ghost">{$t('footer.how_it_works')}</a>
-			</li>
-			<li>
-				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_taskers')}</summary>
-					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/dashboard/create-task" onclick={closeDropdowns}>{$t('footer.post_task')}</a></li>
-						<li><a href="/tasker-fees" onclick={closeDropdowns}>{$t('footer.tasker_fees')}</a></li>
-						<li><a href="/escrow" onclick={closeDropdowns}>{$t('footer.escrow')}</a></li>
-						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.faq')}</a></li>
-					</ul>
-				</details>
-			</li>
-			<li>
-				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.for_taskees')}</summary>
-					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>{$t('footer.start_earning')}</a></li>
-						<li><a href="/community-guidelines" onclick={closeDropdowns}>{$t('footer.community_guidelines')}</a></li>
-						<li><a href="/taskee-fees" onclick={closeDropdowns}>{$t('footer.taskee_fees')}</a></li>
-						<li><a href="/tasker-principles" onclick={closeDropdowns}>{$t('footer.tasker_principles')}</a></li>
-						<li><a href="/faq" onclick={closeDropdowns}>{$t('footer.tasker_faq')}</a></li>
-					</ul>
-				</details>
-			</li>
-			<li>
-				<details class="dropdown">
-					<summary class="btn btn-ghost" onclick={handleDropdownClick}>{$t('footer.company')}</summary>
-					<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-						<li><a href="/about" onclick={closeDropdowns}>{$t('footer.about_us')}</a></li>
-						<li><a href="/security" onclick={closeDropdowns}>{$t('footer.security')}</a></li>
-						<li><a href="/careers" onclick={closeDropdowns}>{$t('footer.careers')}</a></li>
-						<li><a href="/press" onclick={closeDropdowns}>{$t('footer.press')}</a></li>
-						<li><a href="/terms" onclick={closeDropdowns}>{$t('footer.terms')}</a></li>
-						<li><a href="/privacy" onclick={closeDropdowns}>{$t('footer.privacy')}</a></li>
-						<li><a href="/contact" onclick={closeDropdowns}>{$t('footer.contact')}</a></li>
-					</ul>
-				</details>
-			</li>
+			{#if isLoggedIn}
+				<!-- My Account -->
+				<li>
+					<details class="dropdown">
+						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
+							<iconify-icon icon="mdi:account-circle" width="20" class="text-primary"></iconify-icon>
+							<span>{$t('navbar.my_account')}</span>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
+							<li><a href="/dashboard/messages" onclick={closeDropdowns}><iconify-icon icon="mdi:message" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.messages')}</span></a></li>
+							<li><a href="/dashboard/wallet" onclick={closeDropdowns}><iconify-icon icon="mdi:wallet" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.wallet')}</span></a></li>
+							<li><a href="/dashboard/profile" onclick={closeDropdowns}><iconify-icon icon="mdi:account" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.profile')}</span></a></li>
+							<li><a href="/dashboard/settings" onclick={closeDropdowns}><iconify-icon icon="mdi:cog" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.settings')}</span></a></li>
+							<li><button onclick={logout} class="text-error flex items-center gap-2 w-full"><iconify-icon icon="mdi:logout" width="20" class="text-error"></iconify-icon> <span>{$t('navbar.logout')}</span></button></li>
+						</ul>
+					</details>
+				</li>
+
+				<!-- Task Management -->
+				<li>
+					<details class="dropdown">
+						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
+							<iconify-icon icon="mdi:briefcase-outline" width="20" class="text-primary"></iconify-icon>
+							<span>{$t('navbar.task_management')}</span>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
+							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}><iconify-icon icon="mdi:magnify" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.find_tasks')}</span></a></li>
+							<li><a href="/dashboard" onclick={closeDropdowns}><iconify-icon icon="mdi:format-list-bulleted" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.my_tasks')}</span></a></li>
+							<li><a href="/dashboard/create-task" onclick={closeDropdowns}><iconify-icon icon="mdi:plus-circle" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.create_task')}</span></a></li>
+						</ul>
+					</details>
+				</li>
+			
+				<!-- Support & Help -->
+				<li>
+					<details class="dropdown">
+						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
+							<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon>
+							<span>{$t('navbar.support_help')}</span>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
+							<li><a href="/how-it-works" onclick={closeDropdowns}><iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.how_it_works')}</span></a></li>
+							<li><a href="/faq" onclick={closeDropdowns}><iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.faq')}</span></a></li>
+							<li><a href="/contact" onclick={closeDropdowns}><iconify-icon icon="mdi:email-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.contact_support')}</span></a></li>
+							<li><a href="/about" onclick={closeDropdowns}><iconify-icon icon="mdi:information-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.about_us')}</span></a></li>
+							<li><a href="/terms" onclick={closeDropdowns}><iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.terms_of_service')}</span></a></li>
+							<li><a href="/privacy" onclick={closeDropdowns}><iconify-icon icon="mdi:shield-account" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.privacy_policy')}</span></a></li>
+						</ul>
+					</details>
+				</li>
+				
+			{:else}
+				<li>
+					<a href="/how-it-works" class="btn btn-ghost">
+						<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon>
+						<span>{$t('footer.how_it_works')}</span>
+					</a>
+				</li>
+				<li>
+					<details class="dropdown">
+						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+							<iconify-icon icon="mdi:briefcase-outline" width="20" class="text-primary"></iconify-icon>
+							<span>{$t('footer.for_taskers')}</span>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
+							<li><a href="/dashboard/create-task" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:plus-circle" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.post_task')}</span>
+							</a></li>
+							<li><a href="/tasker-fees" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.tasker_fees')}</span>
+							</a></li>
+							<li><a href="/escrow" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.escrow')}</span>
+							</a></li>
+							<li><a href="/faq" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.faq')}</span>
+							</a></li>
+						</ul>
+					</details>
+				</li>
+				<li>
+					<details class="dropdown">
+						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+							<iconify-icon icon="mdi:account-hard-hat" width="20" class="text-primary"></iconify-icon>
+							<span>{$t('footer.for_taskees')}</span>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
+							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:magnify" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.start_earning')}</span>
+							</a></li>
+							<li><a href="/community-guidelines" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:account-group" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.community_guidelines')}</span>
+							</a></li>
+							<li><a href="/taskee-fees" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.taskee_fees')}</span>
+							</a></li>
+							<li><a href="/tasker-principles" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:handshake" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.tasker_principles')}</span>
+							</a></li>
+							<li><a href="/faq" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.tasker_faq')}</span>
+							</a></li>
+						</ul>
+					</details>
+				</li>
+				<li>
+					<details class="dropdown">
+						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
+							<iconify-icon icon="mdi:domain" width="20" class="text-primary"></iconify-icon>
+							<span>{$t('footer.company')}</span>
+						</summary>
+						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
+							<li><a href="/about" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.about_us')}</span>
+							</a></li>
+							<li><a href="/security" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.security')}</span>
+							</a></li>
+							<li><a href="/careers" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.careers')}</span>
+							</a></li>
+							<li><a href="/press" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:newspaper" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.press')}</span>
+							</a></li>
+							<li><a href="/terms" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.terms')}</span>
+							</a></li>
+							<li><a href="/privacy" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.privacy')}</span>
+							</a></li>
+							<li><a href="/contact" onclick={closeDropdowns}>
+								<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"></iconify-icon>
+								<span>{$t('footer.contact')}</span>
+							</a></li>
+						</ul>
+					</details>
+				</li>
+			{/if}
 		</ul>
 	</div>
 
-	<!-- Navbar End: always contains dark mode and language controls -->
+	<!-- Navbar End -->
 	<div class="navbar-end flex w-full flex-1 gap-1">
 		<!-- Dark mode toggle and language dropdown -->
-		<div class="hidden md:flex items-center">
+		<div class="md:flex items-center mr-1">
 			<DarkModeToggle />
-			<LanguageDropdown onLanguageChange={closeDropdowns} />
+			<!-- <LanguageDropdown onLanguageChange={closeDropdowns} /> -->
 		</div>
 		<!-- login/signup or avatar -->
 		{#if !isLoggedIn}
 			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
-			<Avatar
-				user={{ name: $user?.name, picture: $user?.picture }}
-				onClick={() => goto('/dashboard/profile')}
-			/>
+			<!-- Avatar Dropdown -->
+			<details class="dropdown dropdown-end">
+				<summary class="btn btn-ghost"  onclick={handleDropdownClick}>
+					<Avatar />
+				</summary>
+				<ul class="menu dropdown-content bg-base-100 rounded-box z-10 w-56 p-2 shadow-md right-0 mt-2">
+					<li><a href="/dashboard" onclick={closeDropdowns}><iconify-icon icon="mdi:format-list-bulleted" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.my_tasks')}</span></a></li>
+					<li><a href="/dashboard/profile" onclick={closeDropdowns}><iconify-icon icon="mdi:account" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.profile')}</span></a></li>
+					<li><a href="/dashboard/messages" onclick={closeDropdowns}><iconify-icon icon="mdi:message" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.messages')}</span></a></li>
+					<li><a href="/dashboard/settings" onclick={closeDropdowns}><iconify-icon icon="mdi:cog" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.settings')}</span></a></li>
+					<li><button onclick={logout} class="text-error flex items-center gap-2"><iconify-icon icon="mdi:logout" width="20" class="text-error"></iconify-icon> <span>{$t('navbar.logout')}</span></button></li>
+				</ul>
+			</details>
 		{/if}
 	</div>
 </div>
@@ -355,5 +477,20 @@
 		:global(body.bottom-nav-active) {
 			padding-bottom: 0;
 		}
+	}
+
+	/* Remove hover effect and reduce padding for avatar dropdown summary */
+	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost) {
+		background: none !important;
+		box-shadow: none !important;
+		color: inherit !important;
+		padding: 0.25rem 0.5rem !important;
+		transition: none !important;
+	}
+	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:hover),
+	:global(.navbar-end .dropdown-end > summary.btn.btn-ghost:focus) {
+		background: none !important;
+		box-shadow: none !important;
+		color: inherit !important;
 	}
 </style>
