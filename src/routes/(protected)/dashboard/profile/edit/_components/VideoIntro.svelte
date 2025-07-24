@@ -375,7 +375,6 @@
 	<div class="space-y-6">
 		<div class="space-y-4">
 			<div>
-				<h3 class="text-lg font-medium">{$t('profile.video.title')}</h3>
 				<p class="text-base-content/70">{$t('profile.video.description')}</p>
 			</div>
 
