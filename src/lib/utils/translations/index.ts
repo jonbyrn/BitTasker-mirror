@@ -2,13 +2,9 @@
 import { authTranslations } from './auth';
 import { commonTranslation } from './common';
 import { companyTranslations } from './company';
-import { bidTranslations } from './dashboard/bid';
-import { taskTranslations } from './dashboard/task';
-import { settingsTranslations } from './dashboard/settings';
 import { homePageTranslations } from './home';
 import { howItWorksTranslations } from './how_it_works';
 import { onboardingTranslations } from './onboarding';
-import { profileTranslations } from './profile';
 import { recommendationTranslations } from './recomendation';
 import { uploaderTranslations } from './uploader';
 import { dashboardTranslations } from './dashboard';
@@ -31,15 +27,10 @@ export default deepMergeTranslations(
 	homePageTranslations,
 	howItWorksTranslations,
 	onboardingTranslations,
-	profileTranslations,
 	uploaderTranslations,
-	bidTranslations,
-	taskTranslations,
 	dashboardTranslations,
 	recommendationTranslations,
 	companyTranslations,
-	settingsTranslations,
-
 	taskersTranslations,
 	taskeesTranslations
 );

@@ -283,7 +283,6 @@
 	</div>
 {:else}
 	<div class="space-y-6">
-		<h3 class="text-lg font-medium">{$t('profile.availability.title')}</h3>
 
 		<!-- Timezone Selection -->
 		<div class="form-control">

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { profileStore } from '$lib/stores/profile.store';
+	import { t } from '$lib/stores/i18n.store';
 
 	let { logout } = $props<{
 		logout: () => void;
@@ -69,14 +70,16 @@
 		<!-- Action Buttons -->
 		<div class="flex flex-wrap gap-2">
 			<button class="btn btn-primary" onclick={() => goto('/dashboard/profile/edit')}>
-				Edit Profile
+				{$t('profile.page.edit_profile')}
 			</button>
-			<button class="btn btn-ghost" onclick={logout}>Logout</button>
+			<button class="btn btn-ghost" onclick={logout}>{$t('profile.page.logout_profile')}</button>
 		</div>
 	{:else if $profileStore.error}
 		<!-- Error State -->
 		<div class="alert alert-error alert-outline">
-			<span>Failed to load profile data. Please try again later.</span>
+			<span>
+				{$t('profile.page.sections.error')}
+			</span>
 		</div>
 	{/if}
 </div>
