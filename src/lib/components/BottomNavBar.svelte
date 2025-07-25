@@ -425,7 +425,6 @@
 						</a>
 					</div>
 					<ul class="menu w-full">
-						<li class="divider"></li>
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
 							<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
@@ -583,7 +582,7 @@
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"
+									unless the bitcoin <iconify-icon icon="mdi:information-outline" width="20" class="text-primary"
 									></iconify-icon>
 									<span class="font-medium">{$t('footer.about_us')}</span>
 								</a>
