@@ -3,37 +3,30 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
+	import {
+		calculateUsdtEstimate,
+		formatNumberForInput,
+		satsFromUsd,
+
+		usdFromSats
+
+	} from '$lib/utils/helpers/crypto';
 
 	let { direction } = $props();
-
-	// BTC price state
-	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// TODO: Refactor by adding to app store global state
 	/**
 	 * Fetch current BTC price
 	 */
+	let btcPrice = $state<number>(120000); // Default fallback price
+
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
-			// Keep using fallback price
-			btcPrice = 63000;
-		}
-	}
-
-	/**
-	 * Calculate USD value based on BTC amount
-	 */
-	function calculateUsdValue(btcAmount: number): string {
-		const usdValue = btcAmount * btcPrice;
-		return formatCurrency(usdValue, 'USD');
+		} catch (error) {}
 	}
 
 	// Fetch BTC price on mount
@@ -111,9 +104,16 @@
 						{$store.task.budget.type === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}
 					</span>
 				</div>
-				<div>
+				<div class="flex flex-col items-center gap-2">
 					<span class="font-medium">Budget Amount:</span>
-					<span>{formatNumberForInput($store.task.budget.amount)} Sats</span>
+
+					<div class="flex flex-col items-start">
+						<span class="font-semibold">{formatNumberForInput($store.task.budget.amount)} Sats</span
+						>
+						<span class="text-info text-xs"
+							>≈ {usdFromSats($store.task.budget.amount, btcPrice)} USDT</span
+						>
+					</div>
 				</div>
 
 				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}

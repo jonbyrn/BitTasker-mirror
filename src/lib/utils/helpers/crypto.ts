@@ -148,8 +148,9 @@ export function satsFromUsd(usd: number, price: number) {
 }
 
 export function usdFromSats(sats: number, price: number) {
-	return (sats / SATS_PER_BTC) * price;
-}
+	const value = (sats / SATS_PER_BTC) * price;
+	return parseFloat(value.toFixed(3));
+	}
 
 export function formatNumberForInput(value: number | undefined): string {
 	if (value == null || isNaN(value)) return '';
