@@ -425,7 +425,6 @@
 						</a>
 					</div>
 					<ul class="menu w-full">
-						<li class="divider"></li>
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
 							<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
