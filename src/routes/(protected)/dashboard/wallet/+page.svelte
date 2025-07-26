@@ -1,6 +1,9 @@
 <script lang="ts">
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { wallet } from '$lib/utils/consts';
-	import { formatBtcToSats } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 
 	// UI state
 	let activeTab = $state('balance'); // balance, receive, send, transactions
@@ -97,6 +100,22 @@
 		sendAddress = '';
 		sendNetworkFee = 'medium';
 	}
+
+	let btcPrice = $state<number>(120000); // Default fallback price
+
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+	onMount(() => {
+		if (browser) {
+			fetchBtcPrice();
+		}
+	});
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
@@ -138,12 +157,12 @@
 				<div class="card-body">
 					<div class="mb-2 flex items-center justify-between">
 						<h3 class="card-title text-lg">Total Balance</h3>
-						<div class="form-control">
+						<!-- <div class="form-control">
 							<label class="label cursor-pointer">
 								<span class="label-text text-primary-content mr-2">Show in BTC</span>
 								<input type="checkbox" class="toggle toggle-primary toggle-lg" checked={true} />
 							</label>
-						</div>
+						</div> -->
 					</div>
 
 					<p class="text-4xl font-bold">{formatBtcToSats(wallet.balance.btc)}</p>
@@ -215,10 +234,13 @@
 												{/if}
 											</div>
 										</td>
-										<td>
+										<td class="flex flex-col">
 											<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
 												{tx.type === 'received' ? '+' : '-'}{formatBtcToSats(tx.amount)}
 											</span>
+											<span class="text-gray text-xs"
+												>≈{calculateUsdtEstimate(tx.amount, btcPrice)} USDT</span
+											>
 										</td>
 										<td>{formatDate(tx.timestamp)}</td>
 										<td>
@@ -532,10 +554,13 @@
 											{/if}
 										</div>
 									</td>
-									<td>
+									<td class="flex flex-col items-start">
 										<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
 											{tx.type === 'received' ? '+' : '-'}{formatBtcToSats(tx.amount)}
 										</span>
+										<span class="text-xs"
+											>≈ {calculateUsdtEstimate(tx.amount, btcPrice)} USDT</span
+										>
 									</td>
 									<td>{formatDate(tx.timestamp)}</td>
 									<td>

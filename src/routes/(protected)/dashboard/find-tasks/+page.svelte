@@ -491,7 +491,9 @@
 						<div class="flex items-center justify-between gap-2 text-sm">
 							<div class="flex flex-col items-start">
 								<span class="font-semibold">{formatBtcToSats(task.budget.amount)}</span>
-								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget, btcPrice)} USDT</span>
+								<span class="text-info text-xs"
+									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
+								>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>

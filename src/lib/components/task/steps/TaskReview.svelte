@@ -6,14 +6,7 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import {
-		calculateUsdtEstimate,
-		formatNumberForInput,
-		satsFromUsd,
-
-		usdFromSats
-
-	} from '$lib/utils/helpers/crypto';
+	import { formatNumberForInput, usdFromSats } from '$lib/utils/helpers/crypto';
 
 	let { direction } = $props();
 
