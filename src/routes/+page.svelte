@@ -271,7 +271,7 @@
 	<section class="bg-base-100 py-16">
 		<div class="container mx-auto px-4">
 			<h2 class="mb-12 text-center">{$t('homepage.v2.benefits.title')}</h2>
-			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+			<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
 				<div class="card bg-base-200 text-center p-6 shadow-lg hover:shadow-xl transition-shadow h-full">
 					<div class="card-body flex flex-col">
 						<div class="flex justify-center mb-4">

@@ -4,6 +4,11 @@
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidCreationForm from './BidCreationForm.svelte';
+	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
+	import { wallet } from '$lib/utils/consts';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -62,6 +67,17 @@
 		return enableBodyScroll;
 	});
 
+	let btcPrice = $state<number>(120000); // Default fallback price
+
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) return;
 
@@ -110,6 +126,12 @@
 		formatDistanceToNow(typeof date === 'number' ? new Date(date * 1000) : new Date(date), {
 			addSuffix: true
 		});
+
+	onMount(() => {
+		if (browser) {
+			fetchBtcPrice();
+		}
+	});
 </script>
 
 <!-- Drawer Overlay -->
@@ -236,9 +258,11 @@
 					<div>
 						<span class="text-base-content/60 text-sm">Budget:</span>
 						<div class="font-semibold">
-							{task.budget.amount}
-							{task.budget.currency} ({task.budget.type})
+							{formatBtcToSats(task.budget.amount)}
 						</div>
+						<span class="text-info text-xs"
+							>≈ {calculateUsdtEstimate(task.budget, btcPrice)} USDT</span
+						>
 					</div>
 
 					<div>
@@ -426,12 +450,12 @@
 										<img
 											src={attachment.url}
 											alt={attachment.alt || 'Task attachment'}
-											class="object-contain w-full h-full"
+											class="h-full w-full object-contain"
 											loading="lazy"
 										/>
 									{:else if attachment.type.startsWith('video/')}
 										<!-- Video Display -->
-										<video controls class="w-full h-full" preload="metadata">
+										<video controls class="h-full w-full" preload="metadata">
 											<track kind="captions" />
 											<source src={attachment.url} type={attachment.type} />
 											Your browser does not support the video tag.

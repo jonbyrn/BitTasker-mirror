@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { dashboardPageTranslations } from './dashboard';
+import { bidTranslations } from './bid';
+import { settingsTranslations } from './settings';
+import { taskTranslations } from './task';
+import { profileTranslations } from './profile';
 
 function deepMergeTranslations(...sources: any[]) {
 	const result: any = {};
@@ -12,4 +16,10 @@ function deepMergeTranslations(...sources: any[]) {
 	return result;
 }
 
-export const dashboardTranslations = deepMergeTranslations(dashboardPageTranslations);
+export const dashboardTranslations = deepMergeTranslations(
+	dashboardPageTranslations,
+	profileTranslations,
+	bidTranslations,
+	settingsTranslations,
+	taskTranslations
+);

@@ -7,25 +7,7 @@ const meta = {
 	parameters: {
 		layout: 'centered'
 	},
-	tags: ['autodocs'],
-	argTypes: {
-		showTooltip: {
-			control: 'boolean',
-			description: 'Whether to show tooltip on hover'
-		},
-		showLanguageCode: {
-			control: 'boolean',
-			description: 'Whether to show the language code (e.g., EN, ES)'
-		},
-		showCheckmark: {
-			control: 'boolean',
-			description: 'Whether to show checkmark for selected language'
-		},
-		className: {
-			control: 'text',
-			description: 'Additional CSS classes'
-		}
-	}
+	tags: ['autodocs']
 } satisfies Meta<LanguageDropdown>;
 
 export default meta;
