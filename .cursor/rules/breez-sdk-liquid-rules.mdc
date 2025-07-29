@@ -1,0 +1,1002 @@
+---
+alwaysApply: true
+---
+
+# Breez SDK - Nodeless (Liquid Implementation) - LLM Reference Guide
+
+## Overview
+
+The Breez SDK - Nodeless (Liquid Implementation) provides developers with an end-to-end solution for integrating self-custodial Lightning payments into their apps and services. It eliminates the need for third parties, simplifies the complexities of Bitcoin and Lightning, and enables seamless onboarding for billions of users to the future of peer-to-peer payments.
+
+### Key Features
+
+- ✅ Send and receive Lightning payments
+- ✅ On-chain interoperability  
+- ✅ Complete LNURL & BOLT12 functionality
+- ✅ Multi-app support
+- ✅ Multi-device support
+- ✅ Real-time state backup
+- ✅ Keys are only held by users
+- ✅ USDT and multi-asset support on Liquid
+- ✅ Built-in fiat on-ramp
+- ✅ Free open-source solution
+
+### Architecture
+
+The Breez SDK - Nodeless uses submarine swaps and reverse submarine swaps to send and receive payments, enabling funds to move frictionlessly between the Lightning Network and the Liquid sidechain.
+
+**When sending a payment:** The SDK performs a submarine swap, converting L-BTC from a user's Liquid wallet into sats on the Lightning Network, and sends them to the recipient.
+
+**When receiving a payment:** The SDK performs a reverse submarine swap, converting incoming sats into L-BTC, and then deposits them in the user's Liquid wallet.
+
+### Comparison: Nodeless vs Native Implementation
+
+| Nodeless (Liquid Implementation) | Native (Greenlight Implementation) |
+|----------------------------------|-------------------------------------|
+| Trust profile is with the Liquid sidechain | Pure Lightning Network implementation |
+| No channel management or LSP required | Uses Lightning Service Providers (LSPs) for liquidity |
+| No setup fees for end-users | Channel opening and closing fees |
+| Minimum 100 sats to receive, 21 sats to send | No minimum limit for transactions (after channel opening) |
+| Static low fees | Setup costs are correlated to Bitcoin mining fees |
+| Bitcoin, USDT & multi-asset support | Bitcoin only |
+
+## Installation
+
+### Supported Platforms
+
+#### iOS
+Swift Package Manager or CocoaPods integration:
+
+**Swift Package Manager:**
+```
+https://github.com/breez/breez-sdk-liquid-swift.git
+```
+
+**Package.swift:**
+```swift
+.package(url: "https://github.com/breez/breez-sdk-liquid-swift.git", from: "<version>")
+```
+
+**Podfile:**
+```ruby
+target '<YourApp>' do
+  use_frameworks!
+  pod 'BreezSDKLiquid'
+end
+```
+
+#### Android
+Add to Gradle dependencies:
+```gradle
+repositories {
+  maven {
+      url("https://mvn.breez.technology/releases")
+  }
+}
+
+dependencies {
+  implementation("breez_sdk_liquid:bindings-android:<version>")
+}
+```
+
+#### JavaScript/Node.js
+```bash
+npm install @breeztech/breez-sdk-liquid
+# or
+yarn add @breeztech/breez-sdk-liquid
+```
+
+Note: Node.js minimum supported version is v22.
+
+#### React Native
+```bash
+npm install @breeztech/react-native-breez-sdk-liquid
+# or  
+yarn add @breeztech/react-native-breez-sdk-liquid
+```
+
+#### Go
+```bash
+go get github.com/breez/breez-sdk-liquid-go
+```
+
+#### C#
+```bash
+dotnet add package Breez.Sdk.Liquid
+```
+
+#### Rust
+```toml
+[dependencies]
+breez-sdk-liquid = { git = "https://github.com/breez/breez-sdk-liquid", tag = "0.8.0" }
+
+[patch.crates-io]
+secp256k1-zkp = { git = "https://github.com/breez/rust-secp256k1-zkp.git", rev = "eac2e479255a6e32b5588bc25ee53c642fdd8395" }
+```
+
+#### Flutter/Dart
+```yaml
+dependencies:
+  breez_liquid:
+    git:
+      url: https://github.com/breez/breez-sdk-liquid-dart
+  flutter_breez_liquid:
+    git:
+      url: https://github.com/breez/breez-sdk-liquid-flutter
+  rxdart: ^0.28.0
+```
+
+#### Python
+```bash
+pip install breez_sdk_liquid
+```
+
+## Getting Started
+
+### Prerequisites
+
+The Nodeless Breez API key must be set for the SDK to work. You can request one for free by filling the form at: https://breez.technology/request-api-key/#contact-us-form-sdk
+
+**Note:** This is not the same as the Native (Greenlight) Breez API key, so it can't be reused.
+
+### Basic Integration Steps
+
+1. **Installing the SDK**
+2. **Connecting**
+3. **Fetching the balance** 
+4. **Listening to events**
+5. **Adding logging**
+
+## Connecting to the SDK
+
+### Configuration and Connection
+
+```javascript
+import init, { defaultConfig, connect } from '@breeztech/breez-sdk-liquid'
+
+// Call init when using the SDK in a web environment before calling any other SDK
+// methods. This is not needed when using the SDK in a Node.js/Deno environment.
+await init()
+
+const mnemonic = '<mnemonic words>'
+
+// Create the default config, providing your Breez API key
+const config = defaultConfig('mainnet', '<your-Breez-API-key>')
+
+// Customize the config object according to your needs
+config.workingDir = 'path to writable directory'
+
+const sdk = await connect({ mnemonic, config })
+```
+
+### Working Directory
+
+The SDK uses the config `working_dir` to store the state of the SDK instance. When handling multiple instances of the SDK, each instance needs to have a different working directory defined.
+
+By default, the config working directory is set to the directory where the SDK is running. Some platforms may require that you use an application specific directory that is writable within the application sandbox (e.g., Android or iOS applications).
+
+### Disconnecting
+
+```javascript
+await sdk.disconnect()
+```
+
+Once you are done using the SDK, call the `disconnect` method to free up resources. This is especially useful when the SDK needs to be re-instantiated, for example when changing the mnemonic and/or configuration.
+
+## Wallet State and Balance
+
+### Getting Wallet Information
+
+```javascript
+const info = await sdk.getInfo()
+const balanceSat = info.walletInfo.balanceSat
+const pendingSendSat = info.walletInfo.pendingSendSat
+const pendingReceiveSat = info.walletInfo.pendingReceiveSat
+```
+
+### Asset Balances
+
+```javascript
+const info = await sdk.getInfo()
+const assetBalances = info.walletInfo.assetBalances
+```
+
+## Event Handling
+
+### Adding Event Listeners
+
+```javascript
+class JsEventListener {
+  onEvent = (event) => {
+    console.log(`Received event: ${JSON.stringify(event)}`)
+  }
+}
+
+const eventListener = new JsEventListener()
+const listenerId = await sdk.addEventListener(eventListener)
+```
+
+### Removing Event Listeners
+
+```javascript
+await sdk.removeEventListener(listenerId)
+```
+
+## Logging
+
+### Setting Up Logging
+
+```javascript
+class JsLogger {
+  log = (l) => {
+    console.log(`[${l.level}]: ${l.line}`)
+  }
+}
+
+const logger = new JsLogger()
+setLogger(logger)
+```
+
+## Sending Payments
+
+### Lightning Payment Limits
+
+Before sending Lightning payments, check the current limits:
+
+```javascript
+const currentLimits = await sdk.fetchLightningLimits()
+console.log(`Minimum amount: ${currentLimits.send.minSat} sats`)
+console.log(`Maximum amount: ${currentLimits.send.maxSat} sats`)
+```
+
+### Preparing Lightning Payments
+
+#### BOLT11 Invoice Payment
+
+```javascript
+// Set the bolt11 invoice you wish to pay
+const prepareResponse = await sdk.prepareSendPayment({
+  destination: '<bolt11 invoice>'
+})
+
+// If the fees are acceptable, continue to create the Send Payment
+const sendFeesSat = prepareResponse.feesSat
+console.log(`Fees: ${sendFeesSat} sats`)
+```
+
+#### BOLT12 Offer Payment
+
+```javascript
+// Set the bolt12 offer you wish to pay to
+const optionalAmount = {
+  type: 'bitcoin',
+  receiverAmountSat: 5_000
+}
+
+const prepareResponse = await sdk.prepareSendPayment({
+  destination: '<bolt12 offer>',
+  amount: optionalAmount
+})
+```
+
+### Preparing Liquid Payments
+
+#### Specific Amount
+
+```javascript
+// Set the Liquid BIP21 or Liquid address you wish to pay
+const optionalAmount = {
+  type: 'bitcoin',
+  receiverAmountSat: 5_000
+}
+
+const prepareResponse = await sdk.prepareSendPayment({
+  destination: '<Liquid BIP21 or address>',
+  amount: optionalAmount
+})
+```
+
+#### Drain All Funds
+
+```javascript
+// Set the Liquid BIP21 or Liquid address you wish to pay
+const optionalAmount = {
+  type: 'drain'
+}
+
+const prepareResponse = await sdk.prepareSendPayment({
+  destination: '<Liquid BIP21 or address>',
+  amount: optionalAmount
+})
+```
+
+### Sending Payments
+
+```javascript
+const optionalPayerNote = '<payer note>'
+const sendResponse = await sdk.sendPayment({
+  prepareResponse,
+  payerNote: optionalPayerNote
+})
+const payment = sendResponse.payment
+```
+
+### Payment Event States
+
+#### Lightning Payment Events
+
+| Event | Description | UX Suggestion |
+|-------|-------------|---------------|
+| **PaymentPending** | The SDK has broadcast the lockup transaction for the swap | Show payment as pending |
+| **PaymentWaitingConfirmation** | If the Lightning invoice contains an MRH, the SDK will instead broadcast a direct Liquid transaction | Display successful payment feedback |
+| **PaymentSucceeded** | The swap service has seen the lockup transaction and broadcast the claim transaction, or the direct Liquid transaction (MRH) is confirmed | Show payment as complete |
+| **PaymentFailed** | The swap has expired without a lockup transaction | |
+| **PaymentRefundPending** | The swap can be refunded for several reasons | |
+| **PaymentRefunded** | The refund transaction is confirmed | |
+
+## Receiving Payments
+
+### Lightning Payment Limits
+
+```javascript
+// Fetch the Receive lightning limits
+const currentLimits = await sdk.fetchLightningLimits()
+console.log(`Minimum amount: ${currentLimits.receive.minSat} sats`)
+console.log(`Maximum amount: ${currentLimits.receive.maxSat} sats`)
+```
+
+### Preparing Receive Payments
+
+#### BOLT11 Invoice
+
+```javascript
+// Set the invoice amount you wish the payer to send, which should be within the above limits
+const optionalAmount = {
+  type: 'bitcoin',
+  payerAmountSat: 5_000
+}
+
+const prepareResponse = await sdk.prepareReceivePayment({
+  paymentMethod: 'bolt11Invoice',
+  amount: optionalAmount
+})
+
+// If the fees are acceptable, continue to create the Receive Payment
+const receiveFeesSat = prepareResponse.feesSat
+console.log(`Fees: ${receiveFeesSat} sats`)
+```
+
+#### BOLT12 Offer
+
+```javascript
+const prepareResponse = await sdk.prepareReceivePayment({
+  paymentMethod: 'bolt12Offer'
+})
+
+// If the fees are acceptable, continue to create the Receive Payment
+const minReceiveFeesSat = prepareResponse.feesSat
+const swapperFeerate = prepareResponse.swapperFeerate
+console.log(`Fees: ${minReceiveFeesSat} sats + ${swapperFeerate}% of the sent amount`)
+```
+
+#### Bitcoin Address
+
+```javascript
+// Fetch the Receive onchain limits
+const currentLimits = await sdk.fetchOnchainLimits()
+console.log(`Minimum amount: ${currentLimits.receive.minSat} sats`)
+console.log(`Maximum amount: ${currentLimits.receive.maxSat} sats`)
+
+// Set the onchain amount you wish the payer to send, which should be within the above limits
+const optionalAmount = {
+  type: 'bitcoin',
+  payerAmountSat: 5_000
+}
+
+const prepareResponse = await sdk.prepareReceivePayment({
+  paymentMethod: 'bitcoinAddress',
+  amount: optionalAmount
+})
+```
+
+#### Liquid Address
+
+```javascript
+// Create a Liquid BIP21 URI/address to receive a payment to.
+// There are no limits, but the payer amount should be greater than broadcast fees when specified
+// Note: Not setting the amount will generate a plain Liquid address
+const optionalAmount = {
+  type: 'bitcoin',
+  payerAmountSat: 5_000
+}
+
+const prepareResponse = await sdk.prepareReceivePayment({
+  paymentMethod: 'liquidAddress',
+  amount: optionalAmount
+})
+```
+
+### Creating Receive Payment
+
+```javascript
+const optionalDescription = '<description>'
+const res = await sdk.receivePayment({
+  prepareResponse,
+  description: optionalDescription
+})
+
+const destination = res.destination
+```
+
+### Amountless Bitcoin Payments
+
+For Bitcoin payments that don't specify an amount, you may need to explicitly accept fees:
+
+```javascript
+// Payments on hold waiting for fee acceptance have the state WAITING_FEE_ACCEPTANCE
+const paymentsWaitingFeeAcceptance = await sdk.listPayments({
+  states: ['waitingFeeAcceptance']
+})
+
+for (const payment of paymentsWaitingFeeAcceptance) {
+  if (payment.details.type !== 'bitcoin') {
+    // Only Bitcoin payments can be `WAITING_FEE_ACCEPTANCE`
+    continue
+  }
+
+  const fetchFeesResponse = await sdk.fetchPaymentProposedFees({
+    swapId: payment.details.swapId
+  })
+
+  console.info(
+    `Payer sent ${fetchFeesResponse.payerAmountSat} and currently proposed fees are ${fetchFeesResponse.feesSat}`
+  )
+
+  // If the user is ok with the fees, accept them, allowing the payment to proceed
+  await sdk.acceptPaymentProposedFees({
+    response: fetchFeesResponse
+  })
+}
+```
+
+## Payment Management
+
+### Listing Payments
+
+```javascript
+const payments = await sdk.listPayments({})
+```
+
+#### Filtering Payments
+
+```javascript
+const payments = await sdk.listPayments({
+  filters: ['send'],
+  fromTimestamp: 1696880000,
+  toTimestamp: 1696959200,
+  offset: 0,
+  limit: 50
+})
+```
+
+#### Filtering by Bitcoin Address
+
+```javascript
+const payments = await sdk.listPayments({
+  details: {
+    type: 'bitcoin',
+    address: '<Bitcoin address>'
+  }
+})
+```
+
+#### Filtering by Liquid Destination
+
+```javascript
+const payments = await sdk.listPayments({
+  details: {
+    type: 'liquid',
+    destination: '<Liquid BIP21 or address>'
+  }
+})
+```
+
+### Getting Individual Payments
+
+```javascript
+// By payment hash
+const paymentHash = '<payment hash>'
+const paymentByHash = await sdk.getPayment({
+  type: 'paymentHash',
+  paymentHash
+})
+
+// By swap ID
+const swapId = '<swap id>'
+const paymentBySwapId = await sdk.getPayment({
+  type: 'swapId',
+  swapId
+})
+```
+
+## LNURL Support
+
+### LNURL-Pay
+
+#### Preparing LNURL-Pay
+
+```javascript
+const lnurlPayUrl = 'lightning@address.com'
+
+const input = await sdk.parse(lnurlPayUrl)
+if (input.type === 'lnUrlPay') {
+  const amount = {
+    type: 'bitcoin',
+    receiverAmountSat: 5_000
+  }
+  const optionalComment = '<comment>'
+  const optionalValidateSuccessActionUrl = true
+
+  const prepareResponse = await sdk.prepareLnurlPay({
+    data: input.data,
+    amount,
+    bip353Address: input.bip353Address,
+    comment: optionalComment,
+    validateSuccessActionUrl: optionalValidateSuccessActionUrl
+  })
+
+  // If the fees are acceptable, continue to create the LNURL Pay
+  const feesSat = prepareResponse.feesSat
+  console.log(`Fees: ${feesSat} sats`)
+}
+```
+
+#### Executing LNURL-Pay
+
+```javascript
+const result = await sdk.lnurlPay({
+  prepareResponse
+})
+```
+
+### LNURL-Withdraw
+
+```javascript
+const lnurlWithdrawUrl = 'lnurl1dp68gurn8ghj7mr0vdskc6r0wd6z7mrww4exctthd96xserjv9mn7um9wdekjmmw843xxwpexdnxzen9vgunsvfexq6rvdecx93rgdmyxcuxverrvcursenpxvukzv3c8qunsdecx33nzwpnvg6ryc3hv93nzvecxgcxgwp3h33lxk'
+
+const input = await sdk.parse(lnurlWithdrawUrl)
+if (input.type === 'lnUrlWithdraw') {
+  const amountMsat = input.data.minWithdrawable
+  const lnUrlWithdrawResult = await sdk.lnurlWithdraw({
+    data: input.data,
+    amountMsat,
+    description: 'Test withdraw'
+  })
+}
+```
+
+### LNURL-Auth
+
+```javascript
+const lnurlAuthUrl = 'lnurl1dp68gurn8ghj7mr0vdskc6r0wd6z7mrww4excttvdankjm3lw3skw0tvdankjm3xdvcn6vtp8q6n2dfsx5mrjwtrxdjnqvtzv56rzcnyv3jrxv3sxqmkyenrvv6kve3exv6nqdtyv43nqcmzvdsnvdrzx33rsenxx5unqc3cxgeqgntfgu'
+
+const input = await sdk.parse(lnurlAuthUrl)
+if (input.type === 'lnUrlAuth') {
+  const result = await sdk.lnurlAuth(input.data)
+  if (result.type === 'ok') {
+    console.log('Successfully authenticated')
+  } else {
+    console.log('Failed to authenticate')
+  }
+}
+```
+
+## Multi-Asset Support
+
+### Default Asset Metadata
+
+The SDK includes metadata for L-BTC and Tether USD by default:
+
+#### Mainnet
+| Name | Ticker | Asset ID | Precision |
+|------|--------|----------|-----------|
+| Bitcoin | BTC | 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d | 8 |
+| Tether USD | USDt | ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2 | 8 |
+
+#### Testnet
+| Name | Ticker | Asset ID | Precision |
+|------|--------|----------|-----------|
+| Testnet Bitcoin | BTC | 144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49 | 8 |
+| Testnet Tether USD | USDt | b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73 | 8 |
+
+### Adding Asset Metadata
+
+```javascript
+// Create the default config
+const config = defaultConfig('mainnet', '<your-Breez-API-key>')
+
+// Configure asset metadata. Setting the optional fiat ID will enable
+// paying fees using the asset (if available).
+config.assetMetadata = [
+  {
+    assetId: '18729918ab4bca843656f08d4dd877bed6641fbd596a0a963abbf199cfeb3cec',
+    name: 'PEGx EUR',
+    ticker: 'EURx',
+    precision: 8,
+    fiatId: 'EUR'
+  }
+]
+```
+
+### Receiving Non-Bitcoin Assets
+
+```javascript
+// Create a Liquid BIP21 URI/address to receive an asset payment to.
+// Note: Not setting the amount will generate an amountless BIP21 URI.
+const usdtAssetId = 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
+const optionalAmount = {
+  type: 'asset',
+  assetId: usdtAssetId,
+  payerAmount: 1.5
+}
+
+const prepareResponse = await sdk.prepareReceivePayment({
+  paymentMethod: 'liquidAddress',
+  amount: optionalAmount
+})
+```
+
+### Sending Non-Bitcoin Assets
+
+```javascript
+// Set the Liquid BIP21 or Liquid address you wish to pay
+const destination = '<Liquid BIP21 or address>'
+// If the destination is an address or an amountless BIP21 URI,
+// you must specify an asset amount
+const usdtAssetId = 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
+const optionalAmount = {
+  type: 'asset',
+  assetId: usdtAssetId,
+  receiverAmount: 1.5,
+  estimateAssetFees: false
+}
+
+const prepareResponse = await sdk.prepareSendPayment({
+  destination,
+  amount: optionalAmount
+})
+```
+
+### Paying Fees with Assets
+
+For some assets like Tether USD, you can pay transaction fees with the asset itself:
+
+```javascript
+const destination = '<Liquid BIP21 or address>'
+const usdtAssetId = 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
+// Set the optional estimate asset fees param to true
+const optionalAmount = {
+  type: 'asset',
+  assetId: usdtAssetId,
+  receiverAmount: 1.5,
+  estimateAssetFees: true
+}
+
+const prepareResponse = await sdk.prepareSendPayment({
+  destination,
+  amount: optionalAmount
+})
+
+// If the asset fees are set, you can use these fees to pay to send the asset
+const sendAssetFees = prepareResponse.estimatedAssetFees
+console.log(`Estimated Fees: ~${sendAssetFees}`)
+
+// Set the use asset fees param to true
+const sendResponse = await sdk.sendPayment({
+  prepareResponse,
+  useAssetFees: true
+})
+```
+
+## On-Chain Transactions
+
+### Sending On-Chain (Pay Onchain)
+
+#### Fetching Limits
+
+```javascript
+const currentLimits = await sdk.fetchOnchainLimits()
+console.log(`Minimum amount: ${currentLimits.send.minSat} sats`)
+console.log(`Maximum amount: ${currentLimits.send.maxSat} sats`)
+```
+
+#### Preparing On-Chain Payment
+
+```javascript
+const prepareResponse = await sdk.preparePayOnchain({
+  amount: {
+    type: 'bitcoin',
+    receiverAmountSat: 5_000
+  }
+})
+
+// Check if the fees are acceptable before proceeding
+const totalFeesSat = prepareResponse.totalFeesSat
+```
+
+#### Executing On-Chain Payment
+
+```javascript
+const destinationAddress = 'bc1..'
+
+const payOnchainRes = await sdk.payOnchain({
+  address: destinationAddress,
+  prepareResponse
+})
+```
+
+### Buying Bitcoin (Fiat On-Ramp)
+
+#### Check Limits and Prepare
+
+```javascript
+const currentLimits = await sdk.fetchOnchainLimits()
+
+const prepareRes = await sdk.prepareBuyBitcoin({
+  provider: 'moonpay',
+  amountSat: currentLimits.receive.minSat
+})
+
+// Check the fees are acceptable before proceeding
+const receiveFeesSat = prepareRes.feesSat
+console.log(`Fees: ${receiveFeesSat} sats`)
+```
+
+#### Generate Provider URL
+
+```javascript
+const url = await sdk.buyBitcoin({
+  prepareResponse
+})
+```
+
+## Refunds and Recovery
+
+### Listing Refundable Swaps
+
+```javascript
+const refundables = await sdk.listRefundables()
+```
+
+### Getting Recommended Fees
+
+```javascript
+const fees = await sdk.recommendedFees()
+```
+
+### Executing Refund
+
+```javascript
+const destinationAddress = '...'
+const feeRateSatPerVbyte = refundTxFeeRate
+
+const refundResponse = await sdk.refund({
+  swapAddress: refundable.swapAddress,
+  refundAddress: destinationAddress,
+  feeRateSatPerVbyte
+})
+```
+
+### Rescanning Swaps
+
+```javascript
+await sdk.rescanOnchainSwaps()
+```
+
+## Fiat Currency Support
+
+### List Supported Fiat Currencies
+
+```javascript
+const fiatCurrencies = await sdk.listFiatCurrencies()
+```
+
+### Fetch Current Rates
+
+```javascript
+const fiatRates = await sdk.fetchFiatRates()
+```
+
+## Message Signing and Verification
+
+### Signing Messages
+
+```javascript
+const signMessageResponse = await sdk.signMessage({
+  message: '<message to sign>'
+})
+
+// Get the wallet info for your pubkey
+const info = await sdk.getInfo()
+
+const signature = signMessageResponse.signature
+const pubkey = info.walletInfo.pubkey
+
+console.log(`Pubkey: ${pubkey}`)
+console.log(`Signature: ${signature}`)
+```
+
+### Verifying Messages
+
+```javascript
+const checkMessageResponse = await sdk.checkMessage({
+  message: '<message>',
+  pubkey: '<pubkey of signer>',
+  signature: '<message signature>'
+})
+const isValid = checkMessageResponse.isValid
+
+console.log(`Signature valid: ${isValid}`)
+```
+
+## Notifications and Offline Payments
+
+### Webhook Registration
+
+```javascript
+await sdk.registerWebhook('https://your-nds-service.com/api/v1/notify?platform=ios&token=<PUSH_TOKEN>')
+```
+
+### Webhook Unregistration
+
+```javascript
+await sdk.unregisterWebhook()
+```
+
+### Notification Types
+
+The Notification Plugin handles several notification types for offline payments:
+
+#### Swap Updates
+```json
+{
+    "event": "swap.update",
+    "data": {
+        "id": "",    // The hashed id of the swap
+        "status": "" // The latest swap status
+    }
+}
+```
+
+#### BOLT12 Invoice Requests
+```json
+{
+    "event": "invoice.request",
+    "data": {
+        "offer": "",         // The BOLT12 offer
+        "invoiceRequest": "" // The invoice request
+    }
+}
+```
+
+#### LNURL-Pay Info Requests
+```json
+{
+    "template": "lnurlpay_info",
+    "data": {
+        "callback_url": "", // The URL of the LNURL service
+        "reply_url": ""     // The URL to reply to this request
+    }
+}
+```
+
+#### LNURL-Pay Invoice Requests
+```json
+{
+    "template": "lnurlpay_invoice",
+    "data": {
+        "amount": 0,    // The amount in millisatoshis within the min/max sendable range
+        "reply_url": "https://app.domain/response/[response_id]", // The URL to reply to this request
+        "verify_url": "https://app.domain/lnurlpay/[identifier]/{payment_hash}" // The optional verify URL
+    }
+}
+```
+
+## Fee Structure
+
+### Base Fees
+
+The Breez SDK charges small base fees for end-users:
+
+#### Sending Lightning Payments
+- **Lockup Transaction Fee:** ~34 sats (0.1 sat/discount vbyte)
+- **Claim Transaction Fee:** ~19 sats (0.1 sat/discount vbyte)  
+- **Swap Service Fee:** 0.1% fee on the amount sent
+
+#### Receiving Lightning Payments
+- **Lockup Transaction Fee:** ~27 sats (0.1 sat/discount vbyte)
+- **Claim Transaction Fee:** ~20 sats (0.1 sat/discount vbyte)
+- **Swap Service Fee:** 0.25% fee on the amount received
+
+#### Sending to BTC Address
+- **L-BTC Lockup Transaction Fee:** ~34 sats (0.1 sat/discount vbyte)
+- **BTC Lockup Transaction Fee:** Based on current Bitcoin mempool usage
+- **Swap Service Fee:** 0.1% fee on the amount sent
+- **BTC Claim Transaction Fee:** Based on current Bitcoin mempool usage
+
+#### Receiving from BTC Address
+- **L-BTC Claim Transaction Fee:** ~20 sats (0.1 sat/discount vbyte)
+- **BTC Claim Transaction Fee:** Based on Bitcoin mempool usage at swap time
+- **Swapper Service Fee:** 0.1% fee on the amount received
+
+### Partner Fees
+
+Partners can set additional fees through the Partners Portal (https://partners.breez.technology/):
+
+1. Navigate to the **Settings** page
+2. Set your desired **Additional Fee Percentage**
+3. Provide a Lightning address for fee payouts
+4. Save your configuration
+
+Partner fees are calculated as a percentage of the transaction amount and added to the base fees.
+
+## Production Checklist
+
+### Required Implementation
+
+- **Add logging:** Implement sufficient logging for diagnosing user issues
+- **Display pending payments:** Handle payment status correctly, showing pending states to users
+- **Enable swap refunds:** Handle `Refundable` payment states, allowing users to retry refunds with different fees
+- **Expose swap fees:** Clearly show expected fees and send/receive amounts for on-chain transactions
+
+### Best Practices
+
+- Fetch payment limits right before displaying payment UI
+- Use limits to validate user input and prevent invalid payments
+- Implement the Notification Plugin for mobile applications
+- Register webhooks for background payment processing
+- Handle Magic Routing Hints for direct Liquid payments
+- Provide clear fee breakdowns to users
+
+## Error Handling
+
+### Common Error Scenarios
+
+- Invalid payment amounts (outside swap limits)
+- Network connectivity issues
+- Insufficient balance
+- Invalid addresses or invoices
+- Swap service unavailability
+- Fee acceptance timeouts for amountless Bitcoin payments
+
+### Magic Routing Hints (MRH)
+
+When a Lightning invoice contains a Magic Routing Hint, payments are made via direct Liquid transaction instead of a swap, resulting in:
+- Lower fees for the payer
+- Faster transaction times
+- Direct Liquid-to-Liquid transfers
+
+## Resources and Links
+
+- **Main Repository:** https://github.com/breez/breez-sdk-liquid
+- **Documentation:** https://sdk-doc-liquid.breez.technology/
+- **API Documentation:** https://breez.github.io/breez-sdk-liquid/
+- **Request API Key:** https://breez.technology/request-api-key/#contact-us-form-sdk
+- **Partners Portal:** https://partners.breez.technology/
+- **Support:** 
+  - Telegram: https://t.me/breezsdk
+  - Email: contact@breez.technology
+- **Reference Implementation:** Misty Breez (https://github.com/breez/misty-breez/)
+
+## Supported LUD Specifications
+
+- **LUD-01:** LNURL bech32 encoding
+- **LUD-03:** `withdrawRequest` spec
+- **LUD-04:** `auth` base spec
+- **LUD-06:** `payRequest` spec
+- **LUD-09:** `successAction` field for `payRequest`
+- **LUD-16:** LN Address
+- **LUD-17:** Support for lnurlp/lnurlw/keyauth prefix with non-bech32-encoded LNURL URLs
+- **LUD-21:** Verify base spec
+
+The Breez SDK - Nodeless (Liquid Implementation) provides a comprehensive, self-custodial solution for Lightning and Bitcoin payments with multi-asset support on the Liquid Network. The SDK handles the complexity of submarine swaps, fee estimation, and state management while providing developers with a simple API for integration. 

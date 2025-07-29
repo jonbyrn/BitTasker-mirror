@@ -12,7 +12,6 @@ export const initWasm = async (): Promise<void> => {
   try {
     // Initialize the WASM module
     await init();
-    console.log('WASM module initialized successfully');
     initialized = true;
   } catch (error) {
     console.error('Failed to initialize WASM module:', error);

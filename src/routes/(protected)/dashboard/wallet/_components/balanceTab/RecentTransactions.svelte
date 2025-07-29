@@ -13,6 +13,7 @@
 
 <div>
 	<h3 class="mb-3 text-lg font-semibold">Recent Transactions</h3>
+
 	{#if transactions.length > 0}
 		<div class="overflow-x-auto">
 			<table class="table w-full">
