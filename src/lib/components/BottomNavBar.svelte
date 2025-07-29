@@ -56,20 +56,6 @@
 		}, 50); // Small debounce to prevent excessive updates
 	});
 
-	// Debug logging to help identify route detection issues
-	$effect(() => {
-		console.log('Route changed:', page.url.pathname, 'Current section:', currentSection);
-		console.log('Active buttons:', {
-			home: currentSection === 'home',
-			createTask: currentSection === 'create-task',
-			wallet: currentSection === 'wallet',
-			messages: currentSection === 'messages',
-			about: currentSection === 'about',
-			help: currentSection === 'help',
-			signup: currentSection === 'signup'
-		});
-	});
-
 	// Handle scroll visibility - hide when scrolling down, show when scrolling up
 	// TODO: This solution is not working as expected, need to fix
 	let scrollCleanup: (() => void) | undefined;

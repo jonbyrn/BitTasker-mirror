@@ -1,7 +1,6 @@
 <script lang="ts">
 	import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
 	import { wallet } from '$lib/utils/consts';
-	import { formatBtcToSats } from '$lib/utils/helpers/crypto';
 	import { getMnemonic } from '$lib/wallet/helper';
 	import { goto } from '$app/navigation';
 	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
@@ -9,9 +8,21 @@
 	import PaymentRequestForm from './_components/receiveTab/PaymentRequestForm.svelte';
 	// import NetworkSelection from './_components/receiveTab/NetworkSelection.svelte';
 	import TransactionHistory from './_components/transactionsTab/TransactionHistory.svelte';
-	import { onMount } from 'svelte';
-	import { fetchLightningLimits, initWallet } from '$lib/wallet/breez/walletService';
-	import { initWasm } from '$lib/wallet/breez/wasmLoader';
+	import { onMount, onDestroy } from 'svelte';
+	import {
+		initWallet,
+		disconnect,
+	} from '$lib/wallet/breez/walletService';
+	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
+	import {
+		enableRequestThrottling,
+		disableRequestThrottling,
+		getThrottlingStats,
+		emergencyBlock,
+		getTriggerSummary
+	} from '$lib/wallet/breez/requestThrottler';
+	import { clearCache } from '$lib/wallet/helper';
+
 	// UI state
 	let activeTab = $state<'balance' | 'receive' | 'send' | 'transactions'>('balance');
 
@@ -20,7 +31,15 @@
 	let sendAddress = $state('');
 	let sendNetworkFee = $state<'low' | 'medium' | 'high'>('medium');
 	let sendError = $state('');
-	let limits = $state<breezSdk.LightningPaymentLimitsResponse | null>(null);
+
+	// Wallet initialization state
+	let isInitializing = $state(false);
+	let isInitialized = $state(false);
+	let initError = $state<string | null>(null);
+
+	// Debug info
+	let throttlingStats = $state<Record<string, any>>({});
+	let triggerSummary = $state<Record<string, number>>({});
 
 	// Format number with a specific number of decimals
 	function formatNumber(number: number, decimals: number): string {
@@ -63,19 +82,104 @@
 		sendNetworkFee = 'medium';
 	}
 
-	$effect.pre(() => {
-		getMnemonic()
-			.then((mnemonic) => {
-				console.log('mnemonic found, staying on wallet page');
-				initWasm().then(async () => {
-					await initWallet(mnemonic);
-				});
-			})
-			.catch((error) => {
-				console.error('Error getting mnemonic', error);
+	// Emergency function to stop infinite loops
+	function handleEmergencyBlock(): void {
+		console.warn('[Wallet] Emergency block activated!');
+		emergencyBlock(300000); // Block for 5 minutes
+		clearCache(); // Clear helper caches
+		throttlingStats = getThrottlingStats();
+		triggerSummary = getTriggerSummary();
+	}
+
+	// Initialize wallet with proper error handling and state management
+	async function initializeWallet(): Promise<void> {
+		if (isInitializing) {
+			console.log('Wallet initialization already in progress');
+			return; // Prevent multiple initializations
+		}
+
+		isInitializing = true;
+		initError = null;
+
+		try {
+			// Enable request throttling BEFORE any SDK operations
+			enableRequestThrottling();
+			console.log('Request throttling enabled');
+
+			// Get mnemonic from storage
+			const mnemonic = await getMnemonic();
+
+			// Initialize WASM if not already initialized
+			if (!isWasmInitialized()) {
+				await initWasm();
+			}
+
+			// Initialize wallet
+			await initWallet(mnemonic);
+
+			isInitialized = true;
+			console.log('Wallet initialized successfully');
+
+			// Update throttling stats for debugging
+			throttlingStats = getThrottlingStats();
+			triggerSummary = getTriggerSummary();
+		} catch (error) {
+			console.error('Error initializing wallet:', error);
+			initError = error instanceof Error ? error.message : 'Unknown error occurred';
+
+			// If error occurs, trigger emergency block as precaution
+			if (error instanceof Error && error.message.includes('request')) {
+				console.warn('Request-related error detected, triggering emergency block');
+				handleEmergencyBlock();
+			}
+
+			// Navigate to error page for specific errors
+			if (error instanceof Error && error.message.includes('Mnemonic not found')) {
 				goto('/dashboard/wallet/error?type=no-mnemonic');
-				return;
-			});
+			}
+		} finally {
+			isInitializing = false;
+		}
+	}
+
+	// Cleanup function
+	async function cleanup(): Promise<void> {
+		try {
+			if (isInitialized) {
+				await disconnect();
+				isInitialized = false;
+				console.log('Wallet disconnected');
+			}
+
+			// Clear caches on cleanup
+			clearCache();
+		} catch (error) {
+			console.error('Error during wallet cleanup:', error);
+		} finally {
+			// Always disable request throttling on cleanup
+			disableRequestThrottling();
+			console.log('Request throttling disabled');
+		}
+	}
+
+	// Update throttling stats periodically for debugging
+	let statsInterval: NodeJS.Timeout;
+
+	onMount(() => {
+		initializeWallet();
+
+		// Update stats every 10 seconds for debugging
+		statsInterval = setInterval(() => {
+			throttlingStats = getThrottlingStats();
+			triggerSummary = getTriggerSummary();
+		}, 10000);
+	});
+
+	onDestroy(() => {
+		cleanup();
+		if (statsInterval) {
+			clearInterval(statsInterval);
+		}
 	});
 </script>
 
@@ -114,22 +218,6 @@
 	{#if activeTab === 'balance'}
 		<div class="space-y-6">
 			<!-- Balance Card -->
-			<div class="card bg-primary text-primary-content">
-				<div class="card-body">
-					<div class="mb-2 flex items-center justify-between">
-						<h3 class="card-title text-lg">Total Balance</h3>
-						<div class="form-control">
-							<label class="label cursor-pointer">
-								<span class="label-text text-primary-content mr-2">Show in BTC</span>
-								<input type="checkbox" class="toggle toggle-primary toggle-lg" checked={true} />
-							</label>
-						</div>
-					</div>
-
-					<p class="text-4xl font-bold">{formatBtcToSats(wallet.balance.btc)}</p>
-					<p class="opacity-80">{wallet.balance.usdValue} USDT</p>
-				</div>
-			</div>
 			<BalanceCard />
 
 			<!-- Quick Actions -->
@@ -171,58 +259,6 @@
 			</div>
 
 			<!-- Recent Transactions -->
-			<div>
-				<h3 class="mb-3 text-lg font-semibold">Recent Transactions</h3>
-				{#if wallet.transactions.length > 0}
-					<div class="overflow-x-auto">
-						<table class="table w-full">
-							<thead>
-								<tr>
-									<th>Type</th>
-									<th>Amount</th>
-									<th>Date</th>
-									<th>Network</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each wallet.transactions.slice(0, 3) as tx}
-									<tr>
-										<td>
-											<div class="flex items-center gap-2">
-												{#if tx.type === 'received'}
-													<div class="badge badge-success">Received</div>
-												{:else}
-													<div class="badge badge-warning">Sent</div>
-												{/if}
-											</div>
-										</td>
-										<td>
-											<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
-												{tx.type === 'received' ? '+' : '-'}{formatBtcToSats(tx.amount)}
-											</span>
-										</td>
-										<td>{formatDate(tx.timestamp)}</td>
-										<td>
-											<div class="badge">
-												{tx.network}
-											</div>
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-					<div class="mt-4 text-center">
-						<button class="btn btn-ghost btn-sm" onclick={() => (activeTab = 'transactions')}>
-							View all transactions
-						</button>
-					</div>
-				{:else}
-					<div class="alert">
-						<span>No transactions found.</span>
-					</div>
-				{/if}
-			</div>
 			<RecentTransactions {activeTab} />
 		</div>
 	{/if}
@@ -382,77 +418,6 @@
 	{/if}
 
 	{#if activeTab === 'transactions'}
-		<div class="space-y-6">
-			<h3 class="mb-3 text-lg font-semibold">Transaction History</h3>
-
-			{#if wallet.transactions.length > 0}
-				<div class="overflow-x-auto">
-					<table class="table w-full">
-						<thead>
-							<tr>
-								<th>Type</th>
-								<th>Amount</th>
-								<th>Date</th>
-								<th>Address</th>
-								<th>Status</th>
-								<th>Network</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each wallet.transactions as tx}
-								<tr>
-									<td>
-										<div class="flex items-center gap-2">
-											{#if tx.type === 'received'}
-												<div class="badge badge-success">Received</div>
-											{:else}
-												<div class="badge badge-warning">Sent</div>
-											{/if}
-										</div>
-									</td>
-									<td>
-										<span class={tx.type === 'received' ? 'text-success' : 'text-warning'}>
-											{tx.type === 'received' ? '+' : '-'}{formatBtcToSats(tx.amount)}
-										</span>
-									</td>
-									<td>{formatDate(tx.timestamp)}</td>
-									<td>
-										{#if tx.type === 'received'}
-											<span class="font-mono text-xs">From: {truncateAddress(tx.sender)}</span>
-										{:else}
-											<span class="font-mono text-xs">To: {truncateAddress(tx.recipient)}</span>
-										{/if}
-									</td>
-									<td>
-										{#if tx.network === 'Lightning'}
-											<div class="badge badge-success">Confirmed</div>
-										{:else if tx.confirmations === 0}
-											<div class="badge badge-warning">Pending</div>
-										{:else}
-											<div class="indicator">
-												<span class="indicator-item badge badge-xs">
-													{tx.confirmations}
-												</span>
-												<div class="badge badge-success">Confirmations</div>
-											</div>
-										{/if}
-									</td>
-									<td>
-										<div class="badge">
-											{tx.network}
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<div class="alert">
-					<span>No transactions found.</span>
-				</div>
-			{/if}
-		</div>
 		<TransactionHistory />
 	{/if}
 </div>

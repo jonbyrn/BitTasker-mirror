@@ -15,9 +15,10 @@
 
 <div class="card bg-primary text-primary-content">
 	<div class="card-body">
-		<h3 class="card-title mb-2 text-lg">Total Balance</h3>
-		<p class="text-4xl font-bold">{balance.btc?.toFixed(8)} BTC</p>
-		<p class="opacity-80">{balance.sats.toLocaleString()} sats</p>
-		<p class="opacity-80">≈ ${balance.usdValue.toLocaleString()}</p>
+		<h3 class="card-title text-lg">Total Balance</h3>
+
+		<p class="text-4xl font-bold">{balance.sats.toLocaleString()} Sats</p>
+		<p class="opacity-80">≈ {balance.btc?.toFixed(8)} BTC</p>
+		<p class="opacity-80">≈ ${balance.usdValue.toLocaleString()} USD</p>
 	</div>
 </div>
