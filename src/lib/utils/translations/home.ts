@@ -29,8 +29,6 @@ export const homePageTranslations = {
 		'navbar.my_tasks': 'My Tasks',
 		'navbar.wallet': 'Wallet',
 		'navbar.messages': 'Messages',
-		'navbar.settings': 'Settings',
-		'navbar.logout': 'Logout',
 		'navbar.support_help': 'Support & Help',
 		'navbar.task_management': 'Task Management',
 		'navbar.my_account': 'My Account',
@@ -161,8 +159,7 @@ export const homePageTranslations = {
 		'navbar.my_tasks': 'Mis Tareas',
 		'navbar.wallet': 'Billetera',
 		'navbar.messages': 'Mensajes',
-		'navbar.settings': 'Configuración',
-		'navbar.logout': 'Cerrar Sesión',
+
 		'navbar.support_help': 'Soporte y Ayuda',
 		'navbar.task_management': 'Gestión de Tareas',
 		'navbar.my_account': 'Mi Cuenta',

@@ -2,6 +2,7 @@
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
+	import { t } from '$lib/stores/i18n.store';
 
 	let { children } = $props();
 
@@ -73,7 +74,7 @@
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
 				<div class="card-body p-4">
-					<h2 class="card-title text-lg">Dashboard</h2>
+					<h2 class="card-title text-lg">{$t('dashboard.titl')}</h2>
 					<div class="divider my-2"></div>
 					<ul class="menu bg-base-100 rounded-box w-full">
 						{#each sections as section}
@@ -83,7 +84,7 @@
 									href="/dashboard/{section.id}"
 									class:menu-active={activeSection === section.id}
 								>
-									{section.label}
+									{$t(section.label)}
 								</a>
 							</li>
 						{/each}

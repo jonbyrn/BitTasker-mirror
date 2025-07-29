@@ -5,6 +5,7 @@ import { bidTranslations } from './bid';
 import { settingsTranslations } from './settings';
 import { taskTranslations } from './task';
 import { profileTranslations } from './profile';
+import { createTaskTranslations } from './create-task';
 
 function deepMergeTranslations(...sources: any[]) {
 	const result: any = {};
@@ -21,5 +22,6 @@ export const dashboardTranslations = deepMergeTranslations(
 	profileTranslations,
 	bidTranslations,
 	settingsTranslations,
-	taskTranslations
+	taskTranslations,
+	createTaskTranslations
 );

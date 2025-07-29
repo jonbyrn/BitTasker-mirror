@@ -7,6 +7,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 	import { formatNumberForInput, usdFromSats } from '$lib/utils/helpers/crypto';
+	import { t } from '$lib/stores/i18n.store';
 
 	let { direction } = $props();
 
@@ -35,44 +36,49 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h2 class="text-xl font-semibold">Review Your Task</h2>
+	<h2 class="text-xl font-semibold">{$t('task.review_title')}</h2>
 
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
-			<h3 class="mb-2 text-lg font-medium">Basic Information</h3>
+			<h3 class="mb-2 text-lg font-medium">{$t('task.basic_information')}</h3>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				<div>
-					<span class="font-medium">Title:</span>
+					<span class="font-medium">{$t('task.title')}</span>
 					<span>{$store.task.title}</span>
 				</div>
 
 				<div>
-					<span class="font-medium">Task Type:</span>
-					<span>{$store.task.taskType === TaskTypeEnum.IN_PERSON ? 'In Person' : 'Remote'}</span>
+					<span class="font-medium">{$t('task.task_type')}</span>
+					<span
+						>{$store.task.taskType === TaskTypeEnum.IN_PERSON
+							? $t('task.in_person')
+							: $t('task.remote')}</span
+					>
 				</div>
 
 				<div>
-					<span class="font-medium">Timeline:</span>
+					<span class="font-medium">{$t('task.timeline')}</span>
 					<span>
 						{#if $store.task.dateRange}
-							From {new Date($store.task.dateRange.start).toLocaleDateString()} to {new Date(
-								$store.task.dateRange.end
-							).toLocaleDateString()}
+							{$t('task.from')}
+							{new Date($store.task.dateRange.start).toLocaleDateString()}
+							{$t('task.to')}
+							{new Date($store.task.dateRange.end).toLocaleDateString()}
 						{:else if $store.task.deadline}
-							Deadline: {new Date($store.task.deadline).toLocaleDateString()}
+							{$t('task.deadline_review')} {new Date($store.task.deadline).toLocaleDateString()}
 						{/if}
 					</span>
 				</div>
 			</div>
 
-			<h4 class="mt-3 font-medium">Categories</h4>
+			<h4 class="mt-3 font-medium">{$t('task.categories')}</h4>
 			<div class="flex flex-wrap gap-2">
 				{#each $store.task.categories as category}
 					<div class="badge badge-primary pb-[4px]">{category}</div>
 				{/each}
 			</div>
 
-			<h4 class="mt-3 font-medium">Skills</h4>
+			<h4 class="mt-3 font-medium">{$t('task.skills')}</h4>
 			<div class="flex flex-wrap gap-2">
 				{#each $store.task.skills as skill}
 					<div class="badge badge-primary pb-[4px]">{skill}</div>
@@ -89,16 +95,18 @@
 
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
-			<h3 class="mb-2 text-lg font-medium">Budget & Details</h3>
+			<h3 class="mb-2 text-lg font-medium">{$t('task.budget_details')}</h3>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				<div>
-					<span class="font-medium">Budget Type:</span>
+					<span class="font-medium">{$t('task.budget_type')}</span>
 					<span>
-						{$store.task.budget.type === BudgetTypeEnum.FIXED ? 'Fixed Price' : 'Hourly Rate'}
+						{$store.task.budget.type === BudgetTypeEnum.FIXED
+							? $t('task.budget_fixed')
+							: $t('task.budget_hourly')}
 					</span>
 				</div>
 				<div class="flex flex-col items-center gap-2">
-					<span class="font-medium">Budget Amount:</span>
+					<span class="font-medium">{$t('task.budget_amount')}</span>
 
 					<div class="flex flex-col items-start">
 						<span class="font-semibold">{formatNumberForInput($store.task.budget.amount)} Sats</span
@@ -111,19 +119,19 @@
 
 				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
 					<div>
-						<span class="font-medium">Estimated Hours:</span>
+						<span class="font-medium">{$t('task.estimated_hours_review')}</span>
 						<span>{$store.task.budget.amount}</span>
 					</div>
 				{/if}
 			</div>
 
-			<h4 class="mt-3 font-medium">Description</h4>
+			<h4 class="mt-3 font-medium">{$t('task.description_label')}</h4>
 			<div class="bg-base-100 mt-1 rounded-md p-3">
 				<p>{$store.task.description}</p>
 			</div>
 
 			{#if $store.task.attachments && $store.task.attachments.length > 0}
-				<h4 class="mt-3 font-medium">Attachments</h4>
+				<h4 class="mt-3 font-medium">{$t('task.attachments_review')}</h4>
 				<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
 					{#each $store.task.attachments as attachment}
 						<div class="relative overflow-hidden rounded-lg">
@@ -169,8 +177,8 @@
 				/></svg
 			>
 			<div>
-				<h3 class="font-bold">This is a recurring task!</h3>
-				<div class="text-sm">After review, you'll be asked to set up the recurring schedule.</div>
+				<h3 class="font-bold">{$t('task.recurring_title')}</h3>
+				<div class="text-sm">{$t('task.recurring_message')}</div>
 			</div>
 		</div>
 	{/if}

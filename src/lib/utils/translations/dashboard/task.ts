@@ -87,7 +87,11 @@ export const taskTranslations = {
 		'task.upload.landscape': 'Upload landscape image',
 		'task.upload.error.max_size': 'Maximum file size exceeded',
 		'task.upload.error.max_files': 'Maximum number of files exceeded',
-		'task.upload.error.type': 'File type not allowed'
+		'task.upload.error.type': 'File type not allowed',
+		'profile.no_saved_searches': 'No saved searches yet',
+		'profile.saved_searches_info':
+			'Save your search criteria to get notified when new matching tasks are posted.',
+		'profile.saved_searches_title': 'Your Saved Searches'
 	},
 	es: {
 		'task.type.one_time': 'Una Vez',
@@ -177,6 +181,10 @@ export const taskTranslations = {
 		'task.upload.landscape': 'Subir imagen horizontal',
 		'task.upload.error.max_size': 'Tamaño máximo de archivo excedido',
 		'task.upload.error.max_files': 'Número máximo de archivos excedido',
-		'task.upload.error.type': 'Tipo de archivo no permitido'
+		'task.upload.error.type': 'Tipo de archivo no permitido',
+		'profile.no_saved_searches': 'Aún no hay búsquedas guardadas',
+		'profile.saved_searches_info':
+			'Guarda tus criterios de búsqueda para recibir notificaciones cuando se publiquen tareas que coincidan.',
+		'profile.saved_searches_title': 'Tus búsquedas guardadas'
 	}
 };

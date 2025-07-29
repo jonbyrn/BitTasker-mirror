@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { t } from '$lib/stores/i18n.store';
 
 	let {
 		id = '',
 		label = '',
-		placeholder = 'Add tags...',
+		placeholder = $t('task.tags_placeholder'),
 		error = '',
 		className = '',
 		options = [],
