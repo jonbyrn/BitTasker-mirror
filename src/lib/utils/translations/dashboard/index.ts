@@ -8,6 +8,8 @@ import { profileTranslations } from './profile';
 import { createTaskTranslations } from './create-task';
 import { findTasksTranslations } from './find-tasks';
 import { recommendationTranslations } from './recommendation';
+import { walletTranslations } from './wallet';
+import { messagesTranslations } from './messages';
 
 function deepMergeTranslations(...sources: any[]) {
 	const result: any = {};
@@ -27,5 +29,7 @@ export const dashboardTranslations = deepMergeTranslations(
 	taskTranslations,
 	createTaskTranslations,
 	findTasksTranslations,
-	recommendationTranslations
+	recommendationTranslations,
+	walletTranslations,
+	messagesTranslations
 );
