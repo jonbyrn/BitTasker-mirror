@@ -115,7 +115,7 @@
 	}
 </script>
 
-<div class="relative w-full">
+<div class="dropdown dropdown-bottom w-full {isOpen ? 'dropdown-open' : ''}">
 	<div use:clickOutside={{ callback: handleClickOutside }}>
 		{#if label}
 			<label for={id} class="label">
@@ -124,6 +124,9 @@
 		{/if}
 
 		<div
+			tabindex="0"
+			role="combobox"
+			aria-expanded={isOpen}
 			class="input input-bordered flex min-h-[2.5rem] w-full flex-wrap gap-2 p-1 {error
 				? 'input-error'
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
@@ -170,26 +173,23 @@
 			/>
 		</div>
 
-		{#if isOpen && filteredOptions.length > 0}
+		{#if filteredOptions.length > 0}
 			<ul
-				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-lg"
+				tabindex="-1"
+				class="dropdown-content menu menu-vertical z-[9999] mt-1 max-h-60 rounded-box bg-base-200 p-2 shadow w-full"
 				role="listbox"
 				aria-label="options"
 			>
 				{#each filteredOptions as option, index}
-					<li
-						class="hover:bg-base-300 flex cursor-pointer flex-col gap-1 px-4 py-2 {filteredOptions[
-							index
-						] === inputValue
-							? 'bg-base-300'
-							: ''}"
-						onclick={() => addTag(option)}
-						onkeydown={(e) => e.key === 'Enter' && addTag(option)}
-						role="option"
-						aria-selected={filteredOptions[index] === inputValue}
-						tabindex="0"
-					>
-						<span class="font-medium">{option}</span>
+					<li>
+						<a
+							onclick={() => addTag(option)}
+							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
+							role="option"
+							aria-selected={filteredOptions[index] === inputValue}
+						>
+							<span class="font-medium">{option}</span>
+						</a>
 					</li>
 				{/each}
 			</ul>

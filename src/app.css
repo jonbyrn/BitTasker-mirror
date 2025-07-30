@@ -55,6 +55,31 @@ input, textarea {
 	@apply focus:outline-none;
 }
 
+/* Override input field border radius to be more square while keeping buttons pill-shaped */
+.input, .textarea {
+	border-radius: 0.5rem !important;
+}
+
+/* Fix focus styling to prevent double borders and use orange color with 75% opacity */
+.input:focus, 
+.input:focus-within, 
+.textarea:focus, 
+.textarea:focus-within,
+select:focus, 
+.select:focus, 
+.select:focus-within,
+.dropdown:focus,
+.dropdown:focus-within,
+[role="listbox"]:focus, 
+[role="combobox"]:focus,
+.dropdown-content:focus,
+ul[role="listbox"]:focus {
+	border-color: rgba(247, 147, 26, 0.75) !important;
+	
+	outline: none !important;
+}
+
+
 /* Glow animations */
 @keyframes pulse-glow {
 

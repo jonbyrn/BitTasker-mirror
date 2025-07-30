@@ -95,7 +95,7 @@
 	{/if}
 
 	<!-- Main Content -->
-	<div class="min-h-0 w-full flex-1 overflow-hidden">
+	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>
 </div>

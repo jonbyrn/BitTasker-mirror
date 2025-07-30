@@ -10,6 +10,8 @@
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
+	import { authState } from '$lib/stores/auth.store';
+	let isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Global SEO JSON-LD - moved to dynamic injection
 	import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD } from '$lib/utils/constants/seo.constants';
@@ -227,37 +229,39 @@
 			{/if}
 		</div>
 	{#if !showFooterSection && showTopBar}
-		<!-- Section 7: Final Call to Action (CTA) -->
-		<section class="bg-primary text-primary-content py-16">
-			<div class="container mx-auto px-4 text-center">
-				<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
-				<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
-				<div class="mt-8 flex flex-col items-center space-y-6">
-					<div class="flex flex-wrap justify-center gap-4">
-						<a
-							href="/dashboard/find-tasks"
-							class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
-						>
-							{$t('homepage.v2.finalcta.tasker_cta')}
-						</a>
-						<a
-							href="/dashboard/taskees"
-							class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
-						>
-							{$t('homepage.v2.finalcta.taskee_cta')}
-						</a>
-					</div>
-					<div>
-						<a
-							href="/auth/signup"
-							class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg hover:text-white"
-						>
-							{$t('homepage.v2.finalcta.get_started')}
-						</a>
+		{#if !isLoggedIn}
+			<!-- Section 7: Final Call to Action (CTA) -->
+			<section class="bg-primary text-primary-content py-16">
+				<div class="container mx-auto px-4 text-center">
+					<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
+					<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
+					<div class="mt-8 flex flex-col items-center space-y-6">
+						<div class="flex flex-wrap justify-center gap-4">
+							<a
+								href="/dashboard/find-tasks"
+								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
+							>
+								{$t('homepage.v2.finalcta.tasker_cta')}
+							</a>
+							<a
+								href="/dashboard/taskees"
+								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
+							>
+								{$t('homepage.v2.finalcta.taskee_cta')}
+							</a>
+						</div>
+						<div>
+							<a
+								href="/auth/signup"
+								class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg hover:text-white"
+							>
+								{$t('homepage.v2.finalcta.get_started')}
+							</a>
+						</div>
 					</div>
 				</div>
-			</div>
-		</section>
+			</section>
+		{/if}
 		<footer class="bg-base-300 text-base-content/70 py-12">
 			<div class="container mx-auto px-4">
 				<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
