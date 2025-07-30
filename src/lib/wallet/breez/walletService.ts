@@ -50,7 +50,7 @@ export async function initializeWasm(): Promise<void> {
 /**
  * Connect to Breez SDK
  */
-export async function connectToBreez(mnemonic: string): Promise<BindingLiquidSdk> {
+export async function connectToBreez(mnemonic: string, network: 'mainnet' | 'testnet' = 'mainnet'): Promise<BindingLiquidSdk> {
 	// Ensure WASM is initialized first
 	if (!isWasmInitialized) {
 		await initializeWasm();
@@ -63,7 +63,24 @@ export async function connectToBreez(mnemonic: string): Promise<BindingLiquidSdk
 	}
 
 	// Create default config
-	const config: Config = defaultConfig('testnet', breezApiKey);
+	const config: Config = defaultConfig(network, breezApiKey);
+	
+	// Configure to reduce network activity
+	// Note: These may not be available in the current SDK version, 
+	// but worth trying if the properties exist
+	if ('syncIntervalMs' in config) {
+		// Testnet: Longer intervals due to lower rate limits and irregular block times
+		// Mainnet: Shorter intervals due to more reliable infrastructure
+		(config as any).syncIntervalMs = network === 'testnet' ? 180000 : 60000; // 3min vs 1min
+	}
+	if ('rescanOnchainSwapsIntervalMs' in config) {
+		// Testnet needs longer intervals to avoid hitting Blockstream's lower rate limits
+		(config as any).rescanOnchainSwapsIntervalMs = network === 'testnet' ? 600000 : 300000; // 10min vs 5min
+	}
+	if ('swapStatusCheckIntervalMs' in config) {
+		// Additional config that might exist for swap monitoring
+		(config as any).swapStatusCheckIntervalMs = network === 'testnet' ? 240000 : 120000; // 4min vs 2min
+	}
 
 	// Optional: customize working directory for web
 	// config.workingDir = 'custom-path'; // Not needed for web, uses IndexedDB by default
@@ -86,7 +103,10 @@ export async function connectToBreez(mnemonic: string): Promise<BindingLiquidSdk
 	// Add event listener
 	const eventListener: EventListener = {
 		onEvent: (event: SdkEvent) => {
-			console.log('SDK Event:', event);
+			// Only log important events to reduce processing
+			if (event.type === 'paymentSucceeded' || event.type === 'paymentFailed' || event.type === 'synced') {
+				console.log('SDK Event:', event);
+			}
 		}
 	};
 
@@ -248,4 +268,28 @@ export const disconnect = async (): Promise<void> => {
 			throw error;
 		}
 	}
+};
+
+/**
+ * Report excessive API usage issue to Breez team
+ * This should be called if you notice rate limiting from Blockstream
+ */
+export const reportExcessiveApiUsage = () => {
+	const issueDetails = {
+		sdkVersion: '@breeztech/breez-sdk-liquid',
+		issue: 'Excessive Blockstream API requests causing rate limiting',
+		endpoint: 'https://blockstream.info/liquidtestnet/api/address/*/txs',
+		impact: 'Application blocked due to too many requests',
+		timestamp: new Date().toISOString(),
+		userAgent: navigator.userAgent,
+		platform: 'web'
+	};
+	
+	console.error('[Breez SDK Issue]', issueDetails);
+	console.log('📧 Please report this to Breez support:');
+	console.log('• Telegram: https://t.me/breezsdk');
+	console.log('• Email: contact@breez.technology');
+	console.log('• Include the above issue details');
+	
+	return issueDetails;
 };
