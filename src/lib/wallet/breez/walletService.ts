@@ -1,95 +1,168 @@
-import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
+import init, {
+	connect,
+	defaultConfig,
+	type InputType,
+	type BindingLiquidSdk,
+	type PrepareSendRequest,
+	type PrepareSendResponse,
+	type SendPaymentRequest,
+	type SendPaymentResponse,
+	type LightningPaymentLimitsResponse,
+	type PrepareReceiveRequest,
+	type PrepareReceiveResponse,
+	type ReceivePaymentResponse,
+	type Rate,
+	type SdkEvent,
+	type EventListener,
+	type ConnectRequest,
+	type Config,
+	type Payment,
+	type GetInfoResponse
+} from '@breeztech/breez-sdk-liquid/web';
+import { get, writable } from 'svelte/store';
+import { isWasmInitialized } from './wasmLoader';
 
-// Private SDK instance - not exposed outside this module
-let sdk: breezSdk.BindingLiquidSdk | null = null;
+// Global SDK store for application-wide access
+export const sdkStore = writable<BindingLiquidSdk | null>(null);
+export const isConnectedStore = writable<boolean>(false);
 
-export const initWallet = async (mnemonic: string): Promise<void> => {
+// Private variables
+let eventListenerId: string | null = null;
+
+/**
+ * Initialize WASM module (must be called first in web environment)
+ */
+export async function initializeWasm(): Promise<void> {
+	if (isWasmInitialized()) {
+		console.log('WASM already initialized');
+		return;
+	}
+
 	try {
-		const breezApiKey = import.meta.env.VITE_BREEZ_API_KEY;
-
-		if (!breezApiKey) {
-			throw new Error('Breez API key not found in environment variables');
-		}
-
-		const config = breezSdk.defaultConfig('testnet', breezApiKey);
-		// Configure working directory and cache dir
-		config.workingDir = './breez_data';
-
-		// Connect to Breez network with user mnemonic
-		sdk = await breezSdk.connect({
-			config,
-			mnemonic
-		});
-		console.log('Wallet initialized successfully');
-		// Return void instead of the SDK instance
+		await init();
+		console.log('WASM initialized successfully');
 	} catch (error) {
-		console.error('Failed to initialize wallet:', error);
+		console.error('Failed to initialize WASM:', error);
 		throw error;
 	}
-};
+}
 
-// Remove getSdk() method
+/**
+ * Connect to Breez SDK
+ */
+export async function connectToBreez(mnemonic: string): Promise<BindingLiquidSdk> {
+	// Ensure WASM is initialized first
+	if (!isWasmInitialized) {
+		await initializeWasm();
+	}
+
+	// Get API key from environment
+	const breezApiKey = import.meta.env.VITE_BREEZ_API_KEY;
+	if (!breezApiKey) {
+		throw new Error('Breez API key not found');
+	}
+
+	// Create default config
+	const config: Config = defaultConfig('testnet', breezApiKey);
+
+	// Optional: customize working directory for web
+	// config.workingDir = 'custom-path'; // Not needed for web, uses IndexedDB by default
+
+	console.log('Connecting to Breez SDK...');
+
+	// Connect to SDK
+	const connectRequest: ConnectRequest = {
+		config,
+		mnemonic
+	};
+
+	const sdkInstance = await connect(connectRequest);
+	console.log('Connected to Breez SDK successfully');
+
+	// Update stores
+	sdkStore.set(sdkInstance);
+	isConnectedStore.set(true);
+
+	// Add event listener
+	const eventListener: EventListener = {
+		onEvent: (event: SdkEvent) => {
+			console.log('SDK Event:', event);
+		}
+	};
+
+	eventListenerId = await sdkInstance.addEventListener(eventListener);
+	console.log('Event listener added:', eventListenerId);
+
+	return sdkInstance;
+}
 
 // Add specific methods for actions components need to perform
 // Payment Operations
-export const parseInput = async (input: string): Promise<breezSdk.InputType> => {
+export const parseInput = async (input: string): Promise<InputType> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.parse(input);
 };
 
 export const prepareSendPayment = async (
-	params: breezSdk.PrepareSendRequest
-): Promise<breezSdk.PrepareSendResponse> => {
+	params: PrepareSendRequest
+): Promise<PrepareSendResponse> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.prepareSendPayment(params);
 };
 
 export const sendPayment = async (
-	params: breezSdk.SendPaymentRequest
-): Promise<breezSdk.SendPaymentResponse> => {
+	params: SendPaymentRequest
+): Promise<SendPaymentResponse> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.sendPayment(params);
 };
 
 // Invoice and Receiving Operations
-export const fetchLightningLimits = async (): Promise<breezSdk.LightningPaymentLimitsResponse> => {
+export const fetchLightningLimits = async (): Promise<LightningPaymentLimitsResponse> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.fetchLightningLimits();
 };
 
 export const prepareReceivePayment = async (
-	params: breezSdk.PrepareReceiveRequest
-): Promise<breezSdk.PrepareReceiveResponse> => {
+	params: PrepareReceiveRequest
+): Promise<PrepareReceiveResponse> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.prepareReceivePayment(params);
 };
 
 export const receivePayment = async (params: {
-	prepareResponse: breezSdk.PrepareReceiveResponse;
+	prepareResponse: PrepareReceiveResponse;
 	description: string;
-}): Promise<breezSdk.ReceivePaymentResponse> => {
+}): Promise<ReceivePaymentResponse> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.receivePayment(params);
 };
 
 // Fiat rate operations
-export const fetchFiatRates = async (): Promise<breezSdk.Rate[]> => {
+export const fetchFiatRates = async (): Promise<Rate[]> => {
+	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
 	return await sdk.fetchFiatRates();
 };
 
 // Event handling
-// Not used for now
 export const addEventListener = async (
-	callback: (event: breezSdk.SdkEvent) => void
+	callback: (event: SdkEvent) => void
 ): Promise<string> => {
+	const sdk = get(sdkStore);
 	if (!sdk) {
 		throw new Error('SDK not initialized');
 	}
 
 	try {
 		// Create event listener
-		const listener: breezSdk.EventListener = {
+		const listener: EventListener = {
 			onEvent: callback
 		};
 
@@ -105,6 +178,7 @@ export const addEventListener = async (
 
 // Remove event listener directly from the SDK
 export const removeEventListener = async (listenerId: string): Promise<void> => {
+	const sdk = get(sdkStore);
 	if (!sdk || !listenerId) {
 		return;
 	}
@@ -118,9 +192,13 @@ export const removeEventListener = async (listenerId: string): Promise<void> => 
 	}
 };
 
-export const getWalletInfo = async (): Promise<breezSdk.GetInfoResponse | null> => {
+/**
+ * Get wallet information
+ */
+export async function getWalletInfo(): Promise<GetInfoResponse> {
+	const sdk = get(sdkStore);
 	if (!sdk) {
-		return null;
+		throw new Error('SDK not connected. Call connectToBreez first.');
 	}
 
 	try {
@@ -131,9 +209,10 @@ export const getWalletInfo = async (): Promise<breezSdk.GetInfoResponse | null> 
 	}
 };
 
-export const getTransactions = async (): Promise<breezSdk.Payment[]> => {
+export const getTransactions = async (): Promise<Payment[]> => {
+	const sdk = get(sdkStore);
 	if (!sdk) {
-		return [];
+		throw new Error('SDK not connected. Call connectToBreez first.');
 	}
 
 	try {
@@ -146,13 +225,24 @@ export const getTransactions = async (): Promise<breezSdk.Payment[]> => {
 	}
 };
 
+/**
+ * Disconnect from SDK
+ */
 export const disconnect = async (): Promise<void> => {
+	const sdk = get(sdkStore);
 	if (sdk) {
 		try {
+			// Remove our event listener first
+			if (eventListenerId) {
+				await sdk.removeEventListener(eventListenerId);
+				eventListenerId = null;
+			}
+
 			// Disconnect SDK (this will clean up all listeners registered with it)
 			await sdk.disconnect();
-			sdk = null;
-			// Remove reference to window.sdk
+			sdkStore.set(null);
+			isConnectedStore.set(false);
+			console.log('Wallet disconnected successfully');
 		} catch (error) {
 			console.error('Failed to disconnect wallet:', error);
 			throw error;

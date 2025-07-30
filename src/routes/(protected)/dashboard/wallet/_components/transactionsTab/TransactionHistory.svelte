@@ -1,9 +1,9 @@
 <script lang="ts">
+	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
 	import { getRecentTransactions } from '$lib/wallet/helper';
-	import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
 	import { onMount } from 'svelte';
 
-	let transactions = $state<breezSdk.Payment[] | null>(null);
+	let transactions = $state<Payment[] | null>(null);
 	let isLoading = $state(true);
 	let errorMessage = $state<string | null>(null);
 

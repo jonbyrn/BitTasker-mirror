@@ -1,5 +1,5 @@
 <script lang="ts">
-	import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
+	import type { GetInfoResponse } from '@breeztech/breez-sdk-liquid/web';
 	import { wallet } from '$lib/utils/consts';
 	import { getMnemonic } from '$lib/wallet/helper';
 	import { goto } from '$app/navigation';
@@ -10,17 +10,12 @@
 	import TransactionHistory from './_components/transactionsTab/TransactionHistory.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import {
-		initWallet,
+		connectToBreez,
 		disconnect,
+		getWalletInfo,
+		isConnectedStore
 	} from '$lib/wallet/breez/walletService';
-	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
-	import {
-		enableRequestThrottling,
-		disableRequestThrottling,
-		getThrottlingStats,
-		emergencyBlock,
-		getTriggerSummary
-	} from '$lib/wallet/breez/requestThrottler';
+	import { emergencyBlock } from '$lib/wallet/breez/requestThrottler';
 	import { clearCache } from '$lib/wallet/helper';
 
 	// UI state
@@ -33,13 +28,9 @@
 	let sendError = $state('');
 
 	// Wallet initialization state
-	let isInitializing = $state(false);
-	let isInitialized = $state(false);
-	let initError = $state<string | null>(null);
-
-	// Debug info
-	let throttlingStats = $state<Record<string, any>>({});
-	let triggerSummary = $state<Record<string, number>>({});
+	let isConnecting = $state(false);
+	let errorMessage = $state<string | null>(null);
+	let walletInfo = $state<GetInfoResponse | null>(null);
 
 	// Format number with a specific number of decimals
 	function formatNumber(number: number, decimals: number): string {
@@ -87,337 +78,334 @@
 		console.warn('[Wallet] Emergency block activated!');
 		emergencyBlock(300000); // Block for 5 minutes
 		clearCache(); // Clear helper caches
-		throttlingStats = getThrottlingStats();
-		triggerSummary = getTriggerSummary();
 	}
 
-	// Initialize wallet with proper error handling and state management
-	async function initializeWallet(): Promise<void> {
-		if (isInitializing) {
-			console.log('Wallet initialization already in progress');
-			return; // Prevent multiple initializations
+	// Initialize wallet connection
+	async function initializeWallet() {
+		if ($isConnectedStore) {
+			console.log('Wallet already connected');
+			return;
 		}
 
-		isInitializing = true;
-		initError = null;
+		isConnecting = true;
+		errorMessage = null;
 
 		try {
-			// Enable request throttling BEFORE any SDK operations
-			enableRequestThrottling();
-			console.log('Request throttling enabled');
-
-			// Get mnemonic from storage
+			console.log('Getting mnemonic...');
 			const mnemonic = await getMnemonic();
 
-			// Initialize WASM if not already initialized
-			if (!isWasmInitialized()) {
-				await initWasm();
-			}
+			console.log('Connecting to Breez SDK...');
+			await connectToBreez(mnemonic);
 
-			// Initialize wallet
-			await initWallet(mnemonic);
+			console.log('Getting wallet info...');
+			walletInfo = await getWalletInfo();
 
-			isInitialized = true;
-			console.log('Wallet initialized successfully');
-
-			// Update throttling stats for debugging
-			throttlingStats = getThrottlingStats();
-			triggerSummary = getTriggerSummary();
+			console.log('Wallet connected successfully!', walletInfo);
 		} catch (error) {
-			console.error('Error initializing wallet:', error);
-			initError = error instanceof Error ? error.message : 'Unknown error occurred';
-
-			// If error occurs, trigger emergency block as precaution
-			if (error instanceof Error && error.message.includes('request')) {
-				console.warn('Request-related error detected, triggering emergency block');
-				handleEmergencyBlock();
-			}
+			console.error('Failed to initialize wallet:', error);
+			errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
 			// Navigate to error page for specific errors
 			if (error instanceof Error && error.message.includes('Mnemonic not found')) {
 				goto('/dashboard/wallet/error?type=no-mnemonic');
 			}
 		} finally {
-			isInitializing = false;
+			isConnecting = false;
 		}
 	}
 
-	// Cleanup function
-	async function cleanup(): Promise<void> {
+	// Clean up wallet connection
+	async function cleanup() {
 		try {
-			if (isInitialized) {
+			if ($isConnectedStore) {
+				console.log('Disconnecting from Breez SDK...');
 				await disconnect();
-				isInitialized = false;
+				walletInfo = null;
 				console.log('Wallet disconnected');
 			}
-
-			// Clear caches on cleanup
-			clearCache();
 		} catch (error) {
 			console.error('Error during wallet cleanup:', error);
-		} finally {
-			// Always disable request throttling on cleanup
-			disableRequestThrottling();
-			console.log('Request throttling disabled');
 		}
 	}
-
-	// Update throttling stats periodically for debugging
-	let statsInterval: NodeJS.Timeout;
 
 	onMount(() => {
 		initializeWallet();
-
-		// Update stats every 10 seconds for debugging
-		statsInterval = setInterval(() => {
-			throttlingStats = getThrottlingStats();
-			triggerSummary = getTriggerSummary();
-		}, 10000);
 	});
 
 	onDestroy(() => {
 		cleanup();
-		if (statsInterval) {
-			clearInterval(statsInterval);
-		}
+		window.location.reload();
 	});
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
 	<h2 class="mb-6 text-2xl font-bold">Bitcoin Wallet</h2>
 
-	<!-- Tabs -->
-	<div class="tabs tabs-boxed mb-6">
-		<button
-			class="tab {activeTab === 'balance' ? 'tab-active' : ''}"
-			onclick={() => (activeTab = 'balance')}
-		>
-			Balance
-		</button>
-		<button
-			class="tab {activeTab === 'receive' ? 'tab-active' : ''}"
-			onclick={() => (activeTab = 'receive')}
-		>
-			Receive
-		</button>
-		<button
-			class="tab {activeTab === 'send' ? 'tab-active' : ''}"
-			onclick={() => (activeTab = 'send')}
-		>
-			Send
-		</button>
-		<button
-			class="tab {activeTab === 'transactions' ? 'tab-active' : ''}"
-			onclick={() => (activeTab = 'transactions')}
-		>
-			Transactions
-		</button>
-	</div>
-
-	<!-- Tab Content -->
-	{#if activeTab === 'balance'}
-		<div class="space-y-6">
-			<!-- Balance Card -->
-			<BalanceCard />
-
-			<!-- Quick Actions -->
-			<div class="grid grid-cols-2 gap-4">
-				<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'receive')}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-2 h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M19 9l-7 7-7-7"
-						/>
-					</svg>
-					Receive
-				</button>
-				<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'send')}>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="mr-2 h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M5 15l7-7 7 7"
-						/>
-					</svg>
-					Send
-				</button>
+	<!-- Connection Status -->
+	{#if isConnecting}
+		<div class="alert alert-info mb-6">
+			<div class="flex items-center">
+				<span class="loading loading-spinner loading-sm mr-2"></span>
+				<span>Initializing wallet...</span>
 			</div>
-
-			<!-- Recent Transactions -->
-			<RecentTransactions {activeTab} />
 		</div>
-	{/if}
-
-	{#if activeTab === 'receive'}
-		<div class="space-y-6">
-			<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
-
-			<!-- Network Selection -->
-			<!-- TODO: Implement this section -->
-			<!-- <NetworkSelection /> -->
-
-			<!-- Request Payment Form -->
-			<PaymentRequestForm />
+	{:else if errorMessage}
+		<div class="alert alert-error mb-6">
+			<div>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 flex-shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<div>
+					<h3 class="font-bold">Connection Error</h3>
+					<div class="text-xs">{errorMessage}</div>
+				</div>
+			</div>
+			<button class="btn btn-outline btn-sm" onclick={initializeWallet}> Retry </button>
 		</div>
-	{/if}
+	{:else if $isConnectedStore && walletInfo}
+		<!-- Tabs -->
+		<div class="tabs tabs-boxed mb-6">
+			<button
+				class="tab {activeTab === 'balance' ? 'tab-active' : ''}"
+				onclick={() => (activeTab = 'balance')}
+			>
+				Balance
+			</button>
+			<button
+				class="tab {activeTab === 'receive' ? 'tab-active' : ''}"
+				onclick={() => (activeTab = 'receive')}
+			>
+				Receive
+			</button>
+			<button
+				class="tab {activeTab === 'send' ? 'tab-active' : ''}"
+				onclick={() => (activeTab = 'send')}
+			>
+				Send
+			</button>
+			<button
+				class="tab {activeTab === 'transactions' ? 'tab-active' : ''}"
+				onclick={() => (activeTab = 'transactions')}
+			>
+				Transactions
+			</button>
+		</div>
 
-	{#if activeTab === 'send'}
-		<div class="space-y-6">
-			<h3 class="mb-3 text-lg font-semibold">Send Bitcoin</h3>
+		<!-- Tab Content -->
+		{#if activeTab === 'balance'}
+			<div class="space-y-6">
+				<!-- Balance Card -->
+				<BalanceCard />
 
-			<!-- Send Form -->
-			<div class="card bg-base-200">
-				<div class="card-body">
-					{#if sendError}
-						<div class="alert alert-error mb-4">
-							<div>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 flex-shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-									><path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/></svg
-								>
-								<span>{sendError}</span>
+				<!-- Quick Actions -->
+				<div class="grid grid-cols-2 gap-4">
+					<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'receive')}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-2 h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 9l-7 7-7-7"
+							/>
+						</svg>
+						Receive
+					</button>
+					<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'send')}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-2 h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 15l7-7 7 7"
+							/>
+						</svg>
+						Send
+					</button>
+				</div>
+
+				<!-- Recent Transactions -->
+				<!-- <RecentTransactions {activeTab} /> -->
+			</div>
+		{/if}
+
+		{#if activeTab === 'receive'}
+			<div class="space-y-6">
+				<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
+
+				<!-- Network Selection -->
+				<!-- TODO: Implement this section -->
+				<!-- <NetworkSelection /> -->
+
+				<!-- Request Payment Form -->
+				<PaymentRequestForm />
+			</div>
+		{/if}
+
+		{#if activeTab === 'send'}
+			<div class="space-y-6">
+				<h3 class="mb-3 text-lg font-semibold">Send Bitcoin</h3>
+
+				<!-- Send Form -->
+				<div class="card bg-base-200">
+					<div class="card-body">
+						{#if sendError}
+							<div class="alert alert-error mb-4">
+								<div>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-6 w-6 flex-shrink-0 stroke-current"
+										fill="none"
+										viewBox="0 0 24 24"
+										><path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+										/></svg
+									>
+									<span>{sendError}</span>
+								</div>
+							</div>
+						{/if}
+
+						<div class="form-control">
+							<div class="label">
+								<span class="label-text">Recipient Address</span>
+							</div>
+							<div class="input-group">
+								<input
+									type="text"
+									placeholder="Bitcoin, Lightning, or Liquid address"
+									class="input input-bordered w-full"
+									bind:value={sendAddress}
+								/>
+								<button aria-label="Scan QR Code" class="btn">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+									</svg>
+								</button>
 							</div>
 						</div>
-					{/if}
 
-					<div class="form-control">
-						<div class="label">
-							<span class="label-text">Recipient Address</span>
+						<div class="form-control mt-4">
+							<div class="label">
+								<span class="label-text">Amount</span>
+								<span class="label-text-alt"
+									>Available: {formatNumber(wallet.balance.btc, 8)} BTC</span
+								>
+							</div>
+							<div class="input-group">
+								<input
+									type="number"
+									placeholder="0.00000000"
+									step="0.00000001"
+									class="input input-bordered w-full"
+									bind:value={sendAmount}
+								/>
+								<select class="select select-bordered">
+									<option value="BTC">BTC</option>
+									<option value="sats">sats</option>
+								</select>
+							</div>
 						</div>
-						<div class="input-group">
+
+						<div class="form-control mt-4">
+							<div class="label">
+								<span class="label-text">Transaction Fee</span>
+							</div>
+							<div class="btn-group w-full">
+								<button
+									class="btn flex-1 {sendNetworkFee === 'low' ? 'btn-active' : ''}"
+									onclick={() => (sendNetworkFee = 'low')}
+								>
+									Low
+								</button>
+								<button
+									class="btn flex-1 {sendNetworkFee === 'medium' ? 'btn-active' : ''}"
+									onclick={() => (sendNetworkFee = 'medium')}
+								>
+									Medium
+								</button>
+								<button
+									class="btn flex-1 {sendNetworkFee === 'high' ? 'btn-active' : ''}"
+									onclick={() => (sendNetworkFee = 'high')}
+								>
+									High
+								</button>
+							</div>
+							<div class="text-base-content/70 mt-2 text-sm">
+								{#if sendNetworkFee === 'low'}
+									Estimated confirmation time: ~60 minutes
+								{:else if sendNetworkFee === 'medium'}
+									Estimated confirmation time: ~20 minutes
+								{:else}
+									Estimated confirmation time: ~10 minutes
+								{/if}
+							</div>
+						</div>
+
+						<div class="form-control mt-4">
+							<div class="label">
+								<span class="label-text">Description (optional)</span>
+							</div>
 							<input
 								type="text"
-								placeholder="Bitcoin, Lightning, or Liquid address"
+								placeholder="What's this payment for?"
 								class="input input-bordered w-full"
-								bind:value={sendAddress}
 							/>
-							<button aria-label="Scan QR Code" class="btn">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-									/>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-									/>
-								</svg>
+						</div>
+
+						<div class="mt-6">
+							<button class="btn btn-primary btn-block" onclick={sendTransaction}>
+								Send Bitcoin
 							</button>
 						</div>
-					</div>
-
-					<div class="form-control mt-4">
-						<div class="label">
-							<span class="label-text">Amount</span>
-							<span class="label-text-alt"
-								>Available: {formatNumber(wallet.balance.btc, 8)} BTC</span
-							>
-						</div>
-						<div class="input-group">
-							<input
-								type="number"
-								placeholder="0.00000000"
-								step="0.00000001"
-								class="input input-bordered w-full"
-								bind:value={sendAmount}
-							/>
-							<select class="select select-bordered">
-								<option value="BTC">BTC</option>
-								<option value="sats">sats</option>
-							</select>
-						</div>
-					</div>
-
-					<div class="form-control mt-4">
-						<div class="label">
-							<span class="label-text">Transaction Fee</span>
-						</div>
-						<div class="btn-group w-full">
-							<button
-								class="btn flex-1 {sendNetworkFee === 'low' ? 'btn-active' : ''}"
-								onclick={() => (sendNetworkFee = 'low')}
-							>
-								Low
-							</button>
-							<button
-								class="btn flex-1 {sendNetworkFee === 'medium' ? 'btn-active' : ''}"
-								onclick={() => (sendNetworkFee = 'medium')}
-							>
-								Medium
-							</button>
-							<button
-								class="btn flex-1 {sendNetworkFee === 'high' ? 'btn-active' : ''}"
-								onclick={() => (sendNetworkFee = 'high')}
-							>
-								High
-							</button>
-						</div>
-						<div class="text-base-content/70 mt-2 text-sm">
-							{#if sendNetworkFee === 'low'}
-								Estimated confirmation time: ~60 minutes
-							{:else if sendNetworkFee === 'medium'}
-								Estimated confirmation time: ~20 minutes
-							{:else}
-								Estimated confirmation time: ~10 minutes
-							{/if}
-						</div>
-					</div>
-
-					<div class="form-control mt-4">
-						<div class="label">
-							<span class="label-text">Description (optional)</span>
-						</div>
-						<input
-							type="text"
-							placeholder="What's this payment for?"
-							class="input input-bordered w-full"
-						/>
-					</div>
-
-					<div class="mt-6">
-						<button class="btn btn-primary btn-block" onclick={sendTransaction}>
-							Send Bitcoin
-						</button>
 					</div>
 				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
 
-	{#if activeTab === 'transactions'}
-		<TransactionHistory />
+		{#if activeTab === 'transactions'}
+			<TransactionHistory />
+		{/if}
 	{/if}
 </div>

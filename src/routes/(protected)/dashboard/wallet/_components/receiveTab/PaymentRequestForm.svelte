@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-
 	import { fetchLightningLimits, receivePayment } from '$lib/wallet/breez/walletService';
 	import { initWasm } from '$lib/wallet/breez/wasmLoader';
 	import { prepareReceivePayment } from '$lib/wallet/breez/walletService';
+
 	let amount = $state(0);
 	let description = $state('');
 	let tokenType = $state('BTC');
@@ -110,7 +110,7 @@
 			<h4 class="card-title mb-4 text-lg font-bold">Request Specific Amount</h4>
 
 			<div class="form-control mb-4">
-				<label class="label pb-1">
+				<label class="label pb-1" for="amount">
 					<span class="label-text text-sm font-medium"
 						>Amount ({tokenType === 'BTC' ? 'BTC' : 'sats'})</span
 					>
@@ -131,14 +131,14 @@
 					</select>
 				</div>
 				{#if errorMessage}
-					<label class="label pt-1">
+					<label class="label pt-1" for="amount">
 						<span class="label-text-alt text-error">{errorMessage}</span>
 					</label>
 				{/if}
 			</div>
 
 			<div class="form-control mb-6">
-				<label class="label pb-1">
+				<label class="label pb-1" for="description">
 					<span class="label-text text-sm font-medium">Description (optional)</span>
 				</label>
 				<input

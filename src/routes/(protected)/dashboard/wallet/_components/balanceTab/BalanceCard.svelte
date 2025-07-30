@@ -11,6 +11,13 @@
 	onMount(async () => {
 		balance = await getBalance();
 	});
+
+	// Format balance for display (handles both string and number)
+	function formatBalance(satoshis: string | number): string {
+		const sats = typeof satoshis === 'string' ? parseInt(satoshis) : satoshis;
+		const btc = sats / 100000000;
+		return btc.toFixed(8);
+	}
 </script>
 
 <div class="card bg-primary text-primary-content">

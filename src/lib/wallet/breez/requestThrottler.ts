@@ -166,6 +166,18 @@ class BlockstreamRequestThrottler {
         const now = Date.now();
         const cached = this.requestCache.get(url);
 
+        // EMERGENCY BLOCK: Block the specific problematic address polling
+        if (url.includes('/api/address/') && url.includes('/txs')) {
+            console.warn('[Breez Throttler] 🚫 EMERGENCY BLOCK: Blocking infinite address polling:', url);
+            return true; // Always block these requests
+        }
+
+        // AGGRESSIVE BLOCKING: Block common patterns that cause infinite loops
+        if (this.isProblematicPattern(url)) {
+            console.warn('[Breez Throttler] 🚫 BLOCKING problematic pattern:', url);
+            return true;
+        }
+
         if (!cached) {
             return false; // First request, allow it
         }
@@ -192,6 +204,44 @@ class BlockstreamRequestThrottler {
             console.warn('[Breez Throttler] Too many requests to URL in the last hour, blocking for 5 minutes:', url);
             cached.blocked = true;
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check for problematic URL patterns that cause infinite loops
+     */
+    private isProblematicPattern(url: string): boolean {
+        // Patterns that are known to cause infinite loops in Breez SDK
+        const problematicPatterns = [
+            '/api/address/',      // Address polling
+            '/api/tx/',           // Transaction polling  
+            '/api/address',       // Address info
+            'electrs/rest',       // Electrs REST API
+            '/status',            // Status endpoints
+            '/fees',              // Fee estimation
+        ];
+
+        // Check for rapid polling patterns
+        for (const pattern of problematicPatterns) {
+            if (url.includes(pattern)) {
+                const cached = this.requestCache.get(url);
+                if (cached && cached.requestCount > 3) {
+                    console.warn(`[Breez Throttler] Detected rapid polling pattern: ${pattern} in ${url}`);
+                    return true;
+                }
+            }
+        }
+
+        // Block any URL that's been called more than 5 times in the last 5 minutes
+        const cached = this.requestCache.get(url);
+        if (cached) {
+            const fiveMinutesAgo = Date.now() - 300000;
+            if (cached.requestCount > 5 && cached.lastRequestTime > fiveMinutesAgo) {
+                console.warn(`[Breez Throttler] URL called too frequently: ${url} (${cached.requestCount} times)`);
+                return true;
+            }
         }
 
         return false;

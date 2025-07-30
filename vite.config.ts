@@ -27,7 +27,32 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		exclude: ['@breeztech/breez-sdk-liquid/web'],
-		include: ['buffer']
+		include: ['buffer'],
+		// Ensure WASM files are handled properly
+		esbuildOptions: {
+			target: 'es2020'
+		}
+	},
+	build: {
+		// Ensure WASM files are copied correctly in production
+		assetsInlineLimit: 0,
+		rollupOptions: {
+			output: {
+				// Prevent WASM files from being inlined or mangled
+				assetFileNames: (assetInfo) => {
+					if (assetInfo.name && assetInfo.name.endsWith('.wasm')) {
+						return 'assets/[name].[ext]';
+					}
+					return 'assets/[name]-[hash].[ext]';
+				}
+			}
+		},
+		target: 'es2020'
+	},
+	// Ensure proper WASM loading in web workers
+	worker: {
+		format: 'es',
+		plugins: () => [wasm(), topLevelAwait()]
 	},
 	test: {
 		globals: true,
