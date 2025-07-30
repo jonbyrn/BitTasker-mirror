@@ -13,6 +13,10 @@ export default defineConfig({
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
 	server: {
+		fs: {
+			// Allow serving files from node_modules
+			allow: ['node_modules']
+		},
 		allowedHosts: true,
 		proxy: {
 			'/api': {

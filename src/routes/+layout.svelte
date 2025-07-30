@@ -150,6 +150,8 @@
 		setDarkMode($darkMode);
 	});
 
+	// Font Awesome is now loaded via the link tag in the head
+
 	// Initialize theme based on system preference - Broken up into smaller functions
 	onMount(async (): Promise<any> => {
 		// Critical operations first - only what's needed for initial render
@@ -158,6 +160,8 @@
 		// Setup theme change listener
 		const themeCleanup = setupThemeChangeListener();
 		
+		// Font Awesome is loaded via link tag in the head
+		
 		// Defer all non-critical operations
 		deferHelpers();
 
@@ -165,6 +169,7 @@
 		return () => {
 			clearTimeout(routeChangeTimeout);
 			themeCleanup();
+			// No cleanup needed for Font Awesome loaded via link tag
 		};
 	});
 </script>
@@ -177,6 +182,9 @@
     <meta name="apple-mobile-web-app-title" content="BitTasker" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- Load Font Awesome CSS from node_modules -->
+    <link rel="stylesheet" href="/node_modules/@fortawesome/fontawesome-free/css/all.min.css" />
+    
     <!-- Preload critical resources -->
     <link rel="preload" href="/assets/fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
     <link rel="preload" href="/assets/fonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
