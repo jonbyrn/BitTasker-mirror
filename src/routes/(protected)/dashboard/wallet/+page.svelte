@@ -134,7 +134,7 @@
 
 	onDestroy(() => {
 		cleanup();
-		window.location.reload();
+		// window.location.reload();
 	});
 </script>
 
@@ -246,7 +246,7 @@
 				</div>
 
 				<!-- Recent Transactions -->
-				<!-- <RecentTransactions {activeTab} /> -->
+				<RecentTransactions {activeTab} />
 			</div>
 		{/if}
 

@@ -26,7 +26,7 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: {
-		exclude: ['@breeztech/breez-sdk-liquid/web'],
+		exclude: ['@breeztech/breez-sdk-liquid/web', '@breeztech/breez-sdk-liquid'],
 		include: ['buffer'],
 		// Ensure WASM files are handled properly
 		esbuildOptions: {
