@@ -160,3 +160,65 @@ export interface SwapEvent {
 }
 
 export type SwapEventCallback = (event: SwapEvent) => void;
+
+// Cooperative claiming interfaces for Taproot swaps
+export interface CooperativeClaimDetails {
+	musig: any;
+	transaction: any;
+	partialSignature?: string;
+}
+
+export interface CooperativeClaimRequest {
+	partialSignature: string;
+	preimage?: string;
+	transaction?: any;
+}
+
+export interface CooperativeClaimResponse {
+	transactionId: string;
+	transactionHex: string;
+}
+
+export interface CooperativeRefundRequest {
+	transaction: any;
+}
+
+export interface CooperativeRefundResponse {
+	partialSignature: string;
+}
+
+// Emergency recovery interfaces
+export interface RefundFileData {
+	id: string;
+	currency: string;
+	redeemScript: string;
+	privateKey: string;
+	timeoutBlockHeight: number;
+}
+
+export interface EmergencyRefundParams {
+	refundData: RefundFileData;
+	destinationAddress: string;
+	feeRate: number;
+	lockupTransaction: any; // Transaction type
+	outputIndex: number;
+}
+
+export interface PreimageClaimParams {
+	swapId: string;
+	preimage: string;
+	destinationAddress: string;
+	lockupTransaction: any; // Transaction type
+	outputIndex: number;
+	redeemScript: string;
+	claimPrivateKey: string;
+	feeRate: number;
+}
+
+// Contract addresses for EVM chains
+export interface ContractAddresses {
+	[chain: string]: {
+		erc20Swap: string;
+		etherSwap: string;
+	};
+}

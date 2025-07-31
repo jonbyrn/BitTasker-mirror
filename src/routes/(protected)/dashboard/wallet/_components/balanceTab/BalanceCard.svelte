@@ -3,7 +3,12 @@
 	import { getBalance } from '$lib/wallet/helper';
 	import { getAssetBalances, fetchFiatRates } from '$lib/wallet/breez/walletService';
 	import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
-	import { getAssetMetadata, getCurrentNetwork, getAssetId, type AssetMetadata } from '$lib/constants/assets';
+	import {
+		getAssetMetadata,
+		getCurrentNetwork,
+		getAssetId,
+		type AssetMetadata
+	} from '$lib/constants/assets';
 
 	interface EnhancedAssetBalance extends AssetMetadata {
 		balance: number;
@@ -27,7 +32,7 @@
 
 	onMount(() => {
 		loadBalances();
-		
+
 		// Set up periodic refresh every 30 seconds
 		const interval = setInterval(loadBalances, 30000);
 		return () => clearInterval(interval);
@@ -36,18 +41,18 @@
 	async function loadBalances() {
 		try {
 			isLoading = true;
-			
+
 			// Load legacy balance for USD calculation
 			legacyBalance = await getBalance();
-			
+
 			// Get fiat rates for USD conversion
 			const fiatRates = await fetchFiatRates();
-			const btcUsdRate = fiatRates.find(rate => rate.coin === 'BTC')?.value || 0;
+			const btcUsdRate = fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
 			const usdtRate = 1; // USDT is pegged to USD
-			
+
 			// Load actual asset balances from Breez SDK
 			const liquidAssets = await getAssetBalances();
-			
+
 			// Get Bitcoin balance from Bitcoin wallet
 			let bitcoinBalance = 0;
 			try {
@@ -59,7 +64,7 @@
 
 			// Process all liquid assets dynamically
 			const processedAssets: EnhancedAssetBalance[] = [];
-			
+
 			// Add liquid assets (L-BTC, USDT, etc.)
 			for (const asset of liquidAssets) {
 				if (asset.balance > 0) {
@@ -67,19 +72,21 @@
 					if (metadata) {
 						const balanceInUnit = asset.balance / Math.pow(10, metadata.precision);
 						let usdValue = 0;
-						
+
 						// Calculate USD value based on asset type
 						if (asset.assetId === getAssetId('LBTC')) {
 							usdValue = balanceInUnit * btcUsdRate;
 						} else if (asset.assetId === getAssetId('USDT')) {
 							usdValue = balanceInUnit * usdtRate;
 						}
-						
+
 						processedAssets.push({
 							...metadata,
 							balance: asset.balance,
 							usdValue,
-							formattedBalance: balanceInUnit.toFixed(metadata.precision === 8 ? 8 : metadata.precision)
+							formattedBalance: balanceInUnit.toFixed(
+								metadata.precision === 8 ? 8 : metadata.precision
+							)
 						});
 					} else {
 						// Handle unknown assets gracefully
@@ -97,7 +104,7 @@
 					}
 				}
 			}
-			
+
 			// Add Bitcoin balance if > 0
 			if (bitcoinBalance > 0) {
 				const balanceInBtc = bitcoinBalance / 100_000_000;
@@ -112,12 +119,11 @@
 					formattedBalance: balanceInBtc.toFixed(8)
 				});
 			}
-			
+
 			assetBalances = processedAssets;
-			
+
 			// Calculate total USD value
 			totalUsdValue = assetBalances.reduce((total, asset) => total + asset.usdValue, 0);
-
 		} catch (error) {
 			console.error('Failed to load balances:', error);
 		} finally {
@@ -136,9 +142,30 @@
 	function getTotalBtcBalance(): number {
 		return assetBalances.reduce((total, asset) => {
 			if (asset.ticker === 'BTC' || asset.ticker === 'L-BTC') {
-				return total + (asset.balance / Math.pow(10, asset.precision));
+				return total + asset.balance / Math.pow(10, asset.precision);
 			}
 			// For other assets, would need conversion rates
+			return total;
+		}, 0);
+	}
+
+	// Get total balance in sats
+	function getTotalSatsBalance(): number {
+		return assetBalances.reduce((total, asset) => {
+			if (asset.ticker === 'BTC' || asset.ticker === 'L-BTC') {
+				return total + asset.balance;
+			}
+			// For other assets, would need conversion rates to BTC then to sats
+			return total;
+		}, 0);
+	}
+
+	// Get total USDT balance
+	function getTotalUsdtBalance(): number {
+		return assetBalances.reduce((total, asset) => {
+			if (asset.ticker === 'USDT' || asset.ticker === 'USDt') {
+				return total + asset.balance / Math.pow(10, asset.precision);
+			}
 			return total;
 		}, 0);
 	}
@@ -157,29 +184,40 @@
 	function formatNumber(value: number): string {
 		return parseFloat(value.toFixed(8)).toString();
 	}
+
+	// Format sats with proper number formatting
+	function formatSats(sats: number): string {
+		return new Intl.NumberFormat('en-US', {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 0
+		}).format(sats);
+	}
 </script>
 
 <div class="space-y-4">
 	<!-- Total Balance Card -->
 	<div class="card bg-primary text-primary-content">
 		<div class="card-body">
-			<h3 class="card-title text-lg">Total Portfolio Value</h3>
-			
+			<h3 class="card-title text-lg">Total Balance</h3>
+
 			{#if isLoading}
 				<div class="flex items-center gap-3">
 					<div class="loading loading-spinner loading-md"></div>
 					<span>Loading balances...</span>
 				</div>
 			{:else}
-				<p class="text-4xl font-bold">{formatUsd(totalUsdValue)}</p>
-				<p class="opacity-80">≈ {formatNumber(getTotalBtcBalance())} BTC equivalent</p>
+				<p class="text-4xl font-bold">{formatSats(getTotalSatsBalance())} sats</p>
+				<p class="opacity-80">≈ {formatNumber(getTotalBtcBalance())} BTC</p>
+				{#if getTotalUsdtBalance() > 0}
+					<p class="opacity-80">+ {formatNumber(getTotalUsdtBalance())} USDT</p>
+				{/if}
 			{/if}
 		</div>
 	</div>
 
 	<!-- Asset Breakdown -->
 	{#if !isLoading && assetBalances.length > 0}
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 			{#each assetBalances as asset (asset.assetId)}
 				<div class="card bg-base-200">
 					<div class="card-body p-4">
@@ -187,17 +225,17 @@
 							<div class="flex items-center gap-2">
 								<span class="text-2xl">{asset.icon}</span>
 								<div>
-									<div class="font-semibold text-sm">{asset.ticker}</div>
+									<div class="text-sm font-semibold">{asset.ticker}</div>
 									<div class="text-xs opacity-70">{asset.name}</div>
 								</div>
 							</div>
 							<div class="text-right">
-								<div class="font-medium text-sm">
+								<div class="text-sm font-medium">
 									{formatNumber(parseFloat(asset.formattedBalance))}
 								</div>
 								<div class="text-xs opacity-70">{asset.ticker}</div>
 								{#if asset.usdValue > 0}
-									<div class="text-xs text-success">
+									<div class="text-success text-xs">
 										{formatUsd(asset.usdValue)}
 									</div>
 								{/if}
@@ -211,10 +249,10 @@
 		<!-- Empty state -->
 		<div class="card bg-base-200">
 			<div class="card-body text-center">
-				<div class="text-4xl mb-2">💰</div>
-				<h4 class="text-lg font-semibold mb-2">No Assets Found</h4>
+				<h4 class="mb-2 text-lg font-semibold">💰 No Assets Found</h4>
 				<p class="text-base-content/70 mb-4">
-					Your wallet doesn't have any assets yet. Start by receiving some Bitcoin or Lightning payments.
+					Your wallet doesn't have any assets yet. Start by receiving some Bitcoin or Lightning
+					payments.
 				</p>
 			</div>
 		</div>
@@ -223,12 +261,20 @@
 	<!-- Refresh Button -->
 	{#if !isLoading}
 		<div class="flex justify-center">
-			<button 
-				class="btn btn-outline btn-sm"
-				onclick={loadBalances}
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+			<button class="btn btn-outline btn-sm" onclick={loadBalances}>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-2 h-4 w-4"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+					/>
 				</svg>
 				Refresh Balances
 			</button>
