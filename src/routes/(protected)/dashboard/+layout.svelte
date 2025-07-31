@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from '$lib/stores/i18n.store';
+	import 'iconify-icon';
 
 	let { children } = $props();
 
@@ -83,7 +84,13 @@
 									data-sveltekit-reload="off"
 									href="/dashboard/{section.id}"
 									class:menu-active={activeSection === section.id}
+									class="flex items-center gap-3"
 								>
+									<iconify-icon 
+										icon={section.icon} 
+										width="20" 
+										class="text-primary"
+									></iconify-icon>
 									{$t(section.label)}
 								</a>
 							</li>
