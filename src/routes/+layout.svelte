@@ -220,8 +220,12 @@
 			<TopBar />
 		{/if}
 
-		<div
+		<!-- <div
 			class="flex flex-1 flex-col overflow-auto {deviceInfoValue?.platform === 'web' ? 'lg:pt-16' : ''}"
+		> -->
+
+		<div
+			class="flex flex-1 flex-col overflow-auto"
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
 				<div class="bg-base-200 flex flex-grow lg:block">
