@@ -28,7 +28,8 @@ export default defineConfig({
 	],
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version),
-		global: 'globalThis'
+		global: 'globalThis',
+		// Buffer: 'Buffer'
 	},
 	resolve: {
 		alias: {
@@ -91,10 +92,23 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		exclude: ['@breeztech/breez-sdk-liquid/web', '@breeztech/breez-sdk-liquid'],
-		include: ['buffer'],
+		include: ['buffer', 'bitcoinjs-lib', 'bip32', 'bip39', 'crypto-browserify', 'stream-browserify', 'path-browserify', 'process'],
 		// Ensure WASM files are handled properly
 		esbuildOptions: {
-			target: 'es2020'
+			target: 'es2020',
+			define: {
+				global: 'globalThis',
+				Buffer: 'Buffer'
+			}
+		}
+	},
+	resolve: {
+		alias: {
+			buffer: 'buffer',
+			crypto: 'crypto-browserify',
+			stream: 'stream-browserify',
+			path: 'path-browserify',
+			process: 'process/browser'
 		}
 	},
 	build: {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from '$lib/stores/i18n.store';
-	import { page } from '$app/stores'; // Fix import
+	import { page } from '$app/state';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
 	import { deviceInfo } from '$lib/stores/deviceInfo.store'; // Import the store only
@@ -46,7 +46,7 @@
 	const deferHelpers = () => {
 		if (typeof requestIdleCallback !== 'undefined') {
 			requestIdleCallback(async () => {
-				const path = $page.url.pathname;
+				const path = page.url.pathname;
 				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
 				if (isProtected) {
 					const [deviceInfoModule, keyboardModule] = await Promise.all([
@@ -63,7 +63,7 @@
 			}, { timeout: 2000 });
 		} else {
 			setTimeout(async () => {
-				const path = $page.url.pathname;
+				const path = page.url.pathname;
 				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
 				if (isProtected) {
 					const [deviceInfoModule, keyboardModule] = await Promise.all([
@@ -134,7 +134,7 @@
 	const updateLayoutBasedOnRoute = () => {
 		clearTimeout(routeChangeTimeout);
 		routeChangeTimeout = setTimeout(() => {
-			const path = $page.url.pathname;
+			const path = page.url.pathname;
 			// Determine if on landing page (homepage, how-it-works, etc.)
 			isLandingPage = path === '/' || path === '/how-it-works' || path.startsWith('/auth');
 
@@ -217,7 +217,7 @@
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_WEBSITE_JSONLD)}</script>`}
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_SITE_NAVIGATION_JSONLD)}</script>`}
-    {#if $page.url.pathname !== '/'}
+    {#if page.url.pathname !== '/'}
 	    {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
     {/if}
 </svelte:head>

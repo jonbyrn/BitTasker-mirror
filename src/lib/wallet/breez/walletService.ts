@@ -17,10 +17,14 @@ import init, {
 	type ConnectRequest,
 	type Config,
 	type Payment,
-	type GetInfoResponse
+	type GetInfoResponse,
+	type OnchainPaymentLimitsResponse,
+	type PreparePayOnchainRequest,
+	type PreparePayOnchainResponse
 } from '@breeztech/breez-sdk-liquid/web';
 import { get, writable } from 'svelte/store';
 import { isWasmInitialized } from './wasmLoader';
+import { passkeyMiddleware, breezSecurity } from './security';
 
 // Global SDK store for application-wide access
 export const sdkStore = writable<BindingLiquidSdk | null>(null);
@@ -33,14 +37,8 @@ let eventListenerId: string | null = null;
  * Initialize WASM module (must be called first in web environment)
  */
 export async function initializeWasm(): Promise<void> {
-	if (isWasmInitialized()) {
-		console.log('WASM already initialized');
-		return;
-	}
-
 	try {
 		await init();
-		console.log('WASM initialized successfully');
 	} catch (error) {
 		console.error('Failed to initialize WASM:', error);
 		throw error;
@@ -52,7 +50,7 @@ export async function initializeWasm(): Promise<void> {
  */
 export async function connectToBreez(mnemonic: string, network: 'mainnet' | 'testnet' = 'mainnet'): Promise<BindingLiquidSdk> {
 	// Ensure WASM is initialized first
-	if (!isWasmInitialized) {
+	if (!get(isWasmInitialized)) {
 		await initializeWasm();
 	}
 
@@ -64,6 +62,26 @@ export async function connectToBreez(mnemonic: string, network: 'mainnet' | 'tes
 
 	// Create default config
 	const config: Config = defaultConfig(network, breezApiKey);
+	
+	// Configure multi-asset support using centralized constants
+	if ('assetMetadata' in config) {
+		// Import asset constants
+		const { getAssetId } = await import('$lib/constants/assets');
+		
+		// Add USDT and other asset metadata dynamically
+		const assetMetadata = [
+			// L-BTC is included by default in Breez SDK
+			{
+				assetId: getAssetId('USDT'),
+				name: 'Tether USD',
+				ticker: 'USDt',
+				precision: 8,
+				fiatId: 'USD' // This enables fee payment with USDT when available
+			}
+			// TODO: Add more assets here as needed - use getSupportedAssets() helper
+		];
+		(config as any).assetMetadata = assetMetadata;
+	}
 	
 	// Configure to reduce network activity
 	// Note: These may not be available in the current SDK version, 
@@ -85,8 +103,6 @@ export async function connectToBreez(mnemonic: string, network: 'mainnet' | 'tes
 	// Optional: customize working directory for web
 	// config.workingDir = 'custom-path'; // Not needed for web, uses IndexedDB by default
 
-	console.log('Connecting to Breez SDK...');
-
 	// Connect to SDK
 	const connectRequest: ConnectRequest = {
 		config,
@@ -94,7 +110,6 @@ export async function connectToBreez(mnemonic: string, network: 'mainnet' | 'tes
 	};
 
 	const sdkInstance = await connect(connectRequest);
-	console.log('Connected to Breez SDK successfully');
 
 	// Update stores
 	sdkStore.set(sdkInstance);
@@ -111,7 +126,6 @@ export async function connectToBreez(mnemonic: string, network: 'mainnet' | 'tes
 	};
 
 	eventListenerId = await sdkInstance.addEventListener(eventListener);
-	console.log('Event listener added:', eventListenerId);
 
 	return sdkInstance;
 }
@@ -137,6 +151,17 @@ export const sendPayment = async (
 ): Promise<SendPaymentResponse> => {
 	const sdk = get(sdkStore);
 	if (!sdk) throw new Error('SDK not initialized');
+	
+	// Apply passkey security middleware
+	const isAuthorized = await passkeyMiddleware.secureSendPayment(
+		{ destination: 'unknown' }, // We need to track the original prepare request
+		params.prepareResponse
+	);
+	
+	if (!isAuthorized) {
+		throw new Error('Payment not authorized - passkey verification failed');
+	}
+	
 	return await sdk.sendPayment(params);
 };
 
@@ -171,6 +196,104 @@ export const fetchFiatRates = async (): Promise<Rate[]> => {
 	return await sdk.fetchFiatRates();
 };
 
+// On-chain operations
+export const fetchOnchainLimits = async (): Promise<OnchainPaymentLimitsResponse> => {
+	const sdk = get(sdkStore);
+	if (!sdk) throw new Error('SDK not initialized');
+	return await sdk.fetchOnchainLimits();
+};
+
+export const preparePayOnchain = async (
+	params: PreparePayOnchainRequest
+): Promise<PreparePayOnchainResponse> => {
+	const sdk = get(sdkStore);
+	if (!sdk) throw new Error('SDK not initialized');
+	return await sdk.preparePayOnchain(params);
+};
+
+// Note: Breez SDK Liquid doesn't have direct on-chain payments
+// On-chain payments are handled through prepare/send payment flow
+export const sendOnchainPayment = async (
+	address: string,
+	amountSat: number,
+	description?: string
+): Promise<SendPaymentResponse> => {
+	const sdk = get(sdkStore);
+	if (!sdk) throw new Error('SDK not initialized');
+	
+	// Apply passkey security for on-chain payments (always off-platform)
+	const isAuthorized = await breezSecurity.verifyPasskeyForOffPlatform(
+		address,
+		amountSat
+	);
+	
+	if (!isAuthorized) {
+		throw new Error('On-chain payment not authorized - passkey verification failed');
+	}
+	
+	// Prepare the payment using Bitcoin address
+	const prepareResponse = await sdk.prepareSendPayment({
+		destination: address,
+		amount: {
+			type: 'bitcoin',
+			receiverAmountSat: amountSat
+		}
+	});
+	
+	// Send the payment
+	return await sdk.sendPayment({
+		prepareResponse,
+		payerNote: description
+	});
+};
+
+// Asset operations
+export const getAssetBalances = async (): Promise<any[]> => {
+	const sdk = get(sdkStore);
+	if (!sdk) throw new Error('SDK not initialized');
+	
+	const info = await sdk.getInfo();
+	return info.walletInfo.assetBalances || [];
+};
+
+// Multi-asset send payment with passkey security
+export const sendAssetPayment = async (
+	destination: string,
+	assetId: string,
+	amount: number,
+	description?: string
+): Promise<SendPaymentResponse> => {
+	const sdk = get(sdkStore);
+	if (!sdk) throw new Error('SDK not initialized');
+	
+	// Prepare asset payment
+	const prepareResponse = await sdk.prepareSendPayment({
+		destination,
+		amount: {
+			type: 'asset',
+			assetId,
+			receiverAmount: amount,
+			estimateAssetFees: false
+		}
+	});
+	
+	// Apply passkey security
+	const isAuthorized = await passkeyMiddleware.secureSendPayment(
+		{ destination },
+		prepareResponse
+	);
+	
+	if (!isAuthorized) {
+		throw new Error('Asset payment not authorized - passkey verification failed');
+	}
+	
+	// Send payment
+	return await sdk.sendPayment({
+		prepareResponse,
+		payerNote: description
+	});
+};
+
 // Event handling
 export const addEventListener = async (
 	callback: (event: SdkEvent) => void
@@ -188,7 +311,6 @@ export const addEventListener = async (
 
 		// Add event listener to SDK and return its ID
 		const listenerId = await sdk.addEventListener(listener);
-		console.log('Event listener added with ID:', listenerId);
 		return listenerId;
 	} catch (error) {
 		console.error('Failed to add event listener:', error);
@@ -205,7 +327,6 @@ export const removeEventListener = async (listenerId: string): Promise<void> => 
 
 	try {
 		await sdk.removeEventListener(listenerId);
-		console.log('Event listener removed:', listenerId);
 	} catch (error) {
 		console.error(`Failed to remove event listener ${listenerId}:`, error);
 		throw error;
@@ -268,28 +389,4 @@ export const disconnect = async (): Promise<void> => {
 			throw error;
 		}
 	}
-};
-
-/**
- * Report excessive API usage issue to Breez team
- * This should be called if you notice rate limiting from Blockstream
- */
-export const reportExcessiveApiUsage = () => {
-	const issueDetails = {
-		sdkVersion: '@breeztech/breez-sdk-liquid',
-		issue: 'Excessive Blockstream API requests causing rate limiting',
-		endpoint: 'https://blockstream.info/liquidtestnet/api/address/*/txs',
-		impact: 'Application blocked due to too many requests',
-		timestamp: new Date().toISOString(),
-		userAgent: navigator.userAgent,
-		platform: 'web'
-	};
-	
-	console.error('[Breez SDK Issue]', issueDetails);
-	console.log('📧 Please report this to Breez support:');
-	console.log('• Telegram: https://t.me/breezsdk');
-	console.log('• Email: contact@breez.technology');
-	console.log('• Include the above issue details');
-	
-	return issueDetails;
 };
