@@ -94,7 +94,10 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.1.badge')}</div>
-					<h3 class="card-title">Nakamoto Newbie</h3>
+					<h3 class="card-title text-center mx-auto">
+						Nakamoto<br />
+						Newbie
+					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
 							src="/images/BitTasker-Nakamoto-Newbie-512x512.webp"
@@ -121,7 +124,10 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.2.badge')}</div>
-					<h3 class="card-title">Satoshi Stacker</h3>
+					<h3 class="card-title text-center mx-auto">
+						Satoshi<br />
+						Stacker
+					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
 							src="/images/BitTasker-Satoshi-Stacker-512x512.webp"
@@ -148,7 +154,10 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.3.badge')}</div>
-					<h3 class="card-title">Hash Master</h3>
+					<h3 class="card-title text-center mx-auto">
+						Hash<br />
+						Master
+					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
 							src="/images/BitTasker-Hash-Master-512x512.webp"
