@@ -61,7 +61,6 @@ function handleError(f, args) {
 #### 3. Key Observations
 - **No Visible Polling Code:** The JavaScript layer doesn't contain explicit polling logic
 - **WASM Black Box:** Core functionality is encapsulated in the 11MB WASM binary
-- **RC Version Issues:** Using release candidate `0.9.2-rc2` which may have stability issues
 - **Testnet Configuration:** SDK is configured for testnet, using Blockstream's testnet API
 
 #### 4. Working Directory Configuration Issue
@@ -153,7 +152,6 @@ The infinite API loop persists because:
 1. **WASM Independence:** The polling is likely happening at the WASM/Rust level, independent of JavaScript lifecycle
 2. **Persistent State:** The SDK may maintain persistent polling even after `disconnect()`
 3. **Testnet Requirements:** Liquid testnet monitoring might be essential for SDK functionality
-4. **RC Version Bugs:** The release candidate may have unresolved polling cleanup issues
 
 ## Recommended Solutions
 

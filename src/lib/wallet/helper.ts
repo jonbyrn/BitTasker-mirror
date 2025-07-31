@@ -143,7 +143,6 @@ export async function getBalance(): Promise<{
 export async function getRecentTransactions(): Promise<breezSdk.Payment[]> {
 	try {
 		const transactions = await getTransactions();
-		console.log('[Helper] Fetched transactions:', transactions);
 		return transactions.slice(0, 10);
 	} catch (error) {
 		console.error('[Helper] Error fetching transactions:', error);
