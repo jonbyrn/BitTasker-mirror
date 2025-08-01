@@ -136,7 +136,7 @@
 			<!-- Step 1: Sign Up -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="badge badge-primary badge-lg">1</div>
+					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">1</div>
 					<h3>{$t('how_it_works.step_1.title')}</h3>
 				</div>
 
@@ -162,18 +162,23 @@
 							</div>
 						</div>
 
-						<div class="card bg-base-200 mt-4 shadow-sm">
-							<div class="card-body p-4">
-								<div class="flex items-start">
-									<i class="fa-solid fa-lightbulb text-warning mt-1 mr-3"></i>
-									<div>
-										<p class="text-sm">
-											{@html $t('how_it_works.step_1.security_note')}
-										</p>
-									</div>
-								</div>
-							</div>
+						<div class="alert alert-primary alert-outline mt-6">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								class="h-6 w-6 shrink-0 stroke-current"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								></path>
+							</svg>
+							<span>{@html $t('how_it_works.step_1.security_note')}</span>
 						</div>
+
 					</div>
 				</div>
 			</div>
@@ -181,7 +186,7 @@
 			<!-- Step 2: Create Profile -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="badge badge-primary badge-lg">2</div>
+					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">2</div>
 					<h3>{$t('how_it_works.step_2.title')}</h3>
 				</div>
 
@@ -244,7 +249,7 @@
 			<!-- Step 3: Find Tasks/Talent -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="badge badge-primary badge-lg">3</div>
+					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">3</div>
 					<h3>{$t('how_it_works.step_3.title')}</h3>
 				</div>
 
@@ -267,31 +272,31 @@
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
-										<div class="flex items-center gap-4">
-											<div class="badge badge-outline">1</div>
+										<div class="flex items-start gap-4 mt-4">
+											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">1</div>
 											<div>
-												<p class="font-medium">{$t('how_it_works.step_3.for_taskers.1.title')}</p>
-												<p class="text-base-content/80">
+												<h6 class="font-medium mb-0.5">{$t('how_it_works.step_3.for_taskers.1.title')}</h6>
+												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskers.1.description')}
 												</p>
 											</div>
 										</div>
 
-										<div class="flex items-center gap-4">
-											<div class="badge badge-outline">2</div>
+										<div class="flex items-start gap-4">
+											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">2</div>
 											<div>
-												<p class="font-medium">{$t('how_it_works.step_3.for_taskers.2.title')}</p>
-												<p class="text-base-content/80">
+												<h6 class="font-medium mb-0.5">{$t('how_it_works.step_3.for_taskers.2.title')}</h6>
+												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskers.2.description')}
 												</p>
 											</div>
 										</div>
 
-										<div class="flex items-center gap-4">
-											<div class="badge badge-outline">3</div>
+										<div class="flex items-start gap-4">
+											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">3</div>
 											<div>
-												<p class="font-medium">{$t('how_it_works.step_3.for_taskers.3.title')}</p>
-												<p class="text-base-content/80">
+												<h6 class="font-medium mb-0.5">{$t('how_it_works.step_3.for_taskers.3.title')}</h6>
+												<p class="text-base-content/80 mt-1">
 													{@html $t('how_it_works.step_3.for_taskers.3.description')}
 												</p>
 											</div>
@@ -331,31 +336,31 @@
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
-										<div class="flex items-center gap-4">
-											<div class="badge badge-outline">1</div>
+										<div class="flex items-start gap-4 mt-4">
+											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">1</div>
 											<div>
-												<p class="font-medium">{$t('how_it_works.step_3.for_taskees.1.title')}</p>
-												<p class="text-base-content/80">
+												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.1.title')}</h6>
+												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskees.1.description')}
 												</p>
 											</div>
 										</div>
 
-										<div class="flex items-center gap-4">
-											<div class="badge badge-outline">2</div>
+										<div class="flex items-start gap-4">
+											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">2</div>
 											<div>
-												<p class="font-medium">{$t('how_it_works.step_3.for_taskees.2.title')}</p>
-												<p class="text-base-content/80">
+												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.2.title')}</h6>
+												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskees.2.description')}
 												</p>
 											</div>
 										</div>
 
-										<div class="flex items-center gap-4">
-											<div class="badge badge-outline">3</div>
+										<div class="flex items-start gap-4">
+											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">3</div>
 											<div>
-												<p class="font-medium">{$t('how_it_works.step_3.for_taskees.3.title')}</p>
-												<p class="text-base-content/80">
+												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.3.title')}</h6>
+												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskees.3.description')}
 												</p>
 											</div>
@@ -388,7 +393,7 @@
 			<!-- Step 4: Complete Work -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="badge badge-primary badge-lg">4</div>
+					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">4</div>
 					<h3>{$t('how_it_works.step_4.title')}</h3>
 				</div>
 
@@ -396,44 +401,40 @@
 					<div class="card-body">
 						<p class="mb-4">{$t('how_it_works.step_4.description')}</p>
 
-						<div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+						<div class="space-y-6">
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<div class="flex items-center gap-3">
-										<i class="fa-solid fa-comments text-primary"></i>
-										<h4 class="font-medium">{$t('how_it_works.step_4.messaging.title')}</h4>
+									<div class="flex items-center">
+										<i class="fa-solid fa-file-arrow-up text-primary mr-4 text-xl px-2"></i>
+										<div>
+											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
+											<p>{$t('how_it_works.step_4.files.description')}</p>
+										</div>
 									</div>
-									<p class="mt-2">{@html $t('how_it_works.step_4.messaging.description')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<div class="flex items-center gap-3">
-										<i class="fa-solid fa-file-arrow-up text-primary"></i>
-										<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
+									<div class="flex items-center">
+										<i class="fa-solid fa-flag text-primary mr-4 text-xl px-2"></i>
+										<div>
+											<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
+											<p>{$t('how_it_works.step_4.milestones.description')}</p>
+										</div>
 									</div>
-									<p class="mt-2">{$t('how_it_works.step_4.files.description')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<div class="flex items-center gap-3">
-										<i class="fa-solid fa-flag text-primary"></i>
-										<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
+									<div class="flex items-center">
+										<i class="fa-solid fa-handshake text-primary mr-4 text-xl px-2"></i>
+										<div>
+											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
+											<p>{$t('how_it_works.step_4.completion.description')}</p>
+										</div>
 									</div>
-									<p class="mt-2">{$t('how_it_works.step_4.milestones.description')}</p>
-								</div>
-							</div>
-
-							<div class="card bg-base-200 shadow-sm">
-								<div class="card-body p-4">
-									<div class="flex items-center gap-3">
-										<i class="fa-solid fa-handshake text-primary"></i>
-										<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
-									</div>
-									<p class="mt-2">{$t('how_it_works.step_4.completion.description')}</p>
 								</div>
 							</div>
 						</div>
@@ -461,7 +462,7 @@
 			<!-- Step 5: Get Paid -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="badge badge-primary badge-lg">5</div>
+					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">5</div>
 					<h3>{$t('how_it_works.step_5.title')}</h3>
 				</div>
 
@@ -477,7 +478,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-lock text-success mr-4 text-xl"></i>
+										<i class="fa-solid fa-lock text-primary mr-4 text-xl px-2"></i>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -489,7 +490,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-clock text-success mr-4 text-xl"></i>
+										<i class="fa-solid fa-clock text-primary mr-4 text-xl px-2"></i>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -501,7 +502,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-bolt text-success mr-4 text-xl"></i>
+										<i class="fa-solid fa-bolt text-primary mr-4 text-xl px-2"></i>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
