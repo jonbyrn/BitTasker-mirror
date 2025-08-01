@@ -1,6 +1,7 @@
 export const dashboardPageTranslations = {
 	en: {
 		'dashboard.title': 'My Dashboard',
+		'dashboard.titl': 'Dashboard',
 		'dashboard.create_task': 'Create Task',
 		'dashboard.tabs.tasks': 'My Tasks',
 		'dashboard.tabs.bids': 'My Bids',
@@ -9,6 +10,7 @@ export const dashboardPageTranslations = {
 	},
 	es: {
 		'dashboard.title': 'Mi Panel',
+		'dashboard.titl': 'Panel',
 		'dashboard.create_task': 'Crear Tarea',
 		'dashboard.tabs.tasks': 'Mis Tareas',
 		'dashboard.tabs.bids': 'Mis Ofertas',

@@ -10,6 +10,8 @@
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 	import '../app.css';
+	import { authState } from '$lib/stores/auth.store';
+	let isLoggedIn = $derived($authState.isAuthenticated);
 
 	// Global SEO JSON-LD - moved to dynamic injection
 	import { BITTASKER_ORG_JSONLD, BITTASKER_WEBSITE_JSONLD, BITTASKER_SITE_NAVIGATION_JSONLD } from '$lib/utils/constants/seo.constants';
@@ -148,6 +150,8 @@
 		setDarkMode($darkMode);
 	});
 
+	// Font Awesome is now loaded via the link tag in the head
+
 	// Initialize theme based on system preference - Broken up into smaller functions
 	onMount(async (): Promise<any> => {
 		// Critical operations first - only what's needed for initial render
@@ -156,6 +160,8 @@
 		// Setup theme change listener
 		const themeCleanup = setupThemeChangeListener();
 		
+		// Font Awesome is loaded via link tag in the head
+		
 		// Defer all non-critical operations
 		deferHelpers();
 
@@ -163,6 +169,7 @@
 		return () => {
 			clearTimeout(routeChangeTimeout);
 			themeCleanup();
+			// No cleanup needed for Font Awesome loaded via link tag
 		};
 	});
 </script>
@@ -175,6 +182,9 @@
     <meta name="apple-mobile-web-app-title" content="BitTasker" />
     <link rel="manifest" href="/site.webmanifest" />
 
+    <!-- Load Font Awesome CSS from node_modules -->
+    <link rel="stylesheet" href="/node_modules/@fortawesome/fontawesome-free/css/all.min.css" />
+    
     <!-- Preload critical resources -->
     <link rel="preload" href="/assets/fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
     <link rel="preload" href="/assets/fonts/fa-brands-400.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
@@ -210,8 +220,12 @@
 			<TopBar />
 		{/if}
 
-		<div
+		<!-- <div
 			class="flex flex-1 flex-col overflow-auto {deviceInfoValue?.platform === 'web' ? 'lg:pt-16' : ''}"
+		> -->
+
+		<div
+			class="flex flex-1 flex-col overflow-auto"
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
 				<div class="bg-base-200 flex flex-grow lg:block">
@@ -227,37 +241,39 @@
 			{/if}
 		</div>
 	{#if !showFooterSection && showTopBar}
-		<!-- Section 7: Final Call to Action (CTA) -->
-		<section class="bg-primary text-primary-content py-16">
-			<div class="container mx-auto px-4 text-center">
-				<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
-				<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
-				<div class="mt-8 flex flex-col items-center space-y-6">
-					<div class="flex flex-wrap justify-center gap-4">
-						<a
-							href="/dashboard/find-tasks"
-							class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
-						>
-							{$t('homepage.v2.finalcta.tasker_cta')}
-						</a>
-						<a
-							href="/dashboard/taskees"
-							class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
-						>
-							{$t('homepage.v2.finalcta.taskee_cta')}
-						</a>
-					</div>
-					<div>
-						<a
-							href="/auth/signup"
-							class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg hover:text-white"
-						>
-							{$t('homepage.v2.finalcta.get_started')}
-						</a>
+		{#if !isLoggedIn}
+			<!-- Section 7: Final Call to Action (CTA) -->
+			<section class="bg-primary text-primary-content py-16">
+				<div class="container mx-auto px-4 text-center">
+					<h2 class="text-4xl font-bold">{$t('homepage.v2.finalcta.title')}</h2>
+					<p class="mx-auto mt-4 max-w-2xl text-lg">{$t('homepage.v2.finalcta.description')}</p>
+					<div class="mt-8 flex flex-col items-center space-y-6">
+						<div class="flex flex-wrap justify-center gap-4">
+							<a
+								href="/dashboard/find-tasks"
+								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
+							>
+								{$t('homepage.v2.finalcta.tasker_cta')}
+							</a>
+							<a
+								href="/dashboard/taskees"
+								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800"
+							>
+								{$t('homepage.v2.finalcta.taskee_cta')}
+							</a>
+						</div>
+						<div>
+							<a
+								href="/auth/signup"
+								class="btn hover:bg-primary btn-lg border-none bg-white px-8 text-black shadow-lg hover:text-white"
+							>
+								{$t('homepage.v2.finalcta.get_started')}
+							</a>
+						</div>
 					</div>
 				</div>
-			</div>
-		</section>
+			</section>
+		{/if}
 		<footer class="bg-base-300 text-base-content/70 py-12">
 			<div class="container mx-auto px-4">
 				<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">

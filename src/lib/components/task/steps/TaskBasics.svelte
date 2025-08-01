@@ -5,7 +5,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import TagsInput from '$lib/components/TagsInput.svelte';
-
+	import { t } from '$lib/stores/i18n.store';
 	let { errors, direction } = $props();
 </script>
 
@@ -20,7 +20,7 @@
 >
 	<div class="w-full">
 		<label for="title" class="label">
-			<span class="label-text">What do you need done?</span>
+			<span class="label-text">{$t('task.what_needed')}</span>
 		</label>
 		<input
 			type="text"
@@ -36,7 +36,7 @@
 	</div>
 
 	<div class="space-y-4">
-		<h3 class="text-lg font-semibold">When do you need this done?</h3>
+		<h3 class="text-lg font-semibold">{$t('task.when_needed')}</h3>
 
 		<div class="flex gap-4">
 			<button
@@ -47,7 +47,7 @@
 						dateRange: undefined
 					})}
 			>
-				I'm flexible
+				{$t('task.specific_date')}
 			</button>
 			<button
 				class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
@@ -60,14 +60,14 @@
 						}
 					})}
 			>
-				On a specific date
+				{$t('task.flexible')}
 			</button>
 		</div>
 
 		{#if $store.task.dateRange}
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 				<DatePicker
-					label="Start Date"
+					label={$t('task.start_date')}
 					value={$store.task.dateRange.start}
 					minDate={new Date().toISOString()}
 					onChange={(value: string) => {
@@ -82,7 +82,7 @@
 					}}
 				/>
 				<DatePicker
-					label="End Date"
+					label={$t('task.end_date')}
 					value={$store.task.dateRange.end}
 					minDate={new Date().toISOString()}
 					onChange={(value: string) => {
@@ -103,7 +103,7 @@
 		{:else}
 			<div>
 				<DatePicker
-					label="Deadline"
+					label={$t('task.deadline')}
 					minDate={new Date().toISOString()}
 					value={$store.task.deadline}
 					onChange={(value: string) => store.updateTask({ deadline: value })}
@@ -116,7 +116,7 @@
 	</div>
 
 	<div class="w-full">
-		<label for="category" class="label">Category (3 max)</label>
+		<label for="category" class="label">{$t('task.category')}</label>
 		<TagsInput
 			options={TASK_CATEGORIES.map((cat) => cat.id)}
 			bind:tags={$store.task.categories}
@@ -132,7 +132,7 @@
 
 	<div class="form-control w-full">
 		<label class="label" for="skills">
-			<span class="label-text">Required Skills (10 max)</span>
+			<span class="label-text">{$t('task.required_skills')}</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
 		<TagsInput bind:tags={$store.task.skills} maxTags={10} className="w-full h-full rounded-xl" />

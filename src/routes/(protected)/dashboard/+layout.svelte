@@ -2,6 +2,8 @@
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
+	import { t } from '$lib/stores/i18n.store';
+	import 'iconify-icon';
 
 	let { children } = $props();
 
@@ -73,7 +75,7 @@
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
 				<div class="card-body p-4">
-					<h2 class="card-title text-lg">Dashboard</h2>
+					<h2 class="card-title text-lg">{$t('dashboard.titl')}</h2>
 					<div class="divider my-2"></div>
 					<ul class="menu bg-base-100 rounded-box w-full">
 						{#each sections as section}
@@ -82,8 +84,14 @@
 									data-sveltekit-reload="off"
 									href="/dashboard/{section.id}"
 									class:menu-active={activeSection === section.id}
+									class="flex items-center gap-3"
 								>
-									{section.label}
+									<iconify-icon 
+										icon={section.icon} 
+										width="20" 
+										class="text-primary"
+									></iconify-icon>
+									{$t(section.label)}
 								</a>
 							</li>
 						{/each}
@@ -94,7 +102,7 @@
 	{/if}
 
 	<!-- Main Content -->
-	<div class="min-h-0 w-full flex-1 overflow-hidden">
+	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>
 </div>

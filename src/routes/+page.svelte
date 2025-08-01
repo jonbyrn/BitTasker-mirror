@@ -56,7 +56,7 @@
 	// Start carousel auto-rotation
 	const startCarouselRotation = () => {
 		if (!carouselInterval) {
-			carouselInterval = setInterval(rotateCarousel, 3000); // Rotate every 3 seconds
+			carouselInterval = setInterval(rotateCarousel, 5000); // Rotate every 3 seconds
 		}
 	};
 
