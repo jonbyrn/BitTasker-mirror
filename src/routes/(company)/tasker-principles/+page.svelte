@@ -68,7 +68,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-star text-primary mr-4 text-xl"></i>
+								<iconify-icon icon="mdi:star" width="24" class="text-primary mr-4 text-xl"></iconify-icon>
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.1.title')}</h4>
 									<p>{$t('taskee_principles.1.text')}</p>
@@ -80,7 +80,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-comments text-primary mr-4 text-xl"></i>
+								<iconify-icon icon="mdi:comment-multiple-outline" width="24" class="text-primary mr-4 text-xl"></iconify-icon>
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.2.title')}</h4>
 									<p>{$t('taskee_principles.2.text')}</p>
@@ -92,7 +92,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-check-circle text-primary mr-4 text-xl"></i>
+								<iconify-icon icon="mdi:check-circle" width="24" class="text-primary mr-4 text-xl"></iconify-icon>
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.3.title')}</h4>
 									<p>{$t('taskee_principles.3.text')}</p>
@@ -104,7 +104,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-user-shield text-primary mr-4 text-xl"></i>
+								<iconify-icon icon="mdi:shield-account" width="24" class="text-primary mr-4 text-xl"></iconify-icon>
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.4.title')}</h4>
 									<p>{$t('taskee_principles.4.text')}</p>
@@ -116,7 +116,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-handshake text-primary mr-4 text-xl"></i>
+								<iconify-icon icon="mdi:handshake" width="24" class="text-primary mr-4 text-xl"></iconify-icon>
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.5.title')}</h4>
 									<p>{$t('taskee_principles.5.text')}</p>

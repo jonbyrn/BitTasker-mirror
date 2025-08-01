@@ -447,7 +447,7 @@
 					<p>{$t('about.security_commitment.question_description')}</p>
 					<div class="card-actions">
 						<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-							<i class="fa-solid fa-envelope fa-xl"></i>
+							<iconify-icon icon="mdi:email-outline" width="24" class="text-xl"></iconify-icon>
 							{$t('about.security_commitment.contact')}
 						</a>
 					</div>

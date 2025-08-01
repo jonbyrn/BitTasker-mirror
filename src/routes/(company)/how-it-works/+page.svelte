@@ -405,7 +405,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-file-arrow-up text-primary mr-4 text-xl px-2"></i>
+										<iconify-icon icon="mdi:file-upload" width="24" class="text-primary mr-4 text-xl px-2"></iconify-icon>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
 											<p>{$t('how_it_works.step_4.files.description')}</p>
@@ -417,7 +417,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-flag text-primary mr-4 text-xl px-2"></i>
+										<iconify-icon icon="mdi:flag-checkered" width="24" class="text-primary mr-4 text-xl px-2"></iconify-icon>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
 											<p>{$t('how_it_works.step_4.milestones.description')}</p>
@@ -429,7 +429,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-handshake text-primary mr-4 text-xl px-2"></i>
+										<iconify-icon icon="mdi:handshake" width="24" class="text-primary mr-4 text-xl px-2"></iconify-icon>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
 											<p>{$t('how_it_works.step_4.completion.description')}</p>
@@ -478,7 +478,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-lock text-primary mr-4 text-xl px-2"></i>
+										<iconify-icon icon="mdi:lock" width="24" class="text-primary mr-4 text-xl px-2"></iconify-icon>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -490,7 +490,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-clock text-primary mr-4 text-xl px-2"></i>
+										<iconify-icon icon="mdi:clock-outline" width="24" class="text-primary mr-4 text-xl px-2"></iconify-icon>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -502,7 +502,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-bolt text-primary mr-4 text-xl px-2"></i>
+										<iconify-icon icon="mdi:lightning-bolt" width="24" class="text-primary mr-4 text-xl px-2"></iconify-icon>
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
@@ -552,23 +552,23 @@
 
 		<div class="mt-12 flex flex-wrap justify-center gap-6">
 			<a href="/security" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-shield-halved"></i>
+				<iconify-icon icon="mdi:shield-check" width="20"></iconify-icon>
 				{$t('common.link.security')}
 			</a>
 			<a href="/privacy" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-user-shield"></i>
+				<iconify-icon icon="mdi:shield-account" width="20"></iconify-icon>
 				{$t('common.link.privacy')}
 			</a>
 			<a href="/escrow" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-vault"></i>
+				<iconify-icon icon="mdi:safe" width="20"></iconify-icon>
 				{$t('common.link.escrow')}
 			</a>
 			<a href="/taskee-principles" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-medal"></i>
+				<iconify-icon icon="mdi:trophy" width="20"></iconify-icon>
 				{$t('common.link.taskee_principles')}
 			</a>
 			<a href="/community-guidelines" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-handshake"></i>
+				<iconify-icon icon="mdi:handshake" width="20"></iconify-icon>
 				{$t('common.link.community_guidelines')}
 			</a>
 		</div>
