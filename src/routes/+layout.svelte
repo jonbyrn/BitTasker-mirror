@@ -182,8 +182,7 @@
     <meta name="apple-mobile-web-app-title" content="BitTasker" />
     <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Load Font Awesome CSS from node_modules -->
-    <link rel="stylesheet" href="/node_modules/@fortawesome/fontawesome-free/css/all.min.css" />
+    <!-- Font Awesome CSS is imported via app.css -->
     
     <!-- Preload critical resources -->
     <link rel="preload" href="/assets/fonts/fa-solid-900.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
