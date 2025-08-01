@@ -74,26 +74,41 @@
 	};
 
 	// Break up large functions - Critical operations only
-	const initializeCriticalFeatures = async () => {
-		// Only what's needed for initial render
-		const { Preferences } = await import('@capacitor/preferences');
-		const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
-
-		if (savedDarkMode) {
-			$darkMode = savedDarkMode === 'true';
-		}
-
+	const initializeCriticalFeatures = () => {
+		// Use system theme immediately to prevent render blocking
+		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		$darkMode = mediaQuery.matches;
+		
 		// Mark initialization as complete for critical operations
 		isInitializing = false;
+	};
+
+	// Load Capacitor theme preferences asynchronously
+	const loadCapacitorTheme = async () => {
+		try {
+			const { Preferences } = await import('@capacitor/preferences');
+			const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
+			
+			if (savedDarkMode !== null) {
+				$darkMode = savedDarkMode === 'true';
+			}
+		} catch (error) {
+			console.warn('Failed to load theme preference from Capacitor:', error);
+		}
 	};
 
 	// Optimize event listeners - Use passive listeners where possible
 	const setupThemeChangeListener = () => {
 		const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 		const handleThemeChange = async (e: MediaQueryListEvent) => {
-			const { Preferences } = await import('@capacitor/preferences');
-			const { value: changedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
-			if (!changedDarkMode) {
+			try {
+				const { Preferences } = await import('@capacitor/preferences');
+				const { value: changedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
+				if (changedDarkMode === null) {
+					$darkMode = e.matches;
+				}
+			} catch (error) {
+				console.warn('Failed to check theme preference:', error);
 				$darkMode = e.matches;
 			}
 		};
@@ -154,7 +169,10 @@
 	// Initialize theme based on system preference - Broken up into smaller functions
 	onMount(async (): Promise<any> => {
 		// Critical operations first - only what's needed for initial render
-		await initializeCriticalFeatures();
+		initializeCriticalFeatures();
+		
+		// Load Capacitor theme preferences asynchronously
+		loadCapacitorTheme();
 		
 		// Setup theme change listener
 		const themeCleanup = setupThemeChangeListener();
