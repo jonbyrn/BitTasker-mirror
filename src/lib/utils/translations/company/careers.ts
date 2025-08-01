@@ -77,6 +77,51 @@ export const careersTranslations = {
 		'careers.positions.pr.qual_4': 'Strong writing and storytelling abilities',
 		'careers.positions.pr.qual_5': 'Experience with media relations in Latin America preferred',
 		'careers.positions.pr.qual_6': 'Existing relationships with relevant media outlets is a plus',
+
+		'careers.positions.media.title': 'Media Specialist/PR',
+		'careers.positions.media.location': 'Global, Remote, Bitcoin Specialist',
+		'careers.positions.media.about_title': 'About the Role:',
+		'careers.positions.media.about_description':
+			'We\'re seeking a media specialist and PR expert with deep knowledge of Bitcoin and cryptocurrency ecosystems to help BitTasker become the leading voice in decentralized work platforms.',
+		'careers.positions.media.responsibilities_title': 'Key Responsibilities:',
+		'careers.positions.media.responsibility_1':
+			'Develop and execute comprehensive media strategies focused on Bitcoin adoption and decentralized work',
+		'careers.positions.media.responsibility_2':
+			'Build relationships with cryptocurrency, tech, and business media outlets globally',
+		'careers.positions.media.responsibility_3':
+			'Create compelling content about BitTasker\'s mission and the future of work',
+		'careers.positions.media.responsibility_4':
+			'Manage crisis communications and maintain positive brand reputation in the crypto space',
+		'careers.positions.media.qualifications_title': 'Qualifications:',
+		'careers.positions.media.qual_1': 'Deep understanding of Bitcoin, cryptocurrency, and blockchain technologies',
+		'careers.positions.media.qual_2': 'Experience in PR, media relations, or communications',
+		'careers.positions.media.qual_3': 'Strong relationships with crypto and tech media outlets',
+		'careers.positions.media.qual_4': 'Excellent writing and storytelling abilities',
+		'careers.positions.media.qual_5': 'Experience with crisis management and brand protection',
+		'careers.positions.media.qual_6': 'Passion for decentralized technologies and financial freedom',
+
+		'careers.positions.ambassador.title': 'Brand Ambassador',
+		'careers.positions.ambassador.location': 'El Salvador, LATAM, South America',
+		'careers.positions.ambassador.about_title': 'About the Role:',
+		'careers.positions.ambassador.about_description':
+			'We\'re looking for passionate brand ambassadors to represent BitTasker at events, host gatherings, and bring more people onto our platform across Latin America, with a special focus on El Salvador.',
+		'careers.positions.ambassador.responsibilities_title': 'Key Responsibilities:',
+		'careers.positions.ambassador.responsibility_1':
+			'Attend and represent BitTasker at Bitcoin and tech events across Latin America',
+		'careers.positions.ambassador.responsibility_2':
+			'Host local meetups and events to introduce people to BitTasker',
+		'careers.positions.ambassador.responsibility_3':
+			'Build relationships with local communities and organizations',
+		'careers.positions.ambassador.responsibility_4':
+			'Create content and share stories about BitTasker\'s impact in the region',
+		'careers.positions.ambassador.qualifications_title': 'Qualifications:',
+		'careers.positions.ambassador.qual_1': 'Fluency in Spanish and English required',
+		'careers.positions.ambassador.qual_2': 'Experience with event planning and community building',
+		'careers.positions.ambassador.qual_3': 'Strong understanding of Bitcoin and cryptocurrency',
+		'careers.positions.ambassador.qual_4': 'Excellent communication and presentation skills',
+		'careers.positions.ambassador.qual_5': 'Existing network in Latin American Bitcoin communities',
+		'careers.positions.ambassador.qual_6': 'Passion for financial inclusion and economic freedom',
+
 		'careers.how_to_apply.title': 'How to Apply',
 		'careers.how_to_apply.description':
 			'To apply for any of our open positions, please send your resume, LinkedIn profile, or Git repository links to our careers team. We look forward to learning more about you and your passion for building the future of decentralized work!',
@@ -138,6 +183,50 @@ export const careersTranslations = {
 			'Interés en tecnologías descentralizadas y sistemas que preservan la privacidad',
 		'careers.positions.dev.qual_6':
 			'Habilidad para resolver problemas y compromiso con un código limpio',
+
+		'careers.positions.media.title': 'Especialista en Medios/PR',
+		'careers.positions.media.location': 'Global, Remoto, Especialista en Bitcoin',
+		'careers.positions.media.about_title': 'Sobre el Rol:',
+		'careers.positions.media.about_description':
+			'Buscamos un especialista en medios y experto en PR con profundo conocimiento de Bitcoin y ecosistemas de criptomonedas para ayudar a BitTasker a convertirse en la voz líder en plataformas de trabajo descentralizado.',
+		'careers.positions.media.responsibilities_title': 'Responsabilidades Clave:',
+		'careers.positions.media.responsibility_1':
+			'Desarrollar y ejecutar estrategias mediáticas integrales enfocadas en la adopción de Bitcoin y trabajo descentralizado',
+		'careers.positions.media.responsibility_2':
+			'Construir relaciones con medios de criptomonedas, tecnología y negocios a nivel global',
+		'careers.positions.media.responsibility_3':
+			'Crear contenido convincente sobre la misión de BitTasker y el futuro del trabajo',
+		'careers.positions.media.responsibility_4':
+			'Gestionar comunicaciones de crisis y mantener una reputación positiva de marca en el espacio crypto',
+		'careers.positions.media.qualifications_title': 'Calificaciones:',
+		'careers.positions.media.qual_1': 'Comprensión profunda de Bitcoin, criptomonedas y tecnologías blockchain',
+		'careers.positions.media.qual_2': 'Experiencia en PR, relaciones con medios o comunicaciones',
+		'careers.positions.media.qual_3': 'Fuertes relaciones con medios de crypto y tecnología',
+		'careers.positions.media.qual_4': 'Excelentes habilidades de escritura y narración',
+		'careers.positions.media.qual_5': 'Experiencia en gestión de crisis y protección de marca',
+		'careers.positions.media.qual_6': 'Pasión por tecnologías descentralizadas y libertad financiera',
+
+		'careers.positions.ambassador.title': 'Embajador de Marca',
+		'careers.positions.ambassador.location': 'El Salvador, LATAM, América del Sur',
+		'careers.positions.ambassador.about_title': 'Sobre el Rol:',
+		'careers.positions.ambassador.about_description':
+			'Buscamos embajadores de marca apasionados para representar a BitTasker en eventos, organizar reuniones y traer más personas a nuestra plataforma en América Latina, con un enfoque especial en El Salvador.',
+		'careers.positions.ambassador.responsibilities_title': 'Responsabilidades Clave:',
+		'careers.positions.ambassador.responsibility_1':
+			'Asistir y representar a BitTasker en eventos de Bitcoin y tecnología en América Latina',
+		'careers.positions.ambassador.responsibility_2':
+			'Organizar meetups locales y eventos para presentar BitTasker a las personas',
+		'careers.positions.ambassador.responsibility_3':
+			'Construir relaciones con comunidades locales y organizaciones',
+		'careers.positions.ambassador.responsibility_4':
+			'Crear contenido y compartir historias sobre el impacto de BitTasker en la región',
+		'careers.positions.ambassador.qualifications_title': 'Calificaciones:',
+		'careers.positions.ambassador.qual_1': 'Fluidez en español e inglés requerida',
+		'careers.positions.ambassador.qual_2': 'Experiencia en planificación de eventos y construcción de comunidades',
+		'careers.positions.ambassador.qual_3': 'Fuerte comprensión de Bitcoin y criptomonedas',
+		'careers.positions.ambassador.qual_4': 'Excelentes habilidades de comunicación y presentación',
+		'careers.positions.ambassador.qual_5': 'Red existente en comunidades Bitcoin de América Latina',
+		'careers.positions.ambassador.qual_6': 'Pasión por la inclusión financiera y libertad económica',
 
 		'careers.apply_now': 'Postúlate Ahora',
 		'careers.how_to_apply.title': 'Cómo Postularte',

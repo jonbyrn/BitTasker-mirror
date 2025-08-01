@@ -213,7 +213,7 @@
 	<main
 		data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
 		id="main"
-		class="flex min-h-[100dvh] flex-col"
+		class="flex min-h-[100dvh] flex-col no-horizontal-scroll"
 	>
 		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 		{#if showTopBar}
@@ -225,7 +225,8 @@
 		> -->
 
 		<div
-			class="flex flex-1 flex-col overflow-auto"
+			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
+			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
 				<div class="bg-base-200 flex flex-grow lg:block">
@@ -234,7 +235,7 @@
 			{:else}
 				<div
 					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
-					style={showFooterSection ? 'padding-bottom: var(--dock-height, 5rem);' : ''}
+					style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 				>
 					{@render children()}
 				</div>
@@ -279,63 +280,63 @@
 				<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
 					<!-- Company Info -->
 					<div class="md:col-span-2 lg:col-span-1">
-						<h4 class="text-base-content mb-4 text-lg font-bold">BitTasker</h4>
+						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 						<p class="mb-4">{$t('footer.company_description')}</p>
 						<!-- Social media icons -->
 						<div class="flex space-x-4">
 							<a
 								href="https://twitter.com/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on X (Twitter)"
+								aria-label="{$t('footer.social.twitter_aria')}"
 							>
 								<i class="fa-brands fa-x-twitter"></i>
 							</a>
 							<a
 								href="https://facebook.com/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on Facebook"
+								aria-label="{$t('footer.social.facebook_aria')}"
 							>
 								<i class="fa-brands fa-facebook"></i>
 							</a>
 							<a
 								href="https://instagram.com/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on Instagram"
+								aria-label="{$t('footer.social.instagram_aria')}"
 							>
 								<i class="fa-brands fa-instagram"></i>
 							</a>
 							<a
 								href="https://youtube.com/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on YouTube"
+								aria-label="{$t('footer.social.youtube_aria')}"
 							>
 								<i class="fa-brands fa-youtube"></i>
 							</a>
 							<a
 								href="https://linkedin.com/company/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on LinkedIn"
+								aria-label="{$t('footer.social.linkedin_aria')}"
 							>
 								<i class="fa-brands fa-linkedin"></i>
 							</a>
 							<a
 								href="https://reddit.com/r/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on Reddit"
+								aria-label="{$t('footer.social.reddit_aria')}"
 							>
 								<i class="fa-brands fa-reddit"></i>
 							</a>
 							<a
 								href="https://tiktok.com/@bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on TikTok"
+								aria-label="{$t('footer.social.tiktok_aria')}"
 							>
 								<i class="fa-brands fa-tiktok"></i>
 							</a>
 							<a
 								href="https://rumble.com/c/bittasker"
 								class="hover:text-primary text-lg"
-								aria-label="BitTasker on Rumble"
+								aria-label="{$t('footer.social.rumble_aria')}"
 							>
 								<i class="fa-solid fa-play"></i>
 							</a>
@@ -401,17 +402,17 @@
 				</div>
 
 				<div class="border-base-content/10 mt-12 border-t pt-8 text-center">
-					<p>© {new Date().getFullYear()} BitTasker. {$t('footer.copyright')}</p>
+					<p>© {new Date().getFullYear()} {$t('footer.company_name')}. {$t('footer.copyright')}</p>
 					<p class="mt-2 text-sm">
-						Made with 
+						{$t('footer.made_with')} 
 						<svg class="inline-block w-4 h-4 mx-1" fill="currentColor" viewBox="0 0 24 24" style="color: #ef4444;">
 							<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
 						</svg>
-						and 
+						{$t('footer.and')} 
 						<svg class="inline-block w-4 h-4 mx-1" viewBox="0 0 512 512" style="color: #F7931B;">
 							<path d="M362.199,243.996c24.913-12.74,40.767-35.39,37.088-73.044    c-4.814-51.526-47.131-68.796-103.188-73.607V26.001H252.5v69.362c-11.325,0-22.932,0.283-34.539,0.564V26.001h-43.6v71.344    c-16.029,0.484-34.698,0.248-87.479,0v46.43c34.423-0.609,52.483-2.821,56.623,19.251V358.37    c-2.629,17.515-16.643,14.991-47.846,14.438l-8.775,51.809c79.495,0,87.479,0.284,87.479,0.284v61.099h43.601v-60.25    c11.888,0.285,23.498,0.285,34.539,0.285v59.965h43.599V424.9c73.043-3.964,121.871-22.366,128.384-91.16    C429.579,278.535,403.531,253.903,362.199,243.996z M218.811,146.889c24.631,0,101.639-7.643,101.639,43.599    c0,48.979-77.007,43.315-101.639,43.315V146.889z M218.811,373.093v-95.691c29.445,0,119.608-8.209,119.608,47.847    C338.418,379.321,248.255,373.093,218.811,373.093L218.811,373.093z" fill="currentColor"/>
 						</svg>
-						in El Salvador
+						{$t('footer.in_el_salvador')}
 					</p>
 				</div>
 			</div>

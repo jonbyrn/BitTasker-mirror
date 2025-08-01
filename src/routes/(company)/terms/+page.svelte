@@ -79,8 +79,7 @@
 
 		<h2>{$t('terms.scope.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<p class="m-0 font-medium">{$t('terms.scope.subsection')}</p>
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.scope.point1')}</li>
 				<li>{$t('terms.scope.point2')}</li>
 				<li>{$t('terms.scope.point3')}</li>
@@ -91,13 +90,13 @@
 
 		<h2>{$t('terms.role.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.role.point1')}</li>
 				<li>{$t('terms.role.point2')}</li>
 				<li>{$t('terms.role.point3')}</li>
 				<li>
 					{$t('terms.role.point4')}
-					<ul class="mt-2 ml-5">
+					<ul class="mt-2">
 						<li>{$t('terms.role.point4a')}</li>
 						<li>{$t('terms.role.point4b')}</li>
 						<li>{$t('terms.role.point4c')}</li>
@@ -112,7 +111,7 @@
 		<h2>{$t('terms.user.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
 			<p class="m-0">{$t('terms.user.intro')}</p>
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.user.point1')}</li>
 				<li>{$t('terms.user.point2')}</li>
 				<li>{$t('terms.user.point3')}</li>
@@ -122,7 +121,7 @@
 			</ul>
 
 			<p class="mt-4 mb-2">{$t('terms.user.subintro')}</p>
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.user.subpoint1')}</li>
 				<li>{$t('terms.user.subpoint2')}</li>
 				<li>{$t('terms.user.subpoint3')}</li>
@@ -134,7 +133,7 @@
 		</div>
 		<h2>{$t('terms.bitcoin.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.bitcoin.point1')}</li>
 				<li>{$t('terms.bitcoin.point2')}</li>
 				<li>{$t('terms.bitcoin.point3')}</li>
@@ -146,7 +145,7 @@
 
 		<h2>{$t('terms.fees.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.fees.point1')}</li>
 				<li>{$t('terms.fees.point2')}</li>
 				<li>{$t('terms.fees.point3')}</li>
@@ -157,7 +156,7 @@
 
 		<h2>{$t('terms.encryption.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.encryption.point1')}</li>
 				<li>{$t('terms.encryption.point2')}</li>
 				<li>{$t('terms.encryption.point3')}</li>
@@ -171,7 +170,7 @@
 
 		<h2>{$t('terms.language.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.language.point1')}</li>
 				<li>{$t('terms.language.point2')}</li>
 				<li>{$t('terms.language.point3')}</li>
@@ -181,7 +180,7 @@
 
 		<h2>{$t('terms.disputes.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.disputes.point1')}</li>
 				<li>{$t('terms.disputes.point2')}</li>
 				<li>{$t('terms.disputes.point3')}</li>
@@ -195,7 +194,7 @@
 
 		<h2>{$t('terms.ip.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.ip.point1')}</li>
 				<li>{$t('terms.ip.point2')}</li>
 				<li>{$t('terms.ip.point3')}</li>
@@ -205,7 +204,7 @@
 
 		<h2>{$t('terms.liability.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.liability.point1')}</li>
 				<li>{$t('terms.liability.point2')}</li>
 				<li>{$t('terms.liability.point3')}</li>
@@ -216,7 +215,7 @@
 
 		<h2>{$t('terms.indemnification.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.indemnification.point1')}</li>
 				<li class="ml-6">{$t('terms.indemnification.point2')}</li>
 				<li class="ml-6">{$t('terms.indemnification.point3')}</li>
@@ -229,7 +228,7 @@
 
 		<h2>{$t('terms.classWaiver.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>
 					<strong>{$t('terms.classWaiver.point1.label')}</strong>
 					{$t('terms.classWaiver.point1.text')}
@@ -255,7 +254,7 @@
 
 		<h2>{$t('terms.termination.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.termination.point1')}</li>
 				<li>{$t('terms.termination.point2')}</li>
 				<li>{$t('terms.termination.point3')}</li>
@@ -266,7 +265,7 @@
 
 		<h2>{$t('terms.disclaimers.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>
 					<strong>{$t('terms.disclaimers.point1.label')}</strong>
 					{$t('terms.disclaimers.point1.text')}
@@ -292,7 +291,7 @@
 
 		<h2>{$t('terms.forceMajeure.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.forceMajeure.point1')}</li>
 				<li>{$t('terms.forceMajeure.point2')}</li>
 			</ul>
@@ -300,7 +299,7 @@
 
 		<h2>{$t('terms.changes.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.changes.point1')}</li>
 				<li>{$t('terms.changes.point2')}</li>
 				<li>{$t('terms.changes.point3')}</li>
@@ -309,7 +308,7 @@
 
 		<h2>{$t('terms.law.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.law.point1')}</li>
 				<li>{$t('terms.law.point2')}</li>
 				<li>{$t('terms.law.point3')}</li>
@@ -318,7 +317,7 @@
 
 		<h2>{$t('terms.severability.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.severability.point1')}</li>
 				<li>{$t('terms.severability.point2')}</li>
 			</ul>
@@ -326,7 +325,7 @@
 
 		<h2>{$t('terms.entire_agreement.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<ul class="ml-5">
+			<ul>
 				<li>{$t('terms.entire_agreement.point1')}</li>
 				<li>{$t('terms.entire_agreement.point2')}</li>
 			</ul>
@@ -334,8 +333,10 @@
 
 		<h2>{$t('terms.contact_info.title')}</h2>
 		<div class="bg-base-100 rounded-box border-base-300 mb-4 border p-4">
-			<p>{@html $t('terms.contact_info.point1')}</p>
-			<p class="mt-2">{$t('terms.contact_info.point2')}</p>
+			<ul>
+				<li>{@html $t('terms.contact_info.point1')}</li>
+				<li>{$t('terms.contact_info.point2')}</li>
+			</ul>
 		</div>
 	</div>
 </div>

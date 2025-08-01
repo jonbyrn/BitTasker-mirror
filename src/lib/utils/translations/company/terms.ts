@@ -7,7 +7,7 @@ export const termsTranslations = {
 		'terms.intro':
 			'By accessing or using the BitTasker platform, you agree to be bound by these Terms of Service, our <a href="/privacy" class="link link-primary">Privacy Policy</a>, and all applicable laws and regulations. If you do not agree with any part of these terms, you may not use our services.',
 
-		'terms.definitions.title': '2. Definitions',
+		'terms.definitions.title': 'Definitions',
 		'terms.definitions.intro': 'Throughout these Terms of Service, when we say:',
 		'terms.definitions.bitTasker':
 			'<strong>"BitTasker,"</strong> "we," "us," or "our" refers to BitTasker, the company that develops and maintains the BitTasker platform.',
@@ -31,7 +31,7 @@ export const termsTranslations = {
 			'<strong>"Service Fee"</strong> refers to the fee BitTasker charges for facilitating connections between Taskers and Taskees.',
 
 		'terms.scope.title': '1. Scope of BitTasker Services',
-		'terms.scope.subsection': '1.1 Basic Principles',
+		'terms.scope.subsection': '',
 		'terms.scope.point1':
 			'BitTasker provides a decentralized platform that enables Taskers to publish task requests and Taskees to make offers to complete these tasks.',
 		'terms.scope.point2':
@@ -271,7 +271,7 @@ export const termsTranslations = {
 		'terms.intro':
 			'Al acceder o utilizar la plataforma BitTasker, aceptas estar sujeto a estos Términos del Servicio, nuestra <a href="/privacy" class="link link-primary">Política de Privacidad</a>, y todas las leyes y regulaciones aplicables. Si no estás de acuerdo con alguna parte de estos términos, no podrás utilizar nuestros servicios.',
 
-		'terms.definitions.title': '2. Definiciones',
+		'terms.definitions.title': 'Definiciones',
 		'terms.definitions.intro': 'A lo largo de estos Términos de Servicio, cuando decimos:',
 		'terms.definitions.bitTasker':
 			'<strong>"BitTasker,"</strong> "nosotros," "nos" o "nuestro" se refiere a BitTasker, la empresa que desarrolla y mantiene la plataforma BitTasker.',
@@ -295,7 +295,7 @@ export const termsTranslations = {
 			'<strong>"Comisión por Servicio"</strong> se refiere a la tarifa que BitTasker cobra por facilitar conexiones entre Solicitantes y Ejecutores.',
 
 		'terms.scope.title': '1. Alcance de los Servicios de BitTasker',
-		'terms.scope.subsection': '1.1 Principios Básicos',
+		'terms.scope.subsection': '',
 		'terms.scope.point1':
 			'BitTasker ofrece una plataforma descentralizada que permite a los Taskers publicar solicitudes de tareas y a los Taskees ofrecerse para realizarlas.',
 		'terms.scope.point2':

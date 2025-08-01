@@ -34,14 +34,14 @@ export const taskeesFaqTranslations = {
 
 		'faq.taskers.4.question': 'What are the fees for taskers?',
 		'faq.taskers.4.answer':
-			'BitTasker uses a dynamic tier system that rewards active taskees with lower fees. The more tasks you complete, the less you pay. Check out our <a href="/taskee-fees" class="text-primary hover:underline">Taskee Fees</a> page for full details.',
+			'BitTasker uses a dynamic tier system that rewards active taskers with lower fees. The more tasks you complete, the less you pay. Check out our <a href="/tasker-fees" class="text-primary hover:underline">Tasker Fees</a> page for full details.',
 		'faq.taskees.0.question': 'How do I find tasks?',
 		'faq.taskees.0.answer':
 			'Browse available tasks in your area and skill set. You can filter by category, location, budget, and deadline. When you find a task that matches your skills, submit a competitive bid with your proposed approach and timeline.',
 
 		'faq.taskees.1.question': 'How do I get paid?',
 		'faq.taskees.1.answer':
-			"When a tasker accepts your bid, the payment is immediately secured in escrow. Once you complete the work and the tasker approves it, the payment is released to your Bitcoin wallet. If the tasker doesn't respond within 7 days, you're automatically paid.",
+			"When a tasker accepts your bid, the payment is immediately secured in escrow. Once you complete the work and the tasker approves it, the payment is released to you. If the tasker doesn't respond within 7 days, you're automatically paid.",
 
 		'faq.taskees.2.question': "What if the tasker doesn't approve my work?",
 		'faq.taskees.2.answer':
@@ -112,14 +112,14 @@ export const taskeesFaqTranslations = {
 
 		'faq.taskers.4.question': '¿Cuáles son las tarifas para los taskers?',
 		'faq.taskers.4.answer':
-			'BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskees activos con tarifas más bajas. Cuantas más tareas completes, menos pagas. Consulta nuestra página de <a href="/taskee-fees" class="text-primary hover:underline">Tarifas para Taskees</a> para más detalles.',
+			'BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskers activos con tarifas más bajas. Cuantas más tareas completes, menos pagas. Consulta nuestra página de <a href="/tasker-fees" class="text-primary hover:underline">Tarifas para Taskers</a> para más detalles.',
 		'faq.taskees.0.question': '¿Cómo encuentro tareas?',
 		'faq.taskees.0.answer':
 			'Explora las tareas disponibles en tu área y según tus habilidades. Puedes filtrar por categoría, ubicación, presupuesto y plazo. Cuando encuentres una tarea que se adapte a tus habilidades, envía una oferta competitiva con tu enfoque y cronograma propuesto.',
 
 		'faq.taskees.1.question': '¿Cómo me pagan?',
 		'faq.taskees.1.answer':
-			'Cuando un tasker acepta tu oferta, el pago se asegura inmediatamente en un escrow. Una vez completes el trabajo y el tasker lo apruebe, el pago se libera a tu billetera de Bitcoin. Si el tasker no responde en 7 días, se te paga automáticamente.',
+			'Cuando un tasker acepta tu oferta, el pago se asegura inmediatamente en un escrow. Una vez completes el trabajo y el tasker lo apruebe, el pago se libera a ti. Si el tasker no responde en 7 días, se te paga automáticamente.',
 
 		'faq.taskees.2.question': '¿Qué pasa si el tasker no aprueba mi trabajo?',
 		'faq.taskees.2.answer':

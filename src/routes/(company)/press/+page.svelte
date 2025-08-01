@@ -62,7 +62,7 @@
 		<!-- Media Kit -->
 		<div class="card bg-base-100 shadow-lg">
 			<div class="card-body">
-				<h2 class="mb-4">{$t('press.media_kit.title')}</h2>
+				<h2 class="mb-4 mt-6">{$t('press.media_kit.title')}</h2>
 				<p class="mb-6">{$t('press.media_kit.description')}</p>
 				<div class="flex flex-wrap gap-4">
 					<a
@@ -85,15 +85,15 @@
 		</div>
 
 		<!-- About BitTasker -->
-		<div class="prose max-w-none">
+		<div class="prose max-w-none my-12">
 			<h2>{$t('press.about.title')}</h2>
 			<p>{$t('press.about.description')}</p>
 		</div>
 
 		<!-- Media Inquiries -->
-		<div class="card bg-base-100 text-center shadow-lg">
+		<div class="card bg-base-100 text-center shadow-lg max-w-lg mx-auto">
 			<div class="card-body text-center">
-				<h2 class="mb-4">{$t('press.inquiries.title')}</h2>
+				<h2 class="mb-4 mt-6">{$t('press.inquiries.title')}</h2>
 				<p class="mx-auto mb-6 max-w-lg">{$t('press.inquiries.description')}</p>
 				<div class="card-actions mt-4 flex justify-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide">

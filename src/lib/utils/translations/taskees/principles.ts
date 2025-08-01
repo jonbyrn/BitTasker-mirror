@@ -21,7 +21,7 @@ export const taskeesPrinciplesTranslations = {
 			'Protect confidential information and respect the privacy of taskers and their business.',
 		'taskee_principles.5.title': '5. Be Professional',
 		'taskee_principles.5.text':
-			'Maintain professional conduct in all interactions and represent BitTasker with integrity.'
+			'Maintain professional conduct in all interactions and work with integrity.'
 	},
 	es: {
 		'taskee_principles.title': 'Principios de los Taskees',
@@ -45,6 +45,6 @@ export const taskeesPrinciplesTranslations = {
 			'Protege la información confidencial y respeta la privacidad de los taskers y sus negocios.',
 		'taskee_principles.5.title': '5. Sé Profesional',
 		'taskee_principles.5.text':
-			'Mantén una conducta profesional en todas tus interacciones y representa a BitTasker con integridad.'
+			'Mantén una conducta profesional en todas tus interacciones y trabaja con integridad.'
 	}
 };
