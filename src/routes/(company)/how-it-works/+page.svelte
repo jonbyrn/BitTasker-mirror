@@ -471,7 +471,7 @@
 						<p class="mb-4">{$t('how_it_works.step_5.description')}</p>
 
 						<div class="divider">
-							{$t('how_it_works.step_5.features_title') || 'Key Payment Features'}
+							{$t('how_it_works.step_5.features_title')}
 						</div>
 
 						<div class="space-y-6">
