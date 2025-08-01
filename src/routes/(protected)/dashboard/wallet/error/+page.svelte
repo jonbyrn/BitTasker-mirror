@@ -51,7 +51,6 @@
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<div class="flex flex-col items-center gap-4 text-center">
-				<div class="badge badge-error badge-lg">Error</div>
 
 				<h2 class="card-title text-2xl">{currentError.title}</h2>
 

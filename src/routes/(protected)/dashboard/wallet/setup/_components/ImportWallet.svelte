@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { setMnemonic } from '$lib/wallet/helper';
+	import { setupMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 
-	let mnemonic = $state('');
+	let mnemonic = $state('pause bird left palm train twenty about talk avoid cruel portion cancel');
 	let error = $state('');
 
 	function handleImport() {
@@ -12,12 +12,13 @@
 			error = 'Please enter a valid 12 or 24-word recovery phrase';
 			return;
 		}
-		setMnemonic(cleaned);
+		
+		setupMnemonicPasskey(cleaned);
 		goto('/dashboard/wallet');
 	}
 </script>
 
-<div class="p-8">
+<div class="p-8 pb-0">
 	<h2 class="mb-6 text-center text-2xl font-bold">Import Existing Wallet</h2>
 
 	<div class="form-control space-y-6">
