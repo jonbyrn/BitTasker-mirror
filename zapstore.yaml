@@ -1,0 +1,22 @@
+identifier: bittasker
+version: 1.0.0
+assets:
+  - android/app/build/outputs/apk/debug/app-debug.apk
+
+icon: android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+
+images:
+  - zapstore-screenshots/.*\.png
+homepage: https://bittasker.com/
+name: BitTasker
+summary: "Hire people for any task. Pay with Bitcoin or fiat. Built on Nostr."
+description: |
+  BitTasker exists to empower everyday people to earn, trade, and thrive —
+  without borders, banks, or barriers. We are building a platform where skills
+  become currency, and Bitcoin becomes the bridge between sovereign individuals.
+license: MIT
+
+tags:
+  - nostr
+  - bitcoin
+  - mobile
