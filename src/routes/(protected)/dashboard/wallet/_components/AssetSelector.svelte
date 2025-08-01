@@ -213,14 +213,14 @@
 						<div class="flex items-center gap-3">
 							<span class="text-2xl">{asset.icon}</span>
 							<div class="text-left">
-								<div class="font-semibold">{asset.ticker}</div>
-								<div class="text-xs opacity-70">{asset.network}</div>
+								<span class="font-semibold">{asset.ticker}</span>
+								<span class="text-xs opacity-70">({asset.network})</span>
 							</div>
 						</div>
 						{#if showBalance}
 							<div class="text-right">
-								<div class="font-medium">{formatBalance(asset.balance, asset.precision)}</div>
-								<div class="text-xs opacity-70">{asset.ticker}</div>
+								<span class="font-medium">{formatBalance(asset.balance, asset.precision)}</span>
+								<span class="text-xs opacity-70">{asset.ticker}</span>
 							</div>
 						{/if}
 					{:else}
@@ -255,8 +255,8 @@
 								
 								{#if showBalance}
 									<div class="text-right">
-										<div class="font-medium">{formatBalance(asset.balance, asset.precision)}</div>
-										<div class="text-xs opacity-70">{asset.ticker}</div>
+										<span class="font-medium">{formatBalance(asset.balance, asset.precision)}</span>
+										<span class="text-xs opacity-70">{asset.ticker}</span>
 									</div>
 								{/if}
 								

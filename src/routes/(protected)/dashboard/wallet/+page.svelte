@@ -4,7 +4,7 @@
 
 	import type { GetInfoResponse } from '@breeztech/breez-sdk-liquid/web';
 	import { wallet } from '$lib/utils/consts';
-	import { getMnemonic } from '$lib/wallet/helper';
+	import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 	import { goto } from '$app/navigation';
 	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
 	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
@@ -95,9 +95,19 @@
 		isConnecting = true;
 		errorMessage = null;
 
-		try {
-			const mnemonic = await getMnemonic();
+		const mnemonic = await getMnemonicPasskey()
+			.then((mnemonic) => {
+				if (!mnemonic) {
+					goto('/dashboard/wallet/error?type=no-mnemonic');
+				}
+				return mnemonic;
+			})
+			.catch(() => {
+				goto('/dashboard/wallet/error?type=no-mnemonic');
+				throw new Error('No mnemonic found');
+			});
 
+		try {
 			await connectToBreez(mnemonic);
 
 			walletInfo = await getWalletInfo();
@@ -106,11 +116,6 @@
 		} catch (error) {
 			console.error('Failed to initialize wallet:', error);
 			errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-			// Navigate to error page for specific errors
-			if (error instanceof Error && error.message.includes('Mnemonic not found')) {
-				goto('/dashboard/wallet/error?type=no-mnemonic');
-			}
 		} finally {
 			isConnecting = false;
 		}

@@ -1,7 +1,7 @@
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { Capacitor } from '@capacitor/core';
 import { NativeBiometric } from 'capacitor-native-biometric';
-import { bytesToBase64, packKeysMobile, unPackKeysMobile, unPackKeys } from '$lib/utils/helpers/encoding';
+import { packKeysMobile, unPackKeysMobile, generateCredentialId, generateMobileChallenge } from '$lib/utils/helpers/encoding';
 import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
 import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import authService from '$lib/api/services/auth.service';
@@ -30,25 +30,6 @@ export async function verifyIdentity(): Promise<boolean> {
 		console.error('Biometric verification failed:', err);
 		return false;
 	}
-}
-
-/**
- * Generate a unique credential ID for mobile biometric authentication
- * This mimics WebAuthn's credential ID generation
- */
-function generateCredentialId(): string {
-	const randomBytes = crypto.getRandomValues(new Uint8Array(32));
-	return bytesToBase64(randomBytes);
-}
-
-function generateChallenge(): string {
-	const arr = new Uint8Array(32);
-	crypto.getRandomValues(arr);
-	// Convert to base64url format
-	return btoa(String.fromCharCode(...arr))
-		.replace(/\+/g, '-')
-		.replace(/\//g, '_')
-		.replace(/=/g, '');
 }
 
 /**
@@ -81,7 +62,7 @@ export async function setBiometricKey(
 			const displayName = customName ? `BitTasker ${customName}` : createDisplayName(publicKey);
 
 			const registrationOptions: PublicKeyCredentialCreationOptionsJSON = {
-				challenge: generateChallenge(),
+				challenge: generateMobileChallenge(),
 				rp: {
 					name: 'BitTasker',
 					id: window.location.hostname
@@ -154,7 +135,7 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			if (!webAuthnAvailable) throw new Error('WebAuthn is not available');
 
 			const options: PublicKeyCredentialRequestOptionsJSON = {
-				challenge: generateChallenge(),
+				challenge: generateMobileChallenge(),
 				timeout: 60000,
 				userVerification: 'required',
 				rpId: window.location.hostname,

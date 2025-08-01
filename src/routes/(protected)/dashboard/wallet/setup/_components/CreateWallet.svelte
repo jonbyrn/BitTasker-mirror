@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { generateMnemonic, setMnemonic } from '$lib/wallet/helper';
+	import { setupMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 	import { browser } from '$app/environment';
-	import * as bip39 from 'bip39';
 	import { Buffer } from 'buffer';
+	import * as bip39 from 'bip39';
 
 	// Polyfill Buffer for browser environment
 	if (browser && typeof window !== 'undefined') {
@@ -24,7 +24,7 @@
 			if (browser) {
 				mnemonic = bip39.generateMnemonic();
 				if (mnemonic) {
-					setMnemonic(mnemonic);
+					setupMnemonicPasskey(mnemonic);
 				}
 			} else {
 				throw new Error('Wallet generation is only available in browser environment');
@@ -38,7 +38,7 @@
 	}
 </script>
 
-<div class="p-8">
+<div class="p-8 pb-0">
 	<h2 class="mb-6 text-center text-2xl font-bold">Create New Wallet</h2>
 
 	{#if error}

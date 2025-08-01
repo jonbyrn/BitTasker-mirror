@@ -1,4 +1,3 @@
-import { Preferences } from '@capacitor/preferences';
 import * as bip39 from 'bip39';
 import { fetchFiatRates, getTransactions, getWalletInfo } from './breez/walletService';
 import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
@@ -19,43 +18,15 @@ let fiatRatesCache: FiatRatesCache | null = null;
 const CACHE_DURATION_MS = 30000; // 30 seconds cache
 
 /**
- * Retrieves the mnemonic phrase from Capacitor storage
- * @returns The mnemonic phrase as a string
- * @throws Error if mnemonic is not found in storage
- */
-export async function getMnemonic(): Promise<string> {
-	const { value } = await Preferences.get({ key: 'mnemonic' });
-
-	if (!value) {
-		throw new Error('Mnemonic not found in storage');
-	}
-
-	return value;
-}
-
-/**
- * Stores a mnemonic phrase in Capacitor storage
- * @param mnemonic - The mnemonic phrase to store
- * @returns A promise that resolves when the mnemonic is stored
- */
-export async function setMnemonic(mnemonic: string): Promise<void> {
-	if (!mnemonic || mnemonic.trim() === '') {
-		throw new Error('Cannot store empty mnemonic');
-	}
-
-	await Preferences.set({
-		key: 'mnemonic',
-		value: mnemonic
-	});
-}
-
-/**
- * Clears the mnemonic from Capacitor storage
+ * Clears the mnemonic from secure storage
  * @returns A promise that resolves when the mnemonic is cleared
  */
 export async function clearMnemonic(): Promise<void> {
-	await Preferences.remove({ key: 'mnemonic' });
+	// For passkey-only storage, clearing is handled by the platform
+	// Users can remove passkeys through their device settings
+	console.log('Mnemonic clearing handled by platform passkey management');
 }
+
 
 /**
  * Generates a new mnemonic phrase
