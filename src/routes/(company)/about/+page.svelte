@@ -46,7 +46,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl">{$t('how_it_works.hero.heading')}</h1>
+					<h1 class="text-5xl leading-[1.5]">{$t('how_it_works.hero.heading')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('how_it_works.hero.tagline')}
 					</p>

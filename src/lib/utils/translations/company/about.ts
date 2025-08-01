@@ -37,7 +37,7 @@ export const aboutTranslations = {
 		'about.platform.features.lightning.title': 'Bitcoin Lightning Payments',
 		'about.platform.features.lightning.description': 'Instant, borderless, and nearly free.',
 
-		'about.platform.features.escrow.title': 'Automated Escrow & Reputation',
+		'about.platform.features.escrow.title': 'Escrow & Reputation',
 		'about.platform.features.escrow.description': 'Trust without intermediaries.',
 
 		'about.platform.features.fiat.title': 'Fiat On-Ramp',
@@ -93,7 +93,7 @@ export const aboutTranslations = {
 		'about.platform.features.lightning.description':
 			'Instantáneos, sin fronteras y casi gratuitos.',
 
-		'about.platform.features.escrow.title': 'Custodia Automatizada y Reputación',
+		'about.platform.features.escrow.title': 'Custodia y Reputación',
 		'about.platform.features.escrow.description': 'Confianza sin intermediarios.',
 
 		'about.platform.features.fiat.title': 'Pasarela de Entrada Fiat',
