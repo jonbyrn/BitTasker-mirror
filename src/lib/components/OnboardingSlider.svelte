@@ -2,7 +2,6 @@
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { t } from '$lib/stores/i18n.store';
 	import { goto } from '$app/navigation';
-	import { darkMode } from '$lib/stores/theme.store';
 	import { setLocale } from '$lib/stores/i18n.store';
 	import { register } from 'swiper/element/bundle';
 	import { Preferences } from '@capacitor/preferences';

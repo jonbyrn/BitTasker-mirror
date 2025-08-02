@@ -2,11 +2,8 @@
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
+	import { t } from '$lib/stores/i18n.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { deviceInfo } from '$lib/stores/deviceInfo.store';
-	import { showBackButton } from '$lib/stores/navigation.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';

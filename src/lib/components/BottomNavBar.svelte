@@ -1,13 +1,11 @@
 <script lang="ts">
 
 	import { onDestroy, onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { t, setLocale } from '$lib/stores/i18n.store';
+	import { t } from '$lib/stores/i18n.store';
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
 	import { beforeNavigate } from '$app/navigation';
-	import { sections } from '$lib/utils/consts';
 	import 'iconify-icon';
 
 	let currentSection = $state('');
