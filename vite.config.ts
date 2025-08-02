@@ -12,6 +12,38 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
+	build: {
+		rollupOptions: {
+			output: {
+				// Use automatic chunk splitting instead of manual
+				manualChunks: undefined,
+				// Enable better chunk splitting
+				chunkFileNames: 'chunks/[name]-[hash].js',
+				entryFileNames: 'entry/[name]-[hash].js',
+				assetFileNames: 'assets/[name]-[hash].[ext]'
+			}
+		},
+		chunkSizeWarningLimit: 500, // Lower threshold to catch more issues
+		// Enable better tree shaking
+		minify: 'terser',
+		terserOptions: {
+			compress: {
+				drop_console: true,
+				drop_debugger: true
+			}
+		}
+	},
+	optimizeDeps: {
+		// Force include heavy dependencies for better optimization
+		include: [
+			'firebase',
+			'date-fns',
+			'zod',
+			'axios',
+			'swiper',
+			'iconify-icon'
+		]
+	},
 	server: {
 		fs: {
 			// Allow serving files from node_modules
