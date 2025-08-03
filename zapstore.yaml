@@ -3,7 +3,7 @@ identifier: bittasker
 assets:
   - android/app/build/outputs/apk/debug/app-debug.apk
 
-icon: android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+icon: assets/icon-only.png
 
 images:
   - zapstore-screenshots/image.png
