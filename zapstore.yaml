@@ -6,7 +6,7 @@ assets:
 icon: android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 
 images:
-  - zapstore-screenshots/.*\.png
+  - zapstore-screenshots/image.png
 
 name: BitTasker
 summary: "Hire people for any task. Pay with Bitcoin or fiat. Built on Nostr."
