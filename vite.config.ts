@@ -12,6 +12,17 @@ export default defineConfig({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
+	resolve: {
+		alias: {
+			// Firebase v11 specific aliases
+			'firebase/app': 'firebase/app',
+			'firebase/messaging': 'firebase/messaging',
+			'firebase/auth': 'firebase/auth',
+			'firebase/firestore': 'firebase/firestore',
+			'firebase/storage': 'firebase/storage',
+			'firebase/analytics': 'firebase/analytics'
+		}
+	},
 	build: {
 		rollupOptions: {
 			output: {
@@ -36,13 +47,28 @@ export default defineConfig({
 	optimizeDeps: {
 		// Force include heavy dependencies for better optimization
 		include: [
-			'firebase',
+			'firebase/app',
+			'firebase/messaging',
+			'firebase/auth',
+			'firebase/firestore',
+			'firebase/storage',
+			'firebase/analytics',
 			'date-fns',
 			'zod',
 			'axios',
 			'swiper',
 			'iconify-icon'
-		]
+		],
+		// Exclude the main firebase package to avoid resolution issues with v11
+		exclude: [
+			'firebase'
+		],
+		// Force esbuild to handle Firebase v11 modules
+		esbuildOptions: {
+			// Ensure proper module resolution for Firebase v11
+			mainFields: ['module', 'main'],
+			resolveExtensions: ['.mjs', '.js', '.ts', '.json']
+		}
 	},
 	server: {
 		fs: {
