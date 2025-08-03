@@ -230,14 +230,14 @@
 	});
 </script>
 
-<!-- Sliding Menu Overlay - Behind the navigation -->
-{#if isMenuOpen || isMenuClosing}
-	<div
-		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
-		style="bottom: 64px; overflow: hidden;"
-		class:menu-expand={isMenuOpen && !isMenuClosing}
-		class:menu-collapse={isMenuClosing}
-	>
+	<!-- Sliding Menu Overlay - Behind the navigation -->
+	{#if isMenuOpen || isMenuClosing}
+		<div
+			class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
+			style="bottom: 64px; max-height: 52rem; overflow: hidden;"
+			class:menu-expand={isMenuOpen && !isMenuClosing}
+			class:menu-collapse={isMenuClosing}
+		>
 		<div class="pb-safe max-h-[52rem] overflow-y-auto pt-4">
 			<div class="p-4">
 				{#if protectedRoute}
@@ -667,7 +667,7 @@
 		>
 			<div class="flex h-6 w-6 flex-col items-center justify-center">
 				<span
-					class="bg-primary-content block h-0.5 w-5 transition-transform duration-300 ease-in-out"
+					class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
 					class:rotate-45={isMenuOpen && !isMenuClosing}
 					class:translate-y-2={isMenuOpen && !isMenuClosing}
 				></span>
@@ -676,7 +676,7 @@
 					class:opacity-0={isMenuOpen && !isMenuClosing}
 				></span>
 				<span
-					class="bg-primary-content block h-0.5 w-5 transition-transform duration-300 ease-in-out"
+					class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
 					class:-rotate-45={isMenuOpen && !isMenuClosing}
 					class:-translate-y-1={isMenuOpen && !isMenuClosing}
 				></span>
@@ -736,7 +736,7 @@
 		>
 			<div class="flex h-6 w-6 flex-col items-center justify-center">
 				<span
-					class="bg-primary-content block h-0.5 w-5 transition-transform duration-300 ease-in-out"
+					class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
 					class:rotate-45={isMenuOpen && !isMenuClosing}
 					class:translate-y-2={isMenuOpen && !isMenuClosing}
 				></span>
@@ -745,7 +745,7 @@
 					class:opacity-0={isMenuOpen && !isMenuClosing}
 				></span>
 				<span
-					class="bg-primary-content block h-0.5 w-5 transition-transform duration-300 ease-in-out"
+					class="bg-primary-content block h-0.5 w-5 transition-all duration-300 ease-in-out"
 					class:-rotate-45={isMenuOpen && !isMenuClosing}
 					class:-translate-y-1={isMenuOpen && !isMenuClosing}
 				></span>
@@ -781,19 +781,20 @@
 		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
 
-	/* Menu starts collapsed (height 0), expands upward */
+	/* Menu starts collapsed, expands upward using transform instead of max-height */
 	.bottom-nav-menu {
-		max-height: 0;
-		transition: max-height 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transform: translateY(100%);
+		transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		will-change: transform;
 	}
 	.menu-expand {
-		max-height: 52rem; /* increased height to avoid scrollbars */
+		transform: translateY(0);
 	}
 	.menu-collapse {
-		max-height: 0;
+		transform: translateY(100%);
 	}
 
-	/* Custom scrollbar for menu */
+	/* Simplified scrollbar styling - removed problematic scrollbar-color */
 	.bottom-nav-menu::-webkit-scrollbar {
 		width: 4px;
 	}
@@ -811,10 +812,11 @@
 		background: hsl(var(--p) / 0.8);
 	}
 
-	/* Enhanced arrow animations for dropdown buttons */
+	/* Optimized arrow animations for better performance */
 	.dropdown-arrow {
 		transform-origin: center;
-		transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+		will-change: transform;
 		transform: rotate(0deg);
 	}
 
@@ -822,12 +824,57 @@
 		transform: rotate(180deg);
 	}
 
-	/* Add subtle bounce effect on arrow hover */
+	/* Simplified hover effects to avoid complex transform combinations */
 	.menu li > button:hover .dropdown-arrow {
-		transform: scale(1.1) rotate(0deg);
+		transform: rotate(0deg) scale(1.05);
 	}
 
 	.menu li > button:hover .dropdown-arrow.dropdown-open {
-		transform: scale(1.1) rotate(180deg);
+		transform: rotate(180deg) scale(1.05);
+	}
+
+	/* Ensure smooth transitions for all interactive elements */
+	.dock a,
+	.dock button {
+		will-change: transform, opacity;
+	}
+
+	/* Optimize hamburger menu animations */
+	.dock button[data-menu-button] span {
+		will-change: transform, opacity;
+		transform-origin: center;
+		backface-visibility: hidden;
+	}
+
+	/* Ensure all transitions use GPU acceleration */
+	.dock a,
+	.dock button,
+	.bottom-nav-menu,
+	.dropdown-arrow {
+		backface-visibility: hidden;
+		transform: translateZ(0);
+	}
+
+	/* Ensure any ::after pseudo-elements use composited animations */
+	.dropdown-arrow::after {
+		will-change: transform;
+		backface-visibility: hidden;
+		transform: translateZ(0);
+	}
+
+	/* Override any scrollbar-color properties that might cause issues */
+	* {
+		scrollbar-color: unset !important;
+	}
+
+	/* Ensure all animations use GPU acceleration */
+	* {
+		transform-style: preserve-3d;
+	}
+
+	/* Optimize all transitions for better performance */
+	.transition-all {
+		will-change: transform, opacity;
+		backface-visibility: hidden;
 	}
 </style>

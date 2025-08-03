@@ -354,7 +354,7 @@
 	</div>
 
 	<!-- Navbar End -->
-	<div class="navbar-end flex w-full flex-1 gap-1">
+	<div class="navbar-end flex w-full flex-1 gap-1 mr-2">
 		<!-- Dark mode toggle and language dropdown -->
 		<div class="md:flex items-center mr-1">
 			<DarkModeToggle />
