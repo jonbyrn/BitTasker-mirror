@@ -2,6 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
+	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -67,7 +68,7 @@
 				<p>{$t('contact.general_info')}</p>
 				<div class="card-actions justify-end">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-						<i class="fa-solid fa-envelope fa-xl"></i>
+						<IconEmailOutline class="text-xl" />
 						{$t('contact.send_button')}
 					</a>
 				</div>

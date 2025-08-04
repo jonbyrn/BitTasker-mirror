@@ -2,6 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
+	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -156,8 +157,7 @@
 	<!-- Open Positions -->
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-4 flex items-baseline gap-4">
-			<div class="badge badge-primary badge-lg">{$t('careers.step_number')}</div>
-							<h3>{$t('careers.section_title')}</h3>
+			<h3>{$t('careers.section_title')}</h3>
 		</div>
 
 		<div class="card bg-base-100 mb-4 shadow-lg">
@@ -165,7 +165,7 @@
 				<p class="mb-4">{$t('careers.section_description')}</p>
 
 				<div class="join join-vertical w-full">
-					<!-- Position 1 -->
+					<!-- Position 1: Full Stack Developer -->
 					<div
 						class="collapse-arrow join-item border-base-300 collapse border-b"
 						class:collapse-open={expandedSection === 'dev'}
@@ -209,7 +209,134 @@
 						</div>
 					</div>
 
-					<!-- Position 2 and 3 follow same structure... -->
+					<!-- Position 2: Public Relations Specialist -->
+					<div
+						class="collapse-arrow join-item border-base-300 collapse border-b"
+						class:collapse-open={expandedSection === 'pr'}
+					>
+						<button
+							type="button"
+							class="collapse-title text-left text-xl font-medium"
+							onclick={() => toggleSection('pr')}
+						>
+							{$t('careers.positions.pr.title')}
+							<span class="badge badge-primary ml-2">{$t('careers.positions.pr.location')}</span>
+						</button>
+						<div class="collapse-content">
+							<div class="mt-4 space-y-4">
+								<h4 class="font-medium">{$t('careers.positions.pr.about_title')}</h4>
+								<p>{$t('careers.positions.pr.about_description')}</p>
+
+								<h4 class="font-medium">{$t('careers.positions.pr.responsibilities_title')}</h4>
+								<ul class="ml-5 list-disc space-y-1">
+									<li>{$t('careers.positions.pr.responsibility_1')}</li>
+									<li>{$t('careers.positions.pr.responsibility_2')}</li>
+									<li>{$t('careers.positions.pr.responsibility_3')}</li>
+									<li>{$t('careers.positions.pr.responsibility_4')}</li>
+								</ul>
+
+								<h4 class="font-medium">{$t('careers.positions.pr.qualifications_title')}</h4>
+								<ul class="ml-5 list-disc space-y-1">
+									<li>{$t('careers.positions.pr.qual_1')}</li>
+									<li>{$t('careers.positions.pr.qual_2')}</li>
+									<li>{$t('careers.positions.pr.qual_3')}</li>
+									<li>{$t('careers.positions.pr.qual_4')}</li>
+									<li>{$t('careers.positions.pr.qual_5')}</li>
+									<li>{$t('careers.positions.pr.qual_6')}</li>
+								</ul>
+
+								<div class="card-actions mt-4 justify-end">
+									<a href={mailtoHref} class="btn btn-primary">{$t('careers.apply_now')}</a>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Position 3: Media Specialist/PR -->
+					<div
+						class="collapse-arrow join-item border-base-300 collapse border-b"
+						class:collapse-open={expandedSection === 'media'}
+					>
+						<button
+							type="button"
+							class="collapse-title text-left text-xl font-medium"
+							onclick={() => toggleSection('media')}
+						>
+							{$t('careers.positions.media.title')}
+							<span class="badge badge-primary ml-2">{$t('careers.positions.media.location')}</span>
+						</button>
+						<div class="collapse-content">
+							<div class="mt-4 space-y-4">
+								<h4 class="font-medium">{$t('careers.positions.media.about_title')}</h4>
+								<p>{$t('careers.positions.media.about_description')}</p>
+
+								<h4 class="font-medium">{$t('careers.positions.media.responsibilities_title')}</h4>
+								<ul class="ml-5 list-disc space-y-1">
+									<li>{$t('careers.positions.media.responsibility_1')}</li>
+									<li>{$t('careers.positions.media.responsibility_2')}</li>
+									<li>{$t('careers.positions.media.responsibility_3')}</li>
+									<li>{$t('careers.positions.media.responsibility_4')}</li>
+								</ul>
+
+								<h4 class="font-medium">{$t('careers.positions.media.qualifications_title')}</h4>
+								<ul class="ml-5 list-disc space-y-1">
+									<li>{$t('careers.positions.media.qual_1')}</li>
+									<li>{$t('careers.positions.media.qual_2')}</li>
+									<li>{$t('careers.positions.media.qual_3')}</li>
+									<li>{$t('careers.positions.media.qual_4')}</li>
+									<li>{$t('careers.positions.media.qual_5')}</li>
+									<li>{$t('careers.positions.media.qual_6')}</li>
+								</ul>
+
+								<div class="card-actions mt-4 justify-end">
+									<a href={mailtoHref} class="btn btn-primary">{$t('careers.apply_now')}</a>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- Position 4: Brand Ambassador -->
+					<div
+						class="collapse-arrow join-item border-base-300 collapse border-b"
+						class:collapse-open={expandedSection === 'ambassador'}
+					>
+						<button
+							type="button"
+							class="collapse-title text-left text-xl font-medium"
+							onclick={() => toggleSection('ambassador')}
+						>
+							{$t('careers.positions.ambassador.title')}
+							<span class="badge badge-primary ml-2">{$t('careers.positions.ambassador.location')}</span>
+						</button>
+						<div class="collapse-content">
+							<div class="mt-4 space-y-4">
+								<h4 class="font-medium">{$t('careers.positions.ambassador.about_title')}</h4>
+								<p>{$t('careers.positions.ambassador.about_description')}</p>
+
+								<h4 class="font-medium">{$t('careers.positions.ambassador.responsibilities_title')}</h4>
+								<ul class="ml-5 list-disc space-y-1">
+									<li>{$t('careers.positions.ambassador.responsibility_1')}</li>
+									<li>{$t('careers.positions.ambassador.responsibility_2')}</li>
+									<li>{$t('careers.positions.ambassador.responsibility_3')}</li>
+									<li>{$t('careers.positions.ambassador.responsibility_4')}</li>
+								</ul>
+
+								<h4 class="font-medium">{$t('careers.positions.ambassador.qualifications_title')}</h4>
+								<ul class="ml-5 list-disc space-y-1">
+									<li>{$t('careers.positions.ambassador.qual_1')}</li>
+									<li>{$t('careers.positions.ambassador.qual_2')}</li>
+									<li>{$t('careers.positions.ambassador.qual_3')}</li>
+									<li>{$t('careers.positions.ambassador.qual_4')}</li>
+									<li>{$t('careers.positions.ambassador.qual_5')}</li>
+									<li>{$t('careers.positions.ambassador.qual_6')}</li>
+								</ul>
+
+								<div class="card-actions mt-4 justify-end">
+									<a href={mailtoHref} class="btn btn-primary">{$t('careers.apply_now')}</a>
+								</div>
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -224,7 +351,7 @@
 
 				<div class="card-body items-center text-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-						<i class="fa-solid fa-envelope fa-xl"></i>
+						<IconEmailOutline class="text-xl" />
 						{$t('careers.how_to_apply.button')}
 					</a>
 				</div>

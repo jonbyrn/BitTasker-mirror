@@ -1,7 +1,19 @@
 export const homePageTranslations = {
 	en: {
+		'footer.company_name': 'BitTasker',
 		'footer.company_description':
 			'Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.',
+		'footer.social.twitter_aria': 'BitTasker on X (Twitter)',
+		'footer.social.facebook_aria': 'BitTasker on Facebook',
+		'footer.social.instagram_aria': 'BitTasker on Instagram',
+		'footer.social.youtube_aria': 'BitTasker on YouTube',
+		'footer.social.linkedin_aria': 'BitTasker on LinkedIn',
+		'footer.social.reddit_aria': 'BitTasker on Reddit',
+		'footer.social.tiktok_aria': 'BitTasker on TikTok',
+		'footer.social.rumble_aria': 'BitTasker on Rumble',
+		'footer.made_with': 'Made with',
+		'footer.and': 'and',
+		'footer.in_el_salvador': 'in El Salvador',
 		'footer.for_taskers': 'For Taskers',
 		'footer.post_task': 'Post a Task',
 		'footer.how_it_works': 'How It Works',
@@ -131,8 +143,20 @@ export const homePageTranslations = {
 		'homepage.v2.finalcta.get_started': 'Get Started'
 	},
 	es: {
+		'footer.company_name': 'BitTasker',
 		'footer.company_description':
 			'Conectamos a personas que buscan servicios con profesionales que ofrecen esos servicios, impulsados por Bitcoin e identidad descentralizada.',
+		'footer.social.twitter_aria': 'BitTasker en X (Twitter)',
+		'footer.social.facebook_aria': 'BitTasker en Facebook',
+		'footer.social.instagram_aria': 'BitTasker en Instagram',
+		'footer.social.youtube_aria': 'BitTasker en YouTube',
+		'footer.social.linkedin_aria': 'BitTasker en LinkedIn',
+		'footer.social.reddit_aria': 'BitTasker en Reddit',
+		'footer.social.tiktok_aria': 'BitTasker en TikTok',
+		'footer.social.rumble_aria': 'BitTasker en Rumble',
+		'footer.made_with': 'Hecho con',
+		'footer.and': 'y',
+		'footer.in_el_salvador': 'en El Salvador',
 		'footer.for_taskers': 'Para Taskers',
 		'footer.post_task': 'Publicar Tarea',
 		'footer.how_it_works': 'Cómo Funciona',

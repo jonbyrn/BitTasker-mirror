@@ -8,7 +8,7 @@
 
 <div class="card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col">
 	<figure>
-		<img src={task.image} alt={task.title} class="h-48 w-full object-cover" />
+		<img src={task.image} alt={task.title} class="h-48 w-full object-cover" loading="lazy" />
 	</figure>
 	<div class="card-body flex-1 flex flex-col">
 		<div class="h-14 mb-2"> <!-- Fixed height container for title -->

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
+	import IconCheck from '~icons/mdi/check';
 
 	// Props
 	let { 
@@ -12,6 +13,12 @@
 		tooltip = '',
 		onLanguageChange = null as ((code: Locales) => void) | null
 	} = $props();
+
+	// Flag image mapping
+	const FLAG_IMAGES: Record<Locales, string> = {
+		en: '/images/flags/us.webp',
+		es: '/images/flags/sv.webp'
+	};
 
 	// Language switcher handler
 	const handleLanguageChange = async (code: Locales) => {
@@ -99,11 +106,13 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={tooltip || `${$t('navbar.language')}: ${currentLanguageName}`}
 	>
-		<iconify-icon 
-			icon={getCurrentLanguageFlag($locale)} 
-			width="20" 
-			height="15"
-		></iconify-icon>
+		<img 
+			src={FLAG_IMAGES[$locale]} 
+			alt={`${currentLanguageName} flag`}
+			class="w-6 h-4.5 object-cover rounded-sm"
+			width="24"
+			height="18"
+		/>
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>
@@ -120,21 +129,26 @@
 		</svg>
 	</summary>
 	<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-		{#each LANGUAGES as { code, name, flag }}
+		{#each LANGUAGES as { code, name }}
 			<li>
 				<button
 					class="flex w-full items-center gap-2 text-left"
 					onclick={() => handleLanguageChange(code)}
 					class:bg-base-200={code === $locale}
 				>
-					<iconify-icon icon={flag} width="20" height="15"></iconify-icon>
+					<img 
+						src={FLAG_IMAGES[code]} 
+						alt={`${name} flag`}
+						class="w-6 h-4.5 object-cover rounded-sm"
+						width="24"
+						height="18"
+					/>
 					<span>{name}</span>
 					{#if showCheckmark && code === $locale}
-						<iconify-icon 
-							icon="mdi:check" 
+						<IconCheck 
 							class="text-primary ml-auto" 
 							width="16"
-						></iconify-icon>
+						/>
 					{/if}
 				</button>
 			</li>
