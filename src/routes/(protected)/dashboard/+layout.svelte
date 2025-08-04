@@ -117,21 +117,21 @@
 									class="flex items-center gap-3"
 								>
 									{#if section.icon === 'mdi:format-list-bulleted'}
-										<IconFormatListBulleted width="20" class="text-primary" />
+										<IconFormatListBulleted class="text-primary" />
 									{:else if section.icon === 'mdi:plus-circle'}
-										<IconPlusCircle width="20" class="text-primary" />
+										<IconPlusCircle class="text-primary" />
 									{:else if section.icon === 'mdi:magnify'}
-										<IconMagnify width="20" class="text-primary" />
+										<IconMagnify class="text-primary" />
 									{:else if section.icon === 'mdi:wallet'}
-										<IconWallet width="20" class="text-primary" />
+										<IconWallet class="text-primary" />
 									{:else if section.icon === 'mdi:account'}
-										<IconAccount width="20" class="text-primary" />
+										<IconAccount class="text-primary" />
 									{:else if section.icon === 'mdi:message'}
-										<IconMessage width="20" class="text-primary" />
+										<IconMessage class="text-primary" />
 									{:else if section.icon === 'mdi:cog'}
-										<IconCog width="20" class="text-primary" />
+										<IconCog class="text-primary" />
 									{:else}
-										<IconFormatListBulleted width="20" class="text-primary" />
+										<IconFormatListBulleted class="text-primary" />
 									{/if}
 									{$t(section.label)}
 								</a>

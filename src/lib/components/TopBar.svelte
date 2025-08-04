@@ -193,7 +193,7 @@
 		<!-- g{#if $showBackButton}
 			<!-- Mobile: Back button when applicable --
 			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
-				<IconArrowLeft width="24" />
+				<IconArrowLeft />
 			</button>
 		{/if}
 		{#if !$showBackButton && isLoggedIn}
@@ -231,15 +231,15 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconAccountCircle width="20" class="text-primary" />
+							<IconAccountCircle class="text-primary" />
 							<span>{$t('navbar.my_account')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
-													<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage width="20" class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
-						<li><a href="/dashboard/wallet" onclick={closeDropdowns}><IconWallet width="20" class="text-primary" /> <span>{$t('navbar.wallet')}</span></a></li>
-						<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount width="20" class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
-						<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog width="20" class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
-						<li><button onclick={logout} class="text-error flex items-center gap-2 w-full"><IconLogout width="20" class="text-error" /> <span>{$t('navbar.logout')}</span></button></li>
+													<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
+						<li><a href="/dashboard/wallet" onclick={closeDropdowns}><IconWallet class="text-primary" /> <span>{$t('navbar.wallet')}</span></a></li>
+						<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
+						<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
+						<li><button onclick={logout} class="text-error flex items-center gap-2 w-full"><IconLogout class="text-error" /> <span>{$t('navbar.logout')}</span></button></li>
 						</ul>
 					</details>
 				</li>
@@ -248,13 +248,13 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconBriefcaseOutline width="20" class="text-primary" />
+							<IconBriefcaseOutline class="text-primary" />
 							<span>{$t('navbar.task_management')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
-							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}><IconMagnify width="20" class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a></li>
-							<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted width="20" class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
-							<li><a href="/dashboard/create-task" onclick={closeDropdowns}><IconPlusCircle width="20" class="text-primary" /> <span>{$t('navbar.create_task')}</span></a></li>
+							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}><IconMagnify class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a></li>
+							<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
+							<li><a href="/dashboard/create-task" onclick={closeDropdowns}><IconPlusCircle class="text-primary" /> <span>{$t('navbar.create_task')}</span></a></li>
 						</ul>
 					</details>
 				</li>
@@ -263,16 +263,16 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<IconHelpCircleOutline width="20" class="text-primary" />
+							<IconHelpCircleOutline class="text-primary" />
 							<span>{$t('navbar.support_help')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
-							<li><a href="/how-it-works" onclick={closeDropdowns}><IconHelpCircleOutline width="20" class="text-primary" /> <span>{$t('navbar.how_it_works')}</span></a></li>
-							<li><a href="/faq" onclick={closeDropdowns}><IconFrequentlyAskedQuestions width="20" class="text-primary" /> <span>{$t('navbar.faq')}</span></a></li>
-							<li><a href="/contact" onclick={closeDropdowns}><IconEmailOutline width="20" class="text-primary" /> <span>{$t('navbar.contact_support')}</span></a></li>
-							<li><a href="/about" onclick={closeDropdowns}><IconInformationOutline width="20" class="text-primary" /> <span>{$t('navbar.about_us')}</span></a></li>
-							<li><a href="/terms" onclick={closeDropdowns}><IconFileDocumentOutline width="20" class="text-primary" /> <span>{$t('navbar.terms_of_service')}</span></a></li>
-							<li><a href="/privacy" onclick={closeDropdowns}><IconShieldAccount width="20" class="text-primary" /> <span>{$t('navbar.privacy_policy')}</span></a></li>
+							<li><a href="/how-it-works" onclick={closeDropdowns}><IconHelpCircleOutline class="text-primary" /> <span>{$t('navbar.how_it_works')}</span></a></li>
+							<li><a href="/faq" onclick={closeDropdowns}><IconFrequentlyAskedQuestions class="text-primary" /> <span>{$t('navbar.faq')}</span></a></li>
+							<li><a href="/contact" onclick={closeDropdowns}><IconEmailOutline class="text-primary" /> <span>{$t('navbar.contact_support')}</span></a></li>
+							<li><a href="/about" onclick={closeDropdowns}><IconInformationOutline class="text-primary" /> <span>{$t('navbar.about_us')}</span></a></li>
+							<li><a href="/terms" onclick={closeDropdowns}><IconFileDocumentOutline class="text-primary" /> <span>{$t('navbar.terms_of_service')}</span></a></li>
+							<li><a href="/privacy" onclick={closeDropdowns}><IconShieldAccount class="text-primary" /> <span>{$t('navbar.privacy_policy')}</span></a></li>
 						</ul>
 					</details>
 				</li>
@@ -280,31 +280,31 @@
 			{:else}
 				<li>
 					<a href="/how-it-works" class="btn btn-ghost">
-						<IconHelpCircleOutline width="20" class="text-primary" />
+						<IconHelpCircleOutline class="text-primary" />
 						<span>{$t('footer.how_it_works')}</span>
 					</a>
 				</li>
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<IconBriefcaseOutline width="20" class="text-primary" />
+							<IconBriefcaseOutline class="text-primary" />
 							<span>{$t('footer.for_taskers')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
 							<li><a href="/dashboard/create-task" onclick={closeDropdowns}>
-								<IconPlusCircle width="20" class="text-primary" />
+								<IconPlusCircle class="text-primary" />
 								<span>{$t('footer.post_task')}</span>
 							</a></li>
 							<li><a href="/tasker-fees" onclick={closeDropdowns}>
-								<IconCurrencyUsd width="20" class="text-primary" />
+								<IconCurrencyUsd class="text-primary" />
 								<span>{$t('footer.tasker_fees')}</span>
 							</a></li>
 							<li><a href="/escrow" onclick={closeDropdowns}>
-								<IconShieldCheckOutline width="20" class="text-primary" />
+								<IconShieldCheckOutline class="text-primary" />
 								<span>{$t('footer.escrow')}</span>
 							</a></li>
 							<li><a href="/faq" onclick={closeDropdowns}>
-								<IconFrequentlyAskedQuestions width="20" class="text-primary" />
+								<IconFrequentlyAskedQuestions class="text-primary" />
 								<span>{$t('footer.faq')}</span>
 							</a></li>
 						</ul>
@@ -313,28 +313,28 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<IconAccountHardHat width="20" class="text-primary" />
+							<IconAccountHardHat class="text-primary" />
 							<span>{$t('footer.for_taskees')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
 							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>
-								<IconMagnify width="20" class="text-primary" />
+								<IconMagnify class="text-primary" />
 								<span>{$t('footer.start_earning')}</span>
 							</a></li>
 							<li><a href="/community-guidelines" onclick={closeDropdowns}>
-								<IconAccountGroup width="20" class="text-primary" />
+								<IconAccountGroup class="text-primary" />
 								<span>{$t('footer.community_guidelines')}</span>
 							</a></li>
 							<li><a href="/taskee-fees" onclick={closeDropdowns}>
-								<IconCurrencyUsd width="20" class="text-primary" />
+								<IconCurrencyUsd class="text-primary" />
 								<span>{$t('footer.taskee_fees')}</span>
 							</a></li>
 							<li><a href="/tasker-principles" onclick={closeDropdowns}>
-								<IconHandshake width="20" class="text-primary" />
+								<IconHandshake class="text-primary" />
 								<span>{$t('footer.tasker_principles')}</span>
 							</a></li>
 							<li><a href="/faq" onclick={closeDropdowns}>
-								<IconFrequentlyAskedQuestions width="20" class="text-primary" />
+								<IconFrequentlyAskedQuestions class="text-primary" />
 								<span>{$t('footer.tasker_faq')}</span>
 							</a></li>
 						</ul>
@@ -343,36 +343,36 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<IconDomain width="20" class="text-primary" />
+							<IconDomain class="text-primary" />
 							<span>{$t('footer.company')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
 							<li><a href="/about" onclick={closeDropdowns}>
-								<IconInformationOutline width="20" class="text-primary" />
+								<IconInformationOutline class="text-primary" />
 								<span>{$t('footer.about_us')}</span>
 							</a></li>
 							<li><a href="/security" onclick={closeDropdowns}>
-								<IconShieldCheck width="20" class="text-primary" />
+								<IconShieldCheck class="text-primary" />
 								<span>{$t('footer.security')}</span>
 							</a></li>
 							<li><a href="/careers" onclick={closeDropdowns}>
-								<IconBriefcaseSearch width="20" class="text-primary" />
+								<IconBriefcaseSearch class="text-primary" />
 								<span>{$t('footer.careers')}</span>
 							</a></li>
 							<li><a href="/press" onclick={closeDropdowns}>
-								<IconNewspaper width="20" class="text-primary" />
+								<IconNewspaper class="text-primary" />
 								<span>{$t('footer.press')}</span>
 							</a></li>
 							<li><a href="/terms" onclick={closeDropdowns}>
-								<IconFileDocumentOutline width="20" class="text-primary" />
+								<IconFileDocumentOutline class="text-primary" />
 								<span>{$t('footer.terms')}</span>
 							</a></li>
 							<li><a href="/privacy" onclick={closeDropdowns}>
-								<IconShieldAccount width="20" class="text-primary" />
+								<IconShieldAccount class="text-primary" />
 								<span>{$t('footer.privacy')}</span>
 							</a></li>
 							<li><a href="/contact" onclick={closeDropdowns}>
-								<IconEmailOutline width="20" class="text-primary" />
+								<IconEmailOutline class="text-primary" />
 								<span>{$t('footer.contact')}</span>
 							</a></li>
 						</ul>
@@ -400,11 +400,11 @@
 					<Avatar />
 				</summary>
 				<ul class="menu dropdown-content bg-base-100 rounded-box z-10 w-56 p-2 shadow-md right-0 mt-2">
-												<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted width="20" class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
-							<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount width="20" class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
-							<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage width="20" class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
-							<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog width="20" class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
-							<li><button onclick={logout} class="text-error flex items-center gap-2"><IconLogout width="20" class="text-error" /> <span>{$t('navbar.logout')}</span></button></li>
+												<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
+							<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
+							<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
+							<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
+							<li><button onclick={logout} class="text-error flex items-center gap-2"><IconLogout class="text-error" /> <span>{$t('navbar.logout')}</span></button></li>
 				</ul>
 			</details>
 		{/if}
@@ -424,7 +424,7 @@
 			{#if isLoggedIn}
 				<li>
 					<a href="/dashboard/settings" onclick={closeDrawer} class="flex items-center gap-2">
-													<IconCog width="20" />
+													<IconCog />
 						{$t('navbar.settings')}
 					</a>
 				</li>
@@ -434,19 +434,19 @@
 
 			<li>
 				<a href="/" onclick={closeDrawer} class="flex items-center gap-2">
-											<IconHome width="20" />
+											<IconHome />
 					{$t('navbar.home')}
 				</a>
 			</li>
 			<li>
 				<a href="/how-it-works" onclick={closeDrawer} class="flex items-center gap-2">
-											<IconHelpCircleOutline width="20" />
+											<IconHelpCircleOutline />
 					{$t('navbar.how_it_works')}
 				</a>
 			</li>
 			<li>
 				<a href="/terms" onclick={closeDrawer} class="flex items-center gap-2">
-											<IconFileDocumentOutline width="20" />
+											<IconFileDocumentOutline />
 					{$t('navbar.terms_and_conditions')}
 				</a>
 			</li>
@@ -458,7 +458,7 @@
 			{#if isLoggedIn}
 				<li>
 					<button onclick={logout} class="flex items-center gap-2">
-													<IconLogout width="20" />
+													<IconLogout />
 						{$t('navbar.logout')}
 					</button>
 				</li>
@@ -468,14 +468,14 @@
 						class="btn btn-secondary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
-													<IconLogin width="20" />
+													<IconLogin />
 						{$t('navbar.login')}
 					</a>
 					<a href="/auth/signup"
 						class="btn btn-primary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
-													<IconAccountPlus width="20" />
+													<IconAccountPlus />
 						{$t('navbar.signup')}
 					</a>
 				</li>

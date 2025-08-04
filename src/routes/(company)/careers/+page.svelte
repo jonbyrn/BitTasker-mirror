@@ -351,7 +351,7 @@
 
 				<div class="card-body items-center text-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-						<IconEmailOutline width="24" class="text-xl" />
+						<IconEmailOutline class="text-xl" />
 						{$t('careers.how_to_apply.button')}
 					</a>
 				</div>

@@ -74,7 +74,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<IconStar width="24" class="text-primary mr-4 text-xl" />
+								<IconStar class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.1.title')}</h4>
 									<p>{$t('taskee_principles.1.text')}</p>
@@ -86,7 +86,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<IconCommentMultipleOutline width="24" class="text-primary mr-4 text-xl" />
+								<IconCommentMultipleOutline class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.2.title')}</h4>
 									<p>{$t('taskee_principles.2.text')}</p>
@@ -98,7 +98,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<IconCheckCircle width="24" class="text-primary mr-4 text-xl" />
+								<IconCheckCircle class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.3.title')}</h4>
 									<p>{$t('taskee_principles.3.text')}</p>
@@ -110,7 +110,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<IconShieldAccount width="24" class="text-primary mr-4 text-xl" />
+								<IconShieldAccount class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.4.title')}</h4>
 									<p>{$t('taskee_principles.4.text')}</p>
@@ -122,7 +122,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<IconHandshake width="24" class="text-primary mr-4 text-xl" />
+								<IconHandshake class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.5.title')}</h4>
 									<p>{$t('taskee_principles.5.text')}</p>

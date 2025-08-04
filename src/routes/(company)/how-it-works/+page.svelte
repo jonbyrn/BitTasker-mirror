@@ -416,7 +416,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFileUpload width="24" class="text-primary mr-4 text-xl px-2" />
+										<IconFileUpload class="text-primary mr-4 text-xl px-2" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
 											<p>{$t('how_it_works.step_4.files.description')}</p>
@@ -428,7 +428,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFlagCheckered width="24" class="text-primary mr-4 text-xl px-2" />
+										<IconFlagCheckered class="text-primary mr-4 text-xl px-2" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
 											<p>{$t('how_it_works.step_4.milestones.description')}</p>
@@ -440,7 +440,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconHandshake width="24" class="text-primary mr-4 text-xl px-2" />
+										<IconHandshake class="text-primary mr-4 text-xl px-2" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
 											<p>{$t('how_it_works.step_4.completion.description')}</p>
@@ -489,7 +489,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLock width="24" class="text-primary mr-4 text-xl px-2" />
+										<IconLock class="text-primary mr-4 text-xl px-2" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -501,7 +501,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconClockOutline width="24" class="text-primary mr-4 text-xl px-2" />
+										<IconClockOutline class="text-primary mr-4 text-xl px-2" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -513,7 +513,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLightningBolt width="24" class="text-primary mr-4 text-xl px-2" />
+										<IconLightningBolt class="text-primary mr-4 text-xl px-2" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
@@ -563,23 +563,23 @@
 
 		<div class="mt-12 flex flex-wrap justify-center gap-6">
 			<a href="/security" class="link link-hover flex items-center gap-2">
-				<IconShieldCheck width="20" />
+				<IconShieldCheck />
 				{$t('common.link.security')}
 			</a>
 			<a href="/privacy" class="link link-hover flex items-center gap-2">
-				<IconShieldAccount width="20" />
+				<IconShieldAccount />
 				{$t('common.link.privacy')}
 			</a>
 			<a href="/escrow" class="link link-hover flex items-center gap-2">
-				<IconSafe width="20" />
+				<IconSafe />
 				{$t('common.link.escrow')}
 			</a>
 			<a href="/taskee-principles" class="link link-hover flex items-center gap-2">
-				<IconTrophy width="20" />
+				<IconTrophy />
 				{$t('common.link.taskee_principles')}
 			</a>
 			<a href="/community-guidelines" class="link link-hover flex items-center gap-2">
-				<IconHandshake width="20" />
+				<IconHandshake />
 				{$t('common.link.community_guidelines')}
 			</a>
 		</div>

@@ -68,7 +68,7 @@
 				<p>{$t('contact.general_info')}</p>
 				<div class="card-actions justify-end">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-						<IconEmailOutline width="24" class="text-xl" />
+						<IconEmailOutline class="text-xl" />
 						{$t('contact.send_button')}
 					</a>
 				</div>

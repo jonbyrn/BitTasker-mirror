@@ -98,7 +98,7 @@
 				<p class="mx-auto mb-6 max-w-lg">{$t('press.inquiries.description')}</p>
 				<div class="card-actions mt-4 flex justify-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide">
-						<IconEmailOutline width="24" class="text-xl mr-2" />
+						<IconEmailOutline class="text-xl mr-2" />
 						{$t('press.inquiries.button')}
 					</a>
 				</div>

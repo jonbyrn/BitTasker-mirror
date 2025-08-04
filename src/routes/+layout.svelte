@@ -333,21 +333,21 @@
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.facebook_aria')}"
 								>
-									<IconFacebook width="20" />
+									<IconFacebook />
 								</a>
 								<a
 									href="https://instagram.com/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.instagram_aria')}"
 								>
-									<IconInstagram width="20" />
+									<IconInstagram />
 								</a>
 								<a
 									href="https://youtube.com/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.youtube_aria')}"
 								>
-									<IconYoutube width="20" />
+									<IconYoutube />
 								</a>
 							</div>
 							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
@@ -357,28 +357,28 @@
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.linkedin_aria')}"
 								>
-									<IconLinkedin width="20" />
+									<IconLinkedin />
 								</a>
 								<a
 									href="https://reddit.com/r/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.reddit_aria')}"
 								>
-									<IconReddit width="20" />
+									<IconReddit />
 								</a>
 								<a
 									href="https://tiktok.com/@bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.tiktok_aria')}"
 								>
-									<IconMusicNoteEighth width="20" />
+									<IconMusicNoteEighth />
 								</a>
 								<a
 									href="https://rumble.com/c/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.rumble_aria')}"
 								>
-									<IconPlay width="20" />
+									<IconPlay />
 								</a>
 							</div>
 						</div>

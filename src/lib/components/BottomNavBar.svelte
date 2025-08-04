@@ -276,7 +276,7 @@
 						<!-- Logout -->
 						<li>
 							<button onclick={() => { closeMenu(); /* Add logout logic here */ }} class="min-h-[48px] py-3 w-full text-left">
-								<IconLogout width="24" class="text-error" />
+								<IconLogout class="text-error" />
 								<span class="font-medium text-error">{$t('navbar.logout')}</span>
 							</button>
 						</li>
@@ -284,7 +284,7 @@
 						<!-- Support & Help -->
 						<li>
 							<button onclick={toggleCompany} class="min-h-[48px] py-3">
-								<IconHelpCircleOutline width="24" class="text-primary" />
+								<IconHelpCircleOutline class="text-primary" />
 								<span class="font-medium">{$t('navbar.support_help')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -305,37 +305,37 @@
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/how-it-works" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconHelpCircleOutline width="20" class="text-primary" />
+									<IconHelpCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.how_it_works')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconFrequentlyAskedQuestions width="20" class="text-primary" />
+									<IconFrequentlyAskedQuestions class="text-primary" />
 									<span class="font-medium">{$t('navbar.faq')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconEmailOutline width="20" class="text-primary" />
+									<IconEmailOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.contact_support')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconInformationOutline width="20" class="text-primary" />
+									<IconInformationOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.about_us')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconFileDocumentOutline width="20" class="text-primary" />
+									<IconFileDocumentOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.terms_of_service')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconShieldAccount width="20" class="text-primary" />
+									<IconShieldAccount class="text-primary" />
 									<span class="font-medium">{$t('navbar.privacy_policy')}</span>
 								</a>
 							</li>
@@ -344,7 +344,7 @@
 						<!-- Task Management -->
 						<li>
 							<button onclick={toggleTaskees} class="min-h-[48px] py-3">
-								<IconBriefcaseOutline width="24" class="text-primary" />
+								<IconBriefcaseOutline class="text-primary" />
 								<span class="font-medium">{$t('navbar.task_management')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -365,19 +365,19 @@
 						{#if isTaskeesOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconMagnify width="20" class="text-primary" />
+									<IconMagnify class="text-primary" />
 									<span class="font-medium">{$t('navbar.find_tasks')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconFormatListBulleted width="20" class="text-primary" />
+									<IconFormatListBulleted class="text-primary" />
 									<span class="font-medium">{$t('navbar.my_tasks')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconPlusCircle width="20" class="text-primary" />
+									<IconPlusCircle class="text-primary" />
 									<span class="font-medium">{$t('navbar.create_task')}</span>
 								</a>
 							</li>
@@ -386,7 +386,7 @@
 						<!-- My Account -->
 						<li>
 							<button onclick={toggleTaskers} class="min-h-[48px] py-3">
-								<IconAccountCircle width="24" class="text-primary" />
+								<IconAccountCircle class="text-primary" />
 								<span class="font-medium">{$t('navbar.my_account')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -407,25 +407,25 @@
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/messages" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconMessage width="20" class="text-primary" />
+									<IconMessage class="text-primary" />
 									<span class="font-medium">{$t('navbar.messages')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/wallet" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconWallet width="20" class="text-primary" />
+									<IconWallet class="text-primary" />
 									<span class="font-medium">{$t('navbar.wallet')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/profile" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconAccount width="20" class="text-primary" />
+									<IconAccount class="text-primary" />
 									<span class="font-medium">{$t('navbar.profile')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/settings" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconCog width="20" class="text-primary" />
+									<IconCog class="text-primary" />
 									<span class="font-medium">{$t('navbar.settings')}</span>
 								</a>
 							</li>
@@ -440,7 +440,7 @@
 							class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
 							onclick={closeMenu}
 						>
-							<IconLogin width="20" />
+							<IconLogin />
 							{$t('navbar.login')}
 						</a>
 						<a
@@ -448,7 +448,7 @@
 							class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
 							onclick={closeMenu}
 						>
-							<IconAccountPlus width="20" />
+							<IconAccountPlus />
 							{$t('navbar.signup')}
 						</a>
 					</div>
@@ -456,13 +456,13 @@
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
 							<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
-								<IconHome width="24" class="text-primary" />
+								<IconHome class="text-primary" />
 								<span class="font-medium">{$t('navbar.home')}</span>
 							</a>
 						</li>
 						<li>
 							<a href="/how-it-works" onclick={closeMenu} class="min-h-[48px] py-3">
-								<IconHelpCircleOutline width="24" class="text-primary" />
+								<IconHelpCircleOutline class="text-primary" />
 								<span class="font-medium">{$t('footer.how_it_works')}</span>
 							</a>
 						</li>
@@ -470,7 +470,7 @@
 						<!-- For Taskers collapse -->
 						<li>
 							<button onclick={toggleTaskers} class="min-h-[48px] py-3">
-								<IconBriefcaseOutline width="24" class="text-primary" />
+								<IconBriefcaseOutline class="text-primary" />
 								<span class="font-medium">{$t('footer.for_taskers')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -491,26 +491,26 @@
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconPlusCircleOutline width="20" class="text-primary" />
+									<IconPlusCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.post_task')}</span>
 								</a>
 							</li>
 						
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconCurrencyUsd width="20" class="text-primary" />
+									<IconCurrencyUsd class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconShieldCheckOutline width="20" class="text-primary" />
+									<IconShieldCheckOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.escrow')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconFrequentlyAskedQuestions width="20" class="text-primary" />
+									<IconFrequentlyAskedQuestions class="text-primary" />
 									<span class="font-medium">{$t('footer.faq')}</span>
 								</a>
 							</li>
@@ -519,7 +519,7 @@
 						<!-- For Taskees collapse -->
 						<li>
 							<button onclick={toggleTaskees} class="min-h-[48px] py-3">
-								<IconAccountHardHat width="24" class="text-primary" />
+								<IconAccountHardHat class="text-primary" />
 								<span class="font-medium">{$t('footer.for_taskees')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -540,31 +540,31 @@
 						{#if isTaskeesOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconCurrencyBtc width="20" class="text-primary" />
+									<IconCurrencyBtc class="text-primary" />
 									<span class="font-medium">{$t('footer.start_earning')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/community-guidelines" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconAccountGroup width="20" class="text-primary" />
+									<IconAccountGroup class="text-primary" />
 									<span class="font-medium">{$t('footer.community_guidelines')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<IconCurrencyUsd width="20" class="text-primary" />
+									<IconCurrencyUsd class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconHandshake width="20" class="text-primary" />
+									<IconHandshake class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_principles')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconFrequentlyAskedQuestions width="20" class="text-primary" />
+									<IconFrequentlyAskedQuestions class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_faq')}</span>
 								</a>
 							</li>
@@ -573,7 +573,7 @@
 						<!-- Company collapse -->
 						<li>
 							<button onclick={toggleCompany} class="min-h-[48px] py-3">
-								<IconDomain width="24" class="text-primary" />
+								<IconDomain class="text-primary" />
 								<span class="font-medium">{$t('footer.company')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -594,43 +594,43 @@
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconInformationOutline width="20" class="text-primary" />
+									<IconInformationOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.about_us')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconShieldCheck width="20" class="text-primary" />
+									<IconShieldCheck class="text-primary" />
 									<span class="font-medium">{$t('footer.security')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/careers" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconBriefcaseSearch width="20" class="text-primary" />
+									<IconBriefcaseSearch class="text-primary" />
 									<span class="font-medium">{$t('footer.careers')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/press" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconNewspaper width="20" class="text-primary" />
+									<IconNewspaper class="text-primary" />
 									<span class="font-medium">{$t('footer.press')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconFileDocumentOutline width="20" class="text-primary" />
+									<IconFileDocumentOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.terms')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconShieldAccount width="20" class="text-primary" />
+									<IconShieldAccount class="text-primary" />
 									<span class="font-medium">{$t('footer.privacy')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconEmailOutline width="20" class="text-primary" />
+									<IconEmailOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.contact')}</span>
 								</a>
 							</li>
@@ -652,7 +652,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconHome width="24" class="text-primary-content" />
+			<IconHome class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
 		</a>
 
@@ -662,7 +662,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'create-task' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconPlusCircle width="24" class="text-primary-content" />
+			<IconPlusCircle class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.new_task')}</span>
 		</a>
 
@@ -698,7 +698,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'wallet' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconWallet width="24" class="text-primary-content" />
+			<IconWallet class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.wallet')}</span>
 		</a>
 
@@ -708,7 +708,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'messages' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconMessage width="24" class="text-primary-content" />
+			<IconMessage class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.messages')}</span>
 		</a>
 	</div>
@@ -717,20 +717,20 @@
 		<!-- Home -->
 		<a
 			href="/"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconHome width="24" class="text-primary-content" />
+			<IconHome class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
 		</a>
 
 		<!-- About -->
 		<a
 			href="/about"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'about' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'about' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconInformationOutline width="24" class="text-primary-content" />
+			<IconInformationOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.about')}</span>
 		</a>
 
@@ -763,20 +763,20 @@
 		<!-- How It Works -->
 		<a
 			href="/how-it-works"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'help' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'help' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconHelpCircleOutline width="24" class="text-primary-content" />
+			<IconHelpCircleOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.help')}</span>
 		</a>
 
 		<!-- Sign Up -->
 		<a
 			href="/auth/signup"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'signup' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'signup' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconAccountPlus width="24" class="text-primary-content" />
+			<IconAccountPlus class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.signup')}</span>
 		</a>
 	</div>

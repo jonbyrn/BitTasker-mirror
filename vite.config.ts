@@ -16,8 +16,8 @@ export default defineConfig({
 		Icons({
 			compiler: 'svelte',
 			autoInstall: true,
-			scale: 1.2,
-			defaultStyle: '',
+			scale: 1.5,
+			defaultStyle: 'width: 1.5em; height: 1.5em;',
 			defaultClass: '',
 		}),
 		visualizer({ open: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
