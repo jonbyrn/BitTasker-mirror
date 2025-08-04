@@ -2,8 +2,6 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from '$lib/stores/i18n.store';
 	import { onMount, onDestroy } from 'svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { liveTasks, featuredTaskees } from '$lib/utils/constants/homepage.constants';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import TaskeeCard from '$lib/components/homepage/TaskeeCard.svelte';

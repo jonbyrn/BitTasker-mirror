@@ -5,6 +5,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Font Awesome CSS */
+
+
 /* Fonts are now loaded via HTML link tags for better performance */
 
 * {

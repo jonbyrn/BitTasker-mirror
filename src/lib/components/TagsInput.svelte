@@ -127,6 +127,7 @@
 			tabindex="0"
 			role="combobox"
 			aria-expanded={isOpen}
+			aria-controls="tags-dropdown-{id}"
 			class="input input-bordered flex min-h-[2.5rem] w-full flex-wrap gap-2 p-1 {error
 				? 'input-error'
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
@@ -175,6 +176,7 @@
 
 		{#if filteredOptions.length > 0}
 			<ul
+				id="tags-dropdown-{id}"
 				tabindex="-1"
 				class="dropdown-content menu menu-vertical z-[9999] mt-1 max-h-60 rounded-box bg-base-200 p-2 shadow w-full"
 				role="listbox"
@@ -182,14 +184,17 @@
 			>
 				{#each filteredOptions as option, index}
 					<li>
-						<a
+						<button
+							type="button"
+							tabindex="0"
 							onclick={() => addTag(option)}
 							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
 							role="option"
 							aria-selected={filteredOptions[index] === inputValue}
+							class="w-full text-left p-2 hover:bg-base-300 rounded"
 						>
 							<span class="font-medium">{option}</span>
-						</a>
+						</button>
 					</li>
 				{/each}
 			</ul>

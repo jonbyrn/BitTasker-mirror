@@ -45,4 +45,17 @@ declare global {
 	const __APP_VERSION__: string;
 }
 
+// unplugin-icons type declarations
+declare module '~icons/*' {
+	import type { ComponentType } from 'svelte';
+	const component: ComponentType;
+	export default component;
+}
+
+declare module '~icons/mdi/*' {
+	import type { ComponentType } from 'svelte';
+	const component: ComponentType;
+	export default component;
+}
+
 export { };

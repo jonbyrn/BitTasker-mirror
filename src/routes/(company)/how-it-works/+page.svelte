@@ -1,7 +1,17 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from '$lib/stores/i18n.store';
-	import { darkMode } from '$lib/stores/theme.store';
+	// Icon imports for unplugin-icons
+	import IconFileUpload from '~icons/mdi/file-upload';
+	import IconFlagCheckered from '~icons/mdi/flag-checkered';
+	import IconHandshake from '~icons/mdi/handshake';
+	import IconLock from '~icons/mdi/lock';
+	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconLightningBolt from '~icons/mdi/lightning-bolt';
+	import IconShieldCheck from '~icons/mdi/shield-check';
+	import IconShieldAccount from '~icons/mdi/shield-account';
+	import IconSafe from '~icons/mdi/safe';
+	import IconTrophy from '~icons/mdi/trophy';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -405,7 +415,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-file-arrow-up text-primary mr-4 text-xl px-2"></i>
+										<IconFileUpload class="text-primary mr-4 text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
 											<p>{$t('how_it_works.step_4.files.description')}</p>
@@ -417,7 +427,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-flag text-primary mr-4 text-xl px-2"></i>
+										<IconFlagCheckered class="text-primary mr-4 text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
 											<p>{$t('how_it_works.step_4.milestones.description')}</p>
@@ -429,7 +439,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-handshake text-primary mr-4 text-xl px-2"></i>
+										<IconHandshake class="text-primary mr-4 text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
 											<p>{$t('how_it_works.step_4.completion.description')}</p>
@@ -460,6 +470,7 @@
 			</div>
 
 			<!-- Step 5: Get Paid -->
+			<!-- Note: It's not clear why, but we need to use text-3xl to make the icon sizes below match the ones above -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">5</div>
@@ -478,7 +489,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-lock text-primary mr-4 text-xl px-2"></i>
+										<IconLock class="text-primary mr-4 text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -490,7 +501,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-clock text-primary mr-4 text-xl px-2"></i>
+										<IconClockOutline class="text-primary mr-4 text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -502,7 +513,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<i class="fa-solid fa-bolt text-primary mr-4 text-xl px-2"></i>
+										<IconLightningBolt class="text-primary mr-4 text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
@@ -552,23 +563,23 @@
 
 		<div class="mt-12 flex flex-wrap justify-center gap-6">
 			<a href="/security" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-shield-halved"></i>
+				<IconShieldCheck />
 				{$t('common.link.security')}
 			</a>
 			<a href="/privacy" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-user-shield"></i>
+				<IconShieldAccount />
 				{$t('common.link.privacy')}
 			</a>
 			<a href="/escrow" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-vault"></i>
+				<IconSafe />
 				{$t('common.link.escrow')}
 			</a>
 			<a href="/taskee-principles" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-medal"></i>
+				<IconTrophy />
 				{$t('common.link.taskee_principles')}
 			</a>
 			<a href="/community-guidelines" class="link link-hover flex items-center gap-2">
-				<i class="fa-solid fa-handshake"></i>
+				<IconHandshake />
 				{$t('common.link.community_guidelines')}
 			</a>
 		</div>
