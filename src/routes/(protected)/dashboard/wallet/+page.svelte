@@ -8,11 +8,10 @@
 	import { goto } from '$app/navigation';
 	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
 	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
-	import PaymentRequestForm from './_components/receiveTab/PaymentRequestForm.svelte';
-	// import NetworkSelection from './_components/receiveTab/NetworkSelection.svelte';
-	import TransactionHistory from './_components/transactionsTab/TransactionHistory.svelte';
-	import EnhancedSendForm from './_components/sendTab/EnhancedSendForm.svelte';
-	import SwapDashboard from './_components/swapTab/SwapDashboard.svelte';
+	import PaymentRequestForm from './_components/PaymentRequestForm.svelte';
+	import TransactionHistory from './_components/TransactionHistory.svelte';
+	import EnhancedSendForm from './_components/sendTab/SendForm.svelte';
+	import SwapDashboard from './_components/SwapDashboard.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import {
 		connectToBreez,
@@ -273,10 +272,6 @@
 		{#if activeTab === 'receive'}
 			<div class="space-y-6">
 				<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
-
-				<!-- Network Selection -->
-				<!-- TODO: Implement this section -->
-				<!-- <NetworkSelection /> -->
 
 				<!-- Request Payment Form -->
 				<PaymentRequestForm />

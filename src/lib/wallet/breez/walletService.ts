@@ -524,7 +524,6 @@ export const parseInputAdvanced = async (input: string): Promise<InputType> => {
 
 	try {
 		const parsed = await sdk.parse(input);
-		console.log('📋 Input parsed:', { type: parsed.type, input });
 		return parsed;
 	} catch (error) {
 		console.error('Failed to parse input:', error);

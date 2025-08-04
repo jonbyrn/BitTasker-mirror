@@ -23,6 +23,7 @@
 	let { 
 		selectedAsset = $bindable('L-BTC'),
 		onAssetChange = () => {},
+		onBalanceUpdate = () => {},
 		showBalance = true,
 		disabled = false,
 		filterZeroBalances = false
@@ -146,11 +147,21 @@
 				onAssetChange(selectedAsset);
 			}
 
+			// Notify parent about balance update
+			notifyBalanceUpdate();
+
 		} catch (err) {
 			console.error('Failed to load assets:', err);
 			error = 'Failed to load asset balances';
 		} finally {
 			isLoading = false;
+		}
+	}
+	
+	function notifyBalanceUpdate() {
+		const currentAsset = getSelectedAsset();
+		if (currentAsset && onBalanceUpdate) {
+			onBalanceUpdate(currentAsset.balance, currentAsset.precision, currentAsset.ticker);
 		}
 	}
 
@@ -159,6 +170,7 @@
 		
 		selectedAsset = assetId;
 		onAssetChange(assetId);
+		notifyBalanceUpdate();
 	}
 
 	function formatBalance(balance: number, precision: number): string {
