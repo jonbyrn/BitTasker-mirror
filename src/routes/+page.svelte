@@ -14,10 +14,10 @@
 
 	// Map of feature images - using custom SVG illustrations from static directory
 	const featureImages: Record<FeatureId, string> = {
-		nostr: '/images/features/nostr-decentralized.jpg',
-		bitcoin: '/images/features/bitcoin-money.jpg',
-		payments: '/images/features/pay-your-way.jpg',
-		escrow: '/images/features/bitcoin-escrow.jpg'
+		nostr: '/images/features/nostr-decentralized.webp',
+		bitcoin: '/images/features/bitcoin-money.webp',
+		payments: '/images/features/pay-your-way.webp',
+		escrow: '/images/features/bitcoin-escrow.webp'
 	};
 
 	// Translation key mappings for type safety
@@ -136,6 +136,7 @@
 								src={featureImages[featureIds[activeFeatureIndex]]}
 								alt={$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 								class="h-72 w-full object-cover transition-opacity duration-500 md:h-96"
+								loading="lazy"
 							/>
 						</figure>
 

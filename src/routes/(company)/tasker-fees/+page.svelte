@@ -103,7 +103,7 @@
 					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
-							src="/images/BitTasker-Nakamoto-Newbie-512x512.webp"
+							src="/images/badges/BitTasker-Nakamoto-Newbie-256x256.webp"
 							alt="Nakamoto Newbie Badge"
 							class="h-48 w-48 object-contain"
 						/>
@@ -132,7 +132,7 @@
 					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
-							src="/images/BitTasker-Satoshi-Stacker-512x512.webp"
+							src="/images/badges/BitTasker-Satoshi-Stacker-256x256.webp"
 							alt="Satoshi Stacker Badge"
 							class="h-48 w-48 object-contain"
 						/>
@@ -161,7 +161,7 @@
 					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
-							src="/images/BitTasker-Hash-Master-512x512.webp"
+							src="/images/badges/BitTasker-Hash-Master-256x256.webp"
 							alt="Hash Master Badge"
 							class="h-48 w-48 object-contain"
 						/>

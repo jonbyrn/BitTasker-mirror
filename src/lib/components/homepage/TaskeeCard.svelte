@@ -11,7 +11,7 @@
 	<div class="card-body items-center">
 		<div class="avatar">
 			<div class="w-24 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100">
-				<img src={taskee.avatar} alt="Avatar of {taskee.name}" />
+				<img src={taskee.avatar} alt="Avatar of {taskee.name}" loading="lazy" />
 			</div>
 		</div>
 		<h6 class="card-title mt-4">{taskee.name}</h6>
