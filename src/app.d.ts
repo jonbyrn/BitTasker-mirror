@@ -47,7 +47,13 @@ declare global {
 
 // unplugin-icons type declarations
 declare module '~icons/*' {
-	import { ComponentType } from 'svelte';
+	import type { ComponentType } from 'svelte';
+	const component: ComponentType;
+	export default component;
+}
+
+declare module '~icons/mdi/*' {
+	import type { ComponentType } from 'svelte';
 	const component: ComponentType;
 	export default component;
 }

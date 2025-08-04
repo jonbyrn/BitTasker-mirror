@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from '$lib/stores/i18n.store';
-	import { darkMode } from '$lib/stores/theme.store';
 	// Icon imports for unplugin-icons
 	import IconFileUpload from '~icons/mdi/file-upload';
 	import IconFlagCheckered from '~icons/mdi/flag-checkered';
@@ -416,7 +415,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFileUpload class="text-primary mr-4 text-xl px-2" />
+										<IconFileUpload class="text-primary mr-4 text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
 											<p>{$t('how_it_works.step_4.files.description')}</p>
@@ -428,7 +427,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFlagCheckered class="text-primary mr-4 text-xl px-2" />
+										<IconFlagCheckered class="text-primary mr-4 text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
 											<p>{$t('how_it_works.step_4.milestones.description')}</p>
@@ -440,7 +439,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconHandshake class="text-primary mr-4 text-xl px-2" />
+										<IconHandshake class="text-primary mr-4 text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
 											<p>{$t('how_it_works.step_4.completion.description')}</p>
@@ -471,6 +470,7 @@
 			</div>
 
 			<!-- Step 5: Get Paid -->
+			<!-- Note: It's not clear why, but we need to use text-3xl to make the icon sizes below match the ones above -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">5</div>
@@ -489,7 +489,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLock class="text-primary mr-4 text-xl px-2" />
+										<IconLock class="text-primary mr-4 text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -501,7 +501,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconClockOutline class="text-primary mr-4 text-xl px-2" />
+										<IconClockOutline class="text-primary mr-4 text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -513,7 +513,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLightningBolt class="text-primary mr-4 text-xl px-2" />
+										<IconLightningBolt class="text-primary mr-4 text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
