@@ -50,7 +50,11 @@
 			const btcUsdRate = fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
 			const usdtRate = 1; // USDT is pegged to USD
 
-			// Load actual asset balances from Breez SDK
+			// Get wallet info to access main L-BTC balance
+			const { getWalletInfo } = await import('$lib/wallet/breez/walletService');
+			const walletInfo = await getWalletInfo();
+			
+			// Load additional asset balances from Breez SDK
 			const liquidAssets = await getAssetBalances();
 
 			// Get Bitcoin balance from Bitcoin wallet
@@ -65,7 +69,23 @@
 			// Process all liquid assets dynamically
 			const processedAssets: EnhancedAssetBalance[] = [];
 
-			// Add liquid assets (L-BTC, USDT, etc.)
+			// Add main L-BTC balance from walletInfo.balanceSat (this is the primary balance)
+			const lbtcBalanceSats = walletInfo.walletInfo.balanceSat || 0;
+			// Always show L-BTC balance, even if it's 0
+			const lbtcMetadata = getAssetMetadata(currentNetwork, getAssetId('LBTC'));
+			if (lbtcMetadata) {
+				const balanceInBtc = lbtcBalanceSats / 100_000_000; // Convert sats to BTC
+				const usdValue = balanceInBtc * btcUsdRate;
+				
+				processedAssets.push({
+					...lbtcMetadata,
+					balance: lbtcBalanceSats,
+					usdValue,
+					formattedBalance: balanceInBtc.toFixed(8)
+				});
+			}
+
+			// Add other liquid assets (USDT, etc.) from assetBalances
 			for (const asset of liquidAssets) {
 				if (asset.balance > 0) {
 					const metadata = getAssetMetadata(currentNetwork, asset.assetId);
@@ -74,20 +94,26 @@
 						let usdValue = 0;
 
 						// Calculate USD value based on asset type
-						if (asset.assetId === getAssetId('LBTC')) {
-							usdValue = balanceInUnit * btcUsdRate;
-						} else if (asset.assetId === getAssetId('USDT')) {
+						if (asset.assetId === getAssetId('USDT')) {
 							usdValue = balanceInUnit * usdtRate;
 						}
+						// Skip L-BTC here since we already added it from walletInfo
+						else if (asset.assetId !== getAssetId('LBTC')) {
+							// For other assets, we might need conversion rates
+							usdValue = 0;
+						}
 
-						processedAssets.push({
-							...metadata,
-							balance: asset.balance,
-							usdValue,
-							formattedBalance: balanceInUnit.toFixed(
-								metadata.precision === 8 ? 8 : metadata.precision
-							)
-						});
+						// Only add if it's not L-BTC (already added above)
+						if (asset.assetId !== getAssetId('LBTC')) {
+							processedAssets.push({
+								...metadata,
+								balance: asset.balance,
+								usdValue,
+								formattedBalance: balanceInUnit.toFixed(
+									metadata.precision === 8 ? 8 : metadata.precision
+								)
+							});
+						}
 					} else {
 						// Handle unknown assets gracefully
 						const balanceInUnit = asset.balance / 100_000_000; // Assume 8 decimals
@@ -129,13 +155,6 @@
 		} finally {
 			isLoading = false;
 		}
-	}
-
-	// Format balance for display
-	function formatBalance(balance: number, precision: number): string {
-		const divisor = Math.pow(10, precision);
-		const formatted = (balance / divisor).toFixed(precision);
-		return parseFloat(formatted).toString();
 	}
 
 	// Get total balance in BTC equivalent

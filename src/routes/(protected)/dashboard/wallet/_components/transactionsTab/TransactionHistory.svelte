@@ -85,66 +85,65 @@
 			</div>
 		</div>
 	{:else}
-		<div class="overflow-x-auto">
-			<table class="table w-full">
-				<thead>
-					<tr>
-						<th>Type</th>
-						<th>Amount</th>
-						<th>Date</th>
-						<th>Address</th>
-						<th>Status</th>
-						<th>Network</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each transactions as tx}
-						<tr>
-							<td>
-								<div class="flex items-center gap-2">
-									{#if tx.paymentType === 'receive'}
-										<div class="badge badge-success">Received</div>
-									{:else}
-										<div class="badge badge-warning">Sent</div>
-									{/if}
-								</div>
-							</td>
-							<td>
-								<span class={tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}>
+		<div class="space-y-4">
+			{#each transactions as tx}
+				<div class="card bg-base-200 shadow-sm">
+					<div class="card-body p-4">
+						<!-- Header row with type and amount -->
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								{#if tx.paymentType === 'receive'}
+									<div class="badge badge-success">Received</div>
+								{:else}
+									<div class="badge badge-warning">Sent</div>
+								{/if}
+							</div>
+							<div class="text-right">
+								<span class={`text-lg font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}>
 									{tx.paymentType === 'receive' ? '+' : '-'}{tx.amountSat} sats
 								</span>
-							</td>
-							<td>{new Date(tx.timestamp).toLocaleString()}</td>
-							<td>
-								<span class="font-mono text-xs">
-									Transaction To: {truncateAddress(tx.destination ?? '', 8, 4)}
-								</span>
-							</td>
-							<td>
-								{#if tx.details.type === 'lightning'}
-									<div class="badge badge-success">Confirmed</div>
-								{:else if tx.status === 'pending'}
-									<div class="badge badge-warning">Pending</div>
-								{:else if tx.status === 'failed'}
-									<div class="badge badge-error">Failed</div>
-								{:else}
-									<div class="indicator">
-										<span class="indicator-item badge badge-xs">
-											{tx.status}
-										</span>
-										<div class="badge badge-success">Confirmations</div>
-									</div>
-								{/if}
-							</td>
-							<td>
-								<div class="badge">
-									{tx.details.type}
+							</div>
+						</div>
+
+						<!-- Transaction details -->
+						<div class="mt-3 space-y-2 text-sm">
+							<div class="flex justify-between items-center">
+								<span class="text-base-content/70">Date:</span>
+								<span>{new Date(tx.timestamp * 1000).toLocaleString()}</span>
+							</div>
+							
+							{#if tx.destination}
+								<div class="flex justify-between items-start">
+									<span class="text-base-content/70">Address:</span>
+									<span class="font-mono text-xs text-right max-w-[200px] break-all">
+										{truncateAddress(tx.destination, 8, 4)}
+									</span>
 								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+							{/if}
+
+							<div class="flex justify-between items-center">
+								<span class="text-base-content/70">Status:</span>
+								<div>
+									{#if tx.details.type === 'lightning'}
+										<div class="badge badge-success badge-sm">Confirmed</div>
+									{:else if tx.status === 'pending'}
+										<div class="badge badge-warning badge-sm">Pending</div>
+									{:else if tx.status === 'failed'}
+										<div class="badge badge-error badge-sm">Failed</div>
+									{:else}
+										<div class="badge badge-success badge-sm">{tx.status}</div>
+									{/if}
+								</div>
+							</div>
+
+							<div class="flex justify-between items-center">
+								<span class="text-base-content/70">Network:</span>
+								<div class="badge badge-sm">{tx.details.type}</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{/if}
 </div>

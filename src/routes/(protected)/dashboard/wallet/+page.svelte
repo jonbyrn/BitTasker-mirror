@@ -273,7 +273,7 @@
 				</div>
 
 				<!-- Recent Transactions -->
-				<RecentTransactions {activeTab} />
+				<RecentTransactions bind:activeTab />
 			</div>
 		{/if}
 

@@ -1,4 +1,8 @@
 <script lang="ts">
+	// TODO: Add globally to all wallet pages
+	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
+	import '$lib/polyfills';
+
 	import { goto } from '$app/navigation';
 	import { setupMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 
@@ -12,9 +16,14 @@
 			error = 'Please enter a valid 12 or 24-word recovery phrase';
 			return;
 		}
-		
-		setupMnemonicPasskey(cleaned);
-		goto('/dashboard/wallet');
+
+		setupMnemonicPasskey(cleaned)
+			.then(() => {
+				goto('/dashboard/wallet');
+			})
+			.catch((err) => {
+				error = err instanceof Error ? err.message : 'An unknown error occurred';
+			});
 	}
 </script>
 
