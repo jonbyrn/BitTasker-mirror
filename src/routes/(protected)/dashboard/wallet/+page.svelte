@@ -88,26 +88,19 @@
 
 	// Initialize wallet connection
 	async function initializeWallet() {
-		if ($isConnectedStore) {
-			return;
-		}
-
-		isConnecting = true;
-		errorMessage = null;
-
-		const mnemonic = await getMnemonicPasskey()
-			.then((mnemonic) => {
-				if (!mnemonic) {
-					goto('/dashboard/wallet/error?type=no-mnemonic');
-				}
-				return mnemonic;
-			})
-			.catch(() => {
-				goto('/dashboard/wallet/error?type=no-mnemonic');
-				throw new Error('No mnemonic found');
-			});
-
 		try {
+			if ($isConnectedStore) {
+				return;
+			}
+
+			isConnecting = true;
+			errorMessage = null;
+
+			const mnemonic = await getMnemonicPasskey();
+			if (!mnemonic) {
+				throw new Error('No mnemonic found');
+			}
+
 			await connectToBreez(mnemonic);
 
 			walletInfo = await getWalletInfo();
@@ -116,6 +109,7 @@
 		} catch (error) {
 			console.error('Failed to initialize wallet:', error);
 			errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+			goto('/dashboard/wallet/error?type=no-mnemonic');
 		} finally {
 			isConnecting = false;
 		}
@@ -133,8 +127,7 @@
 		}
 	}
 
-	$effect.pre(() => {
-		console.log('pre effect', $isWasmInitialized);
+	onMount(() => {
 		if ($isWasmInitialized) {
 			initializeWallet();
 		}

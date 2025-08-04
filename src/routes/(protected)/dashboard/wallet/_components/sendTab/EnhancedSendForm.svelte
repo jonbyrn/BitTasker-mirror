@@ -29,7 +29,6 @@
 	import { appStore } from '$lib/stores/app.store';
 	import type { PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
 	import { Buffer } from 'buffer';
-	import Input from '$lib/components/Input.svelte';
 
 	// State
 	let selectedAsset = $state('L-BTC');
@@ -38,9 +37,8 @@
 	let description = $state('');
 	let feeRate = $state<'slow' | 'medium' | 'fast'>('medium');
 
-	// Fiat conversion state
-	let useFiatInput = $state(false);
-	let fiatAmount = $state('');
+	// Unit conversion state
+	let useMainUnit = $state(false); // false = sats, true = BTC/main unit
 	let fiatCurrency = $state('USD');
 	let fiatRates = $state<any>({});
 
@@ -122,7 +120,15 @@
 		}
 
 		try {
-			// Use advanced parsing with production features
+			// First try custom parsing for BIP21 URIs and other formats
+			const customParsed = parseCustomFormats(recipientAddress);
+			if (customParsed) {
+				addressType = customParsed;
+				hasMagicRoutingHints = false;
+				return;
+			}
+
+			// Use advanced parsing with production features for supported types
 			const parsed = await parseInputAdvanced(recipientAddress);
 
 			switch (parsed.type) {
@@ -147,7 +153,7 @@
 					addressType = 'unknown';
 			}
 		} catch {
-			// Try to detect based on address format
+			// Fallback: Try to detect based on address format
 			if (recipientAddress.startsWith('ln')) {
 				addressType = 'lightning';
 			} else if (
@@ -169,6 +175,81 @@
 		}
 	}
 
+	/**
+	 * Parse custom formats that the Breez SDK might not support
+	 */
+	function parseCustomFormats(input: string): 'liquid' | 'bitcoin' | null {
+		// Handle Liquid BIP21 URIs
+		if (input.startsWith('liquidnetwork:') || (input.startsWith('lq1') && input.includes('?'))) {
+			// Extract amount from BIP21 URI if present
+			extractBip21Parameters(input);
+			return 'liquid';
+		}
+
+		// Handle Bitcoin BIP21 URIs
+		if (input.startsWith('bitcoin:')) {
+			extractBip21Parameters(input);
+			return 'bitcoin';
+		}
+
+		// Handle plain Liquid addresses with query parameters (malformed BIP21)
+		if ((input.startsWith('lq1') || input.startsWith('ex1')) && input.includes('?')) {
+			extractBip21Parameters(input);
+			return 'liquid';
+		}
+
+		return null;
+	}
+
+	/**
+	 * Extract parameters from BIP21 URI and populate form fields
+	 */
+	function extractBip21Parameters(uri: string): void {
+		try {
+			const url = new URL(uri.replace(/^(bitcoin|liquidnetwork):/, 'https://dummy.com/'));
+			
+			// Extract amount
+			const amountParam = url.searchParams.get('amount');
+			if (amountParam && !amount) {
+				amount = amountParam;
+			}
+
+			// Extract message/label
+			const message = url.searchParams.get('message') || url.searchParams.get('label');
+			if (message && !description) {
+				description = decodeURIComponent(message);
+			}
+
+			// For Liquid, check asset ID
+			const assetId = url.searchParams.get('assetid');
+			if (assetId === '6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d') {
+				// This is L-BTC asset ID
+				selectedAsset = 'L-BTC';
+			}
+
+			console.log('📋 Extracted BIP21 parameters:', { amount: amountParam, message, assetId });
+		} catch (error) {
+			console.warn('Failed to parse BIP21 URI:', error);
+		}
+	}
+
+	/**
+	 * Get clean address from BIP21 URI or return the input as-is
+	 */
+	function getCleanAddress(input: string): string {
+		// Handle BIP21 URIs
+		if (input.startsWith('bitcoin:') || input.startsWith('liquidnetwork:')) {
+			return input.split('?')[0].replace(/^(bitcoin|liquidnetwork):/, '');
+		}
+
+		// Handle addresses with query parameters (malformed BIP21)
+		if (input.includes('?') && (input.startsWith('lq1') || input.startsWith('ex1') || input.startsWith('bc1') || input.startsWith('1') || input.startsWith('3'))) {
+			return input.split('?')[0];
+		}
+
+		return input;
+	}
+
 	function validateForm(): boolean {
 		error = null;
 
@@ -177,17 +258,9 @@
 			return false;
 		}
 
-		// Validate amount based on input type
-		const currentAmount = useFiatInput ? fiatAmount : amount;
-		if (!currentAmount || isNaN(parseFloat(currentAmount)) || parseFloat(currentAmount) <= 0) {
-			error = `Please enter a valid ${useFiatInput ? 'fiat' : 'crypto'} amount`;
-			return false;
-		}
-
-		// Ensure we have a crypto amount for validation
-		const cryptoAmount = useFiatInput ? convertFiatToCrypto(fiatAmount) : amount;
-		if (!cryptoAmount) {
-			error = 'Unable to convert amount. Please check your input.';
+		// Validate amount
+		if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+			error = 'Please enter a valid amount';
 			return false;
 		}
 
@@ -196,20 +269,20 @@
 			return false;
 		}
 
-		// Check amount limits
-		const amountSats = Math.floor(parseFloat(cryptoAmount) * 100_000_000);
+		// Convert amount to satoshis for validation
+		const amountSats = convertToSatoshis(amount);
 
 		if (selectedAsset === 'L-BTC' && limits.lightning) {
 			const minSats = limits.lightning.send?.minSat || 0;
 			const maxSats = limits.lightning.send?.maxSat || Number.MAX_SAFE_INTEGER;
 
 			if (amountSats < minSats) {
-				error = `Minimum amount is ${(minSats / 100_000_000).toFixed(8)} ${selectedAsset}`;
+				error = `Minimum amount is ${formatSatsDisplay(minSats)}`;
 				return false;
 			}
 
 			if (amountSats > maxSats) {
-				error = `Maximum amount is ${(maxSats / 100_000_000).toFixed(8)} ${selectedAsset}`;
+				error = `Maximum amount is ${formatSatsDisplay(maxSats)}`;
 				return false;
 			}
 		}
@@ -219,12 +292,12 @@
 			const maxSats = limits.onchain.send?.maxSat || Number.MAX_SAFE_INTEGER;
 
 			if (amountSats < minSats) {
-				error = `Minimum amount is ${(minSats / 100_000_000).toFixed(8)} ${selectedAsset}`;
+				error = `Minimum amount is ${formatSatsDisplay(minSats)}`;
 				return false;
 			}
 
 			if (amountSats > maxSats) {
-				error = `Maximum amount is ${(maxSats / 100_000_000).toFixed(8)} ${selectedAsset}`;
+				error = `Maximum amount is ${formatSatsDisplay(maxSats)}`;
 				return false;
 			}
 		}
@@ -257,7 +330,7 @@
 			isLoading = true;
 			error = null;
 
-			const amountSats = Math.floor(parseFloat(amount) * 100_000_000);
+			const amountSats = convertToSatoshis(amount);
 
 			if (selectedAsset === 'L-BTC' || selectedAsset === 'USDt') {
 				// Handle different Lightning payment types
@@ -286,14 +359,15 @@
 					return;
 				} else {
 					// Standard Lightning or Liquid payment
+					const cleanDestination = getCleanAddress(recipientAddress);
 					const prepareParams = {
-						destination: recipientAddress,
+						destination: cleanDestination,
 						amount:
 							selectedAsset === 'USDt'
 								? {
 										type: 'asset' as const,
 										assetId: getAssetId('USDT'),
-										receiverAmount: parseFloat(amount),
+										receiverAmount: amountSats / 100_000_000, // Convert from base units back to asset units
 										estimateAssetFees: false
 									}
 								: {
@@ -341,10 +415,12 @@
 
 			let result;
 			if (selectedAsset === 'USDt') {
+				const amountSats = convertToSatoshis(amount);
+				const cleanDestination = getCleanAddress(recipientAddress);
 				result = await sendAssetPayment(
-					recipientAddress,
+					cleanDestination,
 					getAssetId('USDT'),
-					parseFloat(amount),
+					amountSats / 100_000_000, // Convert back to asset units
 					description
 				);
 			} else {
@@ -374,58 +450,104 @@
 		);
 	}
 
-	// Fiat conversion functions
-	function convertFiatToCrypto(fiatAmount: string): string {
-		if (!fiatAmount || !fiatRates[fiatCurrency]) return '';
-		const fiatValue = parseFloat(fiatAmount);
-		const rate = fiatRates[fiatCurrency];
-
+	// Amount conversion functions
+	function convertToSatoshis(inputAmount: string): number {
+		const numericAmount = parseFloat(inputAmount);
+		
 		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
-			return (fiatValue / rate).toFixed(8);
-		} else if (selectedAsset === 'USDt') {
-			// For USDT, assume 1:1 with USD
-			return fiatValue.toString();
-		}
-		return '';
-	}
-
-	function convertCryptoToFiat(cryptoAmount: string): string {
-		if (!cryptoAmount || !fiatRates[fiatCurrency]) return '';
-		const cryptoValue = parseFloat(cryptoAmount);
-		const rate = fiatRates[fiatCurrency];
-
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
-			return (cryptoValue * rate).toFixed(2);
-		} else if (selectedAsset === 'USDt') {
-			// For USDT, assume 1:1 with USD
-			return cryptoValue.toFixed(2);
-		}
-		return '';
-	}
-
-	function handleFiatAmountChange() {
-		if (useFiatInput && fiatAmount) {
-			amount = convertFiatToCrypto(fiatAmount);
-		}
-	}
-
-	function handleCryptoAmountChange() {
-		if (!useFiatInput && amount) {
-			fiatAmount = convertCryptoToFiat(amount);
-		}
-	}
-
-	function toggleInputType() {
-		useFiatInput = !useFiatInput;
-		if (useFiatInput) {
-			// Convert current crypto amount to fiat
-			if (amount) {
-				fiatAmount = convertCryptoToFiat(amount);
+			if (useMainUnit) {
+				// Input is in BTC, convert to sats
+				return Math.floor(numericAmount * 100_000_000);
+			} else {
+				// Input is already in sats
+				return Math.floor(numericAmount);
 			}
-		} else {
-			// Convert current fiat amount to crypto
-			if (fiatAmount) {
-				amount = convertFiatToCrypto(fiatAmount);
+		} else if (selectedAsset === 'USDt') {
+			// For USDT, use the amount as-is (asset amount, not sats)
+			return Math.floor(numericAmount * 100_000_000); // Convert to asset base units
+		}
+		
+		return Math.floor(numericAmount);
+	}
+
+	function formatSatsDisplay(sats: number): string {
+		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+			return `${sats.toLocaleString()} sats`;
+		} else if (selectedAsset === 'USDt') {
+			return `${(sats / 100_000_000).toFixed(2)} USDt`;
+		}
+		return `${sats} units`;
+	}
+
+	function getAmountPlaceholder(): string {
+		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+			return useMainUnit ? '0.00000000' : '0';
+		} else if (selectedAsset === 'USDt') {
+			return '0.00';
+		}
+		return '0';
+	}
+
+	function getAmountStep(): string {
+		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+			return useMainUnit ? '0.00000001' : '1';
+		} else if (selectedAsset === 'USDt') {
+			return '0.01';
+		}
+		return '1';
+	}
+
+	function getDisplayUnit(): string {
+		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+			return useMainUnit ? selectedAsset : 'sats';
+		}
+		return selectedAsset;
+	}
+
+	function getFiatEquivalent(): string {
+		if (!amount || !fiatRates[fiatCurrency]) return '';
+		
+		const amountSats = convertToSatoshis(amount);
+		
+		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+			const btcAmount = amountSats / 100_000_000;
+			const fiatValue = btcAmount * fiatRates[fiatCurrency];
+			return `≈ ${fiatValue.toFixed(2)} ${fiatCurrency}`;
+		} else if (selectedAsset === 'USDt') {
+			const usdtAmount = amountSats / 100_000_000;
+			if (fiatCurrency === 'USD') {
+				return `≈ $${usdtAmount.toFixed(2)}`;
+			}
+			// For other currencies, convert from USD
+			const fiatValue = usdtAmount * (fiatRates[fiatCurrency] / fiatRates['USD']);
+			return `≈ ${fiatValue.toFixed(2)} ${fiatCurrency}`;
+		}
+		
+		return '';
+	}
+
+	function getBtcEquivalent(): string {
+		if (!amount || selectedAsset !== 'L-BTC' && selectedAsset !== 'BTC') return '';
+		if (useMainUnit) return '';
+		
+		const amountSats = convertToSatoshis(amount);
+		const btcAmount = amountSats / 100_000_000;
+		return `≈ ${btcAmount.toFixed(8)} ${selectedAsset}`;
+	}
+
+	function toggleUnitType() {
+		if (selectedAsset !== 'L-BTC' && selectedAsset !== 'BTC') return;
+		
+		useMainUnit = !useMainUnit;
+		
+		if (amount) {
+			const currentSats = convertToSatoshis(amount);
+			if (useMainUnit) {
+				// Convert to BTC
+				amount = (currentSats / 100_000_000).toString();
+			} else {
+				// Convert to sats
+				amount = currentSats.toString();
 			}
 		}
 	}
@@ -467,9 +589,10 @@
 	async function handleDirectBitcoinSend(amountSats: number) {
 		const feeRates = await bitcoinWallet.getFeeEstimates();
 		const selectedFeeRate = feeRates[feeRate];
+		const cleanDestination = getCleanAddress(recipientAddress);
 
 		const txid = await bitcoinWallet.createTransaction({
-			toAddress: recipientAddress,
+			toAddress: cleanDestination,
 			amount: amountSats,
 			feeRate: selectedFeeRate,
 			message: description
@@ -587,94 +710,78 @@
 		<div class="label">
 			<span class="label-text text-sm sm:text-base">Amount</span>
 			<div class="label-text-alt flex items-center gap-2 text-xs">
-				{#if limits.lightning && selectedAsset === 'L-BTC'}
-					<span>
-						Min: {(limits.lightning.send?.minSat || 0) / 100_000_000} - Max: {(limits.lightning.send
-							?.maxSat || 0) / 100_000_000}
-						{selectedAsset}
+				{#if selectedAsset === 'L-BTC' && limits.lightning?.send}
+					<span class="text-info">
+						Min: {formatSatsDisplay(limits.lightning.send.minSat)} - Max: {formatSatsDisplay(limits.lightning.send.maxSat)}
 					</span>
-				{/if}
-				{#if limits.onchain && selectedAsset === 'BTC'}
-					<span>
-						Min: {(limits.onchain.send?.minSat || 0) / 100_000_000} - Max: {(limits.onchain.send
-							?.maxSat || 0) / 100_000_000}
-						{selectedAsset}
+				{:else if selectedAsset === 'BTC' && limits.onchain?.send}
+					<span class="text-info">
+						Min: {formatSatsDisplay(limits.onchain.send.minSat)} - Max: {formatSatsDisplay(limits.onchain.send.maxSat)}
+					</span>
+				{:else if selectedAsset === 'USDt'}
+					<span class="text-info">
+						Min: 0.01 USDt - Max: 10,000.00 USDt
+					</span>
+				{:else}
+					<span class="text-base-content/60">
+						Loading limits...
 					</span>
 				{/if}
 			</div>
 		</div>
 
-		<!-- Amount Input with Currency Toggle -->
-		<div class="flex w-full">
-			{#if useFiatInput}
-				<input
-					type="number"
-					step="0.01"
-					placeholder="0.00"
-					class="input input-bordered flex-1 rounded-r-none border-r-0 font-mono text-sm sm:text-base"
-					bind:value={fiatAmount}
-					oninput={handleFiatAmountChange}
-				/>
-				<div class="relative w-24">
-					<Input
-						value={fiatCurrency}
-						options={[
-							{ label: 'USD', value: 'USD' },
-							{ label: 'EUR', value: 'EUR' },
-							{ label: 'GBP', value: 'GBP' }
-						]}
-						onChange={() => handleFiatAmountChange()}
-						className="w-24 rounded-r-full"
-					/>
-				</div>
-			{:else}
-				<input
-					type="number"
-					step="0.00000001"
-					placeholder="0.00000000"
-					class="input input-bordered flex-1 rounded-r-none border-r-0 font-mono text-sm sm:text-base"
-					bind:value={amount}
-					oninput={handleCryptoAmountChange}
-				/>
-				<span
-					class="btn btn-disabled min-w-fit rounded-r-full border-r-0 border-l-0 px-3 text-xs sm:text-sm"
+		<!-- Amount Input -->
+		<div class="join w-full">
+			<input
+				type="number"
+				step={getAmountStep()}
+				placeholder={getAmountPlaceholder()}
+				class="input input-bordered join-item flex-1 font-mono text-sm sm:text-base"
+				bind:value={amount}
+			/>
+			<div class="btn btn-disabled join-item min-w-fit px-3 text-xs sm:text-sm bg-base-200">
+				{getDisplayUnit()}
+			</div>
+			
+			<!-- Unit Toggle Button (only for Bitcoin assets) -->
+			{#if selectedAsset === 'L-BTC' || selectedAsset === 'BTC'}
+				<button
+					class="btn btn-outline join-item px-3"
+					onclick={toggleUnitType}
+					title="Switch to {useMainUnit ? 'satoshis' : selectedAsset}"
+					aria-label="Switch to {useMainUnit ? 'satoshis' : selectedAsset}"
 				>
-					{selectedAsset}
-				</span>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+						/>
+					</svg>
+				</button>
 			{/if}
 		</div>
-		<button
-			class="btn btn-block px-2 sm:px-3"
-			onclick={toggleInputType}
-			title="Toggle between {useFiatInput ? 'crypto' : 'fiat'} input"
-			aria-label="Toggle between {useFiatInput ? 'crypto' : 'fiat'} input"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-4 w-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-				/>
-			</svg>
-		</button>
 
-		<!-- Conversion Display -->
-		{#if amount && fiatAmount && fiatRates[fiatCurrency]}
-			<div class="text-base-content/60 mt-2 text-xs">
-				{#if useFiatInput}
-					≈ {amount} {selectedAsset}
-				{:else}
-					≈ {fiatAmount} {fiatCurrency}
-				{/if}
-			</div>
-		{/if}
+		<!-- Conversion Displays -->
+		<div class="mt-2 space-y-1">
+			{#if getBtcEquivalent()}
+				<div class="text-base-content/60 text-xs">
+					{getBtcEquivalent()}
+				</div>
+			{/if}
+			{#if getFiatEquivalent()}
+				<div class="text-base-content/60 text-xs">
+					{getFiatEquivalent()}
+				</div>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Fee Selection (for Bitcoin transactions) -->
