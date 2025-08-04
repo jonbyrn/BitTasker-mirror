@@ -27,13 +27,7 @@ export default defineConfig({
 	},
 	resolve: {
 		alias: {
-			// Firebase v11 specific aliases
-			'firebase/app': 'firebase/app',
-			'firebase/messaging': 'firebase/messaging',
-			'firebase/auth': 'firebase/auth',
-			'firebase/firestore': 'firebase/firestore',
-			'firebase/storage': 'firebase/storage',
-			'firebase/analytics': 'firebase/analytics'
+			// Add any other aliases here if needed
 		}
 	},
 	build: {
@@ -60,17 +54,10 @@ export default defineConfig({
 	optimizeDeps: {
 		// Force include heavy dependencies for better optimization
 		include: [
-			'firebase/app',
-			'firebase/messaging',
-			'firebase/auth',
-			'firebase/firestore',
-			'firebase/storage',
-			'firebase/analytics',
 			'date-fns',
 			'zod',
 			'axios',
-			'swiper',
-			'iconify-icon'
+			'swiper'
 		],
 		// Exclude the main firebase package to avoid resolution issues with v11
 		exclude: [
