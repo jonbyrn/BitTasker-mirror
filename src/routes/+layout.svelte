@@ -322,6 +322,8 @@
 								<a
 									href="https://twitter.com/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.twitter_aria')}"
 								>
 									<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -331,6 +333,8 @@
 								<a
 									href="https://facebook.com/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.facebook_aria')}"
 								>
 									<IconFacebook />
@@ -338,6 +342,8 @@
 								<a
 									href="https://instagram.com/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.instagram_aria')}"
 								>
 									<IconInstagram />
@@ -345,6 +351,8 @@
 								<a
 									href="https://youtube.com/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.youtube_aria')}"
 								>
 									<IconYoutube />
@@ -355,6 +363,8 @@
 								<a
 									href="https://linkedin.com/company/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.linkedin_aria')}"
 								>
 									<IconLinkedin />
@@ -362,6 +372,8 @@
 								<a
 									href="https://reddit.com/r/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.reddit_aria')}"
 								>
 									<IconReddit />
@@ -369,6 +381,8 @@
 								<a
 									href="https://tiktok.com/@bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.tiktok_aria')}"
 								>
 									<IconMusicNoteEighth />
@@ -376,6 +390,8 @@
 								<a
 									href="https://rumble.com/c/bittasker"
 									class="hover:text-primary text-lg"
+									target="_blank"
+									rel="noopener noreferrer"
 									aria-label="{$t('footer.social.rumble_aria')}"
 								>
 									<IconPlay />
