@@ -285,9 +285,9 @@
 			</div>
 		{/if}
 
-		{#if activeTab === 'swaps'}
+		<!-- {#if activeTab === 'swaps'}
 			<SwapDashboard />
-		{/if}
+		{/if} -->
 
 		{#if activeTab === 'transactions'}
 			<TransactionHistory />
