@@ -144,17 +144,17 @@
 		}
 	}
 
-		function getMethodDescription(): string {
+	function getMethodDescription(): string {
 		switch (paymentMethod) {
-			case 'liquidAddress': 
+			case 'liquidAddress':
 				return 'Universal address for L-BTC, USDT, and other Liquid assets. No amount required.';
-			case 'bolt11Invoice': 
+			case 'bolt11Invoice':
 				return 'Instant Lightning payment. Amount required, expires after use.';
-			case 'bitcoinAddress': 
+			case 'bitcoinAddress':
 				return 'On-chain Bitcoin payment. Higher fees, slower confirmation.';
-			case 'bolt12Offer': 
+			case 'bolt12Offer':
 				return 'Reusable Lightning offer. Accepts any amount, ignores amount input.';
-			default: 
+			default:
 				return '';
 		}
 	}
@@ -183,10 +183,10 @@
 		address = null;
 		feeSats = 0;
 
-				try {
+		try {
 			// Prepare the request based on payment method and asset selection
 			let prepareRequest: any = { paymentMethod };
-			
+
 			// Add amount if specified and > 0, but NEVER for BOLT12 offers
 			if (amountSats > 0 && paymentMethod !== 'bolt12Offer') {
 				if (selectedAsset === 'USDt' && paymentMethod === 'liquidAddress') {
@@ -239,6 +239,8 @@
 			let textToCopy = address;
 			if (paymentMethod === 'bitcoinAddress' && address.startsWith('bitcoin:')) {
 				textToCopy = extractBitcoinAddress(address);
+			} else if (paymentMethod === 'liquidAddress' && address.startsWith('liquidnetwork:')) {
+				textToCopy = address.replace('liquidnetwork:', '');
 			}
 			navigator.clipboard.writeText(textToCopy);
 			appStore.showSuccessToast('Address copied to clipboard');
@@ -322,60 +324,60 @@
 
 			<!-- Amount Input (hidden for BOLT12) -->
 			{#if paymentMethod !== 'bolt12Offer'}
-			<div class="form-control mb-4">
-				<label class="label pb-2" for="amount-input">
-					<span class="label-text font-medium">
-						Amount ({tokenType === 'BTC' ? 'BTC' : selectedAsset === 'USDt' ? 'USDT' : 'sats'})
-						{requireAmount ? ' *' : ' (optional)'}
-					</span>
-				</label>
-				<div class="join w-full">
-					<input
-						id="amount-input"
-						type="number"
-						step="any"
-						min={0}
-						placeholder={requireAmount ? 'Amount required' : 'Leave empty for any amount'}
-						class="input input-bordered join-item w-full flex-1 focus:border-amber-500 focus:outline-none"
-						bind:value={amount}
-					/>
-					{#if selectedAsset !== 'USDt'}
-						<div class="w-24 overflow-hidden relative">
-							<Input
-								options={[
-									{ label: 'BTC', value: 'BTC' },
-									{ label: 'sats', value: 'sats' }
-								]}
-								value={tokenType}
-								onChange={(option) => (tokenType = option.value as 'BTC' | 'sats')}
-								className="focus:border-amber-500 focus:outline-none rounded-l-none border-l-0 rounded-r-full"
-							/>
+				<div class="form-control mb-4">
+					<label class="label pb-2" for="amount-input">
+						<span class="label-text font-medium">
+							Amount ({tokenType === 'BTC' ? 'BTC' : selectedAsset === 'USDt' ? 'USDT' : 'sats'})
+							{requireAmount ? ' *' : ' (optional)'}
+						</span>
+					</label>
+					<div class="join w-full">
+						<input
+							id="amount-input"
+							type="number"
+							step="any"
+							min={0}
+							placeholder={requireAmount ? 'Amount required' : 'Leave empty for any amount'}
+							class="input input-bordered join-item w-full flex-1 focus:border-amber-500 focus:outline-none"
+							bind:value={amount}
+						/>
+						{#if selectedAsset !== 'USDt'}
+							<div class="relative w-24 overflow-hidden">
+								<Input
+									options={[
+										{ label: 'BTC', value: 'BTC' },
+										{ label: 'sats', value: 'sats' }
+									]}
+									value={tokenType}
+									onChange={(option) => (tokenType = option.value as 'BTC' | 'sats')}
+									className="focus:border-amber-500 focus:outline-none rounded-l-none border-l-0 rounded-r-full"
+								/>
+							</div>
+						{/if}
+					</div>
+
+					{#if !requireAmount && paymentMethod === 'liquidAddress'}
+						<div class="label pt-1">
+							<span class="label-text-alt text-info text-xs whitespace-break-spaces">
+								💡 Liquid addresses can receive any amount without specifying upfront
+							</span>
+						</div>
+					{/if}
+
+					{#if paymentMethod === ('bolt12Offer' as PaymentMethod)}
+						<div class="label pt-1">
+							<span class="label-text-alt text-warning text-xs whitespace-break-spaces">
+								⚠️ BOLT12 offers ignore amount input - payers choose their own amount
+							</span>
+						</div>
+					{/if}
+
+					{#if errorMessage}
+						<div class="label pt-1">
+							<span class="label-text-alt text-error whitespace-break-spaces">{errorMessage}</span>
 						</div>
 					{/if}
 				</div>
-
-				{#if !requireAmount && paymentMethod === 'liquidAddress'}
-					<div class="label pt-1">
-						<span class="label-text-alt text-info text-xs whitespace-break-spaces">
-							💡 Liquid addresses can receive any amount without specifying upfront
-						</span>
-					</div>
-				{/if}
-				
-				{#if paymentMethod === ('bolt12Offer' as PaymentMethod)}
-					<div class="label pt-1">
-						<span class="label-text-alt text-warning text-xs whitespace-break-spaces">
-							⚠️ BOLT12 offers ignore amount input - payers choose their own amount
-						</span>
-					</div>
-				{/if}
-
-				{#if errorMessage}
-					<div class="label pt-1">
-						<span class="label-text-alt text-error whitespace-break-spaces">{errorMessage}</span>
-					</div>
-				{/if}
-			</div>
 			{/if}
 
 			<!-- Description -->

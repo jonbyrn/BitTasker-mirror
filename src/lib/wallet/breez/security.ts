@@ -3,7 +3,7 @@
  * Provides security middleware for all wallet operations
  */
 
-import { getBiometricData } from '$lib/utils/helpers/biometrics';
+import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import type { PrepareSendRequest, PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
 
@@ -113,10 +113,10 @@ export class BreezSecurityService {
 				return true;
 			}
 
-			// Attempt passkey verification
-			const passkeyData = await getBiometricData('passkey');
+			// Attempt passkey verification using mnemonic passkey system
+			const mnemonic = await getMnemonicPasskey();
 			
-			if (passkeyData) {
+			if (mnemonic) {
 				this.lastPasskeyAuth = Date.now();
 				this.logSecurityEvent(context, true, 'passkey-verified');
 				return true;

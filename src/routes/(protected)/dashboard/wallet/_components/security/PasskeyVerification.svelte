@@ -3,7 +3,7 @@
 	Handles passkey verification for wallet operations
 -->
 <script lang="ts">
-	import { getBiometricData } from '$lib/utils/helpers/biometrics';
+	import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 
 	interface VerificationContext {
 		operation: string;
@@ -39,16 +39,19 @@
 			isVerifying = true;
 			error = null;
 
-			const passkeyData = await getBiometricData('passkey');
+			// Verify with mnemonic passkey - this returns the mnemonic if successful
+			const mnemonic = await getMnemonicPasskey();
 			
-			if (passkeyData) {
+			if (mnemonic) {
 				// Verification successful
+				console.log('✅ Passkey verification successful');
 				show = false;
 				onSuccess();
 			} else {
 				throw new Error('Passkey verification failed');
 			}
 		} catch (err) {
+			console.error('❌ Passkey verification failed:', err);
 			const errorMessage = err instanceof Error ? err.message : 'Verification failed';
 			error = errorMessage;
 			onError(errorMessage);
@@ -135,9 +138,15 @@
 </script>
 
 {#if show}
-	<!-- Modal backdrop -->
-	<div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-		<div class="modal-box max-w-md w-full">
+	<!-- Modal backdrop using DaisyUI modal classes -->
+	<div class="modal modal-open">
+		<div class="modal-box max-w-md relative">
+			<!-- Close button -->
+			<button 
+				class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" 
+				onclick={handleCancel}
+			>✕</button>
+
 			<!-- Header -->
 			<div class="flex items-center gap-3 mb-6">
 				<span class="text-3xl">{getOperationIcon(context.operation)}</span>
@@ -215,8 +224,8 @@
 				</button>
 				
 				<button 
-					class="btn btn-primary flex-1" 
-					onclick={verifyPasskey}
+					class="btn btn-primary flex-1 whitespace-nowrap" 
+					onclick={onSuccess}
 					disabled={isVerifying}
 				>
 					{#if isVerifying}
@@ -238,6 +247,10 @@
 				</div>
 			{/if}
 		</div>
+		<!-- Modal backdrop to close on outside click -->
+		<form method="dialog" class="modal-backdrop">
+			<button onclick={handleCancel}>close</button>
+		</form>
 	</div>
 {/if}
 

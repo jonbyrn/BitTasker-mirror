@@ -37,7 +37,7 @@ export async function detectPasskeyMethod(): Promise<PasskeyMethod> {
 				};
 			}
 		} catch (error) {
-			console.log('Native biometrics not available:', error);
+			console.error('Native biometrics not available:', error);
 		}
 
 		// Fallback to WebAuthn on mobile (password manager)
@@ -51,7 +51,7 @@ export async function detectPasskeyMethod(): Promise<PasskeyMethod> {
 				};
 			}
 		} catch (error) {
-			console.log('WebAuthn not available on mobile:', error);
+			console.error('WebAuthn not available on mobile:', error);
 		}
 
 		return {
@@ -70,7 +70,7 @@ export async function detectPasskeyMethod(): Promise<PasskeyMethod> {
 					description: available ? 'WebAuthn Platform Authenticator' : 'WebAuthn not available'
 				};
 			} catch (error) {
-				console.log('WebAuthn check failed:', error);
+				console.error('WebAuthn check failed:', error);
 			}
 		}
 
@@ -216,8 +216,6 @@ export async function setupMnemonicPasskey(mnemonic: string): Promise<string> {
 				excludeCredentials: [] // Empty to allow new credential creation
 			};
 
-			console.log('Creating WebAuthn credential with packed mnemonic (64 bytes)');
-
 			const credential = await navigator.credentials.create({
 				publicKey: registrationOptions
 			}) as PublicKeyCredential;
@@ -227,7 +225,6 @@ export async function setupMnemonicPasskey(mnemonic: string): Promise<string> {
 			}
 
 			credentialId = credential.id;
-			console.log('Successfully created self-contained WebAuthn credential:', credentialId);
 
 			break;
 		}
@@ -236,7 +233,6 @@ export async function setupMnemonicPasskey(mnemonic: string): Promise<string> {
 			throw new Error(`Unsupported passkey method: ${method.type}`);
 	}
 
-	console.log(`Mnemonic secured with ${method.type} passkey, credential ID: ${credentialId}`);
 	return credentialId;
 }
 
