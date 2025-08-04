@@ -4,11 +4,24 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import { visualizer } from 'rollup-plugin-visualizer';
+import Icons from 'unplugin-icons/vite';
 import pkg from './package.json';
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
-	plugins: [houdini(), tailwindcss(), sveltekit(), visualizer({ open: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })],
+	plugins: [
+		houdini(), 
+		tailwindcss(), 
+		sveltekit(), 
+		Icons({
+			compiler: 'svelte',
+			autoInstall: true,
+			scale: 1.2,
+			defaultStyle: '',
+			defaultClass: '',
+		}),
+		visualizer({ open: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
+	],
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},

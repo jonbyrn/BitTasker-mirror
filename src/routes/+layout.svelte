@@ -9,6 +9,14 @@
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	// Social media icon imports
+	import IconFacebook from '~icons/mdi/facebook';
+	import IconInstagram from '~icons/mdi/instagram';
+	import IconYoutube from '~icons/mdi/youtube';
+	import IconLinkedin from '~icons/mdi/linkedin';
+	import IconReddit from '~icons/mdi/reddit';
+	import IconMusicNoteEighth from '~icons/mdi/music-note-eighth';
+	import IconPlay from '~icons/mdi/play';
 	import '../app.css';
 	import { authState } from '$lib/stores/auth.store';
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -325,21 +333,21 @@
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.facebook_aria')}"
 								>
-									<iconify-icon icon="mdi:facebook" width="20"></iconify-icon>
+									<IconFacebook width="20" />
 								</a>
 								<a
 									href="https://instagram.com/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.instagram_aria')}"
 								>
-									<iconify-icon icon="mdi:instagram" width="20"></iconify-icon>
+									<IconInstagram width="20" />
 								</a>
 								<a
 									href="https://youtube.com/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.youtube_aria')}"
 								>
-									<iconify-icon icon="mdi:youtube" width="20"></iconify-icon>
+									<IconYoutube width="20" />
 								</a>
 							</div>
 							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
@@ -349,28 +357,28 @@
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.linkedin_aria')}"
 								>
-									<iconify-icon icon="mdi:linkedin" width="20"></iconify-icon>
+									<IconLinkedin width="20" />
 								</a>
 								<a
 									href="https://reddit.com/r/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.reddit_aria')}"
 								>
-									<iconify-icon icon="mdi:reddit" width="20"></iconify-icon>
+									<IconReddit width="20" />
 								</a>
 								<a
 									href="https://tiktok.com/@bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.tiktok_aria')}"
 								>
-									<iconify-icon icon="mdi:music-note-eighth" width="20"></iconify-icon>
+									<IconMusicNoteEighth width="20" />
 								</a>
 								<a
 									href="https://rumble.com/c/bittasker"
 									class="hover:text-primary text-lg"
 									aria-label="{$t('footer.social.rumble_aria')}"
 								>
-									<iconify-icon icon="mdi:play" width="20"></iconify-icon>
+									<IconPlay width="20" />
 								</a>
 							</div>
 						</div>

@@ -2,6 +2,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
+	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -350,7 +351,7 @@
 
 				<div class="card-body items-center text-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
-													<iconify-icon icon="mdi:email-outline" width="24" class="text-xl"></iconify-icon>
+						<IconEmailOutline width="24" class="text-xl" />
 						{$t('careers.how_to_apply.button')}
 					</a>
 				</div>

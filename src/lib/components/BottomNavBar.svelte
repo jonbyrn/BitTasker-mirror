@@ -6,7 +6,37 @@
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
 	import { beforeNavigate } from '$app/navigation';
-	import 'iconify-icon';
+	// Icon imports for unplugin-icons
+	import IconLogout from '~icons/mdi/logout';
+	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
+	import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
+	import IconEmailOutline from '~icons/mdi/email-outline';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconShieldAccount from '~icons/mdi/shield-account';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconMagnify from '~icons/mdi/magnify';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconAccountCircle from '~icons/mdi/account-circle';
+	import IconMessage from '~icons/mdi/message';
+	import IconWallet from '~icons/mdi/wallet';
+	import IconAccount from '~icons/mdi/account';
+	import IconCog from '~icons/mdi/cog';
+	import IconLogin from '~icons/mdi/login';
+	import IconAccountPlus from '~icons/mdi/account-plus';
+	import IconHome from '~icons/mdi/home';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
+	import IconCurrencyUsd from '~icons/mdi/currency-usd';
+	import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
+	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
+	import IconCurrencyBtc from '~icons/mdi/currency-btc';
+	import IconAccountGroup from '~icons/mdi/account-group';
+	import IconHandshake from '~icons/mdi/handshake';
+	import IconDomain from '~icons/mdi/domain';
+	import IconShieldCheck from '~icons/mdi/shield-check';
+	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
+	import IconNewspaper from '~icons/mdi/newspaper';
 
 	let currentSection = $state('');
 	let lastScrollPosition = $state(0);
@@ -246,7 +276,7 @@
 						<!-- Logout -->
 						<li>
 							<button onclick={() => { closeMenu(); /* Add logout logic here */ }} class="min-h-[48px] py-3 w-full text-left">
-								<iconify-icon icon="mdi:logout" width="24" class="text-error"></iconify-icon>
+								<IconLogout width="24" class="text-error" />
 								<span class="font-medium text-error">{$t('navbar.logout')}</span>
 							</button>
 						</li>
@@ -254,7 +284,7 @@
 						<!-- Support & Help -->
 						<li>
 							<button onclick={toggleCompany} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary"></iconify-icon>
+								<IconHelpCircleOutline width="24" class="text-primary" />
 								<span class="font-medium">{$t('navbar.support_help')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -275,37 +305,37 @@
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/how-it-works" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon>
+									<IconHelpCircleOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.how_it_works')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
+									<IconFrequentlyAskedQuestions width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.faq')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"></iconify-icon>
+									<IconEmailOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.contact_support')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"></iconify-icon>
+									<IconInformationOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.about_us')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"></iconify-icon>
+									<IconFileDocumentOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.terms_of_service')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"></iconify-icon>
+									<IconShieldAccount width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.privacy_policy')}</span>
 								</a>
 							</li>
@@ -314,7 +344,7 @@
 						<!-- Task Management -->
 						<li>
 							<button onclick={toggleTaskees} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:briefcase-outline" width="24" class="text-primary"></iconify-icon>
+								<IconBriefcaseOutline width="24" class="text-primary" />
 								<span class="font-medium">{$t('navbar.task_management')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -335,19 +365,19 @@
 						{#if isTaskeesOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:magnify" width="20" class="text-primary"></iconify-icon>
+									<IconMagnify width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.find_tasks')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:format-list-bulleted" width="20" class="text-primary"></iconify-icon>
+									<IconFormatListBulleted width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.my_tasks')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:plus-circle" width="20" class="text-primary"></iconify-icon>
+									<IconPlusCircle width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.create_task')}</span>
 								</a>
 							</li>
@@ -356,7 +386,7 @@
 						<!-- My Account -->
 						<li>
 							<button onclick={toggleTaskers} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:account-circle" width="24" class="text-primary"></iconify-icon>
+								<IconAccountCircle width="24" class="text-primary" />
 								<span class="font-medium">{$t('navbar.my_account')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -377,25 +407,25 @@
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/messages" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:message" width="20" class="text-primary"></iconify-icon>
+									<IconMessage width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.messages')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/wallet" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:wallet" width="20" class="text-primary"></iconify-icon>
+									<IconWallet width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.wallet')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/profile" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:account" width="20" class="text-primary"></iconify-icon>
+									<IconAccount width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.profile')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/settings" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:cog" width="20" class="text-primary"></iconify-icon>
+									<IconCog width="20" class="text-primary" />
 									<span class="font-medium">{$t('navbar.settings')}</span>
 								</a>
 							</li>
@@ -410,7 +440,7 @@
 							class="btn btn-secondary flex w-[48%] items-center justify-center gap-2"
 							onclick={closeMenu}
 						>
-							<iconify-icon icon="mdi:login" width="20"></iconify-icon>
+							<IconLogin width="20" />
 							{$t('navbar.login')}
 						</a>
 						<a
@@ -418,7 +448,7 @@
 							class="btn btn-primary flex w-[48%] items-center justify-center gap-2"
 							onclick={closeMenu}
 						>
-							<iconify-icon icon="mdi:account-plus" width="20"></iconify-icon>
+							<IconAccountPlus width="20" />
 							{$t('navbar.signup')}
 						</a>
 					</div>
@@ -426,14 +456,13 @@
 						<!-- Main menu items - matching desktop nav structure -->
 						<li>
 							<a href="/" onclick={closeMenu} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:home" width="24" class="text-primary"></iconify-icon>
+								<IconHome width="24" class="text-primary" />
 								<span class="font-medium">{$t('navbar.home')}</span>
 							</a>
 						</li>
 						<li>
 							<a href="/how-it-works" onclick={closeMenu} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary"
-								></iconify-icon>
+								<IconHelpCircleOutline width="24" class="text-primary" />
 								<span class="font-medium">{$t('footer.how_it_works')}</span>
 							</a>
 						</li>
@@ -441,8 +470,7 @@
 						<!-- For Taskers collapse -->
 						<li>
 							<button onclick={toggleTaskers} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:briefcase-outline" width="24" class="text-primary"
-								></iconify-icon>
+								<IconBriefcaseOutline width="24" class="text-primary" />
 								<span class="font-medium">{$t('footer.for_taskers')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -463,33 +491,26 @@
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:plus-circle-outline" width="20" class="text-primary"
-									></iconify-icon>
+									<IconPlusCircleOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.post_task')}</span>
 								</a>
 							</li>
 						
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"
-									></iconify-icon>
+									<IconCurrencyUsd width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/escrow" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"
-									></iconify-icon>
+									<IconShieldCheckOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.escrow')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon
-										icon="mdi:frequently-asked-questions"
-										width="20"
-										class="text-primary"
-									></iconify-icon>
+									<IconFrequentlyAskedQuestions width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.faq')}</span>
 								</a>
 							</li>
@@ -498,8 +519,7 @@
 						<!-- For Taskees collapse -->
 						<li>
 							<button onclick={toggleTaskees} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:account-hard-hat" width="24" class="text-primary"
-								></iconify-icon>
+								<IconAccountHardHat width="24" class="text-primary" />
 								<span class="font-medium">{$t('footer.for_taskees')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -520,37 +540,31 @@
 						{#if isTaskeesOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:currency-btc" width="20" class="text-primary"
-									></iconify-icon>
+									<IconCurrencyBtc width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.start_earning')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/community-guidelines" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:account-group" width="20" class="text-primary"
-									></iconify-icon>
+									<IconAccountGroup width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.community_guidelines')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
-									<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+									<IconCurrencyUsd width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:handshake" width="20" class="text-primary"></iconify-icon>
+									<IconHandshake width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_principles')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/faq" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon
-										icon="mdi:frequently-asked-questions"
-										width="20"
-										class="text-primary"
-									></iconify-icon>
+									<IconFrequentlyAskedQuestions width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_faq')}</span>
 								</a>
 							</li>
@@ -559,7 +573,7 @@
 						<!-- Company collapse -->
 						<li>
 							<button onclick={toggleCompany} class="min-h-[48px] py-3">
-								<iconify-icon icon="mdi:domain" width="24" class="text-primary"></iconify-icon>
+								<IconDomain width="24" class="text-primary" />
 								<span class="font-medium">{$t('footer.company')}</span>
 								<svg
 									class="dropdown-arrow ml-auto h-4 w-4"
@@ -580,49 +594,43 @@
 						{#if isCompanyOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"
-									></iconify-icon>
+									<IconInformationOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.about_us')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"
-									></iconify-icon>
+									<IconShieldCheck width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.security')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/careers" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"
-									></iconify-icon>
+									<IconBriefcaseSearch width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.careers')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/press" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:newspaper" width="20" class="text-primary"></iconify-icon>
+									<IconNewspaper width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.press')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/terms" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"
-									></iconify-icon>
+									<IconFileDocumentOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.terms')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/privacy" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"
-									></iconify-icon>
+									<IconShieldAccount width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.privacy')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"
-									></iconify-icon>
+									<IconEmailOutline width="20" class="text-primary" />
 									<span class="font-medium">{$t('footer.contact')}</span>
 								</a>
 							</li>
@@ -644,7 +652,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:home" width="24" class="text-primary-content"></iconify-icon>
+			<IconHome width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
 		</a>
 
@@ -654,7 +662,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'create-task' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:plus-circle" width="24" class="text-primary-content"></iconify-icon>
+			<IconPlusCircle width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.new_task')}</span>
 		</a>
 
@@ -690,7 +698,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'wallet' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:wallet" width="24" class="text-primary-content"></iconify-icon>
+			<IconWallet width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.wallet')}</span>
 		</a>
 
@@ -700,7 +708,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'messages' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:message" width="24" class="text-primary-content"></iconify-icon>
+			<IconMessage width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.messages')}</span>
 		</a>
 	</div>
@@ -712,7 +720,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:home" width="24" class="text-primary-content"></iconify-icon>
+			<IconHome width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.home')}</span>
 		</a>
 
@@ -722,8 +730,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'about' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:information-outline" width="24" class="text-primary-content"
-			></iconify-icon>
+			<IconInformationOutline width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.about')}</span>
 		</a>
 
@@ -759,8 +766,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'help' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:help-circle-outline" width="24" class="text-primary-content"
-			></iconify-icon>
+			<IconHelpCircleOutline width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.help')}</span>
 		</a>
 
@@ -770,7 +776,7 @@
 			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg p-3 transition-colors {currentSection === 'signup' ? 'dock-active' : ''}"
 			data-sveltekit-reload="off"
 		>
-			<iconify-icon icon="mdi:account-plus" width="24" class="text-primary-content"></iconify-icon>
+			<IconAccountPlus width="24" class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.signup')}</span>
 		</a>
 	</div>
@@ -863,9 +869,9 @@
 	}
 
 	/* Override any scrollbar-color properties that might cause issues */
-	* {
+	/* * {
 		scrollbar-color: unset !important;
-	}
+	} */
 
 	/* Ensure all animations use GPU acceleration */
 	* {

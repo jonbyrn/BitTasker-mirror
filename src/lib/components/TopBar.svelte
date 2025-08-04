@@ -8,7 +8,36 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
-	import 'iconify-icon';
+	// Icon imports for unplugin-icons
+	import IconAccountCircle from '~icons/mdi/account-circle';
+	import IconAccountGroup from '~icons/mdi/account-group';
+	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
+	import IconAccountPlus from '~icons/mdi/account-plus';
+	import IconArrowLeft from '~icons/mdi/arrow-left';
+	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
+	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
+	import IconCog from '~icons/mdi/cog';
+	import IconCurrencyUsd from '~icons/mdi/currency-usd';
+	import IconDomain from '~icons/mdi/domain';
+	import IconEmailOutline from '~icons/mdi/email-outline';
+	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
+	import IconHandshake from '~icons/mdi/handshake';
+	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
+	import IconHome from '~icons/mdi/home';
+	import IconInformationOutline from '~icons/mdi/information-outline';
+	import IconLogin from '~icons/mdi/login';
+	import IconLogout from '~icons/mdi/logout';
+	import IconMagnify from '~icons/mdi/magnify';
+	import IconNewspaper from '~icons/mdi/newspaper';
+	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconShieldAccount from '~icons/mdi/shield-account';
+	import IconShieldCheck from '~icons/mdi/shield-check';
+	import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
+	import IconMessage from '~icons/mdi/message';
+	import IconWallet from '~icons/mdi/wallet';
+	import IconAccount from '~icons/mdi/account';
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
@@ -143,7 +172,7 @@
 	class="navbar bg-base-100/80 border-base-300 pt-safe sticky top-0 z-50 w-full border-b backdrop-blur-sm"
 >
 	<!-- Hide navbar-start on mobile -->
-	<div class="navbar-start flex-1 sm:flex">
+	<div class="navbar-start flex-1 sm:flex ml-2">
 		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
@@ -164,7 +193,7 @@
 		<!-- g{#if $showBackButton}
 			<!-- Mobile: Back button when applicable --
 			<button class="btn btn-ghost btn-circle" onclick={goBack} aria-label={$t('navbar.back')}>
-				<iconify-icon icon="mdi:arrow-left" width="24"></iconify-icon>
+				<IconArrowLeft width="24" />
 			</button>
 		{/if}
 		{#if !$showBackButton && isLoggedIn}
@@ -202,15 +231,15 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<iconify-icon icon="mdi:account-circle" width="20" class="text-primary"></iconify-icon>
+							<IconAccountCircle width="20" class="text-primary" />
 							<span>{$t('navbar.my_account')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
-							<li><a href="/dashboard/messages" onclick={closeDropdowns}><iconify-icon icon="mdi:message" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.messages')}</span></a></li>
-							<li><a href="/dashboard/wallet" onclick={closeDropdowns}><iconify-icon icon="mdi:wallet" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.wallet')}</span></a></li>
-							<li><a href="/dashboard/profile" onclick={closeDropdowns}><iconify-icon icon="mdi:account" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.profile')}</span></a></li>
-							<li><a href="/dashboard/settings" onclick={closeDropdowns}><iconify-icon icon="mdi:cog" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.settings')}</span></a></li>
-							<li><button onclick={logout} class="text-error flex items-center gap-2 w-full"><iconify-icon icon="mdi:logout" width="20" class="text-error"></iconify-icon> <span>{$t('navbar.logout')}</span></button></li>
+													<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage width="20" class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
+						<li><a href="/dashboard/wallet" onclick={closeDropdowns}><IconWallet width="20" class="text-primary" /> <span>{$t('navbar.wallet')}</span></a></li>
+						<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount width="20" class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
+						<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog width="20" class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
+						<li><button onclick={logout} class="text-error flex items-center gap-2 w-full"><IconLogout width="20" class="text-error" /> <span>{$t('navbar.logout')}</span></button></li>
 						</ul>
 					</details>
 				</li>
@@ -219,13 +248,13 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<iconify-icon icon="mdi:briefcase-outline" width="20" class="text-primary"></iconify-icon>
+							<IconBriefcaseOutline width="20" class="text-primary" />
 							<span>{$t('navbar.task_management')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
-							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}><iconify-icon icon="mdi:magnify" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.find_tasks')}</span></a></li>
-							<li><a href="/dashboard" onclick={closeDropdowns}><iconify-icon icon="mdi:format-list-bulleted" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.my_tasks')}</span></a></li>
-							<li><a href="/dashboard/create-task" onclick={closeDropdowns}><iconify-icon icon="mdi:plus-circle" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.create_task')}</span></a></li>
+							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}><IconMagnify width="20" class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a></li>
+							<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted width="20" class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
+							<li><a href="/dashboard/create-task" onclick={closeDropdowns}><IconPlusCircle width="20" class="text-primary" /> <span>{$t('navbar.create_task')}</span></a></li>
 						</ul>
 					</details>
 				</li>
@@ -234,16 +263,16 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost flex items-center gap-2" onclick={handleDropdownClick}>
-							<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon>
+							<IconHelpCircleOutline width="20" class="text-primary" />
 							<span>{$t('navbar.support_help')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
-							<li><a href="/how-it-works" onclick={closeDropdowns}><iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.how_it_works')}</span></a></li>
-							<li><a href="/faq" onclick={closeDropdowns}><iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.faq')}</span></a></li>
-							<li><a href="/contact" onclick={closeDropdowns}><iconify-icon icon="mdi:email-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.contact_support')}</span></a></li>
-							<li><a href="/about" onclick={closeDropdowns}><iconify-icon icon="mdi:information-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.about_us')}</span></a></li>
-							<li><a href="/terms" onclick={closeDropdowns}><iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.terms_of_service')}</span></a></li>
-							<li><a href="/privacy" onclick={closeDropdowns}><iconify-icon icon="mdi:shield-account" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.privacy_policy')}</span></a></li>
+							<li><a href="/how-it-works" onclick={closeDropdowns}><IconHelpCircleOutline width="20" class="text-primary" /> <span>{$t('navbar.how_it_works')}</span></a></li>
+							<li><a href="/faq" onclick={closeDropdowns}><IconFrequentlyAskedQuestions width="20" class="text-primary" /> <span>{$t('navbar.faq')}</span></a></li>
+							<li><a href="/contact" onclick={closeDropdowns}><IconEmailOutline width="20" class="text-primary" /> <span>{$t('navbar.contact_support')}</span></a></li>
+							<li><a href="/about" onclick={closeDropdowns}><IconInformationOutline width="20" class="text-primary" /> <span>{$t('navbar.about_us')}</span></a></li>
+							<li><a href="/terms" onclick={closeDropdowns}><IconFileDocumentOutline width="20" class="text-primary" /> <span>{$t('navbar.terms_of_service')}</span></a></li>
+							<li><a href="/privacy" onclick={closeDropdowns}><IconShieldAccount width="20" class="text-primary" /> <span>{$t('navbar.privacy_policy')}</span></a></li>
 						</ul>
 					</details>
 				</li>
@@ -251,31 +280,31 @@
 			{:else}
 				<li>
 					<a href="/how-it-works" class="btn btn-ghost">
-						<iconify-icon icon="mdi:help-circle-outline" width="20" class="text-primary"></iconify-icon>
+						<IconHelpCircleOutline width="20" class="text-primary" />
 						<span>{$t('footer.how_it_works')}</span>
 					</a>
 				</li>
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<iconify-icon icon="mdi:briefcase-outline" width="20" class="text-primary"></iconify-icon>
+							<IconBriefcaseOutline width="20" class="text-primary" />
 							<span>{$t('footer.for_taskers')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
 							<li><a href="/dashboard/create-task" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:plus-circle" width="20" class="text-primary"></iconify-icon>
+								<IconPlusCircle width="20" class="text-primary" />
 								<span>{$t('footer.post_task')}</span>
 							</a></li>
 							<li><a href="/tasker-fees" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+								<IconCurrencyUsd width="20" class="text-primary" />
 								<span>{$t('footer.tasker_fees')}</span>
 							</a></li>
 							<li><a href="/escrow" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:shield-check-outline" width="20" class="text-primary"></iconify-icon>
+								<IconShieldCheckOutline width="20" class="text-primary" />
 								<span>{$t('footer.escrow')}</span>
 							</a></li>
 							<li><a href="/faq" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
+								<IconFrequentlyAskedQuestions width="20" class="text-primary" />
 								<span>{$t('footer.faq')}</span>
 							</a></li>
 						</ul>
@@ -284,28 +313,28 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<iconify-icon icon="mdi:account-hard-hat" width="20" class="text-primary"></iconify-icon>
+							<IconAccountHardHat width="20" class="text-primary" />
 							<span>{$t('footer.for_taskees')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
 							<li><a href="/dashboard/find-tasks" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:magnify" width="20" class="text-primary"></iconify-icon>
+								<IconMagnify width="20" class="text-primary" />
 								<span>{$t('footer.start_earning')}</span>
 							</a></li>
 							<li><a href="/community-guidelines" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:account-group" width="20" class="text-primary"></iconify-icon>
+								<IconAccountGroup width="20" class="text-primary" />
 								<span>{$t('footer.community_guidelines')}</span>
 							</a></li>
 							<li><a href="/taskee-fees" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:currency-usd" width="20" class="text-primary"></iconify-icon>
+								<IconCurrencyUsd width="20" class="text-primary" />
 								<span>{$t('footer.taskee_fees')}</span>
 							</a></li>
 							<li><a href="/tasker-principles" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:handshake" width="20" class="text-primary"></iconify-icon>
+								<IconHandshake width="20" class="text-primary" />
 								<span>{$t('footer.tasker_principles')}</span>
 							</a></li>
 							<li><a href="/faq" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:frequently-asked-questions" width="20" class="text-primary"></iconify-icon>
+								<IconFrequentlyAskedQuestions width="20" class="text-primary" />
 								<span>{$t('footer.tasker_faq')}</span>
 							</a></li>
 						</ul>
@@ -314,36 +343,36 @@
 				<li>
 					<details class="dropdown">
 						<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-							<iconify-icon icon="mdi:domain" width="20" class="text-primary"></iconify-icon>
+							<IconDomain width="20" class="text-primary" />
 							<span>{$t('footer.company')}</span>
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm">
 							<li><a href="/about" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:information-outline" width="20" class="text-primary"></iconify-icon>
+								<IconInformationOutline width="20" class="text-primary" />
 								<span>{$t('footer.about_us')}</span>
 							</a></li>
 							<li><a href="/security" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:shield-check" width="20" class="text-primary"></iconify-icon>
+								<IconShieldCheck width="20" class="text-primary" />
 								<span>{$t('footer.security')}</span>
 							</a></li>
 							<li><a href="/careers" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:briefcase-search" width="20" class="text-primary"></iconify-icon>
+								<IconBriefcaseSearch width="20" class="text-primary" />
 								<span>{$t('footer.careers')}</span>
 							</a></li>
 							<li><a href="/press" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:newspaper" width="20" class="text-primary"></iconify-icon>
+								<IconNewspaper width="20" class="text-primary" />
 								<span>{$t('footer.press')}</span>
 							</a></li>
 							<li><a href="/terms" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:file-document-outline" width="20" class="text-primary"></iconify-icon>
+								<IconFileDocumentOutline width="20" class="text-primary" />
 								<span>{$t('footer.terms')}</span>
 							</a></li>
 							<li><a href="/privacy" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:shield-account" width="20" class="text-primary"></iconify-icon>
+								<IconShieldAccount width="20" class="text-primary" />
 								<span>{$t('footer.privacy')}</span>
 							</a></li>
 							<li><a href="/contact" onclick={closeDropdowns}>
-								<iconify-icon icon="mdi:email-outline" width="20" class="text-primary"></iconify-icon>
+								<IconEmailOutline width="20" class="text-primary" />
 								<span>{$t('footer.contact')}</span>
 							</a></li>
 						</ul>
@@ -371,11 +400,11 @@
 					<Avatar />
 				</summary>
 				<ul class="menu dropdown-content bg-base-100 rounded-box z-10 w-56 p-2 shadow-md right-0 mt-2">
-					<li><a href="/dashboard" onclick={closeDropdowns}><iconify-icon icon="mdi:format-list-bulleted" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.my_tasks')}</span></a></li>
-					<li><a href="/dashboard/profile" onclick={closeDropdowns}><iconify-icon icon="mdi:account" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.profile')}</span></a></li>
-					<li><a href="/dashboard/messages" onclick={closeDropdowns}><iconify-icon icon="mdi:message" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.messages')}</span></a></li>
-					<li><a href="/dashboard/settings" onclick={closeDropdowns}><iconify-icon icon="mdi:cog" width="20" class="text-primary"></iconify-icon> <span>{$t('navbar.settings')}</span></a></li>
-					<li><button onclick={logout} class="text-error flex items-center gap-2"><iconify-icon icon="mdi:logout" width="20" class="text-error"></iconify-icon> <span>{$t('navbar.logout')}</span></button></li>
+												<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted width="20" class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
+							<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount width="20" class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
+							<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage width="20" class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
+							<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog width="20" class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
+							<li><button onclick={logout} class="text-error flex items-center gap-2"><IconLogout width="20" class="text-error" /> <span>{$t('navbar.logout')}</span></button></li>
 				</ul>
 			</details>
 		{/if}
@@ -395,7 +424,7 @@
 			{#if isLoggedIn}
 				<li>
 					<a href="/dashboard/settings" onclick={closeDrawer} class="flex items-center gap-2">
-						<iconify-icon icon="mdi:cog" width="20"></iconify-icon>
+													<IconCog width="20" />
 						{$t('navbar.settings')}
 					</a>
 				</li>
@@ -405,19 +434,19 @@
 
 			<li>
 				<a href="/" onclick={closeDrawer} class="flex items-center gap-2">
-					<iconify-icon icon="mdi:home" width="20"></iconify-icon>
+											<IconHome width="20" />
 					{$t('navbar.home')}
 				</a>
 			</li>
 			<li>
 				<a href="/how-it-works" onclick={closeDrawer} class="flex items-center gap-2">
-					<iconify-icon icon="mdi:help-circle-outline" width="20"></iconify-icon>
+											<IconHelpCircleOutline width="20" />
 					{$t('navbar.how_it_works')}
 				</a>
 			</li>
 			<li>
 				<a href="/terms" onclick={closeDrawer} class="flex items-center gap-2">
-					<iconify-icon icon="mdi:file-document-outline" width="20"></iconify-icon>
+											<IconFileDocumentOutline width="20" />
 					{$t('navbar.terms_and_conditions')}
 				</a>
 			</li>
@@ -429,7 +458,7 @@
 			{#if isLoggedIn}
 				<li>
 					<button onclick={logout} class="flex items-center gap-2">
-						<iconify-icon icon="mdi:logout" width="20"></iconify-icon>
+													<IconLogout width="20" />
 						{$t('navbar.logout')}
 					</button>
 				</li>
@@ -439,14 +468,14 @@
 						class="btn btn-secondary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
-						<iconify-icon icon="mdi:login" width="20"></iconify-icon>
+													<IconLogin width="20" />
 						{$t('navbar.login')}
 					</a>
 					<a href="/auth/signup"
 						class="btn btn-primary flex w-full items-center justify-center gap-2"
 						onclick={closeDrawer}
 					>
-						<iconify-icon icon="mdi:account-plus" width="20"></iconify-icon>
+													<IconAccountPlus width="20" />
 						{$t('navbar.signup')}
 					</a>
 				</li>

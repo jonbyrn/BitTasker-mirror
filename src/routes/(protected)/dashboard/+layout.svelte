@@ -3,12 +3,42 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from '$lib/stores/i18n.store';
-	import 'iconify-icon';
+	// Icon imports for unplugin-icons
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconMagnify from '~icons/mdi/magnify';
+	import IconWallet from '~icons/mdi/wallet';
+	import IconAccount from '~icons/mdi/account';
+	import IconMessage from '~icons/mdi/message';
+	import IconCog from '~icons/mdi/cog';
 
 	let { children } = $props();
 
 	let width = $state(375);
 	let activeSection = $state('');
+
+	// Icon mapping function for dynamic icon rendering
+	function getIconComponent(iconName: string) {
+		const iconMap = {
+			'mdi:format-list-bulleted': IconFormatListBulleted,
+			'mdi:plus-circle': IconPlusCircle,
+			'mdi:magnify': IconMagnify,
+			'mdi:wallet': IconWallet,
+			'mdi:account': IconAccount,
+			'mdi:message': IconMessage,
+			'mdi:cog': IconCog
+		};
+		return iconMap[iconName as keyof typeof iconMap] || IconFormatListBulleted;
+	}
+
+	// Create a reactive component map for Svelte 5 compatibility
+	let iconComponents = $derived.by(() => {
+		const components = new Map();
+		sections.forEach(section => {
+			components.set(section.icon, getIconComponent(section.icon));
+		});
+		return components;
+	});
 
 	$effect(() => {
 		const section = page.url.pathname.split('/dashboard/')[1] || '';
@@ -86,11 +116,23 @@
 									class:menu-active={activeSection === section.id}
 									class="flex items-center gap-3"
 								>
-									<iconify-icon 
-										icon={section.icon} 
-										width="20" 
-										class="text-primary"
-									></iconify-icon>
+									{#if section.icon === 'mdi:format-list-bulleted'}
+										<IconFormatListBulleted width="20" class="text-primary" />
+									{:else if section.icon === 'mdi:plus-circle'}
+										<IconPlusCircle width="20" class="text-primary" />
+									{:else if section.icon === 'mdi:magnify'}
+										<IconMagnify width="20" class="text-primary" />
+									{:else if section.icon === 'mdi:wallet'}
+										<IconWallet width="20" class="text-primary" />
+									{:else if section.icon === 'mdi:account'}
+										<IconAccount width="20" class="text-primary" />
+									{:else if section.icon === 'mdi:message'}
+										<IconMessage width="20" class="text-primary" />
+									{:else if section.icon === 'mdi:cog'}
+										<IconCog width="20" class="text-primary" />
+									{:else}
+										<IconFormatListBulleted width="20" class="text-primary" />
+									{/if}
 									{$t(section.label)}
 								</a>
 							</li>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Locales } from '$lib/stores/i18n.store';
 	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
+	import IconCheck from '~icons/mdi/check';
 
 	// Props
 	let { 
@@ -144,11 +145,10 @@
 					/>
 					<span>{name}</span>
 					{#if showCheckmark && code === $locale}
-						<iconify-icon 
-							icon="mdi:check" 
+						<IconCheck 
 							class="text-primary ml-auto" 
 							width="16"
-						></iconify-icon>
+						/>
 					{/if}
 				</button>
 			</li>
