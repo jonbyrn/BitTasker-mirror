@@ -231,7 +231,7 @@
 	</div>
 {:else}
 	<main
-		data-theme={$darkMode ? 'BitTasker-Dark' : 'BitTasker-Light'}
+		data-theme={$darkMode ? 'dark' : 'light'}
 		id="main"
 		class="flex min-h-[100dvh] flex-col no-horizontal-scroll"
 	>
