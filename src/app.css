@@ -151,19 +151,19 @@ ul[role="listbox"]:focus {
 }
 
 /* Dark mode specific adjustments */
-:root[data-theme='BitTasker-Dark'] .glow-blur {
+:root[data-theme='dark'] .glow-blur {
 	opacity: 0.15;
 	filter: blur(120px);
 }
 
 /* Light mode adjustments */
-:root[data-theme='BitTasker-Light'] .glow-blur {
+:root[data-theme='light'] .glow-blur {
 	opacity: 0.2;
 	filter: blur(100px);
 }
 
 @plugin "daisyui/theme" {
-	name: 'BitTasker-Dark';
+	name: 'dark';
 	default: true;
 	prefersdark: true;
 	color-scheme: 'dark';
@@ -198,7 +198,7 @@ ul[role="listbox"]:focus {
 }
 
 @plugin "daisyui/theme" {
-	name: 'BitTasker-Light';
+	name: 'light';
 	default: false;
 	prefersdark: false;
 	color-scheme: 'light';
