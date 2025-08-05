@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { walletStore, walletAssets, walletBalance } from '$lib/stores/wallet.store';
+	import type { EnhancedAsset } from '$lib/stores/wallet.store';
 
 	// Get total balance in BTC equivalent
 	function getTotalBtcBalance(): number {
-		return $walletAssets.reduce((total, asset) => {
+		return $walletAssets.assets.reduce((total: number, asset: EnhancedAsset) => {
 			if (asset.ticker === 'BTC' || asset.ticker === 'L-BTC') {
 				return total + asset.balance / Math.pow(10, asset.precision);
 			}
@@ -28,9 +29,9 @@
 	</div>
 
 	<!-- Asset Breakdown -->
-	{#if $walletAssets.length > 0}
+	{#if $walletAssets.assets.length > 0}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			{#each $walletAssets as asset (asset.assetId)}
+			{#each $walletAssets.assets as asset (asset.assetId)}
 				<div class="card bg-base-200">
 					<div class="card-body p-4">
 						<div class="flex items-center justify-between">
