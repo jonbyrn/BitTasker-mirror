@@ -22,6 +22,7 @@
 		validateEmail
 	} from '$lib/utils/helpers/validators';
 	import { generatePassword } from '$lib/utils/helpers/password';
+	import { locale } from '$lib/stores/i18n.store';
 	import authService from '$lib/api/services/auth.service';
 
 	let {
@@ -61,11 +62,17 @@
 
 	// Generate password function
 	function handleGeneratePassword() {
-		const newPassword = generatePassword();
+		const newPassword = generatePassword($locale);
 		recoveryPassword = newPassword;
 		confirmPassword = newPassword;
 		passwordError = '';
 	}
+
+	$effect(() => {
+		if (enableRecovery) {
+			handleGeneratePassword();
+		}
+	});
 
 	async function generateKeyPair() {
 		const sk = generateSecretKey();
@@ -521,7 +528,7 @@
 					</div>
 
 					<div
-						class="alert alert-warning mt-4 rounded-2xl text-xs text-black"
+						class="alert alert-warning alert-outline mt-4 rounded-2xl text-xs text-black"
 						in:fly={{ duration: 100, y: -20, easing: linear }}
 					>
 						<p>
@@ -556,64 +563,19 @@
 							<span class="label-text">Recovery Password</span>
 						</label>
 						<div class="flex gap-2">
-							<div class="relative flex-1">
-								<input
-									type={showPassword ? 'text' : 'password'}
-									id="password"
-									bind:value={recoveryPassword}
-									class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
-									placeholder="Create a strong password"
-									required={enableRecovery}
-								/>
-								<button
-									type="button"
-									class="absolute inset-y-0 right-0 flex items-center pr-3"
-									onclick={() => (showPassword = !showPassword)}
-								>
-									{#if showPassword}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-											/>
-										</svg>
-									{:else}
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
-										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-											/>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-											/>
-										</svg>
-									{/if}
-								</button>
-							</div>
+							<input
+								type={showPassword ? 'text' : 'password'}
+								id="password"
+								bind:value={recoveryPassword}
+								class="input input-bordered flex-1 {passwordError ? 'input-error' : ''}"
+								placeholder="Create a strong password"
+								required={enableRecovery}
+							/>
 							<button
 								type="button"
 								class="btn btn-outline btn-sm"
 								onclick={handleGeneratePassword}
-								title="Generate secure password"
+								title="Generate new 4-word password in {$locale === 'es' ? 'Spanish' : 'English'}"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -629,7 +591,6 @@
 										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 									/>
 								</svg>
-								Generate
 							</button>
 						</div>
 					</div>
@@ -639,14 +600,60 @@
 						<label class="label" for="confirmPassword">
 							<span class="label-text">Confirm Recovery Password</span>
 						</label>
-						<input
-							type={showPassword ? 'text' : 'password'}
-							id="confirmPassword"
-							bind:value={confirmPassword}
-							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-							placeholder="Confirm your password"
-							required={enableRecovery}
-						/>
+						<div class="flex gap-2">
+							<input
+								type={showPassword ? 'text' : 'password'}
+								id="confirmPassword"
+								bind:value={confirmPassword}
+								class="input input-bordered flex-1 {passwordError ? 'input-error' : ''}"
+								placeholder="Confirm your password"
+								required={enableRecovery}
+							/>
+							<button
+								type="button"
+								class="btn btn-outline btn-sm"
+								onclick={() => (showPassword = !showPassword)}
+								title={showPassword ? 'Hide password' : 'Show password'}
+							>
+								{#if showPassword}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+										/>
+									</svg>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+										/>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+										/>
+									</svg>
+								{/if}
+							</button>
+						</div>
 						{#if passwordError}
 							<label class="label" for="confirmPassword">
 								<span class="label-text-alt text-error">{passwordError}</span>
@@ -654,31 +661,7 @@
 						{/if}
 					</div>
 
-					<!-- Password Guidelines -->
-					{#if recoveryPassword}
-						<p class="mt-2" in:fly={{ duration: 100, y: -20, easing: linear }}>
-							Your password should be at least
-							<span class={recoveryPassword.length >= 8 ? 'text-success font-medium' : ''}>
-								8 characters
-							</span>, include
-							<span class={/[A-Z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								uppercase
-							</span>,
-							<span class={/[a-z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								lowercase
-							</span>,
-							<span class={/[0-9]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								numbers
-							</span>, and
-							<span
-								class={/[!@#$%^&*(),.?":{}|<>]/.test(recoveryPassword)
-									? 'text-success font-medium'
-									: ''}
-							>
-								special characters
-							</span>.
-						</p>
-					{/if}
+
 				</div>
 			{/if}
 
