@@ -3,21 +3,25 @@
 	Handles amount input with unit conversion and balance display
 -->
 <script lang="ts">
+	import { walletStore, selectedAsset as selectedAssetStore } from '$lib/stores/wallet.store';
+
 	// Props
 	let {
 		amount = $bindable(''),
 		selectedAsset = 'L-BTC',
 		useMainUnit = $bindable(false),
 		fiatCurrency = 'USD',
-		fiatRates = {},
 		limits = {},
-		availableBalance = 0,
 		estimatedFees = 0,
 		isLoadingFees = false,
 		addressType = 'unknown',
 		recipientAddress = '',
 		onAmountChange = (event: Event & { currentTarget: EventTarget & HTMLInputElement }) => {}
 	} = $props();
+
+	// Get data from wallet store
+	let fiatRates = $derived($walletStore.fiatRates);
+	let availableBalance = $derived($selectedAssetStore?.balance || 0);
 
 	function getAmountPlaceholder(): string {
 		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
@@ -73,21 +77,30 @@
 	}
 
 	function getFiatEquivalent(): string {
-		if (!amount || !fiatRates[fiatCurrency]) return '';
+		if (!amount || !fiatRates) return '';
 
 		const amountSats = convertToSatoshis(amount);
+		const rates: Record<string, number> = fiatRates.reduce(
+			(acc, rate) => ({ ...acc, [rate.coin]: rate.value }),
+			{} as Record<string, number>
+		);
+
+		if (!rates[fiatCurrency]) return '';
 
 		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
 			const btcAmount = amountSats / 100_000_000;
-			const fiatValue = btcAmount * fiatRates[fiatCurrency];
-			return `≈ ${fiatValue.toFixed(2)} ${fiatCurrency}`;
+			const btcRate = rates['BTC'] || 0;
+			const fiatValue = btcAmount * btcRate;
+			return `≈ ${walletStore.formatUsd(fiatValue)}`;
 		} else if (selectedAsset === 'USDt') {
 			const usdtAmount = amountSats / 100_000_000;
 			if (fiatCurrency === 'USD') {
-				return `≈ $${usdtAmount.toFixed(2)}`;
+				return `≈ ${walletStore.formatUsd(usdtAmount)}`;
 			}
 			// For other currencies, convert from USD
-			const fiatValue = usdtAmount * (fiatRates[fiatCurrency] / fiatRates['USD']);
+			const usdRate = rates['USD'] || 1;
+			const targetRate = rates[fiatCurrency] || 0;
+			const fiatValue = usdtAmount * (targetRate / usdRate);
 			return `≈ ${fiatValue.toFixed(2)} ${fiatCurrency}`;
 		}
 
@@ -198,56 +211,39 @@
 			</div>
 		{/if}
 
-		<!-- Balance and Fee Information -->
-		{#if availableBalance > 0}
-			<div class="flex flex-col gap-1 text-xs">
+		<!-- Fee Information -->
+		<div class="flex flex-col gap-1 text-xs">
+			{#if recipientAddress && estimatedFees}
 				<div class="text-base-content/60 flex items-center justify-between">
 					<span>Available Balance:</span>
 					<span class="font-mono">{formatSatsDisplay(availableBalance)}</span>
 				</div>
-				{#if recipientAddress && addressType !== 'unknown'}
-					<div class="text-base-content/60 flex items-center justify-between">
-						<span>Estimated Fees:</span>
-						<span class="font-mono">
-							{#if isLoadingFees}
-								<span class="loading loading-spinner loading-xs"></span>
-							{:else if estimatedFees > 0}
-								<span class="text-warning">~{formatSatsDisplay(estimatedFees)}</span>
-							{:else}
-								<span class="text-base-content/40 italic">Calculating...</span>
-							{/if}
+				<div class="text-base-content/60 flex items-center justify-between">
+					<span>Estimated Fees:</span>
+					<span class="font-mono">
+						{#if isLoadingFees}
+							<span class="loading loading-spinner loading-xs"></span>
+						{:else if estimatedFees > 0}
+							<span class="text-warning">~{formatSatsDisplay(estimatedFees)}</span>
+						{/if}
+					</span>
+				</div>
+				{#if availableBalance > estimatedFees}
+					<div
+						class="text-base-content/60 border-base-300 flex items-center justify-between border-t pt-1"
+					>
+						<span>Max Sendable:</span>
+						<span class="text-success font-mono">
+							{formatSatsDisplay(availableBalance - estimatedFees)}
 						</span>
 					</div>
-					{#if estimatedFees > 0}
-						{#if availableBalance > estimatedFees}
-							<div
-								class="text-base-content/60 border-base-300 flex items-center justify-between border-t pt-1"
-							>
-								<span>Max Sendable:</span>
-								<span class="text-success font-mono"
-									>{formatSatsDisplay(availableBalance - estimatedFees)}</span
-								>
-							</div>
-						{:else}
-							<div
-								class="text-error border-base-300 flex items-center justify-between border-t pt-1"
-							>
-								<span>Status:</span>
-								<span class="font-mono text-xs">Insufficient funds</span>
-							</div>
-						{/if}
-					{:else}
-						<div
-							class="text-base-content/60 border-base-300 flex items-center justify-between border-t pt-1"
-						>
-							<span>Max Sendable:</span>
-							<span class="text-base-content/40 font-mono italic"
-								>Unknown (fees calculating)</span
-							>
-						</div>
-					{/if}
+				{:else}
+					<div class="text-error border-base-300 flex items-center justify-between border-t pt-1">
+						<span>Status:</span>
+						<span class="font-mono text-xs">Insufficient funds</span>
+					</div>
 				{/if}
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 </div>

@@ -2,81 +2,18 @@
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
 
-	import type { GetInfoResponse } from '@breeztech/breez-sdk-liquid/web';
-	import { wallet } from '$lib/utils/consts';
-	import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 	import { goto } from '$app/navigation';
 	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
 	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
 	import PaymentRequestForm from './_components/PaymentRequestForm.svelte';
 	import TransactionHistory from './_components/TransactionHistory.svelte';
-	import EnhancedSendForm from './_components/sendTab/SendForm.svelte';
+	import SendForm from './_components/sendTab/SendForm.svelte';
 	import SwapDashboard from './_components/SwapDashboard.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import {
-		connectToBreez,
-		disconnect,
-		getWalletInfo,
-		isConnectedStore
-	} from '$lib/wallet/breez/walletService';
+	import { walletStore, walletConnection } from '$lib/stores/wallet.store';
 	import { emergencyBlock } from '$lib/wallet/breez/requestThrottler';
 	import { clearCache } from '$lib/wallet/helper';
 	import { isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
-
-	// UI state
-	let activeTab = $state<'balance' | 'receive' | 'send' | 'swaps' | 'transactions'>('balance');
-
-	// Send form
-	let sendAmount = $state('');
-	let sendAddress = $state('');
-	let sendNetworkFee = $state<'low' | 'medium' | 'high'>('medium');
-	let sendError = $state('');
-
-	// Wallet initialization state
-	let isConnecting = $state(false);
-	let errorMessage = $state<string | null>(null);
-	let walletInfo = $state<GetInfoResponse | null>(null);
-
-	// Format number with a specific number of decimals
-	function formatNumber(number: number, decimals: number): string {
-		return number.toFixed(decimals);
-	}
-
-	// Validate send form
-	function validateSendForm(): boolean {
-		if (!sendAmount || isNaN(parseFloat(sendAmount)) || parseFloat(sendAmount) <= 0) {
-			sendError = 'Please enter a valid amount';
-			return false;
-		}
-
-		if (parseFloat(sendAmount) > wallet.balance.btc) {
-			sendError = 'Insufficient balance';
-			return false;
-		}
-
-		if (!sendAddress.trim()) {
-			sendError = 'Please enter a recipient address';
-			return false;
-		}
-
-		sendError = '';
-		return true;
-	}
-
-	// Send transaction
-	function sendTransaction(): void {
-		if (!validateSendForm()) {
-			return;
-		}
-
-		// In a real implementation, this would call an API to send the transaction
-		alert(`Transaction initiated: ${sendAmount} BTC to ${sendAddress}`);
-
-		// Reset form
-		sendAmount = '';
-		sendAddress = '';
-		sendNetworkFee = 'medium';
-	}
 
 	// Emergency function to stop infinite loops
 	function handleEmergencyBlock(): void {
@@ -85,57 +22,14 @@
 		clearCache(); // Clear helper caches
 	}
 
-	// Initialize wallet connection
-	async function initializeWallet() {
-		try {
-			if ($isConnectedStore) {
-				return;
-			}
-
-			isConnecting = true;
-			errorMessage = null;
-
-			const mnemonic = await getMnemonicPasskey();
-			if (!mnemonic) {
-				throw new Error('No mnemonic found');
-			}
-
-			await connectToBreez(mnemonic);
-
-			walletInfo = await getWalletInfo();
-
-			console.log({ walletInfo });
-		} catch (error) {
-			console.error('Failed to initialize wallet:', error);
-			errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-			goto('/dashboard/wallet/error?type=no-mnemonic');
-		} finally {
-			isConnecting = false;
-		}
-	}
-
-	// Clean up wallet connection
-	async function cleanup() {
-		try {
-			if ($isConnectedStore) {
-				await disconnect();
-				walletInfo = null;
-			}
-		} catch (error) {
-			console.error('Error during wallet cleanup:', error);
-		}
-	}
-
 	onMount(() => {
 		if ($isWasmInitialized) {
-			initializeWallet();
+			walletStore.initialize();
 		}
-	});
 
-	onMount(() => {
 		// Add event listeners for navigation from swap dashboard
-		const handleNavigateToSend = () => (activeTab = 'send');
-		const handleNavigateToReceive = () => (activeTab = 'receive');
+		const handleNavigateToSend = () => walletStore.setActiveTab('send');
+		const handleNavigateToReceive = () => walletStore.setActiveTab('receive');
 
 		window.addEventListener('navigate-to-send', handleNavigateToSend);
 		window.addEventListener('navigate-to-receive', handleNavigateToReceive);
@@ -146,8 +40,8 @@
 		};
 	});
 
-	onDestroy(() => {
-		cleanup();
+	onDestroy(async () => {
+		await walletStore.disconnectWallet();
 	});
 </script>
 
@@ -155,14 +49,14 @@
 	<h2 class="mb-6 text-2xl font-bold">Bitcoin Wallet</h2>
 
 	<!-- Connection Status -->
-	{#if isConnecting}
+	{#if $walletConnection.isConnecting}
 		<div class="alert alert-info mb-6">
 			<div class="flex items-center">
 				<span class="loading loading-spinner loading-sm mr-2"></span>
 				<span>Initializing wallet...</span>
 			</div>
 		</div>
-	{:else if errorMessage}
+	{:else if $walletConnection.errorMessage}
 		<div class="alert alert-error mb-6">
 			<div>
 				<svg
@@ -180,55 +74,60 @@
 				</svg>
 				<div>
 					<h3 class="font-bold">Connection Error</h3>
-					<div class="text-xs">{errorMessage}</div>
+					<div class="text-xs">{$walletConnection.errorMessage}</div>
 				</div>
 			</div>
-			<button class="btn btn-outline btn-sm" onclick={initializeWallet}> Retry </button>
+			<button class="btn btn-outline btn-sm" onclick={() => walletStore.initialize()}>
+				Retry
+			</button>
 		</div>
-	{:else if $isConnectedStore && walletInfo}
+	{:else if $walletConnection.isConnected && $walletStore.walletInfo}
 		<!-- Tabs -->
 		<div class="tabs tabs-boxed mb-6">
 			<button
-				class="tab {activeTab === 'balance' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'balance')}
+				class="tab {$walletStore.activeTab === 'balance' ? 'tab-active' : ''}"
+				onclick={() => walletStore.setActiveTab('balance')}
 			>
 				Balance
 			</button>
 			<button
-				class="tab {activeTab === 'receive' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'receive')}
+				class="tab {$walletStore.activeTab === 'receive' ? 'tab-active' : ''}"
+				onclick={() => walletStore.setActiveTab('receive')}
 			>
 				Receive
 			</button>
 			<button
-				class="tab {activeTab === 'send' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'send')}
+				class="tab {$walletStore.activeTab === 'send' ? 'tab-active' : ''}"
+				onclick={() => walletStore.setActiveTab('send')}
 			>
 				Send
 			</button>
-			<button
-				class="tab {activeTab === 'swaps' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'swaps')}
+			<!-- <button
+				class="tab {$walletStore.activeTab === 'swaps' ? 'tab-active' : ''}"
+				onclick={() => walletStore.setActiveTab('swaps')}
 			>
 				Swaps
-			</button>
+			</button> -->
 			<button
-				class="tab {activeTab === 'transactions' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'transactions')}
+				class="tab {$walletStore.activeTab === 'transactions' ? 'tab-active' : ''}"
+				onclick={() => walletStore.setActiveTab('transactions')}
 			>
 				Transactions
 			</button>
 		</div>
 
 		<!-- Tab Content -->
-		{#if activeTab === 'balance'}
+		{#if $walletStore.activeTab === 'balance'}
 			<div class="space-y-6">
 				<!-- Balance Card -->
 				<BalanceCard />
 
 				<!-- Quick Actions -->
 				<div class="grid grid-cols-2 gap-4">
-					<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'receive')}>
+					<button
+						class="btn btn-outline btn-primary"
+						onclick={() => walletStore.setActiveTab('receive')}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="mr-2 h-5 w-5"
@@ -245,7 +144,10 @@
 						</svg>
 						Receive
 					</button>
-					<button class="btn btn-outline btn-primary" onclick={() => (activeTab = 'send')}>
+					<button
+						class="btn btn-outline btn-primary"
+						onclick={() => walletStore.setActiveTab('send')}
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="mr-2 h-5 w-5"
@@ -265,11 +167,11 @@
 				</div>
 
 				<!-- Recent Transactions -->
-				<RecentTransactions bind:activeTab />
+				<RecentTransactions />
 			</div>
 		{/if}
 
-		{#if activeTab === 'receive'}
+		{#if $walletStore.activeTab === 'receive'}
 			<div class="space-y-6">
 				<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
 
@@ -278,18 +180,18 @@
 			</div>
 		{/if}
 
-		{#if activeTab === 'send'}
+		{#if $walletStore.activeTab === 'send'}
 			<div class="space-y-6">
 				<!-- Enhanced Send Form with Multi-Asset Support -->
-				<EnhancedSendForm />
+				<SendForm />
 			</div>
 		{/if}
 
-		<!-- {#if activeTab === 'swaps'}
+		<!-- {#if $walletStore.activeTab === 'swaps'}
 			<SwapDashboard />
 		{/if} -->
 
-		{#if activeTab === 'transactions'}
+		{#if $walletStore.activeTab === 'transactions'}
 			<TransactionHistory />
 		{/if}
 	{/if}
