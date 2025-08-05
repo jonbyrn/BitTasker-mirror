@@ -3,12 +3,16 @@
 	Supports multi-asset transactions with passkey security
 -->
 <script lang="ts">
-	import type { PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
 	import { Buffer } from 'buffer';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { appStore } from '$lib/stores/app.store';
+	import {
+		walletStore,
+		walletAssets,
+		selectedAsset as selectedAssetStore
+	} from '$lib/stores/wallet.store';
 	import PasskeyVerification from './PasskeyVerification.svelte';
 	import AssetSelector from '../AssetSelector.svelte';
 	import RecipientInput from './RecipientInput.svelte';
@@ -20,51 +24,55 @@
 		prepareSendPayment,
 		sendPayment,
 		sendAssetPayment,
-		fetchLightningLimits,
-		fetchOnchainLimits,
-		fetchFiatRates,
 		parseInputAdvanced,
 		prepareBolt12Payment,
 		prepareLnurlPayment,
 		executeLnurlPayment,
-		detectMagicRoutingHints,
-		pendingPaymentsStore,
-		paymentEventsStore
+		detectMagicRoutingHints
 	} from '$lib/wallet/breez/walletService';
 	import { BoltzClient } from '$lib/integrations/boltz/client';
 	import { swapManager } from '$lib/integrations/boltz/swapManager';
 	import { getCurrentNetwork, getAssetId } from '$lib/constants/assets';
 	import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
 
-	// Form state
-	let selectedAsset = $state('L-BTC');
-	let recipientAddress = $state('');
-	let amount = $state('');
-	let description = $state('');
-	let feeRate = $state<'slow' | 'medium' | 'fast'>('medium');
-
-	// Unit conversion state
-	let useMainUnit = $state(false); // false = sats, true = BTC/main unit
-	let fiatCurrency = $state('USD');
-	let fiatRates = $state<any>({});
-
-	// UI State
-	let isLoading = $state(false);
+	// UI State (keep local since these are component-specific)
 	let showPasskeyVerification = $state(false);
 	let passkeyContext = $state<any>({});
-	let preparedTransaction = $state<PrepareSendResponse | null>(null);
 
-	// Balance and validation
-	let availableBalance = $state(0);
+	// Form state from wallet store
+	let sendForm = $derived($walletStore.sendForm);
+	let fiatRates = $derived($walletStore.fiatRates);
+
+	// Form state variables (synced with wallet store)
+	let selectedAsset = $derived($walletStore.selectedAsset);
+	let recipientAddress = $derived(sendForm.recipient);
+	let amount = $derived(sendForm.amount);
+	let description = $derived(sendForm.description);
+	let feeRate = $derived(sendForm.feeRate);
+	let useMainUnit = $derived(sendForm.useMainUnit);
+	let fiatCurrency = $derived(sendForm.fiatCurrency);
+	let preparedTransaction = $derived(sendForm.preparedTransaction);
+	let isLoading = $derived(sendForm.isLoading);
+	let estimatedFees = $derived(sendForm.estimatedFees);
+	let isLoadingFees = $derived(sendForm.isLoading);
+	let validationError = $derived(sendForm.validationError);
+
+	// Balance and validation (local state for component-specific logic)
 	let addressType = $state<'lightning' | 'bitcoin' | 'liquid' | 'lnurlPay' | 'bolt12' | 'unknown'>(
 		'unknown'
 	);
-	let limits = $state<any>({});
 	let hasMagicRoutingHints = $state(false);
 
-	// Production features state
-	let pendingPayments = $state<any[]>([]);
-	let paymentEvents = $state<any[]>([]);
+	// Available balance from selected asset
+	let availableBalance = $derived($selectedAssetStore?.balance || 0);
+
+	// Limits, payments, and events from wallet store
+	let limits = $derived({
+		lightning: $walletStore.lightningLimits,
+		onchain: $walletStore.onchainLimits
+	});
+	let pendingPayments = $derived($walletStore.pendingPayments);
+	// let paymentEvents = $derived($walletStore.paymentEvents);
 
 	// Bitcoin wallet for BTC transactions
 	const bitcoinWallet = createBitcoinWallet();
@@ -76,17 +84,12 @@
 		network: currentNetwork
 	});
 
-	// Fee estimation state
-	let estimatedFees = $state(0);
-	let isLoadingFees = $state(false);
-	let validationError = $state<string | null>(null);
-
 	// Debounced fee estimation
 	let feeEstimationTimeout: ReturnType<typeof setTimeout>;
 	async function debouncedEstimateFees() {
 		clearTimeout(feeEstimationTimeout);
 		feeEstimationTimeout = setTimeout(async () => {
-			isLoadingFees = true;
+			walletStore.updateSendForm({ isLoading: true });
 			try {
 				const result = await estimateFees({
 					recipientAddress,
@@ -96,59 +99,18 @@
 					useMainUnit,
 					feeRate
 				});
-				estimatedFees = result.estimatedFees;
-				console.log({ availableBalance, estimatedFees });
+				walletStore.updateSendForm({
+					estimatedFees: result.estimatedFees,
+					isLoading: false
+				});
 			} catch (err) {
 				console.warn('Fee estimation failed:', err);
-				estimatedFees = 0;
-			} finally {
-				isLoadingFees = false;
+				walletStore.updateSendForm({
+					estimatedFees: 0,
+					isLoading: false
+				});
 			}
 		}, 300);
-	}
-
-	onMount(() => {
-		// Load initial data
-		Promise.all([loadLimits(), loadFiatRates()]);
-
-		// Subscribe to pending payments and events
-		const unsubscribePending = pendingPaymentsStore.subscribe((payments) => {
-			pendingPayments = payments;
-		});
-
-		const unsubscribeEvents = paymentEventsStore.subscribe((events) => {
-			paymentEvents = events;
-		});
-
-		// Cleanup subscriptions when component unmounts
-		return () => {
-			unsubscribePending();
-			unsubscribeEvents();
-		};
-	});
-
-	async function loadLimits() {
-		try {
-			const [lightningLimits, onchainLimits] = await Promise.all([
-				fetchLightningLimits(),
-				fetchOnchainLimits()
-			]);
-
-			limits = {
-				lightning: lightningLimits,
-				onchain: onchainLimits
-			};
-		} catch (err) {
-			console.error('Failed to load limits:', err);
-		}
-	}
-
-	async function loadFiatRates() {
-		try {
-			fiatRates = await fetchFiatRates();
-		} catch (err) {
-			console.error('Failed to load fiat rates:', err);
-		}
 	}
 
 	function handleBalanceUpdate(balance: number, precision: number, ticker: string) {
@@ -164,7 +126,8 @@
 	}
 
 	async function handleAddressChange() {
-		if (!recipientAddress.trim()) {
+		const address = recipientAddress?.trim() || '';
+		if (!address) {
 			addressType = 'unknown';
 			hasMagicRoutingHints = false;
 			return;
@@ -172,7 +135,7 @@
 
 		try {
 			// First try custom parsing for BIP21 URIs and other formats
-			const customParsed = parseCustomFormats(recipientAddress);
+			const customParsed = parseCustomFormats(address);
 			if (customParsed) {
 				addressType = customParsed;
 				hasMagicRoutingHints = false;
@@ -181,13 +144,13 @@
 			}
 
 			// Use advanced parsing with production features for supported types
-			const parsed = await parseInputAdvanced(recipientAddress);
+			const parsed = await parseInputAdvanced(address);
 
 			switch (parsed.type) {
 				case 'bolt11':
 					addressType = 'lightning';
 					// Check for Magic Routing Hints
-					hasMagicRoutingHints = await detectMagicRoutingHints(recipientAddress);
+					hasMagicRoutingHints = await detectMagicRoutingHints(address);
 					break;
 				case 'bolt12Offer':
 					addressType = 'bolt12';
@@ -206,19 +169,15 @@
 			}
 		} catch {
 			// Fallback: Try to detect based on address format
-			if (recipientAddress.startsWith('ln')) {
+			if (address.startsWith('ln')) {
 				addressType = 'lightning';
-			} else if (
-				recipientAddress.startsWith('bc1') ||
-				recipientAddress.startsWith('1') ||
-				recipientAddress.startsWith('3')
-			) {
+			} else if (address.startsWith('bc1') || address.startsWith('1') || address.startsWith('3')) {
 				addressType = 'bitcoin';
-			} else if (recipientAddress.startsWith('ex1') || recipientAddress.startsWith('lq1')) {
+			} else if (address.startsWith('ex1') || address.startsWith('lq1')) {
 				addressType = 'liquid';
-			} else if (recipientAddress.includes('@')) {
+			} else if (address.includes('@')) {
 				addressType = 'lnurlPay';
-			} else if (recipientAddress.startsWith('lno')) {
+			} else if (address.startsWith('lno')) {
 				addressType = 'bolt12';
 			} else {
 				addressType = 'unknown';
@@ -259,20 +218,20 @@
 			// Extract amount
 			const amountParam = url.searchParams.get('amount');
 			if (amountParam && !amount) {
-				amount = amountParam;
+				walletStore.updateSendForm({ amount: amountParam });
 			}
 
 			// Extract message/label
 			const message = url.searchParams.get('message') || url.searchParams.get('label');
 			if (message && !description) {
-				description = decodeURIComponent(message);
+				walletStore.updateSendForm({ description: decodeURIComponent(message) });
 			}
 
 			// For Liquid, check asset ID
 			const assetId = url.searchParams.get('assetid');
 			if (assetId === '6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d') {
 				// This is L-BTC asset ID
-				selectedAsset = 'L-BTC';
+				walletStore.setSelectedAsset('L-BTC');
 			}
 
 			console.log('📋 Extracted BIP21 parameters:', { amount: amountParam, message, assetId });
@@ -317,12 +276,12 @@
 
 		const validation = validateForm(validationParams);
 		if (!validation.isValid) {
-			validationError = validation.error;
+			walletStore.updateSendForm({ validationError: validation.error });
 			return;
 		}
 
 		try {
-			isLoading = true;
+			walletStore.updateSendForm({ isLoading: true, validationError: null });
 
 			const amountSats = convertToSatoshis(amount);
 
@@ -330,11 +289,8 @@
 				// Handle different Lightning payment types
 				if (addressType === 'bolt12') {
 					// BOLT12 offer payment
-					preparedTransaction = await prepareBolt12Payment(
-						recipientAddress,
-						amountSats,
-						description
-					);
+					const prepared = await prepareBolt12Payment(recipientAddress, amountSats, description);
+					walletStore.updateSendForm({ preparedTransaction: prepared });
 				} else if (addressType === 'lnurlPay') {
 					// LNURL-Pay (Lightning address)
 					const lnurlPrepare = await prepareLnurlPayment(recipientAddress, amountSats, description);
@@ -366,7 +322,8 @@
 									}
 					};
 
-					preparedTransaction = await prepareSendPayment(prepareParams);
+					const prepared = await prepareSendPayment(prepareParams);
+					walletStore.updateSendForm({ preparedTransaction: prepared });
 				}
 			} else if (selectedAsset === 'BTC') {
 				// Handle Bitcoin transactions
@@ -392,9 +349,12 @@
 			showPasskeyVerification = true;
 		} catch (err) {
 			console.error('Failed to prepare transaction:', err);
-			validationError = err instanceof Error ? err.message : 'Failed to prepare transaction';
+			walletStore.updateSendForm({
+				validationError: err instanceof Error ? err.message : 'Failed to prepare transaction',
+				isLoading: false
+			});
 		} finally {
-			isLoading = false;
+			walletStore.updateSendForm({ isLoading: false });
 		}
 	}
 
@@ -428,7 +388,7 @@
 		if (!preparedTransaction) return;
 
 		try {
-			isLoading = true;
+			walletStore.updateSendForm({ isLoading: true, validationError: null });
 
 			let result;
 			if (selectedAsset === 'USDt') {
@@ -453,9 +413,12 @@
 			// Show success message
 			showSuccessMessage(result);
 		} catch (err) {
-			validationError = err instanceof Error ? err.message : 'Transaction failed';
+			walletStore.updateSendForm({
+				validationError: err instanceof Error ? err.message : 'Transaction failed',
+				isLoading: false
+			});
 		} finally {
-			isLoading = false;
+			walletStore.updateSendForm({ isLoading: false });
 		}
 	}
 
@@ -464,6 +427,7 @@
 		appStore.showSuccessToast(
 			`Payment sent successfully! Transaction ID: ${result.payment?.id || 'N/A'}`
 		);
+		resetForm();
 	}
 
 	async function handleBitcoinToLightningSwap(amountSats: number) {
@@ -496,7 +460,9 @@
 			resetForm();
 		} catch (swapError) {
 			console.error('Failed to create Bitcoin to Lightning swap:', swapError);
-			validationError = swapError instanceof Error ? swapError.message : 'Failed to create swap';
+			walletStore.updateSendForm({
+				validationError: swapError instanceof Error ? swapError.message : 'Failed to create swap'
+			});
 		}
 	}
 
@@ -517,10 +483,7 @@
 	}
 
 	function resetForm() {
-		recipientAddress = '';
-		amount = '';
-		description = '';
-		preparedTransaction = null;
+		walletStore.resetSendForm();
 		addressType = 'unknown';
 	}
 </script>
@@ -532,7 +495,7 @@
 			duration: 200,
 			easing: linear,
 			y: 0,
-			x: showPasskeyVerification ? -20 : 20
+			x: showPasskeyVerification ? 20 : -20
 		}}
 	>
 		<div class="flex items-center justify-between">
@@ -545,9 +508,9 @@
 				<span class="label-text text-sm sm:text-base">Select Asset</span>
 			</div>
 			<AssetSelector
-				bind:selectedAsset
+				{selectedAsset}
 				onAssetChange={(assetId: string) => {
-					selectedAsset = assetId;
+					walletStore.setSelectedAsset(assetId);
 					debouncedEstimateFees();
 				}}
 				onBalanceUpdate={handleBalanceUpdate}
@@ -557,30 +520,42 @@
 
 		<!-- Recipient Address -->
 		<RecipientInput
-			bind:recipientAddress
-			bind:addressType
-			bind:hasMagicRoutingHints
-			onAddressChange={handleAddressChange}
+			{recipientAddress}
+			{addressType}
+			{hasMagicRoutingHints}
+			onAddressChange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+				walletStore.updateSendForm({ recipient: e.currentTarget.value });
+				handleAddressChange();
+			}}
 		/>
 
 		<!-- Amount Input -->
 		<AmountInput
-			bind:amount
-			bind:useMainUnit
+			{amount}
+			{useMainUnit}
 			{selectedAsset}
 			{fiatCurrency}
-			{fiatRates}
 			{limits}
-			{availableBalance}
 			{estimatedFees}
 			{isLoadingFees}
 			{addressType}
 			{recipientAddress}
-			onAmountChange={debouncedEstimateFees}
+			onAmountChange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+				walletStore.updateSendForm({ validationError: null });
+				walletStore.updateSendForm({ amount: e.currentTarget.value });
+				debouncedEstimateFees();
+			}}
 		/>
 
 		<!-- Fee Selection (for Bitcoin transactions) -->
-		<FeeSelection bind:feeRate {selectedAsset} onFeeRateChange={debouncedEstimateFees} />
+		<FeeSelection
+			{feeRate}
+			{selectedAsset}
+			onFeeRateChange={(rate: 'slow' | 'medium' | 'fast') => {
+				walletStore.updateSendForm({ feeRate: rate });
+				debouncedEstimateFees();
+			}}
+		/>
 
 		<!-- Description -->
 		<div class="form-control">
@@ -591,7 +566,11 @@
 				placeholder="What's this payment for?"
 				class="textarea textarea-bordered w-full rounded-xl text-sm sm:text-base"
 				rows="3"
-				bind:value={description}
+				value={description}
+				oninput={(e) => {
+					const target = e.target as HTMLTextAreaElement;
+					walletStore.updateSendForm({ description: target.value });
+				}}
 			></textarea>
 		</div>
 
@@ -678,14 +657,14 @@
 	</div>
 {:else}
 	<PasskeyVerification
-		bind:show={showPasskeyVerification}
+		show={showPasskeyVerification}
 		context={passkeyContext}
 		{preparedTransaction}
 		{selectedAsset}
 		onSuccess={handlePasskeySuccess}
 		onCancel={() => (showPasskeyVerification = false)}
 		onError={(err) => {
-			validationError = err;
+			walletStore.updateSendForm({ validationError: err });
 		}}
 	/>
 {/if}

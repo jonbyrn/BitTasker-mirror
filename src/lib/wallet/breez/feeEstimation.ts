@@ -65,9 +65,8 @@ export async function estimateFees(params: {
 	feeRate: 'slow' | 'medium' | 'fast';
 }): Promise<{ estimatedFees: number; feeError: string | null }> {
 	const { recipientAddress, amount, selectedAsset, addressType, useMainUnit, feeRate } = params;
-	console.log(params);
 
-	if (!recipientAddress.trim() || !amount || addressType === 'unknown') {
+	if (!recipientAddress.trim() || !amount /* || addressType === 'unknown' */) {
 		return { estimatedFees: 0, feeError: null };
 	}
 
