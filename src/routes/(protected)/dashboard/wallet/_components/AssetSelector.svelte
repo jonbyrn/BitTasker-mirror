@@ -4,7 +4,7 @@
 -->
 <script lang="ts">
 	import { walletAssets } from '$lib/stores/wallet.store';
-	import { derived } from 'svelte/store';
+	import type { EnhancedAsset } from '$lib/stores/wallet.store';
 
 	// Props
 	let {
@@ -16,19 +16,64 @@
 		filterZeroBalances = false
 	} = $props();
 
-	// Filtered assets based on props
-	const filteredAssets = derived(walletAssets, (assets) => {
-		if (!filterZeroBalances) return assets;
-		return assets.filter((asset) => asset.balance > 0);
+	// Filtered assets based on props using state
+	let filteredAssets = $state<EnhancedAsset[]>([]);
+
+	// Update filtered assets reactively
+	$effect(() => {
+		const assets = $walletAssets.assets;
+		console.log('🔍 AssetSelector - Raw assets:', assets.length, 'filterZeroBalances:', filterZeroBalances);
+		
+		// If no assets are loaded yet, provide default core assets
+		if (assets.length === 0) {
+			filteredAssets = [
+				{
+					assetId: 'L-BTC',
+					name: 'Liquid Bitcoin',
+					ticker: 'L-BTC',
+					precision: 8,
+					icon: '₿',
+					balance: 0,
+					usdValue: 0,
+					formattedBalance: '0',
+					network: 'Liquid' as const
+				},
+				{
+					assetId: 'bitcoin',
+					name: 'Bitcoin',
+					ticker: 'BTC',
+					precision: 8,
+					icon: '₿',
+					balance: 0,
+					usdValue: 0,
+					formattedBalance: '0',
+					network: 'Bitcoin' as const
+				},
+				{
+					assetId: 'USDt',
+					name: 'Tether USD',
+					ticker: 'USDt',
+					precision: 8,
+					icon: '💵',
+					balance: 0,
+					usdValue: 0,
+					formattedBalance: '0',
+					network: 'Liquid' as const
+				}
+			];
+		} else {
+			filteredAssets = !filterZeroBalances ? assets : assets.filter((asset: EnhancedAsset) => asset.balance > 0);
+		}
 	});
 
 	// Auto-select first asset if current selection is not available
 	$effect(() => {
+		const assets = filteredAssets;
 		if (
-			$filteredAssets.length > 0 &&
-			!$filteredAssets.find((a) => a.ticker === selectedAsset || a.assetId === selectedAsset)
+			assets.length > 0 &&
+			!assets.find((a: EnhancedAsset) => a.ticker === selectedAsset || a.assetId === selectedAsset)
 		) {
-			selectedAsset = $filteredAssets[0].ticker;
+			selectedAsset = assets[0].ticker;
 			onAssetChange(selectedAsset);
 			notifyBalanceUpdate();
 		}
@@ -57,15 +102,16 @@
 		return parseFloat(formatted).toString();
 	}
 
-	function getSelectedAsset() {
-		return $filteredAssets.find(
-			(asset) => asset.ticker === selectedAsset || asset.assetId === selectedAsset
+	function getSelectedAsset(): EnhancedAsset | undefined {
+		const assets = filteredAssets;
+		return assets.find(
+			(asset: EnhancedAsset) => asset.ticker === selectedAsset || asset.assetId === selectedAsset
 		);
 	}
 </script>
 
 <div class="asset-selector">
-	{#if $filteredAssets.length === 0}
+	{#if filteredAssets.length === 0}
 		<div class="alert alert-warning">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -134,7 +180,7 @@
 				<ul
 					class="dropdown-content menu bg-base-100 rounded-box z-[1] mt-1 w-full border p-2 shadow"
 				>
-					{#each $filteredAssets as asset (asset.assetId)}
+					{#each filteredAssets as asset (asset.assetId)}
 						<li>
 							<button
 								class="hover:bg-base-200 flex items-center justify-between p-3 {asset.ticker ===

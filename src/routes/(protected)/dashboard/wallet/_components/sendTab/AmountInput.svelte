@@ -3,12 +3,12 @@
 	Handles amount input with unit conversion and balance display
 -->
 <script lang="ts">
-	import { walletStore, selectedAsset as selectedAssetStore } from '$lib/stores/wallet.store';
+	import { walletStore, selectedAsset, walletRates } from '$lib/stores/wallet.store';
 
 	// Props
 	let {
 		amount = $bindable(''),
-		selectedAsset = 'L-BTC',
+		selectedAsset: selectedAssetTicker = 'L-BTC',
 		useMainUnit = $bindable(false),
 		fiatCurrency = 'USD',
 		limits = {},
@@ -20,38 +20,38 @@
 	} = $props();
 
 	// Get data from wallet store
-	let fiatRates = $derived($walletStore.fiatRates);
-	let availableBalance = $derived($selectedAssetStore?.balance || 0);
+	let fiatRates = $derived($walletRates.fiatRates);
+	let availableBalance = $derived($selectedAsset?.balance || 0);
 
 	function getAmountPlaceholder(): string {
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+		if (selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC') {
 			return useMainUnit ? '0.00000000' : '0';
-		} else if (selectedAsset === 'USDt') {
+		} else if (selectedAssetTicker === 'USDt') {
 			return '0.00';
 		}
 		return '0';
 	}
 
 	function getAmountStep(): string {
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+		if (selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC') {
 			return useMainUnit ? '0.00000001' : '1';
-		} else if (selectedAsset === 'USDt') {
+		} else if (selectedAssetTicker === 'USDt') {
 			return '0.01';
 		}
 		return '1';
 	}
 
 	function getDisplayUnit(): string {
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
-			return useMainUnit ? selectedAsset : 'sats';
+		if (selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC') {
+			return useMainUnit ? selectedAssetTicker : 'sats';
 		}
-		return selectedAsset;
+		return selectedAssetTicker;
 	}
 
 	function convertToSatoshis(inputAmount: string): number {
 		const numericAmount = parseFloat(inputAmount);
 
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+		if (selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC') {
 			if (useMainUnit) {
 				// Input is in BTC, convert to sats
 				return Math.floor(numericAmount * 100_000_000);
@@ -59,7 +59,7 @@
 				// Input is already in sats
 				return Math.floor(numericAmount);
 			}
-		} else if (selectedAsset === 'USDt') {
+		} else if (selectedAssetTicker === 'USDt') {
 			// For USDT, use the amount as-is (asset amount, not sats)
 			return Math.floor(numericAmount * 100_000_000); // Convert to asset base units
 		}
@@ -68,9 +68,9 @@
 	}
 
 	function formatSatsDisplay(sats: number): string {
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+		if (selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC') {
 			return `${sats.toLocaleString()} sats`;
-		} else if (selectedAsset === 'USDt') {
+		} else if (selectedAssetTicker === 'USDt') {
 			return `${(sats / 100_000_000).toFixed(2)} USDt`;
 		}
 		return `${sats} units`;
@@ -81,18 +81,18 @@
 
 		const amountSats = convertToSatoshis(amount);
 		const rates: Record<string, number> = fiatRates.reduce(
-			(acc, rate) => ({ ...acc, [rate.coin]: rate.value }),
+			(acc: Record<string, number>, rate: any) => ({ ...acc, [rate.coin]: rate.value }),
 			{} as Record<string, number>
 		);
 
 		if (!rates[fiatCurrency]) return '';
 
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+		if (selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC') {
 			const btcAmount = amountSats / 100_000_000;
 			const btcRate = rates['BTC'] || 0;
 			const fiatValue = btcAmount * btcRate;
 			return `≈ ${walletStore.formatUsd(fiatValue)}`;
-		} else if (selectedAsset === 'USDt') {
+		} else if (selectedAssetTicker === 'USDt') {
 			const usdtAmount = amountSats / 100_000_000;
 			if (fiatCurrency === 'USD') {
 				return `≈ ${walletStore.formatUsd(usdtAmount)}`;
@@ -108,16 +108,16 @@
 	}
 
 	function getBtcEquivalent(): string {
-		if (!amount || (selectedAsset !== 'L-BTC' && selectedAsset !== 'BTC')) return '';
+		if (!amount || (selectedAssetTicker !== 'L-BTC' && selectedAssetTicker !== 'BTC')) return '';
 		if (useMainUnit) return '';
 
 		const amountSats = convertToSatoshis(amount);
 		const btcAmount = amountSats / 100_000_000;
-		return `≈ ${btcAmount.toFixed(8)} ${selectedAsset}`;
+		return `≈ ${btcAmount.toFixed(8)} ${selectedAssetTicker}`;
 	}
 
 	function toggleUnitType() {
-		if (selectedAsset !== 'L-BTC' && selectedAsset !== 'BTC') return;
+		if (selectedAssetTicker !== 'L-BTC' && selectedAssetTicker !== 'BTC') return;
 
 		useMainUnit = !useMainUnit;
 
@@ -138,19 +138,19 @@
 	<div class="label">
 		<span class="label-text text-sm sm:text-base">Amount</span>
 		<div class="label-text-alt flex items-center gap-2 text-xs">
-			{#if selectedAsset === 'L-BTC' && limits.lightning?.send}
+			{#if selectedAssetTicker === 'L-BTC' && limits.lightning?.send}
 				<span class="text-info">
 					Min: {formatSatsDisplay(limits.lightning.send.minSat)} - Max: {formatSatsDisplay(
 						limits.lightning.send.maxSat
 					)}
 				</span>
-			{:else if selectedAsset === 'BTC' && limits.onchain?.send}
+			{:else if selectedAssetTicker === 'BTC' && limits.onchain?.send}
 				<span class="text-info">
 					Min: {formatSatsDisplay(limits.onchain.send.minSat)} - Max: {formatSatsDisplay(
 						limits.onchain.send.maxSat
 					)}
 				</span>
-			{:else if selectedAsset === 'USDt'}
+			{:else if selectedAssetTicker === 'USDt'}
 				<span class="text-info"> Min: 0.01 USDt - Max: 10,000.00 USDt </span>
 			{:else}
 				<span class="text-base-content/60"> Loading limits... </span>
@@ -173,12 +173,12 @@
 		</div>
 
 		<!-- Unit Toggle Button (only for Bitcoin assets) -->
-		{#if selectedAsset === 'L-BTC' || selectedAsset === 'BTC'}
+		{#if selectedAssetTicker === 'L-BTC' || selectedAssetTicker === 'BTC'}
 			<button
 				class="btn btn-outline join-item px-3"
 				onclick={toggleUnitType}
-				title="Switch to {useMainUnit ? 'satoshis' : selectedAsset}"
-				aria-label="Switch to {useMainUnit ? 'satoshis' : selectedAsset}"
+				title="Switch to {useMainUnit ? 'satoshis' : selectedAssetTicker}"
+				aria-label="Switch to {useMainUnit ? 'satoshis' : selectedAssetTicker}"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

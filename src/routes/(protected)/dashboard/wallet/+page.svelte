@@ -10,7 +10,7 @@
 	import SendForm from './_components/sendTab/SendForm.svelte';
 	import SwapDashboard from './_components/SwapDashboard.svelte';
 	import { onMount, onDestroy } from 'svelte';
-	import { walletStore, walletConnection } from '$lib/stores/wallet.store';
+	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/wallet.store';
 	import { emergencyBlock } from '$lib/wallet/breez/requestThrottler';
 	import { clearCache } from '$lib/wallet/helper';
 	import { isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
@@ -81,35 +81,35 @@
 				Retry
 			</button>
 		</div>
-	{:else if $walletConnection.isConnected && $walletStore.walletInfo}
+	{:else if $walletConnection.isConnected && $walletInfo}
 		<!-- Tabs -->
 		<div class="tabs tabs-boxed mb-6">
 			<button
-				class="tab {$walletStore.activeTab === 'balance' ? 'tab-active' : ''}"
+				class="tab {$walletUI.activeTab === 'balance' ? 'tab-active' : ''}"
 				onclick={() => walletStore.setActiveTab('balance')}
 			>
 				Balance
 			</button>
 			<button
-				class="tab {$walletStore.activeTab === 'receive' ? 'tab-active' : ''}"
+				class="tab {$walletUI.activeTab === 'receive' ? 'tab-active' : ''}"
 				onclick={() => walletStore.setActiveTab('receive')}
 			>
 				Receive
 			</button>
 			<button
-				class="tab {$walletStore.activeTab === 'send' ? 'tab-active' : ''}"
+				class="tab {$walletUI.activeTab === 'send' ? 'tab-active' : ''}"
 				onclick={() => walletStore.setActiveTab('send')}
 			>
 				Send
 			</button>
 			<!-- <button
-				class="tab {$walletStore.activeTab === 'swaps' ? 'tab-active' : ''}"
+				class="tab {$walletUI.activeTab === 'swaps' ? 'tab-active' : ''}"
 				onclick={() => walletStore.setActiveTab('swaps')}
 			>
 				Swaps
 			</button> -->
 			<button
-				class="tab {$walletStore.activeTab === 'transactions' ? 'tab-active' : ''}"
+				class="tab {$walletUI.activeTab === 'transactions' ? 'tab-active' : ''}"
 				onclick={() => walletStore.setActiveTab('transactions')}
 			>
 				Transactions
@@ -117,7 +117,7 @@
 		</div>
 
 		<!-- Tab Content -->
-		{#if $walletStore.activeTab === 'balance'}
+		{#if $walletUI.activeTab === 'balance'}
 			<div class="space-y-6">
 				<!-- Balance Card -->
 				<BalanceCard />
@@ -171,7 +171,7 @@
 			</div>
 		{/if}
 
-		{#if $walletStore.activeTab === 'receive'}
+		{#if $walletUI.activeTab === 'receive'}
 			<div class="space-y-6">
 				<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
 
@@ -180,18 +180,18 @@
 			</div>
 		{/if}
 
-		{#if $walletStore.activeTab === 'send'}
+		{#if $walletUI.activeTab === 'send'}
 			<div class="space-y-6">
 				<!-- Enhanced Send Form with Multi-Asset Support -->
 				<SendForm />
 			</div>
 		{/if}
 
-		<!-- {#if $walletStore.activeTab === 'swaps'}
+		<!-- {#if $walletUI.activeTab === 'swaps'}
 			<SwapDashboard />
 		{/if} -->
 
-		{#if $walletStore.activeTab === 'transactions'}
+		{#if $walletUI.activeTab === 'transactions'}
 			<TransactionHistory />
 		{/if}
 	{/if}

@@ -11,7 +11,10 @@
 	import {
 		walletStore,
 		walletAssets,
-		selectedAsset as selectedAssetStore
+		selectedAsset,
+		sendForm,
+		walletRates,
+		walletTransactions
 	} from '$lib/stores/wallet.store';
 	import PasskeyVerification from './PasskeyVerification.svelte';
 	import AssetSelector from '../AssetSelector.svelte';
@@ -37,25 +40,26 @@
 
 	// UI State (keep local since these are component-specific)
 	let showPasskeyVerification = $state(false);
-	let passkeyContext = $state<any>({});
+	let passkeyContext = $state({
+		operation: 'send',
+		amount: 0,
+		destination: '',
+		asset: '',
+		reason: 'Payment authorization'
+	});
 
-	// Form state from wallet store
-	let sendForm = $derived($walletStore.sendForm);
-	let fiatRates = $derived($walletStore.fiatRates);
-
-	// Form state variables (synced with wallet store)
-	let selectedAsset = $derived($walletStore.selectedAsset);
-	let recipientAddress = $derived(sendForm.recipient);
-	let amount = $derived(sendForm.amount);
-	let description = $derived(sendForm.description);
-	let feeRate = $derived(sendForm.feeRate);
-	let useMainUnit = $derived(sendForm.useMainUnit);
-	let fiatCurrency = $derived(sendForm.fiatCurrency);
-	let preparedTransaction = $derived(sendForm.preparedTransaction);
-	let isLoading = $derived(sendForm.isLoading);
-	let estimatedFees = $derived(sendForm.estimatedFees);
-	let isLoadingFees = $derived(sendForm.isLoading);
-	let validationError = $derived(sendForm.validationError);
+	// Form state variables (derived from store)
+	let recipientAddress = $derived($sendForm.recipient);
+	let amount = $derived($sendForm.amount);
+	let description = $derived($sendForm.description);
+	let feeRate = $derived($sendForm.feeRate);
+	let useMainUnit = $derived($sendForm.useMainUnit);
+	let fiatCurrency = $derived($sendForm.fiatCurrency);
+	let preparedTransaction = $derived($sendForm.preparedTransaction);
+	let isLoading = $derived($sendForm.isLoading);
+	let estimatedFees = $derived($sendForm.estimatedFees);
+	let isLoadingFees = $derived($sendForm.isLoading);
+	let validationError = $derived($sendForm.validationError);
 
 	// Balance and validation (local state for component-specific logic)
 	let addressType = $state<'lightning' | 'bitcoin' | 'liquid' | 'lnurlPay' | 'bolt12' | 'unknown'>(
@@ -64,15 +68,15 @@
 	let hasMagicRoutingHints = $state(false);
 
 	// Available balance from selected asset
-	let availableBalance = $derived($selectedAssetStore?.balance || 0);
+	let availableBalance = $derived($selectedAsset?.balance || 0);
 
 	// Limits, payments, and events from wallet store
 	let limits = $derived({
-		lightning: $walletStore.lightningLimits,
-		onchain: $walletStore.onchainLimits
+		lightning: $walletRates.lightningLimits,
+		onchain: $walletRates.onchainLimits
 	});
-	let pendingPayments = $derived($walletStore.pendingPayments);
-	// let paymentEvents = $derived($walletStore.paymentEvents);
+	let pendingPayments = $derived($walletTransactions.pendingPayments);
+	// let paymentEvents = $derived($walletTransactions.paymentEvents);
 
 	// Bitcoin wallet for BTC transactions
 	const bitcoinWallet = createBitcoinWallet();
@@ -94,7 +98,7 @@
 				const result = await estimateFees({
 					recipientAddress,
 					amount,
-					selectedAsset,
+					selectedAsset: $walletAssets.selectedAsset,
 					addressType,
 					useMainUnit,
 					feeRate
@@ -267,7 +271,7 @@
 			recipientAddress,
 			amount,
 			addressType,
-			selectedAsset,
+			selectedAsset: $walletAssets.selectedAsset,
 			availableBalance,
 			estimatedFees,
 			limits,
@@ -284,8 +288,9 @@
 			walletStore.updateSendForm({ isLoading: true, validationError: null });
 
 			const amountSats = convertToSatoshis(amount);
+			const currentAsset = $walletAssets.selectedAsset;
 
-			if (selectedAsset === 'L-BTC' || selectedAsset === 'USDt') {
+			if (currentAsset === 'L-BTC' || currentAsset === 'USDt') {
 				// Handle different Lightning payment types
 				if (addressType === 'bolt12') {
 					// BOLT12 offer payment
@@ -309,7 +314,7 @@
 					const prepareParams = {
 						destination: cleanDestination,
 						amount:
-							selectedAsset === 'USDt'
+							currentAsset === 'USDt'
 								? {
 										type: 'asset' as const,
 										assetId: getAssetId('USDT'),
@@ -325,7 +330,7 @@
 					const prepared = await prepareSendPayment(prepareParams);
 					walletStore.updateSendForm({ preparedTransaction: prepared });
 				}
-			} else if (selectedAsset === 'BTC') {
+			} else if (currentAsset === 'BTC') {
 				// Handle Bitcoin transactions
 				if (addressType === 'lightning') {
 					// Create Boltz swap (Bitcoin → Lightning)
@@ -343,7 +348,7 @@
 				operation: 'send',
 				amount: amountSats,
 				destination: recipientAddress,
-				asset: selectedAsset,
+				asset: currentAsset,
 				reason: getTransactionReason()
 			};
 			showPasskeyVerification = true;
@@ -360,8 +365,9 @@
 
 	function convertToSatoshis(inputAmount: string): number {
 		const numericAmount = parseFloat(inputAmount);
+		const currentAsset = $walletAssets.selectedAsset;
 
-		if (selectedAsset === 'L-BTC' || selectedAsset === 'BTC') {
+		if (currentAsset === 'L-BTC' || currentAsset === 'BTC') {
 			if (useMainUnit) {
 				// Input is in BTC, convert to sats
 				return Math.floor(numericAmount * 100_000_000);
@@ -369,7 +375,7 @@
 				// Input is already in sats
 				return Math.floor(numericAmount);
 			}
-		} else if (selectedAsset === 'USDt') {
+		} else if (currentAsset === 'USDt') {
 			// For USDT, use the amount as-is (asset amount, not sats)
 			return Math.floor(numericAmount * 100_000_000); // Convert to asset base units
 		}
@@ -391,7 +397,8 @@
 			walletStore.updateSendForm({ isLoading: true, validationError: null });
 
 			let result;
-			if (selectedAsset === 'USDt') {
+			const currentAsset = $walletAssets.selectedAsset;
+			if (currentAsset === 'USDt') {
 				const amountSats = convertToSatoshis(amount);
 				const cleanDestination = getCleanAddress(recipientAddress);
 				result = await sendAssetPayment(
@@ -486,6 +493,16 @@
 		walletStore.resetSendForm();
 		addressType = 'unknown';
 	}
+
+	// Ensure assets are loaded when the component mounts
+	onMount(async () => {
+		try {
+			await walletStore.loadAssets();
+			console.log('📊 SendForm: Assets refreshed on mount');
+		} catch (error) {
+			console.warn('Failed to refresh assets on SendForm mount:', error);
+		}
+	});
 </script>
 
 {#if !showPasskeyVerification}
@@ -508,7 +525,7 @@
 				<span class="label-text text-sm sm:text-base">Select Asset</span>
 			</div>
 			<AssetSelector
-				{selectedAsset}
+				selectedAsset={$walletAssets.selectedAsset}
 				onAssetChange={(assetId: string) => {
 					walletStore.setSelectedAsset(assetId);
 					debouncedEstimateFees();
@@ -533,7 +550,7 @@
 		<AmountInput
 			{amount}
 			{useMainUnit}
-			{selectedAsset}
+			selectedAsset={$walletAssets.selectedAsset}
 			{fiatCurrency}
 			{limits}
 			{estimatedFees}
@@ -550,7 +567,7 @@
 		<!-- Fee Selection (for Bitcoin transactions) -->
 		<FeeSelection
 			{feeRate}
-			{selectedAsset}
+			selectedAsset={$walletAssets.selectedAsset}
 			onFeeRateChange={(rate: 'slow' | 'medium' | 'fast') => {
 				walletStore.updateSendForm({ feeRate: rate });
 				debouncedEstimateFees();
@@ -621,7 +638,7 @@
 								d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
 							/>
 						</svg>
-						<span>Send {selectedAsset}</span>
+						<span>Send {$walletAssets.selectedAsset}</span>
 					</span>
 				{/if}
 			</button>
@@ -660,7 +677,7 @@
 		show={showPasskeyVerification}
 		context={passkeyContext}
 		{preparedTransaction}
-		{selectedAsset}
+		selectedAsset={$walletAssets.selectedAsset}
 		onSuccess={handlePasskeySuccess}
 		onCancel={() => (showPasskeyVerification = false)}
 		onError={(err) => {
