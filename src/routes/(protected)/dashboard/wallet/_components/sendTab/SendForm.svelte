@@ -37,6 +37,7 @@
 	import { swapManager } from '$lib/integrations/boltz/swapManager';
 	import { getCurrentNetwork, getAssetId } from '$lib/constants/assets';
 	import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
+	import { goto } from '$app/navigation';
 
 	// UI State (keep local since these are component-specific)
 	let showPasskeyVerification = $state(false);
@@ -105,12 +106,14 @@
 				});
 				walletStore.updateSendForm({
 					estimatedFees: result.estimatedFees,
+					validationError: result.feeError, // Store fee errors as validation errors
 					isLoading: false
 				});
 			} catch (err) {
 				console.warn('Fee estimation failed:', err);
 				walletStore.updateSendForm({
 					estimatedFees: 0,
+					validationError: err instanceof Error ? err.message : 'Fee estimation failed',
 					isLoading: false
 				});
 			}
@@ -419,11 +422,17 @@
 
 			// Show success message
 			showSuccessMessage(result);
+
+			goto('/dashboard/wallet/transactions');
 		} catch (err) {
+			const errorMessage = err instanceof Error ? err.message : 'Transaction failed'
 			walletStore.updateSendForm({
-				validationError: err instanceof Error ? err.message : 'Transaction failed',
+				validationError: errorMessage,
 				isLoading: false
 			});
+			
+			// Show error toast for better UX
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			walletStore.updateSendForm({ isLoading: false });
 		}
@@ -527,6 +536,7 @@
 			<AssetSelector
 				selectedAsset={$walletAssets.selectedAsset}
 				onAssetChange={(assetId: string) => {
+					walletStore.updateSendForm({ validationError: null }); // Clear error on asset change
 					walletStore.setSelectedAsset(assetId);
 					debouncedEstimateFees();
 				}}
@@ -541,6 +551,7 @@
 			{addressType}
 			{hasMagicRoutingHints}
 			onAddressChange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
+				walletStore.updateSendForm({ validationError: null }); // Clear error on address change
 				walletStore.updateSendForm({ recipient: e.currentTarget.value });
 				handleAddressChange();
 			}}
@@ -557,6 +568,7 @@
 			{isLoadingFees}
 			{addressType}
 			{recipientAddress}
+			validationError={$sendForm.validationError}
 			onAmountChange={(e: Event & { currentTarget: EventTarget & HTMLInputElement }) => {
 				walletStore.updateSendForm({ validationError: null });
 				walletStore.updateSendForm({ amount: e.currentTarget.value });

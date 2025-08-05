@@ -125,6 +125,11 @@ export async function prepareBolt12Payment(
 			throw new Error('Input is not a BOLT12 offer');
 		}
 
+		// Validate minimum amount for Lightning payments (Breez SDK Liquid minimum is 21 sats for send)
+		if (amountSat && amountSat < 21) {
+			throw new Error(`Amount ${amountSat} sats is below minimum of 21 sats for Lightning payments`);
+		}
+
 		const prepareParams = {
 			destination: offer,
 			amount: amountSat ? {

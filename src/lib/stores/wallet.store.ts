@@ -311,9 +311,7 @@ export async function loadAssets(): Promise<void> {
 
 		// Calculate totals and update state
 		const totals = calculateTotals(processedAssets);
-		
-		console.log('💰 Processed assets:', processedAssets.length, processedAssets.map(a => `${a.ticker}: ${a.balance}`));
-		
+				
 		walletAssets.update(state => ({
 			...state,
 			assets: processedAssets,

@@ -22,7 +22,6 @@
 	// Update filtered assets reactively
 	$effect(() => {
 		const assets = $walletAssets.assets;
-		console.log('🔍 AssetSelector - Raw assets:', assets.length, 'filterZeroBalances:', filterZeroBalances);
 		
 		// If no assets are loaded yet, provide default core assets
 		if (assets.length === 0) {

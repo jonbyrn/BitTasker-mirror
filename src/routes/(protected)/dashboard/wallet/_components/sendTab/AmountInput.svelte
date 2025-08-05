@@ -16,6 +16,7 @@
 		isLoadingFees = false,
 		addressType = 'unknown',
 		recipientAddress = '',
+		validationError = null,
 		onAmountChange = (event: Event & { currentTarget: EventTarget & HTMLInputElement }) => {}
 	} = $props();
 
@@ -213,35 +214,47 @@
 
 		<!-- Fee Information -->
 		<div class="flex flex-col gap-1 text-xs">
-			{#if recipientAddress && estimatedFees}
+			{#if recipientAddress && (estimatedFees || validationError)}
 				<div class="text-base-content/60 flex items-center justify-between">
 					<span>Available Balance:</span>
 					<span class="font-mono">{formatSatsDisplay(availableBalance)}</span>
 				</div>
-				<div class="text-base-content/60 flex items-center justify-between">
-					<span>Estimated Fees:</span>
-					<span class="font-mono">
-						{#if isLoadingFees}
-							<span class="loading loading-spinner loading-xs"></span>
-						{:else if estimatedFees > 0}
-							<span class="text-warning">~{formatSatsDisplay(estimatedFees)}</span>
-						{/if}
-					</span>
-				</div>
-				{#if availableBalance > estimatedFees}
+
+				{#if validationError}
+					<!-- Show validation error (e.g., insufficient funds from Breez SDK) -->
 					<div
-						class="text-base-content/60 border-base-300 flex items-center justify-between border-t pt-1"
+						class="text-error border-base-300 flex items-start justify-between gap-1 border-t pt-1"
 					>
-						<span>Max Sendable:</span>
-						<span class="text-success font-mono">
-							{formatSatsDisplay(availableBalance - estimatedFees)}
-						</span>
+						<span>Error:</span>
+						<span class="font-mono text-xs">{validationError}</span>
 					</div>
 				{:else}
-					<div class="text-error border-base-300 flex items-center justify-between border-t pt-1">
-						<span>Status:</span>
-						<span class="font-mono text-xs">Insufficient funds</span>
+					<!-- Show normal fee information -->
+					<div class="text-base-content/60 flex items-center justify-between">
+						<span>Estimated Fees:</span>
+						<span class="font-mono">
+							{#if isLoadingFees}
+								<span class="loading loading-spinner loading-xs"></span>
+							{:else if estimatedFees > 0}
+								<span class="text-warning">~{formatSatsDisplay(estimatedFees)}</span>
+							{/if}
+						</span>
 					</div>
+					{#if availableBalance > estimatedFees}
+						<div
+							class="text-base-content/60 border-base-300 flex items-center justify-between border-t pt-1"
+						>
+							<span>Max Sendable:</span>
+							<span class="text-success font-mono">
+								{formatSatsDisplay(availableBalance - estimatedFees)}
+							</span>
+						</div>
+					{:else}
+						<div class="text-error border-base-300 flex items-center justify-between border-t pt-1">
+							<span>Status:</span>
+							<span class="font-mono text-xs">Insufficient funds</span>
+						</div>
+					{/if}
 				{/if}
 			{/if}
 		</div>

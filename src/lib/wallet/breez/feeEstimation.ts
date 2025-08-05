@@ -129,46 +129,9 @@ async function estimateBreezFees(amountSats: number, recipientAddress: string, s
 
 		return { estimatedFees: fees, feeError: null };
 
-	} catch (prepareError) {
-		console.warn('Breez prepareSendPayment failed:', prepareError);
-
-		// Instead of hardcoded fallback, try alternative approaches
-		return await tryAlternativeFeeEstimation(amountSats, prepareError, recipientAddress);
+	} catch (error) {
+		throw error;
 	}
-}
-
-async function tryAlternativeFeeEstimation(amountSats: number, originalError: any, recipientAddress: string): Promise<{ estimatedFees: number; feeError: string | null }> {
-	// Try with a minimal amount to get base fees if the original amount was the issue
-	if (
-		originalError instanceof Error &&
-		originalError.message.toLowerCase().includes('insufficient')
-	) {
-		try {
-			console.log('🔄 Trying minimal amount for fee estimation...');
-			const minimalParams = {
-				destination: getCleanAddress(recipientAddress),
-				amount: {
-					type: 'bitcoin' as const,
-					receiverAmountSat: 1000 // Minimal amount to get fee structure
-				}
-			};
-
-			const minimalResponse = await prepareSendPayment(minimalParams);
-			if (minimalResponse.feesSat) {
-				// Scale the fees proportionally (rough estimate)
-				const feeRatio = minimalResponse.feesSat / 1000;
-				const estimatedFees = Math.ceil(amountSats * feeRatio);
-				console.log(`💡 Estimated fees based on minimal amount: ${estimatedFees} sats`);
-				return { estimatedFees, feeError: null };
-			}
-		} catch (minimalError) {
-			console.warn('Minimal amount fee estimation also failed:', minimalError);
-		}
-	}
-
-	// If all dynamic methods fail, set to 0 (unknown fees)
-	console.warn('⚠️ Could not determine fees dynamically - showing as unknown');
-	return { estimatedFees: 0, feeError: null };
 }
 
 async function estimateBitcoinFees(amountSats: number, addressType: string, feeRate: 'slow' | 'medium' | 'fast'): Promise<{ estimatedFees: number; feeError: string | null }> {
