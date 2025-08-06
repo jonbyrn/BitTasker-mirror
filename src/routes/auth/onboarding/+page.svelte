@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import AccountSetup from '$lib/components/onboarding/AccountSetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
 	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';

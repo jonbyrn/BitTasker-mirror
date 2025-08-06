@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { VerifyTrunstileStore } from '$houdini';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	const verifyTrunstileStore = new VerifyTrunstileStore();
 

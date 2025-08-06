@@ -4,7 +4,7 @@
 	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	// UI state
 	let activeTab = $state('balance'); // balance, receive, send, transactions

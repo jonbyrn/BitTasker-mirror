@@ -1,0 +1,11 @@
+{
+    "recommendations": {
+        "type": {
+            "skill_match": "Skills Match",
+            "category_preference": "Category Preference",
+            "location_based": "Location Based",
+            "budget_range": "Budget Range",
+            "client_history": "Previous Clients"
+        }
+    }
+}

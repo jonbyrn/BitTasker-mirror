@@ -1,7 +1,7 @@
 <script lang="ts">
 
 	import { onDestroy, onMount } from 'svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let {
 		id = 'image-uploader',

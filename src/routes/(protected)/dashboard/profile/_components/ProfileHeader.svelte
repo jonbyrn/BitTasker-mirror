@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { logout } = $props<{
 		logout: () => void;

@@ -4,7 +4,7 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';

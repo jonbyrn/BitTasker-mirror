@@ -1,0 +1,36 @@
+{
+    "bids": {
+        "panel": {
+            "title": "Panel de mis ofertas"
+        },
+        "error": {
+            "loading": "Error al cargar las ofertas",
+            "retry": "Reintentar cargar ofertas"
+        },
+        "empty": {
+            "title": "Aún no hay ofertas",
+            "find_tasks": "Buscar tareas para ofertar",
+            "create_task": "Crear una tarea"
+        }
+    },
+    "bid": {
+        "form": {
+            "estimated_duration": {
+                "label": "Tiempo Estimado de Finalización",
+                "placeholder": "ej., 3 días, 1 semana"
+            },
+            "description": {
+                "label": "Descripción de la Oferta",
+                "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
+            },
+            "approach": {
+                "label": "Tu Enfoque",
+                "placeholder": "Describe cómo planeas completar esta tarea"
+            },
+            "cover_letter": {
+                "label": "Carta de Presentación (Opcional)",
+                "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
+            }
+        }
+    }
+}

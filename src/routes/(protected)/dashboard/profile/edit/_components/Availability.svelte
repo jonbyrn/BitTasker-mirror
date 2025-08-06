@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Availability, TimeSlot } from '$lib/types/profile.d';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { onDestroy, onMount } from 'svelte';
 	import { subscribeToProfileUpdates, publishAvailabilityUpdate } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';

@@ -20,7 +20,7 @@
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);

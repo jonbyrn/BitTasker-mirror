@@ -5,7 +5,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 

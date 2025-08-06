@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { FeaturedTaskee } from '$lib/types/homepage';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let { taskee } = $props<{
 		taskee: FeaturedTaskee;

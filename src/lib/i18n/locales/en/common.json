@@ -1,0 +1,30 @@
+{
+    "common": {
+        "or": "or",
+        "processing": "Processing",
+        "close": "Close",
+        "edit": "Edit",
+        "remove": "Remove",
+        "cancel": "Cancel",
+        "update": "Update",
+        "add": "Add",
+        "required": "Required",
+        "previous": "Previous",
+        "next": "Next",
+        "slide": "Slide",
+        "view_all": "View All",
+        "view_profile": "View Profile",
+        "reviews": "reviews",
+        "cta_title": "Ready to Get Started?",
+        "cta_description": "Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.",
+        "create_account": "Create Your Account",
+        "browse_faq": "Browse FAQ",
+        "link": {
+            "security": "Security",
+            "privacy": "Privacy",
+            "escrow": "Escrow System",
+            "taskee_principles": "Taskee Principles",
+            "community_guidelines": "Community Guidelines"
+        }
+    }
+}

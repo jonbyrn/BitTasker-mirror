@@ -1,8 +1,7 @@
 <script lang="ts">
-	import type { Locales } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';

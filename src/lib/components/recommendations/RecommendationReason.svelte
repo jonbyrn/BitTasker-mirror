@@ -3,7 +3,7 @@
   Component that explains why a specific task is recommended to the user
 -->
 <script lang="ts">
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	// Props
 	let { type, description } = $props<{

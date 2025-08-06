@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { Preferences } from '@capacitor/preferences';

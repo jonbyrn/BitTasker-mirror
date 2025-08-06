@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let {
 		id = '',

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconStar from '~icons/mdi/star';
 	import IconCommentMultipleOutline from '~icons/mdi/comment-multiple-outline';

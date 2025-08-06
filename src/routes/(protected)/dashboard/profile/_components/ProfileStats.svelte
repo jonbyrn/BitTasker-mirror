@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	let { stats } = $props<{
 		stats: {
 			tasksCompleted: number;

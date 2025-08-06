@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -62,7 +61,7 @@
 	</section>
 
 	<!-- Main Content Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<!-- Fee Structure Introduction -->
 		<div class="mb-12">
 			<h2>{$t('tasker.fees.structure.title')}</h2>
@@ -98,7 +97,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.1.badge')}</div>
-					<h3 class="card-title text-center mx-auto">
+					<h3 class="card-title mx-auto text-center">
 						{@html $t('fees.tiers.1.title')}
 					</h3>
 					<div class="mb-4 flex justify-center">
@@ -117,7 +116,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm text-base-content/80">
+					<div class="text-base-content/80 text-sm">
 						<p>{$t('tasker.fees.tier1.example')}</p>
 					</div>
 				</div>
@@ -127,7 +126,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.2.badge')}</div>
-					<h3 class="card-title text-center mx-auto">
+					<h3 class="card-title mx-auto text-center">
 						{@html $t('fees.tiers.2.title')}
 					</h3>
 					<div class="mb-4 flex justify-center">
@@ -146,7 +145,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm text-base-content/80">
+					<div class="text-base-content/80 text-sm">
 						<p>{$t('tasker.fees.tier2.example')}</p>
 					</div>
 				</div>
@@ -156,7 +155,7 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.3.badge')}</div>
-					<h3 class="card-title text-center mx-auto">
+					<h3 class="card-title mx-auto text-center">
 						{@html $t('fees.tiers.3.title')}
 					</h3>
 					<div class="mb-4 flex justify-center">
@@ -175,7 +174,7 @@
 							</div>
 						</div>
 					</div>
-					<div class="text-sm text-base-content/80">
+					<div class="text-base-content/80 text-sm">
 						<p>{$t('tasker.fees.tier3.example')}</p>
 					</div>
 				</div>
@@ -209,24 +208,24 @@
 			<table class="table-zebra table">
 				<thead>
 					<tr>
-						<th>{$t('tasker.fees.btc.table.header_1')}</th>
-						<th>{$t('tasker.fees.btc.table.header_2')}</th>
-						<th>{$t('tasker.fees.btc.table.header_3')}</th>
+						<th>{@html $t('tasker.fees.btc.table.header_1')}</th>
+						<th>{@html $t('tasker.fees.btc.table.header_2')}</th>
+						<th>{@html $t('tasker.fees.btc.table.header_3')}</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr>
-						<td>{$t('fees.tiers.1.title')}</td>
+						<td>{@html $t('fees.tiers.1.title')}</td>
 						<td>2.5%</td>
 						<td>{$t('tasker.fees.btc.table.tier_1_savings')}</td>
 					</tr>
 					<tr>
-						<td>{$t('fees.tiers.2.title')}</td>
+						<td>{@html $t('fees.tiers.2.title')}</td>
 						<td>2%</td>
 						<td>{$t('tasker.fees.btc.table.tier_2_savings')}</td>
 					</tr>
 					<tr>
-						<td>{$t('fees.tiers.3.title')}</td>
+						<td>{@html $t('fees.tiers.3.title')}</td>
 						<td>1.5%</td>
 						<td>{$t('tasker.fees.btc.table.tier_3_savings')}</td>
 					</tr>
@@ -249,7 +248,7 @@
 					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				></path>
 			</svg>
-			<span>{@html $t('tasker.fees.rebooking.btc_example')}</span>
+			<span>{@html $t('tasker.fees.btc.rebooking.btc_example')}</span>
 		</div>
 
 		<!-- Rebooking Discount Section -->
@@ -267,11 +266,12 @@
 					<li>{@html $t('tasker.fees.rebooking.standard_fee')}</li>
 					<li>{@html $t('tasker.fees.rebooking.btc_fee')}</li>
 				</ul>
-									<p class="mt-3 text-sm text-base-content/80">{$t('tasker.fees.rebooking.example')}</p>
-					<p class="mt-3 text-sm text-base-content/80 italic">{$t('tasker.fees.rebooking.counts_toward_tier')}</p>
+				<p class="text-base-content/80 mt-3 text-sm">{$t('tasker.fees.rebooking.example')}</p>
+				<p class="text-base-content/80 mt-3 text-sm italic">
+					{$t('tasker.fees.rebooking.counts_toward_tier')}
+				</p>
 			</div>
 		</div>
-
 
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center">

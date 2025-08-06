@@ -8,7 +8,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	let { onSelectTask } = $props<{
 		onSelectTask: (task: Task) => void;
 	}>();

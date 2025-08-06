@@ -1,0 +1,11 @@
+{
+    "recommendations": {
+        "type": {
+            "skill_match": "Coincidencia de Habilidades",
+            "category_preference": "Preferencia de Categoría",
+            "location_based": "Basado en Ubicación",
+            "budget_range": "Rango de Presupuesto",
+            "client_history": "Clientes Anteriores"
+        }
+    }
+}

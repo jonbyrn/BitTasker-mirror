@@ -1,0 +1,30 @@
+{
+  "common": {
+    "or": "O",
+    "processing": "Procesando",
+    "close": "Cerrar",
+    "edit": "Editar",
+    "remove": "Eliminar",
+    "cancel": "Cancelar",
+    "update": "Actualizar",
+    "add": "Añadir",
+    "required": "Requerido",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "slide": "Diapositiva",
+    "view_all": "Ver Todo",
+    "view_profile": "Ver Perfil",
+    "reviews": "reseñas",
+    "cta_title": "¿Listo para empezar?",
+    "cta_description": "Únete a BitTasker hoy y experimenta una mejor manera de encontrar trabajo o contratar a taskees calificados. Nuestra plataforma impulsada por Bitcoin hace que las transacciones sean seguras, sin fronteras y eficientes.",
+    "create_account": "Crear Tu Cuenta",
+    "browse_faq": "Ver Preguntas Frecuentes",
+    "link": {
+      "security": "Seguridad",
+      "privacy": "Privacidad",
+      "escrow": "Sistema de Garantía",
+      "taskee_principles": "Principios para Taskees",
+      "community_guidelines": "Normas de la Comunidad"
+    }
+  }
+}
