@@ -1,4 +1,5 @@
 /**
+ * @deprecated - not used with Breez SDK
  * Breez SDK Security Layer with Passkey Integration
  * Provides security middleware for all wallet operations
  */

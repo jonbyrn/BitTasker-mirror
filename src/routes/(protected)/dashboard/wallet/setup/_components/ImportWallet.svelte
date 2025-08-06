@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { setupMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 
-	let mnemonic = $state('pause bird left palm train twenty about talk avoid cruel portion cancel');
+	let mnemonic = $state('');
 	let error = $state('');
 
 	function handleImport() {

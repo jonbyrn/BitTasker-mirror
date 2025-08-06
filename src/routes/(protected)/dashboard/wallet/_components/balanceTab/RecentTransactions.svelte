@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { getRecentTransactions } from '$lib/wallet/helper';
+	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
 	import { onMount } from 'svelte';
-	import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
+	import { getTransactions } from '$lib/wallet/breez/walletService';
 
-	let transactions = $state<breezSdk.Payment[]>([]);
+	let transactions = $state<Payment[]>([]);
 	let { activeTab = $bindable('') } = $props();
 
 	onMount(async () => {
-		transactions = await getRecentTransactions();
+		transactions = await getTransactions();
 	});
 </script>
 
@@ -29,15 +29,19 @@
 								{/if}
 							</div>
 							<div class="text-right">
-								<span class={`font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}>
+								<span
+									class={`font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}
+								>
 									{tx.paymentType === 'receive' ? '+' : '-'}{tx.amountSat} sats
 								</span>
 							</div>
 						</div>
 
 						<!-- Transaction details -->
-						<div class="mt-2 flex justify-between items-center text-sm">
-							<span class="text-base-content/70">{new Date(tx.timestamp * 1000).toLocaleString()}</span>
+						<div class="mt-2 flex items-center justify-between text-sm">
+							<span class="text-base-content/70"
+								>{new Date(tx.timestamp * 1000).toLocaleString()}</span
+							>
 							<div class="badge badge-sm">{tx.details.type}</div>
 						</div>
 					</div>

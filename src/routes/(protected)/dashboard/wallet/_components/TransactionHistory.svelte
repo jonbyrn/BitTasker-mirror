@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
-	import { getRecentTransactions } from '$lib/wallet/helper';
 	import { onMount } from 'svelte';
+	import { getTransactions } from '$lib/wallet/breez/walletService';
 
 	let transactions = $state<Payment[] | null>(null);
 	let isLoading = $state(true);
@@ -19,10 +19,8 @@
 	async function loadTransactions() {
 		isLoading = true;
 		errorMessage = null;
-
 		try {
-			transactions = await getRecentTransactions();
-			console.log('transactions', transactions);
+			transactions = await getTransactions();
 		} catch (error) {
 			console.error('Error fetching transactions', error);
 			errorMessage = error instanceof Error ? error.message : 'Error fetching transactions';
@@ -99,7 +97,9 @@
 								{/if}
 							</div>
 							<div class="text-right">
-								<span class={`text-lg font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}>
+								<span
+									class={`text-lg font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}
+								>
 									{tx.paymentType === 'receive' ? '+' : '-'}{tx.amountSat} sats
 								</span>
 							</div>
@@ -107,21 +107,21 @@
 
 						<!-- Transaction details -->
 						<div class="mt-3 space-y-2 text-sm">
-							<div class="flex justify-between items-center">
+							<div class="flex items-center justify-between">
 								<span class="text-base-content/70">Date:</span>
 								<span>{new Date(tx.timestamp * 1000).toLocaleString()}</span>
 							</div>
-							
+
 							{#if tx.destination}
-								<div class="flex justify-between items-start">
+								<div class="flex items-start justify-between">
 									<span class="text-base-content/70">Address:</span>
-									<span class="font-mono text-xs text-right max-w-[200px] break-all">
+									<span class="max-w-[200px] text-right font-mono text-xs break-all">
 										{truncateAddress(tx.destination, 8, 4)}
 									</span>
 								</div>
 							{/if}
 
-							<div class="flex justify-between items-center">
+							<div class="flex items-center justify-between">
 								<span class="text-base-content/70">Status:</span>
 								<div>
 									{#if tx.details.type === 'lightning'}
@@ -136,7 +136,7 @@
 								</div>
 							</div>
 
-							<div class="flex justify-between items-center">
+							<div class="flex items-center justify-between">
 								<span class="text-base-content/70">Network:</span>
 								<div class="badge badge-sm">{tx.details.type}</div>
 							</div>
