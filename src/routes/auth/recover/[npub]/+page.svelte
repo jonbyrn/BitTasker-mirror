@@ -303,7 +303,7 @@
 									required
 								/>
 								<div class="absolute inset-y-0 right-0 flex items-center pr-3">
-									<button type="button" class="mr-2" onClick={regeneratePassword}>
+									<button aria-label="Regenerate password" type="button" class="mr-2" onclick={regeneratePassword}>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="h-5 w-5"
@@ -319,7 +319,7 @@
 											/>
 										</svg>
 									</button>
-									<button type="button" onClick={() => (showNewPassword = !showNewPassword)}>
+									<button type="button" onclick={() => (showNewPassword = !showNewPassword)}>
 										{#if showNewPassword}
 											<svg
 												xmlns="http://www.w3.org/2000/svg"

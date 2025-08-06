@@ -24,7 +24,7 @@ export default defineConfig({
 			defaultStyle: 'width: 1.5em; height: 1.5em;',
 			defaultClass: '',
 		}),
-		visualizer({ open: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
+		visualizer({ open: true, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
 	],
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version),
