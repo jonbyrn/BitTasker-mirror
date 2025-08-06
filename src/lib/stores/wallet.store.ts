@@ -1,5 +1,4 @@
 import type { GetInfoResponse, Rate, Payment, SdkEvent, PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
-import type { WalletBalance } from '$lib/wallet/bitcoin/types';
 import { writable, derived, get } from 'svelte/store';
 import { 
 	connectToBreez, 
@@ -13,7 +12,6 @@ import {
 	pendingPaymentsStore
 } from '$lib/wallet/breez/walletService';
 import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
-import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
 import { 
 	getAssetMetadata, 
 	getCurrentNetwork, 
@@ -82,8 +80,12 @@ export const sendForm = writable({
 	validationError: null as string | null
 });
 
-// Bitcoin wallet instance
-const bitcoinWallet = createBitcoinWallet();
+export interface WalletBalance {
+	confirmed: number;
+	unconfirmed: number;
+	total: number;
+}
+
 const currentNetwork = getCurrentNetwork();
 
 // Auto-refresh intervals
@@ -138,14 +140,7 @@ function calculateTotals(assets: EnhancedAsset[]) {
 	};
 }
 
-async function getBitcoinBalanceSafe(): Promise<WalletBalance> {
-	try {
-		return bitcoinWallet.getBalance();
-	} catch (error) {
-		console.warn('Could not load Bitcoin balance:', error);
-		return { confirmed: 0, unconfirmed: 0, total: 0 };
-	}
-}
+
 // Initialize wallet connection
 export async function initialize(): Promise<void> {
 	try {
@@ -230,21 +225,20 @@ async function loadWalletInfo(): Promise<void> {
 export async function loadAssets(): Promise<void> {
 	try {
 		// Parallel API calls for better performance
-		const [fiatRatesResult, walletInfoResult, liquidAssetsResult, bitcoinBalanceResult] = 
+		const [fiatRatesResult, walletInfoResult, liquidAssetsResult] = 
 			await Promise.allSettled([
 				fetchFiatRates(),
 				getWalletInfo(), 
-				getAssetBalances(),
-				getBitcoinBalanceSafe()
+				getAssetBalances()
 			]);
 
 		// Extract results with fallbacks
 		const fiatRates = fiatRatesResult.status === 'fulfilled' ? fiatRatesResult.value : [];
 		const info = walletInfoResult.status === 'fulfilled' ? walletInfoResult.value : null;
 		const liquidAssets = liquidAssetsResult.status === 'fulfilled' ? liquidAssetsResult.value : [];
-		const btcBalance = bitcoinBalanceResult.status === 'fulfilled' ? bitcoinBalanceResult.value : { confirmed: 0, unconfirmed: 0, total: 0 };
-
-		// Update bitcoin balance
+		
+		// Bitcoin balance is now handled entirely by Breez SDK - set to zero for compatibility
+		const btcBalance = { confirmed: 0, unconfirmed: 0, total: 0 };
 		bitcoinBalance.set(btcBalance);
 
 		// Exchange rates with fallbacks

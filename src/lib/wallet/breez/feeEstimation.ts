@@ -2,19 +2,7 @@ import {
 	prepareSendPayment
 } from '$lib/wallet/breez/walletService';
 import { getAssetId } from '$lib/constants/assets';
-import { BoltzClient } from '$lib/integrations/boltz/client';
 import { getCurrentNetwork } from '$lib/constants/assets';
-import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
-
-// Bitcoin wallet for BTC transactions
-const bitcoinWallet = createBitcoinWallet();
-
-// Boltz client for swap operations
-const currentNetwork = getCurrentNetwork();
-const boltzClient = new BoltzClient({
-	apiUrl: 'https://api.boltz.exchange',
-	network: currentNetwork
-});
 
 function getCleanAddress(input: string): string {
 	// Handle BIP21 URIs
@@ -77,8 +65,8 @@ export async function estimateFees(params: {
 			// Use ONLY Breez SDK's dynamic fee estimation - no fallbacks
 			return await estimateBreezFees(amountSats, recipientAddress, selectedAsset);
 		} else if (selectedAsset === 'BTC') {
-			// Use dynamic Bitcoin wallet fees for BTC transactions
-			return await estimateBitcoinFees(amountSats, addressType, feeRate);
+			// For Bitcoin transactions, use Breez SDK to get real fee estimates
+			return await estimateBitcoinFees(amountSats, recipientAddress);
 		}
 
 		return { estimatedFees: 0, feeError: null };
@@ -134,38 +122,32 @@ async function estimateBreezFees(amountSats: number, recipientAddress: string, s
 	}
 }
 
-async function estimateBitcoinFees(amountSats: number, addressType: string, feeRate: 'slow' | 'medium' | 'fast'): Promise<{ estimatedFees: number; feeError: string | null }> {
-	if (addressType === 'lightning') {
-		// For Bitcoin to Lightning swaps, try to get dynamic fees from Boltz
-		try {
-			const boltzFees = await boltzClient.getSwapFees();
-			// Use dynamic reverse swap fees (Bitcoin to Lightning)
-			const baseFee = Math.ceil(amountSats * (boltzFees.percentage / 100));
-			const minerFees = boltzFees.miner.reverse.lockup + boltzFees.miner.reverse.claim;
-			const estimatedFees = baseFee + minerFees;
-			console.log(
-				`💰 Dynamic Boltz swap fees: ${estimatedFees} sats (${boltzFees.percentage}% + ${minerFees} mining fees)`
-			);
-			return { estimatedFees, feeError: null };
-		} catch (boltzError) {
-			console.warn('Could not get dynamic Boltz fees:', boltzError);
-			return { estimatedFees: 0, feeError: null }; // Unknown fees
-		}
-	} else {
-		// Direct Bitcoin transaction - use dynamic fee rates
-		try {
-			const feeRates = await bitcoinWallet.getFeeEstimates();
-			const selectedFeeRate = feeRates[feeRate];
+async function estimateBitcoinFees(amountSats: number, recipientAddress: string): Promise<{ estimatedFees: number; feeError: string | null }> {
+	try {
+		const cleanDestination = getCleanAddress(recipientAddress);
+		
+		// Use Breez SDK to prepare the Bitcoin transaction and get real fees
+		const prepareParams = {
+			destination: cleanDestination,
+			amount: {
+				type: 'bitcoin' as const,
+				receiverAmountSat: amountSats
+			}
+		};
 
-			// Estimate transaction size more accurately
-			const estimatedTxSize = 250; // Conservative estimate for typical tx
-			const estimatedFees = Math.ceil(selectedFeeRate * estimatedTxSize);
+		const prepareResponse = await prepareSendPayment(prepareParams);
+		const fees = prepareResponse.feesSat || 0;
 
-			console.log(`💰 Dynamic Bitcoin fees: ${estimatedFees} sats (${selectedFeeRate} sat/vB)`);
-			return { estimatedFees, feeError: null };
-		} catch (btcError) {
-			console.warn('Could not get dynamic Bitcoin fees:', btcError);
-			return { estimatedFees: 0, feeError: null }; // Unknown fees
-		}
+		console.log(`💰 Breez Bitcoin fees: ${fees} sats for ${amountSats} sats to ${cleanDestination}`);
+		return { estimatedFees: fees, feeError: null };
+
+	} catch (error) {
+		console.warn('Could not get Breez Bitcoin fees:', error);
+		// Return a reasonable fee estimate as fallback
+		const fallbackFees = Math.ceil(amountSats * 0.01); // 1% fallback
+		return { 
+			estimatedFees: fallbackFees, 
+			feeError: 'Using estimated fees - actual fees may vary' 
+		};
 	}
 }

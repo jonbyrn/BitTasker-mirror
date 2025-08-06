@@ -3,7 +3,7 @@
 	Supports multi-asset transactions with passkey security
 -->
 <script lang="ts">
-	import { Buffer } from 'buffer';
+
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
@@ -27,16 +27,16 @@
 		prepareSendPayment,
 		sendPayment,
 		sendAssetPayment,
+		sendOnchainPayment,
 		parseInputAdvanced,
 		prepareBolt12Payment,
 		prepareLnurlPayment,
 		executeLnurlPayment,
 		detectMagicRoutingHints
 	} from '$lib/wallet/breez/walletService';
-	import { BoltzClient } from '$lib/integrations/boltz/client';
-	import { swapManager } from '$lib/integrations/boltz/swapManager';
+
 	import { getCurrentNetwork, getAssetId } from '$lib/constants/assets';
-	import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
+
 	import { goto } from '$app/navigation';
 
 	// UI State (keep local since these are component-specific)
@@ -79,15 +79,7 @@
 	let pendingPayments = $derived($walletTransactions.pendingPayments);
 	// let paymentEvents = $derived($walletTransactions.paymentEvents);
 
-	// Bitcoin wallet for BTC transactions
-	const bitcoinWallet = createBitcoinWallet();
 
-	// Boltz client for swap operations
-	const currentNetwork = getCurrentNetwork();
-	const boltzClient = new BoltzClient({
-		apiUrl: 'https://api.boltz.exchange',
-		network: currentNetwork
-	});
 
 	// Debounced fee estimation
 	let feeEstimationTimeout: ReturnType<typeof setTimeout>;
@@ -334,16 +326,9 @@
 					walletStore.updateSendForm({ preparedTransaction: prepared });
 				}
 			} else if (currentAsset === 'BTC') {
-				// Handle Bitcoin transactions
-				if (addressType === 'lightning') {
-					// Create Boltz swap (Bitcoin → Lightning)
-					await handleBitcoinToLightningSwap(amountSats);
-					return;
-				} else {
-					// Direct Bitcoin transaction
-					await handleDirectBitcoinSend(amountSats);
-					return;
-				}
+				// Handle Bitcoin transactions - now all through Breez SDK
+				await handleDirectBitcoinSend(amountSats);
+				return;
 			}
 
 			// Show passkey verification
@@ -446,56 +431,27 @@
 		resetForm();
 	}
 
-	async function handleBitcoinToLightningSwap(amountSats: number) {
-		try {
-			// Generate proper cryptographic keys using boltz-core
-			const preimage = boltzClient.generatePreimage();
-			const preimageHash = boltzClient.createPreimageHash(preimage);
-			const claimKeys = boltzClient.generateKeyPair();
 
-			// Create reverse submarine swap via Boltz
-			const swapId = await swapManager.createReverseSubmarineSwap({
-				invoiceAmount: amountSats,
-				preimageHash,
-				claimPublicKey: Buffer.from(claimKeys.publicKey).toString('hex'),
-				lightningInvoice: recipientAddress
-			});
-
-			console.log('Created reverse swap:', swapId);
-
-			// Store the preimage and keys for later claiming
-			// TODO: In production, use secure storage instead of localStorage
-			if (typeof localStorage !== 'undefined') {
-				localStorage.setItem(`swap_${swapId}_preimage`, preimage.toString('hex'));
-				localStorage.setItem(
-					`swap_${swapId}_claimKey`,
-					claimKeys.privateKey ? Buffer.from(claimKeys.privateKey).toString('hex') : ''
-				);
-			}
-
-			resetForm();
-		} catch (swapError) {
-			console.error('Failed to create Bitcoin to Lightning swap:', swapError);
-			walletStore.updateSendForm({
-				validationError: swapError instanceof Error ? swapError.message : 'Failed to create swap'
-			});
-		}
-	}
 
 	async function handleDirectBitcoinSend(amountSats: number) {
-		const feeRates = await bitcoinWallet.getFeeEstimates();
-		const selectedFeeRate = feeRates[feeRate];
-		const cleanDestination = getCleanAddress(recipientAddress);
+		// Use Breez SDK for Bitcoin transactions instead of custom wallet
+		try {
+			const cleanDestination = getCleanAddress(recipientAddress);
+			
+			const result = await sendOnchainPayment(
+				cleanDestination,
+				amountSats,
+				description
+			);
 
-		const txid = await bitcoinWallet.createTransaction({
-			toAddress: cleanDestination,
-			amount: amountSats,
-			feeRate: selectedFeeRate,
-			message: description
-		});
-
-		console.log('Bitcoin transaction sent:', txid);
-		resetForm();
+			console.log('Bitcoin transaction sent via Breez:', result);
+			resetForm();
+		} catch (error) {
+			console.error('Failed to send Bitcoin transaction:', error);
+			walletStore.updateSendForm({
+				validationError: error instanceof Error ? error.message : 'Failed to send Bitcoin transaction'
+			});
+		}
 	}
 
 	function resetForm() {
