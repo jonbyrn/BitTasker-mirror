@@ -151,19 +151,21 @@
 			}
 
 			// Register with server
-			await authService.registerWithNostr({
-				username,
-				publicKey: npub,
-				encryptedPrivateKey: encrypted.data,
-				iv: encrypted.iv,
-				salt: salt,
-				authTag: encrypted.authTag,
-				iterations,
-				authMethod: 'passkey',
-				deviceId
-			}).then(async () => {
-				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-			});
+			await authService
+				.registerWithNostr({
+					username,
+					publicKey: npub,
+					encryptedPrivateKey: encrypted.data,
+					iv: encrypted.iv,
+					salt: salt,
+					authTag: encrypted.authTag,
+					iterations,
+					authMethod: 'passkey',
+					deviceId
+				})
+				.then(async () => {
+					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+				});
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
@@ -572,6 +574,7 @@
 								required={enableRecovery}
 							/>
 							<button
+								aria-label="Generate new 4-word password"
 								type="button"
 								class="btn btn-outline btn-sm"
 								onclick={handleGeneratePassword}
@@ -660,8 +663,6 @@
 							</label>
 						{/if}
 					</div>
-
-
 				</div>
 			{/if}
 
