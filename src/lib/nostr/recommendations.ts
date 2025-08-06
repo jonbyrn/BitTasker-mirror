@@ -405,8 +405,7 @@ export async function getRecommendedTasks(limit: number = 10): Promise<TaskRecom
         })}`;
 
         const cached = cache.get(cacheKey);
-        console.log('cached', cached);
-
+        
         return recommendations.slice(0, limit);
     } catch (error) {
         console.error('Error getting recommended tasks:', error);

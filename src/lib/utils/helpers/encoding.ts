@@ -145,3 +145,34 @@ export function unPackKeys(userHandle: ArrayBuffer): { publicKey: string; export
 
 	return { publicKey, exportedKey };
 }
+
+/**
+ * Generate a unique credential ID for mobile biometric authentication
+ * This mimics WebAuthn's credential ID generation
+ */
+export function generateCredentialId(): string {
+	const randomBytes = crypto.getRandomValues(new Uint8Array(32));
+	return bytesToBase64(randomBytes);
+}
+
+/**
+ * Generate a unique challenge for mobile WebAuthn (string format)
+ */
+export function generateMobileChallenge(): string {
+	const arr = new Uint8Array(32);
+	crypto.getRandomValues(arr);
+	// Convert to base64url format
+	return btoa(String.fromCharCode(...arr))
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=/g, '');
+}
+
+/**
+ * Generate a unique challenge for web WebAuthn (ArrayBuffer format)
+ */
+export function generateWebChallenge(): ArrayBuffer {
+	const arr = new Uint8Array(32);
+	crypto.getRandomValues(arr);
+	return arr.buffer;
+}
