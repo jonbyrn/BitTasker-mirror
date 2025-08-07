@@ -123,6 +123,7 @@
 		"stream-browserify": "^3.0.0",
 		"swiper": "^11.2.6",
 		"tiny-secp256k1": "^2.2.4",
+		"vite-plugin-inspect": "^11.3.2",
 		"vite-plugin-pwa": "^1.0.1",
 		"vite-plugin-top-level-await": "^1.5.0",
 		"vite-plugin-wasm": "^3.4.1",
