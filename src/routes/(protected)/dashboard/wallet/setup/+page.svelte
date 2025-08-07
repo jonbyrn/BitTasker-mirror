@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CreateWallet from './_components/CreateWallet.svelte';
-	import ImportWallet from './_components/ImportWallet.svelte';
+	import CreateWallet from '$lib/components/wallet/setup/CreateWallet.svelte';
+	import ImportWallet from '$lib/components/wallet/setup/ImportWallet.svelte';
 
 	let activeTab = $state('import'); // Default to import tab
 </script>

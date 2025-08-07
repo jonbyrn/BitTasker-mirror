@@ -4,11 +4,11 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/wallet.store';
 	import { isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
-	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
-	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
-	import PaymentRequestForm from './_components/PaymentRequestForm.svelte';
-	import TransactionHistory from './_components/TransactionHistory.svelte';
-	import SendForm from './_components/sendTab/SendForm.svelte';
+	import BalanceCard from '$lib/components/wallet/balanceTab/BalanceCard.svelte';
+	import RecentTransactions from '$lib/components/wallet/balanceTab/RecentTransactions.svelte';
+	import PaymentRequestForm from '$lib/components/wallet/PaymentRequestForm.svelte';
+	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
+	import SendForm from '$lib/components/wallet/sendTab/SendForm.svelte';
 
 	onMount(() => {
 		if ($isWasmInitialized) {
