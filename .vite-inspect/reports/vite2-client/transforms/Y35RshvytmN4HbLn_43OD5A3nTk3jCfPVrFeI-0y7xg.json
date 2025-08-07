@@ -1,0 +1,98 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@capacitor/app/dist/esm/index.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { registerPlugin } from '@capacitor/core';\nconst App = registerPlugin('App', {\n    web: () => import('./web').then(m => new m.AppWeb()),\n});\nexport * from './definitions';\nexport { App };\n//# sourceMappingURL=index.js.map",
+      "start": 1754579495075,
+      "end": 1754579495207,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "result": "import { __vitePreload } from \"\u0000vite/preload-helper.js\";import { registerPlugin } from '@capacitor/core';\nconst App = registerPlugin('App', {\n    web: () => __vitePreload(() => import('./web'),__VITE_IS_MODERN__?__VITE_PRELOAD__:void 0,import.meta.url).then(m => new m.AppWeb()),\n});\nexport * from './definitions';\nexport { App };\n//# sourceMappingURL=index.js.map",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495207,
+      "end": 1754579495207,
+      "order": "normal"
+    }
+  ]
+}

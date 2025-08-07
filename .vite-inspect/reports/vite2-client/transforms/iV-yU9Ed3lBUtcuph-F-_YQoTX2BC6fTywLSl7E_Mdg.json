@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dom/blocks/boundary.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { Effect, TemplateNode, } from '#client' */\n\nimport { BOUNDARY_EFFECT, EFFECT_TRANSPARENT } from '#client/constants';\nimport { component_context, set_component_context } from '../../context.js';\nimport { block, branch, destroy_effect, pause_effect } from '../../reactivity/effects.js';\nimport {\n\tactive_effect,\n\tactive_reaction,\n\thandle_error,\n\tset_active_effect,\n\tset_active_reaction,\n\treset_is_throwing_error\n} from '../../runtime.js';\nimport {\n\thydrate_next,\n\thydrate_node,\n\thydrating,\n\tnext,\n\tremove_nodes,\n\tset_hydrate_node\n} from '../hydration.js';\nimport { queue_micro_task } from '../task.js';\n\n/**\n * @param {Effect} boundary\n * @param {() => void} fn\n */\nfunction with_boundary(boundary, fn) {\n\tvar previous_effect = active_effect;\n\tvar previous_reaction = active_reaction;\n\tvar previous_ctx = component_context;\n\n\tset_active_effect(boundary);\n\tset_active_reaction(boundary);\n\tset_component_context(boundary.ctx);\n\n\ttry {\n\t\tfn();\n\t} finally {\n\t\tset_active_effect(previous_effect);\n\t\tset_active_reaction(previous_reaction);\n\t\tset_component_context(previous_ctx);\n\t}\n}\n\n/**\n * @param {TemplateNode} node\n * @param {{\n * \t onerror?: (error: unknown, reset: () => void) => void,\n *   failed?: (anchor: Node, error: () => unknown, reset: () => () => void) => void\n * }} props\n * @param {((anchor: Node) => void)} boundary_fn\n * @returns {void}\n */\nexport function boundary(node, props, boundary_fn) {\n\tvar anchor = node;\n\n\t/** @type {Effect} */\n\tvar boundary_effect;\n\n\tblock(() => {\n\t\tvar boundary = /** @type {Effect} */ (active_effect);\n\t\tvar hydrate_open = hydrate_node;\n\t\tvar is_creating_fallback = false;\n\n\t\t// We re-use the effect's fn property to avoid allocation of an additional field\n\t\tboundary.fn = (/** @type {unknown}} */ error) => {\n\t\t\tvar onerror = props.onerror;\n\t\t\tlet failed = props.failed;\n\n\t\t\t// If we have nothing to capture the error, or if we hit an error while\n\t\t\t// rendering the fallback, re-throw for another boundary to handle\n\t\t\tif ((!onerror && !failed) || is_creating_fallback) {\n\t\t\t\tthrow error;\n\t\t\t}\n\n\t\t\tvar reset = () => {\n\t\t\t\tpause_effect(boundary_effect);\n\n\t\t\t\twith_boundary(boundary, () => {\n\t\t\t\t\tis_creating_fallback = false;\n\t\t\t\t\tboundary_effect = branch(() => boundary_fn(anchor));\n\t\t\t\t\treset_is_throwing_error();\n\t\t\t\t});\n\t\t\t};\n\n\t\t\tonerror?.(error, reset);\n\n\t\t\tif (boundary_effect) {\n\t\t\t\tdestroy_effect(boundary_effect);\n\t\t\t} else if (hydrating) {\n\t\t\t\tset_hydrate_node(hydrate_open);\n\t\t\t\tnext();\n\t\t\t\tset_hydrate_node(remove_nodes());\n\t\t\t}\n\n\t\t\tif (failed) {\n\t\t\t\t// Render the `failed` snippet in a microtask\n\t\t\t\tqueue_micro_task(() => {\n\t\t\t\t\twith_boundary(boundary, () => {\n\t\t\t\t\t\tis_creating_fallback = true;\n\n\t\t\t\t\t\ttry {\n\t\t\t\t\t\t\tboundary_effect = branch(() => {\n\t\t\t\t\t\t\t\tfailed(\n\t\t\t\t\t\t\t\t\tanchor,\n\t\t\t\t\t\t\t\t\t() => error,\n\t\t\t\t\t\t\t\t\t() => reset\n\t\t\t\t\t\t\t\t);\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t} catch (error) {\n\t\t\t\t\t\t\thandle_error(error, boundary, null, boundary.ctx);\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\treset_is_throwing_error();\n\t\t\t\t\t\tis_creating_fallback = false;\n\t\t\t\t\t});\n\t\t\t\t});\n\t\t\t}\n\t\t};\n\n\t\tif (hydrating) {\n\t\t\thydrate_next();\n\t\t}\n\n\t\tboundary_effect = branch(() => boundary_fn(anchor));\n\t\treset_is_throwing_error();\n\t}, EFFECT_TRANSPARENT | BOUNDARY_EFFECT);\n\n\tif (hydrating) {\n\t\tanchor = hydrate_node;\n\t}\n}\n",
+      "start": 1754579493928,
+      "end": 1754579493954,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493954,
+      "end": 1754579493955,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493955,
+      "end": 1754579493955,
+      "order": "normal"
+    }
+  ]
+}

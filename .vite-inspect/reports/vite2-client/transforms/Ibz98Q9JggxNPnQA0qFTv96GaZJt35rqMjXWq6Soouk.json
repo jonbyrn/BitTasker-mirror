@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/api/services/upload.service.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { BaseApiService } from '../apiService';\nimport { ENDPOINTS } from '../endpoints';\n\n/**\n * Upload Service\n * Handles file uploads for the BitTasker platform\n */\nclass UploadService extends BaseApiService {\n\t/**\n\t * Upload a single file\n\t * @param file The file to upload\n\t * @param folder The folder to store the file in\n\t * @returns Promise containing the url and key of the uploaded file\n\t * @throws Error if upload fails\n\t */\n\tasync uploadSingleFile(file: File, folder: string): Promise<{ url: string; key: string }> {\n\t\tconst formData = new FormData();\n\t\tformData.append('file', file);\n\n\t\t// Use the appropriate endpoint with folder query parameter\n\t\tconst response = await this.post<{ url: string; key: string }>(\n\t\t\t`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`,\n\t\t\tformData,\n\t\t\t{\n\t\t\t\theaders: {\n\t\t\t\t\t'Content-Type': 'multipart/form-data'\n\t\t\t\t}\n\t\t\t}\n\t\t);\n\n\t\treturn response.data;\n\t}\n\n\t/**\n\t * Upload multiple files\n\t * @param files The files to upload\n\t * @param folder The folder to store the files in\n\t * @returns Promise containing an array of urls and keys of the uploaded files\n\t * @throws Error if upload fails\n\t */\n\tasync uploadMultipleFiles(\n\t\tfiles: File[],\n\t\tfolder: string = 'tasks'\n\t): Promise<Array<{ url: string; key: string }>> {\n\t\tconst formData = new FormData();\n\n\t\t// Append each file to the form data\n\t\tfiles.forEach((file) => {\n\t\t\tformData.append(`files`, file);\n\t\t});\n\n\t\t// Use the appropriate endpoint with folder query parameter\n\t\tconst response = await this.post<Array<{ url: string; key: string }>>(\n\t\t\t`${ENDPOINTS.UPLOADS.MULTIPLE}?folder=${folder}`,\n\t\t\tformData,\n\t\t\t{\n\t\t\t\theaders: {\n\t\t\t\t\t'Content-Type': 'multipart/form-data'\n\t\t\t\t}\n\t\t\t}\n\t\t);\n\n\t\treturn response.data;\n\t}\n\n\t/**\n\t * Delete a file by its key\n\t * @param key The key of the file to delete\n\t * @returns Promise that resolves when deletion is successful\n\t * @throws Error if deletion fails\n\t */\n\tasync deleteFile(key: string): Promise<void> {\n\t\tawait this.delete(ENDPOINTS.UPLOADS.DELETE(key));\n\t}\n}\n\n// Create singleton instance\nconst uploadService = new UploadService();\nexport default uploadService;\n",
+      "start": 1754579493550,
+      "end": 1754579493847,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import { BaseApiService } from \"../apiService\";\r\nimport { ENDPOINTS } from \"../endpoints\";\r\n\r\nclass UploadService extends BaseApiService {\r\n    async uploadSingleFile(file: File, folder: string): Promise<{\r\n        url: string;\r\n        key: string;\r\n    }> {\r\n        const formData = new FormData();\r\n        formData.append(\"file\", file);\r\n\r\n        const response = await this.post<{\r\n            url: string;\r\n            key: string;\r\n        }>(`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`, formData, {\r\n            headers: {\r\n                \"Content-Type\": \"multipart/form-data\"\r\n            }\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n\r\n    async uploadMultipleFiles(files: File[], folder: string = \"tasks\"): Promise<Array<{\r\n        url: string;\r\n        key: string;\r\n    }>> {\r\n        const formData = new FormData();\r\n\r\n        files.forEach(file => {\r\n            formData.append(`files`, file);\r\n        });\r\n\r\n        const response = await this.post<Array<{\r\n            url: string;\r\n            key: string;\r\n        }>>(`${ENDPOINTS.UPLOADS.MULTIPLE}?folder=${folder}`, formData, {\r\n            headers: {\r\n                \"Content-Type\": \"multipart/form-data\"\r\n            }\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n\r\n    async deleteFile(key: string): Promise<void> {\r\n        await this.delete(ENDPOINTS.UPLOADS.DELETE(key));\r\n    }\r\n}\r\n\r\nconst uploadService = new UploadService();\r\nexport default uploadService;",
+      "start": 1754579493847,
+      "end": 1754579493849,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/api/services/upload.service.ts"
+        ],
+        "sourcesContent": [
+          "import { BaseApiService } from '../apiService';\nimport { ENDPOINTS } from '../endpoints';\n\n/**\n * Upload Service\n * Handles file uploads for the BitTasker platform\n */\nclass UploadService extends BaseApiService {\n\t/**\n\t * Upload a single file\n\t * @param file The file to upload\n\t * @param folder The folder to store the file in\n\t * @returns Promise containing the url and key of the uploaded file\n\t * @throws Error if upload fails\n\t */\n\tasync uploadSingleFile(file: File, folder: string): Promise<{ url: string; key: string }> {\n\t\tconst formData = new FormData();\n\t\tformData.append('file', file);\n\n\t\t// Use the appropriate endpoint with folder query parameter\n\t\tconst response = await this.post<{ url: string; key: string }>(\n\t\t\t`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`,\n\t\t\tformData,\n\t\t\t{\n\t\t\t\theaders: {\n\t\t\t\t\t'Content-Type': 'multipart/form-data'\n\t\t\t\t}\n\t\t\t}\n\t\t);\n\n\t\treturn response.data;\n\t}\n\n\t/**\n\t * Upload multiple files\n\t * @param files The files to upload\n\t * @param folder The folder to store the files in\n\t * @returns Promise containing an array of urls and keys of the uploaded files\n\t * @throws Error if upload fails\n\t */\n\tasync uploadMultipleFiles(\n\t\tfiles: File[],\n\t\tfolder: string = 'tasks'\n\t): Promise<Array<{ url: string; key: string }>> {\n\t\tconst formData = new FormData();\n\n\t\t// Append each file to the form data\n\t\tfiles.forEach((file) => {\n\t\t\tformData.append(`files`, file);\n\t\t});\n\n\t\t// Use the appropriate endpoint with folder query parameter\n\t\tconst response = await this.post<Array<{ url: string; key: string }>>(\n\t\t\t`${ENDPOINTS.UPLOADS.MULTIPLE}?folder=${folder}`,\n\t\t\tformData,\n\t\t\t{\n\t\t\t\theaders: {\n\t\t\t\t\t'Content-Type': 'multipart/form-data'\n\t\t\t\t}\n\t\t\t}\n\t\t);\n\n\t\treturn response.data;\n\t}\n\n\t/**\n\t * Delete a file by its key\n\t * @param key The key of the file to delete\n\t * @returns Promise that resolves when deletion is successful\n\t * @throws Error if deletion fails\n\t */\n\tasync deleteFile(key: string): Promise<void> {\n\t\tawait this.delete(ENDPOINTS.UPLOADS.DELETE(key));\n\t}\n}\n\n// Create singleton instance\nconst uploadService = new UploadService();\nexport default uploadService;\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAExC,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAE/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC;;AAEH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC;;AAED,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAEjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC;;AAEJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC;;AAEH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC;;AAED,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC;AACD;;AAEA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493849,
+      "end": 1754579493849,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493849,
+      "end": 1754579493849,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { BaseApiService } from \"../apiService\";\nimport { ENDPOINTS } from \"../endpoints\";\nclass UploadService extends BaseApiService {\n  async uploadSingleFile(file, folder) {\n    const formData = new FormData();\n    formData.append(\"file\", file);\n    const response = await this.post(`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`, formData, {\n      headers: {\n        \"Content-Type\": \"multipart/form-data\"\n      }\n    });\n    return response.data;\n  }\n  async uploadMultipleFiles(files, folder = \"tasks\") {\n    const formData = new FormData();\n    files.forEach((file) => {\n      formData.append(`files`, file);\n    });\n    const response = await this.post(`${ENDPOINTS.UPLOADS.MULTIPLE}?folder=${folder}`, formData, {\n      headers: {\n        \"Content-Type\": \"multipart/form-data\"\n      }\n    });\n    return response.data;\n  }\n  async deleteFile(key) {\n    await this.delete(ENDPOINTS.UPLOADS.DELETE(key));\n  }\n}\nconst uploadService = new UploadService();\nexport default uploadService;\n",
+      "start": 1754579493849,
+      "end": 1754579493885,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/api/services/upload.service.ts"
+        ],
+        "sourcesContent": [
+          "import { BaseApiService } from \"../apiService\";\r\nimport { ENDPOINTS } from \"../endpoints\";\r\n\r\nclass UploadService extends BaseApiService {\r\n    async uploadSingleFile(file: File, folder: string): Promise<{\r\n        url: string;\r\n        key: string;\r\n    }> {\r\n        const formData = new FormData();\r\n        formData.append(\"file\", file);\r\n\r\n        const response = await this.post<{\r\n            url: string;\r\n            key: string;\r\n        }>(`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`, formData, {\r\n            headers: {\r\n                \"Content-Type\": \"multipart/form-data\"\r\n            }\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n\r\n    async uploadMultipleFiles(files: File[], folder: string = \"tasks\"): Promise<Array<{\r\n        url: string;\r\n        key: string;\r\n    }>> {\r\n        const formData = new FormData();\r\n\r\n        files.forEach(file => {\r\n            formData.append(`files`, file);\r\n        });\r\n\r\n        const response = await this.post<Array<{\r\n            url: string;\r\n            key: string;\r\n        }>>(`${ENDPOINTS.UPLOADS.MULTIPLE}?folder=${folder}`, formData, {\r\n            headers: {\r\n                \"Content-Type\": \"multipart/form-data\"\r\n            }\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n\r\n    async deleteFile(key: string): Promise<void> {\r\n        await this.delete(ENDPOINTS.UPLOADS.DELETE(key));\r\n    }\r\n}\r\n\r\nconst uploadService = new UploadService();\r\nexport default uploadService;"
+        ],
+        "mappings": "AAAA,SAAS,sBAAsB;AAC/B,SAAS,iBAAiB;AAE1B,MAAM,sBAAsB,eAAe;AAAA,EACvC,MAAM,iBAAiB,MAAY,QAGhC;AACC,UAAM,WAAW,IAAI,SAAS;AAC9B,aAAS,OAAO,QAAQ,IAAI;AAE5B,UAAM,WAAW,MAAM,KAAK,KAGzB,GAAG,UAAU,QAAQ,MAAM,WAAW,MAAM,IAAI,UAAU;AAAA,MACzD,SAAS;AAAA,QACL,gBAAgB;AAAA,MACpB;AAAA,IACJ,CAAC;AAED,WAAO,SAAS;AAAA,EACpB;AAAA,EAEA,MAAM,oBAAoB,OAAe,SAAiB,SAGtD;AACA,UAAM,WAAW,IAAI,SAAS;AAE9B,UAAM,QAAQ,UAAQ;AAClB,eAAS,OAAO,SAAS,IAAI;AAAA,IACjC,CAAC;AAED,UAAM,WAAW,MAAM,KAAK,KAGxB,GAAG,UAAU,QAAQ,QAAQ,WAAW,MAAM,IAAI,UAAU;AAAA,MAC5D,SAAS;AAAA,QACL,gBAAgB;AAAA,MACpB;AAAA,IACJ,CAAC;AAED,WAAO,SAAS;AAAA,EACpB;AAAA,EAEA,MAAM,WAAW,KAA4B;AACzC,UAAM,KAAK,OAAO,UAAU,QAAQ,OAAO,GAAG,CAAC;AAAA,EACnD;AACJ;AAEA,MAAM,gBAAgB,IAAI,cAAc;AACxC,eAAe;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493885,
+      "end": 1754579493885,
+      "order": "normal"
+    }
+  ]
+}

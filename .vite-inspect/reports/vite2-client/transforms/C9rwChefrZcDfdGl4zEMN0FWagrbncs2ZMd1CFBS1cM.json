@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/compose-handlers.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Composes event handlers into a single function that can be called with an event.\n * If the previous handler cancels the event using `event.preventDefault()`, the handlers\n * that follow will not be called.\n */\nexport function composeHandlers(...handlers) {\n    return function (e) {\n        for (const handler of handlers) {\n            if (!handler)\n                continue;\n            if (e.defaultPrevented)\n                return;\n            if (typeof handler === \"function\") {\n                handler.call(this, e);\n            }\n            else {\n                handler.current?.call(this, e);\n            }\n        }\n    };\n}\n",
+      "start": 1754579496226,
+      "end": 1754579496255,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496255,
+      "end": 1754579496256,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496256,
+      "end": 1754579496256,
+      "order": "normal"
+    }
+  ]
+}

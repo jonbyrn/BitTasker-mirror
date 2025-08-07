@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/addYears.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { addMonths } from \"./addMonths.js\";\n\n/**\n * The {@link addYears} function options.\n */\n\n/**\n * @name addYears\n * @category Year Helpers\n * @summary Add the specified number of years to the given date.\n *\n * @description\n * Add the specified number of years to the given date.\n *\n * @typeParam DateType - The `Date` type, the function operates on. Gets inferred from passed arguments. Allows to use extensions like [`UTCDate`](https://github.com/date-fns/utc).\n * @typeParam ResultDate - The result `Date` type.\n *\n * @param date - The date to be changed\n * @param amount - The amount of years to be added.\n * @param options - The options\n *\n * @returns The new date with the years added\n *\n * @example\n * // Add 5 years to 1 September 2014:\n * const result = addYears(new Date(2014, 8, 1), 5)\n * //=> Sun Sep 01 2019 00:00:00\n */\nexport function addYears(date, amount, options) {\n  return addMonths(date, amount * 12, options);\n}\n\n// Fallback for modularized imports:\nexport default addYears;\n",
+      "start": 1754579494810,
+      "end": 1754579494866,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494866,
+      "end": 1754579494866,
+      "order": "normal"
+    }
+  ]
+}

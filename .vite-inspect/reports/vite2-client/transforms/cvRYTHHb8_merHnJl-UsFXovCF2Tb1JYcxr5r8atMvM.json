@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/utils/helpers/date.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\r\n * Format a date to a relative time string (e.g., \"2m\", \"5h\", \"2d\")\r\n * @param date - The date to format\r\n * @returns Relative time string in short format\r\n */\r\nexport function formatTimeAgo(date: Date): string {\r\n\ttry {\r\n\t\tconst now = new Date();\r\n\t\tconst diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);\r\n\r\n\t\tif (isNaN(diffInSeconds)) {\r\n\t\t\treturn 'Invalid';\r\n\t\t}\r\n\r\n\t\t// Define time intervals\r\n\t\tconst minute = 60;\r\n\t\tconst hour = minute * 60;\r\n\t\tconst day = hour * 24;\r\n\t\tconst week = day * 7;\r\n\t\tconst month = day * 30;\r\n\t\tconst year = day * 365;\r\n\r\n\t\t// Calculate the appropriate time ago format\r\n\t\tif (diffInSeconds < minute) {\r\n\t\t\treturn 'now';\r\n\t\t} else if (diffInSeconds < hour) {\r\n\t\t\tconst minutes = Math.floor(diffInSeconds / minute);\r\n\t\t\treturn `${minutes}m`;\r\n\t\t} else if (diffInSeconds < day) {\r\n\t\t\tconst hours = Math.floor(diffInSeconds / hour);\r\n\t\t\treturn `${hours}h`;\r\n\t\t} else if (diffInSeconds < week) {\r\n\t\t\tconst days = Math.floor(diffInSeconds / day);\r\n\t\t\treturn `${days}d`;\r\n\t\t} else if (diffInSeconds < month) {\r\n\t\t\tconst weeks = Math.floor(diffInSeconds / week);\r\n\t\t\treturn `${weeks}w`;\r\n\t\t} else if (diffInSeconds < year) {\r\n\t\t\tconst months = Math.floor(diffInSeconds / month);\r\n\t\t\treturn `${months}mo`;\r\n\t\t} else {\r\n\t\t\tconst years = Math.floor(diffInSeconds / year);\r\n\t\t\treturn `${years}y`;\r\n\t\t}\r\n\t} catch (error) {\r\n\t\tconsole.error('Error calculating time ago:', error);\r\n\t\treturn 'Invalid';\r\n\t}\r\n}\r\n",
+      "start": 1754579493189,
+      "end": 1754579493558,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "export function formatTimeAgo(date: Date): string {\r\n    try {\r\n        const now = new Date();\r\n        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);\r\n\r\n        if (isNaN(diffInSeconds)) {\r\n            return \"Invalid\";\r\n        }\r\n\r\n        const minute = 60;\r\n        const hour = minute * 60;\r\n        const day = hour * 24;\r\n        const week = day * 7;\r\n        const month = day * 30;\r\n        const year = day * 365;\r\n\r\n        if (diffInSeconds < minute) {\r\n            return \"now\";\r\n        } else if (diffInSeconds < hour) {\r\n            const minutes = Math.floor(diffInSeconds / minute);\r\n            return `${minutes}m`;\r\n        } else if (diffInSeconds < day) {\r\n            const hours = Math.floor(diffInSeconds / hour);\r\n            return `${hours}h`;\r\n        } else if (diffInSeconds < week) {\r\n            const days = Math.floor(diffInSeconds / day);\r\n            return `${days}d`;\r\n        } else if (diffInSeconds < month) {\r\n            const weeks = Math.floor(diffInSeconds / week);\r\n            return `${weeks}w`;\r\n        } else if (diffInSeconds < year) {\r\n            const months = Math.floor(diffInSeconds / month);\r\n            return `${months}mo`;\r\n        } else {\r\n            const years = Math.floor(diffInSeconds / year);\r\n            return `${years}y`;\r\n        }\r\n    } catch (error) {\r\n        console.error(\"Error calculating time ago:\", error);\r\n        return \"Invalid\";\r\n    }\r\n}",
+      "start": 1754579493558,
+      "end": 1754579493559,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/date.ts"
+        ],
+        "sourcesContent": [
+          "/**\r\n * Format a date to a relative time string (e.g., \"2m\", \"5h\", \"2d\")\r\n * @param date - The date to format\r\n * @returns Relative time string in short format\r\n */\r\nexport function formatTimeAgo(date: Date): string {\r\n\ttry {\r\n\t\tconst now = new Date();\r\n\t\tconst diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);\r\n\r\n\t\tif (isNaN(diffInSeconds)) {\r\n\t\t\treturn 'Invalid';\r\n\t\t}\r\n\r\n\t\t// Define time intervals\r\n\t\tconst minute = 60;\r\n\t\tconst hour = minute * 60;\r\n\t\tconst day = hour * 24;\r\n\t\tconst week = day * 7;\r\n\t\tconst month = day * 30;\r\n\t\tconst year = day * 365;\r\n\r\n\t\t// Calculate the appropriate time ago format\r\n\t\tif (diffInSeconds < minute) {\r\n\t\t\treturn 'now';\r\n\t\t} else if (diffInSeconds < hour) {\r\n\t\t\tconst minutes = Math.floor(diffInSeconds / minute);\r\n\t\t\treturn `${minutes}m`;\r\n\t\t} else if (diffInSeconds < day) {\r\n\t\t\tconst hours = Math.floor(diffInSeconds / hour);\r\n\t\t\treturn `${hours}h`;\r\n\t\t} else if (diffInSeconds < week) {\r\n\t\t\tconst days = Math.floor(diffInSeconds / day);\r\n\t\t\treturn `${days}d`;\r\n\t\t} else if (diffInSeconds < month) {\r\n\t\t\tconst weeks = Math.floor(diffInSeconds / week);\r\n\t\t\treturn `${weeks}w`;\r\n\t\t} else if (diffInSeconds < year) {\r\n\t\t\tconst months = Math.floor(diffInSeconds / month);\r\n\t\t\treturn `${months}mo`;\r\n\t\t} else {\r\n\t\t\tconst years = Math.floor(diffInSeconds / year);\r\n\t\t\treturn `${years}y`;\r\n\t\t}\r\n\t} catch (error) {\r\n\t\tconsole.error('Error calculating time ago:', error);\r\n\t\treturn 'Invalid';\r\n\t}\r\n}\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5E;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC;AACF,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493559,
+      "end": 1754579493559,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493559,
+      "end": 1754579493559,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export function formatTimeAgo(date) {\n  try {\n    const now = /* @__PURE__ */ new Date();\n    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1e3);\n    if (isNaN(diffInSeconds)) {\n      return \"Invalid\";\n    }\n    const minute = 60;\n    const hour = minute * 60;\n    const day = hour * 24;\n    const week = day * 7;\n    const month = day * 30;\n    const year = day * 365;\n    if (diffInSeconds < minute) {\n      return \"now\";\n    } else if (diffInSeconds < hour) {\n      const minutes = Math.floor(diffInSeconds / minute);\n      return `${minutes}m`;\n    } else if (diffInSeconds < day) {\n      const hours = Math.floor(diffInSeconds / hour);\n      return `${hours}h`;\n    } else if (diffInSeconds < week) {\n      const days = Math.floor(diffInSeconds / day);\n      return `${days}d`;\n    } else if (diffInSeconds < month) {\n      const weeks = Math.floor(diffInSeconds / week);\n      return `${weeks}w`;\n    } else if (diffInSeconds < year) {\n      const months = Math.floor(diffInSeconds / month);\n      return `${months}mo`;\n    } else {\n      const years = Math.floor(diffInSeconds / year);\n      return `${years}y`;\n    }\n  } catch (error) {\n    console.error(\"Error calculating time ago:\", error);\n    return \"Invalid\";\n  }\n}\n",
+      "start": 1754579493559,
+      "end": 1754579493649,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/date.ts"
+        ],
+        "sourcesContent": [
+          "export function formatTimeAgo(date: Date): string {\r\n    try {\r\n        const now = new Date();\r\n        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);\r\n\r\n        if (isNaN(diffInSeconds)) {\r\n            return \"Invalid\";\r\n        }\r\n\r\n        const minute = 60;\r\n        const hour = minute * 60;\r\n        const day = hour * 24;\r\n        const week = day * 7;\r\n        const month = day * 30;\r\n        const year = day * 365;\r\n\r\n        if (diffInSeconds < minute) {\r\n            return \"now\";\r\n        } else if (diffInSeconds < hour) {\r\n            const minutes = Math.floor(diffInSeconds / minute);\r\n            return `${minutes}m`;\r\n        } else if (diffInSeconds < day) {\r\n            const hours = Math.floor(diffInSeconds / hour);\r\n            return `${hours}h`;\r\n        } else if (diffInSeconds < week) {\r\n            const days = Math.floor(diffInSeconds / day);\r\n            return `${days}d`;\r\n        } else if (diffInSeconds < month) {\r\n            const weeks = Math.floor(diffInSeconds / week);\r\n            return `${weeks}w`;\r\n        } else if (diffInSeconds < year) {\r\n            const months = Math.floor(diffInSeconds / month);\r\n            return `${months}mo`;\r\n        } else {\r\n            const years = Math.floor(diffInSeconds / year);\r\n            return `${years}y`;\r\n        }\r\n    } catch (error) {\r\n        console.error(\"Error calculating time ago:\", error);\r\n        return \"Invalid\";\r\n    }\r\n}"
+        ],
+        "mappings": "AAAO,gBAAS,cAAc,MAAoB;AAC9C,MAAI;AACA,UAAM,MAAM,oBAAI,KAAK;AACrB,UAAM,gBAAgB,KAAK,OAAO,IAAI,QAAQ,IAAI,KAAK,QAAQ,KAAK,GAAI;AAExE,QAAI,MAAM,aAAa,GAAG;AACtB,aAAO;AAAA,IACX;AAEA,UAAM,SAAS;AACf,UAAM,OAAO,SAAS;AACtB,UAAM,MAAM,OAAO;AACnB,UAAM,OAAO,MAAM;AACnB,UAAM,QAAQ,MAAM;AACpB,UAAM,OAAO,MAAM;AAEnB,QAAI,gBAAgB,QAAQ;AACxB,aAAO;AAAA,IACX,WAAW,gBAAgB,MAAM;AAC7B,YAAM,UAAU,KAAK,MAAM,gBAAgB,MAAM;AACjD,aAAO,GAAG,OAAO;AAAA,IACrB,WAAW,gBAAgB,KAAK;AAC5B,YAAM,QAAQ,KAAK,MAAM,gBAAgB,IAAI;AAC7C,aAAO,GAAG,KAAK;AAAA,IACnB,WAAW,gBAAgB,MAAM;AAC7B,YAAM,OAAO,KAAK,MAAM,gBAAgB,GAAG;AAC3C,aAAO,GAAG,IAAI;AAAA,IAClB,WAAW,gBAAgB,OAAO;AAC9B,YAAM,QAAQ,KAAK,MAAM,gBAAgB,IAAI;AAC7C,aAAO,GAAG,KAAK;AAAA,IACnB,WAAW,gBAAgB,MAAM;AAC7B,YAAM,SAAS,KAAK,MAAM,gBAAgB,KAAK;AAC/C,aAAO,GAAG,MAAM;AAAA,IACpB,OAAO;AACH,YAAM,QAAQ,KAAK,MAAM,gBAAgB,IAAI;AAC7C,aAAO,GAAG,KAAK;AAAA,IACnB;AAAA,EACJ,SAAS,OAAO;AACZ,YAAQ,MAAM,+BAA+B,KAAK;AAClD,WAAO;AAAA,EACX;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493649,
+      "end": 1754579493649,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493650,
+      "end": 1754579493650,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493651,
+      "end": 1754579493651,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/isSameHour.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { normalizeDates } from \"./_lib/normalizeDates.js\";\nimport { startOfHour } from \"./startOfHour.js\";\n\n/**\n * The {@link isSameHour} function options.\n */\n\n/**\n * @name isSameHour\n * @category Hour Helpers\n * @summary Are the given dates in the same hour (and same day)?\n *\n * @description\n * Are the given dates in the same hour (and same day)?\n *\n * @param dateLeft - The first date to check\n * @param dateRight - The second date to check\n * @param options - An object with options\n *\n * @returns The dates are in the same hour (and same day)\n *\n * @example\n * // Are 4 September 2014 06:00:00 and 4 September 06:30:00 in the same hour?\n * const result = isSameHour(new Date(2014, 8, 4, 6, 0), new Date(2014, 8, 4, 6, 30))\n * //=> true\n *\n * @example\n * // Are 4 September 2014 06:00:00 and 5 September 06:00:00 in the same hour?\n * const result = isSameHour(new Date(2014, 8, 4, 6, 0), new Date(2014, 8, 5, 6, 0))\n * //=> false\n */\nexport function isSameHour(dateLeft, dateRight, options) {\n  const [dateLeft_, dateRight_] = normalizeDates(\n    options?.in,\n    dateLeft,\n    dateRight,\n  );\n  return +startOfHour(dateLeft_) === +startOfHour(dateRight_);\n}\n\n// Fallback for modularized imports:\nexport default isSameHour;\n",
+      "start": 1754579494961,
+      "end": 1754579494975,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494975,
+      "end": 1754579494975,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494976,
+      "end": 1754579494976,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494976,
+      "end": 1754579494976,
+      "order": "normal"
+    }
+  ]
+}

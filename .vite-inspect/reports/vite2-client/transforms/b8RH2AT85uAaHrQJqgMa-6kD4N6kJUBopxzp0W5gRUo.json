@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/verify-email/+page.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\r\n\timport { page } from '$app/state';\r\n\timport { AuthService } from '$lib/api/services/auth.service';\r\n\timport { onMount } from 'svelte';\r\n\timport { goto } from '$app/navigation';\r\n\r\n\tlet error: string | null = $state(null);\r\n\tlet isVerifying = $state(true);\r\n\r\n\tonMount(async () => {\r\n\t\tconst token = page.url.searchParams.get('token');\r\n\r\n\t\tif (!token) {\r\n\t\t\terror = 'Invalid verification link. No token provided.';\r\n\t\t\tisVerifying = false;\r\n\t\t\treturn;\r\n\t\t}\r\n\r\n\t\ttry {\r\n\t\t\tconst authService = new AuthService();\r\n\t\t\tawait authService.verifyEmail(token);\r\n\t\t\t// After successful verification, redirect to login page\r\n\t\t\tgoto('/auth/login');\r\n\t\t} catch (err) {\r\n\t\t\terror = 'Failed to verify email. The link might be expired or invalid.';\r\n\t\t\tisVerifying = false;\r\n\t\t}\r\n\t});\r\n</script>\r\n\r\n<div class=\"flex-grow flex items-center justify-center mx-2\">\r\n\t<div class=\"bg-base-100 w-full max-w-md rounded-lg p-8 shadow-lg\">\r\n\t\t{#if isVerifying}\r\n\t\t\t<div class=\"text-center\">\r\n\t\t\t\t<h2 class=\"mb-4 text-2xl font-semibold\">Verifying your email...</h2>\r\n\t\t\t\t<div class=\"flex justify-center\">\r\n\t\t\t\t\t<div\r\n\t\t\t\t\t\tclass=\"border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent\"\r\n\t\t\t\t\t></div>\r\n\t\t\t\t</div>\r\n\t\t\t</div>\r\n\t\t{:else if error}\r\n\t\t\t<div class=\"text-center\">\r\n\t\t\t\t<h2 class=\"mb-4 text-2xl font-semibold text-red-600\">Verification Failed</h2>\r\n\t\t\t\t<p class=\"text-white\">{error}</p>\r\n\t\t\t\t<a href=\"/auth/login\" class=\"text-primary btn btn-ghost btn-outline mt-4 hover:underline\">\r\n\t\t\t\t\tReturn to Login\r\n\t\t\t\t</a>\r\n\t\t\t</div>\r\n\t\t{/if}\r\n\t</div>\r\n</div>\r\n",
+      "start": 1754579491691,
+      "end": 1754579492105,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">import { page } from \"$app/state\";\r\nimport { AuthService } from \"$lib/api/services/auth.service\";\r\nimport { onMount } from \"svelte\";\r\nimport { goto } from \"$app/navigation\";\r\nlet error: string | null = $state(null);\r\nlet isVerifying = $state(true);\r\n\r\nonMount(async () => {\r\n    const token = page.url.searchParams.get(\"token\");\r\n\r\n    if (!token) {\r\n        error = \"Invalid verification link. No token provided.\";\r\n        isVerifying = false;\r\n        return;\r\n    }\r\n\r\n    try {\r\n        const authService = new AuthService();\r\n        await authService.verifyEmail(token);\r\n        goto(\"/auth/login\");\r\n    } catch (err) {\r\n        error = \"Failed to verify email. The link might be expired or invalid.\";\r\n        isVerifying = false;\r\n    }\r\n});</script>\r\n\r\n<div class=\"flex-grow flex items-center justify-center mx-2\">\r\n\t<div class=\"bg-base-100 w-full max-w-md rounded-lg p-8 shadow-lg\">\r\n\t\t{#if isVerifying}\r\n\t\t\t<div class=\"text-center\">\r\n\t\t\t\t<h2 class=\"mb-4 text-2xl font-semibold\">Verifying your email...</h2>\r\n\t\t\t\t<div class=\"flex justify-center\">\r\n\t\t\t\t\t<div\r\n\t\t\t\t\t\tclass=\"border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent\"\r\n\t\t\t\t\t></div>\r\n\t\t\t\t</div>\r\n\t\t\t</div>\r\n\t\t{:else if error}\r\n\t\t\t<div class=\"text-center\">\r\n\t\t\t\t<h2 class=\"mb-4 text-2xl font-semibold text-red-600\">Verification Failed</h2>\r\n\t\t\t\t<p class=\"text-white\">{error}</p>\r\n\t\t\t\t<a href=\"/auth/login\" class=\"text-primary btn btn-ghost btn-outline mt-4 hover:underline\">\r\n\t\t\t\t\tReturn to Login\r\n\t\t\t\t</a>\r\n\t\t\t</div>\r\n\t\t{/if}\r\n\t</div>\r\n</div>\r\n",
+      "start": 1754579492105,
+      "end": 1754579492582,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/verify-email/+page.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\r\n\timport { page } from '$app/state';\r\n\timport { AuthService } from '$lib/api/services/auth.service';\r\n\timport { onMount } from 'svelte';\r\n\timport { goto } from '$app/navigation';\r\n\r\n\tlet error: string | null = $state(null);\r\n\tlet isVerifying = $state(true);\r\n\r\n\tonMount(async () => {\r\n\t\tconst token = page.url.searchParams.get('token');\r\n\r\n\t\tif (!token) {\r\n\t\t\terror = 'Invalid verification link. No token provided.';\r\n\t\t\tisVerifying = false;\r\n\t\t\treturn;\r\n\t\t}\r\n\r\n\t\ttry {\r\n\t\t\tconst authService = new AuthService();\r\n\t\t\tawait authService.verifyEmail(token);\r\n\t\t\t// After successful verification, redirect to login page\r\n\t\t\tgoto('/auth/login');\r\n\t\t} catch (err) {\r\n\t\t\terror = 'Failed to verify email. The link might be expired or invalid.';\r\n\t\t\tisVerifying = false;\r\n\t\t}\r\n\t});\r\n</script>\r\n\r\n<div class=\"flex-grow flex items-center justify-center mx-2\">\r\n\t<div class=\"bg-base-100 w-full max-w-md rounded-lg p-8 shadow-lg\">\r\n\t\t{#if isVerifying}\r\n\t\t\t<div class=\"text-center\">\r\n\t\t\t\t<h2 class=\"mb-4 text-2xl font-semibold\">Verifying your email...</h2>\r\n\t\t\t\t<div class=\"flex justify-center\">\r\n\t\t\t\t\t<div\r\n\t\t\t\t\t\tclass=\"border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent\"\r\n\t\t\t\t\t></div>\r\n\t\t\t\t</div>\r\n\t\t\t</div>\r\n\t\t{:else if error}\r\n\t\t\t<div class=\"text-center\">\r\n\t\t\t\t<h2 class=\"mb-4 text-2xl font-semibold text-red-600\">Verification Failed</h2>\r\n\t\t\t\t<p class=\"text-white\">{error}</p>\r\n\t\t\t\t<a href=\"/auth/login\" class=\"text-primary btn btn-ghost btn-outline mt-4 hover:underline\">\r\n\t\t\t\t\tReturn to Login\r\n\t\t\t\t</a>\r\n\t\t\t</div>\r\n\t\t{/if}\r\n\t</div>\r\n</div>\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492582,
+      "end": 1754579492582,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { page } from \"$app/state\";\nimport { AuthService } from \"$lib/api/services/auth.service\";\nimport { onMount } from \"svelte\";\nimport { goto } from \"$app/navigation\";\n\nvar root_1 = $.template(`<div class=\"text-center\"><h2 class=\"mb-4 text-2xl font-semibold\">Verifying your email...</h2> <div class=\"flex justify-center\"><div class=\"border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent\"></div></div></div>`);\nvar root_3 = $.template(`<div class=\"text-center\"><h2 class=\"mb-4 text-2xl font-semibold text-red-600\">Verification Failed</h2> <p class=\"text-white\"> </p> <a href=\"/auth/login\" class=\"text-primary btn btn-ghost btn-outline mt-4 hover:underline\">Return to Login</a></div>`);\nvar root = $.template(`<div class=\"flex-grow flex items-center justify-center mx-2\"><div class=\"bg-base-100 w-full max-w-md rounded-lg p-8 shadow-lg\"><!></div></div>`);\n\nexport default function _page($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet error = $.state(null);\n\tlet isVerifying = $.state(true);\n\n\tonMount(async () => {\n\t\tconst token = page.url.searchParams.get(\"token\");\n\n\t\tif (!token) {\n\t\t\t$.set(error, \"Invalid verification link. No token provided.\");\n\t\t\t$.set(isVerifying, false);\n\t\t\treturn;\n\t\t}\n\n\t\ttry {\n\t\t\tconst authService = new AuthService();\n\n\t\t\tawait authService.verifyEmail(token);\n\t\t\tgoto(\"/auth/login\");\n\t\t} catch(err) {\n\t\t\t$.set(error, \"Failed to verify email. The link might be expired or invalid.\");\n\t\t\t$.set(isVerifying, false);\n\t\t}\n\t});\n\n\tvar div = root();\n\tvar div_1 = $.child(div);\n\tvar node = $.child(div_1);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tvar div_2 = root_1();\n\n\t\t\t$.append($$anchor, div_2);\n\t\t};\n\n\t\tvar alternate = ($$anchor, $$elseif) => {\n\t\t\t{\n\t\t\t\tvar consequent_1 = ($$anchor) => {\n\t\t\t\t\tvar div_3 = root_3();\n\t\t\t\t\tvar p = $.sibling($.child(div_3), 2);\n\t\t\t\t\tvar text = $.child(p, true);\n\n\t\t\t\t\t$.reset(p);\n\t\t\t\t\t$.next(2);\n\t\t\t\t\t$.reset(div_3);\n\t\t\t\t\t$.template_effect(() => $.set_text(text, $.get(error)));\n\t\t\t\t\t$.append($$anchor, div_3);\n\t\t\t\t};\n\n\t\t\t\t$.if(\n\t\t\t\t\t$$anchor,\n\t\t\t\t\t($$render) => {\n\t\t\t\t\t\tif ($.get(error)) $$render(consequent_1);\n\t\t\t\t\t},\n\t\t\t\t\t$$elseif\n\t\t\t\t);\n\t\t\t}\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($.get(isVerifying)) $$render(consequent); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.reset(div_1);\n\t$.reset(div);\n\t$.append($$anchor, div);\n\t$.pop();\n}",
+      "start": 1754579492582,
+      "end": 1754579492585,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SAA2B,IAAI,QAAQ,YAAY;SAC1C,WAAW,QAAQ,gCAAgC;SACnD,OAAO,QAAQ,QAAQ;SACvB,IAAI,QAAQ,iBAAiB;;;;;;;;;KAClC,KAAoB,WAAU,IAAI;KAClC,WAAW,WAAU,IAAI;;CAE7B,OAAO,aAAa,CAAC;QACX,KAAK,GAAG,IAAI,CAAC,GAAG,CAAC,YAAY,CAAC,GAAG,CAAC,OAAO;;OAE1C,KAAK,EAAE,CAAC;SACT,KAAK,EAAG,+CAA+C;SACvD,WAAW,EAAG,KAAK;;EAEvB,CAAC;;MAEG,CAAC;SACK,WAAW,OAAO,WAAW;;SAC7B,WAAW,CAAC,WAAW,CAAC,KAAK;GACnC,IAAI,CAAC,aAAa;EACtB,CAAC,OAAQ,GAAG,EAAE,CAAC;SACX,KAAK,EAAG,+DAA+D;SACvE,WAAW,EAAG,KAAK;EACvB,CAAC;CACL,CAAC;;;;;;;;;;;;;;;;;;;;;;;oDAgB0B,KAAK;;;;;;;gBAHpB,KAAK;;;;;;;;aATV,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "+page.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492585,
+      "end": 1754579492585,
+      "order": "normal"
+    }
+  ]
+}

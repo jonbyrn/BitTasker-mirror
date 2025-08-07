@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/Login.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"Login\",\r\n    \"kind\": \"HoudiniMutation\",\r\n    \"hash\": \"416c1af1dab37c542a385ac38e38743db36742f39a4395d5094e3d4ccd6e2f8f\",\r\n\r\n    \"raw\": `mutation Login($input: LoginInput!) {\r\n  login(input: $input) {\r\n    access_token\r\n    expires_in\r\n    token_type\r\n    user {\r\n      id\r\n      email\r\n      name\r\n      profilePictureUrl\r\n      onboardingComplete\r\n      userRole\r\n      status\r\n      isEmailVerified\r\n      lastLoginAt\r\n      createdAt\r\n      updatedAt\r\n    }\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Mutation\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"login\": {\r\n                \"type\": \"Auth\",\r\n                \"keyRaw\": \"login(input: $input)\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"access_token\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"access_token\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"expires_in\": {\r\n                            \"type\": \"Int\",\r\n                            \"keyRaw\": \"expires_in\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"token_type\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"token_type\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"user\": {\r\n                            \"type\": \"User\",\r\n                            \"keyRaw\": \"user\",\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"id\": {\r\n                                        \"type\": \"ID\",\r\n                                        \"keyRaw\": \"id\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"email\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"email\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"name\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"name\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"profilePictureUrl\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"profilePictureUrl\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"onboardingComplete\": {\r\n                                        \"type\": \"Boolean\",\r\n                                        \"keyRaw\": \"onboardingComplete\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"userRole\": {\r\n                                        \"type\": \"UserRole\",\r\n                                        \"keyRaw\": \"userRole\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"status\": {\r\n                                        \"type\": \"UserStatus\",\r\n                                        \"keyRaw\": \"status\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"isEmailVerified\": {\r\n                                        \"type\": \"Boolean\",\r\n                                        \"keyRaw\": \"isEmailVerified\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"lastLoginAt\": {\r\n                                        \"type\": \"DateTime\",\r\n                                        \"keyRaw\": \"lastLoginAt\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"createdAt\": {\r\n                                        \"type\": \"DateTime\",\r\n                                        \"keyRaw\": \"createdAt\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"updatedAt\": {\r\n                                        \"type\": \"DateTime\",\r\n                                        \"keyRaw\": \"updatedAt\",\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"input\": {\r\n        \"fields\": {\r\n            \"input\": \"LoginInput\"\r\n        },\r\n\r\n        \"types\": {\r\n            \"LoginInput\": {\r\n                \"email\": \"String\",\r\n                \"password\": \"String\"\r\n            }\r\n        },\r\n\r\n        \"defaults\": {},\r\n        \"runtimeScalars\": {}\r\n    }\r\n};\r\n\r\n\"HoudiniHash=50f34f3362fdaab1b5d41c7e64bcec4dad5e9a2f416a14212c013fd5d76e93a1\";",
+      "start": 1754579495431,
+      "end": 1754579495497,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal"
+    }
+  ]
+}

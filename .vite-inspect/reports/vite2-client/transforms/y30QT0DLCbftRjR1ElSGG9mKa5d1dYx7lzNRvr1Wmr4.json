@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/MyTaskTemplates.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"MyTaskTemplates\",\r\n    \"kind\": \"HoudiniQuery\",\r\n    \"hash\": \"519f1d09c6714d7cc36542bc74d11a6274b513752538ffbf566f5e92cb5c187c\",\r\n\r\n    \"raw\": `query MyTaskTemplates {\r\n  taskTemplates {\r\n    id\r\n    name\r\n    description\r\n    createdAt\r\n    recurrencePattern {\r\n      frequency\r\n      daysOfWeek\r\n      dayOfMonth\r\n      interval\r\n      endDate\r\n      maxOccurrences\r\n    }\r\n    task {\r\n      title\r\n      description\r\n      budget\r\n      status\r\n      id\r\n    }\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Query\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"taskTemplates\": {\r\n                \"type\": \"TaskTemplateResponse\",\r\n                \"keyRaw\": \"taskTemplates\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"id\": {\r\n                            \"type\": \"ID\",\r\n                            \"keyRaw\": \"id\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"name\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"name\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"description\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"description\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"createdAt\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"createdAt\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"recurrencePattern\": {\r\n                            \"type\": \"RecurrencePattern\",\r\n                            \"keyRaw\": \"recurrencePattern\",\r\n                            \"nullable\": true,\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"frequency\": {\r\n                                        \"type\": \"RecurrenceFrequency\",\r\n                                        \"keyRaw\": \"frequency\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"daysOfWeek\": {\r\n                                        \"type\": \"Int\",\r\n                                        \"keyRaw\": \"daysOfWeek\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"dayOfMonth\": {\r\n                                        \"type\": \"Int\",\r\n                                        \"keyRaw\": \"dayOfMonth\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"interval\": {\r\n                                        \"type\": \"Int\",\r\n                                        \"keyRaw\": \"interval\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"endDate\": {\r\n                                        \"type\": \"DateTime\",\r\n                                        \"keyRaw\": \"endDate\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"maxOccurrences\": {\r\n                                        \"type\": \"Int\",\r\n                                        \"keyRaw\": \"maxOccurrences\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"task\": {\r\n                            \"type\": \"Task\",\r\n                            \"keyRaw\": \"task\",\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"title\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"title\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"description\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"description\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"budget\": {\r\n                                        \"type\": \"Float\",\r\n                                        \"keyRaw\": \"budget\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"status\": {\r\n                                        \"type\": \"TaskStatus\",\r\n                                        \"keyRaw\": \"status\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"id\": {\r\n                                        \"type\": \"ID\",\r\n                                        \"keyRaw\": \"id\",\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"policy\": \"CacheOrNetwork\",\r\n    \"partial\": false\r\n};\r\n\r\n\"HoudiniHash=112a628418cc0c2bdb5c8edaf65db868f2c89ac94fe78661785e96ec0f1f5461\";",
+      "start": 1754579495458,
+      "end": 1754579495502,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal"
+    }
+  ]
+}

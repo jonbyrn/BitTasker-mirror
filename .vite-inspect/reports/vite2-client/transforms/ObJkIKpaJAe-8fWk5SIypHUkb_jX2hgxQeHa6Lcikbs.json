@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/parse/_lib/parsers/ISOWeekYearParser.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { startOfISOWeek } from \"../../../startOfISOWeek.js\";\nimport { constructFrom } from \"../../../constructFrom.js\";\nimport { Parser } from \"../Parser.js\";\n\nimport { parseNDigitsSigned } from \"../utils.js\";\n\n// ISO week-numbering year\nexport class ISOWeekYearParser extends Parser {\n  priority = 130;\n\n  parse(dateString, token) {\n    if (token === \"R\") {\n      return parseNDigitsSigned(4, dateString);\n    }\n\n    return parseNDigitsSigned(token.length, dateString);\n  }\n\n  set(date, _flags, value) {\n    const firstWeekOfYear = constructFrom(date, 0);\n    firstWeekOfYear.setFullYear(value, 0, 4);\n    firstWeekOfYear.setHours(0, 0, 0, 0);\n    return startOfISOWeek(firstWeekOfYear);\n  }\n\n  incompatibleTokens = [\n    \"G\",\n    \"y\",\n    \"Y\",\n    \"u\",\n    \"Q\",\n    \"q\",\n    \"M\",\n    \"L\",\n    \"w\",\n    \"d\",\n    \"D\",\n    \"e\",\n    \"c\",\n    \"t\",\n    \"T\",\n  ];\n}\n",
+      "start": 1754579495926,
+      "end": 1754579495948,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495948,
+      "end": 1754579495948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495949,
+      "end": 1754579495949,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495949,
+      "end": 1754579495949,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495949,
+      "end": 1754579495949,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495949,
+      "end": 1754579495949,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495949,
+      "end": 1754579495949,
+      "order": "normal"
+    }
+  ]
+}

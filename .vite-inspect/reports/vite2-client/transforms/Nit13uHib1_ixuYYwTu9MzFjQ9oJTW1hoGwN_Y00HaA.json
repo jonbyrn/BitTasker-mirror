@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/utils/helpers/currencyFormatter.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Format a currency amount based on the currency type\n * @param amount - The amount to format\n * @param currency - The currency type (BTC, L-BTC, LN, USD)\n * @returns Formatted currency string\n */\nexport function formatCurrency(amount: number, currency: string): string {\n\tif (amount === null || amount === undefined) {\n\t\treturn '-';\n\t}\n\n\tswitch (currency) {\n\t\tcase 'BTC':\n\t\tcase 'L-BTC':\n\t\tcase 'LN':\n\t\t\t// Bitcoin values typically shown with 8 decimal places\n\t\t\treturn `${currency} ${amount.toFixed(8)}`;\n\t\tcase 'USD':\n\t\t\t// Regular fiat currency with 2 decimal places\n\t\t\treturn `$${amount.toFixed(2)}`;\n\t\tdefault:\n\t\t\treturn `${currency} ${amount}`;\n\t}\n}\n\n/**\n * Convert between currencies using exchange rates\n * @param amount - The amount to convert\n * @param fromCurrency - The source currency\n * @param toCurrency - The target currency\n * @param exchangeRates - Object containing exchange rates (optional)\n * @returns Converted amount in target currency\n */\nexport function convertCurrency(\n\tamount: number,\n\tfromCurrency: string,\n\ttoCurrency: string,\n\texchangeRates?: Record<string, number>\n): number {\n\t// This is a simplified implementation\n\t// In a real app, this would use actual exchange rates from an API\n\tconst rates = exchangeRates || {\n\t\tBTC: 1,\n\t\t'L-BTC': 1,\n\t\tLN: 1,\n\t\tUSD: 50000 // Example rate: 1 BTC = $50,000\n\t};\n\n\t// First convert to BTC as base currency\n\tlet btcValue = amount;\n\tif (fromCurrency !== 'BTC') {\n\t\tbtcValue = amount / rates[fromCurrency];\n\t}\n\n\t// Then convert from BTC to target currency\n\tif (toCurrency === 'BTC') {\n\t\treturn btcValue;\n\t}\n\n\treturn btcValue * rates[toCurrency];\n}\n",
+      "start": 1754579495351,
+      "end": 1754579495475,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "export function formatCurrency(amount: number, currency: string): string {\r\n    if (amount === null || amount === undefined) {\r\n        return \"-\";\r\n    }\r\n\r\n    switch (currency) {\r\n    case \"BTC\":\r\n    case \"L-BTC\":\r\n    case \"LN\":\r\n        return `${currency} ${amount.toFixed(8)}`;\r\n    case \"USD\":\r\n        return `$${amount.toFixed(2)}`;\r\n    default:\r\n        return `${currency} ${amount}`;\r\n    }\r\n}\r\n\r\nexport function convertCurrency(\r\n    amount: number,\r\n    fromCurrency: string,\r\n    toCurrency: string,\r\n    exchangeRates?: Record<string, number>\r\n): number {\r\n    const rates = exchangeRates || {\r\n        BTC: 1,\r\n        \"L-BTC\": 1,\r\n        LN: 1,\r\n        USD: 50000\r\n    };\r\n\r\n    let btcValue = amount;\r\n\r\n    if (fromCurrency !== \"BTC\") {\r\n        btcValue = amount / rates[fromCurrency];\r\n    }\r\n\r\n    if (toCurrency === \"BTC\") {\r\n        return btcValue;\r\n    }\r\n\r\n    return btcValue * rates[toCurrency];\r\n}",
+      "start": 1754579495475,
+      "end": 1754579495476,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/currencyFormatter.ts"
+        ],
+        "sourcesContent": [
+          "/**\n * Format a currency amount based on the currency type\n * @param amount - The amount to format\n * @param currency - The currency type (BTC, L-BTC, LN, USD)\n * @returns Formatted currency string\n */\nexport function formatCurrency(amount: number, currency: string): string {\n\tif (amount === null || amount === undefined) {\n\t\treturn '-';\n\t}\n\n\tswitch (currency) {\n\t\tcase 'BTC':\n\t\tcase 'L-BTC':\n\t\tcase 'LN':\n\t\t\t// Bitcoin values typically shown with 8 decimal places\n\t\t\treturn `${currency} ${amount.toFixed(8)}`;\n\t\tcase 'USD':\n\t\t\t// Regular fiat currency with 2 decimal places\n\t\t\treturn `$${amount.toFixed(2)}`;\n\t\tdefault:\n\t\t\treturn `${currency} ${amount}`;\n\t}\n}\n\n/**\n * Convert between currencies using exchange rates\n * @param amount - The amount to convert\n * @param fromCurrency - The source currency\n * @param toCurrency - The target currency\n * @param exchangeRates - Object containing exchange rates (optional)\n * @returns Converted amount in target currency\n */\nexport function convertCurrency(\n\tamount: number,\n\tfromCurrency: string,\n\ttoCurrency: string,\n\texchangeRates?: Record<string, number>\n): number {\n\t// This is a simplified implementation\n\t// In a real app, this would use actual exchange rates from an API\n\tconst rates = exchangeRates || {\n\t\tBTC: 1,\n\t\t'L-BTC': 1,\n\t\tLN: 1,\n\t\tUSD: 50000 // Example rate: 1 BTC = $50,000\n\t};\n\n\t// First convert to BTC as base currency\n\tlet btcValue = amount;\n\tif (fromCurrency !== 'BTC') {\n\t\tbtcValue = amount / rates[fromCurrency];\n\t}\n\n\t// Then convert from BTC to target currency\n\tif (toCurrency === 'BTC') {\n\t\treturn btcValue;\n\t}\n\n\treturn btcValue * rates[toCurrency];\n}\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC;;AAED,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC;AACD;;AAEA,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC;;AAEF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC;;AAED,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC;;AAED,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495477,
+      "end": 1754579495477,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495477,
+      "end": 1754579495477,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export function formatCurrency(amount, currency) {\n  if (amount === null || amount === void 0) {\n    return \"-\";\n  }\n  switch (currency) {\n    case \"BTC\":\n    case \"L-BTC\":\n    case \"LN\":\n      return `${currency} ${amount.toFixed(8)}`;\n    case \"USD\":\n      return `$${amount.toFixed(2)}`;\n    default:\n      return `${currency} ${amount}`;\n  }\n}\nexport function convertCurrency(amount, fromCurrency, toCurrency, exchangeRates) {\n  const rates = exchangeRates || {\n    BTC: 1,\n    \"L-BTC\": 1,\n    LN: 1,\n    USD: 5e4\n  };\n  let btcValue = amount;\n  if (fromCurrency !== \"BTC\") {\n    btcValue = amount / rates[fromCurrency];\n  }\n  if (toCurrency === \"BTC\") {\n    return btcValue;\n  }\n  return btcValue * rates[toCurrency];\n}\n",
+      "start": 1754579495477,
+      "end": 1754579495501,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/currencyFormatter.ts"
+        ],
+        "sourcesContent": [
+          "export function formatCurrency(amount: number, currency: string): string {\r\n    if (amount === null || amount === undefined) {\r\n        return \"-\";\r\n    }\r\n\r\n    switch (currency) {\r\n    case \"BTC\":\r\n    case \"L-BTC\":\r\n    case \"LN\":\r\n        return `${currency} ${amount.toFixed(8)}`;\r\n    case \"USD\":\r\n        return `$${amount.toFixed(2)}`;\r\n    default:\r\n        return `${currency} ${amount}`;\r\n    }\r\n}\r\n\r\nexport function convertCurrency(\r\n    amount: number,\r\n    fromCurrency: string,\r\n    toCurrency: string,\r\n    exchangeRates?: Record<string, number>\r\n): number {\r\n    const rates = exchangeRates || {\r\n        BTC: 1,\r\n        \"L-BTC\": 1,\r\n        LN: 1,\r\n        USD: 50000\r\n    };\r\n\r\n    let btcValue = amount;\r\n\r\n    if (fromCurrency !== \"BTC\") {\r\n        btcValue = amount / rates[fromCurrency];\r\n    }\r\n\r\n    if (toCurrency === \"BTC\") {\r\n        return btcValue;\r\n    }\r\n\r\n    return btcValue * rates[toCurrency];\r\n}"
+        ],
+        "mappings": "AAAO,gBAAS,eAAe,QAAgB,UAA0B;AACrE,MAAI,WAAW,QAAQ,WAAW,QAAW;AACzC,WAAO;AAAA,EACX;AAEA,UAAQ,UAAU;AAAA,IAClB,KAAK;AAAA,IACL,KAAK;AAAA,IACL,KAAK;AACD,aAAO,GAAG,QAAQ,IAAI,OAAO,QAAQ,CAAC,CAAC;AAAA,IAC3C,KAAK;AACD,aAAO,IAAI,OAAO,QAAQ,CAAC,CAAC;AAAA,IAChC;AACI,aAAO,GAAG,QAAQ,IAAI,MAAM;AAAA,EAChC;AACJ;AAEO,gBAAS,gBACZ,QACA,cACA,YACA,eACM;AACN,QAAM,QAAQ,iBAAiB;AAAA,IAC3B,KAAK;AAAA,IACL,SAAS;AAAA,IACT,IAAI;AAAA,IACJ,KAAK;AAAA,EACT;AAEA,MAAI,WAAW;AAEf,MAAI,iBAAiB,OAAO;AACxB,eAAW,SAAS,MAAM,YAAY;AAAA,EAC1C;AAEA,MAAI,eAAe,OAAO;AACtB,WAAO;AAAA,EACX;AAEA,SAAO,WAAW,MAAM,UAAU;AACtC;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495501,
+      "end": 1754579495501,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495502,
+      "end": 1754579495502,
+      "order": "normal"
+    }
+  ]
+}

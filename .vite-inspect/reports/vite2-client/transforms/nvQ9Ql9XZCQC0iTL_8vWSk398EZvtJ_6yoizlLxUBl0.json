@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/lib/pagination.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { deepEquals } from \"./deepEquals\";\nimport { countPage, extractPageInfo, missingPageSizeError } from \"./pageInfo\";\nimport { CachePolicy, DataSource } from \"./types\";\nfunction cursorHandlers({\n  artifact,\n  fetchUpdate: parentFetchUpdate,\n  fetch: parentFetch,\n  getState,\n  getVariables,\n  getSession\n}) {\n  const loadPage = async ({\n    pageSizeVar,\n    input,\n    functionName,\n    metadata = {},\n    fetch,\n    where\n  }) => {\n    const loadVariables = {\n      ...getVariables(),\n      ...input\n    };\n    if (!loadVariables[pageSizeVar] && !artifact.refetch.pageSize) {\n      throw missingPageSizeError(functionName);\n    }\n    let isSinglePage = artifact.refetch?.mode === \"SinglePage\";\n    return (isSinglePage ? parentFetch : parentFetchUpdate)(\n      {\n        variables: loadVariables,\n        fetch,\n        metadata,\n        policy: isSinglePage ? artifact.policy : CachePolicy.NetworkOnly,\n        session: await getSession()\n      },\n      isSinglePage ? [] : [where === \"start\" ? \"prepend\" : \"append\"]\n    );\n  };\n  const getPageInfo = () => {\n    return extractPageInfo(getState(), artifact.refetch?.path ?? []);\n  };\n  return {\n    loadNextPage: ({\n      first,\n      after,\n      fetch,\n      metadata\n    } = {}) => {\n      const currentPageInfo = getPageInfo();\n      if (!currentPageInfo.hasNextPage) {\n        return Promise.resolve({\n          data: getState(),\n          errors: null,\n          fetching: false,\n          partial: false,\n          stale: false,\n          source: DataSource.Cache,\n          variables: getVariables()\n        });\n      }\n      const input = {\n        first: first ?? artifact.refetch.pageSize,\n        after: after ?? currentPageInfo.endCursor,\n        before: null,\n        last: null\n      };\n      return loadPage({\n        pageSizeVar: \"first\",\n        functionName: \"loadNextPage\",\n        input,\n        fetch,\n        metadata,\n        where: \"end\"\n      });\n    },\n    loadPreviousPage: ({\n      last,\n      before,\n      fetch,\n      metadata\n    } = {}) => {\n      const currentPageInfo = getPageInfo();\n      if (!currentPageInfo.hasPreviousPage) {\n        return Promise.resolve({\n          data: getState(),\n          errors: null,\n          fetching: false,\n          partial: false,\n          stale: false,\n          source: DataSource.Cache,\n          variables: getVariables()\n        });\n      }\n      const input = {\n        before: before ?? currentPageInfo.startCursor,\n        last: last ?? artifact.refetch.pageSize,\n        first: null,\n        after: null\n      };\n      return loadPage({\n        pageSizeVar: \"last\",\n        functionName: \"loadPreviousPage\",\n        input,\n        fetch,\n        metadata,\n        where: \"start\"\n      });\n    },\n    async fetch(args) {\n      const { variables } = args ?? {};\n      if (variables && !deepEquals(getVariables(), variables)) {\n        return await parentFetch(args);\n      }\n      try {\n        var currentPageInfo = extractPageInfo(getState(), artifact.refetch.path);\n      } catch {\n        return await parentFetch(args);\n      }\n      const queryVariables = {};\n      const count = countPage(artifact.refetch.path.concat(\"edges\"), getState()) || artifact.refetch.pageSize;\n      if (count && count > artifact.refetch.pageSize) {\n        if (currentPageInfo.hasPreviousPage && currentPageInfo.hasNextPage && !(variables?.[\"first\"] && variables?.[\"after\"] || variables?.[\"last\"] && variables?.[\"before\"])) {\n          console.warn(`\\u26A0\\uFE0F Encountered a fetch() in the middle of the connection.\nMake sure to pass a cursor value by hand that includes the current set (ie the entry before startCursor)\n`);\n        }\n        if (!currentPageInfo.hasPreviousPage) {\n          queryVariables[\"first\"] = count;\n          queryVariables[\"after\"] = null;\n          queryVariables[\"last\"] = null;\n          queryVariables[\"before\"] = null;\n        } else if (!currentPageInfo.hasNextPage) {\n          queryVariables[\"last\"] = count;\n          queryVariables[\"first\"] = null;\n          queryVariables[\"after\"] = null;\n          queryVariables[\"before\"] = null;\n        }\n      }\n      Object.assign(queryVariables, variables ?? {});\n      const result = await parentFetch({\n        ...args,\n        variables: queryVariables\n      });\n      return result;\n    }\n  };\n}\nfunction offsetHandlers({\n  artifact,\n  storeName,\n  getState,\n  getVariables,\n  fetch: parentFetch,\n  fetchUpdate: parentFetchUpdate,\n  getSession\n}) {\n  let isSinglePage = artifact.refetch?.mode === \"SinglePage\";\n  let getOffset = () => {\n    let offset = artifact.refetch?.start || countPage(artifact.refetch.path, getState()) || artifact.refetch.pageSize;\n    if (isSinglePage) {\n      offset += getVariables()?.offset ?? 0;\n    }\n    return offset;\n  };\n  let currentOffset = getOffset() ?? 0;\n  return {\n    loadNextPage: async ({\n      limit,\n      offset,\n      fetch,\n      metadata\n    } = {}) => {\n      const queryVariables = {\n        ...getVariables(),\n        offset: offset ?? getOffset()\n      };\n      if (limit || limit === 0) {\n        queryVariables.limit = limit;\n      }\n      if (!queryVariables.limit && !artifact.refetch.pageSize) {\n        throw missingPageSizeError(\"loadNextPage\");\n      }\n      const targetFetch = isSinglePage ? parentFetch : parentFetchUpdate;\n      await targetFetch({\n        variables: queryVariables,\n        fetch,\n        metadata,\n        policy: isSinglePage ? artifact.policy : CachePolicy.NetworkOnly,\n        session: await getSession()\n      });\n      const pageSize = queryVariables.limit || artifact.refetch.pageSize;\n      currentOffset = offset + pageSize;\n    },\n    async fetch(params = {}) {\n      const { variables } = params;\n      if (variables && !deepEquals(getVariables(), variables)) {\n        return parentFetch.call(this, params);\n      }\n      const count = currentOffset || getOffset();\n      const queryVariables = {};\n      if (!artifact.refetch.pageSize || count > artifact.refetch.pageSize) {\n        queryVariables.limit = count;\n      }\n      return await parentFetch.call(this, {\n        ...params,\n        variables: queryVariables\n      });\n    }\n  };\n}\nexport {\n  cursorHandlers,\n  offsetHandlers\n};\n",
+      "start": 1754579496074,
+      "end": 1754579496119,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496119,
+      "end": 1754579496119,
+      "order": "normal"
+    }
+  ]
+}

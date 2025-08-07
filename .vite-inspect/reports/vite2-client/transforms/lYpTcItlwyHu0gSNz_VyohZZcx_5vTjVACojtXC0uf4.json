@@ -1,0 +1,98 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/client/plugins/fetch.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { ArtifactKind, DataSource } from \"../../lib/types\";\nconst fetch = (target) => {\n  return () => {\n    return {\n      async network(ctx, { client, initialValue, resolve, marshalVariables }) {\n        if (ctx.artifact.kind === ArtifactKind.Fragment) {\n          return resolve(ctx, initialValue);\n        }\n        const fetch2 = ctx.fetch ?? globalThis.fetch;\n        const fetchParams = {\n          name: ctx.name,\n          text: ctx.text,\n          hash: ctx.hash,\n          variables: { ...marshalVariables(ctx) }\n        };\n        for (const variable of ctx.artifact.stripVariables) {\n          delete fetchParams.variables[variable];\n        }\n        let fetchFn = defaultFetch(client.url, ctx.fetchParams);\n        if (target) {\n          if (typeof target === \"string\") {\n            fetchFn = defaultFetch(target, ctx.fetchParams);\n          } else {\n            fetchFn = target;\n          }\n        }\n        const result = await fetchFn({\n          fetch: (url, args) => {\n            const newArgs = handleMultipart(fetchParams, args) ?? args;\n            return fetch2(url, {\n              ...newArgs,\n              signal: ctx.abortController.signal\n            });\n          },\n          metadata: ctx.metadata,\n          session: ctx.session || {},\n          ...fetchParams\n        });\n        resolve(ctx, {\n          fetching: false,\n          variables: ctx.variables ?? {},\n          data: result.data,\n          errors: !result.errors || result.errors.length === 0 ? null : result.errors,\n          partial: false,\n          stale: false,\n          source: DataSource.Network\n        });\n      }\n    };\n  };\n};\nconst defaultFetch = (url, params) => {\n  if (!url) {\n    throw new Error(\n      \"Could not find configured client url. Please specify one in your HoudiniClient constructor.\"\n    );\n  }\n  return async ({ fetch: fetch2, name, text, variables }) => {\n    const result = await fetch2(url, {\n      method: \"POST\",\n      body: JSON.stringify({ operationName: name, query: text, variables }),\n      ...params,\n      headers: {\n        Accept: \"application/graphql+json, application/json\",\n        \"Content-Type\": \"application/json\",\n        ...params?.headers\n      }\n    });\n    if (!result.ok && !result.headers.get(\"content-type\")?.startsWith(\"application/json\") && !result.headers.get(\"content-type\")?.startsWith(\"application/graphql+json\")) {\n      throw new Error(\n        `Failed to fetch: server returned invalid response with error ${result.status}: ${result.statusText}`\n      );\n    }\n    return await result.json();\n  };\n};\nfunction handleMultipart(params, args) {\n  const { files } = extractFiles({\n    variables: params.variables\n  });\n  if (files.size) {\n    const req = args;\n    let headers = {};\n    if (req?.headers) {\n      const filtered = Object.entries(req?.headers).filter(([key, value]) => {\n        return !(key.toLowerCase() == \"content-type\" && value.toLowerCase() == \"application/json\");\n      });\n      headers = Object.fromEntries(filtered);\n    }\n    const form = new FormData();\n    if (args && args?.body) {\n      form.set(\"operations\", args?.body);\n    } else {\n      form.set(\n        \"operations\",\n        JSON.stringify({\n          operationName: params.name,\n          query: params.text,\n          variables: params.variables\n        })\n      );\n    }\n    const map = {};\n    let i = 0;\n    files.forEach((paths) => {\n      map[++i] = paths;\n    });\n    form.set(\"map\", JSON.stringify(map));\n    i = 0;\n    files.forEach((paths, file) => {\n      form.set(`${++i}`, file, file.name);\n    });\n    return { ...req, headers, body: form };\n  }\n}\nfunction isExtractableFile(value) {\n  return typeof File !== \"undefined\" && value instanceof File || typeof Blob !== \"undefined\" && value instanceof Blob;\n}\nfunction extractFiles(value) {\n  if (!arguments.length)\n    throw new TypeError(\"Argument 1 `value` is required.\");\n  const clones = /* @__PURE__ */ new Map();\n  const files = /* @__PURE__ */ new Map();\n  function recurse(value2, path, recursed) {\n    if (isExtractableFile(value2)) {\n      const filePaths = files.get(value2);\n      filePaths ? filePaths.push(path) : files.set(value2, [path]);\n      return null;\n    }\n    const valueIsList = Array.isArray(value2) || typeof FileList !== \"undefined\" && value2 instanceof FileList;\n    const valueIsPlainObject = isPlainObject(value2);\n    if (valueIsList || valueIsPlainObject) {\n      let clone = clones.get(value2);\n      const uncloned = !clone;\n      if (uncloned) {\n        clone = valueIsList ? [] : value2 instanceof Object ? {} : /* @__PURE__ */ Object.create(null);\n        clones.set(value2, clone);\n      }\n      if (!recursed.has(value2)) {\n        const pathPrefix = path ? `${path}.` : \"\";\n        const recursedDeeper = new Set(recursed).add(value2);\n        if (valueIsList) {\n          let index = 0;\n          for (const item of value2) {\n            const itemClone = recurse(item, pathPrefix + index++, recursedDeeper);\n            if (uncloned)\n              clone.push(itemClone);\n          }\n        } else\n          for (const key in value2) {\n            const propertyClone = recurse(value2[key], pathPrefix + key, recursedDeeper);\n            if (uncloned)\n              clone[key] = propertyClone;\n          }\n      }\n      return clone;\n    }\n    return value2;\n  }\n  return {\n    clone: recurse(value, \"\", /* @__PURE__ */ new Set()),\n    files\n  };\n}\nfunction isPlainObject(value) {\n  if (typeof value !== \"object\" || value === null) {\n    return false;\n  }\n  const prototype = Object.getPrototypeOf(value);\n  return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null) && !(Symbol.toStringTag in value) && !(Symbol.iterator in value);\n}\nexport {\n  extractFiles,\n  fetch,\n  isExtractableFile\n};\n",
+      "start": 1754579495895,
+      "end": 1754579495930,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495930,
+      "end": 1754579495930,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495930,
+      "end": 1754579495930,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495930,
+      "end": 1754579495930,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495930,
+      "end": 1754579495930,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495930,
+      "end": 1754579495930,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "import { ArtifactKind, DataSource } from \"../../lib/types\";\nconst fetch = (target) => {\n  return () => {\n    return {\n      async network(ctx, { client, initialValue, resolve, marshalVariables }) {\n        if (ctx.artifact.kind === ArtifactKind.Fragment) {\n          return resolve(ctx, initialValue);\n        }\n        const fetch2 = ctx.fetch ?? globalThis.fetch;\n        const fetchParams = {\n          name: ctx.name,\n          text: ctx.text,\n          hash: ctx.hash,\n          variables: { ...marshalVariables(ctx) }\n        };\n        for (const variable of ctx.artifact.stripVariables) {\n          delete fetchParams.variables[variable];\n        }\n        let fetchFn = defaultFetch(client.url, ctx.fetchParams);\n        if (target) {\n          if (typeof target === \"string\") {\n            fetchFn = defaultFetch(target, ctx.fetchParams);\n          } else {\n            fetchFn = target;\n          }\n        }\n        const result = await fetchFn({\n          fetch: (url, args) => {\n            const newArgs = handleMultipart(fetchParams, args) ?? args;\n            return fetch2(url, {\n              ...newArgs,\n              signal: ctx.abortController.signal\n            });\n          },\n          metadata: ctx.metadata,\n          session: ctx.session || {},\n          ...fetchParams\n        });\n        resolve(ctx, {\n          fetching: false,\n          variables: ctx.variables ?? {},\n          data: result.data,\n          errors: !result.errors || result.errors.length === 0 ? null : result.errors,\n          partial: false,\n          stale: false,\n          source: DataSource.Network\n        });\n      }\n    };\n  };\n};\nconst defaultFetch = (url, params) => {\n  if (!url) {\n    throw new Error(\n      \"Could not find configured client url. Please specify one in your HoudiniClient constructor.\"\n    );\n  }\n  return async ({ fetch: fetch2, name, text, variables }) => {\n    const result = await fetch2(url, {\n      method: \"POST\",\n      body: JSON.stringify({ operationName: name, query: text, variables }),\n      ...params,\n      headers: {\n        Accept: \"application/graphql+json, application/json\",\n        \"Content-Type\": \"application/json\",\n        ...params?.headers\n      }\n    });\n    if (!result.ok && !result.headers.get(\"content-type\")?.startsWith(\"application/json\") && !result.headers.get(\"content-type\")?.startsWith(\"application/graphql+json\")) {\n      throw new Error(\n        `Failed to fetch: server returned invalid response with error ${result.status}: ${result.statusText}`\n      );\n    }\n    return await result.json();\n  };\n};\nfunction handleMultipart(params, args) {\n  const { files } = extractFiles({\n    variables: params.variables\n  });\n  if (files.size) {\n    const req = args;\n    let headers = {};\n    if (req?.headers) {\n      const filtered = Object.entries(req?.headers).filter(([key, value]) => {\n        return !(key.toLowerCase() == \"content-type\" && value.toLowerCase() == \"application/json\");\n      });\n      headers = Object.fromEntries(filtered);\n    }\n    const form = new FormData();\n    if (args && args?.body) {\n      form.set(\"operations\", args?.body);\n    } else {\n      form.set(\n        \"operations\",\n        JSON.stringify({\n          operationName: params.name,\n          query: params.text,\n          variables: params.variables\n        })\n      );\n    }\n    const map = {};\n    let i = 0;\n    files.forEach((paths) => {\n      map[++i] = paths;\n    });\n    form.set(\"map\", JSON.stringify(map));\n    i = 0;\n    files.forEach((paths, file) => {\n      form.set(`${++i}`, file, file.name);\n    });\n    return { ...req, headers, body: form };\n  }\n}\nfunction isExtractableFile(value) {\n  return typeof File !== \"undefined\" && value instanceof File || typeof Blob !== \"undefined\" && value instanceof Blob;\n}\nfunction extractFiles(value) {\n  if (!arguments.length)\n    throw new TypeError(\"Argument 1 `value` is required.\");\n  const clones = /* @__PURE__ */ new Map();\n  const files = /* @__PURE__ */ new Map();\n  function recurse(value2, path, recursed) {\n    if (isExtractableFile(value2)) {\n      const filePaths = files.get(value2);\n      filePaths ? filePaths.push(path) : files.set(value2, [path]);\n      return null;\n    }\n    const valueIsList = Array.isArray(value2) || typeof FileList !== \"undefined\" && value2 instanceof FileList;\n    const valueIsPlainObject = isPlainObject(value2);\n    if (valueIsList || valueIsPlainObject) {\n      let clone = clones.get(value2);\n      const uncloned = !clone;\n      if (uncloned) {\n        clone = valueIsList ? [] : value2 instanceof Object ? {} : /* @__PURE__ */ Object.create(null);\n        clones.set(value2, clone);\n      }\n      if (!recursed.has(value2)) {\n        const pathPrefix = path ? `${path}.` : \"\";\n        const recursedDeeper = new Set(recursed).add(value2);\n        if (valueIsList) {\n          let index = 0;\n          for (const item of value2) {\n            const itemClone = recurse(item, pathPrefix + index++, recursedDeeper);\n            if (uncloned)\n              clone.push(itemClone);\n          }\n        } else\n          for (const key in value2) {\n            const propertyClone = recurse(value2[key], pathPrefix + key, recursedDeeper);\n            if (uncloned)\n              clone[key] = propertyClone;\n          }\n      }\n      return clone;\n    }\n    return value2;\n  }\n  return {\n    clone: recurse(value, \"\", /* @__PURE__ */ new Set()),\n    files\n  };\n}\nfunction isPlainObject(value) {\n  if (typeof value !== \"object\" || value === null) {\n    return false;\n  }\n  const prototype = Object.getPrototypeOf(value);\n  return (prototype === null || prototype === Object.prototype || Object.getPrototypeOf(prototype) === null) && !(Symbol.toStringTag in value) && !(Symbol.iterator in value);\n}\nexport {\n  extractFiles,\n  fetch,\n  isExtractableFile\n};\n",
+      "start": 1754579495930,
+      "end": 1754579495939,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495939,
+      "end": 1754579495939,
+      "order": "normal"
+    }
+  ]
+}

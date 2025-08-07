@@ -1,0 +1,110 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/runed/dist/utilities/use-geolocation/use-geolocation.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { defaultNavigator, } from \"../../internal/configurable-globals.js\";\n/**\n * Reactive access to the browser's [Geolocation API](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API).\n *\n * @see https://runed.dev/docs/utilities/use-geolocation\n */\nexport function useGeolocation(options = {}) {\n    const { enableHighAccuracy = true, maximumAge = 30000, timeout = 27000, immediate = true, navigator = defaultNavigator, } = options;\n    const isSupported = Boolean(navigator);\n    let error = $state.raw(null);\n    let position = $state({\n        timestamp: 0,\n        coords: {\n            accuracy: 0,\n            latitude: Number.POSITIVE_INFINITY,\n            longitude: Number.POSITIVE_INFINITY,\n            altitude: null,\n            altitudeAccuracy: null,\n            heading: null,\n            speed: null,\n        },\n    });\n    let isPaused = $state(false);\n    function updatePosition(_position) {\n        error = null;\n        position.timestamp = _position.timestamp;\n        position.coords.accuracy = _position.coords.accuracy;\n        position.coords.altitude = _position.coords.altitude;\n        position.coords.altitudeAccuracy = _position.coords.altitudeAccuracy;\n        position.coords.heading = _position.coords.heading;\n        position.coords.latitude = _position.coords.latitude;\n        position.coords.longitude = _position.coords.longitude;\n        position.coords.speed = _position.coords.speed;\n    }\n    let watcher;\n    function resume() {\n        if (!navigator)\n            return;\n        watcher = navigator.geolocation.watchPosition(updatePosition, (err) => (error = err), {\n            enableHighAccuracy,\n            maximumAge,\n            timeout,\n        });\n        isPaused = false;\n    }\n    function pause() {\n        if (watcher && navigator) {\n            navigator.geolocation.clearWatch(watcher);\n        }\n        isPaused = true;\n    }\n    $effect(() => {\n        if (immediate)\n            resume();\n        return () => pause();\n    });\n    return {\n        get isSupported() {\n            return isSupported;\n        },\n        position,\n        get error() {\n            return error;\n        },\n        get isPaused() {\n            return isPaused;\n        },\n        resume,\n        pause,\n    };\n}\n",
+      "start": 1754579497909,
+      "end": 1754579497968,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497968,
+      "end": 1754579497968,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497968,
+      "end": 1754579497968,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497968,
+      "end": 1754579497968,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497968,
+      "end": 1754579497968,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497968,
+      "end": 1754579497968,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "import { defaultNavigator } from \"../../internal/configurable-globals.js\";\nexport function useGeolocation(options = {}) {\n  const { enableHighAccuracy = true, maximumAge = 3e4, timeout = 27e3, immediate = true, navigator = defaultNavigator } = options;\n  const isSupported = Boolean(navigator);\n  let error = $state.raw(null);\n  let position = $state({\n    timestamp: 0,\n    coords: {\n      accuracy: 0,\n      latitude: Number.POSITIVE_INFINITY,\n      longitude: Number.POSITIVE_INFINITY,\n      altitude: null,\n      altitudeAccuracy: null,\n      heading: null,\n      speed: null\n    }\n  });\n  let isPaused = $state(false);\n  function updatePosition(_position) {\n    error = null;\n    position.timestamp = _position.timestamp;\n    position.coords.accuracy = _position.coords.accuracy;\n    position.coords.altitude = _position.coords.altitude;\n    position.coords.altitudeAccuracy = _position.coords.altitudeAccuracy;\n    position.coords.heading = _position.coords.heading;\n    position.coords.latitude = _position.coords.latitude;\n    position.coords.longitude = _position.coords.longitude;\n    position.coords.speed = _position.coords.speed;\n  }\n  let watcher;\n  function resume() {\n    if (!navigator)\n      return;\n    watcher = navigator.geolocation.watchPosition(updatePosition, (err) => error = err, {\n      enableHighAccuracy,\n      maximumAge,\n      timeout\n    });\n    isPaused = false;\n  }\n  function pause() {\n    if (watcher && navigator) {\n      navigator.geolocation.clearWatch(watcher);\n    }\n    isPaused = true;\n  }\n  $effect(() => {\n    if (immediate)\n      resume();\n    return () => pause();\n  });\n  return {\n    get isSupported() {\n      return isSupported;\n    },\n    position,\n    get error() {\n      return error;\n    },\n    get isPaused() {\n      return isPaused;\n    },\n    resume,\n    pause\n  };\n}\n",
+      "start": 1754579497968,
+      "end": 1754579497985,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497985,
+      "end": 1754579497985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497985,
+      "end": 1754579497985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497985,
+      "end": 1754579497985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497986,
+      "end": 1754579497986,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497986,
+      "end": 1754579497986,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* use-geolocation.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\nimport { defaultNavigator } from \"../../internal/configurable-globals.js\";\n\nexport function useGeolocation(options = {}) {\n\tconst {\n\t\tenableHighAccuracy = true,\n\t\tmaximumAge = 3e4,\n\t\ttimeout = 27e3,\n\t\timmediate = true,\n\t\tnavigator = defaultNavigator\n\t} = options;\n\n\tconst isSupported = Boolean(navigator);\n\tlet error = $.state(null);\n\n\tlet position = $.proxy({\n\t\ttimestamp: 0,\n\t\tcoords: {\n\t\t\taccuracy: 0,\n\t\t\tlatitude: Number.POSITIVE_INFINITY,\n\t\t\tlongitude: Number.POSITIVE_INFINITY,\n\t\t\taltitude: null,\n\t\t\taltitudeAccuracy: null,\n\t\t\theading: null,\n\t\t\tspeed: null\n\t\t}\n\t});\n\n\tlet isPaused = $.state(false);\n\n\tfunction updatePosition(_position) {\n\t\t$.set(error, null);\n\t\tposition.timestamp = _position.timestamp;\n\t\tposition.coords.accuracy = _position.coords.accuracy;\n\t\tposition.coords.altitude = _position.coords.altitude;\n\t\tposition.coords.altitudeAccuracy = _position.coords.altitudeAccuracy;\n\t\tposition.coords.heading = _position.coords.heading;\n\t\tposition.coords.latitude = _position.coords.latitude;\n\t\tposition.coords.longitude = _position.coords.longitude;\n\t\tposition.coords.speed = _position.coords.speed;\n\t}\n\n\tlet watcher;\n\n\tfunction resume() {\n\t\tif (!navigator) return;\n\t\twatcher = navigator.geolocation.watchPosition(updatePosition, (err) => $.set(error, err), { enableHighAccuracy, maximumAge, timeout });\n\t\t$.set(isPaused, false);\n\t}\n\n\tfunction pause() {\n\t\tif (watcher && navigator) {\n\t\t\tnavigator.geolocation.clearWatch(watcher);\n\t\t}\n\n\t\t$.set(isPaused, true);\n\t}\n\n\t$.user_effect(() => {\n\t\tif (immediate) resume();\n\t\treturn () => pause();\n\t});\n\n\treturn {\n\t\tget isSupported() {\n\t\t\treturn isSupported;\n\t\t},\n\t\tposition,\n\t\tget error() {\n\t\t\treturn $.get(error);\n\t\t},\n\t\tget isPaused() {\n\t\t\treturn $.get(isPaused);\n\t\t},\n\t\tresume,\n\t\tpause\n\t};\n}",
+      "start": 1754579497989,
+      "end": 1754579497994,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "use-geolocation.svelte.js"
+        ],
+        "sourcesContent": [
+          "import { defaultNavigator } from \"../../internal/configurable-globals.js\";\nexport function useGeolocation(options = {}) {\n  const { enableHighAccuracy = true, maximumAge = 3e4, timeout = 27e3, immediate = true, navigator = defaultNavigator } = options;\n  const isSupported = Boolean(navigator);\n  let error = $state.raw(null);\n  let position = $state({\n    timestamp: 0,\n    coords: {\n      accuracy: 0,\n      latitude: Number.POSITIVE_INFINITY,\n      longitude: Number.POSITIVE_INFINITY,\n      altitude: null,\n      altitudeAccuracy: null,\n      heading: null,\n      speed: null\n    }\n  });\n  let isPaused = $state(false);\n  function updatePosition(_position) {\n    error = null;\n    position.timestamp = _position.timestamp;\n    position.coords.accuracy = _position.coords.accuracy;\n    position.coords.altitude = _position.coords.altitude;\n    position.coords.altitudeAccuracy = _position.coords.altitudeAccuracy;\n    position.coords.heading = _position.coords.heading;\n    position.coords.latitude = _position.coords.latitude;\n    position.coords.longitude = _position.coords.longitude;\n    position.coords.speed = _position.coords.speed;\n  }\n  let watcher;\n  function resume() {\n    if (!navigator)\n      return;\n    watcher = navigator.geolocation.watchPosition(updatePosition, (err) => error = err, {\n      enableHighAccuracy,\n      maximumAge,\n      timeout\n    });\n    isPaused = false;\n  }\n  function pause() {\n    if (watcher && navigator) {\n      navigator.geolocation.clearWatch(watcher);\n    }\n    isPaused = true;\n  }\n  $effect(() => {\n    if (immediate)\n      resume();\n    return () => pause();\n  });\n  return {\n    get isSupported() {\n      return isSupported;\n    },\n    position,\n    get error() {\n      return error;\n    },\n    get isPaused() {\n      return isPaused;\n    },\n    resume,\n    pause\n  };\n}\n"
+        ],
+        "mappings": ";;SAAS,gBAAgB,QAAQ,wCAAwC;;gBACzD,cAAc,CAAC,OAAO,OAAO,CAAC;;EACpC,kBAAkB,GAAG,IAAI;EAAE,UAAU,GAAG,GAAG;EAAE,OAAO,GAAG,IAAI;EAAE,SAAS,GAAG,IAAI;EAAE,SAAS,GAAG,gBAAgB;KAAK,OAAO;;OACzH,WAAW,GAAG,OAAO,CAAC,SAAS;KACjC,KAAK,WAAc,IAAI;;KACvB,QAAQ;EACV,SAAS,EAAE,CAAC;EACZ,MAAM;GACJ,QAAQ,EAAE,CAAC;GACX,QAAQ,EAAE,MAAM,CAAC,iBAAiB;GAClC,SAAS,EAAE,MAAM,CAAC,iBAAiB;GACnC,QAAQ,EAAE,IAAI;GACd,gBAAgB,EAAE,IAAI;GACtB,OAAO,EAAE,IAAI;GACb,KAAK,EAAE,IAAI;;;;KAGX,QAAQ,WAAU,KAAK;;UAClB,cAAc,CAAC,SAAS,EAAE,CAAC;QAClC,KAAK,EAAG,IAAI;EACZ,QAAQ,CAAC,SAAS,GAAG,SAAS,CAAC,SAAS;EACxC,QAAQ,CAAC,MAAM,CAAC,QAAQ,GAAG,SAAS,CAAC,MAAM,CAAC,QAAQ;EACpD,QAAQ,CAAC,MAAM,CAAC,QAAQ,GAAG,SAAS,CAAC,MAAM,CAAC,QAAQ;EACpD,QAAQ,CAAC,MAAM,CAAC,gBAAgB,GAAG,SAAS,CAAC,MAAM,CAAC,gBAAgB;EACpE,QAAQ,CAAC,MAAM,CAAC,OAAO,GAAG,SAAS,CAAC,MAAM,CAAC,OAAO;EAClD,QAAQ,CAAC,MAAM,CAAC,QAAQ,GAAG,SAAS,CAAC,MAAM,CAAC,QAAQ;EACpD,QAAQ,CAAC,MAAM,CAAC,SAAS,GAAG,SAAS,CAAC,MAAM,CAAC,SAAS;EACtD,QAAQ,CAAC,MAAM,CAAC,KAAK,GAAG,SAAS,CAAC,MAAM,CAAC,KAAK;CAChD,CAAC;;KACG,OAAO;;UACF,MAAM,GAAG,CAAC;OACZ,SAAS;EAEd,OAAO,GAAG,SAAS,CAAC,WAAW,CAAC,aAAa,CAAC,cAAc,GAAG,GAAG,WAAK,KAAK,EAAG,GAAG,KAChF,kBAAkB,EAClB,UAAU,EACV,OAAO;QAET,QAAQ,EAAG,KAAK;CAClB,CAAC;;UACQ,KAAK,GAAG,CAAC;MACZ,OAAO,IAAI,SAAS,EAAE,CAAC;GACzB,SAAS,CAAC,WAAW,CAAC,UAAU,CAAC,OAAO;EAC1C,CAAC;;QACD,QAAQ,EAAG,IAAI;CACjB,CAAC;;CACD,aAAO,OAAO,CAAC;MACT,SAAS,EACX,MAAM;eACK,KAAK;CACpB,CAAC;;;MAEK,WAAW,GAAG,CAAC;UACV,WAAW;EACpB,CAAC;EACD,QAAQ;MACJ,KAAK,GAAG,CAAC;gBACJ,KAAK;EACd,CAAC;MACG,QAAQ,GAAG,CAAC;gBACP,QAAQ;EACjB,CAAC;EACD,MAAM;EACN,KAAK;;AAET,CAAC"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497994,
+      "end": 1754579497994,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497994,
+      "end": 1754579497994,
+      "order": "normal"
+    }
+  ]
+}

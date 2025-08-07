@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/internal/use-arrow-navigation.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "const ignoredElement = [\"INPUT\", \"TEXTAREA\"];\n/**\n *\n * @param e               Keyboard event\n * @param currentElement  Event initiator element or any element that wants to handle the navigation\n * @param parentElement   Parent element where contains all the collection items, this will collect every item to be used when nav\n * @param options         further options\n * @returns               the navigated html element or null if none\n */\nexport function useArrowNavigation(e, currentElement, parentElement, options) {\n    if (!currentElement ||\n        (options.enableIgnoredElement && ignoredElement.includes(currentElement.nodeName))) {\n        return null;\n    }\n    const { arrowKeyOptions = \"both\", attributeName, itemsArray = [], loop = true, dir = \"ltr\", preventScroll = true, focus = false, } = options;\n    const [right, left, up, down, home, end] = [\n        e.key === \"ArrowRight\",\n        e.key === \"ArrowLeft\",\n        e.key === \"ArrowUp\",\n        e.key === \"ArrowDown\",\n        e.key === \"Home\",\n        e.key === \"End\",\n    ];\n    const goingVertical = up || down;\n    const goingHorizontal = right || left;\n    if (!home &&\n        !end &&\n        ((!goingVertical && !goingHorizontal) ||\n            (arrowKeyOptions === \"vertical\" && goingHorizontal) ||\n            (arrowKeyOptions === \"horizontal\" && goingVertical)))\n        return null;\n    const allCollectionItems = parentElement\n        ? Array.from(parentElement.querySelectorAll(attributeName))\n        : itemsArray;\n    if (!allCollectionItems.length)\n        return null;\n    if (preventScroll)\n        e.preventDefault();\n    let item = null;\n    if (goingHorizontal || goingVertical) {\n        const goForward = goingVertical ? down : dir === \"ltr\" ? right : left;\n        item = findNextFocusableElement(allCollectionItems, currentElement, {\n            goForward,\n            loop,\n        });\n    }\n    else if (home) {\n        item = allCollectionItems.at(0) || null;\n    }\n    else if (end) {\n        item = allCollectionItems.at(-1) || null;\n    }\n    if (focus)\n        item?.focus();\n    return item;\n}\n/**\n * Recursive function to find the next focusable element to avoid disabled elements\n */\nfunction findNextFocusableElement(elements, currentElement, { goForward, loop }, iterations = elements.length) {\n    if (--iterations === 0)\n        return null;\n    const index = elements.indexOf(currentElement);\n    const newIndex = goForward ? index + 1 : index - 1;\n    if (!loop && (newIndex < 0 || newIndex >= elements.length))\n        return null;\n    const adjustedNewIndex = (newIndex + elements.length) % elements.length;\n    const candidate = elements[adjustedNewIndex];\n    if (!candidate)\n        return null;\n    const isDisabled = candidate.hasAttribute(\"disabled\") && candidate.getAttribute(\"disabled\") !== \"false\";\n    if (isDisabled) {\n        return findNextFocusableElement(elements, candidate, { goForward, loop }, iterations);\n    }\n    return candidate;\n}\n",
+      "start": 1754579497819,
+      "end": 1754579497883,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497883,
+      "end": 1754579497883,
+      "order": "normal"
+    }
+  ]
+}

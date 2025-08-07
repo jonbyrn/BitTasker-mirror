@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/command/components/command-list.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport type { CommandListProps } from \"../types.js\";\n\timport { useCommandList } from \"../command.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\n\tlet {\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\tchild,\n\t\tchildren,\n\t\t\"aria-label\": ariaLabel,\n\t\t...restProps\n\t}: CommandListProps = $props();\n\n\tconst listState = useCommandList({\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t\tariaLabel: box.with(() => ariaLabel ?? \"Suggestions...\"),\n\t});\n\n\tconst mergedProps = $derived(mergeProps(restProps, listState.props));\n</script>\n\n{#key listState.root._commandState.search === \"\"}\n\t{#if child}\n\t\t{@render child({ props: mergedProps })}\n\t{:else}\n\t\t<div {...mergedProps}>\n\t\t\t{@render children?.()}\n\t\t</div>\n\t{/if}\n{/key}\n",
+      "start": 1754579496433,
+      "end": 1754579496510,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496511,
+      "end": 1754579496511,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496511,
+      "end": 1754579496511,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useCommandList } from \"../command.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\n\nvar root_3 = $.template(`<div><!></div>`);\n\nexport default function Command_list($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'id',\n\t\t\t'ref',\n\t\t\t'child',\n\t\t\t'children',\n\t\t\t'aria-label'\n\t\t]);\n\n\tconst listState = useCommandList({\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v)),\n\t\tariaLabel: box.with(() => $$props['aria-label'] ?? \"Suggestions...\")\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, listState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.key(node, () => listState.root._commandState.search === \"\", ($$anchor) => {\n\t\tvar fragment_1 = $.comment();\n\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t{\n\t\t\tvar consequent = ($$anchor) => {\n\t\t\t\tvar fragment_2 = $.comment();\n\t\t\t\tvar node_2 = $.first_child(fragment_2);\n\n\t\t\t\t$.snippet(node_2, () => $$props.child, () => ({ props: $.get(mergedProps) }));\n\t\t\t\t$.append($$anchor, fragment_2);\n\t\t\t};\n\n\t\t\tvar alternate = ($$anchor) => {\n\t\t\t\tvar div = root_3();\n\t\t\t\tlet attributes;\n\t\t\t\tvar node_3 = $.child(div);\n\n\t\t\t\t$.snippet(node_3, () => $$props.children ?? $.noop);\n\t\t\t\t$.reset(div);\n\t\t\t\t$.template_effect(() => attributes = $.set_attributes(div, attributes, { ...$.get(mergedProps) }));\n\t\t\t\t$.append($$anchor, div);\n\t\t\t};\n\n\t\t\t$.if(node_1, ($$render) => {\n\t\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t\t});\n\t\t}\n\n\t\t$.append($$anchor, fragment_1);\n\t});\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496511,
+      "end": 1754579496513,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SAExC,cAAc,QAAQ,sBAAsB;SAC5C,KAAK,QAAQ,6BAA6B;;;;;;;KAGlD,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EAIjB;;;;;;;;;;;OAGE,SAAS,GAAG,cAAc;EAC/B,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;EAEhB,SAAS,EAAE,GAAG,CAAC,IAAI,gCAAoB,gBAAgB;;;OAGlD,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,SAAS,CAAC,KAAK;;;;mBAG7D,SAAS,CAAC,IAAI,CAAC,aAAa,CAAC,MAAM,KAAK,EAAE;;;;;;;;;oDAE7B,KAAK,QAAE,WAAW;;;;;;;;;;;sFAE1B,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "command-list.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496513,
+      "end": 1754579496513,
+      "order": "normal"
+    }
+  ]
+}

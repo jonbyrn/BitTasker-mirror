@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/isEqual.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { toDate } from \"./toDate.js\";\n\n/**\n * @name isEqual\n * @category Common Helpers\n * @summary Are the given dates equal?\n *\n * @description\n * Are the given dates equal?\n *\n * @param dateLeft - The first date to compare\n * @param dateRight - The second date to compare\n *\n * @returns The dates are equal\n *\n * @example\n * // Are 2 July 2014 06:30:45.000 and 2 July 2014 06:30:45.500 equal?\n * const result = isEqual(\n *   new Date(2014, 6, 2, 6, 30, 45, 0),\n *   new Date(2014, 6, 2, 6, 30, 45, 500)\n * )\n * //=> false\n */\nexport function isEqual(leftDate, rightDate) {\n  return +toDate(leftDate) === +toDate(rightDate);\n}\n\n// Fallback for modularized imports:\nexport default isEqual;\n",
+      "start": 1754579494948,
+      "end": 1754579494965,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal"
+    }
+  ]
+}

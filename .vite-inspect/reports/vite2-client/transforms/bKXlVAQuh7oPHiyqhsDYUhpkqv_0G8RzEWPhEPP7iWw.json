@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/dashboard/wallet.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"wallet\": {\r\n      \"title\": \"Wallet\",\r\n      \"tab_balance\": \"Balance\",\r\n      \"tab_receive\": \"Receive\",\r\n      \"tab_send\": \"Send\",\r\n      \"tab_transactions\": \"Transactions\",\r\n      \"total_balance\": \"Total Balance\",\r\n      \"receive\": \"Receive\",\r\n      \"send\": \"Send\",\r\n      \"recent_transactions\": \"Recent Transactions\",\r\n      \"type\": \"Type\",\r\n      \"amount\": \"Amount\",\r\n      \"date\": \"Date\",\r\n      \"network\": \"Network\",\r\n      \"received\": \"Received\",\r\n      \"sent\": \"Sent\",\r\n      \"view_all_transactions\": \"View all transactions\",\r\n      \"no_transactions\": \"No transactions found.\",\r\n      \"receive_btc\": \"Receive Bitcoin\",\r\n      \"address\": \"Address\",\r\n      \"show_qr\": \"Show QR Code\",\r\n      \"hide_qr\": \"Hide QR Code\",\r\n      \"qr_placeholder\": \"QR Code Placeholder\",\r\n      \"request_amount\": \"Request Specific Amount\",\r\n      \"amount_btc\": \"Amount\",\r\n      \"description_optional\": \"Description (optional)\",\r\n      \"generate_payment_request\": \"Generate Payment Request\",\r\n      \"send_btc\": \"Send Bitcoin\",\r\n      \"payment_description_placeholder\": \"What's this payment for?\",\r\n      \"recipient_address\": \"Recipient Address\",\r\n      \"address_placeholder\": \"Bitcoin, Lightning, or Liquid address\",\r\n      \"available_balance\": \"Available\",\r\n      \"transaction_fee\": \"Transaction Fee\",\r\n      \"fee_low\": \"Low\",\r\n      \"fee_medium\": \"Medium\",\r\n      \"fee_high\": \"High\",\r\n      \"fee_time_low\": \"Estimated confirmation time: ~60 minutes\",\r\n      \"fee_time_medium\": \"Estimated confirmation time: ~20 minutes\",\r\n      \"fee_time_high\": \"Estimated confirmation time: ~10 minutes\",\r\n      \"description_placeholder\": \"What's this payment for?\",\r\n      \"send_bitcoin\": \"Send Bitcoin\",\r\n      \"transaction_history\": \"Transaction History\",\r\n      \"tx_type\": \"Type\",\r\n      \"tx_amount\": \"Amount\",\r\n      \"tx_date\": \"Date\",\r\n      \"tx_address\": \"Address\",\r\n      \"tx_status\": \"Status\",\r\n      \"tx_network\": \"Network\",\r\n      \"from\": \"From\",\r\n      \"to\": \"To\",\r\n      \"status_confirmed\": \"Confirmed\",\r\n      \"status_pending\": \"Pending\",\r\n      \"status_confirmations\": \"Confirmations\"\r\n    }\r\n  }",
+      "start": 1754579494775,
+      "end": 1754579494793,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494793,
+      "end": 1754579494794,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494794,
+      "end": 1754579494794,
+      "order": "normal"
+    }
+  ]
+}

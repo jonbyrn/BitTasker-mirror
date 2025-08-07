@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/RevokeAllDevices.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"RevokeAllDevices\",\r\n    \"kind\": \"HoudiniMutation\",\r\n    \"hash\": \"b926c6415075fb7c08a572e4d4d6fc49305063f8f17e9f2e470c0103d3f3a3c4\",\r\n\r\n    \"raw\": `mutation RevokeAllDevices {\r\n  revokeAllDevices {\r\n    success\r\n    message\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Mutation\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"revokeAllDevices\": {\r\n                \"type\": \"NotificationResponse\",\r\n                \"keyRaw\": \"revokeAllDevices\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"success\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"success\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"message\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"message\",\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    }\r\n};\r\n\r\n\"HoudiniHash=902a08e487a5543adbd81cdafceaea1698ba286628659a1ca7c765d2c3c4671c\";",
+      "start": 1754579495461,
+      "end": 1754579495503,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495503,
+      "end": 1754579495503,
+      "order": "normal"
+    }
+  ]
+}

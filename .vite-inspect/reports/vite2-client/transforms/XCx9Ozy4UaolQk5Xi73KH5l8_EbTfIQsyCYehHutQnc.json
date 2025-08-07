@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bip39/src/_wordlists.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "\"use strict\";\nObject.defineProperty(exports, \"__esModule\", { value: true });\n// browserify by default only pulls in files that are hard coded in requires\n// In order of last to first in this file, the default wordlist will be chosen\n// based on what is present. (Bundles may remove wordlists they don't need)\nconst wordlists = {};\nexports.wordlists = wordlists;\nlet _default;\nexports._default = _default;\ntry {\n    exports._default = _default = require('./wordlists/czech.json');\n    wordlists.czech = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/chinese_simplified.json');\n    wordlists.chinese_simplified = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/chinese_traditional.json');\n    wordlists.chinese_traditional = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/korean.json');\n    wordlists.korean = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/french.json');\n    wordlists.french = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/italian.json');\n    wordlists.italian = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/spanish.json');\n    wordlists.spanish = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/japanese.json');\n    wordlists.japanese = _default;\n    wordlists.JA = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/portuguese.json');\n    wordlists.portuguese = _default;\n}\ncatch (err) { }\ntry {\n    exports._default = _default = require('./wordlists/english.json');\n    wordlists.english = _default;\n    wordlists.EN = _default;\n}\ncatch (err) { }\n",
+      "start": 1754579495527,
+      "end": 1754579495562,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495562,
+      "end": 1754579495562,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495562,
+      "end": 1754579495562,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495562,
+      "end": 1754579495562,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495562,
+      "end": 1754579495562,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495562,
+      "end": 1754579495562,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495562,
+      "end": 1754579495563,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495563,
+      "end": 1754579495563,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495563,
+      "end": 1754579495563,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495563,
+      "end": 1754579495563,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495929,
+      "end": 1754579495929,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495929,
+      "end": 1754579495929,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495929,
+      "end": 1754579495929,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495929,
+      "end": 1754579495929,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495929,
+      "end": 1754579495929,
+      "order": "normal"
+    }
+  ]
+}

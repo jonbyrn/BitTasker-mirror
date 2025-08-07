@@ -1,0 +1,107 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/wallet/_components/AssetSelector.svelte?svelte&type=style&lang.css",
+  "transforms": [
+    {
+      "name": "vite-plugin-svelte",
+      "result": "\r\n\t.asset-selector.svelte-l1ccnh {\r\n\t\twidth: 100%;\r\n\t}\r\n\r\n\t.dropdown-content.svelte-l1ccnh {\r\n\t\tmax-height: 300px;\r\n\t\toverflow-y: auto;\r\n\t}\r\n",
+      "start": 1754579495786,
+      "end": 1754579495786,
+      "sourcemaps": {
+        "version": 3,
+        "file": "AssetSelector.svelte",
+        "mappings": "AA2OM",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "AssetSelector.svelte"
+        ]
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495786,
+      "end": 1754579495786,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "result": "\r\n\t.asset-selector.svelte-l1ccnh {\r\n\t\twidth: 100%;\r\n\t}\r\n\r\n\t.dropdown-content.svelte-l1ccnh {\r\n\t\tmax-height: 300px;\r\n\t\toverflow-y: auto;\r\n\t}\r\n",
+      "start": 1754579495786,
+      "end": 1754579495787,
+      "order": "pre",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495787,
+      "end": 1754579495787,
+      "order": "normal"
+    }
+  ]
+}

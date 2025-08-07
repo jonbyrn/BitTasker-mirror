@@ -1,0 +1,110 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/is-using-keyboard/is-using-keyboard.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { executeCallbacks } from \"svelte-toolbelt\";\nimport { on } from \"svelte/events\";\n// Using global state to avoid multiple listeners.\nlet isUsingKeyboard = $state(false);\n/**\n * Detects whether the user is currently using the keyboard\n * or not by listening to keyboard and pointer events. Uses shared global\n * state to avoid listener duplication.\n */\nexport class IsUsingKeyboard {\n    static _refs = 0; // Reference counting to avoid multiple listeners.\n    static _cleanup;\n    constructor() {\n        $effect(() => {\n            if (IsUsingKeyboard._refs === 0) {\n                IsUsingKeyboard._cleanup = $effect.root(() => {\n                    const callbacksToDispose = [];\n                    const handlePointer = (_) => {\n                        isUsingKeyboard = false;\n                    };\n                    const handleKeydown = (_) => {\n                        isUsingKeyboard = true;\n                    };\n                    callbacksToDispose.push(on(document, \"pointerdown\", handlePointer, {\n                        capture: true,\n                    }), on(document, \"pointermove\", handlePointer, {\n                        capture: true,\n                    }), on(document, \"keydown\", handleKeydown, {\n                        capture: true,\n                    }));\n                    // Don't forget to spread and call twice.\n                    return executeCallbacks(...callbacksToDispose);\n                });\n            }\n            IsUsingKeyboard._refs++;\n            return () => {\n                IsUsingKeyboard._refs--;\n                if (IsUsingKeyboard._refs === 0) {\n                    isUsingKeyboard = false;\n                    IsUsingKeyboard._cleanup?.();\n                }\n            };\n        });\n    }\n    get current() {\n        return isUsingKeyboard;\n    }\n    set current(value) {\n        isUsingKeyboard = value;\n    }\n}\n",
+      "start": 1754579496065,
+      "end": 1754579496075,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496075,
+      "end": 1754579496075,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496075,
+      "end": 1754579496075,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496075,
+      "end": 1754579496075,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496075,
+      "end": 1754579496075,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496075,
+      "end": 1754579496075,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "import { executeCallbacks } from \"svelte-toolbelt\";\nimport { on } from \"svelte/events\";\nlet isUsingKeyboard = $state(false);\nexport class IsUsingKeyboard {\n  static _refs = 0;\n  // Reference counting to avoid multiple listeners.\n  static _cleanup;\n  constructor() {\n    $effect(() => {\n      if (IsUsingKeyboard._refs === 0) {\n        IsUsingKeyboard._cleanup = $effect.root(() => {\n          const callbacksToDispose = [];\n          const handlePointer = (_) => {\n            isUsingKeyboard = false;\n          };\n          const handleKeydown = (_) => {\n            isUsingKeyboard = true;\n          };\n          callbacksToDispose.push(on(document, \"pointerdown\", handlePointer, {\n            capture: true\n          }), on(document, \"pointermove\", handlePointer, {\n            capture: true\n          }), on(document, \"keydown\", handleKeydown, {\n            capture: true\n          }));\n          return executeCallbacks(...callbacksToDispose);\n        });\n      }\n      IsUsingKeyboard._refs++;\n      return () => {\n        IsUsingKeyboard._refs--;\n        if (IsUsingKeyboard._refs === 0) {\n          isUsingKeyboard = false;\n          IsUsingKeyboard._cleanup?.();\n        }\n      };\n    });\n  }\n  get current() {\n    return isUsingKeyboard;\n  }\n  set current(value) {\n    isUsingKeyboard = value;\n  }\n}\n",
+      "start": 1754579496075,
+      "end": 1754579496106,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496106,
+      "end": 1754579496106,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496106,
+      "end": 1754579496106,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496106,
+      "end": 1754579496106,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496107,
+      "end": 1754579496107,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496107,
+      "end": 1754579496107,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* is-using-keyboard.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\nimport { executeCallbacks } from \"svelte-toolbelt\";\nimport { on } from \"svelte/events\";\n\nlet isUsingKeyboard = $.state(false);\n\nexport class IsUsingKeyboard {\n\tstatic _refs = 0;\n\t// Reference counting to avoid multiple listeners.\n\tstatic _cleanup;\n\n\tconstructor() {\n\t\t$.user_effect(() => {\n\t\t\tif (IsUsingKeyboard._refs === 0) {\n\t\t\t\tIsUsingKeyboard._cleanup = $.effect_root(() => {\n\t\t\t\t\tconst callbacksToDispose = [];\n\n\t\t\t\t\tconst handlePointer = (_) => {\n\t\t\t\t\t\t$.set(isUsingKeyboard, false);\n\t\t\t\t\t};\n\n\t\t\t\t\tconst handleKeydown = (_) => {\n\t\t\t\t\t\t$.set(isUsingKeyboard, true);\n\t\t\t\t\t};\n\n\t\t\t\t\tcallbacksToDispose.push(on(document, \"pointerdown\", handlePointer, { capture: true }), on(document, \"pointermove\", handlePointer, { capture: true }), on(document, \"keydown\", handleKeydown, { capture: true }));\n\t\t\t\t\treturn executeCallbacks(...callbacksToDispose);\n\t\t\t\t});\n\t\t\t}\n\n\t\t\tIsUsingKeyboard._refs++;\n\n\t\t\treturn () => {\n\t\t\t\tIsUsingKeyboard._refs--;\n\n\t\t\t\tif (IsUsingKeyboard._refs === 0) {\n\t\t\t\t\t$.set(isUsingKeyboard, false);\n\t\t\t\t\tIsUsingKeyboard._cleanup?.();\n\t\t\t\t}\n\t\t\t};\n\t\t});\n\t}\n\n\tget current() {\n\t\treturn $.get(isUsingKeyboard);\n\t}\n\n\tset current(value) {\n\t\t$.set(isUsingKeyboard, value, true);\n\t}\n}",
+      "start": 1754579496107,
+      "end": 1754579496108,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "is-using-keyboard.svelte.js"
+        ],
+        "sourcesContent": [
+          "import { executeCallbacks } from \"svelte-toolbelt\";\nimport { on } from \"svelte/events\";\nlet isUsingKeyboard = $state(false);\nexport class IsUsingKeyboard {\n  static _refs = 0;\n  // Reference counting to avoid multiple listeners.\n  static _cleanup;\n  constructor() {\n    $effect(() => {\n      if (IsUsingKeyboard._refs === 0) {\n        IsUsingKeyboard._cleanup = $effect.root(() => {\n          const callbacksToDispose = [];\n          const handlePointer = (_) => {\n            isUsingKeyboard = false;\n          };\n          const handleKeydown = (_) => {\n            isUsingKeyboard = true;\n          };\n          callbacksToDispose.push(on(document, \"pointerdown\", handlePointer, {\n            capture: true\n          }), on(document, \"pointermove\", handlePointer, {\n            capture: true\n          }), on(document, \"keydown\", handleKeydown, {\n            capture: true\n          }));\n          return executeCallbacks(...callbacksToDispose);\n        });\n      }\n      IsUsingKeyboard._refs++;\n      return () => {\n        IsUsingKeyboard._refs--;\n        if (IsUsingKeyboard._refs === 0) {\n          isUsingKeyboard = false;\n          IsUsingKeyboard._cleanup?.();\n        }\n      };\n    });\n  }\n  get current() {\n    return isUsingKeyboard;\n  }\n  set current(value) {\n    isUsingKeyboard = value;\n  }\n}\n"
+        ],
+        "mappings": ";;SAAS,gBAAgB,QAAQ,iBAAiB;SACzC,EAAE,QAAQ,eAAe;;IAC9B,eAAe,WAAU,KAAK;;aACrB,eAAe,CAAC,CAAC;QACrB,KAAK,GAAG,CAAC;;QAET,QAAQ;;CACf,WAAW,GAAG,CAAC;EACb,aAAO,OAAO,CAAC;OACT,eAAe,CAAC,KAAK,KAAK,CAAC,EAAE,CAAC;IAChC,eAAe,CAAC,QAAQ,uBAAsB,CAAC;WACvC,kBAAkB;;WAClB,aAAa,IAAI,CAAC,KAAK,CAAC;YAC5B,eAAe,EAAG,KAAK;KACzB,CAAC;;WACK,aAAa,IAAI,CAAC,KAAK,CAAC;YAC5B,eAAe,EAAG,IAAI;KACxB,CAAC;;KACD,kBAAkB,CAAC,IAAI,CAAC,EAAE,CAAC,QAAQ,EAAE,aAAa,EAAE,aAAa,IAC/D,OAAO,EAAE,IAAI,KACX,EAAE,CAAC,QAAQ,EAAE,aAAa,EAAE,aAAa,IAC3C,OAAO,EAAE,IAAI,KACX,EAAE,CAAC,QAAQ,EAAE,SAAS,EAAE,aAAa,IACvC,OAAO,EAAE,IAAI;YAER,gBAAgB,IAAI,kBAAkB;IAC/C,CAAC;GACH,CAAC;;GACD,eAAe,CAAC,KAAK;;gBACR,CAAC;IACZ,eAAe,CAAC,KAAK;;QACjB,eAAe,CAAC,KAAK,KAAK,CAAC,EAAE,CAAC;WAChC,eAAe,EAAG,KAAK;KACvB,eAAe,CAAC,QAAQ;IAC1B,CAAC;GACH,CAAC;EACH,CAAC;CACH,CAAC;;KACG,OAAO,GAAG,CAAC;eACN,eAAe;CACxB,CAAC;;KACG,OAAO,CAAC,KAAK,EAAE,CAAC;QAClB,eAAe,EAAG,KAAK;CACzB,CAAC;AACH,CAAC"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496108,
+      "end": 1754579496108,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496108,
+      "end": 1754579496108,
+      "order": "normal"
+    }
+  ]
+}

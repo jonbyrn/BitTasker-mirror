@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/accordion/components/accordion-content.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport { useAccordionContent } from \"../accordion.svelte.js\";\n\timport type { AccordionContentProps } from \"../types.js\";\n\timport { PresenceLayer } from \"../../utilities/presence-layer/index.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\n\tlet {\n\t\tchild,\n\t\tref = $bindable(null),\n\t\tid = useId(),\n\t\tforceMount = false,\n\t\tchildren,\n\t\t...restProps\n\t}: AccordionContentProps = $props();\n\n\tconst contentState = useAccordionContent({\n\t\tforceMount: box.with(() => forceMount),\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t});\n</script>\n\n<PresenceLayer forceMount={true} present={contentState.present} {id}>\n\t{#snippet presence({ present })}\n\t\t{@const mergedProps = mergeProps(restProps, contentState.props, {\n\t\t\thidden: forceMount ? undefined : !present.current,\n\t\t})}\n\t\t{#if child}\n\t\t\t{@render child({\n\t\t\t\tprops: mergedProps,\n\t\t\t\t...contentState.snippetProps,\n\t\t\t})}\n\t\t{:else}\n\t\t\t<div {...mergedProps}>\n\t\t\t\t{@render children?.()}\n\t\t\t</div>\n\t\t{/if}\n\t{/snippet}\n</PresenceLayer>\n",
+      "start": 1754579496284,
+      "end": 1754579496339,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496340,
+      "end": 1754579496340,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496340,
+      "end": 1754579496340,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useAccordionContent } from \"../accordion.svelte.js\";\nimport { PresenceLayer } from \"../../utilities/presence-layer/index.js\";\nimport { useId } from \"../../../internal/use-id.js\";\n\nvar root_3 = $.template(`<div><!></div>`);\n\nexport default function Accordion_content($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet ref = $.prop($$props, 'ref', 15, null),\n\t\tid = $.prop($$props, 'id', 19, useId),\n\t\tforceMount = $.prop($$props, 'forceMount', 3, false),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'child',\n\t\t\t'ref',\n\t\t\t'id',\n\t\t\t'forceMount',\n\t\t\t'children'\n\t\t]);\n\n\tconst contentState = useAccordionContent({\n\t\tforceMount: box.with(() => forceMount()),\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v))\n\t});\n\n\t{\n\t\tconst presence = ($$anchor, $$arg0) => {\n\t\t\tlet present = () => $$arg0?.().present;\n\t\t\tvar fragment_1 = $.comment();\n\n\t\t\tconst mergedProps = $.derived(() => mergeProps(restProps, contentState.props, {\n\t\t\t\thidden: forceMount() ? undefined : !present().current\n\t\t\t}));\n\n\t\t\tvar node = $.first_child(fragment_1);\n\n\t\t\t{\n\t\t\t\tvar consequent = ($$anchor) => {\n\t\t\t\t\tvar fragment_2 = $.comment();\n\t\t\t\t\tvar node_1 = $.first_child(fragment_2);\n\n\t\t\t\t\tvar render_arg = $.derived_safe_equal(() => ({\n\t\t\t\t\t\tprops: $.get(mergedProps),\n\t\t\t\t\t\t...contentState.snippetProps\n\t\t\t\t\t}));\n\n\t\t\t\t\t$.snippet(node_1, () => $$props.child, () => $.get(render_arg));\n\t\t\t\t\t$.append($$anchor, fragment_2);\n\t\t\t\t};\n\n\t\t\t\tvar alternate = ($$anchor) => {\n\t\t\t\t\tvar div = root_3();\n\t\t\t\t\tlet attributes;\n\t\t\t\t\tvar node_2 = $.child(div);\n\n\t\t\t\t\t$.snippet(node_2, () => $$props.children ?? $.noop);\n\t\t\t\t\t$.reset(div);\n\t\t\t\t\t$.template_effect(() => attributes = $.set_attributes(div, attributes, { ...$.get(mergedProps) }));\n\t\t\t\t\t$.append($$anchor, div);\n\t\t\t\t};\n\n\t\t\t\t$.if(node, ($$render) => {\n\t\t\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t\t\t});\n\t\t\t}\n\n\t\t\t$.append($$anchor, fragment_1);\n\t\t};\n\n\t\tPresenceLayer($$anchor, {\n\t\t\tforceMount: true,\n\t\t\tget present() {\n\t\t\t\treturn contentState.present;\n\t\t\t},\n\t\t\tget id() {\n\t\t\t\treturn id();\n\t\t\t},\n\t\t\tpresence,\n\t\t\t$$slots: { presence: true }\n\t\t});\n\t}\n\n\t$.pop();\n}",
+      "start": 1754579496340,
+      "end": 1754579496343,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SACxC,mBAAmB,QAAQ,wBAAwB;SAEnD,aAAa,QAAQ,yCAAyC;SAC9D,KAAK,QAAQ,6BAA6B;;;;;;;KAIlD,GAAG,8BAAa,IAAI;EACpB,EAAE,6BAAG,KAAK;EACV,UAAU,oCAAG,KAAK;EAEf;;;;;;;;;;;OAGE,YAAY,GAAG,mBAAmB;EACvC,UAAU,EAAE,GAAG,CAAC,IAAI,OAAO,UAAU;EACrC,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;;;;;OAMI,OAAO,oBAAP,OAAO;;;SACnB,WAAW,mBAAG,UAAU,CAAC,SAAS,EAAE,YAAY,CAAC,KAAK;IAC7D,MAAM,EAAE,UAAU,KAAG,SAAS,IAAI,OAAO,GAAC,OAAO;;;;;;;;;;;MAIhD,KAAK,QAAE,WAAW;SACf,YAAY,CAAC,YAAY;;;;;;;;;;;;;;uFAGpB,WAAW;;;;;;;;;;;;;eAXI,IAAI;;WAAW,YAAY,CAAC,OAAO",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "accordion-content.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496343,
+      "end": 1754579496343,
+      "order": "normal"
+    }
+  ]
+}

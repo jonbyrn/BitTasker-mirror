@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/floating-layer/components/floating-layer-content.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport { useFloatingContentState } from \"../use-floating-layer.svelte.js\";\n\timport type { ContentImplProps } from \"./index.js\";\n\timport { useId } from \"../../../../internal/use-id.js\";\n\n\tlet {\n\t\tcontent,\n\t\tside = \"bottom\",\n\t\tsideOffset = 0,\n\t\talign = \"center\",\n\t\talignOffset = 0,\n\t\tid,\n\t\tarrowPadding = 0,\n\t\tavoidCollisions = true,\n\t\tcollisionBoundary = [],\n\t\tcollisionPadding = 0,\n\t\thideWhenDetached = false,\n\t\tonPlaced = () => {},\n\t\tsticky = \"partial\",\n\t\tupdatePositionStrategy = \"optimized\",\n\t\tstrategy = \"fixed\",\n\t\tdir = \"ltr\",\n\t\tstyle = {},\n\t\twrapperId = useId(),\n\t\tcustomAnchor = null,\n\t\tenabled,\n\t}: ContentImplProps = $props();\n\n\tconst contentState = useFloatingContentState({\n\t\tside: box.with(() => side),\n\t\tsideOffset: box.with(() => sideOffset),\n\t\talign: box.with(() => align),\n\t\talignOffset: box.with(() => alignOffset),\n\t\tid: box.with(() => id),\n\t\tarrowPadding: box.with(() => arrowPadding),\n\t\tavoidCollisions: box.with(() => avoidCollisions),\n\t\tcollisionBoundary: box.with(() => collisionBoundary),\n\t\tcollisionPadding: box.with(() => collisionPadding),\n\t\thideWhenDetached: box.with(() => hideWhenDetached),\n\t\tonPlaced: box.with(() => onPlaced),\n\t\tsticky: box.with(() => sticky),\n\t\tupdatePositionStrategy: box.with(() => updatePositionStrategy),\n\t\tstrategy: box.with(() => strategy),\n\t\tdir: box.with(() => dir),\n\t\tstyle: box.with(() => style),\n\t\tenabled: box.with(() => enabled),\n\t\twrapperId: box.with(() => wrapperId),\n\t\tcustomAnchor: box.with(() => customAnchor),\n\t});\n\n\tconst mergedProps = $derived(\n\t\tmergeProps(contentState.wrapperProps, {\n\t\t\tstyle: {\n\t\t\t\tpointerEvents: \"auto\",\n\t\t\t},\n\t\t})\n\t);\n</script>\n\n{@render content?.({ props: contentState.props, wrapperProps: mergedProps })}\n",
+      "start": 1754579497927,
+      "end": 1754579497998,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497998,
+      "end": 1754579497998,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497998,
+      "end": 1754579497998,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useFloatingContentState } from \"../use-floating-layer.svelte.js\";\nimport { useId } from \"../../../../internal/use-id.js\";\n\nexport default function Floating_layer_content($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet side = $.prop($$props, 'side', 3, \"bottom\"),\n\t\tsideOffset = $.prop($$props, 'sideOffset', 3, 0),\n\t\talign = $.prop($$props, 'align', 3, \"center\"),\n\t\talignOffset = $.prop($$props, 'alignOffset', 3, 0),\n\t\tarrowPadding = $.prop($$props, 'arrowPadding', 3, 0),\n\t\tavoidCollisions = $.prop($$props, 'avoidCollisions', 3, true),\n\t\tcollisionBoundary = $.prop($$props, 'collisionBoundary', 19, () => []),\n\t\tcollisionPadding = $.prop($$props, 'collisionPadding', 3, 0),\n\t\thideWhenDetached = $.prop($$props, 'hideWhenDetached', 3, false),\n\t\tonPlaced = $.prop($$props, 'onPlaced', 3, () => {}),\n\t\tsticky = $.prop($$props, 'sticky', 3, \"partial\"),\n\t\tupdatePositionStrategy = $.prop($$props, 'updatePositionStrategy', 3, \"optimized\"),\n\t\tstrategy = $.prop($$props, 'strategy', 3, \"fixed\"),\n\t\tdir = $.prop($$props, 'dir', 3, \"ltr\"),\n\t\tstyle = $.prop($$props, 'style', 19, () => ({})),\n\t\twrapperId = $.prop($$props, 'wrapperId', 19, useId),\n\t\tcustomAnchor = $.prop($$props, 'customAnchor', 3, null);\n\n\tconst contentState = useFloatingContentState({\n\t\tside: box.with(() => side()),\n\t\tsideOffset: box.with(() => sideOffset()),\n\t\talign: box.with(() => align()),\n\t\talignOffset: box.with(() => alignOffset()),\n\t\tid: box.with(() => $$props.id),\n\t\tarrowPadding: box.with(() => arrowPadding()),\n\t\tavoidCollisions: box.with(() => avoidCollisions()),\n\t\tcollisionBoundary: box.with(() => collisionBoundary()),\n\t\tcollisionPadding: box.with(() => collisionPadding()),\n\t\thideWhenDetached: box.with(() => hideWhenDetached()),\n\t\tonPlaced: box.with(() => onPlaced()),\n\t\tsticky: box.with(() => sticky()),\n\t\tupdatePositionStrategy: box.with(() => updatePositionStrategy()),\n\t\tstrategy: box.with(() => strategy()),\n\t\tdir: box.with(() => dir()),\n\t\tstyle: box.with(() => style()),\n\t\tenabled: box.with(() => $$props.enabled),\n\t\twrapperId: box.with(() => wrapperId()),\n\t\tcustomAnchor: box.with(() => customAnchor())\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(contentState.wrapperProps, { style: { pointerEvents: \"auto\" } }));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.content ?? $.noop, () => ({\n\t\tprops: contentState.props,\n\t\twrapperProps: $.get(mergedProps)\n\t}));\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497998,
+      "end": 1754579498008,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SACxC,uBAAuB,QAAQ,iCAAiC;SAEhE,KAAK,QAAQ,gCAAgC;;;;;KAIrD,IAAI,8BAAG,QAAQ;EACf,UAAU,oCAAG,CAAC;EACd,KAAK,+BAAG,QAAQ;EAChB,WAAW,qCAAG,CAAC;EAEf,YAAY,sCAAG,CAAC;EAChB,eAAe,yCAAG,IAAI;EACtB,iBAAiB;EACjB,gBAAgB,0CAAG,CAAC;EACpB,gBAAgB,0CAAG,KAAK;EACxB,QAAQ,wCAAS,CAAC,CAAC;EACnB,MAAM,gCAAG,SAAS;EAClB,sBAAsB,gDAAG,WAAW;EACpC,QAAQ,kCAAG,OAAO;EAClB,GAAG,6BAAG,KAAK;EACX,KAAK;EACL,SAAS,oCAAG,KAAK;EACjB,YAAY,sCAAG,IAAI;;OAId,YAAY,GAAG,uBAAuB;EAC3C,IAAI,EAAE,GAAG,CAAC,IAAI,OAAO,IAAI;EACzB,UAAU,EAAE,GAAG,CAAC,IAAI,OAAO,UAAU;EACrC,KAAK,EAAE,GAAG,CAAC,IAAI,OAAO,KAAK;EAC3B,WAAW,EAAE,GAAG,CAAC,IAAI,OAAO,WAAW;EACvC,EAAE,EAAE,GAAG,CAAC,IAAI;EACZ,YAAY,EAAE,GAAG,CAAC,IAAI,OAAO,YAAY;EACzC,eAAe,EAAE,GAAG,CAAC,IAAI,OAAO,eAAe;EAC/C,iBAAiB,EAAE,GAAG,CAAC,IAAI,OAAO,iBAAiB;EACnD,gBAAgB,EAAE,GAAG,CAAC,IAAI,OAAO,gBAAgB;EACjD,gBAAgB,EAAE,GAAG,CAAC,IAAI,OAAO,gBAAgB;EACjD,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,MAAM,EAAE,GAAG,CAAC,IAAI,OAAO,MAAM;EAC7B,sBAAsB,EAAE,GAAG,CAAC,IAAI,OAAO,sBAAsB;EAC7D,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,GAAG,EAAE,GAAG,CAAC,IAAI,OAAO,GAAG;EACvB,KAAK,EAAE,GAAG,CAAC,IAAI,OAAO,KAAK;EAC3B,OAAO,EAAE,GAAG,CAAC,IAAI;EACjB,SAAS,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS;EACnC,YAAY,EAAE,GAAG,CAAC,IAAI,OAAO,YAAY;;;OAGpC,WAAW,mBAChB,UAAU,CAAC,YAAY,CAAC,YAAY,IACnC,KAAK,IACJ,aAAa,EAAE,MAAM;;;;;EAMJ,KAAK,EAAE,YAAY,CAAC,KAAK;EAAE,YAAY,QAAE,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "floating-layer-content.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579498008,
+      "end": 1754579498008,
+      "order": "normal"
+    }
+  ]
+}

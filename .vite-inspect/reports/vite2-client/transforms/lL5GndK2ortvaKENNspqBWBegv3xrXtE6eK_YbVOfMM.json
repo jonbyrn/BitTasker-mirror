@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/date-picker/components/date-picker-content.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { mergeProps } from \"svelte-toolbelt\";\n\timport type { DatePickerContentProps } from \"../types.js\";\n\timport PopoverContent from \"../../popover/components/popover-content.svelte\";\n\timport { pickerOpenFocus } from \"../../../internal/date-time/calendar-helpers.svelte.js\";\n\n\tlet { ref = $bindable(null), onOpenAutoFocus, ...restProps }: DatePickerContentProps = $props();\n\n\tconst mergedProps = $derived(\n\t\tmergeProps({ onOpenAutoFocus }, { onOpenAutoFocus: pickerOpenFocus })\n\t);\n</script>\n\n<PopoverContent {...mergedProps} bind:ref {...restProps} />\n",
+      "start": 1754579496485,
+      "end": 1754579496554,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496554,
+      "end": 1754579496554,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496554,
+      "end": 1754579496554,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { mergeProps } from \"svelte-toolbelt\";\nimport PopoverContent from \"../../popover/components/popover-content.svelte\";\nimport { pickerOpenFocus } from \"../../../internal/date-time/calendar-helpers.svelte.js\";\n\nexport default function Date_picker_content($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet ref = $.prop($$props, 'ref', 15, null),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'ref',\n\t\t\t'onOpenAutoFocus'\n\t\t]);\n\n\tconst mergedProps = $.derived(() => mergeProps({ onOpenAutoFocus: $$props.onOpenAutoFocus }, { onOpenAutoFocus: pickerOpenFocus }));\n\n\tPopoverContent($$anchor, $.spread_props(() => $.get(mergedProps), () => restProps, {\n\t\tget ref() {\n\t\t\treturn ref();\n\t\t},\n\t\tset ref($$value) {\n\t\t\tref($$value);\n\t\t}\n\t}));\n\n\t$.pop();\n}",
+      "start": 1754579496555,
+      "end": 1754579496556,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,UAAU,QAAQ,iBAAiB;OAErC,cAAc,MAAM,iDAAiD;SACnE,eAAe,QAAQ,wDAAwD;;;;;KAElF,GAAG,8BAAa,IAAI;EAAuB,SAAS;;;;;;;;OAEpD,WAAW,mBAChB,UAAU,GAAG,eAAe,+BAAM,eAAe,EAAE,eAAe;;qDAIhD,WAAW,SAAe,SAAS",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "date-picker-content.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/homepage/TaskeeCard.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\r\n\timport type { FeaturedTaskee } from '$lib/types/homepage';\r\n\timport { t, locale } from 'svelte-i18n';\r\n\r\n\tlet { taskee } = $props<{\r\n\t\ttaskee: FeaturedTaskee;\r\n\t}>();\r\n</script>\r\n\r\n<div class=\"card bg-base-100 text-center shadow-xl transition-transform hover:scale-105 p-2\">\r\n\t<div class=\"card-body items-center\">\r\n\t\t<div class=\"avatar\">\r\n\t\t\t<div class=\"w-24 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100\">\r\n\t\t\t\t<img src={taskee.avatar} alt=\"Avatar of {taskee.name}\" loading=\"lazy\" />\r\n\t\t\t</div>\r\n\t\t</div>\r\n\t\t<h6 class=\"card-title mt-4\">{taskee.name}</h6>\r\n\t\t<p class=\"text-base-content/70 h-12 line-clamp-2 overflow-hidden\">{taskee.skills}</p>\r\n\t\t<div class=\"mt-2 flex items-center gap-2\">\r\n\t\t\t<div class=\"badge badge-accent font-bold\">★ {taskee.rating.toFixed(1)}</div>\r\n\t\t\t<span class=\"text-sm text-base-content/70\">({taskee.reviews} {$t('common.reviews')})</span>\r\n\t\t</div>\r\n\t\t<div class=\"card-actions mt-4\">\r\n\t\t\t<button class=\"btn btn-outline btn-primary btn-sm\">{$t('common.view_profile')}</button>\r\n\t\t</div>\r\n\t</div>\r\n</div>\r\n",
+      "start": 1754579491880,
+      "end": 1754579492218,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">import type { FeaturedTaskee } from \"$lib/types/homepage\";\r\nimport { t, locale } from \"svelte-i18n\";\r\n\r\nlet {\r\n    taskee\r\n} = $props<{\r\n    taskee: FeaturedTaskee;\r\n}>();</script>\r\n\r\n<div class=\"card bg-base-100 text-center shadow-xl transition-transform hover:scale-105 p-2\">\r\n\t<div class=\"card-body items-center\">\r\n\t\t<div class=\"avatar\">\r\n\t\t\t<div class=\"w-24 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100\">\r\n\t\t\t\t<img src={taskee.avatar} alt=\"Avatar of {taskee.name}\" loading=\"lazy\" />\r\n\t\t\t</div>\r\n\t\t</div>\r\n\t\t<h6 class=\"card-title mt-4\">{taskee.name}</h6>\r\n\t\t<p class=\"text-base-content/70 h-12 line-clamp-2 overflow-hidden\">{taskee.skills}</p>\r\n\t\t<div class=\"mt-2 flex items-center gap-2\">\r\n\t\t\t<div class=\"badge badge-accent font-bold\">★ {taskee.rating.toFixed(1)}</div>\r\n\t\t\t<span class=\"text-sm text-base-content/70\">({taskee.reviews} {$t('common.reviews')})</span>\r\n\t\t</div>\r\n\t\t<div class=\"card-actions mt-4\">\r\n\t\t\t<button class=\"btn btn-outline btn-primary btn-sm\">{$t('common.view_profile')}</button>\r\n\t\t</div>\r\n\t</div>\r\n</div>\r\n",
+      "start": 1754579492218,
+      "end": 1754579492219,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/components/homepage/TaskeeCard.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\r\n\timport type { FeaturedTaskee } from '$lib/types/homepage';\r\n\timport { t, locale } from 'svelte-i18n';\r\n\r\n\tlet { taskee } = $props<{\r\n\t\ttaskee: FeaturedTaskee;\r\n\t}>();\r\n</script>\r\n\r\n<div class=\"card bg-base-100 text-center shadow-xl transition-transform hover:scale-105 p-2\">\r\n\t<div class=\"card-body items-center\">\r\n\t\t<div class=\"avatar\">\r\n\t\t\t<div class=\"w-24 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100\">\r\n\t\t\t\t<img src={taskee.avatar} alt=\"Avatar of {taskee.name}\" loading=\"lazy\" />\r\n\t\t\t</div>\r\n\t\t</div>\r\n\t\t<h6 class=\"card-title mt-4\">{taskee.name}</h6>\r\n\t\t<p class=\"text-base-content/70 h-12 line-clamp-2 overflow-hidden\">{taskee.skills}</p>\r\n\t\t<div class=\"mt-2 flex items-center gap-2\">\r\n\t\t\t<div class=\"badge badge-accent font-bold\">★ {taskee.rating.toFixed(1)}</div>\r\n\t\t\t<span class=\"text-sm text-base-content/70\">({taskee.reviews} {$t('common.reviews')})</span>\r\n\t\t</div>\r\n\t\t<div class=\"card-actions mt-4\">\r\n\t\t\t<button class=\"btn btn-outline btn-primary btn-sm\">{$t('common.view_profile')}</button>\r\n\t\t</div>\r\n\t</div>\r\n</div>\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492219,
+      "end": 1754579492219,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { t, locale } from \"svelte-i18n\";\n\nvar root = $.template(`<div class=\"card bg-base-100 text-center shadow-xl transition-transform hover:scale-105 p-2\"><div class=\"card-body items-center\"><div class=\"avatar\"><div class=\"w-24 rounded-full ring ring-primary ring-offset-2 ring-offset-base-100\"><img loading=\"lazy\"></div></div> <h6 class=\"card-title mt-4\"> </h6> <p class=\"text-base-content/70 h-12 line-clamp-2 overflow-hidden\"> </p> <div class=\"mt-2 flex items-center gap-2\"><div class=\"badge badge-accent font-bold\"> </div> <span class=\"text-sm text-base-content/70\"> </span></div> <div class=\"card-actions mt-4\"><button class=\"btn btn-outline btn-primary btn-sm\"> </button></div></div></div>`);\n\nexport default function TaskeeCard($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tconst [$$stores, $$cleanup] = $.setup_stores();\n\tconst $t = () => $.store_get(t, '$t', $$stores);\n\tvar div = root();\n\tvar div_1 = $.child(div);\n\tvar div_2 = $.child(div_1);\n\tvar div_3 = $.child(div_2);\n\tvar img = $.child(div_3);\n\n\t$.reset(div_3);\n\t$.reset(div_2);\n\n\tvar h6 = $.sibling(div_2, 2);\n\tvar text = $.child(h6, true);\n\n\t$.reset(h6);\n\n\tvar p = $.sibling(h6, 2);\n\tvar text_1 = $.child(p, true);\n\n\t$.reset(p);\n\n\tvar div_4 = $.sibling(p, 2);\n\tvar div_5 = $.child(div_4);\n\tvar text_2 = $.child(div_5);\n\n\t$.reset(div_5);\n\n\tvar span = $.sibling(div_5, 2);\n\tvar text_3 = $.child(span);\n\n\t$.reset(span);\n\t$.reset(div_4);\n\n\tvar div_6 = $.sibling(div_4, 2);\n\tvar button = $.child(div_6);\n\tvar text_4 = $.child(button, true);\n\n\t$.reset(button);\n\t$.reset(div_6);\n\t$.reset(div_1);\n\t$.reset(div);\n\n\t$.template_effect(\n\t\t($0, $1, $2) => {\n\t\t\t$.set_attribute(img, 'src', $$props.taskee.avatar);\n\t\t\t$.set_attribute(img, 'alt', `Avatar of ${$$props.taskee.name ?? ''}`);\n\t\t\t$.set_text(text, $$props.taskee.name);\n\t\t\t$.set_text(text_1, $$props.taskee.skills);\n\t\t\t$.set_text(text_2, `★ ${$0 ?? ''}`);\n\t\t\t$.set_text(text_3, `(${$$props.taskee.reviews ?? ''} ${$1 ?? ''})`);\n\t\t\t$.set_text(text_4, $2);\n\t\t},\n\t\t[\n\t\t\t() => $$props.taskee.rating.toFixed(1),\n\t\t\t() => $t()('common.reviews'),\n\t\t\t() => $t()('common.view_profile')\n\t\t]\n\t);\n\n\t$.append($$anchor, div);\n\t$.pop();\n\t$$cleanup();\n}",
+      "start": 1754579492219,
+      "end": 1754579492221,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACS,CAAC,EAAE,MAAM,QAAQ,aAAa;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;8CAYlB,MAAM;2DAAyB,IAAI;mCAGlB,IAAI;qCACkC,MAAM;;yCAG3B,OAAO;;;;wBADP,MAAM,CAAC,OAAO,CAAC,CAAC;SACN,EAAE,GAAC,gBAAgB;SAG7B,EAAE,GAAC,qBAAqB",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "TaskeeCard.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492221,
+      "end": 1754579492221,
+      "order": "normal"
+    }
+  ]
+}

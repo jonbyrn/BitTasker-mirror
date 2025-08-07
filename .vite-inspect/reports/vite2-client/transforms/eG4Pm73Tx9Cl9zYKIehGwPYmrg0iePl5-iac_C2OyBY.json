@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/eachMonthOfInterval.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { normalizeInterval } from \"./_lib/normalizeInterval.js\";\nimport { constructFrom } from \"./constructFrom.js\";\n\n/**\n * The {@link eachMonthOfInterval} function options.\n */\n\n/**\n * The {@link eachMonthOfInterval} function result type. It resolves the proper data type.\n */\n\n/**\n * @name eachMonthOfInterval\n * @category Interval Helpers\n * @summary Return the array of months within the specified time interval.\n *\n * @description\n * Return the array of months within the specified time interval.\n *\n * @typeParam IntervalType - Interval type.\n * @typeParam Options - Options type.\n *\n * @param interval - The interval.\n * @param options - An object with options.\n *\n * @returns The array with starts of months from the month of the interval start to the month of the interval end\n *\n * @example\n * // Each month between 6 February 2014 and 10 August 2014:\n * const result = eachMonthOfInterval({\n *   start: new Date(2014, 1, 6),\n *   end: new Date(2014, 7, 10)\n * })\n * //=> [\n * //   Sat Feb 01 2014 00:00:00,\n * //   Sat Mar 01 2014 00:00:00,\n * //   Tue Apr 01 2014 00:00:00,\n * //   Thu May 01 2014 00:00:00,\n * //   Sun Jun 01 2014 00:00:00,\n * //   Tue Jul 01 2014 00:00:00,\n * //   Fri Aug 01 2014 00:00:00\n * // ]\n */\nexport function eachMonthOfInterval(interval, options) {\n  const { start, end } = normalizeInterval(options?.in, interval);\n\n  let reversed = +start > +end;\n  const endTime = reversed ? +start : +end;\n  const date = reversed ? end : start;\n  date.setHours(0, 0, 0, 0);\n  date.setDate(1);\n\n  let step = options?.step ?? 1;\n  if (!step) return [];\n  if (step < 0) {\n    step = -step;\n    reversed = !reversed;\n  }\n\n  const dates = [];\n\n  while (+date <= endTime) {\n    dates.push(constructFrom(start, date));\n    date.setMonth(date.getMonth() + step);\n  }\n\n  return reversed ? dates.reverse() : dates;\n}\n\n// Fallback for modularized imports:\nexport default eachMonthOfInterval;\n",
+      "start": 1754579494881,
+      "end": 1754579494903,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dom/blocks/svelte-component.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { TemplateNode, Dom, Effect } from '#client' */\nimport { EFFECT_TRANSPARENT } from '#client/constants';\nimport { block, branch, pause_effect } from '../../reactivity/effects.js';\nimport { hydrate_next, hydrate_node, hydrating } from '../hydration.js';\n\n/**\n * @template P\n * @template {(props: P) => void} C\n * @param {TemplateNode} node\n * @param {() => C} get_component\n * @param {(anchor: TemplateNode, component: C) => Dom | void} render_fn\n * @returns {void}\n */\nexport function component(node, get_component, render_fn) {\n\tif (hydrating) {\n\t\thydrate_next();\n\t}\n\n\tvar anchor = node;\n\n\t/** @type {C} */\n\tvar component;\n\n\t/** @type {Effect | null} */\n\tvar effect;\n\n\tblock(() => {\n\t\tif (component === (component = get_component())) return;\n\n\t\tif (effect) {\n\t\t\tpause_effect(effect);\n\t\t\teffect = null;\n\t\t}\n\n\t\tif (component) {\n\t\t\teffect = branch(() => render_fn(anchor, component));\n\t\t}\n\t}, EFFECT_TRANSPARENT);\n\n\tif (hydrating) {\n\t\tanchor = hydrate_node;\n\t}\n}\n",
+      "start": 1754579493855,
+      "end": 1754579493896,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493896,
+      "end": 1754579493896,
+      "order": "normal"
+    }
+  ]
+}

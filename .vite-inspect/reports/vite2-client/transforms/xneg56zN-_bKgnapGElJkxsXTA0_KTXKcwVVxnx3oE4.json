@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/escape-layer/escape-layer.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { EscapeLayerImplProps } from \"./types.js\";\n\timport { useEscapeLayer } from \"./use-escape-layer.svelte.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet {\n\t\tescapeKeydownBehavior = \"close\",\n\t\tonEscapeKeydown = noop,\n\t\tchildren,\n\t\tenabled,\n\t}: EscapeLayerImplProps = $props();\n\n\tuseEscapeLayer({\n\t\tescapeKeydownBehavior: box.with(() => escapeKeydownBehavior),\n\t\tonEscapeKeydown: box.with(() => onEscapeKeydown),\n\t\tenabled: box.with(() => enabled),\n\t});\n</script>\n\n{@render children?.()}\n",
+      "start": 1754579497023,
+      "end": 1754579497069,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497069,
+      "end": 1754579497069,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497069,
+      "end": 1754579497069,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useEscapeLayer } from \"./use-escape-layer.svelte.js\";\nimport { noop } from \"../../../internal/noop.js\";\n\nexport default function Escape_layer($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet escapeKeydownBehavior = $.prop($$props, 'escapeKeydownBehavior', 3, \"close\"),\n\t\tonEscapeKeydown = $.prop($$props, 'onEscapeKeydown', 3, noop);\n\n\tuseEscapeLayer({\n\t\tescapeKeydownBehavior: box.with(() => escapeKeydownBehavior()),\n\t\tonEscapeKeydown: box.with(() => onEscapeKeydown()),\n\t\tenabled: box.with(() => $$props.enabled)\n\t});\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children ?? $.noop);\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497069,
+      "end": 1754579497070,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,cAAc,QAAQ,8BAA8B;SACpD,IAAI,QAAQ,2BAA2B;;;;;KAG/C,qBAAqB,+CAAG,OAAO;EAC/B,eAAe,yCAAG,IAAI;;CAKvB,cAAc;EACb,qBAAqB,EAAE,GAAG,CAAC,IAAI,OAAO,qBAAqB;EAC3D,eAAe,EAAE,GAAG,CAAC,IAAI,OAAO,eAAe;EAC/C,OAAO,EAAE,GAAG,CAAC,IAAI",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "escape-layer.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497070,
+      "end": 1754579497070,
+      "order": "normal"
+    }
+  ]
+}

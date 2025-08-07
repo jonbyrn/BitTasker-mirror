@@ -1,0 +1,107 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/LanguageDropdown.svelte?svelte&type=style&lang.css",
+  "transforms": [
+    {
+      "name": "vite-plugin-svelte",
+      "result": "\r\n\t/* Ensure proper positioning */\r\n\t.language-dropdown.svelte-1ppak6q {\r\n\t\tposition: relative;\r\n\t}\r\n\r\n\t/* Dropdown content positioning */\r\n\t.language-dropdown.svelte-1ppak6q .dropdown-content:where(.svelte-1ppak6q) {\r\n\t\tposition: absolute;\r\n\t\ttop: 100%;\r\n\t\tleft: 0;\r\n\t\tz-index: 1000;\r\n\t}\r\n",
+      "start": 1754579495309,
+      "end": 1754579495309,
+      "sourcemaps": {
+        "version": 3,
+        "file": "LanguageDropdown.svelte",
+        "mappings": "AAmKM",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "LanguageDropdown.svelte"
+        ]
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495309,
+      "end": 1754579495309,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "result": "\r\n\t/* Ensure proper positioning */\r\n\t.language-dropdown.svelte-1ppak6q {\r\n\t\tposition: relative;\r\n\t}\r\n\r\n\t/* Dropdown content positioning */\r\n\t.language-dropdown.svelte-1ppak6q .dropdown-content:where(.svelte-1ppak6q) {\r\n\t\tposition: absolute;\r\n\t\ttop: 100%;\r\n\t\tleft: 0;\r\n\t\tz-index: 1000;\r\n\t}\r\n",
+      "start": 1754579495309,
+      "end": 1754579495310,
+      "order": "pre",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495310,
+      "end": 1754579495310,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495310,
+      "end": 1754579495310,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495310,
+      "end": 1754579495310,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495310,
+      "end": 1754579495310,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495311,
+      "end": 1754579495311,
+      "order": "normal"
+    }
+  ]
+}

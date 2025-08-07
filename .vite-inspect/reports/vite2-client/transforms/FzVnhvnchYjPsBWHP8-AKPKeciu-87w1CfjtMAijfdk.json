@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/dashboard/tasks/create.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"task\": {\r\n      \"create_title\": \"Crear una nueva tarea\",\r\n      \"step\": \"Paso\",\r\n      \"of\": \"de\",\r\n      \"create_recurring\": \"Crear plantilla recurrente\",\r\n      \"get_quotes\": \"Obtener cotizaciones\",\r\n      \"next\": \"Siguiente\",\r\n      \"back\": \"Atrás\",\r\n      \"what_needed\": \"¿Qué necesitas que se haga?\",\r\n      \"when_needed\": \"¿Cuándo necesitas que se haga?\",\r\n      \"flexible\": \"Soy flexible\",\r\n      \"specific_date\": \"En una fecha específica\",\r\n      \"category\": \"Categoría (máx. 3)\",\r\n      \"required_skills\": \"Habilidades requeridas (máx. 10)\",\r\n      \"start_date\": \"Fecha de inicio\",\r\n      \"end_date\": \"Fecha de fin\",\r\n      \"tags_placeholder\": \"Agregar etiquetas...\",\r\n      \"deadline\": \"fecha límite\",\r\n      \"relocation_question\": \"¿Necesitas mover algo a otra ubicación?\",\r\n      \"pickup_location\": \"Lugar de recogida\",\r\n      \"dropoff_location\": \"Lugar de entrega\",\r\n      \"address_placeholder\": \"Ingresa la dirección o código postal\",\r\n      \"location_question\": \"¿Dónde necesitas que se haga esto?\",\r\n      \"location\": \"Ubicación\",\r\n      \"attachments_label\": \"Agrega videos e imágenes\",\r\n      \"attachments_hint\": \"Mejora las cotizaciones mostrando a los taskers lo que se necesita hacer\",\r\n      \"attachments\": \"Adjuntos\",\r\n      \"yes\": \"Sí\",\r\n      \"no\": \"No\",\r\n      \"remote\": \"Remoto\",\r\n      \"in_person\": \"En persona\",\r\n      \"budget_question\": \"¿Cuál es tu presupuesto?\",\r\n      \"budget_fixed\": \"Precio fijo\",\r\n      \"budget_hourly\": \"Tarifa por hora\",\r\n      \"budget_label\": \"Presupuesto\",\r\n      \"usd_placeholder\": \"Ingresa el monto en USD\",\r\n      \"sats_placeholder\": \"Ingresa el monto en sats\",\r\n      \"btc_price\": \"Precio actual de BTC:\",\r\n      \"estimated_hours\": \"Horas estimadas\",\r\n      \"hours_placeholder\": \"Horas estimadas necesarias\",\r\n      \"description\": \"Detalles de la tarea\",\r\n      \"description_placeholder\": \"Describe tu tarea en detalle\",\r\n      \"review_title\": \"Revisa tu tarea\",\r\n      \"basic_information\": \"Información básica\",\r\n      \"title\": \"Título:\",\r\n      \"task_type\": \"Tipo de tarea:\",\r\n      \"timeline\": \"Cronograma:\",\r\n      \"from\": \"Desde\",\r\n      \"to\": \"hasta\",\r\n      \"deadline_review\": \"Fecha límite:\",\r\n      \"categories\": \"Categorías\",\r\n      \"skills\": \"Habilidades\",\r\n      \"budget_details\": \"Presupuesto y detalles\",\r\n      \"budget_type\": \"Tipo de presupuesto:\",\r\n      \"budget_amount\": \"Monto del presupuesto:\",\r\n      \"estimated_hours_review\": \"Horas estimadas:\",\r\n      \"description_label\": \"Descripción\",\r\n      \"attachments_review\": \"Adjuntos\",\r\n      \"recurring_title\": \"¡Esta es una tarea recurrente!\",\r\n      \"recurring_message\": \"Después de la revisión, se te pedirá configurar el horario recurrente.\",\r\n      \"location_title\": \"Ubicación de la tarea\",\r\n      \"remote_task\": \"Tarea remota\",\r\n      \"removal_delivery\": \"Remoción/Entrega\",\r\n      \"in_person_badge\": \"En persona\",\r\n      \"remote_completion_message\": \"Esta tarea se puede completar remotamente\",\r\n      \"pickup_location_review\": \"Lugar de recogida\",\r\n      \"dropoff_location_review\": \"Lugar de entrega\",\r\n      \"task_location_review\": \"Ubicación de la tarea\",\r\n      \"zip_label\": \"Código postal:\",\r\n      \"location_not_available\": \"Información de ubicación no disponible\",\r\n      \"recurring_name\": \"Nombre de la tarea recurrente\",\r\n      \"recurring_name_placeholder\": \"ej. Recogida semanal de sofá\",\r\n      \"recurring_details\": \"Detalles de la tarea recurrente\",\r\n      \"recurring_details_placeholder\": \"Describe tu tarea recurrente en detalle\",\r\n      \"recurring_schedule\": \"Horario de la tarea recurrente\",\r\n      \"recurring_frequency\": \"¿Con qué frecuencia debe repetirse esta tarea?\"\r\n    }\r\n  }",
+      "start": 1754579494791,
+      "end": 1754579494804,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494804,
+      "end": 1754579494804,
+      "order": "normal"
+    }
+  ]
+}

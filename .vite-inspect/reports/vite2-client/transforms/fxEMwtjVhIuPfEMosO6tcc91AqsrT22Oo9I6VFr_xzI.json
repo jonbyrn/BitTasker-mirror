@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/parse/_lib/Setter.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { constructFrom } from \"../../constructFrom.js\";\nimport { transpose } from \"../../transpose.js\";\n\nconst TIMEZONE_UNIT_PRIORITY = 10;\n\nexport class Setter {\n  subPriority = 0;\n\n  validate(_utcDate, _options) {\n    return true;\n  }\n}\n\nexport class ValueSetter extends Setter {\n  constructor(\n    value,\n\n    validateValue,\n\n    setValue,\n\n    priority,\n    subPriority,\n  ) {\n    super();\n    this.value = value;\n    this.validateValue = validateValue;\n    this.setValue = setValue;\n    this.priority = priority;\n    if (subPriority) {\n      this.subPriority = subPriority;\n    }\n  }\n\n  validate(date, options) {\n    return this.validateValue(date, this.value, options);\n  }\n\n  set(date, flags, options) {\n    return this.setValue(date, flags, this.value, options);\n  }\n}\n\nexport class DateTimezoneSetter extends Setter {\n  priority = TIMEZONE_UNIT_PRIORITY;\n  subPriority = -1;\n\n  constructor(context, reference) {\n    super();\n    this.context = context || ((date) => constructFrom(reference, date));\n  }\n\n  set(date, flags) {\n    if (flags.timestampIsSet) return date;\n    return constructFrom(date, transpose(date, this.context));\n  }\n}\n",
+      "start": 1754579495554,
+      "end": 1754579495622,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495622,
+      "end": 1754579495623,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495623,
+      "end": 1754579495623,
+      "order": "normal"
+    }
+  ]
+}

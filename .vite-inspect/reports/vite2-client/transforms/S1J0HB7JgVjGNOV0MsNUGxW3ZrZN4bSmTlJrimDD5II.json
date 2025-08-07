@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/differenceInCalendarWeeks.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { getTimezoneOffsetInMilliseconds } from \"./_lib/getTimezoneOffsetInMilliseconds.js\";\nimport { normalizeDates } from \"./_lib/normalizeDates.js\";\nimport { millisecondsInWeek } from \"./constants.js\";\nimport { startOfWeek } from \"./startOfWeek.js\";\n\n/**\n * The {@link differenceInCalendarWeeks} function options.\n */\n\n/**\n * @name differenceInCalendarWeeks\n * @category Week Helpers\n * @summary Get the number of calendar weeks between the given dates.\n *\n * @description\n * Get the number of calendar weeks between the given dates.\n *\n * @param laterDate - The later date\n * @param earlierDate - The earlier date\n * @param options - An object with options.\n *\n * @returns The number of calendar weeks\n *\n * @example\n * // How many calendar weeks are between 5 July 2014 and 20 July 2014?\n * const result = differenceInCalendarWeeks(\n *   new Date(2014, 6, 20),\n *   new Date(2014, 6, 5)\n * )\n * //=> 3\n *\n * @example\n * // If the week starts on Monday,\n * // how many calendar weeks are between 5 July 2014 and 20 July 2014?\n * const result = differenceInCalendarWeeks(\n *   new Date(2014, 6, 20),\n *   new Date(2014, 6, 5),\n *   { weekStartsOn: 1 }\n * )\n * //=> 2\n */\nexport function differenceInCalendarWeeks(laterDate, earlierDate, options) {\n  const [laterDate_, earlierDate_] = normalizeDates(\n    options?.in,\n    laterDate,\n    earlierDate,\n  );\n\n  const laterStartOfWeek = startOfWeek(laterDate_, options);\n  const earlierStartOfWeek = startOfWeek(earlierDate_, options);\n\n  const laterTimestamp =\n    +laterStartOfWeek - getTimezoneOffsetInMilliseconds(laterStartOfWeek);\n  const earlierTimestamp =\n    +earlierStartOfWeek - getTimezoneOffsetInMilliseconds(earlierStartOfWeek);\n\n  return Math.round((laterTimestamp - earlierTimestamp) / millisecondsInWeek);\n}\n\n// Fallback for modularized imports:\nexport default differenceInCalendarWeeks;\n",
+      "start": 1754579494862,
+      "end": 1754579494882,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494883,
+      "end": 1754579494883,
+      "order": "normal"
+    }
+  ]
+}

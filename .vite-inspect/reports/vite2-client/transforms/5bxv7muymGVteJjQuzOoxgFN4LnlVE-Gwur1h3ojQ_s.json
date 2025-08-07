@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/differenceInCalendarISOWeekYears.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { normalizeDates } from \"./_lib/normalizeDates.js\";\nimport { getISOWeekYear } from \"./getISOWeekYear.js\";\n\n/**\n * The {@link differenceInCalendarISOWeekYears} function options.\n */\n\n/**\n * @name differenceInCalendarISOWeekYears\n * @category ISO Week-Numbering Year Helpers\n * @summary Get the number of calendar ISO week-numbering years between the given dates.\n *\n * @description\n * Get the number of calendar ISO week-numbering years between the given dates.\n *\n * ISO week-numbering year: http://en.wikipedia.org/wiki/ISO_week_date\n *\n * @param laterDate - The later date\n * @param earlierDate - The earlier date\n * @param options - An object with options\n *\n * @returns The number of calendar ISO week-numbering years\n *\n * @example\n * // How many calendar ISO week-numbering years are 1 January 2010 and 1 January 2012?\n * const result = differenceInCalendarISOWeekYears(\n *   new Date(2012, 0, 1),\n *   new Date(2010, 0, 1)\n * )\n * //=> 2\n */\nexport function differenceInCalendarISOWeekYears(\n  laterDate,\n  earlierDate,\n  options,\n) {\n  const [laterDate_, earlierDate_] = normalizeDates(\n    options?.in,\n    laterDate,\n    earlierDate,\n  );\n  return (\n    getISOWeekYear(laterDate_, options) - getISOWeekYear(earlierDate_, options)\n  );\n}\n\n// Fallback for modularized imports:\nexport default differenceInCalendarISOWeekYears;\n",
+      "start": 1754579494860,
+      "end": 1754579494881,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494881,
+      "end": 1754579494881,
+      "order": "normal"
+    }
+  ]
+}

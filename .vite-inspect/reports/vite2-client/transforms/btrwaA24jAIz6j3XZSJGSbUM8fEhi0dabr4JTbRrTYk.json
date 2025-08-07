@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/graphql/enums.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export const BidPaymentType = {\r\n    \"FIXED\": \"FIXED\",\r\n    \"HOURLY\": \"HOURLY\",\r\n    \"MILESTONE_BASED\": \"MILESTONE_BASED\"\r\n};\r\n\r\nexport const BidStatus = {\r\n    \"ACCEPTED\": \"ACCEPTED\",\r\n    \"APPROVED\": \"APPROVED\",\r\n    \"CLIENT_CANCELLED\": \"CLIENT_CANCELLED\",\r\n    \"EXPIRED\": \"EXPIRED\",\r\n    \"FREELANCER_CANCELLED\": \"FREELANCER_CANCELLED\",\r\n    \"NEGOTIATION\": \"NEGOTIATION\",\r\n    \"PENDING\": \"PENDING\",\r\n    \"REJECTED\": \"REJECTED\",\r\n    \"WITHDRAWN\": \"WITHDRAWN\"\r\n};\r\n\r\nexport const BidVisibility = {\r\n    \"FEATURED\": \"FEATURED\",\r\n    \"PRIVATE\": \"PRIVATE\",\r\n    \"PUBLIC\": \"PUBLIC\"\r\n};\r\n\r\nexport const BudgetType = {\r\n    \"FIXED\": \"FIXED\",\r\n    \"HOURLY\": \"HOURLY\",\r\n    \"RANGE\": \"RANGE\"\r\n};\r\n\r\n/** The type of budget (fixed or hourly) */\r\nexport const BudgetTypeEnum = {\r\n    \"FIXED\": \"FIXED\",\r\n    \"HOURLY\": \"HOURLY\"\r\n};\r\n\r\n/** Device platform types */\r\nexport const DevicePlatform = {\r\n    \"ANDROID\": \"ANDROID\",\r\n    \"IOS\": \"IOS\",\r\n    \"WEB\": \"WEB\"\r\n};\r\n\r\n/** The frequency of notifications for saved searches */\r\nexport const NotificationFrequency = {\r\n    \"DAILY\": \"DAILY\",\r\n    \"INSTANT\": \"INSTANT\",\r\n    \"WEEKLY\": \"WEEKLY\"\r\n};\r\n\r\nexport const RecurrenceFrequency = {\r\n    \"BIWEEKLY\": \"BIWEEKLY\",\r\n    \"CUSTOM\": \"CUSTOM\",\r\n    \"DAILY\": \"DAILY\",\r\n    \"MONTHLY\": \"MONTHLY\",\r\n    \"WEEKLY\": \"WEEKLY\"\r\n};\r\n\r\nexport const RecurrenceType = {\r\n    \"BIWEEKLY\": \"BIWEEKLY\",\r\n    \"CUSTOM\": \"CUSTOM\",\r\n    \"DAILY\": \"DAILY\",\r\n    \"MONTHLY\": \"MONTHLY\",\r\n    \"WEEKLY\": \"WEEKLY\"\r\n};\r\n\r\nexport const SkillImportance = {\r\n    \"BONUS\": \"BONUS\",\r\n    \"PREFERRED\": \"PREFERRED\",\r\n    \"REQUIRED\": \"REQUIRED\"\r\n};\r\n\r\nexport const TaskStatus = {\r\n    \"CANCELLED\": \"CANCELLED\",\r\n    \"COMPLETED\": \"COMPLETED\",\r\n    \"DISPUTED\": \"DISPUTED\",\r\n    \"DRAFT\": \"DRAFT\",\r\n    \"IN_PROGRESS\": \"IN_PROGRESS\",\r\n    \"OPEN\": \"OPEN\"\r\n};\r\n\r\nexport const TaskType = {\r\n    \"IN_PERSON\": \"IN_PERSON\",\r\n    \"REMOTE\": \"REMOTE\"\r\n};\r\n\r\nexport const TaskVisibility = {\r\n    \"FOLLOWERS_ONLY\": \"FOLLOWERS_ONLY\",\r\n    \"INVITE_ONLY\": \"INVITE_ONLY\",\r\n    \"PRIVATE\": \"PRIVATE\",\r\n    \"PUBLIC\": \"PUBLIC\"\r\n};\r\n\r\nexport const UserRole = {\r\n    \"ADMIN\": \"ADMIN\",\r\n    \"USER\": \"USER\"\r\n};\r\n\r\nexport const UserStatus = {\r\n    \"ACTIVE\": \"ACTIVE\",\r\n    \"BANNED\": \"BANNED\",\r\n    \"INACTIVE\": \"INACTIVE\",\r\n    \"SUSPENDED\": \"SUSPENDED\"\r\n};\r\n\r\nexport const DedupeMatchMode = {\r\n    \"Variables\": \"Variables\",\r\n    \"Operation\": \"Operation\",\r\n    \"None\": \"None\"\r\n};",
+      "start": 1754579495500,
+      "end": 1754579495510,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/auth.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"login\": {\r\n        \"title\": \"Login to BitTasker\",\r\n        \"subtitle\": \"Hire for gigs, pay in Bitcoin or Fiat\",\r\n        \"login_with\": \"Login with your\",\r\n        \"passkey_info\": \"Login with your Passkey/Biometrics, or Alby Connect account\",\r\n        \"login_with_nsec\": \"Login with nsec\",\r\n        \"continue_biometrics\": \"Continue with Biometrics\",\r\n        \"continue_passkey\": \"Continue with Passkey\",\r\n        \"alby_connect\": \"Alby Connect\",\r\n        \"processing\": \"Processing...\",\r\n        \"create_account\": \"Create Account\",\r\n        \"account\": \"account\",\r\n        \"recover_account\": \"Recover Account\",\r\n        \"button\": \"Login\",\r\n        \"error\": {\r\n            \"no_account\": \"No account found, please create one\",\r\n            \"auth_failed\": \"Authentication failed\"\r\n        },\r\n        \"errors\": {\r\n            \"challenge_signing\": \"Failed to sign login challenge\",\r\n            \"no_token\": \"Access denied, no token found\",\r\n            \"no_account\": \"No account found, please create one\",\r\n            \"failed\": \"Login failed, please try again\"\r\n        }\r\n    },\r\n    \"signup\": {\r\n        \"title\": \"Signup for BitTasker\",\r\n        \"subtitle\": \"Hire for gigs, pay in Bitcoin or Fiat. Own your data.\",\r\n        \"passkey_info\": \"To get started, signup with a next-gen Passkey/Biometric login, or your Alby Connect account\",\r\n        \"nostr_info\": \"If you have an existing account on\",\r\n        \"nostr_import\": \"you'll be able to import it on the next step\",\r\n        \"verify_human\": \"Please verify you're human\",\r\n        \"retry_verification\": \"Retry Verification\",\r\n        \"verification_success\": \"Verification successful\",\r\n        \"button\": \"Sign Up\",\r\n        \"description\": \"To get started, signup with a next-gen Passkey/Biometric login, or your\",\r\n        \"error\": {\r\n            \"captcha\": \"Captcha verification failed\",\r\n            \"captcha_expired\": \"Verification expired, please complete the captcha again\",\r\n            \"captcha_failed\": \"Captcha verification failed\",\r\n            \"verification_error\": \"Captcha verification error, please try again\"\r\n        }\r\n    },\r\n    \"form\": {\r\n        \"name\": \"Full Name\",\r\n        \"name_placeholder\": \"Enter your full name\",\r\n        \"email\": \"Email\",\r\n        \"email_placeholder\": \"Enter your email\",\r\n        \"password\": \"Password\",\r\n        \"password_placeholder\": \"Enter your password\",\r\n        \"confirm_password\": \"Confirm Password\",\r\n        \"confirm_password_placeholder\": \"Confirm your password\",\r\n        \"login_button\": \"Login\",\r\n        \"or\": \"OR\",\r\n        \"google\": \"Continue with Google\",\r\n        \"switch_to_signup\": \"Don't have an account? Sign up\",\r\n        \"switch_to_login\": \"Already have an account? Login\"\r\n    },\r\n    \"recover\": {\r\n        \"security_notice\": {\r\n            \"title\": \"Important Security Notice\",\r\n            \"description\": \"This password will be used to encrypt your account recovery key. If you lose this password, there will be no way to recover your account. Please store it securely.\"\r\n        },\r\n        \"title\": \"Complete Registration\",\r\n        \"private_key\": {\r\n            \"label\": \"Private key\",\r\n            \"placeholder\": \"Enter your private nostr key\"\r\n        },\r\n        \"password\": {\r\n            \"label\": \"Recovery Password\",\r\n            \"placeholder\": \"Enter a strong password\"\r\n        },\r\n        \"confirm_password\": {\r\n            \"label\": \"Confirm Password\",\r\n            \"placeholder\": \"Confirm your password\"\r\n        },\r\n        \"submit\": \"Complete Registration\",\r\n        \"errors\": {\r\n            \"token_expired\": \"Recovery token expired or invalid\",\r\n            \"required_fields\": \"All fields are required\",\r\n            \"password_mismatch\": \"Passwords do not match\",\r\n            \"no_nostr_user\": \"No user returned from Nostr\",\r\n            \"registration_failed\": \"Registration failed\"\r\n        }\r\n    },\r\n    \"onboarding_auth\": {\r\n        \"title\": \"Account Setup\",\r\n        \"steps\": {\r\n            \"account\": \"Account\",\r\n            \"profile\": \"Profile\",\r\n            \"location\": \"Location\",\r\n            \"completed\": \"Completed\"\r\n        },\r\n        \"form\": {\r\n            \"username\": \"Username\",\r\n            \"available\": \"Available\",\r\n            \"import_nostr_key\": \"Import Nostr Key (nsec)\",\r\n            \"private_key\": \"Private Key (nsec)\",\r\n            \"private_key_placeholder\": \"Enter your Nostr private key\",\r\n            \"create_recovery_password\": \"Create recovery password\",\r\n            \"optional_but_recommended\": \"Optional but recommended.\",\r\n            \"if_you_lose_access_to_your_device\": \"If you lose access to your device, you'll be able to recover your account.\",\r\n            \"recovery_email\": \"Recovery Email\",\r\n            \"recovery_email_placeholder\": \"Enter your email address\",\r\n            \"you_will_only_be_able_to_recover_your_account_via_email\": \"You will only be able to recover your account via email.\",\r\n            \"if_you_lose_access_to_your_email\": \"If you lose access to your email, you will not be able to recover your account in the event that you lose access to your primary login method.\",\r\n            \"recovery_password\": \"Recovery Password\",\r\n            \"create_strong_password\": \"Create a strong password\",\r\n            \"generate_new_4_word_password\": \"Generate new 4-word password in {{locale}}\",\r\n            \"confirm_recovery_password\": \"Confirm Recovery Password\",\r\n            \"confirm_your_password\": \"Confirm your password\",\r\n            \"hide_password\": \"Hide password\",\r\n            \"show_password\": \"Show password\",\r\n            \"back\": \"Back\",\r\n            \"next\": \"Next\", \r\n            \"display_name\": \"Display Name\", \r\n            \"your_full_name\": \"Your full name\", \r\n            \"professional_title\": \"Professional Title\",\r\n            \"professional_title_placeholder\": \"e.g. Plumber, Handyman, Developer\",\r\n            \"profile_description\": \"Profile Description\",\r\n            \"profile_description_placeholder\": \"Tell others about yourself, your skills, and experience\",\r\n            \"skills\": \"Skills\",\r\n            \"add_skills\": \"Add skills (e.g. Carpentry, Coding, etc.)\",\r\n            \"save_for_later\": \"Save for later\",\r\n            \"you_can_complete_your_profile_later\": \"You can complete your profile later, but some features may be limited until you do.\",\r\n            \"search_for_a_location\": \"Search for a location...\",\r\n            \"use_current_location\": \"Use current location\",\r\n            \"no_places_found\": \"No places found..\",\r\n            \"toggle_radius\": \"Toggle radius\",\r\n            \"service_radius\": \"Service Radius\",\r\n            \"exit_fullscreen\": \"Exit fullscreen\",\r\n            \"enter_fullscreen\": \"Enter fullscreen\",\r\n            \"map_loading_failed\": \"Map loading failed\",\r\n            \"try_reloading_the_map\": \"Try reloading the map\",\r\n            \"retry\": \"Retry\",\r\n            \"checking_your_onboarding_status\": \"Checking your onboarding status...\",\r\n            \"try_again\": \"Try again\",\r\n            \"something_went_wrong\": \"Something went wrong\",\r\n            \"oops_your_profile_is_not_complete\": \"Oops! Your profile is not complete\",\r\n            \"missing_information\": \"Missing information\",\r\n            \"or_you_can_restart_the_onboarding_process\": \"Or you can restart the onboarding process.\",\r\n            \"dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later\": \"Don't worry you can continue using BitTasker, and complete your onboarding process later.\",\r\n            \"continue_without_completing\": \"Continue without completing\",\r\n            \"restart_setup\": \"Restart Setup\",\r\n            \"your_account_is_ready\": \"Your account is ready!\",\r\n            \"you_have_successfully_completed_the_onboarding_process_and_your_bittasker_account_is_now_active\": \"You've successfully completed the onboarding process and your BitTasker account is now active.\",\r\n            \"whats_next\": \"What's next?\",\r\n            \"browse_available_tasks_or_create_your_own\": \"Browse available tasks or create your own\",\r\n            \"complete_your_profile_to_attract_more_clients\": \"Complete your profile to attract more clients\",\r\n            \"set_up_your_payment_preferences\": \"Set up your payment preferences\",\r\n            \"explore_the_platform_features\": \"Explore the platform features\",\r\n            \"find_tasks\": \"Find Tasks\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494631,
+      "end": 1754579494754,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494754,
+      "end": 1754579494754,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494754,
+      "end": 1754579494755,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494755,
+      "end": 1754579494755,
+      "order": "normal"
+    }
+  ]
+}

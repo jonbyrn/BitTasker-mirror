@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/company/press.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"press\": {\r\n        \"title\": \"Prensa y Medios\",\r\n        \"description\": \"BitTasker está revolucionando la forma en que los taskers y clientes se conectan, trabajan y reciben pagos mediante un sistema de depósito en garantía impulsado por Bitcoin.\",\r\n        \"media_kit\": {\r\n            \"title\": \"Kit de Medios\",\r\n            \"description\": \"Descarga nuestros recursos oficiales de marca, incluyendo logotipos, fotos del equipo directivo y lineamientos de marca para garantizar precisión en tu cobertura.\",\r\n            \"logo_pack\": \"Descargar Paquete de Logotipos (.zip)\",\r\n            \"guidelines\": \"Descargar Guía de Marca (.pdf)\",\r\n            \"coming_soon\": \"*Recursos de medios disponibles próximamente.\"\r\n        },\r\n        \"about\": {\r\n            \"title\": \"Sobre BitTasker\",\r\n            \"description\": \"BitTasker es una plataforma revolucionaria de economía colaborativa que conecta personas y empresas con profesionales calificados para una amplia variedad de tareas. Al integrar Bitcoin para pagos rápidos, seguros y de bajo costo, y al utilizar tecnologías descentralizadas como Nostr para la identidad, BitTasker está construyendo un mercado de servicios más abierto, global y equitativo.\"\r\n        },\r\n        \"inquiries\": {\r\n            \"title\": \"Consultas de Prensa\",\r\n            \"description\": \"Para todas las consultas relacionadas con prensa y medios, por favor contacta a nuestro equipo de comunicaciones. Con gusto proporcionaremos entrevistas, declaraciones y más información.\",\r\n            \"button\": \"Contáctanos\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494751,
+      "end": 1754579494783,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494783,
+      "end": 1754579494783,
+      "order": "normal"
+    }
+  ]
+}

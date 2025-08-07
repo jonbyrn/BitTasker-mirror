@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/lib/config.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import config from \"../imports/config\";\nimport pluginConfigs from \"../imports/pluginConfig\";\nlet mockConfig = null;\nfunction getMockConfig() {\n  return mockConfig;\n}\nfunction setMockConfig(config2) {\n  mockConfig = config2;\n}\nfunction defaultConfigValues(file) {\n  return {\n    defaultKeys: [\"id\"],\n    ...file,\n    types: {\n      Node: {\n        keys: [\"id\"],\n        resolve: {\n          queryField: \"node\",\n          arguments: (node) => ({ id: node.id })\n        }\n      },\n      ...file.types\n    }\n  };\n}\nfunction keyFieldsForType(configFile, type) {\n  const withDefault = defaultConfigValues(configFile);\n  return withDefault.types?.[type]?.keys || withDefault.defaultKeys;\n}\nfunction computeID(configFile, type, data) {\n  const fields = keyFieldsForType(configFile, type);\n  let id = \"\";\n  for (const field of fields) {\n    id += data[field] + \"__\";\n  }\n  return id.slice(0, -2);\n}\nlet _configFile = null;\nfunction localApiEndpoint(configFile) {\n  return configFile.router?.apiEndpoint ?? \"/_api\";\n}\nfunction localApiSessionKeys(configFile) {\n  return configFile.router?.auth?.sessionKeys ?? [];\n}\nfunction getCurrentConfig() {\n  const mockConfig2 = getMockConfig();\n  if (mockConfig2) {\n    return mockConfig2;\n  }\n  if (_configFile) {\n    return _configFile;\n  }\n  let configFile = defaultConfigValues(config);\n  for (const pluginConfig of pluginConfigs) {\n    configFile = pluginConfig(configFile);\n  }\n  _configFile = configFile;\n  return configFile;\n}\nexport {\n  computeID,\n  defaultConfigValues,\n  getCurrentConfig,\n  getMockConfig,\n  keyFieldsForType,\n  localApiEndpoint,\n  localApiSessionKeys,\n  setMockConfig\n};\n",
+      "start": 1754579495880,
+      "end": 1754579495921,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495921,
+      "end": 1754579495921,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/CheckUsernameAvailability.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"CheckUsernameAvailability\",\r\n    \"kind\": \"HoudiniQuery\",\r\n    \"hash\": \"a737afda2894cc6303e78aa175fc339ca4e02438c1d404e30ed1e3d246726ecf\",\r\n\r\n    \"raw\": `query CheckUsernameAvailability($username: String!) {\r\n  checkUsernameAvailability(username: $username)\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Query\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"checkUsernameAvailability\": {\r\n                \"type\": \"Boolean\",\r\n                \"keyRaw\": \"checkUsernameAvailability(username: $username)\",\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"input\": {\r\n        \"fields\": {\r\n            \"username\": \"String\"\r\n        },\r\n\r\n        \"types\": {},\r\n        \"defaults\": {},\r\n        \"runtimeScalars\": {}\r\n    },\r\n\r\n    \"policy\": \"CacheOrNetwork\",\r\n    \"partial\": false\r\n};\r\n\r\n\"HoudiniHash=e0351711d7f5620b88c7fe06ca97106fa1168e2d771c93f84718d20f45687083\";",
+      "start": 1754579495398,
+      "end": 1754579495492,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495492,
+      "end": 1754579495493,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495493,
+      "end": 1754579495493,
+      "order": "normal"
+    }
+  ]
+}

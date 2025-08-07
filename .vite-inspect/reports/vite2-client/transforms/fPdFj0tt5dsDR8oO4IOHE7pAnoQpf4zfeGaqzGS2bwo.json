@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/dashboard/tasks/create.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"task\": {\r\n      \"create_title\": \"Create a New Task\",\r\n      \"step\": \"Step\",\r\n      \"of\": \"of\",\r\n      \"create_recurring\": \"Create Recurring Template\",\r\n      \"get_quotes\": \"Get Quotes\",\r\n      \"next\": \"Next\",\r\n      \"back\": \"Back\",\r\n      \"what_needed\": \"What do you need done?\",\r\n      \"when_needed\": \"When do you need this done?\",\r\n      \"flexible\": \"I'm flexible\",\r\n      \"specific_date\": \"On a specific date\",\r\n      \"category\": \"Category (3 max)\",\r\n      \"required_skills\": \"Required Skills (10 max)\",\r\n      \"start_date\": \"Start Date\",\r\n      \"end_date\": \"End Date\",\r\n      \"tags_placeholder\": \"Add tags...\",\r\n      \"deadline\": \"Deadline\",\r\n      \"relocation_question\": \"Do you need something moved to another location?\",\r\n      \"pickup_location\": \"Pickup Location\",\r\n      \"dropoff_location\": \"Drop-off Location\",\r\n      \"address_placeholder\": \"Enter address or ZIP code\",\r\n      \"location_question\": \"Where do you need this done?\",\r\n      \"location\": \"Location\",\r\n      \"attachments_label\": \"Add videos and images\",\r\n      \"attachments_hint\": \"Improve bid estimates by showing taskers what needs to be done\",\r\n      \"attachments\": \"Attachments\",\r\n      \"yes\": \"Yes\",\r\n      \"no\": \"No\",\r\n      \"remote\": \"Remote\",\r\n      \"in_person\": \"In-person\",\r\n      \"budget_question\": \"What's your budget?\",\r\n      \"budget_fixed\": \"Fixed price\",\r\n      \"budget_hourly\": \"Hourly rate\",\r\n      \"budget_label\": \"Budget\",\r\n      \"usd_placeholder\": \"Enter USD amount\",\r\n      \"sats_placeholder\": \"Enter sats amount\",\r\n      \"btc_price\": \"Current BTC Price:\",\r\n      \"estimated_hours\": \"Estimated Hours\",\r\n      \"hours_placeholder\": \"Estimated hours needed\",\r\n      \"description\": \"Task Details\",\r\n      \"description_placeholder\": \"Describe your task in detail\",\r\n      \"review_title\": \"Review Your Task\",\r\n      \"basic_information\": \"Basic Information\",\r\n      \"title\": \"Title:\",\r\n      \"task_type\": \"Task Type:\",\r\n      \"timeline\": \"Timeline:\",\r\n      \"from\": \"From\",\r\n      \"to\": \"to\",\r\n      \"deadline_review\": \"Deadline:\",\r\n      \"categories\": \"Categories\",\r\n      \"skills\": \"Skills\",\r\n      \"budget_details\": \"Budget & Details\",\r\n      \"budget_type\": \"Budget Type:\",\r\n      \"budget_amount\": \"Budget Amount:\",\r\n      \"estimated_hours_review\": \"Estimated Hours:\",\r\n      \"description_label\": \"Description\",\r\n      \"attachments_review\": \"Attachments\",\r\n      \"recurring_title\": \"This is a recurring task!\",\r\n      \"recurring_message\": \"After review, you'll be asked to set up the recurring schedule.\",\r\n      \"location_title\": \"Task Location\",\r\n      \"remote_task\": \"Remote Task\",\r\n      \"removal_delivery\": \"Removal/Delivery\",\r\n      \"in_person_badge\": \"In-Person\",\r\n      \"remote_completion_message\": \"This task can be completed remotely\",\r\n      \"pickup_location_review\": \"Pickup Location\",\r\n      \"dropoff_location_review\": \"Drop-off Location\",\r\n      \"task_location_review\": \"Task Location\",\r\n      \"zip_label\": \"ZIP:\",\r\n      \"location_not_available\": \"Location information not available\",\r\n      \"recurring_name\": \"Recurring Task Name\",\r\n      \"recurring_name_placeholder\": \"e.g. Weekly Sofa Pickup\",\r\n      \"recurring_details\": \"Recurring Task Details\",\r\n      \"recurring_details_placeholder\": \"Describe your recurring task in detail\",\r\n      \"recurring_schedule\": \"Recurring Task Schedule\",\r\n      \"recurring_frequency\": \"How often should this task repeat?\"\r\n    }\r\n  }",
+      "start": 1754579494790,
+      "end": 1754579494800,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494800,
+      "end": 1754579494800,
+      "order": "normal"
+    }
+  ]
+}

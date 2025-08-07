@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/startOfYesterday.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { constructNow } from \"./constructNow.js\";\n\n/**\n * The {@link startOfYesterday} function options.\n */\n\n/**\n * @name startOfYesterday\n * @category Day Helpers\n * @summary Return the start of yesterday.\n * @pure false\n *\n * @typeParam ContextDate - The `Date` type of the context function.\n *\n * @param options - An object with options\n *\n * @description\n * Return the start of yesterday.\n *\n * @returns The start of yesterday\n *\n * @example\n * // If today is 6 October 2014:\n * const result = startOfYesterday()\n * //=> Sun Oct 5 2014 00:00:00\n */\nexport function startOfYesterday(options) {\n  const now = constructNow(options?.in);\n  const year = now.getFullYear();\n  const month = now.getMonth();\n  const day = now.getDate();\n\n  const date = constructNow(options?.in);\n  date.setFullYear(year, month, day - 1);\n  date.setHours(0, 0, 0, 0);\n  return date;\n}\n\n// Fallback for modularized imports:\nexport default startOfYesterday;\n",
+      "start": 1754579495043,
+      "end": 1754579495060,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495060,
+      "end": 1754579495060,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495061,
+      "end": 1754579495061,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495061,
+      "end": 1754579495061,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495061,
+      "end": 1754579495061,
+      "order": "normal"
+    }
+  ]
+}

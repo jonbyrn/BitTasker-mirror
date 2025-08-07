@@ -1,0 +1,108 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/internal/floating-svelte/use-floating.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { computePosition } from \"@floating-ui/dom\";\nimport { box } from \"svelte-toolbelt\";\nimport { get, getDPR, roundByDPR } from \"./floating-utils.svelte.js\";\nexport function useFloating(options) {\n    /** Options */\n    const whileElementsMountedOption = options.whileElementsMounted;\n    const openOption = $derived(get(options.open) ?? true);\n    const middlewareOption = $derived(get(options.middleware));\n    const transformOption = $derived(get(options.transform) ?? true);\n    const placementOption = $derived(get(options.placement) ?? \"bottom\");\n    const strategyOption = $derived(get(options.strategy) ?? \"absolute\");\n    const reference = options.reference;\n    /** State */\n    let x = $state(0);\n    let y = $state(0);\n    const floating = box(null);\n    let strategy = $state(strategyOption);\n    let placement = $state(placementOption);\n    let middlewareData = $state({});\n    let isPositioned = $state(false);\n    const floatingStyles = $derived.by(() => {\n        const initialStyles = {\n            position: strategy,\n            left: \"0\",\n            top: \"0\",\n        };\n        if (!floating.current) {\n            return initialStyles;\n        }\n        const xVal = roundByDPR(floating.current, x);\n        const yVal = roundByDPR(floating.current, y);\n        if (transformOption) {\n            return {\n                ...initialStyles,\n                transform: `translate(${xVal}px, ${yVal}px)`,\n                ...(getDPR(floating.current) >= 1.5 && {\n                    willChange: \"transform\",\n                }),\n            };\n        }\n        return {\n            position: strategy,\n            left: `${xVal}px`,\n            top: `${yVal}px`,\n        };\n    });\n    /** Effects */\n    let whileElementsMountedCleanup;\n    function update() {\n        if (reference.current === null || floating.current === null)\n            return;\n        computePosition(reference.current, floating.current, {\n            middleware: middlewareOption,\n            placement: placementOption,\n            strategy: strategyOption,\n        }).then((position) => {\n            x = position.x;\n            y = position.y;\n            strategy = position.strategy;\n            placement = position.placement;\n            middlewareData = position.middlewareData;\n            isPositioned = true;\n        });\n    }\n    function cleanup() {\n        if (typeof whileElementsMountedCleanup === \"function\") {\n            whileElementsMountedCleanup();\n            whileElementsMountedCleanup = undefined;\n        }\n    }\n    function attach() {\n        cleanup();\n        if (whileElementsMountedOption === undefined) {\n            update();\n            return;\n        }\n        if (reference.current === null || floating.current === null)\n            return;\n        whileElementsMountedCleanup = whileElementsMountedOption(reference.current, floating.current, update);\n    }\n    function reset() {\n        if (!openOption) {\n            isPositioned = false;\n        }\n    }\n    $effect(update);\n    $effect(attach);\n    $effect(reset);\n    $effect(() => cleanup);\n    return {\n        floating,\n        reference,\n        get strategy() {\n            return strategy;\n        },\n        get placement() {\n            return placement;\n        },\n        get middlewareData() {\n            return middlewareData;\n        },\n        get isPositioned() {\n            return isPositioned;\n        },\n        get floatingStyles() {\n            return floatingStyles;\n        },\n        get update() {\n            return update;\n        },\n    };\n}\n",
+      "start": 1754579497792,
+      "end": 1754579497874,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497874,
+      "end": 1754579497875,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497875,
+      "end": 1754579497875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* use-floating.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\nimport { computePosition } from \"@floating-ui/dom\";\nimport { box } from \"svelte-toolbelt\";\nimport { get, getDPR, roundByDPR } from \"./floating-utils.svelte.js\";\n\nexport function useFloating(options) {\n\t/** Options */\n\tconst whileElementsMountedOption = options.whileElementsMounted;\n\tconst openOption = $.derived(() => get(options.open) ?? true);\n\tconst middlewareOption = $.derived(() => get(options.middleware));\n\tconst transformOption = $.derived(() => get(options.transform) ?? true);\n\tconst placementOption = $.derived(() => get(options.placement) ?? \"bottom\");\n\tconst strategyOption = $.derived(() => get(options.strategy) ?? \"absolute\");\n\tconst reference = options.reference;\n\t/** State */\n\tlet x = $.state(0);\n\tlet y = $.state(0);\n\tconst floating = box(null);\n\tlet strategy = $.state($.proxy($.get(strategyOption)));\n\tlet placement = $.state($.proxy($.get(placementOption)));\n\tlet middlewareData = $.state($.proxy({}));\n\tlet isPositioned = $.state(false);\n\n\tconst floatingStyles = $.derived(() => {\n\t\tconst initialStyles = {\n\t\t\tposition: $.get(strategy),\n\t\t\tleft: \"0\",\n\t\t\ttop: \"0\"\n\t\t};\n\n\t\tif (!floating.current) {\n\t\t\treturn initialStyles;\n\t\t}\n\n\t\tconst xVal = roundByDPR(floating.current, $.get(x));\n\t\tconst yVal = roundByDPR(floating.current, $.get(y));\n\n\t\tif ($.get(transformOption)) {\n\t\t\treturn {\n\t\t\t\t...initialStyles,\n\t\t\t\ttransform: `translate(${xVal}px, ${yVal}px)`,\n\t\t\t\t...getDPR(floating.current) >= 1.5 && { willChange: \"transform\" }\n\t\t\t};\n\t\t}\n\n\t\treturn {\n\t\t\tposition: $.get(strategy),\n\t\t\tleft: `${xVal}px`,\n\t\t\ttop: `${yVal}px`\n\t\t};\n\t});\n\n\t/** Effects */\n\tlet whileElementsMountedCleanup;\n\n\tfunction update() {\n\t\tif (reference.current === null || floating.current === null) return;\n\n\t\tcomputePosition(reference.current, floating.current, {\n\t\t\tmiddleware: $.get(middlewareOption),\n\t\t\tplacement: $.get(placementOption),\n\t\t\tstrategy: $.get(strategyOption)\n\t\t}).then((position) => {\n\t\t\t$.set(x, position.x, true);\n\t\t\t$.set(y, position.y, true);\n\t\t\t$.set(strategy, position.strategy, true);\n\t\t\t$.set(placement, position.placement, true);\n\t\t\t$.set(middlewareData, position.middlewareData, true);\n\t\t\t$.set(isPositioned, true);\n\t\t});\n\t}\n\n\tfunction cleanup() {\n\t\tif (typeof whileElementsMountedCleanup === \"function\") {\n\t\t\twhileElementsMountedCleanup();\n\t\t\twhileElementsMountedCleanup = undefined;\n\t\t}\n\t}\n\n\tfunction attach() {\n\t\tcleanup();\n\n\t\tif (whileElementsMountedOption === undefined) {\n\t\t\tupdate();\n\t\t\treturn;\n\t\t}\n\n\t\tif (reference.current === null || floating.current === null) return;\n\t\twhileElementsMountedCleanup = whileElementsMountedOption(reference.current, floating.current, update);\n\t}\n\n\tfunction reset() {\n\t\tif (!$.get(openOption)) {\n\t\t\t$.set(isPositioned, false);\n\t\t}\n\t}\n\n\t$.user_effect(update);\n\t$.user_effect(attach);\n\t$.user_effect(reset);\n\t$.user_effect(() => cleanup);\n\n\treturn {\n\t\tfloating,\n\t\treference,\n\t\tget strategy() {\n\t\t\treturn $.get(strategy);\n\t\t},\n\t\tget placement() {\n\t\t\treturn $.get(placement);\n\t\t},\n\t\tget middlewareData() {\n\t\t\treturn $.get(middlewareData);\n\t\t},\n\t\tget isPositioned() {\n\t\t\treturn $.get(isPositioned);\n\t\t},\n\t\tget floatingStyles() {\n\t\t\treturn $.get(floatingStyles);\n\t\t},\n\t\tget update() {\n\t\t\treturn update;\n\t\t}\n\t};\n}",
+      "start": 1754579497875,
+      "end": 1754579497879,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "use-floating.svelte.js"
+        ],
+        "sourcesContent": [
+          "import { computePosition } from \"@floating-ui/dom\";\nimport { box } from \"svelte-toolbelt\";\nimport { get, getDPR, roundByDPR } from \"./floating-utils.svelte.js\";\nexport function useFloating(options) {\n    /** Options */\n    const whileElementsMountedOption = options.whileElementsMounted;\n    const openOption = $derived(get(options.open) ?? true);\n    const middlewareOption = $derived(get(options.middleware));\n    const transformOption = $derived(get(options.transform) ?? true);\n    const placementOption = $derived(get(options.placement) ?? \"bottom\");\n    const strategyOption = $derived(get(options.strategy) ?? \"absolute\");\n    const reference = options.reference;\n    /** State */\n    let x = $state(0);\n    let y = $state(0);\n    const floating = box(null);\n    let strategy = $state(strategyOption);\n    let placement = $state(placementOption);\n    let middlewareData = $state({});\n    let isPositioned = $state(false);\n    const floatingStyles = $derived.by(() => {\n        const initialStyles = {\n            position: strategy,\n            left: \"0\",\n            top: \"0\",\n        };\n        if (!floating.current) {\n            return initialStyles;\n        }\n        const xVal = roundByDPR(floating.current, x);\n        const yVal = roundByDPR(floating.current, y);\n        if (transformOption) {\n            return {\n                ...initialStyles,\n                transform: `translate(${xVal}px, ${yVal}px)`,\n                ...(getDPR(floating.current) >= 1.5 && {\n                    willChange: \"transform\",\n                }),\n            };\n        }\n        return {\n            position: strategy,\n            left: `${xVal}px`,\n            top: `${yVal}px`,\n        };\n    });\n    /** Effects */\n    let whileElementsMountedCleanup;\n    function update() {\n        if (reference.current === null || floating.current === null)\n            return;\n        computePosition(reference.current, floating.current, {\n            middleware: middlewareOption,\n            placement: placementOption,\n            strategy: strategyOption,\n        }).then((position) => {\n            x = position.x;\n            y = position.y;\n            strategy = position.strategy;\n            placement = position.placement;\n            middlewareData = position.middlewareData;\n            isPositioned = true;\n        });\n    }\n    function cleanup() {\n        if (typeof whileElementsMountedCleanup === \"function\") {\n            whileElementsMountedCleanup();\n            whileElementsMountedCleanup = undefined;\n        }\n    }\n    function attach() {\n        cleanup();\n        if (whileElementsMountedOption === undefined) {\n            update();\n            return;\n        }\n        if (reference.current === null || floating.current === null)\n            return;\n        whileElementsMountedCleanup = whileElementsMountedOption(reference.current, floating.current, update);\n    }\n    function reset() {\n        if (!openOption) {\n            isPositioned = false;\n        }\n    }\n    $effect(update);\n    $effect(attach);\n    $effect(reset);\n    $effect(() => cleanup);\n    return {\n        floating,\n        reference,\n        get strategy() {\n            return strategy;\n        },\n        get placement() {\n            return placement;\n        },\n        get middlewareData() {\n            return middlewareData;\n        },\n        get isPositioned() {\n            return isPositioned;\n        },\n        get floatingStyles() {\n            return floatingStyles;\n        },\n        get update() {\n            return update;\n        },\n    };\n}\n"
+        ],
+        "mappings": "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"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497879,
+      "end": 1754579497879,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497879,
+      "end": 1754579497879,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/slider/helpers.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export function getRangeStyles(direction, min, max) {\n    const styles = {\n        position: \"absolute\",\n    };\n    if (direction === \"lr\") {\n        styles.left = `${min}%`;\n        styles.right = `${max}%`;\n    }\n    else if (direction === \"rl\") {\n        styles.right = `${min}%`;\n        styles.left = `${max}%`;\n    }\n    else if (direction === \"bt\") {\n        styles.bottom = `${min}%`;\n        styles.top = `${max}%`;\n    }\n    else {\n        styles.top = `${min}%`;\n        styles.bottom = `${max}%`;\n    }\n    return styles;\n}\nexport function getThumbStyles(direction, thumbPos) {\n    const styles = {\n        position: \"absolute\",\n    };\n    if (direction === \"lr\") {\n        styles.left = `${thumbPos}%`;\n        styles.translate = \"-50% 0\";\n    }\n    else if (direction === \"rl\") {\n        styles.right = `${thumbPos}%`;\n        styles.translate = \"50% 0\";\n    }\n    else if (direction === \"bt\") {\n        styles.bottom = `${thumbPos}%`;\n        styles.translate = \"0 50%\";\n    }\n    else {\n        styles.top = `${thumbPos}%`;\n        styles.translate = \"0 -50%\";\n    }\n    return styles;\n}\nexport function getTickStyles(direction, tickPosition, offsetPercentage) {\n    const style = {\n        position: \"absolute\",\n    };\n    if (direction === \"lr\") {\n        style.left = `${tickPosition}%`;\n        style.translate = `${offsetPercentage}% 0`;\n    }\n    else if (direction === \"rl\") {\n        style.right = `${tickPosition}%`;\n        style.translate = `${-offsetPercentage}% 0`;\n    }\n    else if (direction === \"bt\") {\n        style.bottom = `${tickPosition}%`;\n        style.translate = `0 ${-offsetPercentage}%`;\n    }\n    else {\n        style.top = `${tickPosition}%`;\n        style.translate = `0 ${offsetPercentage}%`;\n    }\n    return style;\n}\n",
+      "start": 1754579497838,
+      "end": 1754579497893,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497893,
+      "end": 1754579497893,
+      "order": "normal"
+    }
+  ]
+}

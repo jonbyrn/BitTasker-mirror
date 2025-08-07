@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/setDate.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { toDate } from \"./toDate.js\";\n\n/**\n * The {@link setDate} function options.\n */\n\n/**\n * @name setDate\n * @category Day Helpers\n * @summary Set the day of the month to the given date.\n *\n * @description\n * Set the day of the month to the given date.\n *\n * @typeParam DateType - The `Date` type, the function operates on. Gets inferred from passed arguments. Allows using extensions like [`UTCDate`](https://github.com/date-fns/utc).\n * @typeParam ResultDate - The result `Date` type, it is the type returned from the context function if it is passed, or inferred from the arguments.\n *\n * @param date - The date to be changed\n * @param dayOfMonth - The day of the month of the new date\n * @param options - The options\n *\n * @returns The new date with the day of the month set\n *\n * @example\n * // Set the 30th day of the month to 1 September 2014:\n * const result = setDate(new Date(2014, 8, 1), 30)\n * //=> Tue Sep 30 2014 00:00:00\n */\nexport function setDate(date, dayOfMonth, options) {\n  const _date = toDate(date, options?.in);\n  _date.setDate(dayOfMonth);\n  return _date;\n}\n\n// Fallback for modularized imports:\nexport default setDate;\n",
+      "start": 1754579495018,
+      "end": 1754579495035,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495035,
+      "end": 1754579495035,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495036,
+      "end": 1754579495036,
+      "order": "normal"
+    }
+  ]
+}

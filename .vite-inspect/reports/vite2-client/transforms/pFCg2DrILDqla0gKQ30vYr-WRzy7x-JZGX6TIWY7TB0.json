@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/internal/date-time/announcer.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { srOnlyStylesString } from \"svelte-toolbelt\";\nimport { isBrowser, isHTMLElement } from \"../is.js\";\n/**\n * Creates or gets an announcer element which is used to announce messages to screen readers.\n * Within the date components, we use this to announce when the values of the individual segments\n * change, as without it we get inconsistent behavior across screen readers.\n */\nfunction initAnnouncer() {\n    if (!isBrowser)\n        return null;\n    let el = document.querySelector(\"[data-bits-announcer]\");\n    if (!isHTMLElement(el)) {\n        const div = document.createElement(\"div\");\n        div.style.cssText = srOnlyStylesString;\n        div.setAttribute(\"data-bits-announcer\", \"\");\n        div.appendChild(createLog(\"assertive\"));\n        div.appendChild(createLog(\"polite\"));\n        el = div;\n        document.body.insertBefore(el, document.body.firstChild);\n    }\n    /**\n     * Creates a log element for assertive or polite announcements.\n     */\n    function createLog(kind) {\n        const log = document.createElement(\"div\");\n        log.role = \"log\";\n        log.ariaLive = kind;\n        log.setAttribute(\"aria-relevant\", \"additions\");\n        return log;\n    }\n    /**\n     * Retrieves the log element for assertive or polite announcements.\n     */\n    function getLog(kind) {\n        if (!isHTMLElement(el))\n            return null;\n        const log = el.querySelector(`[aria-live=\"${kind}\"]`);\n        if (!isHTMLElement(log))\n            return null;\n        return log;\n    }\n    return {\n        getLog,\n    };\n}\n/**\n * Creates an announcer object that can be used to make `aria-live` announcements to screen readers.\n */\nexport function getAnnouncer() {\n    const announcer = initAnnouncer();\n    /**\n     * Announces a message to screen readers using the specified kind of announcement.\n     */\n    function announce(value, kind = \"assertive\", timeout = 7500) {\n        if (!announcer || !isBrowser)\n            return;\n        const log = announcer.getLog(kind);\n        const content = document.createElement(\"div\");\n        if (typeof value === \"number\") {\n            value = value.toString();\n        }\n        else if (value === null) {\n            value = \"Empty\";\n        }\n        else {\n            value = value.trim();\n        }\n        content.innerText = value;\n        if (kind === \"assertive\") {\n            log?.replaceChildren(content);\n        }\n        else {\n            log?.appendChild(content);\n        }\n        return setTimeout(() => {\n            content.remove();\n        }, timeout);\n    }\n    return {\n        announce,\n    };\n}\n",
+      "start": 1754579497764,
+      "end": 1754579497818,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497818,
+      "end": 1754579497819,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497819,
+      "end": 1754579497819,
+      "order": "normal"
+    }
+  ]
+}

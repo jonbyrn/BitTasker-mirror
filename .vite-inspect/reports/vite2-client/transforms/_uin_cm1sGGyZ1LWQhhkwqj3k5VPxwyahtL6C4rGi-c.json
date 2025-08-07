@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/company/privacy_policy.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"privacy\": {\r\n        \"title\": \"Privacy Policy\",\r\n        \"subtitle\": \"How we protect your privacy and handle your data when you use BitTasker to connect with taskers and taskees.\",\r\n        \"last_updated\": \"Last Updated: July 13, 2025\",\r\n        \"sections\": {\r\n            \"philosophy\": {\r\n                \"title\": \"Our Philosophy: You Are in Control\",\r\n                \"content\": \"BitTasker is fundamentally different from traditional gig platforms. We are built on <a href=\\\"https://nostr.com/\\\" target=\\\"_blank\\\" rel=\\\"noopener noreferrer\\\">Nostr</a>, a decentralized network. This means <strong>you own your identity and your data</strong>. You interact with the platform using a cryptographic key pair (a public and private key) that only you control. We never have access to your private key.\"\r\n            },\r\n            \"data_collection\": {\r\n                \"title\": \"What Information Do We Collect? (Almost None)\",\r\n                \"content\": \"Because of our decentralized design, we do not have access to or store any of your non-public personally identifiable information (PII), unless you make it public or provide it to us.\"\r\n            },\r\n            \"public_data\": {\r\n                \"title\": \"Information That is Public By Default\",\r\n                \"intro\": \"When you use a decentralized network like Nostr, some information is public by its very nature. This includes:\",\r\n                \"npub\": \"Your Nostr Public Key (npub): This is your public identifier, like a username.\",\r\n                \"profile\": \"Your Public Profile: Any information you add to your profile, such as a username, avatar, or bio, is publicly visible.\",\r\n                \"actions\": \"Public Actions: Posting a task or leaving a review are public events on the Nostr network.\",\r\n                \"transactions\": \"Bitcoin Transactions: Transactions on the Bitcoin blockchain are public by nature, though they do not contain personal identifiers beyond wallet addresses.\",\r\n                \"warning\": \"We strongly encourage you to use caution and discretion when deciding what information to make public.\"\r\n            },\r\n            \"private_data\": {\r\n                \"title\": \"Information That is Private\",\r\n                \"content\": \"<strong>All direct messages between users on BitTasker are end-to-end encrypted (E2EE)</strong>. We, the platform operators, cannot read your private conversations. Only you and the person you are communicating with can decrypt and view the messages.\"\r\n            },\r\n            \"analytics\": {\r\n                \"title\": \"Marketing Analytics\",\r\n                \"intro\": \"BitTasker may use marketing analytics tools to gather aggregate data for the purpose of measuring and improving our marketing efforts. These tools help us understand how users interact with our website and which marketing channels are most effective.\",\r\n                \"warning_title\": \"Important:\",\r\n                \"warning_body\": \"We do not collect personally identifiable information (PII) through these marketing tools, nor do we wish to collect such information. Any data collected is anonymous and aggregated, used solely to enhance user experience and optimize our marketing strategies.\",\r\n                \"details_intro\": \"These analytics may include:\",\r\n                \"usage\": \"Anonymous Usage Patterns: How users navigate through our website\",\r\n                \"referrals\": \"Referral Sources: Which websites or platforms directed traffic to BitTasker\",\r\n                \"performance\": \"Campaign Performance: How different marketing initiatives perform\"\r\n            },\r\n            \"use_of_info\": {\r\n                \"title\": \"How We Use Information\",\r\n                \"content\": \"Since we don't have access to your private data, we can't use it. We do not sell, rent, or share any personal information with third parties for marketing or any other purpose.\"\r\n            },\r\n            \"storage\": {\r\n                \"title\": \"Data Storage and Retention\",\r\n                \"content\": \"Your public data is stored on the distributed network of Nostr relays. BitTasker does not operate a central database of user content, but does provide a Nostr relay to BitTasker users at no cost. Your data exists on the network for as long as the relays you've published to choose to store it.\"\r\n            },\r\n            \"rights\": {\r\n                \"title\": \"Your Rights and Choices\",\r\n                \"content\": \"You have the ultimate right to your data. You can choose to stop using BitTasker at any time. Since you control your keys, you control your data. You can also connect to the Nostr network with other clients to manage the data associated with your public key, and export your private Nostr key to use on other Nostr clients while retaining your data and reputation.\"\r\n            },\r\n            \"changes\": {\r\n                \"title\": \"Changes to This Policy\",\r\n                \"content\": \"We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page. We encourage you to review this Privacy Policy periodically for any changes. By using BitTasker, you agree to the Privacy Policy in effect at the time of your use.\"\r\n            },\r\n            \"contact\": {\r\n                \"title\": \"Contact Us\",\r\n                \"content\": \"If you have any questions about this Privacy Policy, you can <a href=\\\"/contact\\\">contact us</a>.\"\r\n            }\r\n        }\r\n    }\r\n}",
+      "start": 1754579494753,
+      "end": 1754579494784,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494784,
+      "end": 1754579494785,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494785,
+      "end": 1754579494785,
+      "order": "normal"
+    }
+  ]
+}

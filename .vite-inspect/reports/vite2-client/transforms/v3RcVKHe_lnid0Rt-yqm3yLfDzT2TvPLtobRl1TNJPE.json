@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/nostr-tools/lib/esm/pure.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "// pure.ts\nimport { schnorr } from \"@noble/curves/secp256k1\";\nimport { bytesToHex } from \"@noble/hashes/utils\";\n\n// core.ts\nvar verifiedSymbol = Symbol(\"verified\");\nvar isRecord = (obj) => obj instanceof Object;\nfunction validateEvent(event) {\n  if (!isRecord(event))\n    return false;\n  if (typeof event.kind !== \"number\")\n    return false;\n  if (typeof event.content !== \"string\")\n    return false;\n  if (typeof event.created_at !== \"number\")\n    return false;\n  if (typeof event.pubkey !== \"string\")\n    return false;\n  if (!event.pubkey.match(/^[a-f0-9]{64}$/))\n    return false;\n  if (!Array.isArray(event.tags))\n    return false;\n  for (let i2 = 0; i2 < event.tags.length; i2++) {\n    let tag = event.tags[i2];\n    if (!Array.isArray(tag))\n      return false;\n    for (let j = 0; j < tag.length; j++) {\n      if (typeof tag[j] !== \"string\")\n        return false;\n    }\n  }\n  return true;\n}\nfunction sortEvents(events) {\n  return events.sort((a, b) => {\n    if (a.created_at !== b.created_at) {\n      return b.created_at - a.created_at;\n    }\n    return a.id.localeCompare(b.id);\n  });\n}\n\n// pure.ts\nimport { sha256 } from \"@noble/hashes/sha256\";\n\n// utils.ts\nvar utf8Decoder = new TextDecoder(\"utf-8\");\nvar utf8Encoder = new TextEncoder();\n\n// pure.ts\nvar JS = class {\n  generateSecretKey() {\n    return schnorr.utils.randomPrivateKey();\n  }\n  getPublicKey(secretKey) {\n    return bytesToHex(schnorr.getPublicKey(secretKey));\n  }\n  finalizeEvent(t, secretKey) {\n    const event = t;\n    event.pubkey = bytesToHex(schnorr.getPublicKey(secretKey));\n    event.id = getEventHash(event);\n    event.sig = bytesToHex(schnorr.sign(getEventHash(event), secretKey));\n    event[verifiedSymbol] = true;\n    return event;\n  }\n  verifyEvent(event) {\n    if (typeof event[verifiedSymbol] === \"boolean\")\n      return event[verifiedSymbol];\n    const hash = getEventHash(event);\n    if (hash !== event.id) {\n      event[verifiedSymbol] = false;\n      return false;\n    }\n    try {\n      const valid = schnorr.verify(event.sig, hash, event.pubkey);\n      event[verifiedSymbol] = valid;\n      return valid;\n    } catch (err) {\n      event[verifiedSymbol] = false;\n      return false;\n    }\n  }\n};\nfunction serializeEvent(evt) {\n  if (!validateEvent(evt))\n    throw new Error(\"can't serialize event with wrong or missing properties\");\n  return JSON.stringify([0, evt.pubkey, evt.created_at, evt.kind, evt.tags, evt.content]);\n}\nfunction getEventHash(event) {\n  let eventHash = sha256(utf8Encoder.encode(serializeEvent(event)));\n  return bytesToHex(eventHash);\n}\nvar i = new JS();\nvar generateSecretKey = i.generateSecretKey;\nvar getPublicKey = i.getPublicKey;\nvar finalizeEvent = i.finalizeEvent;\nvar verifyEvent = i.verifyEvent;\nexport {\n  finalizeEvent,\n  generateSecretKey,\n  getEventHash,\n  getPublicKey,\n  serializeEvent,\n  sortEvents,\n  validateEvent,\n  verifiedSymbol,\n  verifyEvent\n};\n",
+      "start": 1754579494134,
+      "end": 1754579494630,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494630,
+      "end": 1754579494631,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494631,
+      "end": 1754579494631,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/slider/components/slider.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps, type WritableBox } from \"svelte-toolbelt\";\n\timport type { SliderRootProps } from \"../types.js\";\n\timport { useSliderRoot } from \"../slider.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\timport { watch } from \"runed\";\n\n\tlet {\n\t\tchildren,\n\t\tchild,\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\tvalue = $bindable(),\n\t\ttype,\n\t\tonValueChange = noop,\n\t\tonValueCommit = noop,\n\t\tdisabled = false,\n\t\tmin = 0,\n\t\tmax = 100,\n\t\tstep = 1,\n\t\tdir = \"ltr\",\n\t\tautoSort = true,\n\t\torientation = \"horizontal\",\n\t\t...restProps\n\t}: SliderRootProps = $props();\n\n\tfunction handleDefaultValue() {\n\t\tif (value !== undefined) return;\n\t\tvalue = type === \"single\" ? 0 : [];\n\t}\n\n\t// SSR\n\thandleDefaultValue();\n\n\twatch.pre(\n\t\t() => value,\n\t\t() => {\n\t\t\thandleDefaultValue();\n\t\t}\n\t);\n\n\tconst rootState = useSliderRoot({\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t\tvalue: box.with(\n\t\t\t() => value,\n\t\t\t(v) => {\n\t\t\t\tvalue = v;\n\t\t\t\t// @ts-expect-error - we know\n\t\t\t\tonValueChange(v);\n\t\t\t}\n\t\t) as WritableBox<number> | WritableBox<number[]>,\n\t\t// @ts-expect-error - we know\n\t\tonValueCommit: box.with(() => onValueCommit),\n\t\tdisabled: box.with(() => disabled),\n\t\tmin: box.with(() => min),\n\t\tmax: box.with(() => max),\n\t\tstep: box.with(() => step),\n\t\tdir: box.with(() => dir),\n\t\tautoSort: box.with(() => autoSort),\n\t\torientation: box.with(() => orientation),\n\t\ttype,\n\t});\n\n\tconst mergedProps = $derived(mergeProps(restProps, rootState.props));\n</script>\n\n{#if child}\n\t{@render child({ props: mergedProps, ...rootState.snippetProps })}\n{:else}\n\t<span {...mergedProps}>\n\t\t{@render children?.(rootState.snippetProps)}\n\t</span>\n{/if}\n",
+      "start": 1754579496866,
+      "end": 1754579496951,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496951,
+      "end": 1754579496951,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496951,
+      "end": 1754579496951,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useSliderRoot } from \"../slider.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { noop } from \"../../../internal/noop.js\";\nimport { watch } from \"runed\";\n\nvar root_2 = $.template(`<span><!></span>`);\n\nexport default function Slider($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\tvalue = $.prop($$props, 'value', 15),\n\t\tonValueChange = $.prop($$props, 'onValueChange', 3, noop),\n\t\tonValueCommit = $.prop($$props, 'onValueCommit', 3, noop),\n\t\tdisabled = $.prop($$props, 'disabled', 3, false),\n\t\tmin = $.prop($$props, 'min', 3, 0),\n\t\tmax = $.prop($$props, 'max', 3, 100),\n\t\tstep = $.prop($$props, 'step', 3, 1),\n\t\tdir = $.prop($$props, 'dir', 3, \"ltr\"),\n\t\tautoSort = $.prop($$props, 'autoSort', 3, true),\n\t\torientation = $.prop($$props, 'orientation', 3, \"horizontal\"),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'children',\n\t\t\t'child',\n\t\t\t'id',\n\t\t\t'ref',\n\t\t\t'value',\n\t\t\t'type',\n\t\t\t'onValueChange',\n\t\t\t'onValueCommit',\n\t\t\t'disabled',\n\t\t\t'min',\n\t\t\t'max',\n\t\t\t'step',\n\t\t\t'dir',\n\t\t\t'autoSort',\n\t\t\t'orientation'\n\t\t]);\n\n\tfunction handleDefaultValue() {\n\t\tif (value() !== undefined) return;\n\t\tvalue($$props.type === \"single\" ? 0 : []);\n\t}\n\n\t// SSR\n\thandleDefaultValue();\n\n\twatch.pre(() => value(), () => {\n\t\thandleDefaultValue();\n\t});\n\n\tconst rootState = useSliderRoot({\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v)),\n\t\tvalue: box.with(() => value(), (v) => {\n\t\t\tvalue(v);\n\t\t\t// @ts-expect-error - we know\n\t\t\tonValueChange()(v);\n\t\t}),\n\t\t// @ts-expect-error - we know\n\t\tonValueCommit: box.with(() => onValueCommit()),\n\t\tdisabled: box.with(() => disabled()),\n\t\tmin: box.with(() => min()),\n\t\tmax: box.with(() => max()),\n\t\tstep: box.with(() => step()),\n\t\tdir: box.with(() => dir()),\n\t\tautoSort: box.with(() => autoSort()),\n\t\torientation: box.with(() => orientation()),\n\t\ttype: $$props.type\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, rootState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t\tvar render_arg = $.derived_safe_equal(() => ({\n\t\t\t\tprops: $.get(mergedProps),\n\t\t\t\t...rootState.snippetProps\n\t\t\t}));\n\n\t\t\t$.snippet(node_1, () => $$props.child, () => $.get(render_arg));\n\t\t\t$.append($$anchor, fragment_1);\n\t\t};\n\n\t\tvar alternate = ($$anchor) => {\n\t\t\tvar span = root_2();\n\t\t\tlet attributes;\n\t\t\tvar node_2 = $.child(span);\n\n\t\t\t$.snippet(node_2, () => $$props.children ?? $.noop, () => rootState.snippetProps);\n\t\t\t$.reset(span);\n\t\t\t$.template_effect(() => attributes = $.set_attributes(span, attributes, { ...$.get(mergedProps) }));\n\t\t\t$.append($$anchor, span);\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496951,
+      "end": 1754579496955,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAA0B,iBAAiB;SAE1D,aAAa,QAAQ,qBAAqB;SAC1C,KAAK,QAAQ,6BAA6B;SAC1C,IAAI,QAAQ,2BAA2B;SACvC,KAAK,QAAQ,OAAO;;;;;;;KAK5B,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EACpB,KAAK;EAEL,aAAa,uCAAG,IAAI;EACpB,aAAa,uCAAG,IAAI;EACpB,QAAQ,kCAAG,KAAK;EAChB,GAAG,6BAAG,CAAC;EACP,GAAG,6BAAG,GAAG;EACT,IAAI,8BAAG,CAAC;EACR,GAAG,6BAAG,KAAK;EACX,QAAQ,kCAAG,IAAI;EACf,WAAW,qCAAG,YAAY;EACvB;;;;;;;;;;;;;;;;;;;;;UAGK,kBAAkB,GAAG;MACzB,KAAK,OAAK,SAAS;EACvB,KAAK,kBAAY,QAAQ,GAAG,CAAC;CAC9B;;;CAGA,kBAAkB;;CAElB,KAAK,CAAC,GAAG,OACF,KAAK,UACL;EACL,kBAAkB;CACnB;;OAGK,SAAS,GAAG,aAAa;EAC9B,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;EAEhB,KAAK,EAAE,GAAG,CAAC,IAAI,OACR,KAAK,KACV,CAAC,KAAK;GACN,KAAK,CAAG,CAAC;;GAET,aAAa,GAAC,CAAC;EAChB;;EAGD,aAAa,EAAE,GAAG,CAAC,IAAI,OAAO,aAAa;EAC3C,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,GAAG,EAAE,GAAG,CAAC,IAAI,OAAO,GAAG;EACvB,GAAG,EAAE,GAAG,CAAC,IAAI,OAAO,GAAG;EACvB,IAAI,EAAE,GAAG,CAAC,IAAI,OAAO,IAAI;EACzB,GAAG,EAAE,GAAG,CAAC,IAAI,OAAO,GAAG;EACvB,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,WAAW,EAAE,GAAG,CAAC,IAAI,OAAO,WAAW;EACvC,IAAI;;;OAGC,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,SAAS,CAAC,KAAK;;;;;;;;;;IAIjD,KAAK,QAAE,WAAW;OAAK,SAAS,CAAC,YAAY;;;;;;;;;;;;6DAGzC,SAAS,CAAC,YAAY;;sFADjC,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "slider.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496955,
+      "end": 1754579496955,
+      "order": "normal"
+    }
+  ]
+}

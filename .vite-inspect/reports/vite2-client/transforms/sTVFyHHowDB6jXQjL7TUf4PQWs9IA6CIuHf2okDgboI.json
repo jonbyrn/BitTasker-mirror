@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/taskers/fee.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"tasker\": {\r\n        \"fees\": {\r\n            \"title\": \"Taskers Fees & Pricing\",\r\n            \"subtitle\": \"Simple, transparent pricing designed to reward loyal taskers\",\r\n            \"structure\": {\r\n                \"title\": \"Tasker Fee Structure\",\r\n                \"description\": \"At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskers enjoy the best rates.\",\r\n                \"note\": \"<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees.\"\r\n            },\r\n            \"savingsTitle\": \"Save money as you use BitTasker!\",\r\n            \"savingsDescription\": \"Our unique tier system rewards active taskers with progressively lower fees.\",\r\n            \"label\": \"Fee Rate\",\r\n            \"tier1\": {\r\n                \"title\": \"Nakamoto<br />Newbie\",\r\n                \"description\": \"For taskers posting and completing 0-3 tasks in the last 30 days\",\r\n                \"example\": \"Example: For a $100 task, you'll pay $112.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker).\"\r\n            },\r\n            \"tier2\": {\r\n                \"title\": \"Satoshi<br />Stacker\",\r\n                \"description\": \"For taskers posting and completing 4-10 tasks in the last 30 days\",\r\n                \"example\": \"Example: For a $100 task, you'll pay $110 total (plus $0.05-$0.10 network fees, not paid to BitTasker).\"\r\n            },\r\n            \"tier3\": {\r\n                \"title\": \"Hash<br />Master\",\r\n                \"description\": \"For our most active taskers posting and completing 11+ tasks in the last 30 days\",\r\n                \"example\": \"Example: For a $100 task, you'll pay $107.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker).\"\r\n            },\r\n            \"btc\": {\r\n                \"title\": \"Bitcoin Payments: Lower Fees, Same Great Service\",\r\n                \"description\": \"Save even more when you pay with Bitcoin! We offer reduced rates for taskers who choose to use Bitcoin.\",\r\n                \"table\": {\r\n                    \"header_1\": \"Tasker Tier\",\r\n                    \"header_2\": \"Bitcoin Fee Rate\",\r\n                    \"header_3\": \"Savings vs. Standard\",\r\n                    \"tier_1_savings\": \"10% lower!\",\r\n                    \"tier_2_savings\": \"8% lower!\",\r\n                    \"tier_3_savings\": \"6% lower!\"\r\n                },\r\n                \"rebooking\": {\r\n                    \"btc_example\": \"<strong>Bitcoin Example:</strong> As a <strong class=\\\"text-primary\\\">Hash Master</strong> tier tasker, a $100 task paid with Bitcoin would cost just $101.50 total!\"\r\n                }\r\n            },\r\n            \"rebooking\": {\r\n                \"title\": \"Rebooking Discount\",\r\n                \"description\": \"Love working with a particular taskee? We reward repeat partnerships with significantly reduced fees!\",\r\n                \"card_title\": \"Rebook & Save!\",\r\n                \"card_intro\": \"When you rebook a taskee you've worked with before:\",\r\n                \"standard_fee\": \"Standard payments: Just <strong>3% fee</strong> (down from 7.5–12.5%)\",\r\n                \"btc_fee\": \"Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5–2.5%)\",\r\n                \"example\": \"Example: Rebooking a $100 task costs just $103 with standard payment or $101 with Bitcoin!\",\r\n                \"counts_toward_tier\": \"Booking repeat work with a taskee counts towards your 30 day rolling tasks to maintain your tier.\"\r\n            },\r\n            \"benefits\": {\r\n                \"title\": \"Tasker Benefits & Visibility\",\r\n                \"description\": \"Higher tier taskers enjoy additional benefits beyond reduced fees:\",\r\n                \"badge\": \"<strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile\",\r\n                \"priority\": \"<strong>Priority Attention:</strong> Higher tier taskers may receive more proposals from top taskees\",\r\n                \"profile\": \"<strong>Enhanced Profile:</strong> Your tier status signals to taskees that you're an active and trusted tasker\"\r\n            },\r\n            \"cta\": {\r\n                \"title\": \"Ready to hire taskees with transparent pricing?\",\r\n                \"button\": \"Post a Task Now\"\r\n            }\r\n        }\r\n    }\r\n}",
+      "start": 1754579494796,
+      "end": 1754579494809,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494810,
+      "end": 1754579494810,
+      "order": "normal"
+    }
+  ]
+}

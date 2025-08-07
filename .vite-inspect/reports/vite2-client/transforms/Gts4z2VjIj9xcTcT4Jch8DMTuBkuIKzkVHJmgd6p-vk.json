@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/VerifyTrunstile.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"VerifyTrunstile\",\r\n    \"kind\": \"HoudiniMutation\",\r\n    \"hash\": \"f3f596467dae21d15075a976ec01c974adf83f65c45d1b0b79d7eeaa4854c49a\",\r\n\r\n    \"raw\": `mutation VerifyTrunstile($input: TurnstileVerificationInput!) {\r\n  verifyTurnstileToken(input: $input) {\r\n    success\r\n    message\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Mutation\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"verifyTurnstileToken\": {\r\n                \"type\": \"TurnstileVerificationResult\",\r\n                \"keyRaw\": \"verifyTurnstileToken(input: $input)\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"success\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"success\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"message\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"message\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"input\": {\r\n        \"fields\": {\r\n            \"input\": \"TurnstileVerificationInput\"\r\n        },\r\n\r\n        \"types\": {\r\n            \"TurnstileVerificationInput\": {\r\n                \"action\": \"String\",\r\n                \"token\": \"String\"\r\n            }\r\n        },\r\n\r\n        \"defaults\": {},\r\n        \"runtimeScalars\": {}\r\n    }\r\n};\r\n\r\n\"HoudiniHash=dbdb3ab34975d0810bded370502b549a6b49729dbcf535b17bd25eb2d41d5557\";",
+      "start": 1754579495498,
+      "end": 1754579495510,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal"
+    }
+  ]
+}

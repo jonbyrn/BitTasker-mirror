@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@sveltejs/kit/src/runtime/hash.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Hash using djb2\n * @param {import('types').StrictBody[]} values\n */\nexport function hash(...values) {\n\tlet hash = 5381;\n\n\tfor (const value of values) {\n\t\tif (typeof value === 'string') {\n\t\t\tlet i = value.length;\n\t\t\twhile (i) hash = (hash * 33) ^ value.charCodeAt(--i);\n\t\t} else if (ArrayBuffer.isView(value)) {\n\t\t\tconst buffer = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);\n\t\t\tlet i = buffer.length;\n\t\t\twhile (i) hash = (hash * 33) ^ buffer[--i];\n\t\t} else {\n\t\t\tthrow new TypeError('value must be a string or TypedArray');\n\t\t}\n\t}\n\n\treturn (hash >>> 0).toString(36);\n}\n",
+      "start": 1754579494233,
+      "end": 1754579494618,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494618,
+      "end": 1754579494618,
+      "order": "normal"
+    }
+  ]
+}

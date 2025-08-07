@@ -1,0 +1,98 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dom/operations.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { TemplateNode } from '#client' */\nimport { hydrate_node, hydrating, set_hydrate_node } from './hydration.js';\nimport { DEV } from 'esm-env';\nimport { init_array_prototype_warnings } from '../dev/equality.js';\nimport { get_descriptor, is_extensible } from '../../shared/utils.js';\n\n// export these for reference in the compiled code, making global name deduplication unnecessary\n/** @type {Window} */\nexport var $window;\n\n/** @type {Document} */\nexport var $document;\n\n/** @type {boolean} */\nexport var is_firefox;\n\n/** @type {() => Node | null} */\nvar first_child_getter;\n/** @type {() => Node | null} */\nvar next_sibling_getter;\n\n/**\n * Initialize these lazily to avoid issues when using the runtime in a server context\n * where these globals are not available while avoiding a separate server entry point\n */\nexport function init_operations() {\n\tif ($window !== undefined) {\n\t\treturn;\n\t}\n\n\t$window = window;\n\t$document = document;\n\tis_firefox = /Firefox/.test(navigator.userAgent);\n\n\tvar element_prototype = Element.prototype;\n\tvar node_prototype = Node.prototype;\n\tvar text_prototype = Text.prototype;\n\n\t// @ts-ignore\n\tfirst_child_getter = get_descriptor(node_prototype, 'firstChild').get;\n\t// @ts-ignore\n\tnext_sibling_getter = get_descriptor(node_prototype, 'nextSibling').get;\n\n\tif (is_extensible(element_prototype)) {\n\t\t// the following assignments improve perf of lookups on DOM nodes\n\t\t// @ts-expect-error\n\t\telement_prototype.__click = undefined;\n\t\t// @ts-expect-error\n\t\telement_prototype.__className = undefined;\n\t\t// @ts-expect-error\n\t\telement_prototype.__attributes = null;\n\t\t// @ts-expect-error\n\t\telement_prototype.__style = undefined;\n\t\t// @ts-expect-error\n\t\telement_prototype.__e = undefined;\n\t}\n\n\tif (is_extensible(text_prototype)) {\n\t\t// @ts-expect-error\n\t\ttext_prototype.__t = undefined;\n\t}\n\n\tif (DEV) {\n\t\t// @ts-expect-error\n\t\telement_prototype.__svelte_meta = null;\n\n\t\tinit_array_prototype_warnings();\n\t}\n}\n\n/**\n * @param {string} value\n * @returns {Text}\n */\nexport function create_text(value = '') {\n\treturn document.createTextNode(value);\n}\n\n/**\n * @template {Node} N\n * @param {N} node\n * @returns {Node | null}\n */\n/*@__NO_SIDE_EFFECTS__*/\nexport function get_first_child(node) {\n\treturn first_child_getter.call(node);\n}\n\n/**\n * @template {Node} N\n * @param {N} node\n * @returns {Node | null}\n */\n/*@__NO_SIDE_EFFECTS__*/\nexport function get_next_sibling(node) {\n\treturn next_sibling_getter.call(node);\n}\n\n/**\n * Don't mark this as side-effect-free, hydration needs to walk all nodes\n * @template {Node} N\n * @param {N} node\n * @param {boolean} is_text\n * @returns {Node | null}\n */\nexport function child(node, is_text) {\n\tif (!hydrating) {\n\t\treturn get_first_child(node);\n\t}\n\n\tvar child = /** @type {TemplateNode} */ (get_first_child(hydrate_node));\n\n\t// Child can be null if we have an element with a single child, like `<p>{text}</p>`, where `text` is empty\n\tif (child === null) {\n\t\tchild = hydrate_node.appendChild(create_text());\n\t} else if (is_text && child.nodeType !== 3) {\n\t\tvar text = create_text();\n\t\tchild?.before(text);\n\t\tset_hydrate_node(text);\n\t\treturn text;\n\t}\n\n\tset_hydrate_node(child);\n\treturn child;\n}\n\n/**\n * Don't mark this as side-effect-free, hydration needs to walk all nodes\n * @param {DocumentFragment | TemplateNode[]} fragment\n * @param {boolean} is_text\n * @returns {Node | null}\n */\nexport function first_child(fragment, is_text) {\n\tif (!hydrating) {\n\t\t// when not hydrating, `fragment` is a `DocumentFragment` (the result of calling `open_frag`)\n\t\tvar first = /** @type {DocumentFragment} */ (get_first_child(/** @type {Node} */ (fragment)));\n\n\t\t// TODO prevent user comments with the empty string when preserveComments is true\n\t\tif (first instanceof Comment && first.data === '') return get_next_sibling(first);\n\n\t\treturn first;\n\t}\n\n\t// if an {expression} is empty during SSR, there might be no\n\t// text node to hydrate — we must therefore create one\n\tif (is_text && hydrate_node?.nodeType !== 3) {\n\t\tvar text = create_text();\n\n\t\thydrate_node?.before(text);\n\t\tset_hydrate_node(text);\n\t\treturn text;\n\t}\n\n\treturn hydrate_node;\n}\n\n/**\n * Don't mark this as side-effect-free, hydration needs to walk all nodes\n * @param {TemplateNode} node\n * @param {number} count\n * @param {boolean} is_text\n * @returns {Node | null}\n */\nexport function sibling(node, count = 1, is_text = false) {\n\tlet next_sibling = hydrating ? hydrate_node : node;\n\tvar last_sibling;\n\n\twhile (count--) {\n\t\tlast_sibling = next_sibling;\n\t\tnext_sibling = /** @type {TemplateNode} */ (get_next_sibling(next_sibling));\n\t}\n\n\tif (!hydrating) {\n\t\treturn next_sibling;\n\t}\n\n\tvar type = next_sibling?.nodeType;\n\n\t// if a sibling {expression} is empty during SSR, there might be no\n\t// text node to hydrate — we must therefore create one\n\tif (is_text && type !== 3) {\n\t\tvar text = create_text();\n\t\t// If the next sibling is `null` and we're handling text then it's because\n\t\t// the SSR content was empty for the text, so we need to generate a new text\n\t\t// node and insert it after the last sibling\n\t\tif (next_sibling === null) {\n\t\t\tlast_sibling?.after(text);\n\t\t} else {\n\t\t\tnext_sibling.before(text);\n\t\t}\n\t\tset_hydrate_node(text);\n\t\treturn text;\n\t}\n\n\tset_hydrate_node(next_sibling);\n\treturn /** @type {TemplateNode} */ (next_sibling);\n}\n\n/**\n * @template {Node} N\n * @param {N} node\n * @returns {void}\n */\nexport function clear_text_content(node) {\n\tnode.textContent = '';\n}\n",
+      "start": 1754579493933,
+      "end": 1754579493963,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493963,
+      "end": 1754579493963,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493963,
+      "end": 1754579493963,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493963,
+      "end": 1754579493963,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493963,
+      "end": 1754579493963,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493963,
+      "end": 1754579493963,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "import { hydrate_node, hydrating, set_hydrate_node } from \"./hydration.js\";\nimport { DEV } from \"esm-env\";\nimport { init_array_prototype_warnings } from \"../dev/equality.js\";\nimport { get_descriptor, is_extensible } from \"../../shared/utils.js\";\nexport var $window;\nexport var $document;\nexport var is_firefox;\nvar first_child_getter;\nvar next_sibling_getter;\nexport function init_operations() {\n  if ($window !== void 0) {\n    return;\n  }\n  $window = window;\n  $document = document;\n  is_firefox = /Firefox/.test(navigator.userAgent);\n  var element_prototype = Element.prototype;\n  var node_prototype = Node.prototype;\n  var text_prototype = Text.prototype;\n  first_child_getter = get_descriptor(node_prototype, \"firstChild\").get;\n  next_sibling_getter = get_descriptor(node_prototype, \"nextSibling\").get;\n  if (is_extensible(element_prototype)) {\n    element_prototype.__click = void 0;\n    element_prototype.__className = void 0;\n    element_prototype.__attributes = null;\n    element_prototype.__style = void 0;\n    element_prototype.__e = void 0;\n  }\n  if (is_extensible(text_prototype)) {\n    text_prototype.__t = void 0;\n  }\n  if (DEV) {\n    element_prototype.__svelte_meta = null;\n    init_array_prototype_warnings();\n  }\n}\nexport function create_text(value = \"\") {\n  return document.createTextNode(value);\n}\n// @__NO_SIDE_EFFECTS__\nexport function get_first_child(node) {\n  return first_child_getter.call(node);\n}\n// @__NO_SIDE_EFFECTS__\nexport function get_next_sibling(node) {\n  return next_sibling_getter.call(node);\n}\nexport function child(node, is_text) {\n  if (!hydrating) {\n    return /* @__PURE__ */ get_first_child(node);\n  }\n  var child2 = (\n    /** @type {TemplateNode} */\n    /* @__PURE__ */ get_first_child(hydrate_node)\n  );\n  if (child2 === null) {\n    child2 = hydrate_node.appendChild(create_text());\n  } else if (is_text && child2.nodeType !== 3) {\n    var text = create_text();\n    child2?.before(text);\n    set_hydrate_node(text);\n    return text;\n  }\n  set_hydrate_node(child2);\n  return child2;\n}\nexport function first_child(fragment, is_text) {\n  if (!hydrating) {\n    var first = (\n      /** @type {DocumentFragment} */\n      /* @__PURE__ */ get_first_child(\n        /** @type {Node} */\n        fragment\n      )\n    );\n    if (first instanceof Comment && first.data === \"\") return /* @__PURE__ */ get_next_sibling(first);\n    return first;\n  }\n  if (is_text && hydrate_node?.nodeType !== 3) {\n    var text = create_text();\n    hydrate_node?.before(text);\n    set_hydrate_node(text);\n    return text;\n  }\n  return hydrate_node;\n}\nexport function sibling(node, count = 1, is_text = false) {\n  let next_sibling = hydrating ? hydrate_node : node;\n  var last_sibling;\n  while (count--) {\n    last_sibling = next_sibling;\n    next_sibling = /** @type {TemplateNode} */\n    /* @__PURE__ */ get_next_sibling(next_sibling);\n  }\n  if (!hydrating) {\n    return next_sibling;\n  }\n  var type = next_sibling?.nodeType;\n  if (is_text && type !== 3) {\n    var text = create_text();\n    if (next_sibling === null) {\n      last_sibling?.after(text);\n    } else {\n      next_sibling.before(text);\n    }\n    set_hydrate_node(text);\n    return text;\n  }\n  set_hydrate_node(next_sibling);\n  return (\n    /** @type {TemplateNode} */\n    next_sibling\n  );\n}\nexport function clear_text_content(node) {\n  node.textContent = \"\";\n}\n",
+      "start": 1754579493963,
+      "end": 1754579493988,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493988,
+      "end": 1754579493988,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493989,
+      "end": 1754579493989,
+      "order": "normal"
+    }
+  ]
+}

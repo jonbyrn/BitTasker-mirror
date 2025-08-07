@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/deepmerge/dist/cjs.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "'use strict';\n\nvar isMergeableObject = function isMergeableObject(value) {\n\treturn isNonNullObject(value)\n\t\t&& !isSpecial(value)\n};\n\nfunction isNonNullObject(value) {\n\treturn !!value && typeof value === 'object'\n}\n\nfunction isSpecial(value) {\n\tvar stringValue = Object.prototype.toString.call(value);\n\n\treturn stringValue === '[object RegExp]'\n\t\t|| stringValue === '[object Date]'\n\t\t|| isReactElement(value)\n}\n\n// see https://github.com/facebook/react/blob/b5ac963fb791d1298e7f396236383bc955f916c1/src/isomorphic/classic/element/ReactElement.js#L21-L25\nvar canUseSymbol = typeof Symbol === 'function' && Symbol.for;\nvar REACT_ELEMENT_TYPE = canUseSymbol ? Symbol.for('react.element') : 0xeac7;\n\nfunction isReactElement(value) {\n\treturn value.$$typeof === REACT_ELEMENT_TYPE\n}\n\nfunction emptyTarget(val) {\n\treturn Array.isArray(val) ? [] : {}\n}\n\nfunction cloneUnlessOtherwiseSpecified(value, options) {\n\treturn (options.clone !== false && options.isMergeableObject(value))\n\t\t? deepmerge(emptyTarget(value), value, options)\n\t\t: value\n}\n\nfunction defaultArrayMerge(target, source, options) {\n\treturn target.concat(source).map(function(element) {\n\t\treturn cloneUnlessOtherwiseSpecified(element, options)\n\t})\n}\n\nfunction getMergeFunction(key, options) {\n\tif (!options.customMerge) {\n\t\treturn deepmerge\n\t}\n\tvar customMerge = options.customMerge(key);\n\treturn typeof customMerge === 'function' ? customMerge : deepmerge\n}\n\nfunction getEnumerableOwnPropertySymbols(target) {\n\treturn Object.getOwnPropertySymbols\n\t\t? Object.getOwnPropertySymbols(target).filter(function(symbol) {\n\t\t\treturn Object.propertyIsEnumerable.call(target, symbol)\n\t\t})\n\t\t: []\n}\n\nfunction getKeys(target) {\n\treturn Object.keys(target).concat(getEnumerableOwnPropertySymbols(target))\n}\n\nfunction propertyIsOnObject(object, property) {\n\ttry {\n\t\treturn property in object\n\t} catch(_) {\n\t\treturn false\n\t}\n}\n\n// Protects from prototype poisoning and unexpected merging up the prototype chain.\nfunction propertyIsUnsafe(target, key) {\n\treturn propertyIsOnObject(target, key) // Properties are safe to merge if they don't exist in the target yet,\n\t\t&& !(Object.hasOwnProperty.call(target, key) // unsafe if they exist up the prototype chain,\n\t\t\t&& Object.propertyIsEnumerable.call(target, key)) // and also unsafe if they're nonenumerable.\n}\n\nfunction mergeObject(target, source, options) {\n\tvar destination = {};\n\tif (options.isMergeableObject(target)) {\n\t\tgetKeys(target).forEach(function(key) {\n\t\t\tdestination[key] = cloneUnlessOtherwiseSpecified(target[key], options);\n\t\t});\n\t}\n\tgetKeys(source).forEach(function(key) {\n\t\tif (propertyIsUnsafe(target, key)) {\n\t\t\treturn\n\t\t}\n\n\t\tif (propertyIsOnObject(target, key) && options.isMergeableObject(source[key])) {\n\t\t\tdestination[key] = getMergeFunction(key, options)(target[key], source[key], options);\n\t\t} else {\n\t\t\tdestination[key] = cloneUnlessOtherwiseSpecified(source[key], options);\n\t\t}\n\t});\n\treturn destination\n}\n\nfunction deepmerge(target, source, options) {\n\toptions = options || {};\n\toptions.arrayMerge = options.arrayMerge || defaultArrayMerge;\n\toptions.isMergeableObject = options.isMergeableObject || isMergeableObject;\n\t// cloneUnlessOtherwiseSpecified is added to `options` so that custom arrayMerge()\n\t// implementations can use it. The caller may not replace it.\n\toptions.cloneUnlessOtherwiseSpecified = cloneUnlessOtherwiseSpecified;\n\n\tvar sourceIsArray = Array.isArray(source);\n\tvar targetIsArray = Array.isArray(target);\n\tvar sourceAndTargetTypesMatch = sourceIsArray === targetIsArray;\n\n\tif (!sourceAndTargetTypesMatch) {\n\t\treturn cloneUnlessOtherwiseSpecified(source, options)\n\t} else if (sourceIsArray) {\n\t\treturn options.arrayMerge(target, source, options)\n\t} else {\n\t\treturn mergeObject(target, source, options)\n\t}\n}\n\ndeepmerge.all = function deepmergeAll(array, options) {\n\tif (!Array.isArray(array)) {\n\t\tthrow new Error('first argument should be an array')\n\t}\n\n\treturn array.reduce(function(prev, next) {\n\t\treturn deepmerge(prev, next, options)\n\t}, {})\n};\n\nvar deepmerge_1 = deepmerge;\n\nmodule.exports = deepmerge_1;\n",
+      "start": 1754579493960,
+      "end": 1754579494025,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494025,
+      "end": 1754579494026,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494026,
+      "end": 1754579494026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494031,
+      "end": 1754579494031,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494031,
+      "end": 1754579494031,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494031,
+      "end": 1754579494031,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494031,
+      "end": 1754579494031,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494031,
+      "end": 1754579494031,
+      "order": "normal"
+    }
+  ]
+}

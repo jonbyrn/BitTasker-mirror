@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/isExists.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * @name isExists\n * @category Common Helpers\n * @summary Is the given date exists?\n *\n * @description\n * Checks if the given arguments convert to an existing date.\n *\n * @param year - The year of the date to check\n * @param month - The month of the date to check\n * @param day - The day of the date to check\n *\n * @returns `true` if the date exists\n *\n * @example\n * // For the valid date:\n * const result = isExists(2018, 0, 31)\n * //=> true\n *\n * @example\n * // For the invalid date:\n * const result = isExists(2018, 1, 31)\n * //=> false\n */\nexport function isExists(year, month, day) {\n  const date = new Date(year, month, day);\n  return (\n    date.getFullYear() === year &&\n    date.getMonth() === month &&\n    date.getDate() === day\n  );\n}\n\n// Fallback for modularized imports:\nexport default isExists;\n",
+      "start": 1754579494949,
+      "end": 1754579494969,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494969,
+      "end": 1754579494970,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494970,
+      "end": 1754579494970,
+      "order": "normal"
+    }
+  ]
+}

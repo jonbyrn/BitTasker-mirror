@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/company/press.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"press\": {\r\n        \"title\": \"Press & Media\",\r\n        \"description\": \"BitTasker is revolutionizing how taskers and taskees connect, work, and get paid through Bitcoin-powered escrow.\",\r\n        \"media_kit\": {\r\n            \"title\": \"Media Kit\",\r\n            \"description\": \"Download our official brand assets, including logos, leadership headshots, and brand guidelines to ensure accuracy in your reporting.\",\r\n            \"logo_pack\": \"Download Logo Pack (.zip)\",\r\n            \"guidelines\": \"Download Brand Guidelines (.pdf)\",\r\n            \"coming_soon\": \"*Media assets coming soon.\"\r\n        },\r\n        \"about\": {\r\n            \"title\": \"About BitTasker\",\r\n            \"description\": \"BitTasker is a revolutionary gig economy platform that connects individuals and businesses with skilled professionals for a wide range of tasks. By integrating Bitcoin for fast, secure, and low-cost payments, and leveraging decentralized technologies like Nostr for identity, BitTasker is building a more open, global, and equitable marketplace for services.\"\r\n        },\r\n        \"inquiries\": {\r\n            \"title\": \"Media Inquiries\",\r\n            \"description\": \"For all press and media-related inquiries, please contact our communications team. We're happy to provide interviews, statements, and additional information.\",\r\n            \"button\": \"Contact Us\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494746,
+      "end": 1754579494782,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal"
+    }
+  ]
+}

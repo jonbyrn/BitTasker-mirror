@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/cache/subscription.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { flatten } from \"../lib/flatten\";\nimport { getFieldsForType } from \"../lib/selection\";\nimport { evaluateKey, rootID } from \"./stuff\";\nclass InMemorySubscriptions {\n  cache;\n  constructor(cache) {\n    this.cache = cache;\n  }\n  subscribers = /* @__PURE__ */ new Map();\n  keyVersions = {};\n  activeFields(parent) {\n    return Object.keys(this.subscribers.get(parent) || {});\n  }\n  copySubscribers(from, to) {\n    this.subscribers.set(to, this.subscribers.get(from) || /* @__PURE__ */ new Map());\n  }\n  add({\n    parent,\n    spec,\n    selection,\n    variables,\n    parentType\n  }) {\n    const __typename = this.cache._internal_unstable.storage.get(parent, \"__typename\").value;\n    let targetSelection = getFieldsForType(selection, __typename, false);\n    for (const fieldSelection of Object.values(targetSelection || {})) {\n      const {\n        keyRaw,\n        selection: innerSelection,\n        type,\n        list,\n        filters,\n        visible\n      } = fieldSelection;\n      if (!visible) {\n        continue;\n      }\n      const key = evaluateKey(keyRaw, variables);\n      let targetSelection2;\n      if (innerSelection) {\n        const __typename2 = this.cache._internal_unstable.storage.get(parent, \"__typename\").value;\n        targetSelection2 = getFieldsForType(innerSelection, __typename2, false);\n      }\n      this.addFieldSubscription({\n        id: parent,\n        key,\n        selection: [spec, targetSelection2],\n        type\n      });\n      if (list) {\n        this.registerList({\n          list,\n          filters,\n          id: parent,\n          key,\n          variables,\n          selection: innerSelection,\n          parentType: parentType || spec.rootType\n        });\n      }\n      if (innerSelection) {\n        const { value: linkedRecord } = this.cache._internal_unstable.storage.get(\n          parent,\n          key\n        );\n        let children = !Array.isArray(linkedRecord) ? [linkedRecord] : flatten(linkedRecord) || [];\n        for (const child of children) {\n          if (!child) {\n            continue;\n          }\n          this.add({\n            parent: child,\n            spec,\n            selection: innerSelection,\n            variables,\n            parentType: type\n          });\n        }\n      }\n    }\n  }\n  addFieldSubscription({\n    id,\n    key,\n    selection,\n    type\n  }) {\n    const spec = selection[0];\n    if (!this.subscribers.has(id)) {\n      this.subscribers.set(id, /* @__PURE__ */ new Map());\n    }\n    const subscriber = this.subscribers.get(id);\n    if (!subscriber.has(key)) {\n      subscriber.set(key, {\n        selections: [],\n        referenceCounts: /* @__PURE__ */ new Map()\n      });\n    }\n    const subscriberField = subscriber.get(key);\n    if (!this.keyVersions[key]) {\n      this.keyVersions[key] = /* @__PURE__ */ new Set();\n    }\n    this.keyVersions[key].add(key);\n    if (!subscriberField.selections.some(([{ set }]) => set === spec.set)) {\n      subscriberField.selections.push([spec, selection[1]]);\n    }\n    subscriberField.referenceCounts.set(\n      spec.set,\n      (subscriberField.referenceCounts.get(spec.set) || 0) + 1\n    );\n    this.cache._internal_unstable.lifetimes.resetLifetime(id, key);\n  }\n  registerList({\n    list,\n    id,\n    key,\n    parentType,\n    selection,\n    filters,\n    variables\n  }) {\n    this.cache._internal_unstable.lists.add({\n      name: list.name,\n      connection: list.connection,\n      recordID: id,\n      recordType: this.cache._internal_unstable.storage.get(id, \"__typename\")?.value || parentType,\n      listType: list.type,\n      key,\n      selection,\n      filters: Object.entries(filters || {}).reduce((acc, [key2, { kind, value }]) => {\n        return {\n          ...acc,\n          [key2]: kind !== \"Variable\" ? value : variables[value]\n        };\n      }, {})\n    });\n  }\n  addMany({\n    parent,\n    variables,\n    subscribers,\n    parentType\n  }) {\n    for (const [spec, targetSelection] of subscribers) {\n      for (const selection of Object.values(targetSelection ?? {})) {\n        const {\n          type: linkedType,\n          keyRaw,\n          selection: innerSelection,\n          list,\n          filters\n        } = selection;\n        const key = evaluateKey(keyRaw, variables);\n        const fieldSelection = innerSelection ? getFieldsForType(innerSelection, parentType, false) : void 0;\n        this.addFieldSubscription({\n          id: parent,\n          key,\n          selection: [spec, fieldSelection],\n          type: linkedType\n        });\n        if (list) {\n          this.registerList({\n            list,\n            filters,\n            id: parent,\n            key,\n            variables,\n            selection: innerSelection,\n            parentType: parentType || spec.rootType\n          });\n        }\n        const childSelection = selection.selection;\n        if (childSelection) {\n          const { value: link } = this.cache._internal_unstable.storage.get(parent, key);\n          const children = !Array.isArray(link) ? [link] : flatten(link);\n          for (const linkedRecord of children) {\n            if (!linkedRecord) {\n              continue;\n            }\n            const __typename = this.cache._internal_unstable.storage.get(\n              linkedRecord,\n              \"__typename\"\n            ).value;\n            let targetSelection2 = getFieldsForType(childSelection, __typename, false);\n            this.addMany({\n              parent: linkedRecord,\n              variables,\n              subscribers: subscribers.map(([sub]) => [sub, targetSelection2]),\n              parentType: linkedType\n            });\n          }\n        }\n      }\n    }\n  }\n  get(id, field) {\n    return this.subscribers.get(id)?.get(field)?.selections || [];\n  }\n  getAll(id) {\n    return [...this.subscribers.get(id)?.values() || []].flatMap(\n      (fieldSub) => fieldSub.selections\n    );\n  }\n  remove(id, selection, targets, variables, visited = []) {\n    visited.push(id);\n    const linkedIDs = [];\n    const __typename = this.cache._internal_unstable.storage.get(id, \"__typename\").value;\n    let targetSelection = getFieldsForType(selection, __typename, false);\n    for (const fieldSelection of Object.values(targetSelection || {})) {\n      const key = evaluateKey(fieldSelection.keyRaw, variables);\n      this.removeSubscribers(id, key, targets);\n      if (!fieldSelection.selection) {\n        continue;\n      }\n      const { value: previousValue } = this.cache._internal_unstable.storage.get(id, key);\n      const links = !Array.isArray(previousValue) ? [previousValue] : flatten(previousValue);\n      for (const link of links) {\n        if (link !== null) {\n          linkedIDs.push([link, fieldSelection.selection || {}]);\n        }\n      }\n    }\n    for (const [linkedRecordID, linkFields] of linkedIDs) {\n      this.remove(linkedRecordID, linkFields, targets, visited);\n    }\n  }\n  reset() {\n    const subscribers = [...this.subscribers.entries()].filter(([id]) => !id.startsWith(rootID));\n    for (const [id, _fields] of subscribers) {\n      this.subscribers.delete(id);\n    }\n    const subscriptionSpecs = subscribers.flatMap(\n      ([_id, fields]) => [...fields.values()].flatMap((field) => field.selections.map(([spec]) => spec))\n    );\n    return subscriptionSpecs;\n  }\n  removeSubscribers(id, fieldName, specs) {\n    let targets = [];\n    const subscriber = this.subscribers.get(id);\n    if (!subscriber) {\n      return;\n    }\n    const subscriberField = subscriber.get(fieldName);\n    for (const spec of specs) {\n      const counts = subscriberField?.referenceCounts;\n      if (!counts?.has(spec.set)) {\n        continue;\n      }\n      const newVal = (counts.get(spec.set) || 0) - 1;\n      counts.set(spec.set, newVal);\n      if (newVal <= 0) {\n        targets.push(spec.set);\n        counts.delete(spec.set);\n      }\n      if (counts.size === 0) {\n        subscriber.delete(fieldName);\n      }\n    }\n    if (subscriberField) {\n      subscriberField.selections = this.get(id, fieldName).filter(\n        ([{ set }]) => !targets.includes(set)\n      );\n    }\n    if (subscriber.size === 0) {\n      this.subscribers.delete(id);\n    }\n  }\n  removeAllSubscribers(id, targets) {\n    if (!targets) {\n      targets = [...this.subscribers.get(id)?.values() || []].flatMap(\n        (spec) => spec.selections.flatMap((sel) => sel[0])\n      );\n    }\n    for (const target of targets) {\n      for (const subselection of this.findSubSelections(\n        target.parentID || rootID,\n        target.selection,\n        target.variables || {},\n        id\n      )) {\n        this.remove(id, subselection, targets, target.variables || {});\n      }\n    }\n    return;\n  }\n  get size() {\n    let size = 0;\n    for (const [, nodeCounts] of this.subscribers) {\n      for (const [, { referenceCounts }] of nodeCounts) {\n        size += [...referenceCounts.values()].reduce((size2, count) => size2 + count, 0);\n      }\n    }\n    return size;\n  }\n  findSubSelections(parentID, selection, variables, searchTarget, selections = []) {\n    const __typename = this.cache._internal_unstable.storage.get(parentID, \"__typename\").value;\n    let targetSelection = getFieldsForType(selection, __typename, false);\n    for (const fieldSelection of Object.values(targetSelection || {})) {\n      if (!fieldSelection.selection) {\n        continue;\n      }\n      const key = evaluateKey(fieldSelection.keyRaw, variables || {});\n      const linkedRecord = this.cache._internal_unstable.storage.get(parentID, key);\n      const links = !Array.isArray(linkedRecord.value) ? [linkedRecord.value] : flatten(linkedRecord.value);\n      if (links.includes(searchTarget)) {\n        selections.push(fieldSelection.selection);\n      } else {\n        for (const link of links) {\n          this.findSubSelections(\n            link,\n            fieldSelection.selection,\n            variables,\n            searchTarget,\n            selections\n          );\n        }\n      }\n    }\n    return selections;\n  }\n}\nexport {\n  InMemorySubscriptions\n};\n",
+      "start": 1754579496106,
+      "end": 1754579496144,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496144,
+      "end": 1754579496145,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496145,
+      "end": 1754579496145,
+      "order": "normal"
+    }
+  ]
+}

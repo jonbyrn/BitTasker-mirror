@@ -1,0 +1,107 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/BottomNavBar.svelte?svelte&type=style&lang.css",
+  "transforms": [
+    {
+      "name": "vite-plugin-svelte",
+      "result": "\r\n\t.pb-safe.svelte-nbiy9y {\r\n\t\tpadding-bottom: env(safe-area-inset-bottom, 0);\r\n\t}\r\n\r\n\t/* Menu starts collapsed, expands upward using transform instead of max-height */\r\n\t.bottom-nav-menu.svelte-nbiy9y {\r\n\t\ttransform: translateY(100%);\r\n\t\ttransition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);\r\n\t\twill-change: transform;\r\n\t}\r\n\t.menu-expand.svelte-nbiy9y {\r\n\t\ttransform: translateY(0);\r\n\t}\r\n\t.menu-collapse.svelte-nbiy9y {\r\n\t\ttransform: translateY(100%);\r\n\t}\r\n\r\n\t/* Simplified scrollbar styling - removed problematic scrollbar-color */\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar {\r\n\t\twidth: 4px;\r\n\t}\r\n\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar-track {\r\n\t\tbackground: transparent;\r\n\t}\r\n\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar-thumb {\r\n\t\tbackground: hsl(var(--p));\r\n\t\tborder-radius: 2px;\r\n\t}\r\n\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar-thumb:hover {\r\n\t\tbackground: hsl(var(--p) / 0.8);\r\n\t}\r\n\r\n\t/* Optimized arrow animations for better performance */\r\n\t.dropdown-arrow.svelte-nbiy9y {\r\n\t\ttransform-origin: center;\r\n\t\ttransition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);\r\n\t\twill-change: transform;\r\n\t\ttransform: rotate(0deg);\r\n\t}\r\n\r\n\t.dropdown-arrow.dropdown-open.svelte-nbiy9y {\r\n\t\ttransform: rotate(180deg);\r\n\t}\r\n\r\n\t/* Simplified hover effects to avoid complex transform combinations */\r\n\t.menu.svelte-nbiy9y li:where(.svelte-nbiy9y) > button:where(.svelte-nbiy9y):hover .dropdown-arrow:where(.svelte-nbiy9y) {\r\n\t\ttransform: rotate(0deg) scale(1.05);\r\n\t}\r\n\r\n\t.menu.svelte-nbiy9y li:where(.svelte-nbiy9y) > button:where(.svelte-nbiy9y):hover .dropdown-arrow.dropdown-open:where(.svelte-nbiy9y) {\r\n\t\ttransform: rotate(180deg) scale(1.05);\r\n\t}\r\n\r\n\t/* Ensure smooth transitions for all interactive elements */\r\n\t.dock.svelte-nbiy9y a:where(.svelte-nbiy9y),\r\n\t.dock.svelte-nbiy9y button:where(.svelte-nbiy9y) {\r\n\t\twill-change: transform, opacity;\r\n\t}\r\n\r\n\t/* Optimize hamburger menu animations */\r\n\t.dock.svelte-nbiy9y button[data-menu-button]:where(.svelte-nbiy9y) span:where(.svelte-nbiy9y) {\r\n\t\twill-change: transform, opacity;\r\n\t\ttransform-origin: center;\r\n\t\tbackface-visibility: hidden;\r\n\t}\r\n\r\n\t/* Ensure all transitions use GPU acceleration */\r\n\t.dock.svelte-nbiy9y a:where(.svelte-nbiy9y),\r\n\t.dock.svelte-nbiy9y button:where(.svelte-nbiy9y),\r\n\t.bottom-nav-menu.svelte-nbiy9y,\r\n\t.dropdown-arrow.svelte-nbiy9y {\r\n\t\tbackface-visibility: hidden;\r\n\t\ttransform: translateZ(0);\r\n\t}\r\n\r\n\t/* Ensure any ::after pseudo-elements use composited animations */\r\n\t.dropdown-arrow.svelte-nbiy9y::after {\r\n\t\twill-change: transform;\r\n\t\tbackface-visibility: hidden;\r\n\t\ttransform: translateZ(0);\r\n\t}\r\n\r\n\t/* Override any scrollbar-color properties that might cause issues */\r\n\t/* * {\r\n\t\tscrollbar-color: unset !important;\r\n\t} */\r\n\r\n\t/* Ensure all animations use GPU acceleration */\r\n\t.svelte-nbiy9y {\r\n\t\ttransform-style: preserve-3d;\r\n\t}\r\n\r\n\t/* Optimize all transitions for better performance */\r\n\t.transition-all.svelte-nbiy9y {\r\n\t\twill-change: transform, opacity;\r\n\t\tbackface-visibility: hidden;\r\n\t}\r\n",
+      "start": 1754579494215,
+      "end": 1754579494215,
+      "sourcemaps": {
+        "version": 3,
+        "file": "BottomNavBar.svelte",
+        "mappings": "AAyuBM",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "BottomNavBar.svelte"
+        ]
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494215,
+      "end": 1754579494215,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "result": "\r\n\t.pb-safe.svelte-nbiy9y {\r\n\t\tpadding-bottom: env(safe-area-inset-bottom, 0);\r\n\t}\r\n\r\n\t/* Menu starts collapsed, expands upward using transform instead of max-height */\r\n\t.bottom-nav-menu.svelte-nbiy9y {\r\n\t\ttransform: translateY(100%);\r\n\t\ttransition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);\r\n\t\twill-change: transform;\r\n\t}\r\n\t.menu-expand.svelte-nbiy9y {\r\n\t\ttransform: translateY(0);\r\n\t}\r\n\t.menu-collapse.svelte-nbiy9y {\r\n\t\ttransform: translateY(100%);\r\n\t}\r\n\r\n\t/* Simplified scrollbar styling - removed problematic scrollbar-color */\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar {\r\n\t\twidth: 4px;\r\n\t}\r\n\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar-track {\r\n\t\tbackground: transparent;\r\n\t}\r\n\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar-thumb {\r\n\t\tbackground: hsl(var(--p));\r\n\t\tborder-radius: 2px;\r\n\t}\r\n\r\n\t.bottom-nav-menu.svelte-nbiy9y::-webkit-scrollbar-thumb:hover {\r\n\t\tbackground: hsl(var(--p) / 0.8);\r\n\t}\r\n\r\n\t/* Optimized arrow animations for better performance */\r\n\t.dropdown-arrow.svelte-nbiy9y {\r\n\t\ttransform-origin: center;\r\n\t\ttransition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);\r\n\t\twill-change: transform;\r\n\t\ttransform: rotate(0deg);\r\n\t}\r\n\r\n\t.dropdown-arrow.dropdown-open.svelte-nbiy9y {\r\n\t\ttransform: rotate(180deg);\r\n\t}\r\n\r\n\t/* Simplified hover effects to avoid complex transform combinations */\r\n\t.menu.svelte-nbiy9y li:where(.svelte-nbiy9y) > button:where(.svelte-nbiy9y):hover .dropdown-arrow:where(.svelte-nbiy9y) {\r\n\t\ttransform: rotate(0deg) scale(1.05);\r\n\t}\r\n\r\n\t.menu.svelte-nbiy9y li:where(.svelte-nbiy9y) > button:where(.svelte-nbiy9y):hover .dropdown-arrow.dropdown-open:where(.svelte-nbiy9y) {\r\n\t\ttransform: rotate(180deg) scale(1.05);\r\n\t}\r\n\r\n\t/* Ensure smooth transitions for all interactive elements */\r\n\t.dock.svelte-nbiy9y a:where(.svelte-nbiy9y),\r\n\t.dock.svelte-nbiy9y button:where(.svelte-nbiy9y) {\r\n\t\twill-change: transform, opacity;\r\n\t}\r\n\r\n\t/* Optimize hamburger menu animations */\r\n\t.dock.svelte-nbiy9y button[data-menu-button]:where(.svelte-nbiy9y) span:where(.svelte-nbiy9y) {\r\n\t\twill-change: transform, opacity;\r\n\t\ttransform-origin: center;\r\n\t\tbackface-visibility: hidden;\r\n\t}\r\n\r\n\t/* Ensure all transitions use GPU acceleration */\r\n\t.dock.svelte-nbiy9y a:where(.svelte-nbiy9y),\r\n\t.dock.svelte-nbiy9y button:where(.svelte-nbiy9y),\r\n\t.bottom-nav-menu.svelte-nbiy9y,\r\n\t.dropdown-arrow.svelte-nbiy9y {\r\n\t\tbackface-visibility: hidden;\r\n\t\ttransform: translateZ(0);\r\n\t}\r\n\r\n\t/* Ensure any ::after pseudo-elements use composited animations */\r\n\t.dropdown-arrow.svelte-nbiy9y::after {\r\n\t\twill-change: transform;\r\n\t\tbackface-visibility: hidden;\r\n\t\ttransform: translateZ(0);\r\n\t}\r\n\r\n\t/* Override any scrollbar-color properties that might cause issues */\r\n\t/* * {\r\n\t\tscrollbar-color: unset !important;\r\n\t} */\r\n\r\n\t/* Ensure all animations use GPU acceleration */\r\n\t.svelte-nbiy9y {\r\n\t\ttransform-style: preserve-3d;\r\n\t}\r\n\r\n\t/* Optimize all transitions for better performance */\r\n\t.transition-all.svelte-nbiy9y {\r\n\t\twill-change: transform, opacity;\r\n\t\tbackface-visibility: hidden;\r\n\t}\r\n",
+      "start": 1754579494215,
+      "end": 1754579494216,
+      "order": "pre",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494216,
+      "end": 1754579494216,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494216,
+      "end": 1754579494216,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494217,
+      "end": 1754579494217,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494217,
+      "end": 1754579494217,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494221,
+      "end": 1754579494221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494221,
+      "end": 1754579494221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494221,
+      "end": 1754579494221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494221,
+      "end": 1754579494221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494221,
+      "end": 1754579494221,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494221,
+      "end": 1754579494221,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494222,
+      "end": 1754579494222,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494222,
+      "end": 1754579494222,
+      "order": "normal"
+    }
+  ]
+}

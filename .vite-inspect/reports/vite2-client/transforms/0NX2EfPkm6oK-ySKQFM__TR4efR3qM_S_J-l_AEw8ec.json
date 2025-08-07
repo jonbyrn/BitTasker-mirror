@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/taskees/faq.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"faq\": {\r\n        \"title\": \"Preguntas Frecuentes\",\r\n        \"description\": \"Preguntas comunes sobre cómo funciona BitTasker para taskers y taskees.\",\r\n        \"general\": {\r\n            \"title\": \"Preguntas Generales\",\r\n            \"0\": {\r\n                \"question\": \"¿Qué es BitTasker?\",\r\n                \"answer\": \"BitTasker es una plataforma comunitaria confiable que conecta a personas que necesitan externalizar tareas y encontrar servicios locales con personas que buscan ganar dinero y están listas para trabajar. Desde tareas simples hasta complejas, BitTasker puede ayudarte a completar limpieza del hogar, trabajos de mantenimiento, asistencia administrativa, fotografía, diseño gráfico o incluso construir un sitio web.\"\r\n            },\r\n            \"1\": {\r\n                \"question\": \"¿Cómo funciona BitTasker?\",\r\n                \"step_1_title\": \"Publica tu tarea:\",\r\n                \"step_1_text\": \"Describe lo que necesitas hacer y establece un presupuesto justo. ¡Publicar es gratis!\",\r\n                \"step_2_title\": \"Revisa ofertas:\",\r\n                \"step_2_text\": \"Recibe ofertas de Taskees calificados. Compara sus perfiles, calificaciones y reseñas.\",\r\n                \"step_3_title\": \"Contrata y financia:\",\r\n                \"step_3_text\": \"Elige al mejor Taskee y financia la tarea con Bitcoin o dinero fiat. El pago se mantiene seguro en nuestro escrow hasta que se complete la tarea.\",\r\n                \"step_4_title\": \"Tarea completada:\",\r\n                \"step_4_text\": \"Una vez que estés satisfecho, libera el pago al Taskee. ¡Deja una reseña para ayudar a la comunidad!\"\r\n            }\r\n        },\r\n        \"taskers\": {\r\n            \"title\": \"Para Taskers\",\r\n            \"0\": {\r\n                \"question\": \"¿Cómo publico una tarea?\",\r\n                \"answer\": \"Simplemente crea una cuenta, haz clic en \\\"Publicar una tarea\\\" y completa los detalles. Proporciona una descripción clara, establece un presupuesto justo y especifica tu cronograma. Cuantos más detalles proporciones, mejores ofertas recibirás de los taskees.\"\r\n            },\r\n            \"1\": {\r\n                \"question\": \"¿Cómo funciona el pago?\",\r\n                \"answer\": \"Cuando aceptas una oferta, tu pago se asegura de inmediato en nuestro sistema de escrow con Bitcoin. Una vez que el taskee completa el trabajo a tu satisfacción, liberas el pago. Si no tomas acción en un plazo de 7 días, el pago se libera automáticamente al taskee.\"\r\n            },\r\n            \"2\": {\r\n                \"question\": \"¿Qué pasa si no estoy satisfecho con el trabajo?\",\r\n                \"answer\": \"Si no estás satisfecho con el trabajo, puedes iniciar una disputa. El pago permanecerá bloqueado mientras ambas partes buscan una solución justa. Nuestro proceso de resolución de disputas está diseñado para ser justo y transparente.\"\r\n            },\r\n            \"3\": {\r\n                \"question\": \"¿Puedo cancelar una tarea?\",\r\n                \"answer\": \"Sí, puedes cancelar una tarea en cualquier momento. Si la cancelas antes de que comience el trabajo, recibirás un reembolso completo. Si el trabajo ya ha comenzado, es posible que debas pagar una parte según el progreso realizado.\"\r\n            },\r\n            \"4\": {\r\n                \"question\": \"¿Cuáles son las tarifas para los taskers?\",\r\n                \"answer\": \"BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskers activos con tarifas más bajas. Cuantas más tareas completes, menos pagas. Consulta nuestra página de <a href=\\\"/tasker-fees\\\" class=\\\"text-primary hover:underline\\\">Tarifas para Taskers</a> para más detalles.\"\r\n            }\r\n        },\r\n        \"taskees\": {\r\n            \"title\": \"Para Taskees\",\r\n            \"0\": {\r\n                \"question\": \"¿Cómo encuentro tareas?\",\r\n                \"answer\": \"Explora las tareas disponibles en tu área y según tus habilidades. Puedes filtrar por categoría, ubicación, presupuesto y plazo. Cuando encuentres una tarea que se adapte a tus habilidades, envía una oferta competitiva con tu enfoque y cronograma propuesto.\"\r\n            },\r\n            \"1\": {\r\n                \"question\": \"¿Cómo me pagan?\",\r\n                \"answer\": \"Cuando un tasker acepta tu oferta, el pago se asegura inmediatamente en un escrow. Una vez completes el trabajo y el tasker lo apruebe, el pago se libera a ti. Si el tasker no responde en 7 días, se te paga automáticamente.\"\r\n            },\r\n            \"2\": {\r\n                \"question\": \"¿Qué pasa si el tasker no aprueba mi trabajo?\",\r\n                \"answer\": \"Si un tasker disputa tu trabajo, pueden discutir el problema y buscar una solución. Nuestro proceso de resolución de disputas es justo y transparente. Si no se llega a un acuerdo, el sistema sigue un proceso claro para garantizar un resultado justo.\"\r\n            },\r\n            \"3\": {\r\n                \"question\": \"¿Cuáles son las tarifas para los taskees?\",\r\n                \"answer\": \"BitTasker utiliza un sistema de niveles dinámico que recompensa a los taskees activos con tarifas más bajas. Cuantas más tareas completes, menos pagarás. Consulta nuestra página de <a href=\\\"/taskee-fees\\\" class=\\\"text-primary hover:underline\\\">Tarifas de Taskees</a> para obtener todos los detalles.\"\r\n            },\r\n            \"4\": {\r\n                \"question\": \"¿Necesito tener Bitcoin?\",\r\n                \"answer\": \"No, no necesitas tener Bitcoin para usar BitTasker. También puedes usar moneda fiat. Puedes recibir pagos en Bitcoin o USDT y convertirlos a tu moneda local si lo deseas.\"\r\n            }\r\n        },\r\n        \"payment\": {\r\n            \"title\": \"Pagos y Bitcoin\",\r\n            \"0\": {\r\n                \"question\": \"¿Por qué usar Bitcoin?\",\r\n                \"answer\": \"Bitcoin es libertad: una moneda imparable y transfronteriza que te permite enviar pagos a cualquier persona, en cualquier lugar y en cualquier momento. Usamos la red Liquid para transacciones de bajo costo y casi instantáneas.\"\r\n            },\r\n            \"1\": {\r\n                \"question\": \"¿Cuáles son las tarifas?\",\r\n                \"answer_1\": \"BitTasker cobra una tarifa de servicio cuando se completa una tarea con éxito. Esta tarifa nos ayuda a operar la plataforma, brindar soporte y desarrollar nuevas funciones. La tarifa es un porcentaje del precio de la tarea y se muestra cuando haces una oferta.\",\r\n                \"answer_2\": \"Además, existen tarifas de transacción de red al enviar Bitcoin o USDT. Estas tarifas las cobra la red blockchain (Liquid, Bitcoin o Lightning, según cómo se realice el pago) y no están bajo nuestro control ni las recibimos. En las redes Liquid y Lightning, estas tarifas suelen ser muy pequeñas, típicamente de $0.01 o menos.\"\r\n            },\r\n            \"3\": {\r\n                \"question\": \"Can I cancel a task?\",\r\n                \"answer\": \"Sí, puedes cancelar una tarea en cualquier momento. Si la cancelas antes de que comience el trabajo, recibirás un reembolso completo. Si el trabajo ya ha comenzado, es posible que debas pagar una parte según el progreso realizado.\"\r\n            }\r\n        },\r\n        \"safety\": {\r\n            \"title\": \"Confianza y Seguridad\",\r\n            \"0\": {\r\n                \"question\": \"¿Es seguro mi pago?\",\r\n                \"answer\": \"Sí. Cuando un Tasker financia una tarea, los fondos se mantienen en una billetera de custodia con multifirma 2-de-2. Esto significa que ni el Tasker ni el Taskee pueden mover los fondos por su cuenta. El pago solo se libera cuando la tarea se marca como completada y es aprobada, o cuando ambas partes acuerdan un resultado distinto.\"\r\n            },\r\n            \"1\": {\r\n                \"question\": \"¿Qué pasa si algo sale mal?\",\r\n                \"answer\": \"Nuestro sistema de custodia automatizado tiene reglas integradas para cancelaciones, cambios y disputas, lo que garantiza un resultado justo. Si no puedes resolver el problema directamente con la otra parte, el sistema de custodia garantiza el resultado más justo.\"\r\n            }\r\n        }\r\n    }\r\n}",
+      "start": 1754579494796,
+      "end": 1754579494809,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494809,
+      "end": 1754579494809,
+      "order": "normal"
+    }
+  ]
+}

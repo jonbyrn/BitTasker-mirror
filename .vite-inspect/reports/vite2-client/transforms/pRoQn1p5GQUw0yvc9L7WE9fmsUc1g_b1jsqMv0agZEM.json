@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/stores/MyNotificationPreferences.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { QueryStore } from '../runtime/stores/query'\nimport artifact from '$houdini/artifacts/MyNotificationPreferences'\nimport { initClient } from '$houdini/plugins/houdini-svelte/runtime/client'\n\nexport class MyNotificationPreferencesStore extends QueryStore {\n\tconstructor() {\n\t\tsuper({\n\t\t\tartifact,\n\t\t\tstoreName: \"MyNotificationPreferencesStore\",\n\t\t\tvariables: false,\n\t\t})\n\t}\n}\n\nexport async function load_MyNotificationPreferences(params) {\n  await initClient()\n\n\tconst store = new MyNotificationPreferencesStore()\n\n\tawait store.fetch(params)\n\n\treturn {\n\t\tMyNotificationPreferences: store,\n\t}\n}\n",
+      "start": 1754579495508,
+      "end": 1754579495518,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495518,
+      "end": 1754579495518,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/pin-input/components/pin-input.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport type { PinInputRootProps } from \"../types.js\";\n\timport { usePinInput } from \"../pin-input.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet {\n\t\tid = useId(),\n\t\tinputId = useId(),\n\t\tref = $bindable(null),\n\t\tmaxlength = 6,\n\t\ttextalign = \"left\",\n\t\tpattern,\n\t\tinputmode = \"numeric\",\n\t\tonComplete = noop,\n\t\tpushPasswordManagerStrategy = \"increase-width\",\n\t\tclass: containerClass = \"\",\n\t\tchildren,\n\t\tautocomplete = \"one-time-code\",\n\t\tdisabled = false,\n\t\tvalue = $bindable(\"\"),\n\t\tonValueChange = noop,\n\t\tpasteTransformer,\n\t\t...restProps\n\t}: PinInputRootProps = $props();\n\n\tconst rootState = usePinInput({\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t\tinputId: box.with(() => inputId),\n\t\tautocomplete: box.with(() => autocomplete),\n\t\tmaxLength: box.with(() => maxlength),\n\t\ttextAlign: box.with(() => textalign),\n\t\tdisabled: box.with(() => disabled),\n\t\tinputmode: box.with(() => inputmode),\n\t\tpattern: box.with(() => pattern),\n\t\tonComplete: box.with(() => onComplete),\n\t\tvalue: box.with(\n\t\t\t() => value,\n\t\t\t(v) => {\n\t\t\t\tvalue = v;\n\t\t\t\tonValueChange(v);\n\t\t\t}\n\t\t),\n\t\tpushPasswordManagerStrategy: box.with(() => pushPasswordManagerStrategy),\n\t\tpasteTransformer: box.with(() => pasteTransformer),\n\t});\n\n\tconst mergedInputProps = $derived(mergeProps(restProps, rootState.inputProps));\n\tconst mergedRootProps = $derived(mergeProps(rootState.rootProps, { class: containerClass }));\n\tconst mergedInputWrapperProps = $derived(mergeProps(rootState.inputWrapperProps, {}));\n</script>\n\n<div {...mergedRootProps}>\n\t{@render children?.(rootState.snippetProps)}\n\n\t<div {...mergedInputWrapperProps}>\n\t\t<input {...mergedInputProps} />\n\t</div>\n</div>\n",
+      "start": 1754579496769,
+      "end": 1754579496869,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496869,
+      "end": 1754579496869,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496869,
+      "end": 1754579496869,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { usePinInput } from \"../pin-input.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { noop } from \"../../../internal/noop.js\";\n\nvar root = $.template(`<div><!> <div><input></div></div>`);\n\nexport default function Pin_input($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tinputId = $.prop($$props, 'inputId', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\tmaxlength = $.prop($$props, 'maxlength', 3, 6),\n\t\ttextalign = $.prop($$props, 'textalign', 3, \"left\"),\n\t\tinputmode = $.prop($$props, 'inputmode', 3, \"numeric\"),\n\t\tonComplete = $.prop($$props, 'onComplete', 3, noop),\n\t\tpushPasswordManagerStrategy = $.prop($$props, 'pushPasswordManagerStrategy', 3, \"increase-width\"),\n\t\tcontainerClass = $.prop($$props, 'class', 3, \"\"),\n\t\tautocomplete = $.prop($$props, 'autocomplete', 3, \"one-time-code\"),\n\t\tdisabled = $.prop($$props, 'disabled', 3, false),\n\t\tvalue = $.prop($$props, 'value', 15, \"\"),\n\t\tonValueChange = $.prop($$props, 'onValueChange', 3, noop),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'id',\n\t\t\t'inputId',\n\t\t\t'ref',\n\t\t\t'maxlength',\n\t\t\t'textalign',\n\t\t\t'pattern',\n\t\t\t'inputmode',\n\t\t\t'onComplete',\n\t\t\t'pushPasswordManagerStrategy',\n\t\t\t'class',\n\t\t\t'children',\n\t\t\t'autocomplete',\n\t\t\t'disabled',\n\t\t\t'value',\n\t\t\t'onValueChange',\n\t\t\t'pasteTransformer'\n\t\t]);\n\n\tconst rootState = usePinInput({\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v)),\n\t\tinputId: box.with(() => inputId()),\n\t\tautocomplete: box.with(() => autocomplete()),\n\t\tmaxLength: box.with(() => maxlength()),\n\t\ttextAlign: box.with(() => textalign()),\n\t\tdisabled: box.with(() => disabled()),\n\t\tinputmode: box.with(() => inputmode()),\n\t\tpattern: box.with(() => $$props.pattern),\n\t\tonComplete: box.with(() => onComplete()),\n\t\tvalue: box.with(() => value(), (v) => {\n\t\t\tvalue(v);\n\t\t\tonValueChange()(v);\n\t\t}),\n\t\tpushPasswordManagerStrategy: box.with(() => pushPasswordManagerStrategy()),\n\t\tpasteTransformer: box.with(() => $$props.pasteTransformer)\n\t});\n\n\tconst mergedInputProps = $.derived(() => mergeProps(restProps, rootState.inputProps));\n\tconst mergedRootProps = $.derived(() => mergeProps(rootState.rootProps, { class: containerClass() }));\n\tconst mergedInputWrapperProps = $.derived(() => mergeProps(rootState.inputWrapperProps, {}));\n\tvar div = root();\n\tlet attributes;\n\tvar node = $.child(div);\n\n\t$.snippet(node, () => $$props.children ?? $.noop, () => rootState.snippetProps);\n\n\tvar div_1 = $.sibling(node, 2);\n\tlet attributes_1;\n\tvar input = $.child(div_1);\n\n\t$.remove_input_defaults(input);\n\n\tlet attributes_2;\n\n\t$.reset(div_1);\n\t$.reset(div);\n\n\t$.template_effect(() => {\n\t\tattributes = $.set_attributes(div, attributes, { ...$.get(mergedRootProps) });\n\t\tattributes_1 = $.set_attributes(div_1, attributes_1, { ...$.get(mergedInputWrapperProps) });\n\t\tattributes_2 = $.set_attributes(input, attributes_2, { ...$.get(mergedInputProps) });\n\t});\n\n\t$.append($$anchor, div);\n\t$.pop();\n}",
+      "start": 1754579496869,
+      "end": 1754579496873,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SAExC,WAAW,QAAQ,wBAAwB;SAC3C,KAAK,QAAQ,6BAA6B;SAC1C,IAAI,QAAQ,2BAA2B;;;;;;;KAG/C,EAAE,6BAAG,KAAK;EACV,OAAO,kCAAG,KAAK;EACf,GAAG,8BAAa,IAAI;EACpB,SAAS,mCAAG,CAAC;EACb,SAAS,mCAAG,MAAM;EAElB,SAAS,mCAAG,SAAS;EACrB,UAAU,oCAAG,IAAI;EACjB,2BAA2B,qDAAG,gBAAgB;EACvC,cAAc,+BAAG,EAAE;EAE1B,YAAY,sCAAG,eAAe;EAC9B,QAAQ,kCAAG,KAAK;EAChB,KAAK,gCAAa,EAAE;EACpB,aAAa,uCAAG,IAAI;EAEjB;;;;;;;;;;;;;;;;;;;;;;OAGE,SAAS,GAAG,WAAW;EAC5B,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;EAEhB,OAAO,EAAE,GAAG,CAAC,IAAI,OAAO,OAAO;EAC/B,YAAY,EAAE,GAAG,CAAC,IAAI,OAAO,YAAY;EACzC,SAAS,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS;EACnC,SAAS,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS;EACnC,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,SAAS,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS;EACnC,OAAO,EAAE,GAAG,CAAC,IAAI;EACjB,UAAU,EAAE,GAAG,CAAC,IAAI,OAAO,UAAU;EACrC,KAAK,EAAE,GAAG,CAAC,IAAI,OACR,KAAK,KACV,CAAC,KAAK;GACN,KAAK,CAAG,CAAC;GACT,aAAa,GAAC,CAAC;EAChB;EAED,2BAA2B,EAAE,GAAG,CAAC,IAAI,OAAO,2BAA2B;EACvE,gBAAgB,EAAE,GAAG,CAAC,IAAI;;;OAGrB,gBAAgB,mBAAY,UAAU,CAAC,SAAS,EAAE,SAAS,CAAC,UAAU;OACtE,eAAe,mBAAY,UAAU,CAAC,SAAS,CAAC,SAAS,IAAI,KAAK,EAAE,cAAc;OAClF,uBAAuB,mBAAY,UAAU,CAAC,SAAS,CAAC,iBAAiB;;;;;yDAI3D,SAAS,CAAC,YAAY;;;;;;;;;;;;;;4DADlC,eAAe;kEAGd,uBAAuB;kEACpB,gBAAgB",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "pin-input.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496873,
+      "end": 1754579496873,
+      "order": "normal"
+    }
+  ]
+}

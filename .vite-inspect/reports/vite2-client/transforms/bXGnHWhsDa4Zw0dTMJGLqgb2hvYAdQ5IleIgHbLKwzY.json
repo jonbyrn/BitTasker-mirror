@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/devalue/src/base64.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Base64 Encodes an arraybuffer\n * @param {ArrayBuffer} arraybuffer\n * @returns {string}\n */\nexport function encode64(arraybuffer) {\n  const dv = new DataView(arraybuffer);\n  let binaryString = \"\";\n\n  for (let i = 0; i < arraybuffer.byteLength; i++) {\n    binaryString += String.fromCharCode(dv.getUint8(i));\n  }\n\n  return binaryToAscii(binaryString);\n}\n\n/**\n * Decodes a base64 string into an arraybuffer\n * @param {string} string\n * @returns {ArrayBuffer}\n */\nexport function decode64(string) {\n  const binaryString = asciiToBinary(string);\n  const arraybuffer = new ArrayBuffer(binaryString.length);\n  const dv = new DataView(arraybuffer);\n\n  for (let i = 0; i < arraybuffer.byteLength; i++) {\n    dv.setUint8(i, binaryString.charCodeAt(i));\n  }\n\n  return arraybuffer;\n}\n\nconst KEY_STRING =\n  \"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/\";\n\n/**\n * Substitute for atob since it's deprecated in node.\n * Does not do any input validation.\n *\n * @see https://github.com/jsdom/abab/blob/master/lib/atob.js\n *\n * @param {string} data\n * @returns {string}\n */\nfunction asciiToBinary(data) {\n  if (data.length % 4 === 0) {\n    data = data.replace(/==?$/, \"\");\n  }\n\n  let output = \"\";\n  let buffer = 0;\n  let accumulatedBits = 0;\n\n  for (let i = 0; i < data.length; i++) {\n    buffer <<= 6;\n    buffer |= KEY_STRING.indexOf(data[i]);\n    accumulatedBits += 6;\n    if (accumulatedBits === 24) {\n      output += String.fromCharCode((buffer & 0xff0000) >> 16);\n      output += String.fromCharCode((buffer & 0xff00) >> 8);\n      output += String.fromCharCode(buffer & 0xff);\n      buffer = accumulatedBits = 0;\n    }\n  }\n  if (accumulatedBits === 12) {\n    buffer >>= 4;\n    output += String.fromCharCode(buffer);\n  } else if (accumulatedBits === 18) {\n    buffer >>= 2;\n    output += String.fromCharCode((buffer & 0xff00) >> 8);\n    output += String.fromCharCode(buffer & 0xff);\n  }\n  return output;\n}\n\n/**\n * Substitute for btoa since it's deprecated in node.\n * Does not do any input validation.\n *\n * @see https://github.com/jsdom/abab/blob/master/lib/btoa.js\n *\n * @param {string} str\n * @returns {string}\n */\nfunction binaryToAscii(str) {\n  let out = \"\";\n  for (let i = 0; i < str.length; i += 3) {\n    /** @type {[number, number, number, number]} */\n    const groupsOfSix = [undefined, undefined, undefined, undefined];\n    groupsOfSix[0] = str.charCodeAt(i) >> 2;\n    groupsOfSix[1] = (str.charCodeAt(i) & 0x03) << 4;\n    if (str.length > i + 1) {\n      groupsOfSix[1] |= str.charCodeAt(i + 1) >> 4;\n      groupsOfSix[2] = (str.charCodeAt(i + 1) & 0x0f) << 2;\n    }\n    if (str.length > i + 2) {\n      groupsOfSix[2] |= str.charCodeAt(i + 2) >> 6;\n      groupsOfSix[3] = str.charCodeAt(i + 2) & 0x3f;\n    }\n    for (let j = 0; j < groupsOfSix.length; j++) {\n      if (typeof groupsOfSix[j] === \"undefined\") {\n        out += \"=\";\n      } else {\n        out += KEY_STRING[groupsOfSix[j]];\n      }\n    }\n  }\n  return out;\n}\n",
+      "start": 1754579495313,
+      "end": 1754579495457,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495457,
+      "end": 1754579495457,
+      "order": "normal"
+    }
+  ]
+}

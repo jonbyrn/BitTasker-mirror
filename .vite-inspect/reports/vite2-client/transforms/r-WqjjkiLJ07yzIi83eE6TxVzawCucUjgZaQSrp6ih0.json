@@ -1,0 +1,110 @@
+{
+  "resolvedId": "~icons/mdi/account.svelte",
+  "transforms": [
+    {
+      "name": "unplugin-icons",
+      "result": "<script>const{...p}=$props()</script><svg style=\"width: 1.5em; height: 1.5em;\" viewBox=\"0 0 24 24\" width=\"1.5em\" height=\"1.5em\"  {...p}><path fill=\"currentColor\" d=\"M12 4a4 4 0 0 1 4 4a4 4 0 0 1-4 4a4 4 0 0 1-4-4a4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4\"/></svg>",
+      "start": 1754579492534,
+      "end": 1754579492534,
+      "sourcemaps": {
+        "version": 3,
+        "mappings": "",
+        "sources": []
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579492534,
+      "end": 1754579492534,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492534,
+      "end": 1754579492534,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\n\nvar root = $.ns_template(`<svg><path fill=\"currentColor\" d=\"M12 4a4 4 0 0 1 4 4a4 4 0 0 1-4 4a4 4 0 0 1-4-4a4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4\"></path></svg>`);\n\nexport default function Account($$anchor, $$props) {\n\tconst p = $.rest_props($$props, ['$$slots', '$$events', '$$legacy']);\n\tvar svg = root();\n\tlet attributes;\n\n\t$.template_effect(() => attributes = $.set_attributes(svg, attributes, {\n\t\tstyle: 'width: 1.5em; height: 1.5em;',\n\t\tviewBox: '0 0 24 24',\n\t\twidth: '1.5em',\n\t\theight: '1.5em',\n\t\t...p\n\t}));\n\n\t$.append($$anchor, svg);\n}",
+      "start": 1754579492534,
+      "end": 1754579492535,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;;;;;OAAiB,CAAC;;;;;;;;;KAAmH,CAAC",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "account.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492535,
+      "end": 1754579492535,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492535,
+      "end": 1754579492535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492535,
+      "end": 1754579492535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492536,
+      "end": 1754579492536,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492536,
+      "end": 1754579492536,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492536,
+      "end": 1754579492536,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492536,
+      "end": 1754579492536,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492536,
+      "end": 1754579492536,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492536,
+      "end": 1754579492536,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492537,
+      "end": 1754579492537,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492537,
+      "end": 1754579492537,
+      "order": "normal"
+    }
+  ]
+}

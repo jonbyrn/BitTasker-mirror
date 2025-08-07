@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/utils/helpers/dateTier.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\r\n * Get months and days included in a date range\r\n * @param startDate - Start date string\r\n * @param endDate - End date string\r\n * @returns Object containing arrays of included months (0-11) and days (1-31)\r\n */\r\nexport function getDateRangeTags(endDate: string, startDate?: string): { months: string[], days: string[] } {\r\n    const start = startDate ? new Date(startDate) : new Date();\r\n    const end = new Date(endDate);\r\n\r\n    const months = new Set<string>();\r\n    const days = new Set<string>();\r\n\r\n    // Clone start date to iterate through the range\r\n    const current = start ? new Date(start) : new Date(end);\r\n\r\n    // Iterate through each day in the range\r\n    while (current <= end) {\r\n        months.add(current.getMonth()?.toString());\r\n        days.add(current.getDate()?.toString());\r\n\r\n        // Move to next day\r\n        current.setDate(current.getDate() + 1);\r\n    }\r\n\r\n    return {\r\n        months: Array.from(months),\r\n        days: Array.from(days)\r\n    };\r\n} ",
+      "start": 1754579495096,
+      "end": 1754579495221,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "export function getDateRangeTags(endDate: string, startDate?: string): {\r\n    months: string[];\r\n    days: string[];\r\n} {\r\n    const start = startDate ? new Date(startDate) : new Date();\r\n    const end = new Date(endDate);\r\n    const months = new Set<string>();\r\n    const days = new Set<string>();\r\n    const current = start ? new Date(start) : new Date(end);\r\n\r\n    while (current <= end) {\r\n        months.add(current.getMonth()?.toString());\r\n        days.add(current.getDate()?.toString());\r\n        current.setDate(current.getDate() + 1);\r\n    }\r\n\r\n    return {\r\n        months: Array.from(months),\r\n        days: Array.from(days)\r\n    };\r\n}",
+      "start": 1754579495221,
+      "end": 1754579495222,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/dateTier.ts"
+        ],
+        "sourcesContent": [
+          "/**\r\n * Get months and days included in a date range\r\n * @param startDate - Start date string\r\n * @param endDate - End date string\r\n * @returns Object containing arrays of included months (0-11) and days (1-31)\r\n */\r\nexport function getDateRangeTags(endDate: string, startDate?: string): { months: string[], days: string[] } {\r\n    const start = startDate ? new Date(startDate) : new Date();\r\n    const end = new Date(endDate);\r\n\r\n    const months = new Set<string>();\r\n    const days = new Set<string>();\r\n\r\n    // Clone start date to iterate through the range\r\n    const current = start ? new Date(start) : new Date(end);\r\n\r\n    // Iterate through each day in the range\r\n    while (current <= end) {\r\n        months.add(current.getMonth()?.toString());\r\n        days.add(current.getDate()?.toString());\r\n\r\n        // Move to next day\r\n        current.setDate(current.getDate() + 1);\r\n    }\r\n\r\n    return {\r\n        months: Array.from(months),\r\n        days: Array.from(days)\r\n    };\r\n} "
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9E,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7G,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5D;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/C,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495222,
+      "end": 1754579495222,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495222,
+      "end": 1754579495222,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export function getDateRangeTags(endDate, startDate) {\n  const start = startDate ? new Date(startDate) : /* @__PURE__ */ new Date();\n  const end = new Date(endDate);\n  const months = /* @__PURE__ */ new Set();\n  const days = /* @__PURE__ */ new Set();\n  const current = start ? new Date(start) : new Date(end);\n  while (current <= end) {\n    months.add(current.getMonth()?.toString());\n    days.add(current.getDate()?.toString());\n    current.setDate(current.getDate() + 1);\n  }\n  return {\n    months: Array.from(months),\n    days: Array.from(days)\n  };\n}\n",
+      "start": 1754579495222,
+      "end": 1754579495289,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/dateTier.ts"
+        ],
+        "sourcesContent": [
+          "export function getDateRangeTags(endDate: string, startDate?: string): {\r\n    months: string[];\r\n    days: string[];\r\n} {\r\n    const start = startDate ? new Date(startDate) : new Date();\r\n    const end = new Date(endDate);\r\n    const months = new Set<string>();\r\n    const days = new Set<string>();\r\n    const current = start ? new Date(start) : new Date(end);\r\n\r\n    while (current <= end) {\r\n        months.add(current.getMonth()?.toString());\r\n        days.add(current.getDate()?.toString());\r\n        current.setDate(current.getDate() + 1);\r\n    }\r\n\r\n    return {\r\n        months: Array.from(months),\r\n        days: Array.from(days)\r\n    };\r\n}"
+        ],
+        "mappings": "AAAO,gBAAS,iBAAiB,SAAiB,WAGhD;AACE,QAAM,QAAQ,YAAY,IAAI,KAAK,SAAS,IAAI,oBAAI,KAAK;AACzD,QAAM,MAAM,IAAI,KAAK,OAAO;AAC5B,QAAM,SAAS,oBAAI,IAAY;AAC/B,QAAM,OAAO,oBAAI,IAAY;AAC7B,QAAM,UAAU,QAAQ,IAAI,KAAK,KAAK,IAAI,IAAI,KAAK,GAAG;AAEtD,SAAO,WAAW,KAAK;AACnB,WAAO,IAAI,QAAQ,SAAS,GAAG,SAAS,CAAC;AACzC,SAAK,IAAI,QAAQ,QAAQ,GAAG,SAAS,CAAC;AACtC,YAAQ,QAAQ,QAAQ,QAAQ,IAAI,CAAC;AAAA,EACzC;AAEA,SAAO;AAAA,IACH,QAAQ,MAAM,KAAK,MAAM;AAAA,IACzB,MAAM,MAAM,KAAK,IAAI;AAAA,EACzB;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495289,
+      "end": 1754579495289,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495289,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal"
+    }
+  ]
+}

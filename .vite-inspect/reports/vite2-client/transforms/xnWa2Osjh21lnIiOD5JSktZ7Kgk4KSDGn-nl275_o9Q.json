@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/date-field/components/date-field.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { DateValue } from \"@internationalized/date\";\n\timport { useDateFieldRoot } from \"../date-field.svelte.js\";\n\timport type { DateFieldRootProps } from \"../types.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\timport { getDefaultDate } from \"../../../internal/date-time/utils.js\";\n\timport { watch } from \"runed\";\n\n\tlet {\n\t\tdisabled = false,\n\t\tgranularity,\n\t\thideTimeZone = false,\n\t\thourCycle,\n\t\tlocale = \"en\",\n\t\tmaxValue,\n\t\tminValue,\n\t\tonPlaceholderChange = noop,\n\t\tonValueChange = noop,\n\t\tvalidate = noop,\n\t\tonInvalid = noop,\n\t\tplaceholder = $bindable(),\n\t\tvalue = $bindable(),\n\t\treadonly = false,\n\t\treadonlySegments = [],\n\t\trequired = false,\n\t\terrorMessageId,\n\t\tchildren,\n\t}: DateFieldRootProps = $props();\n\n\tfunction handleDefaultPlaceholder() {\n\t\tif (placeholder !== undefined) return;\n\n\t\tconst defaultPlaceholder = getDefaultDate({\n\t\t\tgranularity,\n\t\t\tdefaultValue: value,\n\t\t});\n\n\t\tplaceholder = defaultPlaceholder;\n\t}\n\n\t// SSR\n\thandleDefaultPlaceholder();\n\n\t/**\n\t * Covers an edge case where when a spread props object is reassigned,\n\t * the props are reset to their default values, which would make placeholder\n\t * undefined which causes errors to be thrown.\n\t */\n\twatch.pre(\n\t\t() => placeholder,\n\t\t() => {\n\t\t\thandleDefaultPlaceholder();\n\t\t}\n\t);\n\n\tuseDateFieldRoot({\n\t\tvalue: box.with(\n\t\t\t() => value,\n\t\t\t(v) => {\n\t\t\t\tvalue = v;\n\t\t\t\tonValueChange(v);\n\t\t\t}\n\t\t),\n\t\tplaceholder: box.with(\n\t\t\t() => placeholder as DateValue,\n\t\t\t(v) => {\n\t\t\t\tplaceholder = v;\n\t\t\t\tonPlaceholderChange(v);\n\t\t\t}\n\t\t),\n\t\tdisabled: box.with(() => disabled),\n\t\tgranularity: box.with(() => granularity),\n\t\thideTimeZone: box.with(() => hideTimeZone),\n\t\thourCycle: box.with(() => hourCycle),\n\t\tlocale: box.with(() => locale),\n\t\tmaxValue: box.with(() => maxValue),\n\t\tminValue: box.with(() => minValue),\n\t\tvalidate: box.with(() => validate),\n\t\treadonly: box.with(() => readonly),\n\t\treadonlySegments: box.with(() => readonlySegments),\n\t\trequired: box.with(() => required),\n\t\tonInvalid: box.with(() => onInvalid),\n\t\terrorMessageId: box.with(() => errorMessageId),\n\t\tisInvalidProp: box.with(() => undefined),\n\t});\n</script>\n\n{@render children?.()}\n",
+      "start": 1754579496459,
+      "end": 1754579496531,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496531,
+      "end": 1754579496531,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496531,
+      "end": 1754579496531,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useDateFieldRoot } from \"../date-field.svelte.js\";\nimport { noop } from \"../../../internal/noop.js\";\nimport { getDefaultDate } from \"../../../internal/date-time/utils.js\";\nimport { watch } from \"runed\";\n\nexport default function Date_field($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet disabled = $.prop($$props, 'disabled', 3, false),\n\t\thideTimeZone = $.prop($$props, 'hideTimeZone', 3, false),\n\t\tlocale = $.prop($$props, 'locale', 3, \"en\"),\n\t\tonPlaceholderChange = $.prop($$props, 'onPlaceholderChange', 3, noop),\n\t\tonValueChange = $.prop($$props, 'onValueChange', 3, noop),\n\t\tvalidate = $.prop($$props, 'validate', 3, noop),\n\t\tonInvalid = $.prop($$props, 'onInvalid', 3, noop),\n\t\tplaceholder = $.prop($$props, 'placeholder', 15),\n\t\tvalue = $.prop($$props, 'value', 15),\n\t\treadonly = $.prop($$props, 'readonly', 3, false),\n\t\treadonlySegments = $.prop($$props, 'readonlySegments', 19, () => []),\n\t\trequired = $.prop($$props, 'required', 3, false);\n\n\tfunction handleDefaultPlaceholder() {\n\t\tif (placeholder() !== undefined) return;\n\n\t\tconst defaultPlaceholder = getDefaultDate({\n\t\t\tgranularity: $$props.granularity,\n\t\t\tdefaultValue: value()\n\t\t});\n\n\t\tplaceholder(defaultPlaceholder);\n\t}\n\n\t// SSR\n\thandleDefaultPlaceholder();\n\n\t/**\n\t * Covers an edge case where when a spread props object is reassigned,\n\t * the props are reset to their default values, which would make placeholder\n\t * undefined which causes errors to be thrown.\n\t */\n\twatch.pre(() => placeholder(), () => {\n\t\thandleDefaultPlaceholder();\n\t});\n\n\tuseDateFieldRoot({\n\t\tvalue: box.with(() => value(), (v) => {\n\t\t\tvalue(v);\n\t\t\tonValueChange()(v);\n\t\t}),\n\t\tplaceholder: box.with(() => placeholder(), (v) => {\n\t\t\tplaceholder(v);\n\t\t\tonPlaceholderChange()(v);\n\t\t}),\n\t\tdisabled: box.with(() => disabled()),\n\t\tgranularity: box.with(() => $$props.granularity),\n\t\thideTimeZone: box.with(() => hideTimeZone()),\n\t\thourCycle: box.with(() => $$props.hourCycle),\n\t\tlocale: box.with(() => locale()),\n\t\tmaxValue: box.with(() => $$props.maxValue),\n\t\tminValue: box.with(() => $$props.minValue),\n\t\tvalidate: box.with(() => validate()),\n\t\treadonly: box.with(() => readonly()),\n\t\treadonlySegments: box.with(() => readonlySegments()),\n\t\trequired: box.with(() => required()),\n\t\tonInvalid: box.with(() => onInvalid()),\n\t\terrorMessageId: box.with(() => $$props.errorMessageId),\n\t\tisInvalidProp: box.with(() => undefined)\n\t});\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children ?? $.noop);\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496532,
+      "end": 1754579496535,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,gBAAgB,QAAQ,yBAAyB;SAEjD,IAAI,QAAQ,2BAA2B;SACvC,cAAc,QAAQ,sCAAsC;SAC5D,KAAK,QAAQ,OAAO;;;;;KAG5B,QAAQ,kCAAG,KAAK;EAEhB,YAAY,sCAAG,KAAK;EAEpB,MAAM,gCAAG,IAAI;EAGb,mBAAmB,6CAAG,IAAI;EAC1B,aAAa,uCAAG,IAAI;EACpB,QAAQ,kCAAG,IAAI;EACf,SAAS,mCAAG,IAAI;EAChB,WAAW;EACX,KAAK;EACL,QAAQ,kCAAG,KAAK;EAChB,gBAAgB;EAChB,QAAQ,kCAAG,KAAK;;UAKR,wBAAwB,GAAG;MAC/B,WAAW,OAAK,SAAS;;QAEvB,kBAAkB,GAAG,cAAc;GACxC,WAAW;GACX,YAAY,EAAE,KAAK;;;EAGpB,WAAW,CAAG,kBAAkB;CACjC;;;CAGA,wBAAwB;;;;;;;CAOxB,KAAK,CAAC,GAAG,OACF,WAAW,UACX;EACL,wBAAwB;CACzB;;CAGD,gBAAgB;EACf,KAAK,EAAE,GAAG,CAAC,IAAI,OACR,KAAK,KACV,CAAC,KAAK;GACN,KAAK,CAAG,CAAC;GACT,aAAa,GAAC,CAAC;EAChB;EAED,WAAW,EAAE,GAAG,CAAC,IAAI,OACd,WAAW,KAChB,CAAC,KAAK;GACN,WAAW,CAAG,CAAC;GACf,mBAAmB,GAAC,CAAC;EACtB;EAED,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,WAAW,EAAE,GAAG,CAAC,IAAI;EACrB,YAAY,EAAE,GAAG,CAAC,IAAI,OAAO,YAAY;EACzC,SAAS,EAAE,GAAG,CAAC,IAAI;EACnB,MAAM,EAAE,GAAG,CAAC,IAAI,OAAO,MAAM;EAC7B,QAAQ,EAAE,GAAG,CAAC,IAAI;EAClB,QAAQ,EAAE,GAAG,CAAC,IAAI;EAClB,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,gBAAgB,EAAE,GAAG,CAAC,IAAI,OAAO,gBAAgB;EACjD,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,SAAS,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS;EACnC,cAAc,EAAE,GAAG,CAAC,IAAI;EACxB,aAAa,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "date-field.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496535,
+      "end": 1754579496535,
+      "order": "normal"
+    }
+  ]
+}

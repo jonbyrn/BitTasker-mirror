@@ -1,0 +1,12 @@
+{
+  "resolvedId": "\u0000virtual:__sveltekit/environment",
+  "transforms": [
+    {
+      "name": "vite-plugin-sveltekit-virtual-modules",
+      "result": "export const version = \"1754579467112\";\nexport let building = false;\nexport let prerendering = false;\n\nexport function set_building() {\n\tbuilding = true;\n}\n\nexport function set_prerendering() {\n\tprerendering = true;\n}",
+      "start": 1754579494382,
+      "end": 1754579494382,
+      "sourcemaps": null
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/internal/dom.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export function getDocument(element) {\n    return element?.ownerDocument ?? document;\n}\nexport function activeElement(doc) {\n    let activeElement = doc.activeElement;\n    while (activeElement?.shadowRoot?.activeElement != null) {\n        activeElement = activeElement.shadowRoot.activeElement;\n    }\n    return activeElement;\n}\nexport function getFirstNonCommentChild(element) {\n    if (!element)\n        return null;\n    for (const child of element.childNodes) {\n        if (child.nodeType !== Node.COMMENT_NODE) {\n            return child;\n        }\n    }\n    return null;\n}\n/**\n * Determines if the click event truly occurred outside the content node.\n * This was added to handle password managers and other elements that may be injected\n * into the DOM but visually appear inside the content.\n */\nexport function isClickTrulyOutside(event, contentNode) {\n    const { clientX, clientY } = event;\n    const rect = contentNode.getBoundingClientRect();\n    return (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom);\n}\nexport function getTarget(event) {\n    if (\"composedPath\" in event) {\n        return event.composedPath()[0];\n    }\n    // TS thinks `event` is of type never as it assumes all browsers support\n    // `composedPath()`, but browsers without shadow DOM don't.\n    return event.target;\n}\n",
+      "start": 1754579497788,
+      "end": 1754579497872,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497872,
+      "end": 1754579497872,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497873,
+      "end": 1754579497873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497873,
+      "end": 1754579497873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497873,
+      "end": 1754579497873,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497873,
+      "end": 1754579497873,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497873,
+      "end": 1754579497873,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/combobox/components/combobox.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { type WritableBox, box } from \"svelte-toolbelt\";\n\timport type { ComboboxRootProps } from \"../types.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\timport FloatingLayer from \"../../utilities/floating-layer/components/floating-layer.svelte\";\n\timport { useSelectRoot } from \"../../select/select.svelte.js\";\n\timport ListboxHiddenInput from \"../../select/components/select-hidden-input.svelte\";\n\timport { watch } from \"runed\";\n\n\tlet {\n\t\tvalue = $bindable(),\n\t\tonValueChange = noop,\n\t\tname = \"\",\n\t\tdisabled = false,\n\t\ttype,\n\t\topen = $bindable(false),\n\t\tonOpenChange = noop,\n\t\tloop = false,\n\t\tscrollAlignment = \"nearest\",\n\t\trequired = false,\n\t\titems = [],\n\t\tallowDeselect = true,\n\t\tchildren,\n\t}: ComboboxRootProps = $props();\n\n\tif (value === undefined) {\n\t\tconst defaultValue = type === \"single\" ? \"\" : [];\n\t\tvalue = defaultValue;\n\t}\n\n\twatch.pre(\n\t\t() => value,\n\t\t() => {\n\t\t\tif (value !== undefined) return;\n\t\t\tvalue = type === \"single\" ? \"\" : [];\n\t\t}\n\t);\n\n\tconst rootState = useSelectRoot({\n\t\ttype,\n\t\tvalue: box.with(\n\t\t\t() => value!,\n\t\t\t(v) => {\n\t\t\t\tvalue = v;\n\t\t\t\t// @ts-expect-error - we know\n\t\t\t\tonValueChange(v);\n\t\t\t}\n\t\t) as WritableBox<string> | WritableBox<string[]>,\n\t\tdisabled: box.with(() => disabled),\n\t\trequired: box.with(() => required),\n\t\topen: box.with(\n\t\t\t() => open,\n\t\t\t(v) => {\n\t\t\t\topen = v;\n\t\t\t\tonOpenChange(v);\n\t\t\t}\n\t\t),\n\t\tloop: box.with(() => loop),\n\t\tscrollAlignment: box.with(() => scrollAlignment),\n\t\tname: box.with(() => name),\n\t\tisCombobox: true,\n\t\titems: box.with(() => items),\n\t\tallowDeselect: box.with(() => allowDeselect),\n\t});\n</script>\n\n<FloatingLayer>\n\t{@render children?.()}\n</FloatingLayer>\n\n{#if Array.isArray(rootState.opts.value.current)}\n\t{#if rootState.opts.value.current.length}\n\t\t{#each rootState.opts.value.current as item}\n\t\t\t<ListboxHiddenInput value={item} />\n\t\t{/each}\n\t{/if}\n{:else}\n\t<ListboxHiddenInput bind:value={rootState.opts.value.current as string} />\n{/if}\n",
+      "start": 1754579496355,
+      "end": 1754579496426,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496426,
+      "end": 1754579496426,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496426,
+      "end": 1754579496426,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { noop } from \"../../../internal/noop.js\";\nimport FloatingLayer from \"../../utilities/floating-layer/components/floating-layer.svelte\";\nimport { useSelectRoot } from \"../../select/select.svelte.js\";\nimport ListboxHiddenInput from \"../../select/components/select-hidden-input.svelte\";\nimport { watch } from \"runed\";\n\nvar root = $.template(`<!> <!>`, 1);\n\nexport default function Combobox($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet value = $.prop($$props, 'value', 15),\n\t\tonValueChange = $.prop($$props, 'onValueChange', 3, noop),\n\t\tname = $.prop($$props, 'name', 3, \"\"),\n\t\tdisabled = $.prop($$props, 'disabled', 3, false),\n\t\topen = $.prop($$props, 'open', 15, false),\n\t\tonOpenChange = $.prop($$props, 'onOpenChange', 3, noop),\n\t\tloop = $.prop($$props, 'loop', 3, false),\n\t\tscrollAlignment = $.prop($$props, 'scrollAlignment', 3, \"nearest\"),\n\t\trequired = $.prop($$props, 'required', 3, false),\n\t\titems = $.prop($$props, 'items', 19, () => []),\n\t\tallowDeselect = $.prop($$props, 'allowDeselect', 3, true);\n\n\tif (value() === undefined) {\n\t\tconst defaultValue = $$props.type === \"single\" ? \"\" : [];\n\n\t\tvalue(defaultValue);\n\t}\n\n\twatch.pre(() => value(), () => {\n\t\tif (value() !== undefined) return;\n\t\tvalue($$props.type === \"single\" ? \"\" : []);\n\t});\n\n\tconst rootState = useSelectRoot({\n\t\ttype: $$props.type,\n\t\tvalue: box.with(() => value(), (v) => {\n\t\t\tvalue(v);\n\t\t\t// @ts-expect-error - we know\n\t\t\tonValueChange()(v);\n\t\t}),\n\t\tdisabled: box.with(() => disabled()),\n\t\trequired: box.with(() => required()),\n\t\topen: box.with(() => open(), (v) => {\n\t\t\topen(v);\n\t\t\tonOpenChange()(v);\n\t\t}),\n\t\tloop: box.with(() => loop()),\n\t\tscrollAlignment: box.with(() => scrollAlignment()),\n\t\tname: box.with(() => name()),\n\t\tisCombobox: true,\n\t\titems: box.with(() => items()),\n\t\tallowDeselect: box.with(() => allowDeselect())\n\t});\n\n\tvar fragment = root();\n\tvar node = $.first_child(fragment);\n\n\tFloatingLayer(node, {\n\t\tchildren: ($$anchor, $$slotProps) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t\t$.snippet(node_1, () => $$props.children ?? $.noop);\n\t\t\t$.append($$anchor, fragment_1);\n\t\t},\n\t\t$$slots: { default: true }\n\t});\n\n\tvar node_2 = $.sibling(node, 2);\n\n\t{\n\t\tvar consequent_1 = ($$anchor) => {\n\t\t\tvar fragment_2 = $.comment();\n\t\t\tvar node_3 = $.first_child(fragment_2);\n\n\t\t\t{\n\t\t\t\tvar consequent = ($$anchor) => {\n\t\t\t\t\tvar fragment_3 = $.comment();\n\t\t\t\t\tvar node_4 = $.first_child(fragment_3);\n\n\t\t\t\t\t$.each(node_4, 17, () => rootState.opts.value.current, $.index, ($$anchor, item) => {\n\t\t\t\t\t\tListboxHiddenInput($$anchor, {\n\t\t\t\t\t\t\tget value() {\n\t\t\t\t\t\t\t\treturn $.get(item);\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t});\n\t\t\t\t\t});\n\n\t\t\t\t\t$.append($$anchor, fragment_3);\n\t\t\t\t};\n\n\t\t\t\t$.if(node_3, ($$render) => {\n\t\t\t\t\tif (rootState.opts.value.current.length) $$render(consequent);\n\t\t\t\t});\n\t\t\t}\n\n\t\t\t$.append($$anchor, fragment_2);\n\t\t};\n\n\t\tvar alternate = ($$anchor) => {\n\t\t\tListboxHiddenInput($$anchor, {\n\t\t\t\tget value() {\n\t\t\t\t\treturn rootState.opts.value.current;\n\t\t\t\t},\n\t\t\t\tset value($$value) {\n\t\t\t\t\trootState.opts.value.current = $$value;\n\t\t\t\t}\n\t\t\t});\n\t\t};\n\n\t\t$.if(node_2, ($$render) => {\n\t\t\tif (Array.isArray(rootState.opts.value.current)) $$render(consequent_1); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496426,
+      "end": 1754579496430,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SAC4B,GAAG,QAAQ,iBAAiB;SAE9C,IAAI,QAAQ,2BAA2B;OACzC,aAAa,MAAM,iEAAiE;SAClF,aAAa,QAAQ,+BAA+B;OACtD,kBAAkB,MAAM,oDAAoD;SAC1E,KAAK,QAAQ,OAAO;;;;;;;KAG5B,KAAK;EACL,aAAa,uCAAG,IAAI;EACpB,IAAI,8BAAG,EAAE;EACT,QAAQ,kCAAG,KAAK;EAEhB,IAAI,+BAAa,KAAK;EACtB,YAAY,sCAAG,IAAI;EACnB,IAAI,8BAAG,KAAK;EACZ,eAAe,yCAAG,SAAS;EAC3B,QAAQ,kCAAG,KAAK;EAChB,KAAK;EACL,aAAa,uCAAG,IAAI;;KAIjB,KAAK,OAAK,SAAS,EAAE;QAClB,YAAY,oBAAY,QAAQ,GAAG,EAAE;;EAC3C,KAAK,CAAG,YAAY;CACrB;;CAEA,KAAK,CAAC,GAAG,OACF,KAAK,UACL;MACD,KAAK,OAAK,SAAS;EACvB,KAAK,kBAAY,QAAQ,GAAG,EAAE;CAC/B;;OAGK,SAAS,GAAG,aAAa;EAC9B,IAAI;EACJ,KAAK,EAAE,GAAG,CAAC,IAAI,OACR,KAAK,KACV,CAAC,KAAK;GACN,KAAK,CAAG,CAAC;;GAET,aAAa,GAAC,CAAC;EAChB;EAED,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,IAAI,EAAE,GAAG,CAAC,IAAI,OACP,IAAI,KACT,CAAC,KAAK;GACN,IAAI,CAAG,CAAC;GACR,YAAY,GAAC,CAAC;EACf;EAED,IAAI,EAAE,GAAG,CAAC,IAAI,OAAO,IAAI;EACzB,eAAe,EAAE,GAAG,CAAC,IAAI,OAAO,eAAe;EAC/C,IAAI,EAAE,GAAG,CAAC,IAAI,OAAO,IAAI;EACzB,UAAU,EAAE,IAAI;EAChB,KAAK,EAAE,GAAG,CAAC,IAAI,OAAO,KAAK;EAC3B,aAAa,EAAE,GAAG,CAAC,IAAI,OAAO,aAAa;;;;;;;;;;;;;;;;;;;;;;;;;;;;;8BAUpC,SAAS,CAAC,IAAI,CAAC,KAAK,CAAC,OAAO,sBAAI,IAAI;;;qBACf,IAAI;;;;;;;;;SAF5B,SAAS,CAAC,IAAI,CAAC,KAAK,CAAC,OAAO,CAAC,MAAM;;;;;;;;;;YAMR,SAAS,CAAC,IAAI,CAAC,KAAK,CAAC,OAAO;;;KAA5B,SAAS,CAAC,IAAI,CAAC,KAAK,CAAC,OAAO;;;;;;OAPxD,KAAK,CAAC,OAAO,CAAC,SAAS,CAAC,IAAI,CAAC,KAAK,CAAC,OAAO",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "combobox.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496430,
+      "end": 1754579496430,
+      "order": "normal"
+    }
+  ]
+}

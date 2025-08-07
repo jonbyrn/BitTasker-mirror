@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/scroll-area/components/scroll-area-thumb.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport type { ScrollAreaThumbProps } from \"../types.js\";\n\timport { ScrollAreaScrollbarVisibleContext } from \"../scroll-area.svelte.js\";\n\timport ScrollAreaThumbImpl from \"./scroll-area-thumb-impl.svelte\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport PresenceLayer from \"../../utilities/presence-layer/presence-layer.svelte\";\n\n\tlet {\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\tforceMount = false,\n\t\t...restProps\n\t}: ScrollAreaThumbProps = $props();\n\n\tconst scrollbarState = ScrollAreaScrollbarVisibleContext.get();\n</script>\n\n<PresenceLayer present={forceMount || scrollbarState.hasThumb} {...restProps} {id}>\n\t{#snippet presence({ present })}\n\t\t<ScrollAreaThumbImpl {...restProps} {id} bind:ref present={present.current} />\n\t{/snippet}\n</PresenceLayer>\n",
+      "start": 1754579496845,
+      "end": 1754579496936,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496936,
+      "end": 1754579496936,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496936,
+      "end": 1754579496936,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { ScrollAreaScrollbarVisibleContext } from \"../scroll-area.svelte.js\";\nimport ScrollAreaThumbImpl from \"./scroll-area-thumb-impl.svelte\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport PresenceLayer from \"../../utilities/presence-layer/presence-layer.svelte\";\n\nexport default function Scroll_area_thumb($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\tforceMount = $.prop($$props, 'forceMount', 3, false),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'id',\n\t\t\t'ref',\n\t\t\t'forceMount'\n\t\t]);\n\n\tconst scrollbarState = ScrollAreaScrollbarVisibleContext.get();\n\tconst expression = $.derived(() => forceMount() || scrollbarState.hasThumb);\n\n\t{\n\t\tconst presence = ($$anchor, $$arg0) => {\n\t\t\tlet present = () => $$arg0?.().present;\n\n\t\t\tScrollAreaThumbImpl($$anchor, $.spread_props(() => restProps, {\n\t\t\t\tget id() {\n\t\t\t\t\treturn id();\n\t\t\t\t},\n\t\t\t\tget present() {\n\t\t\t\t\treturn present().current;\n\t\t\t\t},\n\t\t\t\tget ref() {\n\t\t\t\t\treturn ref();\n\t\t\t\t},\n\t\t\t\tset ref($$value) {\n\t\t\t\t\tref($$value);\n\t\t\t\t}\n\t\t\t}));\n\t\t};\n\n\t\tPresenceLayer($$anchor, $.spread_props(\n\t\t\t{\n\t\t\t\tget present() {\n\t\t\t\t\treturn $.get(expression);\n\t\t\t\t}\n\t\t\t},\n\t\t\t() => restProps,\n\t\t\t{\n\t\t\t\tget id() {\n\t\t\t\t\treturn id();\n\t\t\t\t},\n\t\t\t\tpresence,\n\t\t\t\t$$slots: { presence: true }\n\t\t\t}\n\t\t));\n\t}\n\n\t$.pop();\n}",
+      "start": 1754579496936,
+      "end": 1754579496938,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SAEU,iCAAiC,QAAQ,0BAA0B;OACrE,mBAAmB,MAAM,iCAAiC;SACxD,KAAK,QAAQ,6BAA6B;OAC5C,aAAa,MAAM,sDAAsD;;;;;KAG/E,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EACpB,UAAU,oCAAG,KAAK;EACf;;;;;;;;;OAGE,cAAc,GAAG,iCAAiC,CAAC,GAAG;oCAGrC,UAAU,MAAI,cAAc,CAAC,QAAQ;;;;OACvC,OAAO,oBAAP,OAAO;;sDACF,SAAS;;;;;YAAyB,OAAO,GAAC,OAAO;;;;;;;;;;;;;;;;;SAFT,SAAS",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "scroll-area-thumb.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496938,
+      "end": 1754579496938,
+      "order": "normal"
+    }
+  ]
+}

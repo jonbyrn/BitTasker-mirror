@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/reactivity/deriveds.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { Derived, Effect } from '#client' */\nimport { DEV } from 'esm-env';\nimport { CLEAN, DERIVED, DIRTY, EFFECT_HAS_DERIVED, MAYBE_DIRTY, UNOWNED } from '#client/constants';\nimport {\n\tactive_reaction,\n\tactive_effect,\n\tset_signal_status,\n\tskip_reaction,\n\tupdate_reaction,\n\tincrement_write_version,\n\tset_active_effect,\n\tpush_reaction_value\n} from '../runtime.js';\nimport { equals, safe_equals } from './equality.js';\nimport * as e from '../errors.js';\nimport { destroy_effect } from './effects.js';\nimport { inspect_effects, set_inspect_effects } from './sources.js';\nimport { get_stack } from '../dev/tracing.js';\nimport { tracing_mode_flag } from '../../flags/index.js';\nimport { component_context } from '../context.js';\n\n/**\n * @template V\n * @param {() => V} fn\n * @returns {Derived<V>}\n */\n/*#__NO_SIDE_EFFECTS__*/\nexport function derived(fn) {\n\tvar flags = DERIVED | DIRTY;\n\tvar parent_derived =\n\t\tactive_reaction !== null && (active_reaction.f & DERIVED) !== 0\n\t\t\t? /** @type {Derived} */ (active_reaction)\n\t\t\t: null;\n\n\tif (active_effect === null || (parent_derived !== null && (parent_derived.f & UNOWNED) !== 0)) {\n\t\tflags |= UNOWNED;\n\t} else {\n\t\t// Since deriveds are evaluated lazily, any effects created inside them are\n\t\t// created too late to ensure that the parent effect is added to the tree\n\t\tactive_effect.f |= EFFECT_HAS_DERIVED;\n\t}\n\n\t/** @type {Derived<V>} */\n\tconst signal = {\n\t\tctx: component_context,\n\t\tdeps: null,\n\t\teffects: null,\n\t\tequals,\n\t\tf: flags,\n\t\tfn,\n\t\treactions: null,\n\t\trv: 0,\n\t\tv: /** @type {V} */ (null),\n\t\twv: 0,\n\t\tparent: parent_derived ?? active_effect\n\t};\n\n\tif (DEV && tracing_mode_flag) {\n\t\tsignal.created = get_stack('CreatedAt');\n\t}\n\n\treturn signal;\n}\n\n/**\n * @template V\n * @param {() => V} fn\n * @returns {Derived<V>}\n */\n/*#__NO_SIDE_EFFECTS__*/\nexport function user_derived(fn) {\n\tconst d = derived(fn);\n\n\tpush_reaction_value(d);\n\n\treturn d;\n}\n\n/**\n * @template V\n * @param {() => V} fn\n * @returns {Derived<V>}\n */\n/*#__NO_SIDE_EFFECTS__*/\nexport function derived_safe_equal(fn) {\n\tconst signal = derived(fn);\n\tsignal.equals = safe_equals;\n\treturn signal;\n}\n\n/**\n * @param {Derived} derived\n * @returns {void}\n */\nexport function destroy_derived_effects(derived) {\n\tvar effects = derived.effects;\n\n\tif (effects !== null) {\n\t\tderived.effects = null;\n\n\t\tfor (var i = 0; i < effects.length; i += 1) {\n\t\t\tdestroy_effect(/** @type {Effect} */ (effects[i]));\n\t\t}\n\t}\n}\n\n/**\n * The currently updating deriveds, used to detect infinite recursion\n * in dev mode and provide a nicer error than 'too much recursion'\n * @type {Derived[]}\n */\nlet stack = [];\n\n/**\n * @param {Derived} derived\n * @returns {Effect | null}\n */\nfunction get_derived_parent_effect(derived) {\n\tvar parent = derived.parent;\n\twhile (parent !== null) {\n\t\tif ((parent.f & DERIVED) === 0) {\n\t\t\treturn /** @type {Effect} */ (parent);\n\t\t}\n\t\tparent = parent.parent;\n\t}\n\treturn null;\n}\n\n/**\n * @template T\n * @param {Derived} derived\n * @returns {T}\n */\nexport function execute_derived(derived) {\n\tvar value;\n\tvar prev_active_effect = active_effect;\n\n\tset_active_effect(get_derived_parent_effect(derived));\n\n\tif (DEV) {\n\t\tlet prev_inspect_effects = inspect_effects;\n\t\tset_inspect_effects(new Set());\n\t\ttry {\n\t\t\tif (stack.includes(derived)) {\n\t\t\t\te.derived_references_self();\n\t\t\t}\n\n\t\t\tstack.push(derived);\n\n\t\t\tdestroy_derived_effects(derived);\n\t\t\tvalue = update_reaction(derived);\n\t\t} finally {\n\t\t\tset_active_effect(prev_active_effect);\n\t\t\tset_inspect_effects(prev_inspect_effects);\n\t\t\tstack.pop();\n\t\t}\n\t} else {\n\t\ttry {\n\t\t\tdestroy_derived_effects(derived);\n\t\t\tvalue = update_reaction(derived);\n\t\t} finally {\n\t\t\tset_active_effect(prev_active_effect);\n\t\t}\n\t}\n\n\treturn value;\n}\n\n/**\n * @param {Derived} derived\n * @returns {void}\n */\nexport function update_derived(derived) {\n\tvar value = execute_derived(derived);\n\tvar status =\n\t\t(skip_reaction || (derived.f & UNOWNED) !== 0) && derived.deps !== null ? MAYBE_DIRTY : CLEAN;\n\n\tset_signal_status(derived, status);\n\n\tif (!derived.equals(value)) {\n\t\tderived.v = value;\n\t\tderived.wv = increment_write_version();\n\t}\n}\n",
+      "start": 1754579493922,
+      "end": 1754579493951,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493951,
+      "end": 1754579493951,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal"
+    }
+  ]
+}

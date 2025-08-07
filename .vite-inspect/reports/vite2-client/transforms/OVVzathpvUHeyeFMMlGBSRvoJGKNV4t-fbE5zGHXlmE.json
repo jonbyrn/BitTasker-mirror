@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/select/components/select-hidden-input.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport { useSelectHiddenInput } from \"../select.svelte.js\";\n\timport HiddenInput from \"../../utilities/hidden-input.svelte\";\n\n\tlet { value = $bindable(\"\") }: { value?: string } = $props();\n\n\tconst hiddenInputState = useSelectHiddenInput({\n\t\tvalue: box.with(() => value),\n\t});\n</script>\n\n{#if hiddenInputState.shouldRender}\n\t<HiddenInput {...hiddenInputState.props} bind:value />\n{/if}\n",
+      "start": 1754579497055,
+      "end": 1754579497195,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497195,
+      "end": 1754579497195,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497195,
+      "end": 1754579497195,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useSelectHiddenInput } from \"../select.svelte.js\";\nimport HiddenInput from \"../../utilities/hidden-input.svelte\";\n\nexport default function Select_hidden_input($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet value = $.prop($$props, 'value', 15, \"\");\n\tconst hiddenInputState = useSelectHiddenInput({ value: box.with(() => value()) });\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tHiddenInput($$anchor, $.spread_props(() => hiddenInputState.props, {\n\t\t\t\tget value() {\n\t\t\t\t\treturn value();\n\t\t\t\t},\n\t\t\t\tset value($$value) {\n\t\t\t\t\tvalue($$value);\n\t\t\t\t}\n\t\t\t}));\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif (hiddenInputState.shouldRender) $$render(consequent);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497195,
+      "end": 1754579497197,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAC5B,oBAAoB,QAAQ,qBAAqB;OACnD,WAAW,MAAM,qCAAqC;;;;;KAEvD,KAAK,gCAAa,EAAE;OAEpB,gBAAgB,GAAG,oBAAoB,GAC5C,KAAK,EAAE,GAAG,CAAC,IAAI,OAAO,KAAK;;;;;;8CAKX,gBAAgB,CAAC,KAAK;;;;;;;;;;;OADnC,gBAAgB,CAAC,YAAY",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "select-hidden-input.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497197,
+      "end": 1754579497197,
+      "order": "normal"
+    }
+  ]
+}

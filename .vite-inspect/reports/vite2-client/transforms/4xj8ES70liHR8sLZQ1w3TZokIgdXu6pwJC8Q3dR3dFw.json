@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/date-field/components/date-field-hidden-input.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { useDateFieldHiddenInput } from \"../date-field.svelte.js\";\n\timport HiddenInput from \"../../utilities/hidden-input.svelte\";\n\n\tconst hiddenInputState = useDateFieldHiddenInput();\n</script>\n\n{#if hiddenInputState.shouldRender}\n\t<HiddenInput {...hiddenInputState.props} />\n{/if}\n",
+      "start": 1754579497093,
+      "end": 1754579497224,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497224,
+      "end": 1754579497224,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497224,
+      "end": 1754579497224,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { useDateFieldHiddenInput } from \"../date-field.svelte.js\";\nimport HiddenInput from \"../../utilities/hidden-input.svelte\";\n\nexport default function Date_field_hidden_input($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tconst hiddenInputState = useDateFieldHiddenInput();\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tHiddenInput($$anchor, $.spread_props(() => hiddenInputState.props));\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif (hiddenInputState.shouldRender) $$render(consequent);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497224,
+      "end": 1754579497225,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,uBAAuB,QAAQ,yBAAyB;OAC1D,WAAW,MAAM,qCAAqC;;;;;OAEvD,gBAAgB,GAAG,uBAAuB;;;;;;8CAI/B,gBAAgB,CAAC,KAAK;;;;OADnC,gBAAgB,CAAC,YAAY",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "date-field-hidden-input.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497225,
+      "end": 1754579497225,
+      "order": "normal"
+    }
+  ]
+}

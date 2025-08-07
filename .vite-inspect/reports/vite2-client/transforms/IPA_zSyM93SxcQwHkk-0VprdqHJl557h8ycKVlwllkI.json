@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/date-picker/components/date-picker-calendar.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport type { DatePickerCalendarProps } from \"../types.js\";\n\timport { DatePickerRootContext } from \"../date-picker.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { useCalendarRoot } from \"../../calendar/calendar.svelte.js\";\n\n\tlet {\n\t\tchildren,\n\t\tchild,\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\t...restProps\n\t}: DatePickerCalendarProps = $props();\n\n\tconst datePickerRootState = DatePickerRootContext.get();\n\n\tconst calendarState = useCalendarRoot({\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t\tcalendarLabel: datePickerRootState.opts.calendarLabel,\n\t\tfixedWeeks: datePickerRootState.opts.fixedWeeks,\n\t\tisDateDisabled: datePickerRootState.opts.isDateDisabled,\n\t\tisDateUnavailable: datePickerRootState.opts.isDateUnavailable,\n\t\tlocale: datePickerRootState.opts.locale,\n\t\tnumberOfMonths: datePickerRootState.opts.numberOfMonths,\n\t\tpagedNavigation: datePickerRootState.opts.pagedNavigation,\n\t\tpreventDeselect: datePickerRootState.opts.preventDeselect,\n\t\treadonly: datePickerRootState.opts.readonly,\n\t\ttype: box.with(() => \"single\"),\n\t\tweekStartsOn: datePickerRootState.opts.weekStartsOn,\n\t\tweekdayFormat: datePickerRootState.opts.weekdayFormat,\n\t\tdisabled: datePickerRootState.opts.disabled,\n\t\tdisableDaysOutsideMonth: datePickerRootState.opts.disableDaysOutsideMonth,\n\t\tmaxValue: datePickerRootState.opts.maxValue,\n\t\tminValue: datePickerRootState.opts.minValue,\n\t\tplaceholder: datePickerRootState.opts.placeholder,\n\t\tvalue: datePickerRootState.opts.value,\n\t\tonDateSelect: datePickerRootState.opts.onDateSelect,\n\t\tinitialFocus: datePickerRootState.opts.initialFocus,\n\t\tdefaultPlaceholder: datePickerRootState.opts.defaultPlaceholder,\n\t});\n\n\tconst mergedProps = $derived(mergeProps(restProps, calendarState.props));\n</script>\n\n{#if child}\n\t{@render child({ props: mergedProps, ...calendarState.snippetProps })}\n{:else}\n\t<div {...mergedProps}>\n\t\t{@render children?.(calendarState.snippetProps)}\n\t</div>\n{/if}\n",
+      "start": 1754579496481,
+      "end": 1754579496556,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496556,
+      "end": 1754579496556,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { DatePickerRootContext } from \"../date-picker.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { useCalendarRoot } from \"../../calendar/calendar.svelte.js\";\n\nvar root_2 = $.template(`<div><!></div>`);\n\nexport default function Date_picker_calendar($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'children',\n\t\t\t'child',\n\t\t\t'id',\n\t\t\t'ref'\n\t\t]);\n\n\tconst datePickerRootState = DatePickerRootContext.get();\n\n\tconst calendarState = useCalendarRoot({\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v)),\n\t\tcalendarLabel: datePickerRootState.opts.calendarLabel,\n\t\tfixedWeeks: datePickerRootState.opts.fixedWeeks,\n\t\tisDateDisabled: datePickerRootState.opts.isDateDisabled,\n\t\tisDateUnavailable: datePickerRootState.opts.isDateUnavailable,\n\t\tlocale: datePickerRootState.opts.locale,\n\t\tnumberOfMonths: datePickerRootState.opts.numberOfMonths,\n\t\tpagedNavigation: datePickerRootState.opts.pagedNavigation,\n\t\tpreventDeselect: datePickerRootState.opts.preventDeselect,\n\t\treadonly: datePickerRootState.opts.readonly,\n\t\ttype: box.with(() => \"single\"),\n\t\tweekStartsOn: datePickerRootState.opts.weekStartsOn,\n\t\tweekdayFormat: datePickerRootState.opts.weekdayFormat,\n\t\tdisabled: datePickerRootState.opts.disabled,\n\t\tdisableDaysOutsideMonth: datePickerRootState.opts.disableDaysOutsideMonth,\n\t\tmaxValue: datePickerRootState.opts.maxValue,\n\t\tminValue: datePickerRootState.opts.minValue,\n\t\tplaceholder: datePickerRootState.opts.placeholder,\n\t\tvalue: datePickerRootState.opts.value,\n\t\tonDateSelect: datePickerRootState.opts.onDateSelect,\n\t\tinitialFocus: datePickerRootState.opts.initialFocus,\n\t\tdefaultPlaceholder: datePickerRootState.opts.defaultPlaceholder\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, calendarState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t\tvar render_arg = $.derived_safe_equal(() => ({\n\t\t\t\tprops: $.get(mergedProps),\n\t\t\t\t...calendarState.snippetProps\n\t\t\t}));\n\n\t\t\t$.snippet(node_1, () => $$props.child, () => $.get(render_arg));\n\t\t\t$.append($$anchor, fragment_1);\n\t\t};\n\n\t\tvar alternate = ($$anchor) => {\n\t\t\tvar div = root_2();\n\t\t\tlet attributes;\n\t\t\tvar node_2 = $.child(div);\n\n\t\t\t$.snippet(node_2, () => $$props.children ?? $.noop, () => calendarState.snippetProps);\n\t\t\t$.reset(div);\n\t\t\t$.template_effect(() => attributes = $.set_attributes(div, attributes, { ...$.get(mergedProps) }));\n\t\t\t$.append($$anchor, div);\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496556,
+      "end": 1754579496560,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SAExC,qBAAqB,QAAQ,0BAA0B;SACvD,KAAK,QAAQ,6BAA6B;SAC1C,eAAe,QAAQ,mCAAmC;;;;;;;KAKlE,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EACjB;;;;;;;;;;OAGE,mBAAmB,GAAG,qBAAqB,CAAC,GAAG;;OAE/C,aAAa,GAAG,eAAe;EACpC,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;EAEhB,aAAa,EAAE,mBAAmB,CAAC,IAAI,CAAC,aAAa;EACrD,UAAU,EAAE,mBAAmB,CAAC,IAAI,CAAC,UAAU;EAC/C,cAAc,EAAE,mBAAmB,CAAC,IAAI,CAAC,cAAc;EACvD,iBAAiB,EAAE,mBAAmB,CAAC,IAAI,CAAC,iBAAiB;EAC7D,MAAM,EAAE,mBAAmB,CAAC,IAAI,CAAC,MAAM;EACvC,cAAc,EAAE,mBAAmB,CAAC,IAAI,CAAC,cAAc;EACvD,eAAe,EAAE,mBAAmB,CAAC,IAAI,CAAC,eAAe;EACzD,eAAe,EAAE,mBAAmB,CAAC,IAAI,CAAC,eAAe;EACzD,QAAQ,EAAE,mBAAmB,CAAC,IAAI,CAAC,QAAQ;EAC3C,IAAI,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EAC7B,YAAY,EAAE,mBAAmB,CAAC,IAAI,CAAC,YAAY;EACnD,aAAa,EAAE,mBAAmB,CAAC,IAAI,CAAC,aAAa;EACrD,QAAQ,EAAE,mBAAmB,CAAC,IAAI,CAAC,QAAQ;EAC3C,uBAAuB,EAAE,mBAAmB,CAAC,IAAI,CAAC,uBAAuB;EACzE,QAAQ,EAAE,mBAAmB,CAAC,IAAI,CAAC,QAAQ;EAC3C,QAAQ,EAAE,mBAAmB,CAAC,IAAI,CAAC,QAAQ;EAC3C,WAAW,EAAE,mBAAmB,CAAC,IAAI,CAAC,WAAW;EACjD,KAAK,EAAE,mBAAmB,CAAC,IAAI,CAAC,KAAK;EACrC,YAAY,EAAE,mBAAmB,CAAC,IAAI,CAAC,YAAY;EACnD,YAAY,EAAE,mBAAmB,CAAC,IAAI,CAAC,YAAY;EACnD,kBAAkB,EAAE,mBAAmB,CAAC,IAAI,CAAC,kBAAkB;;;OAG1D,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,aAAa,CAAC,KAAK;;;;;;;;;;IAIrD,KAAK,QAAE,WAAW;OAAK,aAAa,CAAC,YAAY;;;;;;;;;;;;6DAG7C,aAAa,CAAC,YAAY;;qFADtC,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "date-picker-calendar.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496560,
+      "end": 1754579496560,
+      "order": "normal"
+    }
+  ]
+}

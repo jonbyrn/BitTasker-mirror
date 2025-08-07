@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/tooltip/components/tooltip-content-static.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport type { TooltipContentStaticProps } from \"../types.js\";\n\timport { useTooltipContent } from \"../tooltip.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport PopperLayer from \"../../utilities/popper-layer/popper-layer.svelte\";\n\timport { getFloatingContentCSSVars } from \"../../../internal/floating-svelte/floating-utils.svelte.js\";\n\timport PopperLayerForceMount from \"../../utilities/popper-layer/popper-layer-force-mount.svelte\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet {\n\t\tchildren,\n\t\tchild,\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\tonInteractOutside = noop,\n\t\tonEscapeKeydown = noop,\n\t\tforceMount = false,\n\t\t...restProps\n\t}: TooltipContentStaticProps = $props();\n\n\tconst contentState = useTooltipContent({\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t\tonInteractOutside: box.with(() => onInteractOutside),\n\t\tonEscapeKeydown: box.with(() => onEscapeKeydown),\n\t});\n\n\tconst mergedProps = $derived(mergeProps(restProps, contentState.props));\n</script>\n\n{#if forceMount}\n\t<PopperLayerForceMount\n\t\t{...mergedProps}\n\t\t{...contentState.popperProps}\n\t\tisStatic\n\t\tenabled={contentState.root.opts.open.current}\n\t\t{id}\n\t\ttrapFocus={false}\n\t\tloop={false}\n\t\tpreventScroll={false}\n\t\tforceMount={true}\n\t>\n\t\t{#snippet popper({ props })}\n\t\t\t{@const mergedProps = mergeProps(props, {\n\t\t\t\tstyle: getFloatingContentCSSVars(\"tooltip\"),\n\t\t\t})}\n\t\t\t{#if child}\n\t\t\t\t{@render child({ props: mergedProps, ...contentState.snippetProps })}\n\t\t\t{:else}\n\t\t\t\t<div {...mergedProps}>\n\t\t\t\t\t{@render children?.()}\n\t\t\t\t</div>\n\t\t\t{/if}\n\t\t{/snippet}\n\t</PopperLayerForceMount>\n{:else if !forceMount}\n\t<PopperLayer\n\t\t{...mergedProps}\n\t\t{...contentState.popperProps}\n\t\tisStatic\n\t\tpresent={contentState.root.opts.open.current}\n\t\t{id}\n\t\ttrapFocus={false}\n\t\tloop={false}\n\t\tpreventScroll={false}\n\t\tforceMount={false}\n\t>\n\t\t{#snippet popper({ props })}\n\t\t\t{@const mergedProps = mergeProps(props, {\n\t\t\t\tstyle: getFloatingContentCSSVars(\"tooltip\"),\n\t\t\t})}\n\t\t\t{#if child}\n\t\t\t\t{@render child({ props: mergedProps, ...contentState.snippetProps })}\n\t\t\t{:else}\n\t\t\t\t<div {...mergedProps}>\n\t\t\t\t\t{@render children?.()}\n\t\t\t\t</div>\n\t\t\t{/if}\n\t\t{/snippet}\n\t</PopperLayer>\n{/if}\n",
+      "start": 1754579496955,
+      "end": 1754579497032,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497032,
+      "end": 1754579497032,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497032,
+      "end": 1754579497032,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useTooltipContent } from \"../tooltip.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport PopperLayer from \"../../utilities/popper-layer/popper-layer.svelte\";\nimport { getFloatingContentCSSVars } from \"../../../internal/floating-svelte/floating-utils.svelte.js\";\nimport PopperLayerForceMount from \"../../utilities/popper-layer/popper-layer-force-mount.svelte\";\nimport { noop } from \"../../../internal/noop.js\";\n\nvar root_4 = $.template(`<div><!></div>`);\nvar root_9 = $.template(`<div><!></div>`);\n\nexport default function Tooltip_content_static($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\tonInteractOutside = $.prop($$props, 'onInteractOutside', 3, noop),\n\t\tonEscapeKeydown = $.prop($$props, 'onEscapeKeydown', 3, noop),\n\t\tforceMount = $.prop($$props, 'forceMount', 3, false),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'children',\n\t\t\t'child',\n\t\t\t'id',\n\t\t\t'ref',\n\t\t\t'onInteractOutside',\n\t\t\t'onEscapeKeydown',\n\t\t\t'forceMount'\n\t\t]);\n\n\tconst contentState = useTooltipContent({\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v)),\n\t\tonInteractOutside: box.with(() => onInteractOutside()),\n\t\tonEscapeKeydown: box.with(() => onEscapeKeydown())\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, contentState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent_1 = ($$anchor) => {\n\t\t\t{\n\t\t\t\tconst popper = ($$anchor, $$arg0) => {\n\t\t\t\t\tlet props = () => $$arg0?.().props;\n\t\t\t\t\tvar fragment_2 = $.comment();\n\n\t\t\t\t\tconst mergedProps = $.derived(() => mergeProps(props(), {\n\t\t\t\t\t\tstyle: getFloatingContentCSSVars(\"tooltip\")\n\t\t\t\t\t}));\n\n\t\t\t\t\tvar node_1 = $.first_child(fragment_2);\n\n\t\t\t\t\t{\n\t\t\t\t\t\tvar consequent = ($$anchor) => {\n\t\t\t\t\t\t\tvar fragment_3 = $.comment();\n\t\t\t\t\t\t\tvar node_2 = $.first_child(fragment_3);\n\n\t\t\t\t\t\t\tvar render_arg = $.derived_safe_equal(() => ({\n\t\t\t\t\t\t\t\tprops: $.get(mergedProps),\n\t\t\t\t\t\t\t\t...contentState.snippetProps\n\t\t\t\t\t\t\t}));\n\n\t\t\t\t\t\t\t$.snippet(node_2, () => $$props.child, () => $.get(render_arg));\n\t\t\t\t\t\t\t$.append($$anchor, fragment_3);\n\t\t\t\t\t\t};\n\n\t\t\t\t\t\tvar alternate = ($$anchor) => {\n\t\t\t\t\t\t\tvar div = root_4();\n\t\t\t\t\t\t\tlet attributes;\n\t\t\t\t\t\t\tvar node_3 = $.child(div);\n\n\t\t\t\t\t\t\t$.snippet(node_3, () => $$props.children ?? $.noop);\n\t\t\t\t\t\t\t$.reset(div);\n\t\t\t\t\t\t\t$.template_effect(() => attributes = $.set_attributes(div, attributes, { ...$.get(mergedProps) }));\n\t\t\t\t\t\t\t$.append($$anchor, div);\n\t\t\t\t\t\t};\n\n\t\t\t\t\t\t$.if(node_1, ($$render) => {\n\t\t\t\t\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\n\t\t\t\t\t$.append($$anchor, fragment_2);\n\t\t\t\t};\n\n\t\t\t\tPopperLayerForceMount($$anchor, $.spread_props(() => $.get(mergedProps), () => contentState.popperProps, {\n\t\t\t\t\tisStatic: true,\n\t\t\t\t\tget enabled() {\n\t\t\t\t\t\treturn contentState.root.opts.open.current;\n\t\t\t\t\t},\n\t\t\t\t\tget id() {\n\t\t\t\t\t\treturn id();\n\t\t\t\t\t},\n\t\t\t\t\ttrapFocus: false,\n\t\t\t\t\tloop: false,\n\t\t\t\t\tpreventScroll: false,\n\t\t\t\t\tforceMount: true,\n\t\t\t\t\tpopper,\n\t\t\t\t\t$$slots: { popper: true }\n\t\t\t\t}));\n\t\t\t}\n\t\t};\n\n\t\tvar alternate_1 = ($$anchor, $$elseif) => {\n\t\t\t{\n\t\t\t\tvar consequent_3 = ($$anchor) => {\n\t\t\t\t\t{\n\t\t\t\t\t\tconst popper = ($$anchor, $$arg0) => {\n\t\t\t\t\t\t\tlet props = () => $$arg0?.().props;\n\t\t\t\t\t\t\tvar fragment_5 = $.comment();\n\n\t\t\t\t\t\t\tconst mergedProps = $.derived(() => mergeProps(props(), {\n\t\t\t\t\t\t\t\tstyle: getFloatingContentCSSVars(\"tooltip\")\n\t\t\t\t\t\t\t}));\n\n\t\t\t\t\t\t\tvar node_4 = $.first_child(fragment_5);\n\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\tvar consequent_2 = ($$anchor) => {\n\t\t\t\t\t\t\t\t\tvar fragment_6 = $.comment();\n\t\t\t\t\t\t\t\t\tvar node_5 = $.first_child(fragment_6);\n\n\t\t\t\t\t\t\t\t\tvar render_arg_1 = $.derived_safe_equal(() => ({\n\t\t\t\t\t\t\t\t\t\tprops: $.get(mergedProps),\n\t\t\t\t\t\t\t\t\t\t...contentState.snippetProps\n\t\t\t\t\t\t\t\t\t}));\n\n\t\t\t\t\t\t\t\t\t$.snippet(node_5, () => $$props.child, () => $.get(render_arg_1));\n\t\t\t\t\t\t\t\t\t$.append($$anchor, fragment_6);\n\t\t\t\t\t\t\t\t};\n\n\t\t\t\t\t\t\t\tvar alternate_2 = ($$anchor) => {\n\t\t\t\t\t\t\t\t\tvar div_1 = root_9();\n\t\t\t\t\t\t\t\t\tlet attributes_1;\n\t\t\t\t\t\t\t\t\tvar node_6 = $.child(div_1);\n\n\t\t\t\t\t\t\t\t\t$.snippet(node_6, () => $$props.children ?? $.noop);\n\t\t\t\t\t\t\t\t\t$.reset(div_1);\n\t\t\t\t\t\t\t\t\t$.template_effect(() => attributes_1 = $.set_attributes(div_1, attributes_1, { ...$.get(mergedProps) }));\n\t\t\t\t\t\t\t\t\t$.append($$anchor, div_1);\n\t\t\t\t\t\t\t\t};\n\n\t\t\t\t\t\t\t\t$.if(node_4, ($$render) => {\n\t\t\t\t\t\t\t\t\tif ($$props.child) $$render(consequent_2); else $$render(alternate_2, false);\n\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\t$.append($$anchor, fragment_5);\n\t\t\t\t\t\t};\n\n\t\t\t\t\t\tPopperLayer($$anchor, $.spread_props(() => $.get(mergedProps), () => contentState.popperProps, {\n\t\t\t\t\t\t\tisStatic: true,\n\t\t\t\t\t\t\tget present() {\n\t\t\t\t\t\t\t\treturn contentState.root.opts.open.current;\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tget id() {\n\t\t\t\t\t\t\t\treturn id();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\ttrapFocus: false,\n\t\t\t\t\t\t\tloop: false,\n\t\t\t\t\t\t\tpreventScroll: false,\n\t\t\t\t\t\t\tforceMount: false,\n\t\t\t\t\t\t\tpopper,\n\t\t\t\t\t\t\t$$slots: { popper: true }\n\t\t\t\t\t\t}));\n\t\t\t\t\t}\n\t\t\t\t};\n\n\t\t\t\t$.if(\n\t\t\t\t\t$$anchor,\n\t\t\t\t\t($$render) => {\n\t\t\t\t\t\tif (!forceMount()) $$render(consequent_3);\n\t\t\t\t\t},\n\t\t\t\t\t$$elseif\n\t\t\t\t);\n\t\t\t}\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif (forceMount()) $$render(consequent_1); else $$render(alternate_1, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497032,
+      "end": 1754579497035,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SAExC,iBAAiB,QAAQ,sBAAsB;SAC/C,KAAK,QAAQ,6BAA6B;OAC5C,WAAW,MAAM,kDAAkD;SACjE,yBAAyB,QAAQ,4DAA4D;OAC/F,qBAAqB,MAAM,8DAA8D;SACvF,IAAI,QAAQ,2BAA2B;;;;;;;;KAK/C,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EACpB,iBAAiB,2CAAG,IAAI;EACxB,eAAe,yCAAG,IAAI;EACtB,UAAU,oCAAG,KAAK;EACf;;;;;;;;;;;;;OAGE,YAAY,GAAG,iBAAiB;EACrC,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;EAEhB,iBAAiB,EAAE,GAAG,CAAC,IAAI,OAAO,iBAAiB;EACnD,eAAe,EAAE,GAAG,CAAC,IAAI,OAAO,eAAe;;;OAG1C,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,YAAY,CAAC,KAAK;;;;;;;;SAejD,KAAK,oBAAL,KAAK;;;WACf,WAAW,mBAAG,UAAU,CAAC,KAAK;MACrC,KAAK,EAAE,yBAAyB,CAAC,SAAS;;;;;;;;;;;QAGzB,KAAK,QAAE,WAAW;WAAK,YAAY,CAAC,YAAY;;;;;;;;;;;;;;yFAExD,WAAW;;;;;;;;;;;;+DAjBlB,WAAW,SACX,YAAY,CAAC,WAAW;;;aAEnB,YAAY,CAAC,IAAI,CAAC,IAAI,CAAC,IAAI,CAAC,OAAO;;;;;gBAEjC,KAAK;WACV,KAAK;oBACI,KAAK;iBACR,IAAI;;;;;;;;;;;;WA2BG,KAAK,oBAAL,KAAK;;;aACf,WAAW,mBAAG,UAAU,CAAC,KAAK;QACrC,KAAK,EAAE,yBAAyB,CAAC,SAAS;;;;;;;;;;;UAGzB,KAAK,QAAE,WAAW;aAAK,YAAY,CAAC,YAAY;;;;;;;;;;;;;;iGAExD,WAAW;;;;;;;;;;;;uDAjBlB,WAAW,SACX,YAAY,CAAC,WAAW;;;eAEnB,YAAY,CAAC,IAAI,CAAC,IAAI,CAAC,IAAI,CAAC,OAAO;;;;;kBAEjC,KAAK;aACV,KAAK;sBACI,KAAK;mBACR,KAAK;;;;;;;;;;WAVR,UAAU;;;;;;;;OAzBhB,UAAU",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "tooltip-content-static.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497035,
+      "end": 1754579497035,
+      "order": "normal"
+    }
+  ]
+}

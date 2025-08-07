@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/getQuarter.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { toDate } from \"./toDate.js\";\n\n/**\n * The {@link getQuarter} function options.\n */\n\n/**\n * @name getQuarter\n * @category Quarter Helpers\n * @summary Get the year quarter of the given date.\n *\n * @description\n * Get the year quarter of the given date.\n *\n * @param date - The given date\n * @param options - An object with options\n *\n * @returns The quarter\n *\n * @example\n * // Which quarter is 2 July 2014?\n * const result = getQuarter(new Date(2014, 6, 2));\n * //=> 3\n */\nexport function getQuarter(date, options) {\n  const _date = toDate(date, options?.in);\n  const quarter = Math.trunc(_date.getMonth() / 3) + 1;\n  return quarter;\n}\n\n// Fallback for modularized imports:\nexport default getQuarter;\n",
+      "start": 1754579494934,
+      "end": 1754579494948,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494948,
+      "end": 1754579494948,
+      "order": "normal"
+    }
+  ]
+}

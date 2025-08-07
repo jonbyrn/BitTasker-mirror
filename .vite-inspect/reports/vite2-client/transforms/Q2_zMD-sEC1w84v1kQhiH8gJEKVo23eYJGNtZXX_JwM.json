@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/parse/_lib/parsers/LocalWeekYearParser.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { getWeekYear } from \"../../../getWeekYear.js\";\n\nimport { startOfWeek } from \"../../../startOfWeek.js\";\nimport { Parser } from \"../Parser.js\";\n\nimport { mapValue, normalizeTwoDigitYear, parseNDigits } from \"../utils.js\";\n\n// Local week-numbering year\nexport class LocalWeekYearParser extends Parser {\n  priority = 130;\n\n  parse(dateString, token, match) {\n    const valueCallback = (year) => ({\n      year,\n      isTwoDigitYear: token === \"YY\",\n    });\n\n    switch (token) {\n      case \"Y\":\n        return mapValue(parseNDigits(4, dateString), valueCallback);\n      case \"Yo\":\n        return mapValue(\n          match.ordinalNumber(dateString, {\n            unit: \"year\",\n          }),\n          valueCallback,\n        );\n      default:\n        return mapValue(parseNDigits(token.length, dateString), valueCallback);\n    }\n  }\n\n  validate(_date, value) {\n    return value.isTwoDigitYear || value.year > 0;\n  }\n\n  set(date, flags, value, options) {\n    const currentYear = getWeekYear(date, options);\n\n    if (value.isTwoDigitYear) {\n      const normalizedTwoDigitYear = normalizeTwoDigitYear(\n        value.year,\n        currentYear,\n      );\n      date.setFullYear(\n        normalizedTwoDigitYear,\n        0,\n        options.firstWeekContainsDate,\n      );\n      date.setHours(0, 0, 0, 0);\n      return startOfWeek(date, options);\n    }\n\n    const year =\n      !(\"era\" in flags) || flags.era === 1 ? value.year : 1 - value.year;\n    date.setFullYear(year, 0, options.firstWeekContainsDate);\n    date.setHours(0, 0, 0, 0);\n    return startOfWeek(date, options);\n  }\n\n  incompatibleTokens = [\n    \"y\",\n    \"R\",\n    \"u\",\n    \"Q\",\n    \"q\",\n    \"M\",\n    \"L\",\n    \"I\",\n    \"d\",\n    \"D\",\n    \"i\",\n    \"t\",\n    \"T\",\n  ];\n}\n",
+      "start": 1754579495926,
+      "end": 1754579495947,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal"
+    }
+  ]
+}

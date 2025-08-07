@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/runtime/fragments.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "function fragment(ref, store) {\n  if (store.kind !== \"HoudiniFragment\") {\n    throw new Error(`fragment can only take fragment documents. Found: ${store.kind}`);\n  }\n  const fragmentStore = store.get(ref);\n  return {\n    ...fragmentStore,\n    artifact: store.artifact,\n    data: { subscribe: fragmentStore.subscribe }\n  };\n}\nfunction paginatedFragment(initialValue, store) {\n  if (store.kind !== \"HoudiniFragment\") {\n    throw new Error(\"paginatedFragment() must be passed a fragment document: \" + store.kind);\n  }\n  if (!(\"paginated\" in store)) {\n    throw new Error(\"paginatedFragment() must be passed a fragment with @paginate\");\n  }\n  return fragment(initialValue, store);\n}\nexport {\n  fragment,\n  paginatedFragment\n};\n",
+      "start": 1754579495518,
+      "end": 1754579495542,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495542,
+      "end": 1754579495542,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495542,
+      "end": 1754579495542,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495542,
+      "end": 1754579495542,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495543,
+      "end": 1754579495543,
+      "order": "normal"
+    }
+  ]
+}

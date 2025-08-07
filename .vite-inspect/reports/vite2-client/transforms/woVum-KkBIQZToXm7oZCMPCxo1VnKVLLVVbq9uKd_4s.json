@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/taskees/+page.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\r\n\timport ComingSoon from '$lib/components/ComingSoon.svelte';\r\n</script>\r\n\r\n<div class=\"h-[80dvh] flex items-center justify-center\">\r\n\t<ComingSoon\r\n\t\ttitle=\"Professionals\"\r\n\t\tsubtitle=\"Coming Soon\"\r\n\t\tdescription=\"We're working hard to bring you something amazing. Stay tuned!\"\r\n\t/>\r\n</div>\r\n",
+      "start": 1754579491564,
+      "end": 1754579491860,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">import ComingSoon from \"$lib/components/ComingSoon.svelte\";</script>\r\n\r\n<div class=\"h-[80dvh] flex items-center justify-center\">\r\n\t<ComingSoon\r\n\t\ttitle=\"Professionals\"\r\n\t\tsubtitle=\"Coming Soon\"\r\n\t\tdescription=\"We're working hard to bring you something amazing. Stay tuned!\"\r\n\t/>\r\n</div>\r\n",
+      "start": 1754579491860,
+      "end": 1754579492312,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/taskees/+page.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\r\n\timport ComingSoon from '$lib/components/ComingSoon.svelte';\r\n</script>\r\n\r\n<div class=\"h-[80dvh] flex items-center justify-center\">\r\n\t<ComingSoon\r\n\t\ttitle=\"Professionals\"\r\n\t\tsubtitle=\"Coming Soon\"\r\n\t\tdescription=\"We're working hard to bring you something amazing. Stay tuned!\"\r\n\t/>\r\n</div>\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9E,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492312,
+      "end": 1754579492312,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport ComingSoon from \"$lib/components/ComingSoon.svelte\";\n\nvar root = $.template(`<div class=\"h-[80dvh] flex items-center justify-center\"><!></div>`);\n\nexport default function _page($$anchor) {\n\tvar div = root();\n\tvar node = $.child(div);\n\n\tComingSoon(node, {\n\t\ttitle: 'Professionals',\n\t\tsubtitle: 'Coming Soon',\n\t\tdescription: 'We\\'re working hard to bring you something amazing. Stay tuned!'\n\t});\n\n\t$.reset(div);\n\t$.append($$anchor, div);\n}",
+      "start": 1754579492312,
+      "end": 1754579492313,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;OAAyB,UAAU,MAAM,mCAAmC",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "+page.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492313,
+      "end": 1754579492313,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492313,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492314,
+      "end": 1754579492314,
+      "order": "normal"
+    }
+  ]
+}

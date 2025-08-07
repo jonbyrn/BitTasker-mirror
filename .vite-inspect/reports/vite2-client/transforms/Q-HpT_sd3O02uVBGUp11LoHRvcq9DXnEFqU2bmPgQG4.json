@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/Tabs.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\tconst { tabs, activeTab, onTabChange } = $props<{\n\t\ttabs: { id: string; label: string }[];\n\t\tactiveTab: string;\n\t\tonTabChange: (tabId: string) => void;\n\t}>();\n\n\t// Tab references for slider animation\n\tlet tabContainer = $state<HTMLElement | null>(null);\n\tlet tabElements = $state<Map<string, HTMLElement>>(new Map());\n\tlet sliderStyle = $state('');\n\n\t// Register a tab element with its id\n\tfunction registerTabElement(id: string, element: HTMLElement | null) {\n\t\tif (element) {\n\t\t\ttabElements.set(id, element);\n\t\t}\n\t}\n\n\t// Update slider position when active tab changes\n\t$effect(() => {\n\t\tif (tabContainer && activeTab && tabElements.has(activeTab)) {\n\t\t\tconst containerRect = tabContainer.getBoundingClientRect();\n\t\t\tconst activeElement = tabElements.get(activeTab)!;\n\t\t\tconst activeRect = activeElement.getBoundingClientRect();\n\n\t\t\t// Calculate position relative to container\n\t\t\tconst left = activeRect.left - containerRect.left;\n\t\t\tconst width = activeRect.width;\n\n\t\t\tsliderStyle = `left: ${left}px; width: ${width}px;`;\n\t\t}\n\t});\n\t// Svelte action to bind tab elements\n\tfunction bindTabElement(node: HTMLElement, id: string) {\n\t\tregisterTabElement(id, node);\n\n\t\treturn {\n\t\t\tupdate(newId: string) {\n\t\t\t\tregisterTabElement(newId, node);\n\t\t\t},\n\t\t\tdestroy() {\n\t\t\t\ttabElements.delete(id);\n\t\t\t}\n\t\t};\n\t}\n</script>\n\n<div class=\"tabs-container relative\" bind:this={tabContainer}>\n\t<div class=\"tabs tabs-bordered w-full\">\n\t\t{#each tabs as tab}\n\t\t\t<button\n\t\t\t\tclass=\"tab {activeTab === tab.id ? 'tab-active' : ''}\"\n\t\t\t\tonclick={() => onTabChange(tab.id)}\n\t\t\t\taria-selected={activeTab === tab.id}\n\t\t\t\trole=\"tab\"\n\t\t\t\taria-controls=\"panel-{tab.id}\"\n\t\t\t\tid=\"tab-{tab.id}\"\n\t\t\t\tuse:bindTabElement={tab.id}\n\t\t\t>\n\t\t\t\t{tab.label}\n\t\t\t</button>\n\t\t{/each}\n\t</div>\n\n\t<!-- Animated slider -->\n\t<div\n\t\tclass=\"tab-slider bg-primary absolute bottom-0 h-0.5 transition-all duration-300\"\n\t\tstyle={sliderStyle}\n\t></div>\n</div>\n\n<style>\n\t.tabs-container {\n\t\toverflow: hidden;\n\t}\n\n\t.tab-slider {\n\t\theight: 2px;\n\t\tborder-radius: 1px;\n\t}\n</style>\n",
+      "start": 1754579492524,
+      "end": 1754579493139,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">const {\r\n    tabs,\r\n    activeTab,\r\n    onTabChange\r\n} = $props<{\r\n    tabs: {\r\n        id: string;\r\n        label: string;\r\n    }[];\r\n    activeTab: string;\r\n    onTabChange: (tabId: string) => void;\r\n}>();\r\n\r\nlet tabContainer = $state<HTMLElement | null>(null);\r\nlet tabElements = $state<Map<string, HTMLElement>>(new Map());\r\nlet sliderStyle = $state(\"\");\r\n\r\nfunction registerTabElement(id: string, element: HTMLElement | null) {\r\n    if (element) {\r\n        tabElements.set(id, element);\r\n    }\r\n}\r\n\r\n$effect(() => {\r\n    if (tabContainer && activeTab && tabElements.has(activeTab)) {\r\n        const containerRect = tabContainer.getBoundingClientRect();\r\n        const activeElement = tabElements.get(activeTab)!;\r\n        const activeRect = activeElement.getBoundingClientRect();\r\n        const left = activeRect.left - containerRect.left;\r\n        const width = activeRect.width;\r\n        sliderStyle = `left: ${left}px; width: ${width}px;`;\r\n    }\r\n});\r\n\r\nfunction bindTabElement(node: HTMLElement, id: string) {\r\n    registerTabElement(id, node);\r\n\r\n    return {\r\n        update(newId: string) {\r\n            registerTabElement(newId, node);\r\n        },\r\n\r\n        destroy() {\r\n            tabElements.delete(id);\r\n        }\r\n    };\r\n}</script>\n\n<div class=\"tabs-container relative\" bind:this={tabContainer}>\n\t<div class=\"tabs tabs-bordered w-full\">\n\t\t{#each tabs as tab}\n\t\t\t<button\n\t\t\t\tclass=\"tab {activeTab === tab.id ? 'tab-active' : ''}\"\n\t\t\t\tonclick={() => onTabChange(tab.id)}\n\t\t\t\taria-selected={activeTab === tab.id}\n\t\t\t\trole=\"tab\"\n\t\t\t\taria-controls=\"panel-{tab.id}\"\n\t\t\t\tid=\"tab-{tab.id}\"\n\t\t\t\tuse:bindTabElement={tab.id}\n\t\t\t>\n\t\t\t\t{tab.label}\n\t\t\t</button>\n\t\t{/each}\n\t</div>\n\n\t<!-- Animated slider -->\n\t<div\n\t\tclass=\"tab-slider bg-primary absolute bottom-0 h-0.5 transition-all duration-300\"\n\t\tstyle={sliderStyle}\n\t></div>\n</div>\n\n<style>\n\t.tabs-container {\n\t\toverflow: hidden;\n\t}\n\n\t.tab-slider {\n\t\theight: 2px;\n\t\tborder-radius: 1px;\n\t}\n</style>\n",
+      "start": 1754579493139,
+      "end": 1754579493141,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/components/Tabs.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\n\tconst { tabs, activeTab, onTabChange } = $props<{\n\t\ttabs: { id: string; label: string }[];\n\t\tactiveTab: string;\n\t\tonTabChange: (tabId: string) => void;\n\t}>();\n\n\t// Tab references for slider animation\n\tlet tabContainer = $state<HTMLElement | null>(null);\n\tlet tabElements = $state<Map<string, HTMLElement>>(new Map());\n\tlet sliderStyle = $state('');\n\n\t// Register a tab element with its id\n\tfunction registerTabElement(id: string, element: HTMLElement | null) {\n\t\tif (element) {\n\t\t\ttabElements.set(id, element);\n\t\t}\n\t}\n\n\t// Update slider position when active tab changes\n\t$effect(() => {\n\t\tif (tabContainer && activeTab && tabElements.has(activeTab)) {\n\t\t\tconst containerRect = tabContainer.getBoundingClientRect();\n\t\t\tconst activeElement = tabElements.get(activeTab)!;\n\t\t\tconst activeRect = activeElement.getBoundingClientRect();\n\n\t\t\t// Calculate position relative to container\n\t\t\tconst left = activeRect.left - containerRect.left;\n\t\t\tconst width = activeRect.width;\n\n\t\t\tsliderStyle = `left: ${left}px; width: ${width}px;`;\n\t\t}\n\t});\n\t// Svelte action to bind tab elements\n\tfunction bindTabElement(node: HTMLElement, id: string) {\n\t\tregisterTabElement(id, node);\n\n\t\treturn {\n\t\t\tupdate(newId: string) {\n\t\t\t\tregisterTabElement(newId, node);\n\t\t\t},\n\t\t\tdestroy() {\n\t\t\t\ttabElements.delete(id);\n\t\t\t}\n\t\t};\n\t}\n</script>\n\n<div class=\"tabs-container relative\" bind:this={tabContainer}>\n\t<div class=\"tabs tabs-bordered w-full\">\n\t\t{#each tabs as tab}\n\t\t\t<button\n\t\t\t\tclass=\"tab {activeTab === tab.id ? 'tab-active' : ''}\"\n\t\t\t\tonclick={() => onTabChange(tab.id)}\n\t\t\t\taria-selected={activeTab === tab.id}\n\t\t\t\trole=\"tab\"\n\t\t\t\taria-controls=\"panel-{tab.id}\"\n\t\t\t\tid=\"tab-{tab.id}\"\n\t\t\t\tuse:bindTabElement={tab.id}\n\t\t\t>\n\t\t\t\t{tab.label}\n\t\t\t</button>\n\t\t{/each}\n\t</div>\n\n\t<!-- Animated slider -->\n\t<div\n\t\tclass=\"tab-slider bg-primary absolute bottom-0 h-0.5 transition-all duration-300\"\n\t\tstyle={sliderStyle}\n\t></div>\n</div>\n\n<style>\n\t.tabs-container {\n\t\toverflow: hidden;\n\t}\n\n\t.tab-slider {\n\t\theight: 2px;\n\t\tborder-radius: 1px;\n\t}\n</style>\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAEL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAE7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC;AACF,CAAC;;AAED,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAE3D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CA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C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;;AAEN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC;;AAEL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC;;AAED,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC;AACD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493141,
+      "end": 1754579493141,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\n\nvar on_click = (_, $$props, tab) => $$props.onTabChange($.get(tab).id);\nvar root_1 = $.template(`<button role=\"tab\"> </button>`);\nvar root = $.template(`<div class=\"tabs-container relative svelte-lja5s0\"><div class=\"tabs tabs-bordered w-full\"></div> <div class=\"tab-slider bg-primary absolute bottom-0 h-0.5 transition-all duration-300 svelte-lja5s0\"></div></div>`);\n\nexport default function Tabs($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet tabContainer = $.state(null);\n\tlet tabElements = $.proxy(new Map());\n\tlet sliderStyle = $.state(\"\");\n\n\tfunction registerTabElement(id, element) {\n\t\tif (element) {\n\t\t\ttabElements.set(id, element);\n\t\t}\n\t}\n\n\t$.user_effect(() => {\n\t\tif ($.get(tabContainer) && $$props.activeTab && tabElements.has($$props.activeTab)) {\n\t\t\tconst containerRect = $.get(tabContainer).getBoundingClientRect();\n\t\t\tconst activeElement = tabElements.get($$props.activeTab);\n\t\t\tconst activeRect = activeElement.getBoundingClientRect();\n\t\t\tconst left = activeRect.left - containerRect.left;\n\t\t\tconst width = activeRect.width;\n\n\t\t\t$.set(sliderStyle, `left: ${left}px; width: ${width}px;`);\n\t\t}\n\t});\n\n\tfunction bindTabElement(node, id) {\n\t\tregisterTabElement(id, node);\n\n\t\treturn {\n\t\t\tupdate(newId) {\n\t\t\t\tregisterTabElement(newId, node);\n\t\t\t},\n\t\t\tdestroy() {\n\t\t\t\ttabElements.delete(id);\n\t\t\t}\n\t\t};\n\t}\n\n\tvar div = root();\n\tvar div_1 = $.child(div);\n\n\t$.each(div_1, 21, () => $$props.tabs, $.index, ($$anchor, tab) => {\n\t\tvar button = root_1();\n\n\t\tbutton.__click = [on_click, $$props, tab];\n\n\t\tvar text = $.child(button, true);\n\n\t\t$.reset(button);\n\t\t$.action(button, ($$node, $$action_arg) => bindTabElement?.($$node, $$action_arg), () => $.get(tab).id);\n\n\t\t$.template_effect(() => {\n\t\t\t$.set_class(button, 1, `tab ${$$props.activeTab === $.get(tab).id ? 'tab-active' : ''}`);\n\t\t\t$.set_attribute(button, 'aria-selected', $$props.activeTab === $.get(tab).id);\n\t\t\t$.set_attribute(button, 'aria-controls', `panel-${$.get(tab).id ?? ''}`);\n\t\t\t$.set_attribute(button, 'id', `tab-${$.get(tab).id ?? ''}`);\n\t\t\t$.set_text(text, $.get(tab).label);\n\t\t});\n\n\t\t$.append($$anchor, button);\n\t});\n\n\t$.reset(div_1);\n\n\tvar div_2 = $.sibling(div_1, 2);\n\n\t$.reset(div);\n\t$.bind_this(div, ($$value) => $.set(tabContainer, $$value), () => $.get(tabContainer));\n\t$.template_effect(() => $.set_style(div_2, $.get(sliderStyle)));\n\t$.append($$anchor, div);\n\t$.pop();\n}\n\n$.delegate(['click']);\nimport \"E:/projects/upw/Bittasker/src/lib/components/Tabs.svelte?svelte&type=style&lang.css\";\n",
+      "start": 1754579493141,
+      "end": 1754579493146,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;;8DAqD+B,GAAG,EAAC,EAAE;;;;;;;KAxCjC,YAAY,WAA8B,IAAI;KAC9C,WAAW,eAAwC,GAAG;KACtD,WAAW,WAAU,EAAE;;UAElB,kBAAkB,CAAC,EAAU,EAAE,OAA2B,EAAE,CAAC;MAC9D,OAAO,EAAE,CAAC;GACV,WAAW,CAAC,GAAG,CAAC,EAAE,EAAE,OAAO;EAC/B,CAAC;CACL,CAAC;;CAED,aAAO,OAAO,CAAC;YACP,YAAY,0BAAiB,WAAW,CAAC,GAAG,qBAAa,CAAC;SACpD,aAAa,SAAG,YAAY,EAAC,qBAAqB;SAClD,aAAa,GAAG,WAAW,CAAC,GAAG;SAC/B,UAAU,GAAG,aAAa,CAAC,qBAAqB;SAChD,IAAI,GAAG,UAAU,CAAC,IAAI,GAAG,aAAa,CAAC,IAAI;SAC3C,KAAK,GAAG,UAAU,CAAC,KAAK;;SAC9B,WAAW,WAAY,IAAI,cAAc,KAAK;EAClD,CAAC;CACL,CAAC;;UAEQ,cAAc,CAAC,IAAiB,EAAE,EAAU,EAAE,CAAC;EACpD,kBAAkB,CAAC,EAAE,EAAE,IAAI;;;GAGvB,MAAM,CAAC,KAAa,EAAE,CAAC;IACnB,kBAAkB,CAAC,KAAK,EAAE,IAAI;GAClC,CAAC;GAED,OAAO,GAAG,CAAC;IACP,WAAW,CAAC,MAAM,CAAC,EAAE;GACzB,CAAC;;CAET,CAAC;;;;;2DAIgB,GAAG;;;;;;;;iGAQI,GAAG,EAAC,EAAE;;;6DANA,GAAG,EAAC,EAAE,GAAG,YAAY,GAAG,EAAE;wEAEvB,GAAG,EAAC,EAAE;2DAEb,GAAG,EAAC,EAAE;8CACnB,GAAG,EAAC,EAAE;0BAGd,GAAG,EAAC,KAAK;;;;;;;;;;;qCAZkC,YAAY,wBAAZ,YAAY;kDAoBnD,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "Tabs.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493146,
+      "end": 1754579493146,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/UpdateTaskTemplate.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"UpdateTaskTemplate\",\r\n    \"kind\": \"HoudiniMutation\",\r\n    \"hash\": \"1b486b96b92153ac20f6295c73d3bd19ca84ebf62c1914131066f61fc455a1e9\",\r\n\r\n    \"raw\": `mutation UpdateTaskTemplate($updateTaskTemplateId: Int!, $input: UpdateTaskTemplateInput!) {\r\n  updateTaskTemplate(id: $updateTaskTemplateId, input: $input) {\r\n    id\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Mutation\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"updateTaskTemplate\": {\r\n                \"type\": \"TaskTemplateResponse\",\r\n                \"keyRaw\": \"updateTaskTemplate(id: $updateTaskTemplateId, input: $input)\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"id\": {\r\n                            \"type\": \"ID\",\r\n                            \"keyRaw\": \"id\",\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"input\": {\r\n        \"fields\": {\r\n            \"updateTaskTemplateId\": \"Int\",\r\n            \"input\": \"UpdateTaskTemplateInput\"\r\n        },\r\n\r\n        \"types\": {\r\n            \"RecurrencePatternInput\": {\r\n                \"dayOfMonth\": \"Int\",\r\n                \"daysOfWeek\": \"Int\",\r\n                \"endDate\": \"DateTime\",\r\n                \"frequency\": \"RecurrenceFrequency\",\r\n                \"interval\": \"Int\",\r\n                \"maxOccurrences\": \"Int\"\r\n            },\r\n\r\n            \"AttachmentInput\": {\r\n                \"fileName\": \"String\",\r\n                \"fileSize\": \"Float\",\r\n                \"fileUrl\": \"String\"\r\n            },\r\n\r\n            \"DateRangeInput\": {\r\n                \"end\": \"String\",\r\n                \"start\": \"String\"\r\n            },\r\n\r\n            \"LocationInput\": {\r\n                \"displayName\": \"String\",\r\n                \"latitude\": \"Float\",\r\n                \"locationLoaded\": \"Boolean\",\r\n                \"longitude\": \"Float\",\r\n                \"zipCode\": \"String\"\r\n            },\r\n\r\n            \"UpdateTaskInput\": {\r\n                \"addressLine1\": \"String\",\r\n                \"addressLine2\": \"String\",\r\n                \"attachments\": \"AttachmentInput\",\r\n                \"budget\": \"Float\",\r\n                \"budgetType\": \"BudgetType\",\r\n                \"categoryIds\": \"Int\",\r\n                \"city\": \"String\",\r\n                \"country\": \"String\",\r\n                \"dateRange\": \"DateRangeInput\",\r\n                \"deadlineDate\": \"String\",\r\n                \"description\": \"String\",\r\n                \"dropOffLocation\": \"LocationInput\",\r\n                \"estimatedHours\": \"Float\",\r\n                \"imageUrls\": \"String\",\r\n                \"isRemovals\": \"Boolean\",\r\n                \"latitude\": \"Float\",\r\n                \"longitude\": \"Float\",\r\n                \"pickupLocation\": \"LocationInput\",\r\n                \"postalCode\": \"String\",\r\n                \"skillIds\": \"Int\",\r\n                \"skillImportance\": \"SkillImportance\",\r\n                \"state\": \"String\",\r\n                \"status\": \"TaskStatus\",\r\n                \"taskType\": \"TaskType\",\r\n                \"title\": \"String\",\r\n                \"visibility\": \"TaskVisibility\"\r\n            },\r\n\r\n            \"UpdateTaskTemplateInput\": {\r\n                \"recurrencePattern\": \"RecurrencePatternInput\",\r\n                \"task\": \"UpdateTaskInput\"\r\n            }\r\n        },\r\n\r\n        \"defaults\": {},\r\n        \"runtimeScalars\": {}\r\n    }\r\n};\r\n\r\n\"HoudiniHash=f1ef104aa1b6089c24ac7cf144c4540c8ee4075a7abf542a8248087a5eea98d7\";",
+      "start": 1754579495497,
+      "end": 1754579495511,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal"
+    }
+  ]
+}

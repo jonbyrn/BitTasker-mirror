@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/scroll-lock/scroll-lock.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport type { ScrollLockProps } from \"./index.js\";\n\timport { useBodyScrollLock } from \"../../../internal/use-body-scroll-lock.svelte.js\";\n\n\tlet { preventScroll = true, restoreScrollDelay = null }: ScrollLockProps = $props();\n\n\tuseBodyScrollLock(preventScroll, () => restoreScrollDelay);\n</script>\n",
+      "start": 1754579497039,
+      "end": 1754579497080,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497081,
+      "end": 1754579497081,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497081,
+      "end": 1754579497081,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { useBodyScrollLock } from \"../../../internal/use-body-scroll-lock.svelte.js\";\n\nexport default function Scroll_lock($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet preventScroll = $.prop($$props, 'preventScroll', 3, true),\n\t\trestoreScrollDelay = $.prop($$props, 'restoreScrollDelay', 3, null);\n\n\tuseBodyScrollLock(preventScroll(), () => restoreScrollDelay());\n\t$.pop();\n}",
+      "start": 1754579497081,
+      "end": 1754579497082,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SAEU,iBAAiB,QAAQ,kDAAkD;;;;;KAE9E,aAAa,uCAAG,IAAI;EAAE,kBAAkB,4CAAG,IAAI;;CAErD,iBAAiB,CAAC,aAAa,UAAQ,kBAAkB",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "scroll-lock.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497082,
+      "end": 1754579497082,
+      "order": "normal"
+    }
+  ]
+}

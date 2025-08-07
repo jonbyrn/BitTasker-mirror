@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/locale/_lib/buildMatchFn.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export function buildMatchFn(args) {\n  return (string, options = {}) => {\n    const width = options.width;\n\n    const matchPattern =\n      (width && args.matchPatterns[width]) ||\n      args.matchPatterns[args.defaultMatchWidth];\n    const matchResult = string.match(matchPattern);\n\n    if (!matchResult) {\n      return null;\n    }\n    const matchedString = matchResult[0];\n\n    const parsePatterns =\n      (width && args.parsePatterns[width]) ||\n      args.parsePatterns[args.defaultParseWidth];\n\n    const key = Array.isArray(parsePatterns)\n      ? findIndex(parsePatterns, (pattern) => pattern.test(matchedString))\n      : // [TODO] -- I challenge you to fix the type\n        findKey(parsePatterns, (pattern) => pattern.test(matchedString));\n\n    let value;\n\n    value = args.valueCallback ? args.valueCallback(key) : key;\n    value = options.valueCallback\n      ? // [TODO] -- I challenge you to fix the type\n        options.valueCallback(value)\n      : value;\n\n    const rest = string.slice(matchedString.length);\n\n    return { value, rest };\n  };\n}\n\nfunction findKey(object, predicate) {\n  for (const key in object) {\n    if (\n      Object.prototype.hasOwnProperty.call(object, key) &&\n      predicate(object[key])\n    ) {\n      return key;\n    }\n  }\n  return undefined;\n}\n\nfunction findIndex(array, predicate) {\n  for (let key = 0; key < array.length; key++) {\n    if (predicate(array[key])) {\n      return key;\n    }\n  }\n  return undefined;\n}\n",
+      "start": 1754579496259,
+      "end": 1754579496282,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496282,
+      "end": 1754579496282,
+      "order": "normal"
+    }
+  ]
+}

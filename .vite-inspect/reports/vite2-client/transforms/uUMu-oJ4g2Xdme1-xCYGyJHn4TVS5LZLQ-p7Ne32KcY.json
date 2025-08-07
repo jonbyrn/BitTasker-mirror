@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/reactivity/sources.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { Derived, Effect, Source, Value } from '#client' */\nimport { DEV } from 'esm-env';\nimport {\n\tactive_reaction,\n\tactive_effect,\n\tuntracked_writes,\n\tget,\n\tschedule_effect,\n\tset_untracked_writes,\n\tset_signal_status,\n\tuntrack,\n\tincrement_write_version,\n\tupdate_effect,\n\treaction_sources,\n\tcheck_dirtiness,\n\tuntracking,\n\tis_destroying_effect,\n\tpush_reaction_value\n} from '../runtime.js';\nimport { equals, safe_equals } from './equality.js';\nimport {\n\tCLEAN,\n\tDERIVED,\n\tDIRTY,\n\tBRANCH_EFFECT,\n\tINSPECT_EFFECT,\n\tUNOWNED,\n\tMAYBE_DIRTY,\n\tBLOCK_EFFECT,\n\tROOT_EFFECT\n} from '#client/constants';\nimport * as e from '../errors.js';\nimport { legacy_mode_flag, tracing_mode_flag } from '../../flags/index.js';\nimport { get_stack } from '../dev/tracing.js';\nimport { component_context, is_runes } from '../context.js';\nimport { proxy } from '../proxy.js';\nimport { execute_derived } from './deriveds.js';\n\nexport let inspect_effects = new Set();\nexport const old_values = new Map();\n\n/**\n * @param {Set<any>} v\n */\nexport function set_inspect_effects(v) {\n\tinspect_effects = v;\n}\n\n/**\n * @template V\n * @param {V} v\n * @param {Error | null} [stack]\n * @returns {Source<V>}\n */\n// TODO rename this to `state` throughout the codebase\nexport function source(v, stack) {\n\t/** @type {Value} */\n\tvar signal = {\n\t\tf: 0, // TODO ideally we could skip this altogether, but it causes type errors\n\t\tv,\n\t\treactions: null,\n\t\tequals,\n\t\trv: 0,\n\t\twv: 0\n\t};\n\n\tif (DEV && tracing_mode_flag) {\n\t\tsignal.created = stack ?? get_stack('CreatedAt');\n\t\tsignal.debug = null;\n\t}\n\n\treturn signal;\n}\n\n/**\n * @template V\n * @param {V} v\n * @param {Error | null} [stack]\n */\n/*#__NO_SIDE_EFFECTS__*/\nexport function state(v, stack) {\n\tconst s = source(v, stack);\n\n\tpush_reaction_value(s);\n\n\treturn s;\n}\n\n/**\n * @template V\n * @param {V} initial_value\n * @param {boolean} [immutable]\n * @returns {Source<V>}\n */\n/*#__NO_SIDE_EFFECTS__*/\nexport function mutable_source(initial_value, immutable = false) {\n\tconst s = source(initial_value);\n\tif (!immutable) {\n\t\ts.equals = safe_equals;\n\t}\n\n\t// bind the signal to the component context, in case we need to\n\t// track updates to trigger beforeUpdate/afterUpdate callbacks\n\tif (legacy_mode_flag && component_context !== null && component_context.l !== null) {\n\t\t(component_context.l.s ??= []).push(s);\n\t}\n\n\treturn s;\n}\n\n/**\n * @template V\n * @param {Value<V>} source\n * @param {V} value\n */\nexport function mutate(source, value) {\n\tset(\n\t\tsource,\n\t\tuntrack(() => get(source))\n\t);\n\treturn value;\n}\n\n/**\n * @template V\n * @param {Source<V>} source\n * @param {V} value\n * @param {boolean} [should_proxy]\n * @returns {V}\n */\nexport function set(source, value, should_proxy = false) {\n\tif (\n\t\tactive_reaction !== null &&\n\t\t!untracking &&\n\t\tis_runes() &&\n\t\t(active_reaction.f & (DERIVED | BLOCK_EFFECT)) !== 0 &&\n\t\t!reaction_sources?.includes(source)\n\t) {\n\t\te.state_unsafe_mutation();\n\t}\n\n\tlet new_value = should_proxy ? proxy(value) : value;\n\n\treturn internal_set(source, new_value);\n}\n\n/**\n * @template V\n * @param {Source<V>} source\n * @param {V} value\n * @returns {V}\n */\nexport function internal_set(source, value) {\n\tif (!source.equals(value)) {\n\t\tvar old_value = source.v;\n\n\t\tif (is_destroying_effect) {\n\t\t\told_values.set(source, value);\n\t\t} else {\n\t\t\told_values.set(source, old_value);\n\t\t}\n\n\t\tsource.v = value;\n\n\t\tif (DEV && tracing_mode_flag) {\n\t\t\tsource.updated = get_stack('UpdatedAt');\n\t\t\tif (active_effect != null) {\n\t\t\t\tsource.trace_need_increase = true;\n\t\t\t\tsource.trace_v ??= old_value;\n\t\t\t}\n\t\t}\n\n\t\tif ((source.f & DERIVED) !== 0) {\n\t\t\t// if we are assigning to a dirty derived we set it to clean/maybe dirty but we also eagerly execute it to track the dependencies\n\t\t\tif ((source.f & DIRTY) !== 0) {\n\t\t\t\texecute_derived(/** @type {Derived} */ (source));\n\t\t\t}\n\t\t\tset_signal_status(source, (source.f & UNOWNED) === 0 ? CLEAN : MAYBE_DIRTY);\n\t\t}\n\n\t\tsource.wv = increment_write_version();\n\n\t\tmark_reactions(source, DIRTY);\n\n\t\t// It's possible that the current reaction might not have up-to-date dependencies\n\t\t// whilst it's actively running. So in the case of ensuring it registers the reaction\n\t\t// properly for itself, we need to ensure the current effect actually gets\n\t\t// scheduled. i.e: `$effect(() => x++)`\n\t\tif (\n\t\t\tis_runes() &&\n\t\t\tactive_effect !== null &&\n\t\t\t(active_effect.f & CLEAN) !== 0 &&\n\t\t\t(active_effect.f & (BRANCH_EFFECT | ROOT_EFFECT)) === 0\n\t\t) {\n\t\t\tif (untracked_writes === null) {\n\t\t\t\tset_untracked_writes([source]);\n\t\t\t} else {\n\t\t\t\tuntracked_writes.push(source);\n\t\t\t}\n\t\t}\n\n\t\tif (DEV && inspect_effects.size > 0) {\n\t\t\tconst inspects = Array.from(inspect_effects);\n\n\t\t\tfor (const effect of inspects) {\n\t\t\t\t// Mark clean inspect-effects as maybe dirty and then check their dirtiness\n\t\t\t\t// instead of just updating the effects - this way we avoid overfiring.\n\t\t\t\tif ((effect.f & CLEAN) !== 0) {\n\t\t\t\t\tset_signal_status(effect, MAYBE_DIRTY);\n\t\t\t\t}\n\t\t\t\tif (check_dirtiness(effect)) {\n\t\t\t\t\tupdate_effect(effect);\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tinspect_effects.clear();\n\t\t}\n\t}\n\n\treturn value;\n}\n\n/**\n * @template {number | bigint} T\n * @param {Source<T>} source\n * @param {1 | -1} [d]\n * @returns {T}\n */\nexport function update(source, d = 1) {\n\tvar value = get(source);\n\tvar result = d === 1 ? value++ : value--;\n\n\tset(source, value);\n\n\t// @ts-expect-error\n\treturn result;\n}\n\n/**\n * @template {number | bigint} T\n * @param {Source<T>} source\n * @param {1 | -1} [d]\n * @returns {T}\n */\nexport function update_pre(source, d = 1) {\n\tvar value = get(source);\n\n\t// @ts-expect-error\n\treturn set(source, d === 1 ? ++value : --value);\n}\n\n/**\n * @param {Value} signal\n * @param {number} status should be DIRTY or MAYBE_DIRTY\n * @returns {void}\n */\nfunction mark_reactions(signal, status) {\n\tvar reactions = signal.reactions;\n\tif (reactions === null) return;\n\n\tvar runes = is_runes();\n\tvar length = reactions.length;\n\n\tfor (var i = 0; i < length; i++) {\n\t\tvar reaction = reactions[i];\n\t\tvar flags = reaction.f;\n\n\t\t// Skip any effects that are already dirty\n\t\tif ((flags & DIRTY) !== 0) continue;\n\n\t\t// In legacy mode, skip the current effect to prevent infinite loops\n\t\tif (!runes && reaction === active_effect) continue;\n\n\t\t// Inspect effects need to run immediately, so that the stack trace makes sense\n\t\tif (DEV && (flags & INSPECT_EFFECT) !== 0) {\n\t\t\tinspect_effects.add(reaction);\n\t\t\tcontinue;\n\t\t}\n\n\t\tset_signal_status(reaction, status);\n\n\t\t// If the signal a) was previously clean or b) is an unowned derived, then mark it\n\t\tif ((flags & (CLEAN | UNOWNED)) !== 0) {\n\t\t\tif ((flags & DERIVED) !== 0) {\n\t\t\t\tmark_reactions(/** @type {Derived} */ (reaction), MAYBE_DIRTY);\n\t\t\t} else {\n\t\t\t\tschedule_effect(/** @type {Effect} */ (reaction));\n\t\t\t}\n\t\t}\n\t}\n}\n",
+      "start": 1754579493927,
+      "end": 1754579493952,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493952,
+      "end": 1754579493952,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493953,
+      "end": 1754579493953,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493953,
+      "end": 1754579493953,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493953,
+      "end": 1754579493953,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493953,
+      "end": 1754579493953,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493953,
+      "end": 1754579493953,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/task/details/BidsTab.svelte?svelte&type=style&lang.css",
+  "transforms": [
+    {
+      "name": "vite-plugin-svelte",
+      "result": "\r\n\t@keyframes svelte-7rn795-fadeIn {\r\n\t\tfrom {\r\n\t\t\topacity: 0;\r\n\t\t}\r\n\t\tto {\r\n\t\t\topacity: 1;\r\n\t\t}\r\n\t}\r\n\r\n\t.animate-fadeIn.svelte-7rn795 {\r\n\t\tanimation: svelte-7rn795-fadeIn 0.3s ease-in-out;\r\n\t}\r\n",
+      "start": 1754579495350,
+      "end": 1754579495350,
+      "sourcemaps": {
+        "version": 3,
+        "file": "BidsTab.svelte",
+        "mappings": "AAmaM",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "BidsTab.svelte"
+        ]
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495350,
+      "end": 1754579495350,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "result": "\r\n\t@keyframes svelte-7rn795-fadeIn {\r\n\t\tfrom {\r\n\t\t\topacity: 0;\r\n\t\t}\r\n\t\tto {\r\n\t\t\topacity: 1;\r\n\t\t}\r\n\t}\r\n\r\n\t.animate-fadeIn.svelte-7rn795 {\r\n\t\tanimation: svelte-7rn795-fadeIn 0.3s ease-in-out;\r\n\t}\r\n",
+      "start": 1754579495350,
+      "end": 1754579495351,
+      "order": "pre",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495351,
+      "end": 1754579495351,
+      "order": "normal"
+    }
+  ]
+}

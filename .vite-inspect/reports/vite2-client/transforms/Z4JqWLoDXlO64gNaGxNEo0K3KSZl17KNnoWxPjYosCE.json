@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@sveltejs/kit/src/utils/error.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { HttpError, SvelteKitError } from '@sveltejs/kit/internal';\n\n/**\n * @param {unknown} err\n * @return {Error}\n */\nexport function coalesce_to_error(err) {\n\treturn err instanceof Error ||\n\t\t(err && /** @type {any} */ (err).name && /** @type {any} */ (err).message)\n\t\t? /** @type {Error} */ (err)\n\t\t: new Error(JSON.stringify(err));\n}\n\n/**\n * This is an identity function that exists to make TypeScript less\n * paranoid about people throwing things that aren't errors, which\n * frankly is not something we should care about\n * @param {unknown} error\n */\nexport function normalize_error(error) {\n\treturn /** @type {import('../exports/internal/index.js').Redirect | HttpError | SvelteKitError | Error} */ (\n\t\terror\n\t);\n}\n\n/**\n * @param {unknown} error\n */\nexport function get_status(error) {\n\treturn error instanceof HttpError || error instanceof SvelteKitError ? error.status : 500;\n}\n\n/**\n * @param {unknown} error\n */\nexport function get_message(error) {\n\treturn error instanceof SvelteKitError ? error.text : 'Internal Error';\n}\n",
+      "start": 1754579492379,
+      "end": 1754579493122,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493122,
+      "end": 1754579493122,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493122,
+      "end": 1754579493122,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493122,
+      "end": 1754579493122,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493122,
+      "end": 1754579493122,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493122,
+      "end": 1754579493122,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493122,
+      "end": 1754579493122,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493123,
+      "end": 1754579493123,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493123,
+      "end": 1754579493123,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493124,
+      "end": 1754579493124,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493124,
+      "end": 1754579493124,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493124,
+      "end": 1754579493124,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493124,
+      "end": 1754579493124,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493124,
+      "end": 1754579493124,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493125,
+      "end": 1754579493125,
+      "order": "normal"
+    }
+  ]
+}

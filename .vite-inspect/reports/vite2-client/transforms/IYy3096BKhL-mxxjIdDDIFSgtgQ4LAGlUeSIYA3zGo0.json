@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/reactivity/url-search-params.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { source } from '../internal/client/reactivity/sources.js';\nimport { get } from '../internal/client/runtime.js';\nimport { get_current_url } from './url.js';\nimport { increment } from './utils.js';\n\nexport const REPLACE = Symbol();\n\n/**\n * A reactive version of the built-in [`URLSearchParams`](https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams) object.\n * Reading its contents (by iterating, or by calling `params.get(...)` or `params.getAll(...)` as in the [example](https://svelte.dev/playground/b3926c86c5384bab9f2cf993bc08c1c8) below) in an [effect](https://svelte.dev/docs/svelte/$effect) or [derived](https://svelte.dev/docs/svelte/$derived)\n * will cause it to be re-evaluated as necessary when the params are updated.\n *\n * ```svelte\n * <script>\n * \timport { SvelteURLSearchParams } from 'svelte/reactivity';\n *\n * \tconst params = new SvelteURLSearchParams('message=hello');\n *\n * \tlet key = $state('key');\n * \tlet value = $state('value');\n * </script>\n *\n * <input bind:value={key} />\n * <input bind:value={value} />\n * <button onclick={() => params.append(key, value)}>append</button>\n *\n * <p>?{params.toString()}</p>\n *\n * {#each params as [key, value]}\n * \t<p>{key}: {value}</p>\n * {/each}\n * ```\n */\nexport class SvelteURLSearchParams extends URLSearchParams {\n\t#version = source(0);\n\t#url = get_current_url();\n\n\t#updating = false;\n\n\t#update_url() {\n\t\tif (!this.#url || this.#updating) return;\n\t\tthis.#updating = true;\n\n\t\tconst search = this.toString();\n\t\tthis.#url.search = search && `?${search}`;\n\n\t\tthis.#updating = false;\n\t}\n\n\t/**\n\t * @param {URLSearchParams} params\n\t * @internal\n\t */\n\t[REPLACE](params) {\n\t\tif (this.#updating) return;\n\t\tthis.#updating = true;\n\n\t\tfor (const key of [...super.keys()]) {\n\t\t\tsuper.delete(key);\n\t\t}\n\n\t\tfor (const [key, value] of params) {\n\t\t\tsuper.append(key, value);\n\t\t}\n\n\t\tincrement(this.#version);\n\t\tthis.#updating = false;\n\t}\n\n\t/**\n\t * @param {string} name\n\t * @param {string} value\n\t * @returns {void}\n\t */\n\tappend(name, value) {\n\t\tsuper.append(name, value);\n\t\tthis.#update_url();\n\t\tincrement(this.#version);\n\t}\n\n\t/**\n\t * @param {string} name\n\t * @param {string=} value\n\t * @returns {void}\n\t */\n\tdelete(name, value) {\n\t\tvar has_value = super.has(name, value);\n\t\tsuper.delete(name, value);\n\t\tif (has_value) {\n\t\t\tthis.#update_url();\n\t\t\tincrement(this.#version);\n\t\t}\n\t}\n\n\t/**\n\t * @param {string} name\n\t * @returns {string|null}\n\t */\n\tget(name) {\n\t\tget(this.#version);\n\t\treturn super.get(name);\n\t}\n\n\t/**\n\t * @param {string} name\n\t * @returns {string[]}\n\t */\n\tgetAll(name) {\n\t\tget(this.#version);\n\t\treturn super.getAll(name);\n\t}\n\n\t/**\n\t * @param {string} name\n\t * @param {string=} value\n\t * @returns {boolean}\n\t */\n\thas(name, value) {\n\t\tget(this.#version);\n\t\treturn super.has(name, value);\n\t}\n\n\tkeys() {\n\t\tget(this.#version);\n\t\treturn super.keys();\n\t}\n\n\t/**\n\t * @param {string} name\n\t * @param {string} value\n\t * @returns {void}\n\t */\n\tset(name, value) {\n\t\tvar previous = super.getAll(name).join('');\n\t\tsuper.set(name, value);\n\t\t// can't use has(name, value), because for something like https://svelte.dev?foo=1&bar=2&foo=3\n\t\t// if you set `foo` to 1, then foo=3 gets deleted whilst `has(\"foo\", \"1\")` returns true\n\t\tif (previous !== super.getAll(name).join('')) {\n\t\t\tthis.#update_url();\n\t\t\tincrement(this.#version);\n\t\t}\n\t}\n\n\tsort() {\n\t\tsuper.sort();\n\t\tthis.#update_url();\n\t\tincrement(this.#version);\n\t}\n\n\ttoString() {\n\t\tget(this.#version);\n\t\treturn super.toString();\n\t}\n\n\tvalues() {\n\t\tget(this.#version);\n\t\treturn super.values();\n\t}\n\n\tentries() {\n\t\tget(this.#version);\n\t\treturn super.entries();\n\t}\n\n\t[Symbol.iterator]() {\n\t\treturn this.entries();\n\t}\n\n\tget size() {\n\t\tget(this.#version);\n\t\treturn super.size;\n\t}\n}\n",
+      "start": 1754579497968,
+      "end": 1754579498025,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579498026,
+      "end": 1754579498026,
+      "order": "normal"
+    }
+  ]
+}

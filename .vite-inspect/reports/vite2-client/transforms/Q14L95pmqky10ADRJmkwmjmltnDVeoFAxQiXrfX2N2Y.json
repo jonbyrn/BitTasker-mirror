@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/isSameQuarter.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { normalizeDates } from \"./_lib/normalizeDates.js\";\nimport { startOfQuarter } from \"./startOfQuarter.js\";\n\n/**\n * The {@link isSameQuarter} function options.\n */\n\n/**\n * @name isSameQuarter\n * @category Quarter Helpers\n * @summary Are the given dates in the same quarter (and year)?\n *\n * @description\n * Are the given dates in the same quarter (and year)?\n *\n * @param laterDate - The first date to check\n * @param earlierDate - The second date to check\n * @param options - An object with options\n *\n * @returns The dates are in the same quarter (and year)\n *\n * @example\n * // Are 1 January 2014 and 8 March 2014 in the same quarter?\n * const result = isSameQuarter(new Date(2014, 0, 1), new Date(2014, 2, 8))\n * //=> true\n *\n * @example\n * // Are 1 January 2014 and 1 January 2015 in the same quarter?\n * const result = isSameQuarter(new Date(2014, 0, 1), new Date(2015, 0, 1))\n * //=> false\n */\nexport function isSameQuarter(laterDate, earlierDate, options) {\n  const [dateLeft_, dateRight_] = normalizeDates(\n    options?.in,\n    laterDate,\n    earlierDate,\n  );\n  return +startOfQuarter(dateLeft_) === +startOfQuarter(dateRight_);\n}\n\n// Fallback for modularized imports:\nexport default isSameQuarter;\n",
+      "start": 1754579494963,
+      "end": 1754579494978,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494978,
+      "end": 1754579494978,
+      "order": "normal"
+    }
+  ]
+}

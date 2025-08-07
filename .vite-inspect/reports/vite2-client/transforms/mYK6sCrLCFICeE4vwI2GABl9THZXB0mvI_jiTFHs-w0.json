@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/navigation-menu/components/navigation-menu.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport type { NavigationMenuRootProps } from \"../types.js\";\n\timport { useNavigationMenuRoot } from \"../navigation-menu.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet {\n\t\tchild,\n\t\tchildren,\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\tvalue = $bindable(\"\"),\n\t\tonValueChange = noop,\n\t\tdelayDuration = 200,\n\t\tskipDelayDuration = 300,\n\t\tdir = \"ltr\",\n\t\torientation = \"horizontal\",\n\t\t...restProps\n\t}: NavigationMenuRootProps = $props();\n\n\tconst rootState = useNavigationMenuRoot({\n\t\tid: box.with(() => id),\n\t\tvalue: box.with(\n\t\t\t() => value,\n\t\t\t(v) => {\n\t\t\t\tvalue = v;\n\t\t\t\tonValueChange(v);\n\t\t\t}\n\t\t),\n\t\tdelayDuration: box.with(() => delayDuration),\n\t\tskipDelayDuration: box.with(() => skipDelayDuration),\n\t\tdir: box.with(() => dir),\n\t\torientation: box.with(() => orientation),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t});\n\n\tconst mergedProps = $derived(mergeProps({ \"aria-label\": \"main\" }, restProps, rootState.props));\n</script>\n\n{#if child}\n\t{@render child({ props: mergedProps })}\n{:else}\n\t<nav {...mergedProps}>\n\t\t{@render children?.()}\n\t</nav>\n{/if}\n",
+      "start": 1754579496666,
+      "end": 1754579496779,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496779,
+      "end": 1754579496779,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496779,
+      "end": 1754579496779,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useNavigationMenuRoot } from \"../navigation-menu.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { noop } from \"../../../internal/noop.js\";\n\nvar root_2 = $.template(`<nav><!></nav>`);\n\nexport default function Navigation_menu($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\tvalue = $.prop($$props, 'value', 15, \"\"),\n\t\tonValueChange = $.prop($$props, 'onValueChange', 3, noop),\n\t\tdelayDuration = $.prop($$props, 'delayDuration', 3, 200),\n\t\tskipDelayDuration = $.prop($$props, 'skipDelayDuration', 3, 300),\n\t\tdir = $.prop($$props, 'dir', 3, \"ltr\"),\n\t\torientation = $.prop($$props, 'orientation', 3, \"horizontal\"),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'child',\n\t\t\t'children',\n\t\t\t'id',\n\t\t\t'ref',\n\t\t\t'value',\n\t\t\t'onValueChange',\n\t\t\t'delayDuration',\n\t\t\t'skipDelayDuration',\n\t\t\t'dir',\n\t\t\t'orientation'\n\t\t]);\n\n\tconst rootState = useNavigationMenuRoot({\n\t\tid: box.with(() => id()),\n\t\tvalue: box.with(() => value(), (v) => {\n\t\t\tvalue(v);\n\t\t\tonValueChange()(v);\n\t\t}),\n\t\tdelayDuration: box.with(() => delayDuration()),\n\t\tskipDelayDuration: box.with(() => skipDelayDuration()),\n\t\tdir: box.with(() => dir()),\n\t\torientation: box.with(() => orientation()),\n\t\tref: box.with(() => ref(), (v) => ref(v))\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps({ \"aria-label\": \"main\" }, restProps, rootState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t\t$.snippet(node_1, () => $$props.child, () => ({ props: $.get(mergedProps) }));\n\t\t\t$.append($$anchor, fragment_1);\n\t\t};\n\n\t\tvar alternate = ($$anchor) => {\n\t\t\tvar nav = root_2();\n\t\t\tlet attributes;\n\t\t\tvar node_2 = $.child(nav);\n\n\t\t\t$.snippet(node_2, () => $$props.children ?? $.noop);\n\t\t\t$.reset(nav);\n\t\t\t$.template_effect(() => attributes = $.set_attributes(nav, attributes, { ...$.get(mergedProps) }));\n\t\t\t$.append($$anchor, nav);\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496779,
+      "end": 1754579496783,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SAExC,qBAAqB,QAAQ,8BAA8B;SAC3D,KAAK,QAAQ,6BAA6B;SAC1C,IAAI,QAAQ,2BAA2B;;;;;;;KAK/C,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EACpB,KAAK,gCAAa,EAAE;EACpB,aAAa,uCAAG,IAAI;EACpB,aAAa,uCAAG,GAAG;EACnB,iBAAiB,2CAAG,GAAG;EACvB,GAAG,6BAAG,KAAK;EACX,WAAW,qCAAG,YAAY;EACvB;;;;;;;;;;;;;;;;OAGE,SAAS,GAAG,qBAAqB;EACtC,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,KAAK,EAAE,GAAG,CAAC,IAAI,OACR,KAAK,KACV,CAAC,KAAK;GACN,KAAK,CAAG,CAAC;GACT,aAAa,GAAC,CAAC;EAChB;EAED,aAAa,EAAE,GAAG,CAAC,IAAI,OAAO,aAAa;EAC3C,iBAAiB,EAAE,GAAG,CAAC,IAAI,OAAO,iBAAiB;EACnD,GAAG,EAAE,GAAG,CAAC,IAAI,OAAO,GAAG;EACvB,WAAW,EAAE,GAAG,CAAC,IAAI,OAAO,WAAW;EACvC,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;;;OAIX,WAAW,mBAAY,UAAU,GAAG,YAAY,EAAE,MAAM,IAAI,SAAS,EAAE,SAAS,CAAC,KAAK;;;;;;;;;mDAI3E,KAAK,QAAE,WAAW;;;;;;;;;;;qFAE1B,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "navigation-menu.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496783,
+      "end": 1754579496783,
+      "order": "normal"
+    }
+  ]
+}

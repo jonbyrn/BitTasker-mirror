@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/popover/components/popover-content.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport type { PopoverContentProps } from \"../types.js\";\n\timport { usePopoverContent } from \"../popover.svelte.js\";\n\timport PopperLayer from \"../../utilities/popper-layer/popper-layer.svelte\";\n\timport { noop } from \"../../../internal/noop.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { getFloatingContentCSSVars } from \"../../../internal/floating-svelte/floating-utils.svelte.js\";\n\timport PopperLayerForceMount from \"../../utilities/popper-layer/popper-layer-force-mount.svelte\";\n\n\tlet {\n\t\tchild,\n\t\tchildren,\n\t\tref = $bindable(null),\n\t\tid = useId(),\n\t\tforceMount = false,\n\t\tonCloseAutoFocus = noop,\n\t\tonEscapeKeydown = noop,\n\t\tonInteractOutside = noop,\n\t\ttrapFocus = true,\n\t\tpreventScroll = false,\n\t\t...restProps\n\t}: PopoverContentProps = $props();\n\n\tconst contentState = usePopoverContent({\n\t\tid: box.with(() => id),\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t\tonInteractOutside: box.with(() => onInteractOutside),\n\t\tonEscapeKeydown: box.with(() => onEscapeKeydown),\n\t\tonCloseAutoFocus: box.with(() => onCloseAutoFocus),\n\t});\n\n\tconst mergedProps = $derived(mergeProps(restProps, contentState.props));\n</script>\n\n{#if forceMount}\n\t<PopperLayerForceMount\n\t\t{...mergedProps}\n\t\t{...contentState.popperProps}\n\t\tenabled={contentState.root.opts.open.current}\n\t\t{id}\n\t\t{trapFocus}\n\t\t{preventScroll}\n\t\tloop\n\t\tforceMount={true}\n\t>\n\t\t{#snippet popper({ props, wrapperProps })}\n\t\t\t{@const finalProps = mergeProps(props, {\n\t\t\t\tstyle: getFloatingContentCSSVars(\"popover\"),\n\t\t\t})}\n\t\t\t{#if child}\n\t\t\t\t{@render child({ props: finalProps, wrapperProps, ...contentState.snippetProps })}\n\t\t\t{:else}\n\t\t\t\t<div {...wrapperProps}>\n\t\t\t\t\t<div {...finalProps}>\n\t\t\t\t\t\t{@render children?.()}\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t{/if}\n\t\t{/snippet}\n\t</PopperLayerForceMount>\n{:else if !forceMount}\n\t<PopperLayer\n\t\t{...mergedProps}\n\t\t{...contentState.popperProps}\n\t\tpresent={contentState.root.opts.open.current}\n\t\t{id}\n\t\t{trapFocus}\n\t\t{preventScroll}\n\t\tloop\n\t\tforceMount={false}\n\t>\n\t\t{#snippet popper({ props, wrapperProps })}\n\t\t\t{@const finalProps = mergeProps(props, {\n\t\t\t\tstyle: getFloatingContentCSSVars(\"popover\"),\n\t\t\t})}\n\t\t\t{#if child}\n\t\t\t\t{@render child({ props: finalProps, wrapperProps, ...contentState.snippetProps })}\n\t\t\t{:else}\n\t\t\t\t<div {...wrapperProps}>\n\t\t\t\t\t<div {...finalProps}>\n\t\t\t\t\t\t{@render children?.()}\n\t\t\t\t\t</div>\n\t\t\t\t</div>\n\t\t\t{/if}\n\t\t{/snippet}\n\t</PopperLayer>\n{/if}\n",
+      "start": 1754579496783,
+      "end": 1754579496877,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496877,
+      "end": 1754579496878,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496878,
+      "end": 1754579496878,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { usePopoverContent } from \"../popover.svelte.js\";\nimport PopperLayer from \"../../utilities/popper-layer/popper-layer.svelte\";\nimport { noop } from \"../../../internal/noop.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { getFloatingContentCSSVars } from \"../../../internal/floating-svelte/floating-utils.svelte.js\";\nimport PopperLayerForceMount from \"../../utilities/popper-layer/popper-layer-force-mount.svelte\";\n\nvar root_4 = $.template(`<div><div><!></div></div>`);\nvar root_9 = $.template(`<div><div><!></div></div>`);\n\nexport default function Popover_content($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet ref = $.prop($$props, 'ref', 15, null),\n\t\tid = $.prop($$props, 'id', 19, useId),\n\t\tforceMount = $.prop($$props, 'forceMount', 3, false),\n\t\tonCloseAutoFocus = $.prop($$props, 'onCloseAutoFocus', 3, noop),\n\t\tonEscapeKeydown = $.prop($$props, 'onEscapeKeydown', 3, noop),\n\t\tonInteractOutside = $.prop($$props, 'onInteractOutside', 3, noop),\n\t\ttrapFocus = $.prop($$props, 'trapFocus', 3, true),\n\t\tpreventScroll = $.prop($$props, 'preventScroll', 3, false),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'child',\n\t\t\t'children',\n\t\t\t'ref',\n\t\t\t'id',\n\t\t\t'forceMount',\n\t\t\t'onCloseAutoFocus',\n\t\t\t'onEscapeKeydown',\n\t\t\t'onInteractOutside',\n\t\t\t'trapFocus',\n\t\t\t'preventScroll'\n\t\t]);\n\n\tconst contentState = usePopoverContent({\n\t\tid: box.with(() => id()),\n\t\tref: box.with(() => ref(), (v) => ref(v)),\n\t\tonInteractOutside: box.with(() => onInteractOutside()),\n\t\tonEscapeKeydown: box.with(() => onEscapeKeydown()),\n\t\tonCloseAutoFocus: box.with(() => onCloseAutoFocus())\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, contentState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent_1 = ($$anchor) => {\n\t\t\t{\n\t\t\t\tconst popper = ($$anchor, $$arg0) => {\n\t\t\t\t\tlet props = () => $$arg0?.().props;\n\t\t\t\t\tlet wrapperProps = () => $$arg0?.().wrapperProps;\n\t\t\t\t\tvar fragment_2 = $.comment();\n\n\t\t\t\t\tconst finalProps = $.derived(() => mergeProps(props(), {\n\t\t\t\t\t\tstyle: getFloatingContentCSSVars(\"popover\")\n\t\t\t\t\t}));\n\n\t\t\t\t\tvar node_1 = $.first_child(fragment_2);\n\n\t\t\t\t\t{\n\t\t\t\t\t\tvar consequent = ($$anchor) => {\n\t\t\t\t\t\t\tvar fragment_3 = $.comment();\n\t\t\t\t\t\t\tvar node_2 = $.first_child(fragment_3);\n\n\t\t\t\t\t\t\tvar render_arg = $.derived_safe_equal(() => ({\n\t\t\t\t\t\t\t\tprops: $.get(finalProps),\n\t\t\t\t\t\t\t\twrapperProps: wrapperProps(),\n\t\t\t\t\t\t\t\t...contentState.snippetProps\n\t\t\t\t\t\t\t}));\n\n\t\t\t\t\t\t\t$.snippet(node_2, () => $$props.child, () => $.get(render_arg));\n\t\t\t\t\t\t\t$.append($$anchor, fragment_3);\n\t\t\t\t\t\t};\n\n\t\t\t\t\t\tvar alternate = ($$anchor) => {\n\t\t\t\t\t\t\tvar div = root_4();\n\t\t\t\t\t\t\tlet attributes;\n\t\t\t\t\t\t\tvar div_1 = $.child(div);\n\t\t\t\t\t\t\tlet attributes_1;\n\t\t\t\t\t\t\tvar node_3 = $.child(div_1);\n\n\t\t\t\t\t\t\t$.snippet(node_3, () => $$props.children ?? $.noop);\n\t\t\t\t\t\t\t$.reset(div_1);\n\t\t\t\t\t\t\t$.reset(div);\n\n\t\t\t\t\t\t\t$.template_effect(() => {\n\t\t\t\t\t\t\t\tattributes = $.set_attributes(div, attributes, { ...wrapperProps() });\n\t\t\t\t\t\t\t\tattributes_1 = $.set_attributes(div_1, attributes_1, { ...$.get(finalProps) });\n\t\t\t\t\t\t\t});\n\n\t\t\t\t\t\t\t$.append($$anchor, div);\n\t\t\t\t\t\t};\n\n\t\t\t\t\t\t$.if(node_1, ($$render) => {\n\t\t\t\t\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\n\t\t\t\t\t$.append($$anchor, fragment_2);\n\t\t\t\t};\n\n\t\t\t\tPopperLayerForceMount($$anchor, $.spread_props(() => $.get(mergedProps), () => contentState.popperProps, {\n\t\t\t\t\tget enabled() {\n\t\t\t\t\t\treturn contentState.root.opts.open.current;\n\t\t\t\t\t},\n\t\t\t\t\tget id() {\n\t\t\t\t\t\treturn id();\n\t\t\t\t\t},\n\t\t\t\t\tget trapFocus() {\n\t\t\t\t\t\treturn trapFocus();\n\t\t\t\t\t},\n\t\t\t\t\tget preventScroll() {\n\t\t\t\t\t\treturn preventScroll();\n\t\t\t\t\t},\n\t\t\t\t\tloop: true,\n\t\t\t\t\tforceMount: true,\n\t\t\t\t\tpopper,\n\t\t\t\t\t$$slots: { popper: true }\n\t\t\t\t}));\n\t\t\t}\n\t\t};\n\n\t\tvar alternate_1 = ($$anchor, $$elseif) => {\n\t\t\t{\n\t\t\t\tvar consequent_3 = ($$anchor) => {\n\t\t\t\t\t{\n\t\t\t\t\t\tconst popper = ($$anchor, $$arg0) => {\n\t\t\t\t\t\t\tlet props = () => $$arg0?.().props;\n\t\t\t\t\t\t\tlet wrapperProps = () => $$arg0?.().wrapperProps;\n\t\t\t\t\t\t\tvar fragment_5 = $.comment();\n\n\t\t\t\t\t\t\tconst finalProps = $.derived(() => mergeProps(props(), {\n\t\t\t\t\t\t\t\tstyle: getFloatingContentCSSVars(\"popover\")\n\t\t\t\t\t\t\t}));\n\n\t\t\t\t\t\t\tvar node_4 = $.first_child(fragment_5);\n\n\t\t\t\t\t\t\t{\n\t\t\t\t\t\t\t\tvar consequent_2 = ($$anchor) => {\n\t\t\t\t\t\t\t\t\tvar fragment_6 = $.comment();\n\t\t\t\t\t\t\t\t\tvar node_5 = $.first_child(fragment_6);\n\n\t\t\t\t\t\t\t\t\tvar render_arg_1 = $.derived_safe_equal(() => ({\n\t\t\t\t\t\t\t\t\t\tprops: $.get(finalProps),\n\t\t\t\t\t\t\t\t\t\twrapperProps: wrapperProps(),\n\t\t\t\t\t\t\t\t\t\t...contentState.snippetProps\n\t\t\t\t\t\t\t\t\t}));\n\n\t\t\t\t\t\t\t\t\t$.snippet(node_5, () => $$props.child, () => $.get(render_arg_1));\n\t\t\t\t\t\t\t\t\t$.append($$anchor, fragment_6);\n\t\t\t\t\t\t\t\t};\n\n\t\t\t\t\t\t\t\tvar alternate_2 = ($$anchor) => {\n\t\t\t\t\t\t\t\t\tvar div_2 = root_9();\n\t\t\t\t\t\t\t\t\tlet attributes_2;\n\t\t\t\t\t\t\t\t\tvar div_3 = $.child(div_2);\n\t\t\t\t\t\t\t\t\tlet attributes_3;\n\t\t\t\t\t\t\t\t\tvar node_6 = $.child(div_3);\n\n\t\t\t\t\t\t\t\t\t$.snippet(node_6, () => $$props.children ?? $.noop);\n\t\t\t\t\t\t\t\t\t$.reset(div_3);\n\t\t\t\t\t\t\t\t\t$.reset(div_2);\n\n\t\t\t\t\t\t\t\t\t$.template_effect(() => {\n\t\t\t\t\t\t\t\t\t\tattributes_2 = $.set_attributes(div_2, attributes_2, { ...wrapperProps() });\n\t\t\t\t\t\t\t\t\t\tattributes_3 = $.set_attributes(div_3, attributes_3, { ...$.get(finalProps) });\n\t\t\t\t\t\t\t\t\t});\n\n\t\t\t\t\t\t\t\t\t$.append($$anchor, div_2);\n\t\t\t\t\t\t\t\t};\n\n\t\t\t\t\t\t\t\t$.if(node_4, ($$render) => {\n\t\t\t\t\t\t\t\t\tif ($$props.child) $$render(consequent_2); else $$render(alternate_2, false);\n\t\t\t\t\t\t\t\t});\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\t$.append($$anchor, fragment_5);\n\t\t\t\t\t\t};\n\n\t\t\t\t\t\tPopperLayer($$anchor, $.spread_props(() => $.get(mergedProps), () => contentState.popperProps, {\n\t\t\t\t\t\t\tget present() {\n\t\t\t\t\t\t\t\treturn contentState.root.opts.open.current;\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tget id() {\n\t\t\t\t\t\t\t\treturn id();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tget trapFocus() {\n\t\t\t\t\t\t\t\treturn trapFocus();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tget preventScroll() {\n\t\t\t\t\t\t\t\treturn preventScroll();\n\t\t\t\t\t\t\t},\n\t\t\t\t\t\t\tloop: true,\n\t\t\t\t\t\t\tforceMount: false,\n\t\t\t\t\t\t\tpopper,\n\t\t\t\t\t\t\t$$slots: { popper: true }\n\t\t\t\t\t\t}));\n\t\t\t\t\t}\n\t\t\t\t};\n\n\t\t\t\t$.if(\n\t\t\t\t\t$$anchor,\n\t\t\t\t\t($$render) => {\n\t\t\t\t\t\tif (!forceMount()) $$render(consequent_3);\n\t\t\t\t\t},\n\t\t\t\t\t$$elseif\n\t\t\t\t);\n\t\t\t}\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif (forceMount()) $$render(consequent_1); else $$render(alternate_1, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496878,
+      "end": 1754579496885,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SAExC,iBAAiB,QAAQ,sBAAsB;OACjD,WAAW,MAAM,kDAAkD;SACjE,IAAI,QAAQ,2BAA2B;SACvC,KAAK,QAAQ,6BAA6B;SAC1C,yBAAyB,QAAQ,4DAA4D;OAC/F,qBAAqB,MAAM,8DAA8D;;;;;;;;KAK/F,GAAG,8BAAa,IAAI;EACpB,EAAE,6BAAG,KAAK;EACV,UAAU,oCAAG,KAAK;EAClB,gBAAgB,0CAAG,IAAI;EACvB,eAAe,yCAAG,IAAI;EACtB,iBAAiB,2CAAG,IAAI;EACxB,SAAS,mCAAG,IAAI;EAChB,aAAa,uCAAG,KAAK;EAClB;;;;;;;;;;;;;;;;OAGE,YAAY,GAAG,iBAAiB;EACrC,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;EAEhB,iBAAiB,EAAE,GAAG,CAAC,IAAI,OAAO,iBAAiB;EACnD,eAAe,EAAE,GAAG,CAAC,IAAI,OAAO,eAAe;EAC/C,gBAAgB,EAAE,GAAG,CAAC,IAAI,OAAO,gBAAgB;;;OAG5C,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,YAAY,CAAC,KAAK;;;;;;;;SAcjD,KAAK,oBAAL,KAAK;SAAE,YAAY,oBAAZ,YAAY;;;WAC7B,UAAU,mBAAG,UAAU,CAAC,KAAK;MACpC,KAAK,EAAE,yBAAyB,CAAC,SAAS;;;;;;;;;;;QAGzB,KAAK,QAAE,UAAU;QAAE,YAAY,EAAZ,YAAY;WAAK,YAAY,CAAC,YAAY;;;;;;;;;;;;;;;;;;;4DAErE,YAAY;wEACX,UAAU;;;;;;;;;;;;;;+DAjBlB,WAAW,SACX,YAAY,CAAC,WAAW;;aACnB,YAAY,CAAC,IAAI,CAAC,IAAI,CAAC,IAAI,CAAC,OAAO;;;;;;;;;;;;iBAKhC,IAAI;;;;;;;;;;;;WA4BG,KAAK,oBAAL,KAAK;WAAE,YAAY,oBAAZ,YAAY;;;aAC7B,UAAU,mBAAG,UAAU,CAAC,KAAK;QACpC,KAAK,EAAE,yBAAyB,CAAC,SAAS;;;;;;;;;;;UAGzB,KAAK,QAAE,UAAU;UAAE,YAAY,EAAZ,YAAY;aAAK,YAAY,CAAC,YAAY;;;;;;;;;;;;;;;;;;;oEAErE,YAAY;0EACX,UAAU;;;;;;;;;;;;;;uDAjBlB,WAAW,SACX,YAAY,CAAC,WAAW;;eACnB,YAAY,CAAC,IAAI,CAAC,IAAI,CAAC,IAAI,CAAC,OAAO;;;;;;;;;;;;mBAKhC,KAAK;;;;;;;;;;WATR,UAAU;;;;;;;;OA1BhB,UAAU",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "popover-content.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496885,
+      "end": 1754579496885,
+      "order": "normal"
+    }
+  ]
+}

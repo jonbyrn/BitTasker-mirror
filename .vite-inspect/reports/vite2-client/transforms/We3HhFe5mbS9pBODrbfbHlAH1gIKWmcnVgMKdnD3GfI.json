@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/dashboard/profile/profile.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"profile\": {\r\n        \"personal_info\": {\r\n            \"title\": \"Información Personal\",\r\n            \"pictures\": \"Fotos de Perfil\",\r\n            \"pictures_desc\": \"La primera foto será tu foto de perfil principal\",\r\n            \"pictures_max\": \"5 máximo\",\r\n            \"display_name\": \"Nombre para Mostrar\",\r\n            \"display_name_placeholder\": \"Tu nombre para mostrar\",\r\n            \"professional_title\": \"Título Profesional\",\r\n            \"professional_title_placeholder\": \"ej. Ingeniero de Software\",\r\n            \"website\": \"Sitio Web\",\r\n            \"website_placeholder\": \"https://ejemplo.com\",\r\n            \"description\": \"Descripción del Perfil\",\r\n            \"description_placeholder\": \"Cuéntale a los clientes sobre tu experiencia profesional, especialidad y qué te hace único...\",\r\n            \"save\": \"Guardar Información Personal\"\r\n        },\r\n        \"skills\": {\r\n            \"title\": \"Habilidades y Experiencia\",\r\n            \"add_skill\": \"Agregar Nueva Habilidad\",\r\n            \"skill_name\": \"Nombre de la Habilidad\",\r\n            \"skill_name_placeholder\": \"e.g. JavaScript, Gestión de Proyectos\",\r\n            \"experience\": \"Años de Experiencia\",\r\n            \"proficiency\": \"Nivel de Competencia\",\r\n            \"proficiency_beginner\": \"Principiante\",\r\n            \"proficiency_intermediate\": \"Intermedio\",\r\n            \"proficiency_advanced\": \"Avanzado\",\r\n            \"proficiency_expert\": \"Experto\",\r\n            \"delete_confirm\": \"¿Estás seguro de que quieres eliminar esta habilidad?\",\r\n            \"certifications\": \"Certificaciones\",\r\n            \"add_certification\": \"Agregar\",\r\n            \"cert_name\": \"Nombre de la Certificación\",\r\n            \"cert_name_placeholder\": \"e.g. AWS Certified Developer\",\r\n            \"cert_issuer\": \"Organización Emisora\",\r\n            \"cert_issuer_placeholder\": \"e.g. Amazon Web Services\",\r\n            \"cert_date\": \"Fecha de Emisión\",\r\n            \"cert_upload\": \"Subir Certificado\",\r\n            \"save\": \"Guardar Habilidades\",\r\n            \"no_skills\": \"Aún no hay habilidades agregadas. Agrega algunas habilidades para mostrar tu experiencia.\",\r\n            \"save_success\": \"¡Habilidades guardadas exitosamente!\"\r\n        },\r\n        \"video\": {\r\n            \"description\": \"Sube un video corto de introducción (máximo 3 minutos)\",\r\n            \"upload_title\": \"Subir Video\",\r\n            \"upload_desc\": \"Graba o sube un video corto de introducción\",\r\n            \"max_size\": \"Tamaño máximo del archivo: 100MB\"\r\n        },\r\n        \"portfolio\": {\r\n            \"title\": \"Portafolio\",\r\n            \"add_project\": \"Agregar Proyecto\",\r\n            \"no_items\": \"Aún no hay elementos en el portafolio. Agrega algunos proyectos para mostrar tu trabajo.\",\r\n            \"project_title\": \"Título del Proyecto\",\r\n            \"project_title_placeholder\": \"ej. Desarrollo de Sitio Web Básico\",\r\n            \"description\": \"Descripción\",\r\n            \"description_placeholder\": \"Describe tu proyecto, tu rol y los resultados...\",\r\n            \"completion_date\": \"Fecha de Finalización\",\r\n            \"skills_used\": \"Habilidades Utilizadas\",\r\n            \"images\": \"Imágenes del Proyecto\",\r\n            \"images_desc\": \"Requerido • La primera imagen será la principal\",\r\n            \"add_images\": \"Agregar Imágenes\"\r\n        },\r\n        \"availability\": {\r\n            \"timezone\": \"Tu Zona Horaria\",\r\n            \"timezone_placeholder\": \"Selecciona tu zona horaria\",\r\n            \"min_notice\": \"Aviso Mínimo (horas)\",\r\n            \"min_notice_desc\": \"Tiempo mínimo antes de una reserva\",\r\n            \"max_bookings\": \"Reservas Diarias Máximas\",\r\n            \"max_bookings_placeholder\": \"Selecciona el máximo de reservas por día\",\r\n            \"break_time\": \"Descanso Entre Reservas\",\r\n            \"break_time_desc\": \"Tiempo de descanso requerido entre reservas\",\r\n            \"schedule\": \"Horario Semanal\",\r\n            \"add_schedule\": \"Agregar Horario\",\r\n            \"day\": \"Día\",\r\n            \"start_time\": \"Hora de Inicio\",\r\n            \"end_time\": \"Hora de Fin\"\r\n        },\r\n        \"services\": {\r\n            \"add_service\": \"Agregar Servicio\",\r\n            \"edit_service\": \"Editar Servicio\",\r\n            \"service_name\": \"Nombre del Servicio\",\r\n            \"service_name_placeholder\": \"ej. Desarrollo de Sitio Web Básico\",\r\n            \"description\": \"Descripción\",\r\n            \"description_placeholder\": \"Describe lo que incluye este servicio...\",\r\n            \"price\": \"Precio\",\r\n            \"duration\": \"Duración (minutos)\",\r\n            \"delete_confirm\": \"¿Estás seguro de que quieres eliminar este servicio?\",\r\n            \"custom_quote\": \"Permitir Solicitudes de Cotización Personalizada\",\r\n            \"no_services\": \"Aún no hay servicios agregados. Agrega algunos servicios para comenzar a recibir reservas.\",\r\n            \"save\": \"Guardar Servicios\"\r\n        },\r\n        \"page\": {\r\n            \"title\": \"Mi Perfil\",\r\n            \"edit_profile\": \"Editar Perfil\",\r\n            \"logout_profile\": \"Cerrar sesión\",\r\n            \"completion\": \"Completado del Perfil\",\r\n            \"completion_desc\": \"Completa tu perfil para aumentar la visibilidad y confianza\",\r\n            \"sections\": {\r\n                \"personal_info\": \"Información Personal\",\r\n                \"skills\": \"Habilidades y Experiencia\",\r\n                \"portfolio\": \"Portafolio\",\r\n                \"video\": \"Video de Introducción\",\r\n                \"availability\": \"Disponibilidad\",\r\n                \"services\": \"Servicios Estándar\",\r\n                \"error\": \"Error al cargar los datos del perfil. Por favor, inténtalo de nuevo más tarde.\"\r\n            }\r\n        },\r\n        \"about\": \"Acerca de\",\r\n        \"noDescription\": \"Aún no se ha agregado una descripción.\",\r\n        \"skills2\": \"Habilidades\",\r\n        \"noSkills\": \"Aún no se han agregado habilidades.\",\r\n        \"certifications\": \"Certificaciones\",\r\n        \"verified\": \"Verificado\",\r\n        \"unverified\": \"No verificado\",\r\n        \"since\": \"Desde\",\r\n        \"years\": \"años\",\r\n        \"noCertifications\": \"Aún no se han listado certificaciones.\",\r\n        \"portfolio2\": \"Portafolio\",\r\n        \"noPortfolio\": \"Aún no se han agregado elementos al portafolio.\",\r\n        \"reviews\": \"Reseñas\",\r\n        \"noReviews\": \"Aún no hay reseñas.\",\r\n        \"loadError\": \"No se pudo cargar la información del perfil. Por favor, inténtalo más tarde.\"\r\n    },\r\n    \"stats\": {\r\n        \"tasksCompleted\": \"Tareas Completadas\",\r\n        \"rating\": \"Calificación\",\r\n        \"responseRate\": \"Tasa de Respuesta\",\r\n        \"onTimeRate\": \"Tasa de Puntualidad\"\r\n    }\r\n}",
+      "start": 1754579494783,
+      "end": 1754579494796,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494796,
+      "end": 1754579494797,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494797,
+      "end": 1754579494797,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/client.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { HoudiniClient } from '$houdini';\r\nimport customAuthPlugin from '$lib/utils/houdini/plugins/customAuthPlugin';\r\n\r\nexport default new HoudiniClient({\r\n\turl: `${import.meta.env.VITE_API_URL}/graph`,\r\n\tplugins: [customAuthPlugin]\r\n});\r\n",
+      "start": 1754579496073,
+      "end": 1754579496114,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import { HoudiniClient } from \"$houdini\";\r\nimport customAuthPlugin from \"$lib/utils/houdini/plugins/customAuthPlugin\";\r\n\r\nexport default new HoudiniClient({\r\n    url: `${import.meta.env.VITE_API_URL}/graph`,\r\n    plugins: [customAuthPlugin]\r\n});",
+      "start": 1754579496114,
+      "end": 1754579496115,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/client.ts"
+        ],
+        "sourcesContent": [
+          "import { HoudiniClient } from '$houdini';\r\nimport customAuthPlugin from '$lib/utils/houdini/plugins/customAuthPlugin';\r\n\r\nexport default new HoudiniClient({\r\n\turl: `${import.meta.env.VITE_API_URL}/graph`,\r\n\tplugins: [customAuthPlugin]\r\n});\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3E;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496115,
+      "end": 1754579496115,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496115,
+      "end": 1754579496115,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { HoudiniClient } from \"$houdini\";\nimport customAuthPlugin from \"$lib/utils/houdini/plugins/customAuthPlugin\";\nexport default new HoudiniClient({\n  url: `${import.meta.env.VITE_API_URL}/graph`,\n  plugins: [customAuthPlugin]\n});\n",
+      "start": 1754579496115,
+      "end": 1754579496147,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/client.ts"
+        ],
+        "sourcesContent": [
+          "import { HoudiniClient } from \"$houdini\";\r\nimport customAuthPlugin from \"$lib/utils/houdini/plugins/customAuthPlugin\";\r\n\r\nexport default new HoudiniClient({\r\n    url: `${import.meta.env.VITE_API_URL}/graph`,\r\n    plugins: [customAuthPlugin]\r\n});"
+        ],
+        "mappings": "AAAA,SAAS,qBAAqB;AAC9B,OAAO,sBAAsB;AAE7B,eAAe,IAAI,cAAc;AAAA,EAC7B,KAAK,GAAG,YAAY,IAAI,YAAY;AAAA,EACpC,SAAS,CAAC,gBAAgB;AAC9B,CAAC;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496147,
+      "end": 1754579496147,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "import { HoudiniClient } from \"$houdini\";\nimport customAuthPlugin from \"$lib/utils/houdini/plugins/customAuthPlugin\";\nexport default new HoudiniClient({\n  url: `${\"https://devbackend.production.bittasker.hedgehackers.finance\"}/graph`,\n  plugins: [customAuthPlugin]\n});\n",
+      "start": 1754579496147,
+      "end": 1754579496158,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496158,
+      "end": 1754579496158,
+      "order": "normal"
+    }
+  ]
+}

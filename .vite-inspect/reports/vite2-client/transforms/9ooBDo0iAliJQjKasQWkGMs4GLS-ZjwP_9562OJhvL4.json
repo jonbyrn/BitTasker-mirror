@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dev/elements.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { SourceLocation } from '#shared' */\nimport { HYDRATION_END, HYDRATION_START, HYDRATION_START_ELSE } from '../../../constants.js';\nimport { hydrating } from '../dom/hydration.js';\n\n/**\n * @param {any} fn\n * @param {string} filename\n * @param {SourceLocation[]} locations\n * @returns {any}\n */\nexport function add_locations(fn, filename, locations) {\n\treturn (/** @type {any[]} */ ...args) => {\n\t\tconst dom = fn(...args);\n\n\t\tvar node = hydrating ? dom : dom.nodeType === 11 ? dom.firstChild : dom;\n\t\tassign_locations(node, filename, locations);\n\n\t\treturn dom;\n\t};\n}\n\n/**\n * @param {Element} element\n * @param {string} filename\n * @param {SourceLocation} location\n */\nfunction assign_location(element, filename, location) {\n\t// @ts-expect-error\n\telement.__svelte_meta = {\n\t\tloc: { file: filename, line: location[0], column: location[1] }\n\t};\n\n\tif (location[2]) {\n\t\tassign_locations(element.firstChild, filename, location[2]);\n\t}\n}\n\n/**\n * @param {Node | null} node\n * @param {string} filename\n * @param {SourceLocation[]} locations\n */\nfunction assign_locations(node, filename, locations) {\n\tvar i = 0;\n\tvar depth = 0;\n\n\twhile (node && i < locations.length) {\n\t\tif (hydrating && node.nodeType === 8) {\n\t\t\tvar comment = /** @type {Comment} */ (node);\n\t\t\tif (comment.data === HYDRATION_START || comment.data === HYDRATION_START_ELSE) depth += 1;\n\t\t\telse if (comment.data[0] === HYDRATION_END) depth -= 1;\n\t\t}\n\n\t\tif (depth === 0 && node.nodeType === 1) {\n\t\t\tassign_location(/** @type {Element} */ (node), filename, locations[i++]);\n\t\t}\n\n\t\tnode = node.nextSibling;\n\t}\n}\n",
+      "start": 1754579493689,
+      "end": 1754579493884,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493884,
+      "end": 1754579493884,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/internal/date-time/placeholders.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "// prettier-ignore\nconst supportedLocales = [\n    'ach', 'af', 'am', 'an', 'ar', 'ast', 'az', 'be', 'bg', 'bn', 'br', 'bs',\n    'ca', 'cak', 'ckb', 'cs', 'cy', 'da', 'de', 'dsb', 'el', 'en', 'eo', 'es',\n    'et', 'eu', 'fa', 'ff', 'fi', 'fr', 'fy', 'ga', 'gd', 'gl', 'he', 'hr',\n    'hsb', 'hu', 'ia', 'id', 'it', 'ja', 'ka', 'kk', 'kn', 'ko', 'lb', 'lo',\n    'lt', 'lv', 'meh', 'ml', 'ms', 'nl', 'nn', 'no', 'oc', 'pl', 'pt', 'rm',\n    'ro', 'ru', 'sc', 'scn', 'sk', 'sl', 'sr', 'sv', 'szl', 'tg', 'th', 'tr',\n    'uk', 'zh-CN', 'zh-TW',\n];\nconst placeholderFields = [\"year\", \"month\", \"day\"];\nconst placeholders = {\n    ach: { year: \"mwaka\", month: \"dwe\", day: \"nino\" },\n    af: { year: \"jjjj\", month: \"mm\", day: \"dd\" },\n    am: { year: \"ዓዓዓዓ\", month: \"ሚሜ\", day: \"ቀቀ\" },\n    an: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    ar: { year: \"سنة\", month: \"شهر\", day: \"يوم\" },\n    ast: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    az: { year: \"iiii\", month: \"aa\", day: \"gg\" },\n    be: { year: \"гггг\", month: \"мм\", day: \"дд\" },\n    bg: { year: \"гггг\", month: \"мм\", day: \"дд\" },\n    bn: { year: \"yyyy\", month: \"মিমি\", day: \"dd\" },\n    br: { year: \"bbbb\", month: \"mm\", day: \"dd\" },\n    bs: { year: \"gggg\", month: \"mm\", day: \"dd\" },\n    ca: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    cak: { year: \"jjjj\", month: \"ii\", day: \"q'q'\" },\n    ckb: { year: \"ساڵ\", month: \"مانگ\", day: \"ڕۆژ\" },\n    cs: { year: \"rrrr\", month: \"mm\", day: \"dd\" },\n    cy: { year: \"bbbb\", month: \"mm\", day: \"dd\" },\n    da: { year: \"åååå\", month: \"mm\", day: \"dd\" },\n    de: { year: \"jjjj\", month: \"mm\", day: \"tt\" },\n    dsb: { year: \"llll\", month: \"mm\", day: \"źź\" },\n    el: { year: \"εεεε\", month: \"μμ\", day: \"ηη\" },\n    en: { year: \"yyyy\", month: \"mm\", day: \"dd\" },\n    eo: { year: \"jjjj\", month: \"mm\", day: \"tt\" },\n    es: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    et: { year: \"aaaa\", month: \"kk\", day: \"pp\" },\n    eu: { year: \"uuuu\", month: \"hh\", day: \"ee\" },\n    fa: { year: \"سال\", month: \"ماه\", day: \"روز\" },\n    ff: { year: \"hhhh\", month: \"ll\", day: \"ññ\" },\n    fi: { year: \"vvvv\", month: \"kk\", day: \"pp\" },\n    fr: { year: \"aaaa\", month: \"mm\", day: \"jj\" },\n    fy: { year: \"jjjj\", month: \"mm\", day: \"dd\" },\n    ga: { year: \"bbbb\", month: \"mm\", day: \"ll\" },\n    gd: { year: \"bbbb\", month: \"mm\", day: \"ll\" },\n    gl: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    he: { year: \"שנה\", month: \"חודש\", day: \"יום\" },\n    hr: { year: \"gggg\", month: \"mm\", day: \"dd\" },\n    hsb: { year: \"llll\", month: \"mm\", day: \"dd\" },\n    hu: { year: \"éééé\", month: \"hh\", day: \"nn\" },\n    ia: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    id: { year: \"tttt\", month: \"bb\", day: \"hh\" },\n    it: { year: \"aaaa\", month: \"mm\", day: \"gg\" },\n    ja: { year: \" 年 \", month: \"月\", day: \"日\" },\n    ka: { year: \"წწწწ\", month: \"თთ\", day: \"რრ\" },\n    kk: { year: \"жжжж\", month: \"аа\", day: \"кк\" },\n    kn: { year: \"ವವವವ\", month: \"ಮಿಮೀ\", day: \"ದಿದಿ\" },\n    ko: { year: \"연도\", month: \"월\", day: \"일\" },\n    lb: { year: \"jjjj\", month: \"mm\", day: \"dd\" },\n    lo: { year: \"ປປປປ\", month: \"ດດ\", day: \"ວວ\" },\n    lt: { year: \"mmmm\", month: \"mm\", day: \"dd\" },\n    lv: { year: \"gggg\", month: \"mm\", day: \"dd\" },\n    meh: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    ml: { year: \"വർഷം\", month: \"മാസം\", day: \"തീയതി\" },\n    ms: { year: \"tttt\", month: \"mm\", day: \"hh\" },\n    nl: { year: \"jjjj\", month: \"mm\", day: \"dd\" },\n    nn: { year: \"åååå\", month: \"mm\", day: \"dd\" },\n    no: { year: \"åååå\", month: \"mm\", day: \"dd\" },\n    oc: { year: \"aaaa\", month: \"mm\", day: \"jj\" },\n    pl: { year: \"rrrr\", month: \"mm\", day: \"dd\" },\n    pt: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    rm: { year: \"oooo\", month: \"mm\", day: \"dd\" },\n    ro: { year: \"aaaa\", month: \"ll\", day: \"zz\" },\n    ru: { year: \"гггг\", month: \"мм\", day: \"дд\" },\n    sc: { year: \"aaaa\", month: \"mm\", day: \"dd\" },\n    scn: { year: \"aaaa\", month: \"mm\", day: \"jj\" },\n    sk: { year: \"rrrr\", month: \"mm\", day: \"dd\" },\n    sl: { year: \"llll\", month: \"mm\", day: \"dd\" },\n    sr: { year: \"гггг\", month: \"мм\", day: \"дд\" },\n    sv: { year: \"åååå\", month: \"mm\", day: \"dd\" },\n    szl: { year: \"rrrr\", month: \"mm\", day: \"dd\" },\n    tg: { year: \"сссс\", month: \"мм\", day: \"рр\" },\n    th: { year: \"ปปปป\", month: \"ดด\", day: \"วว\" },\n    tr: { year: \"yyyy\", month: \"aa\", day: \"gg\" },\n    uk: { year: \"рррр\", month: \"мм\", day: \"дд\" },\n    \"zh-CN\": { year: \"年\", month: \"月\", day: \"日\" },\n    \"zh-TW\": { year: \"年\", month: \"月\", day: \"日\" },\n};\nfunction getPlaceholderObj(locale) {\n    if (!isSupportedLocale(locale)) {\n        const localeLanguage = getLocaleLanguage(locale);\n        if (!isSupportedLocale(localeLanguage)) {\n            return placeholders.en;\n        }\n        else {\n            return placeholders[localeLanguage];\n        }\n    }\n    else {\n        return placeholders[locale];\n    }\n}\nexport function getPlaceholder(field, value, locale) {\n    if (isPlaceholderField(field))\n        return getPlaceholderObj(locale)[field];\n    if (isDefaultField(field))\n        return value;\n    if (isTimeField(field))\n        return \"––\";\n    return \"\";\n}\nfunction isSupportedLocale(locale) {\n    return supportedLocales.includes(locale);\n}\nfunction isPlaceholderField(field) {\n    return placeholderFields.includes(field);\n}\nfunction isTimeField(field) {\n    return field === \"hour\" || field === \"minute\" || field === \"second\";\n}\nfunction isDefaultField(field) {\n    return field === \"era\" || field === \"dayPeriod\";\n}\nfunction getLocaleLanguage(locale) {\n    if (Intl.Locale) {\n        return new Intl.Locale(locale).language;\n    }\n    return locale.split(\"-\")[0];\n}\n",
+      "start": 1754579497937,
+      "end": 1754579498010,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579498010,
+      "end": 1754579498011,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/tooltip/components/tooltip-provider.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { TooltipProviderProps } from \"../types.js\";\n\timport { useTooltipProvider } from \"../tooltip.svelte.js\";\n\n\tlet {\n\t\tchildren,\n\t\tdelayDuration = 700,\n\t\tdisableCloseOnTriggerClick = false,\n\t\tdisableHoverableContent = false,\n\t\tdisabled = false,\n\t\tignoreNonKeyboardFocus = false,\n\t\tskipDelayDuration = 300,\n\t}: TooltipProviderProps = $props();\n\n\tuseTooltipProvider({\n\t\tdelayDuration: box.with(() => delayDuration),\n\t\tdisableCloseOnTriggerClick: box.with(() => disableCloseOnTriggerClick),\n\t\tdisableHoverableContent: box.with(() => disableHoverableContent),\n\t\tdisabled: box.with(() => disabled),\n\t\tignoreNonKeyboardFocus: box.with(() => ignoreNonKeyboardFocus),\n\t\tskipDelayDuration: box.with(() => skipDelayDuration),\n\t});\n</script>\n\n{@render children?.()}\n",
+      "start": 1754579496964,
+      "end": 1754579497038,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497038,
+      "end": 1754579497038,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497038,
+      "end": 1754579497038,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useTooltipProvider } from \"../tooltip.svelte.js\";\n\nexport default function Tooltip_provider($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet delayDuration = $.prop($$props, 'delayDuration', 3, 700),\n\t\tdisableCloseOnTriggerClick = $.prop($$props, 'disableCloseOnTriggerClick', 3, false),\n\t\tdisableHoverableContent = $.prop($$props, 'disableHoverableContent', 3, false),\n\t\tdisabled = $.prop($$props, 'disabled', 3, false),\n\t\tignoreNonKeyboardFocus = $.prop($$props, 'ignoreNonKeyboardFocus', 3, false),\n\t\tskipDelayDuration = $.prop($$props, 'skipDelayDuration', 3, 300);\n\n\tuseTooltipProvider({\n\t\tdelayDuration: box.with(() => delayDuration()),\n\t\tdisableCloseOnTriggerClick: box.with(() => disableCloseOnTriggerClick()),\n\t\tdisableHoverableContent: box.with(() => disableHoverableContent()),\n\t\tdisabled: box.with(() => disabled()),\n\t\tignoreNonKeyboardFocus: box.with(() => ignoreNonKeyboardFocus()),\n\t\tskipDelayDuration: box.with(() => skipDelayDuration())\n\t});\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children ?? $.noop);\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497038,
+      "end": 1754579497039,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,kBAAkB,QAAQ,sBAAsB;;;;;KAIxD,aAAa,uCAAG,GAAG;EACnB,0BAA0B,oDAAG,KAAK;EAClC,uBAAuB,iDAAG,KAAK;EAC/B,QAAQ,kCAAG,KAAK;EAChB,sBAAsB,gDAAG,KAAK;EAC9B,iBAAiB,2CAAG,GAAG;;CAGxB,kBAAkB;EACjB,aAAa,EAAE,GAAG,CAAC,IAAI,OAAO,aAAa;EAC3C,0BAA0B,EAAE,GAAG,CAAC,IAAI,OAAO,0BAA0B;EACrE,uBAAuB,EAAE,GAAG,CAAC,IAAI,OAAO,uBAAuB;EAC/D,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,sBAAsB,EAAE,GAAG,CAAC,IAAI,OAAO,sBAAsB;EAC7D,iBAAiB,EAAE,GAAG,CAAC,IAAI,OAAO,iBAAiB",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "tooltip-provider.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497039,
+      "end": 1754579497039,
+      "order": "normal"
+    }
+  ]
+}

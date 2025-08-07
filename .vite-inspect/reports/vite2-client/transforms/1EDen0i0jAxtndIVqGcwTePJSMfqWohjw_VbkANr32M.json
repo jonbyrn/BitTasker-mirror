@@ -1,0 +1,110 @@
+{
+  "resolvedId": "~icons/mdi/facebook.svelte",
+  "transforms": [
+    {
+      "name": "unplugin-icons",
+      "result": "<script>const{...p}=$props()</script><svg style=\"width: 1.5em; height: 1.5em;\" viewBox=\"0 0 24 24\" width=\"1.5em\" height=\"1.5em\"  {...p}><path fill=\"currentColor\" d=\"M12 2.04c-5.5 0-10 4.49-10 10.02c0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89c1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02\"/></svg>",
+      "start": 1754579491885,
+      "end": 1754579491885,
+      "sourcemaps": {
+        "version": 3,
+        "mappings": "",
+        "sources": []
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579491885,
+      "end": 1754579491886,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579491886,
+      "end": 1754579491886,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\n\nvar root = $.ns_template(`<svg><path fill=\"currentColor\" d=\"M12 2.04c-5.5 0-10 4.49-10 10.02c0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89c1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02\"></path></svg>`);\n\nexport default function Facebook($$anchor, $$props) {\n\tconst p = $.rest_props($$props, ['$$slots', '$$events', '$$legacy']);\n\tvar svg = root();\n\tlet attributes;\n\n\t$.template_effect(() => attributes = $.set_attributes(svg, attributes, {\n\t\tstyle: 'width: 1.5em; height: 1.5em;',\n\t\tviewBox: '0 0 24 24',\n\t\twidth: '1.5em',\n\t\theight: '1.5em',\n\t\t...p\n\t}));\n\n\t$.append($$anchor, svg);\n}",
+      "start": 1754579491886,
+      "end": 1754579491887,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;;;;;OAAiB,CAAC;;;;;;;;;KAAmH,CAAC",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "facebook.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579491887,
+      "end": 1754579491887,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579491887,
+      "end": 1754579491887,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579491887,
+      "end": 1754579491887,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579491888,
+      "end": 1754579491888,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579491888,
+      "end": 1754579491888,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579491888,
+      "end": 1754579491888,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579491888,
+      "end": 1754579491888,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579491888,
+      "end": 1754579491888,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579491888,
+      "end": 1754579491888,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579491889,
+      "end": 1754579491889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579491889,
+      "end": 1754579491889,
+      "order": "normal"
+    }
+  ]
+}

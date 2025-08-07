@@ -1,0 +1,108 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/pin-input/usePasswordManager.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "const PWM_BADGE_MARGIN_RIGHT = 18;\nconst PWM_BADGE_SPACE_WIDTH_PX = 40;\nconst PWM_BADGE_SPACE_WIDTH = `${PWM_BADGE_SPACE_WIDTH_PX}px`;\nconst PASSWORD_MANAGER_SELECTORS = [\n    \"[data-lastpass-icon-root]\", // LastPass,\n    \"com-1password-button\", // 1Password,\n    \"[data-dashlanecreated]\", // Dashlane,\n    '[style$=\"2147483647 !important;\"]', // Bitwarden\n].join(\",\");\nexport function usePasswordManagerBadge({ containerRef, inputRef, pushPasswordManagerStrategy, isFocused, }) {\n    let hasPwmBadge = $state(false);\n    let hasPwmBadgeSpace = $state(false);\n    let done = $state(false);\n    function willPushPwmBadge() {\n        const strategy = pushPasswordManagerStrategy.current;\n        if (strategy === \"none\")\n            return false;\n        const increaseWidthCase = strategy === \"increase-width\" && hasPwmBadge && hasPwmBadgeSpace;\n        return increaseWidthCase;\n    }\n    function trackPwmBadge() {\n        const container = containerRef.current;\n        const input = inputRef.current;\n        if (!container || !input || done || pushPasswordManagerStrategy.current === \"none\")\n            return;\n        const elementToCompare = container;\n        // get the top right-center point of the container\n        // that is usually where most password managers place their badge\n        const rightCornerX = elementToCompare.getBoundingClientRect().left + elementToCompare.offsetWidth;\n        const centeredY = elementToCompare.getBoundingClientRect().top + elementToCompare.offsetHeight / 2;\n        const x = rightCornerX - PWM_BADGE_MARGIN_RIGHT;\n        const y = centeredY;\n        // do an extra search to check for all the password manager badges\n        const passwordManagerStrategy = document.querySelectorAll(PASSWORD_MANAGER_SELECTORS);\n        // if no password manager is detected, dispatch document.elementFromPoint to\n        // identify the badges\n        if (passwordManagerStrategy.length === 0) {\n            const maybeBadgeEl = document.elementFromPoint(x, y);\n            // if the found element is the container,\n            // then it is not a badge, most times there is no badge in this case\n            if (maybeBadgeEl === container)\n                return;\n        }\n        hasPwmBadge = true;\n        done = true;\n    }\n    $effect(() => {\n        const container = containerRef.current;\n        if (!container || pushPasswordManagerStrategy.current === \"none\")\n            return;\n        // check if the pwm area is fully visible\n        function checkHasSpace() {\n            const viewportWidth = window.innerWidth;\n            const distanceToRightEdge = viewportWidth - container.getBoundingClientRect().right;\n            hasPwmBadgeSpace = distanceToRightEdge >= PWM_BADGE_SPACE_WIDTH_PX;\n        }\n        checkHasSpace();\n        const interval = setInterval(checkHasSpace, 1000);\n        return () => {\n            clearInterval(interval);\n        };\n    });\n    $effect(() => {\n        const focused = isFocused.current || document.activeElement === inputRef.current;\n        if (pushPasswordManagerStrategy.current === \"none\" || !focused)\n            return;\n        const t1 = setTimeout(trackPwmBadge, 0);\n        const t2 = setTimeout(trackPwmBadge, 2000);\n        const t3 = setTimeout(trackPwmBadge, 5000);\n        const t4 = setTimeout(() => {\n            done = true;\n        }, 6000);\n        return () => {\n            clearTimeout(t1);\n            clearTimeout(t2);\n            clearTimeout(t3);\n            clearTimeout(t4);\n        };\n    });\n    return {\n        get hasPwmBadge() {\n            return hasPwmBadge;\n        },\n        get willPushPwmBadge() {\n            return willPushPwmBadge();\n        },\n        PWM_BADGE_SPACE_WIDTH,\n    };\n}\n",
+      "start": 1754579496204,
+      "end": 1754579496234,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* usePasswordManager.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\n\nconst PWM_BADGE_MARGIN_RIGHT = 18;\nconst PWM_BADGE_SPACE_WIDTH_PX = 40;\nconst PWM_BADGE_SPACE_WIDTH = `${PWM_BADGE_SPACE_WIDTH_PX}px`;\n\nconst PASSWORD_MANAGER_SELECTORS = [\n\t\"[data-lastpass-icon-root]\", // LastPass,\n\t\"com-1password-button\", // 1Password,\n\t\"[data-dashlanecreated]\", // Dashlane,\n\t'[style$=\"2147483647 !important;\"]' // Bitwarden\n].join(\",\");\n\nexport function usePasswordManagerBadge(\n\t{\n\t\tcontainerRef,\n\t\tinputRef,\n\t\tpushPasswordManagerStrategy,\n\t\tisFocused\n\t}\n) {\n\tlet hasPwmBadge = $.state(false);\n\tlet hasPwmBadgeSpace = $.state(false);\n\tlet done = $.state(false);\n\n\tfunction willPushPwmBadge() {\n\t\tconst strategy = pushPasswordManagerStrategy.current;\n\n\t\tif (strategy === \"none\") return false;\n\n\t\tconst increaseWidthCase = strategy === \"increase-width\" && $.get(hasPwmBadge) && $.get(hasPwmBadgeSpace);\n\n\t\treturn increaseWidthCase;\n\t}\n\n\tfunction trackPwmBadge() {\n\t\tconst container = containerRef.current;\n\t\tconst input = inputRef.current;\n\n\t\tif (!container || !input || $.get(done) || pushPasswordManagerStrategy.current === \"none\") return;\n\n\t\tconst elementToCompare = container;\n\t\t// get the top right-center point of the container\n\t\t// that is usually where most password managers place their badge\n\t\tconst rightCornerX = elementToCompare.getBoundingClientRect().left + elementToCompare.offsetWidth;\n\t\tconst centeredY = elementToCompare.getBoundingClientRect().top + elementToCompare.offsetHeight / 2;\n\t\tconst x = rightCornerX - PWM_BADGE_MARGIN_RIGHT;\n\t\tconst y = centeredY;\n\t\t// do an extra search to check for all the password manager badges\n\t\tconst passwordManagerStrategy = document.querySelectorAll(PASSWORD_MANAGER_SELECTORS);\n\n\t\t// if no password manager is detected, dispatch document.elementFromPoint to\n\t\t// identify the badges\n\t\tif (passwordManagerStrategy.length === 0) {\n\t\t\tconst maybeBadgeEl = document.elementFromPoint(x, y);\n\n\t\t\t// if the found element is the container,\n\t\t\t// then it is not a badge, most times there is no badge in this case\n\t\t\tif (maybeBadgeEl === container) return;\n\t\t}\n\n\t\t$.set(hasPwmBadge, true);\n\t\t$.set(done, true);\n\t}\n\n\t$.user_effect(() => {\n\t\tconst container = containerRef.current;\n\n\t\tif (!container || pushPasswordManagerStrategy.current === \"none\") return;\n\n\t\t// check if the pwm area is fully visible\n\t\tfunction checkHasSpace() {\n\t\t\tconst viewportWidth = window.innerWidth;\n\t\t\tconst distanceToRightEdge = viewportWidth - container.getBoundingClientRect().right;\n\n\t\t\t$.set(hasPwmBadgeSpace, distanceToRightEdge >= PWM_BADGE_SPACE_WIDTH_PX);\n\t\t}\n\n\t\tcheckHasSpace();\n\n\t\tconst interval = setInterval(checkHasSpace, 1000);\n\n\t\treturn () => {\n\t\t\tclearInterval(interval);\n\t\t};\n\t});\n\n\t$.user_effect(() => {\n\t\tconst focused = isFocused.current || document.activeElement === inputRef.current;\n\n\t\tif (pushPasswordManagerStrategy.current === \"none\" || !focused) return;\n\n\t\tconst t1 = setTimeout(trackPwmBadge, 0);\n\t\tconst t2 = setTimeout(trackPwmBadge, 2000);\n\t\tconst t3 = setTimeout(trackPwmBadge, 5000);\n\n\t\tconst t4 = setTimeout(\n\t\t\t() => {\n\t\t\t\t$.set(done, true);\n\t\t\t},\n\t\t\t6000\n\t\t);\n\n\t\treturn () => {\n\t\t\tclearTimeout(t1);\n\t\t\tclearTimeout(t2);\n\t\t\tclearTimeout(t3);\n\t\t\tclearTimeout(t4);\n\t\t};\n\t});\n\n\treturn {\n\t\tget hasPwmBadge() {\n\t\t\treturn $.get(hasPwmBadge);\n\t\t},\n\t\tget willPushPwmBadge() {\n\t\t\treturn willPushPwmBadge();\n\t\t},\n\t\tPWM_BADGE_SPACE_WIDTH\n\t};\n}",
+      "start": 1754579496234,
+      "end": 1754579496237,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "usePasswordManager.svelte.js"
+        ],
+        "sourcesContent": [
+          "const PWM_BADGE_MARGIN_RIGHT = 18;\nconst PWM_BADGE_SPACE_WIDTH_PX = 40;\nconst PWM_BADGE_SPACE_WIDTH = `${PWM_BADGE_SPACE_WIDTH_PX}px`;\nconst PASSWORD_MANAGER_SELECTORS = [\n    \"[data-lastpass-icon-root]\", // LastPass,\n    \"com-1password-button\", // 1Password,\n    \"[data-dashlanecreated]\", // Dashlane,\n    '[style$=\"2147483647 !important;\"]', // Bitwarden\n].join(\",\");\nexport function usePasswordManagerBadge({ containerRef, inputRef, pushPasswordManagerStrategy, isFocused, }) {\n    let hasPwmBadge = $state(false);\n    let hasPwmBadgeSpace = $state(false);\n    let done = $state(false);\n    function willPushPwmBadge() {\n        const strategy = pushPasswordManagerStrategy.current;\n        if (strategy === \"none\")\n            return false;\n        const increaseWidthCase = strategy === \"increase-width\" && hasPwmBadge && hasPwmBadgeSpace;\n        return increaseWidthCase;\n    }\n    function trackPwmBadge() {\n        const container = containerRef.current;\n        const input = inputRef.current;\n        if (!container || !input || done || pushPasswordManagerStrategy.current === \"none\")\n            return;\n        const elementToCompare = container;\n        // get the top right-center point of the container\n        // that is usually where most password managers place their badge\n        const rightCornerX = elementToCompare.getBoundingClientRect().left + elementToCompare.offsetWidth;\n        const centeredY = elementToCompare.getBoundingClientRect().top + elementToCompare.offsetHeight / 2;\n        const x = rightCornerX - PWM_BADGE_MARGIN_RIGHT;\n        const y = centeredY;\n        // do an extra search to check for all the password manager badges\n        const passwordManagerStrategy = document.querySelectorAll(PASSWORD_MANAGER_SELECTORS);\n        // if no password manager is detected, dispatch document.elementFromPoint to\n        // identify the badges\n        if (passwordManagerStrategy.length === 0) {\n            const maybeBadgeEl = document.elementFromPoint(x, y);\n            // if the found element is the container,\n            // then it is not a badge, most times there is no badge in this case\n            if (maybeBadgeEl === container)\n                return;\n        }\n        hasPwmBadge = true;\n        done = true;\n    }\n    $effect(() => {\n        const container = containerRef.current;\n        if (!container || pushPasswordManagerStrategy.current === \"none\")\n            return;\n        // check if the pwm area is fully visible\n        function checkHasSpace() {\n            const viewportWidth = window.innerWidth;\n            const distanceToRightEdge = viewportWidth - container.getBoundingClientRect().right;\n            hasPwmBadgeSpace = distanceToRightEdge >= PWM_BADGE_SPACE_WIDTH_PX;\n        }\n        checkHasSpace();\n        const interval = setInterval(checkHasSpace, 1000);\n        return () => {\n            clearInterval(interval);\n        };\n    });\n    $effect(() => {\n        const focused = isFocused.current || document.activeElement === inputRef.current;\n        if (pushPasswordManagerStrategy.current === \"none\" || !focused)\n            return;\n        const t1 = setTimeout(trackPwmBadge, 0);\n        const t2 = setTimeout(trackPwmBadge, 2000);\n        const t3 = setTimeout(trackPwmBadge, 5000);\n        const t4 = setTimeout(() => {\n            done = true;\n        }, 6000);\n        return () => {\n            clearTimeout(t1);\n            clearTimeout(t2);\n            clearTimeout(t3);\n            clearTimeout(t4);\n        };\n    });\n    return {\n        get hasPwmBadge() {\n            return hasPwmBadge;\n        },\n        get willPushPwmBadge() {\n            return willPushPwmBadge();\n        },\n        PWM_BADGE_SPACE_WIDTH,\n    };\n}\n"
+        ],
+        "mappings": ";;;MAAM,sBAAsB,GAAG,EAAE;MAC3B,wBAAwB,GAAG,EAAE;MAC7B,qBAAqB,MAAM,wBAAwB;;MACnD,0BAA0B;CAC5B,2BAA2B;CAC3B,sBAAsB;CACtB,wBAAwB;CACxB,mCAAmC;EACrC,IAAI,CAAC,GAAG;;gBACM,uBAAuB;;EAAG,YAAY;EAAE,QAAQ;EAAE,2BAA2B;EAAE,SAAS;;EAAK,CAAC;KACtG,WAAW,WAAU,KAAK;KAC1B,gBAAgB,WAAU,KAAK;KAC/B,IAAI,WAAU,KAAK;;UACd,gBAAgB,GAAG,CAAC;QACnB,QAAQ,GAAG,2BAA2B,CAAC,OAAO;;MAChD,QAAQ,KAAK,MAAM,SACZ,KAAK;;QACV,iBAAiB,GAAG,QAAQ,KAAK,gBAAgB,UAAI,WAAW,WAAI,gBAAgB;;SACnF,iBAAiB;CAC5B,CAAC;;UACQ,aAAa,GAAG,CAAC;QAChB,SAAS,GAAG,YAAY,CAAC,OAAO;QAChC,KAAK,GAAG,QAAQ,CAAC,OAAO;;OACzB,SAAS,KAAK,KAAK,UAAI,IAAI,KAAI,2BAA2B,CAAC,OAAO,KAAK,MAAM;;QAE5E,gBAAgB,GAAG,SAAS;;;QAG5B,YAAY,GAAG,gBAAgB,CAAC,qBAAqB,GAAG,IAAI,GAAG,gBAAgB,CAAC,WAAW;QAC3F,SAAS,GAAG,gBAAgB,CAAC,qBAAqB,GAAG,GAAG,GAAG,gBAAgB,CAAC,YAAY,GAAG,CAAC;QAC5F,CAAC,GAAG,YAAY,GAAG,sBAAsB;QACzC,CAAC,GAAG,SAAS;;QAEb,uBAAuB,GAAG,QAAQ,CAAC,gBAAgB,CAAC,0BAA0B;;;;MAGhF,uBAAuB,CAAC,MAAM,KAAK,CAAC,EAAE,CAAC;SACjC,YAAY,GAAG,QAAQ,CAAC,gBAAgB,CAAC,CAAC,EAAE,CAAC;;;;OAG/C,YAAY,KAAK,SAAS;EAElC,CAAC;;QACD,WAAW,EAAG,IAAI;QAClB,IAAI,EAAG,IAAI;CACf,CAAC;;CACD,aAAO,OAAO,CAAC;QACL,SAAS,GAAG,YAAY,CAAC,OAAO;;OACjC,SAAS,IAAI,2BAA2B,CAAC,OAAO,KAAK,MAAM;;;WAGvD,aAAa,GAAG,CAAC;SAChB,aAAa,GAAG,MAAM,CAAC,UAAU;SACjC,mBAAmB,GAAG,aAAa,GAAG,SAAS,CAAC,qBAAqB,GAAG,KAAK;;SACnF,gBAAgB,EAAG,mBAAmB,IAAI,wBAAwB;EACtE,CAAC;;EACD,aAAa;;QACP,QAAQ,GAAG,WAAW,CAAC,aAAa,EAAE,IAAI;;eACnC,CAAC;GACV,aAAa,CAAC,QAAQ;EAC1B,CAAC;CACL,CAAC;;CACD,aAAO,OAAO,CAAC;QACL,OAAO,GAAG,SAAS,CAAC,OAAO,IAAI,QAAQ,CAAC,aAAa,KAAK,QAAQ,CAAC,OAAO;;MAC5E,2BAA2B,CAAC,OAAO,KAAK,MAAM,KAAK,OAAO;;QAExD,EAAE,GAAG,UAAU,CAAC,aAAa,EAAE,CAAC;QAChC,EAAE,GAAG,UAAU,CAAC,aAAa,EAAE,IAAI;QACnC,EAAE,GAAG,UAAU,CAAC,aAAa,EAAE,IAAI;;QACnC,EAAE,GAAG,UAAU;SAAO,CAAC;UACzB,IAAI,EAAG,IAAI;GACf,CAAC;GAAE,IAAI;;;eACM,CAAC;GACV,YAAY,CAAC,EAAE;GACf,YAAY,CAAC,EAAE;GACf,YAAY,CAAC,EAAE;GACf,YAAY,CAAC,EAAE;EACnB,CAAC;CACL,CAAC;;;MAEO,WAAW,GAAG,CAAC;gBACR,WAAW;EACtB,CAAC;MACG,gBAAgB,GAAG,CAAC;UACb,gBAAgB;EAC3B,CAAC;EACD,qBAAqB;;AAE7B,CAAC"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496237,
+      "end": 1754579496237,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496237,
+      "end": 1754579496237,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@capacitor/synapse/dist/synapse.mjs",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "function s(t) {\n  t.CapacitorUtils.Synapse = new Proxy(\n    {},\n    {\n      get(e, o) {\n        return new Proxy({}, {\n          get(w, r) {\n            return (c, p, n) => {\n              const i = t.Capacitor.Plugins[o];\n              if (i === void 0) {\n                n(new Error(`Capacitor plugin ${o} not found`));\n                return;\n              }\n              if (typeof i[r] != \"function\") {\n                n(new Error(`Method ${r} not found in Capacitor plugin ${o}`));\n                return;\n              }\n              (async () => {\n                try {\n                  const a = await i[r](c);\n                  p(a);\n                } catch (a) {\n                  n(a);\n                }\n              })();\n            };\n          }\n        });\n      }\n    }\n  );\n}\nfunction u(t) {\n  t.CapacitorUtils.Synapse = new Proxy(\n    {},\n    {\n      get(e, o) {\n        return t.cordova.plugins[o];\n      }\n    }\n  );\n}\nfunction y(t = !1) {\n  window.CapacitorUtils = window.CapacitorUtils || {}, window.Capacitor !== void 0 && !t ? s(window) : window.cordova !== void 0 && u(window);\n}\nexport {\n  y as exposeSynapse\n};\n",
+      "start": 1754579495816,
+      "end": 1754579495853,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495853,
+      "end": 1754579495853,
+      "order": "normal"
+    }
+  ]
+}

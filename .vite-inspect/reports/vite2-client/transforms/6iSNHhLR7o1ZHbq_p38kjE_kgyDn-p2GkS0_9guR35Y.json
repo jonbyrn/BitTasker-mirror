@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/stores/ChangePassword.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import artifact from '$houdini/artifacts/ChangePassword'\nimport { MutationStore } from '../runtime/stores/mutation'\n\nexport class ChangePasswordStore extends MutationStore {\n\tconstructor() {\n\t\tsuper({\n\t\t\tartifact,\n\t\t})\n\t}\n}\n",
+      "start": 1754579495501,
+      "end": 1754579495511,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495511,
+      "end": 1754579495511,
+      "order": "normal"
+    }
+  ]
+}

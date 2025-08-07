@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@noble/ciphers/esm/utils.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Utilities for hex, bytes, CSPRNG.\n * @module\n */\n/*! noble-ciphers - MIT License (c) 2023 Paul Miller (paulmillr.com) */\n/** Checks if something is Uint8Array. Be careful: nodejs Buffer will return true. */\nexport function isBytes(a) {\n    return a instanceof Uint8Array || (ArrayBuffer.isView(a) && a.constructor.name === 'Uint8Array');\n}\n/** Asserts something is boolean. */\nexport function abool(b) {\n    if (typeof b !== 'boolean')\n        throw new Error(`boolean expected, not ${b}`);\n}\n/** Asserts something is positive integer. */\nexport function anumber(n) {\n    if (!Number.isSafeInteger(n) || n < 0)\n        throw new Error('positive integer expected, got ' + n);\n}\n/** Asserts something is Uint8Array. */\nexport function abytes(b, ...lengths) {\n    if (!isBytes(b))\n        throw new Error('Uint8Array expected');\n    if (lengths.length > 0 && !lengths.includes(b.length))\n        throw new Error('Uint8Array expected of length ' + lengths + ', got length=' + b.length);\n}\n/**\n * Asserts something is hash\n * TODO: remove\n * @deprecated\n */\nexport function ahash(h) {\n    if (typeof h !== 'function' || typeof h.create !== 'function')\n        throw new Error('Hash should be wrapped by utils.createHasher');\n    anumber(h.outputLen);\n    anumber(h.blockLen);\n}\n/** Asserts a hash instance has not been destroyed / finished */\nexport function aexists(instance, checkFinished = true) {\n    if (instance.destroyed)\n        throw new Error('Hash instance has been destroyed');\n    if (checkFinished && instance.finished)\n        throw new Error('Hash#digest() has already been called');\n}\n/** Asserts output is properly-sized byte array */\nexport function aoutput(out, instance) {\n    abytes(out);\n    const min = instance.outputLen;\n    if (out.length < min) {\n        throw new Error('digestInto() expects output buffer of length at least ' + min);\n    }\n}\n/** Cast u8 / u16 / u32 to u8. */\nexport function u8(arr) {\n    return new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);\n}\n/** Cast u8 / u16 / u32 to u32. */\nexport function u32(arr) {\n    return new Uint32Array(arr.buffer, arr.byteOffset, Math.floor(arr.byteLength / 4));\n}\n/** Zeroize a byte array. Warning: JS provides no guarantees. */\nexport function clean(...arrays) {\n    for (let i = 0; i < arrays.length; i++) {\n        arrays[i].fill(0);\n    }\n}\n/** Create DataView of an array for easy byte-level manipulation. */\nexport function createView(arr) {\n    return new DataView(arr.buffer, arr.byteOffset, arr.byteLength);\n}\n/** Is current platform little-endian? Most are. Big-Endian platform: IBM */\nexport const isLE = /* @__PURE__ */ (() => new Uint8Array(new Uint32Array([0x11223344]).buffer)[0] === 0x44)();\n// Built-in hex conversion https://caniuse.com/mdn-javascript_builtins_uint8array_fromhex\nconst hasHexBuiltin = /* @__PURE__ */ (() => \n// @ts-ignore\ntypeof Uint8Array.from([]).toHex === 'function' && typeof Uint8Array.fromHex === 'function')();\n// Array where index 0xf0 (240) is mapped to string 'f0'\nconst hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i) => i.toString(16).padStart(2, '0'));\n/**\n * Convert byte array to hex string. Uses built-in function, when available.\n * @example bytesToHex(Uint8Array.from([0xca, 0xfe, 0x01, 0x23])) // 'cafe0123'\n */\nexport function bytesToHex(bytes) {\n    abytes(bytes);\n    // @ts-ignore\n    if (hasHexBuiltin)\n        return bytes.toHex();\n    // pre-caching improves the speed 6x\n    let hex = '';\n    for (let i = 0; i < bytes.length; i++) {\n        hex += hexes[bytes[i]];\n    }\n    return hex;\n}\n// We use optimized technique to convert hex string to byte array\nconst asciis = { _0: 48, _9: 57, A: 65, F: 70, a: 97, f: 102 };\nfunction asciiToBase16(ch) {\n    if (ch >= asciis._0 && ch <= asciis._9)\n        return ch - asciis._0; // '2' => 50-48\n    if (ch >= asciis.A && ch <= asciis.F)\n        return ch - (asciis.A - 10); // 'B' => 66-(65-10)\n    if (ch >= asciis.a && ch <= asciis.f)\n        return ch - (asciis.a - 10); // 'b' => 98-(97-10)\n    return;\n}\n/**\n * Convert hex string to byte array. Uses built-in function, when available.\n * @example hexToBytes('cafe0123') // Uint8Array.from([0xca, 0xfe, 0x01, 0x23])\n */\nexport function hexToBytes(hex) {\n    if (typeof hex !== 'string')\n        throw new Error('hex string expected, got ' + typeof hex);\n    // @ts-ignore\n    if (hasHexBuiltin)\n        return Uint8Array.fromHex(hex);\n    const hl = hex.length;\n    const al = hl / 2;\n    if (hl % 2)\n        throw new Error('hex string expected, got unpadded hex of length ' + hl);\n    const array = new Uint8Array(al);\n    for (let ai = 0, hi = 0; ai < al; ai++, hi += 2) {\n        const n1 = asciiToBase16(hex.charCodeAt(hi));\n        const n2 = asciiToBase16(hex.charCodeAt(hi + 1));\n        if (n1 === undefined || n2 === undefined) {\n            const char = hex[hi] + hex[hi + 1];\n            throw new Error('hex string expected, got non-hex character \"' + char + '\" at index ' + hi);\n        }\n        array[ai] = n1 * 16 + n2; // multiply first octet, e.g. 'a3' => 10*16+3 => 160 + 3 => 163\n    }\n    return array;\n}\n// Used in micro\nexport function hexToNumber(hex) {\n    if (typeof hex !== 'string')\n        throw new Error('hex string expected, got ' + typeof hex);\n    return BigInt(hex === '' ? '0' : '0x' + hex); // Big Endian\n}\n// Used in ff1\n// BE: Big Endian, LE: Little Endian\nexport function bytesToNumberBE(bytes) {\n    return hexToNumber(bytesToHex(bytes));\n}\n// Used in micro, ff1\nexport function numberToBytesBE(n, len) {\n    return hexToBytes(n.toString(16).padStart(len * 2, '0'));\n}\n// TODO: remove\n// There is no setImmediate in browser and setTimeout is slow.\n// call of async fn will return Promise, which will be fullfiled only on\n// next scheduler queue processing step and this is exactly what we need.\nexport const nextTick = async () => { };\n/**\n * Converts string to bytes using UTF8 encoding.\n * @example utf8ToBytes('abc') // new Uint8Array([97, 98, 99])\n */\nexport function utf8ToBytes(str) {\n    if (typeof str !== 'string')\n        throw new Error('string expected');\n    return new Uint8Array(new TextEncoder().encode(str)); // https://bugzil.la/1681809\n}\n/**\n * Converts bytes to string using UTF8 encoding.\n * @example bytesToUtf8(new Uint8Array([97, 98, 99])) // 'abc'\n */\nexport function bytesToUtf8(bytes) {\n    return new TextDecoder().decode(bytes);\n}\n/**\n * Normalizes (non-hex) string or Uint8Array to Uint8Array.\n * Warning: when Uint8Array is passed, it would NOT get copied.\n * Keep in mind for future mutable operations.\n */\nexport function toBytes(data) {\n    if (typeof data === 'string')\n        data = utf8ToBytes(data);\n    else if (isBytes(data))\n        data = copyBytes(data);\n    else\n        throw new Error('Uint8Array expected, got ' + typeof data);\n    return data;\n}\n/**\n * Checks if two U8A use same underlying buffer and overlaps.\n * This is invalid and can corrupt data.\n */\nexport function overlapBytes(a, b) {\n    return (a.buffer === b.buffer && // best we can do, may fail with an obscure Proxy\n        a.byteOffset < b.byteOffset + b.byteLength && // a starts before b end\n        b.byteOffset < a.byteOffset + a.byteLength // b starts before a end\n    );\n}\n/**\n * If input and output overlap and input starts before output, we will overwrite end of input before\n * we start processing it, so this is not supported for most ciphers (except chacha/salse, which designed with this)\n */\nexport function complexOverlapBytes(input, output) {\n    // This is very cursed. It works somehow, but I'm completely unsure,\n    // reasoning about overlapping aligned windows is very hard.\n    if (overlapBytes(input, output) && input.byteOffset < output.byteOffset)\n        throw new Error('complex overlap of input and output is not supported');\n}\n/**\n * Copies several Uint8Arrays into one.\n */\nexport function concatBytes(...arrays) {\n    let sum = 0;\n    for (let i = 0; i < arrays.length; i++) {\n        const a = arrays[i];\n        abytes(a);\n        sum += a.length;\n    }\n    const res = new Uint8Array(sum);\n    for (let i = 0, pad = 0; i < arrays.length; i++) {\n        const a = arrays[i];\n        res.set(a, pad);\n        pad += a.length;\n    }\n    return res;\n}\nexport function checkOpts(defaults, opts) {\n    if (opts == null || typeof opts !== 'object')\n        throw new Error('options must be defined');\n    const merged = Object.assign(defaults, opts);\n    return merged;\n}\n/** Compares 2 uint8array-s in kinda constant time. */\nexport function equalBytes(a, b) {\n    if (a.length !== b.length)\n        return false;\n    let diff = 0;\n    for (let i = 0; i < a.length; i++)\n        diff |= a[i] ^ b[i];\n    return diff === 0;\n}\n// TODO: remove\n/** For runtime check if class implements interface. */\nexport class Hash {\n}\n/**\n * Wraps a cipher: validates args, ensures encrypt() can only be called once.\n * @__NO_SIDE_EFFECTS__\n */\nexport const wrapCipher = (params, constructor) => {\n    function wrappedCipher(key, ...args) {\n        // Validate key\n        abytes(key);\n        // Big-Endian hardware is rare. Just in case someone still decides to run ciphers:\n        if (!isLE)\n            throw new Error('Non little-endian hardware is not yet supported');\n        // Validate nonce if nonceLength is present\n        if (params.nonceLength !== undefined) {\n            const nonce = args[0];\n            if (!nonce)\n                throw new Error('nonce / iv required');\n            if (params.varSizeNonce)\n                abytes(nonce);\n            else\n                abytes(nonce, params.nonceLength);\n        }\n        // Validate AAD if tagLength present\n        const tagl = params.tagLength;\n        if (tagl && args[1] !== undefined) {\n            abytes(args[1]);\n        }\n        const cipher = constructor(key, ...args);\n        const checkOutput = (fnLength, output) => {\n            if (output !== undefined) {\n                if (fnLength !== 2)\n                    throw new Error('cipher output not supported');\n                abytes(output);\n            }\n        };\n        // Create wrapped cipher with validation and single-use encryption\n        let called = false;\n        const wrCipher = {\n            encrypt(data, output) {\n                if (called)\n                    throw new Error('cannot encrypt() twice with same key + nonce');\n                called = true;\n                abytes(data);\n                checkOutput(cipher.encrypt.length, output);\n                return cipher.encrypt(data, output);\n            },\n            decrypt(data, output) {\n                abytes(data);\n                if (tagl && data.length < tagl)\n                    throw new Error('invalid ciphertext length: smaller than tagLength=' + tagl);\n                checkOutput(cipher.decrypt.length, output);\n                return cipher.decrypt(data, output);\n            },\n        };\n        return wrCipher;\n    }\n    Object.assign(wrappedCipher, params);\n    return wrappedCipher;\n};\n/**\n * By default, returns u8a of length.\n * When out is available, it checks it for validity and uses it.\n */\nexport function getOutput(expectedLength, out, onlyAligned = true) {\n    if (out === undefined)\n        return new Uint8Array(expectedLength);\n    if (out.length !== expectedLength)\n        throw new Error('invalid output length, expected ' + expectedLength + ', got: ' + out.length);\n    if (onlyAligned && !isAligned32(out))\n        throw new Error('invalid output, must be aligned');\n    return out;\n}\n/** Polyfill for Safari 14. */\nexport function setBigUint64(view, byteOffset, value, isLE) {\n    if (typeof view.setBigUint64 === 'function')\n        return view.setBigUint64(byteOffset, value, isLE);\n    const _32n = BigInt(32);\n    const _u32_max = BigInt(0xffffffff);\n    const wh = Number((value >> _32n) & _u32_max);\n    const wl = Number(value & _u32_max);\n    const h = isLE ? 4 : 0;\n    const l = isLE ? 0 : 4;\n    view.setUint32(byteOffset + h, wh, isLE);\n    view.setUint32(byteOffset + l, wl, isLE);\n}\nexport function u64Lengths(dataLength, aadLength, isLE) {\n    abool(isLE);\n    const num = new Uint8Array(16);\n    const view = createView(num);\n    setBigUint64(view, 0, BigInt(aadLength), isLE);\n    setBigUint64(view, 8, BigInt(dataLength), isLE);\n    return num;\n}\n// Is byte array aligned to 4 byte offset (u32)?\nexport function isAligned32(bytes) {\n    return bytes.byteOffset % 4 === 0;\n}\n// copy bytes to new u8a (aligned). Because Buffer.slice is broken.\nexport function copyBytes(bytes) {\n    return Uint8Array.from(bytes);\n}\n//# sourceMappingURL=utils.js.map",
+      "start": 1754579495993,
+      "end": 1754579496028,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496028,
+      "end": 1754579496029,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496029,
+      "end": 1754579496029,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496029,
+      "end": 1754579496030,
+      "order": "normal"
+    }
+  ]
+}

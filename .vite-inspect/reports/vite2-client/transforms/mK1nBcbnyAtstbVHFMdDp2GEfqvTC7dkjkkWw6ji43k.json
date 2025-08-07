@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/messages/to/[pubkey]/+page.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import type { PageLoad } from './$types';\r\n\r\nexport const prerender = false;\r\n\r\nexport const load = (async () => {\r\n\treturn {};\r\n}) satisfies PageLoad;\r\n",
+      "start": 1754579491436,
+      "end": 1754579491606,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import type { PageLoad } from \"./$types\";\r\nexport const prerender = false;\r\n\r\nexport const load = (async () => {\r\n    return {};\r\n}) satisfies PageLoad;",
+      "start": 1754579491606,
+      "end": 1754579492313,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/messages/to/[pubkey]/+page.ts"
+        ],
+        "sourcesContent": [
+          "import type { PageLoad } from './$types';\r\n\r\nexport const prerender = false;\r\n\r\nexport const load = (async () => {\r\n\treturn {};\r\n}) satisfies PageLoad;\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492313,
+      "end": 1754579492313,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579492313,
+      "end": 1754579492313,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export const prerender = false;\nexport const load = async () => {\n  return {};\n};\n",
+      "start": 1754579492314,
+      "end": 1754579492578,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/messages/to/[pubkey]/+page.ts"
+        ],
+        "sourcesContent": [
+          "import type { PageLoad } from \"./$types\";\r\nexport const prerender = false;\r\n\r\nexport const load = (async () => {\r\n    return {};\r\n}) satisfies PageLoad;"
+        ],
+        "mappings": "AACO,aAAM,YAAY;AAElB,aAAM,OAAQ,YAAY;AAC7B,SAAO,CAAC;AACZ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492578,
+      "end": 1754579492578,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492578,
+      "end": 1754579492578,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492578,
+      "end": 1754579492578,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492579,
+      "end": 1754579492579,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492579,
+      "end": 1754579492579,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492579,
+      "end": 1754579492579,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492579,
+      "end": 1754579492579,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492580,
+      "end": 1754579492580,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492580,
+      "end": 1754579492580,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492581,
+      "end": 1754579492581,
+      "order": "normal"
+    }
+  ]
+}

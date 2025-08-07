@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/internal/date-time/utils.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { CalendarDate, CalendarDateTime, ZonedDateTime, getDayOfWeek, getLocalTimeZone, parseDate, parseDateTime, parseZonedDateTime, toCalendar, } from \"@internationalized/date\";\nconst defaultDateDefaults = {\n    defaultValue: undefined,\n    granularity: \"day\",\n};\n/**\n * A helper function used throughout the various date builders\n * to generate a default `DateValue` using the `defaultValue`,\n * `defaultPlaceholder`, and `granularity` props.\n *\n * It's important to match the `DateValue` type being used\n * elsewhere in the builder, so they behave according to the\n * behavior the user expects based on the props they've provided.\n *\n */\nexport function getDefaultDate(opts) {\n    const withDefaults = { ...defaultDateDefaults, ...opts };\n    const { defaultValue, granularity } = withDefaults;\n    if (Array.isArray(defaultValue) && defaultValue.length) {\n        return defaultValue[defaultValue.length - 1];\n    }\n    if (defaultValue && !Array.isArray(defaultValue)) {\n        return defaultValue;\n    }\n    else {\n        const date = new Date();\n        const year = date.getFullYear();\n        const month = date.getMonth() + 1;\n        const day = date.getDate();\n        const calendarDateTimeGranularities = [\"hour\", \"minute\", \"second\"];\n        if (calendarDateTimeGranularities.includes(granularity ?? \"day\")) {\n            return new CalendarDateTime(year, month, day, 0, 0, 0);\n        }\n        return new CalendarDate(year, month, day);\n    }\n}\n/**\n * Given a date string and a reference `DateValue` object, parse the\n * string to the same type as the reference object.\n *\n * Useful for parsing strings from data attributes, which are always\n * strings, to the same type being used by the date component.\n */\nexport function parseStringToDateValue(dateStr, referenceVal) {\n    let dateValue;\n    if (referenceVal instanceof ZonedDateTime) {\n        dateValue = parseZonedDateTime(dateStr);\n    }\n    else if (referenceVal instanceof CalendarDateTime) {\n        dateValue = parseDateTime(dateStr);\n    }\n    else {\n        dateValue = parseDate(dateStr);\n    }\n    // ensure the parsed date is in the same calendar as the reference date set by the user.\n    return dateValue.calendar !== referenceVal.calendar\n        ? toCalendar(dateValue, referenceVal.calendar)\n        : dateValue;\n}\n/**\n * Given a `DateValue` object, convert it to a native `Date` object.\n * If a timezone is provided, the date will be converted to that timezone.\n * If no timezone is provided, the date will be converted to the local timezone.\n */\nexport function toDate(dateValue, tz = getLocalTimeZone()) {\n    if (dateValue instanceof ZonedDateTime) {\n        return dateValue.toDate();\n    }\n    else {\n        return dateValue.toDate(tz);\n    }\n}\nexport function getDateValueType(date) {\n    if (date instanceof CalendarDate)\n        return \"date\";\n    if (date instanceof CalendarDateTime)\n        return \"datetime\";\n    if (date instanceof ZonedDateTime)\n        return \"zoneddatetime\";\n    throw new Error(\"Unknown date type\");\n}\nexport function parseAnyDateValue(value, type) {\n    switch (type) {\n        case \"date\":\n            return parseDate(value);\n        case \"datetime\":\n            return parseDateTime(value);\n        case \"zoneddatetime\":\n            return parseZonedDateTime(value);\n        default:\n            throw new Error(`Unknown date type: ${type}`);\n    }\n}\nfunction isCalendarDateTime(dateValue) {\n    return dateValue instanceof CalendarDateTime;\n}\nexport function isZonedDateTime(dateValue) {\n    return dateValue instanceof ZonedDateTime;\n}\nexport function hasTime(dateValue) {\n    return isCalendarDateTime(dateValue) || isZonedDateTime(dateValue);\n}\n/**\n * Given a date, return the number of days in the month.\n */\nexport function getDaysInMonth(date) {\n    if (date instanceof Date) {\n        const year = date.getFullYear();\n        const month = date.getMonth() + 1;\n        /**\n         * By using zero as the day, we get the\n         * last day of the previous month, which\n         * is the month we originally passed in.\n         */\n        return new Date(year, month, 0).getDate();\n    }\n    else {\n        return date.set({ day: 100 }).day;\n    }\n}\n/**\n * Determine if a date is before the reference date.\n * @param dateToCompare - is this date before the `referenceDate`\n * @param referenceDate - is the `dateToCompare` before this date\n *\n * @see {@link isBeforeOrSame} for inclusive\n */\nexport function isBefore(dateToCompare, referenceDate) {\n    return dateToCompare.compare(referenceDate) < 0;\n}\n/**\n * Determine if a date is after the reference date.\n * @param dateToCompare - is this date after the `referenceDate`\n * @param referenceDate - is the `dateToCompare` after this date\n *\n * @see {@link isAfterOrSame} for inclusive\n */\nexport function isAfter(dateToCompare, referenceDate) {\n    return dateToCompare.compare(referenceDate) > 0;\n}\n/**\n * Determine if a date is before or the same as the reference date.\n *\n * @param dateToCompare - the date to compare\n * @param referenceDate - the reference date to make the comparison against\n *\n * @see {@link isBefore} for non-inclusive\n */\nfunction isBeforeOrSame(dateToCompare, referenceDate) {\n    return dateToCompare.compare(referenceDate) <= 0;\n}\n/**\n * Determine if a date is after or the same as the reference date.\n *\n * @param dateToCompare - is this date after or the same as the `referenceDate`\n * @param referenceDate - is the `dateToCompare` after or the same as this date\n *\n * @see {@link isAfter} for non-inclusive\n */\nfunction isAfterOrSame(dateToCompare, referenceDate) {\n    return dateToCompare.compare(referenceDate) >= 0;\n}\n/**\n * Determine if a date is inclusively between a start and end reference date.\n *\n * @param date - is this date inclusively between the `start` and `end` dates\n * @param start - the start reference date to make the comparison against\n * @param end - the end reference date to make the comparison against\n *\n * @see {@link isBetween} for non-inclusive\n */\nexport function isBetweenInclusive(date, start, end) {\n    return isAfterOrSame(date, start) && isBeforeOrSame(date, end);\n}\nexport function getLastFirstDayOfWeek(date, firstDayOfWeek, locale) {\n    const day = getDayOfWeek(date, locale);\n    if (firstDayOfWeek > day) {\n        return date.subtract({ days: day + 7 - firstDayOfWeek });\n    }\n    if (firstDayOfWeek === day) {\n        return date;\n    }\n    return date.subtract({ days: day - firstDayOfWeek });\n}\nexport function getNextLastDayOfWeek(date, firstDayOfWeek, locale) {\n    const day = getDayOfWeek(date, locale);\n    const lastDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;\n    if (day === lastDayOfWeek) {\n        return date;\n    }\n    if (day > lastDayOfWeek) {\n        return date.add({ days: 7 - day + lastDayOfWeek });\n    }\n    return date.add({ days: lastDayOfWeek - day });\n}\nexport function areAllDaysBetweenValid(start, end, isUnavailable, isDisabled) {\n    if (isUnavailable === undefined && isDisabled === undefined) {\n        return true;\n    }\n    let dCurrent = start.add({ days: 1 });\n    if (isDisabled?.(dCurrent) || isUnavailable?.(dCurrent)) {\n        return false;\n    }\n    const dEnd = end;\n    while (dCurrent.compare(dEnd) < 0) {\n        dCurrent = dCurrent.add({ days: 1 });\n        if (isDisabled?.(dCurrent) || isUnavailable?.(dCurrent)) {\n            return false;\n        }\n    }\n    return true;\n}\n",
+      "start": 1754579497043,
+      "end": 1754579497125,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497125,
+      "end": 1754579497125,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/utils/profile-cache.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "interface ProfileData {\r\n\tname?: string;\r\n\tpicture?: string;\r\n}\r\n\r\ninterface ProfileCacheEntry {\r\n\tdata: ProfileData;\r\n\ttimestamp: number;\r\n\texpiresAt: number;\r\n}\r\n\r\nexport class ProfileCache {\r\n\tprivate cache = new Map<string, ProfileCacheEntry>();\r\n\tprivate readonly MAX_CACHE_SIZE = 100; // profiles\r\n\tprivate readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours\r\n\r\n\tasync getProfile(pubkey: string): Promise<ProfileData | null> {\r\n\t\t// Check if profile is in cache and still valid\r\n\t\tconst cached = this.cache.get(pubkey);\r\n\t\tif (cached && this.isCacheValid(cached)) {\r\n\t\t\treturn cached.data;\r\n\t\t}\r\n\r\n\t\t// Remove expired entry if it exists\r\n\t\tif (cached) {\r\n\t\t\tthis.cache.delete(pubkey);\r\n\t\t}\r\n\r\n\t\treturn null;\r\n\t}\r\n\r\n\tasync cacheProfile(pubkey: string, profileData: ProfileData): Promise<void> {\r\n\t\t// Enforce cache size limit\r\n\t\tif (this.cache.size >= this.MAX_CACHE_SIZE) {\r\n\t\t\tthis.evictOldestEntry();\r\n\t\t}\r\n\r\n\t\tconst now = Date.now();\r\n\t\tconst entry: ProfileCacheEntry = {\r\n\t\t\tdata: profileData,\r\n\t\t\ttimestamp: now,\r\n\t\t\texpiresAt: now + this.CACHE_DURATION\r\n\t\t};\r\n\r\n\t\tthis.cache.set(pubkey, entry);\r\n\t}\r\n\r\n\tprivate isCacheValid(entry: ProfileCacheEntry): boolean {\r\n\t\treturn Date.now() < entry.expiresAt;\r\n\t}\r\n\r\n\tprivate evictOldestEntry(): void {\r\n\t\tlet oldestKey: string | null = null;\r\n\t\tlet oldestTimestamp = Date.now();\r\n\r\n\t\tfor (const [key, entry] of this.cache.entries()) {\r\n\t\t\tif (entry.timestamp < oldestTimestamp) {\r\n\t\t\t\toldestTimestamp = entry.timestamp;\r\n\t\t\t\toldestKey = key;\r\n\t\t\t}\r\n\t\t}\r\n\r\n\t\tif (oldestKey) {\r\n\t\t\tthis.cache.delete(oldestKey);\r\n\t\t}\r\n\t}\r\n\r\n\tclear(): void {\r\n\t\tthis.cache.clear();\r\n\t}\r\n\r\n\tsize(): number {\r\n\t\treturn this.cache.size;\r\n\t}\r\n}\r\n\r\n// Export singleton instance\r\nexport const profileCache = new ProfileCache();\r\n",
+      "start": 1754579495088,
+      "end": 1754579495219,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "interface ProfileData {\r\n    name?: string;\r\n    picture?: string;\r\n}\r\n\r\ninterface ProfileCacheEntry {\r\n    data: ProfileData;\r\n    timestamp: number;\r\n    expiresAt: number;\r\n}\r\n\r\nexport class ProfileCache {\r\n    private cache = new Map<string, ProfileCacheEntry>();\r\n    private readonly MAX_CACHE_SIZE = 100;\r\n    private readonly CACHE_DURATION = 24 * 60 * 60 * 1000;\r\n\r\n    async getProfile(pubkey: string): Promise<ProfileData | null> {\r\n        const cached = this.cache.get(pubkey);\r\n\r\n        if (cached && this.isCacheValid(cached)) {\r\n            return cached.data;\r\n        }\r\n\r\n        if (cached) {\r\n            this.cache.delete(pubkey);\r\n        }\r\n\r\n        return null;\r\n    }\r\n\r\n    async cacheProfile(pubkey: string, profileData: ProfileData): Promise<void> {\r\n        if (this.cache.size >= this.MAX_CACHE_SIZE) {\r\n            this.evictOldestEntry();\r\n        }\r\n\r\n        const now = Date.now();\r\n\r\n        const entry: ProfileCacheEntry = {\r\n            data: profileData,\r\n            timestamp: now,\r\n            expiresAt: now + this.CACHE_DURATION\r\n        };\r\n\r\n        this.cache.set(pubkey, entry);\r\n    }\r\n\r\n    private isCacheValid(entry: ProfileCacheEntry): boolean {\r\n        return Date.now() < entry.expiresAt;\r\n    }\r\n\r\n    private evictOldestEntry(): void {\r\n        let oldestKey: string | null = null;\r\n        let oldestTimestamp = Date.now();\r\n\r\n        for (const [key, entry] of this.cache.entries()) {\r\n            if (entry.timestamp < oldestTimestamp) {\r\n                oldestTimestamp = entry.timestamp;\r\n                oldestKey = key;\r\n            }\r\n        }\r\n\r\n        if (oldestKey) {\r\n            this.cache.delete(oldestKey);\r\n        }\r\n    }\r\n\r\n    clear(): void {\r\n        this.cache.clear();\r\n    }\r\n\r\n    size(): number {\r\n        return this.cache.size;\r\n    }\r\n}\r\n\r\nexport const profileCache = new ProfileCache();",
+      "start": 1754579495219,
+      "end": 1754579495221,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/profile-cache.ts"
+        ],
+        "sourcesContent": [
+          "interface ProfileData {\r\n\tname?: string;\r\n\tpicture?: string;\r\n}\r\n\r\ninterface ProfileCacheEntry {\r\n\tdata: ProfileData;\r\n\ttimestamp: number;\r\n\texpiresAt: number;\r\n}\r\n\r\nexport class ProfileCache {\r\n\tprivate cache = new Map<string, ProfileCacheEntry>();\r\n\tprivate readonly MAX_CACHE_SIZE = 100; // profiles\r\n\tprivate readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours\r\n\r\n\tasync getProfile(pubkey: string): Promise<ProfileData | null> {\r\n\t\t// Check if profile is in cache and still valid\r\n\t\tconst cached = this.cache.get(pubkey);\r\n\t\tif (cached && this.isCacheValid(cached)) {\r\n\t\t\treturn cached.data;\r\n\t\t}\r\n\r\n\t\t// Remove expired entry if it exists\r\n\t\tif (cached) {\r\n\t\t\tthis.cache.delete(pubkey);\r\n\t\t}\r\n\r\n\t\treturn null;\r\n\t}\r\n\r\n\tasync cacheProfile(pubkey: string, profileData: ProfileData): Promise<void> {\r\n\t\t// Enforce cache size limit\r\n\t\tif (this.cache.size >= this.MAX_CACHE_SIZE) {\r\n\t\t\tthis.evictOldestEntry();\r\n\t\t}\r\n\r\n\t\tconst now = Date.now();\r\n\t\tconst entry: ProfileCacheEntry = {\r\n\t\t\tdata: profileData,\r\n\t\t\ttimestamp: now,\r\n\t\t\texpiresAt: now + this.CACHE_DURATION\r\n\t\t};\r\n\r\n\t\tthis.cache.set(pubkey, entry);\r\n\t}\r\n\r\n\tprivate isCacheValid(entry: ProfileCacheEntry): boolean {\r\n\t\treturn Date.now() < entry.expiresAt;\r\n\t}\r\n\r\n\tprivate evictOldestEntry(): void {\r\n\t\tlet oldestKey: string | null = null;\r\n\t\tlet oldestTimestamp = Date.now();\r\n\r\n\t\tfor (const [key, entry] of this.cache.entries()) {\r\n\t\t\tif (entry.timestamp < oldestTimestamp) {\r\n\t\t\t\toldestTimestamp = entry.timestamp;\r\n\t\t\t\toldestKey = key;\r\n\t\t\t}\r\n\t\t}\r\n\r\n\t\tif (oldestKey) {\r\n\t\t\tthis.cache.delete(oldestKey);\r\n\t\t}\r\n\t}\r\n\r\n\tclear(): void {\r\n\t\tthis.cache.clear();\r\n\t}\r\n\r\n\tsize(): number {\r\n\t\treturn this.cache.size;\r\n\t}\r\n}\r\n\r\n// Export singleton instance\r\nexport const profileCache = new ProfileCache();\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC;AACJ;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC;AACF,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495221,
+      "end": 1754579495221,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495221,
+      "end": 1754579495221,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export class ProfileCache {\n  cache = /* @__PURE__ */ new Map();\n  MAX_CACHE_SIZE = 100;\n  CACHE_DURATION = 24 * 60 * 60 * 1e3;\n  async getProfile(pubkey) {\n    const cached = this.cache.get(pubkey);\n    if (cached && this.isCacheValid(cached)) {\n      return cached.data;\n    }\n    if (cached) {\n      this.cache.delete(pubkey);\n    }\n    return null;\n  }\n  async cacheProfile(pubkey, profileData) {\n    if (this.cache.size >= this.MAX_CACHE_SIZE) {\n      this.evictOldestEntry();\n    }\n    const now = Date.now();\n    const entry = {\n      data: profileData,\n      timestamp: now,\n      expiresAt: now + this.CACHE_DURATION\n    };\n    this.cache.set(pubkey, entry);\n  }\n  isCacheValid(entry) {\n    return Date.now() < entry.expiresAt;\n  }\n  evictOldestEntry() {\n    let oldestKey = null;\n    let oldestTimestamp = Date.now();\n    for (const [key, entry] of this.cache.entries()) {\n      if (entry.timestamp < oldestTimestamp) {\n        oldestTimestamp = entry.timestamp;\n        oldestKey = key;\n      }\n    }\n    if (oldestKey) {\n      this.cache.delete(oldestKey);\n    }\n  }\n  clear() {\n    this.cache.clear();\n  }\n  size() {\n    return this.cache.size;\n  }\n}\nexport const profileCache = new ProfileCache();\n",
+      "start": 1754579495221,
+      "end": 1754579495289,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/profile-cache.ts"
+        ],
+        "sourcesContent": [
+          "interface ProfileData {\r\n    name?: string;\r\n    picture?: string;\r\n}\r\n\r\ninterface ProfileCacheEntry {\r\n    data: ProfileData;\r\n    timestamp: number;\r\n    expiresAt: number;\r\n}\r\n\r\nexport class ProfileCache {\r\n    private cache = new Map<string, ProfileCacheEntry>();\r\n    private readonly MAX_CACHE_SIZE = 100;\r\n    private readonly CACHE_DURATION = 24 * 60 * 60 * 1000;\r\n\r\n    async getProfile(pubkey: string): Promise<ProfileData | null> {\r\n        const cached = this.cache.get(pubkey);\r\n\r\n        if (cached && this.isCacheValid(cached)) {\r\n            return cached.data;\r\n        }\r\n\r\n        if (cached) {\r\n            this.cache.delete(pubkey);\r\n        }\r\n\r\n        return null;\r\n    }\r\n\r\n    async cacheProfile(pubkey: string, profileData: ProfileData): Promise<void> {\r\n        if (this.cache.size >= this.MAX_CACHE_SIZE) {\r\n            this.evictOldestEntry();\r\n        }\r\n\r\n        const now = Date.now();\r\n\r\n        const entry: ProfileCacheEntry = {\r\n            data: profileData,\r\n            timestamp: now,\r\n            expiresAt: now + this.CACHE_DURATION\r\n        };\r\n\r\n        this.cache.set(pubkey, entry);\r\n    }\r\n\r\n    private isCacheValid(entry: ProfileCacheEntry): boolean {\r\n        return Date.now() < entry.expiresAt;\r\n    }\r\n\r\n    private evictOldestEntry(): void {\r\n        let oldestKey: string | null = null;\r\n        let oldestTimestamp = Date.now();\r\n\r\n        for (const [key, entry] of this.cache.entries()) {\r\n            if (entry.timestamp < oldestTimestamp) {\r\n                oldestTimestamp = entry.timestamp;\r\n                oldestKey = key;\r\n            }\r\n        }\r\n\r\n        if (oldestKey) {\r\n            this.cache.delete(oldestKey);\r\n        }\r\n    }\r\n\r\n    clear(): void {\r\n        this.cache.clear();\r\n    }\r\n\r\n    size(): number {\r\n        return this.cache.size;\r\n    }\r\n}\r\n\r\nexport const profileCache = new ProfileCache();"
+        ],
+        "mappings": "AAWO,aAAM,aAAa;AAAA,EACd,QAAQ,oBAAI,IAA+B;AAAA,EAClC,iBAAiB;AAAA,EACjB,iBAAiB,KAAK,KAAK,KAAK;AAAA,EAEjD,MAAM,WAAW,QAA6C;AAC1D,UAAM,SAAS,KAAK,MAAM,IAAI,MAAM;AAEpC,QAAI,UAAU,KAAK,aAAa,MAAM,GAAG;AACrC,aAAO,OAAO;AAAA,IAClB;AAEA,QAAI,QAAQ;AACR,WAAK,MAAM,OAAO,MAAM;AAAA,IAC5B;AAEA,WAAO;AAAA,EACX;AAAA,EAEA,MAAM,aAAa,QAAgB,aAAyC;AACxE,QAAI,KAAK,MAAM,QAAQ,KAAK,gBAAgB;AACxC,WAAK,iBAAiB;AAAA,IAC1B;AAEA,UAAM,MAAM,KAAK,IAAI;AAErB,UAAM,QAA2B;AAAA,MAC7B,MAAM;AAAA,MACN,WAAW;AAAA,MACX,WAAW,MAAM,KAAK;AAAA,IAC1B;AAEA,SAAK,MAAM,IAAI,QAAQ,KAAK;AAAA,EAChC;AAAA,EAEQ,aAAa,OAAmC;AACpD,WAAO,KAAK,IAAI,IAAI,MAAM;AAAA,EAC9B;AAAA,EAEQ,mBAAyB;AAC7B,QAAI,YAA2B;AAC/B,QAAI,kBAAkB,KAAK,IAAI;AAE/B,eAAW,CAAC,KAAK,KAAK,KAAK,KAAK,MAAM,QAAQ,GAAG;AAC7C,UAAI,MAAM,YAAY,iBAAiB;AACnC,0BAAkB,MAAM;AACxB,oBAAY;AAAA,MAChB;AAAA,IACJ;AAEA,QAAI,WAAW;AACX,WAAK,MAAM,OAAO,SAAS;AAAA,IAC/B;AAAA,EACJ;AAAA,EAEA,QAAc;AACV,SAAK,MAAM,MAAM;AAAA,EACrB;AAAA,EAEA,OAAe;AACX,WAAO,KAAK,MAAM;AAAA,EACtB;AACJ;AAEO,aAAM,eAAe,IAAI,aAAa;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495289,
+      "end": 1754579495289,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495289,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495290,
+      "end": 1754579495290,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/scroll-area/components/scroll-area-scrollbar-x.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { IsMounted } from \"runed\";\n\timport { box, mergeProps } from \"svelte-toolbelt\";\n\timport { useScrollAreaScrollbarX } from \"../scroll-area.svelte.js\";\n\timport type { _ScrollbarStubProps } from \"../types.js\";\n\timport ScrollAreaScrollbarShared from \"./scroll-area-scrollbar-shared.svelte\";\n\n\tlet { ...restProps }: _ScrollbarStubProps = $props();\n\n\tconst isMounted = new IsMounted();\n\n\tconst scrollbarXState = useScrollAreaScrollbarX({\n\t\tmounted: box.with(() => isMounted.current),\n\t});\n\t// eslint-disable-next-line @typescript-eslint/no-explicit-any\n\tconst mergedProps = $derived(mergeProps(restProps, scrollbarXState.props)) as any;\n</script>\n\n<ScrollAreaScrollbarShared {...mergedProps} />\n",
+      "start": 1754579497832,
+      "end": 1754579497887,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497887,
+      "end": 1754579497887,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497887,
+      "end": 1754579497887,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { IsMounted } from \"runed\";\nimport { box, mergeProps } from \"svelte-toolbelt\";\nimport { useScrollAreaScrollbarX } from \"../scroll-area.svelte.js\";\nimport ScrollAreaScrollbarShared from \"./scroll-area-scrollbar-shared.svelte\";\n\nexport default function Scroll_area_scrollbar_x($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet restProps = $.rest_props($$props, ['$$slots', '$$events', '$$legacy']);\n\tconst isMounted = new IsMounted();\n\tconst scrollbarXState = useScrollAreaScrollbarX({ mounted: box.with(() => isMounted.current) });\n\t// eslint-disable-next-line @typescript-eslint/no-explicit-any\n\tconst mergedProps = $.derived(() => mergeProps(restProps, scrollbarXState.props));\n\n\tScrollAreaScrollbarShared($$anchor, $.spread_props(() => $.get(mergedProps)));\n\t$.pop();\n}",
+      "start": 1754579497887,
+      "end": 1754579497889,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,SAAS,QAAQ,OAAO;SACxB,GAAG,EAAE,UAAU,QAAQ,iBAAiB;SACxC,uBAAuB,QAAQ,0BAA0B;OAE3D,yBAAyB,MAAM,uCAAuC;;;;;KAEpE,SAAS;OAEZ,SAAS,OAAO,SAAS;OAEzB,eAAe,GAAG,uBAAuB,GAC9C,OAAO,EAAE,GAAG,CAAC,IAAI,OAAO,SAAS,CAAC,OAAO;;OAGpC,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,eAAe,CAAC,KAAK;;gEAG1C,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "scroll-area-scrollbar-x.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497889,
+      "end": 1754579497889,
+      "order": "normal"
+    }
+  ]
+}

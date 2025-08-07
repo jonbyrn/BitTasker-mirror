@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/execute-callbacks.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Executes an array of callback functions with the same arguments.\n * @template T The types of the arguments that the callback functions take.\n * @param callbacks array of callback functions to execute.\n * @returns A new function that executes all of the original callback functions with the same arguments.\n */\nexport function executeCallbacks(...callbacks) {\n    return (...args) => {\n        for (const callback of callbacks) {\n            if (typeof callback === \"function\") {\n                callback(...args);\n            }\n        }\n    };\n}\n",
+      "start": 1754579496227,
+      "end": 1754579496260,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496260,
+      "end": 1754579496260,
+      "order": "normal"
+    }
+  ]
+}

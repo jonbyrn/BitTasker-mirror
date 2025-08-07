@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/devalue/src/utils.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @type {Record<string, string>} */\nexport const escaped = {\n\t'<': '\\\\u003C',\n\t'\\\\': '\\\\\\\\',\n\t'\\b': '\\\\b',\n\t'\\f': '\\\\f',\n\t'\\n': '\\\\n',\n\t'\\r': '\\\\r',\n\t'\\t': '\\\\t',\n\t'\\u2028': '\\\\u2028',\n\t'\\u2029': '\\\\u2029'\n};\n\nexport class DevalueError extends Error {\n\t/**\n\t * @param {string} message\n\t * @param {string[]} keys\n\t */\n\tconstructor(message, keys) {\n\t\tsuper(message);\n\t\tthis.name = 'DevalueError';\n\t\tthis.path = keys.join('');\n\t}\n}\n\n/** @param {any} thing */\nexport function is_primitive(thing) {\n\treturn Object(thing) !== thing;\n}\n\nconst object_proto_names = /* @__PURE__ */ Object.getOwnPropertyNames(\n\tObject.prototype\n)\n\t.sort()\n\t.join('\\0');\n\n/** @param {any} thing */\nexport function is_plain_object(thing) {\n\tconst proto = Object.getPrototypeOf(thing);\n\n\treturn (\n\t\tproto === Object.prototype ||\n\t\tproto === null ||\n\t\tObject.getOwnPropertyNames(proto).sort().join('\\0') === object_proto_names\n\t);\n}\n\n/** @param {any} thing */\nexport function get_type(thing) {\n\treturn Object.prototype.toString.call(thing).slice(8, -1);\n}\n\n/** @param {string} char */\nfunction get_escaped_char(char) {\n\tswitch (char) {\n\t\tcase '\"':\n\t\t\treturn '\\\\\"';\n\t\tcase '<':\n\t\t\treturn '\\\\u003C';\n\t\tcase '\\\\':\n\t\t\treturn '\\\\\\\\';\n\t\tcase '\\n':\n\t\t\treturn '\\\\n';\n\t\tcase '\\r':\n\t\t\treturn '\\\\r';\n\t\tcase '\\t':\n\t\t\treturn '\\\\t';\n\t\tcase '\\b':\n\t\t\treturn '\\\\b';\n\t\tcase '\\f':\n\t\t\treturn '\\\\f';\n\t\tcase '\\u2028':\n\t\t\treturn '\\\\u2028';\n\t\tcase '\\u2029':\n\t\t\treturn '\\\\u2029';\n\t\tdefault:\n\t\t\treturn char < ' '\n\t\t\t\t? `\\\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`\n\t\t\t\t: '';\n\t}\n}\n\n/** @param {string} str */\nexport function stringify_string(str) {\n\tlet result = '';\n\tlet last_pos = 0;\n\tconst len = str.length;\n\n\tfor (let i = 0; i < len; i += 1) {\n\t\tconst char = str[i];\n\t\tconst replacement = get_escaped_char(char);\n\t\tif (replacement) {\n\t\t\tresult += str.slice(last_pos, i) + replacement;\n\t\t\tlast_pos = i + 1;\n\t\t}\n\t}\n\n\treturn `\"${last_pos === 0 ? str : result + str.slice(last_pos)}\"`;\n}\n\n/** @param {Record<string | symbol, any>} object */\nexport function enumerable_symbols(object) {\n\treturn Object.getOwnPropertySymbols(object).filter(\n\t\t(symbol) => Object.getOwnPropertyDescriptor(object, symbol).enumerable\n\t);\n}\n\nconst is_identifier = /^[a-zA-Z_$][a-zA-Z_$0-9]*$/;\n\n/** @param {string} key */\nexport function stringify_key(key) {\n\treturn is_identifier.test(key) ? '.' + key : '[' + JSON.stringify(key) + ']';\n}\n",
+      "start": 1754579495311,
+      "end": 1754579495452,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495453,
+      "end": 1754579495454,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495455,
+      "end": 1754579495455,
+      "order": "normal"
+    }
+  ]
+}

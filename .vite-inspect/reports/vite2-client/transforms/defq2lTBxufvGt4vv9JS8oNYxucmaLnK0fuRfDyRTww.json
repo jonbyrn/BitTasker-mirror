@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/calendar/exports.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export { default as Root } from \"./components/calendar.svelte\";\nexport { default as Day } from \"./components/calendar-day.svelte\";\nexport { default as Grid } from \"./components/calendar-grid.svelte\";\nexport { default as GridBody } from \"./components/calendar-grid-body.svelte\";\nexport { default as Cell } from \"./components/calendar-cell.svelte\";\nexport { default as GridHead } from \"./components/calendar-grid-head.svelte\";\nexport { default as HeadCell } from \"./components/calendar-head-cell.svelte\";\nexport { default as GridRow } from \"./components/calendar-grid-row.svelte\";\nexport { default as Header } from \"./components/calendar-header.svelte\";\nexport { default as Heading } from \"./components/calendar-heading.svelte\";\nexport { default as NextButton } from \"./components/calendar-next-button.svelte\";\nexport { default as PrevButton } from \"./components/calendar-prev-button.svelte\";\n",
+      "start": 1754579496170,
+      "end": 1754579496193,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496193,
+      "end": 1754579496193,
+      "order": "normal"
+    }
+  ]
+}

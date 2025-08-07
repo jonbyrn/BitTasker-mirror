@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/runtime/stores/base.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { DocumentStore } from \"$houdini/runtime/client\";\nimport { get } from \"svelte/store\";\nimport { isBrowser } from \"../adapter\";\nimport { getClient, initClient } from \"../client\";\nclass BaseStore {\n  // the underlying data\n  #params;\n  get artifact() {\n    return this.#params.artifact;\n  }\n  get name() {\n    return this.artifact.name;\n  }\n  // loading the client is an asynchronous process so we need something for users to subscribe\n  // to while we load the client. this means we need 2 different document stores, one that\n  // the user subscribes to and one that we actually get results from.\n  #store;\n  #unsubscribe = null;\n  constructor(params) {\n    if (typeof params.initialize === \"undefined\") {\n      params.initialize = true;\n    }\n    this.#store = new DocumentStore({\n      artifact: params.artifact,\n      client: null,\n      fetching: params.fetching,\n      initialValue: params.initialValue\n    });\n    this.#params = params;\n  }\n  #observer = null;\n  get observer() {\n    if (this.#observer) {\n      return this.#observer;\n    }\n    this.#observer = getClient().observe(this.#params);\n    return this.#observer;\n  }\n  subscribe(...args) {\n    const bubbleUp = this.#store.subscribe(...args);\n    if (isBrowser && (this.#subscriberCount === 0 || !this.#unsubscribe)) {\n      this.setup();\n    }\n    this.#subscriberCount = (this.#subscriberCount ?? 0) + 1;\n    return () => {\n      this.#subscriberCount--;\n      if (this.#subscriberCount <= 0) {\n        this.#unsubscribe?.();\n        this.#unsubscribe = null;\n        bubbleUp();\n      }\n    };\n  }\n  // in order to clear the store's value when unmounting, we need to track how many concurrent subscribers\n  // we have. when this number is 0, we need to clear the store\n  #subscriberCount = 0;\n  setup(init = true) {\n    let initPromise = Promise.resolve();\n    try {\n      getClient();\n    } catch {\n      initPromise = initClient();\n    }\n    initPromise.then(() => {\n      if (this.#unsubscribe) {\n        return;\n      }\n      this.#unsubscribe = this.observer.subscribe((value) => {\n        this.#store.set(value);\n      });\n      if (init && this.#params.initialize) {\n        return this.observer.send({\n          setup: true,\n          variables: get(this.observer).variables\n        });\n      }\n    });\n  }\n}\nexport {\n  BaseStore\n};\n",
+      "start": 1754579496074,
+      "end": 1754579496118,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496118,
+      "end": 1754579496118,
+      "order": "normal"
+    }
+  ]
+}

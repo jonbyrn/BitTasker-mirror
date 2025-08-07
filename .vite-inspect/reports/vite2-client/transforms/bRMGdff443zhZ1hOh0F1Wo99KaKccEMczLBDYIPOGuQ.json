@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/endOfToday.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { endOfDay } from \"./endOfDay.js\";\n\n/**\n * The {@link endOfToday} function options.\n */\n\n/**\n * @name endOfToday\n * @category Day Helpers\n * @summary Return the end of today.\n * @pure false\n *\n * @description\n * Return the end of today.\n *\n * @typeParam DateType - The `Date` type, the function operates on. Gets inferred from passed arguments. Allows to use extensions like [`UTCDate`](https://github.com/date-fns/utc).\n * @typeParam ResultDate - The result `Date` type, it is the type returned from the context function if it is passed, or inferred from the arguments.\n *\n * @param options - The options\n *\n * @returns The end of today\n *\n * @example\n * // If today is 6 October 2014:\n * const result = endOfToday()\n * //=> Mon Oct 6 2014 23:59:59.999\n */\nexport function endOfToday(options) {\n  return endOfDay(Date.now(), options);\n}\n\n// Fallback for modularized imports:\nexport default endOfToday;\n",
+      "start": 1754579494892,
+      "end": 1754579494912,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494912,
+      "end": 1754579494912,
+      "order": "normal"
+    }
+  ]
+}
