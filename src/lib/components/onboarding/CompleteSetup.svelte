@@ -6,6 +6,7 @@
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import nip44 from '$lib/nostr/nip44';
+	import { t } from 'svelte-i18n';
 
 	let { restartSetup }: { restartSetup: () => void } = $props();
 
@@ -103,7 +104,7 @@
 			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
 				<div>
 					<span class="loading loading-spinner loading-lg"></span>
-					<p class="text-base-content/70">Checking your onboarding status...</p>
+					<p class="text-base-content/70">{$t('onboarding_auth.form.checking_your_onboarding_status')}</p>
 				</div>
 			</div>
 		{:else if error}
@@ -124,9 +125,9 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="text-xl font-bold">Something went wrong</h2>
+				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.something_went_wrong')}</h2>
 				<p class="text-base-content/70">{error}</p>
-				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>Try Again</button>
+				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>{$t('onboarding_auth.form.try_again')}</button>
 			</div>
 		{:else if !isComplete}
 			<div class="flex flex-col items-center space-y-4 text-center">
@@ -146,11 +147,11 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="text-xl font-bold">Oops! Your profile is not complete</h2>
+				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.oops_your_profile_is_not_complete')}</h2>
 
 				{#if missingFields.length > 0}
 					<div class="mt-2 w-full space-y-2 text-start">
-						<p class="font-medium">Missing information:</p>
+						<p class="font-medium">{$t('onboarding_auth.form.missing_information')}:</p>
 						<ul class="text-base-content/70 list-inside list-disc text-start text-sm">
 							{#each missingFields as field}
 								<li>{field}</li>
@@ -160,16 +161,16 @@
 				{/if}
 
 				<p class="text-base-content/70">
-					Don't worry you can continue using BitTasker, and complete your onboarding process later.
+					{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
 					<br /> <br />
-					Or you can restart the onboarding process.
+					{$t('onboarding_auth.form.or_you_can_restart_the_onboarding_process')}
 				</p>
 				<div class="mt-4 flex max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
-						Restart Setup
+						{$t('onboarding_auth.form.restart_setup')}
 					</button>
 					<button class="btn btn-secondary w-full" onclick={() => goto('/dashboard/find-tasks')}>
-						Continue without completing
+						{$t('onboarding_auth.form.continue_without_completing')}
 					</button>
 				</div>
 			</div>
@@ -191,18 +192,17 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="text-xl font-bold">Your account is ready!</h2>
+				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.your_account_is_ready')}</h2>
 				<p class="text-base-content/70">
-					You've successfully completed the onboarding process and your BitTasker account is now
-					active.
+					{$t('onboarding_auth.form.you_have_successfully_completed_the_onboarding_process_and_your_bittasker_account_is_now_active')}
 				</p>
 				<div class="mt-2 space-y-2">
-					<p class="font-medium">What's next?</p>
+					<p class="font-medium">{$t('onboarding_auth.form.whats_next')}</p>
 					<ul class="text-base-content/70 list-inside list-disc text-start text-sm">
-						<li>Browse available tasks or create your own</li>
-						<li>Complete your profile to attract more clients</li>
-						<li>Set up your payment preferences</li>
-						<li>Explore the platform features</li>
+						<li>{$t('onboarding_auth.form.browse_available_tasks_or_create_your_own')}</li>
+						<li>{$t('onboarding_auth.form.complete_your_profile_to_attract_more_clients')}</li>
+						<li>{$t('onboarding_auth.form.set_up_your_payment_preferences')}</li>
+						<li>{$t('onboarding_auth.form.explore_the_platform_features')}</li>
 					</ul>
 				</div>
 				<button
@@ -217,7 +217,7 @@
 					{#if isRedirecting}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
-						Find Tasks
+						{$t('onboarding_auth.form.find_tasks')}
 					{/if}
 				</button>
 			</div>

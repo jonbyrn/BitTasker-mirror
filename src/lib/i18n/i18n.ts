@@ -10,7 +10,7 @@ async function loadMessages() {
 			const common = await import(`./locales/${lang}/common.json`);
 			const auth = await import(`./locales/${lang}/auth.json`);
 			const home = await import(`./locales/${lang}/home.json`);
-			const recomendations = await import(`./locales/${lang}/recomendations.json`);
+			const recomendations = await import(`./locales/${lang}/recomendations.json`); //! pending filters
 			const onboarding = await import(`./locales/${lang}/onboarding.json`);
 			const how_it_works = await import(`./locales/${lang}/how_it_works.json`);
 
