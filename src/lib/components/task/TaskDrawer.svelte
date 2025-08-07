@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import type { TaskBid } from '$lib/types/bid';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import BidsTab from './details/BidsTab.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';

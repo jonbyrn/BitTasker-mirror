@@ -8,6 +8,8 @@ import Icons from 'unplugin-icons/vite';
 import pkg from './package.json';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+import Inspect from 'vite-plugin-inspect'
+
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
@@ -23,6 +25,10 @@ export default defineConfig({
 			scale: 1.5,
 			defaultStyle: 'width: 1.5em; height: 1.5em;',
 			defaultClass: '',
+		}),
+		Inspect({
+			build: true,
+			outputDir: '.vite-inspect'
 		}),
 		visualizer({ open: false, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
 	],

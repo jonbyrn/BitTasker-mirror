@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data } = $props();
@@ -59,9 +59,9 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl">{$t('about.join.title')}</h1>
+					<h1 class="text-5xl">{$t('about_careers.join.title')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
-						{$t('about.join.description')}
+						{$t('about_careers.join.description')}
 					</p>
 				</div>
 			</div>
@@ -70,9 +70,9 @@
 	<!-- Our Culture Section -->
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2>{$t('about.culture.title')}</h2>
+			<h2>{$t('about_careers.culture.title')}</h2>
 			<p class="text-base-content/80 py-6 text-lg">
-				{$t('about.culture.description')}
+				{$t('about_careers.culture.description')}
 			</p>
 		</div>
 	</div>

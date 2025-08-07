@@ -7,7 +7,7 @@
 		markNotificationsAsRead
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);

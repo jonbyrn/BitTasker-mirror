@@ -11,7 +11,7 @@
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	// State
 	let conversations = $state<

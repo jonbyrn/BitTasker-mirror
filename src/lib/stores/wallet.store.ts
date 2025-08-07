@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { GetInfoResponse, Rate, Payment, SdkEvent, PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
 import { writable, derived, get } from 'svelte/store';
 import { 

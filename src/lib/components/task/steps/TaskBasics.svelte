@@ -5,7 +5,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import TagsInput from '$lib/components/TagsInput.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	let { errors, direction } = $props();
 </script>
 

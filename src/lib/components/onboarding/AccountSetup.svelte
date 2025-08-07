@@ -22,7 +22,7 @@
 		validateEmail
 	} from '$lib/utils/helpers/validators';
 	import { generatePassword } from '$lib/utils/helpers/password';
-	import { locale } from '$lib/stores/i18n.store';
+	import { locale, t } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
 	let {
@@ -62,7 +62,7 @@
 
 	// Generate password function
 	function handleGeneratePassword() {
-		const newPassword = generatePassword($locale);
+		const newPassword = generatePassword($locale || 'en');
 		recoveryPassword = newPassword;
 		confirmPassword = newPassword;
 		passwordError = '';
@@ -341,11 +341,11 @@
 			<!-- Username Field -->
 			<div class="form-control">
 				<label class="label" for="username">
-					<span class="label-text">Username</span>
+					<span class="label-text">{$t('onboarding_auth.form.username')}</span>
 					{#if isCheckingUsername}
 						<span class="label-text-alt loading loading-spinner loading-xs"></span>
 					{:else if usernameAvailable && username}
-						<span class="label-text-alt text-success">Available</span>
+						<span class="label-text-alt text-success">{$t('onboarding_auth.form.available')}</span>
 					{/if}
 				</label>
 				<input
@@ -373,7 +373,7 @@
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={importNostrKey} class="checkbox checkbox-sm" />
 					<div class="flex items-center gap-2">
-						<span class="label-text">Import Nostr Key (nsec)</span>
+						<span class="label-text">{$t('onboarding_auth.form.import_nostr_key')}</span>
 					</div>
 				</label>
 			</div>
@@ -382,7 +382,7 @@
 			{#if importNostrKey}
 				<div class="form-control" in:fly={{ duration: 100, y: -20, easing: linear }}>
 					<label class="label" for="privateKey">
-						<span class="label-text">Private Key (nsec)</span>
+						<span class="label-text">{$t('onboarding_auth.form.private_key')}</span>
 					</label>
 					<div class="relative">
 						<input
@@ -390,7 +390,7 @@
 							id="privateKey"
 							bind:value={nsec}
 							class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
-							placeholder="Enter your Nostr private key"
+							placeholder={$t('onboarding_auth.form.private_key_placeholder')}
 							required
 						/>
 						<button
@@ -473,7 +473,7 @@
 			<div class="form-control">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
-					<span class="label-text">Create recovery password</span>
+					<span class="label-text">{$t('onboarding_auth.form.create_recovery_password')}</span>
 				</label>
 				{#if !enableRecovery}
 					<div
@@ -495,10 +495,10 @@
 							/>
 						</svg>
 						<p>
-							<span class="font-bold">Optional but recommended.</span>
+							<span class="font-bold">{$t('onboarding_auth.form.optional_but_recommended')}</span>
 							<br />
 							<span>
-								If you lose access to your device, you'll be able to recover your account.
+								{$t('onboarding_auth.form.if_you_lose_access_to_your_device')}
 							</span>
 						</p>
 					</div>
@@ -511,7 +511,7 @@
 					<div class="form-control">
 						<label class="label" for="email">
 							<div class="flex items-center gap-2">
-								<span class="label-text">Recovery Email</span>
+								<span class="label-text">{$t('onboarding_auth.form.recovery_email')}</span>
 							</div>
 						</label>
 						<input
@@ -519,7 +519,7 @@
 							id="email"
 							bind:value={recoveryEmail}
 							class="input input-bordered w-full {emailError ? 'input-error' : ''}"
-							placeholder="Enter your email address"
+							placeholder={$t('onboarding_auth.form.recovery_email_placeholder')}
 							required={enableRecovery}
 						/>
 						{#if emailError}
@@ -549,12 +549,11 @@
 										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 									/>
 								</svg>
-								You will only be able to recover your account via email.
+								{$t('onboarding_auth.form.you_will_only_be_able_to_recover_your_account_via_email')}
 							</span>
 							<br />
 							<span>
-								If you lose access to your email, you will not be able to recover your account in
-								the event that you lose access to your primary login method.
+								{$t('onboarding_auth.form.if_you_lose_access_to_your_email')}
 							</span>
 						</p>
 					</div>
@@ -562,7 +561,7 @@
 					<!-- Recovery Password Field -->
 					<div class="form-control">
 						<label class="label" for="password">
-							<span class="label-text">Recovery Password</span>
+							<span class="label-text">{$t('onboarding_auth.form.recovery_password')}</span>
 						</label>
 						<div class="flex gap-2">
 							<input
@@ -570,7 +569,7 @@
 								id="password"
 								bind:value={recoveryPassword}
 								class="input input-bordered flex-1 {passwordError ? 'input-error' : ''}"
-								placeholder="Create a strong password"
+								placeholder={$t('onboarding_auth.form.create_strong_password')}
 								required={enableRecovery}
 							/>
 							<button
@@ -578,7 +577,7 @@
 								type="button"
 								class="btn btn-outline btn-sm"
 								onclick={handleGeneratePassword}
-								title="Generate new 4-word password in {$locale === 'es' ? 'Spanish' : 'English'}"
+								title={$t('onboarding_auth.form.generate_new_4_word_password')}
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -601,7 +600,7 @@
 					<!-- Confirm Password Field -->
 					<div class="form-control">
 						<label class="label" for="confirmPassword">
-							<span class="label-text">Confirm Recovery Password</span>
+							<span class="label-text">{$t('onboarding_auth.form.confirm_recovery_password')}</span>
 						</label>
 						<div class="flex gap-2">
 							<input
@@ -609,14 +608,16 @@
 								id="confirmPassword"
 								bind:value={confirmPassword}
 								class="input input-bordered flex-1 {passwordError ? 'input-error' : ''}"
-								placeholder="Confirm your password"
+								placeholder={$t('onboarding_auth.form.confirm_your_password')}
 								required={enableRecovery}
 							/>
 							<button
 								type="button"
 								class="btn btn-outline btn-sm"
 								onclick={() => (showPassword = !showPassword)}
-								title={showPassword ? 'Hide password' : 'Show password'}
+								title={showPassword
+									? $t('onboarding_auth.form.hide_password')
+									: $t('onboarding_auth.form.show_password')}
 							>
 								{#if showPassword}
 									<svg
@@ -687,12 +688,14 @@
 
 			<!-- Form Actions -->
 			<div class="mt-6 flex justify-between">
-				<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+				<button type="button" class="btn btn-outline" onclick={prevStep}>
+					{$t('onboarding_auth.form.back')}</button
+				>
 				<button type="submit" class="btn btn-primary" disabled={isLoading || !usernameAvailable}>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{/if}
-					Next
+					{$t('onboarding_auth.form.next')}
 				</button>
 			</div>
 		</form>

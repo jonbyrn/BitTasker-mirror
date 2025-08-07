@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store.js';
 	import { profileStore } from '$lib/stores/profile.store';
 	import ProfileHeader from './_components/ProfileHeader.svelte';
@@ -36,6 +36,12 @@
 	// Cleanup on destroy
 	onDestroy(() => {
 		profileStore.destroy();
+	});
+
+	$effect(() => {
+		console.log('🔍 Debug i18n:');
+		console.log('tasksCompleted:', $t('profile'));
+		
 	});
 </script>
 

@@ -1,36 +1,84 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@plugin "daisyui";
 
-/* DaisyUI configuration */
-@daisyui {
-	themes: ['dark', 'light'];
-	darkTheme: 'dark';
+/* DaisyUI configuration with optimized component inclusion */
+@plugin "daisyui" {
+	/* include: alert, avatar, badge, btn, card, carousel, checkbox, collapse, divider, dropdown, file-input, form, hero, indicator, input, join, label, link, loading, mask, menu, modal, navbar, radio, range, rating, select, stats, steps, swap, table, tabs, textarea, toggle, tooltip; */
+	themes: light --default, dark --prefersdark;
 	base: true;
 	styled: true;
 	utils: true;
-	prefix: '';
 	logs: false;
-	/* Only include components that are actually used */
-	components: [
-		'alert',
-		'badge', 
-		'breadcrumb',
-		'btn',
-		'card',
-		'collapse',
-		'dropdown',
-		'form',
-		'input',
-		'label',
-		'loading',
-		'menu',
-		'modal',
-		'navbar',
-		'select',
-		'textarea',
-		'tooltip'
-	];
+}
+
+@plugin "daisyui/theme" {
+	name: 'dark';
+	default: true;
+	prefersdark: true;
+	color-scheme: 'dark';
+	--color-base-100: #2d2d2d;
+	--color-base-200: #363636;
+	--color-base-300: #3f3f3f;
+	--color-base-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-primary: #f7931a;
+	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
+	--color-secondary: #3a3a3a;
+	--color-secondary-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-accent: #b35f00;
+	--color-accent-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-neutral: #5c5c5c;
+	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0.002 247.839) */
+	--color-info: #3daeff;
+	--color-info-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-success: #22c55e;
+	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
+	--color-warning: #facc15;
+	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
+	--color-error: #ef4444;
+	--color-error-content: #f5f5f5; /* fallback for oklch(96% 0.015 12.422) */
+	--radius-selector: 2rem;
+	--radius-field: 2rem;
+	--radius-box: 2rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 2px;
+	--depth: 1;
+	--noise: 0;
+}
+
+@plugin "daisyui/theme" {
+	name: 'light';
+	default: false;
+	prefersdark: false;
+	color-scheme: 'light';
+	--color-base-100: #fafafa; /* fallback for oklch(98% 0 0) */
+	--color-base-200: #f1f3f5;
+	--color-base-300: #e5e7eb;
+	--color-base-content: #121212;
+	--color-primary: #f7931a;
+	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
+	--color-secondary: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-secondary-content: #121212;
+	--color-accent: #ffd8a8;
+	--color-accent-content: #8b4513; /* fallback for oklch(28% 0.109 3.907) */
+	--color-neutral: #6b7280;
+	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0 0) */
+	--color-info: #2563eb;
+	--color-info-content: #f7f7f7; /* fallback for oklch(97% 0.013 236.62) */
+	--color-success: #16a34a;
+	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
+	--color-warning: #eab308;
+	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
+	--color-error: #dc2626;
+	--color-error-content: #f7f7f7; /* fallback for oklch(97% 0.013 17.38) */
+	--radius-selector: 2rem;
+	--radius-field: 2rem;
+	--radius-box: 2rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 2px;
+	--depth: 1;
+	--noise: 1;
 }
 
 /* Tailwind theme configuration */
@@ -56,7 +104,7 @@
 
 /* Safelist - preserving classes from optimization */
 /* Dynamic width classes for Drawer component */
-@source inline("w-[10%]");
+/* @source inline("w-[10%]");
 @source inline("w-[20%]");
 @source inline("w-[30%]");
 @source inline("w-[40%]");
@@ -70,7 +118,7 @@
 @source inline("w-[85%]");
 @source inline("w-[90%]");
 @source inline("w-[95%]");
-@source inline("w-[100%]");
+@source inline("w-[100%]"); */
 
 /* Font utility classes */
 @source inline("font-heading");
@@ -98,11 +146,6 @@
 		font-family: var(--font-display);
 	}
 }
-
-/* Import Font Awesome CSS */
-
-
-/* Fonts are now loaded via HTML link tags for better performance */
 
 * {
 	box-sizing: border-box;
@@ -256,87 +299,17 @@ ul[role="listbox"]:focus {
 	filter: blur(100px);
 }
 
-@plugin "daisyui/theme" {
-	name: 'dark';
-	default: true;
-	prefersdark: true;
-	color-scheme: 'dark';
-	--color-base-100: #2d2d2d;
-	--color-base-200: #363636;
-	--color-base-300: #3f3f3f;
-	--color-base-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-primary: #f7931a;
-	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
-	--color-secondary: #3a3a3a;
-	--color-secondary-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-accent: #b35f00;
-	--color-accent-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-neutral: #5c5c5c;
-	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0.002 247.839) */
-	--color-info: #3daeff;
-	--color-info-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-success: #22c55e;
-	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
-	--color-warning: #facc15;
-	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
-	--color-error: #ef4444;
-	--color-error-content: #f5f5f5; /* fallback for oklch(96% 0.015 12.422) */
-	--radius-selector: 2rem;
-	--radius-field: 2rem;
-	--radius-box: 2rem;
-	--size-selector: 0.25rem;
-	--size-field: 0.25rem;
-	--border: 2px;
-	--depth: 1;
-	--noise: 0;
-}
-
-@plugin "daisyui/theme" {
-	name: 'light';
-	default: false;
-	prefersdark: false;
-	color-scheme: 'light';
-	--color-base-100: #fafafa; /* fallback for oklch(98% 0 0) */
-	--color-base-200: #f1f3f5;
-	--color-base-300: #e5e7eb;
-	--color-base-content: #121212;
-	--color-primary: #f7931a;
-	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
-	--color-secondary: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-secondary-content: #121212;
-	--color-accent: #ffd8a8;
-	--color-accent-content: #8b4513; /* fallback for oklch(28% 0.109 3.907) */
-	--color-neutral: #6b7280;
-	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0 0) */
-	--color-info: #2563eb;
-	--color-info-content: #f7f7f7; /* fallback for oklch(97% 0.013 236.62) */
-	--color-success: #16a34a;
-	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
-	--color-warning: #eab308;
-	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
-	--color-error: #dc2626;
-	--color-error-content: #f7f7f7; /* fallback for oklch(97% 0.013 17.38) */
-	--radius-selector: 2rem;
-	--radius-field: 2rem;
-	--radius-box: 2rem;
-	--size-selector: 0.25rem;
-	--size-field: 0.25rem;
-	--border: 2px;
-	--depth: 1;
-	--noise: 1;
-}
-
 ::view-transition-old(root),
 ::view-transition-new(root) {
 	animation-duration: 500ms;
 }
 
-@layer base {
-	body {
-		@apply text-gray-900 dark:text-gray-100;
-		background-color: var(--color-base-300);
-	}
+
+body {
+	@apply text-gray-900 dark:text-gray-100;
+	background-color: var(--color-base-300);
 }
+
 
 /* 
  * Mobile Layout Utilities

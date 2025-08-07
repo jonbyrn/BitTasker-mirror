@@ -2,7 +2,7 @@
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircle from '~icons/mdi/plus-circle';
