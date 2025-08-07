@@ -4,6 +4,7 @@
 	import { Geolocation } from '@capacitor/geolocation';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
+	import { t } from 'svelte-i18n';
 
 	let { nextStep, prevStep } = $props();
 
@@ -483,12 +484,12 @@
 					<input
 						bind:this={searchInput}
 						type="text"
-						placeholder="Search for a location..."
+						placeholder={$t('onboarding_auth.form.search_for_a_location')}
 						class="input input-bordered w-full {hasError ? 'input-error' : ''}"
 						oninput={debounce(() => getPredictions(), 300)}
 					/>
 					<button
-						aria-label="Use current location"
+						aria-label={$t('onboarding_auth.form.use_current_location')}
 						class="btn btn-square"
 						onclick={() => getUserLocation()}
 					>
@@ -535,7 +536,7 @@
 								</button>
 							{/each}
 						{:else}
-							<div class="text-error px-4 py-2">No places found..</div>
+							<div class="text-error px-4 py-2">{$t('onboarding_auth.form.no_places_found')}</div>
 						{/if}
 					</div>
 				{/if}
@@ -551,7 +552,7 @@
 					: 'absolute bottom-20 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
 			>
 				<button
-					aria-label="Toggle radius"
+					aria-label={$t('onboarding_auth.form.toggle_radius')}
 					onclick={() => (toggleRadius = !toggleRadius)}
 					class="relative"
 				>
@@ -572,7 +573,7 @@
 						>
 							<label class="form-control w-full">
 								<div class="label text-xs sm:text-sm">
-									<span class="label-text text-white">Service Radius: {serviceRadius} km</span>
+									<span class="label-text text-white">{$t('onboarding_auth.form.service_radius')}: {serviceRadius} km</span>
 								</div>
 								<input
 									type="range"
@@ -599,8 +600,8 @@
 				class="{isFullscreen
 					? 'fixed bottom-4 left-4 z-[999]'
 					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md"
-				aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-				title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+				aria-label={isFullscreen ? $t('onboarding_auth.form.exit_fullscreen') : $t('onboarding_auth.form.enter_fullscreen')}
+				title={isFullscreen ? $t('onboarding_auth.form.exit_fullscreen') : $t('onboarding_auth.form.enter_fullscreen')}
 			>
 				{#if isFullscreen}
 					<!-- Exit fullscreen icon -->
@@ -711,8 +712,8 @@
 					/></svg
 				>
 				<div>
-					<h3 class="font-bold">Map loading failed</h3>
-					<div class="text-xs">Try reloading the map</div>
+					<h3 class="font-bold">{$t('onboarding_auth.form.map_loading_failed')}</h3>
+					<div class="text-xs">{$t('onboarding_auth.form.try_reloading_the_map')}</div>
 				</div>
 				<button
 					class="btn btn-sm"
@@ -721,13 +722,13 @@
 						loadGoogleMapsScript().then(() => tryInitMap());
 					}}
 				>
-					Retry
+					{$t('onboarding_auth.form.retry')}
 				</button>
 			</div>
 		{/if}
 
 		<div class="mt-6 flex justify-between">
-			<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+			<button type="button" class="btn btn-outline" onclick={prevStep}> {$t('onboarding_auth.form.back')} </button>
 			<button
 				type="button"
 				class="btn btn-primary"
@@ -737,7 +738,7 @@
 				{#if isLoading}
 					<span class="loading loading-spinner"></span>
 				{/if}
-				Next
+				{$t('onboarding_auth.form.next')}
 			</button>
 		</div>
 	</div>

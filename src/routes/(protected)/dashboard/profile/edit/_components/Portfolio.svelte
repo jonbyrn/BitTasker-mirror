@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { PortfolioItem, NostrProfileImage, Skill } from '$lib/types/profile.d';
 	import { onDestroy, onMount } from 'svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import {
 		publishPortfolioItem,

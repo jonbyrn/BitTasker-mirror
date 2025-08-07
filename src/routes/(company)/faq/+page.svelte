@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -73,7 +72,7 @@
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general')}</h2>
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general.title')}</h2>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -129,7 +128,7 @@
 
 		<!-- For Taskers -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers')}</h2>
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers.title')}</h2>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -215,7 +214,7 @@
 		</div>
 
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees')}</h2>
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees.title')}</h2>
 			<div class="join join-vertical w-full">
 				<!-- FAQ Taskees - How do I find tasks? -->
 				<div

@@ -14,7 +14,7 @@
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {

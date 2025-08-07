@@ -6,7 +6,7 @@
 	import { taskStore as store } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let {
 		errors,

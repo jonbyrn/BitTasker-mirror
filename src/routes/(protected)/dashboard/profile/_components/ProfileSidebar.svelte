@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
@@ -110,11 +110,11 @@
 		<!-- Availability Card -->
 		<div class="card bg-base-200 mb-6 rounded-xl">
 			<div class="card-body">
-				<h3 class="card-title text-lg">{$t('profile.availabilityTitle')}</h3>
+				<h3 class="card-title text-lg">{$t('profile_availability.availabilityTitle')}</h3>
 
 				{#if $profileStore.data.availability}
 					<div class="mt-2">
-						<p class="font-medium">{$t('profile.weeklySchedule')}</p>
+						<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
 						<div class="mt-2 space-y-2">
 							{#each Object.entries(schedule()) as [day, scheduleData]}
 								<div class="border-base-300 flex items-center justify-between border-b py-1">
@@ -123,7 +123,7 @@
 										{#if scheduleData.available}
 											{scheduleData.hours}
 										{:else}
-											<span class="text-base-content/50">{$t('profile.unavailable')}</span>
+											<span class="text-base-content/50">{$t('profile_availability.unavailable')}</span>
 										{/if}
 									</span>
 								</div>
@@ -136,13 +136,13 @@
 					<div class="flex items-center justify-between">
 						{#if nextAvailable()}
 							<div class="">
-								<p class="font-medium">{$t('profile.nextAvailable')}</p>
+								<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
 								<p class="text-primary">{formatDate(nextAvailable())}</p>
 							</div>
 						{/if}
 
 						<div>
-							<p class="font-medium">{$t('profile.timezone')}</p>
+							<p class="font-medium">{$t('profile_availability.timezone')}</p>
 							<p class="text-base-content/70">{$profileStore.data.availability.timezone}</p>
 						</div>
 					</div>
@@ -151,23 +151,23 @@
 
 					<div class="space-y-2 text-sm">
 						<div class="flex justify-between">
-							<span>{$t('profile.noticeRequired')}</span>
+							<span>{$t('profile_availability.noticeRequired')}</span>
 							<span class="text-base-content/70">
 								{$profileStore.data.availability.noticeHours}
-								{$t('profile.hours')}
+								{$t('profile_availability.hours')}
 							</span>
 						</div>
 						<div class="flex justify-between">
-							<span>{$t('profile.maxBookingsPerDay')}</span>
+							<span>{$t('profile_availability.maxBookingsPerDay')}</span>
 							<span class="text-base-content/70"
 								>{$profileStore.data.availability.maxBookingsPerDay}</span
 							>
 						</div>
 						<div class="flex justify-between">
-							<span>{$t('profile.breakBetweenBookings')}</span>
+							<span>{$t('profile_availability.breakBetweenBookings')}</span>
 							<span class="text-base-content/70">
 								{$profileStore.data.availability.breakBetweenBookings}
-								{$t('profile.minutes')}
+								{$t('profile_availability.minutes')}
 							</span>
 						</div>
 					</div>
@@ -181,7 +181,7 @@
 
 		<!-- Payment Methods Card -->
 		<div class="card bg-base-200 mb-6 rounded-xl p-4">
-			<h3 class="mb-4 text-lg font-bold">{$t('profile.payment_methods')}</h3>
+			<h3 class="mb-4 text-lg font-bold">{$t('profile_availability.payment_methods')}</h3>
 			<div class="space-y-4">
 				<div class="flex items-center gap-2">
 					<div class="badge badge-primary">
@@ -196,7 +196,7 @@
 							/>
 						</svg>
 					</div>
-					<p class="font-medium">{$t('profile.payment_lightning')}</p>
+					<p class="font-medium">{$t('profile_availability.payment_lightning')}</p>
 				</div>
 				<div class="flex items-center gap-2">
 					<div class="badge badge-secondary">
@@ -218,22 +218,22 @@
 
 		<!-- Stats Card -->
 		<div class="card bg-base-200 rounded-xl p-4">
-			<h3 class="mb-4 text-lg font-bold">{$t('profile.your_stats')}</h3>
+			<h3 class="mb-4 text-lg font-bold">{$t('profile_availability.your_stats')}</h3>
 			<div class="stats stats-vertical shadow">
 				<div class="stat">
-					<div class="stat-title">{$t('profile.stats.tasks_completed')}</div>
+					<div class="stat-title">{$t('profile_availability.stats.tasks_completed')}</div>
 					<div class="stat-value">{$profileStore.stats.tasksCompleted}</div>
 					<div class="stat-desc">↗︎ 4 (30%)</div>
 				</div>
 
 				<div class="stat">
-					<div class="stat-title">{$t('profile.stats.success_rate')}</div>
+					<div class="stat-title">{$t('profile_availability.stats.success_rate')}</div>
 					<div class="stat-value">{$profileStore.stats.rating}%</div>
 					<div class="stat-desc">↗︎ 6%</div>
 				</div>
 
 				<div class="stat">
-					<div class="stat-title">{$t('profile.stats.response_rate')}</div>
+					<div class="stat-title">{$t('profile_availability.stats.response_rate')}</div>
 					<div class="stat-value">{$profileStore.stats.responseRate}%</div>
 					<div class="stat-desc">↗︎ 2%</div>
 				</div>
@@ -241,7 +241,7 @@
 		</div>
 	{:else if $profileStore.error}
 		<div class="alert alert-outline alert-error">
-			<span>{$t('profile.error_load')}</span>
+			<span>{$t('profile_availability.error_load')}</span>
 		</div>
 	{/if}
 </div>

@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import AccountSetup from '$lib/components/onboarding/AccountSetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
 	import LocationSetup from '$lib/components/onboarding/LocationSetup.svelte';
@@ -38,32 +38,32 @@
 	<div class="w-full max-w-md">
 		<div class="mb-8 flex flex-col items-center justify-center">
 			<Logo class="w-auto" />
-			<h1 class="my-4 text-center text-2xl font-bold">{$t('auth.onboarding.title')}</h1>
+			<h1 class="my-4 text-center text-2xl font-bold">{$t('onboarding_auth.title')}</h1>
 
 			<ul class="steps mx-auto w-full">
 				<li
 					data-content=""
 					class="step {currentStep >= 0 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
 				>
-					{$t('auth.onboarding.steps.account')}
+					{$t('onboarding_auth.steps.account')}
 				</li>
 				<li
 					data-content=""
 					class="step {currentStep >= 1 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
 				>
-					{$t('auth.onboarding.steps.profile')}
+					{$t('onboarding_auth.steps.profile')}
 				</li>
 				<li
 					data-content=""
 					class="step {currentStep >= 2 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
 				>
-					{$t('auth.onboarding.steps.location')}
+					{$t('onboarding_auth.steps.location')}
 				</li>
 				<li
 					data-content=""
 					class="step {currentStep >= 3 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
 				>
-					{$t('auth.onboarding.steps.completed')}
+					{$t('onboarding_auth.steps.completed')}
 				</li>
 			</ul>
 		</div>

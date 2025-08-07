@@ -7,7 +7,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 	import { formatNumberForInput, usdFromSats } from '$lib/utils/helpers/crypto';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let { direction } = $props();
 

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -46,9 +45,9 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl leading-[1.5]">{$t('how_it_works.hero.heading')}</h1>
+					<h1 class="text-5xl leading-[1.5]">{$t('how_it_works_about.hero.heading')}</h1>
 					<p class="text-base-content/80 py-6 text-lg">
-						{$t('how_it_works.hero.tagline')}
+						{$t('how_it_works_about.hero.tagline')}
 					</p>
 				</div>
 			</div>
@@ -57,9 +56,9 @@
 	<!-- Our Mission Section -->
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2>{$t('about.mission.title')}</h2>
+			<h2>{$t('about_page.mission.title')}</h2>
 			<p class="text-base-content/80 py-6 text-lg">
-				{$t('about.mission.description')}
+				{$t('about_page.mission.description')}
 			</p>
 		</div>
 
@@ -67,45 +66,45 @@
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
 				<div class="mb-6 text-center">
-					<h2>{$t('about.core_beliefs.title')}</h2>
+					<h2>{$t('about_page.core_beliefs.title')}</h2>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
 						<p class="mb-4">
-							{$t('about.core_beliefs.description')}
+							{$t('about_page.core_beliefs.description')}
 						</p>
 
-						<div class="divider">{$t('about.core_beliefs.divider')}</div>
+						<div class="divider">{$t('about_page.core_beliefs.divider')}</div>
 
 						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('about.core_beliefs.bitcoin_title')}</h4>
-									<p>{$t('about.core_beliefs.bitcoin_text')}</p>
+									<h4 class="card-title">{$t('about_page.core_beliefs.bitcoin_title')}</h4>
+									<p>{$t('about_page.core_beliefs.bitcoin_text')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('about.core_beliefs.tasks_title')}</h4>
-									<p>{$t('about.core_beliefs.tasks_text')}</p>
+									<h4 class="card-title">{$t('about_page.core_beliefs.tasks_title')}</h4>
+									<p>{$t('about_page.core_beliefs.tasks_text')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<h4 class="card-title">
-										{$t('about.core_beliefs.decentralization_title')}
+										{$t('about_page.core_beliefs.decentralization_title')}
 									</h4>
-									<p>{$t('about.core_beliefs.decentralization_text')}</p>
+									<p>{$t('about_page.core_beliefs.decentralization_text')}</p>
 								</div>
 							</div>
 
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
-									<h4 class="card-title">{$t('about.core_beliefs.sovereignty_title')}</h4>
-									<p>{$t('about.core_beliefs.sovereignty_text')}</p>
+									<h4 class="card-title">{$t('about_page.core_beliefs.sovereignty_title')}</h4>
+									<p>{$t('about_page.core_beliefs.sovereignty_text')}</p>
 								</div>
 							</div>
 						</div>
@@ -117,9 +116,9 @@
 		<!-- Step 6: Our Platform -->
 		<div class="mb-12">
 			<div class="mb-6 text-center">
-				<h2>{$t('about.platform.title')}</h2>
+				<h2>{$t('about_page.platform.title')}</h2>
 				<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
-					{$t('about.platform.description')}
+					{$t('about_page.platform.description')}
 				</p>
 			</div>
 
@@ -129,10 +128,10 @@
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
 								<h4 class="card-title">
-									{$t('about.platform.features.communication.title')}
+									{$t('about_page.platform.features.communication.title')}
 								</h4>
 								<p class="text-base-content/80">
-									{$t('about.platform.features.communication.description')}
+									{$t('about_page.platform.features.communication.description')}
 								</p>
 							</div>
 						</div>
@@ -140,10 +139,10 @@
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
 								<h4 class="card-title">
-									{$t('about.platform.features.lightning.title')}
+									{$t('about_page.platform.features.lightning.title')}
 								</h4>
 								<p class="text-base-content/80">
-									{$t('about.platform.features.lightning.description')}
+									{$t('about_page.platform.features.lightning.description')}
 								</p>
 							</div>
 						</div>
@@ -151,10 +150,10 @@
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
 								<h4 class="card-title">
-									{$t('about.platform.features.escrow.title')}
+									{$t('about_page.platform.features.escrow.title')}
 								</h4>
 								<p class="text-base-content/80">
-									{$t('about.platform.features.escrow.description')}
+									{$t('about_page.platform.features.escrow.description')}
 								</p>
 							</div>
 						</div>
@@ -162,9 +161,9 @@
 						<div class="card bg-base-200 shadow-sm">
 							<div class="card-body p-4">
 								<h4 class="card-title">
-									{$t('about.platform.features.fiat.title')}
+									{$t('about_page.platform.features.fiat.title')}
 								</h4>
-								<p class="text-base-content/80">{$t('about.platform.features.fiat.description')}</p>
+								<p class="text-base-content/80">{$t('about_page.platform.features.fiat.description')}</p>
 							</div>
 						</div>
 					</div>
@@ -172,21 +171,21 @@
 					<div class="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
 						<div class="flex-1">
 							<h4 class="mb-2">
-								{$t('about.platform.features.marketplace.title')}
+								{$t('about_page.platform.features.marketplace.title')}
 							</h4>
 							<ul class="text-base-content/80 list-inside list-disc space-y-1">
-								<li>{$t('about.platform.features.marketplace.item1')}</li>
-								<li>{$t('about.platform.features.marketplace.item2')}</li>
+								<li>{$t('about_page.platform.features.marketplace.item1')}</li>
+								<li>{$t('about_page.platform.features.marketplace.item2')}</li>
 							</ul>
 						</div>
 
 						<div class="flex-1">
 							<h4 class="mb-2">
-								{$t('about.platform.features.global.title')}
+								{$t('about_page.platform.features.global.title')}
 							</h4>
 							<ul class="text-base-content/80 list-inside list-disc space-y-1">
-								<li>{$t('about.platform.features.global.item1')}</li>
-								<li>{$t('about.platform.features.global.item2')}</li>
+								<li>{$t('about_page.platform.features.global.item1')}</li>
+								<li>{$t('about_page.platform.features.global.item2')}</li>
 							</ul>
 						</div>
 					</div>
@@ -205,7 +204,7 @@
 								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>{$t('about.platform.alert')}</span>
+						<span>{$t('about_page.platform.alert')}</span>
 					</div>
 				</div>
 			</div>

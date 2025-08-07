@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { SimplePool, type NostrEvent } from 'nostr-tools';
 import type { Profile } from '$lib/types/profile';
 import { writable } from 'svelte/store';

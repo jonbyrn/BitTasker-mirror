@@ -29,8 +29,8 @@ export default defineConfig({
 		Inspect({
 			build: true,
 			outputDir: '.vite-inspect'
-		  }),
-		visualizer({ open: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
+		}),
+		visualizer({ open: false, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
 	],
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version),

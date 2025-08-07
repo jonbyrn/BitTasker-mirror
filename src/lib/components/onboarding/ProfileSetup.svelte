@@ -3,6 +3,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { t } from 'svelte-i18n';
 	import {
 		publishProfileMetadata,
 		publishMultipleImages,
@@ -54,7 +55,7 @@
 					// Handle profile metadata update (NIP-01 + NIP-24)
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
-						
+
 						// Basic NIP-01 fields
 						displayName =
 							metadata.display_name || metadata.displayName || metadata.name || displayName;
@@ -315,14 +316,14 @@
 				<!-- Display Name Field -->
 				<div class="form-control">
 					<label class="label" for="displayName">
-						<span class="label-text">Display Name</span>
+						<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
 					</label>
 					<input
 						type="text"
 						id="displayName"
 						bind:value={displayName}
 						class="input input-bordered w-full {nameError ? 'input-error' : ''}"
-						placeholder="Your full name"
+						placeholder={$t('onboarding_auth.form.your_full_name')}
 						required
 					/>
 					{#if nameError}
@@ -335,21 +336,21 @@
 				<!-- Professional Title Field -->
 				<div class="form-control">
 					<label class="label" for="professionalTitle">
-						<span class="label-text">Professional Title</span>
+						<span class="label-text">{$t('onboarding_auth.form.professional_title')}</span>
 					</label>
 					<input
 						type="text"
 						id="professionalTitle"
 						bind:value={professionalTitle}
 						class="input input-bordered w-full"
-						placeholder="e.g. Plumber, Handyman, Developer"
+						placeholder={$t('onboarding_auth.form.professional_title_placeholder')}
 					/>
 				</div>
 
 				<!-- Profile Description Field -->
 				<div class="form-control">
 					<label class="label" for="profileDescription">
-						<span class="label-text">Profile Description</span>
+						<span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
 						<span class="label-text-alt">{profileDescription.length}/200 min</span>
 					</label>
 					<textarea
@@ -358,7 +359,7 @@
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
-						placeholder="Tell others about yourself, your skills, and experience"
+						placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
 						disabled={saveForLater}
 					></textarea>
 					{#if descriptionError}
@@ -371,7 +372,7 @@
 				<!-- Skills Tags -->
 				<div class="form-control">
 					<label class="label" for="skills">
-						<span class="label-text">Skills</span>
+						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
 						<span class="label-text-alt">{skills.length}/20</span>
 					</label>
 					<div class="join w-full">
@@ -380,7 +381,7 @@
 							id="skills"
 							bind:value={skillsInput}
 							class="input input-bordered join-item flex-1"
-							placeholder="Add skills (e.g. Carpentry, Coding)"
+							placeholder={$t('onboarding_auth.form.add_skills')}
 							onkeydown={handleSkillKeypress}
 							disabled={saveForLater || skills.length >= 20}
 						/>
@@ -428,10 +429,10 @@
 				<div class="form-control space-y-2">
 					<label class="label flex cursor-pointer items-center justify-start gap-2">
 						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-						<span class="label-text">Save for later</span>
+						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>
 					</label>
 					<span class="text-base-content/70 block text-xs">
-						You can complete your profile later, but some features may be limited until you do.
+						{$t('onboarding_auth.form.you_can_complete_your_profile_later')}
 					</span>
 				</div>
 
@@ -457,7 +458,9 @@
 				<!-- Form Actions -->
 				<div class="mt-6 flex justify-between">
 					{#if showPrevBtn}
-						<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+						<button type="button" class="btn btn-outline" onclick={prevStep}>
+							{$t('onboarding_auth.form.back')}	
+						</button>
 					{:else}
 						<div></div>
 					{/if}
@@ -465,7 +468,7 @@
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{/if}
-						Next
+						{$t('onboarding_auth.form.next')}
 					</button>
 				</div>
 			</form>

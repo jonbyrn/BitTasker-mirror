@@ -34,7 +34,7 @@ export const homePageTranslations = {
 		'footer.terms': 'Terms of Service',
 		'footer.privacy': 'Privacy Policy',
 		'footer.contact': 'Contact Us',
-		'footer.copyright': 'All rights reserved.',
+		'footer.copyright': 'All rights reserved.',		
 		'navbar.home': 'Home',
 		'navbar.new_task': 'New Task',
 		'navbar.my_tasks': 'My Tasks',
