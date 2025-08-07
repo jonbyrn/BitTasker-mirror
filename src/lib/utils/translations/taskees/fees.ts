@@ -10,27 +10,27 @@ export const taskeesFeesTranslations = {
 
 		//tier 1
 		'fees.tiers.1.badge': 'Tier 1',
-		'fees.tiers.1.title': 'Nakamoto Newbie',
+		'fees.tiers.1.title': 'Nakamoto<br />Newbie',
 		'fees.tiers.1.criteria': 'For taskees who complete 0–3 tasks in the last 30 days',
 		'fees.tiers.1.fee_label': 'Fee Rate',
 		'fees.tiers.1.fee_rate': '12.5%',
-		'fees.tiers.1.example': "Example: For a $100 task, you'll receive $87.50.",
+		'fees.tiers.1.example': "Example: For a $100 task, you'll receive $87.50 (minus $0.05-$0.10 network fees, not paid to BitTasker).",
 
 		//tier 2
 		'fees.tiers.2.badge': 'Tier 2',
-		'fees.tiers.2.title': 'Satoshi Stacker',
+		'fees.tiers.2.title': 'Satoshi<br />Stacker',
 		'fees.tiers.2.criteria': 'For taskees who complete 4–10 tasks in the last 30 days',
 		'fees.tiers.2.fee_label': 'Fee Rate',
 		'fees.tiers.2.fee_rate': '10%',
-		'fees.tiers.2.example': "Example: For a $100 task, you'll receive $90.",
+		'fees.tiers.2.example': "Example: For a $100 task, you'll receive $90 (minus $0.05-$0.10 network fees, not paid to BitTasker).",
 
 		// Tier 3
 		'fees.tiers.3.badge': 'Tier 3',
-		'fees.tiers.3.title': 'Hash Master',
+		'fees.tiers.3.title': 'Hash<br />Master',
 		'fees.tiers.3.criteria': 'For our most active taskees with 11+ tasks in the last 30 days',
 		'fees.tiers.3.fee_label': 'Fee Rate',
 		'fees.tiers.3.fee_rate': '7.5%',
-		'fees.tiers.3.example': "Example: For a $100 task, you'll receive $92.50.",
+		'fees.tiers.3.example': "Example: For a $100 task, you'll receive $92.50 (minus $0.05-$0.10 network fees, not paid to BitTasker).",
 		'fees.bitcoin.title': 'Bitcoin Payments: Keep More of What You Earn',
 		'fees.bitcoin.description':
 			'Earn even more when taskers pay with Bitcoin! We offer reduced fees for Bitcoin transactions.',
@@ -48,7 +48,7 @@ export const taskeesFeesTranslations = {
 		'fees.bitcoin.table.row.3.improvement': 'Keep 6% more!',
 		'fees.bitcoin.example':
 			'<strong>Bitcoin Example:</strong> As a <strong class="text-primary">Hash Master</strong> tier taskee, a $100 task paid with Bitcoin would net you $98.50 instead of $92.50!',
-		'fees.repeat.title': 'Repeat Taskee Bonus',
+		'fees.repeat.title': 'Repeat Tasker Bonus',
 		'fees.repeat.description':
 			'Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!', // Benefits
 		'fees.benefits.title': 'Taskee Benefits & Visibility',
@@ -61,7 +61,7 @@ export const taskeesFeesTranslations = {
 		'fees.benefits.item_3':
 			"<strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes",
 		'fees.benefits.item_4':
-			'<strong>Competitive Edge:</strong> When comparing similar taskees, taskees can see your tier status, giving you an advantage',
+			'<strong>Competitive Edge:</strong> Taskers can see your tier status, giving you an advantage',
 
 		// Tier Maintenance
 		'fees.maintenance.title': 'Tier Advancement & Maintenance',
@@ -71,8 +71,8 @@ export const taskeesFeesTranslations = {
 		// CTA
 		'fees.cta.title': 'Ready to start earning with the most competitive fees in the industry?',
 		'fees.cta.button': 'Join BitTasker Today', //return
-		'fees.repeat_bonus.title': 'Returning Taskees = Higher Earnings!',
-		'fees.repeat_bonus.description': 'When a taskee books you for a repeat task:',
+		'fees.repeat_bonus.title': 'Returning Taskers = Higher Earnings!',
+		'fees.repeat_bonus.description': 'When a tasker books you for a repeat task:',
 		'fees.repeat_bonus.item_1':
 			'Standard payments: Just <strong>3% fee</strong> (down from 7.5–12.5%)',
 		'fees.repeat_bonus.item_2':
@@ -80,7 +80,7 @@ export const taskeesFeesTranslations = {
 		'fees.repeat_bonus.note_1':
 			"Example: For a $100 repeat task, you'll earn $97 with standard payment or $99 with Bitcoin!",
 		'fees.repeat_bonus.note_2':
-			'Booking repeat work with a taskee counts towards your 30 day rolling tasks to maintain your tier.'
+			'Booking repeat work with a tasker counts towards your 30 day rolling tasks to maintain your tier.'
 	},
 	es: {
 		'fees.title': 'Tarifas y Precios para Taskees',
@@ -91,27 +91,27 @@ export const taskeesFeesTranslations = {
 		'fees.structure.note':
 			'<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas.',
 		'fees.tiers.1.badge': 'Nivel 1',
-		'fees.tiers.1.title': 'Nakamoto Principiante',
+		'fees.tiers.1.title': 'Nakamoto<br />Principiante',
 		'fees.tiers.1.criteria': 'Para taskees que completan de 0 a 3 tareas en los últimos 30 días',
 		'fees.tiers.1.fee_label': 'Tarifa',
 		'fees.tiers.1.fee_rate': '12.5%',
-		'fees.tiers.1.example': 'Ejemplo: Por una tarea de $100, recibirás $87.50.', // Tier 2
+		'fees.tiers.1.example': 'Ejemplo: Por una tarea de $100, recibirás $87.50 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).', // Tier 2
 		'fees.tiers.2.badge': 'Nivel 2',
-		'fees.tiers.2.title': 'Satoshi Acumulador',
+		'fees.tiers.2.title': 'Satoshi<br />Acumulador',
 		'fees.tiers.2.criteria':
 			'Para taskees que completan entre 4 y 10 tareas en los últimos 30 días',
 		'fees.tiers.2.fee_label': 'Tarifa',
 		'fees.tiers.2.fee_rate': '10%',
-		'fees.tiers.2.example': 'Ejemplo: Por una tarea de $100, recibirás $90.',
+		'fees.tiers.2.example': 'Ejemplo: Por una tarea de $100, recibirás $90 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).',
 
 		// Tier 3
 		'fees.tiers.3.badge': 'Nivel 3',
-		'fees.tiers.3.title': 'Hash Master',
+		'fees.tiers.3.title': 'Hash<br />Master',
 		'fees.tiers.3.criteria':
 			'Para los taskees más activos con más de 11 tareas en los últimos 30 días',
 		'fees.tiers.3.fee_label': 'Tarifa',
 		'fees.tiers.3.fee_rate': '7.5%',
-		'fees.tiers.3.example': 'Ejemplo: Por una tarea de $100, recibirás $92.50.',
+		'fees.tiers.3.example': 'Ejemplo: Por una tarea de $100, recibirás $92.50 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).',
 		'fees.bitcoin.title': 'Pagos en Bitcoin: Conserva más de lo que ganas',
 		'fees.bitcoin.description':
 			'¡Gana aún más cuando los taskers pagan con Bitcoin! Ofrecemos tarifas reducidas para transacciones en Bitcoin.',
@@ -129,7 +129,7 @@ export const taskeesFeesTranslations = {
 		'fees.bitcoin.table.row.3.improvement': '¡Conserva un 6% más!',
 		'fees.bitcoin.example':
 			'<strong>Ejemplo con Bitcoin:</strong> Como taskee del nivel <strong class="text-primary">Hash Master</strong>, una tarea de $100 pagada con Bitcoin te dejaría $98.50 en lugar de $92.50.',
-		'fees.repeat.title': 'Bono por Repetición de Taskee',
+		'fees.repeat.title': 'Bono por Repetición de Tasker',
 		'fees.repeat.description':
 			'Establece relaciones sólidas con los taskers y disfruta de tarifas significativamente reducidas en trabajos repetidos.', // Benefits
 		'fees.benefits.title': 'Beneficios y Visibilidad para Taskees',
@@ -152,8 +152,8 @@ export const taskeesFeesTranslations = {
 		// CTA
 		'fees.cta.title': '¿Listo para comenzar a ganar con las tarifas más competitivas del sector?',
 		'fees.cta.button': 'Únete a BitTasker Hoy', //return
-		'fees.repeat_bonus.title': '¡Taskees Recurrentes = Más Ganancias!',
-		'fees.repeat_bonus.description': 'Cuando un taskee te contrata para una tarea repetida:',
+		'fees.repeat_bonus.title': '¡Taskers Recurrentes = Más Ganancias!',
+		'fees.repeat_bonus.description': 'Cuando un tasker te contrata para una tarea repetida:',
 		'fees.repeat_bonus.item_1':
 			'Pagos estándar: Solo <strong>3% de tarifa</strong> (antes 7.5–12.5%)',
 		'fees.repeat_bonus.item_2':
@@ -161,6 +161,6 @@ export const taskeesFeesTranslations = {
 		'fees.repeat_bonus.note_1':
 			'Ejemplo: Por una tarea repetida de $100, ganarás $97 con pago estándar o $99 con Bitcoin.',
 		'fees.repeat_bonus.note_2':
-			'Las tareas repetidas con un taskee cuentan para mantener tu nivel en el período móvil de 30 días.'
+			'Las tareas repetidas con un tasker cuentan para mantener tu nivel en el período móvil de 30 días.'
 	}
 };

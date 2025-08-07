@@ -11,7 +11,7 @@ export const privacyPolicyTranslations = {
 
 		'privacy.sections.data_collection.title': 'What Information Do We Collect? (Almost None)',
 		'privacy.sections.data_collection.content':
-			'Because of our decentralized design, we do not have access to or store any of your non-public personally identifiable information (PII). We cannot see your real name, your email address, or your physical address unless you choose to make it public.',
+			'Because of our decentralized design, we do not have access to or store any of your non-public personally identifiable information (PII), unless you make it public or provide it to us.',
 
 		'privacy.sections.public_data.title': 'Information That is Public By Default',
 		'privacy.sections.public_data.intro':
@@ -51,7 +51,7 @@ export const privacyPolicyTranslations = {
 
 		'privacy.sections.storage.title': 'Data Storage and Retention',
 		'privacy.sections.storage.content':
-			"Your public data is stored on the distributed network of Nostr relays. You can choose which relays you connect to, giving you further control over your data's distribution. BitTasker does not operate a central database of user content, but does provide a Nostr relay to BitTasker users at no cost. Your data exists on the network for as long as the relays you've published to choose to store it.",
+			"Your public data is stored on the distributed network of Nostr relays. BitTasker does not operate a central database of user content, but does provide a Nostr relay to BitTasker users at no cost. Your data exists on the network for as long as the relays you've published to choose to store it.",
 
 		'privacy.sections.rights.title': 'Your Rights and Choices',
 		'privacy.sections.rights.content':
@@ -77,7 +77,7 @@ export const privacyPolicyTranslations = {
 
 		'privacy.sections.data_collection.title': '¿Qué Información Recopilamos? (Casi Nada)',
 		'privacy.sections.data_collection.content':
-			'Debido a nuestro diseño descentralizado, no tenemos acceso ni almacenamos tu información personal identificable (PII) que no sea pública. No podemos ver tu nombre real, dirección de correo o dirección física a menos que tú decidas hacerla pública.',
+			'Debido a nuestro diseño descentralizado, no tenemos acceso ni almacenamos tu información personal identificable (PII) que no sea pública, a menos que la hagas pública o nos la proporciones.',
 
 		'privacy.sections.public_data.title': 'Información Pública por Defecto',
 		'privacy.sections.public_data.intro':
@@ -117,7 +117,7 @@ export const privacyPolicyTranslations = {
 
 		'privacy.sections.storage.title': 'Almacenamiento y Retención de Datos',
 		'privacy.sections.storage.content':
-			'Tus datos públicos se almacenan en la red distribuida de relays de Nostr. Tú puedes elegir a qué relays conectarte, lo que te da mayor control sobre la distribución de tus datos. BitTasker no opera una base de datos centralizada de contenido de usuarios, pero proporciona un relay de Nostr a los usuarios de BitTasker sin costo. Tus datos existen en la red mientras los relays que elegiste decidan conservarlos.',
+			'Tus datos públicos se almacenan en la red distribuida de relays de Nostr. BitTasker no opera una base de datos centralizada de contenido de usuarios, pero proporciona un relay de Nostr a los usuarios de BitTasker sin costo. Tus datos existen en la red mientras los relays que elegiste decidan conservarlos.',
 
 		'privacy.sections.rights.title': 'Tus Derechos y Opciones',
 		'privacy.sections.rights.content':

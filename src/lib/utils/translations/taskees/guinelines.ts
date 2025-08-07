@@ -2,7 +2,7 @@ export const taskeesGuinelinesTranslations = {
 	en: {
 		'guidelines.title': 'Community Guidelines',
 		'guidelines.intro':
-			'Welcome to BitTasker! Our guidelines are designed to ensure a safe, respectful, and reliable experience for everyone.<br />By using our platform, you agree to uphold these standards.',
+			'Welcome to BitTasker! Our guidelines are designed to ensure a safe, respectful, and reliable experience for everyone.<br /><br />By using our platform, you agree to uphold these standards.',
 		'guidelines.last_updated': 'Last Updated: July 13, 2025',
 
 		'guidelines.section_taskers.title': 'For Taskers',
@@ -54,12 +54,12 @@ export const taskeesGuinelinesTranslations = {
 		'guidelines.trust.part1':
 			'We are committed to building a trustworthy community and will take action to protect it.<br />Violations of these guidelines may result in warnings, account suspension, or a permanent ban.',
 		'guidelines.trust.part2':
-			'Our algorithm also ensures that violations of our community guidelines are heavily penalized and impact your reputation and platform standing.<br />Thank you for being a part of BitTasker!'
+			'Our algorithm also ensures that violations of our community guidelines are heavily penalized and impact your reputation and platform standing.<br /><br />Thank you for being a part of BitTasker!'
 	},
 	es: {
 		'guidelines.title': 'Normas de la Comunidad',
 		'guidelines.intro':
-			'¡Bienvenido a BitTasker! Nuestras normas están diseñadas para garantizar una experiencia segura, respetuosa y confiable para todos.<br />Al utilizar nuestra plataforma, aceptas cumplir con estos estándares.',
+			'¡Bienvenido a BitTasker! Nuestras normas están diseñadas para garantizar una experiencia segura, respetuosa y confiable para todos.<br /><br />Al utilizar nuestra plataforma, aceptas cumplir con estos estándares.',
 		'guidelines.last_updated': 'Última actualización: 13 de julio de 2025',
 
 		'guidelines.section_taskers.title': 'Para Taskers',
@@ -110,6 +110,6 @@ export const taskeesGuinelinesTranslations = {
 		'guidelines.trust.part1':
 			'Estamos comprometidos con construir una comunidad confiable y tomaremos medidas para protegerla.<br />Las violaciones de estas pautas pueden resultar en advertencias, suspensión de cuenta o una expulsión permanente.',
 		'guidelines.trust.part2':
-			'Nuestro algoritmo también garantiza que las violaciones de nuestras normas comunitarias sean penalizadas severamente y afecten tu reputación y posición en la plataforma.<br />¡Gracias por ser parte de BitTasker!'
+			'Nuestro algoritmo también garantiza que las violaciones de nuestras normas comunitarias sean penalizadas severamente y afecten tu reputación y posición en la plataforma.<br /><br />¡Gracias por ser parte de BitTasker!'
 	}
 };

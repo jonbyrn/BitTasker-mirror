@@ -6,18 +6,18 @@
 			name="viewport"
 			content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0"
 		/>
-		<meta name="theme-color" content="#f7931a" />
+		<!-- Removed theme-color to use default system navigation bar color -->
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="BitTasker" />
 		
-		<!-- Font Optimization: Preconnect, Preload, and font-display: swap -->
+		<!-- Font Optimization: Preconnect, Preload, and optimized loading -->
 		<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" />
 		<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" />
-		<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" media="all" />
-		<link href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" rel="stylesheet" media="all" />
+		<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+		<link href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 		
 		%sveltekit.head%
 	</head>

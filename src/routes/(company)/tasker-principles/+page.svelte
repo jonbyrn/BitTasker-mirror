@@ -2,6 +2,12 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { darkMode } from '$lib/stores/theme.store';
 	import { t } from '$lib/stores/i18n.store';
+	// Icon imports for unplugin-icons
+	import IconStar from '~icons/mdi/star';
+	import IconCommentMultipleOutline from '~icons/mdi/comment-multiple-outline';
+	import IconCheckCircle from '~icons/mdi/check-circle';
+	import IconShieldAccount from '~icons/mdi/shield-account';
+	import IconHandshake from '~icons/mdi/handshake';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -68,7 +74,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-star text-primary mr-4 text-xl"></i>
+								<IconStar class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.1.title')}</h4>
 									<p>{$t('taskee_principles.1.text')}</p>
@@ -80,7 +86,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-comments text-primary mr-4 text-xl"></i>
+								<IconCommentMultipleOutline class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.2.title')}</h4>
 									<p>{$t('taskee_principles.2.text')}</p>
@@ -92,7 +98,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-check-circle text-primary mr-4 text-xl"></i>
+								<IconCheckCircle class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.3.title')}</h4>
 									<p>{$t('taskee_principles.3.text')}</p>
@@ -104,7 +110,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-user-shield text-primary mr-4 text-xl"></i>
+								<IconShieldAccount class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.4.title')}</h4>
 									<p>{$t('taskee_principles.4.text')}</p>
@@ -116,7 +122,7 @@
 					<div class="card bg-base-200 shadow-sm">
 						<div class="card-body p-4">
 							<div class="flex items-center">
-								<i class="fa-solid fa-handshake text-primary mr-4 text-xl"></i>
+								<IconHandshake class="text-primary mr-4 text-xl" />
 								<div>
 									<h4 class="font-medium">{$t('taskee_principles.5.title')}</h4>
 									<p>{$t('taskee_principles.5.text')}</p>

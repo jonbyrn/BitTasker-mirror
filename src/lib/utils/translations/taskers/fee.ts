@@ -4,20 +4,23 @@ export const taskersFeeTranslations = {
 		'tasker.fees.subtitle': 'Simple, transparent pricing designed to reward loyal taskers',
 		'tasker.fees.structure.title': 'Tasker Fee Structure',
 		'tasker.fees.structure.description':
-			'At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.',
+			'At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskers enjoy the best rates.',
 		'tasker.fees.structure.note':
 			'<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees.',
 		'tasker.fees.savingsTitle': 'Save money as you use BitTasker!',
 		'tasker.fees.savingsDescription':
 			'Our unique tier system rewards active taskers with progressively lower fees.',
 		'tasker.fees.label': 'Fee Rate',
-		'tasker.fees.tier1.description': 'For taskers posting 0-3 tasks in the last 30 days',
-		'tasker.fees.tier1.example': "Example: For a $100 task, you'll pay $112.50 total.",
-		'tasker.fees.tier2.description': 'For taskers posting 4-10 tasks in the last 30 days',
-		'tasker.fees.tier2.example': "Example: For a $100 task, you'll pay $110 total.",
+		'fees.tiers.1.title': 'Nakamoto<br />Newbie',
+		'fees.tiers.2.title': 'Satoshi<br />Stacker',
+		'fees.tiers.3.title': 'Hash<br />Master',
+		'tasker.fees.tier1.description': 'For taskers posting and completing 0-3 tasks in the last 30 days',
+		'tasker.fees.tier1.example': "Example: For a $100 task, you'll pay $112.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker).",
+		'tasker.fees.tier2.description': 'For taskers posting and completing 4-10 tasks in the last 30 days',
+		'tasker.fees.tier2.example': "Example: For a $100 task, you'll pay $110 total (plus $0.05-$0.10 network fees, not paid to BitTasker).",
 		'tasker.fees.tier3.description':
-			'For our most active taskers with 11+ tasks in the last 30 days',
-		'tasker.fees.tier3.example': "Example: For a $100 task, you'll pay $107.50 total.",
+			'For our most active taskers posting and completing 11+ tasks in the last 30 days',
+		'tasker.fees.tier3.example': "Example: For a $100 task, you'll pay $107.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker).",
 		'tasker.fees.btc.title': 'Bitcoin Payments: Lower Fees, Same Great Service',
 		'tasker.fees.btc.description':
 			'Save even more when you pay with Bitcoin! We offer reduced rates for taskers who choose to use Bitcoin.',
@@ -60,22 +63,25 @@ export const taskersFeeTranslations = {
 			'Precios simples y transparentes diseñados para premiar a los taskees leales',
 		'tasker.fees.structure.title': 'Estructura de Tarifas para Taskees',
 		'tasker.fees.structure.description':
-			'En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskees más activos disfruten de las mejores tarifas.',
+			'En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskers más activos disfruten de las mejores tarifas.',
 		'tasker.fees.structure.note':
 			'<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas.',
 		'tasker.fees.savingsTitle': '¡Ahorra dinero mientras usas BitTasker!',
 		'tasker.fees.savingsDescription':
 			'Nuestro sistema de niveles recompensa a los taskers activos con comisiones cada vez más bajas.',
 		'tasker.fees.label': 'Comisión',
+		'fees.tiers.1.title': 'Nakamoto<br />Principiante',
+		'fees.tiers.2.title': 'Satoshi<br />Acumulador',
+		'fees.tiers.3.title': 'Hash<br />Master',
 		'tasker.fees.tier1.description':
-			'Para taskers que publican de 0 a 3 tareas en los últimos 30 días',
-		'tasker.fees.tier1.example': 'Ejemplo: Por una tarea de $100, pagarás un total de $112.50.',
+			'Para taskers que publican y completan de 0 a 3 tareas en los últimos 30 días',
+		'tasker.fees.tier1.example': 'Ejemplo: Por una tarea de $100, pagarás un total de $112.50 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).',
 		'tasker.fees.tier2.description':
-			'Para taskers que publican de 4 a 10 tareas en los últimos 30 días',
-		'tasker.fees.tier2.example': 'Ejemplo: Por una tarea de $100, pagarás un total de $110.',
+			'Para taskers que publican y completan de 4 a 10 tareas en los últimos 30 días',
+		'tasker.fees.tier2.example': 'Ejemplo: Por una tarea de $100, pagarás un total de $110 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).',
 		'tasker.fees.tier3.description':
-			'Para nuestros taskers más activos con 11+ tareas en los últimos 30 días',
-		'tasker.fees.tier3.example': 'Ejemplo: Por una tarea de $100, pagarás un total de $107.50.',
+			'Para nuestros taskers más activos que publican y completan 11+ tareas en los últimos 30 días',
+		'tasker.fees.tier3.example': 'Ejemplo: Por una tarea de $100, pagarás un total de $107.50 (más $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).',
 		'tasker.fees.btc.title': 'Pagos con Bitcoin: Comisiones más bajas, el mismo gran servicio',
 		'tasker.fees.btc.description':
 			'¡Ahorra aún más pagando con Bitcoin! Ofrecemos tarifas reducidas para los taskers que eligen usar Bitcoin.',

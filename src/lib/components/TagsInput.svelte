@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { t } from '$lib/stores/i18n.store';
 
 	let {
 		id = '',
 		label = '',
-		placeholder = 'Add tags...',
+		placeholder = $t('task.tags_placeholder'),
 		error = '',
 		className = '',
 		options = [],
@@ -114,7 +115,7 @@
 	}
 </script>
 
-<div class="relative w-full">
+<div class="dropdown dropdown-bottom w-full {isOpen ? 'dropdown-open' : ''}">
 	<div use:clickOutside={{ callback: handleClickOutside }}>
 		{#if label}
 			<label for={id} class="label">
@@ -123,6 +124,10 @@
 		{/if}
 
 		<div
+			tabindex="0"
+			role="combobox"
+			aria-expanded={isOpen}
+			aria-controls="tags-dropdown-{id}"
 			class="input input-bordered flex min-h-[2.5rem] w-full flex-wrap gap-2 p-1 {error
 				? 'input-error'
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
@@ -169,26 +174,27 @@
 			/>
 		</div>
 
-		{#if isOpen && filteredOptions.length > 0}
+		{#if filteredOptions.length > 0}
 			<ul
-				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-lg"
+				id="tags-dropdown-{id}"
+				tabindex="-1"
+				class="dropdown-content menu menu-vertical z-[9999] mt-1 max-h-60 rounded-box bg-base-200 p-2 shadow w-full"
 				role="listbox"
 				aria-label="options"
 			>
 				{#each filteredOptions as option, index}
-					<li
-						class="hover:bg-base-300 flex cursor-pointer flex-col gap-1 px-4 py-2 {filteredOptions[
-							index
-						] === inputValue
-							? 'bg-base-300'
-							: ''}"
-						onclick={() => addTag(option)}
-						onkeydown={(e) => e.key === 'Enter' && addTag(option)}
-						role="option"
-						aria-selected={filteredOptions[index] === inputValue}
-						tabindex="0"
-					>
-						<span class="font-medium">{option}</span>
+					<li>
+						<button
+							type="button"
+							tabindex="0"
+							onclick={() => addTag(option)}
+							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
+							role="option"
+							aria-selected={filteredOptions[index] === inputValue}
+							class="w-full text-left p-2 hover:bg-base-300 rounded"
+						>
+							<span class="font-medium">{option}</span>
+						</button>
 					</li>
 				{/each}
 			</ul>

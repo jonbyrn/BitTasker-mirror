@@ -6,6 +6,7 @@
 	import { taskStore as store } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
+	import { t } from '$lib/stores/i18n.store';
 
 	let {
 		errors,
@@ -21,15 +22,15 @@
 
 	const handleFileUpload = async (files: File[]) => {
 		if (!files || files.length === 0 || files.length > 5) return;
-		
+
 		// Extract only the new files (beyond saved attachments)
 		const savedAttachmentsCount = $store.task.attachments?.length || 0;
-		newFiles = files.slice(savedAttachmentsCount).filter(file => file instanceof File);
+		newFiles = files.slice(savedAttachmentsCount).filter((file) => file instanceof File);
 	};
 
 	const handleFileRemove = (index: number, file?: File | string) => {
 		const savedAttachmentsCount = $store.task.attachments?.length || 0;
-		
+
 		if (index < savedAttachmentsCount) {
 			// Removing a saved attachment
 			const attachment = $store.task.attachments?.[index];
@@ -41,10 +42,12 @@
 	};
 
 	// Combine saved attachments (as URLs) with new files for the Uploader
-	let uploaderFiles = $derived((() => {
-		const savedAttachments = $store.task.attachments?.map((file) => file.url) || [];
-		return [...savedAttachments, ...newFiles];
-	})());
+	let uploaderFiles = $derived(
+		(() => {
+			const savedAttachments = $store.task.attachments?.map((file) => file.url) || [];
+			return [...savedAttachments, ...newFiles];
+		})()
+	);
 </script>
 
 <div
@@ -56,13 +59,13 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h3 class="text-lg font-semibold">Do you need something moved to another location?</h3>
+	<h3 class="text-lg font-semibold">{$t('task.relocation_question')}</h3>
 	<div class="flex gap-4">
 		<button
 			class="btn min-w-1/3 text-xl {$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
 			onclick={() => ($store.isRemovals = true)}
 		>
-			Yes
+			{$t('task.yes')}
 		</button>
 		<button
 			class="btn min-w-1/3 text-xl {!$store.isRemovals ? 'btn-primary' : 'btn-outline'}"
@@ -79,7 +82,7 @@
 				});
 			}}
 		>
-			No
+			{$t('task.no')}
 		</button>
 	</div>
 
@@ -87,8 +90,8 @@
 	{#if $store.isRemovals}
 		<div class="w-full">
 			<LocationAutoComplete
-				label="Pickup Location"
-				placeholder="Enter address or ZIP code"
+				label={$t('task.pickup_location')}
+				placeholder={$t('task.address_placeholder')}
 				location={$store.task.pickupLocation}
 				onLocationSelect={(location) => {
 					store.updateTask({
@@ -102,8 +105,8 @@
 		</div>
 		<div class="w-full">
 			<LocationAutoComplete
-				label="Drop-off Location"
-				placeholder="Enter address or ZIP code"
+				label={$t('task.dropoff_location')}
+				placeholder={$t('task.address_placeholder')}
 				location={$store.task.dropOffLocation}
 				onLocationSelect={(location) => {
 					store.updateTask({
@@ -119,7 +122,7 @@
 			<span class="label-text-alt text-error block">{errors.location}</span>
 		{/if}
 	{:else}
-		<p class="text-lg font-semibold">Where do you need this done?</p>
+		<p class="text-lg font-semibold">{$t('task.location_question')}</p>
 
 		<div class="flex gap-4">
 			<button
@@ -128,18 +131,18 @@
 					: 'btn-outline'}"
 				onclick={() => store.updateTask({ taskType: TaskTypeEnum.IN_PERSON })}
 			>
-				In-person
+				{$t('task.in_person')}
 			</button>
 			<button
 				class="btn {$store.task?.taskType === TaskTypeEnum.REMOTE ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => {
 					const defaultLocation = {
-                        displayName: '',
-                        longitude: null,
-                        latitude: null,
-                        zipCode: '',
-                        locationLoaded: false
-                    };
+						displayName: '',
+						longitude: null,
+						latitude: null,
+						zipCode: '',
+						locationLoaded: false
+					};
 					store.updateTask({
 						taskType: TaskTypeEnum.REMOTE,
 						pickupLocation: defaultLocation,
@@ -147,15 +150,15 @@
 					});
 				}}
 			>
-				Remote
+				{$t('task.remote')}
 			</button>
 		</div>
 
 		{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 			<div class="w-full">
 				<LocationAutoComplete
-					label="Location"
-					placeholder="Enter address or ZIP code"
+					label={$t('task.location')}
+					placeholder={$t('task.address_placeholder')}
 					location={$store.task.pickupLocation}
 					onLocationSelect={(location) => {
 						store.updateTask({
@@ -176,16 +179,16 @@
 	<div class="w-full">
 		<div class="my-5">
 			<label for="attachments" class="label block text-lg font-semibold text-white">
-				Add videos and images
+				{$t('task.attachments_label')}
 			</label>
 			<label for="attachments" class="label-text-alt block text-white/70">
-				Improve bid estimates by showing taskers what needs to be done
+				{$t('task.attachments_hint')}
 			</label>
 		</div>
 
 		<Uploader
 			id="attachments"
-			label="Attachments"
+			label={$t('task.attachments')}
 			allowedTypes={['image/*', 'video/*']}
 			files={uploaderFiles}
 			maxFiles={5}

@@ -72,8 +72,8 @@
 
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- General Questions -->
-		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">{$t('faq.general')}</h2>
+		<div class="bg-base-100 rounded-box p-6 my-12">
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general')}</h2>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -128,8 +128,8 @@
 		</div>
 
 		<!-- For Taskers -->
-		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">{$t('faq.taskers')}</h2>
+		<div class="bg-base-100 rounded-box p-6 my-12">
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers')}</h2>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -214,8 +214,8 @@
 			</div>
 		</div>
 
-		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">{$t('faq.taskees')}</h2>
+		<div class="bg-base-100 rounded-box p-6 my-12">
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees')}</h2>
 			<div class="join join-vertical w-full">
 				<!-- FAQ Taskees - How do I find tasks? -->
 				<div
@@ -305,8 +305,8 @@
 		</div>
 
 		<!-- Payments & Bitcoin -->
-		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">{$t('faq.payment.title')}</h2>
+		<div class="bg-base-100 rounded-box p-6 my-12">
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.payment.title')}</h2>
 			<div class="join join-vertical w-full">
 				<!-- Why use Bitcoin? -->
 				<div
@@ -346,8 +346,8 @@
 		</div>
 
 		<!-- Trust & Safety -->
-		<div class="bg-base-100 rounded-box p-6">
-			<h2 class="mb-4 text-2xl font-bold">{$t('faq.safety.title')}</h2>
+		<div class="bg-base-100 rounded-box p-6 my-12">
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.safety.title')}</h2>
 			<div class="join join-vertical w-full">
 				<!-- Is my payment secure? -->
 				<div
