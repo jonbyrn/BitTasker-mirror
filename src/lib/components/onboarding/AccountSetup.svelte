@@ -22,7 +22,7 @@
 		validateEmail
 	} from '$lib/utils/helpers/validators';
 	import { generatePassword } from '$lib/utils/helpers/password';
-	import { locale } from '$lib/stores/i18n.store';
+	import { locale } from 'svelte-i18n';
 	import authService from '$lib/api/services/auth.service';
 
 	let {
