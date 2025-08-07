@@ -5,7 +5,8 @@ nixPkgs = ['nodejs_22']
 cmds = [
     'npm cache clean --force',
     'rm -f package-lock.json',
-    'npm install'
+    'rm -rf node_modules',
+    'npm ci --platform=linux --arch=x64 --include=optional'
 ]
 
 [phases.build]
@@ -18,3 +19,5 @@ cmd = 'npm run preview'
 
 [variables]
 NODE_ENV = 'production'
+npm_config_target_platform = 'linux'
+npm_config_target_arch = 'x64'
