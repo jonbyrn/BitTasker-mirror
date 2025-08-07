@@ -1,0 +1,31 @@
+{
+    "find_tasks": {
+      "title": "Find Tasks",
+      "description": "Discover tasks that match your skills and interests",
+      "search_placeholder": "Search tasks...",
+      "remote": "Remote",
+      "in_person": "In Person",
+      "filters": "Filters",
+      "save_search": "Save Search",
+      "save_search_tooltip_disabled": "Add search filters to save",
+      "save_search_tooltip_enabled": "Save your search criteria",
+      "error_loading": "Error loading tasks: {error}. Please try again.",
+      "loading_timeout_title": "Loading is taking longer than expected",
+      "loading_timeout_message": "Try refreshing the page or check your connection",
+      "refresh": "Refresh",
+      "other_tasks": "Other Tasks",
+      "showing_tasks": "Showing {count} tasks",
+      "deadline": "Deadline",
+      "date_range": "Date Range",
+      "posted_by": "Posted By",
+      "not_available": "N/A",
+      "bids": "Bids",
+      "bid_on_task": "Bid on this task",
+      "bid_now": "Bid Now",
+      "bidding_closed": "Bidding closed",
+      "no_tasks_found": "No tasks found",
+      "no_tasks_message": "Try adjusting your filters or search criteria",
+      "clear_filters": "Clear Filters",
+      "cannot_bid_own_task": "You cannot bid on your own task"
+    }
+  }

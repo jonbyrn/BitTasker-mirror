@@ -31,7 +31,7 @@
 
 		<!-- Skills Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.skills')}</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.skills.title')}</h3>
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each $profileStore.data.skills as skill}
@@ -104,7 +104,7 @@
 
 		<!-- Portfolio Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio')}</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio.title')}</h3>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.portfolio as item}

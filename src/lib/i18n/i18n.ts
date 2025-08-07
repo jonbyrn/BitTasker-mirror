@@ -6,26 +6,49 @@ export const SUPPORTED_LANGUAGES = ['en', 'es'];
 async function loadMessages() {
 	for (const lang of SUPPORTED_LANGUAGES) {
 		try {
+			//general
 			const common = await import(`./locales/${lang}/common.json`);
 			const auth = await import(`./locales/${lang}/auth.json`);
 			const home = await import(`./locales/${lang}/home.json`);
-			const how_it_works = await import(`./locales/${lang}/how_it_works.json`);
-			const about = await import(`./locales/${lang}/company/about.json`);
-			const onboarding = await import(`./locales/${lang}/onboarding.json`);
 			const recomendations = await import(`./locales/${lang}/recomendations.json`);
+			const onboarding = await import(`./locales/${lang}/onboarding.json`);
+			const how_it_works = await import(`./locales/${lang}/how_it_works.json`);
+
+			//company
+			const about = await import(`./locales/${lang}/company/about.json`);
 			const careers = await import(`./locales/${lang}/company/careers.json`);
 			const press = await import(`./locales/${lang}/company/press.json`);
 			const security = await import(`./locales/${lang}/company/security.json`);
 			const privacy_policy = await import(`./locales/${lang}/company/privacy_policy.json`);
 			const terms = await import(`./locales/${lang}/company/terms.json`);
 			const contact = await import(`./locales/${lang}/company/contact.json`);
+
+			//dashboard
 			const bids = await import(`./locales/${lang}/dashboard/bids.json`);
+			const dashboard = await import(`./locales/${lang}/dashboard/dashboard.json`); 
+			const wallet = await import(`./locales/${lang}/dashboard/wallet.json`); 
+			const messages = await import(`./locales/${lang}/dashboard/messages.json`); 
+			const settings = await import(`./locales/${lang}/dashboard/settings.json`); //! pending requirements-label
+			
+			//dashboard/profile
 			const profile = await import(`./locales/${lang}/dashboard/profile/profile.json`); //! pending skills2 - portfolio2
+			const personal = await import(`./locales/${lang}/dashboard/profile/personal.json`); 
+			const availability = await import(`./locales/${lang}/dashboard/profile/availability.json`); 
+
+			//dashboard/tasks
+			const find = await import(`./locales/${lang}/dashboard/tasks/find.json`); 
+			const create = await import(`./locales/${lang}/dashboard/tasks/create.json`); 
+			const info = await import(`./locales/${lang}/dashboard/tasks/info.json`); 
+
+			
+			//taskees 
 			const guidelines = await import(`./locales/${lang}/taskees/guidelines.json`); 
 			const fee = await import(`./locales/${lang}/taskees/fee.json`); 
-			const feeTaskers = await import(`./locales/${lang}/taskers/fee.json`); 
 			const principles = await import(`./locales/${lang}/taskees/principles.json`); 
-			const faq = await import(`./locales/${lang}/taskees/faq.json`); 
+			const faq = await import(`./locales/${lang}/taskees/faq.json`);
+
+			//taskers
+			const feeTaskers = await import(`./locales/${lang}/taskers/fee.json`); 
 			const scrow = await import(`./locales/${lang}/taskers/scrow.json`); 
 
 			addMessages(lang, {
@@ -50,6 +73,15 @@ async function loadMessages() {
 				...faq.default,
 				...feeTaskers.default,
 				...scrow.default,
+				...dashboard.default,
+				...personal.default,
+				...availability.default,
+				...settings.default,
+				...wallet.default,
+				...messages.default,
+				...find.default,
+				...create.default,
+				...info.default
 			});
 		} catch (err) {
 			console.error(`Error loading messages for ${lang}`, err);

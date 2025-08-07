@@ -37,6 +37,12 @@
 	onDestroy(() => {
 		profileStore.destroy();
 	});
+
+	$effect(() => {
+		console.log('🔍 Debug i18n:');
+		console.log('tasksCompleted:', $t('profile'));
+		
+	});
 </script>
 
 <div class="mx-auto max-w-5xl">

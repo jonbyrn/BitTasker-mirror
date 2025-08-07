@@ -344,7 +344,7 @@
 				<!-- Public Key (NPub) -->
 				<div class="mb-6">
 					<label class="label" for="npub">
-						<span class="label-text font-semibold">{$t('settings.nostr.publicKey')}</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.publicKey-label')}</span>
 					</label>
 					<div class="flex gap-2">
 						<input
@@ -402,7 +402,7 @@
 				<!-- Private Key (NSec) -->
 				<div class="mb-4">
 					<label class="label" for="nsec">
-						<span class="label-text font-semibold">{$t('settings.nostr.privateKey')}</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.privateKey-label')}</span>
 					</label>
 					<div class="flex gap-2">
 						<div class="relative flex-1">
@@ -566,7 +566,7 @@
 						<!-- Recovery Email Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-email">
-								<span class="label-text font-semibold">{$t('settings.recovery.email')}</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.email-label')}</span>
 							</label>
 							<input
 								type="email"
@@ -587,7 +587,7 @@
 						<!-- Recovery Password Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-password">
-								<span class="label-text font-semibold">{$t('settings.recovery.password')}</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.password-label')}</span>
 							</label>
 							<div class="relative">
 								<input
@@ -650,7 +650,7 @@
 						<div class="form-control">
 							<label class="label" for="confirm-recovery-password">
 								<span class="label-text font-semibold"
-									>{$t('settings.recovery.confirmPassword')}</span
+									>{$t('settings.recovery.confirmPassword-label')}</span
 								>
 							</label>
 							<input

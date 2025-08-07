@@ -8,6 +8,7 @@
 			onTimeRate: number;
 		};
 	}>();
+
 </script>
 
 <!-- Stats Cards -->
