@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { t, locale, isLoading } from 'svelte-i18n';
-	import IconCheck from '~icons/mdi/check';
+	import { _, locale } from 'svelte-i18n';
+	import { switchLanguage, isI18nLoading, type SupportedLanguage } from '$lib/i18n/i18n';
+	import { preloadPageTranslations } from '$lib/i18n/routeTranslations';
+	import { page } from '$app/state';
 	import { browser } from '$app/environment';
-	import { derived } from 'svelte/store';
+	import IconCheck from '~icons/mdi/check';
 
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
@@ -16,19 +18,33 @@
 		showCheckmark = true,
 		className = '',
 		tooltip = '',
-		onLanguageChange = null as ((code: 'en' | 'es') => void) | null
+		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
-	const FLAG_IMAGES: Record<'en' | 'es', string> = {
+	const FLAG_IMAGES: Record<SupportedLanguage, string> = {
 		en: '/images/flags/us.webp',
 		es: '/images/flags/sv.webp'
 	};
 
-	const handleLanguageChange = async (code: 'en' | 'es') => {
+	const handleLanguageChange = async (code: SupportedLanguage) => {
 		try {
-			await locale.set(code);
-			if (browser) localStorage.setItem('locale', code);
+			// Don't switch if already selected
+			if (code === $locale) {
+				closeDropdown();
+				return;
+			}
+
+			// Preload translations for current page in the new language
+			if (browser && page.url?.pathname) {
+				preloadPageTranslations(page.url.pathname, code);
+			}
+
+			// Use optimized language switching
+			await switchLanguage(code);
+
+			// Call custom callback if provided
 			if (onLanguageChange) onLanguageChange(code);
+
 			closeDropdown();
 		} catch (error) {
 			console.error('Error changing language:', error);
@@ -70,29 +86,30 @@
 
 	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish' };
 
-	if (browser) {
-		const storedLocale = localStorage.getItem('locale') as 'en' | 'es' | null;
-		if (storedLocale) locale.set(storedLocale);
-		else locale.set('en');
-	}
-
-	const currentLanguageName = derived([t, locale, isLoading], ([$t, $locale, $isLoading]) => {
-		if ($isLoading) return '';
-		return $t('navbar.language.' + (LOCALE_TO_LANGUAGE_KEY[$locale as 'en' | 'es'] || $locale));
+	// Svelte 5 derived state for current language name
+	const currentLanguageName = $derived(() => {
+		const currentLocale = $locale as SupportedLanguage;
+		const key = LOCALE_TO_LANGUAGE_KEY[currentLocale] || currentLocale;
+		return $_('navbar.language.' + key) || '';
 	});
+
+	// Show loading state for language switching
+	const isLanguageLoading = $derived($isI18nLoading);
 </script>
 
 <details class="dropdown dropdown-end language-dropdown {className}" bind:this={dropdownElement}>
 	<summary
 		class="btn btn-ghost flex items-center gap-2"
+		class:loading={isLanguageLoading}
+		class:btn-disabled={isLanguageLoading}
 		onclick={handleDropdownClickWithState}
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
-		data-tip={` ${$currentLanguageName}`}
+		data-tip={!isLanguageLoading ? ` ${currentLanguageName()}` : ''}
 	>
 		<img
-			src={FLAG_IMAGES[$locale as 'en' | 'es']}
-			alt={`${$currentLanguageName} flag`}
+			src={FLAG_IMAGES[$locale as SupportedLanguage]}
+			alt={`${currentLanguageName()} flag`}
 			class="h-4.5 w-6 rounded-sm object-cover"
 			width="24"
 			height="18"
@@ -118,11 +135,13 @@
 			<li>
 				<button
 					class="flex w-full items-center gap-2 text-left"
-					onclick={() => handleLanguageChange(code as 'en' | 'es')}
+					class:loading={isLanguageLoading}
+					disabled={isLanguageLoading}
+					onclick={() => handleLanguageChange(code as SupportedLanguage)}
 					class:bg-base-200={code === $locale}
 				>
 					<img
-						src={FLAG_IMAGES[code as 'en' | 'es']}
+						src={FLAG_IMAGES[code as SupportedLanguage]}
 						alt={`${name} flag`}
 						class="h-4.5 w-6 rounded-sm object-cover"
 						width="24"
@@ -131,6 +150,9 @@
 					<span>{name}</span>
 					{#if showCheckmark && code === $locale}
 						<IconCheck class="text-primary ml-auto" width="16" />
+					{/if}
+					{#if isLanguageLoading && code !== $locale}
+						<div class="loading loading-spinner loading-xs ml-auto"></div>
 					{/if}
 				</button>
 			</li>

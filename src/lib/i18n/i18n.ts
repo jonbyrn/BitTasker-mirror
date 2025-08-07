@@ -1,121 +1,245 @@
-import { addMessages, init, locale } from 'svelte-i18n';
+import { addMessages, init, locale, getLocaleFromNavigator } from 'svelte-i18n';
 import { browser } from '$app/environment';
+import { get, writable } from 'svelte/store';
+import { Preferences } from '@capacitor/preferences';
 
-export const SUPPORTED_LANGUAGES = ['en', 'es'];
+export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
+export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 
-async function loadMessages() {
-	for (const lang of SUPPORTED_LANGUAGES) {
-		try {
-			//general
-			const common = await import(`./locales/${lang}/common.json`);
-			const auth = await import(`./locales/${lang}/auth.json`);
-			const home = await import(`./locales/${lang}/home.json`);
-			const recomendations = await import(`./locales/${lang}/recomendations.json`); //! pending filters
-			const onboarding = await import(`./locales/${lang}/onboarding.json`);
-			const how_it_works = await import(`./locales/${lang}/how_it_works.json`);
+// Track loaded namespaces to avoid duplicate loads
+const loadedNamespaces = new Map<string, Set<string>>();
 
-			//company
-			const about = await import(`./locales/${lang}/company/about.json`);
-			const careers = await import(`./locales/${lang}/company/careers.json`);
-			const press = await import(`./locales/${lang}/company/press.json`);
-			const security = await import(`./locales/${lang}/company/security.json`);
-			const privacy_policy = await import(`./locales/${lang}/company/privacy_policy.json`);
-			const terms = await import(`./locales/${lang}/company/terms.json`);
-			const contact = await import(`./locales/${lang}/company/contact.json`);
+// Store for loading state
+export const isI18nLoading = writable(false);
 
-			//dashboard
-			const bids = await import(`./locales/${lang}/dashboard/bids.json`);
-			const dashboard = await import(`./locales/${lang}/dashboard/dashboard.json`); 
-			const wallet = await import(`./locales/${lang}/dashboard/wallet.json`); 
-			const messages = await import(`./locales/${lang}/dashboard/messages.json`); 
-			const settings = await import(`./locales/${lang}/dashboard/settings.json`); //! pending requirements-label
-			
-			//dashboard/profile
-			const profile = await import(`./locales/${lang}/dashboard/profile/profile.json`); //! pending skills2 - portfolio2
-			const personal = await import(`./locales/${lang}/dashboard/profile/personal.json`); 
-			const availability = await import(`./locales/${lang}/dashboard/profile/availability.json`); 
+// Lazy loading cache
+const translationCache = new Map<string, any>();
 
-			//dashboard/tasks
-			const find = await import(`./locales/${lang}/dashboard/tasks/find.json`); 
-			const create = await import(`./locales/${lang}/dashboard/tasks/create.json`); 
-			const info = await import(`./locales/${lang}/dashboard/tasks/info.json`); 
-
-			
-			//taskees 
-			const guidelines = await import(`./locales/${lang}/taskees/guidelines.json`); 
-			const fee = await import(`./locales/${lang}/taskees/fee.json`); 
-			const principles = await import(`./locales/${lang}/taskees/principles.json`); 
-			const faq = await import(`./locales/${lang}/taskees/faq.json`);
-
-			//taskers
-			const feeTaskers = await import(`./locales/${lang}/taskers/fee.json`); 
-			const scrow = await import(`./locales/${lang}/taskers/scrow.json`); 
-
-			addMessages(lang, {
-				...common.default,
-				...auth.default,
-				...home.default,
-				...how_it_works.default,
-				...about.default,
-				...onboarding.default,
-				...recomendations.default,
-				...careers.default,
-				...press.default,
-				...security.default,
-				...privacy_policy.default,
-				...terms.default,
-				...contact.default,
-				...bids.default,
-				...profile.default,
-				...guidelines.default,
-				...fee.default,
-				...principles.default,
-				...faq.default,
-				...feeTaskers.default,
-				...scrow.default,
-				...dashboard.default,
-				...personal.default,
-				...availability.default,
-				...settings.default,
-				...wallet.default,
-				...messages.default,
-				...find.default,
-				...create.default,
-				...info.default
-			});
-		} catch (err) {
-			console.error(`Error loading messages for ${lang}`, err);
+/**
+ * Get the initial locale based on user preference
+ */
+const getInitialLocale = async (): Promise<SupportedLanguage> => {
+	if (browser) {
+		// Check Preferences first
+		const storedLocale = await Preferences.get({ key: 'locale' });
+		if (storedLocale.value && SUPPORTED_LANGUAGES.includes(storedLocale.value as SupportedLanguage)) {
+			return storedLocale.value as SupportedLanguage;
 		}
+
+		// Fallback to browser locale
+		const browserLocale = getLocaleFromNavigator();
+		const lang = browserLocale?.split('-')[0];
+		if (lang && SUPPORTED_LANGUAGES.includes(lang as SupportedLanguage)) {
+			return lang as SupportedLanguage;
+		}
+	}
+	return 'en'; // Default fallback
+};
+
+/**
+ * Load a specific namespace for a locale
+ */
+export async function loadNamespace(locale: SupportedLanguage, namespace: string): Promise<any> {
+	const cacheKey = `${locale}-${namespace}`;
+
+	// Return cached if available
+	if (translationCache.has(cacheKey)) {
+		return translationCache.get(cacheKey);
+	}
+
+	try {
+		const pathToFile = `./locales/${locale}/${namespace}.json`;
+		const translations = await import(pathToFile);
+		const data = translations.default;
+
+		// Cache the result
+		translationCache.set(cacheKey, data);
+
+		// Track loaded namespace
+		if (!loadedNamespaces.has(locale)) {
+			loadedNamespaces.set(locale, new Set());
+		}
+		loadedNamespaces.get(locale)!.add(namespace);
+
+		// Add to svelte-i18n
+		addMessages(locale, data);
+
+		return data;
+	} catch (error) {
+		console.warn(`Failed to load namespace ${namespace} for locale ${locale}:`, error);
+		return {};
 	}
 }
 
-const getInitialLocale = (): string => {
-	if (browser) {
-		const storedLocale = localStorage.getItem('locale');
-		if (storedLocale && SUPPORTED_LANGUAGES.includes(storedLocale)) {
-			return storedLocale;
+/**
+ * Load multiple namespaces at once
+ */
+export async function loadNamespaces(locale: SupportedLanguage, namespaces: string[]): Promise<void> {
+	const loadPromises = namespaces.map(namespace => loadNamespace(locale, namespace));
+	await Promise.allSettled(loadPromises);
+}
+
+/**
+ * Load essential translations for initial app render
+ */
+async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
+	// Only load critical translations needed for initial render
+	const essentialNamespaces = [
+		'home',
+		'common'
+	];
+
+	await loadNamespaces(currentLocale, essentialNamespaces);
+}
+
+/**
+ * Map routes to required translation namespaces
+ */
+export function getNamespacesForRoute(route: string): string[] {
+	const namespaces: string[] = [];
+
+	// Dashboard routes
+	if (route.includes('/dashboard')) {
+		namespaces.push('dashboard/dashboard');
+
+		if (route.includes('/profile')) {
+			namespaces.push('dashboard/profile/profile', 'dashboard/profile/personal');
 		}
-		const navigatorLang = navigator.language.split('-')[0];
-		if (SUPPORTED_LANGUAGES.includes(navigatorLang)) {
-			return navigatorLang;
+		if (route.includes('/wallet')) {
+			namespaces.push('dashboard/wallet');
+		}
+		if (route.includes('/find-tasks')) {
+			namespaces.push('dashboard/tasks/find');
+		}
+		if (route.includes('/create-task')) {
+			namespaces.push('dashboard/tasks/create');
+		}
+		// TODO: Task [id] route is removed - Checkout usage of info.json file
+		if (route.includes('/task/')) {
+			namespaces.push('dashboard/tasks/info');
+		}
+		if (route.includes('/messages')) {
+			namespaces.push('dashboard/messages');
+		}
+		if (route.includes('/settings')) {
+			namespaces.push('dashboard/settings');
+		}
+		if (route.includes('/taskees')) {
+			namespaces.push('dashboard/bids');
 		}
 	}
-	return 'en'; // fallback
-};
 
-export async function setupI18n() {
-	await loadMessages();
+	if (route.includes('/onboarding')) namespaces.push('onboarding');
+	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
+	if (route.includes('/auth')) namespaces.push('auth');
 
-	init({
-		fallbackLocale: 'en',
-		initialLocale: getInitialLocale()
-	});
+	// Company pages (route groups don't show in URL, so check actual paths)
+	if (route.includes('/about')) namespaces.push('company/about');
+	if (route.includes('/careers')) namespaces.push('company/careers');
+	if (route.includes('/contact')) namespaces.push('company/contact');
+	if (route.includes('/security')) namespaces.push('company/security');
+	if (route.includes('/privacy')) namespaces.push('company/privacy_policy');
+	if (route.includes('/terms')) namespaces.push('company/terms');
+	if (route.includes('/press')) namespaces.push('company/press');
+	if (route.includes('/community-guidelines')) namespaces.push('taskees/guidelines');
+	if (route.includes('/taskee-fees')) namespaces.push('taskees/fee');
+	if (route.includes('/tasker-fees')) namespaces.push('taskers/fee');
+	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
+	if (route.includes('/escrow')) namespaces.push('taskers/scrow');
+	if (route.includes('/faq')) namespaces.push('taskees/faq');
 
-	if (browser) {
-		locale.subscribe((value) => {
-			if (value) {
-				localStorage.setItem('locale', value);
-			}
+	return namespaces;
+}
+
+/**
+ * Load route-specific translations dynamically
+ */
+export async function loadRouteTranslations(route: string, currentLocale?: SupportedLanguage): Promise<void> {
+	if (!browser) return;
+
+	const targetLocale = currentLocale || await getInitialLocale();
+	const namespaces = getNamespacesForRoute(route);
+
+	if (namespaces.length > 0) {
+		await loadNamespaces(targetLocale, namespaces);
+	}
+}
+
+/**
+ * Initialize i18n with minimal overhead
+ */
+export async function setupI18n(): Promise<void> {
+	if (!browser) return console.warn('Not in client context');
+
+	isI18nLoading.set(true);
+
+	try {
+		const currentLocale = await getInitialLocale();
+
+		// Load only essential translations
+		await loadEssentialTranslations(currentLocale);
+
+		// Initialize svelte-i18n
+		init({
+			fallbackLocale: 'en',
+			initialLocale: currentLocale,
+			loadingDelay: 200,
 		});
+
+		// Set up locale persistence
+		await Preferences.set({ key: 'locale', value: get(locale) || 'en' });
+
+	} catch (error) {
+		console.error('Failed to setup i18n:', error);
+	} finally {
+		isI18nLoading.set(false);
+	}
+}
+
+/**
+ * Switch language and load its essential translations
+ */
+export async function switchLanguage(newLocale: SupportedLanguage): Promise<void> {
+	if (!browser) return;
+
+	isI18nLoading.set(true);
+
+	try {
+		// Load essential translations for new locale
+		await loadEssentialTranslations(newLocale);
+
+		// Update locale
+		locale.set(newLocale);
+
+		// Persist the new locale
+		await Preferences.set({ key: 'locale', value: newLocale });
+
+		// Load current route translations for new locale
+		if (typeof window !== 'undefined') {
+			await loadRouteTranslations(window.location.pathname, newLocale);
+		}
+
+	} catch (error) {
+		console.error(`Failed to switch to locale ${newLocale}:`, error);
+	} finally {
+		isI18nLoading.set(false);
+	}
+}
+
+/**
+ * Preload translations for better UX
+ */
+export function preloadTranslations(locale: SupportedLanguage, namespaces: string[]): void {
+	if (!browser) return;
+
+	// Use requestIdleCallback for non-blocking preload
+	if ('requestIdleCallback' in window) {
+		requestIdleCallback(() => {
+			loadNamespaces(locale, namespaces);
+		}, { timeout: 1000 });
+	} else {
+		setTimeout(() => {
+			loadNamespaces(locale, namespaces);
+		}, 100);
 	}
 }
