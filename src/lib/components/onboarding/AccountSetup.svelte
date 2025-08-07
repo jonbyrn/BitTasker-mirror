@@ -21,6 +21,8 @@
 		validatePassword,
 		validateEmail
 	} from '$lib/utils/helpers/validators';
+	import { generatePassword } from '$lib/utils/helpers/password';
+	import { locale } from '$lib/stores/i18n.store';
 	import authService from '$lib/api/services/auth.service';
 
 	let {
@@ -57,6 +59,20 @@
 	// Password visibility
 	let showPrivateKey = $state(false);
 	let showPassword = $state(false);
+
+	// Generate password function
+	function handleGeneratePassword() {
+		const newPassword = generatePassword($locale);
+		recoveryPassword = newPassword;
+		confirmPassword = newPassword;
+		passwordError = '';
+	}
+
+	$effect(() => {
+		if (enableRecovery) {
+			handleGeneratePassword();
+		}
+	});
 
 	async function generateKeyPair() {
 		const sk = generateSecretKey();
@@ -135,19 +151,21 @@
 			}
 
 			// Register with server
-			await authService.registerWithNostr({
-				username,
-				publicKey: npub,
-				encryptedPrivateKey: encrypted.data,
-				iv: encrypted.iv,
-				salt: salt,
-				authTag: encrypted.authTag,
-				iterations,
-				authMethod: 'passkey',
-				deviceId
-			}).then(async () => {
-				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-			});
+			await authService
+				.registerWithNostr({
+					username,
+					publicKey: npub,
+					encryptedPrivateKey: encrypted.data,
+					iv: encrypted.iv,
+					salt: salt,
+					authTag: encrypted.authTag,
+					iterations,
+					authMethod: 'passkey',
+					deviceId
+				})
+				.then(async () => {
+					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+				});
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
@@ -512,7 +530,7 @@
 					</div>
 
 					<div
-						class="alert alert-warning mt-4 rounded-2xl text-xs text-black"
+						class="alert alert-warning alert-outline mt-4 rounded-2xl text-xs text-black"
 						in:fly={{ duration: 100, y: -20, easing: linear }}
 					>
 						<p>
@@ -546,24 +564,64 @@
 						<label class="label" for="password">
 							<span class="label-text">Recovery Password</span>
 						</label>
-						<div class="relative">
+						<div class="flex gap-2">
 							<input
 								type={showPassword ? 'text' : 'password'}
 								id="password"
 								bind:value={recoveryPassword}
-								class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+								class="input input-bordered flex-1 {passwordError ? 'input-error' : ''}"
 								placeholder="Create a strong password"
 								required={enableRecovery}
 							/>
 							<button
+								aria-label="Generate new 4-word password"
 								type="button"
-								class="absolute inset-y-0 right-0 flex items-center pr-3"
+								class="btn btn-outline btn-sm"
+								onclick={handleGeneratePassword}
+								title="Generate new 4-word password in {$locale === 'es' ? 'Spanish' : 'English'}"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+									/>
+								</svg>
+							</button>
+						</div>
+					</div>
+
+					<!-- Confirm Password Field -->
+					<div class="form-control">
+						<label class="label" for="confirmPassword">
+							<span class="label-text">Confirm Recovery Password</span>
+						</label>
+						<div class="flex gap-2">
+							<input
+								type={showPassword ? 'text' : 'password'}
+								id="confirmPassword"
+								bind:value={confirmPassword}
+								class="input input-bordered flex-1 {passwordError ? 'input-error' : ''}"
+								placeholder="Confirm your password"
+								required={enableRecovery}
+							/>
+							<button
+								type="button"
+								class="btn btn-outline btn-sm"
 								onclick={() => (showPassword = !showPassword)}
+								title={showPassword ? 'Hide password' : 'Show password'}
 							>
 								{#if showPassword}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
+										class="h-4 w-4"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"
@@ -578,7 +636,7 @@
 								{:else}
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
+										class="h-4 w-4"
 										fill="none"
 										viewBox="0 0 24 24"
 										stroke="currentColor"
@@ -599,53 +657,12 @@
 								{/if}
 							</button>
 						</div>
-					</div>
-
-					<!-- Confirm Password Field -->
-					<div class="form-control">
-						<label class="label" for="confirmPassword">
-							<span class="label-text">Confirm Recovery Password</span>
-						</label>
-						<input
-							type={showPassword ? 'text' : 'password'}
-							id="confirmPassword"
-							bind:value={confirmPassword}
-							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-							placeholder="Confirm your password"
-							required={enableRecovery}
-						/>
 						{#if passwordError}
 							<label class="label" for="confirmPassword">
 								<span class="label-text-alt text-error">{passwordError}</span>
 							</label>
 						{/if}
 					</div>
-
-					<!-- Password Guidelines -->
-					{#if recoveryPassword}
-						<p class="mt-2" in:fly={{ duration: 100, y: -20, easing: linear }}>
-							Your password should be at least
-							<span class={recoveryPassword.length >= 8 ? 'text-success font-medium' : ''}>
-								8 characters
-							</span>, include
-							<span class={/[A-Z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								uppercase
-							</span>,
-							<span class={/[a-z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								lowercase
-							</span>,
-							<span class={/[0-9]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								numbers
-							</span>, and
-							<span
-								class={/[!@#$%^&*(),.?":{}|<>]/.test(recoveryPassword)
-									? 'text-success font-medium'
-									: ''}
-							>
-								special characters
-							</span>.
-						</p>
-					{/if}
 				</div>
 			{/if}
 

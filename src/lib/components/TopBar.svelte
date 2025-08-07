@@ -411,7 +411,7 @@
 </div>
 
 <!-- Mobile Drawer -->
-<Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" width="80%" isScrollable={true}>
+<Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
 	{#snippet children()}
 		<ul class="menu w-full">
 			<!-- Dark mode toggle -->

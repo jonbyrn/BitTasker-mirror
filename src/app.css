@@ -1,9 +1,103 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @plugin "daisyui";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+
+/* DaisyUI configuration */
+@daisyui {
+	themes: ['dark', 'light'];
+	darkTheme: 'dark';
+	base: true;
+	styled: true;
+	utils: true;
+	prefix: '';
+	logs: false;
+	/* Only include components that are actually used */
+	components: [
+		'alert',
+		'badge', 
+		'breadcrumb',
+		'btn',
+		'card',
+		'collapse',
+		'dropdown',
+		'form',
+		'input',
+		'label',
+		'loading',
+		'menu',
+		'modal',
+		'navbar',
+		'select',
+		'textarea',
+		'tooltip'
+	];
+}
+
+/* Tailwind theme configuration */
+@theme {
+	/* Container configuration */
+	--container-center: true;
+	--container-padding: 2rem;
+	--screen-2xl: 1400px;
+	
+	/* Font family configuration */
+	--font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+	--font-heading: 'Droid Serif', 'Georgia', ui-serif, serif;
+	--font-display: 'Droid Serif', 'Georgia', ui-serif, serif;
+	--font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+	
+	/* Animation keyframes */
+	--keyframe-fade-in-0: { opacity: 0; };
+	--keyframe-fade-in-100: { opacity: 1; };
+	
+	/* Animation configuration */
+	--animation-fade-in: fade-in 0.5s ease-in-out;
+}
+
+/* Safelist - preserving classes from optimization */
+/* Dynamic width classes for Drawer component */
+@source inline("w-[10%]");
+@source inline("w-[20%]");
+@source inline("w-[30%]");
+@source inline("w-[40%]");
+@source inline("w-[50%]");
+@source inline("w-[55%]");
+@source inline("w-[60%]");
+@source inline("w-[65%]");
+@source inline("w-[70%]");
+@source inline("w-[75%]");
+@source inline("w-[80%]");
+@source inline("w-[85%]");
+@source inline("w-[90%]");
+@source inline("w-[95%]");
+@source inline("w-[100%]");
+
+/* Font utility classes */
+@source inline("font-heading");
+@source inline("font-display");
+
+/* Transition classes */
+@source inline("transition-colors");
+@source inline("transition-all");
+@source inline("duration-300");
+@source inline("ease-in-out");
+
+/* Custom utilities */
+@utilities {
+	.scrollbar-hide {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+	.scrollbar-hide::-webkit-scrollbar {
+		display: none;
+	}
+	.font-heading {
+		font-family: var(--font-heading);
+	}
+	.font-display {
+		font-family: var(--font-display);
+	}
+}
 
 /* Import Font Awesome CSS */
 
@@ -151,19 +245,19 @@ ul[role="listbox"]:focus {
 }
 
 /* Dark mode specific adjustments */
-:root[data-theme='BitTasker-Dark'] .glow-blur {
+:root[data-theme='dark'] .glow-blur {
 	opacity: 0.15;
 	filter: blur(120px);
 }
 
 /* Light mode adjustments */
-:root[data-theme='BitTasker-Light'] .glow-blur {
+:root[data-theme='light'] .glow-blur {
 	opacity: 0.2;
 	filter: blur(100px);
 }
 
 @plugin "daisyui/theme" {
-	name: 'BitTasker-Dark';
+	name: 'dark';
 	default: true;
 	prefersdark: true;
 	color-scheme: 'dark';
@@ -198,7 +292,7 @@ ul[role="listbox"]:focus {
 }
 
 @plugin "daisyui/theme" {
-	name: 'BitTasker-Light';
+	name: 'light';
 	default: false;
 	prefersdark: false;
 	color-scheme: 'light';

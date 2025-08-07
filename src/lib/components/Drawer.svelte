@@ -12,7 +12,6 @@
 		title?: string;
 		onClose: () => void;
 		position?: 'left' | 'right';
-		width?: 'sm' | 'md' | 'lg' | 'full' | string;
 		isScrollable?: boolean;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
@@ -20,7 +19,6 @@
 
 	// Set defaults
 	const position = props.position || 'right';
-	const width = props.width || 'md';
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -45,25 +43,8 @@
 		return enableBodyScroll;
 	});
 
-	// Get CSS classes for width
-	function getWidthClass(width: string): string {
-		if (width.split('').includes('%')) {
-			return `w-[${width}] sm:w-[400px]`;
-		}
-
-		switch (width) {
-			case 'sm':
-				return 'w-full sm:w-[400px]';
-			case 'md':
-				return 'w-full sm:w-[70%]';
-			case 'lg':
-				return 'w-full sm:w-[85%]';
-			case 'full':
-				return 'w-full';
-			default:
-				return 'w-full sm:w-[70%]';
-		}
-	}
+	// Fixed width CSS class
+	const drawerWidthClass = 'w-full sm:w-[80%]';
 
 	// Get CSS classes for position transform
 	function getPositionTransform(position: string) {
@@ -101,7 +82,7 @@
 <div
 	class="bg-base-100 fixed top-0 {position === 'left'
 		? 'left-0'
-		: 'right-0'} z-50 h-full {getWidthClass(width)} 
+		: 'right-0'} z-50 h-full {drawerWidthClass} 
 		{props.isScrollable ? 'overflow-y-auto' : 'overflow-auto'} 
 		transform shadow-xl transition-transform duration-300"
 	style="transform: {getPositionTransform(position)};"
