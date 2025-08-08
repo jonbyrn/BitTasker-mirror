@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/company/about.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"how_it_works_about\": {\r\n        \"hero\": {\r\n            \"heading\": \"Impulsando la Libertad Humana, Una Tarea a la Vez\",\r\n            \"tagline\": \"En BitTasker creemos en el poder del trabajo descentralizado. Al permitir que cualquier persona, en cualquier lugar, gane dinero con sus habilidades, ayudamos a liberar el potencial humano y la libertad financiera, una tarea a la vez.\"\r\n        }\r\n    },\r\n    \"about_page\": {\r\n        \"mission\": {\r\n            \"title\": \"Nuestra Misión\",\r\n            \"description\": \"BitTasker existe para empoderar a las personas comunes a ganar, intercambiar y prosperar sin fronteras, bancos ni barreras. Estamos construyendo una plataforma donde las habilidades se convierten en moneda y Bitcoin se convierte en el puente entre individuos soberanos.\"\r\n        },\r\n        \"core_beliefs\": {\r\n            \"title\": \"Nuestras Creencias Fundamentales\",\r\n            \"description\": \"En BitTasker creemos en la libertad económica, la dignidad digital y el poder de la colaboración entre pares para transformar vidas en todo el mundo.\",\r\n            \"divider\": \"Principios Fundamentales\",\r\n            \"bitcoin_title\": \"Bitcoin es Libertad\",\r\n            \"bitcoin_text\": \"Adoptamos Bitcoin como una herramienta para liberar el potencial económico global de quienes no tienen acceso a bancos, están mal pagados o enfrentan regulaciones excesivas.\",\r\n            \"tasks_title\": \"Las Tareas son Dignidad\",\r\n            \"tasks_text\": \"Toda persona tiene valor. BitTasker conecta habilidades prácticas con demanda global—sin currículum, sin filtros, solo prueba de valor.\",\r\n            \"decentralization_title\": \"La Descentralización es Clave\",\r\n            \"decentralization_text\": \"Las plataformas tradicionales extraen valor con censura y comisiones excesivas. Nosotros elegimos otro camino: entre pares, abierto y justo.\",\r\n            \"sovereignty_title\": \"La Soberanía Comienza con Ingresos\",\r\n            \"sovereignty_text\": \"Ayudamos a las personas a ser dueñas de su tiempo, su dinero y su futuro mediante ingresos directos y resistentes a la censura.\"\r\n        },\r\n        \"platform\": {\r\n            \"title\": \"Nuestra Plataforma\",\r\n            \"description\": \"BitTasker no es solo una empresa, es una misión para descentralizar los ingresos y hacer que Bitcoin sea útil en la vida diaria.\",\r\n            \"features\": {\r\n                \"communication\": {\r\n                    \"title\": \"Comunicación Descentralizada\",\r\n                    \"description\": \"Mensajería resistente a la censura mediante Nostr.\"\r\n                },\r\n                \"lightning\": {\r\n                    \"title\": \"Pagos con Lightning de Bitcoin\",\r\n                    \"description\": \"Instantáneos, sin fronteras y casi gratuitos.\"\r\n                },\r\n                \"escrow\": {\r\n                    \"title\": \"Custodia y Reputación\",\r\n                    \"description\": \"Confianza sin intermediarios.\"\r\n                },\r\n                \"fiat\": {\r\n                    \"title\": \"Pasarela de Entrada Fiat\",\r\n                    \"description\": \"Accesibilidad para todos.\"\r\n                },\r\n                \"marketplace\": {\r\n                    \"title\": \"Mercado Multicategoría\",\r\n                    \"item1\": \"Oficios, Construcción y Reparaciones\",\r\n                    \"item2\": \"Creatividad, Mascotas, Plomería y más\"\r\n                },\r\n                \"global\": {\r\n                    \"title\": \"Diseñado para la Inclusión Global\",\r\n                    \"item1\": \"Acceso sin fronteras\",\r\n                    \"item2\": \"Sin KYC, sin sesgos\"\r\n                }\r\n            },\r\n            \"alert\": \"Estamos construyendo una plataforma donde la libertad, la equidad y la inclusión financiera prosperan—impulsadas por Bitcoin y la confianza comunitaria.\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494744,
+      "end": 1754579494779,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494779,
+      "end": 1754579494780,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal"
+    }
+  ]
+}

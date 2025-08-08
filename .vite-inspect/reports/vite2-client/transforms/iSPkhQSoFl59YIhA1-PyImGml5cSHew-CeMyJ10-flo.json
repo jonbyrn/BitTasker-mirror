@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/combobox/index.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export * as Combobox from \"./exports.js\";\n",
+      "start": 1754579496027,
+      "end": 1754579496062,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496062,
+      "end": 1754579496062,
+      "order": "normal"
+    }
+  ]
+}

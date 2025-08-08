@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/intervalToDuration.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { normalizeInterval } from \"./_lib/normalizeInterval.js\";\nimport { add } from \"./add.js\";\nimport { differenceInDays } from \"./differenceInDays.js\";\nimport { differenceInHours } from \"./differenceInHours.js\";\nimport { differenceInMinutes } from \"./differenceInMinutes.js\";\nimport { differenceInMonths } from \"./differenceInMonths.js\";\nimport { differenceInSeconds } from \"./differenceInSeconds.js\";\nimport { differenceInYears } from \"./differenceInYears.js\";\n\n/**\n * The {@link intervalToDuration} function options.\n */\n\n/**\n * @name intervalToDuration\n * @category Common Helpers\n * @summary Convert interval to duration\n *\n * @description\n * Convert an interval object to a duration object.\n *\n * @param interval - The interval to convert to duration\n * @param options - The context options\n *\n * @returns The duration object\n *\n * @example\n * // Get the duration between January 15, 1929 and April 4, 1968.\n * intervalToDuration({\n *   start: new Date(1929, 0, 15, 12, 0, 0),\n *   end: new Date(1968, 3, 4, 19, 5, 0)\n * });\n * //=> { years: 39, months: 2, days: 20, hours: 7, minutes: 5, seconds: 0 }\n */\nexport function intervalToDuration(interval, options) {\n  const { start, end } = normalizeInterval(options?.in, interval);\n  const duration = {};\n\n  const years = differenceInYears(end, start);\n  if (years) duration.years = years;\n\n  const remainingMonths = add(start, { years: duration.years });\n  const months = differenceInMonths(end, remainingMonths);\n  if (months) duration.months = months;\n\n  const remainingDays = add(remainingMonths, { months: duration.months });\n  const days = differenceInDays(end, remainingDays);\n  if (days) duration.days = days;\n\n  const remainingHours = add(remainingDays, { days: duration.days });\n  const hours = differenceInHours(end, remainingHours);\n  if (hours) duration.hours = hours;\n\n  const remainingMinutes = add(remainingHours, { hours: duration.hours });\n  const minutes = differenceInMinutes(end, remainingMinutes);\n  if (minutes) duration.minutes = minutes;\n\n  const remainingSeconds = add(remainingMinutes, { minutes: duration.minutes });\n  const seconds = differenceInSeconds(end, remainingSeconds);\n  if (seconds) duration.seconds = seconds;\n\n  return duration;\n}\n\n// Fallback for modularized imports:\nexport default intervalToDuration;\n",
+      "start": 1754579494945,
+      "end": 1754579494961,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494962,
+      "end": 1754579494962,
+      "order": "normal"
+    }
+  ]
+}

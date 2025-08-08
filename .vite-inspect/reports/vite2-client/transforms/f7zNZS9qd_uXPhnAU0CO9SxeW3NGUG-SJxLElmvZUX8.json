@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/homepage/LiveTaskCard.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\r\n\timport type { LiveTask } from '$lib/types/homepage';\r\n\r\n\tlet { task } = $props<{\r\n\t\ttask: LiveTask;\r\n\t}>();\r\n</script>\r\n\r\n<div class=\"card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col\">\r\n\t<figure>\r\n\t\t<img src={task.image} alt={task.title} class=\"h-48 w-full object-cover\" loading=\"lazy\" />\r\n\t</figure>\r\n\t<div class=\"card-body flex-1 flex flex-col\">\r\n\t\t<div class=\"h-14 mb-2\"> <!-- Fixed height container for title -->\r\n\t\t\t<h6 class=\"card-title text-lg line-clamp-2 min-h-[3.5rem]\">{task.title}</h6>\r\n\t\t</div>\r\n\t\t<div class=\"flex items-center justify-between\">\r\n\t\t\t<span class=\"text-lg font-bold text-accent\">${task.budget}</span>\r\n\t\t\t<span class=\"text-sm text-base-content/70\">{task.proposals} proposals</span>\r\n\t\t</div>\r\n\t\t<div class=\"card-actions items-center justify-between mt-auto\">\r\n\t\t\t<span class=\"text-sm text-base-content/70\">Time left: {task.timeLeft}</span>\r\n\t\t\t<button class=\"btn btn-primary btn-sm\">Bid Now</button>\r\n\t\t</div>\r\n\t</div>\r\n</div>\r\n",
+      "start": 1754579491879,
+      "end": 1754579492215,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">import type { LiveTask } from \"$lib/types/homepage\";\r\n\r\nlet {\r\n    task\r\n} = $props<{\r\n    task: LiveTask;\r\n}>();</script>\r\n\r\n<div class=\"card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col\">\r\n\t<figure>\r\n\t\t<img src={task.image} alt={task.title} class=\"h-48 w-full object-cover\" loading=\"lazy\" />\r\n\t</figure>\r\n\t<div class=\"card-body flex-1 flex flex-col\">\r\n\t\t<div class=\"h-14 mb-2\"> <!-- Fixed height container for title -->\r\n\t\t\t<h6 class=\"card-title text-lg line-clamp-2 min-h-[3.5rem]\">{task.title}</h6>\r\n\t\t</div>\r\n\t\t<div class=\"flex items-center justify-between\">\r\n\t\t\t<span class=\"text-lg font-bold text-accent\">${task.budget}</span>\r\n\t\t\t<span class=\"text-sm text-base-content/70\">{task.proposals} proposals</span>\r\n\t\t</div>\r\n\t\t<div class=\"card-actions items-center justify-between mt-auto\">\r\n\t\t\t<span class=\"text-sm text-base-content/70\">Time left: {task.timeLeft}</span>\r\n\t\t\t<button class=\"btn btn-primary btn-sm\">Bid Now</button>\r\n\t\t</div>\r\n\t</div>\r\n</div>\r\n",
+      "start": 1754579492215,
+      "end": 1754579492216,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/components/homepage/LiveTaskCard.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\r\n\timport type { LiveTask } from '$lib/types/homepage';\r\n\r\n\tlet { task } = $props<{\r\n\t\ttask: LiveTask;\r\n\t}>();\r\n</script>\r\n\r\n<div class=\"card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col\">\r\n\t<figure>\r\n\t\t<img src={task.image} alt={task.title} class=\"h-48 w-full object-cover\" loading=\"lazy\" />\r\n\t</figure>\r\n\t<div class=\"card-body flex-1 flex flex-col\">\r\n\t\t<div class=\"h-14 mb-2\"> <!-- Fixed height container for title -->\r\n\t\t\t<h6 class=\"card-title text-lg line-clamp-2 min-h-[3.5rem]\">{task.title}</h6>\r\n\t\t</div>\r\n\t\t<div class=\"flex items-center justify-between\">\r\n\t\t\t<span class=\"text-lg font-bold text-accent\">${task.budget}</span>\r\n\t\t\t<span class=\"text-sm text-base-content/70\">{task.proposals} proposals</span>\r\n\t\t</div>\r\n\t\t<div class=\"card-actions items-center justify-between mt-auto\">\r\n\t\t\t<span class=\"text-sm text-base-content/70\">Time left: {task.timeLeft}</span>\r\n\t\t\t<button class=\"btn btn-primary btn-sm\">Bid Now</button>\r\n\t\t</div>\r\n\t</div>\r\n</div>\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/G,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492216,
+      "end": 1754579492216,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\n\nvar root = $.template(`<div class=\"card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col\"><figure><img class=\"h-48 w-full object-cover\" loading=\"lazy\"></figure> <div class=\"card-body flex-1 flex flex-col\"><div class=\"h-14 mb-2\"><h6 class=\"card-title text-lg line-clamp-2 min-h-[3.5rem]\"> </h6></div> <div class=\"flex items-center justify-between\"><span class=\"text-lg font-bold text-accent\"> </span> <span class=\"text-sm text-base-content/70\"> </span></div> <div class=\"card-actions items-center justify-between mt-auto\"><span class=\"text-sm text-base-content/70\"> </span> <button class=\"btn btn-primary btn-sm\">Bid Now</button></div></div></div>`);\n\nexport default function LiveTaskCard($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tvar div = root();\n\tvar figure = $.child(div);\n\tvar img = $.child(figure);\n\n\t$.reset(figure);\n\n\tvar div_1 = $.sibling(figure, 2);\n\tvar div_2 = $.child(div_1);\n\tvar h6 = $.child(div_2);\n\tvar text = $.child(h6, true);\n\n\t$.reset(h6);\n\t$.reset(div_2);\n\n\tvar div_3 = $.sibling(div_2, 2);\n\tvar span = $.child(div_3);\n\tvar text_1 = $.child(span);\n\n\t$.reset(span);\n\n\tvar span_1 = $.sibling(span, 2);\n\tvar text_2 = $.child(span_1);\n\n\t$.reset(span_1);\n\t$.reset(div_3);\n\n\tvar div_4 = $.sibling(div_3, 2);\n\tvar span_2 = $.child(div_4);\n\tvar text_3 = $.child(span_2);\n\n\t$.reset(span_2);\n\t$.next(2);\n\t$.reset(div_4);\n\t$.reset(div_1);\n\t$.reset(div);\n\n\t$.template_effect(() => {\n\t\t$.set_attribute(img, 'src', $$props.task.image);\n\t\t$.set_attribute(img, 'alt', $$props.task.title);\n\t\t$.set_text(text, $$props.task.title);\n\t\t$.set_text(text_1, `$${$$props.task.budget ?? ''}`);\n\t\t$.set_text(text_2, `${$$props.task.proposals ?? ''} proposals`);\n\t\t$.set_text(text_3, `Time left: ${$$props.task.timeLeft ?? ''}`);\n\t});\n\n\t$.append($$anchor, div);\n\t$.pop();\n}",
+      "start": 1754579492216,
+      "end": 1754579492218,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2CAUiB,KAAK;2CAAY,KAAK;gCAI6B,KAAK;sCAGnB,MAAM;qCACR,SAAS;gDAGE,QAAQ",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "LiveTaskCard.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492218,
+      "end": 1754579492218,
+      "order": "normal"
+    }
+  ]
+}

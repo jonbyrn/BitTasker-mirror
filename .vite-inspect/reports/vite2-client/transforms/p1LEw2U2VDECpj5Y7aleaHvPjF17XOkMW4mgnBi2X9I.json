@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/taskees/principles.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"taskee_principles\": {\r\n        \"title\": \"Taskee Principles\",\r\n        \"subtitle\": \"The values that guide how taskees should conduct themselves on BitTasker.\",\r\n        \"heading\": \"Our Taskee Principles\",\r\n        \"description\": \"These principles guide how taskees should conduct themselves on BitTasker. They represent the values that make our platform trustworthy and beneficial for both taskers and taskees.\",\r\n        \"section_title\": \"For Taskees\",\r\n        \"1\": {\r\n            \"title\": \"1. Deliver Excellence\",\r\n            \"text\": \"Complete every task to the highest possible standard. Your reputation depends on consistent quality work.\"\r\n        },\r\n        \"2\": {\r\n            \"title\": \"2. Communicate Clearly\",\r\n            \"text\": \"Keep taskers informed about progress, potential issues, and any changes to the agreed scope.\"\r\n        },\r\n        \"3\": {\r\n            \"title\": \"3. Be Reliable\",\r\n            \"text\": \"Honor your commitments and meet deadlines. If issues arise, communicate early and work toward solutions.\"\r\n        },\r\n        \"4\": {\r\n            \"title\": \"4. Respect Privacy\",\r\n            \"text\": \"Protect confidential information and respect the privacy of taskers and their business.\"\r\n        },\r\n        \"5\": {\r\n            \"title\": \"5. Be Professional\",\r\n            \"text\": \"Maintain professional conduct in all interactions and work with integrity.\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494794,
+      "end": 1754579494808,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/scroll-area/components/scroll-area-scrollbar-hover.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { mergeProps } from \"svelte-toolbelt\";\n\timport {\n\t\tuseScrollAreaScrollbarAuto,\n\t\tuseScrollAreaScrollbarHover,\n\t} from \"../scroll-area.svelte.js\";\n\timport type { _ScrollbarStubProps } from \"../types.js\";\n\timport ScrollAreaScrollbarVisible from \"./scroll-area-scrollbar-visible.svelte\";\n\timport PresenceLayer from \"../../utilities/presence-layer/presence-layer.svelte\";\n\n\tlet { forceMount = false, ...restProps }: _ScrollbarStubProps = $props();\n\n\tconst scrollbarHoverState = useScrollAreaScrollbarHover();\n\tconst scrollbarAutoState = useScrollAreaScrollbarAuto();\n\tconst mergedProps = $derived(\n\t\tmergeProps(restProps, scrollbarHoverState.props, scrollbarAutoState.props, {\n\t\t\t\"data-state\": scrollbarHoverState.isVisible ? \"visible\" : \"hidden\",\n\t\t})\n\t);\n\n\tconst present = $derived(\n\t\tforceMount || (scrollbarHoverState.isVisible && scrollbarAutoState.isVisible)\n\t);\n</script>\n\n<PresenceLayer {...mergedProps} {present}>\n\t{#snippet presence()}\n\t\t<ScrollAreaScrollbarVisible {...mergedProps} />\n\t{/snippet}\n</PresenceLayer>\n",
+      "start": 1754579497446,
+      "end": 1754579497655,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497655,
+      "end": 1754579497655,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497655,
+      "end": 1754579497655,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { mergeProps } from \"svelte-toolbelt\";\n\nimport {\n\tuseScrollAreaScrollbarAuto,\n\tuseScrollAreaScrollbarHover\n} from \"../scroll-area.svelte.js\";\n\nimport ScrollAreaScrollbarVisible from \"./scroll-area-scrollbar-visible.svelte\";\nimport PresenceLayer from \"../../utilities/presence-layer/presence-layer.svelte\";\n\nexport default function Scroll_area_scrollbar_hover($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet forceMount = $.prop($$props, 'forceMount', 3, false),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'forceMount'\n\t\t]);\n\n\tconst scrollbarHoverState = useScrollAreaScrollbarHover();\n\tconst scrollbarAutoState = useScrollAreaScrollbarAuto();\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, scrollbarHoverState.props, scrollbarAutoState.props, {\n\t\t\"data-state\": scrollbarHoverState.isVisible ? \"visible\" : \"hidden\"\n\t}));\n\n\tconst present = $.derived(() => forceMount() || scrollbarHoverState.isVisible && scrollbarAutoState.isVisible);\n\n\t{\n\t\tconst presence = ($$anchor) => {\n\t\t\tScrollAreaScrollbarVisible($$anchor, $.spread_props(() => $.get(mergedProps)));\n\t\t};\n\n\t\tPresenceLayer($$anchor, $.spread_props(() => $.get(mergedProps), {\n\t\t\tget present() {\n\t\t\t\treturn $.get(present);\n\t\t\t},\n\t\t\tpresence,\n\t\t\t$$slots: { presence: true }\n\t\t}));\n\t}\n\n\t$.pop();\n}",
+      "start": 1754579497655,
+      "end": 1754579497661,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,UAAU,QAAQ,iBAAiB;;;CAE3C,0BAA0B;CAC1B,2BAA2B;OACrB,0BAA0B;;OAE1B,0BAA0B,MAAM,wCAAwC;OACxE,aAAa,MAAM,sDAAsD;;;;;KAE1E,UAAU,oCAAG,KAAK;EAAK,SAAS;;;;;;;OAEhC,mBAAmB,GAAG,2BAA2B;OACjD,kBAAkB,GAAG,0BAA0B;;OAC/C,WAAW,mBAChB,UAAU,CAAC,SAAS,EAAE,mBAAmB,CAAC,KAAK,EAAE,kBAAkB,CAAC,KAAK;EACxE,YAAY,EAAE,mBAAmB,CAAC,SAAS,GAAG,SAAS,GAAG,QAAQ;;;OAI9D,OAAO,mBACZ,UAAU,MAAK,mBAAmB,CAAC,SAAS,IAAI,kBAAkB,CAAC,SAAS;;;;mEAM5C,WAAW;;;qDAF1B,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "scroll-area-scrollbar-hover.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497661,
+      "end": 1754579497661,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/nostr/index.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\r\n * Calculate proof of work for a task based on its budget and optional unique identifier\r\n * Returns [hash, nonce] where hash has the required number of leading zero bits\r\n */\r\nexport async function calculatePOW(budget: number, uniqueId?: string): Promise<[string, string]> {\r\n    let nonce = 0;\r\n    let hash = '';\r\n    \r\n    // Calculate target difficulty based on budget\r\n    // For budget > 1, use log base 2 to scale difficulty\r\n    // For budget < 1, ensure minimum difficulty of 8 bits\r\n    const difficulty = budget >= 1 \r\n        ? Math.min(Math.floor(Math.log2(budget)) + 8, 24)  // Cap at 24 bits\r\n        : 8; // Minimum difficulty for small amounts\r\n\r\n    while (true) {\r\n        // Include uniqueId in the POW calculation to ensure uniqueness\r\n        const data = `${budget}:${uniqueId || ''}:${nonce}`;\r\n        hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))\r\n            .then(buffer => Array.from(new Uint8Array(buffer))\r\n                .map(b => b.toString(16).padStart(2, '0'))\r\n                .join(''));\r\n\r\n        // Count leading zero bits properly according to NIP-13\r\n        let zeroBits = 0;\r\n        for (let i = 0; i < hash.length; i++) {\r\n            const nibble = parseInt(hash[i], 16);\r\n            if (nibble === 0) {\r\n                zeroBits += 4;\r\n            } else {\r\n                // Count remaining bits in this nibble\r\n                zeroBits += Math.clz32(nibble) - 28;\r\n                break;\r\n            }\r\n        }\r\n\r\n        if (zeroBits >= difficulty) break;\r\n        nonce++;\r\n    }\r\n\r\n    return [hash, nonce.toString()];\r\n}",
+      "start": 1754579495206,
+      "end": 1754579495296,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "export async function calculatePOW(budget: number, uniqueId?: string): Promise<[string, string]> {\r\n    let nonce = 0;\r\n    let hash = \"\";\r\n    const difficulty = budget >= 1 ? Math.min(Math.floor(Math.log2(budget)) + 8, 24) : 8;\r\n\r\n    while (true) {\r\n        const data = `${budget}:${uniqueId || \"\"}:${nonce}`;\r\n\r\n        hash = await crypto.subtle.digest(\"SHA-256\", new TextEncoder().encode(data)).then(\r\n            buffer => Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, \"0\")).join(\"\")\r\n        );\r\n\r\n        let zeroBits = 0;\r\n\r\n        for (let i = 0; i < hash.length; i++) {\r\n            const nibble = parseInt(hash[i], 16);\r\n\r\n            if (nibble === 0) {\r\n                zeroBits += 4;\r\n            } else {\r\n                zeroBits += Math.clz32(nibble) - 28;\r\n                break;\r\n            }\r\n        }\r\n\r\n        if (zeroBits >= difficulty)\r\n            break;\r\n\r\n        nonce++;\r\n    }\r\n\r\n    return [hash, nonce.toString()];\r\n}",
+      "start": 1754579495296,
+      "end": 1754579495297,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/nostr/index.ts"
+        ],
+        "sourcesContent": [
+          "/**\r\n * Calculate proof of work for a task based on its budget and optional unique identifier\r\n * Returns [hash, nonce] where hash has the required number of leading zero bits\r\n */\r\nexport async function calculatePOW(budget: number, uniqueId?: string): Promise<[string, string]> {\r\n    let nonce = 0;\r\n    let hash = '';\r\n    \r\n    // Calculate target difficulty based on budget\r\n    // For budget > 1, use log base 2 to scale difficulty\r\n    // For budget < 1, ensure minimum difficulty of 8 bits\r\n    const difficulty = budget >= 1 \r\n        ? Math.min(Math.floor(Math.log2(budget)) + 8, 24)  // Cap at 24 bits\r\n        : 8; // Minimum difficulty for small amounts\r\n\r\n    while (true) {\r\n        // Include uniqueId in the POW calculation to ensure uniqueness\r\n        const data = `${budget}:${uniqueId || ''}:${nonce}`;\r\n        hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(data))\r\n            .then(buffer => Array.from(new Uint8Array(buffer))\r\n                .map(b => b.toString(16).padStart(2, '0'))\r\n                .join(''));\r\n\r\n        // Count leading zero bits properly according to NIP-13\r\n        let zeroBits = 0;\r\n        for (let i = 0; i < hash.length; i++) {\r\n            const nibble = parseInt(hash[i], 16);\r\n            if (nibble === 0) {\r\n                zeroBits += 4;\r\n            } else {\r\n                // Count remaining bits in this nibble\r\n                zeroBits += Math.clz32(nibble) - 28;\r\n                break;\r\n            }\r\n        }\r\n\r\n        if (zeroBits >= difficulty) break;\r\n        nonce++;\r\n    }\r\n\r\n    return [hash, nonce.toString()];\r\n}"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChF,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClG,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495297,
+      "end": 1754579495297,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495297,
+      "end": 1754579495297,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export async function calculatePOW(budget, uniqueId) {\n  let nonce = 0;\n  let hash = \"\";\n  const difficulty = budget >= 1 ? Math.min(Math.floor(Math.log2(budget)) + 8, 24) : 8;\n  while (true) {\n    const data = `${budget}:${uniqueId || \"\"}:${nonce}`;\n    hash = await crypto.subtle.digest(\"SHA-256\", new TextEncoder().encode(data)).then(\n      (buffer) => Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, \"0\")).join(\"\")\n    );\n    let zeroBits = 0;\n    for (let i = 0; i < hash.length; i++) {\n      const nibble = parseInt(hash[i], 16);\n      if (nibble === 0) {\n        zeroBits += 4;\n      } else {\n        zeroBits += Math.clz32(nibble) - 28;\n        break;\n      }\n    }\n    if (zeroBits >= difficulty)\n      break;\n    nonce++;\n  }\n  return [hash, nonce.toString()];\n}\n",
+      "start": 1754579495297,
+      "end": 1754579495315,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/nostr/index.ts"
+        ],
+        "sourcesContent": [
+          "export async function calculatePOW(budget: number, uniqueId?: string): Promise<[string, string]> {\r\n    let nonce = 0;\r\n    let hash = \"\";\r\n    const difficulty = budget >= 1 ? Math.min(Math.floor(Math.log2(budget)) + 8, 24) : 8;\r\n\r\n    while (true) {\r\n        const data = `${budget}:${uniqueId || \"\"}:${nonce}`;\r\n\r\n        hash = await crypto.subtle.digest(\"SHA-256\", new TextEncoder().encode(data)).then(\r\n            buffer => Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, \"0\")).join(\"\")\r\n        );\r\n\r\n        let zeroBits = 0;\r\n\r\n        for (let i = 0; i < hash.length; i++) {\r\n            const nibble = parseInt(hash[i], 16);\r\n\r\n            if (nibble === 0) {\r\n                zeroBits += 4;\r\n            } else {\r\n                zeroBits += Math.clz32(nibble) - 28;\r\n                break;\r\n            }\r\n        }\r\n\r\n        if (zeroBits >= difficulty)\r\n            break;\r\n\r\n        nonce++;\r\n    }\r\n\r\n    return [hash, nonce.toString()];\r\n}"
+        ],
+        "mappings": "AAAA,sBAAsB,aAAa,QAAgB,UAA8C;AAC7F,MAAI,QAAQ;AACZ,MAAI,OAAO;AACX,QAAM,aAAa,UAAU,IAAI,KAAK,IAAI,KAAK,MAAM,KAAK,KAAK,MAAM,CAAC,IAAI,GAAG,EAAE,IAAI;AAEnF,SAAO,MAAM;AACT,UAAM,OAAO,GAAG,MAAM,IAAI,YAAY,EAAE,IAAI,KAAK;AAEjD,WAAO,MAAM,OAAO,OAAO,OAAO,WAAW,IAAI,YAAY,EAAE,OAAO,IAAI,CAAC,EAAE;AAAA,MACzE,YAAU,MAAM,KAAK,IAAI,WAAW,MAAM,CAAC,EAAE,IAAI,OAAK,EAAE,SAAS,EAAE,EAAE,SAAS,GAAG,GAAG,CAAC,EAAE,KAAK,EAAE;AAAA,IAClG;AAEA,QAAI,WAAW;AAEf,aAAS,IAAI,GAAG,IAAI,KAAK,QAAQ,KAAK;AAClC,YAAM,SAAS,SAAS,KAAK,CAAC,GAAG,EAAE;AAEnC,UAAI,WAAW,GAAG;AACd,oBAAY;AAAA,MAChB,OAAO;AACH,oBAAY,KAAK,MAAM,MAAM,IAAI;AACjC;AAAA,MACJ;AAAA,IACJ;AAEA,QAAI,YAAY;AACZ;AAEJ;AAAA,EACJ;AAEA,SAAO,CAAC,MAAM,MAAM,SAAS,CAAC;AAClC;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495315,
+      "end": 1754579495315,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495315,
+      "end": 1754579495316,
+      "order": "normal"
+    }
+  ]
+}

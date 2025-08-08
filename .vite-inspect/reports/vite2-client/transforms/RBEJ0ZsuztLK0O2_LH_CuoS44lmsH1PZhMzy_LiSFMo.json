@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/cache/lists.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { flatten } from \"../lib/flatten\";\nimport { rootID } from \"./stuff\";\nclass ListManager {\n  rootID;\n  cache;\n  constructor(cache, rootID2) {\n    this.rootID = rootID2;\n    this.cache = cache;\n  }\n  lists = /* @__PURE__ */ new Map();\n  listsByField = /* @__PURE__ */ new Map();\n  get(listName, id, allLists, skipMatches) {\n    const lists = this.getLists(listName, id, allLists);\n    if (!lists) {\n      return null;\n    }\n    if (skipMatches) {\n      return new ListCollection(lists.lists.filter((list) => !skipMatches.has(list.fieldRef)));\n    } else {\n      return lists;\n    }\n  }\n  getLists(listName, id, allLists) {\n    const matches = this.lists.get(listName);\n    if (!matches || matches.size === 0) {\n      return null;\n    }\n    if (allLists) {\n      return new ListCollection(\n        Array.from(matches, ([key, value]) => [...value.lists]).flat()\n      );\n    }\n    const head = [...matches.values()][0];\n    const { recordType } = head.lists[0];\n    const parentID = id ? this.cache._internal_unstable.id(recordType || \"\", id) : this.rootID;\n    if (matches?.size === 1) {\n      if (!id) {\n        return head;\n      }\n      return parentID === Array.from(matches.keys())[0] ? head : null;\n    }\n    if (!id) {\n      console.error(\n        `Found multiple instances of \"${listName}\". Please provide one of @parentID or @allLists directives to help identify which list you want modify. For more information, visit this guide: https://www.houdinigraphql.com/api/graphql#parentidvalue-string `\n      );\n      return null;\n    }\n    return this.lists.get(listName)?.get(parentID);\n  }\n  remove(listName, id) {\n    this.lists.get(listName)?.delete(id || this.rootID);\n  }\n  add(list) {\n    if (!this.lists.has(list.name)) {\n      this.lists.set(list.name, /* @__PURE__ */ new Map());\n    }\n    const name = list.name;\n    const parentID = list.recordID || this.rootID;\n    if (this.lists.get(name)?.get(parentID)?.includes(list.key)) {\n      return;\n    }\n    if (!this.lists.has(name)) {\n      this.lists.set(name, /* @__PURE__ */ new Map());\n    }\n    if (!this.lists.get(name).has(parentID)) {\n      this.lists.get(name).set(parentID, new ListCollection([]));\n    }\n    if (!this.listsByField.has(parentID)) {\n      this.listsByField.set(parentID, /* @__PURE__ */ new Map());\n    }\n    if (!this.listsByField.get(parentID).has(list.key)) {\n      this.listsByField.get(parentID)?.set(list.key, []);\n    }\n    const handler = new List({ ...list, manager: this });\n    this.lists.get(list.name).get(parentID).lists.push(handler);\n    this.listsByField.get(parentID).get(list.key).push(handler);\n  }\n  removeIDFromAllLists(id, layer) {\n    let removed = false;\n    for (const fieldMap of this.lists.values()) {\n      for (const list of fieldMap.values()) {\n        if (list.removeID(id, void 0, layer)) {\n          removed = true;\n        }\n      }\n    }\n    return removed;\n  }\n  deleteField(parentID, field) {\n    if (!this.listsByField.get(parentID)?.has(field)) {\n      return;\n    }\n    for (const list of this.listsByField.get(parentID).get(field)) {\n      this.lists.get(list.name)?.get(list.recordID)?.deleteListWithKey(field);\n      if (this.lists.get(list.name)?.get(list.recordID)?.lists.length === 0) {\n        this.lists.get(list.name)?.delete(list.recordID);\n      }\n    }\n    this.listsByField.get(parentID).delete(field);\n  }\n  reset() {\n    this.lists.clear();\n    this.listsByField.clear();\n  }\n}\nclass List {\n  recordID;\n  recordType;\n  key;\n  type;\n  cache;\n  selection;\n  _when;\n  filters;\n  name;\n  connection;\n  manager;\n  abstract;\n  constructor({\n    name,\n    recordID,\n    recordType,\n    key,\n    listType,\n    selection,\n    when,\n    filters,\n    connection,\n    manager,\n    abstract\n  }) {\n    this.recordID = recordID || rootID;\n    this.recordType = recordType;\n    this.key = key;\n    this.type = listType;\n    this.cache = manager.cache;\n    this.selection = selection;\n    this._when = when;\n    this.filters = filters;\n    this.name = name;\n    this.connection = connection;\n    this.manager = manager;\n    this.abstract = abstract;\n  }\n  get fieldRef() {\n    return `${this.recordID}.${this.key}`;\n  }\n  when(when) {\n    return this.manager.lists.get(this.name).get(this.recordID).when(when);\n  }\n  append({\n    selection,\n    data,\n    variables = {},\n    layer\n  }) {\n    return this.addToList(selection, data, variables, \"last\", layer);\n  }\n  prepend({\n    selection,\n    data,\n    variables = {},\n    layer\n  }) {\n    return this.addToList(selection, data, variables, \"first\", layer);\n  }\n  addToList(selection, data, variables = {}, where, layer) {\n    const listType = this.listType(data);\n    const dataID = this.cache._internal_unstable.id(listType, data);\n    if (!this.validateWhen() || !dataID) {\n      return;\n    }\n    let insertSelection = selection;\n    let insertData = data;\n    if (this.connection) {\n      insertSelection = {\n        fields: {\n          newEntry: {\n            keyRaw: this.key,\n            type: \"Connection\",\n            selection: {\n              fields: {\n                edges: {\n                  keyRaw: \"edges\",\n                  type: \"ConnectionEdge\",\n                  updates: [\"append\", \"prepend\"],\n                  selection: {\n                    fields: {\n                      __typename: {\n                        keyRaw: \"__typename\",\n                        type: \"String\"\n                      },\n                      node: {\n                        type: listType,\n                        keyRaw: \"node\",\n                        selection: {\n                          ...selection,\n                          fields: {\n                            ...selection.fields,\n                            __typename: {\n                              keyRaw: \"__typename\",\n                              type: \"String\"\n                            }\n                          }\n                        }\n                      }\n                    }\n                  }\n                }\n              }\n            }\n          }\n        }\n      };\n      insertData = {\n        newEntry: {\n          edges: [\n            {\n              __typename: listType + \"Edge\",\n              node: {\n                ...data,\n                __typename: listType\n              }\n            }\n          ]\n        }\n      };\n    } else {\n      insertSelection = {\n        fields: {\n          newEntries: {\n            keyRaw: this.key,\n            type: listType,\n            updates: [\"append\", \"prepend\"],\n            selection: {\n              ...selection,\n              fields: {\n                ...selection.fields,\n                __typename: {\n                  keyRaw: \"__typename\",\n                  type: \"String\"\n                }\n              }\n            }\n          }\n        }\n      };\n      insertData = {\n        newEntries: [{ ...data, __typename: listType }]\n      };\n    }\n    this.cache.write({\n      selection: insertSelection,\n      data: insertData,\n      variables,\n      parent: this.recordID,\n      applyUpdates: [where === \"first\" ? \"prepend\" : \"append\"],\n      layer: layer?.id\n    });\n  }\n  removeID(id, variables = {}, layer) {\n    if (!this.validateWhen()) {\n      return;\n    }\n    let parentID = this.recordID;\n    let targetID = id;\n    let targetKey = this.key;\n    if (this.connection) {\n      const { value: embeddedConnection } = this.cache._internal_unstable.storage.get(\n        this.recordID,\n        this.key\n      );\n      if (!embeddedConnection) {\n        return;\n      }\n      const embeddedConnectionID = embeddedConnection;\n      const { value: edges } = this.cache._internal_unstable.storage.get(\n        embeddedConnectionID,\n        \"edges\"\n      );\n      for (const edge of flatten(edges) || []) {\n        if (!edge) {\n          continue;\n        }\n        const edgeID = edge;\n        const { value: nodeID } = this.cache._internal_unstable.storage.get(edgeID, \"node\");\n        if (!nodeID) {\n          continue;\n        }\n        if (nodeID === id) {\n          targetID = edgeID;\n        }\n      }\n      parentID = embeddedConnectionID;\n      targetKey = \"edges\";\n    }\n    let value = this.cache._internal_unstable.storage.get(parentID, targetKey).value;\n    if (!value || !value.includes(targetID)) {\n      return;\n    }\n    const subscribers = this.cache._internal_unstable.subscriptions.get(this.recordID, this.key);\n    this.cache._internal_unstable.subscriptions.remove(\n      targetID,\n      this.connection ? this.selection.fields.edges.selection : this.selection,\n      subscribers.map((sub) => sub[0]),\n      variables\n    );\n    this.cache._internal_unstable.storage.remove(parentID, targetKey, targetID, layer);\n    for (const [spec] of subscribers) {\n      spec.set(\n        this.cache._internal_unstable.getSelection({\n          parent: spec.parentID || this.manager.rootID,\n          selection: spec.selection,\n          variables: spec.variables?.() || {},\n          ignoreMasking: false\n        }).data\n      );\n    }\n    return true;\n  }\n  remove(data, variables = {}, layer) {\n    const targetID = this.cache._internal_unstable.id(this.listType(data), data);\n    if (!targetID) {\n      return;\n    }\n    return this.removeID(targetID, variables, layer);\n  }\n  listType(data) {\n    return data.__typename || this.type;\n  }\n  validateWhen(when) {\n    let filters = when || this._when;\n    let ok = true;\n    if (filters) {\n      const targets = this.filters;\n      if (filters.must && targets) {\n        ok = Object.entries(filters.must).reduce(\n          (prev, [key, value]) => Boolean(prev && targets[key] == value),\n          ok\n        );\n      }\n      if (filters.must_not) {\n        ok = !targets || Object.entries(filters.must_not).reduce(\n          (prev, [key, value]) => Boolean(prev && targets[key] != value),\n          ok\n        );\n      }\n    }\n    return ok;\n  }\n  toggleElement({\n    selection,\n    data,\n    variables = {},\n    layer,\n    where\n  }) {\n    if (!this.remove(data, variables, layer)) {\n      this.addToList(selection, data, variables, where, layer);\n    }\n  }\n  *[Symbol.iterator]() {\n    let entries = [];\n    let value = this.cache._internal_unstable.storage.get(this.recordID, this.key).value;\n    if (!this.connection) {\n      entries = flatten(value);\n    } else {\n      entries = this.cache._internal_unstable.storage.get(value, \"edges\").value;\n    }\n    for (let record of entries) {\n      yield record;\n    }\n  }\n}\nclass ListCollection {\n  lists = [];\n  constructor(lists) {\n    this.lists = lists;\n  }\n  get selection() {\n    return this.lists[0].selection;\n  }\n  append(...args) {\n    this.lists.forEach((list) => list.append(...args));\n  }\n  prepend(...args) {\n    this.lists.forEach((list) => list.prepend(...args));\n  }\n  addToList(...args) {\n    this.lists.forEach((list) => list.addToList(...args));\n  }\n  removeID(...args) {\n    let removed = false;\n    this.lists.forEach((list) => {\n      if (list.removeID(...args)) {\n        removed = true;\n      }\n    });\n    return removed;\n  }\n  remove(...args) {\n    this.lists.forEach((list) => list.remove(...args));\n  }\n  toggleElement(...args) {\n    this.lists.forEach((list) => list.toggleElement(...args));\n  }\n  when(when) {\n    return new ListCollection(\n      this.lists.filter((list) => {\n        return list.validateWhen(when);\n      })\n    );\n  }\n  includes(key) {\n    return !!this.lists.find((list) => list.key === key);\n  }\n  deleteListWithKey(key) {\n    return this.lists = this.lists.filter((list) => list.key !== key);\n  }\n  *[Symbol.iterator]() {\n    for (let list of this.lists) {\n      for (const entry of list) {\n        yield entry;\n      }\n    }\n  }\n}\nexport {\n  List,\n  ListCollection,\n  ListManager\n};\n",
+      "start": 1754579496075,
+      "end": 1754579496131,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496131,
+      "end": 1754579496131,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496131,
+      "end": 1754579496132,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496132,
+      "end": 1754579496132,
+      "order": "normal"
+    }
+  ]
+}

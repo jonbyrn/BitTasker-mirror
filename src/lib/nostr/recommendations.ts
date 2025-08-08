@@ -1,13 +1,11 @@
 import type { Task, TaskRecommendation, RecommendationParams } from '$lib/types/task.d';
 import { type Event, type Filter, SimplePool } from 'nostr-tools';
 import { browser } from '$app/environment';
-import { bytesToHex } from '@noble/hashes/utils';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import { getNostrKeyPair, getNpub } from '$lib/utils/nostrKeys';
+import { getNpub } from '$lib/utils/nostrKeys';
 import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
-import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 
 // Define relay URLs with fallbacks
@@ -285,6 +283,7 @@ async function getProfileData(userNpub: string): Promise<{
             await Promise.all(events.map(async (event) => {
                 if (event.kind === KINDS.PROFILE_SKILLS) {
                     const content = JSON.parse(event.content);
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     result.skills = content?.map((skill: any) => skill.name);
                 } else if (event.kind === KINDS.PROFILE_LOCATION) {
                     // TODO: Disactivated until location radius filter is implemented

@@ -1,0 +1,107 @@
+{
+    "settings": {
+      "title": "Configuración",
+      "subtitle": "Gestiona la configuración de tu cuenta e identidad Nostr",
+      "nostr": {
+        "title": "Identidad Nostr",
+        "description": "Tu identidad descentralizada en la red Nostr. ¡Mantén tu clave privada segura!",
+        "publicKey-label": "Clave Pública Nostr",
+        "publicKey": {
+          "description": "Esta es tu identidad pública en Nostr. Es seguro compartirla públicamente."
+        },
+        "privateKey-label": "Clave Privada Nostr",
+        "privateKey": {
+          "warning": "⚠️ ¡Mantén esto privado! Nunca compartas tu clave privada con nadie.",
+          "alby": "ℹ️ Tu clave privada está gestionada de forma segura por la extensión Alby y no se puede acceder directamente.",
+          "managed": "Clave privada gestionada por la extensión Alby"
+        }
+      },
+      "security": {
+        "title": "Recordatorio de Seguridad",
+        "description": "Tu clave privada (nsec) otorga control total sobre tu identidad Nostr. Guárdala de forma segura y nunca la compartas con nadie."
+      },
+      "recovery": {
+        "title": "Recuperación de Cuenta",
+        "description": "Configura recuperación por correo y contraseña para asegurar tu cuenta. Esto te permite recuperar tu cuenta si pierdes acceso a tu método de autenticación principal.",
+        "email-label": "Correo de Recuperación",
+        "email": {
+          "placeholder": "Ingresa tu dirección de correo de recuperación"
+        },
+        "password-label": "Contraseña de Recuperación",
+        "password": {
+          "placeholder": "Crea una contraseña de recuperación fuerte"
+        },
+        "confirmPassword-label": "Confirmar Contraseña de Recuperación",
+        "confirmPassword": {
+          "placeholder": "Confirma tu contraseña de recuperación"
+        },
+        "requirements-label": "Requisitos de contraseña:",
+        "requirements": {
+          "length": "8+ caracteres",
+          "uppercase": "Mayúsculas",
+          "lowercase": "Minúsculas",
+          "numbers": "Números",
+          "special": "Caracteres especiales"
+        },
+        "setup": "Configurar Recuperación de Cuenta",
+        "setting": "Configurando recuperación...",
+        "success": "¡La recuperación de cuenta se ha configurado exitosamente!",
+        "notice": {
+          "title": "Importante:",
+          "description": "Tu correo y contraseña de recuperación se usarán para restaurar el acceso a tu cuenta si pierdes tu método de autenticación principal. Manténlos seguros y accesibles."
+        }
+      },
+      "actions": {
+        "title": "Acciones de Cuenta",
+        "description": "Gestiona la configuración de tu cuenta y autenticación.",
+        "logout": "Cerrar Sesión"
+      },
+      "loading": "Cargando...",
+      "retry": "Reintentar",
+      "error": {
+        "loadKeys": "Error al cargar las claves",
+        "albyNotFound": "Extensión Alby no encontrada. Asegúrate de que Alby esté instalado y habilitado.",
+        "publicKeyAlby": "No se pudo obtener la clave pública de la extensión Alby.",
+        "invalidPublicKey": "Formato de clave pública inválido de Alby.",
+        "invalidKeyFormat": "Formato de clave pública inválido",
+        "encodingNsec": "Error al formatear la clave privada",
+        "invalidPrivateKey": "Datos de clave privada inválidos",
+        "invalidNostrKeys": "Claves Nostr inválidas. Por favor actualiza e intenta de nuevo.",
+        "recoverySetup": "Error al configurar la recuperación de cuenta. Por favor intenta de nuevo."
+      },
+      "validation": {
+        "emailRequired": "El correo de recuperación es requerido",
+        "passwordRequired": "La contraseña de recuperación es requerida",
+        "passwordMismatch": "Las contraseñas no coinciden"
+      },
+      "copy": {
+        "success": "¡Copiado!",
+        "failed": "Error al copiar"
+      },
+      "passkey": {
+        "title": "Sincronización de Passkey",
+        "description": "Configura un passkey WebAuthn para sincronizar tu autenticación biométrica en diferentes dispositivos y navegadores.",
+        "setup": "Configurar Passkey",
+        "setting": "Configurando passkey...",
+        "success": "¡El passkey se ha configurado exitosamente!",
+        "error": {
+          "setup": "Error al configurar el passkey. Por favor intenta de nuevo.",
+          "webauthn": "WebAuthn no está disponible en este navegador.",
+          "keys": "No se pudieron recuperar las claves biométricas para la configuración del passkey."
+        },
+        "provider": "Esto usará {{provider}} para la autenticación",
+        "notice": {
+          "title": "Sobre Passkeys:",
+          "description": "Los passkeys te permiten autenticarte utilizando los mismos datos biométricos en diferentes navegadores y dispositivos. Una vez configurado, puedes usar este passkey para iniciar sesión desde otros dispositivos."
+        },
+        "already": {
+          "setup": "Passkey ya configurado"
+        },
+        "test-label": "Probar Passkey",
+        "test": {
+          "success": "¡Probar passkey exitoso!",
+          "error": "¡Probar passkey fallido. Por favor intenta de nuevo."
+        }
+      }
+    }
+  }

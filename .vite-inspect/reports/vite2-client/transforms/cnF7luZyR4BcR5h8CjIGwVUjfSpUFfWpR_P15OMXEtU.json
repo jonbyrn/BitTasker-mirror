@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/tooltip/components/tooltip-arrow.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport type { TooltipArrowProps } from \"../types.js\";\n\timport FloatingLayerArrow from \"../../utilities/floating-layer/components/floating-layer-arrow.svelte\";\n\n\tlet { ref = $bindable(null), ...restProps }: TooltipArrowProps = $props();\n</script>\n\n<FloatingLayerArrow bind:ref {...restProps} />\n",
+      "start": 1754579496962,
+      "end": 1754579497039,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497039,
+      "end": 1754579497040,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport FloatingLayerArrow from \"../../utilities/floating-layer/components/floating-layer-arrow.svelte\";\n\nexport default function Tooltip_arrow($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet ref = $.prop($$props, 'ref', 15, null),\n\t\trestProps = $.rest_props($$props, ['$$slots', '$$events', '$$legacy', 'ref']);\n\n\tFloatingLayerArrow($$anchor, $.spread_props(() => restProps, {\n\t\tget ref() {\n\t\t\treturn ref();\n\t\t},\n\t\tset ref($$value) {\n\t\t\tref($$value);\n\t\t}\n\t}));\n\n\t$.pop();\n}",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;OAEQ,kBAAkB,MAAM,uEAAuE;;;;;KAEhG,GAAG,8BAAa,IAAI;EAAM,SAAS;;mDAGT,SAAS",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "tooltip-arrow.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497040,
+      "end": 1754579497040,
+      "order": "normal"
+    }
+  ]
+}

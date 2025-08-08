@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/taskees/guidelines.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"guidelines\": {\r\n        \"title\": \"Normas de la Comunidad\",\r\n        \"intro\": \"¡Bienvenido a BitTasker! Nuestras normas están diseñadas para garantizar una experiencia segura, respetuosa y confiable para todos.<br /><br />Al utilizar nuestra plataforma, aceptas cumplir con estos estándares.\",\r\n        \"last_updated\": \"Última actualización: 13 de julio de 2025\",\r\n        \"section_taskers\": {\r\n            \"title\": \"Para Taskers\"\r\n        },\r\n        \"taskers\": {\r\n            \"1\": {\r\n                \"title\": \"1. Publicar una Tarea\",\r\n                \"item_1\": \"Sé claro y específico sobre lo que necesitas\",\r\n                \"item_2\": \"Proporciona ubicación y tiempos precisos\",\r\n                \"item_3\": \"Establece presupuestos justos y razonables\",\r\n                \"item_4\": \"Incluye todos los detalles relevantes desde el inicio\",\r\n                \"item_5\": \"Responde con rapidez a las preguntas de los taskees\"\r\n            },\r\n            \"2\": {\r\n                \"title\": \"2. Durante la Tarea\",\r\n                \"item_1\": \"Comunica de manera clara y profesional\",\r\n                \"item_2\": \"Está disponible para dudas y actualizaciones\",\r\n                \"item_3\": \"Brinda retroalimentación constructiva\",\r\n                \"item_4\": \"Respeta el tiempo y experiencia del taskee\",\r\n                \"item_5\": \"Resuelve problemas de manera justa y rápida\"\r\n            },\r\n            \"3\": {\r\n                \"title\": \"3. Pago y Reseñas\",\r\n                \"item_1\": \"Libera los fondos de escrow cuando el trabajo esté bien hecho\",\r\n                \"item_2\": \"Deja reseñas honestas y constructivas\",\r\n                \"item_3\": \"Resuelve disputas usando nuestro sistema de mediación\",\r\n                \"item_4\": \"Mantén la confidencialidad de la información del taskee\",\r\n                \"item_5\": \"Recompensa un buen trabajo para fortalecer la comunidad\"\r\n            }\r\n        },\r\n        \"section_taskees\": {\r\n            \"title\": \"Para Taskees\"\r\n        },\r\n        \"taskees\": {\r\n            \"1\": {\r\n                \"title\": \"1. Perfil y Ofertas\",\r\n                \"item_1\": \"Completa tu perfil con información precisa\",\r\n                \"item_2\": \"Destaca habilidades y experiencia relevantes\",\r\n                \"item_3\": \"Envía ofertas competitivas y realistas\",\r\n                \"item_4\": \"Haz preguntas aclaratorias antes de ofertar\",\r\n                \"item_5\": \"Solo ofrece en tareas que realmente puedas completar\"\r\n            },\r\n            \"2\": {\r\n                \"title\": \"2. Ejecución de la Tarea\",\r\n                \"item_1\": \"Entrega el trabajo según lo acordado\",\r\n                \"item_2\": \"Comunica avances o problemas de inmediato\",\r\n                \"item_3\": \"Cumple con los plazos o negocia cambios a tiempo\",\r\n                \"item_4\": \"Mantén altos estándares de calidad\",\r\n                \"item_5\": \"Sé profesional en todas las interacciones\"\r\n            },\r\n            \"3\": {\r\n                \"title\": \"3. Estándares Profesionales\",\r\n                \"item_1\": \"Cumple tus compromisos y acuerdos\",\r\n                \"item_2\": \"Ofrece un excelente servicio al cliente\",\r\n                \"item_3\": \"Respeta la propiedad y privacidad del cliente\",\r\n                \"item_4\": \"Cumple con todas las leyes y normativas aplicables\",\r\n                \"item_5\": \"Construye relaciones duraderas basadas en la confianza\"\r\n            }\r\n        },\r\n        \"trust\": {\r\n            \"title\": \"Nuestro Compromiso con la Confianza y la Seguridad\",\r\n            \"part1\": \"Estamos comprometidos con construir una comunidad confiable y tomaremos medidas para protegerla.<br />Las violaciones de estas pautas pueden resultar en advertencias, suspensión de cuenta o una expulsión permanente.\",\r\n            \"part2\": \"Nuestro algoritmo también garantiza que las violaciones de nuestras normas comunitarias sean penalizadas severamente y afecten tu reputación y posición en la plataforma.<br /><br />¡Gracias por ser parte de BitTasker!\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494793,
+      "end": 1754579494806,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494806,
+      "end": 1754579494806,
+      "order": "normal"
+    }
+  ]
+}

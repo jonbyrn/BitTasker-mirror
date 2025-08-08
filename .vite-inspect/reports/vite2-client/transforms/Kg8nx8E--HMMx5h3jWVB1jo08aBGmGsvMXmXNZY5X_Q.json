@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/dialog/components/dialog.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport { useDialogRoot } from \"../dialog.svelte.js\";\n\timport type { DialogRootProps } from \"../types.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet { open = $bindable(false), onOpenChange = noop, children }: DialogRootProps = $props();\n\n\tuseDialogRoot({\n\t\tvariant: box.with(() => \"dialog\"),\n\t\topen: box.with(\n\t\t\t() => open,\n\t\t\t(v) => {\n\t\t\t\topen = v;\n\t\t\t\tonOpenChange(v);\n\t\t\t}\n\t\t),\n\t});\n</script>\n\n{@render children?.()}\n",
+      "start": 1754579496585,
+      "end": 1754579496688,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496688,
+      "end": 1754579496688,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496688,
+      "end": 1754579496688,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useDialogRoot } from \"../dialog.svelte.js\";\nimport { noop } from \"../../../internal/noop.js\";\n\nexport default function Dialog($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet open = $.prop($$props, 'open', 15, false),\n\t\tonOpenChange = $.prop($$props, 'onOpenChange', 3, noop);\n\n\tuseDialogRoot({\n\t\tvariant: box.with(() => \"dialog\"),\n\t\topen: box.with(() => open(), (v) => {\n\t\t\topen(v);\n\t\t\tonOpenChange()(v);\n\t\t})\n\t});\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children ?? $.noop);\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496688,
+      "end": 1754579496689,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAC5B,aAAa,QAAQ,qBAAqB;SAE1C,IAAI,QAAQ,2BAA2B;;;;;KAE1C,IAAI,+BAAa,KAAK;EAAG,YAAY,sCAAG,IAAI;;CAElD,aAAa;EACZ,OAAO,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EAChC,IAAI,EAAE,GAAG,CAAC,IAAI,OACP,IAAI,KACT,CAAC,KAAK;GACN,IAAI,CAAG,CAAC;GACR,YAAY,GAAC,CAAC;EACf",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "dialog.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496689,
+      "end": 1754579496689,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496692,
+      "end": 1754579496692,
+      "order": "normal"
+    }
+  ]
+}

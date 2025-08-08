@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/combobox/exports.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export { default as Root } from \"./components/combobox.svelte\";\nexport { default as Input } from \"./components/combobox-input.svelte\";\nexport { default as Separator } from \"../separator/components/separator.svelte\";\nexport { default as Arrow } from \"../utilities/arrow/arrow.svelte\";\nexport { default as Trigger } from \"./components/combobox-trigger.svelte\";\nexport { default as Portal } from \"../utilities/portal/portal.svelte\";\nexport { default as Content } from \"../select/components/select-content.svelte\";\nexport { default as ContentStatic } from \"../select/components/select-content-static.svelte\";\nexport { default as Item } from \"../select/components/select-item.svelte\";\nexport { default as Group } from \"../select/components/select-group.svelte\";\nexport { default as GroupHeading } from \"../select/components/select-group-heading.svelte\";\nexport { default as Viewport } from \"../select/components/select-viewport.svelte\";\nexport { default as ScrollDownButton } from \"../select/components/select-scroll-down-button.svelte\";\nexport { default as ScrollUpButton } from \"../select/components/select-scroll-up-button.svelte\";\n",
+      "start": 1754579496173,
+      "end": 1754579496197,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496197,
+      "end": 1754579496197,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -59,7 +58,7 @@
 				<Logo />
 				<div class="max-w-3xl">
 					<h1 class="text-5xl">{$t('guidelines.title')}</h1>
-					<p class="text-base-content/80 py-6 text-lg">
+					<p class="text-base-content/80 py-6 text-lg mb-6">
 						{@html $t('guidelines.intro')}
 					</p>
 					<p class="text-base-content/80 text-sm">
@@ -70,8 +69,7 @@
 	</section>
 
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
-		<div class="mb-4 flex items-baseline gap-4">
-			<div class="badge badge-primary badge-lg">1</div>
+		<div class="mb-4">
 			<h3>{$t('guidelines.section_taskers.title')}</h3>
 		</div>
 
@@ -104,8 +102,7 @@
 			</div>
 		</div>
 
-		<div class="my-4 flex items-baseline gap-4 pt-8">
-			<div class="badge badge-primary badge-lg">2</div>
+		<div class="my-4 pt-8">
 			<h3>{$t('guidelines.section_taskees.title')}</h3>
 		</div>
 

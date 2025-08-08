@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Availability, TimeSlot } from '$lib/types/profile.d';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { onDestroy, onMount } from 'svelte';
 	import { subscribeToProfileUpdates, publishAvailabilityUpdate } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
@@ -25,7 +25,15 @@
 	let cleanup: (() => void) | null = null;
 
 	// Days of the week
-	const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+	const days = [
+	$t('days.sunday'),
+	$t('days.monday'),
+	$t('days.tuesday'),
+	$t('days.wednesday'),
+	$t('days.thursday'),
+	$t('days.friday'),
+	$t('days.saturday')
+];
 
 	// Available timezones
 	const timezones = Intl.supportedValuesOf('timeZone');
@@ -360,14 +368,14 @@
 
 		<!-- Weekly Schedule -->
 		<div class="space-y-4">
-			<h3 class="text-lg font-medium">Weekly Schedule</h3>
+			<h3 class="text-lg font-medium">{$t('profile_availability.weeklySchedule')}</h3>
 
 			{#each days as day, index}
 				<div class="card bg-base-200 space-y-2 rounded-xl p-4">
 					<h4 class="font-medium">{day}</h4>
 
 					{#if timeSlots.filter((slot) => slot.day === index).length === 0}
-						<p class="text-base-content/70">No availability set</p>
+						<p class="text-base-content/70">{$t('profile_availability.unavailable')}</p>
 					{:else}
 						<div class="space-y-2">
 							{#each timeSlots.filter((slot) => slot.day === index) as slot, slotIndex}
@@ -376,7 +384,7 @@
 								>
 									<div class="flex flex-col items-center gap-4 sm:flex-row">
 										<div class="flex w-full flex-row items-center justify-start gap-2">
-											<span class="text-base-content/70 w-1/5">from</span>
+											<span class="text-base-content/70 w-1/5">{$t('profile_availability.from')}</span>
 											<input
 												type="time"
 												value={slot.start}
@@ -391,7 +399,7 @@
 											/>
 										</div>
 										<div class="flex w-full flex-row items-center justify-start gap-2">
-											<span class="text-base-content/70 w-1/5">to</span>
+											<span class="text-base-content/70 w-1/5">{$t('profile_availability.to')}</span>
 											<input
 												type="time"
 												value={slot.end}
@@ -427,10 +435,10 @@
 							class="btn btn-ghost btn-outline btn-xs sm:btn-sm"
 							onclick={() => copyToOtherDays(index)}
 						>
-							Copy to Other Days
+							{$t('profile_availability.copyToOtherDays')}
 						</button>
 						<button class="btn btn-primary btn-xs sm:btn-sm" onclick={() => addTimeSlot(index)}>
-							Add Time Slot
+							{$t('profile_availability.addTimeSlot')}
 						</button>
 					</div>
 				</div>
@@ -454,7 +462,7 @@
 				{#if isLoading}
 					<span class="loading loading-spinner"></span>
 				{/if}
-				Save Availability
+				{$t('profile_availability.saveAvailability')}
 			</button>
 		</div>
 	</div>

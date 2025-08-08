@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/Tasks.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"Tasks\",\r\n    \"kind\": \"HoudiniQuery\",\r\n    \"hash\": \"7fcc6dd1fc846467dd2509a40b356137817165c9aac71a6bd990820649228ef3\",\r\n\r\n    \"raw\": `query Tasks {\r\n  myTasks {\r\n    id\r\n    title\r\n    description\r\n    userProfileId\r\n    status\r\n    taskType\r\n    pickupLocation {\r\n      zipCode\r\n    }\r\n    budget\r\n    budgetType\r\n    deadlineDate\r\n    dateRange {\r\n      start\r\n      end\r\n    }\r\n    bids {\r\n      id\r\n    }\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Query\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"myTasks\": {\r\n                \"type\": \"Task\",\r\n                \"keyRaw\": \"myTasks\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"id\": {\r\n                            \"type\": \"ID\",\r\n                            \"keyRaw\": \"id\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"title\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"title\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"description\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"description\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"userProfileId\": {\r\n                            \"type\": \"Int\",\r\n                            \"keyRaw\": \"userProfileId\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"status\": {\r\n                            \"type\": \"TaskStatus\",\r\n                            \"keyRaw\": \"status\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"taskType\": {\r\n                            \"type\": \"TaskType\",\r\n                            \"keyRaw\": \"taskType\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"pickupLocation\": {\r\n                            \"type\": \"LocationOutput\",\r\n                            \"keyRaw\": \"pickupLocation\",\r\n                            \"nullable\": true,\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"zipCode\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"zipCode\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"budget\": {\r\n                            \"type\": \"Float\",\r\n                            \"keyRaw\": \"budget\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"budgetType\": {\r\n                            \"type\": \"BudgetType\",\r\n                            \"keyRaw\": \"budgetType\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"deadlineDate\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"deadlineDate\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"dateRange\": {\r\n                            \"type\": \"DateRangeOutput\",\r\n                            \"keyRaw\": \"dateRange\",\r\n                            \"nullable\": true,\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"start\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"start\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"end\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"end\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"bids\": {\r\n                            \"type\": \"Bid\",\r\n                            \"keyRaw\": \"bids\",\r\n                            \"nullable\": true,\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"id\": {\r\n                                        \"type\": \"ID\",\r\n                                        \"keyRaw\": \"id\",\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"policy\": \"CacheOrNetwork\",\r\n    \"partial\": false\r\n};\r\n\r\n\"HoudiniHash=dd3c3235ba389335fc4bd8f3736b864845c101f7997db541dd1e8aaef84d1961\";",
+      "start": 1754579495492,
+      "end": 1754579495507,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495507,
+      "end": 1754579495507,
+      "order": "normal"
+    }
+  ]
+}

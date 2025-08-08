@@ -114,11 +114,8 @@ export async function deriveKeyFromPassword(
 /**
  * Calculate estimated USDT value based on BTC amount
  */
-export function calculateUsdtEstimate(
-	budget: { amount: number; type: string },
-	btcPrice: number
-): string {
-	const estimatedValue = budget.amount * btcPrice;
+export function calculateUsdtEstimate(budget: number, btcPrice: number): string {
+	const estimatedValue = budget * btcPrice;
 	return estimatedValue.toLocaleString('en-US', {
 		maximumFractionDigits: 2,
 		minimumFractionDigits: 2
@@ -148,7 +145,8 @@ export function satsFromUsd(usd: number, price: number) {
 }
 
 export function usdFromSats(sats: number, price: number) {
-	return (sats / SATS_PER_BTC) * price;
+	const value = (sats / SATS_PER_BTC) * price;
+	return parseFloat(value.toFixed(3));
 }
 
 export function formatNumberForInput(value: number | undefined): string {

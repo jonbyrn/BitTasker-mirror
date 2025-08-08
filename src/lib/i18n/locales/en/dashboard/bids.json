@@ -1,0 +1,36 @@
+{
+    "bids": {
+        "panel": {
+            "title": "My bids dashboard"
+        },
+        "error": {
+            "loading": "Error loading bids",
+            "retry": "Retry loading bids"
+        },
+        "empty": {
+            "title": "No bids yet",
+            "find_tasks": "Find tasks to bid on",
+            "create_task": "Create a task"
+        }
+    },
+    "bid": {
+        "form": {
+            "estimated_duration": {
+                "label": "Estimated Completion Time",
+                "placeholder": "e.g., 3 days, 1 week"
+            },
+            "description": {
+                "label": "Bid Description",
+                "placeholder": "Explain why you're the right person for this task"
+            },
+            "approach": {
+                "label": "Your Approach",
+                "placeholder": "Describe how you plan to complete this task"
+            },
+            "cover_letter": {
+                "label": "Cover Letter (Optional)",
+                "placeholder": "Add any additional information about your experience and qualifications"
+            }
+        }
+    }
+}

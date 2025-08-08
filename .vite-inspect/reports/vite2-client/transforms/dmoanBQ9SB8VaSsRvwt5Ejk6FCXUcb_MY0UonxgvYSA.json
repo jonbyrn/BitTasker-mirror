@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/public/list.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { Record } from \"./record\";\nclass ListCollection {\n  #parentID;\n  #allLists;\n  #when;\n  #cache;\n  #name;\n  constructor({\n    parentID,\n    allLists,\n    when,\n    cache,\n    name\n  }) {\n    this.#parentID = parentID;\n    this.#allLists = allLists;\n    this.#when = when;\n    this.#cache = cache;\n    this.#name = name;\n  }\n  append(...records) {\n    if (!this.#collection) {\n      return;\n    }\n    const { selection, data } = this.#listOperationPayload(records);\n    for (const entry of data) {\n      if (entry) {\n        this.#collection.append({\n          selection,\n          data: entry\n        });\n      }\n    }\n  }\n  prepend(...records) {\n    if (!this.#collection) {\n      return;\n    }\n    const { selection, data } = this.#listOperationPayload(records);\n    for (const entry of data) {\n      if (entry) {\n        this.#collection.prepend({\n          selection,\n          data: entry\n        });\n      }\n    }\n  }\n  toggle(where, ...records) {\n    if (!this.#collection) {\n      return;\n    }\n    const { selection, data } = this.#listOperationPayload(records);\n    for (const entry of data) {\n      if (entry) {\n        this.#collection.toggleElement({\n          selection,\n          data: entry,\n          where\n        });\n      }\n    }\n  }\n  when(filter) {\n    if (!this.#collection) {\n      return this;\n    }\n    return new ListCollection({\n      parentID: this.#parentID,\n      allLists: this.#allLists,\n      when: filter,\n      cache: this.#cache,\n      name: this.#name\n    });\n  }\n  remove(...records) {\n    if (!this.#collection) {\n      return;\n    }\n    for (const record of records) {\n      if (record) {\n        this.#collection.remove(record.idFields);\n      }\n    }\n  }\n  *[Symbol.iterator]() {\n    for (const entry of this.#collection ?? []) {\n      yield entry;\n    }\n  }\n  get #collection() {\n    try {\n      const list = this.#cache._internal_unstable.list(\n        this.#name,\n        this.#parentID,\n        this.#allLists\n      );\n      if (this.#when) {\n        return list.when(this.#when);\n      }\n      return list;\n    } catch {\n      return null;\n    }\n  }\n  #listOperationPayload(records) {\n    let selection = this.#collection.selection;\n    const connectionSelection = selection.fields?.[\"edges\"]?.selection?.fields?.node.selection;\n    if (connectionSelection) {\n      selection = connectionSelection;\n    }\n    const data = [];\n    for (const record of records) {\n      if (!(record instanceof Record)) {\n        throw new Error(\"You must provide a Record to a list operation\");\n      }\n      data.push({ __typename: record.type, ...record.idFields });\n    }\n    return {\n      selection,\n      data\n    };\n  }\n}\nexport {\n  ListCollection\n};\n",
+      "start": 1754579496109,
+      "end": 1754579496148,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496148,
+      "end": 1754579496148,
+      "order": "normal"
+    }
+  ]
+}

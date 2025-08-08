@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/company/about.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"how_it_works_about\": {\r\n        \"hero\": {\r\n            \"heading\": \"Powering Human Freedom, One Task at a Time\",\r\n            \"tagline\": \"At BitTasker, we believe in the power of decentralized work. By enabling anyone, anywhere, to earn through their skills, we help unlock human potential and financial freedom—one task at a time.\"\r\n        }\r\n    },\r\n    \"about_page\": {\r\n        \"mission\": {\r\n            \"title\": \"Our Mission\",\r\n            \"description\": \"BitTasker exists to empower everyday people to earn, trade, and thrive without borders, banks, or barriers. We are building a platform where skills become currency, and Bitcoin becomes the bridge between sovereign individuals.\"\r\n        },\r\n        \"core_beliefs\": {\r\n            \"title\": \"Our Core Beliefs\",\r\n            \"description\": \"At BitTasker, we believe in economic freedom, digital dignity, and the power of peer-to-peer collaboration to transform lives around the globe.\",\r\n            \"divider\": \"Core Principles\",\r\n            \"bitcoin_title\": \"Bitcoin is Liberation\",\r\n            \"bitcoin_text\": \"We embrace Bitcoin as the tool to unlock global earning potential for the unbanked, underpaid, and overregulated.\",\r\n            \"tasks_title\": \"Tasks are Dignity\",\r\n            \"tasks_text\": \"Every person has value. BitTasker connects hands-on skills with global demand—no resumé, no gatekeepers, just proof of value.\",\r\n            \"decentralization_title\": \"Decentralization is Key\",\r\n            \"decentralization_text\": \"Legacy platforms extract value through censorship and excessive fees. We choose a better path: peer-to-peer, open, and fair.\",\r\n            \"sovereignty_title\": \"Sovereignty Starts with Income\",\r\n            \"sovereignty_text\": \"We help people own their time, money, and future by enabling direct, censorship-resistant earning.\"\r\n        },\r\n        \"platform\": {\r\n            \"title\": \"Our Platform\",\r\n            \"description\": \"BitTasker is not just a company—it's a mission to decentralize income and make Bitcoin useful in everyday life.\",\r\n            \"features\": {\r\n                \"communication\": {\r\n                    \"title\": \"Decentralized Communication\",\r\n                    \"description\": \"Censorship-resistant messaging via Nostr.\"\r\n                },\r\n                \"lightning\": {\r\n                    \"title\": \"Bitcoin Lightning Payments\",\r\n                    \"description\": \"Instant, borderless, and nearly free.\"\r\n                },\r\n                \"escrow\": {\r\n                    \"title\": \"Escrow & Reputation\",\r\n                    \"description\": \"Trust without intermediaries.\"\r\n                },\r\n                \"fiat\": {\r\n                    \"title\": \"Fiat On-Ramp\",\r\n                    \"description\": \"Mainstream accessibility.\"\r\n                },\r\n                \"marketplace\": {\r\n                    \"title\": \"Multi-Category Marketplace\",\r\n                    \"item1\": \"Trades, Construction & Repairs\",\r\n                    \"item2\": \"Creative, Pets, Plumbing, and more\"\r\n                },\r\n                \"global\": {\r\n                    \"title\": \"Built for Global Inclusion\",\r\n                    \"item1\": \"Access without borders\",\r\n                    \"item2\": \"No KYC, no bias\"\r\n                }\r\n            },\r\n            \"alert\": \"We’re building a platform where freedom, fairness, and financial inclusion thrive—powered by Bitcoin and community trust.\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494743,
+      "end": 1754579494781,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494781,
+      "end": 1754579494781,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494782,
+      "end": 1754579494782,
+      "order": "normal"
+    }
+  ]
+}

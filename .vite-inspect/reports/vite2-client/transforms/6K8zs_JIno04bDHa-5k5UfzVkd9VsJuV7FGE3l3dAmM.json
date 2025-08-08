@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/style.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { styleToCSS } from \"./style-to-css.js\";\nexport function styleToString(style = {}) {\n    return styleToCSS(style).replace(\"\\n\", \" \");\n}\nexport const srOnlyStyles = {\n    position: \"absolute\",\n    width: \"1px\",\n    height: \"1px\",\n    padding: \"0\",\n    margin: \"-1px\",\n    overflow: \"hidden\",\n    clip: \"rect(0, 0, 0, 0)\",\n    whiteSpace: \"nowrap\",\n    borderWidth: \"0\",\n    transform: \"translateX(-100%)\"\n};\nexport const srOnlyStylesString = styleToString(srOnlyStyles);\n",
+      "start": 1754579496228,
+      "end": 1754579496261,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496261,
+      "end": 1754579496261,
+      "order": "normal"
+    }
+  ]
+}

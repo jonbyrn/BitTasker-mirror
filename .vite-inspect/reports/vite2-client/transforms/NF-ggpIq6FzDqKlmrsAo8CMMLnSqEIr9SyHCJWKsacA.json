@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/css-to-style-obj.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import parse from \"style-to-object\";\nimport { camelCase, pascalCase } from \"./strings.js\";\nexport function cssToStyleObj(css) {\n    if (!css)\n        return {};\n    const styleObj = {};\n    function iterator(name, value) {\n        if (name.startsWith(\"-moz-\") ||\n            name.startsWith(\"-webkit-\") ||\n            name.startsWith(\"-ms-\") ||\n            name.startsWith(\"-o-\")) {\n            styleObj[pascalCase(name)] = value;\n            return;\n        }\n        if (name.startsWith(\"--\")) {\n            styleObj[name] = value;\n            return;\n        }\n        styleObj[camelCase(name)] = value;\n    }\n    parse(css, iterator);\n    return styleObj;\n}\n",
+      "start": 1754579496227,
+      "end": 1754579496259,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496259,
+      "end": 1754579496259,
+      "order": "normal"
+    }
+  ]
+}

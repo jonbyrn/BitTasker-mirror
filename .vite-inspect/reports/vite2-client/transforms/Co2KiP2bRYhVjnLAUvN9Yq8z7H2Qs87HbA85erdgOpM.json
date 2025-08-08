@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/stores/index.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export * from './ChangePassword'\nexport * from './CheckOnboardingStatus'\nexport * from './CheckUsernameAvailability'\nexport * from './CreateTask'\nexport * from './DeleteTaskTemplate'\nexport * from './GetUsernameHistory'\nexport * from './Login'\nexport * from './Me'\nexport * from './MyBids'\nexport * from './MyDevices'\nexport * from './MyNotificationPreferences'\nexport * from './MyTaskTemplates'\nexport * from './Register'\nexport * from './RegisterDevice'\nexport * from './RevokeAllDevices'\nexport * from './RevokeDevice'\nexport * from './SearchTasks'\nexport * from './SendTestNotification'\nexport * from './SubscribeToTopic'\nexport * from './Tasks'\nexport * from './TriggerSavedSearchCheck'\nexport * from './UnsubscribeFromTopic'\nexport * from './UpdateDevice'\nexport * from './UpdateDeviceActivity'\nexport * from './UpdateTaskTemplate'\nexport * from './UpdateUser'\nexport * from './UpdateUserProfile'\nexport * from './VerifyToken'\nexport * from './VerifyTrunstile'",
+      "start": 1754579494619,
+      "end": 1754579494746,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494746,
+      "end": 1754579494746,
+      "order": "normal"
+    }
+  ]
+}

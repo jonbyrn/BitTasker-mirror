@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/isFriday.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { toDate } from \"./toDate.js\";\n\n/**\n * The {@link isFriday} function options.\n */\n\n/**\n * @name isFriday\n * @category Weekday Helpers\n * @summary Is the given date Friday?\n *\n * @description\n * Is the given date Friday?\n *\n * @param date - The date to check\n * @param options - An object with options\n *\n * @returns The date is Friday\n *\n * @example\n * // Is 26 September 2014 Friday?\n * const result = isFriday(new Date(2014, 8, 26))\n * //=> true\n */\nexport function isFriday(date, options) {\n  return toDate(date, options?.in).getDay() === 5;\n}\n\n// Fallback for modularized imports:\nexport default isFriday;\n",
+      "start": 1754579494949,
+      "end": 1754579494965,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494965,
+      "end": 1754579494965,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494966,
+      "end": 1754579494966,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494966,
+      "end": 1754579494966,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494966,
+      "end": 1754579494966,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494966,
+      "end": 1754579494966,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494966,
+      "end": 1754579494966,
+      "order": "normal"
+    }
+  ]
+}

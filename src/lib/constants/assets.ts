@@ -93,8 +93,8 @@ export function isValidAssetId(network: 'mainnet' | 'testnet', assetId: string):
 export function getCurrentNetwork(): 'mainnet' | 'testnet' {
 	// Check environment variable first
 	if (typeof import.meta !== 'undefined' && import.meta.env) {
-		const envNetwork = import.meta.env.VITE_NETWORK;
-		if (envNetwork === 'testnet') return 'testnet';
+		const envNetwork = import.meta.env.WALLET_NETWORK;
+		if (envNetwork) return envNetwork;
 	}
 	
 	// Default to mainnet for production

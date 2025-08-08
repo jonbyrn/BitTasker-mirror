@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/nextSaturday.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { nextDay } from \"./nextDay.js\";\n\n/**\n * The {@link nextSaturday} function options.\n */\n\n/**\n * @name nextSaturday\n * @category Weekday Helpers\n * @summary When is the next Saturday?\n *\n * @description\n * When is the next Saturday?\n *\n * @typeParam DateType - The `Date` type, the function operates on. Gets inferred from passed arguments. Allows to use extensions like [`UTCDate`](https://github.com/date-fns/utc).\n * @typeParam ResultDate - The result `Date` type, it is the type returned from the context function if it is passed, or inferred from the arguments.\n *\n * @param date - The date to start counting from\n * @param options - An object with options\n *\n * @returns The next Saturday\n *\n * @example\n * // When is the next Saturday after Mar, 22, 2020?\n * const result = nextSaturday(new Date(2020, 2, 22))\n * //=> Sat Mar 28 2020 00:00:00\n */\nexport function nextSaturday(date, options) {\n  return nextDay(date, 6, options);\n}\n\n// Fallback for modularized imports:\nexport default nextSaturday;\n",
+      "start": 1754579495000,
+      "end": 1754579495017,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495017,
+      "end": 1754579495017,
+      "order": "normal"
+    }
+  ]
+}

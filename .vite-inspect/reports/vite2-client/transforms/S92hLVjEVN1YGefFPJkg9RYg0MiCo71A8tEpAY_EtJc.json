@@ -1,0 +1,108 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/box/box.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { isFunction, isObject } from \"../utils/is.js\";\nconst BoxSymbol = Symbol(\"box\");\nconst isWritableSymbol = Symbol(\"is-writable\");\n/**\n * @returns Whether the value is a Box\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction isBox(value) {\n    return isObject(value) && BoxSymbol in value;\n}\n/**\n * @returns Whether the value is a WritableBox\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction isWritableBox(value) {\n    return box.isBox(value) && isWritableSymbol in value;\n}\nexport function box(initialValue) {\n    let current = $state(initialValue);\n    return {\n        [BoxSymbol]: true,\n        [isWritableSymbol]: true,\n        get current() {\n            return current;\n        },\n        set current(v) {\n            current = v;\n        }\n    };\n}\nfunction boxWith(getter, setter) {\n    const derived = $derived.by(getter);\n    if (setter) {\n        return {\n            [BoxSymbol]: true,\n            [isWritableSymbol]: true,\n            get current() {\n                return derived;\n            },\n            set current(v) {\n                setter(v);\n            }\n        };\n    }\n    return {\n        [BoxSymbol]: true,\n        get current() {\n            return getter();\n        }\n    };\n}\nfunction boxFrom(value) {\n    if (box.isBox(value))\n        return value;\n    if (isFunction(value))\n        return box.with(value);\n    return box(value);\n}\n/**\n * Function that gets an object of boxes, and returns an object of reactive values\n *\n * @example\n * const count = box(0)\n * const flat = box.flatten({ count, double: box.with(() => count.current) })\n * // type of flat is { count: number, readonly double: number }\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction boxFlatten(boxes) {\n    return Object.entries(boxes).reduce((acc, [key, b]) => {\n        if (!box.isBox(b)) {\n            return Object.assign(acc, { [key]: b });\n        }\n        if (box.isWritableBox(b)) {\n            Object.defineProperty(acc, key, {\n                get() {\n                    return b.current;\n                },\n                // eslint-disable-next-line @typescript-eslint/no-explicit-any\n                set(v) {\n                    b.current = v;\n                }\n            });\n        }\n        else {\n            Object.defineProperty(acc, key, {\n                get() {\n                    return b.current;\n                }\n            });\n        }\n        return acc;\n    }, {});\n}\n/**\n * Function that converts a box to a readonly box.\n *\n * @example\n * const count = box(0) // WritableBox<number>\n * const countReadonly = box.readonly(count) // ReadableBox<number>\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction toReadonlyBox(b) {\n    if (!box.isWritableBox(b))\n        return b;\n    return {\n        [BoxSymbol]: true,\n        get current() {\n            return b.current;\n        }\n    };\n}\nbox.from = boxFrom;\nbox.with = boxWith;\nbox.flatten = boxFlatten;\nbox.readonly = toReadonlyBox;\nbox.isBox = isBox;\nbox.isWritableBox = isWritableBox;\n",
+      "start": 1754579496220,
+      "end": 1754579496246,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496246,
+      "end": 1754579496247,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496247,
+      "end": 1754579496247,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* box.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\nimport { isFunction, isObject } from \"../utils/is.js\";\n\nconst BoxSymbol = Symbol(\"box\");\nconst isWritableSymbol = Symbol(\"is-writable\");\n\n/**\n * @returns Whether the value is a Box\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction isBox(value) {\n\treturn isObject(value) && BoxSymbol in value;\n}\n\n/**\n * @returns Whether the value is a WritableBox\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction isWritableBox(value) {\n\treturn box.isBox(value) && isWritableSymbol in value;\n}\n\nexport function box(initialValue) {\n\tlet current = $.state($.proxy(initialValue));\n\n\treturn {\n\t\t[BoxSymbol]: true,\n\t\t[isWritableSymbol]: true,\n\t\tget current() {\n\t\t\treturn $.get(current);\n\t\t},\n\t\tset current(v) {\n\t\t\t$.set(current, v, true);\n\t\t}\n\t};\n}\n\nfunction boxWith(getter, setter) {\n\tconst derived = $.derived(getter);\n\n\tif (setter) {\n\t\treturn {\n\t\t\t[BoxSymbol]: true,\n\t\t\t[isWritableSymbol]: true,\n\t\t\tget current() {\n\t\t\t\treturn $.get(derived);\n\t\t\t},\n\t\t\tset current(v) {\n\t\t\t\tsetter(v);\n\t\t\t}\n\t\t};\n\t}\n\n\treturn {\n\t\t[BoxSymbol]: true,\n\t\tget current() {\n\t\t\treturn getter();\n\t\t}\n\t};\n}\n\nfunction boxFrom(value) {\n\tif (box.isBox(value)) return value;\n\tif (isFunction(value)) return box.with(value);\n\treturn box(value);\n}\n\n/**\n * Function that gets an object of boxes, and returns an object of reactive values\n *\n * @example\n * const count = box(0)\n * const flat = box.flatten({ count, double: box.with(() => count.current) })\n * // type of flat is { count: number, readonly double: number }\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction boxFlatten(boxes) {\n\treturn Object.entries(boxes).reduce(\n\t\t(acc, [key, b]) => {\n\t\t\tif (!box.isBox(b)) {\n\t\t\t\treturn Object.assign(acc, { [key]: b });\n\t\t\t}\n\n\t\t\tif (box.isWritableBox(b)) {\n\t\t\t\tObject.defineProperty(acc, key, {\n\t\t\t\t\tget() {\n\t\t\t\t\t\treturn b.current;\n\t\t\t\t\t},\n\t\t\t\t\tset(v) {\n\t\t\t\t\t\tb.current = v;\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t} else {\n\t\t\t\tObject.defineProperty(acc, key, {\n\t\t\t\t\tget() {\n\t\t\t\t\t\treturn b.current;\n\t\t\t\t\t}\n\t\t\t\t});\n\t\t\t}\n\n\t\t\treturn acc;\n\t\t},\n\t\t{}\n\t);\n}\n\n/**\n * Function that converts a box to a readonly box.\n *\n * @example\n * const count = box(0) // WritableBox<number>\n * const countReadonly = box.readonly(count) // ReadableBox<number>\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction toReadonlyBox(b) {\n\tif (!box.isWritableBox(b)) return b;\n\n\treturn {\n\t\t[BoxSymbol]: true,\n\t\tget current() {\n\t\t\treturn b.current;\n\t\t}\n\t};\n}\n\nbox.from = boxFrom;\nbox.with = boxWith;\nbox.flatten = boxFlatten;\nbox.readonly = toReadonlyBox;\nbox.isBox = isBox;\nbox.isWritableBox = isWritableBox;",
+      "start": 1754579496247,
+      "end": 1754579496251,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "box.svelte.js"
+        ],
+        "sourcesContent": [
+          "import { isFunction, isObject } from \"../utils/is.js\";\nconst BoxSymbol = Symbol(\"box\");\nconst isWritableSymbol = Symbol(\"is-writable\");\n/**\n * @returns Whether the value is a Box\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction isBox(value) {\n    return isObject(value) && BoxSymbol in value;\n}\n/**\n * @returns Whether the value is a WritableBox\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction isWritableBox(value) {\n    return box.isBox(value) && isWritableSymbol in value;\n}\nexport function box(initialValue) {\n    let current = $state(initialValue);\n    return {\n        [BoxSymbol]: true,\n        [isWritableSymbol]: true,\n        get current() {\n            return current;\n        },\n        set current(v) {\n            current = v;\n        }\n    };\n}\nfunction boxWith(getter, setter) {\n    const derived = $derived.by(getter);\n    if (setter) {\n        return {\n            [BoxSymbol]: true,\n            [isWritableSymbol]: true,\n            get current() {\n                return derived;\n            },\n            set current(v) {\n                setter(v);\n            }\n        };\n    }\n    return {\n        [BoxSymbol]: true,\n        get current() {\n            return getter();\n        }\n    };\n}\nfunction boxFrom(value) {\n    if (box.isBox(value))\n        return value;\n    if (isFunction(value))\n        return box.with(value);\n    return box(value);\n}\n/**\n * Function that gets an object of boxes, and returns an object of reactive values\n *\n * @example\n * const count = box(0)\n * const flat = box.flatten({ count, double: box.with(() => count.current) })\n * // type of flat is { count: number, readonly double: number }\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction boxFlatten(boxes) {\n    return Object.entries(boxes).reduce((acc, [key, b]) => {\n        if (!box.isBox(b)) {\n            return Object.assign(acc, { [key]: b });\n        }\n        if (box.isWritableBox(b)) {\n            Object.defineProperty(acc, key, {\n                get() {\n                    return b.current;\n                },\n                // eslint-disable-next-line @typescript-eslint/no-explicit-any\n                set(v) {\n                    b.current = v;\n                }\n            });\n        }\n        else {\n            Object.defineProperty(acc, key, {\n                get() {\n                    return b.current;\n                }\n            });\n        }\n        return acc;\n    }, {});\n}\n/**\n * Function that converts a box to a readonly box.\n *\n * @example\n * const count = box(0) // WritableBox<number>\n * const countReadonly = box.readonly(count) // ReadableBox<number>\n *\n * @see {@link https://runed.dev/docs/functions/box}\n */\nfunction toReadonlyBox(b) {\n    if (!box.isWritableBox(b))\n        return b;\n    return {\n        [BoxSymbol]: true,\n        get current() {\n            return b.current;\n        }\n    };\n}\nbox.from = boxFrom;\nbox.with = boxWith;\nbox.flatten = boxFlatten;\nbox.readonly = toReadonlyBox;\nbox.isBox = isBox;\nbox.isWritableBox = isWritableBox;\n"
+        ],
+        "mappings": ";;SAAS,UAAU,EAAE,QAAQ,QAAQ,gBAAgB;;MAC/C,SAAS,GAAG,MAAM,CAAC,KAAK;MACxB,gBAAgB,GAAG,MAAM,CAAC,aAAa;;;;;;;SAMpC,KAAK,CAAC,KAAK,EAAE,CAAC;QACZ,QAAQ,CAAC,KAAK,KAAK,SAAS,IAAI,KAAK;AAChD,CAAC;;;;;;;SAMQ,aAAa,CAAC,KAAK,EAAE,CAAC;QACpB,GAAG,CAAC,KAAK,CAAC,KAAK,KAAK,gBAAgB,IAAI,KAAK;AACxD,CAAC;;gBACe,GAAG,CAAC,YAAY,EAAE,CAAC;KAC3B,OAAO,mBAAU,YAAY;;;GAE5B,SAAS,GAAG,IAAI;GAChB,gBAAgB,GAAG,IAAI;MACpB,OAAO,GAAG,CAAC;gBACJ,OAAO;EAClB,CAAC;MACG,OAAO,CAAC,CAAC,EAAE,CAAC;SACZ,OAAO,EAAG,CAAC;EACf,CAAC;;AAET,CAAC;;SACQ,OAAO,CAAC,MAAM,EAAE,MAAM,EAAE,CAAC;OACxB,OAAO,aAAe,MAAM;;KAC9B,MAAM,EAAE,CAAC;;IAEJ,SAAS,GAAG,IAAI;IAChB,gBAAgB,GAAG,IAAI;OACpB,OAAO,GAAG,CAAC;iBACJ,OAAO;GAClB,CAAC;OACG,OAAO,CAAC,CAAC,EAAE,CAAC;IACZ,MAAM,CAAC,CAAC;GACZ,CAAC;;CAET,CAAC;;;GAEI,SAAS,GAAG,IAAI;MACb,OAAO,GAAG,CAAC;UACJ,MAAM;EACjB,CAAC;;AAET,CAAC;;SACQ,OAAO,CAAC,KAAK,EAAE,CAAC;KACjB,GAAG,CAAC,KAAK,CAAC,KAAK,UACR,KAAK;KACZ,UAAU,CAAC,KAAK,UACT,GAAG,CAAC,IAAI,CAAC,KAAK;QAClB,GAAG,CAAC,KAAK;AACpB,CAAC;;;;;;;;;;;;SAWQ,UAAU,CAAC,KAAK,EAAE,CAAC;QACjB,MAAM,CAAC,OAAO,CAAC,KAAK,EAAE,MAAM;GAAE,GAAG,GAAG,GAAG,EAAE,CAAC,MAAM,CAAC;QAC/C,GAAG,CAAC,KAAK,CAAC,CAAC,GAAG,CAAC;WACT,MAAM,CAAC,MAAM,CAAC,GAAG,KAAK,GAAG,GAAG,CAAC;GACxC,CAAC;;OACG,GAAG,CAAC,aAAa,CAAC,CAAC,GAAG,CAAC;IACvB,MAAM,CAAC,cAAc,CAAC,GAAG,EAAE,GAAG;KAC1B,GAAG,GAAG,CAAC;aACI,CAAC,CAAC,OAAO;KACpB,CAAC;KAED,GAAG,CAAC,CAAC,EAAE,CAAC;MACJ,CAAC,CAAC,OAAO,GAAG,CAAC;KACjB,CAAC;;GAET,CAAC,MACI,CAAC;IACF,MAAM,CAAC,cAAc,CAAC,GAAG,EAAE,GAAG;KAC1B,GAAG,GAAG,CAAC;aACI,CAAC,CAAC,OAAO;KACpB,CAAC;;GAET,CAAC;;UACM,GAAG;EACd,CAAC;;;AACL,CAAC;;;;;;;;;;;SAUQ,aAAa,CAAC,CAAC,EAAE,CAAC;MAClB,GAAG,CAAC,aAAa,CAAC,CAAC,UACb,CAAC;;;GAEP,SAAS,GAAG,IAAI;MACb,OAAO,GAAG,CAAC;UACJ,CAAC,CAAC,OAAO;EACpB,CAAC;;AAET,CAAC;;AACD,GAAG,CAAC,IAAI,GAAG,OAAO;AAClB,GAAG,CAAC,IAAI,GAAG,OAAO;AAClB,GAAG,CAAC,OAAO,GAAG,UAAU;AACxB,GAAG,CAAC,QAAQ,GAAG,aAAa;AAC5B,GAAG,CAAC,KAAK,GAAG,KAAK;AACjB,GAAG,CAAC,aAAa,GAAG,aAAa"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496251,
+      "end": 1754579496251,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496251,
+      "end": 1754579496251,
+      "order": "normal"
+    }
+  ]
+}

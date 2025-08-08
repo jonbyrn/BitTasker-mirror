@@ -7,7 +7,7 @@
 		markNotificationsAsRead
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
-
+	import { t, locale } from 'svelte-i18n';
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
@@ -110,7 +110,7 @@
 </script>
 
 <div class="card bg-base-100 mb-6 rounded-xl p-4">
-	<h2 class="mb-4 text-xl font-bold">Your Saved Searches</h2>
+	<h2 class="mb-4 text-xl font-bold">{$t('profile.saved_searches_title')}</h2>
 
 	{#if error}
 		<div class="alert alert-error mb-4">
@@ -153,9 +153,9 @@
 					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 				/>
 			</svg>
-			<p class="text-lg font-medium">No saved searches yet</p>
+			<p class="text-lg font-medium">{$t('profile.no_saved_searches')}</p>
 			<p class="mb-4 text-gray-500">
-				Save your search criteria to get notified when new matching tasks are posted.
+				{$t('profile.saved_searches_info')}
 			</p>
 		</div>
 	{:else}

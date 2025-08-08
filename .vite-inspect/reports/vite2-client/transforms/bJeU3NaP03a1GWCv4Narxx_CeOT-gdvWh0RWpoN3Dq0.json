@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/taskees/fee.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"fees\": {\r\n        \"title\": \"Taskee Fees & Pricing\",\r\n        \"subtitle\": \"Simple, transparent pricing designed to reward loyal taskees\",\r\n        \"structure\": {\r\n            \"title\": \"Taskee Fee Structure\",\r\n            \"description\": \"At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskees enjoy the best rates.\",\r\n            \"note\": \"<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees.\"\r\n        },\r\n        \"tiers\": {\r\n            \"1\": {\r\n                \"badge\": \"Tier 1\",\r\n                \"title\": \"Nakamoto<br />Newbie\",\r\n                \"criteria\": \"For taskees who complete 0–3 tasks in the last 30 days\",\r\n                \"fee_label\": \"Fee Rate\",\r\n                \"fee_rate\": \"12.5%\",\r\n                \"example\": \"Example: For a $100 task, you'll receive $87.50 (minus $0.05-$0.10 network fees, not paid to BitTasker).\"\r\n            },\r\n            \"2\": {\r\n                \"badge\": \"Tier 2\",\r\n                \"title\": \"Satoshi<br />Stacker\",\r\n                \"criteria\": \"For taskees who complete 4–10 tasks in the last 30 days\",\r\n                \"fee_label\": \"Fee Rate\",\r\n                \"fee_rate\": \"10%\",\r\n                \"example\": \"Example: For a $100 task, you'll receive $90 (minus $0.05-$0.10 network fees, not paid to BitTasker).\"\r\n            },\r\n            \"3\": {\r\n                \"badge\": \"Tier 3\",\r\n                \"title\": \"Hash<br />Master\",\r\n                \"criteria\": \"For our most active taskees with 11+ tasks in the last 30 days\",\r\n                \"fee_label\": \"Fee Rate\",\r\n                \"fee_rate\": \"7.5%\",\r\n                \"example\": \"Example: For a $100 task, you'll receive $92.50 (minus $0.05-$0.10 network fees, not paid to BitTasker).\"\r\n            }\r\n        },\r\n        \"bitcoin\": {\r\n            \"title\": \"Bitcoin Payments: Keep More of What You Earn\",\r\n            \"description\": \"Earn even more when taskers pay with Bitcoin! We offer reduced fees for Bitcoin transactions.\",\r\n            \"table\": {\r\n                \"header\": {\r\n                    \"tier\": \"Taskee Tier\",\r\n                    \"rate\": \"Bitcoin Fee Rate\",\r\n                    \"improvement\": \"Improvement vs. Standard\"\r\n                },\r\n                \"row\": {\r\n                    \"1\": {\r\n                        \"tier\": \"Nakamoto Newbie\",\r\n                        \"rate\": \"2.5%\",\r\n                        \"improvement\": \"Keep 10% more!\"\r\n                    },\r\n                    \"2\": {\r\n                        \"tier\": \"Satoshi Stacker\",\r\n                        \"rate\": \"2%\",\r\n                        \"improvement\": \"Keep 8% more!\"\r\n                    },\r\n                    \"3\": {\r\n                        \"tier\": \"Hash Master\",\r\n                        \"rate\": \"1.5%\",\r\n                        \"improvement\": \"Keep 6% more!\"\r\n                    }\r\n                }\r\n            },\r\n            \"example\": \"<strong>Bitcoin Example:</strong> As a <strong class=\\\"text-primary\\\">Hash Master</strong> tier taskee, a $100 task paid with Bitcoin would net you $98.50 instead of $92.50!\"\r\n        },\r\n        \"repeat\": {\r\n            \"title\": \"Repeat Tasker Bonus\",\r\n            \"description\": \"Establish strong tasker relationships and enjoy significantly reduced fees on repeat work!\"\r\n        },\r\n        \"benefits\": {\r\n            \"title\": \"Taskee Benefits & Visibility\",\r\n            \"description\": \"Higher tier taskees enjoy additional benefits beyond reduced fees:\",\r\n            \"item_1\": \"<strong>Enhanced Visibility:</strong> Higher tier taskees appear at the top of search results\",\r\n            \"item_2\": \"<strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile\",\r\n            \"item_3\": \"<strong>Bid Priority:</strong> Your proposals are highlighted and prioritized in taskees' inboxes\",\r\n            \"item_4\": \"<strong>Competitive Edge:</strong> Taskers can see your tier status, giving you an advantage\"\r\n        },\r\n        \"maintenance\": {\r\n            \"title\": \"Tier Advancement & Maintenance\",\r\n            \"description\": \"Your tier status is calculated based on your activity over the past 30 days, and is updated daily. The more tasks you complete, the higher your tier and the lower your fees.\"\r\n        },\r\n        \"cta\": {\r\n            \"title\": \"Ready to start earning with the most competitive fees in the industry?\",\r\n            \"button\": \"Join BitTasker Today\"\r\n        },\r\n        \"repeat_bonus\": {\r\n            \"title\": \"Returning Taskers = Higher Earnings!\",\r\n            \"description\": \"When a tasker books you for a repeat task:\",\r\n            \"item_1\": \"Standard payments: Just <strong>3% fee</strong> (down from 7.5–12.5%)\",\r\n            \"item_2\": \"Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5–2.5%)\",\r\n            \"note_1\": \"Example: For a $100 repeat task, you'll earn $97 with standard payment or $99 with Bitcoin!\",\r\n            \"note_2\": \"Booking repeat work with a tasker counts towards your 30 day rolling tasks to maintain your tier.\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494794,
+      "end": 1754579494807,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal"
+    }
+  ]
+}

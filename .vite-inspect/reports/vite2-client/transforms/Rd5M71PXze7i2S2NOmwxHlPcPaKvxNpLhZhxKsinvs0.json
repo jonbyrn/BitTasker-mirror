@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/common.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"common\": {\r\n        \"or\": \"or\",\r\n        \"processing\": \"Processing\",\r\n        \"close\": \"Close\",\r\n        \"edit\": \"Edit\",\r\n        \"remove\": \"Remove\",\r\n        \"cancel\": \"Cancel\",\r\n        \"update\": \"Update\",\r\n        \"add\": \"Add\",\r\n        \"required\": \"Required\",\r\n        \"previous\": \"Previous\",\r\n        \"next\": \"Next\",\r\n        \"slide\": \"Slide\",\r\n        \"view_all\": \"View All\",\r\n        \"view_profile\": \"View Profile\",\r\n        \"reviews\": \"reviews\",\r\n        \"cta_title\": \"Ready to Get Started?\",\r\n        \"cta_description\": \"Join BitTasker today and experience a better way to find work or hire skilled taskees. Our Bitcoin-powered platform makes transactions secure, borderless, and efficient.\",\r\n        \"create_account\": \"Create Your Account\",\r\n        \"browse_faq\": \"Browse FAQ\",\r\n        \"link\": {\r\n            \"security\": \"Security\",\r\n            \"privacy\": \"Privacy\",\r\n            \"escrow\": \"Escrow System\",\r\n            \"taskee_principles\": \"Taskee Principles\",\r\n            \"community_guidelines\": \"Community Guidelines\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494628,
+      "end": 1754579494752,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494752,
+      "end": 1754579494752,
+      "order": "normal"
+    }
+  ]
+}

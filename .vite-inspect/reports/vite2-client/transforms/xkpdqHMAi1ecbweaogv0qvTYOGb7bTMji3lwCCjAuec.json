@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@sveltejs/kit/src/runtime/components/svelte-5/layout.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script>\n  let { children } = $props();\n</script>\n\n{@render children()}\n",
+      "start": 1754579491346,
+      "end": 1754579491377,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579491377,
+      "end": 1754579491377,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579491377,
+      "end": 1754579491377,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\n\nexport default function Layout($$anchor, $$props) {\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children);\n\t$.append($$anchor, fragment);\n}",
+      "start": 1754579491377,
+      "end": 1754579491378,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": "",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "layout.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579491378,
+      "end": 1754579491378,
+      "order": "normal"
+    }
+  ]
+}

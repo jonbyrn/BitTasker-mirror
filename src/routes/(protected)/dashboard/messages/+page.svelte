@@ -11,6 +11,7 @@
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { t } from 'svelte-i18n';
 
 	// State
 	let conversations = $state<
@@ -245,28 +246,17 @@
 <div class="mx-auto flex h-full max-w-7xl flex-col p-4 sm:p-0">
 	<!-- Header -->
 	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
-		<h2 class="text-2xl font-bold">Messages</h2>
-		<button class="btn btn-primary" onclick={startNewMessage}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="mr-2 h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-			</svg>
-			New Message
-		</button>
+		<h2 class="text-2xl font-bold">{$t('messages.title')}</h2>
+		<button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button>
 	</div>
 
 	<!-- Modal -->
-	<input 
-		type="checkbox" 
-		class="modal-toggle" 
-		checked={showModal} 
-		style="display:none" 
-		readonly 
+	<input
+		type="checkbox"
+		class="modal-toggle"
+		checked={showModal}
+		style="display:none"
+		readonly
 		aria-label="Toggle new message modal"
 	/>
 	{#if showModal}
@@ -274,26 +264,28 @@
 			<div class="modal-box max-w-md">
 				<!-- Modal Header -->
 				<div class="mb-6">
-					<h3 class="text-xl font-semibold">Start New Message</h3>
+					<h3 class="text-xl font-semibold">{$t('messages.start_new_message')}</h3>
 					<p class="text-base-content/60 mt-1 text-sm">
-						Enter a public key to start a conversation
+						{$t('messages.enter_pubkey')}
 					</p>
 				</div>
 
 				<form onsubmit={submitNewMessage} class="space-y-4">
 					<!-- Input Section -->
 					<div class="space-y-2">
-						<label for="recipient-pubkey" class="text-sm font-medium">Recipient Public Key</label>
+						<label for="recipient-pubkey" class="text-sm font-medium"
+							>{$t('messages.recipient_pubkey')}</label
+						>
 						<input
 							id="recipient-pubkey"
 							type="text"
 							class="input input-bordered w-full text-sm"
 							bind:value={newMessagePubkey}
 							oninput={handlePubkeyInput}
-							placeholder="npub1... or hex pubkey"
+							placeholder="npub1... or hex public key"
 						/>
 						<p class="text-base-content/50 text-xs">
-							Enter an npub (starts with npub1) or hex public key
+							{$t('messages.enter_npub')}
 						</p>
 					</div>
 
@@ -328,13 +320,7 @@
 						</div>
 					{:else if newMessageProfile}
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
-							<Avatar
-								user={{
-									name: newMessageProfile.name || 'Unknown',
-									picture: newMessageProfile.picture || null
-								}}
-								size="md"
-							/>
+							<Avatar size="md" />
 							<div class="min-w-0 flex-1">
 								<p class="truncate font-medium">{newMessageProfile.name || 'Unknown User'}</p>
 								<p class="text-base-content/60 truncate text-xs">
@@ -379,7 +365,7 @@
 								</svg>
 							</div>
 							<div class="min-w-0 flex-1">
-								<p class="text-base-content/60 font-medium">No profile found</p>
+								<p class="text-base-content/60 font-medium">{$t('messages.no_profile_found')}</p>
 								<p class="text-base-content/50 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')
 										? `${newMessagePubkey.slice(0, 16)}...`
@@ -392,7 +378,7 @@
 					<!-- Action Buttons -->
 					<div class="flex gap-3 pt-4">
 						<button type="button" class="btn btn-ghost flex-1" onclick={closeModal}>
-							Cancel
+							{$t('messages.cancel')}
 						</button>
 						<button
 							type="submit"
@@ -401,9 +387,9 @@
 						>
 							{#if isProfileLoading}
 								<span class="loading loading-spinner loading-sm"></span>
-								Loading...
+								{$t('messages.loading')}
 							{:else}
-								Start Chat
+								{$t('messages.start_chat')}
 							{/if}
 						</button>
 					</div>
@@ -422,7 +408,7 @@
 					<div class="relative">
 						<input
 							type="text"
-							placeholder="Search conversations..."
+							placeholder={$t('messages.search_placeholder')}
 							class="input input-bordered w-full pl-10"
 							bind:value={searchQuery}
 						/>
@@ -496,10 +482,11 @@
 								d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
 							/>
 						</svg>
-						<h3 class="mt-4 text-lg font-semibold">No messages yet</h3>
-						<p class="text-base-content/60 mt-1">Start a conversation with someone</p>
-						<button class="btn btn-primary mt-4" onclick={startNewMessage}>Start New Message</button
-						>
+						<h3 class="mt-4 text-lg font-semibold">{$t('messages.no_messages')}</h3>
+						<p class="text-base-content/60 mt-1">{$t('messages.start_conversation')}</p>
+						<button class="btn btn-primary mt-4" onclick={startNewMessage}>
+							{$t('messages.start_new_message')}
+						</button>
 					</div>
 				{:else if filteredConversations.length === 0}
 					<!-- No Search Results -->
@@ -518,10 +505,10 @@
 								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 							/>
 						</svg>
-						<h3 class="mt-4 text-lg font-semibold">No conversations found</h3>
-						<p class="text-base-content/60 mt-1">Try a different search term</p>
+						<h3 class="mt-4 text-lg font-semibold">{$t('messages.no_conversations_found')}</h3>
+						<p class="text-base-content/60 mt-1">{$t('messages.try_different_search')}</p>
 						<button class="btn btn-ghost mt-4" onclick={() => (searchQuery = '')}>
-							Clear search
+							{$t('messages.clear_search')}
 						</button>
 					</div>
 				{:else}

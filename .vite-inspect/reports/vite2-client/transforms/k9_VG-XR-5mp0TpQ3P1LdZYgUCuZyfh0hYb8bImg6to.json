@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/UpdateDevice.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"UpdateDevice\",\r\n    \"kind\": \"HoudiniMutation\",\r\n    \"hash\": \"0ca4abe6210803d4524e460bb7755bedc3bde554880b6574377ee28b67912723\",\r\n\r\n    \"raw\": `mutation UpdateDevice($deviceId: String!, $input: UpdateDeviceInput!) {\r\n  updateDevice(deviceId: $deviceId, input: $input) {\r\n    id\r\n    deviceId\r\n    platform\r\n    isActive\r\n    fcmToken\r\n    appVersion\r\n    lastTokenRefresh\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Mutation\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"updateDevice\": {\r\n                \"type\": \"UserDevice\",\r\n                \"keyRaw\": \"updateDevice(deviceId: $deviceId, input: $input)\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"id\": {\r\n                            \"type\": \"ID\",\r\n                            \"keyRaw\": \"id\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"deviceId\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"deviceId\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"platform\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"platform\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"isActive\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"isActive\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"fcmToken\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"fcmToken\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"appVersion\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"appVersion\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"lastTokenRefresh\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"lastTokenRefresh\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"input\": {\r\n        \"fields\": {\r\n            \"deviceId\": \"String\",\r\n            \"input\": \"UpdateDeviceInput\"\r\n        },\r\n\r\n        \"types\": {\r\n            \"UpdateDeviceInput\": {\r\n                \"appVersion\": \"String\",\r\n                \"deviceName\": \"String\",\r\n                \"fcmToken\": \"String\",\r\n                \"isActive\": \"Boolean\"\r\n            }\r\n        },\r\n\r\n        \"defaults\": {},\r\n        \"runtimeScalars\": {}\r\n    }\r\n};\r\n\r\n\"HoudiniHash=fcb926bffd373a25b7d8a63a14e3602cb9f725a79514902046939f2703ddafdf\";",
+      "start": 1754579495493,
+      "end": 1754579495508,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495508,
+      "end": 1754579495508,
+      "order": "normal"
+    }
+  ]
+}

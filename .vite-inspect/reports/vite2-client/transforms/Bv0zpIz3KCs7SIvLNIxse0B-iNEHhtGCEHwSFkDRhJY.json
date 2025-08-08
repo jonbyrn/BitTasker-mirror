@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/wallet/breez/wasmLoader.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import init from '@breeztech/breez-sdk-liquid/web';\r\nimport { get, writable } from 'svelte/store';\r\n\r\n// Flag to ensure we only initialize once\r\nexport const isWasmInitialized = writable(false);\r\n\r\n// Function to initialize the WASM module\r\nexport const initWasm = async (): Promise<void> => {\r\n  const initialized = get(isWasmInitialized);\r\n  if (initialized) {\r\n    return;\r\n  }\r\n\r\n  try {\r\n    // Initialize the WASM module\r\n    await init();\r\n    isWasmInitialized.set(true);\r\n  } catch (error) {\r\n    console.error('Failed to initialize WASM module:', error);\r\n    throw error;\r\n  }\r\n};",
+      "start": 1754579491855,
+      "end": 1754579492198,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import init from \"@breeztech/breez-sdk-liquid/web\";\r\nimport { get, writable } from \"svelte/store\";\r\nexport const isWasmInitialized = writable(false);\r\n\r\nexport const initWasm = async (): Promise<void> => {\r\n    const initialized = get(isWasmInitialized);\r\n\r\n    if (initialized) {\r\n        return;\r\n    }\r\n\r\n    try {\r\n        await init();\r\n        isWasmInitialized.set(true);\r\n    } catch (error) {\r\n        console.error(\"Failed to initialize WASM module:\", error);\r\n        throw error;\r\n    }\r\n};",
+      "start": 1754579492198,
+      "end": 1754579492199,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/wallet/breez/wasmLoader.ts"
+        ],
+        "sourcesContent": [
+          "import init from '@breeztech/breez-sdk-liquid/web';\r\nimport { get, writable } from 'svelte/store';\r\n\r\n// Flag to ensure we only initialize once\r\nexport const isWasmInitialized = writable(false);\r\n\r\n// Function to initialize the WASM module\r\nexport const initWasm = async (): Promise<void> => {\r\n  const initialized = get(isWasmInitialized);\r\n  if (initialized) {\r\n    return;\r\n  }\r\n\r\n  try {\r\n    // Initialize the WASM module\r\n    await init();\r\n    isWasmInitialized.set(true);\r\n  } catch (error) {\r\n    console.error('Failed to initialize WASM module:', error);\r\n    throw error;\r\n  }\r\n};"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7C;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC,CAAC,CAAC;AACH,CAAC"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492199,
+      "end": 1754579492199,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579492199,
+      "end": 1754579492199,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import init from \"@breeztech/breez-sdk-liquid/web\";\nimport { get, writable } from \"svelte/store\";\nexport const isWasmInitialized = writable(false);\nexport const initWasm = async () => {\n  const initialized = get(isWasmInitialized);\n  if (initialized) {\n    return;\n  }\n  try {\n    await init();\n    isWasmInitialized.set(true);\n  } catch (error) {\n    console.error(\"Failed to initialize WASM module:\", error);\n    throw error;\n  }\n};\n",
+      "start": 1754579492199,
+      "end": 1754579492394,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/wallet/breez/wasmLoader.ts"
+        ],
+        "sourcesContent": [
+          "import init from \"@breeztech/breez-sdk-liquid/web\";\r\nimport { get, writable } from \"svelte/store\";\r\nexport const isWasmInitialized = writable(false);\r\n\r\nexport const initWasm = async (): Promise<void> => {\r\n    const initialized = get(isWasmInitialized);\r\n\r\n    if (initialized) {\r\n        return;\r\n    }\r\n\r\n    try {\r\n        await init();\r\n        isWasmInitialized.set(true);\r\n    } catch (error) {\r\n        console.error(\"Failed to initialize WASM module:\", error);\r\n        throw error;\r\n    }\r\n};"
+        ],
+        "mappings": "AAAA,OAAO,UAAU;AACjB,SAAS,KAAK,gBAAgB;AACvB,aAAM,oBAAoB,SAAS,KAAK;AAExC,aAAM,WAAW,YAA2B;AAC/C,QAAM,cAAc,IAAI,iBAAiB;AAEzC,MAAI,aAAa;AACb;AAAA,EACJ;AAEA,MAAI;AACA,UAAM,KAAK;AACX,sBAAkB,IAAI,IAAI;AAAA,EAC9B,SAAS,OAAO;AACZ,YAAQ,MAAM,qCAAqC,KAAK;AACxD,UAAM;AAAA,EACV;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492394,
+      "end": 1754579492394,
+      "order": "normal"
+    }
+  ]
+}

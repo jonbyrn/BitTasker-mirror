@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dev/assign.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { sanitize_location } from '../../../utils.js';\nimport { untrack } from '../runtime.js';\nimport * as w from '../warnings.js';\n\n/**\n *\n * @param {any} a\n * @param {any} b\n * @param {string} property\n * @param {string} location\n */\nfunction compare(a, b, property, location) {\n\tif (a !== b) {\n\t\tw.assignment_value_stale(property, /** @type {string} */ (sanitize_location(location)));\n\t}\n\n\treturn a;\n}\n\n/**\n * @param {any} object\n * @param {string} property\n * @param {any} value\n * @param {string} location\n */\nexport function assign(object, property, value, location) {\n\treturn compare(\n\t\t(object[property] = value),\n\t\tuntrack(() => object[property]),\n\t\tproperty,\n\t\tlocation\n\t);\n}\n\n/**\n * @param {any} object\n * @param {string} property\n * @param {any} value\n * @param {string} location\n */\nexport function assign_and(object, property, value, location) {\n\treturn compare(\n\t\t(object[property] &&= value),\n\t\tuntrack(() => object[property]),\n\t\tproperty,\n\t\tlocation\n\t);\n}\n\n/**\n * @param {any} object\n * @param {string} property\n * @param {any} value\n * @param {string} location\n */\nexport function assign_or(object, property, value, location) {\n\treturn compare(\n\t\t(object[property] ||= value),\n\t\tuntrack(() => object[property]),\n\t\tproperty,\n\t\tlocation\n\t);\n}\n\n/**\n * @param {any} object\n * @param {string} property\n * @param {any} value\n * @param {string} location\n */\nexport function assign_nullish(object, property, value, location) {\n\treturn compare(\n\t\t(object[property] ??= value),\n\t\tuntrack(() => object[property]),\n\t\tproperty,\n\t\tlocation\n\t);\n}\n",
+      "start": 1754579493586,
+      "end": 1754579493875,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493875,
+      "end": 1754579493875,
+      "order": "normal"
+    }
+  ]
+}

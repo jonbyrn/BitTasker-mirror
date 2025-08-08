@@ -314,7 +314,6 @@ export async function getMnemonicPasskey(): Promise<string> {
 
 			// Unpack mnemonic directly from userHandle (self-contained)
 			mnemonic = unpackMnemonic(response.userHandle);
-			console.log('Successfully unpacked mnemonic from passkey');
 			break;
 		}
 

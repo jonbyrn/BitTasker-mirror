@@ -1,0 +1,9 @@
+{
+    "uploader": {
+        "uploadImage": "Upload Image",
+        "invalidTypeError": "Invalid file type. Only images are allowed",
+        "failedToLoadImage": "Failed to load image for validation",
+        "invalidFileType": "Invalid file type.",
+        "failedToValidateVideo": "Failed to validate video"
+    }
+}

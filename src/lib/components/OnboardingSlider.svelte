@@ -1,9 +1,6 @@
 <script lang="ts">
-	import type { Locales } from '$lib/stores/i18n.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { setLocale } from '$lib/stores/i18n.store';
 	import { register } from 'swiper/element/bundle';
 	import { Preferences } from '@capacitor/preferences';
 	import { onboardingCompleted } from '$lib/stores/deviceInfo.store';
@@ -11,14 +8,14 @@
 
 	register();
 
-	const languages: { code: Locales; name: string }[] = [
+	const languages: { code: string; name: string }[] = [
 		{ code: 'en', name: 'English' },
 		{ code: 'es', name: 'Español' }
 	];
 
-	const handleLanguageChange = async (code: Locales) => {
+	const handleLanguageChange = async (code: string) => {
 		try {
-			await setLocale(code);
+			await locale.set(code);
 		} catch (error) {
 			console.error('Error changing language:', error);
 		}

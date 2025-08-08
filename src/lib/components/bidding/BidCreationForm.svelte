@@ -2,7 +2,7 @@
 	import type { CreateBidParams, Currency, Milestone, PaymentType } from '$lib/types/bid';
 	import { AxiosError } from 'axios';
 	import { linear } from 'svelte/easing';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import { fly, slide } from 'svelte/transition';
 	import bidService from '$lib/api/services/bid.service';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';

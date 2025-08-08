@@ -1,0 +1,108 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/avatar/avatar.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { untrack } from \"svelte\";\nimport { useRefById } from \"svelte-toolbelt\";\nimport { Context } from \"runed\";\nconst AVATAR_ROOT_ATTR = \"data-avatar-root\";\nconst AVATAR_IMAGE_ATTR = \"data-avatar-image\";\nconst AVATAR_FALLBACK_ATTR = \"data-avatar-fallback\";\nclass AvatarRootState {\n    opts;\n    constructor(opts) {\n        this.opts = opts;\n        this.loadImage = this.loadImage.bind(this);\n        useRefById(opts);\n    }\n    loadImage(src, crossorigin, referrerPolicy) {\n        if (this.opts.loadingStatus.current === \"loaded\")\n            return;\n        let imageTimerId;\n        const image = new Image();\n        image.src = src;\n        if (crossorigin !== undefined)\n            image.crossOrigin = crossorigin;\n        if (referrerPolicy)\n            image.referrerPolicy = referrerPolicy;\n        this.opts.loadingStatus.current = \"loading\";\n        image.onload = () => {\n            imageTimerId = window.setTimeout(() => {\n                this.opts.loadingStatus.current = \"loaded\";\n            }, this.opts.delayMs.current);\n        };\n        image.onerror = () => {\n            this.opts.loadingStatus.current = \"error\";\n        };\n        return () => {\n            window.clearTimeout(imageTimerId);\n        };\n    }\n    props = $derived.by(() => ({\n        id: this.opts.id.current,\n        [AVATAR_ROOT_ATTR]: \"\",\n        \"data-status\": this.opts.loadingStatus.current,\n    }));\n}\nclass AvatarImageState {\n    opts;\n    root;\n    constructor(opts, root) {\n        this.opts = opts;\n        this.root = root;\n        useRefById(opts);\n        $effect.pre(() => {\n            if (!this.opts.src.current) {\n                this.root.opts.loadingStatus.current = \"error\";\n                return;\n            }\n            // dependency on crossorigin\n            this.opts.crossOrigin.current;\n            untrack(() => this.root.loadImage(this.opts.src.current ?? \"\", this.opts.crossOrigin.current, this.opts.referrerPolicy.current));\n        });\n    }\n    props = $derived.by(() => ({\n        id: this.opts.id.current,\n        style: {\n            display: this.root.opts.loadingStatus.current === \"loaded\" ? \"block\" : \"none\",\n        },\n        \"data-status\": this.root.opts.loadingStatus.current,\n        [AVATAR_IMAGE_ATTR]: \"\",\n        src: this.opts.src.current,\n        crossorigin: this.opts.crossOrigin.current,\n        referrerpolicy: this.opts.referrerPolicy.current,\n    }));\n}\nclass AvatarFallbackState {\n    opts;\n    root;\n    constructor(opts, root) {\n        this.opts = opts;\n        this.root = root;\n        useRefById(opts);\n    }\n    style = $derived.by(() => this.root.opts.loadingStatus.current === \"loaded\" ? { display: \"none\" } : undefined);\n    props = $derived.by(() => ({\n        style: this.style,\n        \"data-status\": this.root.opts.loadingStatus.current,\n        [AVATAR_FALLBACK_ATTR]: \"\",\n    }));\n}\nconst AvatarRootContext = new Context(\"Avatar.Root\");\nexport function useAvatarRoot(props) {\n    return AvatarRootContext.set(new AvatarRootState(props));\n}\nexport function useAvatarImage(props) {\n    return new AvatarImageState(props, AvatarRootContext.get());\n}\nexport function useAvatarFallback(props) {\n    return new AvatarFallbackState(props, AvatarRootContext.get());\n}\n",
+      "start": 1754579497041,
+      "end": 1754579497092,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497092,
+      "end": 1754579497092,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497093,
+      "end": 1754579497093,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497093,
+      "end": 1754579497093,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* avatar.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\nimport { untrack } from \"svelte\";\nimport { useRefById } from \"svelte-toolbelt\";\nimport { Context } from \"runed\";\n\nconst AVATAR_ROOT_ATTR = \"data-avatar-root\";\nconst AVATAR_IMAGE_ATTR = \"data-avatar-image\";\nconst AVATAR_FALLBACK_ATTR = \"data-avatar-fallback\";\n\nclass AvatarRootState {\n\topts;\n\n\tconstructor(opts) {\n\t\tthis.opts = opts;\n\t\tthis.loadImage = this.loadImage.bind(this);\n\t\tuseRefById(opts);\n\t}\n\n\tloadImage(src, crossorigin, referrerPolicy) {\n\t\tif (this.opts.loadingStatus.current === \"loaded\") return;\n\n\t\tlet imageTimerId;\n\t\tconst image = new Image();\n\n\t\timage.src = src;\n\t\tif (crossorigin !== undefined) image.crossOrigin = crossorigin;\n\t\tif (referrerPolicy) image.referrerPolicy = referrerPolicy;\n\t\tthis.opts.loadingStatus.current = \"loading\";\n\n\t\timage.onload = () => {\n\t\t\timageTimerId = window.setTimeout(\n\t\t\t\t() => {\n\t\t\t\t\tthis.opts.loadingStatus.current = \"loaded\";\n\t\t\t\t},\n\t\t\t\tthis.opts.delayMs.current\n\t\t\t);\n\t\t};\n\n\t\timage.onerror = () => {\n\t\t\tthis.opts.loadingStatus.current = \"error\";\n\t\t};\n\n\t\treturn () => {\n\t\t\twindow.clearTimeout(imageTimerId);\n\t\t};\n\t}\n\n\t#props = $.derived(() => ({\n\t\tid: this.opts.id.current,\n\t\t[AVATAR_ROOT_ATTR]: \"\",\n\t\t\"data-status\": this.opts.loadingStatus.current\n\t}));\n\n\tget props() {\n\t\treturn $.get(this.#props);\n\t}\n\n\tset props(value) {\n\t\t$.set(this.#props, value);\n\t}\n}\n\nclass AvatarImageState {\n\topts;\n\troot;\n\n\tconstructor(opts, root) {\n\t\tthis.opts = opts;\n\t\tthis.root = root;\n\t\tuseRefById(opts);\n\n\t\t$.user_pre_effect(() => {\n\t\t\tif (!this.opts.src.current) {\n\t\t\t\tthis.root.opts.loadingStatus.current = \"error\";\n\t\t\t\treturn;\n\t\t\t}\n\n\t\t\t// dependency on crossorigin\n\t\t\tthis.opts.crossOrigin.current;\n\t\t\tuntrack(() => this.root.loadImage(this.opts.src.current ?? \"\", this.opts.crossOrigin.current, this.opts.referrerPolicy.current));\n\t\t});\n\t}\n\n\t#props = $.derived(() => ({\n\t\tid: this.opts.id.current,\n\t\tstyle: {\n\t\t\tdisplay: this.root.opts.loadingStatus.current === \"loaded\" ? \"block\" : \"none\"\n\t\t},\n\t\t\"data-status\": this.root.opts.loadingStatus.current,\n\t\t[AVATAR_IMAGE_ATTR]: \"\",\n\t\tsrc: this.opts.src.current,\n\t\tcrossorigin: this.opts.crossOrigin.current,\n\t\treferrerpolicy: this.opts.referrerPolicy.current\n\t}));\n\n\tget props() {\n\t\treturn $.get(this.#props);\n\t}\n\n\tset props(value) {\n\t\t$.set(this.#props, value);\n\t}\n}\n\nclass AvatarFallbackState {\n\topts;\n\troot;\n\n\tconstructor(opts, root) {\n\t\tthis.opts = opts;\n\t\tthis.root = root;\n\t\tuseRefById(opts);\n\t}\n\n\t#style = $.derived(() => this.root.opts.loadingStatus.current === \"loaded\" ? { display: \"none\" } : undefined);\n\n\tget style() {\n\t\treturn $.get(this.#style);\n\t}\n\n\tset style(value) {\n\t\t$.set(this.#style, value);\n\t}\n\n\t#props = $.derived(() => ({\n\t\tstyle: this.style,\n\t\t\"data-status\": this.root.opts.loadingStatus.current,\n\t\t[AVATAR_FALLBACK_ATTR]: \"\"\n\t}));\n\n\tget props() {\n\t\treturn $.get(this.#props);\n\t}\n\n\tset props(value) {\n\t\t$.set(this.#props, value);\n\t}\n}\n\nconst AvatarRootContext = new Context(\"Avatar.Root\");\n\nexport function useAvatarRoot(props) {\n\treturn AvatarRootContext.set(new AvatarRootState(props));\n}\n\nexport function useAvatarImage(props) {\n\treturn new AvatarImageState(props, AvatarRootContext.get());\n}\n\nexport function useAvatarFallback(props) {\n\treturn new AvatarFallbackState(props, AvatarRootContext.get());\n}",
+      "start": 1754579497093,
+      "end": 1754579497096,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "avatar.svelte.js"
+        ],
+        "sourcesContent": [
+          "import { untrack } from \"svelte\";\nimport { useRefById } from \"svelte-toolbelt\";\nimport { Context } from \"runed\";\nconst AVATAR_ROOT_ATTR = \"data-avatar-root\";\nconst AVATAR_IMAGE_ATTR = \"data-avatar-image\";\nconst AVATAR_FALLBACK_ATTR = \"data-avatar-fallback\";\nclass AvatarRootState {\n    opts;\n    constructor(opts) {\n        this.opts = opts;\n        this.loadImage = this.loadImage.bind(this);\n        useRefById(opts);\n    }\n    loadImage(src, crossorigin, referrerPolicy) {\n        if (this.opts.loadingStatus.current === \"loaded\")\n            return;\n        let imageTimerId;\n        const image = new Image();\n        image.src = src;\n        if (crossorigin !== undefined)\n            image.crossOrigin = crossorigin;\n        if (referrerPolicy)\n            image.referrerPolicy = referrerPolicy;\n        this.opts.loadingStatus.current = \"loading\";\n        image.onload = () => {\n            imageTimerId = window.setTimeout(() => {\n                this.opts.loadingStatus.current = \"loaded\";\n            }, this.opts.delayMs.current);\n        };\n        image.onerror = () => {\n            this.opts.loadingStatus.current = \"error\";\n        };\n        return () => {\n            window.clearTimeout(imageTimerId);\n        };\n    }\n    props = $derived.by(() => ({\n        id: this.opts.id.current,\n        [AVATAR_ROOT_ATTR]: \"\",\n        \"data-status\": this.opts.loadingStatus.current,\n    }));\n}\nclass AvatarImageState {\n    opts;\n    root;\n    constructor(opts, root) {\n        this.opts = opts;\n        this.root = root;\n        useRefById(opts);\n        $effect.pre(() => {\n            if (!this.opts.src.current) {\n                this.root.opts.loadingStatus.current = \"error\";\n                return;\n            }\n            // dependency on crossorigin\n            this.opts.crossOrigin.current;\n            untrack(() => this.root.loadImage(this.opts.src.current ?? \"\", this.opts.crossOrigin.current, this.opts.referrerPolicy.current));\n        });\n    }\n    props = $derived.by(() => ({\n        id: this.opts.id.current,\n        style: {\n            display: this.root.opts.loadingStatus.current === \"loaded\" ? \"block\" : \"none\",\n        },\n        \"data-status\": this.root.opts.loadingStatus.current,\n        [AVATAR_IMAGE_ATTR]: \"\",\n        src: this.opts.src.current,\n        crossorigin: this.opts.crossOrigin.current,\n        referrerpolicy: this.opts.referrerPolicy.current,\n    }));\n}\nclass AvatarFallbackState {\n    opts;\n    root;\n    constructor(opts, root) {\n        this.opts = opts;\n        this.root = root;\n        useRefById(opts);\n    }\n    style = $derived.by(() => this.root.opts.loadingStatus.current === \"loaded\" ? { display: \"none\" } : undefined);\n    props = $derived.by(() => ({\n        style: this.style,\n        \"data-status\": this.root.opts.loadingStatus.current,\n        [AVATAR_FALLBACK_ATTR]: \"\",\n    }));\n}\nconst AvatarRootContext = new Context(\"Avatar.Root\");\nexport function useAvatarRoot(props) {\n    return AvatarRootContext.set(new AvatarRootState(props));\n}\nexport function useAvatarImage(props) {\n    return new AvatarImageState(props, AvatarRootContext.get());\n}\nexport function useAvatarFallback(props) {\n    return new AvatarFallbackState(props, AvatarRootContext.get());\n}\n"
+        ],
+        "mappings": "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"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497096,
+      "end": 1754579497096,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497096,
+      "end": 1754579497096,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/home.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"footer\": {\r\n        \"company_name\": \"BitTasker\",\r\n        \"company_description\": \"Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.\",\r\n        \"social\": {\r\n            \"twitter_aria\": \"BitTasker on X (Twitter)\",\r\n            \"facebook_aria\": \"BitTasker on Facebook\",\r\n            \"instagram_aria\": \"BitTasker on Instagram\",\r\n            \"youtube_aria\": \"BitTasker on YouTube\",\r\n            \"linkedin_aria\": \"BitTasker on LinkedIn\",\r\n            \"reddit_aria\": \"BitTasker on Reddit\",\r\n            \"tiktok_aria\": \"BitTasker on TikTok\",\r\n            \"rumble_aria\": \"BitTasker on Rumble\"\r\n        },\r\n        \"made_with\": \"Made with\",\r\n        \"and\": \"and\",\r\n        \"in_el_salvador\": \"in El Salvador\",\r\n        \"for_taskers\": \"For Taskers\",\r\n        \"post_task\": \"Post a Task\",\r\n        \"how_it_works\": \"How It Works\",\r\n        \"tasker_fees\": \"Tasker Fees\",\r\n        \"taskee_fees\": \"Taskee Fees\",\r\n        \"escrow\": \"Escrow\",\r\n        \"faq\": \"FAQ\",\r\n        \"for_taskees\": \"For Taskees\",\r\n        \"start_earning\": \"Start Earning\",\r\n        \"community_guidelines\": \"Community Guidelines\",\r\n        \"tasker_principles\": \"Tasker Principles\",\r\n        \"tasker_faq\": \"FAQ\",\r\n        \"company\": \"Company\",\r\n        \"about_us\": \"About Us\",\r\n        \"security\": \"Security\",\r\n        \"careers\": \"Careers\",\r\n        \"press\": \"Press\",\r\n        \"terms\": \"Terms of Service\",\r\n        \"privacy\": \"Privacy Policy\",\r\n        \"contact\": \"Contact Us\",\r\n        \"copyright\": \"All rights reserved.\"\r\n    },\r\n    \"navbar\": {\r\n        \"home\": \"Home\",\r\n        \"new_task\": \"New Task\",\r\n        \"my_tasks\": \"My Tasks\",\r\n        \"wallet\": \"Wallet\",\r\n        \"messages\": \"Messages\",\r\n        \"support_help\": \"Support & Help\",\r\n        \"task_management\": \"Task Management\",\r\n        \"my_account\": \"My Account\",\r\n        \"profile\": \"Profile\",\r\n        \"how_it_works\": \"How It Works\",\r\n        \"faq\": \"FAQ\",\r\n        \"contact_support\": \"Contact Support\",\r\n        \"about_us\": \"About Us\",\r\n        \"terms_of_service\": \"Terms of Service\",\r\n        \"privacy_policy\": \"Privacy Policy\",\r\n        \"find_tasks\": \"Find Tasks\",\r\n        \"create_task\": \"Create Task\",\r\n        \"browse_freelancers\": \"See Taskees\",\r\n        \"browse_tasks\": \"Browse Tasks\",\r\n        \"fees\": \"Fees\",\r\n        \"start_now\": \"Start Now\",\r\n        \"dashboard\": \"Dashboard\",\r\n        \"language\": {\r\n            \"english\": \"English\",\r\n            \"spanish\": \"Spanish\"\r\n        },\r\n        \"back\": \"Back\",\r\n        \"terms_and_conditions\": \"Terms and Conditions\",\r\n        \"tooltip\": {\r\n            \"dark_mode\": \"Dark Mode\",\r\n            \"light_mode\": \"Light Mode\",\r\n            \"language\": \"Language: {{name}}\"\r\n        },\r\n        \"login\": \"Login\",\r\n        \"signup\": \"Sign Up\",\r\n        \"about\": \"About\",\r\n        \"menu\": \"Menu\",\r\n        \"close_menu\": \"Close menu\",\r\n        \"help\": \"Help\",\r\n        \"logout\": \"Logout\",\r\n        \"settings\": \"Settings\"\r\n    },\r\n    \"homepage\": {\r\n        \"title\": \"Hello, World!\",\r\n        \"welcome\": \"Hi <strong>{{name}}</strong>, how are you?\",\r\n        \"time\": \"The current time is: {{time}}\",\r\n        \"hero\": {\r\n            \"title\": \"BitTasker\",\r\n            \"description\": \"The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.\",\r\n            \"cta\": \"Here's How it works\"\r\n        },\r\n        \"features\": {\r\n            \"title\": \"Why Choose BitTasker?\",\r\n            \"crypto\": {\r\n                \"title\": \"Bitcoin Payments\",\r\n                \"description\": \"Secure and borderless payments using Bitcoin\"\r\n            },\r\n            \"talent\": {\r\n                \"title\": \"Global Talent\",\r\n                \"description\": \"Access skilled taskees from around the world\"\r\n            },\r\n            \"escrow\": {\r\n                \"title\": \"Secure Escrow\",\r\n                \"description\": \"Multisig-based Bitcoin escrow for safe transactions\"\r\n            }\r\n        },\r\n        \"cta\": {\r\n            \"title\": \"Ready to get started?\",\r\n            \"description\": \"Join thousands of taskees and taskers already using BitTasker\",\r\n            \"button\": \"Create Account\"\r\n        },\r\n        \"v2\": {\r\n            \"hero\": {\r\n                \"title\": \"The Decentralized Workforce.\",\r\n                \"page_title\": \"The Decentralized Workforce | BitTasker\",\r\n                \"description\": \"Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.\",\r\n                \"cta\": \"Get Started\"\r\n            },\r\n            \"trust\": {\r\n                \"title\": \"Trusted Worldwide\",\r\n                \"nostr\": {\r\n                    \"title\": \"Powered by Nostr\",\r\n                    \"description\": \"BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship.\"\r\n                },\r\n                \"bitcoin\": {\r\n                    \"title\": \"Bitcoin Accepted\",\r\n                    \"description\": \"Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions.\"\r\n                },\r\n                \"lightning\": {\r\n                    \"title\": \"Lightning Network\",\r\n                    \"description\": \"Experience instant and near-free payments with the Lightning Network. Perfect for micro-payments, tipping, and settling tasks the moment they are completed.\"\r\n                },\r\n                \"escrow\": {\r\n                    \"title\": \"Secure Escrow\",\r\n                    \"description\": \"Our multisig-based escrow system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved.\"\r\n                }\r\n            },\r\n            \"howitworks\": {\r\n                \"title\": \"How BitTasker Works\",\r\n                \"step1\": {\r\n                    \"title\": \"Post a Task\",\r\n                    \"description\": \"Describe the work you need done, set your budget, and post it for our community.\"\r\n                },\r\n                \"step2\": {\r\n                    \"title\": \"Hire the Best\",\r\n                    \"description\": \"Review proposals from talented taskees and hire the perfect fit for your project.\"\r\n                },\r\n                \"step3\": {\r\n                    \"title\": \"Pay Securely\",\r\n                    \"description\": \"Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in escrow.\"\r\n                },\r\n                \"learnMore\": \"Learn More\"\r\n            },\r\n            \"livetasks\": {\r\n                \"title\": \"Featured Tasks\"\r\n            },\r\n            \"benefits\": {\r\n                \"title\": \"Why Choose BitTasker?\",\r\n                \"payments\": {\r\n                    \"title\": \"Flexible Payments\",\r\n                    \"description\": \"Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies.\"\r\n                },\r\n                \"escrow\": {\r\n                    \"title\": \"Non-Custodial Escrow\",\r\n                    \"description\": \"You hold the keys to your Bitcoin, and to your escrow. No middlemen, no delays, and no trust required.\"\r\n                },\r\n                \"ownership\": {\r\n                    \"title\": \"True Data Ownership\",\r\n                    \"description\": \"Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network.\"\r\n                },\r\n                \"fees\": {\r\n                    \"title\": \"Lightning-Fast Payments\",\r\n                    \"description\": \"No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT.\"\r\n                }\r\n            },\r\n            \"taskees\": {\r\n                \"title\": \"Featured Taskees\"\r\n            },\r\n            \"finalcta\": {\r\n                \"title\": \"Join the Future of Work\",\r\n                \"description\": \"Whether you need to hire talent or are looking for your next opportunity, BitTasker is the place to be.\",\r\n                \"tasker_cta\": \"Browse Tasks\",\r\n                \"taskee_cta\": \"See Taskees\",\r\n                \"get_started\": \"Get Started\"\r\n            }\r\n        }\r\n    }\r\n}",
+      "start": 1754579494645,
+      "end": 1754579494758,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494759,
+      "end": 1754579494759,
+      "order": "normal"
+    }
+  ]
+}

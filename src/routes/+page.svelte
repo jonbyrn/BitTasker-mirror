@@ -1,9 +1,7 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { liveTasks, featuredTaskees } from '$lib/utils/constants/homepage.constants';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import TaskeeCard from '$lib/components/homepage/TaskeeCard.svelte';
@@ -16,10 +14,10 @@
 
 	// Map of feature images - using custom SVG illustrations from static directory
 	const featureImages: Record<FeatureId, string> = {
-		nostr: '/images/features/nostr-decentralized.jpg',
-		bitcoin: '/images/features/bitcoin-money.jpg',
-		payments: '/images/features/pay-your-way.jpg',
-		escrow: '/images/features/bitcoin-escrow.jpg'
+		nostr: '/images/features/nostr-decentralized.webp',
+		bitcoin: '/images/features/bitcoin-money.webp',
+		payments: '/images/features/pay-your-way.webp',
+		escrow: '/images/features/bitcoin-escrow.webp'
 	};
 
 	// Translation key mappings for type safety
@@ -56,7 +54,7 @@
 	// Start carousel auto-rotation
 	const startCarouselRotation = () => {
 		if (!carouselInterval) {
-			carouselInterval = setInterval(rotateCarousel, 3000); // Rotate every 3 seconds
+			carouselInterval = setInterval(rotateCarousel, 5000); // Rotate every 3 seconds
 		}
 	};
 
@@ -86,8 +84,10 @@
 </script>
 
 <svelte:head>
-	<title>{$t('homepage.v2.page_title')}</title>
-	<meta name="description" content={$t('homepage.v2.hero.description')} />
+    <title>{$t('homepage.v2.hero.page_title')}</title>
+    <meta name="description" content={$t('homepage.v2.hero.description')} />
+    
+    <link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
 
 <div class="min-h-screen">
@@ -138,6 +138,7 @@
 								src={featureImages[featureIds[activeFeatureIndex]]}
 								alt={$t(translationKeys[featureIds[activeFeatureIndex] as FeatureId].title)}
 								class="h-72 w-full object-cover transition-opacity duration-500 md:h-96"
+								loading={activeFeatureIndex === 0 ? undefined : "lazy"}
 							/>
 						</figure>
 

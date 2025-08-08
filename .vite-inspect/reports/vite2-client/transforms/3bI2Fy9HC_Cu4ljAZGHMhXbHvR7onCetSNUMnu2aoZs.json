@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dev/inspect.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { UNINITIALIZED } from '../../../constants.js';\nimport { snapshot } from '../../shared/clone.js';\nimport { inspect_effect, validate_effect } from '../reactivity/effects.js';\n\n/**\n * @param {() => any[]} get_value\n * @param {Function} [inspector]\n */\n// eslint-disable-next-line no-console\nexport function inspect(get_value, inspector = console.log) {\n\tvalidate_effect('$inspect');\n\n\tlet initial = true;\n\n\tinspect_effect(() => {\n\t\t/** @type {any} */\n\t\tvar value = UNINITIALIZED;\n\n\t\t// Capturing the value might result in an exception due to the inspect effect being\n\t\t// sync and thus operating on stale data. In the case we encounter an exception we\n\t\t// can bail-out of reporting the value. Instead we simply console.error the error\n\t\t// so at least it's known that an error occured, but we don't stop execution\n\t\ttry {\n\t\t\tvalue = get_value();\n\t\t} catch (error) {\n\t\t\t// eslint-disable-next-line no-console\n\t\t\tconsole.error(error);\n\t\t}\n\n\t\tif (value !== UNINITIALIZED) {\n\t\t\tinspector(initial ? 'init' : 'update', ...snapshot(value, true));\n\t\t}\n\n\t\tinitial = false;\n\t});\n}\n",
+      "start": 1754579493776,
+      "end": 1754579493886,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493886,
+      "end": 1754579493886,
+      "order": "normal"
+    }
+  ]
+}

@@ -43,7 +43,6 @@ export async function sendPayment(
 	params: SendPaymentRequest
 ): Promise<SendPaymentResponse> {
 	const sdk = getSdk();
-	
 	// Apply passkey security middleware
 	const isAuthorized = await passkeyMiddleware.secureSendPayment(
 		{ destination: 'unknown' }, // We need to track the original prepare request

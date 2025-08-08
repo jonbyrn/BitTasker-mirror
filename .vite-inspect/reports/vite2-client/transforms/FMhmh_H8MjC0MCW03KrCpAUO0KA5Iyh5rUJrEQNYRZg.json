@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/yearsToMonths.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { monthsInYear } from \"./constants.js\";\n\n/**\n * @name yearsToMonths\n * @category Conversion Helpers\n * @summary Convert years to months.\n *\n * @description\n * Convert a number of years to a full number of months.\n *\n * @param years - The number of years to be converted\n *\n * @returns The number of years converted in months\n *\n * @example\n * // Convert 2 years into months\n * const result = yearsToMonths(2)\n * //=> 24\n */\nexport function yearsToMonths(years) {\n  return Math.trunc(years * monthsInYear);\n}\n\n// Fallback for modularized imports:\nexport default yearsToMonths;\n",
+      "start": 1754579495059,
+      "end": 1754579495072,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495072,
+      "end": 1754579495072,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495073,
+      "end": 1754579495073,
+      "order": "normal"
+    }
+  ]
+}

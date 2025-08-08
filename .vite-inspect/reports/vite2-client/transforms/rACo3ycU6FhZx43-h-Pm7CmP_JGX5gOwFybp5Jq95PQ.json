@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/popover/components/popover.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { PopoverRootProps } from \"../types.js\";\n\timport { usePopoverRoot } from \"../popover.svelte.js\";\n\timport FloatingLayer from \"../../utilities/floating-layer/components/floating-layer.svelte\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet { open = $bindable(false), onOpenChange = noop, children }: PopoverRootProps = $props();\n\n\tusePopoverRoot({\n\t\topen: box.with(\n\t\t\t() => open,\n\t\t\t(v) => {\n\t\t\t\topen = v;\n\t\t\t\tonOpenChange(v);\n\t\t\t}\n\t\t),\n\t});\n</script>\n\n<FloatingLayer>\n\t{@render children?.()}\n</FloatingLayer>\n",
+      "start": 1754579496779,
+      "end": 1754579496876,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496876,
+      "end": 1754579496876,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496876,
+      "end": 1754579496876,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { usePopoverRoot } from \"../popover.svelte.js\";\nimport FloatingLayer from \"../../utilities/floating-layer/components/floating-layer.svelte\";\nimport { noop } from \"../../../internal/noop.js\";\n\nexport default function Popover($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet open = $.prop($$props, 'open', 15, false),\n\t\tonOpenChange = $.prop($$props, 'onOpenChange', 3, noop);\n\n\tusePopoverRoot({\n\t\topen: box.with(() => open(), (v) => {\n\t\t\topen(v);\n\t\t\tonOpenChange()(v);\n\t\t})\n\t});\n\n\tFloatingLayer($$anchor, {\n\t\tchildren: ($$anchor, $$slotProps) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node = $.first_child(fragment_1);\n\n\t\t\t$.snippet(node, () => $$props.children ?? $.noop);\n\t\t\t$.append($$anchor, fragment_1);\n\t\t},\n\t\t$$slots: { default: true }\n\t});\n\n\t$.pop();\n}",
+      "start": 1754579496876,
+      "end": 1754579496877,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,cAAc,QAAQ,sBAAsB;OAC9C,aAAa,MAAM,iEAAiE;SAClF,IAAI,QAAQ,2BAA2B;;;;;KAE1C,IAAI,+BAAa,KAAK;EAAG,YAAY,sCAAG,IAAI;;CAElD,cAAc;EACb,IAAI,EAAE,GAAG,CAAC,IAAI,OACP,IAAI,KACT,CAAC,KAAK;GACN,IAAI,CAAG,CAAC;GACR,YAAY,GAAC,CAAC;EACf",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "popover.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496877,
+      "end": 1754579496877,
+      "order": "normal"
+    }
+  ]
+}

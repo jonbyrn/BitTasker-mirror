@@ -1,43 +1,19 @@
 <script lang="ts">
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
-
-	import { goto } from '$app/navigation';
-	import BalanceCard from './_components/balanceTab/BalanceCard.svelte';
-	import RecentTransactions from './_components/balanceTab/RecentTransactions.svelte';
-	import PaymentRequestForm from './_components/PaymentRequestForm.svelte';
-	import TransactionHistory from './_components/TransactionHistory.svelte';
-	import SendForm from './_components/sendTab/SendForm.svelte';
-	import SwapDashboard from './_components/SwapDashboard.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/wallet.store';
-	import { emergencyBlock } from '$lib/wallet/breez/requestThrottler';
-	import { clearCache } from '$lib/wallet/helper';
 	import { isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
-
-	// Emergency function to stop infinite loops
-	function handleEmergencyBlock(): void {
-		console.warn('[Wallet] Emergency block activated!');
-		emergencyBlock(300000); // Block for 5 minutes
-		clearCache(); // Clear helper caches
-	}
+	import BalanceCard from '$lib/components/wallet/balanceTab/BalanceCard.svelte';
+	import RecentTransactions from '$lib/components/wallet/balanceTab/RecentTransactions.svelte';
+	import PaymentRequestForm from '$lib/components/wallet/PaymentRequestForm.svelte';
+	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
+	import SendForm from '$lib/components/wallet/sendTab/SendForm.svelte';
 
 	onMount(() => {
 		if ($isWasmInitialized) {
 			walletStore.initialize();
 		}
-
-		// Add event listeners for navigation from swap dashboard
-		const handleNavigateToSend = () => walletStore.setActiveTab('send');
-		const handleNavigateToReceive = () => walletStore.setActiveTab('receive');
-
-		window.addEventListener('navigate-to-send', handleNavigateToSend);
-		window.addEventListener('navigate-to-receive', handleNavigateToReceive);
-
-		return () => {
-			window.removeEventListener('navigate-to-send', handleNavigateToSend);
-			window.removeEventListener('navigate-to-receive', handleNavigateToReceive);
-		};
 	});
 
 	onDestroy(async () => {
@@ -102,12 +78,6 @@
 			>
 				Send
 			</button>
-			<!-- <button
-				class="tab {$walletUI.activeTab === 'swaps' ? 'tab-active' : ''}"
-				onclick={() => walletStore.setActiveTab('swaps')}
-			>
-				Swaps
-			</button> -->
 			<button
 				class="tab {$walletUI.activeTab === 'transactions' ? 'tab-active' : ''}"
 				onclick={() => walletStore.setActiveTab('transactions')}
@@ -186,10 +156,6 @@
 				<SendForm />
 			</div>
 		{/if}
-
-		<!-- {#if $walletUI.activeTab === 'swaps'}
-			<SwapDashboard />
-		{/if} -->
 
 		{#if $walletUI.activeTab === 'transactions'}
 			<TransactionHistory />

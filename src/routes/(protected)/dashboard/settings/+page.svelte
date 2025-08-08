@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { Preferences } from '@capacitor/preferences';
@@ -296,7 +296,7 @@
 			<div class="loading loading-spinner loading-lg"></div>
 		</div>
 	{:else if error}
-		<div class="alert alert-error mb-6 flex flex-col items-end">
+		<div class="alert alert-error alert-outline mb-6 flex flex-col items-end">
 			<p>{error}</p>
 			<button class="btn btn-sm btn-outline" onclick={loadKeys} disabled={loading}>
 				{#if loading}
@@ -344,7 +344,7 @@
 				<!-- Public Key (NPub) -->
 				<div class="mb-6">
 					<label class="label" for="npub">
-						<span class="label-text font-semibold">{$t('settings.nostr.publicKey')}</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.publicKey-label')}</span>
 					</label>
 					<div class="flex gap-2">
 						<input
@@ -355,7 +355,7 @@
 							placeholder={$t('settings.loading')}
 						/>
 						<button
-							class="btn btn-square btn-outline"
+							class="btn btn-square btn-outline "
 							onclick={() => copyToClipboard(npub, 'npub')}
 							disabled={!npub}
 						>
@@ -402,7 +402,7 @@
 				<!-- Private Key (NSec) -->
 				<div class="mb-4">
 					<label class="label" for="nsec">
-						<span class="label-text font-semibold">{$t('settings.nostr.privateKey')}</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.privateKey-label')}</span>
 					</label>
 					<div class="flex gap-2">
 						<div class="relative flex-1">
@@ -513,7 +513,7 @@
 				</div>
 
 				<!-- Security Notice -->
-				<div class="alert alert-warning mt-4 flex flex-col items-start gap-2 text-black">
+				<div class="alert alert-warning alert-outline mt-4 flex flex-col items-start gap-2 text-black">
 					<div class="flex gap-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -566,7 +566,7 @@
 						<!-- Recovery Email Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-email">
-								<span class="label-text font-semibold">{$t('settings.recovery.email')}</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.email-label')}</span>
 							</label>
 							<input
 								type="email"
@@ -587,7 +587,7 @@
 						<!-- Recovery Password Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-password">
-								<span class="label-text font-semibold">{$t('settings.recovery.password')}</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.password-label')}</span>
 							</label>
 							<div class="relative">
 								<input
@@ -650,7 +650,7 @@
 						<div class="form-control">
 							<label class="label" for="confirm-recovery-password">
 								<span class="label-text font-semibold"
-									>{$t('settings.recovery.confirmPassword')}</span
+									>{$t('settings.recovery.confirmPassword-label')}</span
 								>
 							</label>
 							<input
@@ -726,7 +726,7 @@
 					</form>
 
 					{#if recoverySuccess}
-						<div class="alert alert-success mb-4">
+						<div class="alert alert-success alert-outline mb-4">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-6 w-6 shrink-0 stroke-current"
@@ -745,7 +745,7 @@
 					{/if}
 
 					{#if recoveryError}
-						<div class="alert alert-error mb-4">
+						<div class="alert alert-error alert-outline mb-4">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-6 w-6 shrink-0 stroke-current"
@@ -764,7 +764,7 @@
 					{/if}
 
 					<!-- Security Notice -->
-					<div class="alert alert-info mt-4">
+					<div class="alert alert-info alert-outline mt-4">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -890,7 +890,7 @@
 					</div>
 
 					{#if passkeySuccess}
-						<div class="alert alert-success mb-4">
+						<div class="alert alert-success alert-outline mb-4">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-6 w-6 shrink-0 stroke-current"
@@ -909,7 +909,7 @@
 					{/if}
 
 					{#if passkeyError}
-						<div class="alert alert-error mb-4 overflow-hidden">
+						<div class="alert alert-error alert-outline mb-4 overflow-hidden">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-6 w-6 shrink-0 stroke-current"
@@ -928,7 +928,7 @@
 					{/if}
 
 					<!-- Information Notice -->
-					<div class="alert alert-info">
+					<div class="alert alert-info alert-outline">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"

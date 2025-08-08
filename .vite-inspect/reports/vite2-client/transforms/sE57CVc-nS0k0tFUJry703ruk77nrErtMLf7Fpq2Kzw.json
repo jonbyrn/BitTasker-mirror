@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/dismissible-layer/dismissible-layer.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { DismissibleLayerImplProps } from \"./types.js\";\n\timport { useDismissibleLayer } from \"./use-dismissable-layer.svelte.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet {\n\t\tinteractOutsideBehavior = \"close\",\n\t\tonInteractOutside = noop,\n\t\tonFocusOutside = noop,\n\t\tid,\n\t\tchildren,\n\t\tenabled,\n\t\tisValidEvent = () => false,\n\t}: DismissibleLayerImplProps = $props();\n\n\tconst dismissibleLayerState = useDismissibleLayer({\n\t\tid: box.with(() => id),\n\t\tinteractOutsideBehavior: box.with(() => interactOutsideBehavior),\n\t\tonInteractOutside: box.with(() => onInteractOutside),\n\t\tenabled: box.with(() => enabled),\n\t\tonFocusOutside: box.with(() => onFocusOutside),\n\t\tisValidEvent: box.with(() => isValidEvent),\n\t});\n</script>\n\n{@render children?.({ props: dismissibleLayerState.props })}\n",
+      "start": 1754579497020,
+      "end": 1754579497064,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497064,
+      "end": 1754579497064,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497064,
+      "end": 1754579497064,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useDismissibleLayer } from \"./use-dismissable-layer.svelte.js\";\nimport { noop } from \"../../../internal/noop.js\";\n\nexport default function Dismissible_layer($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet interactOutsideBehavior = $.prop($$props, 'interactOutsideBehavior', 3, \"close\"),\n\t\tonInteractOutside = $.prop($$props, 'onInteractOutside', 3, noop),\n\t\tonFocusOutside = $.prop($$props, 'onFocusOutside', 3, noop),\n\t\tisValidEvent = $.prop($$props, 'isValidEvent', 3, () => false);\n\n\tconst dismissibleLayerState = useDismissibleLayer({\n\t\tid: box.with(() => $$props.id),\n\t\tinteractOutsideBehavior: box.with(() => interactOutsideBehavior()),\n\t\tonInteractOutside: box.with(() => onInteractOutside()),\n\t\tenabled: box.with(() => $$props.enabled),\n\t\tonFocusOutside: box.with(() => onFocusOutside()),\n\t\tisValidEvent: box.with(() => isValidEvent())\n\t});\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children ?? $.noop, () => ({ props: dismissibleLayerState.props }));\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497064,
+      "end": 1754579497066,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,mBAAmB,QAAQ,mCAAmC;SAC9D,IAAI,QAAQ,2BAA2B;;;;;KAG/C,uBAAuB,iDAAG,OAAO;EACjC,iBAAiB,2CAAG,IAAI;EACxB,cAAc,wCAAG,IAAI;EAIrB,YAAY,4CAAS,KAAK;;OAGrB,qBAAqB,GAAG,mBAAmB;EAChD,EAAE,EAAE,GAAG,CAAC,IAAI;EACZ,uBAAuB,EAAE,GAAG,CAAC,IAAI,OAAO,uBAAuB;EAC/D,iBAAiB,EAAE,GAAG,CAAC,IAAI,OAAO,iBAAiB;EACnD,OAAO,EAAE,GAAG,CAAC,IAAI;EACjB,cAAc,EAAE,GAAG,CAAC,IAAI,OAAO,cAAc;EAC7C,YAAY,EAAE,GAAG,CAAC,IAAI,OAAO,YAAY;;;;;;4DAIrB,KAAK,EAAE,qBAAqB,CAAC,KAAK",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "dismissible-layer.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497066,
+      "end": 1754579497066,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497066,
+      "end": 1754579497066,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497066,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497067,
+      "end": 1754579497067,
+      "order": "normal"
+    }
+  ]
+}

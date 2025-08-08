@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/lib/lru.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "class LRUCache {\n  _capacity;\n  _map;\n  constructor(capacity = 1e3) {\n    this._capacity = capacity;\n    this._map = /* @__PURE__ */ new Map();\n  }\n  set(key, value) {\n    this._map.delete(key);\n    this._map.set(key, value);\n    if (this._map.size > this._capacity) {\n      const firstKey = this._map.keys().next();\n      if (!firstKey.done) {\n        this._map.delete(firstKey.value);\n      }\n    }\n  }\n  get(key) {\n    const value = this._map.get(key);\n    if (value != null) {\n      this._map.delete(key);\n      this._map.set(key, value);\n    }\n    return value ?? null;\n  }\n  has(key) {\n    return this._map.has(key);\n  }\n  delete(key) {\n    this._map.delete(key);\n  }\n  size() {\n    return this._map.size;\n  }\n  capacity() {\n    return this._capacity - this._map.size;\n  }\n  clear() {\n    this._map.clear();\n  }\n}\nfunction createLRUCache(capacity = 1e3) {\n  return new LRUCache(capacity);\n}\nexport {\n  LRUCache,\n  createLRUCache\n};\n",
+      "start": 1754579495890,
+      "end": 1754579495927,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal"
+    }
+  ]
+}

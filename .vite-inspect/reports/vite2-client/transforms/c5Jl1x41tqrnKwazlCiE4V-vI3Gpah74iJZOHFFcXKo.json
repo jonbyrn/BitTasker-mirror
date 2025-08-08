@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/wallet/_components/balanceTab/RecentTransactions.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\r\n\timport type { Payment } from '@breeztech/breez-sdk-liquid/web';\r\n\timport { onMount } from 'svelte';\r\n\timport { getTransactions } from '$lib/wallet/breez/walletService';\r\n\r\n\tlet transactions = $state<Payment[]>([]);\r\n\tlet { activeTab = $bindable('') } = $props();\r\n\r\n\tonMount(async () => {\r\n\t\ttransactions = await getTransactions();\r\n\t});\r\n</script>\r\n\r\n<div>\r\n\t<h3 class=\"mb-3 text-lg font-semibold\">Recent Transactions</h3>\r\n\r\n\t{#if transactions.length > 0}\r\n\t\t<div class=\"space-y-3\">\r\n\t\t\t{#each transactions as tx}\r\n\t\t\t\t<div class=\"card bg-base-200 shadow-sm\">\r\n\t\t\t\t\t<div class=\"card-body p-3\">\r\n\t\t\t\t\t\t<!-- Header row with type and amount -->\r\n\t\t\t\t\t\t<div class=\"flex items-center justify-between\">\r\n\t\t\t\t\t\t\t<div class=\"flex items-center gap-2\">\r\n\t\t\t\t\t\t\t\t{#if tx.paymentType === 'receive'}\r\n\t\t\t\t\t\t\t\t\t<div class=\"badge badge-success badge-sm\">Received</div>\r\n\t\t\t\t\t\t\t\t{:else}\r\n\t\t\t\t\t\t\t\t\t<div class=\"badge badge-warning badge-sm\">Sent</div>\r\n\t\t\t\t\t\t\t\t{/if}\r\n\t\t\t\t\t\t\t</div>\r\n\t\t\t\t\t\t\t<div class=\"text-right\">\r\n\t\t\t\t\t\t\t\t<span\r\n\t\t\t\t\t\t\t\t\tclass={`font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}\r\n\t\t\t\t\t\t\t\t>\r\n\t\t\t\t\t\t\t\t\t{tx.paymentType === 'receive' ? '+' : '-'}{tx.amountSat} sats\r\n\t\t\t\t\t\t\t\t</span>\r\n\t\t\t\t\t\t\t</div>\r\n\t\t\t\t\t\t</div>\r\n\r\n\t\t\t\t\t\t<!-- Transaction details -->\r\n\t\t\t\t\t\t<div class=\"mt-2 flex items-center justify-between text-sm\">\r\n\t\t\t\t\t\t\t<span class=\"text-base-content/70\"\r\n\t\t\t\t\t\t\t\t>{new Date(tx.timestamp * 1000).toLocaleString()}</span\r\n\t\t\t\t\t\t\t>\r\n\t\t\t\t\t\t\t<div class=\"badge badge-sm\">{tx.details.type}</div>\r\n\t\t\t\t\t\t</div>\r\n\t\t\t\t\t</div>\r\n\t\t\t\t</div>\r\n\t\t\t{/each}\r\n\t\t</div>\r\n\t\t<div class=\"mt-4 text-center\">\r\n\t\t\t<button class=\"btn btn-ghost btn-outline btn-sm\" onclick={() => (activeTab = 'transactions')}>\r\n\t\t\t\tView all transactions\r\n\t\t\t</button>\r\n\t\t</div>\r\n\t{:else}\r\n\t\t<div class=\"alert\">\r\n\t\t\t<span>No transactions found.</span>\r\n\t\t</div>\r\n\t{/if}\r\n</div>\r\n",
+      "start": 1754579494032,
+      "end": 1754579494227,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">import type { Payment } from \"@breeztech/breez-sdk-liquid/web\";\r\nimport { onMount } from \"svelte\";\r\nimport { getTransactions } from \"$lib/wallet/breez/walletService\";\r\nlet transactions = $state<Payment[]>([]);\r\n\r\nlet {\r\n    activeTab = $bindable(\"\")\r\n} = $props();\r\n\r\nonMount(async () => {\r\n    transactions = await getTransactions();\r\n});</script>\r\n\r\n<div>\r\n\t<h3 class=\"mb-3 text-lg font-semibold\">Recent Transactions</h3>\r\n\r\n\t{#if transactions.length > 0}\r\n\t\t<div class=\"space-y-3\">\r\n\t\t\t{#each transactions as tx}\r\n\t\t\t\t<div class=\"card bg-base-200 shadow-sm\">\r\n\t\t\t\t\t<div class=\"card-body p-3\">\r\n\t\t\t\t\t\t<!-- Header row with type and amount -->\r\n\t\t\t\t\t\t<div class=\"flex items-center justify-between\">\r\n\t\t\t\t\t\t\t<div class=\"flex items-center gap-2\">\r\n\t\t\t\t\t\t\t\t{#if tx.paymentType === 'receive'}\r\n\t\t\t\t\t\t\t\t\t<div class=\"badge badge-success badge-sm\">Received</div>\r\n\t\t\t\t\t\t\t\t{:else}\r\n\t\t\t\t\t\t\t\t\t<div class=\"badge badge-warning badge-sm\">Sent</div>\r\n\t\t\t\t\t\t\t\t{/if}\r\n\t\t\t\t\t\t\t</div>\r\n\t\t\t\t\t\t\t<div class=\"text-right\">\r\n\t\t\t\t\t\t\t\t<span\r\n\t\t\t\t\t\t\t\t\tclass={`font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}\r\n\t\t\t\t\t\t\t\t>\r\n\t\t\t\t\t\t\t\t\t{tx.paymentType === 'receive' ? '+' : '-'}{tx.amountSat} sats\r\n\t\t\t\t\t\t\t\t</span>\r\n\t\t\t\t\t\t\t</div>\r\n\t\t\t\t\t\t</div>\r\n\r\n\t\t\t\t\t\t<!-- Transaction details -->\r\n\t\t\t\t\t\t<div class=\"mt-2 flex items-center justify-between text-sm\">\r\n\t\t\t\t\t\t\t<span class=\"text-base-content/70\"\r\n\t\t\t\t\t\t\t\t>{new Date(tx.timestamp * 1000).toLocaleString()}</span\r\n\t\t\t\t\t\t\t>\r\n\t\t\t\t\t\t\t<div class=\"badge badge-sm\">{tx.details.type}</div>\r\n\t\t\t\t\t\t</div>\r\n\t\t\t\t\t</div>\r\n\t\t\t\t</div>\r\n\t\t\t{/each}\r\n\t\t</div>\r\n\t\t<div class=\"mt-4 text-center\">\r\n\t\t\t<button class=\"btn btn-ghost btn-outline btn-sm\" onclick={() => (activeTab = 'transactions')}>\r\n\t\t\t\tView all transactions\r\n\t\t\t</button>\r\n\t\t</div>\r\n\t{:else}\r\n\t\t<div class=\"alert\">\r\n\t\t\t<span>No transactions found.</span>\r\n\t\t</div>\r\n\t{/if}\r\n</div>\r\n",
+      "start": 1754579494227,
+      "end": 1754579494228,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/wallet/_components/balanceTab/RecentTransactions.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\r\n\timport type { Payment } from '@breeztech/breez-sdk-liquid/web';\r\n\timport { onMount } from 'svelte';\r\n\timport { getTransactions } from '$lib/wallet/breez/walletService';\r\n\r\n\tlet transactions = $state<Payment[]>([]);\r\n\tlet { activeTab = $bindable('') } = $props();\r\n\r\n\tonMount(async () => {\r\n\t\ttransactions = await getTransactions();\r\n\t});\r\n</script>\r\n\r\n<div>\r\n\t<h3 class=\"mb-3 text-lg font-semibold\">Recent Transactions</h3>\r\n\r\n\t{#if transactions.length > 0}\r\n\t\t<div class=\"space-y-3\">\r\n\t\t\t{#each transactions as tx}\r\n\t\t\t\t<div class=\"card bg-base-200 shadow-sm\">\r\n\t\t\t\t\t<div class=\"card-body p-3\">\r\n\t\t\t\t\t\t<!-- Header row with type and amount -->\r\n\t\t\t\t\t\t<div class=\"flex items-center justify-between\">\r\n\t\t\t\t\t\t\t<div class=\"flex items-center gap-2\">\r\n\t\t\t\t\t\t\t\t{#if tx.paymentType === 'receive'}\r\n\t\t\t\t\t\t\t\t\t<div class=\"badge badge-success badge-sm\">Received</div>\r\n\t\t\t\t\t\t\t\t{:else}\r\n\t\t\t\t\t\t\t\t\t<div class=\"badge badge-warning badge-sm\">Sent</div>\r\n\t\t\t\t\t\t\t\t{/if}\r\n\t\t\t\t\t\t\t</div>\r\n\t\t\t\t\t\t\t<div class=\"text-right\">\r\n\t\t\t\t\t\t\t\t<span\r\n\t\t\t\t\t\t\t\t\tclass={`font-bold ${tx.paymentType === 'receive' ? 'text-success' : 'text-warning'}`}\r\n\t\t\t\t\t\t\t\t>\r\n\t\t\t\t\t\t\t\t\t{tx.paymentType === 'receive' ? '+' : '-'}{tx.amountSat} sats\r\n\t\t\t\t\t\t\t\t</span>\r\n\t\t\t\t\t\t\t</div>\r\n\t\t\t\t\t\t</div>\r\n\r\n\t\t\t\t\t\t<!-- Transaction details -->\r\n\t\t\t\t\t\t<div class=\"mt-2 flex items-center justify-between text-sm\">\r\n\t\t\t\t\t\t\t<span class=\"text-base-content/70\"\r\n\t\t\t\t\t\t\t\t>{new Date(tx.timestamp * 1000).toLocaleString()}</span\r\n\t\t\t\t\t\t\t>\r\n\t\t\t\t\t\t\t<div class=\"badge badge-sm\">{tx.details.type}</div>\r\n\t\t\t\t\t\t</div>\r\n\t\t\t\t\t</div>\r\n\t\t\t\t</div>\r\n\t\t\t{/each}\r\n\t\t</div>\r\n\t\t<div class=\"mt-4 text-center\">\r\n\t\t\t<button class=\"btn btn-ghost btn-outline btn-sm\" onclick={() => (activeTab = 'transactions')}>\r\n\t\t\t\tView all transactions\r\n\t\t\t</button>\r\n\t\t</div>\r\n\t{:else}\r\n\t\t<div class=\"alert\">\r\n\t\t\t<span>No transactions found.</span>\r\n\t\t</div>\r\n\t{/if}\r\n</div>\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC;AACL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChE;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACb,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjG,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494228,
+      "end": 1754579494228,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { onMount } from \"svelte\";\nimport { getTransactions } from \"$lib/wallet/breez/walletService\";\n\nvar root_3 = $.template(`<div class=\"badge badge-success badge-sm\">Received</div>`);\nvar root_4 = $.template(`<div class=\"badge badge-warning badge-sm\">Sent</div>`);\nvar root_2 = $.template(`<div class=\"card bg-base-200 shadow-sm\"><div class=\"card-body p-3\"><div class=\"flex items-center justify-between\"><div class=\"flex items-center gap-2\"><!></div> <div class=\"text-right\"><span> </span></div></div> <div class=\"mt-2 flex items-center justify-between text-sm\"><span class=\"text-base-content/70\"> </span> <div class=\"badge badge-sm\"> </div></div></div></div>`);\nvar on_click = (_, activeTab) => activeTab('transactions');\nvar root_1 = $.template(`<div class=\"space-y-3\"></div> <div class=\"mt-4 text-center\"><button class=\"btn btn-ghost btn-outline btn-sm\">View all transactions</button></div>`, 1);\nvar root_5 = $.template(`<div class=\"alert\"><span>No transactions found.</span></div>`);\nvar root = $.template(`<div><h3 class=\"mb-3 text-lg font-semibold\">Recent Transactions</h3> <!></div>`);\n\nexport default function RecentTransactions($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet transactions = $.state($.proxy([]));\n\tlet activeTab = $.prop($$props, 'activeTab', 15, \"\");\n\n\tonMount(async () => {\n\t\t$.set(transactions, await getTransactions(), true);\n\t});\n\n\tvar div = root();\n\tvar node = $.sibling($.child(div), 2);\n\n\t{\n\t\tvar consequent_1 = ($$anchor) => {\n\t\t\tvar fragment = root_1();\n\t\t\tvar div_1 = $.first_child(fragment);\n\n\t\t\t$.each(div_1, 21, () => $.get(transactions), $.index, ($$anchor, tx) => {\n\t\t\t\tvar div_2 = root_2();\n\t\t\t\tvar div_3 = $.child(div_2);\n\t\t\t\tvar div_4 = $.child(div_3);\n\t\t\t\tvar div_5 = $.child(div_4);\n\t\t\t\tvar node_1 = $.child(div_5);\n\n\t\t\t\t{\n\t\t\t\t\tvar consequent = ($$anchor) => {\n\t\t\t\t\t\tvar div_6 = root_3();\n\n\t\t\t\t\t\t$.append($$anchor, div_6);\n\t\t\t\t\t};\n\n\t\t\t\t\tvar alternate = ($$anchor) => {\n\t\t\t\t\t\tvar div_7 = root_4();\n\n\t\t\t\t\t\t$.append($$anchor, div_7);\n\t\t\t\t\t};\n\n\t\t\t\t\t$.if(node_1, ($$render) => {\n\t\t\t\t\t\tif ($.get(tx).paymentType === 'receive') $$render(consequent); else $$render(alternate, false);\n\t\t\t\t\t});\n\t\t\t\t}\n\n\t\t\t\t$.reset(div_5);\n\n\t\t\t\tvar div_8 = $.sibling(div_5, 2);\n\t\t\t\tvar span = $.child(div_8);\n\t\t\t\tvar text = $.child(span);\n\n\t\t\t\t$.reset(span);\n\t\t\t\t$.reset(div_8);\n\t\t\t\t$.reset(div_4);\n\n\t\t\t\tvar div_9 = $.sibling(div_4, 2);\n\t\t\t\tvar span_1 = $.child(div_9);\n\t\t\t\tvar text_1 = $.child(span_1, true);\n\n\t\t\t\t$.reset(span_1);\n\n\t\t\t\tvar div_10 = $.sibling(span_1, 2);\n\t\t\t\tvar text_2 = $.child(div_10, true);\n\n\t\t\t\t$.reset(div_10);\n\t\t\t\t$.reset(div_9);\n\t\t\t\t$.reset(div_3);\n\t\t\t\t$.reset(div_2);\n\n\t\t\t\t$.template_effect(\n\t\t\t\t\t($0) => {\n\t\t\t\t\t\t$.set_class(span, 1, `font-bold ${$.get(tx).paymentType === 'receive' ? 'text-success' : 'text-warning'}`);\n\t\t\t\t\t\t$.set_text(text, `${$.get(tx).paymentType === 'receive' ? '+' : '-'}${$.get(tx).amountSat ?? ''} sats`);\n\t\t\t\t\t\t$.set_text(text_1, $0);\n\t\t\t\t\t\t$.set_text(text_2, $.get(tx).details.type);\n\t\t\t\t\t},\n\t\t\t\t\t[\n\t\t\t\t\t\t() => new Date($.get(tx).timestamp * 1000).toLocaleString()\n\t\t\t\t\t]\n\t\t\t\t);\n\n\t\t\t\t$.append($$anchor, div_2);\n\t\t\t});\n\n\t\t\t$.reset(div_1);\n\n\t\t\tvar div_11 = $.sibling(div_1, 2);\n\t\t\tvar button = $.child(div_11);\n\n\t\t\tbutton.__click = [on_click, activeTab];\n\t\t\t$.reset(div_11);\n\t\t\t$.append($$anchor, fragment);\n\t\t};\n\n\t\tvar alternate_1 = ($$anchor) => {\n\t\t\tvar div_12 = root_5();\n\n\t\t\t$.append($$anchor, div_12);\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($.get(transactions).length > 0) $$render(consequent_1); else $$render(alternate_1, false);\n\t\t});\n\t}\n\n\t$.reset(div);\n\t$.append($$anchor, div);\n\t$.pop();\n}\n\n$.delegate(['click']);",
+      "start": 1754579494228,
+      "end": 1754579494231,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACS,OAAO,QAAQ,QAAQ;SACvB,eAAe,QAAQ,iCAAiC;;;;;iCAiDG,SAAS,CAAG,cAAc;;;;;;;;KAhD1F,YAAY;KAGZ,SAAS,oCAAa,EAAE;;CAG5B,OAAO,aAAa,CAAC;QACjB,YAAY,QAAS,eAAe;CACxC,CAAC;;;;;;;;;;iCAOS,YAAY,uBAAI,EAAE;;;;;;;;;;;;;;;;;;;;;gBAMf,EAAE,EAAC,WAAW,KAAK,SAAS;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;8CAQZ,EAAE,EAAC,WAAW,KAAK,SAAS,GAAG,cAAc,GAAG,cAAc;gCAEjF,EAAE,EAAC,WAAW,KAAK,SAAS,GAAG,GAAG,GAAG,GAAG,SAAE,EAAE,EAAC,SAAS;;+BAU5B,EAAE,EAAC,OAAO,CAAC,IAAI;;;gBAFrC,IAAI,OAAC,EAAE,EAAC,SAAS,GAAG,IAAI,EAAE,cAAc;;;;;;;;;;;;;;;;;;;;;;;;aA1BhD,YAAY,EAAC,MAAM,GAAG,CAAC",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "RecentTransactions.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494231,
+      "end": 1754579494231,
+      "order": "normal"
+    }
+  ]
+}

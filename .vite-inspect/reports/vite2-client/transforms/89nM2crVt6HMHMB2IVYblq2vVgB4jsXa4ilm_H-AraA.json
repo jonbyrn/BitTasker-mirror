@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/onboarding.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"onboarding\": {\r\n        \"slide1\": {\r\n            \"description\": \"Create your account using your email or connect your Bitcoin wallet directly.\"\r\n        },\r\n        \"slide2\": {\r\n            \"title\": \"Create Profile\",\r\n            \"description\": \"Build your professional profile with skills, experience, and portfolio.\"\r\n        },\r\n        \"slide3\": {\r\n            \"title\": \"Post or Find Tasks\",\r\n            \"description\": \"Clients post projects, freelancers find opportunities that match their skills.\"\r\n        },\r\n        \"slide4\": {\r\n            \"title\": \"Complete Work\",\r\n            \"description\": \"Use our platform to communicate, share files, and track progress.\"\r\n        },\r\n        \"slide5\": {\r\n            \"title\": \"Get Paid\",\r\n            \"description\": \"Secure Bitcoin payments through our multisig escrow system.\"\r\n        },\r\n        \"get_started\": \"Get started\",\r\n        \"skip\": \"Skip\",\r\n        \"page\": {\r\n            \"title\": \"Welcome to Our Platform!\",\r\n            \"subtitle\": \"Let's get your profile set up so you can get started.\"\r\n        },\r\n        \"step\": {\r\n            \"profile_type\": \"Profile Type\",\r\n            \"personal_info\": \"Personal Info\",\r\n            \"location\": \"Location\"\r\n        },\r\n        \"profile_type\": {\r\n            \"question\": \"What best describes you?\",\r\n            \"client\": \"Client\",\r\n            \"client_desc\": \"I want to hire experts for my projects\",\r\n            \"freelancer\": \"Freelancer\",\r\n            \"freelancer_desc\": \"I want to work on projects and get paid\"\r\n        },\r\n        \"personal_info\": {\r\n            \"title\": \"Personal Information\",\r\n            \"full_name\": \"Full Name\",\r\n            \"full_name_placeholder\": \"John Doe\",\r\n            \"email\": \"Email\",\r\n            \"email_placeholder\": \"example@domain.com\"\r\n        },\r\n        \"location\": {\r\n            \"title\": \"Your Location\",\r\n            \"address1\": \"Address Line 1\",\r\n            \"address1_placeholder\": \"123 Main St\",\r\n            \"address2\": \"Address Line 2 (Optional)\",\r\n            \"address2_placeholder\": \"Apt, Suite, Unit, etc.\",\r\n            \"city\": \"City\",\r\n            \"city_placeholder\": \"New York\",\r\n            \"state\": \"State/Province\",\r\n            \"state_placeholder\": \"NY\",\r\n            \"postal_code\": \"Postal/ZIP Code\",\r\n            \"postal_code_placeholder\": \"10001\",\r\n            \"country\": \"Country\",\r\n            \"country_placeholder\": \"Select country\"\r\n        },\r\n        \"country\": {\r\n            \"us\": \"United States\",\r\n            \"canada\": \"Canada\",\r\n            \"uk\": \"United Kingdom\",\r\n            \"australia\": \"Australia\",\r\n            \"germany\": \"Germany\",\r\n            \"france\": \"France\",\r\n            \"japan\": \"Japan\",\r\n            \"china\": \"China\",\r\n            \"india\": \"India\",\r\n            \"brazil\": \"Brazil\"\r\n        },\r\n        \"button\": {\r\n            \"back\": \"Back\",\r\n            \"next\": \"Next\",\r\n            \"complete\": \"Complete Setup\",\r\n            \"completing\": \"Completing...\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494734,
+      "end": 1754579494773,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494773,
+      "end": 1754579494773,
+      "order": "normal"
+    }
+  ]
+}

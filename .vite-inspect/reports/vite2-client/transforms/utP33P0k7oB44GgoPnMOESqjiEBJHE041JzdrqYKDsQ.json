@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/strings.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "const NUMBER_CHAR_RE = /\\d/;\nconst STR_SPLITTERS = [\"-\", \"_\", \"/\", \".\"];\nfunction isUppercase(char = \"\") {\n    if (NUMBER_CHAR_RE.test(char))\n        return undefined;\n    return char !== char.toLowerCase();\n}\nfunction splitByCase(str) {\n    const parts = [];\n    let buff = \"\";\n    let previousUpper;\n    let previousSplitter;\n    for (const char of str) {\n        // Splitter\n        const isSplitter = STR_SPLITTERS.includes(char);\n        if (isSplitter === true) {\n            parts.push(buff);\n            buff = \"\";\n            previousUpper = undefined;\n            continue;\n        }\n        const isUpper = isUppercase(char);\n        if (previousSplitter === false) {\n            // Case rising edge\n            if (previousUpper === false && isUpper === true) {\n                parts.push(buff);\n                buff = char;\n                previousUpper = isUpper;\n                continue;\n            }\n            // Case falling edge\n            if (previousUpper === true && isUpper === false && buff.length > 1) {\n                const lastChar = buff.at(-1);\n                parts.push(buff.slice(0, Math.max(0, buff.length - 1)));\n                buff = lastChar + char;\n                previousUpper = isUpper;\n                continue;\n            }\n        }\n        // Normal char\n        buff += char;\n        previousUpper = isUpper;\n        previousSplitter = isSplitter;\n    }\n    parts.push(buff);\n    return parts;\n}\nexport function pascalCase(str) {\n    if (!str)\n        return \"\";\n    return splitByCase(str)\n        .map((p) => upperFirst(p))\n        .join(\"\");\n}\nexport function camelCase(str) {\n    return lowerFirst(pascalCase(str || \"\"));\n}\nexport function kebabCase(str) {\n    return str\n        ? splitByCase(str)\n            .map((p) => p.toLowerCase())\n            .join(\"-\")\n        : \"\";\n}\nfunction upperFirst(str) {\n    return str ? str[0].toUpperCase() + str.slice(1) : \"\";\n}\nfunction lowerFirst(str) {\n    return str ? str[0].toLowerCase() + str.slice(1) : \"\";\n}\n",
+      "start": 1754579496230,
+      "end": 1754579496263,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496263,
+      "end": 1754579496264,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496264,
+      "end": 1754579496264,
+      "order": "normal"
+    }
+  ]
+}

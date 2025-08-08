@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/lastDayOfWeek.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { getDefaultOptions } from \"./_lib/defaultOptions.js\";\nimport { toDate } from \"./toDate.js\";\n\n/**\n * The {@link lastDayOfWeek} function options.\n */\n\n/**\n * @name lastDayOfWeek\n * @category Week Helpers\n * @summary Return the last day of a week for the given date.\n *\n * @description\n * Return the last day of a week for the given date.\n * The result will be in the local timezone unless a context is specified.\n *\n * @typeParam DateType - The `Date` type, the function operates on. Gets inferred from passed arguments. Allows to use extensions like [`UTCDate`](https://github.com/date-fns/utc).\n * @typeParam ResultDate - The result `Date` type, it is the type returned from the context function if it is passed, or inferred from the arguments.\n *\n * @param date - The original date\n * @param options - An object with options\n *\n * @returns The last day of a week\n */\nexport function lastDayOfWeek(date, options) {\n  const defaultOptions = getDefaultOptions();\n  const weekStartsOn =\n    options?.weekStartsOn ??\n    options?.locale?.options?.weekStartsOn ??\n    defaultOptions.weekStartsOn ??\n    defaultOptions.locale?.options?.weekStartsOn ??\n    0;\n\n  const _date = toDate(date, options?.in);\n  const day = _date.getDay();\n  const diff = (day < weekStartsOn ? -7 : 0) + 6 - (day - weekStartsOn);\n\n  _date.setHours(0, 0, 0, 0);\n  _date.setDate(_date.getDate() + diff);\n\n  return _date;\n}\n\n// Fallback for modularized imports:\nexport default lastDayOfWeek;\n",
+      "start": 1754579494984,
+      "end": 1754579495001,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495001,
+      "end": 1754579495001,
+      "order": "normal"
+    }
+  ]
+}

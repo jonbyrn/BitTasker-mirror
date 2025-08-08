@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/company/careers.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"about_careers\": {\r\n        \"join\": {\r\n            \"title\": \"Join Our Revolution\",\r\n            \"description\": \"Help us build the decentralized future of work and empower people around the globe\"\r\n        },\r\n        \"culture\": {\r\n            \"title\": \"Our Culture\",\r\n            \"description\": \"At BitTasker, we're building more than a platform—we're creating a movement. Our team is unified by a shared vision of economic freedom, decentralization, and peer-to-peer exchange without intermediaries.\"\r\n        }\r\n    },\r\n    \"why\": {\r\n        \"join\": {\r\n            \"bittasker\": \"Why Join BitTasker?\"\r\n        }\r\n    },\r\n    \"careers\": {\r\n        \"why_join\": {\r\n            \"description\": \"Join a revolutionary team that's building the future of decentralized work, powered by Bitcoin and cutting-edge technology.\",\r\n            \"core_values\": \"Our Core Values\",\r\n            \"bitcoin_first\": {\r\n                \"title\": \"Bitcoin-First\",\r\n                \"description\": \"We pay salaries in Bitcoin and believe in its power to transform the global economy.\"\r\n            },\r\n            \"fully_remote\": {\r\n                \"title\": \"Fully Remote\",\r\n                \"description\": \"Work from anywhere in the world. We believe talent has no borders.\"\r\n            },\r\n            \"innovation_driven\": {\r\n                \"title\": \"Innovation-Driven\",\r\n                \"description\": \"We're pioneering the integration of Bitcoin, Lightning Network, and decentralized technologies.\"\r\n            },\r\n            \"mission_focused\": {\r\n                \"title\": \"Mission-Focused\",\r\n                \"description\": \"We're committed to building tools that enhance financial sovereignty and economic freedom.\"\r\n            }\r\n        },\r\n        \"about\": {\r\n            \"join\": \"Join us in revolutionizing the future of work with Bitcoin and decentralized technologies!\"\r\n        },\r\n        \"step_number\": \"3\",\r\n        \"section_title\": \"Open Positions\",\r\n        \"section_description\": \"Explore our current opportunities and join the BitTasker movement.\",\r\n        \"positions\": {\r\n            \"dev\": {\r\n                \"title\": \"Full Stack Developer\",\r\n                \"location\": \"Global, Remote\",\r\n                \"about_title\": \"About the Role:\",\r\n                \"about_description\": \"We're seeking passionate developers to help build the future of decentralized work. You'll be working with cutting-edge technologies to create a platform that empowers people worldwide to earn, trade, and thrive using Bitcoin.\",\r\n                \"responsibilities_title\": \"Key Responsibilities:\",\r\n                \"responsibility_1\": \"Develop and maintain our lean, clean codebase and expand functionality\",\r\n                \"responsibility_2\": \"Expand and improve Bitcoin capabilities in our app\",\r\n                \"responsibility_3\": \"Leverage the power of Nostr to enhance users’ experience\",\r\n                \"responsibility_4\": \"Create responsive, mobile-first user interfaces\",\r\n                \"responsibility_5\": \"Work with cutting-edge AI development tools and practices\",\r\n                \"qualifications_title\": \"Qualifications:\",\r\n                \"qual_1\": \"Experience with modern JavaScript frameworks, especially Svelte/SvelteKit\",\r\n                \"qual_2\": \"Knowledge of TypeScript, Tailwind CSS, and responsive design\",\r\n                \"qual_3\": \"Experience with AI development tools and practices\",\r\n                \"qual_4\": \"Familiarity with the Bitcoin ecosystem and concepts\",\r\n                \"qual_5\": \"Interest in decentralized technologies and privacy-preserving systems\",\r\n                \"qual_6\": \"Strong problem-solving skills and commitment to clean code\"\r\n            },\r\n            \"pr\": {\r\n                \"title\": \"Public Relations Specialist\",\r\n                \"location\": \"El Salvador & Global, Remote\",\r\n                \"about_title\": \"About the Role:\",\r\n                \"about_description\": \"We're looking for a strategic PR specialist to help spread BitTasker's message globally, with a special focus on El Salvador, the epicenter of the BitTasker circular economy revolution.\",\r\n                \"responsibilities_title\": \"Key Responsibilities:\",\r\n                \"responsibility_1\": \"Develop and execute PR strategies focused on Bitcoin, decentralization, and the future of work\",\r\n                \"responsibility_2\": \"Build relationships with media outlets in El Salvador and internationally\",\r\n                \"responsibility_3\": \"Create compelling press releases, stories, and content about BitTasker's mission\",\r\n                \"responsibility_4\": \"Collaborate with marketing to ensure consistent messaging across all channels\",\r\n                \"qualifications_title\": \"Qualifications:\",\r\n                \"qual_1\": \"Experience in PR, communications, or journalism\",\r\n                \"qual_2\": \"Fluency in Spanish and English required\",\r\n                \"qual_3\": \"Understanding of Bitcoin, cryptocurrency, and decentralized technologies\",\r\n                \"qual_4\": \"Strong writing and storytelling abilities\",\r\n                \"qual_5\": \"Experience with media relations in Latin America preferred\",\r\n                \"qual_6\": \"Existing relationships with relevant media outlets is a plus\"\r\n            },\r\n            \"media\": {\r\n                \"title\": \"Media Specialist/PR\",\r\n                \"location\": \"Global, Remote, Bitcoin Specialist\",\r\n                \"about_title\": \"About the Role:\",\r\n                \"about_description\": \"We're seeking a media specialist and PR expert with deep knowledge of Bitcoin and cryptocurrency ecosystems to help BitTasker become the leading voice in decentralized work platforms.\",\r\n                \"responsibilities_title\": \"Key Responsibilities:\",\r\n                \"responsibility_1\": \"Develop and execute comprehensive media strategies focused on Bitcoin adoption and decentralized work\",\r\n                \"responsibility_2\": \"Build relationships with cryptocurrency, tech, and business media outlets globally\",\r\n                \"responsibility_3\": \"Create compelling content about BitTasker's mission and the future of work\",\r\n                \"responsibility_4\": \"Manage crisis communications and maintain positive brand reputation in the crypto space\",\r\n                \"qualifications_title\": \"Qualifications:\",\r\n                \"qual_1\": \"Deep understanding of Bitcoin, cryptocurrency, and blockchain technologies\",\r\n                \"qual_2\": \"Experience in PR, media relations, or communications\",\r\n                \"qual_3\": \"Strong relationships with crypto and tech media outlets\",\r\n                \"qual_4\": \"Excellent writing and storytelling abilities\",\r\n                \"qual_5\": \"Experience with crisis management and brand protection\",\r\n                \"qual_6\": \"Passion for decentralized technologies and financial freedom\"\r\n            },\r\n            \"ambassador\": {\r\n                \"title\": \"Brand Ambassador\",\r\n                \"location\": \"El Salvador, LATAM, South America\",\r\n                \"about_title\": \"About the Role:\",\r\n                \"about_description\": \"We're looking for passionate brand ambassadors to represent BitTasker at events, host gatherings, and bring more people onto our platform across Latin America, with a special focus on El Salvador.\",\r\n                \"responsibilities_title\": \"Key Responsibilities:\",\r\n                \"responsibility_1\": \"Attend and represent BitTasker at Bitcoin and tech events across Latin America\",\r\n                \"responsibility_2\": \"Host local meetups and events to introduce people to BitTasker\",\r\n                \"responsibility_3\": \"Build relationships with local communities and organizations\",\r\n                \"responsibility_4\": \"Create content and share stories about BitTasker's impact in the region\",\r\n                \"qualifications_title\": \"Qualifications:\",\r\n                \"qual_1\": \"Fluency in Spanish and English required\",\r\n                \"qual_2\": \"Experience with event planning and community building\",\r\n                \"qual_3\": \"Strong understanding of Bitcoin and cryptocurrency\",\r\n                \"qual_4\": \"Excellent communication and presentation skills\",\r\n                \"qual_5\": \"Existing network in Latin American Bitcoin communities\",\r\n                \"qual_6\": \"Passion for financial inclusion and economic freedom\"\r\n            }\r\n        },\r\n        \"apply_now\": \"Apply Now\",\r\n        \"how_to_apply\": {\r\n            \"title\": \"How to Apply\",\r\n            \"description\": \"To apply for any of our open positions, please send your resume, LinkedIn profile, or Git repository links to our careers team. We look forward to learning more about you and your passion for building the future of decentralized work!\",\r\n            \"button\": \"Apply via Email\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494745,
+      "end": 1754579494780,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494780,
+      "end": 1754579494780,
+      "order": "normal"
+    }
+  ]
+}

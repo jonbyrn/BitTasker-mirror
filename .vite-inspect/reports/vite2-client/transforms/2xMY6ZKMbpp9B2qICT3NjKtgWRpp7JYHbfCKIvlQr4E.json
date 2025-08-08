@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/dashboard/profile/availability.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"profile_availability\": {\r\n      \"availabilityTitle\": \"Disponibilidad\",\r\n      \"weeklySchedule\": \"Horario Semanal\",\r\n      \"unavailable\": \"No disponible\",\r\n      \"nextAvailable\": \"Próxima disponibilidad\",\r\n      \"timezone\": \"Zona horaria\",\r\n      \"noticeRequired\": \"Aviso requerido\",\r\n      \"hours\": \"horas\",\r\n      \"maxBookingsPerDay\": \"Máximo de reservas por día\",\r\n      \"breakBetweenBookings\": \"Pausa entre reservas\",\r\n      \"minutes\": \"minutos\",\r\n      \"payment_methods\": \"Métodos de pago\",\r\n      \"payment_lightning\": \"Lightning\",\r\n      \"your_stats\": \"Tus estadísticas\",\r\n      \"copyToOtherDays\": \"Copiar a otros días\",\r\n      \"addTimeSlot\": \"Agregar horario\",\r\n      \"saveAvailability\": \"Guardar disponibilidad\",\r\n      \"from\": \"Desde\",\r\n      \"to\": \"Hasta\",\r\n      \"stats\": {\r\n        \"tasks_completed\": \"Tareas completadas\",\r\n        \"success_rate\": \"Tasa de éxito\",\r\n        \"response_rate\": \"Tasa de respuesta\"\r\n      },\r\n      \"error_load\": \"No se pudo cargar el perfil. Intenta de nuevo más tarde.\"\r\n    },\r\n    \"days\": {\r\n      \"sunday\": \"Domingo\",\r\n      \"monday\": \"Lunes\",\r\n      \"tuesday\": \"Martes\",\r\n      \"wednesday\": \"Miércoles\",\r\n      \"thursday\": \"Jueves\",\r\n      \"friday\": \"Viernes\",\r\n      \"saturday\": \"Sábado\"\r\n    }\r\n  }",
+      "start": 1754579494785,
+      "end": 1754579494798,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494798,
+      "end": 1754579494798,
+      "order": "normal"
+    }
+  ]
+}

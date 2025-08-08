@@ -261,7 +261,7 @@
 							{formatBtcToSats(task.budget.amount)}
 						</div>
 						<span class="text-info text-xs"
-							>≈ {calculateUsdtEstimate(task.budget, btcPrice)} USDT</span
+							>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
 						>
 					</div>
 

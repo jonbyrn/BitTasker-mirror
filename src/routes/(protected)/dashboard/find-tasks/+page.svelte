@@ -14,6 +14,7 @@
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
+	import { t } from 'svelte-i18n';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -283,7 +284,7 @@
 	const onSelectTask = (task: Task) => {
 		if (task.status === TaskStatusEnum.OPEN) {
 			if (task?.npub === $user?.npub) {
-				appStore.showErrorToast('You cannot bid on your own task');
+				appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
 			} else {
 				selectedTaskId = task.id.toString();
 				isSidebarOpen = true;
@@ -295,8 +296,8 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
 	<!-- Page Header -->
 	<div class="mb-6">
-		<h1 class="mb-2 text-2xl font-bold">Find Tasks</h1>
-		<p class="text-base-content/70">Discover tasks that match your skills and interests</p>
+		<h1 class="mb-2 text-2xl font-bold">{$t('find_tasks.title')}</h1>
+		<p class="text-base-content/70">{$t('find_tasks.description')}</p>
 	</div>
 
 	<!-- Search and Filter Controls -->
@@ -306,7 +307,7 @@
 			<input
 				type="text"
 				class="input input-bordered w-full pl-10"
-				placeholder="Search tasks..."
+				placeholder={$t('find_tasks.search_placeholder')}
 				bind:value={searchQuery}
 				oninput={debouncedSearch}
 			/>
@@ -335,14 +336,14 @@
 				class:btn-primary={searchParams.taskType?.includes(TaskTypeEnum.REMOTE)}
 				onclick={() => toggleTaskType(TaskTypeEnum.REMOTE)}
 			>
-				Remote
+				{$t('find_tasks.remote')}
 			</button>
 			<button
 				class="btn btn-sm"
 				class:btn-primary={searchParams.taskType?.includes(TaskTypeEnum.IN_PERSON)}
 				onclick={() => toggleTaskType(TaskTypeEnum.IN_PERSON)}
 			>
-				In Person
+				{$t('find_tasks.in_person')}
 			</button>
 		</div>
 
@@ -362,7 +363,7 @@
 					d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
 				/>
 			</svg>
-			Filters
+			{$t('find_tasks.filters')}
 		</button>
 
 		<!-- Save Search Button -->
@@ -370,7 +371,7 @@
 			class="btn btn-sm btn-primary gap-2"
 			onclick={() => (isSaveSearchOpen = true)}
 			disabled={!hasActiveParams}
-			title={!hasActiveParams ? 'Add search filters to save' : 'Save your search criteria'}
+			title={!hasActiveParams ? $t('find_tasks.save_search_tooltip_disabled') : $t('find_tasks.save_search_tooltip_enabled')}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -386,7 +387,7 @@
 					d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
 				/>
 			</svg>
-			Save Search
+			{$t('find_tasks.save_search')}
 		</button>
 	</div>
 
@@ -405,7 +406,7 @@
 					d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/></svg
 			>
-			<span>Error loading tasks: {$tasksStore.error}. Please try again.</span>
+			<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
 		</div>
 	{/if}
 
@@ -466,19 +467,19 @@
 				/>
 			</svg>
 			<div>
-				<h3 class="font-bold">Loading is taking longer than expected</h3>
-				<div class="text-xs">Try refreshing the page or check your connection</div>
+				<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
+				<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
 			</div>
-			<button class="btn btn-sm" onclick={() => window.location.reload()}> Refresh </button>
+			<button class="btn btn-sm" onclick={() => window.location.reload()}> {$t('find_tasks.refresh')} </button>
 		</div>
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
 		<h2 class="mb-4 text-xl font-bold">
-			Other Tasks
+			{$t('find_tasks.other_tasks')}
 			<span class="text-base-content/70 ml-2 text-sm font-normal">
 				{#if $tasksStore.loading && searchParams.page === 1}
 					<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
 				{:else if $tasksStore.items.length > 0}
-					(Showing {$tasksStore.items.length} tasks)
+					({$t('find_tasks.showing_tasks').replace('{count}', $tasksStore.items.length.toString())})
 				{/if}
 			</span>
 		</h2>
@@ -491,7 +492,9 @@
 						<div class="flex items-center justify-between gap-2 text-sm">
 							<div class="flex flex-col items-start">
 								<span class="font-semibold">{formatBtcToSats(task.budget.amount)}</span>
-								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget, btcPrice)} USDT</span>
+								<span class="text-info text-xs"
+									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
+								>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>
@@ -503,12 +506,12 @@
 						<div class="flex flex-wrap gap-4">
 							{#if task.deadline}
 								<div>
-									<p class="text-base-content/60 text-sm">Deadline</p>
+									<p class="text-base-content/60 text-sm">{$t('find_tasks.deadline')}</p>
 									<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
 								</div>
 							{:else if task.dateRange?.start && task.dateRange?.end}
 								<div>
-									<p class="text-base-content/60 text-sm">Date Range</p>
+									<p class="text-base-content/60 text-sm">{$t('find_tasks.date_range')}</p>
 									<p class="font-medium">
 										{new Date(task.dateRange.start).toLocaleDateString()} -
 										{new Date(task.dateRange.end).toLocaleDateString()}
@@ -517,8 +520,8 @@
 							{/if}
 
 							<div>
-								<p class="text-base-content/60 text-sm">Posted By</p>
-								<p class="font-medium">{task?.creator?.username || 'N/A'}</p>
+								<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
+								<p class="font-medium">{task?.creator?.username || $t('find_tasks.not_available')}</p>
 							</div>
 						</div>
 					</div>
@@ -550,7 +553,7 @@
 										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
 									/>
 								</svg>
-								{task.bids?.length ?? 0} Bids
+								{task.bids?.length ?? 0} {$t('find_tasks.bids')}
 							</div>
 						</div>
 
@@ -558,7 +561,7 @@
 							class="btn btn-primary btn-sm"
 							class:btn-disabled={task.status !== TaskStatusEnum.OPEN || task?.npub === $user?.npub}
 							onclick={() => onSelectTask(task)}
-							aria-label="Bid on this task"
+							aria-label={$t('find_tasks.bid_on_task')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -574,7 +577,7 @@
 									d="M12 4v16m8-8H4"
 								/>
 							</svg>
-							{task.status === TaskStatusEnum.OPEN ? 'Bid Now' : 'Bidding closed'}
+							{task.status === TaskStatusEnum.OPEN ? $t('find_tasks.bid_now') : $t('find_tasks.bidding_closed')}
 						</button>
 					</div>
 				</div>
@@ -609,9 +612,9 @@
 					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">No tasks found</h3>
-			<p class="text-base-content/60 mt-1">Try adjusting your filters or search criteria</p>
-			<button class="btn btn-primary mt-4" onclick={clearFilters}>Clear Filters</button>
+			<h3 class="mt-4 text-lg font-semibold">{$t('find_tasks.no_tasks_found')}</h3>
+			<p class="text-base-content/60 mt-1">{$t('find_tasks.no_tasks_message')}</p>
+			<button class="btn btn-primary mt-4" onclick={clearFilters}>{$t('find_tasks.clear_filters')}</button>
 		</div>
 	{/if}
 </div>

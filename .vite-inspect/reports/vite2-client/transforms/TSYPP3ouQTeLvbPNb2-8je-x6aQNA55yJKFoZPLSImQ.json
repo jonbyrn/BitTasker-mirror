@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/en/company/contact.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"contact\": {\r\n        \"title\": \"Get in Touch\",\r\n        \"description\": \"We'd love to hear from you! Whether you have a question about our platform, feedback, or a partnership proposal, please don't hesitate to reach out.\",\r\n        \"general_inquiries\": \"General Inquiries\",\r\n        \"general_info\": \"For all general questions, the best way to reach our team is by email.\",\r\n        \"send_button\": \"Send Us An Email\"\r\n    }\r\n}",
+      "start": 1754579494759,
+      "end": 1754579494790,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494790,
+      "end": 1754579494790,
+      "order": "normal"
+    }
+  ]
+}

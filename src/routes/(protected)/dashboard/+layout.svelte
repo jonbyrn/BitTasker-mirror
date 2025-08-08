@@ -2,11 +2,43 @@
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
+	import { t } from 'svelte-i18n';
+	// Icon imports for unplugin-icons
+	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconMagnify from '~icons/mdi/magnify';
+	import IconWallet from '~icons/mdi/wallet';
+	import IconAccount from '~icons/mdi/account';
+	import IconMessage from '~icons/mdi/message';
+	import IconCog from '~icons/mdi/cog';
 
 	let { children } = $props();
 
 	let width = $state(375);
 	let activeSection = $state('');
+
+	// Icon mapping function for dynamic icon rendering
+	function getIconComponent(iconName: string) {
+		const iconMap = {
+			'mdi:format-list-bulleted': IconFormatListBulleted,
+			'mdi:plus-circle': IconPlusCircle,
+			'mdi:magnify': IconMagnify,
+			'mdi:wallet': IconWallet,
+			'mdi:account': IconAccount,
+			'mdi:message': IconMessage,
+			'mdi:cog': IconCog
+		};
+		return iconMap[iconName as keyof typeof iconMap] || IconFormatListBulleted;
+	}
+
+	// Create a reactive component map for Svelte 5 compatibility
+	let iconComponents = $derived.by(() => {
+		const components = new Map();
+		sections.forEach(section => {
+			components.set(section.icon, getIconComponent(section.icon));
+		});
+		return components;
+	});
 
 	$effect(() => {
 		const section = page.url.pathname.split('/dashboard/')[1] || '';
@@ -73,7 +105,7 @@
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
 				<div class="card-body p-4">
-					<h2 class="card-title text-lg">Dashboard</h2>
+					<h2 class="card-title text-lg">{$t('dashboard.titl')}</h2>
 					<div class="divider my-2"></div>
 					<ul class="menu bg-base-100 rounded-box w-full">
 						{#each sections as section}
@@ -82,8 +114,26 @@
 									data-sveltekit-reload="off"
 									href="/dashboard/{section.id}"
 									class:menu-active={activeSection === section.id}
+									class="flex items-center gap-3"
 								>
-									{section.label}
+									{#if section.icon === 'mdi:format-list-bulleted'}
+										<IconFormatListBulleted class="text-primary" />
+									{:else if section.icon === 'mdi:plus-circle'}
+										<IconPlusCircle class="text-primary" />
+									{:else if section.icon === 'mdi:magnify'}
+										<IconMagnify class="text-primary" />
+									{:else if section.icon === 'mdi:wallet'}
+										<IconWallet class="text-primary" />
+									{:else if section.icon === 'mdi:account'}
+										<IconAccount class="text-primary" />
+									{:else if section.icon === 'mdi:message'}
+										<IconMessage class="text-primary" />
+									{:else if section.icon === 'mdi:cog'}
+										<IconCog class="text-primary" />
+									{:else}
+										<IconFormatListBulleted class="text-primary" />
+									{/if}
+									{$t(section.label)}
 								</a>
 							</li>
 						{/each}
@@ -94,7 +144,7 @@
 	{/if}
 
 	<!-- Main Content -->
-	<div class="min-h-0 w-full flex-1 overflow-hidden">
+	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>
 </div>

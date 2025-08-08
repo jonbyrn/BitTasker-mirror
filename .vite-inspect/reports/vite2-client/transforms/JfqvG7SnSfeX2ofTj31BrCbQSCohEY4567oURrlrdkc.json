@@ -1,0 +1,98 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/index.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import _cache from \"./cache\";\nimport { Cache } from \"./public\";\nexport * from \"./client\";\nexport * from \"./lib\";\nfunction graphql(str) {\n  if (globalThis?.process?.env?.HOUDINI_PLUGIN) {\n    return str;\n  }\n  throw new Error(`\\u26A0\\uFE0F graphql template was invoked at runtime. This should never happen and usually means that your project isn't properly configured.\n\nPlease make sure you have the appropriate plugin/preprocessor enabled. For more information, visit this link: https://houdinigraphql.com/guides/setting-up-your-project\n`);\n}\nconst cache = new Cache(_cache);\nfunction getCache() {\n  return _cache;\n}\nexport {\n  cache,\n  getCache,\n  graphql\n};\n",
+      "start": 1754579494617,
+      "end": 1754579494744,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494744,
+      "end": 1754579494744,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494744,
+      "end": 1754579494744,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494744,
+      "end": 1754579494744,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494744,
+      "end": 1754579494744,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494744,
+      "end": 1754579494744,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "var define_globalThis_process_env_default = {};\nimport _cache from \"./cache\";\nimport { Cache } from \"./public\";\nexport * from \"./client\";\nexport * from \"./lib\";\nfunction graphql(str) {\n  if (define_globalThis_process_env_default?.HOUDINI_PLUGIN) {\n    return str;\n  }\n  throw new Error(`⚠️ graphql template was invoked at runtime. This should never happen and usually means that your project isn't properly configured.\n\nPlease make sure you have the appropriate plugin/preprocessor enabled. For more information, visit this link: https://houdinigraphql.com/guides/setting-up-your-project\n`);\n}\nconst cache = new Cache(_cache);\nfunction getCache() {\n  return _cache;\n}\nexport {\n  cache,\n  getCache,\n  graphql\n};\n",
+      "start": 1754579494744,
+      "end": 1754579494765,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494765,
+      "end": 1754579494765,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494766,
+      "end": 1754579494766,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,6 +1,21 @@
 /**
  * Bitcoin HD Wallet Implementation
- * Provides Bitcoin savings wallet functionality
+ * 
+ * ⚠️ @DEPRECATED - NOT USED WITH BREEZ SDK ⚠️
+ * 
+ * This file contains a custom Bitcoin wallet implementation that is NOT used
+ * in the current Breez SDK integration. The Breez SDK already provides comprehensive
+ * Bitcoin functionality through submarine swaps and on-chain interoperability.
+ * 
+ * This implementation remains for reference purposes and potential future use cases
+ * where a pure Bitcoin-only wallet (separate from Lightning/Liquid) might be needed.
+ * 
+ * For Bitcoin operations in the app, use the Breez SDK methods instead:
+ * - sendOnchainPayment() for sending to Bitcoin addresses
+ * - prepareReceivePayment() with bitcoinAddress method for receiving
+ * - fetchOnchainLimits() for Bitcoin transaction limits
+ * 
+ * Original purpose: Provides Bitcoin savings wallet functionality
  */
 
 import * as bitcoin from 'bitcoinjs-lib';

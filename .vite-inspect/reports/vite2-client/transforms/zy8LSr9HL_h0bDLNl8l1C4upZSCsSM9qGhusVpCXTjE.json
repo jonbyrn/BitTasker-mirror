@@ -1,0 +1,118 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/components/Toast.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\r\n\timport { appStore } from '$lib/stores/app.store';\r\n\timport { fade } from 'svelte/transition';\r\n\r\n\tconst toasts = $derived($appStore.toasts);\r\n</script>\r\n\r\n<div class=\"toast toast-top fixed z-[9999]\">\r\n\t{#each toasts as toast (toast.id)}\r\n\t\t<div\r\n\t\t\tclass=\"alert {toast.type === 'success'\r\n\t\t\t\t? 'alert-success'\r\n\t\t\t\t: toast.type === 'error'\r\n\t\t\t\t\t? 'alert-error'\r\n\t\t\t\t\t: 'alert-info'}\"\r\n\t\t\tin:fade={{ duration: 150 }}\r\n\t\t\tout:fade={{ duration: 150 }}\r\n\t\t>\r\n\t\t\t<span>{toast.message}</span>\r\n\t\t</div>\r\n\t{/each}\r\n</div>\r\n",
+      "start": 1754579492187,
+      "end": 1754579492520,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "<script lang=\"ts\">import { appStore } from \"$lib/stores/app.store\";\r\nimport { fade } from \"svelte/transition\";\r\nconst toasts = $derived($appStore.toasts);</script>\r\n\r\n<div class=\"toast toast-top fixed z-[9999]\">\r\n\t{#each toasts as toast (toast.id)}\r\n\t\t<div\r\n\t\t\tclass=\"alert {toast.type === 'success'\r\n\t\t\t\t? 'alert-success'\r\n\t\t\t\t: toast.type === 'error'\r\n\t\t\t\t\t? 'alert-error'\r\n\t\t\t\t\t: 'alert-info'}\"\r\n\t\t\tin:fade={{ duration: 150 }}\r\n\t\t\tout:fade={{ duration: 150 }}\r\n\t\t>\r\n\t\t\t<span>{toast.message}</span>\r\n\t\t</div>\r\n\t{/each}\r\n</div>\r\n",
+      "start": 1754579492520,
+      "end": 1754579492522,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/components/Toast.svelte"
+        ],
+        "sourcesContent": [
+          "<script lang=\"ts\">\r\n\timport { appStore } from '$lib/stores/app.store';\r\n\timport { fade } from 'svelte/transition';\r\n\r\n\tconst toasts = $derived($appStore.toasts);\r\n</script>\r\n\r\n<div class=\"toast toast-top fixed z-[9999]\">\r\n\t{#each toasts as toast (toast.id)}\r\n\t\t<div\r\n\t\t\tclass=\"alert {toast.type === 'success'\r\n\t\t\t\t? 'alert-success'\r\n\t\t\t\t: toast.type === 'error'\r\n\t\t\t\t\t? 'alert-error'\r\n\t\t\t\t\t: 'alert-info'}\"\r\n\t\t\tin:fade={{ duration: 150 }}\r\n\t\t\tout:fade={{ duration: 150 }}\r\n\t\t>\r\n\t\t\t<span>{toast.message}</span>\r\n\t\t</div>\r\n\t{/each}\r\n</div>\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1C;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACR,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492522,
+      "end": 1754579492522,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { appStore } from \"$lib/stores/app.store\";\nimport { fade } from \"svelte/transition\";\n\nvar root_1 = $.template(`<div><span> </span></div>`);\nvar root = $.template(`<div class=\"toast toast-top fixed z-[9999]\"></div>`);\n\nexport default function Toast($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tconst [$$stores, $$cleanup] = $.setup_stores();\n\tconst $appStore = () => $.store_get(appStore, '$appStore', $$stores);\n\tconst toasts = $.derived(() => $appStore().toasts);\n\tvar div = root();\n\n\t$.each(div, 21, () => $.get(toasts), (toast) => toast.id, ($$anchor, toast) => {\n\t\tvar div_1 = root_1();\n\t\tvar span = $.child(div_1);\n\t\tvar text = $.child(span, true);\n\n\t\t$.reset(span);\n\t\t$.reset(div_1);\n\n\t\t$.template_effect(() => {\n\t\t\t$.set_class(div_1, 1, `alert ${$.get(toast).type === 'success' ? 'alert-success' : $.get(toast).type === 'error' ? 'alert-error' : 'alert-info'}`);\n\t\t\t$.set_text(text, $.get(toast).message);\n\t\t});\n\n\t\t$.transition(1, div_1, () => fade, () => ({ duration: 150 }));\n\t\t$.transition(2, div_1, () => fade, () => ({ duration: 150 }));\n\t\t$.append($$anchor, div_1);\n\t});\n\n\t$.reset(div);\n\t$.append($$anchor, div);\n\t$.pop();\n\t$$cleanup();\n}",
+      "start": 1754579492522,
+      "end": 1754579492523,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SAA2B,QAAQ,QAAQ,uBAAuB;SACzD,IAAI,QAAQ,mBAAmB;;;;;;;;;;OAClC,MAAM,mBAAY,SAAS,GAAC,MAAM;;;6BAGhC,MAAM,IAAI,KAAK,KAAE,KAAK,CAAC,EAAE,aAAf,KAAK;;;;;;;;;wCAEN,KAAK,EAAC,IAAI,KAAK,SAAS,GACnC,eAAe,SACf,KAAK,EAAC,IAAI,KAAK,OAAO,GACrB,aAAa,GACb,YAAY;0BAIT,KAAK,EAAC,OAAO;;;8CAHT,QAAQ,EAAE,GAAG;8CACZ,QAAQ,EAAE,GAAG",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "Toast.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492523,
+      "end": 1754579492523,
+      "order": "normal"
+    }
+  ]
+}

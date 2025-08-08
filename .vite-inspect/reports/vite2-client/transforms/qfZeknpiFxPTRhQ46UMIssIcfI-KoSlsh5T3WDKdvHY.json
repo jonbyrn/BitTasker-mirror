@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/wallet/+page.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export const prerender = false;\r\n",
+      "start": 1754579491559,
+      "end": 1754579491843,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "export const prerender = false;",
+      "start": 1754579491843,
+      "end": 1754579493119,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/wallet/+page.ts"
+        ],
+        "sourcesContent": [
+          "export const prerender = false;\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493119,
+      "end": 1754579493119,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493119,
+      "end": 1754579493119,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export const prerender = false;\n",
+      "start": 1754579493119,
+      "end": 1754579493220,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(protected)/dashboard/wallet/+page.ts"
+        ],
+        "sourcesContent": [
+          "export const prerender = false;"
+        ],
+        "mappings": "AAAO,aAAM,YAAY;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493220,
+      "end": 1754579493220,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493221,
+      "end": 1754579493221,
+      "order": "normal"
+    }
+  ]
+}

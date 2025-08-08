@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/parse/_lib/parsers/MinuteParser.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { numericPatterns } from \"../constants.js\";\nimport { Parser } from \"../Parser.js\";\n\nimport { parseNDigits, parseNumericPattern } from \"../utils.js\";\n\nexport class MinuteParser extends Parser {\n  priority = 60;\n\n  parse(dateString, token, match) {\n    switch (token) {\n      case \"m\":\n        return parseNumericPattern(numericPatterns.minute, dateString);\n      case \"mo\":\n        return match.ordinalNumber(dateString, { unit: \"minute\" });\n      default:\n        return parseNDigits(token.length, dateString);\n    }\n  }\n\n  validate(_date, value) {\n    return value >= 0 && value <= 59;\n  }\n\n  set(date, _flags, value) {\n    date.setMinutes(value, 0, 0);\n    return date;\n  }\n\n  incompatibleTokens = [\"t\", \"T\"];\n}\n",
+      "start": 1754579495947,
+      "end": 1754579495973,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495973,
+      "end": 1754579495973,
+      "order": "normal"
+    }
+  ]
+}

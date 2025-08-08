@@ -1,0 +1,122 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/api/services/nostr/events.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import type { NostrEvent } from '$lib/types/nostr';\r\nimport { ENDPOINTS } from '$lib/api/endpoints';\r\nimport { BaseApiService } from '$lib/api/apiService';\r\n\r\n// Types for API responses (from swagger)\r\ninterface EventEntity {\r\n    id: string;\r\n    pubkey: string;\r\n    created_at: number;\r\n    kind: number;\r\n    tags: string[][];\r\n    content: string;\r\n    sig: string;\r\n}\r\n\r\ninterface FindEventByIdVo {\r\n    data: EventEntity;\r\n}\r\n\r\ninterface FindEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface RequestEventsDto {\r\n    filters: any[]; // Use a more specific type if available\r\n}\r\n\r\ninterface RequestEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface HandleEventDto extends NostrEvent {\r\n    sig: string;\r\n}\r\n\r\nclass NostrEventsService extends BaseApiService {\r\n    constructor() {\r\n        super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);\r\n    }\r\n\r\n    // POST /events\r\n    async publishEvent(event: HandleEventDto): Promise<EventEntity> {\r\n        const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);\r\n        return response.data;\r\n    }\r\n\r\n    // GET /events\r\n    async findEvents(params?: Record<string, any>): Promise<FindEventsVo> {\r\n        const response = await this.get<FindEventsVo>(ENDPOINTS.NOSTR.EVENTS, { params });\r\n        return response.data;\r\n    }\r\n\r\n    // GET /events/{id}\r\n    async findEventById(id: string): Promise<FindEventByIdVo> {\r\n        const response = await this.get<FindEventByIdVo>(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));\r\n        return response.data;\r\n    }\r\n\r\n    // POST /events/request\r\n    async requestEvents(dto: RequestEventsDto): Promise<RequestEventsVo> {\r\n        const response = await this.post<RequestEventsVo>(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);\r\n        return response.data;\r\n    }\r\n\r\n    // DELETE /events\r\n    async deleteEvent(event: NostrEvent): Promise<{ deleteCount: number, message: string }> {\r\n        const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, { data: event });\r\n        return response.data;\r\n    }\r\n}\r\n\r\nexport default new NostrEventsService();\r\n",
+      "start": 1754579494564,
+      "end": 1754579494733,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import type { NostrEvent } from \"$lib/types/nostr\";\r\nimport { ENDPOINTS } from \"$lib/api/endpoints\";\r\nimport { BaseApiService } from \"$lib/api/apiService\";\r\n\r\ninterface EventEntity {\r\n    id: string;\r\n    pubkey: string;\r\n    created_at: number;\r\n    kind: number;\r\n    tags: string[][];\r\n    content: string;\r\n    sig: string;\r\n}\r\n\r\ninterface FindEventByIdVo {\r\n    data: EventEntity;\r\n}\r\n\r\ninterface FindEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface RequestEventsDto {\r\n    filters: any[];\r\n}\r\n\r\ninterface RequestEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface HandleEventDto extends NostrEvent {\r\n    sig: string;\r\n}\r\n\r\nclass NostrEventsService extends BaseApiService {\r\n    constructor() {\r\n        super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);\r\n    }\r\n\r\n    async publishEvent(event: HandleEventDto): Promise<EventEntity> {\r\n        const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);\r\n        return response.data;\r\n    }\r\n\r\n    async findEvents(params?: Record<string, any>): Promise<FindEventsVo> {\r\n        const response = await this.get<FindEventsVo>(ENDPOINTS.NOSTR.EVENTS, {\r\n            params\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n\r\n    async findEventById(id: string): Promise<FindEventByIdVo> {\r\n        const response = await this.get<FindEventByIdVo>(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));\r\n        return response.data;\r\n    }\r\n\r\n    async requestEvents(dto: RequestEventsDto): Promise<RequestEventsVo> {\r\n        const response = await this.post<RequestEventsVo>(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);\r\n        return response.data;\r\n    }\r\n\r\n    async deleteEvent(event: NostrEvent): Promise<{\r\n        deleteCount: number;\r\n        message: string;\r\n    }> {\r\n        const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, {\r\n            data: event\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n}\r\n\r\nexport default new NostrEventsService();",
+      "start": 1754579494733,
+      "end": 1754579494735,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/api/services/nostr/events.ts"
+        ],
+        "sourcesContent": [
+          "import type { NostrEvent } from '$lib/types/nostr';\r\nimport { ENDPOINTS } from '$lib/api/endpoints';\r\nimport { BaseApiService } from '$lib/api/apiService';\r\n\r\n// Types for API responses (from swagger)\r\ninterface EventEntity {\r\n    id: string;\r\n    pubkey: string;\r\n    created_at: number;\r\n    kind: number;\r\n    tags: string[][];\r\n    content: string;\r\n    sig: string;\r\n}\r\n\r\ninterface FindEventByIdVo {\r\n    data: EventEntity;\r\n}\r\n\r\ninterface FindEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface RequestEventsDto {\r\n    filters: any[]; // Use a more specific type if available\r\n}\r\n\r\ninterface RequestEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface HandleEventDto extends NostrEvent {\r\n    sig: string;\r\n}\r\n\r\nclass NostrEventsService extends BaseApiService {\r\n    constructor() {\r\n        super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);\r\n    }\r\n\r\n    // POST /events\r\n    async publishEvent(event: HandleEventDto): Promise<EventEntity> {\r\n        const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);\r\n        return response.data;\r\n    }\r\n\r\n    // GET /events\r\n    async findEvents(params?: Record<string, any>): Promise<FindEventsVo> {\r\n        const response = await this.get<FindEventsVo>(ENDPOINTS.NOSTR.EVENTS, { params });\r\n        return response.data;\r\n    }\r\n\r\n    // GET /events/{id}\r\n    async findEventById(id: string): Promise<FindEventByIdVo> {\r\n        const response = await this.get<FindEventByIdVo>(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));\r\n        return response.data;\r\n    }\r\n\r\n    // POST /events/request\r\n    async requestEvents(dto: RequestEventsDto): Promise<RequestEventsVo> {\r\n        const response = await this.post<RequestEventsVo>(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);\r\n        return response.data;\r\n    }\r\n\r\n    // DELETE /events\r\n    async deleteEvent(event: NostrEvent): Promise<{ deleteCount: number, message: string }> {\r\n        const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, { data: event });\r\n        return response.data;\r\n    }\r\n}\r\n\r\nexport default new NostrEventsService();\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5D,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvD,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1E,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC;AACL;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC;AACL,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494735,
+      "end": 1754579494735,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494735,
+      "end": 1754579494735,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { ENDPOINTS } from \"$lib/api/endpoints\";\nimport { BaseApiService } from \"$lib/api/apiService\";\nclass NostrEventsService extends BaseApiService {\n  constructor() {\n    super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);\n  }\n  async publishEvent(event) {\n    const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);\n    return response.data;\n  }\n  async findEvents(params) {\n    const response = await this.get(ENDPOINTS.NOSTR.EVENTS, {\n      params\n    });\n    return response.data;\n  }\n  async findEventById(id) {\n    const response = await this.get(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));\n    return response.data;\n  }\n  async requestEvents(dto) {\n    const response = await this.post(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);\n    return response.data;\n  }\n  async deleteEvent(event) {\n    const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, {\n      data: event\n    });\n    return response.data;\n  }\n}\nexport default new NostrEventsService();\n",
+      "start": 1754579494735,
+      "end": 1754579494765,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/api/services/nostr/events.ts"
+        ],
+        "sourcesContent": [
+          "import type { NostrEvent } from \"$lib/types/nostr\";\r\nimport { ENDPOINTS } from \"$lib/api/endpoints\";\r\nimport { BaseApiService } from \"$lib/api/apiService\";\r\n\r\ninterface EventEntity {\r\n    id: string;\r\n    pubkey: string;\r\n    created_at: number;\r\n    kind: number;\r\n    tags: string[][];\r\n    content: string;\r\n    sig: string;\r\n}\r\n\r\ninterface FindEventByIdVo {\r\n    data: EventEntity;\r\n}\r\n\r\ninterface FindEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface RequestEventsDto {\r\n    filters: any[];\r\n}\r\n\r\ninterface RequestEventsVo {\r\n    data: EventEntity[];\r\n}\r\n\r\ninterface HandleEventDto extends NostrEvent {\r\n    sig: string;\r\n}\r\n\r\nclass NostrEventsService extends BaseApiService {\r\n    constructor() {\r\n        super(import.meta.env.VITE_NOSTR_RELAY_NESTJS);\r\n    }\r\n\r\n    async publishEvent(event: HandleEventDto): Promise<EventEntity> {\r\n        const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);\r\n        return response.data;\r\n    }\r\n\r\n    async findEvents(params?: Record<string, any>): Promise<FindEventsVo> {\r\n        const response = await this.get<FindEventsVo>(ENDPOINTS.NOSTR.EVENTS, {\r\n            params\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n\r\n    async findEventById(id: string): Promise<FindEventByIdVo> {\r\n        const response = await this.get<FindEventByIdVo>(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));\r\n        return response.data;\r\n    }\r\n\r\n    async requestEvents(dto: RequestEventsDto): Promise<RequestEventsVo> {\r\n        const response = await this.post<RequestEventsVo>(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);\r\n        return response.data;\r\n    }\r\n\r\n    async deleteEvent(event: NostrEvent): Promise<{\r\n        deleteCount: number;\r\n        message: string;\r\n    }> {\r\n        const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, {\r\n            data: event\r\n        });\r\n\r\n        return response.data;\r\n    }\r\n}\r\n\r\nexport default new NostrEventsService();"
+        ],
+        "mappings": "AACA,SAAS,iBAAiB;AAC1B,SAAS,sBAAsB;AAgC/B,MAAM,2BAA2B,eAAe;AAAA,EAC5C,cAAc;AACV,UAAM,YAAY,IAAI,uBAAuB;AAAA,EACjD;AAAA,EAEA,MAAM,aAAa,OAA6C;AAC5D,UAAM,WAAW,MAAM,KAAK,KAAK,UAAU,MAAM,QAAQ,KAAK;AAC9D,WAAO,SAAS;AAAA,EACpB;AAAA,EAEA,MAAM,WAAW,QAAqD;AAClE,UAAM,WAAW,MAAM,KAAK,IAAkB,UAAU,MAAM,QAAQ;AAAA,MAClE;AAAA,IACJ,CAAC;AAED,WAAO,SAAS;AAAA,EACpB;AAAA,EAEA,MAAM,cAAc,IAAsC;AACtD,UAAM,WAAW,MAAM,KAAK,IAAqB,UAAU,MAAM,aAAa,EAAE,CAAC;AACjF,WAAO,SAAS;AAAA,EACpB;AAAA,EAEA,MAAM,cAAc,KAAiD;AACjE,UAAM,WAAW,MAAM,KAAK,KAAsB,UAAU,MAAM,gBAAgB,GAAG;AACrF,WAAO,SAAS;AAAA,EACpB;AAAA,EAEA,MAAM,YAAY,OAGf;AACC,UAAM,WAAW,MAAM,KAAK,OAAO,UAAU,MAAM,QAAQ;AAAA,MACvD,MAAM;AAAA,IACV,CAAC;AAED,WAAO,SAAS;AAAA,EACpB;AACJ;AAEA,eAAe,IAAI,mBAAmB;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494765,
+      "end": 1754579494765,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "result": "import { ENDPOINTS } from \"$lib/api/endpoints\";\nimport { BaseApiService } from \"$lib/api/apiService\";\nclass NostrEventsService extends BaseApiService {\n  constructor() {\n    super(\"https://relay.bittasker.com\");\n  }\n  async publishEvent(event) {\n    const response = await this.post(ENDPOINTS.NOSTR.EVENTS, event);\n    return response.data;\n  }\n  async findEvents(params) {\n    const response = await this.get(ENDPOINTS.NOSTR.EVENTS, {\n      params\n    });\n    return response.data;\n  }\n  async findEventById(id) {\n    const response = await this.get(ENDPOINTS.NOSTR.EVENTS_BY_ID(id));\n    return response.data;\n  }\n  async requestEvents(dto) {\n    const response = await this.post(ENDPOINTS.NOSTR.EVENTS_REQUEST, dto);\n    return response.data;\n  }\n  async deleteEvent(event) {\n    const response = await this.delete(ENDPOINTS.NOSTR.EVENTS, {\n      data: event\n    });\n    return response.data;\n  }\n}\nexport default new NostrEventsService();\n",
+      "start": 1754579494766,
+      "end": 1754579494775,
+      "order": "normal-normal",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494775,
+      "end": 1754579494775,
+      "order": "normal"
+    }
+  ]
+}

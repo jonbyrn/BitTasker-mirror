@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/runtime/index.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export * from \"./adapter\";\nexport * from \"./stores\";\nexport * from \"./fragments\";\nexport * from \"./session\";\nexport * from \"./types\";\nasync function loadAll(...loads) {\n  const promises = [];\n  const isPromise = (val) => \"then\" in val && \"finally\" in val && \"catch\" in val;\n  for (const entry of loads) {\n    if (!isPromise(entry) && \"then\" in entry) {\n      throw new Error(\"\\u274C `then` is not a valid key for an object passed to loadAll\");\n    }\n    if (isPromise(entry)) {\n      promises.push(entry);\n    } else {\n      for (const [key, value] of Object.entries(entry)) {\n        if (isPromise(value)) {\n          promises.push(value);\n        } else {\n          throw new Error(\n            `\\u274C ${key} is not a valid value for an object passed to loadAll. You must pass the result of a load_Store function`\n          );\n        }\n      }\n    }\n  }\n  await Promise.all(promises);\n  let result = {};\n  for (const entry of loads) {\n    if (isPromise(entry)) {\n      Object.assign(result, await entry);\n    } else {\n      Object.assign(\n        result,\n        // await every value in the object and assign it to result\n        Object.fromEntries(\n          await Promise.all(\n            Object.entries(entry).map(async ([key, value]) => [\n              key,\n              Object.values(await value)[0]\n            ])\n          )\n        )\n      );\n    }\n  }\n  return result;\n}\nexport {\n  loadAll\n};\n",
+      "start": 1754579494625,
+      "end": 1754579494751,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494751,
+      "end": 1754579494751,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/axios/lib/adapters/fetch.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import platform from \"../platform/index.js\";\nimport utils from \"../utils.js\";\nimport AxiosError from \"../core/AxiosError.js\";\nimport composeSignals from \"../helpers/composeSignals.js\";\nimport {trackStream} from \"../helpers/trackStream.js\";\nimport AxiosHeaders from \"../core/AxiosHeaders.js\";\nimport {progressEventReducer, progressEventDecorator, asyncDecorator} from \"../helpers/progressEventReducer.js\";\nimport resolveConfig from \"../helpers/resolveConfig.js\";\nimport settle from \"../core/settle.js\";\n\nconst isFetchSupported = typeof fetch === 'function' && typeof Request === 'function' && typeof Response === 'function';\nconst isReadableStreamSupported = isFetchSupported && typeof ReadableStream === 'function';\n\n// used only inside the fetch adapter\nconst encodeText = isFetchSupported && (typeof TextEncoder === 'function' ?\n    ((encoder) => (str) => encoder.encode(str))(new TextEncoder()) :\n    async (str) => new Uint8Array(await new Response(str).arrayBuffer())\n);\n\nconst test = (fn, ...args) => {\n  try {\n    return !!fn(...args);\n  } catch (e) {\n    return false\n  }\n}\n\nconst supportsRequestStream = isReadableStreamSupported && test(() => {\n  let duplexAccessed = false;\n\n  const hasContentType = new Request(platform.origin, {\n    body: new ReadableStream(),\n    method: 'POST',\n    get duplex() {\n      duplexAccessed = true;\n      return 'half';\n    },\n  }).headers.has('Content-Type');\n\n  return duplexAccessed && !hasContentType;\n});\n\nconst DEFAULT_CHUNK_SIZE = 64 * 1024;\n\nconst supportsResponseStream = isReadableStreamSupported &&\n  test(() => utils.isReadableStream(new Response('').body));\n\n\nconst resolvers = {\n  stream: supportsResponseStream && ((res) => res.body)\n};\n\nisFetchSupported && (((res) => {\n  ['text', 'arrayBuffer', 'blob', 'formData', 'stream'].forEach(type => {\n    !resolvers[type] && (resolvers[type] = utils.isFunction(res[type]) ? (res) => res[type]() :\n      (_, config) => {\n        throw new AxiosError(`Response type '${type}' is not supported`, AxiosError.ERR_NOT_SUPPORT, config);\n      })\n  });\n})(new Response));\n\nconst getBodyLength = async (body) => {\n  if (body == null) {\n    return 0;\n  }\n\n  if(utils.isBlob(body)) {\n    return body.size;\n  }\n\n  if(utils.isSpecCompliantForm(body)) {\n    const _request = new Request(platform.origin, {\n      method: 'POST',\n      body,\n    });\n    return (await _request.arrayBuffer()).byteLength;\n  }\n\n  if(utils.isArrayBufferView(body) || utils.isArrayBuffer(body)) {\n    return body.byteLength;\n  }\n\n  if(utils.isURLSearchParams(body)) {\n    body = body + '';\n  }\n\n  if(utils.isString(body)) {\n    return (await encodeText(body)).byteLength;\n  }\n}\n\nconst resolveBodyLength = async (headers, body) => {\n  const length = utils.toFiniteNumber(headers.getContentLength());\n\n  return length == null ? getBodyLength(body) : length;\n}\n\nexport default isFetchSupported && (async (config) => {\n  let {\n    url,\n    method,\n    data,\n    signal,\n    cancelToken,\n    timeout,\n    onDownloadProgress,\n    onUploadProgress,\n    responseType,\n    headers,\n    withCredentials = 'same-origin',\n    fetchOptions\n  } = resolveConfig(config);\n\n  responseType = responseType ? (responseType + '').toLowerCase() : 'text';\n\n  let composedSignal = composeSignals([signal, cancelToken && cancelToken.toAbortSignal()], timeout);\n\n  let request;\n\n  const unsubscribe = composedSignal && composedSignal.unsubscribe && (() => {\n      composedSignal.unsubscribe();\n  });\n\n  let requestContentLength;\n\n  try {\n    if (\n      onUploadProgress && supportsRequestStream && method !== 'get' && method !== 'head' &&\n      (requestContentLength = await resolveBodyLength(headers, data)) !== 0\n    ) {\n      let _request = new Request(url, {\n        method: 'POST',\n        body: data,\n        duplex: \"half\"\n      });\n\n      let contentTypeHeader;\n\n      if (utils.isFormData(data) && (contentTypeHeader = _request.headers.get('content-type'))) {\n        headers.setContentType(contentTypeHeader)\n      }\n\n      if (_request.body) {\n        const [onProgress, flush] = progressEventDecorator(\n          requestContentLength,\n          progressEventReducer(asyncDecorator(onUploadProgress))\n        );\n\n        data = trackStream(_request.body, DEFAULT_CHUNK_SIZE, onProgress, flush);\n      }\n    }\n\n    if (!utils.isString(withCredentials)) {\n      withCredentials = withCredentials ? 'include' : 'omit';\n    }\n\n    // Cloudflare Workers throws when credentials are defined\n    // see https://github.com/cloudflare/workerd/issues/902\n    const isCredentialsSupported = \"credentials\" in Request.prototype;\n    request = new Request(url, {\n      ...fetchOptions,\n      signal: composedSignal,\n      method: method.toUpperCase(),\n      headers: headers.normalize().toJSON(),\n      body: data,\n      duplex: \"half\",\n      credentials: isCredentialsSupported ? withCredentials : undefined\n    });\n\n    let response = await fetch(request);\n\n    const isStreamResponse = supportsResponseStream && (responseType === 'stream' || responseType === 'response');\n\n    if (supportsResponseStream && (onDownloadProgress || (isStreamResponse && unsubscribe))) {\n      const options = {};\n\n      ['status', 'statusText', 'headers'].forEach(prop => {\n        options[prop] = response[prop];\n      });\n\n      const responseContentLength = utils.toFiniteNumber(response.headers.get('content-length'));\n\n      const [onProgress, flush] = onDownloadProgress && progressEventDecorator(\n        responseContentLength,\n        progressEventReducer(asyncDecorator(onDownloadProgress), true)\n      ) || [];\n\n      response = new Response(\n        trackStream(response.body, DEFAULT_CHUNK_SIZE, onProgress, () => {\n          flush && flush();\n          unsubscribe && unsubscribe();\n        }),\n        options\n      );\n    }\n\n    responseType = responseType || 'text';\n\n    let responseData = await resolvers[utils.findKey(resolvers, responseType) || 'text'](response, config);\n\n    !isStreamResponse && unsubscribe && unsubscribe();\n\n    return await new Promise((resolve, reject) => {\n      settle(resolve, reject, {\n        data: responseData,\n        headers: AxiosHeaders.from(response.headers),\n        status: response.status,\n        statusText: response.statusText,\n        config,\n        request\n      })\n    })\n  } catch (err) {\n    unsubscribe && unsubscribe();\n\n    if (err && err.name === 'TypeError' && /Load failed|fetch/i.test(err.message)) {\n      throw Object.assign(\n        new AxiosError('Network Error', AxiosError.ERR_NETWORK, config, request),\n        {\n          cause: err.cause || err\n        }\n      )\n    }\n\n    throw AxiosError.from(err, err && err.code, config, request);\n  }\n});\n\n\n",
+      "start": 1754579496157,
+      "end": 1754579496178,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496178,
+      "end": 1754579496178,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496179,
+      "end": 1754579496179,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496179,
+      "end": 1754579496179,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496179,
+      "end": 1754579496179,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496179,
+      "end": 1754579496179,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496179,
+      "end": 1754579496179,
+      "order": "normal"
+    }
+  ]
+}

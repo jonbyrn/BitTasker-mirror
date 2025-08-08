@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/lib/deepEquals.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "function deepEquals(objA, objB, map = /* @__PURE__ */ new WeakMap()) {\n  if (Object.is(objA, objB))\n    return true;\n  if (objA instanceof Date && objB instanceof Date) {\n    return objA.getTime() === objB.getTime();\n  }\n  if (objA instanceof RegExp && objB instanceof RegExp) {\n    return objA.toString() === objB.toString();\n  }\n  if (typeof objA !== \"object\" || objA === null || typeof objB !== \"object\" || objB === null) {\n    return false;\n  }\n  if (map.get(objA) === objB)\n    return true;\n  map.set(objA, objB);\n  const keysA = Reflect.ownKeys(objA);\n  const keysB = Reflect.ownKeys(objB);\n  if (keysA.length !== keysB.length) {\n    return false;\n  }\n  for (let i = 0; i < keysA.length; i++) {\n    if (!Reflect.has(objB, keysA[i]) || !deepEquals(objA[keysA[i]], objB[keysA[i]], map)) {\n      return false;\n    }\n  }\n  return true;\n}\nexport {\n  deepEquals\n};\n",
+      "start": 1754579495883,
+      "end": 1754579495925,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495925,
+      "end": 1754579495925,
+      "order": "normal"
+    }
+  ]
+}

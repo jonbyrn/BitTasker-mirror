@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -48,6 +47,7 @@
 </svelte:head>
 
 <div class="w-full">
+	<!-- Hero Section -->
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
@@ -61,14 +61,17 @@
 		</div>
 	</section>
 
+	<!-- Main Content Section -->
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
+		<!-- Fee Structure Introduction -->
 		<div class="mb-12">
-							<h2>{$t('fees.structure.title')}</h2>
-			<p class="text-base-content/80 py-6 text-lg">
+			<h2>{$t('fees.structure.title')}</h2>
+			<p class="text-base-content/80 mb-6 text-lg">
 				{$t('fees.structure.description')}
 			</p>
 		</div>
 
+		<!-- Savings Alert -->
 		<div class="alert alert-success alert-outline mb-8">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -88,15 +91,18 @@
 			</span>
 		</div>
 
-		<div class="my-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+		<!-- Tier Cards Grid -->
+		<div class="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
 			<!-- Tier 1 -->
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.1.badge')}</div>
-					<h3 class="card-title">{$t('fees.tiers.1.title')}</h3>
+					<h3 class="card-title text-center mx-auto">
+						{@html $t('fees.tiers.1.title')}
+					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
-							src="/images/BitTasker-Nakamoto-Newbie-512x512.webp"
+							src="/images/badges/BitTasker-Nakamoto-Newbie-256x256.webp"
 							alt="Nakamoto Newbie Badge"
 							class="h-48 w-48 object-contain"
 						/>
@@ -120,10 +126,12 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.2.badge')}</div>
-					<h3 class="card-title">{$t('fees.tiers.2.title')}</h3>
+					<h3 class="card-title text-center mx-auto">
+						{@html $t('fees.tiers.2.title')}
+					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
-							src="/images/BitTasker-Satoshi-Stacker-512x512.webp"
+							src="/images/badges/BitTasker-Satoshi-Stacker-256x256.webp"
 							alt="Satoshi Stacker Badge"
 							class="h-48 w-48 object-contain"
 						/>
@@ -147,10 +155,12 @@
 			<div class="card bg-base-100 shadow-xl">
 				<div class="card-body text-center">
 					<div class="badge badge-primary mb-2">{$t('fees.tiers.3.badge')}</div>
-					<h3 class="card-title">{$t('fees.tiers.3.title')}</h3>
+					<h3 class="card-title text-center mx-auto">
+						{@html $t('fees.tiers.3.title')}
+					</h3>
 					<div class="mb-4 flex justify-center">
 						<img
-							src="/images/BitTasker-Hash-Master-512x512.webp"
+							src="/images/badges/BitTasker-Hash-Master-256x256.webp"
 							alt="Hash Master Badge"
 							class="h-48 w-48 object-contain"
 						/>
@@ -171,12 +181,34 @@
 			</div>
 		</div>
 
-		<h2>{$t('fees.bitcoin.title')}</h2>
-		<p class="text-base-content/80 py-6 text-lg">
-			{@html $t('fees.bitcoin.description')}
-		</p>
+		<!-- Taskee Benefits Section -->
+		<div class="mt-12">
+			<h2>{$t('fees.benefits.title')}</h2>
+			<p class="mb-6">{$t('fees.benefits.description')}</p>
+			<ul class="text-base-content/80 mt-4 list-inside list-disc">
+				<li>{@html $t('fees.benefits.item_1')}</li>
+				<li>{@html $t('fees.benefits.item_2')}</li>
+				<li>{@html $t('fees.benefits.item_3')}</li>
+				<li>{@html $t('fees.benefits.item_4')}</li>
+			</ul>
+		</div>
 
-		<div class="my-6 overflow-x-auto">
+		<!-- Tier Maintenance Section -->
+		<div class="mt-12">
+			<h2>{$t('fees.maintenance.title')}</h2>
+			<p class="text-base-content/80 mb-6 text-lg">{$t('fees.maintenance.description')}</p>
+		</div>
+
+		<!-- Bitcoin Payments Section -->
+		<div class="mt-12">
+			<h2>{$t('fees.bitcoin.title')}</h2>
+			<p class="mb-6">
+				{@html $t('fees.bitcoin.description')}
+			</p>
+		</div>
+
+		<!-- Bitcoin Fee Table -->
+		<div class="mt-8 overflow-x-auto">
 			<table class="table-zebra table w-full">
 				<thead>
 					<tr>
@@ -205,7 +237,8 @@
 			</table>
 		</div>
 
-		<div class="alert alert-info alert-outline my-8">
+		<!-- Bitcoin Example Alert -->
+		<div class="alert alert-info alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
@@ -222,10 +255,14 @@
 			<span>{@html $t('fees.bitcoin.example')}</span>
 		</div>
 
-		<h2>{$t('fees.repeat.title')}</h2>
-		<p class="text-base-content/80 py-6 text-lg">{$t('fees.repeat.description')}</p>
+		<!-- Repeat Work Bonus Section -->
+		<div class="mt-12">
+			<h2>{$t('fees.repeat.title')}</h2>
+			<p class="mb-6">{$t('fees.repeat.description')}</p>
+		</div>
 
-		<div class="card bg-base-100 border-success my-6 border shadow-lg">
+		<!-- Repeat Bonus Card -->
+		<div class="card bg-base-100 border-success mt-8 border shadow-lg">
 			<div class="card-body">
 				<h3 class="card-title">{$t('fees.repeat_bonus.title')}</h3>
 				<p>{$t('fees.repeat_bonus.description')}</p>
@@ -234,25 +271,14 @@
 					<li>{@html $t('fees.repeat_bonus.item_2')}</li>
 				</ul>
 									<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_1')}</p>
-					<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_2')}</p>
+					<p class="mt-3 text-sm text-base-content/80 italic">{$t('fees.repeat_bonus.note_2')}</p>
 			</div>
 		</div>
 
-		<h2>{$t('fees.benefits.title')}</h2>
-		<p class="text-base-content/80 py-6 text-lg">{$t('fees.benefits.description')}</p>
-		<ul class="text-base-content/80 mt-4 list-inside list-disc">
-			<li>{@html $t('fees.benefits.item_1')}</li>
-			<li>{@html $t('fees.benefits.item_2')}</li>
-			<li>{@html $t('fees.benefits.item_3')}</li>
-			<li>{@html $t('fees.benefits.item_4')}</li>
-		</ul>
+		
 
-		<h2 class="mt-10">{$t('fees.maintenance.title')}</h2>
-		<p class="text-base-content/80 py-6 text-lg">{$t('fees.maintenance.description')}</p>
-
-		<div class="divider my-8"></div>
-
-		<div class="mt-6 mb-12 flex flex-col items-center text-center">
+		<!-- Call to Action Section -->
+		<div class="mt-12 flex flex-col items-center text-center">
 			<h3>{$t('fees.cta.title')}</h3>
 			<a href="/sign-up" class="btn btn-primary mt-4">{$t('fees.cta.button')}</a>
 		</div>

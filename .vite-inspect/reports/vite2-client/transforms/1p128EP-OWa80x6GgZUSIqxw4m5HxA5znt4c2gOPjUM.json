@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/command/utils.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export function findNextSibling(el, selector) {\n    let sibling = el.nextElementSibling;\n    while (sibling) {\n        if (sibling.matches(selector))\n            return sibling;\n        sibling = sibling.nextElementSibling;\n    }\n}\nexport function findPreviousSibling(el, selector) {\n    let sibling = el.previousElementSibling;\n    while (sibling) {\n        if (sibling.matches(selector))\n            return sibling;\n        sibling = sibling.previousElementSibling;\n    }\n}\nexport function findFirstStartMarkerWithImmediateSiblingAsEnd(el, type) {\n    const startMarkers = el.querySelectorAll(`[data-bits-command-${type}-start]`);\n    for (const startMarker of startMarkers) {\n        const endMarker = startMarker.nextElementSibling;\n        if (endMarker && endMarker.hasAttribute(`data-bits-command-${type}-end`)) {\n            return startMarker;\n        }\n    }\n    return null;\n}\n",
+      "start": 1754579497776,
+      "end": 1754579497870,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497870,
+      "end": 1754579497870,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497871,
+      "end": 1754579497871,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497871,
+      "end": 1754579497871,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497871,
+      "end": 1754579497871,
+      "order": "normal"
+    }
+  ]
+}

@@ -5,7 +5,13 @@
 	import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberForInput, SATS_PER_BTC, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
+	import {
+		formatNumberForInput,
+		SATS_PER_BTC,
+		satsFromUsd,
+		usdFromSats
+	} from '$lib/utils/helpers/crypto';
+	import { t, locale } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
 
@@ -78,7 +84,7 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h3 class="text-lg font-semibold">What's your budget?</h3>
+	<h3 class="text-lg font-semibold">{$t('task.budget_question')}</h3>
 
 	<div class="flex gap-4">
 		<button
@@ -86,7 +92,7 @@
 			onclick={() =>
 				store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.FIXED } })}
 		>
-			Fixed price
+			{$t('task.budget_fixed')}
 		</button>
 		<button
 			class="btn {$store.task.budget.type === BudgetTypeEnum.HOURLY
@@ -95,13 +101,13 @@
 			onclick={() =>
 				store.updateTask({ budget: { ...$store.task.budget, type: BudgetTypeEnum.HOURLY } })}
 		>
-			Hourly rate
+			{$t('task.budget_hourly')}
 		</button>
 	</div>
 
 	<div class="w-full">
 		<label for="budget" class="label">
-			<span class="label-text">Budget</span>
+			<span class="label-text">{$t('task.budget_label')}</span>
 		</label>
 		<div class="flex gap-2">
 			<div class="relative">
@@ -113,7 +119,7 @@
 					onchange={handleUsdChange}
 					oninput={handleUsdChange}
 					class="input input-bordered w-full pl-7 {errors.budget ? 'input-error' : ''}"
-					placeholder="Enter USD amount"
+					placeholder={$t('task.usd_placeholder')}
 					min="0"
 				/>
 			</div>
@@ -128,7 +134,7 @@
 					onchange={handleBtcChange}
 					oninput={handleBtcChange}
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
-					placeholder="Enter sats amount"
+					placeholder={$t('task.sats_placeholder')}
 					min="0"
 				/>
 			</div>
@@ -138,7 +144,7 @@
 		{/if}
 		{#if $store.task.budget.amount > 0}
 			<span class="label-text-alt text-info mt-1 block"
-				>Current BTC Price: ${btcPrice.toLocaleString()}</span
+				>{$t('task.btc_price')} ${btcPrice.toLocaleString()}</span
 			>
 		{/if}
 	</div>
@@ -146,7 +152,7 @@
 	{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
 		<div class="w-full">
 			<label for="estimatedHours" class="label">
-				<span class="label-text">Estimated Hours</span>
+				<span class="label-text">{$t('task.estimated_hours')}</span>
 			</label>
 			<input
 				type="number"
@@ -161,7 +167,7 @@
 					});
 				}}
 				class="input input-bordered w-full"
-				placeholder="Estimated hours needed"
+				placeholder={$t('task.hours_placeholder')}
 				min="1"
 			/>
 			{#if errors.estimatedHours}
@@ -172,7 +178,7 @@
 
 	<div class="w-full">
 		<label for="description">
-			<span class="label">Task Details</span>
+			<span class="label">{$t('task.description')}</span>
 			<textarea
 				id="description"
 				value={$store.task.description}
@@ -182,7 +188,7 @@
 				class="textarea textarea-bordered h-32 w-full rounded-xl {errors.description
 					? 'textarea-error'
 					: ''}"
-				placeholder="Describe your task in detail"
+				placeholder={$t('task.description_placeholder')}
 			></textarea>
 		</label>
 		{#if errors.description}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/command/compute-command-score.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/* eslint-disable @typescript-eslint/ban-ts-comment */\n// @ts-nocheck\n// The scores are arranged so that a continuous match of characters will\n// result in a total score of 1.\n//\n// The best case, this character is a match, and either this is the start\n// of the string, or the previous character was also a match.\nconst SCORE_CONTINUE_MATCH = 1;\n// A new match at the start of a word scores better than a new match\n// elsewhere as it's more likely that the user will type the starts\n// of fragments.\n// NOTE: We score word jumps between spaces slightly higher than slashes, brackets\n// hyphens, etc.\nconst SCORE_SPACE_WORD_JUMP = 0.9;\nconst SCORE_NON_SPACE_WORD_JUMP = 0.8;\n// Any other match isn't ideal, but we include it for completeness.\nconst SCORE_CHARACTER_JUMP = 0.17;\n// If the user transposed two letters, it should be significantly penalized.\n//\n// i.e. \"ouch\" is more likely than \"curtain\" when \"uc\" is typed.\nconst SCORE_TRANSPOSITION = 0.1;\n// The goodness of a match should decay slightly with each missing\n// character.\n//\n// i.e. \"bad\" is more likely than \"bard\" when \"bd\" is typed.\n//\n// This will not change the order of suggestions based on SCORE_* until\n// 100 characters are inserted between matches.\nconst PENALTY_SKIPPED = 0.999;\n// The goodness of an exact-case match should be higher than a\n// case-insensitive match by a small amount.\n//\n// i.e. \"HTML\" is more likely than \"haml\" when \"HM\" is typed.\n//\n// This will not change the order of suggestions based on SCORE_* until\n// 1000 characters are inserted between matches.\nconst PENALTY_CASE_MISMATCH = 0.9999;\n// Match higher for letters closer to the beginning of the word\n// If the word has more characters than the user typed, it should\n// be penalized slightly.\n//\n// i.e. \"html\" is more likely than \"html5\" if I type \"html\".\n//\n// However, it may well be the case that there's a sensible secondary\n// ordering (like alphabetical) that it makes sense to rely on when\n// there are many prefix matches, so we don't make the penalty increase\n// with the number of tokens.\nconst PENALTY_NOT_COMPLETE = 0.99;\nconst IS_GAP_REGEXP = /[\\\\/_+.#\"@[({&]/;\nconst COUNT_GAPS_REGEXP = /[\\\\/_+.#\"@[({&]/g;\nconst IS_SPACE_REGEXP = /[\\s-]/;\nconst COUNT_SPACE_REGEXP = /[\\s-]/g;\nfunction computeCommandScoreInner(string, abbreviation, lowerString, lowerAbbreviation, stringIndex, abbreviationIndex, memoizedResults) {\n    if (abbreviationIndex === abbreviation.length) {\n        if (stringIndex === string.length)\n            return SCORE_CONTINUE_MATCH;\n        return PENALTY_NOT_COMPLETE;\n    }\n    const memoizeKey = `${stringIndex},${abbreviationIndex}`;\n    if (memoizedResults[memoizeKey] !== undefined)\n        return memoizedResults[memoizeKey];\n    const abbreviationChar = lowerAbbreviation.charAt(abbreviationIndex);\n    let index = lowerString.indexOf(abbreviationChar, stringIndex);\n    let highScore = 0;\n    let score, transposedScore, wordBreaks, spaceBreaks;\n    while (index >= 0) {\n        score = computeCommandScoreInner(string, abbreviation, lowerString, lowerAbbreviation, index + 1, abbreviationIndex + 1, memoizedResults);\n        if (score > highScore) {\n            if (index === stringIndex) {\n                score *= SCORE_CONTINUE_MATCH;\n            }\n            else if (IS_GAP_REGEXP.test(string.charAt(index - 1))) {\n                score *= SCORE_NON_SPACE_WORD_JUMP;\n                wordBreaks = string.slice(stringIndex, index - 1).match(COUNT_GAPS_REGEXP);\n                if (wordBreaks && stringIndex > 0) {\n                    score *= PENALTY_SKIPPED ** wordBreaks.length;\n                }\n            }\n            else if (IS_SPACE_REGEXP.test(string.charAt(index - 1))) {\n                score *= SCORE_SPACE_WORD_JUMP;\n                spaceBreaks = string.slice(stringIndex, index - 1).match(COUNT_SPACE_REGEXP);\n                if (spaceBreaks && stringIndex > 0) {\n                    score *= PENALTY_SKIPPED ** spaceBreaks.length;\n                }\n            }\n            else {\n                score *= SCORE_CHARACTER_JUMP;\n                if (stringIndex > 0) {\n                    score *= PENALTY_SKIPPED ** (index - stringIndex);\n                }\n            }\n            if (string.charAt(index) !== abbreviation.charAt(abbreviationIndex)) {\n                score *= PENALTY_CASE_MISMATCH;\n            }\n        }\n        if ((score < SCORE_TRANSPOSITION &&\n            lowerString.charAt(index - 1) ===\n                lowerAbbreviation.charAt(abbreviationIndex + 1)) ||\n            (lowerAbbreviation.charAt(abbreviationIndex + 1) ===\n                lowerAbbreviation.charAt(abbreviationIndex) &&\n                lowerString.charAt(index - 1) !== lowerAbbreviation.charAt(abbreviationIndex))) {\n            transposedScore = computeCommandScoreInner(string, abbreviation, lowerString, lowerAbbreviation, index + 1, abbreviationIndex + 2, memoizedResults);\n            if (transposedScore * SCORE_TRANSPOSITION > score) {\n                score = transposedScore * SCORE_TRANSPOSITION;\n            }\n        }\n        if (score > highScore) {\n            highScore = score;\n        }\n        index = lowerString.indexOf(abbreviationChar, index + 1);\n    }\n    memoizedResults[memoizeKey] = highScore;\n    return highScore;\n}\n/**\n *\n * @param string\n * @returns\n */\nfunction formatInput(string) {\n    // convert all valid space characters to space so they match each other\n    return string.toLowerCase().replace(COUNT_SPACE_REGEXP, \" \");\n}\n/**\n * Given a command, a search query, and (optionally) a list of keywords for the command,\n * computes a score between 0 and 1 that represents how well the search query matches the\n * abbreviation and keywords. 1 is a perfect match, 0 is no match.\n *\n * The score is calculated based on the following rules:\n * - The scores are arranged so that a continuous match of characters will result in a total\n * score of 1. The best case, this character is a match, and either this is the start of the string\n * or the previous character was also a match.\n * - A new match at the start of a word scores better than a new match elsewhere as it's more likely\n * that the user will type the starts of fragments.\n * - Word jumps between spaces are scored slightly higher than slashes, brackets, hyphens, etc.\n * - A continuous match of characters will result in a total score of 1.\n * - A new match at the start of a word scores better than a new match elsewhere as it's more likely that the user will type the starts of fragments.\n * - Any other match isn't ideal, but we include it for completeness.\n * - If the user transposed two letters, it should be significantly penalized.\n * - The goodness of a match should decay slightly with each missing character.\n * - Match higher for letters closer to the beginning of the word.\n *\n * @param command - The value to score against the search string (e.g. a command name like \"Calculator\")\n * @param search - The search string to score against the value/aliases\n * @param commandKeywords - An optional list of aliases/keywords to score against the search string - e.g. [\"math\", \"add\", \"divide\", \"multiply\", \"subtract\"]\n * @returns A score between 0 and 1 that represents how well the search string matches the\n * command (and keywords)\n */\nexport function computeCommandScore(command, search, commandKeywords) {\n    /**\n     * NOTE: We used to do lower-casing on each recursive call, but this meant that `toLowerCase()`\n     * was the dominating cost in the algorithm. Passing both is a little ugly, but considerably\n     * faster.\n     */\n    command =\n        commandKeywords && commandKeywords.length > 0\n            ? `${`${command} ${commandKeywords?.join(\" \")}`}`\n            : command;\n    return computeCommandScoreInner(command, search, formatInput(command), formatInput(search), 0, 0, {});\n}\n",
+      "start": 1754579496175,
+      "end": 1754579496198,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496198,
+      "end": 1754579496198,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496198,
+      "end": 1754579496198,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496198,
+      "end": 1754579496198,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496199,
+      "end": 1754579496199,
+      "order": "normal"
+    }
+  ]
+}

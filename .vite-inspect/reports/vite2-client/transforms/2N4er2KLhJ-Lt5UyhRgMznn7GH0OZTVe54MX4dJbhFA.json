@@ -1,0 +1,107 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/select/components/select-viewport.svelte?svelte&type=style&lang.css",
+  "transforms": [
+    {
+      "name": "vite-plugin-svelte",
+      "result": "\n\t/* Hide scrollbars cross browser and enable momentum scroll for touch devices */\n\t[data-select-viewport] {\n\t\tscrollbar-width: none !important;\n\t\t-ms-overflow-style: none !important;\n\t\t-webkit-overflow-scrolling: touch !important;\n\t}\n\n\t[data-combobox-viewport] {\n\t\tscrollbar-width: none !important;\n\t\t-ms-overflow-style: none !important;\n\t\t-webkit-overflow-scrolling: touch !important;\n\t}\n\n\t[data-combobox-viewport]::-webkit-scrollbar {\n\t\tdisplay: none !important;\n\t}\n\t[data-select-viewport]::-webkit-scrollbar {\n\t\tdisplay: none !important;\n\t}\n",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "sourcemaps": {
+        "version": 3,
+        "file": "select-viewport.svelte",
+        "mappings": "",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "select-viewport.svelte"
+        ]
+      }
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497075,
+      "end": 1754579497075,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "result": "\n\t/* Hide scrollbars cross browser and enable momentum scroll for touch devices */\n\t[data-select-viewport] {\n\t\tscrollbar-width: none !important;\n\t\t-ms-overflow-style: none !important;\n\t\t-webkit-overflow-scrolling: touch !important;\n\t}\n\n\t[data-combobox-viewport] {\n\t\tscrollbar-width: none !important;\n\t\t-ms-overflow-style: none !important;\n\t\t-webkit-overflow-scrolling: touch !important;\n\t}\n\n\t[data-combobox-viewport]::-webkit-scrollbar {\n\t\tdisplay: none !important;\n\t}\n\t[data-select-viewport]::-webkit-scrollbar {\n\t\tdisplay: none !important;\n\t}\n",
+      "start": 1754579497079,
+      "end": 1754579497080,
+      "order": "pre",
+      "sourcemaps": null
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497080,
+      "end": 1754579497080,
+      "order": "normal"
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
-
+	import { t, locale } from 'svelte-i18n';
 	let { onSelectTask } = $props<{
 		onSelectTask: (task: Task) => void;
 	}>();
@@ -84,7 +84,7 @@
 
 <section class="bg-base-200 mb-8">
 	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-xl font-bold">Recommended For You</h2>
+		<h2 class="text-xl font-bold">{$t('recommendations.type.title')}</h2> 
 		<button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
 			{#if loaders.data}
 				<div class="loading loading-spinner loading-xs"></div>
@@ -104,7 +104,7 @@
 					/>
 				</svg>
 			{/if}
-			Refresh
+			{$t('recommendations.type.update')} 
 		</button>
 	</div>
 
@@ -125,7 +125,7 @@
 				/>
 			</svg>
 			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadRecommendations}>Try Again</button>
+			<button class="btn btn-sm" onclick={loadRecommendations}>{$t('recommendations.type.generate')}</button>
 		</div>
 	{:else if loaders.data}
 		<div class="flex justify-center p-10">
@@ -147,14 +147,11 @@
 					d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
 				/>
 			</svg>
-			<p class="text-lg font-semibold">No recommendations yet</p>
-			<p class="mb-4 text-gray-500">
-				As you engage with tasks, we'll learn your preferences and provide personalized
-				recommendations.
-			</p>
-			<button class="btn btn-primary" onclick={refreshRecommendations}>
-				Generate Recommendations
-			</button>
+			<p class="text-lg font-semibold">{$t('recommendations.type.not_found')}</p>
+			<p class="mb-4 text-gray-500">{$t('recommendations.type.description')}</p>
+			<button class="btn btn-primary" onclick={refreshRecommendations}
+				>{$t('recommendations.type.generate')}</button
+			>
 		</div>
 	{:else}
 		<!-- Recommendations carousel -->
@@ -165,7 +162,7 @@
 					<div class="flex items-start justify-between">
 						<h3 class="card-title text-lg">{item.task.title}</h3>
 						{#if item.task.isBoosted}
-							<div class="badge badge-secondary">Featured</div>
+							<div class="badge badge-secondary">{$t('recommend.featured')}</div>
 						{/if}
 					</div>
 
@@ -173,12 +170,10 @@
 
 					<div class="mt-2 flex items-center justify-between">
 						<div class="badge badge-outline">
-							{item.task.taskType === 'remote' ? 'Remote' : 'In Person'}
+							{item.task.taskType === 'remote' ? $t('recommend.remote') : $t('recommend.in_person')}
 						</div>
-
 						<div class="font-semibold">
-							{item.task.budget?.amount || 'TBD'}
-							{item.task.budget?.currency || ''}
+							{item.task.budget?.amount || 'TBD'}{item.task.budget?.currency || ''}
 						</div>
 					</div>
 
@@ -240,7 +235,7 @@
 										/>
 									</svg>
 								{/if}
-								Not for me
+								{$t('recommend.reject')}
 							</button>
 							<button
 								class="btn btn-xs btn-neutral"
@@ -267,7 +262,7 @@
 										/>
 									</svg>
 								{/if}
-								Relevant
+								{$t('recommend.accept')}
 							</button>
 
 							<button
@@ -291,7 +286,9 @@
 										d="M12 4v16m8-8H4"
 									/>
 								</svg>
-								{item.task.status === TaskStatusEnum.OPEN ? 'Bid Now' : 'Bidding closed'}
+								{item.task.status === TaskStatusEnum.OPEN
+									? $t('recommend.bid')
+									: $t('recommend.closed')}
 							</button>
 						</div>
 					</div>

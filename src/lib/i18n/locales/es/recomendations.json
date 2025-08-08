@@ -1,0 +1,16 @@
+{
+    "recommendations": {
+        "type": {
+            "title": "Recomendados para ti",
+            "not_found": "Aún no hay recomendaciones",
+            "description": "A medida que participes en tareas, conoceremos tus preferencias y te daremos recomendaciones personalizadas.",
+            "generate": "Generar Recomendaciones",
+            "update": "Actualizar",
+            "skill_match": "Coincidencia de Habilidades",
+            "category_preference": "Preferencia de Categoría",
+            "location_based": "Basado en Ubicación",
+            "budget_range": "Rango de Presupuesto",
+            "client_history": "Clientes Anteriores"
+        }
+    }
+}

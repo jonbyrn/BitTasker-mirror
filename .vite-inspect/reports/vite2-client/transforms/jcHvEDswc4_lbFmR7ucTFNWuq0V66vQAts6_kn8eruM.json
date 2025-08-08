@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/toggle-group/components/toggle-group.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { type WritableBox, box } from \"svelte-toolbelt\";\n\timport { mergeProps } from \"svelte-toolbelt\";\n\timport type { ToggleGroupRootProps } from \"../types.js\";\n\timport { useToggleGroupRoot } from \"../toggle-group.svelte.js\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\timport { watch } from \"runed\";\n\n\tlet {\n\t\tid = useId(),\n\t\tref = $bindable(null),\n\t\tvalue = $bindable(),\n\t\tonValueChange = noop,\n\t\ttype,\n\t\tdisabled = false,\n\t\tloop = true,\n\t\torientation = \"horizontal\",\n\t\trovingFocus = true,\n\t\tchild,\n\t\tchildren,\n\t\t...restProps\n\t}: ToggleGroupRootProps = $props();\n\n\tfunction handleDefaultValue() {\n\t\tif (value !== undefined) return;\n\t\tvalue = type === \"single\" ? \"\" : [];\n\t}\n\n\t// SSR\n\thandleDefaultValue();\n\n\twatch.pre(\n\t\t() => value,\n\t\t() => {\n\t\t\thandleDefaultValue();\n\t\t}\n\t);\n\n\tconst rootState = useToggleGroupRoot({\n\t\tid: box.with(() => id),\n\t\tvalue: box.with(\n\t\t\t() => value!,\n\t\t\t(v) => {\n\t\t\t\tvalue = v;\n\t\t\t\t// @ts-expect-error - we know\n\t\t\t\tonValueChange(v);\n\t\t\t}\n\t\t) as WritableBox<string> | WritableBox<string[]>,\n\t\tdisabled: box.with(() => disabled),\n\t\tloop: box.with(() => loop),\n\t\torientation: box.with(() => orientation),\n\t\trovingFocus: box.with(() => rovingFocus),\n\t\ttype,\n\t\tref: box.with(\n\t\t\t() => ref,\n\t\t\t(v) => (ref = v)\n\t\t),\n\t});\n\n\tconst mergedProps = $derived(mergeProps(restProps, rootState.props));\n</script>\n\n{#if child}\n\t{@render child({ props: mergedProps })}\n{:else}\n\t<div {...mergedProps}>\n\t\t{@render children?.()}\n\t</div>\n{/if}\n",
+      "start": 1754579496892,
+      "end": 1754579496976,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496976,
+      "end": 1754579496976,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496976,
+      "end": 1754579496976,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { mergeProps } from \"svelte-toolbelt\";\nimport { useToggleGroupRoot } from \"../toggle-group.svelte.js\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { noop } from \"../../../internal/noop.js\";\nimport { watch } from \"runed\";\n\nvar root_2 = $.template(`<div><!></div>`);\n\nexport default function Toggle_group($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet id = $.prop($$props, 'id', 19, useId),\n\t\tref = $.prop($$props, 'ref', 15, null),\n\t\tvalue = $.prop($$props, 'value', 15),\n\t\tonValueChange = $.prop($$props, 'onValueChange', 3, noop),\n\t\tdisabled = $.prop($$props, 'disabled', 3, false),\n\t\tloop = $.prop($$props, 'loop', 3, true),\n\t\torientation = $.prop($$props, 'orientation', 3, \"horizontal\"),\n\t\trovingFocus = $.prop($$props, 'rovingFocus', 3, true),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'id',\n\t\t\t'ref',\n\t\t\t'value',\n\t\t\t'onValueChange',\n\t\t\t'type',\n\t\t\t'disabled',\n\t\t\t'loop',\n\t\t\t'orientation',\n\t\t\t'rovingFocus',\n\t\t\t'child',\n\t\t\t'children'\n\t\t]);\n\n\tfunction handleDefaultValue() {\n\t\tif (value() !== undefined) return;\n\t\tvalue($$props.type === \"single\" ? \"\" : []);\n\t}\n\n\t// SSR\n\thandleDefaultValue();\n\n\twatch.pre(() => value(), () => {\n\t\thandleDefaultValue();\n\t});\n\n\tconst rootState = useToggleGroupRoot({\n\t\tid: box.with(() => id()),\n\t\tvalue: box.with(() => value(), (v) => {\n\t\t\tvalue(v);\n\t\t\t// @ts-expect-error - we know\n\t\t\tonValueChange()(v);\n\t\t}),\n\t\tdisabled: box.with(() => disabled()),\n\t\tloop: box.with(() => loop()),\n\t\torientation: box.with(() => orientation()),\n\t\trovingFocus: box.with(() => rovingFocus()),\n\t\ttype: $$props.type,\n\t\tref: box.with(() => ref(), (v) => ref(v))\n\t});\n\n\tconst mergedProps = $.derived(() => mergeProps(restProps, rootState.props));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t\t$.snippet(node_1, () => $$props.child, () => ({ props: $.get(mergedProps) }));\n\t\t\t$.append($$anchor, fragment_1);\n\t\t};\n\n\t\tvar alternate = ($$anchor) => {\n\t\t\tvar div = root_2();\n\t\t\tlet attributes;\n\t\t\tvar node_2 = $.child(div);\n\n\t\t\t$.snippet(node_2, () => $$props.children ?? $.noop);\n\t\t\t$.reset(div);\n\t\t\t$.template_effect(() => attributes = $.set_attributes(div, attributes, { ...$.get(mergedProps) }));\n\t\t\t$.append($$anchor, div);\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($$props.child) $$render(consequent); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579496976,
+      "end": 1754579496982,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SAC4B,GAAG,QAAQ,iBAAiB;SAC9C,UAAU,QAAQ,iBAAiB;SAEnC,kBAAkB,QAAQ,2BAA2B;SACrD,KAAK,QAAQ,6BAA6B;SAC1C,IAAI,QAAQ,2BAA2B;SACvC,KAAK,QAAQ,OAAO;;;;;;;KAG5B,EAAE,6BAAG,KAAK;EACV,GAAG,8BAAa,IAAI;EACpB,KAAK;EACL,aAAa,uCAAG,IAAI;EAEpB,QAAQ,kCAAG,KAAK;EAChB,IAAI,8BAAG,IAAI;EACX,WAAW,qCAAG,YAAY;EAC1B,WAAW,qCAAG,IAAI;EAGf;;;;;;;;;;;;;;;;;UAGK,kBAAkB,GAAG;MACzB,KAAK,OAAK,SAAS;EACvB,KAAK,kBAAY,QAAQ,GAAG,EAAE;CAC/B;;;CAGA,kBAAkB;;CAElB,KAAK,CAAC,GAAG,OACF,KAAK,UACL;EACL,kBAAkB;CACnB;;OAGK,SAAS,GAAG,kBAAkB;EACnC,EAAE,EAAE,GAAG,CAAC,IAAI,OAAO,EAAE;EACrB,KAAK,EAAE,GAAG,CAAC,IAAI,OACR,KAAK,KACV,CAAC,KAAK;GACN,KAAK,CAAG,CAAC;;GAET,aAAa,GAAC,CAAC;EAChB;EAED,QAAQ,EAAE,GAAG,CAAC,IAAI,OAAO,QAAQ;EACjC,IAAI,EAAE,GAAG,CAAC,IAAI,OAAO,IAAI;EACzB,WAAW,EAAE,GAAG,CAAC,IAAI,OAAO,WAAW;EACvC,WAAW,EAAE,GAAG,CAAC,IAAI,OAAO,WAAW;EACvC,IAAI;EACJ,GAAG,EAAE,GAAG,CAAC,IAAI,OACN,GAAG,KACR,CAAC,KAAM,GAAG,CAAG,CAAC;;;OAIX,WAAW,mBAAY,UAAU,CAAC,SAAS,EAAE,SAAS,CAAC,KAAK;;;;;;;;;mDAIjD,KAAK,QAAE,WAAW;;;;;;;;;;;qFAE1B,WAAW",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "toggle-group.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496982,
+      "end": 1754579496982,
+      "order": "normal"
+    }
+  ]
+}

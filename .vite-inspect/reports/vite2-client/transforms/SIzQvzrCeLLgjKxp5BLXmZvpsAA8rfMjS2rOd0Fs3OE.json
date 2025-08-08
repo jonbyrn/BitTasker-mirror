@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/wallet/breez/walletService.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "// Main wallet service - simplified and modular\r\nimport { connectToBreezSdk, disconnectSdk } from './sdk';\r\nimport { initializeEventSystem, cleanupEventSystem, paymentEventsStore, pendingPaymentsStore } from './events';\r\n\r\n// Re-export all payment operations\r\nexport * from './payments';\r\nexport * from './lnurl';\r\nexport * from './assets';\r\nexport * from './notifications';\r\nexport * from './sdk';\r\n\r\n// Re-export specific functions for backward compatibility\r\nexport { parseInput as parseInputAdvanced } from './payments';\r\n\r\n// Re-export event stores\r\nexport { paymentEventsStore, pendingPaymentsStore };\r\n\r\n// Re-export logger utilities\r\nexport { isLoggerReady, resetLoggerState } from './sdk';\r\n\r\n/**\r\n * Main wallet connection with full initialization\r\n */\r\nexport async function connectToBreez(\r\n\tmnemonic: string, \r\n\tnetwork: 'mainnet' | 'testnet' = 'mainnet'\r\n): Promise<void> {\r\n\ttry {\r\n\t\t// Connect to SDK\r\n\t\tawait connectToBreezSdk(mnemonic, network);\r\n\t\t\r\n\t\t// Initialize event system\r\n\t\tawait initializeEventSystem();\r\n\t\t\r\n\t\tconsole.log('🎉 Breez wallet connected successfully');\r\n\t} catch (error) {\r\n\t\tconsole.error('Failed to connect to Breez wallet:', error);\r\n\t\tthrow error;\r\n\t}\r\n}\r\n\r\n/**\r\n * Disconnect wallet and cleanup\r\n */\r\nexport async function disconnect(): Promise<void> {\r\n\ttry {\r\n\t\t// Cleanup event system\r\n\t\tawait cleanupEventSystem();\r\n\t\t\r\n\t\t// Disconnect SDK\r\n\t\tawait disconnectSdk();\r\n\t\t\r\n\t\tconsole.log('👋 Wallet disconnected successfully');\r\n\t} catch (error) {\r\n\t\tconsole.error('Failed to disconnect wallet:', error);\r\n\t\tthrow error;\r\n\t}\r\n}\r\n",
+      "start": 1754579495296,
+      "end": 1754579495372,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import { connectToBreezSdk, disconnectSdk } from \"./sdk\";\r\n\r\nimport {\r\n    initializeEventSystem,\r\n    cleanupEventSystem,\r\n    paymentEventsStore,\r\n    pendingPaymentsStore,\r\n} from \"./events\";\r\n\r\nexport * from \"./payments\";\r\nexport * from \"./lnurl\";\r\nexport * from \"./assets\";\r\nexport * from \"./notifications\";\r\nexport * from \"./sdk\";\r\nexport { parseInput as parseInputAdvanced } from \"./payments\";\r\nexport { paymentEventsStore, pendingPaymentsStore };\r\nexport { isLoggerReady, resetLoggerState } from \"./sdk\";\r\n\r\nexport async function connectToBreez(mnemonic: string, network: \"mainnet\" | \"testnet\" = \"mainnet\"): Promise<void> {\r\n    try {\r\n        await connectToBreezSdk(mnemonic, network);\r\n        await initializeEventSystem();\r\n        console.log(\"🎉 Breez wallet connected successfully\");\r\n    } catch (error) {\r\n        console.error(\"Failed to connect to Breez wallet:\", error);\r\n        throw error;\r\n    }\r\n}\r\n\r\nexport async function disconnect(): Promise<void> {\r\n    try {\r\n        await cleanupEventSystem();\r\n        await disconnectSdk();\r\n        console.log(\"👋 Wallet disconnected successfully\");\r\n    } catch (error) {\r\n        console.error(\"Failed to disconnect wallet:\", error);\r\n        throw error;\r\n    }\r\n}",
+      "start": 1754579495372,
+      "end": 1754579495373,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/wallet/breez/walletService.ts"
+        ],
+        "sourcesContent": [
+          "// Main wallet service - simplified and modular\r\nimport { connectToBreezSdk, disconnectSdk } from './sdk';\r\nimport { initializeEventSystem, cleanupEventSystem, paymentEventsStore, pendingPaymentsStore } from './events';\r\n\r\n// Re-export all payment operations\r\nexport * from './payments';\r\nexport * from './lnurl';\r\nexport * from './assets';\r\nexport * from './notifications';\r\nexport * from './sdk';\r\n\r\n// Re-export specific functions for backward compatibility\r\nexport { parseInput as parseInputAdvanced } from './payments';\r\n\r\n// Re-export event stores\r\nexport { paymentEventsStore, pendingPaymentsStore };\r\n\r\n// Re-export logger utilities\r\nexport { isLoggerReady, resetLoggerState } from './sdk';\r\n\r\n/**\r\n * Main wallet connection with full initialization\r\n */\r\nexport async function connectToBreez(\r\n\tmnemonic: string, \r\n\tnetwork: 'mainnet' | 'testnet' = 'mainnet'\r\n): Promise<void> {\r\n\ttry {\r\n\t\t// Connect to SDK\r\n\t\tawait connectToBreezSdk(mnemonic, network);\r\n\t\t\r\n\t\t// Initialize event system\r\n\t\tawait initializeEventSystem();\r\n\t\t\r\n\t\tconsole.log('🎉 Breez wallet connected successfully');\r\n\t} catch (error) {\r\n\t\tconsole.error('Failed to connect to Breez wallet:', error);\r\n\t\tthrow error;\r\n\t}\r\n}\r\n\r\n/**\r\n * Disconnect wallet and cleanup\r\n */\r\nexport async function disconnect(): Promise<void> {\r\n\ttry {\r\n\t\t// Cleanup event system\r\n\t\tawait cleanupEventSystem();\r\n\t\t\r\n\t\t// Disconnect SDK\r\n\t\tawait disconnectSdk();\r\n\t\t\r\n\t\tconsole.log('👋 Wallet disconnected successfully');\r\n\t} catch (error) {\r\n\t\tconsole.error('Failed to disconnect wallet:', error);\r\n\t\tthrow error;\r\n\t}\r\n}\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/G;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9D;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxD;AACA,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClD,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7C,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC;AACF,CAAC;AACD;AACA,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACN,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7B,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC;AACF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC;AACF,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495373,
+      "end": 1754579495373,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495373,
+      "end": 1754579495373,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { connectToBreezSdk, disconnectSdk } from \"./sdk\";\nimport {\n  initializeEventSystem,\n  cleanupEventSystem,\n  paymentEventsStore,\n  pendingPaymentsStore\n} from \"./events\";\nexport * from \"./payments\";\nexport * from \"./lnurl\";\nexport * from \"./assets\";\nexport * from \"./notifications\";\nexport * from \"./sdk\";\nexport { parseInput as parseInputAdvanced } from \"./payments\";\nexport { paymentEventsStore, pendingPaymentsStore };\nexport { isLoggerReady, resetLoggerState } from \"./sdk\";\nexport async function connectToBreez(mnemonic, network = \"mainnet\") {\n  try {\n    await connectToBreezSdk(mnemonic, network);\n    await initializeEventSystem();\n    console.log(\"🎉 Breez wallet connected successfully\");\n  } catch (error) {\n    console.error(\"Failed to connect to Breez wallet:\", error);\n    throw error;\n  }\n}\nexport async function disconnect() {\n  try {\n    await cleanupEventSystem();\n    await disconnectSdk();\n    console.log(\"👋 Wallet disconnected successfully\");\n  } catch (error) {\n    console.error(\"Failed to disconnect wallet:\", error);\n    throw error;\n  }\n}\n",
+      "start": 1754579495373,
+      "end": 1754579495473,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/wallet/breez/walletService.ts"
+        ],
+        "sourcesContent": [
+          "import { connectToBreezSdk, disconnectSdk } from \"./sdk\";\r\n\r\nimport {\r\n    initializeEventSystem,\r\n    cleanupEventSystem,\r\n    paymentEventsStore,\r\n    pendingPaymentsStore,\r\n} from \"./events\";\r\n\r\nexport * from \"./payments\";\r\nexport * from \"./lnurl\";\r\nexport * from \"./assets\";\r\nexport * from \"./notifications\";\r\nexport * from \"./sdk\";\r\nexport { parseInput as parseInputAdvanced } from \"./payments\";\r\nexport { paymentEventsStore, pendingPaymentsStore };\r\nexport { isLoggerReady, resetLoggerState } from \"./sdk\";\r\n\r\nexport async function connectToBreez(mnemonic: string, network: \"mainnet\" | \"testnet\" = \"mainnet\"): Promise<void> {\r\n    try {\r\n        await connectToBreezSdk(mnemonic, network);\r\n        await initializeEventSystem();\r\n        console.log(\"🎉 Breez wallet connected successfully\");\r\n    } catch (error) {\r\n        console.error(\"Failed to connect to Breez wallet:\", error);\r\n        throw error;\r\n    }\r\n}\r\n\r\nexport async function disconnect(): Promise<void> {\r\n    try {\r\n        await cleanupEventSystem();\r\n        await disconnectSdk();\r\n        console.log(\"👋 Wallet disconnected successfully\");\r\n    } catch (error) {\r\n        console.error(\"Failed to disconnect wallet:\", error);\r\n        throw error;\r\n    }\r\n}"
+        ],
+        "mappings": "AAAA,SAAS,mBAAmB,qBAAqB;AAEjD;AAAA,EACI;AAAA,EACA;AAAA,EACA;AAAA,EACA;AAAA,OACG;AAEP,cAAc;AACd,cAAc;AACd,cAAc;AACd,cAAc;AACd,cAAc;AACd,SAAS,cAAc,0BAA0B;AACjD,SAAS,oBAAoB;AAC7B,SAAS,eAAe,wBAAwB;AAEhD,sBAAsB,eAAe,UAAkB,UAAiC,WAA0B;AAC9G,MAAI;AACA,UAAM,kBAAkB,UAAU,OAAO;AACzC,UAAM,sBAAsB;AAC5B,YAAQ,IAAI,wCAAwC;AAAA,EACxD,SAAS,OAAO;AACZ,YAAQ,MAAM,sCAAsC,KAAK;AACzD,UAAM;AAAA,EACV;AACJ;AAEA,sBAAsB,aAA4B;AAC9C,MAAI;AACA,UAAM,mBAAmB;AACzB,UAAM,cAAc;AACpB,YAAQ,IAAI,qCAAqC;AAAA,EACrD,SAAS,OAAO;AACZ,YAAQ,MAAM,gCAAgC,KAAK;AACnD,UAAM;AAAA,EACV;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495473,
+      "end": 1754579495473,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495473,
+      "end": 1754579495474,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495474,
+      "end": 1754579495474,
+      "order": "normal"
+    }
+  ]
+}

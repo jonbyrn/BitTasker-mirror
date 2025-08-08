@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dom/blocks/svelte-head.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/** @import { TemplateNode } from '#client' */\nimport { hydrate_node, hydrating, set_hydrate_node, set_hydrating } from '../hydration.js';\nimport { create_text, get_first_child, get_next_sibling } from '../operations.js';\nimport { block } from '../../reactivity/effects.js';\nimport { HEAD_EFFECT } from '#client/constants';\nimport { HYDRATION_START } from '../../../../constants.js';\n\n/**\n * @type {Node | undefined}\n */\nlet head_anchor;\n\nexport function reset_head_anchor() {\n\thead_anchor = undefined;\n}\n\n/**\n * @param {(anchor: Node) => void} render_fn\n * @returns {void}\n */\nexport function head(render_fn) {\n\t// The head function may be called after the first hydration pass and ssr comment nodes may still be present,\n\t// therefore we need to skip that when we detect that we're not in hydration mode.\n\tlet previous_hydrate_node = null;\n\tlet was_hydrating = hydrating;\n\n\t/** @type {Comment | Text} */\n\tvar anchor;\n\n\tif (hydrating) {\n\t\tprevious_hydrate_node = hydrate_node;\n\n\t\t// There might be multiple head blocks in our app, so we need to account for each one needing independent hydration.\n\t\tif (head_anchor === undefined) {\n\t\t\thead_anchor = /** @type {TemplateNode} */ (get_first_child(document.head));\n\t\t}\n\n\t\twhile (\n\t\t\thead_anchor !== null &&\n\t\t\t(head_anchor.nodeType !== 8 || /** @type {Comment} */ (head_anchor).data !== HYDRATION_START)\n\t\t) {\n\t\t\thead_anchor = /** @type {TemplateNode} */ (get_next_sibling(head_anchor));\n\t\t}\n\n\t\t// If we can't find an opening hydration marker, skip hydration (this can happen\n\t\t// if a framework rendered body but not head content)\n\t\tif (head_anchor === null) {\n\t\t\tset_hydrating(false);\n\t\t} else {\n\t\t\thead_anchor = set_hydrate_node(/** @type {TemplateNode} */ (get_next_sibling(head_anchor)));\n\t\t}\n\t}\n\n\tif (!hydrating) {\n\t\tanchor = document.head.appendChild(create_text());\n\t}\n\n\ttry {\n\t\tblock(() => render_fn(anchor), HEAD_EFFECT);\n\t} finally {\n\t\tif (was_hydrating) {\n\t\t\tset_hydrating(true);\n\t\t\thead_anchor = hydrate_node; // so that next head block starts from the correct node\n\t\t\tset_hydrate_node(/** @type {TemplateNode} */ (previous_hydrate_node));\n\t\t}\n\t}\n}\n",
+      "start": 1754579493872,
+      "end": 1754579493900,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493900,
+      "end": 1754579493900,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493900,
+      "end": 1754579493901,
+      "order": "normal"
+    }
+  ]
+}

@@ -20,7 +20,7 @@
 	import TaskRecurring from '$lib/components/task/steps/TaskRecurring.svelte';
 	import TaskReview from '$lib/components/task/steps/TaskReview.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-
+	import { t } from 'svelte-i18n';
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
@@ -284,9 +284,12 @@
 <div class="card bg-base-100 mx-auto mt-2 max-w-3xl rounded-xl shadow-xl sm:mt-0">
 	<div class="card-body">
 		<div class="mb-4 flex items-center justify-between">
-			<h2 class="card-title text-2xl">Create a New Task</h2>
+			<h2 class="card-title text-2xl">{$t('task.create_title')}</h2>
 			<div class="text-sm">
-				Step {$STEPS.indexOf($store.currentStep) + 1} of {$STEPS.length}
+				{$t('task.step')}
+				{$STEPS.indexOf($store.currentStep) + 1}
+				{$t('task.of')}
+				{$STEPS.length}
 			</div>
 		</div>
 
@@ -337,7 +340,7 @@
 								direction = 'backward';
 							}}
 						>
-							Back
+							{$t('task.back')}
 						</button>
 					{:else}
 						<div></div>
@@ -352,13 +355,13 @@
 							{#if isSubmitting}
 								<span></span>
 							{:else if $store.recurringTask.isRecurring}
-								Create Recurring Template
+								{$t('task.create_recurring')}
 							{:else}
-								Get Quotes
+								{$t('task.get_quotes')}
 							{/if}
 						</button>
 					{:else}
-						<button class="btn btn-primary" onclick={handleNext}>Next</button>
+						<button class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
 					{/if}
 				</div>
 			</div>

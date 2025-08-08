@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/lib/store.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "const subscriber_queue = [];\nconst noop = () => {\n};\nclass Writable {\n  state;\n  #subscribers;\n  #stop;\n  #start;\n  constructor(value, start = noop) {\n    this.state = value;\n    this.#subscribers = /* @__PURE__ */ new Set();\n    this.#stop = null;\n    this.#start = start;\n  }\n  set(new_value) {\n    if (safe_not_equal(this.state, new_value)) {\n      this.state = new_value;\n      if (this.#stop) {\n        const run_queue = !subscriber_queue.length;\n        for (const subscriber of this.#subscribers) {\n          subscriber[1]();\n          subscriber_queue.push(subscriber, this.state);\n        }\n        if (run_queue) {\n          for (let i = 0; i < subscriber_queue.length; i += 2) {\n            subscriber_queue[i][0](subscriber_queue[i + 1]);\n          }\n          subscriber_queue.length = 0;\n        }\n      }\n    }\n  }\n  update(fn) {\n    this.set(fn(this.state));\n  }\n  subscribe(run, invalidate = noop) {\n    const subscriber = [run, invalidate];\n    this.#subscribers.add(subscriber);\n    if (this.#subscribers.size === 1) {\n      this.#stop = this.#start(this.set) || noop;\n    }\n    run(this.state);\n    return () => {\n      this.#subscribers.delete(subscriber);\n      if (this.#subscribers.size === 0) {\n        this.#stop?.();\n        this.#stop = null;\n      }\n    };\n  }\n}\nfunction safe_not_equal(a, b) {\n  return a != a ? b == b : a !== b || a && typeof a === \"object\" || typeof a === \"function\";\n}\nexport {\n  Writable\n};\n",
+      "start": 1754579495885,
+      "end": 1754579495926,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495926,
+      "end": 1754579495926,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495926,
+      "end": 1754579495926,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495926,
+      "end": 1754579495926,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal"
+    }
+  ]
+}

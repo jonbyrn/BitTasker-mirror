@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/presence-layer/presence-layer.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { PresenceLayerImplProps } from \"./types.js\";\n\timport { usePresence } from \"./use-presence.svelte.js\";\n\n\tlet { present, forceMount, presence, id }: PresenceLayerImplProps = $props();\n\n\tconst isPresent = usePresence(\n\t\tbox.with(() => present),\n\t\tbox.with(() => id)\n\t);\n</script>\n\n{#if forceMount || present || isPresent.current}\n\t{@render presence?.({ present: isPresent })}\n{/if}\n",
+      "start": 1754579497035,
+      "end": 1754579497073,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497073,
+      "end": 1754579497073,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497073,
+      "end": 1754579497073,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { usePresence } from \"./use-presence.svelte.js\";\n\nexport default function Presence_layer($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tconst isPresent = usePresence(box.with(() => $$props.present), box.with(() => $$props.id));\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tvar fragment_1 = $.comment();\n\t\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t\t$.snippet(node_1, () => $$props.presence ?? $.noop, () => ({ present: isPresent }));\n\t\t\t$.append($$anchor, fragment_1);\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif ($$props.forceMount || $$props.present || isPresent.current) $$render(consequent);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497073,
+      "end": 1754579497074,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,WAAW,QAAQ,0BAA0B;;;;;OAIhD,SAAS,GAAG,WAAW,CAC5B,GAAG,CAAC,IAAI,yBACR,GAAG,CAAC,IAAI;;;;;;;;;gEAKa,OAAO,EAAE,SAAS;;;;;gDADX,SAAS,CAAC,OAAO",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "presence-layer.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497074,
+      "end": 1754579497074,
+      "order": "normal"
+    }
+  ]
+}

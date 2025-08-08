@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/popper-layer/popper-content.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport FloatingLayerContentStatic from \"../floating-layer/components/floating-layer-content-static.svelte\";\n\timport FloatingLayerContent from \"../floating-layer/components/floating-layer-content.svelte\";\n\timport type { FloatingLayerContentImplProps } from \"../floating-layer/types.js\";\n\n\tlet {\n\t\tcontent,\n\t\tisStatic = false,\n\t\tonPlaced,\n\t\t...restProps\n\t}: FloatingLayerContentImplProps & { isStatic: boolean } = $props();\n</script>\n\n{#if isStatic}\n\t<FloatingLayerContentStatic {content} {onPlaced} />\n{:else}\n\t<FloatingLayerContent {content} {onPlaced} {...restProps} />\n{/if}\n",
+      "start": 1754579497936,
+      "end": 1754579498011,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579498011,
+      "end": 1754579498011,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport FloatingLayerContentStatic from \"../floating-layer/components/floating-layer-content-static.svelte\";\nimport FloatingLayerContent from \"../floating-layer/components/floating-layer-content.svelte\";\n\nexport default function Popper_content($$anchor, $$props) {\n\tlet isStatic = $.prop($$props, 'isStatic', 3, false),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'content',\n\t\t\t'isStatic',\n\t\t\t'onPlaced'\n\t\t]);\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tFloatingLayerContentStatic($$anchor, {\n\t\t\t\tget content() {\n\t\t\t\t\treturn $$props.content;\n\t\t\t\t},\n\t\t\t\tget onPlaced() {\n\t\t\t\t\treturn $$props.onPlaced;\n\t\t\t\t}\n\t\t\t});\n\t\t};\n\n\t\tvar alternate = ($$anchor) => {\n\t\t\tFloatingLayerContent($$anchor, $.spread_props(\n\t\t\t\t{\n\t\t\t\t\tget content() {\n\t\t\t\t\t\treturn $$props.content;\n\t\t\t\t\t},\n\t\t\t\t\tget onPlaced() {\n\t\t\t\t\t\treturn $$props.onPlaced;\n\t\t\t\t\t}\n\t\t\t\t},\n\t\t\t\t() => restProps\n\t\t\t));\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif (isStatic()) $$render(consequent); else $$render(alternate, false);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n}",
+      "start": 1754579498011,
+      "end": 1754579498013,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;OACQ,0BAA0B,MAAM,mEAAmE;OACnG,oBAAoB,MAAM,4DAA4D;;;KAK5F,QAAQ,kCAAG,KAAK;EAEb;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;UAO2C,SAAS;;;;;OAHpD,QAAQ",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "popper-content.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579498013,
+      "end": 1754579498013,
+      "order": "normal"
+    }
+  ]
+}

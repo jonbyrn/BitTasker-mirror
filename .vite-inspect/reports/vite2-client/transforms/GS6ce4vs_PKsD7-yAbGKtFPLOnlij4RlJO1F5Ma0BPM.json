@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/UpdateUserProfile.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"UpdateUserProfile\",\r\n    \"kind\": \"HoudiniMutation\",\r\n    \"hash\": \"3a9ab5a5ef99be7ef4c44a9845efb1d46a96ca56f4cfdaf75da898c3524a33e0\",\r\n\r\n    \"raw\": `mutation UpdateUserProfile($input: UpdateUserProfileInput!) {\r\n  updateUserProfile(input: $input) {\r\n    id\r\n    username\r\n    displayName\r\n    name\r\n    email\r\n    profilePictureUrl\r\n    profilePictureId\r\n    onboardingComplete\r\n    userRole\r\n    location {\r\n      displayName\r\n      latitude\r\n      longitude\r\n      zipCode\r\n    }\r\n    lastLoginAt\r\n    isEmailVerified\r\n    status\r\n    createdAt\r\n    updatedAt\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Mutation\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"updateUserProfile\": {\r\n                \"type\": \"User\",\r\n                \"keyRaw\": \"updateUserProfile(input: $input)\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"id\": {\r\n                            \"type\": \"ID\",\r\n                            \"keyRaw\": \"id\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"username\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"username\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"displayName\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"displayName\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"name\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"name\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"email\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"email\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"profilePictureUrl\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"profilePictureUrl\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"profilePictureId\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"profilePictureId\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"onboardingComplete\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"onboardingComplete\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"userRole\": {\r\n                            \"type\": \"UserRole\",\r\n                            \"keyRaw\": \"userRole\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"location\": {\r\n                            \"type\": \"UserLocation\",\r\n                            \"keyRaw\": \"location\",\r\n                            \"nullable\": true,\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"displayName\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"displayName\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"latitude\": {\r\n                                        \"type\": \"Float\",\r\n                                        \"keyRaw\": \"latitude\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"longitude\": {\r\n                                        \"type\": \"Float\",\r\n                                        \"keyRaw\": \"longitude\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"zipCode\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"zipCode\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"lastLoginAt\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"lastLoginAt\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"isEmailVerified\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"isEmailVerified\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"status\": {\r\n                            \"type\": \"UserStatus\",\r\n                            \"keyRaw\": \"status\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"createdAt\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"createdAt\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"updatedAt\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"updatedAt\",\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"input\": {\r\n        \"fields\": {\r\n            \"input\": \"UpdateUserProfileInput\"\r\n        },\r\n\r\n        \"types\": {\r\n            \"UpdateUserLocationInput\": {\r\n                \"displayName\": \"String\",\r\n                \"latitude\": \"Float\",\r\n                \"longitude\": \"Float\",\r\n                \"serviceRadius\": \"Float\",\r\n                \"zipCode\": \"String\"\r\n            },\r\n\r\n            \"UpdateUserProfileInput\": {\r\n                \"displayName\": \"String\",\r\n                \"location\": \"UpdateUserLocationInput\",\r\n                \"professionalTitle\": \"String\",\r\n                \"profileDescription\": \"String\",\r\n                \"profilePictureId\": \"String\",\r\n                \"profilePictureUrl\": \"String\",\r\n                \"skills\": \"String\",\r\n                \"username\": \"String\"\r\n            }\r\n        },\r\n\r\n        \"defaults\": {},\r\n        \"runtimeScalars\": {}\r\n    }\r\n};\r\n\r\n\"HoudiniHash=df470b573a0f3969d27af7629898dcf016c4718fc5242a39f5068147751e57d5\";",
+      "start": 1754579495497,
+      "end": 1754579495510,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495510,
+      "end": 1754579495510,
+      "order": "normal"
+    }
+  ]
+}

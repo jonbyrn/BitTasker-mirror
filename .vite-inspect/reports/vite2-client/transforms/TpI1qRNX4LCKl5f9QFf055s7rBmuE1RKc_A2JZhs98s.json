@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/differenceInMilliseconds.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { toDate } from \"./toDate.js\";\n\n/**\n * @name differenceInMilliseconds\n * @category Millisecond Helpers\n * @summary Get the number of milliseconds between the given dates.\n *\n * @description\n * Get the number of milliseconds between the given dates.\n *\n * @param laterDate - The later date\n * @param earlierDate - The earlier date\n *\n * @returns The number of milliseconds\n *\n * @example\n * // How many milliseconds are between\n * // 2 July 2014 12:30:20.600 and 2 July 2014 12:30:21.700?\n * const result = differenceInMilliseconds(\n *   new Date(2014, 6, 2, 12, 30, 21, 700),\n *   new Date(2014, 6, 2, 12, 30, 20, 600)\n * )\n * //=> 1100\n */\nexport function differenceInMilliseconds(laterDate, earlierDate) {\n  return +toDate(laterDate) - +toDate(earlierDate);\n}\n\n// Fallback for modularized imports:\nexport default differenceInMilliseconds;\n",
+      "start": 1754579494866,
+      "end": 1754579494885,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494885,
+      "end": 1754579494885,
+      "order": "normal"
+    }
+  ]
+}

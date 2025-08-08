@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
@@ -9,7 +9,8 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
-	
+	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+
 	// Props
 	const { openTaskDrawer } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
@@ -86,17 +87,6 @@
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
 		}
-	}
-
-	/**
-	 * Calculate estimated USDT value based on BTC amount
-	 */
-	function calculateUsdtEstimate(btcAmount: number): string {
-		const estimatedValue = btcAmount * btcPrice;
-		return estimatedValue.toLocaleString('en-US', {
-			maximumFractionDigits: 2,
-			minimumFractionDigits: 2
-		});
 	}
 
 	onMount(async () => {
@@ -258,7 +248,7 @@
 										{/if}
 									</p>
 									<p class="text-info text-xs">
-										≈ {calculateUsdtEstimate(task.budget.amount)} USDT
+										≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT
 									</p>
 								</div>
 							{/if}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/Me.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"Me\",\r\n    \"kind\": \"HoudiniQuery\",\r\n    \"hash\": \"1ce76aacae8cf3e190e7528b7b98ab6465de83f79eddfb725564e5ca17a5853d\",\r\n\r\n    \"raw\": `query Me {\r\n  me {\r\n    id\r\n    email\r\n    name\r\n    displayName\r\n    username\r\n    profilePictureUrl\r\n    profilePictureId\r\n    onboardingComplete\r\n    biddingAllowed\r\n    isEmailVerified\r\n    status\r\n    userRole\r\n    dob\r\n    location {\r\n      displayName\r\n      latitude\r\n      longitude\r\n      zipCode\r\n    }\r\n    skills {\r\n      id\r\n      name\r\n    }\r\n    mobileNumber\r\n    lastLoginAt\r\n    createdAt\r\n    updatedAt\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Query\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"me\": {\r\n                \"type\": \"User\",\r\n                \"keyRaw\": \"me\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"id\": {\r\n                            \"type\": \"ID\",\r\n                            \"keyRaw\": \"id\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"email\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"email\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"name\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"name\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"displayName\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"displayName\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"username\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"username\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"profilePictureUrl\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"profilePictureUrl\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"profilePictureId\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"profilePictureId\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"onboardingComplete\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"onboardingComplete\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"biddingAllowed\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"biddingAllowed\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"isEmailVerified\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"isEmailVerified\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"status\": {\r\n                            \"type\": \"UserStatus\",\r\n                            \"keyRaw\": \"status\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"userRole\": {\r\n                            \"type\": \"UserRole\",\r\n                            \"keyRaw\": \"userRole\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"dob\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"dob\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"location\": {\r\n                            \"type\": \"UserLocation\",\r\n                            \"keyRaw\": \"location\",\r\n                            \"nullable\": true,\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"displayName\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"displayName\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"latitude\": {\r\n                                        \"type\": \"Float\",\r\n                                        \"keyRaw\": \"latitude\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"longitude\": {\r\n                                        \"type\": \"Float\",\r\n                                        \"keyRaw\": \"longitude\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"zipCode\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"zipCode\",\r\n                                        \"nullable\": true,\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"skills\": {\r\n                            \"type\": \"Skill\",\r\n                            \"keyRaw\": \"skills\",\r\n\r\n                            \"selection\": {\r\n                                \"fields\": {\r\n                                    \"id\": {\r\n                                        \"type\": \"ID\",\r\n                                        \"keyRaw\": \"id\",\r\n                                        \"visible\": true\r\n                                    },\r\n\r\n                                    \"name\": {\r\n                                        \"type\": \"String\",\r\n                                        \"keyRaw\": \"name\",\r\n                                        \"visible\": true\r\n                                    }\r\n                                }\r\n                            },\r\n\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"mobileNumber\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"mobileNumber\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"lastLoginAt\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"lastLoginAt\",\r\n                            \"nullable\": true,\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"createdAt\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"createdAt\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"updatedAt\": {\r\n                            \"type\": \"DateTime\",\r\n                            \"keyRaw\": \"updatedAt\",\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"policy\": \"CacheOrNetwork\",\r\n    \"partial\": false\r\n};\r\n\r\n\"HoudiniHash=b53ebb2b2b4c765f15db186321d25d0aa539a0038e3d0a52a7539d05055d8fff\";",
+      "start": 1754579495450,
+      "end": 1754579495497,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495497,
+      "end": 1754579495497,
+      "order": "normal"
+    }
+  ]
+}

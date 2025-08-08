@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Skill, SkillCertification } from '$lib/types/profile.d';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import {

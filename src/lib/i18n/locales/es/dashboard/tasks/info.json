@@ -1,0 +1,125 @@
+{
+    "task": {
+      "type": {
+        "one_time": "Una Vez",
+        "recurring": "Recurrente",
+        "in_person": "Presencial",
+        "remote": "Remoto"
+      },
+      "role": {
+        "owner": "Propietario"
+      },
+      "budget": {
+        "label": "Presupuesto",
+        "hourly": "/hr",
+        "fixed": "fixed price"
+      },
+      "deadline": {
+        "label": "Fecha Límite",
+        "none": "Sin fecha límite",
+        "invalid": "Fecha inválida"
+      },
+      "dateRange": {
+        "label": "Rango de Fechas"
+      },
+      "bids": {
+        "count": "{count} Ofertas"
+      },
+      "actions": {
+        "view_details": "Ver Detalles",
+        "view_bids": "Ver Ofertas"
+      },
+      "empty": {
+        "no_tasks": "No se encontraron tareas"
+      },
+      "error": {
+        "loading": "Error al cargar las tareas"
+      },
+      "status": {
+        "in_progress": "En Progreso",
+        "draft": "Borrador",
+        "open": "Abierto",
+        "completed": "Completado",
+        "cancelled": "Cancelado",
+        "disputed": "En Disputa"
+      },
+      "drawer": {
+        "details": "Detalles",
+        "bids": "Ofertas",
+        "messages": "Mensajes",
+        "milestones": "Hitos",
+        "files": "Archivos",
+        "loading": "Cargando...",
+        "owner": "Eres el propietario",
+        "provider": "Eres el proveedor",
+        "edit": "Editar",
+        "cancel_edit": "Cancelar",
+        "budget": "Presupuesto",
+        "type": "Tipo",
+        "remote": "Remoto",
+        "in_person": "Presencial",
+        "deadline": "Fecha límite",
+        "date_range": "Rango de fechas",
+        "posted": "Publicado",
+        "description": "Descripción",
+        "required_skills": "Habilidades Requeridas",
+        "categories": "Categorías",
+        "location": "Ubicación",
+        "attachments": "Archivos adjuntos",
+        "view_attachment": "Ver archivo adjunto",
+        "close_preview": "Cerrar vista previa",
+        "no_bids": "Sin ofertas aún",
+        "no_bids_owner": "Tu tarea aún no ha recibido ofertas",
+        "no_bids_provider": "Aún no has hecho una oferta en esta tarea",
+        "bids_count": "Ofertas",
+        "view_details": "Ver Detalles",
+        "view_bids": "Ver Ofertas",
+        "payment_details": "Detalles de Pago",
+        "payment_type": "Tipo de Pago",
+        "hourly_rate": "Tarifa por Hora",
+        "estimated_hours": "Horas Estimadas",
+        "total_amount": "Monto Total",
+        "proposal": "Propuesta",
+        "approach": "Enfoque Propuesto",
+        "timeline": "Cronograma Estimado",
+        "provider_highlights": "Destacados del Proveedor",
+        "provider_skills": "Habilidades",
+        "provider_certifications": "Certificaciones",
+        "show_details": "Mostrar detalles",
+        "hide_details": "Ocultar detalles",
+        "decline": "Rechazar",
+        "counter": "Contraofertar",
+        "accept": "Aceptar",
+        "withdraw": "Retirar",
+        "cancel_withdrawal": "Cancelar Retiro",
+        "confirm_withdrawal": "Confirmar Retiro",
+        "withdrawal_reason": "Por favor proporciona una razón para retirar tu oferta",
+        "try_again": "Intentar de nuevo",
+        "task_not_found": "Tarea No Encontrada",
+        "task_not_found_desc": "La tarea que estás buscando no pudo ser encontrada",
+        "error": {
+          "load": "Failed to load task details. Please try again.",
+          "no_details": "No task details available",
+          "withdraw_reason": "Please provide a reason for withdrawing your bid",
+          "withdraw_failed": "Failed to withdraw bid. Please try again.",
+          "counter_offer": "Error creating counter offer",
+          "counter_offer_response": "Error {action}ing counter offer"
+        }
+      },
+      "upload": {
+        "label": "Subir imágenes",
+        "profile_picture": "Subir foto de perfil",
+        "landscape": "Subir imagen horizontal",
+        "error": {
+          "max_size": "Tamaño máximo de archivo excedido",
+          "max_files": "Número máximo de archivos excedido",
+          "type": "Tipo de archivo no permitido"
+        }
+      }
+    },
+    "profile_task": {
+      "no_saved_searches": "Aún no hay búsquedas guardadas",
+      "saved_searches_info": "Guarda tus criterios de búsqueda para recibir notificaciones cuando se publiquen tareas que coincidan.",
+      "saved_searches_title": "Tus búsquedas guardadas"
+    }
+  }

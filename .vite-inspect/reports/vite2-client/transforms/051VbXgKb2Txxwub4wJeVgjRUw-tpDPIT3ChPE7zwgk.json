@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/env.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { isDocument, isHTMLElement, isShadowRoot, isWindow } from \"./is.js\";\nexport function getDocument(node) {\n    if (isDocument(node))\n        return node;\n    if (isWindow(node))\n        return node.document;\n    return node?.ownerDocument ?? document;\n}\nexport function getDocumentElement(node) {\n    return getDocument(node).documentElement;\n}\nexport function getWindow(node) {\n    if (isShadowRoot(node))\n        return getWindow(node.host);\n    if (isDocument(node))\n        return node.defaultView ?? window;\n    if (isHTMLElement(node))\n        return node.ownerDocument?.defaultView ?? window;\n    return window;\n}\nexport function getActiveElement(rootNode) {\n    let activeElement = rootNode.activeElement;\n    while (activeElement?.shadowRoot) {\n        const node = activeElement.shadowRoot.activeElement;\n        if (node === activeElement)\n            break;\n        else\n            activeElement = node;\n    }\n    return activeElement;\n}\nexport class EnvironmentState {\n    props;\n    constructor(props = {}) {\n        this.props = props;\n    }\n    getRootNode() {\n        return (this.props?.getRootNode?.() ?? document);\n    }\n    getDoc() {\n        return getDocument(this.getRootNode());\n    }\n    getWin() {\n        return this.getDoc().defaultView ?? window;\n    }\n    getActiveElement() {\n        return getActiveElement(this.getRootNode());\n    }\n    isActiveElement(node) {\n        return node === this.getActiveElement();\n    }\n    getById(id) {\n        return this.getRootNode().getElementById(id);\n    }\n}\n",
+      "start": 1754579496234,
+      "end": 1754579496267,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496267,
+      "end": 1754579496267,
+      "order": "normal"
+    }
+  ]
+}

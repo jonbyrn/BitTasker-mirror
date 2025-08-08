@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/reactivity/url.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { source, set } from '../internal/client/reactivity/sources.js';\nimport { get } from '../internal/client/runtime.js';\nimport { REPLACE, SvelteURLSearchParams } from './url-search-params.js';\n\n/** @type {SvelteURL | null} */\nlet current_url = null;\n\nexport function get_current_url() {\n\t// ideally we'd just export `current_url` directly, but it seems Vitest doesn't respect live bindings\n\treturn current_url;\n}\n\n/**\n * A reactive version of the built-in [`URL`](https://developer.mozilla.org/en-US/docs/Web/API/URL) object.\n * Reading properties of the URL (such as `url.href` or `url.pathname`) in an [effect](https://svelte.dev/docs/svelte/$effect) or [derived](https://svelte.dev/docs/svelte/$derived)\n * will cause it to be re-evaluated as necessary when the URL changes.\n *\n * The `searchParams` property is an instance of [SvelteURLSearchParams](https://svelte.dev/docs/svelte/svelte-reactivity#SvelteURLSearchParams).\n *\n * [Example](https://svelte.dev/playground/5a694758901b448c83dc40dc31c71f2a):\n *\n * ```svelte\n * <script>\n * \timport { SvelteURL } from 'svelte/reactivity';\n *\n * \tconst url = new SvelteURL('https://example.com/path');\n * </script>\n *\n * <!-- changes to these... -->\n * <input bind:value={url.protocol} />\n * <input bind:value={url.hostname} />\n * <input bind:value={url.pathname} />\n *\n * <hr />\n *\n * <!-- will update `href` and vice versa -->\n * <input bind:value={url.href} size=\"65\" />\n * ```\n */\nexport class SvelteURL extends URL {\n\t#protocol = source(super.protocol);\n\t#username = source(super.username);\n\t#password = source(super.password);\n\t#hostname = source(super.hostname);\n\t#port = source(super.port);\n\t#pathname = source(super.pathname);\n\t#hash = source(super.hash);\n\t#search = source(super.search);\n\t#searchParams;\n\n\t/**\n\t * @param {string | URL} url\n\t * @param {string | URL} [base]\n\t */\n\tconstructor(url, base) {\n\t\turl = new URL(url, base);\n\t\tsuper(url);\n\n\t\tcurrent_url = this;\n\t\tthis.#searchParams = new SvelteURLSearchParams(url.searchParams);\n\t\tcurrent_url = null;\n\t}\n\n\tget hash() {\n\t\treturn get(this.#hash);\n\t}\n\n\tset hash(value) {\n\t\tsuper.hash = value;\n\t\tset(this.#hash, super.hash);\n\t}\n\n\tget host() {\n\t\tget(this.#hostname);\n\t\tget(this.#port);\n\t\treturn super.host;\n\t}\n\n\tset host(value) {\n\t\tsuper.host = value;\n\t\tset(this.#hostname, super.hostname);\n\t\tset(this.#port, super.port);\n\t}\n\n\tget hostname() {\n\t\treturn get(this.#hostname);\n\t}\n\n\tset hostname(value) {\n\t\tsuper.hostname = value;\n\t\tset(this.#hostname, super.hostname);\n\t}\n\n\tget href() {\n\t\tget(this.#protocol);\n\t\tget(this.#username);\n\t\tget(this.#password);\n\t\tget(this.#hostname);\n\t\tget(this.#port);\n\t\tget(this.#pathname);\n\t\tget(this.#hash);\n\t\tget(this.#search);\n\t\treturn super.href;\n\t}\n\n\tset href(value) {\n\t\tsuper.href = value;\n\t\tset(this.#protocol, super.protocol);\n\t\tset(this.#username, super.username);\n\t\tset(this.#password, super.password);\n\t\tset(this.#hostname, super.hostname);\n\t\tset(this.#port, super.port);\n\t\tset(this.#pathname, super.pathname);\n\t\tset(this.#hash, super.hash);\n\t\tset(this.#search, super.search);\n\t\tthis.#searchParams[REPLACE](super.searchParams);\n\t}\n\n\tget password() {\n\t\treturn get(this.#password);\n\t}\n\n\tset password(value) {\n\t\tsuper.password = value;\n\t\tset(this.#password, super.password);\n\t}\n\n\tget pathname() {\n\t\treturn get(this.#pathname);\n\t}\n\n\tset pathname(value) {\n\t\tsuper.pathname = value;\n\t\tset(this.#pathname, super.pathname);\n\t}\n\n\tget port() {\n\t\treturn get(this.#port);\n\t}\n\n\tset port(value) {\n\t\tsuper.port = value;\n\t\tset(this.#port, super.port);\n\t}\n\n\tget protocol() {\n\t\treturn get(this.#protocol);\n\t}\n\n\tset protocol(value) {\n\t\tsuper.protocol = value;\n\t\tset(this.#protocol, super.protocol);\n\t}\n\n\tget search() {\n\t\treturn get(this.#search);\n\t}\n\n\tset search(value) {\n\t\tsuper.search = value;\n\t\tset(this.#search, value);\n\t\tthis.#searchParams[REPLACE](super.searchParams);\n\t}\n\n\tget username() {\n\t\treturn get(this.#username);\n\t}\n\n\tset username(value) {\n\t\tsuper.username = value;\n\t\tset(this.#username, super.username);\n\t}\n\n\tget origin() {\n\t\tget(this.#protocol);\n\t\tget(this.#hostname);\n\t\tget(this.#port);\n\t\treturn super.origin;\n\t}\n\n\tget searchParams() {\n\t\treturn this.#searchParams;\n\t}\n\n\ttoString() {\n\t\treturn this.href;\n\t}\n\n\ttoJSON() {\n\t\treturn this.href;\n\t}\n}\n",
+      "start": 1754579497968,
+      "end": 1754579498030,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579498030,
+      "end": 1754579498030,
+      "order": "normal"
+    }
+  ]
+}

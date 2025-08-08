@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/menubar/exports.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export { default as Root } from \"./components/menubar.svelte\";\nexport { default as Menu } from \"./components/menubar-menu.svelte\";\nexport { default as Content } from \"./components/menubar-content.svelte\";\nexport { default as ContentStatic } from \"./components/menubar-content-static.svelte\";\nexport { default as Trigger } from \"./components/menubar-trigger.svelte\";\nexport { default as Sub } from \"../menu/components/menu-sub.svelte\";\nexport { default as Item } from \"../menu/components/menu-item.svelte\";\nexport { default as Group } from \"../menu/components/menu-group.svelte\";\nexport { default as GroupHeading } from \"../menu/components/menu-group-heading.svelte\";\nexport { default as Arrow } from \"../menu/components/menu-arrow.svelte\";\nexport { default as RadioItem } from \"../menu/components/menu-radio-item.svelte\";\nexport { default as Separator } from \"../menu/components/menu-separator.svelte\";\nexport { default as SubContent } from \"../menu/components/menu-sub-content.svelte\";\nexport { default as SubContentStatic } from \"../menu/components/menu-sub-content-static.svelte\";\nexport { default as SubTrigger } from \"../menu/components/menu-sub-trigger.svelte\";\nexport { default as RadioGroup } from \"../menu/components/menu-radio-group.svelte\";\nexport { default as CheckboxItem } from \"../menu/components/menu-checkbox-item.svelte\";\nexport { default as Portal } from \"../utilities/portal/portal.svelte\";\n",
+      "start": 1754579496180,
+      "end": 1754579496204,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496204,
+      "end": 1754579496204,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/api/axios.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import axios, { type AxiosRequestConfig } from 'axios';\r\nimport { Preferences } from '@capacitor/preferences';\r\nimport { StorageKeys } from '$lib/utils/constants/storage';\r\n\r\ninterface RequestConfig extends AxiosRequestConfig {\r\n\tbaseURL?: string;\r\n}\r\n\r\nconst createAxiosInstance = (config: RequestConfig = {}) => {\r\n\tconst instance = axios.create({\r\n\t\theaders: {\r\n\t\t\t'Content-Type': 'application/json'\r\n\t\t},\r\n\t\t...config\r\n\t});\r\n\r\n\t// Request interceptor\r\n\tinstance.interceptors.request.use(\r\n\t\tasync (config) => {\r\n\t\t\tconst { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });\r\n\t\t\tif (accessToken) {\r\n\t\t\t\tconfig.headers['Authorization'] = `Bearer ${accessToken}`;\r\n\t\t\t}\r\n\t\t\treturn config;\r\n\t\t},\r\n\t\t(error) => {\r\n\t\t\treturn Promise.reject(error);\r\n\t\t}\r\n\t);\r\n\r\n\t// Response interceptor\r\n\tinstance.interceptors.response.use(\r\n\t\t(response) => response,\r\n\t\tasync (error) => {\r\n\t\t\tif (error.response?.status === 401) {\r\n\t\t\t\t// TODO: Handle failed requests\r\n\t\t\t}\r\n\t\t\treturn Promise.reject(error);\r\n\t\t}\r\n\t);\r\n\r\n\treturn instance;\r\n};\r\n\r\nexport default createAxiosInstance;\r\n",
+      "start": 1754579495738,
+      "end": 1754579495782,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import axios, { type AxiosRequestConfig } from \"axios\";\r\nimport { Preferences } from \"@capacitor/preferences\";\r\nimport { StorageKeys } from \"$lib/utils/constants/storage\";\r\n\r\ninterface RequestConfig extends AxiosRequestConfig {\r\n    baseURL?: string;\r\n}\r\n\r\nconst createAxiosInstance = (config: RequestConfig = {}) => {\r\n    const instance = axios.create({\r\n        headers: {\r\n            \"Content-Type\": \"application/json\"\r\n        },\r\n\r\n        ...config\r\n    });\r\n\r\n    instance.interceptors.request.use(async config => {\r\n        const {\r\n            value: accessToken\r\n        } = await Preferences.get({\r\n            key: StorageKeys.ACCESS_TOKEN\r\n        });\r\n\r\n        if (accessToken) {\r\n            config.headers[\"Authorization\"] = `Bearer ${accessToken}`;\r\n        }\r\n\r\n        return config;\r\n    }, error => {\r\n        return Promise.reject(error);\r\n    });\r\n\r\n    instance.interceptors.response.use(response => response, async error => {\r\n        if (error.response?.status === 401)\r\n            {}\r\n\r\n        return Promise.reject(error);\r\n    });\r\n\r\n    return instance;\r\n};\r\n\r\nexport default createAxiosInstance;",
+      "start": 1754579495782,
+      "end": 1754579495784,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/api/axios.ts"
+        ],
+        "sourcesContent": [
+          "import axios, { type AxiosRequestConfig } from 'axios';\r\nimport { Preferences } from '@capacitor/preferences';\r\nimport { StorageKeys } from '$lib/utils/constants/storage';\r\n\r\ninterface RequestConfig extends AxiosRequestConfig {\r\n\tbaseURL?: string;\r\n}\r\n\r\nconst createAxiosInstance = (config: RequestConfig = {}) => {\r\n\tconst instance = axios.create({\r\n\t\theaders: {\r\n\t\t\t'Content-Type': 'application/json'\r\n\t\t},\r\n\t\t...config\r\n\t});\r\n\r\n\t// Request interceptor\r\n\tinstance.interceptors.request.use(\r\n\t\tasync (config) => {\r\n\t\t\tconst { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });\r\n\t\t\tif (accessToken) {\r\n\t\t\t\tconfig.headers['Authorization'] = `Bearer ${accessToken}`;\r\n\t\t\t}\r\n\t\t\treturn config;\r\n\t\t},\r\n\t\t(error) => {\r\n\t\t\treturn Promise.reject(error);\r\n\t\t}\r\n\t);\r\n\r\n\t// Response interceptor\r\n\tinstance.interceptors.response.use(\r\n\t\t(response) => response,\r\n\t\tasync (error) => {\r\n\t\t\tif (error.response?.status === 401) {\r\n\t\t\t\t// TODO: Handle failed requests\r\n\t\t\t}\r\n\t\t\treturn Promise.reject(error);\r\n\t\t}\r\n\t);\r\n\r\n\treturn instance;\r\n};\r\n\r\nexport default createAxiosInstance;\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3D;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC;AACD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrC,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC,CAAC;AACJ;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3F,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9D,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjB,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495784,
+      "end": 1754579495784,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495784,
+      "end": 1754579495784,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import axios, {} from \"axios\";\nimport { Preferences } from \"@capacitor/preferences\";\nimport { StorageKeys } from \"$lib/utils/constants/storage\";\nconst createAxiosInstance = (config = {}) => {\n  const instance = axios.create({\n    headers: {\n      \"Content-Type\": \"application/json\"\n    },\n    ...config\n  });\n  instance.interceptors.request.use(async (config2) => {\n    const {\n      value: accessToken\n    } = await Preferences.get({\n      key: StorageKeys.ACCESS_TOKEN\n    });\n    if (accessToken) {\n      config2.headers[\"Authorization\"] = `Bearer ${accessToken}`;\n    }\n    return config2;\n  }, (error) => {\n    return Promise.reject(error);\n  });\n  instance.interceptors.response.use((response) => response, async (error) => {\n    if (error.response?.status === 401) {\n    }\n    return Promise.reject(error);\n  });\n  return instance;\n};\nexport default createAxiosInstance;\n",
+      "start": 1754579495784,
+      "end": 1754579495820,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/api/axios.ts"
+        ],
+        "sourcesContent": [
+          "import axios, { type AxiosRequestConfig } from \"axios\";\r\nimport { Preferences } from \"@capacitor/preferences\";\r\nimport { StorageKeys } from \"$lib/utils/constants/storage\";\r\n\r\ninterface RequestConfig extends AxiosRequestConfig {\r\n    baseURL?: string;\r\n}\r\n\r\nconst createAxiosInstance = (config: RequestConfig = {}) => {\r\n    const instance = axios.create({\r\n        headers: {\r\n            \"Content-Type\": \"application/json\"\r\n        },\r\n\r\n        ...config\r\n    });\r\n\r\n    instance.interceptors.request.use(async config => {\r\n        const {\r\n            value: accessToken\r\n        } = await Preferences.get({\r\n            key: StorageKeys.ACCESS_TOKEN\r\n        });\r\n\r\n        if (accessToken) {\r\n            config.headers[\"Authorization\"] = `Bearer ${accessToken}`;\r\n        }\r\n\r\n        return config;\r\n    }, error => {\r\n        return Promise.reject(error);\r\n    });\r\n\r\n    instance.interceptors.response.use(response => response, async error => {\r\n        if (error.response?.status === 401)\r\n            {}\r\n\r\n        return Promise.reject(error);\r\n    });\r\n\r\n    return instance;\r\n};\r\n\r\nexport default createAxiosInstance;"
+        ],
+        "mappings": "AAAA,OAAO,eAAwC;AAC/C,SAAS,mBAAmB;AAC5B,SAAS,mBAAmB;AAM5B,MAAM,sBAAsB,CAAC,SAAwB,CAAC,MAAM;AACxD,QAAM,WAAW,MAAM,OAAO;AAAA,IAC1B,SAAS;AAAA,MACL,gBAAgB;AAAA,IACpB;AAAA,IAEA,GAAG;AAAA,EACP,CAAC;AAED,WAAS,aAAa,QAAQ,IAAI,OAAMA,YAAU;AAC9C,UAAM;AAAA,MACF,OAAO;AAAA,IACX,IAAI,MAAM,YAAY,IAAI;AAAA,MACtB,KAAK,YAAY;AAAA,IACrB,CAAC;AAED,QAAI,aAAa;AACb,MAAAA,QAAO,QAAQ,eAAe,IAAI,UAAU,WAAW;AAAA,IAC3D;AAEA,WAAOA;AAAA,EACX,GAAG,WAAS;AACR,WAAO,QAAQ,OAAO,KAAK;AAAA,EAC/B,CAAC;AAED,WAAS,aAAa,SAAS,IAAI,cAAY,UAAU,OAAM,UAAS;AACpE,QAAI,MAAM,UAAU,WAAW,KAC3B;AAAA,IAAC;AAEL,WAAO,QAAQ,OAAO,KAAK;AAAA,EAC/B,CAAC;AAED,SAAO;AACX;AAEA,eAAe;",
+        "names": [
+          "config"
+        ]
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495820,
+      "end": 1754579495820,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495820,
+      "end": 1754579495820,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495820,
+      "end": 1754579495820,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495821,
+      "end": 1754579495821,
+      "order": "normal"
+    }
+  ]
+}

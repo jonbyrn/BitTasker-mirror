@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/parse/_lib/parsers/YearParser.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { Parser } from \"../Parser.js\";\n\nimport { mapValue, normalizeTwoDigitYear, parseNDigits } from \"../utils.js\";\n\n// From http://www.unicode.org/reports/tr35/tr35-31/tr35-dates.html#Date_Format_Patterns\n// | Year     |     y | yy |   yyy |  yyyy | yyyyy |\n// |----------|-------|----|-------|-------|-------|\n// | AD 1     |     1 | 01 |   001 |  0001 | 00001 |\n// | AD 12    |    12 | 12 |   012 |  0012 | 00012 |\n// | AD 123   |   123 | 23 |   123 |  0123 | 00123 |\n// | AD 1234  |  1234 | 34 |  1234 |  1234 | 01234 |\n// | AD 12345 | 12345 | 45 | 12345 | 12345 | 12345 |\nexport class YearParser extends Parser {\n  priority = 130;\n  incompatibleTokens = [\"Y\", \"R\", \"u\", \"w\", \"I\", \"i\", \"e\", \"c\", \"t\", \"T\"];\n\n  parse(dateString, token, match) {\n    const valueCallback = (year) => ({\n      year,\n      isTwoDigitYear: token === \"yy\",\n    });\n\n    switch (token) {\n      case \"y\":\n        return mapValue(parseNDigits(4, dateString), valueCallback);\n      case \"yo\":\n        return mapValue(\n          match.ordinalNumber(dateString, {\n            unit: \"year\",\n          }),\n          valueCallback,\n        );\n      default:\n        return mapValue(parseNDigits(token.length, dateString), valueCallback);\n    }\n  }\n\n  validate(_date, value) {\n    return value.isTwoDigitYear || value.year > 0;\n  }\n\n  set(date, flags, value) {\n    const currentYear = date.getFullYear();\n\n    if (value.isTwoDigitYear) {\n      const normalizedTwoDigitYear = normalizeTwoDigitYear(\n        value.year,\n        currentYear,\n      );\n      date.setFullYear(normalizedTwoDigitYear, 0, 1);\n      date.setHours(0, 0, 0, 0);\n      return date;\n    }\n\n    const year =\n      !(\"era\" in flags) || flags.era === 1 ? value.year : 1 - value.year;\n    date.setFullYear(year, 0, 1);\n    date.setHours(0, 0, 0, 0);\n    return date;\n  }\n}\n",
+      "start": 1754579495925,
+      "end": 1754579495947,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495947,
+      "end": 1754579495947,
+      "order": "normal"
+    }
+  ]
+}

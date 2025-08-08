@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/how_it_works.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"how_it_works\": {\r\n        \"title\": \"Cómo funciona BitTasker\",\r\n        \"subtitle\": \"Tu guía para usar el primer mercado freelance impulsado por Bitcoin del mundo\",\r\n        \"hero\": {\r\n            \"description\": \"BitTasker conecta a profesionales calificados con personas que necesitan que se realicen tareas. Nuestra plataforma impulsada por Bitcoin hace que la contratación, el trabajo y los pagos sean simples, seguros y sin fronteras.\"\r\n        },\r\n        \"overview\": {\r\n            \"title\": \"El proceso de BitTasker\",\r\n            \"description\": \"Desde el registro hasta el pago, nuestra plataforma facilita la búsqueda de trabajo, la contratación de 'taskees' y la finalización de tareas con confianza y seguridad.\"\r\n        },\r\n        \"alert\": {\r\n            \"title\": \"¿Eres nuevo en BitTasker?\",\r\n            \"description\": \"Nuestra plataforma utiliza <a href=\\\"/security\\\" class=\\\"link link-primary\\\">llaves de acceso seguras</a> en lugar de contraseñas y un <a href=\\\"/escrow\\\" class=\\\"link link-primary\\\">sistema de custodia (escrow) impulsado por Bitcoin</a> para todos los pagos, lo que proporciona una experiencia más segura que las plataformas tradicionales.\"\r\n        },\r\n        \"steps\": {\r\n            \"sign_up\": \"Registrarse\",\r\n            \"create_profile\": \"Crear perfil\",\r\n            \"find_tasks\": \"Buscar tareas/talentos\",\r\n            \"complete_work\": \"Completar trabajo\",\r\n            \"get_paid\": \"Recibir pago\"\r\n        },\r\n        \"detailed_guide\": {\r\n            \"title\": \"Guía detallada del proceso\"\r\n        },\r\n        \"step_1\": {\r\n            \"title\": \"Regístrate en BitTasker\",\r\n            \"description\": \"Crea tu cuenta de BitTasker utilizando nuestro sistema seguro de llaves de acceso, ¡sin necesidad de contraseñas! Nuestro moderno enfoque de autenticación utiliza la seguridad biométrica de tu dispositivo (huella dactilar o reconocimiento facial) para mantener tu cuenta segura.\",\r\n            \"quick_secure\": {\r\n                \"title\": \"Rápido y seguro\",\r\n                \"item_1\": \"Regístrate en menos de 60 segundos\",\r\n                \"item_2\": \"No hay contraseñas que recordar o que puedan ser robadas\",\r\n                \"item_3\": \"Tecnología resistente al phishing\"\r\n            },\r\n            \"requirements\": {\r\n                \"title\": \"Lo que necesitarás\",\r\n                \"item_1\": \"Un dispositivo moderno con capacidad biométrica\",\r\n                \"item_2\": \"Opcional: correo electrónico de recuperación para copia de seguridad de la cuenta\"\r\n            },\r\n            \"security_note\": \"Aprende más sobre nuestro <a href=\\\"/security\\\" class=\\\"link link-primary\\\">enfoque de seguridad</a> y cómo protegemos tu cuenta mejor que las plataformas tradicionales basadas en contraseñas.\"\r\n        },\r\n        \"step_2\": {\r\n            \"title\": \"Crea tu perfil profesional\",\r\n            \"description\": \"Tu perfil es tu reputación digital en BitTasker. Ya sea que estés contratando o que te contraten, un perfil completo genera confianza y aumenta tus posibilidades de éxito en la plataforma.\",\r\n            \"divider\": \"Elementos clave del perfil\",\r\n            \"skills\": {\r\n                \"title\": \"Habilidades y experiencia\",\r\n                \"description\": \"Destaca lo que haces mejor. Sé específico acerca de tus habilidades para que los 'taskees' puedan encontrarte para las tareas adecuadas.\"\r\n            },\r\n            \"experience\": {\r\n                \"title\": \"Experiencia y portafolio\",\r\n                \"description\": \"Comparte tu historial laboral, calificaciones y ejemplos de proyectos anteriores para establecer credibilidad.\"\r\n            },\r\n            \"rates\": {\r\n                \"title\": \"Tarifas y disponibilidad\",\r\n                \"description\": \"Establece tus tarifas por hora o por proyecto, y utiliza nuestro sistema de calendario para gestionar tus horas de trabajo disponibles.\"\r\n            },\r\n            \"payments\": {\r\n                \"title\": \"Métodos de pago\",\r\n                \"description\": \"Comienza a aceptar pagos de inmediato con nuestras billeteras integradas.\"\r\n            },\r\n            \"tip\": \"<strong>Consejo profesional:</strong> Los perfiles con una foto, habilidades verificadas e información completa obtienen hasta 5 veces más oportunidades de trabajo. ¡Tómate el tiempo para que el tuyo se destaque!\"\r\n        },\r\n        \"step_3\": {\r\n            \"title\": \"Encuentra tareas o talentos\",\r\n            \"description\": \"El sistema de emparejamiento de BitTasker conecta a los 'taskers' con los 'taskees' adecuados y ayuda a los 'taskees' a encontrar trabajos que coincidan con sus habilidades.\",\r\n            \"for_taskers\": {\r\n                \"title\": \"Para 'taskers': Publica una tarea, recibe ofertas\",\r\n                \"1\": {\r\n                    \"title\": \"Describe tu tarea\",\r\n                    \"description\": \"Sé específico sobre lo que necesitas, cuándo lo necesitas y tu presupuesto.\"\r\n                },\r\n                \"2\": {\r\n                    \"title\": \"Revisa las ofertas de 'taskees' calificados\",\r\n                    \"description\": \"Compara habilidades, valoraciones y cotizaciones para encontrar la combinación perfecta.\"\r\n                },\r\n                \"3\": {\r\n                    \"title\": \"Contrata y paga a través de custodia segura\",\r\n                    \"description\": \"Nuestro <a href=\\\"/escrow\\\" class=\\\"link link-primary\\\">sistema de custodia (escrow)</a> protege a ambas partes durante la transacción.\"\r\n                },\r\n                \"tip\": \"<strong>Consejo de presupuesto:</strong> Establece un rango de presupuesto realista para tu proyecto con nuestro modelo de pago de precio fijo. Sé lo más detallado y preciso posible con tus tareas para asegurar ofertas precisas y evitar cambios en el alcance del proyecto por parte de los 'taskees'.\"\r\n            },\r\n            \"for_taskees\": {\r\n                \"title\": \"Para 'taskees': Encuentra trabajo que coincida con tus habilidades\",\r\n                \"1\": {\r\n                    \"title\": \"Explora las tareas disponibles\",\r\n                    \"description\": \"Filtra por categoría, ubicación, presupuesto y tipo de proyecto para encontrar tu combinación ideal.\"\r\n                },\r\n                \"2\": {\r\n                    \"title\": \"Envía ofertas convincentes\",\r\n                    \"description\": \"Explica por qué eres perfecto para el trabajo, tu enfoque, cronograma y precios.\"\r\n                },\r\n                \"3\": {\r\n                    \"title\": \"Negocia y acepta los términos\",\r\n                    \"description\": \"Cuando te contraten, recibirás tareas claras, hitos y términos de pago a través de nuestra plataforma.\"\r\n                },\r\n                \"tip\": \"<strong>Consejo de éxito:</strong> Personaliza cada propuesta en lugar de enviar respuestas genéricas. Los 'taskers' son más propensos a contratar a 'taskees' que aborden sus necesidades específicas.\"\r\n            }\r\n        },\r\n        \"step_4\": {\r\n            \"title\": \"Completa el trabajo\",\r\n            \"description\": \"BitTasker proporciona todas las herramientas que necesitas para completar proyectos con éxito, seguir el progreso y mantener una comunicación clara en todo momento.\",\r\n            \"messaging\": {\r\n                \"title\": \"Mensajería con cifrado de extremo a extremo\",\r\n                \"description\": \"Comunicación privada y segura entre 'taskers' y 'taskees' con <a href=\\\"/security\\\" class=\\\"link link-primary\\\">cifrado de extremo a extremo</a>.\"\r\n            },\r\n            \"files\": {\r\n                \"title\": \"Compartir archivos\",\r\n                \"description\": \"Intercambia de forma segura documentos, imágenes y archivos necesarios para la finalización del proyecto.\"\r\n            },\r\n            \"milestones\": {\r\n                \"title\": \"Seguimiento de hitos\",\r\n                \"description\": \"Divide los proyectos en hitos manejables con pagos individuales de custodia para cada fase completada.\"\r\n            },\r\n            \"completion\": {\r\n                \"title\": \"Finalización de la tarea\",\r\n                \"description\": \"Marca las tareas como completadas cuando termines, lo que activa el proceso de liberación del dinero de la custodia para el pago.\"\r\n            },\r\n            \"warning\": \"<strong>Importante:</strong> Comunícate siempre a través de la plataforma BitTasker para garantizar la protección bajo nuestras <a href=\\\"/community-guidelines\\\" class=\\\"link link-primary\\\">pautas de la comunidad</a> y el proceso de resolución de disputas.\"\r\n        },\r\n        \"step_5\": {\r\n            \"title\": \"Recibe pagos en Bitcoin y dinero fiduciario\",\r\n            \"description\": \"El sistema de pago flexible de BitTasker admite tanto Bitcoin como monedas fiduciarias tradicionales, asegurando que los 'taskees' reciban sus ganancias de forma segura y puntual con múltiples opciones de retiro.\",\r\n            \"features_title\": \"Características clave de los pagos\",\r\n            \"feature_1\": {\r\n                \"title\": \"Sistema de custodia segura\",\r\n                \"description\": \"Los fondos del 'tasker' se resguardan en nuestro <a href=\\\"/escrow\\\" class=\\\"link link-primary\\\">sistema de custodia segura</a> hasta que se apruebe el trabajo, protegiendo a ambas partes durante la transacción, independientemente del método de pago.\"\r\n            },\r\n            \"feature_2\": {\r\n                \"title\": \"Liberación automática de pagos\",\r\n                \"description\": \"Los fondos se liberan automáticamente a los 'taskees' 7 días después de marcar una tarea como completada si el 'tasker' no ha tomado ninguna medida, lo que garantiza que nunca esperarás indefinidamente para recibir el pago.\"\r\n            },\r\n            \"feature_3\": {\r\n                \"title\": \"Opciones de retiro flexibles\",\r\n                \"description\": \"Retira las ganancias a tu billetera personal de Bitcoin (on-chain, Liquid o Lightning Network) o recibe pagos en dinero fiduciario a través de métodos bancarios tradicionales con tarifas competitivas.\"\r\n            },\r\n            \"alert\": \"<strong>Ventaja de tarifas:</strong> La <a href=\\\"/taskee-fees\\\" class=\\\"link link-primary\\\">estructura de tarifas dinámica</a> de BitTasker premia a los usuarios activos con tarifas progresivamente más bajas. ¡Cuanto más uses la plataforma, menos pagarás!\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494743,
+      "end": 1754579494778,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494778,
+      "end": 1754579494779,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494779,
+      "end": 1754579494779,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/utils/helpers/statusBar.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { StatusBar, Style } from '@capacitor/status-bar';\r\nimport { Device } from '@capacitor/device';\r\n\r\nlet isCapacitor: boolean | null = null;\r\n\r\nasync function checkPlatform() {\r\n\tif (isCapacitor !== null) return isCapacitor;\r\n\tconst info = await Device.getInfo();\r\n\tisCapacitor = info.platform !== 'web';\r\n\treturn isCapacitor;\r\n}\r\n\r\nexport async function initializeStatusBar() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.setOverlaysWebView({ overlay: false });\r\n\t\t\tawait StatusBar.setBackgroundColor({ color: '#00000000' });\r\n\t\t\tawait StatusBar.setStyle({ style: Style.Default });\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error initializing StatusBar', err);\r\n\t}\r\n}\r\n\r\nexport async function setStatusBarStyleDark() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.setStyle({ style: Style.Dark });\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error setting dark style', err);\r\n\t}\r\n}\r\n\r\nexport async function setStatusBarStyleLight() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.setStyle({ style: Style.Light });\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error setting light style', err);\r\n\t}\r\n}\r\n\r\nexport async function hideStatusBar() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.hide();\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error hiding status bar', err);\r\n\t}\r\n}\r\n\r\nexport async function showStatusBar() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.show();\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error showing status bar', err);\r\n\t}\r\n}\r\n",
+      "start": 1754579492548,
+      "end": 1754579493208,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import { StatusBar, Style } from \"@capacitor/status-bar\";\r\nimport { Device } from \"@capacitor/device\";\r\nlet isCapacitor: boolean | null = null;\r\n\r\nasync function checkPlatform() {\r\n    if (isCapacitor !== null)\r\n        return isCapacitor;\r\n\r\n    const info = await Device.getInfo();\r\n    isCapacitor = info.platform !== \"web\";\r\n    return isCapacitor;\r\n}\r\n\r\nexport async function initializeStatusBar() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.setOverlaysWebView({\r\n                overlay: false\r\n            });\r\n\r\n            await StatusBar.setBackgroundColor({\r\n                color: \"#00000000\"\r\n            });\r\n\r\n            await StatusBar.setStyle({\r\n                style: Style.Default\r\n            });\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error initializing StatusBar\", err);\r\n    }\r\n}\r\n\r\nexport async function setStatusBarStyleDark() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.setStyle({\r\n                style: Style.Dark\r\n            });\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error setting dark style\", err);\r\n    }\r\n}\r\n\r\nexport async function setStatusBarStyleLight() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.setStyle({\r\n                style: Style.Light\r\n            });\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error setting light style\", err);\r\n    }\r\n}\r\n\r\nexport async function hideStatusBar() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.hide();\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error hiding status bar\", err);\r\n    }\r\n}\r\n\r\nexport async function showStatusBar() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.show();\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error showing status bar\", err);\r\n    }\r\n}",
+      "start": 1754579493208,
+      "end": 1754579493209,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/statusBar.ts"
+        ],
+        "sourcesContent": [
+          "import { StatusBar, Style } from '@capacitor/status-bar';\r\nimport { Device } from '@capacitor/device';\r\n\r\nlet isCapacitor: boolean | null = null;\r\n\r\nasync function checkPlatform() {\r\n\tif (isCapacitor !== null) return isCapacitor;\r\n\tconst info = await Device.getInfo();\r\n\tisCapacitor = info.platform !== 'web';\r\n\treturn isCapacitor;\r\n}\r\n\r\nexport async function initializeStatusBar() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.setOverlaysWebView({ overlay: false });\r\n\t\t\tawait StatusBar.setBackgroundColor({ color: '#00000000' });\r\n\t\t\tawait StatusBar.setStyle({ style: Style.Default });\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error initializing StatusBar', err);\r\n\t}\r\n}\r\n\r\nexport async function setStatusBarStyleDark() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.setStyle({ style: Style.Dark });\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error setting dark style', err);\r\n\t}\r\n}\r\n\r\nexport async function setStatusBarStyleLight() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.setStyle({ style: Style.Light });\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error setting light style', err);\r\n\t}\r\n}\r\n\r\nexport async function hideStatusBar() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.hide();\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error hiding status bar', err);\r\n\t}\r\n}\r\n\r\nexport async function showStatusBar() {\r\n\ttry {\r\n\t\tif (await checkPlatform()) {\r\n\t\t\tawait StatusBar.show();\r\n\t\t}\r\n\t} catch (err) {\r\n\t\tconsole.error('Error showing status bar', err);\r\n\t}\r\n}\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,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"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579493209,
+      "end": 1754579493209,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579493209,
+      "end": 1754579493209,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { StatusBar, Style } from \"@capacitor/status-bar\";\nimport { Device } from \"@capacitor/device\";\nlet isCapacitor = null;\nasync function checkPlatform() {\n  if (isCapacitor !== null)\n    return isCapacitor;\n  const info = await Device.getInfo();\n  isCapacitor = info.platform !== \"web\";\n  return isCapacitor;\n}\nexport async function initializeStatusBar() {\n  try {\n    if (await checkPlatform()) {\n      await StatusBar.setOverlaysWebView({\n        overlay: false\n      });\n      await StatusBar.setBackgroundColor({\n        color: \"#00000000\"\n      });\n      await StatusBar.setStyle({\n        style: Style.Default\n      });\n    }\n  } catch (err) {\n    console.error(\"Error initializing StatusBar\", err);\n  }\n}\nexport async function setStatusBarStyleDark() {\n  try {\n    if (await checkPlatform()) {\n      await StatusBar.setStyle({\n        style: Style.Dark\n      });\n    }\n  } catch (err) {\n    console.error(\"Error setting dark style\", err);\n  }\n}\nexport async function setStatusBarStyleLight() {\n  try {\n    if (await checkPlatform()) {\n      await StatusBar.setStyle({\n        style: Style.Light\n      });\n    }\n  } catch (err) {\n    console.error(\"Error setting light style\", err);\n  }\n}\nexport async function hideStatusBar() {\n  try {\n    if (await checkPlatform()) {\n      await StatusBar.hide();\n    }\n  } catch (err) {\n    console.error(\"Error hiding status bar\", err);\n  }\n}\nexport async function showStatusBar() {\n  try {\n    if (await checkPlatform()) {\n      await StatusBar.show();\n    }\n  } catch (err) {\n    console.error(\"Error showing status bar\", err);\n  }\n}\n",
+      "start": 1754579493209,
+      "end": 1754579493259,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/utils/helpers/statusBar.ts"
+        ],
+        "sourcesContent": [
+          "import { StatusBar, Style } from \"@capacitor/status-bar\";\r\nimport { Device } from \"@capacitor/device\";\r\nlet isCapacitor: boolean | null = null;\r\n\r\nasync function checkPlatform() {\r\n    if (isCapacitor !== null)\r\n        return isCapacitor;\r\n\r\n    const info = await Device.getInfo();\r\n    isCapacitor = info.platform !== \"web\";\r\n    return isCapacitor;\r\n}\r\n\r\nexport async function initializeStatusBar() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.setOverlaysWebView({\r\n                overlay: false\r\n            });\r\n\r\n            await StatusBar.setBackgroundColor({\r\n                color: \"#00000000\"\r\n            });\r\n\r\n            await StatusBar.setStyle({\r\n                style: Style.Default\r\n            });\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error initializing StatusBar\", err);\r\n    }\r\n}\r\n\r\nexport async function setStatusBarStyleDark() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.setStyle({\r\n                style: Style.Dark\r\n            });\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error setting dark style\", err);\r\n    }\r\n}\r\n\r\nexport async function setStatusBarStyleLight() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.setStyle({\r\n                style: Style.Light\r\n            });\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error setting light style\", err);\r\n    }\r\n}\r\n\r\nexport async function hideStatusBar() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.hide();\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error hiding status bar\", err);\r\n    }\r\n}\r\n\r\nexport async function showStatusBar() {\r\n    try {\r\n        if (await checkPlatform()) {\r\n            await StatusBar.show();\r\n        }\r\n    } catch (err) {\r\n        console.error(\"Error showing status bar\", err);\r\n    }\r\n}"
+        ],
+        "mappings": "AAAA,SAAS,WAAW,aAAa;AACjC,SAAS,cAAc;AACvB,IAAI,cAA8B;AAElC,eAAe,gBAAgB;AAC3B,MAAI,gBAAgB;AAChB,WAAO;AAEX,QAAM,OAAO,MAAM,OAAO,QAAQ;AAClC,gBAAc,KAAK,aAAa;AAChC,SAAO;AACX;AAEA,sBAAsB,sBAAsB;AACxC,MAAI;AACA,QAAI,MAAM,cAAc,GAAG;AACvB,YAAM,UAAU,mBAAmB;AAAA,QAC/B,SAAS;AAAA,MACb,CAAC;AAED,YAAM,UAAU,mBAAmB;AAAA,QAC/B,OAAO;AAAA,MACX,CAAC;AAED,YAAM,UAAU,SAAS;AAAA,QACrB,OAAO,MAAM;AAAA,MACjB,CAAC;AAAA,IACL;AAAA,EACJ,SAAS,KAAK;AACV,YAAQ,MAAM,gCAAgC,GAAG;AAAA,EACrD;AACJ;AAEA,sBAAsB,wBAAwB;AAC1C,MAAI;AACA,QAAI,MAAM,cAAc,GAAG;AACvB,YAAM,UAAU,SAAS;AAAA,QACrB,OAAO,MAAM;AAAA,MACjB,CAAC;AAAA,IACL;AAAA,EACJ,SAAS,KAAK;AACV,YAAQ,MAAM,4BAA4B,GAAG;AAAA,EACjD;AACJ;AAEA,sBAAsB,yBAAyB;AAC3C,MAAI;AACA,QAAI,MAAM,cAAc,GAAG;AACvB,YAAM,UAAU,SAAS;AAAA,QACrB,OAAO,MAAM;AAAA,MACjB,CAAC;AAAA,IACL;AAAA,EACJ,SAAS,KAAK;AACV,YAAQ,MAAM,6BAA6B,GAAG;AAAA,EAClD;AACJ;AAEA,sBAAsB,gBAAgB;AAClC,MAAI;AACA,QAAI,MAAM,cAAc,GAAG;AACvB,YAAM,UAAU,KAAK;AAAA,IACzB;AAAA,EACJ,SAAS,KAAK;AACV,YAAQ,MAAM,2BAA2B,GAAG;AAAA,EAChD;AACJ;AAEA,sBAAsB,gBAAgB;AAClC,MAAI;AACA,QAAI,MAAM,cAAc,GAAG;AACvB,YAAM,UAAU,KAAK;AAAA,IACzB;AAAA,EACJ,SAAS,KAAK;AACV,YAAQ,MAAM,4BAA4B,GAAG;AAAA,EACjD;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579493259,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579493260,
+      "end": 1754579493260,
+      "order": "normal"
+    }
+  ]
+}

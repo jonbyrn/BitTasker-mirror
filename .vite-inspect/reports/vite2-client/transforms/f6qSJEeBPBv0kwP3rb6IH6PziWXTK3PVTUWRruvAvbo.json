@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/floating-layer/components/floating-layer-anchor.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport { useFloatingAnchorState } from \"../use-floating-layer.svelte.js\";\n\timport type { AnchorProps } from \"./index.js\";\n\timport type { Measurable } from \"../../../../internal/floating-svelte/types.js\";\n\n\tlet { id, children, virtualEl }: AnchorProps = $props();\n\n\tuseFloatingAnchorState({\n\t\tid: box.with(() => id),\n\t\tvirtualEl: box.with(() => virtualEl as unknown as Measurable | null),\n\t});\n</script>\n\n{@render children?.()}\n",
+      "start": 1754579497180,
+      "end": 1754579497414,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497414,
+      "end": 1754579497415,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497415,
+      "end": 1754579497415,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useFloatingAnchorState } from \"../use-floating-layer.svelte.js\";\n\nexport default function Floating_layer_anchor($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tuseFloatingAnchorState({\n\t\tid: box.with(() => $$props.id),\n\t\tvirtualEl: box.with(() => $$props.virtualEl)\n\t});\n\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.snippet(node, () => $$props.children ?? $.noop);\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497415,
+      "end": 1754579497416,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAC5B,sBAAsB,QAAQ,iCAAiC;;;;;CAMxE,sBAAsB;EACrB,EAAE,EAAE,GAAG,CAAC,IAAI;EACZ,SAAS,EAAE,GAAG,CAAC,IAAI",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "floating-layer-anchor.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497416,
+      "end": 1754579497416,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/isThisQuarter.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { constructFrom } from \"./constructFrom.js\";\nimport { constructNow } from \"./constructNow.js\";\nimport { isSameQuarter } from \"./isSameQuarter.js\";\n\n/**\n * The {@link isThisQuarter} function options.\n */\n\n/**\n * @name isThisQuarter\n * @category Quarter Helpers\n * @summary Is the given date in the same quarter as the current date?\n * @pure false\n *\n * @description\n * Is the given date in the same quarter as the current date?\n *\n * @param date - The date to check\n * @param options - An object with options\n *\n * @returns The date is in this quarter\n *\n * @example\n * // If today is 25 September 2014, is 2 July 2014 in this quarter?\n * const result = isThisQuarter(new Date(2014, 6, 2))\n * //=> true\n */\nexport function isThisQuarter(date, options) {\n  return isSameQuarter(\n    constructFrom(options?.in || date, date),\n    constructNow(options?.in || date),\n  );\n}\n\n// Fallback for modularized imports:\nexport default isThisQuarter;\n",
+      "start": 1754579494970,
+      "end": 1754579494984,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494984,
+      "end": 1754579494985,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494985,
+      "end": 1754579494985,
+      "order": "normal"
+    }
+  ]
+}

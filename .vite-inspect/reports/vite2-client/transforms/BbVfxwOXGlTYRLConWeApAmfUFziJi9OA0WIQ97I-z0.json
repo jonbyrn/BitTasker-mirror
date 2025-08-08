@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/runtime/lib/types.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "const CachePolicy = {\n  CacheOrNetwork: \"CacheOrNetwork\",\n  CacheOnly: \"CacheOnly\",\n  NetworkOnly: \"NetworkOnly\",\n  CacheAndNetwork: \"CacheAndNetwork\",\n  NoCache: \"NoCache\"\n};\nconst DedupeMatchMode = {\n  Variables: \"Variables\",\n  Operation: \"Operation\",\n  None: \"None\"\n};\nconst PaginateMode = {\n  Infinite: \"Infinite\",\n  SinglePage: \"SinglePage\"\n};\nexport * from \"../router/types\";\nconst ArtifactKind = {\n  Query: \"HoudiniQuery\",\n  Subscription: \"HoudiniSubscription\",\n  Mutation: \"HoudiniMutation\",\n  Fragment: \"HoudiniFragment\"\n};\nconst CompiledFragmentKind = ArtifactKind.Fragment;\nconst CompiledMutationKind = ArtifactKind.Mutation;\nconst CompiledQueryKind = ArtifactKind.Query;\nconst CompiledSubscriptionKind = ArtifactKind.Subscription;\nconst RefetchUpdateMode = {\n  append: \"append\",\n  prepend: \"prepend\",\n  replace: \"replace\"\n};\nconst DataSource = {\n  Cache: \"cache\",\n  Network: \"network\",\n  Ssr: \"ssr\"\n};\nconst fragmentKey = \" $fragments\";\nconst PendingValue = Symbol(\"houdini_loading\");\nfunction isPending(value) {\n  return typeof value === \"symbol\";\n}\nexport {\n  ArtifactKind,\n  CachePolicy,\n  CompiledFragmentKind,\n  CompiledMutationKind,\n  CompiledQueryKind,\n  CompiledSubscriptionKind,\n  DataSource,\n  DedupeMatchMode,\n  PaginateMode,\n  PendingValue,\n  RefetchUpdateMode,\n  fragmentKey,\n  isPending\n};\n",
+      "start": 1754579495885,
+      "end": 1754579495927,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495927,
+      "end": 1754579495927,
+      "order": "normal"
+    }
+  ]
+}

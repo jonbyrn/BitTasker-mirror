@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/stores/theme.store.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { StorageKeys } from '$lib/utils/constants/storage';\r\nimport { Preferences } from '@capacitor/preferences';\r\nimport { writable } from 'svelte/store';\r\n\r\nexport const darkMode = writable<boolean>(true);\r\n\r\n// Defer theme initialization to prevent blocking main thread\r\nconst initializeTheme = () => {\r\n\tif ('requestIdleCallback' in window) {\r\n\t\trequestIdleCallback(async () => {\r\n\t\t\tconst { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });\r\n\t\t\tif (savedDarkMode) {\r\n\t\t\t\tdarkMode.set(savedDarkMode === 'true');\r\n\t\t\t}\r\n\t\t}, { timeout: 500 });\r\n\t} else {\r\n\t\tsetTimeout(async () => {\r\n\t\t\tconst { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });\r\n\t\t\tif (savedDarkMode) {\r\n\t\t\t\tdarkMode.set(savedDarkMode === 'true');\r\n\t\t\t}\r\n\t\t}, 100);\r\n\t}\r\n};\r\n\r\n// Initialize theme\r\ninitializeTheme();\r\n\r\nexport async function setDarkMode(isDarkMode: boolean) {\r\n\t// Defer the Preferences.set call to prevent blocking\r\n\tconst deferSet = () => {\r\n\t\tif ('requestIdleCallback' in window) {\r\n\t\t\trequestIdleCallback(async () => {\r\n\t\t\t\tawait Preferences.set({\r\n\t\t\t\t\tkey: StorageKeys.THEME,\r\n\t\t\t\t\tvalue: isDarkMode.toString()\r\n\t\t\t\t});\r\n\t\t\t}, { timeout: 1000 });\r\n\t\t} else {\r\n\t\t\tsetTimeout(async () => {\r\n\t\t\t\tawait Preferences.set({\r\n\t\t\t\t\tkey: StorageKeys.THEME,\r\n\t\t\t\t\tvalue: isDarkMode.toString()\r\n\t\t\t\t});\r\n\t\t\t}, 100);\r\n\t\t}\r\n\t};\r\n\t\r\n\tdeferSet();\r\n\t\r\n\t// Update DOM immediately for responsive UI\r\n\tdocument.documentElement.setAttribute(\r\n\t\t'data-theme',\r\n\t\tisDarkMode ? 'dark' : 'light'\r\n\t);\r\n}\r\n",
+      "start": 1754579492114,
+      "end": 1754579492385,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import { StorageKeys } from \"$lib/utils/constants/storage\";\r\nimport { Preferences } from \"@capacitor/preferences\";\r\nimport { writable } from \"svelte/store\";\r\nexport const darkMode = writable<boolean>(true);\r\n\r\nconst initializeTheme = () => {\r\n    if (\"requestIdleCallback\" in window) {\r\n        requestIdleCallback(async () => {\r\n            const {\r\n                value: savedDarkMode\r\n            } = await Preferences.get({\r\n                key: StorageKeys.THEME\r\n            });\r\n\r\n            if (savedDarkMode) {\r\n                darkMode.set(savedDarkMode === \"true\");\r\n            }\r\n        }, {\r\n            timeout: 500\r\n        });\r\n    } else {\r\n        setTimeout(async () => {\r\n            const {\r\n                value: savedDarkMode\r\n            } = await Preferences.get({\r\n                key: StorageKeys.THEME\r\n            });\r\n\r\n            if (savedDarkMode) {\r\n                darkMode.set(savedDarkMode === \"true\");\r\n            }\r\n        }, 100);\r\n    }\r\n};\r\n\r\ninitializeTheme();\r\n\r\nexport async function setDarkMode(isDarkMode: boolean) {\r\n    const deferSet = () => {\r\n        if (\"requestIdleCallback\" in window) {\r\n            requestIdleCallback(async () => {\r\n                await Preferences.set({\r\n                    key: StorageKeys.THEME,\r\n                    value: isDarkMode.toString()\r\n                });\r\n            }, {\r\n                timeout: 1000\r\n            });\r\n        } else {\r\n            setTimeout(async () => {\r\n                await Preferences.set({\r\n                    key: StorageKeys.THEME,\r\n                    value: isDarkMode.toString()\r\n                });\r\n            }, 100);\r\n        }\r\n    };\r\n\r\n    deferSet();\r\n    document.documentElement.setAttribute(\"data-theme\", isDarkMode ? \"dark\" : \"light\");\r\n}",
+      "start": 1754579492385,
+      "end": 1754579492386,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/stores/theme.store.ts"
+        ],
+        "sourcesContent": [
+          "import { StorageKeys } from '$lib/utils/constants/storage';\r\nimport { Preferences } from '@capacitor/preferences';\r\nimport { writable } from 'svelte/store';\r\n\r\nexport const darkMode = writable<boolean>(true);\r\n\r\n// Defer theme initialization to prevent blocking main thread\r\nconst initializeTheme = () => {\r\n\tif ('requestIdleCallback' in window) {\r\n\t\trequestIdleCallback(async () => {\r\n\t\t\tconst { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });\r\n\t\t\tif (savedDarkMode) {\r\n\t\t\t\tdarkMode.set(savedDarkMode === 'true');\r\n\t\t\t}\r\n\t\t}, { timeout: 500 });\r\n\t} else {\r\n\t\tsetTimeout(async () => {\r\n\t\t\tconst { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });\r\n\t\t\tif (savedDarkMode) {\r\n\t\t\t\tdarkMode.set(savedDarkMode === 'true');\r\n\t\t\t}\r\n\t\t}, 100);\r\n\t}\r\n};\r\n\r\n// Initialize theme\r\ninitializeTheme();\r\n\r\nexport async function setDarkMode(isDarkMode: boolean) {\r\n\t// Defer the Preferences.set call to prevent blocking\r\n\tconst deferSet = () => {\r\n\t\tif ('requestIdleCallback' in window) {\r\n\t\t\trequestIdleCallback(async () => {\r\n\t\t\t\tawait Preferences.set({\r\n\t\t\t\t\tkey: StorageKeys.THEME,\r\n\t\t\t\t\tvalue: isDarkMode.toString()\r\n\t\t\t\t});\r\n\t\t\t}, { timeout: 1000 });\r\n\t\t} else {\r\n\t\t\tsetTimeout(async () => {\r\n\t\t\t\tawait Preferences.set({\r\n\t\t\t\t\tkey: StorageKeys.THEME,\r\n\t\t\t\t\tvalue: isDarkMode.toString()\r\n\t\t\t\t});\r\n\t\t\t}, 100);\r\n\t\t}\r\n\t};\r\n\t\r\n\tdeferSet();\r\n\t\r\n\t// Update DOM immediately for responsive UI\r\n\tdocument.documentElement.setAttribute(\r\n\t\t'data-theme',\r\n\t\tisDarkMode ? 'dark' : 'light'\r\n\t);\r\n}\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChD;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7D,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC1B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC;AACF,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACV,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACP,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC;AACH,CAAC;AACD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACZ,CAAC;AACD,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC5C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC/B,CAAC,CAAC,CAAC;AACH,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492386,
+      "end": 1754579492386,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579492386,
+      "end": 1754579492386,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { StorageKeys } from \"$lib/utils/constants/storage\";\nimport { Preferences } from \"@capacitor/preferences\";\nimport { writable } from \"svelte/store\";\nexport const darkMode = writable(true);\nconst initializeTheme = () => {\n  if (\"requestIdleCallback\" in window) {\n    requestIdleCallback(async () => {\n      const {\n        value: savedDarkMode\n      } = await Preferences.get({\n        key: StorageKeys.THEME\n      });\n      if (savedDarkMode) {\n        darkMode.set(savedDarkMode === \"true\");\n      }\n    }, {\n      timeout: 500\n    });\n  } else {\n    setTimeout(async () => {\n      const {\n        value: savedDarkMode\n      } = await Preferences.get({\n        key: StorageKeys.THEME\n      });\n      if (savedDarkMode) {\n        darkMode.set(savedDarkMode === \"true\");\n      }\n    }, 100);\n  }\n};\ninitializeTheme();\nexport async function setDarkMode(isDarkMode) {\n  const deferSet = () => {\n    if (\"requestIdleCallback\" in window) {\n      requestIdleCallback(async () => {\n        await Preferences.set({\n          key: StorageKeys.THEME,\n          value: isDarkMode.toString()\n        });\n      }, {\n        timeout: 1e3\n      });\n    } else {\n      setTimeout(async () => {\n        await Preferences.set({\n          key: StorageKeys.THEME,\n          value: isDarkMode.toString()\n        });\n      }, 100);\n    }\n  };\n  deferSet();\n  document.documentElement.setAttribute(\"data-theme\", isDarkMode ? \"dark\" : \"light\");\n}\n",
+      "start": 1754579492386,
+      "end": 1754579492556,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/lib/stores/theme.store.ts"
+        ],
+        "sourcesContent": [
+          "import { StorageKeys } from \"$lib/utils/constants/storage\";\r\nimport { Preferences } from \"@capacitor/preferences\";\r\nimport { writable } from \"svelte/store\";\r\nexport const darkMode = writable<boolean>(true);\r\n\r\nconst initializeTheme = () => {\r\n    if (\"requestIdleCallback\" in window) {\r\n        requestIdleCallback(async () => {\r\n            const {\r\n                value: savedDarkMode\r\n            } = await Preferences.get({\r\n                key: StorageKeys.THEME\r\n            });\r\n\r\n            if (savedDarkMode) {\r\n                darkMode.set(savedDarkMode === \"true\");\r\n            }\r\n        }, {\r\n            timeout: 500\r\n        });\r\n    } else {\r\n        setTimeout(async () => {\r\n            const {\r\n                value: savedDarkMode\r\n            } = await Preferences.get({\r\n                key: StorageKeys.THEME\r\n            });\r\n\r\n            if (savedDarkMode) {\r\n                darkMode.set(savedDarkMode === \"true\");\r\n            }\r\n        }, 100);\r\n    }\r\n};\r\n\r\ninitializeTheme();\r\n\r\nexport async function setDarkMode(isDarkMode: boolean) {\r\n    const deferSet = () => {\r\n        if (\"requestIdleCallback\" in window) {\r\n            requestIdleCallback(async () => {\r\n                await Preferences.set({\r\n                    key: StorageKeys.THEME,\r\n                    value: isDarkMode.toString()\r\n                });\r\n            }, {\r\n                timeout: 1000\r\n            });\r\n        } else {\r\n            setTimeout(async () => {\r\n                await Preferences.set({\r\n                    key: StorageKeys.THEME,\r\n                    value: isDarkMode.toString()\r\n                });\r\n            }, 100);\r\n        }\r\n    };\r\n\r\n    deferSet();\r\n    document.documentElement.setAttribute(\"data-theme\", isDarkMode ? \"dark\" : \"light\");\r\n}"
+        ],
+        "mappings": "AAAA,SAAS,mBAAmB;AAC5B,SAAS,mBAAmB;AAC5B,SAAS,gBAAgB;AAClB,aAAM,WAAW,SAAkB,IAAI;AAE9C,MAAM,kBAAkB,MAAM;AAC1B,MAAI,yBAAyB,QAAQ;AACjC,wBAAoB,YAAY;AAC5B,YAAM;AAAA,QACF,OAAO;AAAA,MACX,IAAI,MAAM,YAAY,IAAI;AAAA,QACtB,KAAK,YAAY;AAAA,MACrB,CAAC;AAED,UAAI,eAAe;AACf,iBAAS,IAAI,kBAAkB,MAAM;AAAA,MACzC;AAAA,IACJ,GAAG;AAAA,MACC,SAAS;AAAA,IACb,CAAC;AAAA,EACL,OAAO;AACH,eAAW,YAAY;AACnB,YAAM;AAAA,QACF,OAAO;AAAA,MACX,IAAI,MAAM,YAAY,IAAI;AAAA,QACtB,KAAK,YAAY;AAAA,MACrB,CAAC;AAED,UAAI,eAAe;AACf,iBAAS,IAAI,kBAAkB,MAAM;AAAA,MACzC;AAAA,IACJ,GAAG,GAAG;AAAA,EACV;AACJ;AAEA,gBAAgB;AAEhB,sBAAsB,YAAY,YAAqB;AACnD,QAAM,WAAW,MAAM;AACnB,QAAI,yBAAyB,QAAQ;AACjC,0BAAoB,YAAY;AAC5B,cAAM,YAAY,IAAI;AAAA,UAClB,KAAK,YAAY;AAAA,UACjB,OAAO,WAAW,SAAS;AAAA,QAC/B,CAAC;AAAA,MACL,GAAG;AAAA,QACC,SAAS;AAAA,MACb,CAAC;AAAA,IACL,OAAO;AACH,iBAAW,YAAY;AACnB,cAAM,YAAY,IAAI;AAAA,UAClB,KAAK,YAAY;AAAA,UACjB,OAAO,WAAW,SAAS;AAAA,QAC/B,CAAC;AAAA,MACL,GAAG,GAAG;AAAA,IACV;AAAA,EACJ;AAEA,WAAS;AACT,WAAS,gBAAgB,aAAa,cAAc,aAAa,SAAS,OAAO;AACrF;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492556,
+      "end": 1754579492556,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492557,
+      "end": 1754579492557,
+      "order": "normal"
+    }
+  ]
+}

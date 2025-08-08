@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/utilities/portal/portal-consumer.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport type { Snippet } from \"svelte\";\n\n\tconst { children }: { children?: Snippet } = $props();\n</script>\n\n{#key children}\n\t{@render children?.()}\n{/key}\n",
+      "start": 1754579496204,
+      "end": 1754579496232,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496232,
+      "end": 1754579496232,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496232,
+      "end": 1754579496232,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\n\nexport default function Portal_consumer($$anchor, $$props) {\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t$.key(node, () => $$props.children, ($$anchor) => {\n\t\tvar fragment_1 = $.comment();\n\t\tvar node_1 = $.first_child(fragment_1);\n\n\t\t$.snippet(node_1, () => $$props.children ?? $.noop);\n\t\t$.append($$anchor, fragment_1);\n\t});\n\n\t$.append($$anchor, fragment);\n}",
+      "start": 1754579496232,
+      "end": 1754579496233,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": "",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "portal-consumer.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496233,
+      "end": 1754579496233,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496234,
+      "end": 1754579496234,
+      "order": "normal"
+    }
+  ]
+}

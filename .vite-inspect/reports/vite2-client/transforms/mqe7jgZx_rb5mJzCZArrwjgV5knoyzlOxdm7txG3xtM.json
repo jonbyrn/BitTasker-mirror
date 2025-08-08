@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/parse/_lib/parsers/TimestampSecondsParser.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { constructFrom } from \"../../../constructFrom.js\";\nimport { Parser } from \"../Parser.js\";\n\nimport { parseAnyDigitsSigned } from \"../utils.js\";\n\nexport class TimestampSecondsParser extends Parser {\n  priority = 40;\n\n  parse(dateString) {\n    return parseAnyDigitsSigned(dateString);\n  }\n\n  set(date, _flags, value) {\n    return [constructFrom(date, value * 1000), { timestampIsSet: true }];\n  }\n\n  incompatibleTokens = \"*\";\n}\n",
+      "start": 1754579495951,
+      "end": 1754579495977,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495977,
+      "end": 1754579495977,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495978,
+      "end": 1754579495978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495978,
+      "end": 1754579495978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495978,
+      "end": 1754579495978,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495978,
+      "end": 1754579495978,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495978,
+      "end": 1754579495978,
+      "order": "normal"
+    }
+  ]
+}

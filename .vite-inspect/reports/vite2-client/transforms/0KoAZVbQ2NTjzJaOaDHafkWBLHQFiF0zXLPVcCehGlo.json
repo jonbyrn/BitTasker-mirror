@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/checkbox/components/checkbox-input.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { useCheckboxInput } from \"../checkbox.svelte.js\";\n\timport HiddenInput from \"../../utilities/hidden-input.svelte\";\n\n\tconst inputState = useCheckboxInput();\n</script>\n\n{#if inputState.shouldRender}\n\t<HiddenInput {...inputState.props} />\n{/if}\n",
+      "start": 1754579497050,
+      "end": 1754579497138,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497138,
+      "end": 1754579497138,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497138,
+      "end": 1754579497138,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { useCheckboxInput } from \"../checkbox.svelte.js\";\nimport HiddenInput from \"../../utilities/hidden-input.svelte\";\n\nexport default function Checkbox_input($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tconst inputState = useCheckboxInput();\n\tvar fragment = $.comment();\n\tvar node = $.first_child(fragment);\n\n\t{\n\t\tvar consequent = ($$anchor) => {\n\t\t\tHiddenInput($$anchor, $.spread_props(() => inputState.props));\n\t\t};\n\n\t\t$.if(node, ($$render) => {\n\t\t\tif (inputState.shouldRender) $$render(consequent);\n\t\t});\n\t}\n\n\t$.append($$anchor, fragment);\n\t$.pop();\n}",
+      "start": 1754579497138,
+      "end": 1754579497139,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,gBAAgB,QAAQ,uBAAuB;OACjD,WAAW,MAAM,qCAAqC;;;;;OAEvD,UAAU,GAAG,gBAAgB;;;;;;8CAIlB,UAAU,CAAC,KAAK;;;;OAD7B,UAAU,CAAC,YAAY",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "checkbox-input.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497139,
+      "end": 1754579497139,
+      "order": "normal"
+    }
+  ]
+}

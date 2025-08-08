@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/secondsToMilliseconds.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { millisecondsInSecond } from \"./constants.js\";\n\n/**\n * @name secondsToMilliseconds\n * @category Conversion Helpers\n * @summary Convert seconds to milliseconds.\n *\n * @description\n * Convert a number of seconds to a full number of milliseconds.\n *\n * @param seconds - The number of seconds to be converted\n *\n * @returns The number of seconds converted in milliseconds\n *\n * @example\n * // Convert 2 seconds into milliseconds\n * const result = secondsToMilliseconds(2)\n * //=> 2000\n */\nexport function secondsToMilliseconds(seconds) {\n  return seconds * millisecondsInSecond;\n}\n\n// Fallback for modularized imports:\nexport default secondsToMilliseconds;\n",
+      "start": 1754579495017,
+      "end": 1754579495033,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495033,
+      "end": 1754579495034,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495034,
+      "end": 1754579495034,
+      "order": "normal"
+    }
+  ]
+}

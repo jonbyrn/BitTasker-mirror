@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/+layout.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "// src/routes/+layout.ts\r\nimport { browser } from '$app/environment';\r\nimport { setupI18n } from '$lib/i18n/i18n';\r\nimport { initializeStatusBar } from '$lib/utils/helpers/statusBar';\r\n\r\nexport const prerender = true;\r\nexport const ssr = false;\r\nexport const csr = true;\r\n\r\nexport async function load() {\r\n\tif (browser) {\r\n\t\tawait setupI18n();\r\n\t\tinitializeStatusBar();\r\n\t}\r\n\r\n\treturn {};\r\n}\r\n",
+      "start": 1754579491343,
+      "end": 1754579491361,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import { browser } from \"$app/environment\";\r\nimport { setupI18n } from \"$lib/i18n/i18n\";\r\nimport { initializeStatusBar } from \"$lib/utils/helpers/statusBar\";\r\nexport const prerender = true;\r\nexport const ssr = false;\r\nexport const csr = true;\r\n\r\nexport async function load(event) {\r\n    if (browser) {\r\n        await setupI18n();\r\n        initializeStatusBar();\r\n    }\r\n\r\n    return {\r\n        ...event.data,\r\n        ...{}\r\n    };\r\n}",
+      "start": 1754579491361,
+      "end": 1754579491728,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/+layout.ts"
+        ],
+        "sourcesContent": [
+          "// src/routes/+layout.ts\r\nimport { browser } from '$app/environment';\r\nimport { setupI18n } from '$lib/i18n/i18n';\r\nimport { initializeStatusBar } from '$lib/utils/helpers/statusBar';\r\n\r\nexport const prerender = true;\r\nexport const ssr = false;\r\nexport const csr = true;\r\n\r\nexport async function load() {\r\n\tif (browser) {\r\n\t\tawait setupI18n();\r\n\t\tinitializeStatusBar();\r\n\t}\r\n\r\n\treturn {};\r\n}\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnE;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9B,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACf,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxB,CAAC,CAAC;AACF;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579491729,
+      "end": 1754579491729,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579491747,
+      "end": 1754579491747,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "import { browser } from \"$app/environment\";\nimport { setupI18n } from \"$lib/i18n/i18n\";\nimport { initializeStatusBar } from \"$lib/utils/helpers/statusBar\";\nexport const prerender = true;\nexport const ssr = false;\nexport const csr = true;\nexport async function load(event) {\n  if (browser) {\n    await setupI18n();\n    initializeStatusBar();\n  }\n  return {\n    ...event.data,\n    ...{}\n  };\n}\n",
+      "start": 1754579491748,
+      "end": 1754579491941,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/+layout.ts"
+        ],
+        "sourcesContent": [
+          "import { browser } from \"$app/environment\";\r\nimport { setupI18n } from \"$lib/i18n/i18n\";\r\nimport { initializeStatusBar } from \"$lib/utils/helpers/statusBar\";\r\nexport const prerender = true;\r\nexport const ssr = false;\r\nexport const csr = true;\r\n\r\nexport async function load(event) {\r\n    if (browser) {\r\n        await setupI18n();\r\n        initializeStatusBar();\r\n    }\r\n\r\n    return {\r\n        ...event.data,\r\n        ...{}\r\n    };\r\n}"
+        ],
+        "mappings": "AAAA,SAAS,eAAe;AACxB,SAAS,iBAAiB;AAC1B,SAAS,2BAA2B;AAC7B,aAAM,YAAY;AAClB,aAAM,MAAM;AACZ,aAAM,MAAM;AAEnB,sBAAsB,KAAK,OAAO;AAC9B,MAAI,SAAS;AACT,UAAM,UAAU;AAChB,wBAAoB;AAAA,EACxB;AAEA,SAAO;AAAA,IACH,GAAG,MAAM;AAAA,IACT,GAAG,CAAC;AAAA,EACR;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579491941,
+      "end": 1754579491941,
+      "order": "normal"
+    }
+  ]
+}

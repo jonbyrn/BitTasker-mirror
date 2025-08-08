@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/plugins/houdini-svelte/runtime/stores/mutation.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { initClient } from \"../client\";\nimport { BaseStore } from \"./base\";\nimport { fetchParams } from \"./query\";\nclass MutationStore extends BaseStore {\n  kind = \"HoudiniMutation\";\n  async mutate(variables, {\n    metadata,\n    fetch,\n    event,\n    abortController,\n    ...mutationConfig\n  } = {}) {\n    await initClient();\n    const { context } = await fetchParams(this.artifact, this.artifact.name, {\n      fetch,\n      metadata,\n      event\n    });\n    return await this.observer.send({\n      variables,\n      fetch: context.fetch,\n      metadata,\n      session: context.session,\n      abortController,\n      stuff: {\n        ...mutationConfig\n      }\n    });\n  }\n}\nexport {\n  MutationStore\n};\n",
+      "start": 1754579495829,
+      "end": 1754579495883,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495883,
+      "end": 1754579495883,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte-toolbelt/dist/utils/is.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export function isFunction(value) {\n    return typeof value === \"function\";\n}\nexport function isObject(value) {\n    return value !== null && typeof value === \"object\";\n}\nconst CLASS_VALUE_PRIMITIVE_TYPES = [\"string\", \"number\", \"bigint\", \"boolean\"];\nexport function isClassValue(value) {\n    // handle primitive types\n    if (value === null || value === undefined)\n        return true;\n    if (CLASS_VALUE_PRIMITIVE_TYPES.includes(typeof value))\n        return true;\n    // handle arrays (ClassArray)\n    if (Array.isArray(value))\n        return value.every((item) => isClassValue(item));\n    // handle objects (ClassDictionary)\n    if (typeof value === \"object\") {\n        // ensure it's a plain object and not some other object type\n        if (Object.getPrototypeOf(value) !== Object.prototype)\n            return false;\n        return true;\n    }\n    return false;\n}\nconst ELEMENT_NODE = 1;\nconst DOCUMENT_NODE = 9;\nconst DOCUMENT_FRAGMENT_NODE = 11;\nexport function isHTMLElement(v) {\n    return isObject(v) && v.nodeType === ELEMENT_NODE && typeof v.nodeName === \"string\";\n}\nexport function isDocument(v) {\n    return isObject(v) && v.nodeType === DOCUMENT_NODE;\n}\nexport function isWindow(v) {\n    return isObject(v) && v === v.window;\n}\nexport function getNodeName(node) {\n    if (isHTMLElement(node))\n        return node.localName || \"\";\n    return \"#document\";\n}\nexport function isRootElement(node) {\n    return [\"html\", \"body\", \"#document\"].includes(getNodeName(node));\n}\nexport function isNode(v) {\n    return isObject(v) && v.nodeType !== undefined;\n}\nexport function isShadowRoot(v) {\n    return isNode(v) && v.nodeType === DOCUMENT_FRAGMENT_NODE && \"host\" in v;\n}\n",
+      "start": 1754579496973,
+      "end": 1754579497041,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497041,
+      "end": 1754579497041,
+      "order": "normal"
+    }
+  ]
+}

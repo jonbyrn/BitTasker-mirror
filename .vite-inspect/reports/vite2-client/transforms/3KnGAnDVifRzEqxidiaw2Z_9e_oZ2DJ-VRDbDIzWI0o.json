@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/@sveltejs/kit/src/runtime/client/fetcher.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { BROWSER, DEV } from 'esm-env';\nimport { hash } from '../hash.js';\nimport { b64_decode } from '../utils.js';\n\nlet loading = 0;\n\n/** @type {typeof fetch} */\nconst native_fetch = BROWSER ? window.fetch : /** @type {any} */ (() => {});\n\nexport function lock_fetch() {\n\tloading += 1;\n}\n\nexport function unlock_fetch() {\n\tloading -= 1;\n}\n\nif (DEV && BROWSER) {\n\tlet can_inspect_stack_trace = false;\n\n\t// detect whether async stack traces work\n\t// eslint-disable-next-line @typescript-eslint/require-await\n\tconst check_stack_trace = async () => {\n\t\tconst stack = /** @type {string} */ (new Error().stack);\n\t\tcan_inspect_stack_trace = stack.includes('check_stack_trace');\n\t};\n\n\tvoid check_stack_trace();\n\n\t/**\n\t * @param {RequestInfo | URL} input\n\t * @param {RequestInit & Record<string, any> | undefined} init\n\t */\n\twindow.fetch = (input, init) => {\n\t\t// Check if fetch was called via load_node. the lock method only checks if it was called at the\n\t\t// same time, but not necessarily if it was called from `load`.\n\t\t// We use just the filename as the method name sometimes does not appear on the CI.\n\t\tconst url = input instanceof Request ? input.url : input.toString();\n\t\tconst stack_array = /** @type {string} */ (new Error().stack).split('\\n');\n\t\t// We need to do a cutoff because Safari and Firefox maintain the stack\n\t\t// across events and for example traces a `fetch` call triggered from a button\n\t\t// back to the creation of the event listener and the element creation itself,\n\t\t// where at some point client.js will show up, leading to false positives.\n\t\tconst cutoff = stack_array.findIndex((a) => a.includes('load@') || a.includes('at load'));\n\t\tconst stack = stack_array.slice(0, cutoff + 2).join('\\n');\n\n\t\tconst in_load_heuristic = can_inspect_stack_trace\n\t\t\t? stack.includes('src/runtime/client/client.js')\n\t\t\t: loading;\n\n\t\t// This flag is set in initial_fetch and subsequent_fetch\n\t\tconst used_kit_fetch = init?.__sveltekit_fetch__;\n\n\t\tif (in_load_heuristic && !used_kit_fetch) {\n\t\t\tconsole.warn(\n\t\t\t\t`Loading ${url} using \\`window.fetch\\`. For best results, use the \\`fetch\\` that is passed to your \\`load\\` function: https://svelte.dev/docs/kit/load#making-fetch-requests`\n\t\t\t);\n\t\t}\n\n\t\tconst method = input instanceof Request ? input.method : init?.method || 'GET';\n\n\t\tif (method !== 'GET') {\n\t\t\tcache.delete(build_selector(input));\n\t\t}\n\n\t\treturn native_fetch(input, init);\n\t};\n} else if (BROWSER) {\n\twindow.fetch = (input, init) => {\n\t\tconst method = input instanceof Request ? input.method : init?.method || 'GET';\n\n\t\tif (method !== 'GET') {\n\t\t\tcache.delete(build_selector(input));\n\t\t}\n\n\t\treturn native_fetch(input, init);\n\t};\n}\n\nconst cache = new Map();\n\n/**\n * Should be called on the initial run of load functions that hydrate the page.\n * Saves any requests with cache-control max-age to the cache.\n * @param {URL | string} resource\n * @param {RequestInit} [opts]\n */\nexport function initial_fetch(resource, opts) {\n\tconst selector = build_selector(resource, opts);\n\n\tconst script = document.querySelector(selector);\n\tif (script?.textContent) {\n\t\tlet { body, ...init } = JSON.parse(script.textContent);\n\n\t\tconst ttl = script.getAttribute('data-ttl');\n\t\tif (ttl) cache.set(selector, { body, init, ttl: 1000 * Number(ttl) });\n\t\tconst b64 = script.getAttribute('data-b64');\n\t\tif (b64 !== null) {\n\t\t\t// Can't use native_fetch('data:...;base64,${body}')\n\t\t\t// csp can block the request\n\t\t\tbody = b64_decode(body);\n\t\t}\n\n\t\treturn Promise.resolve(new Response(body, init));\n\t}\n\n\treturn DEV ? dev_fetch(resource, opts) : window.fetch(resource, opts);\n}\n\n/**\n * Tries to get the response from the cache, if max-age allows it, else does a fetch.\n * @param {URL | string} resource\n * @param {string} resolved\n * @param {RequestInit} [opts]\n */\nexport function subsequent_fetch(resource, resolved, opts) {\n\tif (cache.size > 0) {\n\t\tconst selector = build_selector(resource, opts);\n\t\tconst cached = cache.get(selector);\n\t\tif (cached) {\n\t\t\t// https://developer.mozilla.org/en-US/docs/Web/API/Request/cache#value\n\t\t\tif (\n\t\t\t\tperformance.now() < cached.ttl &&\n\t\t\t\t['default', 'force-cache', 'only-if-cached', undefined].includes(opts?.cache)\n\t\t\t) {\n\t\t\t\treturn new Response(cached.body, cached.init);\n\t\t\t}\n\n\t\t\tcache.delete(selector);\n\t\t}\n\t}\n\n\treturn DEV ? dev_fetch(resolved, opts) : window.fetch(resolved, opts);\n}\n\n/**\n * @param {RequestInfo | URL} resource\n * @param {RequestInit & Record<string, any> | undefined} opts\n */\nexport function dev_fetch(resource, opts) {\n\tconst patched_opts = { ...opts };\n\t// This assigns the __sveltekit_fetch__ flag and makes it non-enumerable\n\tObject.defineProperty(patched_opts, '__sveltekit_fetch__', {\n\t\tvalue: true,\n\t\twritable: true,\n\t\tconfigurable: true\n\t});\n\treturn window.fetch(resource, patched_opts);\n}\n\n/**\n * Build the cache key for a given request\n * @param {URL | RequestInfo} resource\n * @param {RequestInit} [opts]\n */\nfunction build_selector(resource, opts) {\n\tconst url = JSON.stringify(resource instanceof Request ? resource.url : resource);\n\n\tlet selector = `script[data-sveltekit-fetched][data-url=${url}]`;\n\n\tif (opts?.headers || opts?.body) {\n\t\t/** @type {import('types').StrictBody[]} */\n\t\tconst values = [];\n\n\t\tif (opts.headers) {\n\t\t\tvalues.push([...new Headers(opts.headers)].join(','));\n\t\t}\n\n\t\tif (opts.body && (typeof opts.body === 'string' || ArrayBuffer.isView(opts.body))) {\n\t\t\tvalues.push(opts.body);\n\t\t}\n\n\t\tselector += `[data-hash=\"${hash(...values)}\"]`;\n\t}\n\n\treturn selector;\n}\n",
+      "start": 1754579492212,
+      "end": 1754579492529,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492529,
+      "end": 1754579492529,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492529,
+      "end": 1754579492530,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492530,
+      "end": 1754579492530,
+      "order": "normal"
+    }
+  ]
+}

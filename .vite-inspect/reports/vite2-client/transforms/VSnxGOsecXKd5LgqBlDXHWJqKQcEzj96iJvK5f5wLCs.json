@@ -1,0 +1,106 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/bits-ui/dist/bits/menubar/components/menubar-menu.svelte",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "<script lang=\"ts\">\n\timport { box } from \"svelte-toolbelt\";\n\timport type { MenubarMenuProps } from \"../types.js\";\n\timport { useMenubarMenu } from \"../menubar.svelte.js\";\n\timport Menu from \"../../menu/components/menu.svelte\";\n\timport { useId } from \"../../../internal/use-id.js\";\n\timport { noop } from \"../../../internal/noop.js\";\n\n\tlet { value = useId(), onOpenChange = noop, ...restProps }: MenubarMenuProps = $props();\n\n\tconst menuState = useMenubarMenu({\n\t\tvalue: box.with(() => value),\n\t\tonOpenChange: box.with(() => onOpenChange),\n\t});\n</script>\n\n<Menu\n\topen={menuState.open}\n\tonOpenChange={(open) => {\n\t\tif (!open) menuState.root.onMenuClose();\n\t}}\n\tdir={menuState.root.opts.dir.current}\n\t_internal_variant=\"menubar\"\n\t{...restProps}\n/>\n",
+      "start": 1754579496723,
+      "end": 1754579496836,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579496836,
+      "end": 1754579496836,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579496836,
+      "end": 1754579496836,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "result": "import 'svelte/internal/disclose-version';\nimport * as $ from 'svelte/internal/client';\nimport { box } from \"svelte-toolbelt\";\nimport { useMenubarMenu } from \"../menubar.svelte.js\";\nimport Menu from \"../../menu/components/menu.svelte\";\nimport { useId } from \"../../../internal/use-id.js\";\nimport { noop } from \"../../../internal/noop.js\";\n\nexport default function Menubar_menu($$anchor, $$props) {\n\t$.push($$props, true);\n\n\tlet value = $.prop($$props, 'value', 19, useId),\n\t\tonOpenChange = $.prop($$props, 'onOpenChange', 3, noop),\n\t\trestProps = $.rest_props($$props, [\n\t\t\t'$$slots',\n\t\t\t'$$events',\n\t\t\t'$$legacy',\n\t\t\t'value',\n\t\t\t'onOpenChange'\n\t\t]);\n\n\tconst menuState = useMenubarMenu({\n\t\tvalue: box.with(() => value()),\n\t\tonOpenChange: box.with(() => onOpenChange())\n\t});\n\n\tMenu($$anchor, $.spread_props(\n\t\t{\n\t\t\tget open() {\n\t\t\t\treturn menuState.open;\n\t\t\t},\n\t\t\tonOpenChange: (open) => {\n\t\t\t\tif (!open) menuState.root.onMenuClose();\n\t\t\t},\n\t\t\tget dir() {\n\t\t\t\treturn menuState.root.opts.dir.current;\n\t\t\t},\n\t\t\t_internal_variant: 'menubar'\n\t\t},\n\t\t() => restProps\n\t));\n\n\t$.pop();\n}",
+      "start": 1754579496836,
+      "end": 1754579496839,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "mappings": ";;SACU,GAAG,QAAQ,iBAAiB;SAE5B,cAAc,QAAQ,sBAAsB;OAC9C,IAAI,MAAM,mCAAmC;SAC3C,KAAK,QAAQ,6BAA6B;SAC1C,IAAI,QAAQ,2BAA2B;;;;;KAE1C,KAAK,gCAAG,KAAK;EAAI,YAAY,sCAAG,IAAI;EAAK,SAAS;;;;;;;;OAElD,SAAS,GAAG,cAAc;EAC/B,KAAK,EAAE,GAAG,CAAC,IAAI,OAAO,KAAK;EAC3B,YAAY,EAAE,GAAG,CAAC,IAAI,OAAO,YAAY;;;;;;WAKpC,SAAS,CAAC,IAAI;;kBACL,IAAI,KAAK;SAClB,IAAI,EAAE,SAAS,CAAC,IAAI,CAAC,WAAW;GACtC,CAAC;;WACI,SAAS,CAAC,IAAI,CAAC,IAAI,CAAC,GAAG,CAAC,OAAO;;;;QAEhC,SAAS",
+        "names": [],
+        "ignoreList": [],
+        "sources": [
+          "menubar-menu.svelte"
+        ]
+      }
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579496839,
+      "end": 1754579496839,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/.houdini/artifacts/CheckOnboardingStatus.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "export default {\r\n    \"name\": \"CheckOnboardingStatus\",\r\n    \"kind\": \"HoudiniQuery\",\r\n    \"hash\": \"75861a5817e7fbe32a10a2a116dd2b9c0b87d92dd40e062d2ceb324907b2b5c0\",\r\n\r\n    \"raw\": `query CheckOnboardingStatus {\r\n  IsOnboardingComplete {\r\n    isComplete\r\n    missingFields\r\n  }\r\n}\r\n`,\r\n\r\n    \"rootType\": \"Query\",\r\n    \"stripVariables\": [],\r\n\r\n    \"selection\": {\r\n        \"fields\": {\r\n            \"IsOnboardingComplete\": {\r\n                \"type\": \"OnboardingStatusDto\",\r\n                \"keyRaw\": \"IsOnboardingComplete\",\r\n\r\n                \"selection\": {\r\n                    \"fields\": {\r\n                        \"isComplete\": {\r\n                            \"type\": \"Boolean\",\r\n                            \"keyRaw\": \"isComplete\",\r\n                            \"visible\": true\r\n                        },\r\n\r\n                        \"missingFields\": {\r\n                            \"type\": \"String\",\r\n                            \"keyRaw\": \"missingFields\",\r\n                            \"visible\": true\r\n                        }\r\n                    }\r\n                },\r\n\r\n                \"visible\": true\r\n            }\r\n        }\r\n    },\r\n\r\n    \"pluginData\": {\r\n        \"houdini-svelte\": {}\r\n    },\r\n\r\n    \"policy\": \"CacheOrNetwork\",\r\n    \"partial\": false\r\n};\r\n\r\n\"HoudiniHash=7b6e8dc1e0bfeacb2fc61ce3464e37884866282ae56b5274837a9fcb6a1bae1a\";",
+      "start": 1754579495381,
+      "end": 1754579495492,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495492,
+      "end": 1754579495492,
+      "order": "normal"
+    }
+  ]
+}

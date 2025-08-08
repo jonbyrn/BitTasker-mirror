@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/svelte/src/internal/client/dom/task.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { run_all } from '../../shared/utils.js';\n\n// Fallback for when requestIdleCallback is not available\nconst request_idle_callback =\n\ttypeof requestIdleCallback === 'undefined'\n\t\t? (/** @type {() => void} */ cb) => setTimeout(cb, 1)\n\t\t: requestIdleCallback;\n\n/** @type {Array<() => void>} */\nlet micro_tasks = [];\n\n/** @type {Array<() => void>} */\nlet idle_tasks = [];\n\nfunction run_micro_tasks() {\n\tvar tasks = micro_tasks;\n\tmicro_tasks = [];\n\trun_all(tasks);\n}\n\nfunction run_idle_tasks() {\n\tvar tasks = idle_tasks;\n\tidle_tasks = [];\n\trun_all(tasks);\n}\n\n/**\n * @param {() => void} fn\n */\nexport function queue_micro_task(fn) {\n\tif (micro_tasks.length === 0) {\n\t\tqueueMicrotask(run_micro_tasks);\n\t}\n\n\tmicro_tasks.push(fn);\n}\n\n/**\n * @param {() => void} fn\n */\nexport function queue_idle_task(fn) {\n\tif (idle_tasks.length === 0) {\n\t\trequest_idle_callback(run_idle_tasks);\n\t}\n\n\tidle_tasks.push(fn);\n}\n\n/**\n * Synchronously run any queued tasks.\n */\nexport function flush_tasks() {\n\tif (micro_tasks.length > 0) {\n\t\trun_micro_tasks();\n\t}\n\n\tif (idle_tasks.length > 0) {\n\t\trun_idle_tasks();\n\t}\n}\n",
+      "start": 1754579495156,
+      "end": 1754579495295,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579495295,
+      "end": 1754579495295,
+      "order": "normal"
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/routes/(company)/security/+page.ts",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "\r\nimport type { PageLoad } from './$types';\r\n\r\n\r\nexport const load: PageLoad = async () => {\r\n\tconst seo = {\r\n\t\ttitle: 'Security & Safety - BitTasker | Bitcoin Platform Security',\r\n\t\tdescription: 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\tkeywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, multisig wallet security, cryptocurrency safety, user protection, secure payments',\r\n\t\tcanonical: 'https://bittasker.com/security',\r\n\t\togTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',\r\n\t\togDescription: 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\ttwitterTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',\r\n\t\ttwitterDescription: 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\tjsonLd: {\r\n\t\t\t'@context': 'https://schema.org',\r\n\t\t\t'@type': 'WebPage',\r\n\t\t\t'name': 'Security & Safety - BitTasker',\r\n\t\t\t'description': 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\t\t'url': 'https://bittasker.com/security',\r\n\r\n\t\t\t'mainEntity': {\r\n\t\t\t\t'@type': 'Article',\r\n\t\t\t\t'headline': 'Security & Safety - BitTasker Platform Protection',\r\n\t\t\t\t'description': 'Comprehensive security measures and best practices for Bitcoin transactions and user safety',\r\n\t\t\t\t'datePublished': '2024-01-15',\r\n\t\t\t\t'dateModified': '2024-01-15'\r\n\t\t\t}\r\n\t\t}\r\n\t};\r\n\r\n\treturn {\r\n\t\tseo\r\n\t};\r\n};\r\n",
+      "start": 1754579491386,
+      "end": 1754579491438,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "result": "import type { PageLoad } from \"./$types\";\r\n\r\nexport const load: PageLoad = async () => {\r\n    const seo = {\r\n        title: \"Security & Safety - BitTasker | Bitcoin Platform Security\",\r\n        description: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n        keywords: \"BitTasker security, Bitcoin security, platform safety, transaction security, multisig wallet security, cryptocurrency safety, user protection, secure payments\",\r\n        canonical: \"https://bittasker.com/security\",\r\n        ogTitle: \"Security & Safety - BitTasker | Bitcoin Security & Platform Safety\",\r\n        ogDescription: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n        twitterTitle: \"Security & Safety - BitTasker | Bitcoin Security & Platform Safety\",\r\n        twitterDescription: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n\r\n        jsonLd: {\r\n            \"@context\": \"https://schema.org\",\r\n            \"@type\": \"WebPage\",\r\n            \"name\": \"Security & Safety - BitTasker\",\r\n            \"description\": \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n            \"url\": \"https://bittasker.com/security\",\r\n\r\n            \"mainEntity\": {\r\n                \"@type\": \"Article\",\r\n                \"headline\": \"Security & Safety - BitTasker Platform Protection\",\r\n                \"description\": \"Comprehensive security measures and best practices for Bitcoin transactions and user safety\",\r\n                \"datePublished\": \"2024-01-15\",\r\n                \"dateModified\": \"2024-01-15\"\r\n            }\r\n        }\r\n    };\r\n\r\n    return {\r\n        seo\r\n    };\r\n};",
+      "start": 1754579491438,
+      "end": 1754579491995,
+      "order": "pre",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(company)/security/+page.ts"
+        ],
+        "sourcesContent": [
+          "\r\nimport type { PageLoad } from './$types';\r\n\r\n\r\nexport const load: PageLoad = async () => {\r\n\tconst seo = {\r\n\t\ttitle: 'Security & Safety - BitTasker | Bitcoin Platform Security',\r\n\t\tdescription: 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\tkeywords: 'BitTasker security, Bitcoin security, platform safety, transaction security, multisig wallet security, cryptocurrency safety, user protection, secure payments',\r\n\t\tcanonical: 'https://bittasker.com/security',\r\n\t\togTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',\r\n\t\togDescription: 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\ttwitterTitle: 'Security & Safety - BitTasker | Bitcoin Security & Platform Safety',\r\n\t\ttwitterDescription: 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\tjsonLd: {\r\n\t\t\t'@context': 'https://schema.org',\r\n\t\t\t'@type': 'WebPage',\r\n\t\t\t'name': 'Security & Safety - BitTasker',\r\n\t\t\t'description': 'Learn about BitTasker\\'s security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.',\r\n\t\t\t'url': 'https://bittasker.com/security',\r\n\r\n\t\t\t'mainEntity': {\r\n\t\t\t\t'@type': 'Article',\r\n\t\t\t\t'headline': 'Security & Safety - BitTasker Platform Protection',\r\n\t\t\t\t'description': 'Comprehensive security measures and best practices for Bitcoin transactions and user safety',\r\n\t\t\t\t'datePublished': '2024-01-15',\r\n\t\t\t\t'dateModified': '2024-01-15'\r\n\t\t\t}\r\n\t\t}\r\n\t};\r\n\r\n\treturn {\r\n\t\tseo\r\n\t};\r\n};\r\n"
+        ],
+        "names": [],
+        "mappings": "AAAA;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACzC;AACA;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACd,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC7K,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC9C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACnL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACrF,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACxL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACX,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACtB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpL,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAC3C;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACvB,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACpE,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACjH,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAClC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AAChC,CAAC,CAAC,CAAC,CAAC;AACJ,CAAC,CAAC,CAAC;AACH,CAAC,CAAC,CAAC;AACH;AACA,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC,CAAC;AACT,CAAC,CAAC,CAAC,CAAC,CAAC;AACL,CAAC,CAAC,CAAC;AACH,CAAC,CAAC;"
+      }
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579491995,
+      "end": 1754579491995,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579491995,
+      "end": 1754579491995,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "result": "export const load = async () => {\n  const seo = {\n    title: \"Security & Safety - BitTasker | Bitcoin Platform Security\",\n    description: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\n    keywords: \"BitTasker security, Bitcoin security, platform safety, transaction security, multisig wallet security, cryptocurrency safety, user protection, secure payments\",\n    canonical: \"https://bittasker.com/security\",\n    ogTitle: \"Security & Safety - BitTasker | Bitcoin Security & Platform Safety\",\n    ogDescription: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\n    twitterTitle: \"Security & Safety - BitTasker | Bitcoin Security & Platform Safety\",\n    twitterDescription: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\n    jsonLd: {\n      \"@context\": \"https://schema.org\",\n      \"@type\": \"WebPage\",\n      \"name\": \"Security & Safety - BitTasker\",\n      \"description\": \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\n      \"url\": \"https://bittasker.com/security\",\n      \"mainEntity\": {\n        \"@type\": \"Article\",\n        \"headline\": \"Security & Safety - BitTasker Platform Protection\",\n        \"description\": \"Comprehensive security measures and best practices for Bitcoin transactions and user safety\",\n        \"datePublished\": \"2024-01-15\",\n        \"dateModified\": \"2024-01-15\"\n      }\n    }\n  };\n  return {\n    seo\n  };\n};\n",
+      "start": 1754579491996,
+      "end": 1754579492236,
+      "order": "normal",
+      "sourcemaps": {
+        "version": 3,
+        "sources": [
+          "E:/projects/upw/Bittasker/src/routes/(company)/security/+page.ts"
+        ],
+        "sourcesContent": [
+          "import type { PageLoad } from \"./$types\";\r\n\r\nexport const load: PageLoad = async () => {\r\n    const seo = {\r\n        title: \"Security & Safety - BitTasker | Bitcoin Platform Security\",\r\n        description: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n        keywords: \"BitTasker security, Bitcoin security, platform safety, transaction security, multisig wallet security, cryptocurrency safety, user protection, secure payments\",\r\n        canonical: \"https://bittasker.com/security\",\r\n        ogTitle: \"Security & Safety - BitTasker | Bitcoin Security & Platform Safety\",\r\n        ogDescription: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n        twitterTitle: \"Security & Safety - BitTasker | Bitcoin Security & Platform Safety\",\r\n        twitterDescription: \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n\r\n        jsonLd: {\r\n            \"@context\": \"https://schema.org\",\r\n            \"@type\": \"WebPage\",\r\n            \"name\": \"Security & Safety - BitTasker\",\r\n            \"description\": \"Learn about BitTasker's security measures, Bitcoin safety practices, and platform protection features. Discover how we keep your transactions and data secure.\",\r\n            \"url\": \"https://bittasker.com/security\",\r\n\r\n            \"mainEntity\": {\r\n                \"@type\": \"Article\",\r\n                \"headline\": \"Security & Safety - BitTasker Platform Protection\",\r\n                \"description\": \"Comprehensive security measures and best practices for Bitcoin transactions and user safety\",\r\n                \"datePublished\": \"2024-01-15\",\r\n                \"dateModified\": \"2024-01-15\"\r\n            }\r\n        }\r\n    };\r\n\r\n    return {\r\n        seo\r\n    };\r\n};"
+        ],
+        "mappings": "AAEO,aAAM,OAAiB,YAAY;AACtC,QAAM,MAAM;AAAA,IACR,OAAO;AAAA,IACP,aAAa;AAAA,IACb,UAAU;AAAA,IACV,WAAW;AAAA,IACX,SAAS;AAAA,IACT,eAAe;AAAA,IACf,cAAc;AAAA,IACd,oBAAoB;AAAA,IAEpB,QAAQ;AAAA,MACJ,YAAY;AAAA,MACZ,SAAS;AAAA,MACT,QAAQ;AAAA,MACR,eAAe;AAAA,MACf,OAAO;AAAA,MAEP,cAAc;AAAA,QACV,SAAS;AAAA,QACT,YAAY;AAAA,QACZ,eAAe;AAAA,QACf,iBAAiB;AAAA,QACjB,gBAAgB;AAAA,MACpB;AAAA,IACJ;AAAA,EACJ;AAEA,SAAO;AAAA,IACH;AAAA,EACJ;AACJ;",
+        "names": []
+      }
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579492236,
+      "end": 1754579492236,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579492237,
+      "end": 1754579492237,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579492237,
+      "end": 1754579492237,
+      "order": "normal"
+    }
+  ]
+}

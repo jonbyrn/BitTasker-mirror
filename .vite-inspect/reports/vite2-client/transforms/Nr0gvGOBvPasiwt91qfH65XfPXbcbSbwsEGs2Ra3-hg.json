@@ -1,0 +1,108 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/runed/dist/utilities/use-debounce/use-debounce.svelte.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "/**\n * Function that takes a callback, and returns a debounced version of it.\n * When calling the debounced function, it will wait for the specified time\n * before calling the original callback. If the debounced function is called\n * again before the time has passed, the timer will be reset.\n *\n * You can await the debounced function to get the value when it is eventually\n * called.\n *\n * The second parameter is the time to wait before calling the original callback.\n * Alternatively, it can also be a getter function that returns the time to wait.\n *\n * @see {@link https://runed.dev/docs/utilities/use-debounce}\n *\n * @param callback The callback to call when the time has passed.\n * @param wait The length of time to wait in ms, defaults to 250.\n */\nexport function useDebounce(callback, wait = 250) {\n    let context = $state(null);\n    function debounced(...args) {\n        if (context) {\n            // Old context will be reused so callers awaiting the promise will get the\n            // new value\n            if (context.timeout) {\n                clearTimeout(context.timeout);\n            }\n        }\n        else {\n            // No old context, create a new one\n            let resolve;\n            let reject;\n            const promise = new Promise((res, rej) => {\n                resolve = res;\n                reject = rej;\n            });\n            context = {\n                timeout: null,\n                runner: null,\n                promise,\n                resolve: resolve,\n                reject: reject,\n            };\n        }\n        context.runner = async () => {\n            // Grab the context and reset it\n            // -> new debounced calls will create a new context\n            if (!context)\n                return;\n            const ctx = context;\n            context = null;\n            try {\n                ctx.resolve(await callback.apply(this, args));\n            }\n            catch (error) {\n                ctx.reject(error);\n            }\n        };\n        context.timeout = setTimeout(context.runner, typeof wait === \"function\" ? wait() : wait);\n        return context.promise;\n    }\n    debounced.cancel = async () => {\n        if (!context || context.timeout === null) {\n            // Wait one event loop to see if something triggered the debounced function\n            await new Promise((resolve) => setTimeout(resolve, 0));\n            if (!context || context.timeout === null)\n                return;\n        }\n        clearTimeout(context.timeout);\n        context.reject(\"Cancelled\");\n        context = null;\n    };\n    debounced.runScheduledNow = async () => {\n        if (!context || !context.timeout) {\n            // Wait one event loop to see if something triggered the debounced function\n            await new Promise((resolve) => setTimeout(resolve, 0));\n            if (!context || !context.timeout)\n                return;\n        }\n        clearTimeout(context.timeout);\n        context.timeout = null;\n        await context.runner?.();\n    };\n    Object.defineProperty(debounced, \"pending\", {\n        enumerable: true,\n        get() {\n            return !!context?.timeout;\n        },\n    });\n    return debounced;\n}\n",
+      "start": 1754579497865,
+      "end": 1754579497910,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579497910,
+      "end": 1754579497911,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579497911,
+      "end": 1754579497911,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "result": "/* use-debounce.svelte.js generated by Svelte v5.30.1 */\nimport * as $ from 'svelte/internal/client';\n\n/**\n * Function that takes a callback, and returns a debounced version of it.\n * When calling the debounced function, it will wait for the specified time\n * before calling the original callback. If the debounced function is called\n * again before the time has passed, the timer will be reset.\n *\n * You can await the debounced function to get the value when it is eventually\n * called.\n *\n * The second parameter is the time to wait before calling the original callback.\n * Alternatively, it can also be a getter function that returns the time to wait.\n *\n * @see {@link https://runed.dev/docs/utilities/use-debounce}\n *\n * @param callback The callback to call when the time has passed.\n * @param wait The length of time to wait in ms, defaults to 250.\n */\nexport function useDebounce(callback, wait = 250) {\n\tlet context = $.state(null);\n\n\tfunction debounced(...args) {\n\t\tif ($.get(context)) {\n\t\t\t// Old context will be reused so callers awaiting the promise will get the\n\t\t\t// new value\n\t\t\tif ($.get(context).timeout) {\n\t\t\t\tclearTimeout($.get(context).timeout);\n\t\t\t}\n\t\t} else {\n\t\t\t// No old context, create a new one\n\t\t\tlet resolve;\n\t\t\tlet reject;\n\n\t\t\tconst promise = new Promise((res, rej) => {\n\t\t\t\tresolve = res;\n\t\t\t\treject = rej;\n\t\t\t});\n\n\t\t\t$.set(\n\t\t\t\tcontext,\n\t\t\t\t{\n\t\t\t\t\ttimeout: null,\n\t\t\t\t\trunner: null,\n\t\t\t\t\tpromise,\n\t\t\t\t\tresolve,\n\t\t\t\t\treject\n\t\t\t\t},\n\t\t\t\ttrue\n\t\t\t);\n\t\t}\n\n\t\t$.get(context).runner = async () => {\n\t\t\t// Grab the context and reset it\n\t\t\t// -> new debounced calls will create a new context\n\t\t\tif (!$.get(context)) return;\n\n\t\t\tconst ctx = $.get(context);\n\n\t\t\t$.set(context, null);\n\n\t\t\ttry {\n\t\t\t\tctx.resolve(await callback.apply(this, args));\n\t\t\t} catch(error) {\n\t\t\t\tctx.reject(error);\n\t\t\t}\n\t\t};\n\n\t\t$.get(context).timeout = setTimeout($.get(context).runner, typeof wait === \"function\" ? wait() : wait);\n\t\treturn $.get(context).promise;\n\t}\n\n\tdebounced.cancel = async () => {\n\t\tif (!$.get(context) || $.get(context).timeout === null) {\n\t\t\t// Wait one event loop to see if something triggered the debounced function\n\t\t\tawait new Promise((resolve) => setTimeout(resolve, 0));\n\t\t\tif (!$.get(context) || $.get(context).timeout === null) return;\n\t\t}\n\n\t\tclearTimeout($.get(context).timeout);\n\t\t$.get(context).reject(\"Cancelled\");\n\t\t$.set(context, null);\n\t};\n\n\tdebounced.runScheduledNow = async () => {\n\t\tif (!$.get(context) || !$.get(context).timeout) {\n\t\t\t// Wait one event loop to see if something triggered the debounced function\n\t\t\tawait new Promise((resolve) => setTimeout(resolve, 0));\n\t\t\tif (!$.get(context) || !$.get(context).timeout) return;\n\t\t}\n\n\t\tclearTimeout($.get(context).timeout);\n\t\t$.get(context).timeout = null;\n\t\tawait $.get(context).runner?.();\n\t};\n\n\tObject.defineProperty(debounced, \"pending\", {\n\t\tenumerable: true,\n\t\tget() {\n\t\t\treturn !!$.get(context)?.timeout;\n\t\t}\n\t});\n\n\treturn debounced;\n}",
+      "start": 1754579497911,
+      "end": 1754579497914,
+      "order": "post",
+      "sourcemaps": {
+        "version": 3,
+        "names": [],
+        "sources": [
+          "use-debounce.svelte.js"
+        ],
+        "sourcesContent": [
+          "/**\n * Function that takes a callback, and returns a debounced version of it.\n * When calling the debounced function, it will wait for the specified time\n * before calling the original callback. If the debounced function is called\n * again before the time has passed, the timer will be reset.\n *\n * You can await the debounced function to get the value when it is eventually\n * called.\n *\n * The second parameter is the time to wait before calling the original callback.\n * Alternatively, it can also be a getter function that returns the time to wait.\n *\n * @see {@link https://runed.dev/docs/utilities/use-debounce}\n *\n * @param callback The callback to call when the time has passed.\n * @param wait The length of time to wait in ms, defaults to 250.\n */\nexport function useDebounce(callback, wait = 250) {\n    let context = $state(null);\n    function debounced(...args) {\n        if (context) {\n            // Old context will be reused so callers awaiting the promise will get the\n            // new value\n            if (context.timeout) {\n                clearTimeout(context.timeout);\n            }\n        }\n        else {\n            // No old context, create a new one\n            let resolve;\n            let reject;\n            const promise = new Promise((res, rej) => {\n                resolve = res;\n                reject = rej;\n            });\n            context = {\n                timeout: null,\n                runner: null,\n                promise,\n                resolve: resolve,\n                reject: reject,\n            };\n        }\n        context.runner = async () => {\n            // Grab the context and reset it\n            // -> new debounced calls will create a new context\n            if (!context)\n                return;\n            const ctx = context;\n            context = null;\n            try {\n                ctx.resolve(await callback.apply(this, args));\n            }\n            catch (error) {\n                ctx.reject(error);\n            }\n        };\n        context.timeout = setTimeout(context.runner, typeof wait === \"function\" ? wait() : wait);\n        return context.promise;\n    }\n    debounced.cancel = async () => {\n        if (!context || context.timeout === null) {\n            // Wait one event loop to see if something triggered the debounced function\n            await new Promise((resolve) => setTimeout(resolve, 0));\n            if (!context || context.timeout === null)\n                return;\n        }\n        clearTimeout(context.timeout);\n        context.reject(\"Cancelled\");\n        context = null;\n    };\n    debounced.runScheduledNow = async () => {\n        if (!context || !context.timeout) {\n            // Wait one event loop to see if something triggered the debounced function\n            await new Promise((resolve) => setTimeout(resolve, 0));\n            if (!context || !context.timeout)\n                return;\n        }\n        clearTimeout(context.timeout);\n        context.timeout = null;\n        await context.runner?.();\n    };\n    Object.defineProperty(debounced, \"pending\", {\n        enumerable: true,\n        get() {\n            return !!context?.timeout;\n        },\n    });\n    return debounced;\n}\n"
+        ],
+        "mappings": ";;;;;;;;;;;;;;;;;;;;gBAiBgB,WAAW,CAAC,QAAQ,EAAE,IAAI,GAAG,GAAG,EAAE,CAAC;KAC3C,OAAO,WAAU,IAAI;;UAChB,SAAS,IAAI,IAAI,EAAE,CAAC;YACrB,OAAO,GAAE,CAAC;;;aAGN,OAAO,EAAC,OAAO,EAAE,CAAC;IAClB,YAAY,OAAC,OAAO,EAAC,OAAO;GAChC,CAAC;EACL,CAAC,MACI,CAAC;;OAEE,OAAO;OACP,MAAM;;SACJ,OAAO,OAAO,OAAO,EAAE,GAAG,EAAE,GAAG,KAAK,CAAC;IACvC,OAAO,GAAG,GAAG;IACb,MAAM,GAAG,GAAG;GAChB,CAAC;;;IACD,OAAO;;KACH,OAAO,EAAE,IAAI;KACb,MAAM,EAAE,IAAI;KACZ,OAAO;KACE,OAAO;KACR,MAAM;;;;EAEtB,CAAC;;QACD,OAAO,EAAC,MAAM,eAAe,CAAC;;;cAGrB,OAAO;;SAEN,GAAG,SAAG,OAAO;;SACnB,OAAO,EAAG,IAAI;;OACV,CAAC;IACD,GAAG,CAAC,OAAO,OAAO,QAAQ,CAAC,KAAK,CAAC,IAAI,EAAE,IAAI;GAC/C,CAAC,OACM,KAAK,EAAE,CAAC;IACX,GAAG,CAAC,MAAM,CAAC,KAAK;GACpB,CAAC;EACL,CAAC;;QACD,OAAO,EAAC,OAAO,GAAG,UAAU,OAAC,OAAO,EAAC,MAAM,SAAS,IAAI,KAAK,UAAU,GAAG,IAAI,KAAK,IAAI;eAChF,OAAO,EAAC,OAAO;CAC1B,CAAC;;CACD,SAAS,CAAC,MAAM,eAAe,CAAC;aACvB,OAAO,WAAI,OAAO,EAAC,OAAO,KAAK,IAAI,EAAE,CAAC;;aAE7B,OAAO,EAAE,OAAO,KAAK,UAAU,CAAC,OAAO,EAAE,CAAC;cAC/C,OAAO,WAAI,OAAO,EAAC,OAAO,KAAK,IAAI;EAE5C,CAAC;;EACD,YAAY,OAAC,OAAO,EAAC,OAAO;QAC5B,OAAO,EAAC,MAAM,CAAC,WAAW;QAC1B,OAAO,EAAG,IAAI;CAClB,CAAC;;CACD,SAAS,CAAC,eAAe,eAAe,CAAC;aAChC,OAAO,YAAK,OAAO,EAAC,OAAO,EAAE,CAAC;;aAErB,OAAO,EAAE,OAAO,KAAK,UAAU,CAAC,OAAO,EAAE,CAAC;cAC/C,OAAO,YAAK,OAAO,EAAC,OAAO;EAEpC,CAAC;;EACD,YAAY,OAAC,OAAO,EAAC,OAAO;QAC5B,OAAO,EAAC,OAAO,GAAG,IAAI;cAChB,OAAO,EAAC,MAAM;CACxB,CAAC;;CACD,MAAM,CAAC,cAAc,CAAC,SAAS,EAAE,SAAS;EACtC,UAAU,EAAE,IAAI;EAChB,GAAG,GAAG,CAAC;kBACM,OAAO,GAAE,OAAO;EAC7B,CAAC;;;QAEE,SAAS;AACpB,CAAC"
+      }
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579497914,
+      "end": 1754579497914,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579497914,
+      "end": 1754579497914,
+      "order": "normal"
+    }
+  ]
+}

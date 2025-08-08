@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/node_modules/date-fns/eachWeekendOfInterval.js",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "import { normalizeInterval } from \"./_lib/normalizeInterval.js\";\nimport { constructFrom } from \"./constructFrom.js\";\nimport { eachDayOfInterval } from \"./eachDayOfInterval.js\";\nimport { isWeekend } from \"./isWeekend.js\";\n\n/**\n * The {@link eachWeekendOfInterval} function options.\n */\n\n/**\n * The {@link eachWeekendOfInterval} function result type.\n */\n\n/**\n * @name eachWeekendOfInterval\n * @category Interval Helpers\n * @summary List all the Saturdays and Sundays in the given date interval.\n *\n * @description\n * Get all the Saturdays and Sundays in the given date interval.\n *\n * @typeParam IntervalType - Interval type.\n * @typeParam Options - Options type.\n *\n * @param interval - The given interval\n * @param options - An object with options\n *\n * @returns An array containing all the Saturdays and Sundays\n *\n * @example\n * // Lists all Saturdays and Sundays in the given date interval\n * const result = eachWeekendOfInterval({\n *   start: new Date(2018, 8, 17),\n *   end: new Date(2018, 8, 30)\n * })\n * //=> [\n * //   Sat Sep 22 2018 00:00:00,\n * //   Sun Sep 23 2018 00:00:00,\n * //   Sat Sep 29 2018 00:00:00,\n * //   Sun Sep 30 2018 00:00:00\n * // ]\n */\nexport function eachWeekendOfInterval(interval, options) {\n  const { start, end } = normalizeInterval(options?.in, interval);\n  const dateInterval = eachDayOfInterval({ start, end }, options);\n  const weekends = [];\n  let index = 0;\n  while (index < dateInterval.length) {\n    const date = dateInterval[index++];\n    if (isWeekend(date)) weekends.push(constructFrom(start, date));\n  }\n  return weekends;\n}\n\n// Fallback for modularized imports:\nexport default eachWeekendOfInterval;\n",
+      "start": 1754579494882,
+      "end": 1754579494903,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494903,
+      "end": 1754579494903,
+      "order": "normal"
+    }
+  ]
+}

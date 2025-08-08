@@ -1,0 +1,96 @@
+{
+  "resolvedId": "E:/projects/upw/Bittasker/src/lib/i18n/locales/es/taskees/fee.json",
+  "transforms": [
+    {
+      "name": "vite:load-fallback",
+      "result": "{\r\n    \"fees\": {\r\n        \"title\": \"Tarifas y Precios para Taskees\",\r\n        \"subtitle\": \"Precios simples y transparentes diseñados para premiar a los taskees leales\",\r\n        \"structure\": {\r\n            \"title\": \"Estructura de Tarifas para Taskees\",\r\n            \"description\": \"En BitTasker, creemos en recompensar la lealtad. Cuantas más tareas completes, menos pagarás en tarifas. Nuestro sistema de niveles dinámico garantiza que los taskees más activos disfruten de las mejores tarifas.\",\r\n            \"note\": \"<strong>¡Ahorra mientras usas BitTasker!</strong> Nuestro sistema de niveles recompensa a los taskees activos con tarifas cada vez más bajas.\"\r\n        },\r\n        \"tiers\": {\r\n            \"1\": {\r\n                \"badge\": \"Nivel 1\",\r\n                \"title\": \"Nakamoto<br />Principiante\",\r\n                \"criteria\": \"Para taskees que completan de 0 a 3 tareas en los últimos 30 días\",\r\n                \"fee_label\": \"Tarifa\",\r\n                \"fee_rate\": \"12.5%\",\r\n                \"example\": \"Ejemplo: Por una tarea de $100, recibirás $87.50 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).\"\r\n            },\r\n            \"2\": {\r\n                \"badge\": \"Nivel 2\",\r\n                \"title\": \"Satoshi<br />Acumulador\",\r\n                \"criteria\": \"Para taskees que completan entre 4 y 10 tareas en los últimos 30 días\",\r\n                \"fee_label\": \"Tarifa\",\r\n                \"fee_rate\": \"10%\",\r\n                \"example\": \"Ejemplo: Por una tarea de $100, recibirás $90 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).\"\r\n            },\r\n            \"3\": {\r\n                \"badge\": \"Nivel 3\",\r\n                \"title\": \"Hash<br />Master\",\r\n                \"criteria\": \"Para los taskees más activos con más de 11 tareas en los últimos 30 días\",\r\n                \"fee_label\": \"Tarifa\",\r\n                \"fee_rate\": \"7.5%\",\r\n                \"example\": \"Ejemplo: Por una tarea de $100, recibirás $92.50 (menos $0.05-$0.10 en comisiones de red, no pagadas a BitTasker).\"\r\n            }\r\n        },\r\n        \"bitcoin\": {\r\n            \"title\": \"Pagos en Bitcoin: Conserva más de lo que ganas\",\r\n            \"description\": \"¡Gana aún más cuando los taskers pagan con Bitcoin! Ofrecemos tarifas reducidas para transacciones en Bitcoin.\",\r\n            \"table\": {\r\n                \"header\": {\r\n                    \"tier\": \"Nivel de Taskee\",\r\n                    \"rate\": \"Tarifa con Bitcoin\",\r\n                    \"improvement\": \"Mejora frente al estándar\"\r\n                },\r\n                \"row\": {\r\n                    \"1\": {\r\n                        \"tier\": \"Nakamoto Newbie\",\r\n                        \"rate\": \"2.5%\",\r\n                        \"improvement\": \"¡Conserva un 10% más!\"\r\n                    },\r\n                    \"2\": {\r\n                        \"tier\": \"Satoshi Stacker\",\r\n                        \"rate\": \"2%\",\r\n                        \"improvement\": \"¡Conserva un 8% más!\"\r\n                    },\r\n                    \"3\": {\r\n                        \"tier\": \"Hash Master\",\r\n                        \"rate\": \"1.5%\",\r\n                        \"improvement\": \"¡Conserva un 6% más!\"\r\n                    }\r\n                }\r\n            },\r\n            \"example\": \"<strong>Ejemplo con Bitcoin:</strong> Como taskee del nivel <strong class=\\\"text-primary\\\">Hash Master</strong>, una tarea de $100 pagada con Bitcoin te dejaría $98.50 en lugar de $92.50.\"\r\n        },\r\n        \"repeat\": {\r\n            \"title\": \"Bono por Repetición de Tasker\",\r\n            \"description\": \"Establece relaciones sólidas con los taskers y disfruta de tarifas significativamente reducidas en trabajos repetidos.\"\r\n        },\r\n        \"benefits\": {\r\n            \"title\": \"Beneficios y Visibilidad para Taskees\",\r\n            \"description\": \"Los taskees de nivel superior disfrutan de beneficios adicionales además de tarifas reducidas:\",\r\n            \"item_1\": \"<strong>Mayor Visibilidad:</strong> Los taskees de nivel superior aparecen en los primeros resultados de búsqueda\",\r\n            \"item_2\": \"<strong>Reconocimiento con Insignias:</strong> Gana distintivos prestigiosos que se muestran en tu perfil\",\r\n            \"item_3\": \"<strong>Prioridad en Ofertas:</strong> Tus propuestas se destacan y se priorizan en las bandejas de entrada de los taskees\",\r\n            \"item_4\": \"<strong>Ventaja Competitiva:</strong> Al comparar taskees similares, los taskers pueden ver tu nivel, dándote una ventaja\"\r\n        },\r\n        \"maintenance\": {\r\n            \"title\": \"Ascenso y Mantenimiento de Nivel\",\r\n            \"description\": \"Tu nivel se calcula en función de tu actividad en los últimos 30 días y se actualiza a diario. Cuantas más tareas completes, mayor será tu nivel y menores tus tarifas.\"\r\n        },\r\n        \"cta\": {\r\n            \"title\": \"¿Listo para comenzar a ganar con las tarifas más competitivas del sector?\",\r\n            \"button\": \"Únete a BitTasker Hoy\"\r\n        },\r\n        \"repeat_bonus\": {\r\n            \"title\": \"¡Taskers Recurrentes = Más Ganancias!\",\r\n            \"description\": \"Cuando un tasker te contrata para una tarea repetida:\",\r\n            \"item_1\": \"Pagos estándar: Solo <strong>3% de tarifa</strong> (antes 7.5–12.5%)\",\r\n            \"item_2\": \"Pagos en Bitcoin: Solo <strong>1% de tarifa</strong> (antes 1.5–2.5%)\",\r\n            \"note_1\": \"Ejemplo: Por una tarea repetida de $100, ganarás $97 con pago estándar o $99 con Bitcoin.\",\r\n            \"note_2\": \"Las tareas repetidas con un tasker cuentan para mantener tu nivel en el período móvil de 30 días.\"\r\n        }\r\n    }\r\n}",
+      "start": 1754579494794,
+      "end": 1754579494807,
+      "sourcemaps": null
+    },
+    {
+      "name": "houdini",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "pre"
+    },
+    {
+      "name": "@tailwindcss/vite:generate:build",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "pre"
+    },
+    {
+      "name": "vite-plugin-svelte",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "pre"
+    },
+    {
+      "name": "vite:esbuild",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal"
+    },
+    {
+      "name": "vite:worker",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:define",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:build-html",
+      "start": 1754579494807,
+      "end": 1754579494807,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:worker-import-meta-url",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:asset-import-meta-url",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:dynamic-import-vars",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:import-glob",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite-plugin-svelte-module",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "post"
+    },
+    {
+      "name": "vite:build-import-analysis",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal-normal"
+    },
+    {
+      "name": "vite:reporter",
+      "start": 1754579494808,
+      "end": 1754579494808,
+      "order": "normal"
+    }
+  ]
+}
