@@ -358,7 +358,7 @@
 						: usernameAvailable && username
 							? 'input-success'
 							: ''}"
-					placeholder="Choose a username"
+					placeholder={$t('onboarding_auth.form.username_choose')}
 					required
 				/>
 				{#if usernameError}

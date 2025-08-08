@@ -48,16 +48,21 @@
         "portfolio": {
             "title": "Portafolio",
             "add_project": "Agregar Proyecto",
+            "edit_project": "Editar Proyecto",
             "no_items": "Aún no hay elementos en el portafolio. Agrega algunos proyectos para mostrar tu trabajo.",
             "project_title": "Título del Proyecto",
             "project_title_placeholder": "ej. Desarrollo de Sitio Web Básico",
             "description": "Descripción",
             "description_placeholder": "Describe tu proyecto, tu rol y los resultados...",
-            "completion_date": "Fecha de Finalización",
-            "skills_used": "Habilidades Utilizadas",
+            "tags": "Etiquetas del Proyecto",
+            "tags_placeholder": "Agrega etiquetas relevantes",
             "images": "Imágenes del Proyecto",
             "images_desc": "Requerido • La primera imagen será la principal",
-            "add_images": "Agregar Imágenes"
+            "delete_confirm": "¿Estás seguro de que quieres eliminar este proyecto?",
+            "completion_date": "Fecha de Finalización",
+            "skills_used": "Habilidades Utilizadas",
+            "add_images": "Agregar Imágenes",
+            "save": "Guardar Proyecto"
         },
         "availability": {
             "timezone": "Tu Zona Horaria",

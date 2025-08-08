@@ -267,7 +267,7 @@
 						</figure>
 						<div class="card-body">
 							<h2 class="card-title">{item.title}</h2>
-							<p class="text-base-content/70">{item.description}</p>
+							<p class="text-base-content/70 line-clamp-4">{item.description}</p>
 
 							{#if skills && skills.length > 0 && item.skills && item.skills.length > 0}
 								<div class="mt-4 flex flex-wrap gap-2">
@@ -404,10 +404,6 @@
 
 					<!-- Completion Date -->
 					<div class="form-control">
-						<label class="label" for="completionDate">
-							<span class="label-text font-medium">{$t('profile.portfolio.completion_date')}</span>
-							<span class="label-text-alt">({$t('common.required')})</span>
-						</label>
 						<DatePicker
 							label={$t('profile.portfolio.completion_date')}
 							value={completionDate}
@@ -435,7 +431,9 @@
 					<!-- Images -->
 					<div class="form-control space-y-2">
 						<div>
-							<span class="text-base-content/80 block font-medium">{$t('profile.portfolio.images')}</span>
+							<span class="text-base-content/80 block font-medium"
+								>{$t('profile.portfolio.images')}</span
+							>
 							<span class="text-base-content/70 block">{$t('profile.portfolio.images_desc')}</span>
 						</div>
 
@@ -465,9 +463,11 @@
 
 					<!-- Form Actions -->
 					<div class="flex justify-end gap-2">
-						<button class="btn btn-ghost btn-outline" onclick={resetForm}> {$t('common.cancel')} </button>
+					
 						{#if editingItem}
-							<button class="btn btn-ghost btn-outline" onclick={resetForm}> {$t('common.cancel')} </button>
+							<button class="btn btn-ghost btn-outline" onclick={resetForm}>
+								{$t('common.cancel')}
+							</button>
 						{/if}
 						<button class="btn btn-primary" onclick={handleSubmit} disabled={isLoading}>
 							{#if isLoading}
