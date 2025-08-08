@@ -16,11 +16,7 @@
 		walletRates,
 		walletTransactions
 	} from '$lib/stores/wallet.store';
-	import PasskeyVerification from './PasskeyVerification.svelte';
-	import AssetSelector from '../AssetSelector.svelte';
-	import RecipientInput from './RecipientInput.svelte';
-	import AmountInput from './AmountInput.svelte';
-	import FeeSelection from './FeeSelection.svelte';
+	import { getAssetId } from '$lib/constants/assets';
 	import { estimateFees } from '$lib/wallet/breez/feeEstimation';
 	import { validateForm } from '$lib/wallet/breez/formValidation';
 	import {
@@ -34,10 +30,11 @@
 		executeLnurlPayment,
 		detectMagicRoutingHints
 	} from '$lib/wallet/breez/walletService';
-
-	import { getCurrentNetwork, getAssetId } from '$lib/constants/assets';
-
-	import { goto } from '$app/navigation';
+	import PasskeyVerification from './PasskeyVerification.svelte';
+	import AssetSelector from '../AssetSelector.svelte';
+	import RecipientInput from './RecipientInput.svelte';
+	import AmountInput from './AmountInput.svelte';
+	import FeeSelection from './FeeSelection.svelte';
 
 	// UI State (keep local since these are component-specific)
 	let showPasskeyVerification = $state(false);
@@ -407,8 +404,6 @@
 
 			// Show success message
 			showSuccessMessage(result);
-
-			goto('/dashboard/wallet/transactions');
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : 'Transaction failed'
 			walletStore.updateSendForm({
