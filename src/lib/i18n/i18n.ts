@@ -48,9 +48,12 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 	}
 
 	try {
-		const pathToFile = `./locales/${locale}/${namespace}.json`;
-		const translations = await import(/* @vite-ignore */ pathToFile);
-		const data = translations.default;
+		// Fetch JSON as static asset instead of dynamic import
+		const response = await fetch(`/locales/${locale}/${namespace}.json`);
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+		}
+		const data = await response.json();
 
 		// Cache the result
 		translationCache.set(cacheKey, data);
