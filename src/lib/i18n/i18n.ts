@@ -49,7 +49,7 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 
 	try {
 		const pathToFile = `./locales/${locale}/${namespace}.json`;
-		const translations = await import(pathToFile);
+		const translations = await import(/* @vite-ignore */ pathToFile);
 		const data = translations.default;
 
 		// Cache the result
@@ -100,23 +100,19 @@ export function getNamespacesForRoute(route: string): string[] {
 
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
-		namespaces.push('dashboard/dashboard');
+		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 
 		if (route.includes('/profile')) {
-			namespaces.push('dashboard/profile/profile', 'dashboard/profile/personal');
+			namespaces.push('dashboard/profile/profile', 'dashboard/profile/personal', 'dashboard/profile/availability');
 		}
 		if (route.includes('/wallet')) {
 			namespaces.push('dashboard/wallet');
 		}
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find');
+			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations');
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create');
-		}
-		// TODO: Task [id] route is removed - Checkout usage of info.json file
-		if (route.includes('/task/')) {
-			namespaces.push('dashboard/tasks/info');
 		}
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');

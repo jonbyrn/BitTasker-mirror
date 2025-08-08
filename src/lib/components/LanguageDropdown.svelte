@@ -135,7 +135,6 @@
 			<li>
 				<button
 					class="flex w-full items-center gap-2 text-left"
-					class:loading={isLanguageLoading}
 					disabled={isLanguageLoading}
 					onclick={() => handleLanguageChange(code as SupportedLanguage)}
 					class:bg-base-200={code === $locale}
