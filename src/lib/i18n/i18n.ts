@@ -121,6 +121,9 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
+                if (route.includes('/feedback')) {
+                        namespaces.push('dashboard/feedback');
+                }
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
