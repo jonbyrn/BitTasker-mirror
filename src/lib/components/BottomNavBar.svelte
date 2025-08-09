@@ -340,7 +340,7 @@ onDestroy(() => {
                             <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
                                 <a href="/feedback" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
                                     <IconCommentTextOutline class="text-primary" />
-                                    <span class="font-medium">Feedback</span>
+                                    <span class="font-medium">{$t('navbar.feedback')}</span>
                                 </a>
                             </li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>

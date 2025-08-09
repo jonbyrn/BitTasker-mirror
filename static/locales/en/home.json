@@ -78,7 +78,8 @@
         "close_menu": "Close menu",
         "help": "Help",
         "logout": "Logout",
-        "settings": "Settings"
+        "settings": "Settings",
+        "feedback": "Feedback"
     },
     "homepage": {
         "title": "Hello, World!",

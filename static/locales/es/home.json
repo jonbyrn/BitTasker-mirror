@@ -78,7 +78,8 @@
         "close_menu": "Cerrar menú",
         "help": "Ayuda",
         "logout": "Cerrar",
-        "settings": "Configuración"
+        "settings": "Configuración",
+        "feedback": "Comentarios"
     },
     "homepage": {
         "title": "¡Hola Mundo!",
