@@ -78,6 +78,25 @@
                 "answer_2": "In addition, there are network transaction fees when sending Bitcoin or USDT. These fees are charged by the blockchain network (Liquid, Bitcoin, or Lightning, depending on how you're sending the payment) and are not under our control, nor do we receive them. For the Liquid and Lightning networks, these fees are typically very small, typically $0.01 or less."
             }
         },
+        "nostr": {
+            "title": "Nostr",
+            "0": {
+                "question": "What is Nostr?",
+                "answer": "Nostr is an open, censorship-resistant social and messaging protocol. Instead of accounts on a company server, you use a public key (npub) as your identity and sign your messages with your private key (nsec). Your data can be relayed through many servers (relays), so no single party controls your account or content."
+            },
+            "1": {
+                "question": "How do I own my data with Nostr?",
+                "answer": "With Nostr, your identity is your key pair. You sign your posts and messages client-side, and they propagate through independent relays. You can change relays or use several at once without losing access to your identity or contacts, because your npub stays the same. This portability means you—not a platform—own your data and social graph."
+            },
+            "2": {
+                "question": "How is Nostr secured?",
+                "answer": "Security comes from public‑key cryptography. Your npub is a public identifier; your nsec is kept secret and used to sign events. Anyone can verify a message was created by you without learning your private key. Because relays don’t need to be trusted, the protocol remains resilient even if individual relays go offline or censor content."
+            },
+            "3": {
+                "question": "How do you protect my Nostr private key (nsec)?",
+                "answer": "By default, your nsec never leaves your device. We encrypt it client‑side using strong AES‑GCM with a key derived from a device secret or passkey/biometrics, and we only decrypt it in memory when needed to sign. If you use Alby or another browser key manager, we never access your private key at all—signing happens in the extension or wallet. You can also log out to clear local session data at any time."
+            }
+        },
         "safety": {
             "title": "Trust & Safety",
             "0": {

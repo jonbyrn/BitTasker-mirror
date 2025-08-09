@@ -82,6 +82,25 @@
                 "answer": "Sí, puedes cancelar una tarea en cualquier momento. Si la cancelas antes de que comience el trabajo, recibirás un reembolso completo. Si el trabajo ya ha comenzado, es posible que debas pagar una parte según el progreso realizado."
             }
         },
+        "nostr": {
+            "title": "Nostr",
+            "0": {
+                "question": "¿Qué es Nostr?",
+                "answer": "Nostr es un protocolo abierto y resistente a la censura para redes sociales y mensajería. En lugar de cuentas en el servidor de una empresa, usas una clave pública (npub) como identidad y firmas tus mensajes con tu clave privada (nsec). Tus datos pueden retransmitirse a través de muchos servidores (relays), por lo que ninguna parte controla tu cuenta o contenido."
+            },
+            "1": {
+                "question": "¿Cómo soy dueño de mis datos con Nostr?",
+                "answer": "En Nostr, tu identidad es tu par de claves. Firmas tus publicaciones y mensajes en el dispositivo, y se propagan a través de relays independientes. Puedes cambiar de relays o usar varios a la vez sin perder tu identidad ni contactos, porque tu npub sigue siendo el mismo. Esta portabilidad significa que tú—no una plataforma—posees tus datos y tu grafo social."
+            },
+            "2": {
+                "question": "¿Cómo se asegura Nostr?",
+                "answer": "La seguridad proviene de la criptografía de clave pública. Tu npub es un identificador público; tu nsec se mantiene en secreto y se usa para firmar eventos. Cualquiera puede verificar que un mensaje fue creado por ti sin conocer tu clave privada. Como los relays no necesitan ser de confianza, el protocolo sigue siendo resistente incluso si algunos relays se caen o censuran contenido."
+            },
+            "3": {
+                "question": "¿Cómo protegen mi clave privada de Nostr (nsec)?",
+                "answer": "Por defecto, tu nsec nunca sale de tu dispositivo. La ciframos localmente con AES‑GCM fuerte usando una clave derivada de un secreto del dispositivo o passkey/biometría, y solo la desciframos en memoria cuando es necesario para firmar. Si usas Alby u otro gestor de claves del navegador, nunca accedemos a tu clave privada: el firmado ocurre en la extensión o billetera. También puedes cerrar sesión para limpiar los datos de sesión locales en cualquier momento."
+            }
+        },
         "safety": {
             "title": "Confianza y Seguridad",
             "0": {
