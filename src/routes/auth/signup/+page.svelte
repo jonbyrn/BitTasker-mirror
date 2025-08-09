@@ -105,16 +105,16 @@
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
-	<div class="card bg-base-100 w-full p-4 shadow-xl">
+	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
 		<div class="flex flex-col items-center justify-center">
 			<Logo class="w-auto" />
 			<h1 class="mt-6 text-center text-2xl font-bold">{$t('signup.title')}</h1>
 			<br />
-			<p class="mx-auto space-y-2 text-center">
-				<span class="text-base-content/70 mt-3 block text-center text-sm">
+			<p class="mx-auto space-y-2 text-center px-6">
+				<span class="text-base-content mb-10 block text-center text-lg">
 					{$t('signup.subtitle')}
 				</span>
-				<span class="text-base-content/70 block text-center text-sm">
+				<span class="text-base-content my-10 block text-center text-lg">
 					{$t('signup.description')}
 					<a
 						href="https://getalby.com"
@@ -123,7 +123,7 @@
 						class="text-primary hover:underline">{$t('login.alby_connect')}</a
 					> {$t('login.account')}.
 				</span>
-				<span class="text-base-content/70 block text-center text-sm">
+				<span class="text-base-content my-10 block text-center text-lg">
 					{$t('signup.nostr_info')}
 					<a
 						href="https://nostr.com"
@@ -169,7 +169,7 @@
 				</div>
 
 				<button
-					class="btn btn-primary"
+					class="btn btn-primary mt-4"
 					onclick={() => goto('/auth/onboarding')}
 					disabled={isLoading || !$isCaptchaVerified}
 				>
