@@ -74,6 +74,32 @@
       "recurring_details": "Detalles de la tarea recurrente",
       "recurring_details_placeholder": "Describe tu tarea recurrente en detalle",
       "recurring_schedule": "Horario de la tarea recurrente",
-      "recurring_frequency": "¿Con qué frecuencia debe repetirse esta tarea?"
+      "recurring_frequency": "¿Con qué frecuencia debe repetirse esta tarea?",
+      "errors": {
+        "title_required": "El título es obligatorio",
+        "date_range_required": "Debes seleccionar una fecha de inicio o fin",
+        "date_range_future": "El rango de fechas debe estar en el futuro",
+        "deadline_future": "La fecha límite debe estar en el futuro",
+        "category_required": "Se requiere al menos una categoría",
+        "skill_required": "Se requiere al menos una habilidad",
+        "pickup_required": "La ubicación de recogida es obligatoria para esta tarea",
+        "dropoff_required": "La ubicación de entrega es obligatoria para esta tarea",
+        "location_required": "La ubicación es obligatoria para esta tarea",
+        "budget_required": "Se requiere un presupuesto válido",
+        "estimated_hours_required": "Las horas estimadas deben ser mayores que 0",
+        "description_required": "La descripción es obligatoria",
+        "description_min_length": "La descripción debe tener al menos 20 caracteres",
+        "create_failed": "No se pudo crear la tarea. Inténtalo de nuevo."
+      },
+      "upload": {
+        "too_many_files": "Solo puedes subir hasta 5 archivos",
+        "background_uploading": "Subiendo archivos en segundo plano...",
+        "files_uploaded": "¡Archivos subidos correctamente!",
+        "upload_failed": "No se pudieron subir algunos archivos. Puedes intentar subirlos nuevamente en la revisión."
+      },
+      "success": {
+        "created": "¡Tarea creada correctamente!",
+        "updated": "¡Tarea actualizada correctamente!"
+      }
     }
   }

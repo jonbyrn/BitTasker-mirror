@@ -6,6 +6,8 @@ import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import { NotificationFrequency } from '$lib/utils/enums/task.enum';
 import KINDS from '$lib/utils/constants/kinds';
+import { t } from 'svelte-i18n';
+import { get as getStore } from 'svelte/store';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -67,7 +69,7 @@ export async function saveSearch(
         // Publish single event to the relay
         await Promise.any(pool.publish(RELAYS, savedSearchEvent));
 
-        appStore.showSuccessToast('Search saved successfully');
+        appStore.showSuccessToast(getStore(t)('profile_task.success.save_search'));
 
         return {
             id: searchId,
@@ -81,7 +83,7 @@ export async function saveSearch(
         };
     } catch (error) {
         console.error('Error saving search:', error);
-        appStore.showErrorToast('Error saving search');
+        appStore.showErrorToast(getStore(t)('profile_task.errors.save_search'));
         throw error;
     }
 }

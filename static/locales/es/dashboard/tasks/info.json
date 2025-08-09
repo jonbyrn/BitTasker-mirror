@@ -120,6 +120,62 @@
     "profile_task": {
       "no_saved_searches": "Aún no hay búsquedas guardadas",
       "saved_searches_info": "Guarda tus criterios de búsqueda para recibir notificaciones cuando se publiquen tareas que coincidan.",
-      "saved_searches_title": "Tus búsquedas guardadas"
+      "saved_searches_title": "Tus búsquedas guardadas",
+      "retry": "Reintentar",
+      "new_matching_tasks": "Nuevas tareas coincidentes",
+      "unread_new_label": "nuevas",
+      "budget_tier_label": "Nivel de presupuesto",
+      "created_label": "Creada",
+      "notifications_off": "Notificaciones desactivadas",
+      "notifications_on": "Notificaciones activadas",
+      "actions": {
+        "edit_saved_search": "Editar búsqueda guardada",
+        "delete_saved_search": "Eliminar búsqueda guardada"
+      },
+      "confirm_delete": {
+        "title": "Confirmar eliminación",
+        "message": "¿Seguro que deseas eliminar esta búsqueda guardada? Esta acción no se puede deshacer.",
+        "cancel": "Cancelar",
+        "delete": "Eliminar"
+      },
+      "errors": {
+        "load_saved_searches": "Error al cargar las búsquedas guardadas. Inténtalo de nuevo.",
+        "delete_saved_search": "No se pudo eliminar la búsqueda guardada.",
+        "update_notification_settings": "No se pudieron actualizar las notificaciones.",
+        "mark_notifications_read": "No se pudieron marcar las notificaciones como leídas.",
+        "save_search": "Error al guardar la búsqueda"
+      },
+      "success": {
+        "delete_saved_search": "Búsqueda guardada eliminada correctamente.",
+        "update_notification_settings": "Ajustes de notificaciones actualizados.",
+        "mark_notifications_read": "Notificaciones marcadas como leídas.",
+        "update_saved_search": "Búsqueda guardada actualizada.",
+        "save_search": "Búsqueda guardada correctamente"
+      },
+      "notification_frequency": {
+        "immediate": "Inmediata",
+        "daily": "Resumen diario",
+        "weekly": "Resumen semanal"
+      },
+      "form": {
+        "title_update": "Actualizar búsqueda guardada",
+        "title_create": "Guardar búsqueda",
+        "submit_update": "Actualizar búsqueda",
+        "submit_create": "Guardar búsqueda",
+        "criteria_title": "Criterios de búsqueda:",
+        "search_name_label": "Nombre de la búsqueda",
+        "search_name_placeholder": "Nombra tu búsqueda",
+        "notify_on_match": "Notifícame cuando se publiquen nuevas tareas que coincidan",
+        "active_label": "Búsqueda activa",
+        "inactive_hint": "Las búsquedas inactivas no aparecerán en tu panel",
+        "notification_frequency_label": "Frecuencia de notificaciones",
+        "select_frequency_placeholder": "Selecciona la frecuencia",
+        "cancel": "Cancelar",
+        "saving": "Guardando...",
+        "errors": {
+          "name_required": "Por favor ingresa un nombre para tu búsqueda.",
+          "save_failed": "No se pudo guardar la búsqueda. Inténtalo de nuevo."
+        }
+      }
     }
   }

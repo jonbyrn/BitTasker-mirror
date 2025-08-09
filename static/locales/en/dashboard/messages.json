@@ -15,6 +15,24 @@
       "start_conversation": "Start a conversation with someone",
       "no_conversations_found": "No conversations found",
       "try_different_search": "Try a different search term",
-      "clear_search": "Clear search"
+      "clear_search": "Clear search",
+      "failed_load_conversations": "Failed to load conversations",
+      "invalid_npub_format": "Invalid npub format",
+      "invalid_pubkey_format": "Invalid public key format",
+      "failed_fetch_profile": "Failed to fetch profile",
+      "toggle_new_message_modal": "Toggle new message modal",
+      "new_message_placeholder": "npub1... or hex public key",
+      "unknown_user": "Unknown User",
+      "close_modal": "Close modal",
+      "you": "You",
+      "failed_load_messages": "Failed to load messages",
+      "failed_send_message": "Failed to send message",
+      "chat_messages_aria": "Chat messages",
+      "loading_messages": "Loading messages...",
+      "loading_older_messages": "Loading older messages...",
+      "load_older_messages": "Load older messages",
+      "type_message_placeholder": "Type a message...",
+      "send_message": "Send message",
+      "characters": "characters"
     }
   }

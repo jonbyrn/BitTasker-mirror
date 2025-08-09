@@ -95,54 +95,54 @@
 		errors = {};
 		switch ($store.currentStep) {
 			case 'basics':
-				if (!$store.task.title?.trim()) errors.title = 'Title is required';
+				if (!$store.task.title?.trim()) errors.title = $t('task.errors.title_required');
 				if ($store.task.dateRange) {
 					if (!$store.task.dateRange.end && !$store.task.dateRange.start) {
-						errors.deadline = 'You must select a start or an end date';
+						errors.deadline = $t('task.errors.date_range_required');
 					}
 					if (
 						new Date($store.task.dateRange.end) < new Date() ||
 						new Date($store.task.dateRange.start) < new Date() ||
 						new Date($store.task.dateRange.end) < new Date($store.task.dateRange.start)
 					) {
-						errors.deadline = 'Date range must be in the future';
+						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
 				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
-					errors.deadline = 'Deadline must be in the future';
+					errors.deadline = $t('task.errors.deadline_future');
 				if ($store.task?.categories?.length === 0)
-					errors.category = 'At least one category is required';
-				if ($store.task?.skills?.length === 0) errors.skill = 'At least one skill is required';
+					errors.category = $t('task.errors.category_required');
+				if ($store.task?.skills?.length === 0) errors.skill = $t('task.errors.skill_required');
 				break;
 			case 'location':
 				if ($store.isRemovals) {
 					if (!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude) {
-						errors.location = 'Pickup location is required for this task';
+						errors.location = $t('task.errors.pickup_required');
 					}
 					if (!$store.task.dropOffLocation?.latitude || !$store.task.dropOffLocation?.longitude) {
-						errors.location = 'Drop-off location is required for this task';
+						errors.location = $t('task.errors.dropoff_required');
 					}
 				}
 				if (
 					$store.task.taskType === TaskTypeEnum.IN_PERSON &&
 					(!$store.task.pickupLocation?.latitude || !$store.task.pickupLocation?.longitude)
 				) {
-					errors.location = 'Location is required for this task';
+					errors.location = $t('task.errors.location_required');
 				}
 				break;
 			case 'budget':
 				if (!$store.task.budget.amount || $store.task.budget.amount <= 0) {
-					errors.budget = 'Valid budget is required';
+					errors.budget = $t('task.errors.budget_required');
 				}
 				if (
 					$store.task.budget.type === BudgetTypeEnum.HOURLY &&
 					(!$store.task.budget.estimatedHours || $store.task.budget.estimatedHours <= 0)
 				) {
-					errors.estimatedHours = 'Estimated hours must be greater than 0';
+					errors.estimatedHours = $t('task.errors.estimated_hours_required');
 				}
-				if (!$store.task.description?.trim()) errors.description = 'Description is required';
+				if (!$store.task.description?.trim()) errors.description = $t('task.errors.description_required');
 				if ($store.task.description?.trim().length < 20)
-					errors.description = 'Description must be at least 20 characters long';
+					errors.description = $t('task.errors.description_min_length');
 				break;
 			case 'taskboost':
 				// Task boost step doesn't need validation as it's optional
@@ -190,14 +190,14 @@
 
 		// Start image upload in the background if we're in the location step
 		if ($store.currentStep === TaskStepEnum.LOCATION) {
-			if (newFiles.length !== 0) {
+				if (newFiles.length !== 0) {
 				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
-					appStore.showErrorToast('You can only upload up to 5 files');
+						appStore.showErrorToast($t('task.upload.too_many_files'));
 					return;
 				}
 
 				// Show upload started toast
-				appStore.showInfoToast('Uploading files in background...');
+					appStore.showInfoToast($t('task.upload.background_uploading'));
 
 				// Start upload in background
 				uploadFiles(newFiles)
@@ -205,13 +205,11 @@
 						$store.task.attachments = [...($store.task.attachments || []), ...uploadedFiles];
 						newFiles = [];
 						store.saveDraft();
-						appStore.showSuccessToast('Files uploaded successfully!');
+							appStore.showSuccessToast($t('task.upload.files_uploaded'));
 					})
 					.catch((error) => {
 						console.error('Failed to upload files:', error);
-						appStore.showErrorToast(
-							'Failed to upload some files. You can try uploading them again in the review step.'
-						);
+							appStore.showErrorToast($t('task.upload.upload_failed'));
 					});
 			}
 
@@ -247,12 +245,12 @@
 		try {
 			const isUpdating = page.url.searchParams.get('edit') === 'true';
 
-			if (isUpdating) {
+				if (isUpdating) {
 				signedEventId = await updateTask($store.id, task);
 
 				// TODO: Handle update recurring task
 
-				appStore.showSuccessToast('Task updated successfully!');
+					appStore.showSuccessToast($t('task.success.updated'));
 				page.url.searchParams.delete('edit');
 				goto(page.url.pathname);
 			} else {
@@ -264,15 +262,15 @@
 					signedEventId = await createTask(task);
 				}
 
-				appStore.showSuccessToast('Task created successfully!');
+					appStore.showSuccessToast($t('task.success.created'));
 			}
 
 			await store.clearDraft();
 			goto('/dashboard');
-		} catch (error) {
+			} catch (error) {
 			console.error('Error creating task:', error);
-			if (error instanceof Error) errors.general = error.message;
-			else errors.general = 'Failed to create task. Please try again.';
+				if (error instanceof Error) errors.general = error.message;
+				else errors.general = $t('task.errors.create_failed');
 		} finally {
 			isSubmitting = false;
 			// Trigger saved search checks in the background (non-blocking)

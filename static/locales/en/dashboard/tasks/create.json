@@ -74,6 +74,32 @@
       "recurring_details": "Recurring Task Details",
       "recurring_details_placeholder": "Describe your recurring task in detail",
       "recurring_schedule": "Recurring Task Schedule",
-      "recurring_frequency": "How often should this task repeat?"
+      "recurring_frequency": "How often should this task repeat?",
+      "errors": {
+        "title_required": "Title is required",
+        "date_range_required": "You must select a start or an end date",
+        "date_range_future": "Date range must be in the future",
+        "deadline_future": "Deadline must be in the future",
+        "category_required": "At least one category is required",
+        "skill_required": "At least one skill is required",
+        "pickup_required": "Pickup location is required for this task",
+        "dropoff_required": "Drop-off location is required for this task",
+        "location_required": "Location is required for this task",
+        "budget_required": "Valid budget is required",
+        "estimated_hours_required": "Estimated hours must be greater than 0",
+        "description_required": "Description is required",
+        "description_min_length": "Description must be at least 20 characters long",
+        "create_failed": "Failed to create task. Please try again."
+      },
+      "upload": {
+        "too_many_files": "You can only upload up to 5 files",
+        "background_uploading": "Uploading files in background...",
+        "files_uploaded": "Files uploaded successfully!",
+        "upload_failed": "Failed to upload some files. You can try uploading them again in the review step."
+      },
+      "success": {
+        "created": "Task created successfully!",
+        "updated": "Task updated successfully!"
+      }
     }
   }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { addMessages, init, locale, getLocaleFromNavigator } from 'svelte-i18n';
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
