@@ -33,6 +33,17 @@
       "load_older_messages": "Cargar mensajes anteriores",
       "type_message_placeholder": "Escribe un mensaje...",
       "send_message": "Enviar mensaje",
-      "characters": "caracteres"
+      "characters": "caracteres",
+      "search_messages": "Buscar mensajes...",
+      "case_sensitive": "Sensible a mayúsculas",
+      "whole_words_only": "Solo palabras completas",
+      "from_date": "Desde fecha",
+      "to_date": "Hasta fecha",
+      "searching": "Buscando...",
+      "no_messages_found": "No se encontraron mensajes para \"{query}\"",
+      "unknown": "Desconocido",
+      "score": "Puntuación: {score}",
+      "clear_search_aria": "Limpiar búsqueda",
+      "advanced_search_options_aria": "Opciones de búsqueda avanzada"
     }
   }

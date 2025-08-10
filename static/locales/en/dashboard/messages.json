@@ -33,6 +33,17 @@
       "load_older_messages": "Load older messages",
       "type_message_placeholder": "Type a message...",
       "send_message": "Send message",
-      "characters": "characters"
+      "characters": "characters",
+      "search_messages": "Search messages...",
+      "case_sensitive": "Case sensitive",
+      "whole_words_only": "Whole words only",
+      "from_date": "From date",
+      "to_date": "To date",
+      "searching": "Searching...",
+      "no_messages_found": "No messages found for \"{query}\"",
+      "unknown": "Unknown",
+      "score": "Score: {score}",
+      "clear_search_aria": "Clear search",
+      "advanced_search_options_aria": "Advanced search options"
     }
   }

@@ -463,8 +463,7 @@
 						/>
 					</svg>
 					<span>
-						If you already have a private key on Nostr, you can import it here and use it. If not,
-						we'll generate one for you.
+						{$t('onboarding_auth.form.nostr_key_info')}
 					</span>
 				</div>
 			{/if}

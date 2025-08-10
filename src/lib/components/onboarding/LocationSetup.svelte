@@ -464,7 +464,7 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Error saving location:', err);
-			error = err instanceof Error ? err.message : 'Error saving location';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_saving_location');
 		} finally {
 			isLoading = false;
 		}

@@ -35,11 +35,11 @@
 	function checkCompletionStatus() {
 		const missing: string[] = [];
 
-		if (!profile.displayName) missing.push('Display Name');
-		if (!profile.professionalTitle) missing.push('Professional Title');
-		if (!profile.about) missing.push('About');
-		if (!profile.picture) missing.push('Profile Picture');
-		if (!profile.location || !profile.location?.locationLoaded) missing.push('Location');
+		if (!profile.displayName) missing.push($t('onboarding_auth.form.display_name_field'));
+		if (!profile.professionalTitle) missing.push($t('onboarding_auth.form.professional_title_field'));
+		if (!profile.about) missing.push($t('onboarding_auth.form.about_field'));
+		if (!profile.picture) missing.push($t('onboarding_auth.form.profile_picture_field'));
+		if (!profile.location || !profile.location?.locationLoaded) missing.push($t('onboarding_auth.form.location_field'));
 
 		missingFields = missing;
 		isComplete = missing.length === 0;

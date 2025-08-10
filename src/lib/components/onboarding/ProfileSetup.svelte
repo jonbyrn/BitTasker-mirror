@@ -351,7 +351,7 @@
 				<div class="form-control">
 					<label class="label" for="profileDescription">
 						<span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
-						<span class="label-text-alt">{profileDescription.length}/200 min</span>
+						<span class="label-text-alt">{profileDescription.length}/200 {$t('onboarding_auth.form.min_characters')}</span>
 					</label>
 					<textarea
 						id="profileDescription"
