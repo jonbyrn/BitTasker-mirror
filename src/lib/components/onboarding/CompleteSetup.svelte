@@ -13,6 +13,7 @@
 	// Completion status
 	let isLoading = $state(true);
 	let isRedirecting = $state(false);
+	let isContinueLoading = $state(false);
 	let isComplete = $state(false);
 	let missingFields = $state<string[]>([]);
 	let error = $state('');
@@ -169,6 +170,22 @@
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
 						{$t('onboarding_auth.form.restart_setup')}
 					</button>
+					<button 
+						class="btn btn-secondary w-full" 
+						onclick={() => {
+							isContinueLoading = true;
+							goto('/dashboard/find-tasks').finally(() => {
+								isContinueLoading = false;
+							});
+						}}
+						disabled={isContinueLoading}
+					>
+						{#if isContinueLoading}
+							<span class="loading loading-spinner loading-sm"></span>
+							Loading...
+						{:else}
+							Continue without completing
+						{/if}
 					<button class="btn btn-secondary w-full" onclick={() => goto('/dashboard/find-tasks')}>
 						{$t('onboarding_auth.form.continue_without_completing')}
 					</button>
@@ -176,6 +193,38 @@
 			</div>
 		{:else}
 			<div class="flex flex-col items-center space-y-4 text-center">
+				<!-- Educational Header -->
+				<div class="education-header mb-6 text-center">
+					<div class="step-indicator text-sm font-medium text-primary mb-2">Step 7 of 7</div>
+					<h2 class="step-title text-2xl font-bold mb-3">
+						<span class="mr-2">🎉</span>
+						Welcome to BitTasker!
+					</h2>
+					<p class="step-description text-base-content/70 mb-6">
+						Your account is ready! You're now part of the Bitcoin-native task marketplace.
+					</p>
+
+					<!-- Features List -->
+					<div class="features-list space-y-2 mb-6">
+						<div class="feature-item flex items-center justify-start gap-2 text-sm">
+							<span>✅</span>
+							<span><strong>Decentralized</strong> — your data, your control</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2 text-sm">
+							<span>✅</span>
+							<span><strong>Bitcoin-native</strong> — earn and pay in Bitcoin</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2 text-sm">
+							<span>✅</span>
+							<span><strong>Secure</strong> — Nostr protocol protection</span>
+						</div>
+						<div class="feature-item flex items-center justify-start gap-2 text-sm">
+							<span>✅</span>
+							<span><strong>Global</strong> — connect with users worldwide</span>
+						</div>
+					</div>
+				</div>
+
 				<div class="text-success mt-2">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -192,17 +241,14 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.your_account_is_ready')}</h2>
-				<p class="text-base-content/70">
-					{$t('onboarding_auth.form.you_have_successfully_completed_the_onboarding_process_and_your_bittasker_account_is_now_active')}
-				</p>
-				<div class="mt-2 space-y-2">
-					<p class="font-medium">{$t('onboarding_auth.form.whats_next')}</p>
-					<ul class="text-base-content/70 list-inside list-disc text-start text-sm">
-						<li>{$t('onboarding_auth.form.browse_available_tasks_or_create_your_own')}</li>
-						<li>{$t('onboarding_auth.form.complete_your_profile_to_attract_more_clients')}</li>
-						<li>{$t('onboarding_auth.form.set_up_your_payment_preferences')}</li>
-						<li>{$t('onboarding_auth.form.explore_the_platform_features')}</li>
+				
+				<div class="mt-4 space-y-2">
+					<p class="font-medium">What's next?</p>
+					<ul class="text-base-content/70 list-inside list-disc text-start text-sm space-y-1">
+						<li>Browse available tasks or create your own</li>
+						<li>Complete your profile to attract more clients</li>
+						<li>Set up your payment preferences</li>
+						<li>Explore the platform features</li>
 					</ul>
 				</div>
 				<button
@@ -216,8 +262,9 @@
 				>
 					{#if isRedirecting}
 						<span class="loading loading-spinner loading-sm"></span>
+						Loading...
 					{:else}
-						{$t('onboarding_auth.form.find_tasks')}
+						🚀 Start Exploring
 					{/if}
 				</button>
 			</div>

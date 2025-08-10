@@ -192,7 +192,9 @@
 		}
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		
 		try {
 			isLoading = true;
 			error = '';
@@ -285,6 +287,38 @@
 {:else}
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
+			<!-- Educational Header -->
+			<div class="education-header mb-6 text-center">
+				<div class="step-indicator text-sm font-medium text-primary mb-2 text-end">Step 5 of 7</div>
+				<h2 class="step-title !text-xl font-bold mb-3 mt-4">
+					<span class="mr-2">👤</span>
+					Build Your Profile
+				</h2>
+				<p class="step-description text-base-content/70 mb-6">
+					Help others know who you are and what services you offer on the decentralized marketplace.
+				</p>
+
+				<!-- Features List -->
+				<div class="features-list space-y-2 mb-6 text-start">
+					<div class="feature-item flex items-start justify-start gap-2 text-sm">
+						<span>✅</span>
+						<span><strong>Visible</strong> — others can see your expertise</span>
+					</div>
+					<div class="feature-item flex items-start justify-start gap-2 text-sm">
+						<span>✅</span>
+						<span><strong>Trustworthy</strong> — verified skills build reputation</span>
+					</div>
+					<div class="feature-item flex items-start justify-start gap-2 text-sm">
+						<span>✅</span>
+						<span><strong>Discoverable</strong> — better matching with tasks</span>
+					</div>
+					<div class="feature-item flex items-start justify-start gap-2 text-sm">
+						<span>✅</span>
+						<span><strong>Professional</strong> — showcase your experience</span>
+					</div>
+				</div>
+			</div>
+
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<!-- Profile Picture Upload -->
 				<div class="form-control mx-auto w-full">
@@ -371,12 +405,13 @@
 						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
 						<span class="label-text-alt">{skills.length}/20</span>
 					</label>
-					<div class="join w-full">
+					<div class="skills-input-group join w-full">
 						<input
 							type="text"
 							id="skills"
 							bind:value={skillsInput}
 							class="input input-bordered join-item flex-1"
+							style="border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important;"
 							placeholder={$t('onboarding_auth.form.add_skills')}
 							onkeydown={handleSkillKeypress}
 							disabled={saveForLater || skills.length >= 20}
@@ -471,3 +506,16 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	/* Fix skills input styling to create seamless connection with Add button */
+	.skills-input-group .input.join-item {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.skills-input-group .btn.join-item {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+</style>
