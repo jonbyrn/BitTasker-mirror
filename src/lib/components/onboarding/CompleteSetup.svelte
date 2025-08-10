@@ -186,9 +186,7 @@
 						{:else}
 							Continue without completing
 						{/if}
-					<button class="btn btn-secondary w-full" onclick={() => goto('/dashboard/find-tasks')}>
-						{$t('onboarding_auth.form.continue_without_completing')}
-					</button>
+				</button>
 				</div>
 			</div>
 		{:else}

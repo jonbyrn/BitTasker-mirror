@@ -7,6 +7,8 @@ import {
 	getWalletInfo, 
 	getAssetBalances, 
 	fetchFiatRates,
+	fetchLightningLimits,
+	fetchOnchainLimits,
 	isConnectedStore,
 	getTransactions,
 	paymentEventsStore,
@@ -336,7 +338,6 @@ async function loadFiatRates(): Promise<void> {
 // Load limits
 async function loadLimits(): Promise<void> {
 	try {
-		const { fetchLightningLimits, fetchOnchainLimits } = await import('$lib/wallet/breez/walletService');
 		const [lightningLimits, onchainLimits] = await Promise.all([
 			fetchLightningLimits(),
 			fetchOnchainLimits()

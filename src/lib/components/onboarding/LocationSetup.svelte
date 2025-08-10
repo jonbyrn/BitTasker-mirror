@@ -574,6 +574,8 @@
 				{/if}
 			</div>
 		</div>
+		<!-- Close first map container wrapper before starting the next section -->
+		</div>
 
 		<!-- Map Container -->
 		<div bind:this={mapContainerDiv} class="map-container relative">
