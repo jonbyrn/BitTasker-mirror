@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 
 export async function POST({ request, fetch, locals }) {
   const baseUrl = process.env.NOCODB_BASE_URL ?? 'https://tables.bittasker.com';
-  const apiToken = process.env.NOCODB_API_TOKEN ?? 'WJsulwLqpmexPLQjFhgI0v0GSO7Ep4AtD1te-bAY';
+  const apiToken = process.env.NOCODB_API_TOKEN ?? '';
   const tableId = process.env.NOCODB_FEEDBACK_TABLE_ID ?? 'm5ukz87c3bxhwm2';
 
   if (!apiToken) {
