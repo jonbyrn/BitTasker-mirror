@@ -81,7 +81,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
-					error = 'Failed to connect to Nostr relay. Please try again later.';
+					error = $t('onboarding_auth.form.failed_process_profile_update');
 				} finally {
 					isLoading = false;
 				}

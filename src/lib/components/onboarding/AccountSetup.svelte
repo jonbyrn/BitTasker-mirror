@@ -83,7 +83,7 @@
 
 	async function checkUsernameAvailability() {
 		if (!username) {
-			usernameError = 'Username is required';
+			usernameError = $t('onboarding_auth.form.username_required');
 			return;
 		}
 
@@ -110,10 +110,10 @@
 			usernameAvailable = data?.checkUsernameAvailability || false;
 
 			if (!usernameAvailable) {
-				usernameError = 'Username is already taken';
+				usernameError = $t('onboarding_auth.form.username_already_taken');
 			}
 		} catch (err) {
-			usernameError = 'Failed to check username availability';
+			usernameError = $t('onboarding_auth.form.failed_check_username_availability');
 			usernameAvailable = false;
 		} finally {
 			isCheckingUsername = false;
@@ -147,7 +147,7 @@
 			}
 
 			if (!credentialId) {
-				throw new Error('Failed to get credential ID');
+				throw new Error($t('onboarding_auth.form.failed_get_credential_id'));
 			}
 
 			// Register with server
@@ -191,8 +191,7 @@
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);
-			error = err instanceof Error ? err.message : 'Registration failed';
-			throw new Error(error);
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.registration_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -213,9 +212,9 @@
 
 			await authService.setupAccountRecoveryPassword(data);
 		} catch (err: unknown) {
-			appStore.showErrorToast(
-				err instanceof Error ? err.message : 'Failed to setup account recovery'
-			);
+			console.error('Failed to setup account recovery:', err);
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.failed_setup_account_recovery');
 		} finally {
 			isLoading = false;
 		}
@@ -274,7 +273,7 @@
 					// Convert nsec to hex format
 					const { type, data } = nip19.decode(privKey);
 					if (type !== 'nsec') {
-						nsecError = 'Invalid nsec format';
+						nsecError = $t('onboarding_auth.form.invalid_nsec_format');
 						return;
 					}
 					// Convert Uint8Array to hex
@@ -282,7 +281,7 @@
 					// Get public key
 					pubKey = getPublicKey(data);
 				} catch (err) {
-					nsecError = 'Invalid private key';
+					nsecError = $t('onboarding_auth.form.invalid_private_key');
 					return;
 				}
 			} else {
@@ -293,7 +292,7 @@
 			// Validate recovery password if enabled
 			if (enableRecovery) {
 				if (!recoveryEmail) {
-					emailError = 'Recovery email is required';
+					emailError = $t('onboarding_auth.form.recovery_email_required');
 					return;
 				}
 
@@ -304,12 +303,12 @@
 				}
 
 				if (!recoveryPassword) {
-					passwordError = 'Recovery password is required';
+					passwordError = $t('onboarding_auth.form.recovery_password_required');
 					return;
 				}
 
 				if (recoveryPassword !== confirmPassword) {
-					passwordError = 'Passwords do not match';
+					passwordError = $t('onboarding_auth.form.passwords_do_not_match');
 					return;
 				}
 
@@ -328,7 +327,7 @@
 			});
 		} catch (err: unknown) {
 			console.error('Account setup failed:', err);
-			error = err instanceof Error ? err.message : 'Account setup failed';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.account_setup_failed');
 		} finally {
 			isLoading = false;
 		}

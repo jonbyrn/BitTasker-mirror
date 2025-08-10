@@ -112,7 +112,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
-					error = 'Failed to connect to Nostr relay. Please try again later.';
+					error = $t('onboarding_auth.form.failed_process_profile_update');
 				} finally {
 					isInitialLoading = false;
 				}
@@ -144,7 +144,7 @@
 				await publishMultipleImages([uploadedPicture], imageEventId, 'profile-images');
 			} catch (uploadErr) {
 				console.error('File upload failed:', uploadErr);
-				error = 'File upload failed';
+				error = $t('onboarding_auth.form.file_upload_failed');
 				isLoading = false;
 				return;
 			} finally {
@@ -175,7 +175,7 @@
 			];
 			skillsInput = '';
 		} else {
-			error = 'Skill already exists or is too short';
+			error = $t('onboarding_auth.form.skill_already_exists_or_too_short');
 		}
 	}
 
@@ -201,18 +201,14 @@
 
 			// Validate display name
 			if (!displayName) {
-				nameError = 'Display name is required';
+				nameError = $t('onboarding_auth.form.display_name_required');
 				isLoading = false;
 				return;
 			}
 
 			// Validate profile description
-			if (
-				!saveForLater &&
-				(!profileDescription || profileDescription.length < 200 || profileDescription.length > 2000)
-			) {
-				descriptionError =
-					'Please provide a profile description (minimum 200 characters, max 2000 characters)';
+			if (!profileDescription) {
+				descriptionError = $t('onboarding_auth.form.profile_description_required');
 				isLoading = false;
 				return;
 			}

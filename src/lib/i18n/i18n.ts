@@ -5,7 +5,7 @@ import { get, writable } from 'svelte/store';
 import { Preferences } from '@capacitor/preferences';
 
 export const SUPPORTED_LANGUAGES = ['en', 'es'] as const;
-export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
+export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
 // Track loaded namespaces to avoid duplicate loads
 const loadedNamespaces = new Map<string, Set<string>>();
@@ -23,7 +23,10 @@ const getInitialLocale = async (): Promise<SupportedLanguage> => {
 	if (browser) {
 		// Check Preferences first
 		const storedLocale = await Preferences.get({ key: 'locale' });
-		if (storedLocale.value && SUPPORTED_LANGUAGES.includes(storedLocale.value as SupportedLanguage)) {
+		if (
+			storedLocale.value &&
+			SUPPORTED_LANGUAGES.includes(storedLocale.value as SupportedLanguage)
+		) {
 			return storedLocale.value as SupportedLanguage;
 		}
 
@@ -78,8 +81,11 @@ export async function loadNamespace(locale: SupportedLanguage, namespace: string
 /**
  * Load multiple namespaces at once
  */
-export async function loadNamespaces(locale: SupportedLanguage, namespaces: string[]): Promise<void> {
-	const loadPromises = namespaces.map(namespace => loadNamespace(locale, namespace));
+export async function loadNamespaces(
+	locale: SupportedLanguage,
+	namespaces: string[]
+): Promise<void> {
+	const loadPromises = namespaces.map((namespace) => loadNamespace(locale, namespace));
 	await Promise.allSettled(loadPromises);
 }
 
@@ -88,10 +94,7 @@ export async function loadNamespaces(locale: SupportedLanguage, namespaces: stri
  */
 async function loadEssentialTranslations(currentLocale: SupportedLanguage): Promise<void> {
 	// Only load critical translations needed for initial render
-	const essentialNamespaces = [
-		'home',
-		'common'
-	];
+	const essentialNamespaces = ['home', 'common'];
 
 	await loadNamespaces(currentLocale, essentialNamespaces);
 }
@@ -107,7 +110,11 @@ export function getNamespacesForRoute(route: string): string[] {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 
 		if (route.includes('/profile')) {
-			namespaces.push('dashboard/profile/profile', 'dashboard/profile/personal', 'dashboard/profile/availability');
+			namespaces.push(
+				'dashboard/profile/profile',
+				'dashboard/profile/personal',
+				'dashboard/profile/availability'
+			);
 		}
 		if (route.includes('/wallet')) {
 			namespaces.push('dashboard/wallet');
@@ -121,9 +128,6 @@ export function getNamespacesForRoute(route: string): string[] {
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
-                if (route.includes('/feedback')) {
-                        namespaces.push('dashboard/feedback');
-                }
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
 		}
@@ -150,6 +154,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/tasker-principles')) namespaces.push('taskees/principles');
 	if (route.includes('/escrow')) namespaces.push('taskers/scrow');
 	if (route.includes('/faq')) namespaces.push('taskees/faq');
+	if (route.includes('/feedback')) namespaces.push('dashboard/feedback');
 
 	return namespaces;
 }
@@ -157,10 +162,13 @@ export function getNamespacesForRoute(route: string): string[] {
 /**
  * Load route-specific translations dynamically
  */
-export async function loadRouteTranslations(route: string, currentLocale?: SupportedLanguage): Promise<void> {
+export async function loadRouteTranslations(
+	route: string,
+	currentLocale?: SupportedLanguage
+): Promise<void> {
 	if (!browser) return;
 
-	const targetLocale = currentLocale || await getInitialLocale();
+	const targetLocale = currentLocale || (await getInitialLocale());
 	const namespaces = getNamespacesForRoute(route);
 
 	if (namespaces.length > 0) {
@@ -186,12 +194,11 @@ export async function setupI18n(): Promise<void> {
 		init({
 			fallbackLocale: 'en',
 			initialLocale: currentLocale,
-			loadingDelay: 200,
+			loadingDelay: 200
 		});
 
 		// Set up locale persistence
 		await Preferences.set({ key: 'locale', value: get(locale) || 'en' });
-
 	} catch (error) {
 		console.error('Failed to setup i18n:', error);
 	} finally {
@@ -221,7 +228,6 @@ export async function switchLanguage(newLocale: SupportedLanguage): Promise<void
 		if (typeof window !== 'undefined') {
 			await loadRouteTranslations(window.location.pathname, newLocale);
 		}
-
 	} catch (error) {
 		console.error(`Failed to switch to locale ${newLocale}:`, error);
 	} finally {
@@ -237,9 +243,12 @@ export function preloadTranslations(locale: SupportedLanguage, namespaces: strin
 
 	// Use requestIdleCallback for non-blocking preload
 	if ('requestIdleCallback' in window) {
-		requestIdleCallback(() => {
-			loadNamespaces(locale, namespaces);
-		}, { timeout: 1000 });
+		requestIdleCallback(
+			() => {
+				loadNamespaces(locale, namespaces);
+			},
+			{ timeout: 1000 }
+		);
 	} else {
 		setTimeout(() => {
 			loadNamespaces(locale, namespaces);

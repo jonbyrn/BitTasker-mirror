@@ -63,13 +63,13 @@
 							googleMapsReady = true;
 							resolve();
 						} else {
-							reject(new Error('Google Maps API not initialized correctly'));
+							reject(new Error($t('onboarding_auth.form.google_maps_api_not_initialized')));
 						}
 					}, 500);
 				};
 
 				script.onerror = () => {
-					reject(new Error('Google Maps script failed to load'));
+					reject(new Error($t('onboarding_auth.form.google_maps_script_failed_load')));
 				};
 
 				document.head.appendChild(script);
@@ -81,7 +81,7 @@
 
 	async function initMap() {
 		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error('Google Maps not fully loaded yet');
+			throw new Error($t('onboarding_auth.form.google_maps_not_fully_loaded'));
 		}
 
 		try {
@@ -168,7 +168,7 @@
 			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
-			error = err instanceof Error ? err.message : 'Error initializing map';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_initializing_map');
 			hasError = true;
 		}
 	}
@@ -184,8 +184,7 @@
 			await tryInitMap();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			error = err instanceof Error ? err.message : 'Error loading Google Maps';
-			hasError = true;
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -226,7 +225,7 @@
 			}
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
-			error = err instanceof Error ? err.message : 'Error updating location';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_updating_location');
 		}
 	}
 
@@ -453,8 +452,8 @@
 
 			// Don't proceed if location isn't loaded yet (only when map is working)
 			if (location.latitude === null || location.longitude === null) {
-				error = 'Please select a location';
-				throw new Error('Please select a location');
+				error = $t('onboarding_auth.form.please_select_a_location');
+				throw new Error($t('onboarding_auth.form.please_select_a_location'));
 			}
 
 			// Publish location to Nostr
