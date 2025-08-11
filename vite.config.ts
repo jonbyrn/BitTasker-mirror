@@ -16,120 +16,120 @@ const isInspect = !!process.env.VITE_INSPECT
 
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
-export default defineConfig({
-	plugins: [
-		houdini(),
-		tailwindcss(),
-		sveltekit(),
-		wasm(),
-		topLevelAwait(),
-			Icons({
-			compiler: 'svelte',
-				autoInstall: false,
-			scale: 1.5,
-			defaultStyle: 'width: 1.5em; height: 1.5em;',
-			defaultClass: '',
-		}),
-			isInspect && Inspect({
-				build: true,
-				outputDir: '.vite-inspect'
-			}),
-			isAnalyze && visualizer({ open: false, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
-		].filter(Boolean),
-	define: {
-		__APP_VERSION__: JSON.stringify(pkg.version),
-		global: 'globalThis',
-		// Buffer: 'Buffer'
-	},
-	build: {
-		rollupOptions: {
-			output: {
-				// Use automatic chunk splitting instead of manual
-				manualChunks: undefined,
-				// Enable better chunk splitting
-				chunkFileNames: 'chunks/[name]-[hash].js',
-				entryFileNames: 'entry/[name]-[hash].js',
-				// Prevent WASM files from being inlined or mangled
-				assetFileNames: (assetInfo) => {
-					if (assetInfo.name && assetInfo.name.endsWith('.wasm')) {
-						return 'assets/[name].[ext]';
-					}
-					return 'assets/[name]-[hash].[ext]';
-				}
-			}
-		},
-		chunkSizeWarningLimit: 500, // Lower threshold to catch more issues
-        // Faster minification
-        minify: 'esbuild',
+export default defineConfig((env) => {
+    const isSsr = (env as any).isSsrBuild === true || env.mode === 'ssr' || process.argv.includes('--ssr');
 
-		// Ensure WASM files are copied correctly in production
-		assetsInlineLimit: 0,
-		target: 'es2020'
-	},
-	optimizeDeps: {
-		// Force include heavy dependencies for better optimization
-		include: [
-			'date-fns',
-			'zod',
-			'axios',
-			'swiper',
-			'buffer',
-			'bitcoinjs-lib',
-			'bip32',
-			'bip39',
-			'crypto-browserify',
-			'stream-browserify',
-			'path-browserify',
-			'process'
-		],
-		// Exclude the main firebase package to avoid resolution issues with v11
-		exclude: [
-			'firebase',
-			'@breeztech/breez-sdk-liquid/web',
-			'@breeztech/breez-sdk-liquid'
-		],
-		// Force esbuild to handle Firebase v11 modules
-		esbuildOptions: {
-			// Ensure WASM files are handled properly
-			target: 'es2020',
-			define: {
-				global: 'globalThis',
-				Buffer: 'Buffer'
-			},
-			// Ensure proper module resolution for Firebase v11
-			mainFields: ['module', 'main'],
-			resolveExtensions: ['.mjs', '.js', '.ts', '.json']
-		}
-	},
-	server: {
-		fs: {
-			// Allow serving files from node_modules
-			allow: ['node_modules']
-		},
-		allowedHosts: true,
-		proxy: {
-			'/api': {
-				target: 'http://uo0s8c4sw488kwg0ko44kg8g.production.bittasker.hedgehackers.finance',
-				changeOrigin: true,
-				secure: false // Allow insecure requests
-			}
-		}
-	},
-	resolve: {
-		alias: {
-			buffer: 'buffer',
-			crypto: 'crypto-browserify',
-			stream: 'stream-browserify',
-			path: 'path-browserify',
-			process: 'process/browser'
-		}
-	},
-	// Ensure proper WASM loading in web workers
-	worker: {
-		format: 'es',
-		plugins: () => [wasm(), topLevelAwait()]
-	},
-	// test: {
+    const basePlugins = [sveltekit()];
+    const browserPlugins = [
+        houdini(),
+        tailwindcss(),
+        wasm(),
+        topLevelAwait(),
+        Icons({
+            compiler: 'svelte',
+            autoInstall: false,
+            scale: 1.5,
+            defaultStyle: 'width: 1.5em; height: 1.5em;',
+            defaultClass: '',
+        }),
+        isInspect && Inspect({ build: true, outputDir: '.vite-inspect' }),
+        isAnalyze && visualizer({ open: false, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
+    ].filter(Boolean);
+
+    return {
+        plugins: isSsr ? basePlugins : [...browserPlugins, ...basePlugins],
+        define: {
+            __APP_VERSION__: JSON.stringify(pkg.version),
+            global: 'globalThis',
+        },
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks: undefined,
+                    chunkFileNames: 'chunks/[name]-[hash].js',
+                    entryFileNames: 'entry/[name]-[hash].js',
+                    assetFileNames: (assetInfo) => {
+                        if (assetInfo.name && assetInfo.name.endsWith('.wasm')) {
+                            return 'assets/[name].[ext]';
+                        }
+                        return 'assets/[name]-[hash].[ext]';
+                    }
+                }
+            },
+            chunkSizeWarningLimit: 500,
+            minify: 'esbuild',
+            cssMinify: 'esbuild',
+            modulePreload: { polyfill: false },
+            assetsInlineLimit: 0,
+            target: 'es2020'
+        },
+        optimizeDeps: {
+            include: [
+                'date-fns',
+                'zod',
+                'axios',
+                'swiper',
+                'buffer',
+                'bitcoinjs-lib',
+                'bip32',
+                'bip39',
+                'crypto-browserify',
+                'stream-browserify',
+                'path-browserify',
+                'process'
+            ],
+            exclude: [
+                'firebase',
+                '@breeztech/breez-sdk-liquid/web',
+                '@breeztech/breez-sdk-liquid'
+            ],
+            esbuildOptions: {
+                target: 'es2020',
+                define: {
+                    global: 'globalThis',
+                    Buffer: 'Buffer'
+                },
+                mainFields: ['module', 'main'],
+                resolveExtensions: ['.mjs', '.js', '.ts', '.json']
+            }
+        },
+        server: {
+            fs: { allow: ['node_modules'] },
+            allowedHosts: true,
+            proxy: {
+                '/api': {
+                    target: 'http://uo0s8c4sw488kwg0ko44kg8g.production.bittasker.hedgehackers.finance',
+                    changeOrigin: true,
+                    secure: false
+                }
+            }
+        },
+        resolve: {
+            alias: isSsr ? undefined : {
+                buffer: 'buffer',
+                crypto: 'crypto-browserify',
+                stream: 'stream-browserify',
+                path: 'path-browserify',
+                process: 'process/browser'
+            }
+        },
+        ssr: {
+            external: [
+                '@breeztech/breez-sdk-liquid',
+                '@breeztech/breez-sdk-liquid/web',
+                'firebase',
+                'swiper',
+                'qrcode'
+            ]
+        },
+        worker: {
+            format: 'es',
+            plugins: () => [wasm(), topLevelAwait()]
+        },
+    };
+});
+
+// test: {
 	// 	globals: true,
 	// 	environment: 'jsdom',
 	// 	setupFiles: ['./vitest-setup-client.ts'],
@@ -180,5 +180,4 @@ export default defineConfig({
 	// 			}
 	// 		}
 	// 	]
-	// }
-});
+// }
