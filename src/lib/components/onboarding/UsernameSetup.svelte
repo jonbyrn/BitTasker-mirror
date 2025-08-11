@@ -100,7 +100,7 @@
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary" />
-                    <span><strong>Instant check</strong> — we verify availability as you type</span>
+                    <span><strong>Nostr‑portable</strong> — one handle across compatible Nostr apps</span>
                 </div>
             </div>
 
