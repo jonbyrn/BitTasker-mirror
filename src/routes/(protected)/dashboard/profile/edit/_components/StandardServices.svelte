@@ -462,7 +462,7 @@
 								<div class="flex items-start justify-between">
 									<div>
 										<h3 class="card-title">{service.name}</h3>
-										<p class="text-base-content/70">{service.description}</p>
+										<p class="text-base-content/70 line-clamp-4">{service.description}</p>
 									</div>
 									<div class="flex gap-2">
 										<button

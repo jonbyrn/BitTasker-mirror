@@ -9,6 +9,9 @@
 	styled: true;
 	utils: true;
 	logs: false;
+	/* Exclude unused components to reduce CSS size (safe list derived from repo scan) */
+	/* Supposedly these aren't in use, however excluding them breaks the layout. Scott, Aug 7, 2025 */
+	/* exclude: accordion, breadcrumbs, browser, calendar, chat, code, countdown, diff, drawer, fieldset, filter, footer, indicator, kbd, list, pagination, radialprogress, skeleton, status, themecontroller, timeline, validator, glass, typography, phone, window; */
 }
 
 @plugin "daisyui/theme" {
@@ -152,9 +155,10 @@
 }
 
 /* Global Typography Styles */
-h1, h2, h3, h4, h5, h6 {
+body h1, body h2, body h3, body h4, body h5, body h6 {
 	font-family: 'Droid Serif', Georgia, serif;
 	@apply font-medium;
+	line-height: 1.5em;
 }
 
 h1 {

@@ -1,11 +1,14 @@
 <script lang="ts">
 
-	import { onDestroy, onMount } from 'svelte';
+    import { onDestroy, onMount, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
-	import { beforeNavigate } from '$app/navigation';
+import { beforeNavigate } from '$app/navigation';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
+import { authState } from '$lib/stores/auth.store';
 	// Icon imports for unplugin-icons
 	import IconLogout from '~icons/mdi/logout';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -37,12 +40,13 @@
 	import IconShieldCheck from '~icons/mdi/shield-check';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconNewspaper from '~icons/mdi/newspaper';
+  import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
 
 	let currentSection = $state('');
 	let lastScrollPosition = $state(0);
 	let isScrollingDown = $state(false);
-	let isVisible = $state(true);
-	let protectedRoute = $state(false);
+let isVisible = $state(true);
+let isLoggedIn = $state(false);
 
 	// Route detection for active states - immediate update
 	$effect(() => {
@@ -67,7 +71,7 @@
 		} else {
 			currentSection = path.split('dashboard/')[1] || '';
 		}
-		protectedRoute = page.url.pathname.includes('dashboard');
+    // protectedRoute logic removed; login state handled separately
 	});
 
 	// Menu closing on route change - with debounce
@@ -88,9 +92,11 @@
 	// TODO: This solution is not working as expected, need to fix
 	let scrollCleanup: (() => void) | undefined;
 
-	// Control menu visibility
-	let isMenuOpen = $state(false);
-	let isMenuClosing = $state(false);
+    // Control menu visibility
+    let isMenuOpen = $state(false);
+    let isMenuClosing = $state(false);
+    // Ensures the menu animates from collapsed -> expanded on open
+    let isMenuExpanding = $state(false);
 
 	// Control individual collapse states
 	let isTaskersOpen = $state(false);
@@ -130,7 +136,19 @@
 		}, 100); // Throttle scroll events
 	}
 
-	onMount(() => {
+let unsubscribeAuth: (() => void) | undefined;
+
+onMount(() => {
+    // Subscribe to auth store for live updates
+    unsubscribeAuth = authState.subscribe((state) => {
+        isLoggedIn = state.isAuthenticated;
+    });
+
+    // Initial token presence check (no Nostr libs)
+    (async () => {
+        const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+        isLoggedIn = Boolean(value);
+    })();
 		// Defer non-critical operations
 		deferNonCriticalOperations();
 		
@@ -147,27 +165,38 @@
 		}
 	});
 
-	// Toggle menu
-	function toggleMenu() {
-		if (isMenuOpen) {
-			closeMenu();
-		} else {
-			isMenuOpen = true;
-			isMenuClosing = false;
-		}
-	}
+    // Toggle menu
+    async function toggleMenu() {
+        if (isMenuOpen) {
+            closeMenu();
+        } else {
+            // Render the menu in a collapsed state first
+            isMenuOpen = true;
+            isMenuClosing = false;
+            isMenuExpanding = false;
+            // Wait for DOM to mount the element
+            await tick();
+            // Ensure the collapsed state is painted before transitioning (mobile Safari/Chrome)
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+            // Now enable expand class to trigger transition
+            isMenuExpanding = true;
+        }
+    }
 
 	// Close menu with animation
-	function closeMenu() {
+    function closeMenu() {
 		if (isMenuOpen && !isMenuClosing) {
-			isMenuClosing = true;
+            // Stop the expand state so collapse animation takes precedence
+            isMenuExpanding = false;
+            isMenuClosing = true;
 			// Close all collapses when closing the menu
 			closeAllCollapses();
 			// Wait for slide-down animation to complete before hiding
 			setTimeout(() => {
 				isMenuOpen = false;
 				isMenuClosing = false;
-			}, 500); // Match animation duration
+			}, 300); // Match animation duration
 		}
 	}
 
@@ -224,7 +253,8 @@
 		}
 	}
 
-	onDestroy(() => {
+onDestroy(() => {
+    if (unsubscribeAuth) unsubscribeAuth();
 		// Clear timeouts
 		clearTimeout(routeChangeTimeout);
 		clearTimeout(scrollThrottleTimeout);
@@ -250,13 +280,13 @@
 	{#if isMenuOpen || isMenuClosing}
 		<div
 			class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
-			style="bottom: 64px; max-height: 52rem; overflow: hidden;"
-			class:menu-expand={isMenuOpen && !isMenuClosing}
-			class:menu-collapse={isMenuClosing}
-		>
+            style="bottom: 64px; max-height: 52rem; overflow: hidden;"
+            class:menu-expand={isMenuExpanding && !isMenuClosing}
+            class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
+        >
 		<div class="pb-safe max-h-[52rem] overflow-y-auto pt-4">
 			<div class="p-4">
-				{#if protectedRoute}
+				{#if isLoggedIn}
 					<!-- Logged-in user menu -->
 					<ul class="menu w-full">
 						<!-- Logout -->
@@ -301,12 +331,18 @@
 									<span class="font-medium">{$t('navbar.faq')}</span>
 								</a>
 							</li>
-							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+                            <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconEmailOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.contact_support')}</span>
 								</a>
 							</li>
+                            <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+                                <a href="/feedback" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+                                    <IconCommentTextOutline class="text-primary" />
+                                    <span class="font-medium">{$t('navbar.feedback')}</span>
+                                </a>
+                            </li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconInformationOutline class="text-primary" />
@@ -629,9 +665,9 @@
 {/if}
 
 <!-- Bottom Navigation Bar -->
-{#if protectedRoute}
+{#if isLoggedIn}
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
-	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black" class:hidden={!isVisible}>
+	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black z-50" class:hidden={!isVisible}>
 		<!-- Home -->
 		<a
 			href="/dashboard"
@@ -699,7 +735,7 @@
 		</a>
 	</div>
 {:else}
-	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black">
+	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black z-50">
 		<!-- Home -->
 		<a
 			href="/"
@@ -773,12 +809,12 @@
 		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
 
-	/* Menu starts collapsed, expands upward using transform instead of max-height */
-	.bottom-nav-menu {
-		transform: translateY(100%);
-		transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-		will-change: transform;
-	}
+    /* Menu starts collapsed, expands upward using transform instead of max-height */
+    .bottom-nav-menu {
+        transform: translateY(100%);
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        will-change: transform;
+    }
 	.menu-expand {
 		transform: translateY(0);
 	}
@@ -838,14 +874,18 @@
 		backface-visibility: hidden;
 	}
 
-	/* Ensure all transitions use GPU acceleration */
-	.dock a,
-	.dock button,
-	.bottom-nav-menu,
-	.dropdown-arrow {
-		backface-visibility: hidden;
-		transform: translateZ(0);
-	}
+    /* Ensure all transitions use GPU acceleration */
+    .dock a,
+    .dock button,
+    .dropdown-arrow {
+        backface-visibility: hidden;
+        transform: translateZ(0);
+    }
+
+    /* Do not override .bottom-nav-menu transform (used for slide animation) */
+    .bottom-nav-menu {
+        backface-visibility: hidden;
+    }
 
 	/* Ensure any ::after pseudo-elements use composited animations */
 	.dropdown-arrow::after {

@@ -63,13 +63,13 @@
 							googleMapsReady = true;
 							resolve();
 						} else {
-							reject(new Error('Google Maps API not initialized correctly'));
+							reject(new Error($t('onboarding_auth.form.google_maps_api_not_initialized')));
 						}
 					}, 500);
 				};
 
 				script.onerror = () => {
-					reject(new Error('Google Maps script failed to load'));
+					reject(new Error($t('onboarding_auth.form.google_maps_script_failed_load')));
 				};
 
 				document.head.appendChild(script);
@@ -81,7 +81,7 @@
 
 	async function initMap() {
 		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error('Google Maps not fully loaded yet');
+			throw new Error($t('onboarding_auth.form.google_maps_not_fully_loaded'));
 		}
 
 		try {
@@ -168,7 +168,7 @@
 			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
-			error = err instanceof Error ? err.message : 'Error initializing map';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_initializing_map');
 			hasError = true;
 		}
 	}
@@ -184,8 +184,7 @@
 			await tryInitMap();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			error = err instanceof Error ? err.message : 'Error loading Google Maps';
-			hasError = true;
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -226,7 +225,7 @@
 			}
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
-			error = err instanceof Error ? err.message : 'Error updating location';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_updating_location');
 		}
 	}
 
@@ -453,8 +452,8 @@
 
 			// Don't proceed if location isn't loaded yet (only when map is working)
 			if (location.latitude === null || location.longitude === null) {
-				error = 'Please select a location';
-				throw new Error('Please select a location');
+				error = $t('onboarding_auth.form.please_select_a_location');
+				throw new Error($t('onboarding_auth.form.please_select_a_location'));
 			}
 
 			// Publish location to Nostr
@@ -464,7 +463,7 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Error saving location:', err);
-			error = err instanceof Error ? err.message : 'Error saving location';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_saving_location');
 		} finally {
 			isLoading = false;
 		}
@@ -473,54 +472,87 @@
 
 <div class="card w-full">
 	<div class="card-body relative p-0">
-		<!-- Search bar - using fixed positioning when in fullscreen mode -->
-		<div
-			class={isFullscreen
-				? 'fixed top-4 right-4 left-4 z-[999]'
-				: 'absolute top-4 right-0 left-0 z-10 px-4'}
-		>
-			<div class="form-control relative w-full">
-				<div class="input-group flex w-full items-center justify-center gap-4">
-					<input
-						bind:this={searchInput}
-						type="text"
-						placeholder={$t('onboarding_auth.form.search_for_a_location')}
-						class="input input-bordered w-full {hasError ? 'input-error' : ''}"
-						oninput={debounce(() => getPredictions(), 300)}
-					/>
-					<button
-						aria-label={$t('onboarding_auth.form.use_current_location')}
-						class="btn btn-square"
-						onclick={() => getUserLocation()}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-							/>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-							/>
-						</svg>
-					</button>
-				</div>
+		<!-- Educational Header -->
+		<div class="education-header mb-6 px-4 pt-4 text-center">
+			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 6 of 7</div>
+			<h2 class="step-title mb-3 !text-xl font-bold my-4 mt-4">
+				<span class="mr-2">📍</span>
+				Set Your Service Location
+			</h2>
+			<p class="step-description text-base-content/70 mb-6">
+				Define where you can provide services. This helps match you with nearby tasks and clients.
+			</p>
 
-				{#if isLoading}
-					<div class="absolute top-1/2 right-16 -translate-y-1/2">
-						<span class="loading loading-spinner loading-sm"></span>
+			<!-- Features List -->
+			<div class="features-list mb-6 space-y-2">
+				<div class="feature-item flex items-center justify-start gap-2 text-sm">
+					<span>✅</span>
+					<span><strong>Flexible</strong> — set custom service radius</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-sm">
+					<span>✅</span>
+					<span><strong>Private</strong> — only approximate area shared</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-sm">
+					<span>✅</span>
+					<span><strong>Adjustable</strong> — change anytime in settings</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-sm">
+					<span>✅</span>
+					<span><strong>Optional</strong> — can be set later if needed</span>
+				</div>
+			</div>
+		</div>
+		<!-- Map Container -->
+		<div bind:this={mapContainerDiv} class="map-container relative">
+			<!-- Search bar - using fixed positioning when in fullscreen mode -->
+			<div
+				class={isFullscreen
+					? 'fixed top-4 right-4 left-4 z-[999]'
+					: 'absolute top-4 right-0 left-0 z-10 px-4'}
+			>
+				<div class="form-control relative w-full">
+					<div class="input-group flex w-full items-center justify-center gap-4">
+						<input
+							bind:this={searchInput}
+							type="text"
+							placeholder="Search for a location..."
+							class="input input-bordered w-full {hasError ? 'input-error' : ''}"
+							oninput={debounce(() => getPredictions(), 300)}
+						/>
+						<button
+							aria-label="Use current location"
+							class="btn btn-square"
+							onclick={() => getUserLocation()}
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-6 w-6"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+								/>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+								/>
+							</svg>
+						</button>
 					</div>
-				{/if}
+
+					{#if isLoading}
+						<div class="absolute top-1/2 right-16 -translate-y-1/2">
+							<span class="loading loading-spinner loading-sm"></span>
+						</div>
+					{/if}
 
 				{#if showOptions}
 					<div
@@ -541,6 +573,8 @@
 					</div>
 				{/if}
 			</div>
+		</div>
+		<!-- Close first map container wrapper before starting the next section -->
 		</div>
 
 		<!-- Map Container -->

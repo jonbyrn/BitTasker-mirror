@@ -9,12 +9,13 @@
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
 		pubkey = '',
 		onMessageSelect = (message: DecryptedMessage) => {},
-		placeholder = 'Search messages...',
+		placeholder = $t('messages.search_messages'),
 		profile = null
 	}: {
 		pubkey?: string;
@@ -220,7 +221,7 @@
 
 		<div class="absolute inset-y-0 right-0 flex items-center space-x-2 pr-3">
 			{#if searchQuery}
-				<button onclick={clearSearch} class="btn btn-ghost btn-xs" aria-label="Clear search">
+				<button onclick={clearSearch} class="btn btn-ghost btn-xs" aria-label={$t('messages.clear_search_aria')}>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path
 							stroke-linecap="round"
@@ -236,7 +237,7 @@
 				onclick={toggleAdvanced}
 				class="btn btn-ghost btn-xs"
 				class:btn-active={showAdvanced}
-				aria-label="Advanced search options"
+				aria-label={$t('messages.advanced_search_options_aria')}
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path
@@ -256,26 +257,26 @@
 			<div class="flex flex-wrap gap-4">
 				<label class="label cursor-pointer">
 					<input type="checkbox" bind:checked={caseSensitive} class="checkbox checkbox-sm" />
-					<span class="label-text ml-2">Case sensitive</span>
+					<span class="label-text ml-2">{$t('messages.case_sensitive')}</span>
 				</label>
 
 				<label class="label cursor-pointer">
 					<input type="checkbox" bind:checked={wholeWords} class="checkbox checkbox-sm" />
-					<span class="label-text ml-2">Whole words only</span>
+					<span class="label-text ml-2">{$t('messages.whole_words_only')}</span>
 				</label>
 			</div>
 
 			<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 				<div class="form-control">
 					<label class="label" for="dateRangeStart">
-						<span class="label-text">From date</span>
+						<span class="label-text">{$t('messages.from_date')}</span>
 					</label>
 					<input type="date" bind:value={dateRangeStart} class="input input-bordered input-sm" />
 				</div>
 
 				<div class="form-control">
 					<label class="label" for="dateRangeEnd">
-						<span class="label-text">To date</span>
+						<span class="label-text">{$t('messages.to_date')}</span>
 					</label>
 					<input type="date" bind:value={dateRangeEnd} class="input input-bordered input-sm" />
 				</div>
@@ -305,11 +306,11 @@
 			{#if isSearching}
 				<div class="p-4 text-center">
 					<span class="loading loading-spinner loading-sm"></span>
-					<span class="ml-2">Searching...</span>
+					<span class="ml-2">{$t('messages.searching')}</span>
 				</div>
 			{:else if searchResults.length === 0}
 				<div class="p-4 text-center text-gray-500">
-					No messages found for "{searchQuery}"
+					{$t('messages.no_messages_found', { query: searchQuery })}
 				</div>
 			{:else}
 				<div bind:this={resultsContainer}>
@@ -323,7 +324,7 @@
 								{#if profile}
 									<Avatar
 										user={{
-											name: profile.name || 'Unknown',
+											name: profile.name || $t('messages.unknown'),
 											picture: profile.picture || null
 										}}
 										size="sm"
@@ -348,7 +349,7 @@
 
 									<div class="mt-2 flex items-center justify-between">
 										<span class="text-xs text-gray-400">
-											Score: {Math.round(result.score)}
+											{$t('messages.score', { score: Math.round(result.score) })}
 										</span>
 									</div>
 								</div>
