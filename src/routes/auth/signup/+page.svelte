@@ -140,7 +140,7 @@
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
 					<div class="flex items-center justify-between gap-2 mb-2">
-						<p class="w-full text-start text-sm">{$t('signup.verify_human')}</p>
+						<p class="w-full text-start text-sm mb-2">{$t('signup.verify_human')}</p>
 						{#if captchaFailed && !$isCaptchaVerified}
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
 								{$t('signup.retry_verification')}

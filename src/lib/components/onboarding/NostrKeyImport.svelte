@@ -21,6 +21,8 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	let importNostrKey = $state(false);
 	let nsecError = $state('');
 	let showPrivateKey = $state(false);
+    // Ref to the input element (stateful to satisfy linter)
+    let privateKeyInput = $state<HTMLInputElement | null>(null);
 
 	function validateNostrKey(key: string): { isValid: boolean; error?: string } {
 		// First use the basic validator
@@ -66,6 +68,15 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 		}
 		onNostrKeyChange(nsec, importNostrKey && !!nsec);
 	});
+
+    // Focus the private key field when the import option is enabled
+    $effect(() => {
+        importNostrKey;
+        if (importNostrKey) {
+            // Defer to next frame to ensure the element is mounted
+            requestAnimationFrame(() => privateKeyInput?.focus());
+        }
+    });
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl">
@@ -106,7 +117,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Nostr Key Import Option -->
-			<div class="form-control max-w-lg mx-auto">
+			<div class="form-control max-w-xl mx-auto">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={importNostrKey} class="checkbox checkbox-sm" />
 					<div class="flex items-center gap-2">
@@ -117,16 +128,16 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 
 			<!-- Private Key Field (Only shown if import is checked) -->
 			{#if importNostrKey}
-				<div class="form-control max-w-lg mx-auto" in:fly={{ duration: 200, y: -20, easing: linear }}>
+				<div class="form-control max-w-xl mx-auto" in:fly={{ duration: 200, y: -20, easing: linear }}>
 					<label class="label" for="privateKey">
 						<span class="label-text text-base-content">Private Key (nsec)</span>
 					</label>
 					<div class="relative">
-						<input
+                        <input
 							type={showPrivateKey ? 'text' : 'password'}
 							id="privateKey"
 							bind:value={nsec}
-							autofocus
+                            bind:this={privateKeyInput}
 							class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
                             placeholder="Enter your Nostr private key (nsec1abcde...)"
 							required
