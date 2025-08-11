@@ -269,7 +269,7 @@
 						<span class="loading loading-spinner"></span>
 						Setting up...
 					{:else}
-						🔐 Set Up Passkey
+						Set Up Passkey
 					{/if}
 				</button>
 			{:else}
