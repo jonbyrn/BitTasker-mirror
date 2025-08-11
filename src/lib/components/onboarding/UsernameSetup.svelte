@@ -85,21 +85,21 @@
             <h3 class="step-title mb-3 mt-4">Choose Your Username</h3>
             <h5 class="mb-3">Make it memorable</h5>
 
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Claim your name</strong> — a handle clients will remember</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Professional</strong> — use your brand or real name</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Shareable</strong> — appears on your public profile and links</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Nostr‑portable</strong> — one handle across compatible Nostr apps</span>
                 </div>
             </div>
@@ -109,7 +109,7 @@
 
         <form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Username Field -->
-			<div class="form-control">
+			<div class="form-control max-w-lg mx-auto">
 				<label class="label" for="username">
                     <span class="label-text text-base-content">Username</span>
 				</label>
@@ -117,6 +117,7 @@
 					type="text"
 					id="username"
 					bind:value={username}
+                    autofocus
 					class="input input-bordered w-full {usernameError ? 'input-error' : ''}"
 					placeholder="Choose a username"
 					required

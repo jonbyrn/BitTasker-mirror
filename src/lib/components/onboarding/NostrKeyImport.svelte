@@ -74,7 +74,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
     <div class="education-header mb-6 text-center">
             <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 2 of 7 - Optional</div>
             <h3 class="step-title mb-3 mt-4">
-                Import Your Nostr Key
+                Import Your Nostr Key (Optional)
             </h3>
             <h5 class="mb-3">What is a Nostr key?</h5>
             <p class="step-description text-base-content mb-6 text-lg">
@@ -82,21 +82,21 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
             </p>
 
             <!-- Features List (style matched to PasskeySetup) -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Use existing</strong> — import your nsec to keep your identity</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Generate new</strong> — we’ll create a secure key if you don’t have one</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Manage anytime</strong> — view/export your key in App Settings</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Keep it secret</strong> — anyone with your key can access your account</span>
                 </div>
             </div>
@@ -106,7 +106,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Nostr Key Import Option -->
-			<div class="form-control">
+			<div class="form-control max-w-lg mx-auto">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={importNostrKey} class="checkbox checkbox-sm" />
 					<div class="flex items-center gap-2">
@@ -117,7 +117,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 
 			<!-- Private Key Field (Only shown if import is checked) -->
 			{#if importNostrKey}
-				<div class="form-control" in:fly={{ duration: 200, y: -20, easing: linear }}>
+				<div class="form-control max-w-lg mx-auto" in:fly={{ duration: 200, y: -20, easing: linear }}>
 					<label class="label" for="privateKey">
 						<span class="label-text text-base-content">Private Key (nsec)</span>
 					</label>
@@ -126,8 +126,9 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 							type={showPrivateKey ? 'text' : 'password'}
 							id="privateKey"
 							bind:value={nsec}
+							autofocus
 							class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
-							placeholder="Enter your Nostr private key (nsec1...)"
+                            placeholder="Enter your Nostr private key (nsec1abcde...)"
 							required
 						/>
 						<button

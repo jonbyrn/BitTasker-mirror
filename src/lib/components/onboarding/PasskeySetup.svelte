@@ -193,21 +193,21 @@
             </p>
 
 			<!-- Features List -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Secure</strong> — only on your device</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Encrypted</strong> — like Bitcoin</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Private</strong> — even we can't see your keys</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary" />
+                    <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Portable</strong> — works on your other devices too</span>
                 </div>
             </div>
