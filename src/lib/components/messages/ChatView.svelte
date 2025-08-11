@@ -13,6 +13,7 @@
 	// Defer importing wallet helper functions until needed to avoid heavy module side-effects on load
 
 	import { t } from 'svelte-i18n';
+	import { goto } from '$app/navigation';
 
 	// Props
 	let {
@@ -42,6 +43,7 @@
 	let offerClientPubkey = $state('');
 	let offerCsvBlocks = $state<number>(60); // default 60 minutes (~60 blocks on Liquid)
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
+	let headerImageError = $state(false);
 	let currentUserProfile = $state<{ name?: string; picture?: string }>({
 		name: $t('messages.you')
 	});
@@ -262,7 +264,6 @@
 		error = '';
 
 		try {
-			console.log('loading messages for', recipientHex());
 			// Fetch initial message history
 			const messageHistory = await getMessageHistory(recipientHex(), {
 				limit: MESSAGES_PER_PAGE
@@ -352,11 +353,8 @@
 		if (unsubscribe) {
 			unsubscribe();
 		}
-
-		console.log('setting up real-time listener for', recipientHex());
 		// Setup new subscription for real-time messages
 		unsubscribe = listenForIncomingMessages((msg) => {
-			console.log('received message', msg);
 			const { plaintext, senderPubkey, event } = msg;
 
 			// Only add messages that are relevant to this conversation
@@ -543,6 +541,10 @@
 	function handleInputChange() {
 		// The $effect will handle saving the draft automatically
 		autoResizeTextarea();
+	}
+
+	function goBackToMessages() {
+		goto('/dashboard/messages');
 	}
 
 	// --- Local storage for initiator offer context ---
@@ -770,17 +772,89 @@
 </script>
 
 <div class="flex flex-col">
+	<!-- Recipient header with avatar -->
+	<div class="border-base-300 flex flex-shrink-0 items-center gap-3 border-b p-3">
+		<button
+			class="btn btn-ghost btn-sm"
+			onclick={goBackToMessages}
+			aria-label="Go back to messages"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+			</svg>
+		</button>
+		{#if recipientProfile?.picture && !headerImageError}
+			<img
+				src={recipientProfile.picture}
+				alt={recipientProfile?.name || 'User'}
+				class="h-8 w-8 rounded-full object-cover"
+				width={32}
+				height={32}
+				onerror={() => (headerImageError = true)}
+			/>
+		{:else}
+			<div
+				class="avatar placeholder text-neutral-content bg-base-300 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
+					<g fill="none" stroke="currentColor" stroke-width="1.5">
+						<circle cx="12" cy="6" r="4" />
+						<path
+							stroke-linecap="round"
+							d="M20 18q0-.246 0-.5c0-2.485-3.582-4.5-8-4.5s-8 2.015-8 4.5S4 22 12 22c2.231 0 3.84-.157 5-.437"
+						/>
+					</g>
+				</svg>
+			</div>
+		{/if}
+		<div>
+			<h3 class="text-lg font-semibold">
+				{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
+			</h3>
+		</div>
+		<!-- Copy Public Key Button -->
+		<button
+		class="btn btn-ghost btn-sm"
+		onclick={() => {
+			navigator.clipboard.writeText(recipientPubkey);
+			// Optional: Add a toast notification here
+		}}
+		title="Copy public key"
+		aria-label="Copy public key"
+	>
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			class="h-4 w-4"
+			fill="none"
+			viewBox="0 0 24 24"
+			stroke="currentColor"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+			/>
+		</svg>
+	</button>
+	</div>
 	<!-- Messages Area -->
 	<div
 		bind:this={messagesContainer}
-		class="max-h-[70dvh] min-h-0 flex-1 space-y-1 overflow-y-auto p-4"
+		class="max-h-[70dvh] min-h-[70dvh] flex-1 space-y-1 overflow-y-auto p-4"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('messages.chat_messages_aria')}
 	>
 		{#if isLoadingMessages}
 			<!-- Loading State -->
-			<div class="flex items-center justify-center py-8">
+			<div class="flex items-center justify-center py-4">
 				<div class="loading loading-spinner loading-md"></div>
 				<span class="ml-2">{$t('messages.loading_messages')}</span>
 			</div>

@@ -94,68 +94,6 @@
 			<button class="btn btn-primary mt-4" onclick={goBackToMessages}> Back to Messages </button>
 		</div>
 	{:else}
-		<!-- Chat Header with Back Button -->
-		<div class="border-base-300 flex flex-shrink-0 items-center gap-3 border-b p-4">
-			<button
-				class="btn btn-ghost btn-sm"
-				onclick={goBackToMessages}
-				aria-label="Go back to messages"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M15 19l-7-7 7-7"
-					/>
-				</svg>
-			</button>
-
-			<!-- Recipient Info -->
-			<div class="flex flex-1 items-center justify-between">
-				<div class="flex items-center gap-3">
-					<Avatar size="sm" />
-					<div>
-						<h3 class="text-lg font-semibold">
-							{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
-						</h3>
-					</div>
-				</div>
-
-				<!-- Copy Public Key Button -->
-				<button
-					class="btn btn-ghost btn-sm"
-					onclick={() => {
-						navigator.clipboard.writeText(recipientPubkey);
-						// Optional: Add a toast notification here
-					}}
-					title="Copy public key"
-					aria-label="Copy public key"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-						/>
-					</svg>
-				</button>
-			</div>
-		</div>
-
 		<!-- ChatView Component -->
 		<div class="min-h-0 flex-1 overflow-hidden">
 			<ChatView

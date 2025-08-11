@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { Event as NostrEvent } from 'nostr-tools';
-	// import Avatar from '$lib/components/Avatar.svelte';
+	// We render the specific message sender's avatar from the provided `profile`
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
-	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
@@ -16,6 +15,9 @@
 		profile: { name?: string; picture?: string };
 		onViewContract?: (detail: { payload: any; event: NostrEvent; isSender: boolean }) => void;
 	} = $props();
+
+	// Local state for image fallback
+	let imageError = $state(false);
 
 	// Derived timestamp
 	const formattedTime = $derived(formatTimeAgo(new Date(message.event.created_at * 1000)));
@@ -92,15 +94,46 @@
 			onViewContract({ payload: special, event: message.event, isSender });
 		}
 	}
+	function getInitials(name?: string): string {
+		if (!name) return '';
+		const parts = name.trim().split(/\s+/);
+		if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+		return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+	}
 </script>
 
 <div class="mb-4 flex gap-3" class:flex-row-reverse={isSender}>
-	<!-- Avatar -->
-	<!-- <div class="flex-shrink-0">
-		<Avatar
-			size="sm"
-		/>
-	</div> -->
+	<!-- Avatar for the message sender -->
+	<div class="flex-shrink-0">
+		{#if profile?.picture && !imageError}
+			<img
+				src={profile.picture}
+				alt={profile?.name || 'User'}
+				class="h-8 w-8 rounded-full object-cover"
+				width={32}
+				height={32}
+				onerror={() => (imageError = true)}
+			/>
+		{:else}
+			<div
+				class="avatar placeholder text-neutral-content bg-base-300 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full"
+			>
+				{#if profile?.name}
+					<span class="text-xs">{getInitials(profile.name)}</span>
+				{:else}
+					<svg xmlns="http://www.w3.org/2000/svg" width="50%" height="50%" viewBox="0 0 24 24">
+						<g fill="none" stroke="currentColor" stroke-width="1.5">
+							<circle cx="12" cy="6" r="4" />
+							<path
+								stroke-linecap="round"
+								d="M20 18q0-.246 0-.5c0-2.485-3.582-4.5-8-4.5s-8 2.015-8 4.5S4 22 12 22c2.231 0 3.84-.157 5-.437"
+							/>
+						</g>
+					</svg>
+				{/if}
+			</div>
+		{/if}
+	</div>
 
 	<!-- Message bubble -->
 	<div

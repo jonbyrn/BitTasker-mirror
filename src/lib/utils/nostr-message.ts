@@ -138,14 +138,28 @@ async function encryptDM(
 
 async function decryptDM(
 	ciphertext: string,
-	senderPubkey: string,
+	otherPubkey: string,
 	recipientPrivkey: string
 ): Promise<string> {
-	// Get conversation key
-	const conversationKey = await nip44.getConversationKey(recipientPrivkey, senderPubkey);
+	// First try NIP-44 (v2)
+	try {
+		const conversationKey = await nip44.getConversationKey(recipientPrivkey, otherPubkey);
+		return await nip44.decrypt(ciphertext, conversationKey);
+	} catch {
+		// Fallback to NIP-04 (normalize base64/url-safe before passing)
+		const normalizeBase64 = (input: string): string => {
+			let s = input.trim().replace(/\s+/g, '');
+			s = s.replace(/-/g, '+').replace(/_/g, '/');
+			const pad = s.length % 4;
+			if (pad === 2) s += '==';
+			else if (pad === 3) s += '=';
+			else if (pad === 1) throw new Error('Invalid base64 length');
+			return s;
+		};
 
-	// Decrypt with NIP-44
-	return nip44.decrypt(ciphertext, conversationKey);
+		const { nip04 } = await import('nostr-tools');
+		return await nip04.decrypt(recipientPrivkey, otherPubkey, normalizeBase64(ciphertext));
+	}
 }
 
 async function parseDMEvent(
@@ -213,8 +227,16 @@ export function subscribeToProfileUpdates(
 						try {
 							const content = JSON.parse(event.content);
 							// Map displayName to name if name is not available
-							updatedProfile.name = content.name || content.displayName;
-							updatedProfile.picture = content.picture || content.avatar || content.image;
+							const candidateName: unknown = content.name || content.displayName;
+							if (typeof candidateName === 'string' && candidateName.trim().length > 0) {
+								updatedProfile.name = candidateName;
+							}
+
+							// Only overwrite picture if we have a valid non-empty string
+							const candidatePic: unknown = content.picture || content.avatar || content.image;
+							if (typeof candidatePic === 'string' && candidatePic.trim().length > 0) {
+								updatedProfile.picture = candidatePic;
+							}
 						} catch (e) {
 							console.error('❌ Failed to parse profile metadata in subscription:', e);
 						}
@@ -228,7 +250,10 @@ export function subscribeToProfileUpdates(
 
 								if (Array.isArray(images) && images.length > 0) {
 									// Use the first image as the primary profile picture
-									updatedProfile.picture = images[0].url;
+									const url: unknown = images[0]?.url;
+									if (typeof url === 'string' && url.trim().length > 0) {
+										updatedProfile.picture = url;
+									}
 								}
 							} catch (e) {
 								console.error('❌ Failed to parse profile images in subscription:', e);
@@ -249,7 +274,10 @@ export function subscribeToProfileUpdates(
 								mime.startsWith('image/') ||
 								urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
 							) {
-								updatedProfile.picture = urlTag[1];
+								const url: unknown = urlTag[1];
+								if (typeof url === 'string' && url.trim().length > 0) {
+									updatedProfile.picture = url;
+								}
 							}
 						}
 					}
@@ -274,8 +302,13 @@ export function subscribeToProfileUpdates(
 
 	// Return cleanup function
 	return () => {
-		if (sub) {
-			sub.close();
+		const s = sub as { close?: () => void } | null;
+		if (s && typeof s.close === 'function') {
+			try {
+				s.close();
+			} catch (err) {
+				console.warn('Failed to close profile subscription', err);
+			}
 		}
 	};
 }
@@ -289,8 +322,6 @@ export async function fetchProfileMetadata(
 		if (cachedProfile) {
 			return cachedProfile;
 		}
-		console.log('fetching profile metadata for', pubkey);
-		console.log({ cachedProfile });
 
 		// If not in cache, fetch from relays
 		const filter: Filter = {
@@ -509,7 +540,6 @@ export function listenForIncomingMessages(
 				try {
 					unsub = subscribeToEvents(relay, filters, async (event: NostrEvent) => {
 						try {
-							console.log({ event, privkey });
 							const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
 
 							callback({ plaintext, senderPubkey, event });
