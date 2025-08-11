@@ -37,6 +37,7 @@
 	let isCreateContractOpen = $state(false);
 	let isIncomingContractOpen = $state(false);
 	let pendingIncomingPayload: any = $state(null);
+	let isViewingOwnContractOffer = $state(false);
 
 	// Fields for creating a contract offer
 	let offerDerivationPath = $state('');
@@ -590,10 +591,15 @@
 	// Create Contract flow
 	async function openCreateContract() {
 		try {
+			console.log('Trying to create contract');
 			const { buildClientSharePayload } = await import('$lib/wallet/helper');
+			console.log('buildClientSharePayload');
 			const payload = await buildClientSharePayload({});
+			console.log('payload', payload);
 			offerDerivationPath = payload.derivationPath;
+			console.log('offerDerivationPath', offerDerivationPath);
 			offerClientPubkey = payload.clientPubkey;
+			console.log('offerClientPubkey', offerClientPubkey);
 			isCreateContractOpen = true;
 		} catch (e) {
 			console.error(e);
@@ -650,7 +656,8 @@
 				);
 				// Retrieve initiator's context from storage using derivationPath
 				const ctx = loadOfferContext(payload.derivationPath);
-				const clientPubkeyFromCtx = ctx?.clientPubkey || offerClientPubkey || '';
+				const clientPubkeyFromCtx =
+					payload.clientPubkey || ctx?.clientPubkey || offerClientPubkey || '';
 				if (!clientPubkeyFromCtx) throw new Error('Missing initiator client pubkey');
 
 				const setup = await saveMultisigSetup({
@@ -690,6 +697,7 @@
 		}
 		// Otherwise open view modal for offers
 		pendingIncomingPayload = payload;
+		isViewingOwnContractOffer = Boolean(isSender && payload?.type === 'contract_offer');
 		isIncomingContractOpen = true;
 	}
 
@@ -697,9 +705,7 @@
 		try {
 			if (!pendingIncomingPayload || pendingIncomingPayload.type !== 'contract_offer') return;
 			// Build freelancer pubkey using the shared derivation path
-			const { buildFreelancerSharePayload, saveMultisigSetup, createMultisigVault } = await import(
-				'$lib/wallet/helper'
-			);
+			const { buildFreelancerSharePayload } = await import('$lib/wallet/helper');
 			const { freelancerPubkey } = await buildFreelancerSharePayload({
 				derivationPath: pendingIncomingPayload.derivationPath
 			});
@@ -709,40 +715,14 @@
 				version: 1,
 				derivationPath: pendingIncomingPayload.derivationPath,
 				freelancerPubkey,
+				clientPubkey: pendingIncomingPayload.clientPubkey,
 				csvBlocks: pendingIncomingPayload.csvBlocks,
 				timestamp: Date.now()
 			};
 			await sendDirectMessage(JSON.stringify(acceptMsg), recipientHex());
-
-			// Create local vault record for UX (optional for other side). We'll also send a created notice
-			const setup = await saveMultisigSetup({
-				derivationPath: pendingIncomingPayload.derivationPath,
-				clientPubkey: pendingIncomingPayload.clientPubkey,
-				freelancerPubkey
-			});
-			const vault = await createMultisigVault({
-				setupId: setup.id,
-				clientPubkey: pendingIncomingPayload.clientPubkey,
-				freelancerPubkey,
-				csvBlocks: pendingIncomingPayload.csvBlocks,
-				network: 'liquid'
-			});
-
-			const createdMsg = {
-				type: 'contract_created',
-				version: 1,
-				setupId: setup.id,
-				vaultId: vault.id,
-				address: vault.address,
-				descriptor: vault.descriptor,
-				csvBlocks: vault.csvBlocks,
-				derivationPath: pendingIncomingPayload.derivationPath,
-				timestamp: Date.now()
-			};
-			await sendDirectMessage(JSON.stringify(createdMsg), recipientHex());
-
 			isIncomingContractOpen = false;
 			pendingIncomingPayload = null;
+			isViewingOwnContractOffer = false;
 		} catch (e) {
 			console.error(e);
 			error = 'Failed to accept contract';
@@ -763,6 +743,7 @@
 			await sendDirectMessage(JSON.stringify(rejectMsg), recipientHex());
 			isIncomingContractOpen = false;
 			pendingIncomingPayload = null;
+			isViewingOwnContractOffer = false;
 		} catch (e) {
 			console.error(e);
 			error = 'Failed to reject contract';
@@ -820,29 +801,29 @@
 		</div>
 		<!-- Copy Public Key Button -->
 		<button
-		class="btn btn-ghost btn-sm"
-		onclick={() => {
-			navigator.clipboard.writeText(recipientPubkey);
-			// Optional: Add a toast notification here
-		}}
-		title="Copy public key"
-		aria-label="Copy public key"
-	>
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-4 w-4"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
+			class="btn btn-ghost btn-sm"
+			onclick={() => {
+				navigator.clipboard.writeText(recipientPubkey);
+				// Optional: Add a toast notification here
+			}}
+			title="Copy public key"
+			aria-label="Copy public key"
 		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-			/>
-		</svg>
-	</button>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
+				/>
+			</svg>
+		</button>
 	</div>
 	<!-- Messages Area -->
 	<div
@@ -1092,10 +1073,13 @@
 						onclick={() => {
 							isIncomingContractOpen = false;
 							pendingIncomingPayload = null;
+							isViewingOwnContractOffer = false;
 						}}>Close</button
 					>
-					<button class="btn btn-error" onclick={rejectIncomingContract}>Reject</button>
-					<button class="btn btn-primary" onclick={acceptIncomingContract}>Accept</button>
+					{#if !isViewingOwnContractOffer}
+						<button class="btn btn-error" onclick={rejectIncomingContract}>Reject</button>
+						<button class="btn btn-primary" onclick={acceptIncomingContract}>Accept</button>
+					{/if}
 				</div>
 			</div>
 		</div>

@@ -1,6 +1,6 @@
 import * as bip39 from 'bip39';
 import { fetchFiatRates, getTransactions, getWalletInfo } from './breez/walletService';
-import * as breezSdk from '@breeztech/breez-sdk-liquid/web';
+import type { Rate, Payment } from '@breeztech/breez-sdk-liquid';
 import { Buffer } from 'buffer';
 
 // Cache for balance and fiat rates to reduce API calls
@@ -10,7 +10,7 @@ interface BalanceCache {
 }
 
 interface FiatRatesCache {
-	rates: breezSdk.Rate[];
+	rates: Rate[];
 	timestamp: number;
 }
 
@@ -39,7 +39,7 @@ export function generateMnemonic(): string {
 /**
  * Get cached fiat rates or fetch new ones
  */
-async function getCachedFiatRates(): Promise<breezSdk.Rate[]> {
+async function getCachedFiatRates(): Promise<Rate[]> {
 	const now = Date.now();
 
 	// Return cached rates if they're still fresh
@@ -111,7 +111,7 @@ export async function getBalance(): Promise<{
  * Get recent transactions
  * @returns A promise that resolves with the recent transactions
  */
-export async function getRecentTransactions(): Promise<breezSdk.Payment[]> {
+export async function getRecentTransactions(): Promise<Payment[]> {
 	try {
 		const transactions = await getTransactions();
 		return transactions.slice(0, 10);
@@ -134,17 +134,8 @@ export function clearCache(): void {
 // Multisig/Vault helpers
 // =========================
 
-import BIP32Factory from 'bip32';
-import type { BIP32Interface } from 'bip32';
-import * as ecc from 'tiny-secp256k1';
-import * as bitcoin from 'bitcoinjs-lib';
 import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
-import { compilePolicy } from '@bitcoinerlab/miniscript';
-import * as descriptors from '@bitcoinerlab/descriptors';
-import * as secp256k1 from '@bitcoinerlab/secp256k1';
-import * as liquidjs from 'liquidjs-lib';
-
-const bip32 = BIP32Factory(ecc);
+import type { BIP32Interface, TinySecp256k1Interface } from 'bip32';
 
 export type NetworkType = 'liquid';
 
@@ -207,6 +198,15 @@ export async function derivePubkeyAtPath(params: {
 }): Promise<string> {
 	const { mnemonic, derivationPath } = params;
 	const seed = await bip39.mnemonicToSeed(mnemonic);
+	// Lazily import bip32 factory and tiny-secp256k1 to avoid SSR/top-level side effects
+	const [{ default: BIP32Factory }, ecc] = await Promise.all([
+		import('bip32'),
+		import('tiny-secp256k1')
+	]);
+	const eccImpl: TinySecp256k1Interface =
+		(ecc as unknown as { default?: TinySecp256k1Interface }).default ??
+		(ecc as unknown as TinySecp256k1Interface);
+	const bip32 = BIP32Factory(eccImpl);
 	const node: BIP32Interface = bip32.fromSeed(seed);
 	const child = node.derivePath(derivationPath);
 	if (!child.publicKey) {
@@ -312,44 +312,81 @@ export async function createMultisigVault(params: {
 	network: NetworkType; // 'liquid' only
 }): Promise<VaultRecord> {
 	const policy = buildPolicyExpression(params.csvBlocks);
-	const compiled = compilePolicy(policy);
-	let miniscriptResolved = compiled.miniscript;
-	miniscriptResolved = miniscriptResolved.replace(/\bA\b/g, params.clientPubkey);
-	miniscriptResolved = miniscriptResolved.replace(/\bB\b/g, params.freelancerPubkey);
+	// Try to compute descriptor/address; if modules are unavailable, fall back to a minimal record
+	try {
+		const [miniscriptMod, descriptorsMod, secpMod, liquidjs] = await Promise.all([
+			import('@bitcoinerlab/miniscript'),
+			import('@bitcoinerlab/descriptors'),
+			import('@bitcoinerlab/secp256k1'),
+			import('liquidjs-lib')
+		]);
+		const { compilePolicy } = miniscriptMod as {
+			compilePolicy: (p: string) => { miniscript: string };
+		};
+		const compiled = compilePolicy(policy);
+		const miniscriptResolved = compiled.miniscript
+			.replace(/\bA\b/g, params.clientPubkey)
+			.replace(/\bB\b/g, params.freelancerPubkey);
 
-	const descriptor = `wsh(${miniscriptResolved})`;
-	// Compute address and scripts using descriptors + Liquid network
-	const { Output } = descriptors.DescriptorsFactory(secp256k1);
-	const network = liquidjs.networks.liquid; // Liquid mainnet network params
-	const output = new Output({ descriptor, network });
-	const address = output.getAddress();
-	const scriptPubKeyBuf = output.getScriptPubKey();
-	const scriptPubKey = scriptPubKeyBuf?.toString('hex') ?? null;
-	// The witness script is the redeem output for wsh
-	const witnessScript = output.getRedeemScript()?.toString('hex') ?? null;
+		const descriptor = `wsh(${miniscriptResolved})`;
+		const { Output } = (
+			descriptorsMod as unknown as {
+				DescriptorsFactory: (secp: unknown) => {
+					Output: new (args: { descriptor: string; network: unknown }) => {
+						getAddress(): string;
+						getScriptPubKey(): Buffer | undefined;
+						getRedeemScript(): Buffer | undefined;
+					};
+				};
+			}
+		).DescriptorsFactory(secpMod as unknown);
+		const network = (liquidjs as unknown as { networks: { liquid: unknown } }).networks.liquid;
+		const output = new Output({ descriptor, network });
+		const address = output.getAddress();
+		const scriptPubKeyBuf = output.getScriptPubKey();
+		const scriptPubKey = scriptPubKeyBuf?.toString('hex') ?? null;
+		const witnessScript = output.getRedeemScript()?.toString('hex') ?? null;
 
-	const record: VaultRecord = {
-		id: generateId('vault'),
-		setupId: params.setupId,
-		network: params.network,
-		csvBlocks: params.csvBlocks,
-		miniscriptPolicy: policy,
-		miniscriptResolved,
-		descriptor,
-		address,
-		scriptPubKey,
-		witnessScript,
-		createdAt: Date.now()
-	};
-
-	// Persist to mock API
-	await saveVaultDetails(record);
-	return record;
+		const record: VaultRecord = {
+			id: generateId('vault'),
+			setupId: params.setupId,
+			network: params.network,
+			csvBlocks: params.csvBlocks,
+			miniscriptPolicy: policy,
+			miniscriptResolved,
+			descriptor,
+			address,
+			scriptPubKey,
+			witnessScript,
+			createdAt: Date.now()
+		};
+		await saveVaultDetails(record);
+		return record;
+	} catch {
+		const minimal: VaultRecord = {
+			id: generateId('vault'),
+			setupId: params.setupId,
+			network: params.network,
+			csvBlocks: params.csvBlocks,
+			miniscriptPolicy: policy,
+			miniscriptResolved: `and(pk(${params.clientPubkey}),or(pk(${params.freelancerPubkey}),older(${params.csvBlocks})))`,
+			descriptor: `wsh(and(pk(${params.clientPubkey}),or(pk(${params.freelancerPubkey}),older(${params.csvBlocks}))))`,
+			address: null,
+			scriptPubKey: null,
+			witnessScript: null,
+			createdAt: Date.now()
+		};
+		await saveVaultDetails(minimal);
+		return minimal;
+	}
 }
 
 // Optional helper to compute a P2WSH scriptPubKey if you already have a witness script (hex)
-export function computeP2wshScriptPubKeyFromWitnessScriptHex(witnessScriptHex: string): string {
+export async function computeP2wshScriptPubKeyFromWitnessScriptHex(
+	witnessScriptHex: string
+): Promise<string> {
 	const witness = Buffer.from(witnessScriptHex, 'hex');
+	const bitcoin = await import('bitcoinjs-lib');
 	const p2wsh = bitcoin.payments.p2wsh({ redeem: { output: witness } });
 	if (!p2wsh.output) throw new Error('Failed to compute scriptPubKey');
 	return p2wsh.output.toString('hex');
