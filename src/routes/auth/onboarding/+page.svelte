@@ -4,6 +4,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { t } from 'svelte-i18n';
+	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import UsernameSetup from '$lib/components/onboarding/UsernameSetup.svelte';
 	import NostrKeyImport from '$lib/components/onboarding/NostrKeyImport.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
@@ -68,38 +69,25 @@
 	};
 </script>
 
-<div class="flex w-full flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="flex w-full flex-grow flex-col items-center justify-center px-4 py-8" use:autoLoadTranslations>
 	<div class="w-full max-w-md">
 		<div class="mb-8 flex flex-col items-center justify-center">
 			<Logo class="w-auto" />
-			<h1 class="my-4 text-center text-2xl font-bold">{$t('onboarding_auth.title')}</h1>
+			<h1 class="my-4 text-center text-2xl font-bold mt-10">{$t('onboarding_auth.title')}</h1>
 
-			<ul class="steps mx-auto w-full">
-				<li
-					data-content=""
-					class="step {currentStep >= 0 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
-				>
-					{$t('onboarding_auth.steps.account')}
-				</li>
-				<li
-					data-content=""
-					class="step {currentStep >= 1 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
-				>
-					{$t('onboarding_auth.steps.profile')}
-				</li>
-				<li
-					data-content=""
-					class="step {currentStep >= 2 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
-				>
-					{$t('onboarding_auth.steps.location')}
-				</li>
-				<li
-					data-content=""
-					class="step {currentStep >= 3 ? 'step-primary' : 'step-neutral'} text-xs sm:text-sm"
-				>
-					{$t('onboarding_auth.steps.completed')}
-				</li>
-			</ul>
+			<!-- Progress indicator -->
+			<div class="w-full max-w-md">
+				<div class="flex items-center justify-between mb-2">
+					<span class="text-sm font-medium text-primary">Step {currentStep + 1} of {totalSteps}</span>
+					<span class="text-sm text-base-content/70">{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>
+				</div>
+				<div class="w-full bg-base-300 rounded-full h-2">
+					<div 
+						class="bg-primary h-2 rounded-full transition-all duration-300 ease-out"
+						style="width: {((currentStep + 1) / totalSteps) * 100}%"
+					></div>
+				</div>
+			</div>
 		</div>
 
 		{#if currentStep === 0}
@@ -133,5 +121,3 @@
 		{/if}
 	</div>
 </div>
-
-
