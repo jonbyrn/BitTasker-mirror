@@ -89,11 +89,11 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
             </h3>
             <h5 class="mb-3">What is a Nostr key?</h5>
             <p class="step-description text-base-content mb-6 text-lg">
-                A Nostr private key (nsec…) lets you prove ownership of your account. You can import an existing key, or let us generate one for you.
+                A Nostr private key (nsec…) is like your Bitcoin private key: it gives you ownership of your data. <br /><br />You can import an existing key, or let us generate one for you.
             </p>
 
             <!-- Features List (style matched to PasskeySetup) -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Use existing</strong> — import your nsec to keep your identity</span>
@@ -139,7 +139,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 							bind:value={nsec}
                             bind:this={privateKeyInput}
 							class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
-                            placeholder="Enter your Nostr private key (nsec1abcde...)"
+                            placeholder="Enter your Nostr private key (nsec1...)"
 							required
 						/>
 						<button
