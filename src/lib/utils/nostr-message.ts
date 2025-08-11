@@ -188,7 +188,7 @@ export function subscribeToProfileUpdates(
 	callback: (profile: { name?: string; picture?: string }) => void,
 	relays: string[] = DEFAULT_RELAYS
 ): () => void {
-	let sub: any = null;
+	let sub: unknown = null;
 
 	const setupSubscription = async () => {
 		const { SimplePool } = await import('nostr-tools/pool');
@@ -207,7 +207,7 @@ export function subscribeToProfileUpdates(
 			sub = pool.subscribe(relays, filter, {
 				onevent: async (event: NostrEvent) => {
 					// Create a new profile object for each update to ensure reactivity
-					let updatedProfile: { name?: string; picture?: string } = { ...profile };
+					const updatedProfile: { name?: string; picture?: string } = { ...profile };
 
 					if (event.kind === 0 && event.content) {
 						try {
@@ -289,6 +289,8 @@ export async function fetchProfileMetadata(
 		if (cachedProfile) {
 			return cachedProfile;
 		}
+		console.log('fetching profile metadata for', pubkey);
+		console.log({ cachedProfile });
 
 		// If not in cache, fetch from relays
 		const filter: Filter = {
@@ -507,6 +509,7 @@ export function listenForIncomingMessages(
 				try {
 					unsub = subscribeToEvents(relay, filters, async (event: NostrEvent) => {
 						try {
+							console.log({ event, privkey });
 							const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
 
 							callback({ plaintext, senderPubkey, event });

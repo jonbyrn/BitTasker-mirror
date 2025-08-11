@@ -40,18 +40,10 @@
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
 import { 
-	Musig, 
-	SwapTreeSerializer, 
-	TaprootUtils,
-	reverseSwapScript,
 	swapScript,
-	constructClaimTransaction,
-	constructRefundTransaction,
-	detectSwap,
-	OutputType
 } from 'boltz-core';
 import { randomBytes, createHmac } from 'crypto';
-import { crypto, networks, payments, script, address, Transaction, Psbt } from 'bitcoinjs-lib';
+import { crypto, networks, payments, script,  Transaction, Psbt } from 'bitcoinjs-lib';
 import type {
 	BoltzConfig,
 	SwapPairs,

@@ -8,16 +8,9 @@
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
 	import ChatMessage from './ChatMessage.svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
 	import { nip19 } from 'nostr-tools';
 	import { onDestroy } from 'svelte';
-	import {
-		buildClientSharePayload,
-		buildFreelancerSharePayload,
-		saveMultisigSetup,
-		createMultisigVault,
-		submitVaultToServer
-	} from '$lib/wallet/helper';
+	// Defer importing wallet helper functions until needed to avoid heavy module side-effects on load
 
 	import { t } from 'svelte-i18n';
 
@@ -152,6 +145,7 @@
 
 	// Monitor scroll position for infinite scroll
 	$effect(() => {
+		let cleanup = () => {};
 		if (messagesContainer) {
 			const handleScroll = () => {
 				const { scrollTop } = messagesContainer;
@@ -164,8 +158,9 @@
 			};
 
 			messagesContainer.addEventListener('scroll', handleScroll);
-			return () => messagesContainer.removeEventListener('scroll', handleScroll);
+			cleanup = () => messagesContainer.removeEventListener('scroll', handleScroll);
 		}
+		return cleanup;
 	});
 
 	// Cleanup on component destroy
@@ -267,6 +262,7 @@
 		error = '';
 
 		try {
+			console.log('loading messages for', recipientHex());
 			// Fetch initial message history
 			const messageHistory = await getMessageHistory(recipientHex(), {
 				limit: MESSAGES_PER_PAGE
@@ -357,8 +353,10 @@
 			unsubscribe();
 		}
 
+		console.log('setting up real-time listener for', recipientHex());
 		// Setup new subscription for real-time messages
 		unsubscribe = listenForIncomingMessages((msg) => {
+			console.log('received message', msg);
 			const { plaintext, senderPubkey, event } = msg;
 
 			// Only add messages that are relevant to this conversation
@@ -590,6 +588,7 @@
 	// Create Contract flow
 	async function openCreateContract() {
 		try {
+			const { buildClientSharePayload } = await import('$lib/wallet/helper');
 			const payload = await buildClientSharePayload({});
 			offerDerivationPath = payload.derivationPath;
 			offerClientPubkey = payload.clientPubkey;
@@ -644,6 +643,9 @@
 		// If clicking on contract_accept from initiator’s side, proceed to Create Vault directly
 		if (payload?.type === 'contract_accept' && isSender) {
 			try {
+				const { saveMultisigSetup, createMultisigVault, submitVaultToServer } = await import(
+					'$lib/wallet/helper'
+				);
 				// Retrieve initiator's context from storage using derivationPath
 				const ctx = loadOfferContext(payload.derivationPath);
 				const clientPubkeyFromCtx = ctx?.clientPubkey || offerClientPubkey || '';
@@ -676,11 +678,7 @@
 				await sendDirectMessage(JSON.stringify(createdMsg), recipientHex());
 
 				// Submit to backend for tracking
-				await submitVaultToServer({
-					setup,
-					vault,
-					roles: { clientPubkey: setup.clientPubkey, freelancerPubkey: setup.freelancerPubkey }
-				});
+				await submitVaultToServer();
 			} catch (e) {
 				console.error(e);
 				error = 'Failed to create vault';
@@ -697,6 +695,9 @@
 		try {
 			if (!pendingIncomingPayload || pendingIncomingPayload.type !== 'contract_offer') return;
 			// Build freelancer pubkey using the shared derivation path
+			const { buildFreelancerSharePayload, saveMultisigSetup, createMultisigVault } = await import(
+				'$lib/wallet/helper'
+			);
 			const { freelancerPubkey } = await buildFreelancerSharePayload({
 				derivationPath: pendingIncomingPayload.derivationPath
 			});

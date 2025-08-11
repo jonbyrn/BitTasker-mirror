@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { getNpub } from '$lib/utils/nostrKeys';
@@ -9,7 +9,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 
 	// Get pubkey from URL
-	let recipientPubkey = $derived($page.params.pubkey);
+	let recipientPubkey = $derived(page.params.pubkey ?? '');
 
 	// State
 	let currentUserNpub = $state<string>('');
@@ -28,7 +28,7 @@
 			// Convert npub to hex if needed
 			if (recipientPubkey.startsWith('npub')) {
 				try {
-					hexPubkey = nip19.decode(recipientPubkey).data as string;
+					hexPubkey = nip19.decode(recipientPubkey).data.toString();
 				} catch {
 					error = 'Invalid npub format';
 					isLoading = false;
@@ -120,13 +120,7 @@
 			<!-- Recipient Info -->
 			<div class="flex flex-1 items-center justify-between">
 				<div class="flex items-center gap-3">
-					<Avatar
-						user={{
-							name: recipientProfile?.name || 'Unknown',
-							picture: recipientProfile?.picture || null
-						}}
-						size="sm"
-					/>
+					<Avatar size="sm" />
 					<div>
 						<h3 class="text-lg font-semibold">
 							{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
