@@ -2,6 +2,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
+    import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let {
 		nextStep,
@@ -19,6 +20,9 @@
 	let confirmPassword = $state('');
 	let enableRecovery = $state(false);
 	let showPassword = $state(false);
+
+    // Autofocus email when enabling recovery
+    let recoveryEmailInput = $state<HTMLInputElement | null>(null);
 
 	// Error states
 	let emailError = $state('');
@@ -74,40 +78,47 @@
 		}
 		onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
 	});
+
+    // Focus email field when recovery is enabled
+    $effect(() => {
+        if (enableRecovery) {
+            setTimeout(() => recoveryEmailInput?.focus(), 0);
+        }
+    });
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-sm font-medium text-primary mb-2 text-end">Step 4 of 7 - Optional</div>
-			<h2 class="step-title !text-xl font-bold mb-3 mt-4">
-				<span class="mr-2">🛡️</span>
-				Create Recovery Password
-			</h2>
-			<p class="step-description text-base-content/70 mb-6">
+			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 4 of 7 — Optional</div>
+			<h3 class="step-title mb-3 mt-4">Create Recovery Password</h3>
+			<h5 class="mb-3">Add a safe backup for account access</h5>
+			<p class="step-description text-base-content mb-6 text-lg">
 				Set up a recovery method to regain access if you lose your device. This is optional but highly recommended for account security.
 			</p>
 
-			<!-- Features List -->
-			<div class="features-list space-y-2 mb-6">
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Secure</strong> — encrypted with your password</span>
+			<!-- Features List (aligned with Nostr import styling) -->
+			<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Secure</strong> — protected with a password only you know</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Recoverable</strong> — access via email if device lost</span>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Recoverable</strong> — regain access via your email</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Optional</strong> — you can set this up later</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Private</strong> — only you can decrypt your data</span>
 				</div>
 			</div>
+
+			<p class="text-primary mb-6 text-lg">Optional, but highly recommended.</p>
 		</div>
 
 		<form onsubmit={handleSubmit} class="space-y-4">
@@ -160,6 +171,7 @@
 							type="email"
 							id="email"
 							bind:value={recoveryEmail}
+							bind:this={recoveryEmailInput}
 							class="input input-bordered w-full {emailError ? 'input-error' : ''}"
 							placeholder="Enter your email address"
 							required={enableRecovery}
