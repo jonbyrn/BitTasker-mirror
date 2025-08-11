@@ -129,3 +129,229 @@ export function clearCache(): void {
 	fiatRatesCache = null;
 	console.log('[Helper] All caches cleared');
 }
+
+// =========================
+// Multisig/Vault helpers
+// =========================
+
+import BIP32Factory from 'bip32';
+import type { BIP32Interface } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
+import * as bitcoin from 'bitcoinjs-lib';
+import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
+import { compilePolicy } from '@bitcoinerlab/miniscript';
+import * as descriptors from '@bitcoinerlab/descriptors';
+import * as secp256k1 from '@bitcoinerlab/secp256k1';
+import * as liquidjs from 'liquidjs-lib';
+
+const bip32 = BIP32Factory(ecc);
+
+export type NetworkType = 'liquid';
+
+export interface MultisigSetupRecord {
+    id: string;
+    derivationPath: string;
+    clientPubkey: string; // hex compressed
+    freelancerPubkey: string; // hex compressed
+    createdAt: number;
+}
+
+export interface VaultRecord {
+    id: string;
+    setupId: string; // link to MultisigSetupRecord.id
+    network: NetworkType;
+    csvBlocks: number;
+    miniscriptPolicy: string; // policy form e.g. and(pk(A),or(pk(B),older(N)))
+    miniscriptResolved: string; // keys substituted
+    descriptor: string; // e.g. wsh(<miniscript>)
+    address?: string | null;
+    scriptPubKey?: string | null; // hex
+    witnessScript?: string | null; // hex
+    createdAt: number;
+}
+
+function generateId(prefix: string): string {
+    const rand = Math.random().toString(36).slice(2, 10);
+    return `${prefix}_${Date.now()}_${rand}`;
+}
+
+function delay(ms = 200): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// --- Derivation / keys ---
+
+/**
+ * Generates a derivation path for a fresh child key.
+ * Default uses BIP86 account space. You can store the index server-side if needed.
+ */
+export function generateDerivationPath(options?: {
+    accountIndex?: number; // hardened account index
+    addressIndex?: number; // non-hardened index
+    change?: 0 | 1;
+}): string {
+    const accountIndex = options?.accountIndex ?? Math.floor(Math.random() * 2 ** 15);
+    const addressIndex = options?.addressIndex ?? 0;
+    const change = options?.change ?? 0;
+    // Liquid-only vault derivation (BIP86 style). Coin type kept as testnet-friendly for development.
+    const coinType = 1; // Testnet-style by default; both sides must use the same path
+    return `m/86'/${coinType}'/${accountIndex}'/${change}/${addressIndex}`;
+}
+
+/**
+ * Derive a compressed secp256k1 public key (hex) from mnemonic at a given path.
+ */
+export async function derivePubkeyAtPath(params: {
+    mnemonic: string;
+    derivationPath: string;
+}): Promise<string> {
+    const { mnemonic, derivationPath } = params;
+    const seed = await bip39.mnemonicToSeed(mnemonic);
+    const node: BIP32Interface = bip32.fromSeed(seed);
+    const child = node.derivePath(derivationPath);
+    if (!child.publicKey) {
+        throw new Error('Failed to derive public key');
+    }
+    return Buffer.from(child.publicKey).toString('hex');
+}
+
+/**
+ * Build the payload a client shares over Nostr to initiate multisig.
+ */
+export async function buildClientSharePayload(params?: {
+    derivationPath?: string; // optional; will be generated if not provided
+}): Promise<{ derivationPath: string; clientPubkey: string }> {
+    const mnemonic = await getMnemonicPasskey();
+    const derivationPath = params?.derivationPath ?? generateDerivationPath();
+    const clientPubkey = await derivePubkeyAtPath({ mnemonic, derivationPath });
+    return { derivationPath, clientPubkey };
+}
+
+/**
+ * Build the payload a freelancer replies with using the given derivation path.
+ */
+export async function buildFreelancerSharePayload(params: {
+    derivationPath: string;
+}): Promise<{ freelancerPubkey: string }> {
+    const mnemonic = await getMnemonicPasskey();
+    const freelancerPubkey = await derivePubkeyAtPath({ mnemonic, derivationPath: params.derivationPath });
+    return { freelancerPubkey };
+}
+
+// --- Mock server API ---
+
+export async function saveMultisigSetup(params: {
+    derivationPath: string;
+    clientPubkey: string;
+    freelancerPubkey: string;
+}): Promise<MultisigSetupRecord> {
+    await delay();
+    const id = generateId('setup');
+    const record: MultisigSetupRecord = {
+        id,
+        derivationPath: params.derivationPath,
+        clientPubkey: params.clientPubkey,
+        freelancerPubkey: params.freelancerPubkey,
+        createdAt: Date.now()
+    };
+    return record;
+}
+
+export async function saveVaultDetails(record: VaultRecord): Promise<VaultRecord> {
+    await delay();
+    return record;
+}
+
+export async function submitVaultToServer(params: {
+    setup: MultisigSetupRecord;
+    vault: VaultRecord;
+    roles: { clientPubkey: string; freelancerPubkey: string };
+}): Promise<void> {
+    // TODO: Replace with real API call
+    await delay(300);
+}
+
+// --- Miniscript & vault creation (stubbed; address/script optional) ---
+
+/**
+ * Create the miniscript policy string with symbolic keys A (client) and B (freelancer).
+ * Policy: and(pk(A), or(pk(B), older(CSV)))
+ */
+export function buildPolicyExpression(csvBlocks: number): string {
+    if (!Number.isInteger(csvBlocks) || csvBlocks < 1) {
+        throw new Error('csvBlocks must be a positive integer');
+    }
+    return `and(pk(A),or(pk(B),older(${csvBlocks})))`;
+}
+
+/**
+ * Resolve the policy by substituting actual hex pubkeys for A and B.
+ */
+export function resolvePolicyToMiniscript(params: {
+    policyExpression: string;
+    clientPubkey: string; // A
+    freelancerPubkey: string; // B
+}): string {
+    let miniscript = params.policyExpression;
+    miniscript = miniscript.replace(/\bA\b/g, params.clientPubkey);
+    miniscript = miniscript.replace(/\bB\b/g, params.freelancerPubkey);
+    return miniscript;
+}
+
+/**
+ * Creates a vault data structure. Address/script creation is deferred until we wire 
+ * in a miniscript+descriptor engine. For now we return descriptor and placeholders.
+ *
+ * NOTE: When we add @bitcoinerlab/miniscript & @bitcoinerlab/descriptors, we can
+ * compute address, witnessScript and scriptPubKey from the descriptor on Liquid/Bitcoin.
+ */
+export async function createMultisigVault(params: {
+    setupId: string;
+    clientPubkey: string; // privileged key (A)
+    freelancerPubkey: string; // other key (B)
+    csvBlocks: number; // ask user in UI
+    network: NetworkType; // 'liquid' only
+}): Promise<VaultRecord> {
+    const policy = buildPolicyExpression(params.csvBlocks);
+    const compiled = compilePolicy(policy);
+    let miniscriptResolved = compiled.miniscript;
+    miniscriptResolved = miniscriptResolved.replace(/\bA\b/g, params.clientPubkey);
+    miniscriptResolved = miniscriptResolved.replace(/\bB\b/g, params.freelancerPubkey);
+
+    const descriptor = `wsh(${miniscriptResolved})`;
+    // Compute address and scripts using descriptors + Liquid network
+    const { Output } = descriptors.DescriptorsFactory(secp256k1);
+    const network = liquidjs.networks.liquid; // Liquid mainnet network params
+    const output = new Output({ descriptor, network });
+    const address = output.getAddress();
+    const scriptPubKeyBuf = output.getScriptPubKey();
+    const scriptPubKey = scriptPubKeyBuf?.toString('hex') ?? null;
+    // The witness script is the redeem output for wsh
+    const witnessScript = output.maybeGetRedeemScript()?.toString('hex') ?? null;
+
+    const record: VaultRecord = {
+        id: generateId('vault'),
+        setupId: params.setupId,
+        network: params.network,
+        csvBlocks: params.csvBlocks,
+        miniscriptPolicy: policy,
+        miniscriptResolved,
+        descriptor,
+        address,
+        scriptPubKey,
+        witnessScript,
+        createdAt: Date.now()
+    };
+
+    // Persist to mock API
+    await saveVaultDetails(record);
+    return record;
+}
+
+// Optional helper to compute a P2WSH scriptPubKey if you already have a witness script (hex)
+export function computeP2wshScriptPubKeyFromWitnessScriptHex(witnessScriptHex: string): string {
+    const witness = Buffer.from(witnessScriptHex, 'hex');
+    const p2wsh = bitcoin.payments.p2wsh({ redeem: { output: witness } });
+    if (!p2wsh.output) throw new Error('Failed to compute scriptPubKey');
+    return p2wsh.output.toString('hex');
+}

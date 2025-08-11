@@ -78,6 +78,8 @@
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
+		"@bitcoinerlab/descriptors": "^2.3.1",
+		"@bitcoinerlab/miniscript": "^1.4.0",
 		"@breeztech/breez-sdk-liquid": "^0.10.3",
 		"@capacitor/android": "^7.0.1",
 		"@capacitor/app": "^7.0.0",
@@ -116,6 +118,7 @@
 		"ecpair": "^3.0.0",
 		"firebase": "^11.10.0",
 		"iconify-icon": "^2.3.0",
+		"liquidjs-lib": "^6.0.2-liquid.37",
 		"nostr-tools": "^2.13.0",
 		"path-browserify": "^1.0.1",
 		"process": "^0.11.10",

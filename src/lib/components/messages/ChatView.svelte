@@ -7,10 +7,17 @@
 		listenForIncomingMessages,
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
-	import ChatMessage from './ChatMessage.svelte';
+    import ChatMessage from './ChatMessage.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { nip19 } from 'nostr-tools';
 	import { onDestroy } from 'svelte';
+    import {
+        buildClientSharePayload,
+        buildFreelancerSharePayload,
+        saveMultisigSetup,
+        createMultisigVault,
+        submitVaultToServer
+    } from '$lib/wallet/helper';
 
 	// Props
 	let {
@@ -28,7 +35,17 @@
 	let newMessageText = $state('');
 	let isLoadingMessages = $state(true);
 	let isSendingMessage = $state(false);
-	let error = $state('');
+    let error = $state('');
+
+    // Contract modal state
+    let isCreateContractOpen = $state(false);
+    let isIncomingContractOpen = $state(false);
+    let pendingIncomingPayload: any = $state(null);
+
+    // Fields for creating a contract offer
+    let offerDerivationPath = $state('');
+    let offerClientPubkey = $state('');
+    let offerCsvBlocks = $state<number>(60); // default 60 minutes (~60 blocks on Liquid)
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
 	let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: 'You' });
 
@@ -525,6 +542,216 @@
 		// The $effect will handle saving the draft automatically
 		autoResizeTextarea();
 	}
+
+    // --- Local storage for initiator offer context ---
+    type OfferContext = { derivationPath: string; clientPubkey: string; csvBlocks: number; timestamp: number };
+    type OfferContextStore = { latest?: OfferContext; byPath?: Record<string, OfferContext> };
+    function offerStorageKey() {
+        return `contract_offers_${currentUserHex()}_${recipientHex()}`;
+    }
+    function saveOfferContext(ctx: OfferContext) {
+        try {
+            const key = offerStorageKey();
+            const existingRaw = localStorage.getItem(key);
+            const existing: OfferContextStore = existingRaw ? JSON.parse(existingRaw) : {};
+            const updated: OfferContextStore = {
+                latest: ctx,
+                byPath: { ...(existing.byPath || {}), [ctx.derivationPath]: ctx }
+            };
+            localStorage.setItem(key, JSON.stringify(updated));
+        } catch (e) {
+            console.warn('Failed to persist offer context', e);
+        }
+    }
+    function loadOfferContext(derivationPath?: string): OfferContext | undefined {
+        try {
+            const key = offerStorageKey();
+            const existingRaw = localStorage.getItem(key);
+            if (!existingRaw) return undefined;
+            const existing: OfferContextStore = JSON.parse(existingRaw);
+            if (derivationPath && existing.byPath && existing.byPath[derivationPath]) return existing.byPath[derivationPath];
+            return existing.latest;
+        } catch (e) {
+            console.warn('Failed to load offer context', e);
+            return undefined;
+        }
+    }
+
+    // Create Contract flow
+    async function openCreateContract() {
+        try {
+            const payload = await buildClientSharePayload({});
+            offerDerivationPath = payload.derivationPath;
+            offerClientPubkey = payload.clientPubkey;
+            isCreateContractOpen = true;
+        } catch (e) {
+            console.error(e);
+            error = 'Failed to generate contract keys';
+            setTimeout(() => (error = ''), 4000);
+        }
+    }
+
+    async function confirmCreateContract() {
+        try {
+            const special = {
+                type: 'contract_offer',
+                version: 1,
+                network: 'liquid',
+                derivationPath: offerDerivationPath,
+                clientPubkey: offerClientPubkey,
+                csvBlocks: offerCsvBlocks,
+                timestamp: Date.now()
+            };
+            const content = JSON.stringify(special);
+            // send via nostr
+            await sendDirectMessage(content, recipientHex());
+
+            // persist initiator offer context locally for future vault creation
+            saveOfferContext({
+                derivationPath: offerDerivationPath,
+                clientPubkey: offerClientPubkey,
+                csvBlocks: offerCsvBlocks,
+                timestamp: special.timestamp
+            });
+            isCreateContractOpen = false;
+        } catch (e) {
+            console.error(e);
+            error = 'Failed to send contract offer';
+            setTimeout(() => (error = ''), 4000);
+        }
+    }
+
+    function closeCreateContract() {
+        isCreateContractOpen = false;
+    }
+
+    async function handleViewContract(detail: { payload: any; event: NostrEvent; isSender: boolean }) {
+        const { payload, isSender } = detail;
+        // If clicking on contract_accept from initiator’s side, proceed to Create Vault directly
+        if (payload?.type === 'contract_accept' && isSender) {
+            try {
+                // Retrieve initiator's context from storage using derivationPath
+                const ctx = loadOfferContext(payload.derivationPath);
+                const clientPubkeyFromCtx = ctx?.clientPubkey || offerClientPubkey || '';
+                if (!clientPubkeyFromCtx) throw new Error('Missing initiator client pubkey');
+
+                const setup = await saveMultisigSetup({
+                    derivationPath: payload.derivationPath,
+                    clientPubkey: clientPubkeyFromCtx,
+                    freelancerPubkey: payload.freelancerPubkey
+                });
+                const vault = await createMultisigVault({
+                    setupId: setup.id,
+                    clientPubkey: clientPubkeyFromCtx,
+                    freelancerPubkey: payload.freelancerPubkey,
+                    csvBlocks: payload.csvBlocks,
+                    network: 'liquid'
+                });
+                // Send created announcement back
+                const createdMsg = {
+                    type: 'contract_created',
+                    version: 1,
+                    setupId: setup.id,
+                    vaultId: vault.id,
+                    address: vault.address,
+                    descriptor: vault.descriptor,
+                    csvBlocks: vault.csvBlocks,
+                    derivationPath: payload.derivationPath,
+                    timestamp: Date.now()
+                };
+                await sendDirectMessage(JSON.stringify(createdMsg), recipientHex());
+
+                // Submit to backend for tracking
+                await submitVaultToServer({
+                    setup,
+                    vault,
+                    roles: { clientPubkey: setup.clientPubkey, freelancerPubkey: setup.freelancerPubkey }
+                });
+            } catch (e) {
+                console.error(e);
+                error = 'Failed to create vault';
+                setTimeout(() => (error = ''), 4000);
+            }
+            return;
+        }
+        // Otherwise open view modal for offers
+        pendingIncomingPayload = payload;
+        isIncomingContractOpen = true;
+    }
+
+    async function acceptIncomingContract() {
+        try {
+            if (!pendingIncomingPayload || pendingIncomingPayload.type !== 'contract_offer') return;
+            // Build freelancer pubkey using the shared derivation path
+            const { freelancerPubkey } = await buildFreelancerSharePayload({
+                derivationPath: pendingIncomingPayload.derivationPath
+            });
+            // Send accept message first
+            const acceptMsg = {
+                type: 'contract_accept',
+                version: 1,
+                derivationPath: pendingIncomingPayload.derivationPath,
+                freelancerPubkey,
+                csvBlocks: pendingIncomingPayload.csvBlocks,
+                timestamp: Date.now()
+            };
+            await sendDirectMessage(JSON.stringify(acceptMsg), recipientHex());
+
+            // Create local vault record for UX (optional for other side). We'll also send a created notice
+            const setup = await saveMultisigSetup({
+                derivationPath: pendingIncomingPayload.derivationPath,
+                clientPubkey: pendingIncomingPayload.clientPubkey,
+                freelancerPubkey
+            });
+            const vault = await createMultisigVault({
+                setupId: setup.id,
+                clientPubkey: pendingIncomingPayload.clientPubkey,
+                freelancerPubkey,
+                csvBlocks: pendingIncomingPayload.csvBlocks,
+                network: 'liquid'
+            });
+
+            const createdMsg = {
+                type: 'contract_created',
+                version: 1,
+                setupId: setup.id,
+                vaultId: vault.id,
+                address: vault.address,
+                descriptor: vault.descriptor,
+                csvBlocks: vault.csvBlocks,
+                derivationPath: pendingIncomingPayload.derivationPath,
+                timestamp: Date.now()
+            };
+            await sendDirectMessage(JSON.stringify(createdMsg), recipientHex());
+
+            isIncomingContractOpen = false;
+            pendingIncomingPayload = null;
+        } catch (e) {
+            console.error(e);
+            error = 'Failed to accept contract';
+            setTimeout(() => (error = ''), 4000);
+        }
+    }
+
+    async function rejectIncomingContract() {
+        try {
+            if (!pendingIncomingPayload || pendingIncomingPayload.type !== 'contract_offer') return;
+            const rejectMsg = {
+                type: 'contract_reject',
+                version: 1,
+                derivationPath: pendingIncomingPayload.derivationPath,
+                reason: 'Declined',
+                timestamp: Date.now()
+            };
+            await sendDirectMessage(JSON.stringify(rejectMsg), recipientHex());
+            isIncomingContractOpen = false;
+            pendingIncomingPayload = null;
+        } catch (e) {
+            console.error(e);
+            error = 'Failed to reject contract';
+            setTimeout(() => (error = ''), 4000);
+        }
+    }
 </script>
 
 <div class="flex flex-col">
@@ -616,15 +843,16 @@
 				</div>
 			{:else}
 				<!-- Messages List -->
-				{#each messages as message}
-					<ChatMessage
-						{message}
-						isSender={message.senderPubkey === currentUserHex()}
-						profile={message.senderPubkey === currentUserHex()
-							? currentUserProfile
-							: recipientProfile}
-					/>
-				{/each}
+                {#each messages as message}
+                    <ChatMessage
+                        onViewContract={handleViewContract}
+                        {message}
+                        isSender={message.senderPubkey === currentUserHex()}
+                        profile={message.senderPubkey === currentUserHex()
+                            ? currentUserProfile
+                            : recipientProfile}
+                    />
+                {/each}
 			{/if}
 		{/if}
 	</div>
@@ -633,6 +861,16 @@
 	<div class="border-base-300 bg-base-100 flex-shrink-0 rounded-b-[2rem] border-t p-2">
 		<form onsubmit={handleSubmit} class="relative">
 			<div class="flex items-center gap-2 rounded-2xl p-1">
+				<!-- Create Contract Button -->
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm h-10 min-h-0 rounded-full"
+					onclick={openCreateContract}
+					title="Create Contract"
+				>
+					Create Contract
+				</button>
+
 				<!-- Message Input -->
 				<div class="flex-1">
 					<!-- svelte-ignore a11y_autofocus -->
@@ -709,4 +947,60 @@
 			{/if}
 		</form>
 	</div>
+
+    <!-- Create Contract Modal -->
+    {#if isCreateContractOpen}
+        <div class="modal modal-open">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg mb-4">Create Contract</h3>
+                <div class="space-y-3">
+                    <label class="form-control">
+                        <div class="label"><span class="label-text">CSV deadline (blocks)</span></div>
+                        <input type="number" min="1" class="input input-bordered"
+                            bind:value={offerCsvBlocks} />
+                    </label>
+                    <div class="bg-base-200 rounded-xl p-3">
+                        <div class="text-sm opacity-70">Derivation Path</div>
+                        <div class="font-mono break-all text-sm">{offerDerivationPath}</div>
+                    </div>
+                    <div class="bg-base-200 rounded-xl p-3">
+                        <div class="text-sm opacity-70">Your Pubkey</div>
+                        <div class="font-mono break-all text-sm">{offerClientPubkey}</div>
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button class="btn" onclick={closeCreateContract}>Cancel</button>
+                    <button class="btn btn-primary" onclick={confirmCreateContract}>Send Offer</button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
+    <!-- Incoming Contract Modal -->
+    {#if isIncomingContractOpen && pendingIncomingPayload}
+        <div class="modal modal-open">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg mb-4">Contract Offer</h3>
+                <div class="space-y-3">
+                    <div class="bg-base-200 rounded-xl p-3">
+                        <div class="text-sm opacity-70">Deadline (blocks)</div>
+                        <div class="font-mono text-sm">{pendingIncomingPayload.csvBlocks}</div>
+                    </div>
+                    <div class="bg-base-200 rounded-xl p-3">
+                        <div class="text-sm opacity-70">Client Pubkey</div>
+                        <div class="font-mono break-all text-sm">{pendingIncomingPayload.clientPubkey}</div>
+                    </div>
+                    <div class="bg-base-200 rounded-xl p-3">
+                        <div class="text-sm opacity-70">Derivation Path</div>
+                        <div class="font-mono break-all text-sm">{pendingIncomingPayload.derivationPath}</div>
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button class="btn" onclick={() => { isIncomingContractOpen = false; pendingIncomingPayload = null; }}>Close</button>
+                    <button class="btn btn-error" onclick={rejectIncomingContract}>Reject</button>
+                    <button class="btn btn-primary" onclick={acceptIncomingContract}>Accept</button>
+                </div>
+            </div>
+        </div>
+    {/if}
 </div>
