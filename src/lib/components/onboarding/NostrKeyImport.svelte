@@ -77,8 +77,8 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
                 Import Your Nostr Key
             </h3>
             <h5 class="mb-3">What is a Nostr key?</h5>
-            <p class="step-description text-base-content mb-6 text-m">
-                A Nostr private key (nsec…) lets you prove ownership of your account. You can import an existing key or let us generate one for you.
+            <p class="step-description text-base-content mb-6 text-lg">
+                A Nostr private key (nsec…) lets you prove ownership of your account. You can import an existing key, or let us generate one for you.
             </p>
 
             <!-- Features List (style matched to PasskeySetup) -->
@@ -110,7 +110,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={importNostrKey} class="checkbox checkbox-sm" />
 					<div class="flex items-center gap-2">
-						<span class="label-text">Import existing Nostr key (nsec)</span>
+						<span class="label-text text-base-content">Import existing Nostr key (nsec)</span>
 					</div>
 				</label>
 			</div>
@@ -119,7 +119,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 			{#if importNostrKey}
 				<div class="form-control" in:fly={{ duration: 200, y: -20, easing: linear }}>
 					<label class="label" for="privateKey">
-						<span class="label-text">Private Key (nsec)</span>
+						<span class="label-text text-base-content">Private Key (nsec)</span>
 					</label>
 					<div class="relative">
 						<input
