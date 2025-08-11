@@ -73,36 +73,35 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 		<!-- Educational Header -->
     <div class="education-header mb-6 text-center">
             <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 2 of 7 - Optional</div>
-            <h2 class="step-title mb-3 !text-xl font-bold mt-4">
-                <IconKeyOutline class="mr-2 inline-block align-[-0.1em]" />
+            <h3 class="step-title mb-3 mt-4">
                 Import Your Nostr Key
-            </h2>
-            <h3 class="mb-3 text-lg font-semibold">What is a Nostr key?</h3>
-            <p class="step-description text-base-content/70 mb-6">
+            </h3>
+            <h5 class="mb-3">What is a Nostr key?</h5>
+            <p class="step-description text-base-content mb-6 text-m">
                 A Nostr private key (nsec…) lets you prove ownership of your account. You can import an existing key or let us generate one for you.
             </p>
 
             <!-- Features List (style matched to PasskeySetup) -->
             <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
-                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-success" />
                     <span><strong>Use existing</strong> — import your nsec to keep your identity</span>
                 </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-success" />
                     <span><strong>Generate new</strong> — we’ll create a secure key if you don’t have one</span>
                 </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-success" />
                     <span><strong>Manage anytime</strong> — view/export your key in App Settings</span>
                 </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-success" />
                     <span><strong>Keep it secret</strong> — anyone with your key can access your account</span>
                 </div>
             </div>
 
-            <p class="text-primary mb-6 text-lg font-medium">You control access. Keep your key safe.</p>
+            <p class="text-primary mb-6 text-lg">You control access. Keep your key safe.</p>
         </div>
 
 		<form onsubmit={handleSubmit} class="space-y-4">
