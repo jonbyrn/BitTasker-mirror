@@ -10,6 +10,10 @@ import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
 import Inspect from 'vite-plugin-inspect'
 
+// Flags to enable heavy/dev-only plugins on demand
+const isAnalyze = !!process.env.ANALYZE
+const isInspect = !!process.env.VITE_INSPECT
+
 
 // More info at: https://storybook.js.org/docs/writing-tests/test-addon
 export default defineConfig({
@@ -19,19 +23,19 @@ export default defineConfig({
 		sveltekit(),
 		wasm(),
 		topLevelAwait(),
-		Icons({
+			Icons({
 			compiler: 'svelte',
-			autoInstall: true,
+				autoInstall: false,
 			scale: 1.5,
 			defaultStyle: 'width: 1.5em; height: 1.5em;',
 			defaultClass: '',
 		}),
-		Inspect({
-			build: true,
-			outputDir: '.vite-inspect'
-		}),
-		visualizer({ open: false, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
-	],
+			isInspect && Inspect({
+				build: true,
+				outputDir: '.vite-inspect'
+			}),
+			isAnalyze && visualizer({ open: false, emitFile: true, filename: 'bundle-report.html', gzipSize: true, brotliSize: true })
+		].filter(Boolean),
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version),
 		global: 'globalThis',
@@ -55,14 +59,8 @@ export default defineConfig({
 			}
 		},
 		chunkSizeWarningLimit: 500, // Lower threshold to catch more issues
-		// Enable better tree shaking
-		minify: 'terser',
-		terserOptions: {
-			compress: {
-				drop_console: true,
-				drop_debugger: true
-			}
-		},
+        // Faster minification
+        minify: 'esbuild',
 
 		// Ensure WASM files are copied correctly in production
 		assetsInlineLimit: 0,
