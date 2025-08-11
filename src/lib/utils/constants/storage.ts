@@ -18,6 +18,8 @@ export const StorageKeys = {
 
 	// WebAuthn
 	WEB_AUTHN_CREDENTIAL_ID: 'webAuthnCredentialId',
+	// Wallet
+	WALLET_MNEMONIC: 'wallet_mnemonic_encrypted',
 
 	// App state
 	LAST_SYNC: 'bittasker_last_sync',
