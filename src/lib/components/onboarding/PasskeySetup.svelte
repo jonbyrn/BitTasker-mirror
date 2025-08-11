@@ -186,8 +186,8 @@
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 3 of 7</div>
-			<h2 class="step-title mb-3 !text-xl font-bold mt-4">Set Up Your Passkey</h2>
-            <h3 class="mb-3 text-lg font-semibold">What's a Passkey?</h3>
+			<h3 class="step-title mb-3 mt-4">Set Up Your Passkey</h3>
+            <h5 class="mb-3">What's a Passkey?</h5>
             <p class="step-description text-base-content mb-6 text-lg">
                 Use your Face ID, fingerprint, or phone PIN to log in. No passwords or codes — just tap and go.
             </p>
