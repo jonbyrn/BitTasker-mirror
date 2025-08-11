@@ -100,6 +100,11 @@
 		if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
 		return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 	}
+
+	function shorten(pubkey?: string): string {
+		if (typeof pubkey !== 'string' || pubkey.length === 0) return '—';
+		return pubkey.length > 8 ? `${pubkey.slice(0, 8)}...` : pubkey;
+	}
 </script>
 
 <div class="mb-4 flex gap-3" class:flex-row-reverse={isSender}>
@@ -149,7 +154,6 @@
 					<div class="mb-1 font-semibold">New contract offer</div>
 					<div class="text-sm opacity-80">
 						Deadline: {approxTimeFromCsv(special.csvBlocks)}<br />
-						Pubkey: {special.clientPubkey.slice(0, 8)}...<br />
 						Path: {special.derivationPath}
 					</div>
 					<div class="mt-2">
@@ -158,15 +162,17 @@
 				</div>
 			{:else if special.type === 'contract_accept'}
 				<div class="bg-success/10 text-success-content max-w-sm rounded-2xl px-4 py-3">
-					<div class="flex items-center justify-between">
-						<span class="font-medium">Contract accepted</span>
-						{#if isSender}
-							<button class="btn btn-xs" onclick={handleViewOffer}>Create Vault</button>
-						{/if}
+					<div class="mb-1 font-semibold">Contract accepted</div>
+					<div class="text-sm opacity-80">
+						Partner Pubkey: {shorten(special.freelancerPubkey)}<br />
+						CSV: {special.csvBlocks} blocks<br />
+						Path: {special.derivationPath}
 					</div>
-					<div class="mt-1 text-xs opacity-80">
-						Partner Pubkey: {special.freelancerPubkey.slice(0, 8)}... · CSV: {special.csvBlocks}
-					</div>
+					{#if !isSender}
+						<div class="mt-2">
+							<button class="btn btn-sm" onclick={handleViewOffer}>Continue</button>
+						</div>
+					{/if}
 				</div>
 			{:else if special.type === 'contract_reject'}
 				<div class="bg-error/10 text-error-content rounded-2xl px-4 py-2">

@@ -270,6 +270,23 @@ export async function submitVaultToServer(): Promise<void> {
 	await delay(300);
 }
 
+/**
+ * Placeholder API call to save vault data to backend.
+ * Logs the details for now.
+ */
+export async function saveVaultToBackend(details: {
+	clientPubkey: string;
+	freelancerPubkey: string;
+	derivationPath: string;
+	csvBlocks: number;
+	vaultId?: string;
+	descriptor?: string | null;
+	address?: string | null;
+}): Promise<void> {
+	console.info('[Vault] Saving to backend (placeholder):', details);
+	await delay(200);
+}
+
 // --- Miniscript & vault creation (stubbed; address/script optional) ---
 
 /**

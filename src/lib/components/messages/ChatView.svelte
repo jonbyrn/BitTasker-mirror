@@ -41,7 +41,6 @@
 
 	// Fields for creating a contract offer
 	let offerDerivationPath = $state('');
-	let offerClientPubkey = $state('');
 	let offerCsvBlocks = $state<number>(60); // default 60 minutes (~60 blocks on Liquid)
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
 	let headerImageError = $state(false);
@@ -551,7 +550,6 @@
 	// --- Local storage for initiator offer context ---
 	type OfferContext = {
 		derivationPath: string;
-		clientPubkey: string;
 		csvBlocks: number;
 		timestamp: number;
 	};
@@ -591,19 +589,12 @@
 	// Create Contract flow
 	async function openCreateContract() {
 		try {
-			console.log('Trying to create contract');
-			const { buildClientSharePayload } = await import('$lib/wallet/helper');
-			console.log('buildClientSharePayload');
-			const payload = await buildClientSharePayload({});
-			console.log('payload', payload);
-			offerDerivationPath = payload.derivationPath;
-			console.log('offerDerivationPath', offerDerivationPath);
-			offerClientPubkey = payload.clientPubkey;
-			console.log('offerClientPubkey', offerClientPubkey);
+			const { generateDerivationPath } = await import('$lib/wallet/helper');
+			offerDerivationPath = generateDerivationPath();
 			isCreateContractOpen = true;
 		} catch (e) {
 			console.error(e);
-			error = 'Failed to generate contract keys';
+			error = 'Failed to prepare contract';
 			setTimeout(() => (error = ''), 4000);
 		}
 	}
@@ -615,18 +606,18 @@
 				version: 1,
 				network: 'liquid',
 				derivationPath: offerDerivationPath,
-				clientPubkey: offerClientPubkey,
 				csvBlocks: offerCsvBlocks,
-				timestamp: Date.now()
+				timestamp: Date.now(),
+				// include clientPubkey for robust rendering
+				clientPubkey: currentUserHex()
 			};
 			const content = JSON.stringify(special);
 			// send via nostr
 			await sendDirectMessage(content, recipientHex());
 
-			// persist initiator offer context locally for future vault creation
+			// persist initiator offer context locally
 			saveOfferContext({
 				derivationPath: offerDerivationPath,
-				clientPubkey: offerClientPubkey,
 				csvBlocks: offerCsvBlocks,
 				timestamp: special.timestamp
 			});
@@ -648,51 +639,16 @@
 		isSender: boolean;
 	}) {
 		const { payload, isSender } = detail;
-		// If clicking on contract_accept from initiator’s side, proceed to Create Vault directly
-		if (payload?.type === 'contract_accept' && isSender) {
-			try {
-				const { saveMultisigSetup, createMultisigVault, submitVaultToServer } = await import(
-					'$lib/wallet/helper'
-				);
-				// Retrieve initiator's context from storage using derivationPath
-				const ctx = loadOfferContext(payload.derivationPath);
-				const clientPubkeyFromCtx =
-					payload.clientPubkey || ctx?.clientPubkey || offerClientPubkey || '';
-				if (!clientPubkeyFromCtx) throw new Error('Missing initiator client pubkey');
-
-				const setup = await saveMultisigSetup({
-					derivationPath: payload.derivationPath,
-					clientPubkey: clientPubkeyFromCtx,
-					freelancerPubkey: payload.freelancerPubkey
-				});
-				const vault = await createMultisigVault({
-					setupId: setup.id,
-					clientPubkey: clientPubkeyFromCtx,
-					freelancerPubkey: payload.freelancerPubkey,
-					csvBlocks: payload.csvBlocks,
-					network: 'liquid'
-				});
-				// Send created announcement back
-				const createdMsg = {
-					type: 'contract_created',
-					version: 1,
-					setupId: setup.id,
-					vaultId: vault.id,
-					address: vault.address,
-					descriptor: vault.descriptor,
-					csvBlocks: vault.csvBlocks,
-					derivationPath: payload.derivationPath,
-					timestamp: Date.now()
-				};
-				await sendDirectMessage(JSON.stringify(createdMsg), recipientHex());
-
-				// Submit to backend for tracking
-				await submitVaultToServer();
-			} catch (e) {
-				console.error(e);
-				error = 'Failed to create vault';
-				setTimeout(() => (error = ''), 4000);
-			}
+		// Backfill clientPubkey for older offers that may not include it
+		// Removed: do not backfill with Nostr keys; wallet pubkeys are derived separately
+		// If clicking on a contract_accept as the recipient (not the sender), navigate directly
+		if (payload?.type === 'contract_accept' && !isSender) {
+			const params = new URLSearchParams({
+				derivationPath: payload.derivationPath,
+				csvBlocks: String(payload.csvBlocks ?? ''),
+				freelancerPubkey: payload.freelancerPubkey ?? ''
+			});
+			goto(`/dashboard/contracts/create-contract?${params.toString()}`);
 			return;
 		}
 		// Otherwise open view modal for offers
@@ -715,7 +671,6 @@
 				version: 1,
 				derivationPath: pendingIncomingPayload.derivationPath,
 				freelancerPubkey,
-				clientPubkey: pendingIncomingPayload.clientPubkey,
 				csvBlocks: pendingIncomingPayload.csvBlocks,
 				timestamp: Date.now()
 			};
@@ -1034,10 +989,6 @@
 					<div class="bg-base-200 rounded-xl p-3">
 						<div class="text-sm opacity-70">Derivation Path</div>
 						<div class="font-mono text-sm break-all">{offerDerivationPath}</div>
-					</div>
-					<div class="bg-base-200 rounded-xl p-3">
-						<div class="text-sm opacity-70">Your Pubkey</div>
-						<div class="font-mono text-sm break-all">{offerClientPubkey}</div>
 					</div>
 				</div>
 				<div class="modal-action">
