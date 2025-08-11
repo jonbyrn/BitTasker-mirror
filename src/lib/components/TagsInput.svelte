@@ -10,6 +10,7 @@
 		className = '',
 		options = [],
 		maxTags = 10,
+		maxCharLength = 25, // Nuevo prop para límite de caracteres
 		autoComplete = 'off',
 		tags = $bindable<string[]>([])
 	} = $props<{
@@ -21,6 +22,7 @@
 		tags?: string[];
 		options?: string[];
 		maxTags?: number;
+		maxCharLength?: number; // Nuevo prop
 		autoComplete?: 'on' | 'off';
 	}>();
 
@@ -56,12 +58,23 @@
 			// pick the first option that matches the input value
 			let option = options.find((option: string) => option.toLowerCase() === value.toLowerCase());
 			if (!option) option = filteredOptions[0];
+
+			// Validar longitud para opciones
+			if (option.length > maxCharLength) {
+				return; // No agregar si excede el límite
+			}
+
 			tags = [...tags, option];
 			inputValue = '';
 			return;
 		} else {
 			const trimmedValue = value.trim();
 			if (!trimmedValue) return;
+
+			// Validar longitud para entrada manual
+			if (trimmedValue.length > maxCharLength) {
+				return; // No agregar si excede el límite
+			}
 
 			// Check if tag already exists
 			if (tags.some((tag: string) => tag === trimmedValue)) return;
@@ -171,8 +184,15 @@
 				onclick={handleClick}
 				onpaste={handlePaste}
 				onfocus={() => (isInputFocused = true)}
+				maxlength={maxCharLength} 
 			/>
 		</div>
+
+		{#if inputValue}
+			<div class="text-xs text-base-content/60 mt-1">
+				{inputValue.length}/{maxCharLength} caracteres
+			</div>
+		{/if}
 
 		{#if filteredOptions.length > 0}
 			<ul

@@ -178,7 +178,7 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex items-center justify-between gap-2">
-							<h3 class="card-title text-lg">{task.title}</h3>
+							<h3 class="card-title text-md md:text-lg line-clamp-2">{task.title}</h3>
 
 							<!-- Bid Information -->
 							<div class="badge badge-sm badge-info gap-1 whitespace-nowrap">
@@ -224,7 +224,7 @@
 								{task.pickupLocation.displayName}
 							</small>
 						{/if}
-						<p class="text-base-content/80 my-2 line-clamp-2 truncate">{task.description}</p>
+						<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
 
 						<div class="flex items-center gap-2">
 							<div class="badge badge-neutral pb-[2px] lowercase">

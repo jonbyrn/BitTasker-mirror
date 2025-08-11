@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Attachment, TaskBody } from '$lib/types/task';
 	import { onMount } from 'svelte';
-	import { page } from '$app/state';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { appStore } from '$lib/stores/app.store';
 	import { getBudgetBucket } from '$lib/utils/helpers/budgetTier';
@@ -27,7 +27,8 @@
 	let direction: 'forward' | 'backward' = $state('forward');
 	let newFiles = $state<File[]>([]);
 	let attachmentsToRemove = $state<Attachment[]>([]);
-	let signedEventId = $state<string | null>(null);
+	// Remover esta línea ya que signedEventId se usará como variable local
+	// let signedEventId = $state<string | null>(null);
 
 	// Houdini store for triggering saved search checks
 	const triggerSavedSearchStore = new TriggerSavedSearchCheckStore();
@@ -43,7 +44,7 @@
 
 			// Convert the task data to TaskBodyInput format
 			const taskBodyInput: TaskBodyInput = {
-				eventId: signedEventId || '',
+				eventId: '',
 				title: taskData.title,
 				description: taskData.description,
 				taskType: graphqlTaskType,
@@ -96,8 +97,11 @@
 		switch ($store.currentStep) {
 			case 'basics':
 				if (!$store.task.title?.trim()) errors.title = $t('task.errors.title_required');
+				if ($store.task.title && $store.task.title.length > 100) errors.title = $t('task.errors.title_too_long');
 				if ($store.task.dateRange) {
-					if (!$store.task.dateRange.end && !$store.task.dateRange.start) {
+					console.log($store.task.dateRange);
+					// Validar que ambos campos de fecha sean requeridos
+					if (!$store.task.dateRange.start || !$store.task.dateRange.end || $store.task.dateRange.end === "null" || $store.task.dateRange.end === null) {
 						errors.deadline = $t('task.errors.date_range_required');
 					}
 					if (
@@ -140,7 +144,8 @@
 				) {
 					errors.estimatedHours = $t('task.errors.estimated_hours_required');
 				}
-				if (!$store.task.description?.trim()) errors.description = $t('task.errors.description_required');
+				if (!$store.task.description?.trim())
+					errors.description = $t('task.errors.description_required');
 				if ($store.task.description?.trim().length < 20)
 					errors.description = $t('task.errors.description_min_length');
 				break;
@@ -190,14 +195,14 @@
 
 		// Start image upload in the background if we're in the location step
 		if ($store.currentStep === TaskStepEnum.LOCATION) {
-				if (newFiles.length !== 0) {
+			if (newFiles.length !== 0) {
 				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
-						appStore.showErrorToast($t('task.upload.too_many_files'));
+					appStore.showErrorToast($t('task.upload.too_many_files'));
 					return;
 				}
 
 				// Show upload started toast
-					appStore.showInfoToast($t('task.upload.background_uploading'));
+				appStore.showInfoToast($t('task.upload.background_uploading'));
 
 				// Start upload in background
 				uploadFiles(newFiles)
@@ -205,11 +210,11 @@
 						$store.task.attachments = [...($store.task.attachments || []), ...uploadedFiles];
 						newFiles = [];
 						store.saveDraft();
-							appStore.showSuccessToast($t('task.upload.files_uploaded'));
+						appStore.showSuccessToast($t('task.upload.files_uploaded'));
 					})
 					.catch((error) => {
 						console.error('Failed to upload files:', error);
-							appStore.showErrorToast($t('task.upload.upload_failed'));
+						appStore.showErrorToast($t('task.upload.upload_failed'));
 					});
 			}
 
@@ -225,56 +230,72 @@
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
 
-		isSubmitting = true;
-
-		const task: TaskBody = {
-			title: $store.task.title,
-			description: $store.task.description,
-			budget: $store.task.budget,
-			deadline: $store.task.deadline,
-			dateRange: $store.task.dateRange,
-			taskType: $store.task.taskType,
-			pickupLocation: $store.task.pickupLocation,
-			dropOffLocation: $store.task.dropOffLocation,
-			skills: $store.task.skills,
-			attachments: $store.task.attachments,
-			categories: $store.task.categories,
-			status: TaskStatusEnum.OPEN
-		};
+		let signedEventId: string | null = null; // Declarar localmente
 
 		try {
-			const isUpdating = page.url.searchParams.get('edit') === 'true';
+			isSubmitting = true;
 
-				if (isUpdating) {
+			const task: TaskBody = {
+				title: $store.task.title,
+				description: $store.task.description,
+				budget: $store.task.budget,
+				deadline: $store.task.deadline,
+				dateRange: $store.task.dateRange,
+				taskType: $store.task.taskType,
+				pickupLocation: $store.task.pickupLocation,
+				dropOffLocation: $store.task.dropOffLocation,
+				skills: $store.task.skills,
+				attachments: $store.task.attachments,
+				categories: $store.task.categories,
+				status: TaskStatusEnum.OPEN
+			};
+
+			const isUpdating = $page.url.searchParams.get('edit') === 'true';
+
+			if (isUpdating) {
 				signedEventId = await updateTask($store.id, task);
+				appStore.showSuccessToast($t('task.success.updated'));
 
-				// TODO: Handle update recurring task
-
-					appStore.showSuccessToast($t('task.success.updated'));
-				page.url.searchParams.delete('edit');
-				goto(page.url.pathname);
+				const url = new URL($page.url);
+				url.searchParams.delete('edit');
+				goto(url);
 			} else {
 				if ($store.recurringTask.isRecurring) {
-					// TODO: Create recurring task template
-					await createRecurringTask(task, $store.recurringTask);
+					signedEventId = await createRecurringTask(task, $store.recurringTask);
 				} else {
-					// Create a regular task
 					signedEventId = await createTask(task);
 				}
 
-					appStore.showSuccessToast($t('task.success.created'));
+				appStore.showSuccessToast($t('task.success.created'));
 			}
 
 			await store.clearDraft();
-			goto('/dashboard');
-			} catch (error) {
-			console.error('Error creating task:', error);
-				if (error instanceof Error) errors.general = error.message;
-				else errors.general = $t('task.errors.create_failed');
+			await goto('/dashboard');
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
+			errors.general = errorMessage;
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			isSubmitting = false;
-			// Trigger saved search checks in the background (non-blocking)
-			triggerSavedSearchChecks(task);
+			// Ejecutar en background sin bloquear - usar la variable local 'task'
+			if (signedEventId) {
+				// Usar la variable task local, no $store.task
+				const currentTask = {
+					title: $store.task.title,
+					description: $store.task.description,
+					budget: $store.task.budget,
+					deadline: $store.task.deadline,
+					dateRange: $store.task.dateRange,
+					taskType: $store.task.taskType,
+					pickupLocation: $store.task.pickupLocation,
+					dropOffLocation: $store.task.dropOffLocation,
+					skills: $store.task.skills,
+					attachments: $store.task.attachments,
+					categories: $store.task.categories,
+					status: TaskStatusEnum.OPEN
+				};
+				triggerSavedSearchChecks(currentTask);
+			}
 		}
 	}
 </script>

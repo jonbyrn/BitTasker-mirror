@@ -70,7 +70,7 @@
       "zip_label": "ZIP:",
       "location_not_available": "Location information not available",
       "recurring_name": "Recurring Task Name",
-      "recurring_name_placeholder": "e.g. Weekly Sofa Pickup",
+      "recurring_name_placeholder": "e.g. Help move my sofa",
       "recurring_details": "Recurring Task Details",
       "recurring_details_placeholder": "Describe your recurring task in detail",
       "recurring_schedule": "Recurring Task Schedule",
@@ -89,7 +89,8 @@
         "estimated_hours_required": "Estimated hours must be greater than 0",
         "description_required": "Description is required",
         "description_min_length": "Description must be at least 20 characters long",
-        "create_failed": "Failed to create task. Please try again."
+        "create_failed": "Failed to create task. Please try again.",
+        "title_too_long": "Title cannot exceed 100 characters"
       },
       "upload": {
         "too_many_files": "You can only upload up to 5 files",

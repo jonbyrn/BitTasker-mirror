@@ -70,14 +70,14 @@
       "zip_label": "Código postal:",
       "location_not_available": "Información de ubicación no disponible",
       "recurring_name": "Nombre de la tarea recurrente",
-      "recurring_name_placeholder": "ej. Recogida semanal de sofá",
+      "recurring_name_placeholder": "ej. Ayuda a mover mi sofá",
       "recurring_details": "Detalles de la tarea recurrente",
       "recurring_details_placeholder": "Describe tu tarea recurrente en detalle",
       "recurring_schedule": "Horario de la tarea recurrente",
       "recurring_frequency": "¿Con qué frecuencia debe repetirse esta tarea?",
       "errors": {
         "title_required": "El título es obligatorio",
-        "date_range_required": "Debes seleccionar una fecha de inicio o fin",
+        "date_range_required": "Ambas fechas de inicio y fin son requeridas",
         "date_range_future": "El rango de fechas debe estar en el futuro",
         "deadline_future": "La fecha límite debe estar en el futuro",
         "category_required": "Se requiere al menos una categoría",
@@ -89,7 +89,8 @@
         "estimated_hours_required": "Las horas estimadas deben ser mayores que 0",
         "description_required": "La descripción es obligatoria",
         "description_min_length": "La descripción debe tener al menos 20 caracteres",
-        "create_failed": "No se pudo crear la tarea. Inténtalo de nuevo."
+        "create_failed": "No se pudo crear la tarea. Inténtalo de nuevo.",
+        "title_too_long": "El título no puede exceder 100 caracteres"
       },
       "upload": {
         "too_many_files": "Solo puedes subir hasta 5 archivos",
