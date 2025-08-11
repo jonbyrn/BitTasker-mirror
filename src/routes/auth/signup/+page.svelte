@@ -104,10 +104,10 @@
 	></script>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
 		<div class="flex flex-col items-center justify-center">
-			<Logo class="w-auto" />
+			<Logo />
 			<h1 class="mt-6 text-center text-2xl font-bold">{$t('signup.title')}</h1>
 			<br />
 			<p class="mx-auto space-y-2 text-center px-6">

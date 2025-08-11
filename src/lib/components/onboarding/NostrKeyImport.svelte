@@ -2,7 +2,9 @@
 	import { nip19 } from 'nostr-tools';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
+import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
+    import IconKeyOutline from '~icons/mdi/key-outline';
+    import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let {
 		nextStep,
@@ -69,18 +71,39 @@
 <div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		<!-- Educational Header -->
-		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-sm font-medium text-primary mb-2 text-end">Step 2 of 7 - Optional</div>
-			<h2 class="step-title !text-xl font-bold mb-3 mt-4">
-				<span class="mr-2">🔐</span>
-				Import Your Nostr Key
-			</h2>
-			<p class="step-description text-base-content/70 mb-6">
-				If you have an existing Nostr key, you can enter it here and use your existing account on BitTasker. 
-				If not, don't worry, we'll generate one for you and you can access it in the app settings at any time. 
-				This key is similar to your Bitcoin key, so you must keep it secret at all times.
-			</p>
-		</div>
+    <div class="education-header mb-6 text-center">
+            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 2 of 7 - Optional</div>
+            <h2 class="step-title mb-3 !text-xl font-bold mt-4">
+                <IconKeyOutline class="mr-2 inline-block align-[-0.1em]" />
+                Import Your Nostr Key
+            </h2>
+            <h3 class="mb-3 text-lg font-semibold">What is a Nostr key?</h3>
+            <p class="step-description text-base-content/70 mb-6">
+                A Nostr private key (nsec…) lets you prove ownership of your account. You can import an existing key or let us generate one for you.
+            </p>
+
+            <!-- Features List (style matched to PasskeySetup) -->
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Use existing</strong> — import your nsec to keep your identity</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Generate new</strong> — we’ll create a secure key if you don’t have one</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Manage anytime</strong> — view/export your key in App Settings</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Keep it secret</strong> — anyone with your key can access your account</span>
+                </div>
+            </div>
+
+            <p class="text-primary mb-6 text-lg font-medium">You control access. Keep your key safe.</p>
+        </div>
 
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Nostr Key Import Option -->
@@ -157,30 +180,6 @@
 							<span class="label-text-alt text-error">{nsecError}</span>
 						</label>
 					{/if}
-				</div>
-			{:else}
-				<div
-					class="alert alert-info alert-outline mt-4 rounded-2xl text-sm"
-					in:fly={{ duration: 200, y: -20, easing: linear }}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>
-						We'll generate a secure Nostr key for you automatically. You can view and backup your key 
-						anytime in the app settings.
-					</span>
 				</div>
 			{/if}
 

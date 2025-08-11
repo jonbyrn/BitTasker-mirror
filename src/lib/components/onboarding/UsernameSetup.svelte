@@ -81,9 +81,9 @@
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-sm font-medium text-primary mb-2 text-end">Step 1 of 7</div>
-			<h2 class="step-title !text-xl font-bold mb-3 mt-4">Choose Your Username</h2>
-			<p class="step-description text-base-content/70 mb-4">
-				This is your username on Nostr, the secure, Bitcoin-native decentralized network.
+			<h3 class="step-title mb-8 mt-4">Choose Your Username</h3>
+			<p class="text-lg mb-4">
+				Pick something unique and memorable, that helps you stand out.
 			</p>
 		</div>
 

@@ -69,14 +69,14 @@
 	};
 </script>
 
-<div class="flex w-full flex-grow flex-col items-center justify-center px-4 py-8" use:autoLoadTranslations>
-	<div class="w-full max-w-md">
-		<div class="mb-8 flex flex-col items-center justify-center">
-			<Logo class="w-auto" />
-			<h1 class="my-4 text-center text-2xl font-bold mt-10">{$t('onboarding_auth.title')}</h1>
+<div class="flex w-full flex-grow flex-col items-center px-4 py-8" use:autoLoadTranslations>
+	<div class="w-full max-w-2xl">
+		<div class="mb-8 flex flex-col items-center">
+			<Logo />
+			<h2 class="my-4">{$t('onboarding_auth.title')}</h2>
 
 			<!-- Progress indicator -->
-			<div class="w-full max-w-md">
+			<div class="w-full">
 				<div class="flex items-center justify-between mb-2">
 					<span class="text-sm font-medium text-primary">Step {currentStep + 1} of {totalSteps}</span>
 					<span class="text-sm text-base-content/70">{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>

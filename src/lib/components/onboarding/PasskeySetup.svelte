@@ -1,4 +1,5 @@
 <script lang="ts">
+    import IconCheck from '~icons/mdi/check-circle-outline';
 	import type { AccountRecoveryData } from '$lib/types/auth';
 	import { nip19 } from 'nostr-tools';
 	import { appStore } from '$lib/stores/app.store';
@@ -194,24 +195,24 @@
 			</p>
 
 			<!-- Features List -->
-			<div class="features-list mb-6 space-y-2">
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Secure</strong> — only on your device</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Encrypted</strong> — like Bitcoin</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Private</strong> — even we can't see your keys</span>
-				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Portable</strong> — works on your other devices too</span>
-				</div>
-			</div>
+            <div class="features-list mb-6 space-y-2">
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Secure</strong> — only on your device</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Encrypted</strong> — like Bitcoin</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Private</strong> — even we can't see your keys</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-sm">
+                    <IconCheck class="text-success" />
+                    <span><strong>Portable</strong> — works on your other devices too</span>
+                </div>
+            </div>
 
 			<p class="text-primary mb-6 text-lg font-medium">Next-gen login. No passwords, ever.</p>
 		</div>
