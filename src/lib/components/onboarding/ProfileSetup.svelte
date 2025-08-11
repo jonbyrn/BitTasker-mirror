@@ -4,6 +4,7 @@
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
+	import IconCheck from '~icons/mdi/check-circle-outline';
 	import {
 		publishProfileMetadata,
 		publishMultipleImages,
@@ -215,6 +216,13 @@
 				return;
 			}
 
+			// Enforce minimum description length of 100 characters
+			if (profileDescription.trim().length < 100) {
+				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+				isLoading = false;
+				return;
+			}
+
 			// Upload and publish profile picture if a new file is selected
 			await handleImageUpload();
 
@@ -288,36 +296,36 @@
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<!-- Educational Header -->
-			<div class="education-header mb-6 text-center">
-				<div class="step-indicator text-sm font-medium text-primary mb-2 text-end">Step 5 of 7</div>
-				<h2 class="step-title !text-xl font-bold mb-3 mt-4">
-					<span class="mr-2">👤</span>
-					Build Your Profile
-				</h2>
-				<p class="step-description text-base-content/70 mb-6">
-					Help others know who you are and what services you offer on the decentralized marketplace.
-				</p>
+            <div class="education-header mb-6 text-center">
+                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 5 of 7</div>
+                <h3 class="step-title mb-3 mt-4">Build Your Profile</h3>
+                <h5 class="mb-3">Showcase your expertise</h5>
+                <p class="step-description text-base-content mb-6 text-lg">
+                    Help others understand who you are and the skills you bring. A strong profile boosts trust and discoverability.
+                </p>
 
-				<!-- Features List -->
-				<div class="features-list space-y-2 mb-6 text-start">
-					<div class="feature-item flex items-start justify-start gap-2 text-sm">
-						<span>✅</span>
-						<span><strong>Visible</strong> — others can see your expertise</span>
-					</div>
-					<div class="feature-item flex items-start justify-start gap-2 text-sm">
-						<span>✅</span>
-						<span><strong>Trustworthy</strong> — verified skills build reputation</span>
-					</div>
-					<div class="feature-item flex items-start justify-start gap-2 text-sm">
-						<span>✅</span>
-						<span><strong>Discoverable</strong> — better matching with tasks</span>
-					</div>
-					<div class="feature-item flex items-start justify-start gap-2 text-sm">
-						<span>✅</span>
-						<span><strong>Professional</strong> — showcase your experience</span>
-					</div>
-				</div>
-			</div>
+                <!-- Features List (aligned with Nostr import styling) -->
+                <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span><strong>Visible</strong> — highlight your strengths and services</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span><strong>Trustworthy</strong> — clear details help clients choose you</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span><strong>Discoverable</strong> — better matching with relevant tasks</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span><strong>Professional</strong> — present your experience and background</span>
+                    </div>
+                </div>
+
+                <p class="text-primary mb-6 text-lg">Stand out — your profile is your first impression.</p>
+            </div>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<!-- Profile Picture Upload -->
@@ -379,17 +387,18 @@
 
 				<!-- Profile Description Field -->
 				<div class="form-control">
-					<label class="label" for="profileDescription">
-						<span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
-						<span class="label-text-alt">{profileDescription.length}/200 {$t('onboarding_auth.form.min_characters')}</span>
-					</label>
+                    <label class="label" for="profileDescription">
+                        <span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
+                        <span class="label-text-alt">{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span>
+                    </label>
 					<textarea
 						id="profileDescription"
 						bind:value={profileDescription}
+					minlength={100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
-						placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
+                        placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
 						disabled={saveForLater}
 					></textarea>
 					{#if descriptionError}
