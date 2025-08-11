@@ -84,19 +84,19 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
             <!-- Features List (style matched to PasskeySetup) -->
             <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-success" />
+                    <IconCheck class="text-primary" />
                     <span><strong>Use existing</strong> — import your nsec to keep your identity</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-success" />
+                    <IconCheck class="text-primary" />
                     <span><strong>Generate new</strong> — we’ll create a secure key if you don’t have one</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-success" />
+                    <IconCheck class="text-primary" />
                     <span><strong>Manage anytime</strong> — view/export your key in App Settings</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-success" />
+                    <IconCheck class="text-primary" />
                     <span><strong>Keep it secret</strong> — anyone with your key can access your account</span>
                 </div>
             </div>

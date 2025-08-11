@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { validateUsername } from '$lib/utils/helpers/validators';
+    import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let {
 		nextStep,
@@ -79,19 +80,38 @@
 <div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		<!-- Educational Header -->
-		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-sm font-medium text-primary mb-2 text-end">Step 1 of 7</div>
-			<h3 class="step-title mb-8 mt-4">Choose Your Username</h3>
-			<p class="text-lg mb-4">
-				Pick something unique and memorable, that helps you stand out.
-			</p>
-		</div>
+        <div class="education-header mb-6 text-center">
+            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 1 of 7</div>
+            <h3 class="step-title mb-3 mt-4">Choose Your Username</h3>
+            <h5 class="mb-3">Make it memorable</h5>
 
-		<form onsubmit={handleSubmit} class="space-y-4">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-prose">
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                    <IconCheck class="text-primary" />
+                    <span><strong>Claim your name</strong> — a handle clients will remember</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                    <IconCheck class="text-primary" />
+                    <span><strong>Professional</strong> — use your brand or real name</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                    <IconCheck class="text-primary" />
+                    <span><strong>Shareable</strong> — appears on your public profile and links</span>
+                </div>
+                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                    <IconCheck class="text-primary" />
+                    <span><strong>Instant check</strong> — we verify availability as you type</span>
+                </div>
+            </div>
+
+            <p class="text-primary mb-6 text-lg">First impressions matter — make yours stand out.</p>
+        </div>
+
+        <form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Username Field -->
 			<div class="form-control">
 				<label class="label" for="username">
-					<span class="label-text">Username</span>
+                    <span class="label-text text-base-content">Username</span>
 				</label>
 				<input
 					type="text"
@@ -101,6 +121,11 @@
 					placeholder="Choose a username"
 					required
 				/>
+                <div class="label">
+                    <span class="label-text-alt text-base-content/70">
+                        3+ characters. Letters, numbers, dashes and underscores work best.
+                    </span>
+                </div>
 				{#if usernameError}
 					<label class="label" for="username">
 						<span class="label-text-alt text-error">{usernameError}</span>
