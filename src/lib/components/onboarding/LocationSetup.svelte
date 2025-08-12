@@ -5,6 +5,7 @@
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
 	import { t } from 'svelte-i18n';
+	import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let { nextStep, prevStep } = $props();
 
@@ -168,7 +169,8 @@
 			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_initializing_map');
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.error_initializing_map');
 			hasError = true;
 		}
 	}
@@ -184,7 +186,8 @@
 			await tryInitMap();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_loading_google_maps');
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -225,7 +228,8 @@
 			}
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_updating_location');
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.error_updating_location');
 		}
 	}
 
@@ -470,41 +474,43 @@
 	}
 </script>
 
-<div class="card w-full">
-	<div class="card-body relative p-0">
+<div class="card bg-base-100 w-full shadow-xl">
+	<div class="card-body relative">
 		<!-- Educational Header -->
-		<div class="education-header mb-6 px-4 pt-4 text-center">
-			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 6 of 7</div>
-			<h2 class="step-title mb-3 !text-xl font-bold my-4 mt-4">
-				<span class="mr-2">📍</span>
-				Set Your Service Location
-			</h2>
-			<p class="step-description text-base-content/70 mb-6">
+		<div class="education-header mb-6 text-center">
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 6 of 7</div>
+			<h3 class="step-title mt-4 mb-3">Set Your Service Location</h3>
+			<h5 class="mb-3">Choose where you work</h5>
+			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
 				Define where you can provide services. This helps match you with nearby tasks and clients.
 			</p>
 
 			<!-- Features List -->
-			<div class="features-list mb-6 space-y-2">
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
+			<div class="features-list mx-auto mb-6 max-w-xl space-y-2 text-left">
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Flexible</strong> — set custom service radius</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Private</strong> — only approximate area shared</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Adjustable</strong> — change anytime in settings</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-sm">
-					<span>✅</span>
-					<span><strong>Optional</strong> — can be set later if needed</span>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Optional</strong> — can be set later if desired</span>
 				</div>
 			</div>
 		</div>
+		<p class="text-primary mb-6 text-lg">Find tasks near you. Set where you work.</p>
+	</div>
+	<!-- Constrained Map Wrapper -->
+	<div class="mx-auto w-full max-w-xl">
 		<!-- Map Container -->
-		<div bind:this={mapContainerDiv} class="map-container relative">
+		<div class="map-container relative w-full">
 			<!-- Search bar - using fixed positioning when in fullscreen mode -->
 			<div
 				class={isFullscreen
@@ -554,78 +560,79 @@
 						</div>
 					{/if}
 
-				{#if showOptions}
-					<div
-						class="predictions-dropdown bg-base-100 absolute z-[1000] mt-1 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg"
-					>
-						{#if predictions.length > 0}
-							{#each predictions as prediction}
-								<button
-									class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left"
-									onclick={() => selectPrediction(prediction!)}
-								>
-									{prediction?.text}
-								</button>
-							{/each}
-						{:else}
-							<div class="text-error px-4 py-2">{$t('onboarding_auth.form.no_places_found')}</div>
-						{/if}
-					</div>
-				{/if}
-			</div>
-		</div>
-		<!-- Close first map container wrapper before starting the next section -->
-		</div>
-
-		<!-- Map Container -->
-		<div bind:this={mapContainerDiv} class="map-container relative">
-			<!-- Service Radius Slider -->
-			<div
-				class="{isFullscreen
-					? 'fixed bottom-20 left-4 z-[999]'
-					: 'absolute bottom-20 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
-			>
-				<button
-					aria-label={$t('onboarding_auth.form.toggle_radius')}
-					onclick={() => (toggleRadius = !toggleRadius)}
-					class="relative"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 1024 1024">
-						<path
-							fill="#fff"
-							d="M518.5 360.3a7.95 7.95 0 0 0-12.9 0l-178 246c-3.8 5.3 0 12.7 6.5 12.7H381c10.2 0 19.9-4.9 25.9-13.2L512 460.4l105.2 145.4c6 8.3 15.6 13.2 25.9 13.2H690c6.5 0 10.3-7.4 6.5-12.7z"
-						/>
-						<path
-							fill="#fff"
-							d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448s448-200.6 448-448S759.4 64 512 64m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372s372 166.6 372 372s-166.6 372-372 372"
-						/>
-					</svg>
-
-					{#if toggleRadius}
+					{#if showOptions}
 						<div
-							class="bg-base-100/80 absolute -top-3 left-0 -translate-y-full rounded-lg px-4 font-semibold"
+							class="predictions-dropdown bg-base-100 absolute z-[1000] mt-1 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg"
 						>
-							<label class="form-control w-full">
-								<div class="label text-xs sm:text-sm">
-									<span class="label-text text-white">{$t('onboarding_auth.form.service_radius')}: {serviceRadius} km</span>
-								</div>
-								<input
-									type="range"
-									min="1"
-									max="50"
-									bind:value={serviceRadius}
-									onchange={updateServiceRadius}
-									class="range range-success range-xs"
-									step="1"
-								/>
-								<div class="label text-xs sm:text-sm">
-									<span class="label-text-alt text-white">1 km</span>
-									<span class="label-text-alt text-white">50 km</span>
-								</div>
-							</label>
+							{#if predictions.length > 0}
+								{#each predictions as prediction}
+									<button
+										class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left"
+										onclick={() => selectPrediction(prediction!)}
+									>
+										{prediction?.text}
+									</button>
+								{/each}
+							{:else}
+								<div class="text-error px-4 py-2">{$t('onboarding_auth.form.no_places_found')}</div>
+							{/if}
 						</div>
 					{/if}
-				</button>
+				</div>
+			</div>
+
+			<!-- Map Container -->
+			<div bind:this={mapContainerDiv} class="map-container relative w-full">
+				<!-- Service Radius Slider -->
+				<div
+					class="{isFullscreen
+						? 'fixed bottom-20 left-4 z-[999]'
+						: 'absolute bottom-20 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
+				>
+					<button
+						aria-label={$t('onboarding_auth.form.toggle_radius')}
+						onclick={() => (toggleRadius = !toggleRadius)}
+						class="relative"
+					>
+						<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 1024 1024">
+							<path
+								fill="#fff"
+								d="M518.5 360.3a7.95 7.95 0 0 0-12.9 0l-178 246c-3.8 5.3 0 12.7 6.5 12.7H381c10.2 0 19.9-4.9 25.9-13.2L512 460.4l105.2 145.4c6 8.3 15.6 13.2 25.9 13.2H690c6.5 0 10.3-7.4 6.5-12.7z"
+							/>
+							<path
+								fill="#fff"
+								d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448s448-200.6 448-448S759.4 64 512 64m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372s372 166.6 372 372s-166.6 372-372 372"
+							/>
+						</svg>
+
+						{#if toggleRadius}
+							<div
+								class="bg-base-100/80 absolute -top-3 left-0 -translate-y-full rounded-lg px-4 font-semibold"
+							>
+								<label class="form-control w-full">
+									<div class="label text-xs sm:text-sm">
+										<span class="label-text text-white"
+											>{$t('onboarding_auth.form.service_radius')}: {serviceRadius} km</span
+										>
+									</div>
+									<input
+										type="range"
+										min="1"
+										max="50"
+										bind:value={serviceRadius}
+										onchange={updateServiceRadius}
+										class="range range-success range-xs"
+										step="1"
+									/>
+									<div class="label text-xs sm:text-sm">
+										<span class="label-text-alt text-white">1 km</span>
+										<span class="label-text-alt text-white">50 km</span>
+									</div>
+								</label>
+							</div>
+						{/if}
+					</button>
+				</div>
 			</div>
 
 			<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
@@ -634,8 +641,12 @@
 				class="{isFullscreen
 					? 'fixed bottom-4 left-4 z-[999]'
 					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md"
-				aria-label={isFullscreen ? $t('onboarding_auth.form.exit_fullscreen') : $t('onboarding_auth.form.enter_fullscreen')}
-				title={isFullscreen ? $t('onboarding_auth.form.exit_fullscreen') : $t('onboarding_auth.form.enter_fullscreen')}
+				aria-label={isFullscreen
+					? $t('onboarding_auth.form.exit_fullscreen')
+					: $t('onboarding_auth.form.enter_fullscreen')}
+				title={isFullscreen
+					? $t('onboarding_auth.form.exit_fullscreen')
+					: $t('onboarding_auth.form.enter_fullscreen')}
 			>
 				{#if isFullscreen}
 					<!-- Exit fullscreen icon -->
@@ -732,7 +743,7 @@
 
 		<!-- Retry button for map loading issues -->
 		{#if hasError && !isMapLoaded}
-			<div class="alert alert-warning mx-4 mt-4">
+			<div class="alert alert-warning alert-outline mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
@@ -762,7 +773,9 @@
 		{/if}
 
 		<div class="mt-6 flex justify-between">
-			<button type="button" class="btn btn-outline" onclick={prevStep}> {$t('onboarding_auth.form.back')} </button>
+			<button type="button" class="btn btn-outline" onclick={prevStep}>
+				{$t('onboarding_auth.form.back')}
+			</button>
 			<button
 				type="button"
 				class="btn btn-primary"

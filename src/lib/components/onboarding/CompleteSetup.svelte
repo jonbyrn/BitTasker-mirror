@@ -199,7 +199,7 @@
 						Welcome to BitTasker!
 					</h2>
 					<p class="step-description text-base-content/70 mb-6">
-						Your account is ready! You're now part of the Bitcoin-native task marketplace.
+						Your account is ready! You're now part of the decentralized economy.
 					</p>
 
 					<!-- Features List -->
