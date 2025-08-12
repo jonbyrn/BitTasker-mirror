@@ -151,7 +151,7 @@
 					{/if}
 
 					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
-						{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
+						Don't worry you can continue using BitTasker, and complete your profile later.
 					</p>
 				</div>
 
