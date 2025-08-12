@@ -121,6 +121,7 @@ export function getNamespacesForRoute(route: string): string[] {
 		}
 		if (route.includes('/find-tasks')) {
 			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations');
+			namespaces.push('dashboard/bids');
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create');

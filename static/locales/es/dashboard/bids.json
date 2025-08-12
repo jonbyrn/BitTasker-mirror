@@ -13,8 +13,24 @@
             "create_task": "Crear una tarea"
         }
     },
-    "bid": {
+    "bid_form": {
+        "title": "Coloca tu oferta",
         "form": {
+            "payment_type": "Tipo de Pago",
+            "fixed_price": "Precio Fijo",
+            "hourly_rate": "Tarifa por Hora",
+            "budget": "Presupuesto",
+            "hourly_rate_label": "Tarifa por Hora",
+            "estimated_hours": "Horas Estimadas",
+            "total_estimated": "Monto Total Estimado",
+            "usd_placeholder": "Ingresa el monto en USD",
+            "sats_placeholder": "Ingresa el monto en sats",
+            "hourly_usd_placeholder": "Ingresa la tarifa por hora en USD",
+            "hourly_sats_placeholder": "Ingresa la tarifa por hora en sats",
+            "hours_placeholder": "Horas estimadas necesarias",
+            "btc_price": "Precio actual de BTC:",
+            "submitting": "Enviando...",
+            "submit_bid": "Enviar Oferta",
             "estimated_duration": {
                 "label": "Tiempo Estimado de Finalización",
                 "placeholder": "ej., 3 días, 1 semana"
@@ -31,6 +47,26 @@
                 "label": "Carta de Presentación (Opcional)",
                 "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
             }
+        },
+        "errors": {
+            "task_id_required": "Se requiere el ID de la tarea",
+            "amount_required": "Por favor ingresa un monto para la oferta",
+            "amount_greater_than_zero": "El monto de la oferta debe ser mayor que 0",
+            "hourly_rate_required": "Por favor ingresa una tarifa por hora",
+            "hourly_rate_greater_than_zero": "La tarifa por hora debe ser mayor que 0",
+            "estimated_hours_required": "Por favor ingresa las horas estimadas",
+            "estimated_hours_greater_than_zero": "Las horas estimadas deben ser mayores que 0",
+            "description_required": "Por favor ingresa una descripción para tu oferta",
+            "description_min_length": "La descripción debe tener al menos 50 caracteres",
+            "estimated_duration_required": "Por favor proporciona un tiempo estimado de finalización",
+            "proposed_approach_required": "Por favor describe tu enfoque para esta tarea",
+            "proposed_approach_min_length": "La descripción de tu enfoque debe tener al menos 50 caracteres",
+            "submit_failed": "Error al enviar la oferta. Por favor inténtalo de nuevo."
+        },
+        "success": {
+            "title": "¡Oferta Enviada Exitosamente!",
+            "message": "Tu oferta ha sido enviada exitosamente. El solicitante de la tarea revisará tu oferta y puede contactarte con preguntas o una contraoferta.",
+            "close": "Cerrar"
         }
     }
 }
