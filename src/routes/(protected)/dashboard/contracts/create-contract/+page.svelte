@@ -2,6 +2,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { get } from 'svelte/store';
+	import { createVaultSet } from '$lib/escrow/vault';
+	import { apiCreateContract, apiSaveVaults } from '$lib/escrow/api';
+	import type { NetworkName } from '$lib/escrow/types';
+	import { getUtxos } from '$lib/escrow/psbt';
 
 	let derivationPath = $state('');
 	let csvBlocks = $state<number>(0);
@@ -14,6 +18,11 @@
 		address?: string | null;
 		descriptor?: string | null;
 	} | null>(null);
+	let contractId = $state<string | null>(null);
+	let network: NetworkName = 'liquid';
+	let escrowAddress = $state<string | null>(null);
+	let fundedSats = $state<number>(0);
+	let isPolling = $state(false);
 
 	$effect(() => {
 		const url = new URL(get(page).url);
@@ -41,31 +50,36 @@
 	async function createVault() {
 		try {
 			isCreating = true;
-			const { saveMultisigSetup, createMultisigVault, saveVaultToBackend } = await import(
-				'$lib/wallet/helper'
-			);
-			const setup = await saveMultisigSetup({
+			// 1) Create server-side contract record
+			const now = Date.now();
+			const contract = await apiCreateContract({
+				clientId: 'me', // TODO replace with actual user id
+				freelancerId: 'peer', // TODO replace with actual freelancer id
+				amountSat: 0, // unknown at contract setup; can be set later
+				scheduledAt: now,
 				derivationPath,
 				clientPubkey,
 				freelancerPubkey
 			});
-			const vault = await createMultisigVault({
-				setupId: setup.id,
+			contractId = contract.id;
+
+			// 2) Create vault set (escrow, done, dispute, final)
+			const vaults = await createVaultSet({
 				clientPubkey,
 				freelancerPubkey,
-				csvBlocks,
-				network: 'liquid'
+				network
 			});
-			vaultCreated = { id: vault.id, address: vault.address ?? null, descriptor: vault.descriptor };
-			await saveVaultToBackend({
-				clientPubkey,
-				freelancerPubkey,
-				derivationPath,
-				csvBlocks,
-				vaultId: vault.id,
-				descriptor: vault.descriptor,
-				address: vault.address
-			});
+
+			// Save vaults to backend
+			await apiSaveVaults(contract.id, vaults as any);
+
+			// For UI success signal, surface escrow vault basics
+			vaultCreated = {
+				id: contract.id,
+				address: vaults.escrow.address ?? null,
+				descriptor: vaults.escrow.descriptor
+			};
+			escrowAddress = vaults.escrow.address ?? null;
 		} catch (e) {
 			console.error(e);
 			error = 'Failed to create vault';
@@ -73,6 +87,27 @@
 			isCreating = false;
 		}
 	}
+
+	$effect(() => {
+		if (!escrowAddress || isPolling) return;
+		isPolling = true;
+		let cancelled = false;
+		const poll = async () => {
+			try {
+				const utxos = await getUtxos(escrowAddress!);
+				const total = utxos.reduce((a, b) => a + (b.value || 0), 0);
+				fundedSats = total;
+			} catch (e) {
+				console.error('Funding poll error', e);
+			}
+			if (!cancelled) setTimeout(poll, 5000);
+		};
+		poll();
+		return () => {
+			cancelled = true;
+			isPolling = false;
+		};
+	});
 
 	function goBack() {
 		goto('/dashboard/messages');
