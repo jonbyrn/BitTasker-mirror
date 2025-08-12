@@ -4,7 +4,8 @@
 	import { Geolocation } from '@capacitor/geolocation';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
-	import { t } from 'svelte-i18n';
+    import { t } from 'svelte-i18n';
+    import { tick } from 'svelte';
 	import IconCheck from '~icons/mdi/check-circle-outline';
     import IconMagnify from '~icons/mdi/magnify';
 
@@ -374,6 +375,8 @@
 		}
 	}
 
+    let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
+
     async function enterFullscreen() {
 		isFullscreen = true;
 
@@ -396,24 +399,41 @@
 			mapContainerDiv.style.backgroundColor = 'white';
 		}
 
-        // Ensure inner map element fills the fullscreen container
+        // Ensure inner map element fills the fullscreen container (account for mobile UI chrome)
         if (mapElement) {
             mapElement.style.width = '100%';
-            mapElement.style.height = '100vh';
+            mapElement.style.height = `${window.innerHeight}px`;
         }
 
-		// Trigger resize to update map
-		if (map) {
-			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.position) {
-				const position = marker.position;
-				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-				if (lat && lng) {
-					map.setCenter({ lat, lng });
-				}
-			}
-		}
+        // Await DOM flush, then trigger Google Maps resize and re-center
+        await tick();
+        if (map) {
+            google.maps.event.trigger(map, 'resize');
+            if (marker && marker.position) {
+                const position = marker.position;
+                const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+                const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+                if (lat && lng) {
+                    map.setCenter({ lat, lng });
+                }
+            }
+            // Force a redraw by toggling zoom
+            const currentZoom = map.getZoom();
+            if (typeof currentZoom === 'number') {
+                map.setZoom(currentZoom);
+            }
+        }
+
+        // Keep size in sync when device UI chrome changes (mobile) or orientation changes
+        fullscreenResizeHandler = () => {
+            if (mapElement) {
+                mapElement.style.height = `${window.innerHeight}px`;
+            }
+            if (map) {
+                google.maps.event.trigger(map, 'resize');
+            }
+        };
+        window.addEventListener('resize', fullscreenResizeHandler);
 	}
 
     async function exitFullscreen() {
@@ -442,18 +462,29 @@
             mapElement.style.height = '';
         }
 
+        // Remove resize listener if present
+        if (fullscreenResizeHandler) {
+            window.removeEventListener('resize', fullscreenResizeHandler);
+            fullscreenResizeHandler = null;
+        }
+
 		// Trigger resize to update map
-		if (map) {
-			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.position) {
-				const position = marker.position;
-				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-				if (lat && lng) {
-					map.setCenter({ lat, lng });
-				}
-			}
-		}
+        await tick();
+        if (map) {
+            google.maps.event.trigger(map, 'resize');
+            if (marker && marker.position) {
+                const position = marker.position;
+                const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+                const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+                if (lat && lng) {
+                    map.setCenter({ lat, lng });
+                }
+            }
+            const currentZoom = map.getZoom();
+            if (typeof currentZoom === 'number') {
+                map.setZoom(currentZoom);
+            }
+        }
 	}
 
 	async function handleSubmit() {

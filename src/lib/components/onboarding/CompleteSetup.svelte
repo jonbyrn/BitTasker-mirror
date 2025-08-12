@@ -198,7 +198,7 @@
 					<div class="text-success mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-16 w-16"
+							class="h-16 w-16 mx-auto"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
