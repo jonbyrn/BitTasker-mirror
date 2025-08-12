@@ -193,7 +193,7 @@
             </p>
 
 			<!-- Features List -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Secure</strong> — only on your device</span>
@@ -210,7 +210,7 @@
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Easy</strong> — the same way you login to your device</span>
                 </div>
-				
+
 				<p class="text-primary mb-6 text-lg font-medium">Next-gen login. No passwords, ever.</p>
 
 				{#if error}

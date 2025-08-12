@@ -92,7 +92,7 @@
             </p>
 
             <!-- Features List (style matched to PasskeySetup) -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Use existing</strong> — import your nsec to keep your identity</span>

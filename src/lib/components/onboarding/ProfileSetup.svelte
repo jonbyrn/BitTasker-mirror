@@ -308,7 +308,7 @@
                 </p>
 
                 <!-- Features List (aligned with Nostr import styling) -->
-                <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+                <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                     <div class="feature-item flex items-center justify-start gap-2 text-lg">
                         <IconCheck class="text-primary min-w-[1.5em]" />
                         <span><strong>Visible</strong> — highlight your strengths and services</span>

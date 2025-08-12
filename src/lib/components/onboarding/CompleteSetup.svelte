@@ -100,7 +100,7 @@
 	});
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl p-6">
 	<div class="card-body">
 		{#if isLoading}
 			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
@@ -110,7 +110,7 @@
 				</div>
 			</div>
 		{:else if error}
-			<div class="flex flex-col items-center space-y-4 text-center">
+			<div class="items-center space-y-4 text-center">
 				<div class="text-error mt-2">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -132,15 +132,15 @@
 				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>{$t('onboarding_auth.form.try_again')}</button>
 			</div>
 		{:else if !isComplete}
-			<div class="flex flex-col items-center space-y-4 text-center">
+			<div class="items-center space-y-4 text-center">
 				<!-- Educational Header to match flow -->
 				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
+					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 7 of 7</div>
 					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
-					<h5 class="mb-3">Complete a few details to finish</h5>
+					<h5 class="mb-6">Complete a few details to finish</h5>
 
-					{#if missingFields.length > 0}
-						<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+                    {#if missingFields.length > 0}
+                        <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
 							{#each missingFields as field}
                                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                                     <IconWarning class="text-warning min-w-[1.5em]" />
@@ -151,15 +151,13 @@
 					{/if}
 
 					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
-						{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
-						<br /><br />
-						{$t('onboarding_auth.form.or_you_can_restart_the_onboarding_process')}
+						Don't worry you can continue using BitTasker, and complete your profile later.
 					</p>
 				</div>
 
-				<div class="mt-4 flex w-full max-w-md flex-col items-center space-y-4">
+				<div class="mt-4 flex w-full mx-auto max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
-						{$t('onboarding_auth.form.restart_setup')}
+						Complete Setup
 					</button>
 					<button
 						class="btn btn-secondary w-full"
@@ -208,7 +206,7 @@
 					</p>
 
                     <!-- Features List -->
-					<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+					<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                         <div class="feature-item flex items-center justify-start gap-2 text-lg">
                             <IconWarning class="text-warning min-w-[1.5em]" />
                             <span><strong>Decentralized</strong> — your data, your control</span>
