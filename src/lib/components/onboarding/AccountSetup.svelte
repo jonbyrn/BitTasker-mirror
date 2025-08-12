@@ -573,6 +573,7 @@
 							/>
 							<button
 								type="button"
+								aria-label=""
 								class="btn btn-outline btn-sm"
 								onclick={handleGeneratePassword}
 								title="Generate new 4-word password in {$locale === 'es' ? 'Spanish' : 'English'}"
@@ -611,6 +612,7 @@
 							/>
 							<button
 								type="button"
+								aria-label=""
 								class="btn btn-outline btn-sm"
 								onclick={() => (showPassword = !showPassword)}
 								title={showPassword ? 'Hide password' : 'Show password'}
@@ -686,8 +688,8 @@
 
 			<!-- Form Actions -->
 			<div class="mt-6 flex justify-between">
-				<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-				<button type="submit" class="btn btn-primary" disabled={isLoading || !usernameAvailable}>
+				<button aria-label="" type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+				<button aria-label="" type="submit" class="btn btn-primary" disabled={isLoading || !usernameAvailable}>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{/if}
