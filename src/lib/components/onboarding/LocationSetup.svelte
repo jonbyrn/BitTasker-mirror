@@ -479,8 +479,8 @@
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 6 of 7</div>
-			<h3 class="step-title mt-4 mb-3">Set Your Service Location</h3>
-			<h5 class="mb-3">Choose where you work</h5>
+			<h3 class="step-title mt-4 mb-3">Set Your Location</h3>
+			<h5 class="mb-3">Find Taskers and Taskees near you</h5>
 			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
 				Define where you can provide services as a Taskee, or are searching as a Tasker. This helps match you with nearby Taskers and Taskees.
 			</p>
