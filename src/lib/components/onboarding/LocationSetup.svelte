@@ -482,30 +482,30 @@
 			<h3 class="step-title mt-4 mb-3">Set Your Service Location</h3>
 			<h5 class="mb-3">Choose where you work</h5>
 			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
-				Define where you can provide services. This helps match you with nearby tasks and clients.
+				Define where you can provide services. This helps match you with nearby Taskers, and Taskees.
 			</p>
 
 			<!-- Features List -->
 			<div class="features-list mx-auto mb-6 max-w-xl space-y-2 text-left">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Flexible</strong> — set custom service radius</span>
+					<span><strong>Flexible</strong> — set a custom service or search radius</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Private</strong> — only approximate area shared</span>
+					<span><strong>Private</strong> — only your approximate area is shared</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Adjustable</strong> — change anytime in settings</span>
+					<span><strong>Adjustable</strong> — change your location anytime in settings</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Optional</strong> — can be set later if desired</span>
+					<span><strong>Optional</strong> — you can set it later if you want</span>
 				</div>
 			</div>
+			<p class="text-primary mb-6 text-lg">Find tasks near you. Set where you work.</p>
 		</div>
-		<p class="text-primary mb-6 text-lg">Find tasks near you. Set where you work.</p>
 	</div>
 	<!-- Constrained Map Wrapper -->
 	<div class="mx-auto w-full max-w-xl">
@@ -720,24 +720,6 @@
 					/></svg
 				>
 				<span>Location set: {location.displayName}</span>
-			</div>
-		{:else}
-			<div class="alert alert-info alert-outline mx-4 mt-4">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48"
-					><g
-						fill="none"
-						stroke="#fff"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="4"
-						><path
-							d="M4 24C4 35.0457 12.9543 44 24 44V44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4"
-						/><path
-							d="M36 24C36 17.3726 30.6274 12 24 12C17.3726 12 12 17.3726 12 24C12 30.6274 17.3726 36 24 36V36"
-						/></g
-					></svg
-				>
-				<span>Specify your location, or you can set your location later in your profile.</span>
 			</div>
 		{/if}
 
