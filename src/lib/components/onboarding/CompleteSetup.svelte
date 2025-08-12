@@ -111,7 +111,7 @@
 			</div>
 		{:else if error}
 			<div class="flex flex-col items-center space-y-4 text-center">
-				<div class="text-error mt-2">
+				<div class="text-warning mt-2">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-16 w-16"
@@ -195,6 +195,22 @@
 				<!-- Educational Header (aligned with other onboarding screens) -->
 				<div class="education-header mb-6 text-center">
 					<div class="step-indicator text-primary mb-2 text-sm font-medium">Step 7 of 7</div>
+					<div class="text-success mt-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-16 w-16"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					</div>
 					<h3 class="step-title mb-3 mt-4">Welcome to BitTasker!</h3>
 					<h5 class="mb-3">You're all set</h5>
 					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
@@ -223,29 +239,12 @@
 
 					<p class="text-primary mb-6 text-lg">Jump in — explore tasks and opportunities.</p>
 				</div>
-
-				<div class="text-success mt-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-16 w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-				</div>
 				
 				<div class="mt-4 space-y-2">
-					<p class="font-medium">What's next?</p>
+					<h5>What's next?</h5>
 					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1">
 						<li>Browse available tasks or create your own</li>
-						<li>Complete your profile to attract more clients</li>
+						<li>Expand your profile to attract more clients</li>
 						<li>Set up your payment preferences</li>
 						<li>Explore the platform features</li>
 					</ul>
@@ -263,7 +262,7 @@
 						<span class="loading loading-spinner loading-sm"></span>
 						Loading...
 					{:else}
-						🚀 Start Exploring
+						Start Tasking
 					{/if}
 				</button>
 			</div>
