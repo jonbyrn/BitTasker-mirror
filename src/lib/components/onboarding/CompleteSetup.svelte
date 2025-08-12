@@ -132,10 +132,10 @@
 				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>{$t('onboarding_auth.form.try_again')}</button>
 			</div>
 		{:else if !isComplete}
-			<div class="flex flex-col items-center space-y-4 text-center">
+			<div class="items-center space-y-4 text-center">
 				<!-- Educational Header to match flow -->
 				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
+					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 7 of 7</div>
 					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
 					<h5 class="mb-6">Complete a few details to finish</h5>
 
