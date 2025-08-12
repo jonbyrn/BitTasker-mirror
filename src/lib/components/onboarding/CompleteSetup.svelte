@@ -7,6 +7,7 @@
 	import { bytesToHex } from '@noble/hashes/utils';
 	import nip44 from '$lib/nostr/nip44';
 	import { t } from 'svelte-i18n';
+    import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let { restartSetup }: { restartSetup: () => void } = $props();
 
@@ -166,7 +167,7 @@
 					<br /> <br />
 					{$t('onboarding_auth.form.or_you_can_restart_the_onboarding_process')}
 				</p>
-				<div class="mt-4 flex max-w-md flex-col items-center space-y-4">
+				<div class="mt-4 flex w-full max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
 						{$t('onboarding_auth.form.restart_setup')}
 					</button>
@@ -191,36 +192,36 @@
 			</div>
 		{:else}
 			<div class="flex flex-col items-center space-y-4 text-center">
-				<!-- Educational Header -->
+				<!-- Educational Header (aligned with other onboarding screens) -->
 				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-sm font-medium text-primary mb-2">Step 7 of 7</div>
-					<h2 class="step-title text-2xl font-bold mb-3">
-						<span class="mr-2">🎉</span>
-						Welcome to BitTasker!
-					</h2>
-					<p class="step-description text-base-content/70 mb-6">
-						Your account is ready! You're now part of the decentralized economy.
+					<div class="step-indicator text-primary mb-2 text-sm font-medium">Step 7 of 7</div>
+					<h3 class="step-title mb-3 mt-4">Welcome to BitTasker!</h3>
+					<h5 class="mb-3">You're all set</h5>
+					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
+						Your account is ready. You are now part of the decentralized economy.
 					</p>
 
 					<!-- Features List -->
-					<div class="features-list space-y-2 mb-6">
-						<div class="feature-item flex items-center justify-start gap-2 text-sm">
-							<span>✅</span>
+					<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconCheck class="text-primary min-w-[1.5em]" />
 							<span><strong>Decentralized</strong> — your data, your control</span>
 						</div>
-						<div class="feature-item flex items-center justify-start gap-2 text-sm">
-							<span>✅</span>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconCheck class="text-primary min-w-[1.5em]" />
 							<span><strong>Bitcoin-native</strong> — earn and pay in Bitcoin</span>
 						</div>
-						<div class="feature-item flex items-center justify-start gap-2 text-sm">
-							<span>✅</span>
-							<span><strong>Secure</strong> — Nostr protocol protection</span>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconCheck class="text-primary min-w-[1.5em]" />
+							<span><strong>Secure</strong> — protected by Nostr</span>
 						</div>
-						<div class="feature-item flex items-center justify-start gap-2 text-sm">
-							<span>✅</span>
+						<div class="feature-item flex items-center justify-start gap-2 text-lg">
+							<IconCheck class="text-primary min-w-[1.5em]" />
 							<span><strong>Global</strong> — connect with users worldwide</span>
 						</div>
 					</div>
+
+					<p class="text-primary mb-6 text-lg">Jump in — explore tasks and opportunities.</p>
 				</div>
 
 				<div class="text-success mt-2">
@@ -242,7 +243,7 @@
 				
 				<div class="mt-4 space-y-2">
 					<p class="font-medium">What's next?</p>
-					<ul class="text-base-content/70 list-inside list-disc text-start text-sm space-y-1">
+					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1">
 						<li>Browse available tasks or create your own</li>
 						<li>Complete your profile to attract more clients</li>
 						<li>Set up your payment preferences</li>
