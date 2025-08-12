@@ -88,7 +88,7 @@
             <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Claim your name</strong> — a handle clients will remember</span>
+                    <span><strong>Claim your name</strong> — your dedicated name on BitTasker</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />

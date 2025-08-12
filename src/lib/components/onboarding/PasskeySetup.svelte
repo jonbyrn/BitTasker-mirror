@@ -188,12 +188,12 @@
 			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 3 of 7</div>
 			<h3 class="step-title mb-3 mt-4">Set Up Your Passkey</h3>
             <h5 class="mb-3">What's a Passkey?</h5>
-            <p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
+            <p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">
                 Use your Face ID, fingerprint, or device PIN/password to log in.<br /><br />No new passwords or codes — just tap and go.
             </p>
 
 			<!-- Features List -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-md">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Secure</strong> — only on your device</span>
@@ -213,45 +213,46 @@
             </div>
 
 			<p class="text-primary mb-6 text-lg font-medium">Next-gen login. No passwords, ever.</p>
+
+			{#if error}
+				<div class="alert alert-error alert-outline mb-6">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span class="whitespace-normal">{error}</span>
+				</div>
+			{/if}
+
+			{#if isSetupComplete}
+				<div class="alert alert-success alert-outline mb-6">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>Passkey setup complete! Your account is now secure.</span>
+				</div>
+			{/if}
 		</div>
 
-		{#if error}
-			<div class="alert alert-error alert-outline mb-6">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span class="whitespace-normal">{error}</span>
-			</div>
-		{/if}
-
-		{#if isSetupComplete}
-			<div class="alert alert-success alert-outline mb-6">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>Passkey setup complete! Your account is now secure.</span>
-			</div>
-		{/if}
 
 		<!-- Form Actions -->
 		<div class="mt-6 flex justify-between">
