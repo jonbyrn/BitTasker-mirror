@@ -85,7 +85,7 @@
             <h3 class="step-title mb-3 mt-4">Choose Your Username</h3>
             <h5 class="mb-3">Make it memorable</h5>
 
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Claim your name</strong> — your dedicated name on BitTasker</span>

@@ -206,7 +206,7 @@
 					</p>
 
                     <!-- Features List -->
-					<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+					<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                         <div class="feature-item flex items-center justify-start gap-2 text-lg">
                             <IconWarning class="text-warning min-w-[1.5em]" />
                             <span><strong>Decentralized</strong> — your data, your control</span>

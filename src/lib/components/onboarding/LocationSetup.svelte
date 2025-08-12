@@ -544,7 +544,7 @@
 			</p>
 
 			<!-- Features List -->
-			<div class="features-list mx-auto mb-6 max-w-xl space-y-2 text-left">
+			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Flexible</strong> — set a custom service or search radius</span>
