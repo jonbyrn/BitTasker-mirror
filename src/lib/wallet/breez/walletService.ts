@@ -1,6 +1,11 @@
 // Main wallet service - simplified and modular
 import { connectToBreezSdk, disconnectSdk } from './sdk';
-import { initializeEventSystem, cleanupEventSystem, paymentEventsStore, pendingPaymentsStore } from './events';
+import {
+	initializeEventSystem,
+	cleanupEventSystem,
+	paymentEventsStore,
+	pendingPaymentsStore
+} from './events';
 
 // Re-export all payment operations
 export * from './payments';
@@ -22,16 +27,18 @@ export { isLoggerReady, resetLoggerState } from './sdk';
  * Main wallet connection with full initialization
  */
 export async function connectToBreez(
-	mnemonic: string, 
-	network: 'mainnet' | 'testnet' = 'mainnet'
+	mnemonic: string,
+	network: 'mainnet' | 'testnet' = (import.meta?.env?.VITE_WALLET_NETWORK as
+		| 'mainnet'
+		| 'testnet') ?? 'testnet'
 ): Promise<void> {
 	try {
 		// Connect to SDK
 		await connectToBreezSdk(mnemonic, network);
-		
+
 		// Initialize event system
 		await initializeEventSystem();
-		
+
 		console.log('🎉 Breez wallet connected successfully');
 	} catch (error) {
 		console.error('Failed to connect to Breez wallet:', error);
@@ -46,10 +53,10 @@ export async function disconnect(): Promise<void> {
 	try {
 		// Cleanup event system
 		await cleanupEventSystem();
-		
+
 		// Disconnect SDK
 		await disconnectSdk();
-		
+
 		console.log('👋 Wallet disconnected successfully');
 	} catch (error) {
 		console.error('Failed to disconnect wallet:', error);

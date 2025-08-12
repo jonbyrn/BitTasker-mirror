@@ -1,7 +1,7 @@
 /**
  * Boltz Exchange REST API Client
  * Production-ready implementation based on official Boltz documentation
- * 
+ *
  * PRODUCTION FEATURES IMPLEMENTED:
  * ✅ Uses boltz-core's optimized swapScript() and reverseSwapScript() functions
  * ✅ Supports both P2WSH (legacy) and Taproot-based swaps for better privacy
@@ -19,7 +19,7 @@
  * ✅ Comprehensive input validation and sanitization
  * ✅ Proper fee estimation and transaction broadcasting
  * ✅ Swap monitoring with configurable polling intervals
- * 
+ *
  * PRODUCTION SAFETY FEATURES:
  * 🔒 Proper timelock validation (minimum 1 hour in future)
  * 🔒 Key format validation (33/65 byte public keys)
@@ -29,7 +29,7 @@
  * 🔒 Rate limiting to prevent API abuse
  * 🔒 Request timeout and retry handling
  * 🔒 Comprehensive error types for debugging
- * 
+ *
  * EMERGENCY RECOVERY:
  * 🆘 Refund file generation for wallet backup
  * 🆘 Emergency refund from saved state
@@ -39,11 +39,9 @@
 
 import { ECPairFactory } from 'ecpair';
 import * as ecc from 'tiny-secp256k1';
-import { 
-	swapScript,
-} from 'boltz-core';
+import { swapScript } from 'boltz-core';
 import { randomBytes, createHmac } from 'crypto';
-import { crypto, networks, payments, script,  Transaction, Psbt } from 'bitcoinjs-lib';
+import { crypto, networks, payments, script, Transaction, Psbt } from 'bitcoinjs-lib';
 import type {
 	BoltzConfig,
 	SwapPairs,
@@ -140,15 +138,15 @@ export class BoltzClient {
 		refundPublicKey: Buffer;
 		timelock: number;
 		useTaproot?: boolean;
-	}): { 
-		script: Buffer; 
-		address: string; 
+	}): {
+		script: Buffer;
+		address: string;
 		redeemScript?: Buffer;
 		tree?: any;
 		musig?: any;
 	} {
 		const { preimageHash, claimPublicKey, refundPublicKey, timelock, useTaproot = true } = params;
-		
+
 		try {
 			if (useTaproot && this.network === networks.bitcoin) {
 				// Use boltz-core's Taproot implementation for better privacy and efficiency
@@ -169,7 +167,9 @@ export class BoltzClient {
 			}
 		} catch (error) {
 			console.error('Failed to create swap script:', error);
-			throw new Error('Swap script creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+			throw new Error(
+				'Swap script creation failed: ' + (error instanceof Error ? error.message : 'Unknown error')
+			);
 		}
 	}
 
@@ -304,23 +304,23 @@ export class BoltzClient {
 		// ELSE
 		//   SIZE 32 EQUALVERIFY HASH256 <preimageHash> EQUALVERIFY <claimPublicKey> CHECKSIG
 		// ENDIF
-		
+
 		return script.compile([
 			script.OPS.OP_IF,
-				script.number.encode(timelock),
-				script.OPS.OP_CHECKLOCKTIMEVERIFY,
-				script.OPS.OP_DROP,
-				refundPublicKey,
-				script.OPS.OP_CHECKSIG,
+			script.number.encode(timelock),
+			script.OPS.OP_CHECKLOCKTIMEVERIFY,
+			script.OPS.OP_DROP,
+			refundPublicKey,
+			script.OPS.OP_CHECKSIG,
 			script.OPS.OP_ELSE,
-				script.OPS.OP_SIZE,
-				script.number.encode(32),
-				script.OPS.OP_EQUALVERIFY,
-				script.OPS.OP_HASH256,
-				preimageHash,
-				script.OPS.OP_EQUALVERIFY,
-				claimPublicKey,
-				script.OPS.OP_CHECKSIG,
+			script.OPS.OP_SIZE,
+			script.number.encode(32),
+			script.OPS.OP_EQUALVERIFY,
+			script.OPS.OP_HASH256,
+			preimageHash,
+			script.OPS.OP_EQUALVERIFY,
+			claimPublicKey,
+			script.OPS.OP_CHECKSIG,
 			script.OPS.OP_ENDIF
 		]);
 	}
@@ -340,7 +340,7 @@ export class BoltzClient {
 		try {
 			// Simplified validation approach since boltz-core's detectSwap API may vary
 			// In production, you would use the exact API structure from boltz-core docs
-			
+
 			// Basic script structure validation
 			const expectedScript = this.createSwapScript({
 				preimageHash: params.preimageHash,
@@ -357,7 +357,8 @@ export class BoltzClient {
 			}
 
 			// Additional validation checks
-			if (params.timelock < Math.floor(Date.now() / 1000) + 3600) { // Must be at least 1 hour in future
+			if (params.timelock < Math.floor(Date.now() / 1000) + 3600) {
+				// Must be at least 1 hour in future
 				console.warn('Swap script verification failed: timelock too close to current time');
 				return false;
 			}
@@ -390,7 +391,10 @@ export class BoltzClient {
 	 * Enhanced key derivation using deterministic hierarchical approach
 	 * Compatible with boltz-core key management practices
 	 */
-	deriveSwapKeys(baseKey: Buffer, swapId: string): {
+	deriveSwapKeys(
+		baseKey: Buffer,
+		swapId: string
+	): {
 		claimKeyPair: any;
 		refundKeyPair: any;
 		claimKey: Buffer;
@@ -408,8 +412,8 @@ export class BoltzClient {
 		// Create key pairs from derived seeds
 		const claimKeyPair = this.ECPair.fromPrivateKey(claimSeed);
 		const refundKeyPair = this.ECPair.fromPrivateKey(refundSeed);
-		
-		return { 
+
+		return {
 			claimKeyPair,
 			refundKeyPair,
 			claimKey: Buffer.from(claimKeyPair.publicKey),
@@ -464,7 +468,7 @@ export class BoltzClient {
 
 			// Sign the input manually for claim transaction
 			psbt.signInput(0, params.claimKeyPair);
-			
+
 			// Finalize the input with custom witness for HTLC claim
 			psbt.finalizeInput(0, (inputIndex: number, input: any, script: any) => {
 				const signature = input.partialSig![0].signature;
@@ -483,7 +487,8 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to create claim transaction:', error);
 			throw new BoltzError(
-				'Claim transaction creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Claim transaction creation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CLAIM_TRANSACTION_ERROR'
 			);
 		}
@@ -540,7 +545,7 @@ export class BoltzClient {
 
 			// Sign the input for refund transaction
 			psbt.signInput(0, params.refundKeyPair);
-			
+
 			// Finalize the input with custom witness for HTLC refund
 			psbt.finalizeInput(0, (inputIndex: number, input: any, script: any) => {
 				const signature = input.partialSig![0].signature;
@@ -559,7 +564,8 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to create refund transaction:', error);
 			throw new BoltzError(
-				'Refund transaction creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Refund transaction creation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'REFUND_TRANSACTION_ERROR'
 			);
 		}
@@ -579,10 +585,11 @@ export class BoltzClient {
 		try {
 			// For now, use manual validation until boltz-core API is properly integrated
 			// In production, this would use proper detectSwap once API is clarified
-			
+
 			// Validate timelock is reasonable
 			const currentTime = Math.floor(Date.now() / 1000);
-			if (params.timelock < currentTime + 3600) { // Must be at least 1 hour in future
+			if (params.timelock < currentTime + 3600) {
+				// Must be at least 1 hour in future
 				console.warn('Swap script verification failed: timelock too close to current time');
 				return false;
 			}
@@ -680,7 +687,7 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('POST', '/v2/swap/submarine', request);
-			
+
 			// Validate response structure
 			if (!response.id || !response.address || !response.redeemScript) {
 				throw new Error('Invalid response from Boltz API');
@@ -689,7 +696,10 @@ export class BoltzClient {
 			return response;
 		} catch (error) {
 			console.error('Failed to create submarine swap:', error);
-			throw new Error('Submarine swap creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+			throw new Error(
+				'Submarine swap creation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error')
+			);
 		}
 	}
 
@@ -745,7 +755,7 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('POST', '/v2/swap/reverse', request);
-			
+
 			// Validate response structure
 			if (!response.id || !response.lockupAddress || !response.invoice) {
 				throw new Error('Invalid response from Boltz API');
@@ -754,7 +764,10 @@ export class BoltzClient {
 			return response;
 		} catch (error) {
 			console.error('Failed to create reverse submarine swap:', error);
-			throw new Error('Reverse submarine swap creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+			throw new Error(
+				'Reverse submarine swap creation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error')
+			);
 		}
 	}
 
@@ -768,7 +781,7 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('GET', `/v2/swap/${swapId}/status`);
-			
+
 			// Validate response has required status field
 			if (!response.status) {
 				throw new Error('Invalid status response from Boltz API');
@@ -777,27 +790,23 @@ export class BoltzClient {
 			return response;
 		} catch (error) {
 			console.error(`Failed to get swap status for ${swapId}:`, error);
-			throw new Error('Failed to get swap status: ' + (error instanceof Error ? error.message : 'Unknown error'));
+			throw new Error(
+				'Failed to get swap status: ' + (error instanceof Error ? error.message : 'Unknown error')
+			);
 		}
 	}
 
 	/**
 	 * Refund a failed swap
 	 */
-	async refundSwap(
-		swapId: string, 
-		params: RefundSwapRequest
-	): Promise<RefundSwapResponse> {
+	async refundSwap(swapId: string, params: RefundSwapRequest): Promise<RefundSwapResponse> {
 		return await this.request('POST', `/v2/swap/${swapId}/refund`, params);
 	}
 
 	/**
 	 * Claim a reverse swap
 	 */
-	async claimSwap(
-		swapId: string,
-		params: ClaimSwapRequest
-	): Promise<ClaimSwapResponse> {
+	async claimSwap(swapId: string, params: ClaimSwapRequest): Promise<ClaimSwapResponse> {
 		return await this.request('POST', `/v2/swap/${swapId}/claim`, params);
 	}
 
@@ -809,16 +818,17 @@ export class BoltzClient {
 	): Promise<BroadcastTransactionResponse> {
 		try {
 			const response = await this.request('POST', '/v2/chain/broadcast', params);
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid broadcast response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error('Failed to broadcast transaction:', error);
 			throw new BoltzError(
-				'Transaction broadcast failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Transaction broadcast failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'BROADCAST_ERROR'
 			);
 		}
@@ -836,16 +846,17 @@ export class BoltzClient {
 	}> {
 		try {
 			const response = await this.request('GET', '/v2/chain/contracts');
-			
+
 			if (!response) {
 				throw new BoltzError('Invalid contracts response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error('Failed to get contract addresses:', error);
 			throw new BoltzError(
-				'Contract addresses request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Contract addresses request failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CONTRACTS_ERROR'
 			);
 		}
@@ -874,7 +885,7 @@ export class BoltzClient {
 		}
 
 		const endpoint = isReverse ? '/v2/swap/reverse/quote' : '/v2/swap/submarine/quote';
-		
+
 		try {
 			const response = await this.request('POST', endpoint, {
 				pairId,
@@ -902,7 +913,8 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to calculate swap amount:', error);
 			throw new BoltzError(
-				'Swap amount calculation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Swap amount calculation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'SWAP_CALCULATION_ERROR'
 			);
 		}
@@ -917,12 +929,12 @@ export class BoltzClient {
 	}> {
 		try {
 			const response = await this.request('GET', '/v2/chain/fees');
-			
+
 			// Validate response structure
 			if (!response.BTC || typeof response.BTC.normal !== 'number') {
 				throw new BoltzError('Invalid fee rates response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error('Failed to get fee rates:', error);
@@ -948,16 +960,17 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('GET', `/v2/swap/submarine/${swapId}/claim`);
-			
+
 			if (!response.transaction) {
 				throw new BoltzError('Invalid claim details response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to get submarine claim details for ${swapId}:`, error);
 			throw new BoltzError(
-				'Submarine claim details request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Submarine claim details request failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CLAIM_DETAILS_ERROR'
 			);
 		}
@@ -967,7 +980,10 @@ export class BoltzClient {
 	 * Submit cooperative claim for Submarine Swap (Taproot)
 	 * Provides partial signature to Boltz for key path spending
 	 */
-	async submitSubmarineClaim(swapId: string, partialSignature: string): Promise<{
+	async submitSubmarineClaim(
+		swapId: string,
+		partialSignature: string
+	): Promise<{
 		transactionId: string;
 		transactionHex: string;
 	}> {
@@ -979,16 +995,17 @@ export class BoltzClient {
 			const response = await this.request('POST', `/v2/swap/submarine/${swapId}/claim`, {
 				partialSignature
 			});
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid claim response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit submarine claim for ${swapId}:`, error);
 			throw new BoltzError(
-				'Submarine claim submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Submarine claim submission failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CLAIM_SUBMISSION_ERROR'
 			);
 		}
@@ -998,7 +1015,10 @@ export class BoltzClient {
 	 * Get cooperative refund partial signature for Submarine Swap (Taproot)
 	 * Only available for failed swaps - enables immediate key path refunding
 	 */
-	async getSubmarineRefundSignature(swapId: string, refundTransaction: any): Promise<{
+	async getSubmarineRefundSignature(
+		swapId: string,
+		refundTransaction: any
+	): Promise<{
 		partialSignature: string;
 	}> {
 		if (!swapId || !refundTransaction) {
@@ -1009,16 +1029,17 @@ export class BoltzClient {
 			const response = await this.request('POST', `/v2/swap/submarine/${swapId}/refund`, {
 				transaction: refundTransaction
 			});
-			
+
 			if (!response.partialSignature) {
 				throw new BoltzError('Invalid refund signature response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to get submarine refund signature for ${swapId}:`, error);
 			throw new BoltzError(
-				'Submarine refund signature request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Submarine refund signature request failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'REFUND_SIGNATURE_ERROR'
 			);
 		}
@@ -1028,16 +1049,22 @@ export class BoltzClient {
 	 * Submit cooperative claim for Reverse Swap (Taproot)
 	 * Creates key path spend with aggregated signature
 	 */
-	async submitReverseClaim(swapId: string, params: {
-		preimage: string;
-		partialSignature: string;
-		transaction: any;
-	}): Promise<{
+	async submitReverseClaim(
+		swapId: string,
+		params: {
+			preimage: string;
+			partialSignature: string;
+			transaction: any;
+		}
+	): Promise<{
 		transactionId: string;
 		transactionHex: string;
 	}> {
 		if (!swapId || !params.preimage || !params.partialSignature) {
-			throw new BoltzError('Swap ID, preimage, and partial signature are required', 'INVALID_PARAMS');
+			throw new BoltzError(
+				'Swap ID, preimage, and partial signature are required',
+				'INVALID_PARAMS'
+			);
 		}
 
 		try {
@@ -1046,16 +1073,17 @@ export class BoltzClient {
 				partialSignature: params.partialSignature,
 				transaction: params.transaction
 			});
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid reverse claim response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit reverse claim for ${swapId}:`, error);
 			throw new BoltzError(
-				'Reverse claim submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Reverse claim submission failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'REVERSE_CLAIM_ERROR'
 			);
 		}
@@ -1074,16 +1102,17 @@ export class BoltzClient {
 
 		try {
 			const response = await this.request('GET', `/v2/swap/chain/${swapId}/claim`);
-			
+
 			if (!response.transaction) {
 				throw new BoltzError('Invalid chain claim details response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to get chain claim details for ${swapId}:`, error);
 			throw new BoltzError(
-				'Chain claim details request failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Chain claim details request failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CHAIN_CLAIM_DETAILS_ERROR'
 			);
 		}
@@ -1092,16 +1121,22 @@ export class BoltzClient {
 	/**
 	 * Submit cooperative claim for Chain Swap (Taproot)
 	 */
-	async submitChainClaim(swapId: string, params: {
-		preimage: string;
-		partialSignature: string;
-		claimTransaction: any;
-	}): Promise<{
+	async submitChainClaim(
+		swapId: string,
+		params: {
+			preimage: string;
+			partialSignature: string;
+			claimTransaction: any;
+		}
+	): Promise<{
 		transactionId: string;
 		transactionHex: string;
 	}> {
 		if (!swapId || !params.preimage || !params.partialSignature) {
-			throw new BoltzError('Swap ID, preimage, and partial signature are required', 'INVALID_PARAMS');
+			throw new BoltzError(
+				'Swap ID, preimage, and partial signature are required',
+				'INVALID_PARAMS'
+			);
 		}
 
 		try {
@@ -1110,16 +1145,17 @@ export class BoltzClient {
 				partialSignature: params.partialSignature,
 				claimTransaction: params.claimTransaction
 			});
-			
+
 			if (!response.transactionId) {
 				throw new BoltzError('Invalid chain claim response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit chain claim for ${swapId}:`, error);
 			throw new BoltzError(
-				'Chain claim submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Chain claim submission failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CHAIN_CLAIM_ERROR'
 			);
 		}
@@ -1128,7 +1164,10 @@ export class BoltzClient {
 	/**
 	 * Submit cooperative refund for Chain Swap (Taproot)
 	 */
-	async submitChainRefund(swapId: string, refundTransaction: any): Promise<{
+	async submitChainRefund(
+		swapId: string,
+		refundTransaction: any
+	): Promise<{
 		partialSignature: string;
 	}> {
 		if (!swapId || !refundTransaction) {
@@ -1139,16 +1178,17 @@ export class BoltzClient {
 			const response = await this.request('POST', `/v2/swap/chain/${swapId}/refund`, {
 				transaction: refundTransaction
 			});
-			
+
 			if (!response.partialSignature) {
 				throw new BoltzError('Invalid chain refund response', 'INVALID_RESPONSE');
 			}
-			
+
 			return response;
 		} catch (error) {
 			console.error(`Failed to submit chain refund for ${swapId}:`, error);
 			throw new BoltzError(
-				'Chain refund submission failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Chain refund submission failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'CHAIN_REFUND_ERROR'
 			);
 		}
@@ -1166,7 +1206,13 @@ export class BoltzClient {
 		timeoutBlockHeight: number;
 	}): RefundFileData {
 		// Validate required parameters
-		if (!params.swapId || !params.currency || !params.redeemScript || !params.privateKey || !params.timeoutBlockHeight) {
+		if (
+			!params.swapId ||
+			!params.currency ||
+			!params.redeemScript ||
+			!params.privateKey ||
+			!params.timeoutBlockHeight
+		) {
 			throw new BoltzError('All refund file parameters are required', 'INVALID_PARAMS');
 		}
 
@@ -1195,7 +1241,7 @@ export class BoltzClient {
 	parseRefundFile(fileContent: string): RefundFileData {
 		try {
 			const data = JSON.parse(fileContent);
-			
+
 			// Validate required fields
 			const requiredFields = ['id', 'currency', 'redeemScript', 'privateKey', 'timeoutBlockHeight'];
 			for (const field of requiredFields) {
@@ -1203,7 +1249,7 @@ export class BoltzClient {
 					throw new BoltzError(`Missing required field: ${field}`, 'INVALID_REFUND_FILE');
 				}
 			}
-			
+
 			return data as RefundFileData;
 		} catch (error) {
 			if (error instanceof BoltzError) throw error;
@@ -1230,7 +1276,7 @@ export class BoltzClient {
 
 			// Create refund transaction using boltz-core
 			const redeemScript = Buffer.from(params.refundData.redeemScript, 'hex');
-			
+
 			return this.createRefundTransaction({
 				swapScript: redeemScript,
 				lockupTransaction: params.lockupTransaction,
@@ -1244,7 +1290,8 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to create emergency refund:', error);
 			throw new BoltzError(
-				'Emergency refund creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Emergency refund creation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'EMERGENCY_REFUND_ERROR'
 			);
 		}
@@ -1272,13 +1319,11 @@ export class BoltzClient {
 			}
 
 			// Parse claim private key
-			const claimKeyPair = this.ECPair.fromPrivateKey(
-				Buffer.from(params.claimPrivateKey, 'hex')
-			);
+			const claimKeyPair = this.ECPair.fromPrivateKey(Buffer.from(params.claimPrivateKey, 'hex'));
 
 			// Create claim transaction
 			const redeemScript = Buffer.from(params.redeemScript, 'hex');
-			
+
 			return this.createClaimTransaction({
 				swapScript: redeemScript,
 				lockupTransaction: params.lockupTransaction,
@@ -1292,7 +1337,8 @@ export class BoltzClient {
 		} catch (error) {
 			console.error('Failed to create preimage claim:', error);
 			throw new BoltzError(
-				'Preimage claim creation failed: ' + (error instanceof Error ? error.message : 'Unknown error'),
+				'Preimage claim creation failed: ' +
+					(error instanceof Error ? error.message : 'Unknown error'),
 				'PREIMAGE_CLAIM_ERROR'
 			);
 		}
@@ -1313,7 +1359,7 @@ export class BoltzClient {
 			while (isMonitoring) {
 				try {
 					const status = await this.getSwapStatus(swapId);
-					
+
 					if (status.status !== lastStatus) {
 						lastStatus = status.status;
 						onStatusChange(status);
@@ -1362,13 +1408,13 @@ export class BoltzClient {
 	 */
 	private async enforceRateLimit(): Promise<void> {
 		const now = Date.now();
-		
+
 		// Reset counter every second
 		if (now - this.lastRequestTime >= 1000) {
 			this.requestCount = 0;
 			this.lastRequestTime = now;
 		}
-		
+
 		// Check rate limit
 		if (this.requestCount >= this.maxRequestsPerSecond) {
 			const waitTime = 1000 - (now - this.lastRequestTime);
@@ -1377,18 +1423,14 @@ export class BoltzClient {
 				return this.enforceRateLimit();
 			}
 		}
-		
+
 		this.requestCount++;
 	}
 
 	/**
 	 * Make HTTP request to Boltz API with production-ready error handling
 	 */
-	private async request(
-		method: 'GET' | 'POST',
-		endpoint: string,
-		body?: any
-	): Promise<any> {
+	private async request(method: 'GET' | 'POST', endpoint: string, body?: any): Promise<any> {
 		// Enforce rate limiting
 		await this.enforceRateLimit();
 
@@ -1407,7 +1449,7 @@ export class BoltzClient {
 					headers: {
 						'Content-Type': 'application/json',
 						'User-Agent': 'BitTasker/1.0',
-						'Accept': 'application/json'
+						Accept: 'application/json'
 					},
 					body: body ? JSON.stringify(body) : undefined,
 					signal: controller.signal
@@ -1417,7 +1459,7 @@ export class BoltzClient {
 
 				if (!response.ok) {
 					const errorText = await response.text();
-					
+
 					// Handle specific HTTP status codes
 					switch (response.status) {
 						case 429:
@@ -1445,7 +1487,7 @@ export class BoltzClient {
 				}
 
 				const result = await response.json();
-				
+
 				// Validate that we got a valid JSON response
 				if (result === null || result === undefined) {
 					throw new Error('Empty response from Boltz API');
@@ -1454,21 +1496,26 @@ export class BoltzClient {
 				return result;
 			} catch (error) {
 				clearTimeout(timeoutId);
-				
+
 				if (error instanceof Error && error.name === 'AbortError') {
 					throw new Error(`Boltz API request timeout after ${timeout}ms`);
 				}
 
 				// Retry on network errors (but not on API errors)
-				if (retryCount < maxRetries - 1 && 
-					(error instanceof TypeError || 
-					 (error instanceof Error && error.message.includes('fetch')))) {
+				if (
+					retryCount < maxRetries - 1 &&
+					(error instanceof TypeError ||
+						(error instanceof Error && error.message.includes('fetch')))
+				) {
 					retryCount++;
-					console.warn(`Boltz API request failed, retrying (${retryCount}/${maxRetries}):`, error.message);
+					console.warn(
+						`Boltz API request failed, retrying (${retryCount}/${maxRetries}):`,
+						error.message
+					);
 					await this.delay(1000 * retryCount); // Exponential backoff
 					continue;
 				}
-				
+
 				throw error;
 			}
 		}
@@ -1480,7 +1527,7 @@ export class BoltzClient {
 	 * Utility delay function
 	 */
 	private delay(ms: number): Promise<void> {
-		return new Promise(resolve => setTimeout(resolve, ms));
+		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 }
 
@@ -1490,7 +1537,7 @@ export class BoltzClient {
 export function createBoltzClient(config: Partial<BoltzConfig> = {}): BoltzClient {
 	const defaultConfig: BoltzConfig = {
 		apiUrl: 'https://api.boltz.exchange',
-		network: 'mainnet',
+		network: (import.meta?.env?.VITE_WALLET_NETWORK as 'mainnet' | 'testnet') ?? 'testnet',
 		timeout: 30000,
 		...config
 	};

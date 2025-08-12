@@ -1,25 +1,26 @@
 /**
  * Bitcoin HD Wallet Implementation
- * 
+ *
  * ⚠️ @DEPRECATED - NOT USED WITH BREEZ SDK ⚠️
- * 
+ *
  * This file contains a custom Bitcoin wallet implementation that is NOT used
  * in the current Breez SDK integration. The Breez SDK already provides comprehensive
  * Bitcoin functionality through submarine swaps and on-chain interoperability.
- * 
+ *
  * This implementation remains for reference purposes and potential future use cases
  * where a pure Bitcoin-only wallet (separate from Lightning/Liquid) might be needed.
- * 
+ *
  * For Bitcoin operations in the app, use the Breez SDK methods instead:
  * - sendOnchainPayment() for sending to Bitcoin addresses
  * - prepareReceivePayment() with bitcoinAddress method for receiving
  * - fetchOnchainLimits() for Bitcoin transaction limits
- * 
+ *
  * Original purpose: Provides Bitcoin savings wallet functionality
  */
 
 import * as bitcoin from 'bitcoinjs-lib';
-import * as bip32 from 'bip32';
+import BIP32Factory from 'bip32';
+import * as ecc from '@bitcoinerlab/secp256k1';
 import * as bip39 from 'bip39';
 import { writable, type Writable } from 'svelte/store';
 import type {
@@ -41,7 +42,7 @@ import { breezSecurity } from '../breez/security';
 export class BitcoinWallet {
 	private config: BitcoinWalletConfig;
 	private network: bitcoin.Network;
-	private masterKey: bip32.BIP32Interface | null = null;
+	private masterKey: ReturnType<ReturnType<typeof BIP32Factory>['fromSeed']> | null = null;
 	private addresses: Map<number, BitcoinAddress> = new Map();
 	private transactions: BitcoinTransaction[] = [];
 	private utxos: UTXO[] = [];
@@ -55,9 +56,8 @@ export class BitcoinWallet {
 
 	constructor(config: BitcoinWalletConfig) {
 		this.config = config;
-		this.network = config.network === 'mainnet' 
-			? bitcoin.networks.bitcoin 
-			: bitcoin.networks.testnet;
+		this.network =
+			config.network === 'mainnet' ? bitcoin.networks.bitcoin : bitcoin.networks.testnet;
 	}
 
 	/**
@@ -69,6 +69,7 @@ export class BitcoinWallet {
 		}
 
 		const seed = await bip39.mnemonicToSeed(mnemonic);
+		const bip32 = BIP32Factory(ecc);
 		this.masterKey = bip32.fromSeed(seed, this.network);
 
 		// Load persisted state
@@ -93,7 +94,7 @@ export class BitcoinWallet {
 
 		const derivationPath = this.config.derivationPath || "m/84'/0'/0'/0";
 		const child = this.masterKey.derivePath(`${derivationPath}/${this.currentIndex}`);
-		
+
 		const { address } = bitcoin.payments.p2wpkh({
 			pubkey: child.publicKey,
 			network: this.network
@@ -129,9 +130,8 @@ export class BitcoinWallet {
 	 * Get current receiving address
 	 */
 	getCurrentAddress(): string {
-		const unusedAddress = Array.from(this.addresses.values())
-			.find(addr => !addr.used);
-		
+		const unusedAddress = Array.from(this.addresses.values()).find((addr) => !addr.used);
+
 		return unusedAddress?.address || '';
 	}
 
@@ -147,11 +147,11 @@ export class BitcoinWallet {
 	 */
 	getBalance(): WalletBalance {
 		const confirmed = this.utxos
-			.filter(utxo => utxo.confirmed)
+			.filter((utxo) => utxo.confirmed)
 			.reduce((sum, utxo) => sum + utxo.value, 0);
 
 		const unconfirmed = this.utxos
-			.filter(utxo => !utxo.confirmed)
+			.filter((utxo) => !utxo.confirmed)
 			.reduce((sum, utxo) => sum + utxo.value, 0);
 
 		return {
@@ -172,9 +172,7 @@ export class BitcoinWallet {
 	 * Get transaction history
 	 */
 	getTransactions(): BitcoinTransaction[] {
-		return [...this.transactions].sort((a, b) => 
-			b.timestamp.getTime() - a.timestamp.getTime()
-		);
+		return [...this.transactions].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 	}
 
 	/**
@@ -196,7 +194,7 @@ export class BitcoinWallet {
 		}
 
 		const preview = await this.previewTransaction(params);
-		
+
 		const psbt = new bitcoin.Psbt({ network: this.network });
 
 		// Add inputs
@@ -254,7 +252,7 @@ export class BitcoinWallet {
 			timestamp: new Date(),
 			amount: -params.amount,
 			fee: preview.fee,
-			inputs: preview.inputs.map(utxo => ({
+			inputs: preview.inputs.map((utxo) => ({
 				txid: utxo.txid,
 				vout: utxo.vout,
 				value: utxo.value,
@@ -278,8 +276,8 @@ export class BitcoinWallet {
 	 * Preview transaction before sending
 	 */
 	async previewTransaction(params: CreateTransactionParams): Promise<TransactionPreview> {
-		const confirmedUtxos = this.utxos.filter(utxo => utxo.confirmed);
-		
+		const confirmedUtxos = this.utxos.filter((utxo) => utxo.confirmed);
+
 		if (confirmedUtxos.length === 0) {
 			throw new Error('No confirmed UTXOs available');
 		}
@@ -328,9 +326,9 @@ export class BitcoinWallet {
 		try {
 			// This would normally call an API, but for now return static estimates
 			return {
-				slow: 10,   // ~60 minutes
-				medium: 20, // ~20 minutes  
-				fast: 50    // ~10 minutes
+				slow: 10, // ~60 minutes
+				medium: 20, // ~20 minutes
+				fast: 50 // ~10 minutes
 			};
 		} catch (error) {
 			console.error('Failed to get fee estimates:', error);
@@ -348,11 +346,7 @@ export class BitcoinWallet {
 	 */
 	async sync(): Promise<void> {
 		try {
-			await Promise.all([
-				this.syncAddresses(),
-				this.syncTransactions(),
-				this.syncUTXOs()
-			]);
+			await Promise.all([this.syncAddresses(), this.syncTransactions(), this.syncUTXOs()]);
 
 			this.updateBalance();
 			this.emitEvent({
@@ -390,7 +384,7 @@ export class BitcoinWallet {
 			derivationPath: this.config.derivationPath || "m/84'/0'/0'/0",
 			network: this.config.network,
 			createdAt: new Date(),
-			addresses: Array.from(this.addresses.values()).map(addr => addr.address)
+			addresses: Array.from(this.addresses.values()).map((addr) => addr.address)
 		};
 	}
 
@@ -399,7 +393,7 @@ export class BitcoinWallet {
 	 */
 	addEventListener(callback: WalletEventCallback): () => void {
 		this.eventCallbacks.push(callback);
-		
+
 		return () => {
 			const index = this.eventCallbacks.indexOf(callback);
 			if (index > -1) {
@@ -430,7 +424,7 @@ export class BitcoinWallet {
 	}
 
 	private findAddressByAddress(address: string): BitcoinAddress | undefined {
-		return Array.from(this.addresses.values()).find(addr => addr.address === address);
+		return Array.from(this.addresses.values()).find((addr) => addr.address === address);
 	}
 
 	private estimateTransactionSize(inputs: number, outputs: number): number {
@@ -439,11 +433,11 @@ export class BitcoinWallet {
 		const inputSize = inputs * 68; // Each P2WPKH input
 		const outputSize = outputs * 31; // Each P2WPKH output
 		const witnessSize = inputs * 107; // Witness data
-		
+
 		return baseSize + inputSize + outputSize + Math.ceil(witnessSize / 4);
 	}
 
-    // TODO: Implement broadcast transaction
+	// TODO: Implement broadcast transaction
 	private async broadcastTransaction(txHex: string): Promise<string> {
 		// This would normally broadcast to the network
 		// For now, return a mock transaction ID
@@ -451,7 +445,7 @@ export class BitcoinWallet {
 		return tx.getId();
 	}
 
-    // TODO: Implement sync addresses
+	// TODO: Implement sync addresses
 	private async syncAddresses(): Promise<void> {
 		// Check which addresses have been used
 		for (const address of this.addresses.values()) {
@@ -460,13 +454,13 @@ export class BitcoinWallet {
 		}
 	}
 
-    // TODO: Implement sync transactions
+	// TODO: Implement sync transactions
 	private async syncTransactions(): Promise<void> {
 		// Fetch transactions for all addresses
 		// This would normally call an API
 	}
 
-    // TODO: Implement sync UTXOs
+	// TODO: Implement sync UTXOs
 	private async syncUTXOs(): Promise<void> {
 		// Fetch UTXOs for all addresses
 		// This would normally call an API
@@ -480,7 +474,7 @@ export class BitcoinWallet {
 	private async addPendingTransaction(tx: BitcoinTransaction): Promise<void> {
 		this.transactions.push(tx);
 		await this.persistState();
-		
+
 		this.emitEvent({
 			type: 'transaction',
 			data: tx,
@@ -489,7 +483,7 @@ export class BitcoinWallet {
 	}
 
 	private emitEvent(event: WalletEvent): void {
-		this.eventCallbacks.forEach(callback => {
+		this.eventCallbacks.forEach((callback) => {
 			try {
 				callback(event);
 			} catch (error) {
@@ -498,7 +492,7 @@ export class BitcoinWallet {
 		});
 	}
 
-    // TODO: Implement get mnemonic
+	// TODO: Implement get mnemonic
 	private getMnemonic(): string | null {
 		// This would return the stored mnemonic
 		// Implementation depends on storage method
@@ -514,12 +508,15 @@ export class BitcoinWallet {
 				currentIndex: this.currentIndex
 			};
 
-			localStorage.setItem('bitcoin_wallet_state', JSON.stringify(state, (key, value) => {
-				if (value instanceof Date) {
-					return value.toISOString();
-				}
-				return value;
-			}));
+			localStorage.setItem(
+				'bitcoin_wallet_state',
+				JSON.stringify(state, (key, value) => {
+					if (value instanceof Date) {
+						return value.toISOString();
+					}
+					return value;
+				})
+			);
 		} catch (error) {
 			console.error('Failed to persist wallet state:', error);
 		}
@@ -552,7 +549,7 @@ export class BitcoinWallet {
  */
 export function createBitcoinWallet(config: Partial<BitcoinWalletConfig> = {}): BitcoinWallet {
 	const defaultConfig: BitcoinWalletConfig = {
-		network: 'mainnet',
+		network: (import.meta?.env?.VITE_WALLET_NETWORK as 'mainnet' | 'testnet') ?? 'testnet',
 		derivationPath: "m/84'/0'/0'/0",
 		...config
 	};

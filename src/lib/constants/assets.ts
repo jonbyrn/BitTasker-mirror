@@ -8,14 +8,14 @@ export const LIQUID_ASSET_IDS = {
 		// L-BTC (Liquid Bitcoin) - the native asset of Liquid Network
 		LBTC: '6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d',
 		// Tether USD on Liquid
-		USDT: 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2',
+		USDT: 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2'
 		// Add more mainnet assets as needed
 	},
 	testnet: {
 		// Testnet L-BTC
 		LBTC: '144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49',
 		// Testnet USDT
-		USDT: 'b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73',
+		USDT: 'b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73'
 		// Add more testnet assets as needed
 	}
 } as const;
@@ -69,7 +69,10 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 /**
  * Get asset metadata by network and asset ID
  */
-export function getAssetMetadata(network: 'mainnet' | 'testnet', assetId: string): AssetMetadata | undefined {
+export function getAssetMetadata(
+	network: 'mainnet' | 'testnet',
+	assetId: string
+): AssetMetadata | undefined {
 	return ASSET_METADATA[network][assetId];
 }
 
@@ -93,12 +96,12 @@ export function isValidAssetId(network: 'mainnet' | 'testnet', assetId: string):
 export function getCurrentNetwork(): 'mainnet' | 'testnet' {
 	// Check environment variable first
 	if (typeof import.meta !== 'undefined' && import.meta.env) {
-		const envNetwork = import.meta.env.WALLET_NETWORK;
+		const envNetwork = import.meta.env.VITE_WALLET_NETWORK;
 		if (envNetwork) return envNetwork;
 	}
-	
-	// Default to mainnet for production
-	return 'mainnet';
+
+	// Default to testnet if not specified
+	return 'testnet';
 }
 
 /**

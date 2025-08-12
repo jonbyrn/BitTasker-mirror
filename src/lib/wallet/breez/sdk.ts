@@ -4,8 +4,7 @@ import init, {
 	setLogger,
 	type BindingLiquidSdk,
 	type ConnectRequest,
-	type Config,
-	type LogEntry
+	type Config
 } from '@breeztech/breez-sdk-liquid/web';
 import { writable, get } from 'svelte/store';
 import { isWasmInitialized } from './wasmLoader';
@@ -20,18 +19,15 @@ export const isLoggerInitialized = writable<boolean>(false);
 
 // Production logging system
 class ProductionLogger {
-	log = (entry: LogEntry) => {
-		const timestamp = new Date().toISOString();
-		const logMessage = `[${timestamp}][${entry.level}]: ${entry.line}`;
-		
-		// Console logging for development
-		// console.log(logMessage);
-		
+	log = () => {
+		// const timestamp = new Date().toISOString();
+		// Console logging for development (enable if needed)
+		// console.log(`[${timestamp}][${entry.level}]: ${entry.line}`);
 		// TODO: In production, send to logging service (e.g., Sentry, LogRocket)
 		// this.sendToLoggingService(entry);
-	}
+	};
 
-	private sendToLoggingService(entry: LogEntry) {
+	private sendToLoggingService(): void {
 		// Implementation for production logging service
 		// e.g., Sentry.addBreadcrumb({ message: entry.line, level: entry.level })
 	}
@@ -54,7 +50,25 @@ export async function initializeWasm(): Promise<void> {
 /**
  * Get or create SDK configuration
  */
-export function createSdkConfig(network: 'mainnet' | 'testnet' = 'mainnet'): Config {
+type MutableConfig = Config & {
+	assetMetadata?: Array<{
+		assetId: string;
+		name: string;
+		ticker: string;
+		precision: number;
+		fiatId?: string;
+	}>;
+	syncIntervalMs?: number;
+	rescanOnchainSwapsIntervalMs?: number;
+	swapStatusCheckIntervalMs?: number;
+	workingDir?: string;
+};
+
+export function createSdkConfig(
+	network: 'mainnet' | 'testnet' = (import.meta?.env?.VITE_WALLET_NETWORK as
+		| 'mainnet'
+		| 'testnet') ?? 'testnet'
+): Config {
 	// Get API key from environment
 	const breezApiKey = import.meta.env.VITE_BREEZ_API_KEY;
 	if (!breezApiKey) {
@@ -64,34 +78,23 @@ export function createSdkConfig(network: 'mainnet' | 'testnet' = 'mainnet'): Con
 	// Create default config
 	const config: Config = defaultConfig(network, breezApiKey);
 
-	// Configure multi-asset support
-	if ('assetMetadata' in config) {
-		const assetMetadata = [
-			{
-				assetId: getAssetId('USDT'),
-				name: 'Tether USD',
-				ticker: 'USDt',
-				precision: 8,
-				fiatId: 'USD'
-			}
-		];
-		(config as any).assetMetadata = assetMetadata;
-	}
+	const mutableConfig = config as MutableConfig;
+	// Do not override default asset metadata to avoid UNIQUE constraint errors
+	// The SDK already includes L-BTC and USDt metadata for the selected network
+	// If in future we add custom assets, ensure they don't duplicate existing IDs
+
+	// Use a per-network working directory to avoid cross-network state conflicts
+	mutableConfig.workingDir = `breez_${network}`;
 
 	// Configure intervals based on network
-	const intervals = network === 'testnet' 
-		? { sync: 180000, rescan: 600000, status: 240000 }  // Testnet: longer intervals
-		: { sync: 60000, rescan: 300000, status: 120000 };  // Mainnet: shorter intervals
+	const intervals =
+		network === 'testnet'
+			? { sync: 180000, rescan: 600000, status: 240000 } // Testnet: longer intervals
+			: { sync: 60000, rescan: 300000, status: 120000 }; // Mainnet: shorter intervals
 
-	if ('syncIntervalMs' in config) {
-		(config as any).syncIntervalMs = intervals.sync;
-	}
-	if ('rescanOnchainSwapsIntervalMs' in config) {
-		(config as any).rescanOnchainSwapsIntervalMs = intervals.rescan;
-	}
-	if ('swapStatusCheckIntervalMs' in config) {
-		(config as any).swapStatusCheckIntervalMs = intervals.status;
-	}
+	mutableConfig.syncIntervalMs = intervals.sync;
+	mutableConfig.rescanOnchainSwapsIntervalMs = intervals.rescan;
+	mutableConfig.swapStatusCheckIntervalMs = intervals.status;
 
 	return config;
 }
@@ -100,8 +103,10 @@ export function createSdkConfig(network: 'mainnet' | 'testnet' = 'mainnet'): Con
  * Connect to Breez SDK
  */
 export async function connectToBreezSdk(
-	mnemonic: string, 
-	network: 'mainnet' | 'testnet' = 'mainnet'
+	mnemonic: string,
+	network: 'mainnet' | 'testnet' = (import.meta?.env?.VITE_WALLET_NETWORK as
+		| 'mainnet'
+		| 'testnet') ?? 'testnet'
 ): Promise<BindingLiquidSdk> {
 	// Ensure WASM is initialized first
 	if (!get(isWasmInitialized)) {
@@ -129,13 +134,13 @@ export async function connectToBreezSdk(
 	// Create config and connect
 	const config = createSdkConfig(network);
 	const connectRequest: ConnectRequest = { config, mnemonic };
-	
+
 	const sdkInstance = await connect(connectRequest);
-	
+
 	// Update stores
 	sdkStore.set(sdkInstance);
 	isConnectedStore.set(true);
-	
+
 	return sdkInstance;
 }
 
