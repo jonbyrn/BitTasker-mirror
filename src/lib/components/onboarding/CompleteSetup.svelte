@@ -7,7 +7,7 @@
 	import { bytesToHex } from '@noble/hashes/utils';
 	import nip44 from '$lib/nostr/nip44';
 	import { t } from 'svelte-i18n';
-    import IconCheck from '~icons/mdi/check-circle-outline';
+    import IconWarning from '~icons/mdi/alert-outline';
 
 	let { restartSetup }: { restartSetup: () => void } = $props();
 
@@ -135,20 +135,17 @@
 			<div class="flex flex-col items-center space-y-4 text-center">
 				<!-- Educational Header to match flow -->
 				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-primary mb-2 text-sm font-medium">Step 7 of 7</div>
+					<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
 					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
 					<h5 class="mb-3">Complete a few details to finish</h5>
-					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
-						{$t('onboarding_auth.form.oops_your_profile_is_not_complete')}
-					</p>
 
 					{#if missingFields.length > 0}
 						<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
 							{#each missingFields as field}
-								<div class="feature-item flex items-center justify-start gap-2 text-lg">
-									<IconCheck class="text-primary min-w-[1.5em]" />
-									<span>{field}</span>
-								</div>
+                                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                                    <IconWarning class="text-warning min-w-[1.5em]" />
+                                    <span>{field}</span>
+                                </div>
 							{/each}
 						</div>
 					{/if}
@@ -186,8 +183,8 @@
 		{:else}
 			<div class="flex flex-col items-center space-y-4 text-center">
 				<!-- Educational Header (aligned with other onboarding screens) -->
-				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-primary mb-2 text-sm font-medium">Step 7 of 7</div>
+                <div class="education-header mb-6 text-center">
+                    <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
 					<div class="text-success mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -210,24 +207,24 @@
 						Your account is ready. You are now part of the decentralized economy.
 					</p>
 
-					<!-- Features List -->
+                    <!-- Features List -->
 					<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
-						<div class="feature-item flex items-center justify-start gap-2 text-lg">
-							<IconCheck class="text-primary min-w-[1.5em]" />
-							<span><strong>Decentralized</strong> — your data, your control</span>
-						</div>
-						<div class="feature-item flex items-center justify-start gap-2 text-lg">
-							<IconCheck class="text-primary min-w-[1.5em]" />
-							<span><strong>Bitcoin-native</strong> — earn and pay in Bitcoin</span>
-						</div>
-						<div class="feature-item flex items-center justify-start gap-2 text-lg">
-							<IconCheck class="text-primary min-w-[1.5em]" />
-							<span><strong>Secure</strong> — protected by Nostr</span>
-						</div>
-						<div class="feature-item flex items-center justify-start gap-2 text-lg">
-							<IconCheck class="text-primary min-w-[1.5em]" />
-							<span><strong>Global</strong> — connect with users worldwide</span>
-						</div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Decentralized</strong> — your data, your control</span>
+                        </div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Bitcoin-native</strong> — earn and pay in Bitcoin</span>
+                        </div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Secure</strong> — protected by Nostr</span>
+                        </div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Global</strong> — connect with users worldwide</span>
+                        </div>
 					</div>
 
 					<p class="text-primary mb-6 text-lg">Jump in — explore tasks and opportunities.</p>

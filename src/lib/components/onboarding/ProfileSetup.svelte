@@ -209,18 +209,21 @@
 				return;
 			}
 
-			// Validate profile description
-			if (!profileDescription) {
-				descriptionError = $t('onboarding_auth.form.profile_description_required');
-				isLoading = false;
-				return;
-			}
 
-			// Enforce minimum description length of 100 characters
-			if (profileDescription.trim().length < 100) {
-				descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
-				isLoading = false;
-				return;
+			// Validate profile description only when not saving for later
+			if (!saveForLater) {
+				if (!profileDescription) {
+					descriptionError = $t('onboarding_auth.form.profile_description_required');
+					isLoading = false;
+					return;
+				}
+
+				// Enforce minimum description length of 100 characters
+				if (profileDescription.trim().length < 100) {
+					descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+					isLoading = false;
+					return;
+				}
 			}
 
 			// Upload and publish profile picture if a new file is selected
@@ -394,7 +397,7 @@
 					<textarea
 						id="profileDescription"
 						bind:value={profileDescription}
-					minlength={100}
+                        minlength={saveForLater ? undefined : 100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
