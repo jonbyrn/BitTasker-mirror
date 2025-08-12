@@ -6,6 +6,7 @@
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
 	import { t } from 'svelte-i18n';
 	import IconCheck from '~icons/mdi/check-circle-outline';
+    import IconMagnify from '~icons/mdi/magnify';
 
 	let { nextStep, prevStep } = $props();
 
@@ -552,6 +553,38 @@
 								/>
 							</svg>
 						</button>
+					<!-- Search radius toggle next to search bar -->
+					<div class="relative">
+						<button
+							aria-label={$t('onboarding_auth.form.toggle_radius')}
+							onclick={() => (toggleRadius = !toggleRadius)}
+							class="btn btn-circle"
+						>
+							<IconMagnify class="h-5 w-5" />
+						</button>
+						{#if toggleRadius}
+							<div class="absolute right-0 top-full z-[1000] mt-2 rounded-lg bg-base-100/90 px-4 py-2 shadow-lg">
+								<label class="form-control w-64">
+									<div class="label text-xs sm:text-sm">
+										<span class="label-text">{$t('onboarding_auth.form.service_radius')}: {serviceRadius} km</span>
+									</div>
+									<input
+										type="range"
+										min="1"
+										max="50"
+										bind:value={serviceRadius}
+										onchange={updateServiceRadius}
+										class="range range-success range-xs"
+										step="1"
+									/>
+									<div class="label text-xs sm:text-sm">
+										<span class="label-text-alt">1 km</span>
+										<span class="label-text-alt">50 km</span>
+									</div>
+								</label>
+							</div>
+						{/if}
+					</div>
 					</div>
 
 					{#if isLoading}
@@ -583,56 +616,6 @@
 
 			<!-- Map Container -->
 			<div bind:this={mapContainerDiv} class="map-container relative w-full">
-				<!-- Service Radius Slider -->
-                <div
-                    class="{isFullscreen
-                        ? 'fixed bottom-20 left-4 z-[999]'
-                        : 'absolute bottom-4 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
-                >
-					<button
-						aria-label={$t('onboarding_auth.form.toggle_radius')}
-						onclick={() => (toggleRadius = !toggleRadius)}
-						class="relative"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 1024 1024">
-							<path
-								fill="#fff"
-								d="M518.5 360.3a7.95 7.95 0 0 0-12.9 0l-178 246c-3.8 5.3 0 12.7 6.5 12.7H381c10.2 0 19.9-4.9 25.9-13.2L512 460.4l105.2 145.4c6 8.3 15.6 13.2 25.9 13.2H690c6.5 0 10.3-7.4 6.5-12.7z"
-							/>
-							<path
-								fill="#fff"
-								d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448s448-200.6 448-448S759.4 64 512 64m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372s372 166.6 372 372s-166.6 372-372 372"
-							/>
-						</svg>
-
-						{#if toggleRadius}
-							<div
-								class="bg-base-100/80 absolute -top-3 left-0 -translate-y-full rounded-lg px-4 font-semibold"
-							>
-								<label class="form-control w-full">
-									<div class="label text-xs sm:text-sm">
-										<span class="label-text text-white"
-											>{$t('onboarding_auth.form.service_radius')}: {serviceRadius} km</span
-										>
-									</div>
-									<input
-										type="range"
-										min="1"
-										max="50"
-										bind:value={serviceRadius}
-										onchange={updateServiceRadius}
-										class="range range-success range-xs"
-										step="1"
-									/>
-									<div class="label text-xs sm:text-sm">
-										<span class="label-text-alt text-white">1 km</span>
-										<span class="label-text-alt text-white">50 km</span>
-									</div>
-								</label>
-							</div>
-						{/if}
-					</button>
-				</div>
 			</div>
 
 			<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
