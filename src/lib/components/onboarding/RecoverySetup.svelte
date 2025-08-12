@@ -95,7 +95,7 @@
 			<h3 class="step-title mb-3 mt-4">Create Recovery Password (Optional)</h3>
 			<h5 class="mb-3">Add a safe backup for account access</h5>
 			<p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">
-				Set up a recovery method to regain access if you lose your device. This is optional, but highly recommended for account security.
+				Set up a recovery method to regain access if you lose your device.<br /><br />This is optional, but highly recommended for account security.
 			</p>
 
 			<!-- Features List (aligned with Nostr import styling) -->
@@ -116,46 +116,18 @@
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Private</strong> — only you can decrypt your data</span>
 				</div>
-			</div>
 
-			<p class="text-primary mb-6 text-lg">Optional, but highly recommended.</p>
+				<p class="text-primary mb-6 text-lg">Optional, but highly recommended.</p>
+			</div>
 		</div>
 
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<!-- Recovery Password Option -->
-			<div class="form-control">
+			<div class="form-control max-w-lg mx-auto">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
 					<span class="label-text">Create recovery password</span>
 				</label>
-				{#if !enableRecovery}
-					<div
-						class="alert alert-warning alert-outline mt-4 rounded-2xl text-sm"
-						in:fly={{ duration: 200, y: -20, easing: linear }}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
-						<p>
-							<span class="font-bold">Optional but recommended.</span>
-							<br />
-							<span>
-								If you lose access to your device, you'll be able to recover your account.
-							</span>
-						</p>
-					</div>
-				{/if}
 			</div>
 
 			{#if enableRecovery}
@@ -181,36 +153,6 @@
 								<span class="label-text-alt text-error">{emailError}</span>
 							</label>
 						{/if}
-					</div>
-
-					<div
-						class="alert alert-warning alert-outline mt-4 rounded-2xl text-sm"
-						in:fly={{ duration: 200, y: -20, easing: linear }}
-					>
-						<p>
-							<span class="flex items-center justify-center gap-2 font-bold">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
-								You will only be able to recover your account via email.
-							</span>
-							<br />
-							<span>
-								If you lose access to your email, you will not be able to recover your account in
-								the event that you lose access to your primary login method.
-							</span>
-						</p>
 					</div>
 
 					<!-- Recovery Password Field -->
@@ -274,7 +216,7 @@
 					</div>
 
 					<!-- Confirm Password Field -->
-					<div class="form-control">
+					<div class="form-control max-w-lg mx-auto">
 						<label class="label" for="confirmPassword">
 							<span class="label-text">Confirm Recovery Password</span>
 						</label>
