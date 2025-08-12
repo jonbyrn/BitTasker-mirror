@@ -258,10 +258,10 @@
 
 			// Create circle for service radius
 			circle = new google.maps.Circle({
-				strokeColor: '#4CAF50',
+				strokeColor: '#F7931A',
 				strokeOpacity: 0.8,
 				strokeWeight: 2,
-				fillColor: '#4CAF50',
+				fillColor: '#F7931A',
 				fillOpacity: 0.2,
 				map,
 				center: position,
@@ -374,7 +374,7 @@
 		}
 	}
 
-	async function enterFullscreen() {
+    async function enterFullscreen() {
 		isFullscreen = true;
 
 		try {
@@ -385,7 +385,7 @@
 		}
 
 		// Store original dimensions for restoring later
-		if (mapContainerDiv) {
+        if (mapContainerDiv) {
 			// Apply fullscreen styles
 			mapContainerDiv.style.position = 'fixed';
 			mapContainerDiv.style.top = '0';
@@ -395,6 +395,12 @@
 			mapContainerDiv.style.zIndex = '10'; // Lower z-index to ensure controls stay on top
 			mapContainerDiv.style.backgroundColor = 'white';
 		}
+
+        // Ensure inner map element fills the fullscreen container
+        if (mapElement) {
+            mapElement.style.width = '100%';
+            mapElement.style.height = '100vh';
+        }
 
 		// Trigger resize to update map
 		if (map) {
@@ -410,7 +416,7 @@
 		}
 	}
 
-	async function exitFullscreen() {
+    async function exitFullscreen() {
 		isFullscreen = false;
 
 		try {
@@ -421,7 +427,7 @@
 		}
 
 		// Restore original CSS styles
-		if (mapContainerDiv) {
+        if (mapContainerDiv) {
 			mapContainerDiv.style.position = 'relative';
 			mapContainerDiv.style.top = 'auto';
 			mapContainerDiv.style.left = 'auto';
@@ -429,6 +435,12 @@
 			mapContainerDiv.style.zIndex = 'auto';
 			mapContainerDiv.style.backgroundColor = 'transparent';
 		}
+
+        // Restore map element size
+        if (mapElement) {
+            mapElement.style.width = '100%';
+            mapElement.style.height = '';
+        }
 
 		// Trigger resize to update map
 		if (map) {
@@ -689,7 +701,7 @@
 		{/if}
 
 		{#if location.locationLoaded}
-			<div class="alert alert-success alert-outline mx-4 mt-4">
+			<div class="alert alert-success alert-outline mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
