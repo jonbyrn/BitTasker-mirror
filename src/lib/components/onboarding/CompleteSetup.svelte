@@ -100,7 +100,7 @@
 	});
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl p-6">
 	<div class="card-body">
 		{#if isLoading}
 			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
@@ -152,14 +152,12 @@
 
 					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
 						{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
-						<br /><br />
-						{$t('onboarding_auth.form.or_you_can_restart_the_onboarding_process')}
 					</p>
 				</div>
 
 				<div class="mt-4 flex w-full mx-auto max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
-						{$t('onboarding_auth.form.restart_setup')}
+						Complete Setup
 					</button>
 					<button
 						class="btn btn-secondary w-full"
