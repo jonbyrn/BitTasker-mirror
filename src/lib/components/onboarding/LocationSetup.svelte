@@ -577,7 +577,7 @@
 			>
                 {#if isFullscreen}
                 <div class="pointer-events-auto mb-2 flex w-full items-center justify-center">
-                    <button class="btn btn-outline btn-sm" onclick={exitFullscreen}>
+                    <button class="btn btn-md bg-base-100/90 shadow-md border-none text-base-content hover:bg-base-100/90 hover:opacity-100" onclick={exitFullscreen}>
                         {$t('onboarding_auth.form.exit_fullscreen')}
                     </button>
                 </div>
