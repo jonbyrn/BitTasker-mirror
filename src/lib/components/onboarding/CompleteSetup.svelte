@@ -111,7 +111,7 @@
 			</div>
 		{:else if error}
 			<div class="flex flex-col items-center space-y-4 text-center">
-				<div class="text-warning mt-2">
+				<div class="text-error mt-2">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-16 w-16"
@@ -133,46 +133,39 @@
 			</div>
 		{:else if !isComplete}
 			<div class="flex flex-col items-center space-y-4 text-center">
-				<div class="text-error mt-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-16 w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-				</div>
-				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.oops_your_profile_is_not_complete')}</h2>
+				<!-- Educational Header to match flow -->
+				<div class="education-header mb-6 text-center">
+					<div class="step-indicator text-primary mb-2 text-sm font-medium">Step 7 of 7</div>
+					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
+					<h5 class="mb-3">Complete a few details to finish</h5>
+					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
+						{$t('onboarding_auth.form.oops_your_profile_is_not_complete')}
+					</p>
 
-				{#if missingFields.length > 0}
-					<div class="mt-2 w-full space-y-2 text-start">
-						<p class="font-medium">{$t('onboarding_auth.form.missing_information')}:</p>
-						<ul class="text-base-content/70 list-inside list-disc text-start text-sm">
+					{#if missingFields.length > 0}
+						<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
 							{#each missingFields as field}
-								<li>{field}</li>
+								<div class="feature-item flex items-center justify-start gap-2 text-lg">
+									<IconCheck class="text-primary min-w-[1.5em]" />
+									<span>{field}</span>
+								</div>
 							{/each}
-						</ul>
-					</div>
-				{/if}
+						</div>
+					{/if}
 
-				<p class="text-base-content/70">
-					{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
-					<br /> <br />
-					{$t('onboarding_auth.form.or_you_can_restart_the_onboarding_process')}
-				</p>
+					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
+						{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
+						<br /><br />
+						{$t('onboarding_auth.form.or_you_can_restart_the_onboarding_process')}
+					</p>
+				</div>
+
 				<div class="mt-4 flex w-full max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
 						{$t('onboarding_auth.form.restart_setup')}
 					</button>
-					<button 
-						class="btn btn-secondary w-full" 
+					<button
+						class="btn btn-secondary w-full"
 						onclick={() => {
 							isContinueLoading = true;
 							goto('/dashboard/find-tasks').finally(() => {
@@ -187,7 +180,7 @@
 						{:else}
 							Continue without completing
 						{/if}
-				</button>
+					</button>
 				</div>
 			</div>
 		{:else}
