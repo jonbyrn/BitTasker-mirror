@@ -621,13 +621,7 @@
 								<circle cx="12" cy="10" r="3" />
 							</svg>
 						</button>
-						<button
-							onclick={() => (showOptions = false)}
-							class="btn btn-square btn-secondary"
-							title={$t('onboarding_auth.form.search')}
-						>
-							<IconMagnify class="h-5 w-5" />
-						</button>
+						
 					</div>
 
 					{#if isLoading}
