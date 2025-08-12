@@ -18,8 +18,8 @@
 	let serviceRadius = $state(10); // Default to 10 km
 	let location = $state<Location>({
 		displayName: '',
-		latitude: 37.7749,
-		longitude: -122.4194,
+		latitude: 13.6929,
+		longitude: -89.2182,
 		zipCode: '',
 		locationLoaded: false
 	});
@@ -474,7 +474,7 @@
 	}
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl p-6">
 	<div class="card-body relative">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
@@ -482,7 +482,7 @@
 			<h3 class="step-title mt-4 mb-3">Set Your Service Location</h3>
 			<h5 class="mb-3">Choose where you work</h5>
 			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
-				Define where you can provide services. This helps match you with nearby Taskers, and Taskees.
+				Define where you can provide services as a Taskee, or are searching as a Tasker. This helps match you with nearby Taskers and Taskees.
 			</p>
 
 			<!-- Features List -->
