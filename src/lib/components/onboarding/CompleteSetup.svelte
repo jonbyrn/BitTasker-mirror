@@ -110,7 +110,7 @@
 				</div>
 			</div>
 		{:else if error}
-			<div class="flex flex-col items-center space-y-4 text-center">
+			<div class="items-center space-y-4 text-center">
 				<div class="text-error mt-2">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -137,10 +137,10 @@
 				<div class="education-header mb-6 text-center">
 					<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
 					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
-					<h5 class="mb-3">Complete a few details to finish</h5>
+					<h5 class="mb-6">Complete a few details to finish</h5>
 
-					{#if missingFields.length > 0}
-						<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+                    {#if missingFields.length > 0}
+                        <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
 							{#each missingFields as field}
                                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                                     <IconWarning class="text-warning min-w-[1.5em]" />
@@ -157,7 +157,7 @@
 					</p>
 				</div>
 
-				<div class="mt-4 flex w-full max-w-md flex-col items-center space-y-4">
+				<div class="mt-4 flex w-full mx-auto max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
 						{$t('onboarding_auth.form.restart_setup')}
 					</button>
