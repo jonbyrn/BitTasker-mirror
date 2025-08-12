@@ -436,14 +436,14 @@
 					</div>
 					<div class="mt-2 flex flex-wrap gap-2">
 						{#each skills as skill, index}
-							<div class="badge badge-lg gap-1">
-								<span class="mb-1">
+							<div class="badge badge-lg gap-1 bg-primary text-primary-content">
+								<span>
 									{skill.name}
 								</span>
 								<button
 									aria-label="Remove skill"
 									type="button"
-									class="btn btn-ghost btn-xs p-0"
+									class="btn btn-ghost btn-xs p-0 text-primary-content"
 									onclick={() => removeSkill(index)}
 									disabled={saveForLater}
 								>

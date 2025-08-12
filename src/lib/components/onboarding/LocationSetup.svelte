@@ -584,11 +584,11 @@
 			<!-- Map Container -->
 			<div bind:this={mapContainerDiv} class="map-container relative w-full">
 				<!-- Service Radius Slider -->
-				<div
-					class="{isFullscreen
-						? 'fixed bottom-20 left-4 z-[999]'
-						: 'absolute bottom-20 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
-				>
+                <div
+                    class="{isFullscreen
+                        ? 'fixed bottom-20 left-4 z-[999]'
+                        : 'absolute bottom-4 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
+                >
 					<button
 						aria-label={$t('onboarding_auth.form.toggle_radius')}
 						onclick={() => (toggleRadius = !toggleRadius)}
@@ -753,23 +753,23 @@
 				</button>
 			</div>
 		{/if}
+	</div>
 
-		<div class="mt-6 flex justify-between">
-			<button type="button" class="btn btn-outline" onclick={prevStep}>
-				{$t('onboarding_auth.form.back')}
-			</button>
-			<button
-				type="button"
-				class="btn btn-primary"
-				onclick={handleSubmit}
-				disabled={isLoading || (!location.locationLoaded && !hasError && !isMapLoaded)}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner"></span>
-				{/if}
-				{$t('onboarding_auth.form.next')}
-			</button>
-		</div>
+	<div class="mt-6 flex justify-between">
+		<button type="button" class="btn btn-outline" onclick={prevStep}>
+			{$t('onboarding_auth.form.back')}
+		</button>
+		<button
+			type="button"
+			class="btn btn-primary"
+			onclick={handleSubmit}
+			disabled={isLoading || (!location.locationLoaded && !hasError && !isMapLoaded)}
+		>
+			{#if isLoading}
+				<span class="loading loading-spinner"></span>
+			{/if}
+			{$t('onboarding_auth.form.next')}
+		</button>
 	</div>
 </div>
 
