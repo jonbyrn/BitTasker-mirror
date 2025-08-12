@@ -394,16 +394,19 @@
 			mapContainerDiv.style.position = 'fixed';
 			mapContainerDiv.style.top = '0';
 			mapContainerDiv.style.left = '0';
-			mapContainerDiv.style.width = '100%';
-			mapContainerDiv.style.height = '100%';
-			mapContainerDiv.style.zIndex = '10'; // Lower z-index to ensure controls stay on top
+			mapContainerDiv.style.width = '100vw';
+			mapContainerDiv.style.height = '100vh';
+			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
 			mapContainerDiv.style.backgroundColor = 'white';
+			mapContainerDiv.style.overflow = 'hidden';
 		}
 
-        // Ensure inner map element fills the fullscreen container (account for mobile UI chrome)
+        // Ensure inner map element fills the fullscreen container
         if (mapElement) {
             mapElement.style.width = '100%';
-            mapElement.style.height = `${window.innerHeight}px`;
+            mapElement.style.height = '100%';
+            mapElement.style.minHeight = '100vh';
+            mapElement.style.borderRadius = '0';
         }
 
         // Await DOM flush, then trigger Google Maps resize and re-center
@@ -428,7 +431,8 @@
         // Keep size in sync when device UI chrome changes (mobile) or orientation changes
         fullscreenResizeHandler = () => {
             if (mapElement) {
-                mapElement.style.height = `${window.innerHeight}px`;
+                mapElement.style.height = '100%';
+                mapElement.style.minHeight = '100vh';
             }
             if (map) {
                 google.maps.event.trigger(map, 'resize');
@@ -461,14 +465,18 @@
 			mapContainerDiv.style.top = 'auto';
 			mapContainerDiv.style.left = 'auto';
 			mapContainerDiv.style.width = '100%';
+			mapContainerDiv.style.height = 'auto';
 			mapContainerDiv.style.zIndex = 'auto';
 			mapContainerDiv.style.backgroundColor = 'transparent';
+			mapContainerDiv.style.overflow = 'visible';
 		}
 
         // Restore map element size
         if (mapElement) {
             mapElement.style.width = '100%';
             mapElement.style.height = '';
+            mapElement.style.minHeight = '24rem'; // 96px = 24rem
+            mapElement.style.borderRadius = '0.5rem'; // rounded-lg
         }
 
         // Remove resize listener if present
@@ -572,106 +580,77 @@
 			<!-- Search bar - using fixed positioning when in fullscreen mode -->
 			<div
 				class={isFullscreen
-					? 'fixed top-4 right-4 left-4 z-[999]'
+					? 'fixed top-6 left-6 right-6 z-[1000]'
 					: 'absolute top-4 right-0 left-0 z-10 px-4'}
 			>
                 {#if isFullscreen}
-                <div class="pointer-events-auto mb-2 flex w-full items-center justify-center">
+                <div class="pointer-events-auto mb-4 flex w-full items-center justify-center">
                     <button class="btn btn-md bg-base-100/90 shadow-md border-none text-base-content hover:bg-base-100/90 hover:opacity-100" onclick={exitFullscreen}>
                         {$t('onboarding_auth.form.exit_fullscreen')}
                     </button>
                 </div>
                 {/if}
 				<div class="form-control relative w-full">
-					<div class="input-group flex w-full items-center justify-center gap-4">
+					<div class="input-group">
 						<input
 							bind:this={searchInput}
 							type="text"
-							placeholder="Search for a location..."
-							class="input input-bordered w-full {hasError ? 'input-error' : ''}"
-							oninput={debounce(() => getPredictions(), 300)}
+							placeholder={$t('onboarding_auth.form.search_location')}
+							oninput={getPredictions}
+							onfocus={() => (showOptions = true)}
+							class="input input-bordered w-full pr-20 mb-2"
 						/>
 						<button
-							aria-label="Use current location"
-							class="btn btn-square"
-							onclick={() => getUserLocation()}
+							aria-label={$t('onboarding_auth.form.use_my_location')}
+							onclick={getUserLocation}
+							class="btn btn-square btn-primary"
+							disabled={isLoading}
+							title={$t('onboarding_auth.form.use_my_location')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
-								class="h-6 w-6"
-								fill="none"
+								class="h-5 w-5"
 								viewBox="0 0 24 24"
+								fill="none"
 								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
 							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-								/>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-								/>
+								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+								<circle cx="12" cy="10" r="3" />
 							</svg>
 						</button>
-					<!-- Search radius toggle next to search bar -->
-					<div class="relative">
 						<button
-							aria-label={$t('onboarding_auth.form.toggle_radius')}
-							onclick={() => (toggleRadius = !toggleRadius)}
-							class="btn btn-circle"
+							onclick={() => (showOptions = false)}
+							class="btn btn-square btn-primary"
+							title={$t('onboarding_auth.form.search')}
 						>
 							<IconMagnify class="h-5 w-5" />
 						</button>
-						{#if toggleRadius}
-							<div class="absolute right-0 top-full z-[1000] mt-2 rounded-lg bg-base-100/90 px-4 py-2 shadow-lg">
-								<label class="form-control w-64">
-									<div class="label text-xs sm:text-sm">
-										<span class="label-text">{$t('onboarding_auth.form.service_radius')}: {serviceRadius} km</span>
-									</div>
-									<input
-										type="range"
-										min="1"
-										max="50"
-										bind:value={serviceRadius}
-										onchange={updateServiceRadius}
-										class="range range-success range-xs text-primary"
-										step="1"
-									/>
-									<div class="label text-xs sm:text-sm">
-										<span class="label-text-alt">1 km</span>
-										<span class="label-text-alt">50 km</span>
-									</div>
-								</label>
-							</div>
-						{/if}
-					</div>
 					</div>
 
 					{#if isLoading}
-						<div class="absolute top-1/2 right-16 -translate-y-1/2">
+						<div class="absolute top-1/2 right-20 -translate-y-1/2">
 							<span class="loading loading-spinner loading-sm"></span>
 						</div>
 					{/if}
 
 					{#if showOptions}
 						<div
-							class="predictions-dropdown bg-base-100 absolute z-[1000] mt-1 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg"
+							class="predictions-dropdown bg-base-100 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg border border-base-300"
 						>
 							{#if predictions.length > 0}
 								{#each predictions as prediction}
 									<button
-										class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left"
+										class="hover:bg-base-200 w-full cursor-pointer px-4 py-3 text-left border-b border-base-200 last:border-b-0"
 										onclick={() => selectPrediction(prediction!)}
 									>
 										{prediction?.text}
 									</button>
 								{/each}
 							{:else}
-								<div class="text-error px-4 py-2">{$t('onboarding_auth.form.no_places_found')}</div>
+								<div class="text-error px-4 py-3">{$t('onboarding_auth.form.no_places_found')}</div>
 							{/if}
 						</div>
 					{/if}
@@ -680,14 +659,21 @@
 
 			<!-- Map Container -->
 			<div bind:this={mapContainerDiv} class="map-container relative w-full">
+				<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
+					{#if !isMapLoaded}
+						<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
+							<span class="loading loading-spinner loading-lg"></span>
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-[999]'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md"
+					? 'fixed bottom-4 left-4 z-[1000]'
+					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md hover:bg-base-100"
 				aria-label={isFullscreen
 					? $t('onboarding_auth.form.exit_fullscreen')
 					: $t('onboarding_auth.form.enter_fullscreen')}
@@ -696,41 +682,49 @@
 					: $t('onboarding_auth.form.enter_fullscreen')}
 			>
 				{#if isFullscreen}
-					<!-- Exit fullscreen icon -->
+					<!-- Exit fullscreen icon - icono claro de salir -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-8 w-8"
-						viewBox="0 0 20 20"
+						class="h-5 w-5 text-base-content"
+						viewBox="0 0 24 24"
 						fill="currentColor"
 					>
-						<path
-							fill-rule="evenodd"
-							d="M5 9V7a2 2 0 012-2h2v2H7v2H5zm10 0V7a2 2 0 00-2-2h-2v2h2v2h2zm0 6v-2a2 2 0 00-2-2h-2v2h2v2h2zm-10 0v-2a2 2 0 012-2h2v2H7v2H5z"
-							clip-rule="evenodd"
-						/>
+						<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
 					</svg>
 				{:else}
-					<!-- Enter fullscreen icon -->
+					<!-- Enter fullscreen icon - icono claro de entrar -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-8 w-8"
-						viewBox="0 0 20 20"
+						class="h-5 w-5 text-base-content"
+						viewBox="0 0 24 24"
 						fill="currentColor"
 					>
-						<path
-							fill-rule="evenodd"
-							d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 01-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 011.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 011.414-1.414L15 13.586V12a1 1 0 011-1z"
-							clip-rule="evenodd"
-						/>
+						<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
 					</svg>
 				{/if}
 			</button>
-			<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
-				{#if !isMapLoaded}
-					<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
-						<span class="loading loading-spinner loading-lg"></span>
+
+			<!-- Service Radius Panel - mejor posicionado y espaciado -->
+			<div
+				class={isFullscreen
+					? 'fixed top-32 right-6 z-[1000]'
+					: 'absolute top-16 right-4 z-20'}
+			>
+				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
+					<div class="mb-3 text-sm font-medium text-base-content">Service Radius: {serviceRadius} km</div>
+					<input
+						type="range"
+						min="1"
+						max="50"
+						bind:value={serviceRadius}
+						onchange={updateServiceRadius}
+						class="range range-sm range-primary mb-2"
+					/>
+					<div class="flex justify-between text-xs text-base-content/70">
+						<span>1 km</span>
+						<span>50 km</span>
 					</div>
-				{/if}
+				</div>
 			</div>
 		</div>
 
