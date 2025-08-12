@@ -586,7 +586,7 @@
 										max="50"
 										bind:value={serviceRadius}
 										onchange={updateServiceRadius}
-										class="range range-success range-xs"
+										class="range range-success range-xs text-primary"
 										step="1"
 									/>
 									<div class="label text-xs sm:text-sm">
