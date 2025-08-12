@@ -591,19 +591,19 @@
                 </div>
                 {/if}
 				<div class="form-control relative w-full">
-					<div class="input-group">
+					<div class="flex gap-2">
 						<input
 							bind:this={searchInput}
 							type="text"
 							placeholder={$t('onboarding_auth.form.search_location')}
 							oninput={getPredictions}
 							onfocus={() => (showOptions = true)}
-							class="input input-bordered w-full pr-20 mb-2"
+							class="input input-bordered flex-1 mb-2"
 						/>
 						<button
 							aria-label={$t('onboarding_auth.form.use_my_location')}
 							onclick={getUserLocation}
-							class="btn btn-square btn-primary"
+							class="btn btn-square btn-secondary"
 							disabled={isLoading}
 							title={$t('onboarding_auth.form.use_my_location')}
 						>
@@ -623,7 +623,7 @@
 						</button>
 						<button
 							onclick={() => (showOptions = false)}
-							class="btn btn-square btn-primary"
+							class="btn btn-square btn-secondary"
 							title={$t('onboarding_auth.form.search')}
 						>
 							<IconMagnify class="h-5 w-5" />
