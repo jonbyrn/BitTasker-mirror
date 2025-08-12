@@ -112,10 +112,20 @@ export async function deriveKeyFromPassword(
 }
 
 /**
+ * Format sats amount for display (no conversion needed)
+ */
+export function formatSatsAmount(sats: number): string {
+	const formatted = new Intl.NumberFormat('en-US').format(sats);
+	return `${formatted} sats`;
+}
+
+/**
  * Calculate estimated USDT value based on BTC amount
  */
 export function calculateUsdtEstimate(budget: number, btcPrice: number): string {
-	const estimatedValue = budget * btcPrice;
+	// budget is in sats, so we need to convert to BTC first
+	const btcAmount = budget / 100_000_000;
+	const estimatedValue = btcAmount * btcPrice;
 	return estimatedValue.toLocaleString('en-US', {
 		maximumFractionDigits: 2,
 		minimumFractionDigits: 2

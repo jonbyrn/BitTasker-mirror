@@ -10,6 +10,7 @@
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -70,10 +71,15 @@
 	}
 
 	// Format currency
-	function formatCurrency(amount: number): string {
+	function formatCurrency(amount: number, currency: string = 'BTC'): string {
+		// Since the amount is stored in sats, we need to convert it
+		if (currency === 'BTC' || currency === 'L-BTC' || currency === 'LN') {
+			const btcAmount = amount / 100_000_000;
+			return `${currency} ${btcAmount.toFixed(8)}`;
+		}
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
-			currency: 'BTC'
+			currency: currency
 		}).format(amount);
 	}
 
@@ -242,13 +248,14 @@
 								<div>
 									<p class="text-base-content/70 text-xs">{$t('task.budget.label')}</p>
 									<p class="text-primary font-semibold">
-										{formatCurrency(task.budget.amount)}
-										{#if task.budget.type === 'HOURLY'}
-											<span class="text-xs">{$t('task.budget.hourly')}</span>
-										{/if}
+										{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
+										
 									</p>
 									<p class="text-info text-xs">
 										≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT
+										{#if task.budget.type === 'HOURLY'}
+											<span class="text-xs">{$t('task.budget.hourly')}</span>
+										{/if}
 									</p>
 								</div>
 							{/if}

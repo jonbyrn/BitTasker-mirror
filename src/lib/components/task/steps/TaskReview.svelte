@@ -6,7 +6,7 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import { formatNumberForInput, usdFromSats } from '$lib/utils/helpers/crypto';
+	import { formatSatsAmount, usdFromSats } from '$lib/utils/helpers/crypto';
 	import { t, locale } from 'svelte-i18n';
 
 	let { direction } = $props();
@@ -109,8 +109,7 @@
 					<span class="font-medium">{$t('task.budget_amount')}</span>
 
 					<div class="flex flex-col items-start">
-						<span class="font-semibold">{formatNumberForInput($store.task.budget.amount)} Sats</span
-						>
+						<span class="font-semibold">{formatSatsAmount($store.task.budget.amount)}</span>
 						<span class="text-info text-xs"
 							>≈ {usdFromSats($store.task.budget.amount, btcPrice)} USDT</span
 						>

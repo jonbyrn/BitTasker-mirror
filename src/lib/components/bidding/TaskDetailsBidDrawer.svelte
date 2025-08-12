@@ -4,7 +4,7 @@
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidCreationForm from './BidCreationForm.svelte';
-	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
 	import { wallet } from '$lib/utils/consts';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
@@ -258,7 +258,7 @@
 					<div>
 						<span class="text-base-content/60 text-sm">Budget:</span>
 						<div class="font-semibold">
-							{formatBtcToSats(task.budget.amount)}
+							{formatSatsAmount(task.budget.amount)}
 						</div>
 						<span class="text-info text-xs"
 							>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
