@@ -300,7 +300,7 @@
                 <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 5 of 7</div>
                 <h3 class="step-title mb-3 mt-4">Build Your Profile</h3>
                 <h5 class="mb-3">Showcase your expertise</h5>
-                <p class="step-description text-base-content mb-6 text-lg">
+                <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
                     Help others understand who you are and the skills you bring. A strong profile boosts trust and discoverability.
                 </p>
 
@@ -352,7 +352,7 @@
 				</div>
 
 				<!-- Display Name Field -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="displayName">
 						<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
 					</label>
@@ -372,7 +372,7 @@
 				</div>
 
 				<!-- Professional Title Field -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="professionalTitle">
 						<span class="label-text">{$t('onboarding_auth.form.professional_title')}</span>
 					</label>
@@ -386,7 +386,7 @@
 				</div>
 
 				<!-- Profile Description Field -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
                     <label class="label" for="profileDescription">
                         <span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
                         <span class="label-text-alt">{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span>
@@ -409,7 +409,7 @@
 				</div>
 
 				<!-- Skills Tags -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="skills">
 						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
 						<span class="label-text-alt">{skills.length}/20</span>
@@ -466,7 +466,7 @@
 				</div>
 
 				<!-- Save for Later Option -->
-				<div class="form-control space-y-2">
+				<div class="form-control space-y-2 mx-auto max-w-xl">
 					<label class="label flex cursor-pointer items-center justify-start gap-2">
 						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
 						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>

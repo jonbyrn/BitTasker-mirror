@@ -473,34 +473,6 @@
 					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
 					<span class="label-text">{$t('onboarding_auth.form.create_recovery_password')}</span>
 				</label>
-				{#if !enableRecovery}
-					<div
-						class="alert alert-warning alert-outline mt-4 rounded-2xl text-xs text-black"
-						in:fly={{ duration: 100, y: -20, easing: linear }}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-							/>
-						</svg>
-						<p>
-							<span class="font-bold">{$t('onboarding_auth.form.optional_but_recommended')}</span>
-							<br />
-							<span>
-								{$t('onboarding_auth.form.if_you_lose_access_to_your_device')}
-							</span>
-						</p>
-					</div>
-				{/if}
 			</div>
 
 			{#if enableRecovery}
@@ -525,35 +497,6 @@
 								<span class="label-text-alt text-error">{emailError}</span>
 							</label>
 						{/if}
-					</div>
-
-					<div
-						class="alert alert-warning alert-outline mt-4 rounded-2xl text-xs text-black"
-						in:fly={{ duration: 100, y: -20, easing: linear }}
-					>
-						<p>
-							<span class="flex items-center justify-center gap-2 font-bold">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-6 w-6 shrink-0"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
-								{$t('onboarding_auth.form.you_will_only_be_able_to_recover_your_account_via_email')}
-							</span>
-							<br />
-							<span>
-								{$t('onboarding_auth.form.if_you_lose_access_to_your_email')}
-							</span>
-						</p>
 					</div>
 
 					<!-- Recovery Password Field -->

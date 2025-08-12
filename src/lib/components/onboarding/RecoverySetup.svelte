@@ -92,14 +92,14 @@
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 4 of 7 — Optional</div>
-			<h3 class="step-title mb-3 mt-4">Create Recovery Password</h3>
+			<h3 class="step-title mb-3 mt-4">Create Recovery Password (Optional)</h3>
 			<h5 class="mb-3">Add a safe backup for account access</h5>
-			<p class="step-description text-base-content mb-6 text-lg">
-				Set up a recovery method to regain access if you lose your device. This is optional but highly recommended for account security.
+			<p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">
+				Set up a recovery method to regain access if you lose your device. This is optional, but highly recommended for account security.
 			</p>
 
 			<!-- Features List (aligned with Nostr import styling) -->
-			<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-xl">
+			<div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Secure</strong> — protected with a password only you know</span>
@@ -161,7 +161,7 @@
 			{#if enableRecovery}
 				<div class="space-y-4" in:fly={{ duration: 200, y: -20, easing: linear }}>
 					<!-- Recovery Email Field -->
-					<div class="form-control">
+					<div class="form-control max-w-lg mx-auto">
 						<label class="label" for="email">
 							<div class="flex items-center gap-2">
 								<span class="label-text">Recovery Email</span>
@@ -184,7 +184,7 @@
 					</div>
 
 					<div
-						class="alert alert-warning mt-4 rounded-2xl text-sm"
+						class="alert alert-warning alert-outline mt-4 rounded-2xl text-sm"
 						in:fly={{ duration: 200, y: -20, easing: linear }}
 					>
 						<p>
@@ -214,7 +214,7 @@
 					</div>
 
 					<!-- Recovery Password Field -->
-					<div class="form-control">
+					<div class="form-control max-w-lg mx-auto">
 						<label class="label" for="password">
 							<span class="label-text">Recovery Password</span>
 						</label>

@@ -2,8 +2,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
-    import IconKeyOutline from '~icons/mdi/key-outline';
+	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
     import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let {
@@ -88,7 +87,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
                 Import Your Nostr Key (Optional)
             </h3>
             <h5 class="mb-3">What is a Nostr key?</h5>
-            <p class="step-description text-base-content mb-6 text-lg">
+            <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
                 A Nostr private key (nsec…) is like your Bitcoin private key: it gives you ownership of your data. <br /><br />You can import an existing key, or let us generate one for you.
             </p>
 
@@ -108,7 +107,7 @@ import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Keep it secret</strong> — anyone with your key can access your account</span>
+                    <span><strong>Stored Securely</strong> — encrypted on your device so we can't see it</span>
                 </div>
             </div>
 

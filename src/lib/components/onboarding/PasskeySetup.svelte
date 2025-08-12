@@ -188,27 +188,27 @@
 			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 3 of 7</div>
 			<h3 class="step-title mb-3 mt-4">Set Up Your Passkey</h3>
             <h5 class="mb-3">What's a Passkey?</h5>
-            <p class="step-description text-base-content mb-6 text-lg">
-                Use your Face ID, fingerprint, or phone PIN to log in.<br /><br />No passwords or codes — just tap and go.
+            <p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
+                Use your Face ID, fingerprint, or device PIN/password to log in.<br /><br />No new passwords or codes — just tap and go.
             </p>
 
 			<!-- Features List -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-lg">
+            <div class="features-list mb-6 space-y-2 text-left mx-auto max-w-md">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Secure</strong> — only on your device</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Encrypted</strong> — like Bitcoin</span>
+                    <span><strong>Encrypted</strong> — just like Bitcoin!</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Private</strong> — even we can't see your keys</span>
+                    <span><strong>Private</strong> — we never see your PIN, password, or biometrics</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Portable</strong> — works on your other devices too</span>
+                    <span><strong>Easy</strong> — the same way you login to your device</span>
                 </div>
             </div>
 
