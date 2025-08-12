@@ -376,6 +376,7 @@
 	}
 
     let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
+    let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
 
     async function enterFullscreen() {
 		isFullscreen = true;
@@ -434,6 +435,14 @@
             }
         };
         window.addEventListener('resize', fullscreenResizeHandler);
+
+        // Enable ESC to exit fullscreen
+        escKeyHandler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                exitFullscreen();
+            }
+        };
+        window.addEventListener('keydown', escKeyHandler);
 	}
 
     async function exitFullscreen() {
@@ -466,6 +475,11 @@
         if (fullscreenResizeHandler) {
             window.removeEventListener('resize', fullscreenResizeHandler);
             fullscreenResizeHandler = null;
+        }
+
+        if (escKeyHandler) {
+            window.removeEventListener('keydown', escKeyHandler);
+            escKeyHandler = null;
         }
 
 		// Trigger resize to update map
@@ -561,6 +575,13 @@
 					? 'fixed top-4 right-4 left-4 z-[999]'
 					: 'absolute top-4 right-0 left-0 z-10 px-4'}
 			>
+                {#if isFullscreen}
+                <div class="pointer-events-auto mb-2 flex w-full items-center justify-center">
+                    <button class="btn btn-outline btn-sm" onclick={exitFullscreen}>
+                        {$t('onboarding_auth.form.exit_fullscreen')}
+                    </button>
+                </div>
+                {/if}
 				<div class="form-control relative w-full">
 					<div class="input-group flex w-full items-center justify-center gap-4">
 						<input

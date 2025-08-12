@@ -211,7 +211,7 @@
 							/>
 						</svg>
 					</div>
-					<h3 class="step-title mb-3 mt-4">Welcome to BitTasker!</h3>
+					<h3 class="step-title mb-3 mt-4">🎉 Welcome to BitTasker! 🎉</h3>
 					<h5 class="mb-3">You're all set</h5>
 					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
 						Your account is ready. You are now part of the decentralized economy.
