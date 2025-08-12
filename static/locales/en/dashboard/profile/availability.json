@@ -1,0 +1,37 @@
+{
+    "profile_availability": {
+      "availabilityTitle": "Availability",
+      "weeklySchedule": "Weekly Schedule",
+      "unavailable": "Unavailable",
+      "nextAvailable": "Next Available",
+      "timezone": "Timezone",
+      "noticeRequired": "Notice Required",
+      "hours": "hours",
+      "maxBookingsPerDay": "Max Bookings Per Day",
+      "breakBetweenBookings": "Break Between Bookings",
+      "minutes": "minutes",
+      "payment_methods": "Payment Methods",
+      "payment_lightning": "Lightning",
+      "your_stats": "Your Stats",
+      "copyToOtherDays": "Copy to Other Days",
+      "addTimeSlot": "Add Time Slot",
+      "saveAvailability": "Save Availability",
+      "from": "From",
+      "to": "To",
+      "stats": {
+        "tasks_completed": "Tasks Completed",
+        "success_rate": "Success Rate",
+        "response_rate": "Response Rate"
+      },
+      "error_load": "Failed to load profile data. Please try again later."
+    },
+    "days": {
+      "sunday": "Sunday",
+      "monday": "Monday",
+      "tuesday": "Tuesday",
+      "wednesday": "Wednesday",
+      "thursday": "Thursday",
+      "friday": "Friday",
+      "saturday": "Saturday"
+    }
+  }

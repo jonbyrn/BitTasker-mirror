@@ -22,7 +22,7 @@ export const load: LayoutLoad = async ({ url }) => {
 			if (data?.IsOnboardingComplete.isComplete) {
 				redirect(303, '/dashboard');
 			} else {
-				return { currentStep: 1 };
+				return { currentStep: 4 };
 			}
 		} else {
 			redirect(303, '/dashboard');
@@ -32,7 +32,7 @@ export const load: LayoutLoad = async ({ url }) => {
 			// TODO: Temporary fix until proper cleanup of resources is implemented - After logout or invalid access token
 			Preferences.remove({ key: StorageKeys.NPUB})
 			if (!get(isCaptchaVerified)) {
-				redirect(303, '/auth/signup');
+				// redirect(303, '/auth/signup');
 			}
 		}
 	}

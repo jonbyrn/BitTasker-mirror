@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -11,6 +10,7 @@
 		taskers: -1,
 		taskees: -1,
 		payment: -1,
+		nostr: -1,
 		safety: -1
 	});
 
@@ -73,7 +73,7 @@
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general')}</h2>
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general.title')}</h2>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -129,7 +129,7 @@
 
 		<!-- For Taskers -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers')}</h2>
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers.title')}</h2>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -215,7 +215,7 @@
 		</div>
 
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees')}</h2>
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees.title')}</h2>
 			<div class="join join-vertical w-full">
 				<!-- FAQ Taskees - How do I find tasks? -->
 				<div
@@ -340,6 +340,80 @@
 					<div class="collapse-content prose">
 						<p>{$t('faq.payment.1.answer_1')}</p>
 						<p>{$t('faq.payment.1.answer_2')}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Nostr -->
+		<div class="bg-base-100 rounded-box p-6 my-12">
+			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.nostr.title')}</h2>
+			<div class="join join-vertical w-full">
+				<!-- What is Nostr? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.nostr === 0}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('nostr', 0)}
+					>
+						{$t('faq.nostr.0.question')}
+					</button>
+					<div class="collapse-content prose">
+						<p>{$t('faq.nostr.0.answer')}</p>
+					</div>
+				</div>
+
+				<!-- How do I own my data with Nostr? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.nostr === 1}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('nostr', 1)}
+					>
+						{$t('faq.nostr.1.question')}
+					</button>
+					<div class="collapse-content prose">
+						<p>{@html $t('faq.nostr.1.answer')}</p>
+					</div>
+				</div>
+
+				<!-- How is Nostr secured? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.nostr === 2}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('nostr', 2)}
+					>
+						{$t('faq.nostr.2.question')}
+					</button>
+					<div class="collapse-content prose">
+						<p>{$t('faq.nostr.2.answer')}</p>
+					</div>
+				</div>
+
+				<!-- How do you protect my Nostr private key (nsec)? -->
+				<div
+					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
+					class:collapse-open={openAccordion.nostr === 3}
+				>
+					<button
+						type="button"
+						class="collapse-title text-left text-xl font-medium"
+						onclick={() => toggleAccordion('nostr', 3)}
+					>
+						{$t('faq.nostr.3.question')}
+					</button>
+					<div class="collapse-content prose">
+						<p>{@html $t('faq.nostr.3.answer')}</p>
 					</div>
 				</div>
 			</div>

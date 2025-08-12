@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { VideoIntroMetadata } from '$lib/types/profile';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { onDestroy, onMount } from 'svelte';
 	import { getSignedEvent, publishEvent } from '$lib/utils/nostr';
 	import { subscribeToProfileUpdates, deleteNostrEvent } from '$lib/nostr/profile';

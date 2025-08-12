@@ -1,0 +1,33 @@
+{
+  "feedback": {
+    "page_title": "Comentarios | BitTasker",
+    "intro": "Gracias por probar BitTasker. ¡Comparte tus comentarios con nosotros!",
+    "required_hint": "Un asterisco (*) indica preguntas obligatorias.",
+    "type_label": "¿Es un error o una solicitud de función? *",
+    "type_help_text": "Un error es una función existente que no funciona como debería. Una solicitud de función es para agregar nuevas capacidades que aún no están presentes.",
+    "bug": "Error",
+    "feature": "Solicitud de función",
+    "describe_label": "Describe el problema *",
+    "describe_placeholder": "Proporciona una descripción detallada del error o de la solicitud de función...",
+    "screenshot": "Captura de pantalla",
+    "screenshot_hint": "Si es posible, por favor incluye una captura de pantalla que ilustre el problema.",
+    "selected": "Seleccionado:",
+    "choose_file": "Seleccionar archivo",
+    "no_file": "Ningún archivo seleccionado",
+    "contact_label": "Tu información de contacto",
+    "contact_hint": "Ingresa tu correo electrónico, usuario de Telegram o número de WhatsApp por si necesitamos hacer preguntas de seguimiento.",
+    "contact_placeholder": "Tu correo, Telegram o WhatsApp",
+    "submit": "Enviar comentarios",
+    "submitting": "Enviando...",
+    "thank_you_title": "¡Gracias!",
+    "thank_you_message": "Tus comentarios se enviaron correctamente. ¡Agradecemos que te tomes el tiempo para ayudarnos a mejorar BitTasker!",
+    "submit_another": "Enviar más comentarios",
+    "errors": {
+      "select_type": "Selecciona Error o Solicitud de función",
+      "provide_description": "Proporciona una descripción",
+      "missing_user": "No se pudo identificar al usuario. Inténtalo nuevamente.",
+      "submit_failed": "No se pudieron enviar los comentarios. Inténtalo nuevamente."
+    }
+  }
+}
+

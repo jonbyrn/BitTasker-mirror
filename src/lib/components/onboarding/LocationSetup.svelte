@@ -4,6 +4,10 @@
 	import { Geolocation } from '@capacitor/geolocation';
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
+    import { t } from 'svelte-i18n';
+    import { tick } from 'svelte';
+	import IconCheck from '~icons/mdi/check-circle-outline';
+    import IconMagnify from '~icons/mdi/magnify';
 
 	let { nextStep, prevStep } = $props();
 
@@ -16,8 +20,8 @@
 	let serviceRadius = $state(10); // Default to 10 km
 	let location = $state<Location>({
 		displayName: '',
-		latitude: 37.7749,
-		longitude: -122.4194,
+		latitude: 13.6929,
+		longitude: -89.2182,
 		zipCode: '',
 		locationLoaded: false
 	});
@@ -62,13 +66,13 @@
 							googleMapsReady = true;
 							resolve();
 						} else {
-							reject(new Error('Google Maps API not initialized correctly'));
+							reject(new Error($t('onboarding_auth.form.google_maps_api_not_initialized')));
 						}
 					}, 500);
 				};
 
 				script.onerror = () => {
-					reject(new Error('Google Maps script failed to load'));
+					reject(new Error($t('onboarding_auth.form.google_maps_script_failed_load')));
 				};
 
 				document.head.appendChild(script);
@@ -80,7 +84,7 @@
 
 	async function initMap() {
 		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error('Google Maps not fully loaded yet');
+			throw new Error($t('onboarding_auth.form.google_maps_not_fully_loaded'));
 		}
 
 		try {
@@ -167,7 +171,8 @@
 			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
-			error = err instanceof Error ? err.message : 'Error initializing map';
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.error_initializing_map');
 			hasError = true;
 		}
 	}
@@ -183,8 +188,8 @@
 			await tryInitMap();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
-			error = err instanceof Error ? err.message : 'Error loading Google Maps';
-			hasError = true;
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.error_loading_google_maps');
 		} finally {
 			isLoading = false;
 		}
@@ -225,7 +230,8 @@
 			}
 		} catch (err: unknown) {
 			console.error('Error updating location:', err);
-			error = err instanceof Error ? err.message : 'Error updating location';
+			error =
+				err instanceof Error ? err.message : $t('onboarding_auth.form.error_updating_location');
 		}
 	}
 
@@ -253,10 +259,10 @@
 
 			// Create circle for service radius
 			circle = new google.maps.Circle({
-				strokeColor: '#4CAF50',
+				strokeColor: '#F7931A',
 				strokeOpacity: 0.8,
 				strokeWeight: 2,
-				fillColor: '#4CAF50',
+				fillColor: '#F7931A',
 				fillOpacity: 0.2,
 				map,
 				center: position,
@@ -369,7 +375,10 @@
 		}
 	}
 
-	async function enterFullscreen() {
+    let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
+    let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+
+    async function enterFullscreen() {
 		isFullscreen = true;
 
 		try {
@@ -380,32 +389,67 @@
 		}
 
 		// Store original dimensions for restoring later
-		if (mapContainerDiv) {
+        if (mapContainerDiv) {
 			// Apply fullscreen styles
 			mapContainerDiv.style.position = 'fixed';
 			mapContainerDiv.style.top = '0';
 			mapContainerDiv.style.left = '0';
-			mapContainerDiv.style.width = '100%';
-			mapContainerDiv.style.height = '100%';
-			mapContainerDiv.style.zIndex = '10'; // Lower z-index to ensure controls stay on top
+			mapContainerDiv.style.width = '100vw';
+			mapContainerDiv.style.height = '100vh';
+			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
 			mapContainerDiv.style.backgroundColor = 'white';
+			mapContainerDiv.style.overflow = 'hidden';
 		}
 
-		// Trigger resize to update map
-		if (map) {
-			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.position) {
-				const position = marker.position;
-				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-				if (lat && lng) {
-					map.setCenter({ lat, lng });
-				}
-			}
-		}
+        // Ensure inner map element fills the fullscreen container
+        if (mapElement) {
+            mapElement.style.width = '100%';
+            mapElement.style.height = '100%';
+            mapElement.style.minHeight = '100vh';
+            mapElement.style.borderRadius = '0';
+        }
+
+        // Await DOM flush, then trigger Google Maps resize and re-center
+        await tick();
+        if (map) {
+            google.maps.event.trigger(map, 'resize');
+            if (marker && marker.position) {
+                const position = marker.position;
+                const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+                const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+                if (lat && lng) {
+                    map.setCenter({ lat, lng });
+                }
+            }
+            // Force a redraw by toggling zoom
+            const currentZoom = map.getZoom();
+            if (typeof currentZoom === 'number') {
+                map.setZoom(currentZoom);
+            }
+        }
+
+        // Keep size in sync when device UI chrome changes (mobile) or orientation changes
+        fullscreenResizeHandler = () => {
+            if (mapElement) {
+                mapElement.style.height = '100%';
+                mapElement.style.minHeight = '100vh';
+            }
+            if (map) {
+                google.maps.event.trigger(map, 'resize');
+            }
+        };
+        window.addEventListener('resize', fullscreenResizeHandler);
+
+        // Enable ESC to exit fullscreen
+        escKeyHandler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                exitFullscreen();
+            }
+        };
+        window.addEventListener('keydown', escKeyHandler);
 	}
 
-	async function exitFullscreen() {
+    async function exitFullscreen() {
 		isFullscreen = false;
 
 		try {
@@ -416,27 +460,53 @@
 		}
 
 		// Restore original CSS styles
-		if (mapContainerDiv) {
+        if (mapContainerDiv) {
 			mapContainerDiv.style.position = 'relative';
 			mapContainerDiv.style.top = 'auto';
 			mapContainerDiv.style.left = 'auto';
 			mapContainerDiv.style.width = '100%';
+			mapContainerDiv.style.height = 'auto';
 			mapContainerDiv.style.zIndex = 'auto';
 			mapContainerDiv.style.backgroundColor = 'transparent';
+			mapContainerDiv.style.overflow = 'visible';
 		}
 
+        // Restore map element size
+        if (mapElement) {
+            mapElement.style.width = '100%';
+            mapElement.style.height = '';
+            mapElement.style.minHeight = '24rem'; // 96px = 24rem
+            mapElement.style.borderRadius = '0.5rem'; // rounded-lg
+        }
+
+        // Remove resize listener if present
+        if (fullscreenResizeHandler) {
+            window.removeEventListener('resize', fullscreenResizeHandler);
+            fullscreenResizeHandler = null;
+        }
+
+        if (escKeyHandler) {
+            window.removeEventListener('keydown', escKeyHandler);
+            escKeyHandler = null;
+        }
+
 		// Trigger resize to update map
-		if (map) {
-			google.maps.event.trigger(map, 'resize');
-			if (marker && marker.position) {
-				const position = marker.position;
-				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
-				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-				if (lat && lng) {
-					map.setCenter({ lat, lng });
-				}
-			}
-		}
+        await tick();
+        if (map) {
+            google.maps.event.trigger(map, 'resize');
+            if (marker && marker.position) {
+                const position = marker.position;
+                const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
+                const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
+                if (lat && lng) {
+                    map.setCenter({ lat, lng });
+                }
+            }
+            const currentZoom = map.getZoom();
+            if (typeof currentZoom === 'number') {
+                map.setZoom(currentZoom);
+            }
+        }
 	}
 
 	async function handleSubmit() {
@@ -452,8 +522,8 @@
 
 			// Don't proceed if location isn't loaded yet (only when map is working)
 			if (location.latitude === null || location.longitude === null) {
-				error = 'Please select a location';
-				throw new Error('Please select a location');
+				error = $t('onboarding_auth.form.please_select_a_location');
+				throw new Error($t('onboarding_auth.form.please_select_a_location'));
 			}
 
 			// Publish location to Nostr
@@ -463,181 +533,192 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Error saving location:', err);
-			error = err instanceof Error ? err.message : 'Error saving location';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.error_saving_location');
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
 
-<div class="card w-full">
-	<div class="card-body relative p-0">
-		<!-- Search bar - using fixed positioning when in fullscreen mode -->
-		<div
-			class={isFullscreen
-				? 'fixed top-4 right-4 left-4 z-[999]'
-				: 'absolute top-4 right-0 left-0 z-10 px-4'}
-		>
-			<div class="form-control relative w-full">
-				<div class="input-group flex w-full items-center justify-center gap-4">
-					<input
-						bind:this={searchInput}
-						type="text"
-						placeholder="Search for a location..."
-						class="input input-bordered w-full {hasError ? 'input-error' : ''}"
-						oninput={debounce(() => getPredictions(), 300)}
-					/>
-					<button
-						aria-label="Use current location"
-						class="btn btn-square"
-						onclick={() => getUserLocation()}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-							/>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-							/>
-						</svg>
-					</button>
+<div class="card bg-base-100 w-full shadow-xl p-6">
+	<div class="card-body relative">
+		<!-- Educational Header -->
+		<div class="education-header mb-6 text-center">
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 6 of 7</div>
+			<h3 class="step-title mt-4 mb-3">Set Your Location</h3>
+			<h5 class="mb-3">Find Taskers and Taskees near you</h5>
+			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
+				Define where you can provide services as a Taskee, or are searching as a Tasker. This helps match you with nearby Taskers and Taskees.
+			</p>
+
+			<!-- Features List -->
+			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Flexible</strong> — set a custom service or search radius</span>
 				</div>
-
-				{#if isLoading}
-					<div class="absolute top-1/2 right-16 -translate-y-1/2">
-						<span class="loading loading-spinner loading-sm"></span>
-					</div>
-				{/if}
-
-				{#if showOptions}
-					<div
-						class="predictions-dropdown bg-base-100 absolute z-[1000] mt-1 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg"
-					>
-						{#if predictions.length > 0}
-							{#each predictions as prediction}
-								<button
-									class="hover:bg-base-200 w-full cursor-pointer px-4 py-2 text-left"
-									onclick={() => selectPrediction(prediction!)}
-								>
-									{prediction?.text}
-								</button>
-							{/each}
-						{:else}
-							<div class="text-error px-4 py-2">No places found..</div>
-						{/if}
-					</div>
-				{/if}
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Private</strong> — only your approximate area is shared</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Adjustable</strong> — change your location anytime in settings</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span><strong>Optional</strong> — you can set it later if you want</span>
+				</div>
 			</div>
+			<p class="text-primary mb-6 text-lg">Find tasks near you. Set where you work.</p>
 		</div>
-
+	</div>
+	<!-- Constrained Map Wrapper -->
+	<div class="mx-auto w-full max-w-xl">
 		<!-- Map Container -->
-		<div bind:this={mapContainerDiv} class="map-container relative">
-			<!-- Service Radius Slider -->
+		<div class="map-container relative w-full">
+			<!-- Search bar - using fixed positioning when in fullscreen mode -->
 			<div
-				class="{isFullscreen
-					? 'fixed bottom-20 left-4 z-[999]'
-					: 'absolute bottom-20 left-4 z-20 '} btn btn-circle btn-lg bg-base-100/90 shadow-md"
+				class={isFullscreen
+					? 'fixed top-6 left-6 right-6 z-[1000]'
+					: 'absolute top-4 right-0 left-0 z-10 px-4'}
 			>
-				<button
-					aria-label="Toggle radius"
-					onclick={() => (toggleRadius = !toggleRadius)}
-					class="relative"
-				>
-					<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 1024 1024">
-						<path
-							fill="#fff"
-							d="M518.5 360.3a7.95 7.95 0 0 0-12.9 0l-178 246c-3.8 5.3 0 12.7 6.5 12.7H381c10.2 0 19.9-4.9 25.9-13.2L512 460.4l105.2 145.4c6 8.3 15.6 13.2 25.9 13.2H690c6.5 0 10.3-7.4 6.5-12.7z"
+                {#if isFullscreen}
+                <div class="pointer-events-auto mb-4 flex w-full items-center justify-center">
+                    <button class="btn btn-md bg-base-100/90 shadow-md border-none text-base-content hover:bg-base-100/90 hover:opacity-100" onclick={exitFullscreen}>
+                        {$t('onboarding_auth.form.exit_fullscreen')}
+                    </button>
+                </div>
+                {/if}
+				<div class="form-control relative w-full">
+					<div class="flex gap-2">
+						<input
+							bind:this={searchInput}
+							type="text"
+							placeholder={$t('onboarding_auth.form.search_location')}
+							oninput={getPredictions}
+							onfocus={() => (showOptions = true)}
+							class="input input-bordered flex-1 mb-2"
 						/>
-						<path
-							fill="#fff"
-							d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448s448-200.6 448-448S759.4 64 512 64m0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372s372 166.6 372 372s-166.6 372-372 372"
-						/>
-					</svg>
-
-					{#if toggleRadius}
-						<div
-							class="bg-base-100/80 absolute -top-3 left-0 -translate-y-full rounded-lg px-4 font-semibold"
+						<button
+							aria-label={$t('onboarding_auth.form.use_my_location')}
+							onclick={getUserLocation}
+							class="btn btn-square btn-secondary"
+							disabled={isLoading}
+							title={$t('onboarding_auth.form.use_my_location')}
 						>
-							<label class="form-control w-full">
-								<div class="label text-xs sm:text-sm">
-									<span class="label-text text-white">Service Radius: {serviceRadius} km</span>
-								</div>
-								<input
-									type="range"
-									min="1"
-									max="50"
-									bind:value={serviceRadius}
-									onchange={updateServiceRadius}
-									class="range range-success range-xs"
-									step="1"
-								/>
-								<div class="label text-xs sm:text-sm">
-									<span class="label-text-alt text-white">1 km</span>
-									<span class="label-text-alt text-white">50 km</span>
-								</div>
-							</label>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							>
+								<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+								<circle cx="12" cy="10" r="3" />
+							</svg>
+						</button>
+						
+					</div>
+
+					{#if isLoading}
+						<div class="absolute top-1/2 right-20 -translate-y-1/2">
+							<span class="loading loading-spinner loading-sm"></span>
 						</div>
 					{/if}
-				</button>
+
+					{#if showOptions}
+						<div
+							class="predictions-dropdown bg-base-100 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg border border-base-300"
+						>
+							{#if predictions.length > 0}
+								{#each predictions as prediction}
+									<button
+										class="hover:bg-base-200 w-full cursor-pointer px-4 py-3 text-left border-b border-base-200 last:border-b-0"
+										onclick={() => selectPrediction(prediction!)}
+									>
+										{prediction?.text}
+									</button>
+								{/each}
+							{:else}
+								<div class="text-error px-4 py-3">{$t('onboarding_auth.form.no_places_found')}</div>
+							{/if}
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Map Container -->
+			<div bind:this={mapContainerDiv} class="map-container relative w-full">
+				<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
+					{#if !isMapLoaded}
+						<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
+							<span class="loading loading-spinner loading-lg"></span>
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Fullscreen Button - using fixed positioning when in fullscreen mode -->
 			<button
 				onclick={toggleFullscreen}
 				class="{isFullscreen
-					? 'fixed bottom-4 left-4 z-[999]'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md"
-				aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-				title={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+					? 'fixed bottom-4 left-4 z-[1000]'
+					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md hover:bg-base-100"
+				aria-label={isFullscreen
+					? $t('onboarding_auth.form.exit_fullscreen')
+					: $t('onboarding_auth.form.enter_fullscreen')}
+				title={isFullscreen
+					? $t('onboarding_auth.form.exit_fullscreen')
+					: $t('onboarding_auth.form.enter_fullscreen')}
 			>
 				{#if isFullscreen}
-					<!-- Exit fullscreen icon -->
+					<!-- Exit fullscreen icon - icono claro de salir -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-8 w-8"
-						viewBox="0 0 20 20"
+						class="h-5 w-5 text-base-content"
+						viewBox="0 0 24 24"
 						fill="currentColor"
 					>
-						<path
-							fill-rule="evenodd"
-							d="M5 9V7a2 2 0 012-2h2v2H7v2H5zm10 0V7a2 2 0 00-2-2h-2v2h2v2h2zm0 6v-2a2 2 0 00-2-2h-2v2h2v2h2zm-10 0v-2a2 2 0 012-2h2v2H7v2H5z"
-							clip-rule="evenodd"
-						/>
+						<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
 					</svg>
 				{:else}
-					<!-- Enter fullscreen icon -->
+					<!-- Enter fullscreen icon - icono claro de entrar -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-8 w-8"
-						viewBox="0 0 20 20"
+						class="h-5 w-5 text-base-content"
+						viewBox="0 0 24 24"
 						fill="currentColor"
 					>
-						<path
-							fill-rule="evenodd"
-							d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 01-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 011.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 011.414-1.414L15 13.586V12a1 1 0 011-1z"
-							clip-rule="evenodd"
-						/>
+						<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
 					</svg>
 				{/if}
 			</button>
-			<div bind:this={mapElement} class="h-full min-h-96 w-full overflow-hidden rounded-lg">
-				{#if !isMapLoaded}
-					<div class="bg-base-200 flex h-full min-h-96 w-full items-center justify-center">
-						<span class="loading loading-spinner loading-lg"></span>
+
+			<!-- Service Radius Panel - mejor posicionado y espaciado -->
+			<div
+				class={isFullscreen
+					? 'fixed top-32 right-6 z-[1000]'
+					: 'absolute top-16 right-4 z-20'}
+			>
+				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
+					<div class="mb-3 text-sm font-medium text-base-content">Service Radius: {serviceRadius} km</div>
+					<input
+						type="range"
+						min="1"
+						max="50"
+						bind:value={serviceRadius}
+						onchange={updateServiceRadius}
+						class="range range-sm range-primary mb-2"
+					/>
+					<div class="flex justify-between text-xs text-base-content/70">
+						<span>1 km</span>
+						<span>50 km</span>
 					</div>
-				{/if}
+				</div>
 			</div>
 		</div>
 
@@ -660,7 +741,7 @@
 		{/if}
 
 		{#if location.locationLoaded}
-			<div class="alert alert-success alert-outline mx-4 mt-4">
+			<div class="alert alert-success alert-outline mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
@@ -675,29 +756,11 @@
 				>
 				<span>Location set: {location.displayName}</span>
 			</div>
-		{:else}
-			<div class="alert alert-info alert-outline mx-4 mt-4">
-				<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 48 48"
-					><g
-						fill="none"
-						stroke="#fff"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="4"
-						><path
-							d="M4 24C4 35.0457 12.9543 44 24 44V44C35.0457 44 44 35.0457 44 24C44 12.9543 35.0457 4 24 4"
-						/><path
-							d="M36 24C36 17.3726 30.6274 12 24 12C17.3726 12 12 17.3726 12 24C12 30.6274 17.3726 36 24 36V36"
-						/></g
-					></svg
-				>
-				<span>Specify your location, or you can set your location later in your profile.</span>
-			</div>
 		{/if}
 
 		<!-- Retry button for map loading issues -->
 		{#if hasError && !isMapLoaded}
-			<div class="alert alert-warning mx-4 mt-4">
+			<div class="alert alert-warning alert-outline mx-4 mt-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 shrink-0 stroke-current"
@@ -711,8 +774,8 @@
 					/></svg
 				>
 				<div>
-					<h3 class="font-bold">Map loading failed</h3>
-					<div class="text-xs">Try reloading the map</div>
+					<h3 class="font-bold">{$t('onboarding_auth.form.map_loading_failed')}</h3>
+					<div class="text-xs">{$t('onboarding_auth.form.try_reloading_the_map')}</div>
 				</div>
 				<button
 					class="btn btn-sm"
@@ -721,25 +784,27 @@
 						loadGoogleMapsScript().then(() => tryInitMap());
 					}}
 				>
-					Retry
+					{$t('onboarding_auth.form.retry')}
 				</button>
 			</div>
 		{/if}
+	</div>
 
-		<div class="mt-6 flex justify-between">
-			<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
-			<button
-				type="button"
-				class="btn btn-primary"
-				onclick={handleSubmit}
-				disabled={isLoading || (!location.locationLoaded && !hasError && !isMapLoaded)}
-			>
-				{#if isLoading}
-					<span class="loading loading-spinner"></span>
-				{/if}
-				Next
-			</button>
-		</div>
+	<div class="mt-6 flex justify-between">
+		<button type="button" class="btn btn-outline" onclick={prevStep}>
+			{$t('onboarding_auth.form.back')}
+		</button>
+		<button
+			type="button"
+			class="btn btn-primary"
+			onclick={handleSubmit}
+			disabled={isLoading || (!location.locationLoaded && !hasError && !isMapLoaded)}
+		>
+			{#if isLoading}
+				<span class="loading loading-spinner"></span>
+			{/if}
+			{$t('onboarding_auth.form.next')}
+		</button>
 	</div>
 </div>
 

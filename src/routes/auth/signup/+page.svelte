@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { VerifyTrunstileStore } from '$houdini';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	const verifyTrunstileStore = new VerifyTrunstileStore();
 
@@ -42,7 +42,7 @@
 				console.log('Captcha expired, please solve again');
 				isCaptchaVerified.set(false);
 				captchaFailed = true;
-				error = $t('auth.signup.error.captcha_expired');
+				error = $t('signup.error.captcha_expired');
 			},
 			'error-callback': function (errorCode: string) {
 				// This function is called when there's an error with the widget
@@ -54,7 +54,7 @@
 
 				console.error('Turnstile widget encountered an error:', errorCode);
 				captchaFailed = true;
-				error = $t('auth.signup.error.verification_error');
+				error = $t('signup.error.verification_error');
 			}
 		});
 	}
@@ -80,7 +80,7 @@
 				throw new Error(errors[0].message);
 			}
 			if (!data) {
-				throw new Error($t('auth.signup.error.captcha_failed'));
+				throw new Error($t('signup.error.captcha_failed'));
 			}
 
 			isCaptchaVerified.set(data.verifyTurnstileToken.success);
@@ -88,7 +88,7 @@
 			error = ''; // Clear any previous errors
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
-			error = $t('auth.signup.error.captcha_failed');
+			error = $t('signup.error.captcha_failed');
 			isCaptchaVerified.set(false);
 			captchaFailed = true;
 		}
@@ -104,33 +104,33 @@
 	></script>
 </svelte:head>
 
-<div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
-	<div class="card bg-base-100 w-full p-4 shadow-xl">
+<div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
+	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
 		<div class="flex flex-col items-center justify-center">
-			<Logo class="w-auto" />
-			<h1 class="mt-6 text-center text-2xl font-bold">{$t('auth.signup.title')}</h1>
+			<Logo />
+			<h1 class="mt-6 text-center text-2xl font-bold">{$t('signup.title')}</h1>
 			<br />
-			<p class="mx-auto space-y-2 text-center">
-				<span class="text-base-content/70 mt-3 block text-center text-sm">
-					{$t('auth.signup.subtitle')}
+			<p class="mx-auto space-y-2 text-center px-6">
+				<span class="text-base-content mb-10 block text-center text-lg">
+					{$t('signup.subtitle')}
 				</span>
-				<span class="text-base-content/70 block text-center text-sm">
-					{$t('auth.signup.description')}
+				<span class="text-base-content my-10 block text-center text-lg">
+					{$t('signup.description')}
 					<a
 						href="https://getalby.com"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-primary hover:underline">{$t('auth.login.alby_connect')}</a
-					> {$t('auth.login.account')}.
+						class="text-primary hover:underline">{$t('login.alby_connect')}</a
+					> {$t('login.account')}.
 				</span>
-				<span class="text-base-content/70 block text-center text-sm">
-					{$t('auth.signup.nostr_info')}
+				<span class="text-base-content my-10 block text-center text-lg">
+					{$t('signup.nostr_info')}
 					<a
 						href="https://nostr.com"
 						target="_blank"
 						rel="noopener noreferrer"
 						class="text-primary hover:underline">Nostr</a
-					>, {$t('auth.signup.nostr_import')}.
+					>, {$t('signup.nostr_import')}.
 				</span>
 			</p>
 		</div>
@@ -140,10 +140,10 @@
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
 					<div class="flex items-center justify-between gap-2 mb-2">
-						<p class="w-full text-start text-sm">{$t('auth.signup.verify_human')}</p>
+						<p class="w-full text-start text-sm mb-2">{$t('signup.verify_human')}</p>
 						{#if captchaFailed && !$isCaptchaVerified}
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
-								{$t('auth.signup.retry_verification')}
+								{$t('signup.retry_verification')}
 							</button>
 						{/if}
 					</div>
@@ -163,13 +163,13 @@
 									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 								/>
 							</svg>
-							<span>{$t('auth.signup.verification_success')}</span>
+							<span>{$t('signup.verification_success')}</span>
 						</div>
 					{/if}
 				</div>
 
 				<button
-					class="btn btn-primary"
+					class="btn btn-primary mt-4"
 					onclick={() => goto('/auth/onboarding')}
 					disabled={isLoading || !$isCaptchaVerified}
 				>
@@ -181,7 +181,7 @@
 							/>
 						</g>
 					</svg>
-					{isLoading ? $t('common.processing') : $t('auth.signup.button')}
+					{isLoading ? $t('common.processing') : $t('signup.button')}
 				</button>
 
 				{#if error}
@@ -206,7 +206,7 @@
 				<div class="divider my-1">{$t('common.or')}</div>
 
 				<div class="text-center">
-					<a href="/auth/login" class="btn btn-outline w-full">{$t('auth.login.button')}</a>
+					<a href="/auth/login" class="btn btn-outline w-full">{$t('login.button')}</a>
 				</div>
 			</div>
 		</div>

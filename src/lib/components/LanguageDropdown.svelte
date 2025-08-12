@@ -1,115 +1,116 @@
 <script lang="ts">
-	import type { Locales } from '$lib/stores/i18n.store';
-	import { t, locale, setLocale, LANGUAGES, getCurrentLanguageFlag } from '$lib/stores/i18n.store';
+	import { _, locale } from 'svelte-i18n';
+	import { switchLanguage, isI18nLoading, type SupportedLanguage } from '$lib/i18n/i18n';
+	import { preloadPageTranslations } from '$lib/i18n/routeTranslations';
+	import { page } from '$app/state';
+	import { browser } from '$app/environment';
 	import IconCheck from '~icons/mdi/check';
 
-	// Props
-	let { 
-		showTooltip = true, 
+	export const LANGUAGES = [
+		{ code: 'en', name: 'English' },
+		{ code: 'es', name: 'Español' }
+	];
+
+	let {
+		showTooltip = true,
 		showLanguageCode = true,
 		showLocaleCode = false,
 		showCheckmark = true,
 		className = '',
 		tooltip = '',
-		onLanguageChange = null as ((code: Locales) => void) | null
+		onLanguageChange = null as ((code: SupportedLanguage) => void) | null
 	} = $props();
 
-	// Flag image mapping
-	const FLAG_IMAGES: Record<Locales, string> = {
+	const FLAG_IMAGES: Record<SupportedLanguage, string> = {
 		en: '/images/flags/us.webp',
 		es: '/images/flags/sv.webp'
 	};
 
-	// Language switcher handler
-	const handleLanguageChange = async (code: Locales) => {
+	const handleLanguageChange = async (code: SupportedLanguage) => {
 		try {
-			await setLocale(code);
-			
-			// Call custom handler if provided
-			if (onLanguageChange) {
-				onLanguageChange(code);
+			// Don't switch if already selected
+			if (code === $locale) {
+				closeDropdown();
+				return;
 			}
-			
-			// Close dropdown after language change
+
+			// Preload translations for current page in the new language
+			if (browser && page.url?.pathname) {
+				preloadPageTranslations(page.url.pathname, code);
+			}
+
+			// Use optimized language switching
+			await switchLanguage(code);
+
+			// Call custom callback if provided
+			if (onLanguageChange) onLanguageChange(code);
+
 			closeDropdown();
 		} catch (error) {
 			console.error('Error changing language:', error);
 		}
 	};
 
-	// Function to close dropdown
 	function closeDropdown() {
 		const dropdown = document.querySelector('details.dropdown[open]');
-		if (dropdown) {
-			dropdown.removeAttribute('open');
-		}
+		if (dropdown) dropdown.removeAttribute('open');
 	}
 
-	// Handle dropdown summary clicks
 	function handleDropdownClick(event: MouseEvent) {
 		const summary = event.currentTarget as HTMLElement;
 		const dropdown = summary.closest('details') as HTMLDetailsElement;
-
-		// Close other dropdowns when this one is about to open
-		if (dropdown && !dropdown.hasAttribute('open')) {
-			closeOtherDropdowns(dropdown);
-		}
+		if (dropdown && !dropdown.hasAttribute('open')) closeOtherDropdowns(dropdown);
 	}
 
-	// Function to close other dropdown menus except the current one
 	function closeOtherDropdowns(currentDropdown: HTMLDetailsElement) {
-		const dropdowns = document.querySelectorAll('details[open]');
-		dropdowns.forEach((dropdown) => {
-			if (dropdown !== currentDropdown) {
-				dropdown.removeAttribute('open');
-			}
+		document.querySelectorAll('details[open]').forEach((dropdown) => {
+			if (dropdown !== currentDropdown) dropdown.removeAttribute('open');
 		});
 	}
 
-	// Track dropdown state for arrow rotation
 	let isDropdownOpen = $state(false);
 	let dropdownElement: HTMLDetailsElement;
 
-	// Function to update dropdown state
 	function updateDropdownState() {
-		if (dropdownElement) {
-			isDropdownOpen = dropdownElement.hasAttribute('open');
-		}
+		if (dropdownElement) isDropdownOpen = dropdownElement.hasAttribute('open');
 	}
 
-	// Update state when dropdown element changes
 	$effect(() => {
-		if (dropdownElement) {
-			updateDropdownState();
-		}
+		if (dropdownElement) updateDropdownState();
 	});
 
-	// Handle dropdown click to update state immediately
 	function handleDropdownClickWithState(event: MouseEvent) {
 		handleDropdownClick(event);
-		// Update state after a brief delay to allow the DOM to update
 		setTimeout(updateDropdownState, 0);
 	}
 
-	// Mapping from locale code to language key
 	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish' };
 
-	let currentLanguageName = $derived($t('navbar.language.' + (LOCALE_TO_LANGUAGE_KEY[$locale] || $locale)));
+	// Svelte 5 derived state for current language name
+	const currentLanguageName = $derived(() => {
+		const currentLocale = $locale as SupportedLanguage;
+		const key = LOCALE_TO_LANGUAGE_KEY[currentLocale] || currentLocale;
+		return $_('navbar.language.' + key) || '';
+	});
 
+	// Show loading state for language switching
+	const isLanguageLoading = $derived($isI18nLoading);
 </script>
 
 <details class="dropdown dropdown-end language-dropdown {className}" bind:this={dropdownElement}>
-	<summary 
-		class="btn btn-ghost flex items-center gap-2" 
+	<summary
+		class="btn btn-ghost flex items-center gap-2"
+		class:loading={isLanguageLoading}
+		class:btn-disabled={isLanguageLoading}
 		onclick={handleDropdownClickWithState}
 		class:tooltip={showTooltip}
 		class:tooltip-bottom={showTooltip}
-		data-tip={tooltip || `${$t('navbar.language')}: ${currentLanguageName}`}
+		data-tip={!isLanguageLoading ? ` ${currentLanguageName()}` : ''}
 	>
-		<img 
-			src={FLAG_IMAGES[$locale]} 
-			alt={`${currentLanguageName} flag`}
-			class="w-6 h-4.5 object-cover rounded-sm"
+		<img
+			src={FLAG_IMAGES[$locale as SupportedLanguage]}
+			alt={`${currentLanguageName()} flag`}
+			class="h-4.5 w-6 rounded-sm object-cover"
 			width="24"
 			height="18"
 		/>
@@ -118,14 +119,15 @@
 				<span class="font-medium uppercase">{$locale}</span>
 			{/if}
 		{/if}
-		<svg 
-			class="w-3 h-3 ml-1 transition-transform duration-200" 
+		<svg
+			class="ml-1 h-3 w-3 transition-transform duration-200"
 			class:rotate-180={isDropdownOpen}
-			fill="none" 
-			stroke="currentColor" 
+			fill="none"
+			stroke="currentColor"
 			viewBox="0 0 24 24"
 		>
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7"></path>
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="M19 9l-7 7-7-7"
+			></path>
 		</svg>
 	</summary>
 	<ul class="menu dropdown-content bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
@@ -133,22 +135,23 @@
 			<li>
 				<button
 					class="flex w-full items-center gap-2 text-left"
-					onclick={() => handleLanguageChange(code)}
+					disabled={isLanguageLoading}
+					onclick={() => handleLanguageChange(code as SupportedLanguage)}
 					class:bg-base-200={code === $locale}
 				>
-					<img 
-						src={FLAG_IMAGES[code]} 
+					<img
+						src={FLAG_IMAGES[code as SupportedLanguage]}
 						alt={`${name} flag`}
-						class="w-6 h-4.5 object-cover rounded-sm"
+						class="h-4.5 w-6 rounded-sm object-cover"
 						width="24"
 						height="18"
 					/>
 					<span>{name}</span>
 					{#if showCheckmark && code === $locale}
-						<IconCheck 
-							class="text-primary ml-auto" 
-							width="16"
-						/>
+						<IconCheck class="text-primary ml-auto" width="16" />
+					{/if}
+					{#if isLanguageLoading && code !== $locale}
+						<div class="loading loading-spinner loading-xs ml-auto"></div>
 					{/if}
 				</button>
 			</li>
@@ -169,4 +172,4 @@
 		left: 0;
 		z-index: 1000;
 	}
-</style> 
+</style>

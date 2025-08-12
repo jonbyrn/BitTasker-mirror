@@ -3,7 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
 </script>

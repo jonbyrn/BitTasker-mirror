@@ -1,0 +1,13 @@
+{
+    "dashboard": {
+      "title": "My Dashboard",
+      "titl": "Dashboard",
+      "create_task": "Create Task",
+      "tabs": {
+        "tasks": "My Tasks",
+        "bids": "My Bids",
+        "recurring": "Recurring Tasks",
+        "saved_searches": "Saved Searches"
+      }
+    }
+  }

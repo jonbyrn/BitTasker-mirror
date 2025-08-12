@@ -1,0 +1,13 @@
+{
+    "profile_personal": {
+      "photosLimit": "Profile Pictures - 5 max",
+      "primaryPhotoNote": "First picture will be your primary profile picture",
+      "displayName": "Display Name",
+      "professionalTitle": "Professional Title",
+      "website": "Website",
+      "profileDescription": "Profile Description",
+      "savePersonalInfo": "Save Personal Information",
+      "add_images": "Add Images",
+      "profileDescriptionPlaceholder": "Tell clients about your professional background, expertise, and what makes you unique..."
+    }
+  }

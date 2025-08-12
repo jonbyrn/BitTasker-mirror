@@ -1,0 +1,72 @@
+{
+    "bids": {
+        "panel": {
+            "title": "My bids dashboard"
+        },
+        "error": {
+            "loading": "Error loading bids",
+            "retry": "Retry loading bids"
+        },
+        "empty": {
+            "title": "No bids yet",
+            "find_tasks": "Find tasks to bid on",
+            "create_task": "Create a task"
+        }
+    },
+    "bid_form": {
+        "title": "Place your bid",
+        "form": {
+            "payment_type": "Payment Type",
+            "fixed_price": "Fixed Price",
+            "hourly_rate": "Hourly Rate",
+            "budget": "Budget",
+            "hourly_rate_label": "Hourly Rate",
+            "estimated_hours": "Estimated Hours",
+            "total_estimated": "Total Estimated Amount",
+            "usd_placeholder": "Enter USD amount",
+            "sats_placeholder": "Enter sats amount",
+            "hourly_usd_placeholder": "Enter hourly USD rate",
+            "hourly_sats_placeholder": "Enter hourly sats rate",
+            "hours_placeholder": "Estimated hours needed",
+            "btc_price": "Current BTC Price:",
+            "submitting": "Submitting...",
+            "submit_bid": "Submit Bid",
+            "estimated_duration": {
+                "label": "Estimated Completion Time",
+                "placeholder": "e.g., 3 days, 1 week"
+            },
+            "description": {
+                "label": "Bid Description",
+                "placeholder": "Explain why you're the right person for this task"
+            },
+            "approach": {
+                "label": "Your Approach",
+                "placeholder": "Describe how you plan to complete this task"
+            },
+            "cover_letter": {
+                "label": "Cover Letter (Optional)",
+                "placeholder": "Add any additional information about your experience and qualifications"
+            }
+        },
+        "errors": {
+            "task_id_required": "Task ID is required",
+            "amount_required": "Please enter a bid amount",
+            "amount_greater_than_zero": "Bid amount must be greater than 0",
+            "hourly_rate_required": "Please enter an hourly rate",
+            "hourly_rate_greater_than_zero": "Hourly rate must be greater than 0",
+            "estimated_hours_required": "Please enter estimated hours",
+            "estimated_hours_greater_than_zero": "Estimated hours must be greater than 0",
+            "description_required": "Please enter a description for your bid",
+            "description_min_length": "Description should be at least 50 characters",
+            "estimated_duration_required": "Please provide an estimated completion time",
+            "proposed_approach_required": "Please describe your approach to this task",
+            "proposed_approach_min_length": "Your approach description should be at least 50 characters",
+            "submit_failed": "Failed to submit bid. Please try again."
+        },
+        "success": {
+            "title": "Bid Submitted Successfully!",
+            "message": "Your bid has been submitted successfully. The task requester will review your bid and may contact you with questions or a counter-offer.",
+            "close": "Close"
+        }
+    }
+}

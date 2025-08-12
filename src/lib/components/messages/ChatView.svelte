@@ -10,7 +10,8 @@
 	import ChatMessage from './ChatMessage.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { nip19 } from 'nostr-tools';
-	import { onDestroy } from 'svelte';
+import { onDestroy } from 'svelte';
+import { t } from 'svelte-i18n';
 
 	// Props
 	let {
@@ -30,7 +31,7 @@
 	let isSendingMessage = $state(false);
 	let error = $state('');
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
-	let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: 'You' });
+let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t('messages.you') });
 
 	// Pagination state
 	let isLoadingMore = $state(false);
@@ -276,8 +277,8 @@
 			} else {
 				recipientProfile = initialProfile;
 			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load messages';
+        } catch (err) {
+            error = 'messages.failed_load_messages';
 			console.error('Error loading messages:', err);
 		} finally {
 			isLoadingMessages = false;
@@ -414,19 +415,19 @@
 		}
 
 		// Fetch current user's initial profile
-		fetchProfileMetadata(currentUserHex())
+        fetchProfileMetadata(currentUserHex())
 			.then((profile) => {
-				currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
+                currentUserProfile = { name: profile.name || $t('messages.you'), picture: profile.picture };
 			})
 			.catch((err) => {
 				console.error('Failed to fetch current user profile:', err);
 			});
 
 		// Setup new subscription for current user profile updates using hex format
-		currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
+        currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
 			// Only update if we get valid profile data
 			if (profile && (profile.name || profile.picture)) {
-				currentUserProfile = { name: profile.name || 'You', picture: profile.picture };
+                currentUserProfile = { name: profile.name || $t('messages.you'), picture: profile.picture };
 			}
 		});
 	}
@@ -470,11 +471,11 @@
 			if (messageInput) {
 				messageInput.focus();
 			}
-		} catch (err) {
+        } catch (err) {
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
 			newMessageText = messageContent;
-			error = err instanceof Error ? err.message : 'Failed to send message';
+            error = 'messages.failed_send_message';
 			console.error('Error sending message:', err);
 
 			// Clear error after 5 seconds
@@ -529,18 +530,18 @@
 
 <div class="flex flex-col">
 	<!-- Messages Area -->
-	<div
+    <div
 		bind:this={messagesContainer}
 		class="max-h-[70dvh] min-h-0 flex-1 space-y-1 overflow-y-auto p-4"
 		role="log"
-		aria-live="polite"
-		aria-label="Chat messages"
+        aria-live="polite"
+        aria-label={$t('messages.chat_messages_aria')}
 	>
 		{#if isLoadingMessages}
 			<!-- Loading State -->
-			<div class="flex items-center justify-center py-8">
+            <div class="flex items-center justify-center py-8">
 				<div class="loading loading-spinner loading-md"></div>
-				<span class="ml-2">Loading messages...</span>
+                <span class="ml-2">{$t('messages.loading_messages')}</span>
 			</div>
 		{:else if error}
 			<!-- Error State -->
@@ -558,22 +559,22 @@
 						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<span>{error}</span>
+                <span>{$t(error)}</span>
 			</div>
 		{:else}
 			<!-- Load More Section (shown at top when more messages available) -->
 			{#if hasMoreMessages}
 				<div class="flex justify-center py-2">
-					{#if isLoadingMore}
+                    {#if isLoadingMore}
 						<div class="text-base-content/60 flex items-center gap-2 text-sm">
 							<div class="loading loading-spinner loading-sm"></div>
-							Loading older messages...
+                            {$t('messages.loading_older_messages')}
 						</div>
 					{:else}
 						<button
 							class="btn btn-ghost btn-sm"
 							onclick={handleLoadMore}
-							aria-label="Load older messages"
+                            aria-label={$t('messages.load_older_messages')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -589,7 +590,7 @@
 									d="M5 15l7-7 7 7"
 								/>
 							</svg>
-							Load older messages
+                            {$t('messages.load_older_messages')}
 						</button>
 					{/if}
 				</div>
@@ -612,7 +613,7 @@
 							d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
 						/>
 					</svg>
-					<p class="text-base-content/60">No messages yet. Start the conversation!</p>
+                    <p class="text-base-content/60">{$t('messages.no_messages')} {$t('messages.start_conversation')}</p>
 				</div>
 			{:else}
 				<!-- Messages List -->
@@ -636,13 +637,13 @@
 				<!-- Message Input -->
 				<div class="flex-1">
 					<!-- svelte-ignore a11y_autofocus -->
-					<textarea
+                    <textarea
 						bind:this={messageInput}
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
 						class="textarea placeholder-base-content/50 bg-base-200 min-h-0 w-full resize-none border-0 p-2 text-base leading-6 focus:outline-none"
-						placeholder="Type a message..."
+                        placeholder={$t('messages.type_message_placeholder')}
 						rows="1"
 						disabled={isSendingMessage}
 						autofocus
@@ -674,11 +675,11 @@
 				</button> -->
 
 				<!-- Send Button -->
-				<button
+                <button
 					type="submit"
 					class="btn btn-primary btn-sm h-10 min-h-0 w-12 rounded-full"
 					disabled={!newMessageText.trim() || isSendingMessage}
-					title="Send message"
+                    title={$t('messages.send_message')}
 				>
 					{#if isSendingMessage}
 						<span class="loading loading-spinner loading-sm"></span>
@@ -702,9 +703,9 @@
 			</div>
 
 			<!-- Typing indicator or character count could go here -->
-			{#if newMessageText.length > 1000}
+            {#if newMessageText.length > 1000}
 				<div class="text-warning mt-2 text-right text-sm">
-					{newMessageText.length}/2000 characters
+                    {newMessageText.length}/2000 {$t('messages.characters')}
 				</div>
 			{/if}
 		</form>

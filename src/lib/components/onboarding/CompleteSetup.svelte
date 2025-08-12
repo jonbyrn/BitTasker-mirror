@@ -6,12 +6,15 @@
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { bytesToHex } from '@noble/hashes/utils';
 	import nip44 from '$lib/nostr/nip44';
+	import { t } from 'svelte-i18n';
+    import IconWarning from '~icons/mdi/alert-outline';
 
 	let { restartSetup }: { restartSetup: () => void } = $props();
 
 	// Completion status
 	let isLoading = $state(true);
 	let isRedirecting = $state(false);
+	let isContinueLoading = $state(false);
 	let isComplete = $state(false);
 	let missingFields = $state<string[]>([]);
 	let error = $state('');
@@ -34,11 +37,11 @@
 	function checkCompletionStatus() {
 		const missing: string[] = [];
 
-		if (!profile.displayName) missing.push('Display Name');
-		if (!profile.professionalTitle) missing.push('Professional Title');
-		if (!profile.about) missing.push('About');
-		if (!profile.picture) missing.push('Profile Picture');
-		if (!profile.location || !profile.location?.locationLoaded) missing.push('Location');
+		if (!profile.displayName) missing.push($t('onboarding_auth.form.display_name_field'));
+		if (!profile.professionalTitle) missing.push($t('onboarding_auth.form.professional_title_field'));
+		if (!profile.about) missing.push($t('onboarding_auth.form.about_field'));
+		if (!profile.picture) missing.push($t('onboarding_auth.form.profile_picture_field'));
+		if (!profile.location || !profile.location?.locationLoaded) missing.push($t('onboarding_auth.form.location_field'));
 
 		missingFields = missing;
 		isComplete = missing.length === 0;
@@ -80,7 +83,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
-					error = 'Failed to connect to Nostr relay. Please try again later.';
+					error = $t('onboarding_auth.form.failed_process_profile_update');
 				} finally {
 					isLoading = false;
 				}
@@ -97,17 +100,17 @@
 	});
 </script>
 
-<div class="card bg-base-100 w-full shadow-xl">
+<div class="card bg-base-100 w-full shadow-xl p-6">
 	<div class="card-body">
 		{#if isLoading}
 			<div class="flex min-h-96 flex-col items-center justify-center space-y-4 text-center">
 				<div>
 					<span class="loading loading-spinner loading-lg"></span>
-					<p class="text-base-content/70">Checking your onboarding status...</p>
+					<p class="text-base-content/70">{$t('onboarding_auth.form.checking_your_onboarding_status')}</p>
 				</div>
 			</div>
 		{:else if error}
-			<div class="flex flex-col items-center space-y-4 text-center">
+			<div class="items-center space-y-4 text-center">
 				<div class="text-error mt-2">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -124,83 +127,112 @@
 						/>
 					</svg>
 				</div>
-				<h2 class="text-xl font-bold">Something went wrong</h2>
+				<h2 class="text-xl font-bold">{$t('onboarding_auth.form.something_went_wrong')}</h2>
 				<p class="text-base-content/70">{error}</p>
-				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>Try Again</button>
+				<button class="btn btn-primary mt-4" onclick={handleRestartSetup}>{$t('onboarding_auth.form.try_again')}</button>
 			</div>
 		{:else if !isComplete}
-			<div class="flex flex-col items-center space-y-4 text-center">
-				<div class="text-error mt-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-16 w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-						/>
-					</svg>
-				</div>
-				<h2 class="text-xl font-bold">Oops! Your profile is not complete</h2>
+			<div class="items-center space-y-4 text-center">
+				<!-- Educational Header to match flow -->
+				<div class="education-header mb-6 text-center">
+					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 7 of 7</div>
+					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
+					<h5 class="mb-6">Complete a few details to finish</h5>
 
-				{#if missingFields.length > 0}
-					<div class="mt-2 w-full space-y-2 text-start">
-						<p class="font-medium">Missing information:</p>
-						<ul class="text-base-content/70 list-inside list-disc text-start text-sm">
+                    {#if missingFields.length > 0}
+                        <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
 							{#each missingFields as field}
-								<li>{field}</li>
+                                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                                    <IconWarning class="text-warning min-w-[1.5em]" />
+                                    <span>{field}</span>
+                                </div>
 							{/each}
-						</ul>
-					</div>
-				{/if}
+						</div>
+					{/if}
 
-				<p class="text-base-content/70">
-					Don't worry you can continue using BitTasker, and complete your onboarding process later.
-					<br /> <br />
-					Or you can restart the onboarding process.
-				</p>
-				<div class="mt-4 flex max-w-md flex-col items-center space-y-4">
+					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
+						Don't worry you can continue using BitTasker, and complete your profile later.
+					</p>
+				</div>
+
+				<div class="mt-4 flex w-full mx-auto max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
-						Restart Setup
+						Complete Setup
 					</button>
-					<button class="btn btn-secondary w-full" onclick={() => goto('/dashboard/find-tasks')}>
-						Continue without completing
+					<button
+						class="btn btn-secondary w-full"
+						onclick={() => {
+							isContinueLoading = true;
+							goto('/dashboard/find-tasks').finally(() => {
+								isContinueLoading = false;
+							});
+						}}
+						disabled={isContinueLoading}
+					>
+						{#if isContinueLoading}
+							<span class="loading loading-spinner loading-sm"></span>
+							Loading...
+						{:else}
+							Continue without completing
+						{/if}
 					</button>
 				</div>
 			</div>
 		{:else}
 			<div class="flex flex-col items-center space-y-4 text-center">
-				<div class="text-success mt-2">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-16 w-16"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
+				<!-- Educational Header (aligned with other onboarding screens) -->
+                <div class="education-header mb-6 text-center">
+                    <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
+					<div class="text-success mt-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-16 w-16 mx-auto"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					</div>
+					<h3 class="step-title mb-3 mt-4">🎉 Welcome to BitTasker! 🎉</h3>
+					<h5 class="mb-3">You're all set</h5>
+					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
+						Your account is ready. You are now part of the decentralized economy.
+					</p>
+
+                    <!-- Features List -->
+					<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Decentralized</strong> — your data, your control</span>
+                        </div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Bitcoin-native</strong> — earn and pay in Bitcoin</span>
+                        </div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Secure</strong> — protected by Nostr</span>
+                        </div>
+                        <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                            <IconWarning class="text-warning min-w-[1.5em]" />
+                            <span><strong>Global</strong> — connect with users worldwide</span>
+                        </div>
+					</div>
+
+					<p class="text-primary mb-6 text-lg">Jump in — explore tasks and opportunities.</p>
 				</div>
-				<h2 class="text-xl font-bold">Your account is ready!</h2>
-				<p class="text-base-content/70">
-					You've successfully completed the onboarding process and your BitTasker account is now
-					active.
-				</p>
-				<div class="mt-2 space-y-2">
-					<p class="font-medium">What's next?</p>
-					<ul class="text-base-content/70 list-inside list-disc text-start text-sm">
+				
+				<div class="mt-4 space-y-2">
+					<h5>What's next?</h5>
+					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1">
 						<li>Browse available tasks or create your own</li>
-						<li>Complete your profile to attract more clients</li>
+						<li>Expand your profile to attract more clients</li>
 						<li>Set up your payment preferences</li>
 						<li>Explore the platform features</li>
 					</ul>
@@ -216,8 +248,9 @@
 				>
 					{#if isRedirecting}
 						<span class="loading loading-spinner loading-sm"></span>
+						Loading...
 					{:else}
-						Find Tasks
+						Start Tasking
 					{/if}
 				</button>
 			</div>

@@ -16,6 +16,7 @@
 	import Tags from '$lib/components/Tags.svelte';
 	import TagsInput from '../TagsInput.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
+    import { t } from 'svelte-i18n';
 
 	// Props
 	let { isOpen, onClose, onApply } = $props<{
@@ -178,9 +179,9 @@
 		: 'translate-x-full'}"
 >
 	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
-		<h2 id="drawer-title" class="text-xl font-bold">Filters</h2>
-		<button class="btn btn-ghost btn-circle" onclick={onClose} aria-label="Close dialog">
+    <div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
+        <h2 id="drawer-title" class="text-xl font-bold">{$t('find_tasks.filters')}</h2>
+        <button class="btn btn-ghost btn-circle" onclick={onClose} aria-label={$t('find_tasks.close_dialog')}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -199,26 +200,26 @@
 	</div>
 	<div class="px-2 py-4 sm:p-8">
 		<!-- Search term -->
-		<div class="form-control mb-4">
-			<label class="label font-medium" for="search-term">Search Term</label>
+        <div class="form-control mb-4">
+            <label class="label font-medium" for="search-term">{$t('find_tasks.search_term')}</label>
 			<input
 				type="text"
-				placeholder="Enter keywords..."
+                placeholder={$t('find_tasks.search_placeholder')}
 				class="input input-bordered w-full"
 				bind:value={filters.search}
 			/>
 		</div>
 
 		<!-- Task Type -->
-		<div class="collapse-arrow collapse mb-2">
+        <div class="collapse-arrow collapse mb-2">
 			<input 
 				type="checkbox" 
 				class="peer" 
 				defaultChecked 
-				aria-label="Toggle Task Type filter section"
+                aria-label={$t('find_tasks.toggle_task_type_section')}
 				aria-describedby="task-type-section"
 			/>
-			<div class="collapse-title font-medium" id="task-type-section">Task Type</div>
+            <div class="collapse-title font-medium" id="task-type-section">{$t('find_tasks.task_type')}</div>
 			<div class="collapse-content">
 				<div class="flex flex-wrap gap-2">
 					<button
@@ -226,21 +227,21 @@
 						class:btn-primary={filters.taskType === TaskTypeEnum.IN_PERSON}
 						onclick={() => handleTaskTypeChange(TaskTypeEnum.IN_PERSON)}
 					>
-						In Person
+                        {$t('find_tasks.in_person')}
 					</button>
 					<button
 						class="btn btn-sm"
 						class:btn-primary={filters.taskType === TaskTypeEnum.REMOTE}
 						onclick={() => handleTaskTypeChange(TaskTypeEnum.REMOTE)}
 					>
-						Remote
+                        {$t('find_tasks.remote')}
 					</button>
 					<button
 						class="btn btn-sm"
 						class:btn-primary={filters.taskType === undefined}
 						onclick={() => handleTaskTypeChange(undefined)}
 					>
-						Any
+                        {$t('find_tasks.any')}
 					</button>
 				</div>
 			</div>
@@ -266,15 +267,15 @@
 		</div> -->
 
 		<!-- Budget Range -->
-		<div class="collapse-arrow collapse mb-2">
+        <div class="collapse-arrow collapse mb-2">
 			<input 
 				type="checkbox" 
 				class="peer" 
 				defaultChecked 
-				aria-label="Toggle Budget Range filter section"
+                aria-label={$t('find_tasks.toggle_budget_range_section')}
 				aria-describedby="budget-range-section"
 			/>
-			<div class="collapse-title font-medium" id="budget-range-section">Budget Range</div>
+            <div class="collapse-title font-medium" id="budget-range-section">{$t('find_tasks.budget_range')}</div>
 			<div class="collapse-content">
 				<PriceRangeSlider
 					onRangeChange={handlePriceRangeChange}
@@ -282,7 +283,7 @@
 				/>
 
 				<div class="mt-4">
-					<label class="label font-medium" for="budget-type">Budget Type</label>
+                    <label class="label font-medium" for="budget-type">{$t('find_tasks.budget_type')}</label>
 					<div class="flex flex-wrap gap-2">
 						{#each Object.values(BudgetTypeEnum) as type}
 							<button
@@ -290,7 +291,13 @@
 								class:btn-primary={filters.budget?.type === type}
 								onclick={() => handleBudgetTypeChange(type)}
 							>
-								{type}
+                                {#if type === BudgetTypeEnum.FIXED}
+                                    {$t('find_tasks.budget_type_values.fixed')}
+                                {:else if type === BudgetTypeEnum.HOURLY}
+                                    {$t('find_tasks.budget_type_values.hourly')}
+                                {:else}
+                                    {type}
+                                {/if}
 							</button>
 						{/each}
 						<button
@@ -298,7 +305,7 @@
 							class:btn-primary={filters.budget?.type === undefined}
 							onclick={() => handleBudgetTypeChange(undefined)}
 						>
-							Any
+                            {$t('find_tasks.any')}
 						</button>
 					</div>
 				</div>
@@ -306,17 +313,17 @@
 		</div>
 
 		<!-- Location -->
-		<div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
+        <div class="collapse-arrow collapse mb-2" style="overflow: visible; z-index: 1000;">
 			<input 
 				type="checkbox" 
 				class="peer" 
-				aria-label="Toggle Location filter section"
+                aria-label={$t('find_tasks.toggle_location_section')}
 				aria-describedby="location-section"
 			/>
-			<div class="collapse-title font-medium" id="location-section">Location</div>
+            <div class="collapse-title font-medium" id="location-section">{$t('find_tasks.location')}</div>
 			<div class="collapse-content">
 				<LocationAutoComplete
-					placeholder="Search for a location..."
+                    placeholder={$t('find_tasks.location_placeholder')}
 					location={{
 						displayName: filters.location || '',
 						longitude: 0,
@@ -330,31 +337,31 @@
 		</div>
 
 		<!-- Availability -->
-		<div class="collapse-arrow collapse mb-2">
+        <div class="collapse-arrow collapse mb-2">
 			<input 
 				type="checkbox" 
 				class="peer" 
-				aria-label="Toggle Availability filter section"
+                aria-label={$t('find_tasks.toggle_availability_section')}
 				aria-describedby="availability-section"
 			/>
-			<div class="collapse-title font-medium" id="availability-section">Availability</div>
+            <div class="collapse-title font-medium" id="availability-section">{$t('find_tasks.availability')}</div>
 			<div class="collapse-content">
 				<AvailabilityFilter onAvailabilityChange={handleAvailabilityChange} />
 			</div>
 		</div>
 
 		<!-- Categories -->
-		<div class="collapse-arrow collapse z-50 mb-2" style="overflow: visible;">
+        <div class="collapse-arrow collapse z-50 mb-2" style="overflow: visible;">
 			<input 
 				type="checkbox" 
 				class="peer" 
-				aria-label="Toggle Categories filter section"
+                aria-label={$t('find_tasks.toggle_categories_section')}
 				aria-describedby="categories-section"
 			/>
-			<div class="collapse-title font-medium" id="categories-section">Categories</div>
+            <div class="collapse-title font-medium" id="categories-section">{$t('find_tasks.categories')}</div>
 			<div class="collapse-content">
 				<Tags
-					placeholder="Add categories..."
+                    placeholder={$t('find_tasks.add_categories')}
 					selectedTags={filters.categories}
 					options={TASK_CATEGORIES.map((cat) => ({ id: cat.id, name: cat.name }))}
 					onChange={(tags) => handleCategoryChange(tags as string[])}
@@ -363,25 +370,25 @@
 		</div>
 
 		<!-- Skills -->
-		<div class="collapse-arrow collapse mb-2">
+        <div class="collapse-arrow collapse mb-2">
 			<input 
 				type="checkbox" 
 				class="peer" 
-				aria-label="Toggle Skills filter section"
+                aria-label={$t('find_tasks.toggle_skills_section')}
 				aria-describedby="skills-section"
 			/>
-			<div class="collapse-title font-medium" id="skills-section">Skills</div>
+            <div class="collapse-title font-medium" id="skills-section">{$t('find_tasks.skills')}</div>
 			<div class="collapse-content">
-				<TagsInput placeholder="Add skills..." bind:tags={filters.skills} />
+                <TagsInput placeholder={$t('find_tasks.add_skills')} bind:tags={filters.skills} />
 			</div>
 		</div>
 
 		<!-- Filter Actions -->
 		<div class="divider"></div>
-		<div class="mt-8 mb-20 flex justify-between">
-			<button class="btn btn-ghost btn-outline" onclick={clearFilters}> Clear Filters </button>
-			<button class="btn btn-primary" onclick={applyFilters}>
-				Apply
+        <div class="mt-8 mb-20 flex justify-between">
+            <button class="btn btn-ghost btn-outline" onclick={clearFilters}> {$t('find_tasks.clear_filters')} </button>
+            <button class="btn btn-primary" onclick={applyFilters}>
+                {$t('find_tasks.apply')}
 				{#if activeFilterCount > 0}
 					<div class="badge badge-secondary ml-2">{activeFilterCount}</div>
 				{/if}

@@ -1,0 +1,67 @@
+{
+    "tasker": {
+        "fees": {
+            "title": "Taskers Fees & Pricing",
+            "subtitle": "Simple, transparent pricing designed to reward loyal taskers",
+            "structure": {
+                "title": "Tasker Fee Structure",
+                "description": "At BitTasker, we believe in rewarding loyalty. The more tasks you complete, the less you pay in fees. Our dynamic tier system ensures that our most active taskers enjoy the best rates.",
+                "note": "<strong>Save money as you use BitTasker!</strong> Our unique tier system rewards active taskees with progressively lower fees."
+            },
+            "savingsTitle": "Save money as you use BitTasker!",
+            "savingsDescription": "Our unique tier system rewards active taskers with progressively lower fees.",
+            "label": "Fee Rate",
+            "tier1": {
+                "title": "Nakamoto<br />Newbie",
+                "description": "For taskers posting and completing 0-3 tasks in the last 30 days",
+                "example": "Example: For a $100 task, you'll pay $112.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker)."
+            },
+            "tier2": {
+                "title": "Satoshi<br />Stacker",
+                "description": "For taskers posting and completing 4-10 tasks in the last 30 days",
+                "example": "Example: For a $100 task, you'll pay $110 total (plus $0.05-$0.10 network fees, not paid to BitTasker)."
+            },
+            "tier3": {
+                "title": "Hash<br />Master",
+                "description": "For our most active taskers posting and completing 11+ tasks in the last 30 days",
+                "example": "Example: For a $100 task, you'll pay $107.50 total (plus $0.05-$0.10 network fees, not paid to BitTasker)."
+            },
+            "btc": {
+                "title": "Bitcoin Payments: Lower Fees, Same Great Service",
+                "description": "Save even more when you pay with Bitcoin! We offer reduced rates for taskers who choose to use Bitcoin.",
+                "table": {
+                    "header_1": "Tasker Tier",
+                    "header_2": "Bitcoin Fee Rate",
+                    "header_3": "Savings vs. Standard",
+                    "tier_1_savings": "10% lower!",
+                    "tier_2_savings": "8% lower!",
+                    "tier_3_savings": "6% lower!"
+                },
+                "rebooking": {
+                    "btc_example": "<strong>Bitcoin Example:</strong> As a <strong class=\"text-primary\">Hash Master</strong> tier tasker, a $100 task paid with Bitcoin would cost just $101.50 total!"
+                }
+            },
+            "rebooking": {
+                "title": "Rebooking Discount",
+                "description": "Love working with a particular taskee? We reward repeat partnerships with significantly reduced fees!",
+                "card_title": "Rebook & Save!",
+                "card_intro": "When you rebook a taskee you've worked with before:",
+                "standard_fee": "Standard payments: Just <strong>3% fee</strong> (down from 7.5–12.5%)",
+                "btc_fee": "Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
+                "example": "Example: Rebooking a $100 task costs just $103 with standard payment or $101 with Bitcoin!",
+                "counts_toward_tier": "Booking repeat work with a taskee counts towards your 30 day rolling tasks to maintain your tier."
+            },
+            "benefits": {
+                "title": "Tasker Benefits & Visibility",
+                "description": "Higher tier taskers enjoy additional benefits beyond reduced fees:",
+                "badge": "<strong>Badge Recognition:</strong> Earn prestigious tier badges displayed on your profile",
+                "priority": "<strong>Priority Attention:</strong> Higher tier taskers may receive more proposals from top taskees",
+                "profile": "<strong>Enhanced Profile:</strong> Your tier status signals to taskees that you're an active and trusted tasker"
+            },
+            "cta": {
+                "title": "Ready to hire taskees with transparent pricing?",
+                "button": "Post a Task Now"
+            }
+        }
+    }
+}

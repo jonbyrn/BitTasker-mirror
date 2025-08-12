@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconFileUpload from '~icons/mdi/file-upload';
 	import IconFlagCheckered from '~icons/mdi/flag-checkered';

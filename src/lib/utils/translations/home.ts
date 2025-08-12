@@ -2,7 +2,7 @@ export const homePageTranslations = {
 	en: {
 		'footer.company_name': 'BitTasker',
 		'footer.company_description':
-			'Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.',
+		'Connecting people seeking services with taskees offering those services, powered by Bitcoin and decentralized identity.',
 		'footer.social.twitter_aria': 'BitTasker on X (Twitter)',
 		'footer.social.facebook_aria': 'BitTasker on Facebook',
 		'footer.social.instagram_aria': 'BitTasker on Instagram',
@@ -34,8 +34,7 @@ export const homePageTranslations = {
 		'footer.terms': 'Terms of Service',
 		'footer.privacy': 'Privacy Policy',
 		'footer.contact': 'Contact Us',
-		'footer.copyright': 'All rights reserved.',
-
+		'footer.copyright': 'All rights reserved.',		
 		'navbar.home': 'Home',
 		'navbar.new_task': 'New Task',
 		'navbar.my_tasks': 'My Tasks',
@@ -79,7 +78,7 @@ export const homePageTranslations = {
 		'homepage.time': 'The current time is: {{time}}',
 		'homepage.hero.title': 'BitTasker',
 		'homepage.hero.description':
-			'The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.',
+		'The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.',
 		'homepage.hero.cta': "Here's How it works",
 		'homepage.features.title': 'Why Choose BitTasker?',
 		'homepage.features.crypto.title': 'Bitcoin Payments',
@@ -94,50 +93,50 @@ export const homePageTranslations = {
 		'homepage.v2.hero.title': 'The Decentralized Workforce.',
 		'homepage.v2.page_title': 'The Decentralized Workforce | BitTasker',
 		'homepage.v2.hero.description':
-			'Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.',
+		'Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr.',
 		'homepage.v2.hero.cta': 'Get Started',
 		'homepage.v2.trust.title': 'Trusted Worldwide',
 		'homepage.v2.trust.nostr.title': 'Powered by Nostr',
 		'homepage.v2.trust.nostr.description':
-			'BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship.',
+		'BitTasker is built on Nostr, a decentralized protocol. This means your identity, data, and reputation are truly yours, free from corporate control and censorship.',
 		'homepage.v2.trust.bitcoin.title': 'Bitcoin Accepted',
 		'homepage.v2.trust.bitcoin.description':
-			"Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions.",
+		"Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions.",
 		'homepage.v2.trust.payments.title': 'Pay Your Way',
 		'homepage.v2.trust.payments.description':
-			'Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid.',
+		'Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid.',
 		'homepage.v2.trust.escrow.title': 'Secure Escrow',
 		'homepage.v2.trust.escrow.description':
-			'Our multisig-based escrow system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved.',
+		'Our multisig-based escrow system protects both taskers and taskees. Funds are held securely and released automatically only when the work is approved.',
 		'homepage.v2.howitworks.title': 'How BitTasker Works',
 		'homepage.v2.howitworks.step1.title': 'Post a Task',
 		'homepage.v2.howitworks.step1.description':
-			'Describe the work you need done, set your budget, and post it for our community.',
+		'Describe the work you need done, set your budget, and post it for our community.',
 		'homepage.v2.howitworks.step2.title': 'Hire the Best',
 		'homepage.v2.howitworks.step2.description':
-			'Review proposals from talented taskees and hire the perfect fit for your project.',
+		'Review proposals from talented taskees and hire the perfect fit for your project.',
 		'homepage.v2.howitworks.step3.title': 'Pay Securely',
 		'homepage.v2.howitworks.step3.description':
-			'Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in escrow.',
+		'Once the work is complete, pay securely with Bitcoin or fiat. Your funds are safe in escrow.',
 		'homepage.v2.howitworks.learnMore': 'Learn More',
 		'homepage.v2.livetasks.title': 'Featured Tasks',
 		'homepage.v2.benefits.title': 'Why Choose BitTasker?',
 		'homepage.v2.benefits.payments.title': 'Flexible Payments',
 		'homepage.v2.benefits.payments.description':
-			'Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies.',
+		'Seamlessly pay with Bitcoin (on-chain, Lightning) or traditional fiat currencies.',
 		'homepage.v2.benefits.escrow.title': 'Non-Custodial Escrow',
 		'homepage.v2.benefits.escrow.description':
-			'You hold the keys to your Bitcoin, and to your escrow. No middlemen, no delays, and no trust required.',
+		'You hold the keys to your Bitcoin, and to your escrow. No middlemen, no delays, and no trust required.',
 		'homepage.v2.benefits.ownership.title': 'True Data Ownership',
 		'homepage.v2.benefits.ownership.description':
-			"Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network.",
+		"Your identity, data, and reputation are yours to control, powered by Nostr's decentralized network.",
 		'homepage.v2.benefits.fees.title': 'Lightning-Fast Payments',
 		'homepage.v2.benefits.fees.description':
-			'No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT.',
+		'No middlemen or processing delays, get paid instantly peer to peer in Bitcoin or USDT.',
 		'homepage.v2.taskees.title': 'Featured Taskees',
 		'homepage.v2.finalcta.title': 'Join the Future of Work',
 		'homepage.v2.finalcta.description':
-			'Whether you need to hire talent or are looking for your next opportunity, BitTasker is the place to be.',
+		'Whether you need to hire talent or are looking for your next opportunity, BitTasker is the place to be.',
 		'homepage.v2.finalcta.tasker_cta': 'Browse Tasks',
 		'homepage.v2.finalcta.taskee_cta': 'See Taskees',
 		'homepage.v2.finalcta.get_started': 'Get Started'
@@ -145,7 +144,7 @@ export const homePageTranslations = {
 	es: {
 		'footer.company_name': 'BitTasker',
 		'footer.company_description':
-			'Conectamos a personas que buscan servicios con profesionales que ofrecen esos servicios, impulsados por Bitcoin e identidad descentralizada.',
+		'Conectamos a personas que buscan servicios con profesionales que ofrecen esos servicios, impulsados por Bitcoin e identidad descentralizada.',
 		'footer.social.twitter_aria': 'BitTasker en X (Twitter)',
 		'footer.social.facebook_aria': 'BitTasker en Facebook',
 		'footer.social.instagram_aria': 'BitTasker en Instagram',
@@ -222,7 +221,7 @@ export const homePageTranslations = {
 		'homepage.time': 'La hora actual es: {{time}}',
 		'homepage.hero.title': 'BitTasker',
 		'homepage.hero.description':
-			'El primer mercado freelance impulsado por Bitcoin. Conecta con talentosos taskees y paga de forma segura con Bitcoin.',
+		'El primer mercado freelance impulsado por Bitcoin. Conecta con talentosos taskees y paga de forma segura con Bitcoin.',
 		'homepage.hero.cta': 'Cómo funciona',
 		'homepage.features.title': '¿Por qué elegir BitTasker?',
 		'homepage.features.crypto.title': 'Pagos con Bitcoin',
@@ -231,57 +230,57 @@ export const homePageTranslations = {
 		'homepage.features.talent.description': 'Accede a taskees calificados de todo el mundo',
 		'homepage.features.escrow.title': 'Depósito Seguro',
 		'homepage.features.escrow.description':
-			'Depósito en garantía basado en multifirma para transacciones seguras con Bitcoin',
+		'Depósito en garantía basado en multifirma para transacciones seguras con Bitcoin',
 		'homepage.cta.title': '¿Listo para empezar?',
 		'homepage.cta.description': 'Únete a miles de taskees y taskers que ya usan BitTasker',
 		'homepage.cta.button': 'Crear',
 		'homepage.v2.hero.title': 'La Fuerza Laboral Descentralizada.',
 		'homepage.v2.page_title': 'La Fuerza Laboral Descentralizada | BitTasker',
 		'homepage.v2.hero.description':
-			'Contrata profesionales para cualquier tarea. Paga con Bitcoin o moneda fiat. Construido sobre Nostr.',
+		'Contrata profesionales para cualquier tarea. Paga con Bitcoin o moneda fiat. Construido sobre Nostr.',
 		'homepage.v2.hero.cta': 'Comienza',
 		'homepage.v2.trust.title': 'Confiado en Todo el Mundo',
 		'homepage.v2.trust.nostr.title': 'Impulsado por Nostr',
 		'homepage.v2.trust.nostr.description':
-			'BitTasker está construido sobre Nostr, un protocolo descentralizado. Esto significa que tu identidad, datos y reputación son verdaderamente tuyos, libres del control y la censura corporativa.',
+		'BitTasker está construido sobre Nostr, un protocolo descentralizado. Esto significa que tu identidad, datos y reputación son verdaderamente tuyos, libres del control y la censura corporativa.',
 		'homepage.v2.trust.bitcoin.title': 'Bitcoin Aceptado',
 		'homepage.v2.trust.bitcoin.description':
-			'Adopta el futuro del dinero. Paga y recibe pagos a nivel mundial con Bitcoin, la moneda digital más segura y descentralizada del mundo, para transacciones sin fronteras y de bajo costo.',
+		'Adopta el futuro del dinero. Paga y recibe pagos a nivel mundial con Bitcoin, la moneda digital más segura y descentralizada del mundo, para transacciones sin fronteras y de bajo costo.',
 		'homepage.v2.trust.lightning.title': 'Red Lightning',
 		'homepage.v2.trust.lightning.description':
-			'Experimenta pagos instantáneos y casi gratuitos con la Red Lightning. Perfecto para micropagos, propinas y liquidar tareas en el momento en que se completan.',
+		'Experimenta pagos instantáneos y casi gratuitos con la Red Lightning. Perfecto para micropagos, propinas y liquidar tareas en el momento en que se completan.',
 		'homepage.v2.trust.escrow.title': 'Depósito en Garantía Seguro',
 		'homepage.v2.trust.escrow.description':
-			'Nuestro sistema de depósito en garantía basado en multifirma protege tanto a clientes como a profesionales. Los fondos se mantienen seguros y se liberan automáticamente solo cuando se aprueba el trabajo.',
+		'Nuestro sistema de depósito en garantía basado en multifirma protege tanto a clientes como a profesionales. Los fondos se mantienen seguros y se liberan automáticamente solo cuando se aprueba el trabajo.',
 		'homepage.v2.howitworks.title': 'Cómo Funciona BitTasker',
 		'homepage.v2.howitworks.step1.title': 'Publica una Tarea',
 		'homepage.v2.howitworks.step1.description':
-			'Describe el trabajo que necesitas, establece tu presupuesto y publícalo para nuestra comunidad.',
+		'Describe el trabajo que necesitas, establece tu presupuesto y publícalo para nuestra comunidad.',
 		'homepage.v2.howitworks.step2.title': 'Contrata al Mejor',
 		'homepage.v2.howitworks.step2.description':
-			'Revisa las propuestas de taskees talentosos y contrata al candidato perfecto para tu proyecto.',
+		'Revisa las propuestas de taskees talentosos y contrata al candidato perfecto para tu proyecto.',
 		'homepage.v2.howitworks.step3.title': 'Paga con Seguridad',
 		'homepage.v2.howitworks.step3.description':
-			'Una vez que el trabajo esté completo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en custodia.',
+		'Una vez que el trabajo esté completo, paga de forma segura con Bitcoin o fiat. Tus fondos están seguros en custodia.',
 		'homepage.v2.howitworks.learnMore': 'Más Información',
 		'homepage.v2.livetasks.title': 'Tareas Destacadas',
 		'homepage.v2.benefits.title': '¿Por Qué Elegir BitTasker?',
 		'homepage.v2.benefits.payments.title': 'Pagos Flexibles',
 		'homepage.v2.benefits.payments.description':
-			'Paga sin problemas con Bitcoin (en la cadena, Lightning) o monedas fiduciarias tradicionales.',
+		'Paga sin problemas con Bitcoin (en la cadena, Lightning) o monedas fiduciarias tradicionales.',
 		'homepage.v2.benefits.escrow.title': 'Custodia No-Centralizada',
 		'homepage.v2.benefits.escrow.description':
-			'Tú mantienes las llaves de tu Bitcoin y de tu depósito en garantía. Sin intermediarios, sin retrasos, y sin necesidad de confianza.',
+		'Tú mantienes las llaves de tu Bitcoin y de tu depósito en garantía. Sin intermediarios, sin retrasos, y sin necesidad de confianza.',
 		'homepage.v2.benefits.ownership.title': 'Verdadera Propiedad de los Datos',
 		'homepage.v2.benefits.ownership.description':
-			'Tu identidad, datos y reputación son tuyos para controlar, impulsados por la red descentralizada de Nostr.',
+		'Tu identidad, datos y reputación son tuyos para controlar, impulsados por la red descentralizada de Nostr.',
 		'homepage.v2.benefits.fees.title': 'Pagos Relámpago',
 		'homepage.v2.benefits.fees.description':
-			'Sin intermediarios ni retrasos de procesamiento, recibe pagos instantáneos de persona a persona en Bitcoin o USDT.',
+		'Sin intermediarios ni retrasos de procesamiento, recibe pagos instantáneos de persona a persona en Bitcoin o USDT.',
 		'homepage.v2.taskees.title': 'Taskees Destacados',
 		'homepage.v2.finalcta.title': 'Únete al Futuro del Trabajo',
 		'homepage.v2.finalcta.description':
-			'Ya sea que necesites contratar talento o estés buscando tu próxima oportunidad, BitTasker es el lugar para estar.',
+		'Ya sea que necesites contratar talento o estés buscando tu próxima oportunidad, BitTasker es el lugar para estar.',
 		'homepage.v2.finalcta.tasker_cta': 'Explorar Tareas',
 		'homepage.v2.finalcta.taskee_cta': 'Ver Taskees',
 		'homepage.v2.finalcta.get_started': 'Comienza'
