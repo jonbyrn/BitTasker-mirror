@@ -19,15 +19,15 @@
 	import { generatePassword } from '$lib/utils/helpers/password';
 
 	const npub = page.params.npub;
-
-	let recoveryCode = $state('');
-	let currentPassword = $state('');
-	let newPassword = $state('');
-	let confirmPassword = $state('');
-	let privateKey = $state('');
+	
+	let recoveryCode = $state<string>('');
+	let currentPassword = $state<string>('');
+	let newPassword = $state<string>('');
+	let confirmPassword = $state<string>('');
+	let privateKey = $state<string>('');
 	let isLoading = $state(false);
-	let error = $state('');
-	let passwordError = $state('');
+	let error = $state<string>('');
+	let passwordError = $state<string>('');
 	let step = $state(1); // 1: Current Password, 2: New Password
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
@@ -37,7 +37,14 @@
 		webAuthn: false
 	});
 
+	// Early return if npub is not available
+	if (!npub) {
+		error = 'Invalid recovery link';
+	}
+
 	onMount(async () => {
+		if (!npub) return;
+		
 		try {
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
@@ -126,6 +133,11 @@
 			const { encrypted: secondaryEncrypted } = await encryptRecoveryNsec(privateKey, newPassword);
 
 			// Complete recovery
+			if (!npub) {
+				error = 'Invalid recovery link';
+				return;
+			}
+			
 			await authService.completeNostrRecovery({
 				publicKey: npub,
 				otp: recoveryCode,
@@ -322,6 +334,7 @@
 									onclick={() => copyToClipboard(newPassword)}
 									disabled={!newPassword}
 									title="Copy password to clipboard"
+									aria-label="Copy password to clipboard"
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -361,7 +374,11 @@
 									</svg>
 								</button>
 								<!-- Show/Hide Button -->
-								<button type="button" onclick={() => (showNewPassword = !showNewPassword)}>
+								<button 
+									type="button" 
+									onclick={() => (showNewPassword = !showNewPassword)}
+									aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+								>
 									{#if showNewPassword}
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -424,6 +441,7 @@
 								onclick={() => copyToClipboard(confirmPassword)}
 								disabled={!confirmPassword}
 								title="Copy password to clipboard"
+								aria-label="Copy password to clipboard"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"

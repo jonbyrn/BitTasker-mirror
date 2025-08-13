@@ -184,7 +184,7 @@
 
 					<!-- Recovery Password Field -->
 					<div class="form-control max-w-lg mx-auto">
-						<label class="label" for="password">
+						<label aria-label="Recovery Password" class="label" for="password">
 							<span class="label-text">Recovery Password</span>
 						</label>
 						<div class="flex gap-2">
@@ -201,6 +201,7 @@
 								class="btn btn-outline btn-sm"
 								onclick={handleGeneratePassword}
 								title="Generate new 4-word password in {$locale === 'es' ? 'Spanish' : 'English'}"
+								aria-label="Generate new 4-word password in {$locale === 'es' ? 'Spanish' : 'English'}"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -224,6 +225,7 @@
 								onclick={handleCopyPassword}
 								title="Copy password to clipboard"
 								disabled={!recoveryPassword}
+								aria-label="Copy password to clipboard"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
