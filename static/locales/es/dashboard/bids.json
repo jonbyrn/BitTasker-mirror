@@ -11,6 +11,44 @@
             "title": "Aún no hay ofertas",
             "find_tasks": "Buscar tareas para ofertar",
             "create_task": "Crear una tarea"
+        },
+        "task_details": {
+            "loading": "Cargando...",
+            "bid_submitted": "Oferta Enviada",
+            "task_details": "Detalles de la Tarea",
+            "task_not_found": "Tarea No Encontrada",
+            "close": "Cerrar",
+            "try_again": "Intentar de Nuevo",
+            "loading_bid_form": "Cargando formulario de oferta...",
+            "budget": "Presupuesto",
+            "type": "Tipo",
+            "remote": "Remoto",
+            "in_person": "En Persona",
+            "deadline": "Fecha Límite",
+            "date_range": "Rango de Fechas",
+            "posted": "Publicado",
+            "description": "Descripción",
+            "required_skills": "Habilidades Requeridas",
+            "categories": "Categorías",
+            "location_details": "Detalles de Ubicación",
+            "pickup_location": "Ubicación de Recogida",
+            "drop_off_location": "Ubicación de Entrega",
+            "zip_code": "Código Postal",
+            "posted_by": "Publicado por",
+            "attachments": "Archivos Adjuntos",
+            "open_attachment": "Abrir archivo adjunto",
+            "task_not_open_for_bidding": "La tarea no está abierta para ofertas.",
+            "task_id_missing": "Error: Falta el ID de la tarea",
+            "success": {
+                "title": "¡Oferta Enviada Exitosamente!",
+                "message": "Tu oferta ha sido enviada al propietario de la tarea. Serás notificado si la aceptan o envían una contraoferta.",
+                "close": "Cerrar"
+            },
+            "error": {
+                "failed_to_load": "Error al cargar los detalles de la tarea. Por favor inténtalo de nuevo.",
+                "task_id_missing": "Falta el ID de la tarea. Por favor inténtalo de nuevo.",
+                "failed_to_load_details": "Error al cargar los detalles de la tarea. Por favor inténtalo de nuevo."
+            }
         }
     },
     "bid_form": {

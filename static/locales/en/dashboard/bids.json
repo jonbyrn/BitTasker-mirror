@@ -68,5 +68,43 @@
             "message": "Your bid has been submitted successfully. The task requester will review your bid and may contact you with questions or a counter-offer.",
             "close": "Close"
         }
+    },
+    "task_details": {
+        "loading": "Loading...",
+        "bid_submitted": "Bid Submitted",
+        "task_details": "Task Details",
+        "task_not_found": "Task Not Found",
+        "close": "Close",
+        "try_again": "Try Again",
+        "loading_bid_form": "Loading bid form...",
+        "budget": "Budget",
+        "type": "Type",
+        "remote": "Remote",
+        "in_person": "In-Person",
+        "deadline": "Deadline",
+        "date_range": "Date Range",
+        "posted": "Posted",
+        "description": "Description",
+        "required_skills": "Required Skills",
+        "categories": "Categories",
+        "location_details": "Location Details",
+        "pickup_location": "Pickup Location",
+        "drop_off_location": "Drop-off Location",
+        "zip_code": "ZIP",
+        "posted_by": "Posted by",
+        "attachments": "Attachments",
+        "open_attachment": "Open attachment",
+        "task_not_open_for_bidding": "Task is not open for bidding.",
+        "task_id_missing": "Error: Task ID is missing",
+        "success": {
+            "title": "Bid Submitted Successfully!",
+            "message": "Your bid has been submitted to the task owner. You'll be notified if they accept or send a counter-offer.",
+            "close": "Close"
+        },
+        "error": {
+            "failed_to_load": "Failed to load task details. Please try again.",
+            "task_id_missing": "Task ID is missing. Please try again.",
+            "failed_to_load_details": "Failed to load task details. Please try again."
+        }
     }
 }

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import type { Task } from '$lib/types/task';
 	import { formatDistanceToNow, format } from 'date-fns';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
@@ -87,16 +88,16 @@
 			const { data: event } = await nostrEventsService.findEventById(taskId);
 
 			if (!event) {
-				errorMessage = 'Failed to load task details. Please try again.';
+				errorMessage = $t('bids.task_details.error.failed_to_load');
 				return;
 			}
 
 			// Parse task data from nostr event
 			const taskData = JSON.parse(event.content) as Task;
-			
+
 			// Ensure we have a valid ID
 			if (!event.id) {
-				errorMessage = 'Task ID is missing. Please try again.';
+				errorMessage = $t('bids.task_details.error.task_id_missing');
 				return;
 			}
 
@@ -109,7 +110,7 @@
 			showBidForm = true;
 		} catch (error) {
 			console.error('Failed to load task details:', error);
-			errorMessage = 'Failed to load task details. Please try again.';
+			errorMessage = $t('bids.task_details.error.failed_to_load_details');
 		} finally {
 			loading = false;
 		}
@@ -160,12 +161,12 @@
 	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
 		<h2 id="drawer-title" class="text-xl font-bold">
 			{loading
-				? 'Loading...'
+				? $t('bids.task_details.loading')
 				: bidSubmitted
-					? 'Bid Submitted'
+					? $t('bids.task_details.bid_submitted')
 					: task
-						? 'Task Details'
-						: 'Task Not Found'}
+						? $t('bids.task_details.task_details')
+						: $t('bids.task_details.task_not_found')}
 		</h2>
 		<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
 			<svg
@@ -214,7 +215,7 @@
 					class="btn btn-primary"
 					onclick={() => props.taskId && loadTaskDetails(props.taskId)}
 				>
-					Try Again
+					{$t('bids.task_details.try_again')}
 				</button>
 			</div>
 		</div>
@@ -237,13 +238,14 @@
 					/>
 				</svg>
 			</div>
-			<h3 class="mb-2 text-2xl font-bold">Bid Submitted Successfully!</h3>
+			<h3 class="mb-2 text-2xl font-bold">{$t('bids.task_details.success.title')}</h3>
 			<p class="mb-6">
-				Your bid has been submitted to the task owner. You'll be notified if they accept or send a
-				counter-offer.
+				{$t('bids.task_details.success.message')}
 			</p>
 			<div class="flex justify-center gap-4">
-				<button class="btn btn-primary" onclick={handleClose}>Close</button>
+				<button class="btn btn-primary" onclick={handleClose}>
+					{$t('bids.task_details.success.close')}
+				</button>
 			</div>
 		</div>
 		<!-- Task details and bid form -->
@@ -262,11 +264,13 @@
 
 				<div class="mb-4 grid grid-cols-2 gap-x-4 gap-y-2">
 					<div>
-						<span class="text-base-content/60 text-sm">Budget:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.budget')}:
+						</span>
 						<div class="font-semibold">
 							{formatSatsAmount(task.budget.amount)}
 							{#if task.budget.type === 'HOURLY'}
-								<span class="text-base-content/60 text-xs ml-1">/hr</span>
+								<span class="text-base-content/60 ml-1 text-xs">/hr</span>
 							{/if}
 						</div>
 						<span class="text-info text-xs"
@@ -275,20 +279,28 @@
 					</div>
 
 					<div>
-						<span class="text-base-content/60 text-sm">Type:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.type')}:
+						</span>
 						<div class="font-semibold">
-							{task.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In-Person'}
+							{task.taskType === TaskTypeEnum.REMOTE
+								? $t('bids.task_details.remote')
+								: $t('bids.task_details.in_person')}
 						</div>
 					</div>
 
 					{#if task.deadline}
 						<div>
-							<span class="text-base-content/60 text-sm">Deadline:</span>
+							<span class="text-base-content/60 text-sm">
+								{$t('bids.task_details.deadline')}:
+							</span>
 							<div class="font-semibold">{formatTimeAgo(task.deadline)}</div>
 						</div>
 					{:else if task.dateRange}
 						<div>
-							<span class="text-base-content/60 text-sm">Date Range:</span>
+							<span class="text-base-content/60 text-sm">
+								{$t('bids.task_details.date_range')}:
+							</span>
 							<div class="font-semibold">
 								{format(new Date(task.dateRange.start), 'MMM d, yyyy')} -
 								{format(new Date(task.dateRange.end), 'MMM d, yyyy')}
@@ -297,14 +309,18 @@
 					{/if}
 
 					<div>
-						<span class="text-base-content/60 text-sm">Posted:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.posted')}:
+						</span>
 						<div class="font-semibold">{formatTimeAgo(task.createdAt)}</div>
 					</div>
 				</div>
 
 				<div class="mb-4">
-					<span class="text-base-content/60 text-sm">Description:</span>
-					<div class="mt-1 bg-base-200 rounded-md p-3">
+					<span class="text-base-content/60 text-sm">
+						{$t('bids.task_details.description')}:
+					</span>
+					<div class="bg-base-200 mt-1 rounded-md p-3">
 						<div class="max-h-[5rem] overflow-y-auto">
 							<p class="whitespace-pre-line">{task.description}</p>
 						</div>
@@ -313,7 +329,9 @@
 
 				{#if task.skills?.length > 0}
 					<div class="mb-4">
-						<span class="text-base-content/60 text-sm">Required Skills:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.required_skills')}:
+						</span>
 						<div class="mt-1 flex flex-wrap gap-1">
 							{#each task.skills as skill}
 								<span class="badge badge-primary badge-outline">{skill}</span>
@@ -324,7 +342,9 @@
 
 				{#if task.categories?.length > 0}
 					<div class="mb-4">
-						<span class="text-base-content/60 text-sm">Categories:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.categories')}:
+						</span>
 						<div class="mt-1 flex flex-wrap gap-1">
 							{#each task.categories as category}
 								<span class="badge badge-primary badge-outline">{category}</span>
@@ -336,7 +356,9 @@
 				<!-- Location Information -->
 				{#if task.pickupLocation || task.dropOffLocation}
 					<div class="mb-4">
-						<span class="text-base-content/60 text-sm">Location Details:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.location_details')}:
+						</span>
 						<div class="mt-2 space-y-2">
 							{#if task.pickupLocation}
 								<div class="flex items-start gap-2">
@@ -361,13 +383,16 @@
 										/>
 									</svg>
 									<div>
-										<div class="text-sm font-medium">Pickup Location</div>
+										<div class="text-sm font-medium">
+											{$t('bids.task_details.pickup_location')}
+										</div>
 										<div class="text-base-content/70 text-sm">
 											{task.pickupLocation.displayName}
 											{#if task.pickupLocation.zipCode}
 												<br /><span class="text-base-content/60 text-xs"
-													>ZIP: {task.pickupLocation.zipCode}</span
-												>
+													>{$t('bids.task_details.zip_code')}: {task.pickupLocation
+														.zipCode}</span
+													>
 											{/if}
 										</div>
 									</div>
@@ -397,13 +422,16 @@
 										/>
 									</svg>
 									<div>
-										<div class="text-sm font-medium">Drop-off Location</div>
+										<div class="text-sm font-medium">
+											{$t('bids.task_details.drop_off_location')}
+										</div>
 										<div class="text-base-content/70 text-sm">
 											{task.dropOffLocation.displayName}
 											{#if task.dropOffLocation.zipCode}
 												<br /><span class="text-base-content/60 text-xs"
-													>ZIP: {task.dropOffLocation.zipCode}</span
-												>
+													>{$t('bids.task_details.zip_code')}: {task.dropOffLocation
+														.zipCode}</span
+													>
 											{/if}
 										</div>
 									</div>
@@ -416,7 +444,9 @@
 				<!-- Creator Information -->
 				{#if task.creator}
 					<div class="mb-4">
-						<span class="text-base-content/60 text-sm">Posted by:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.posted_by')}:
+						</span>
 						<div class="mt-2 flex items-center gap-3">
 							{#if task.creator.avatar}
 								<img
@@ -454,7 +484,9 @@
 				<!-- Attachments -->
 				{#if task.attachments && task.attachments.length > 0}
 					<div class="mb-4">
-						<span class="text-base-content/60 text-sm">Attachments:</span>
+						<span class="text-base-content/60 text-sm">
+							{$t('bids.task_details.attachments')}:
+						</span>
 						<div class="mt-2 grid grid-cols-2 gap-2">
 							{#each task.attachments as attachment}
 								<div class="h-full max-h-64 min-h-32 w-full max-w-full rounded-lg">
@@ -493,7 +525,7 @@
 												</svg>
 											</div>
 											<a
-												aria-label="Open attachment"
+												aria-label={$t('bids.task_details.open_attachment')}
 												href={attachment.url}
 												target="_blank"
 												rel="noopener noreferrer"
@@ -523,7 +555,7 @@
 				{/if}
 			</div>
 
-			<div class="divider"></div>							
+			<div class="divider"></div>
 
 			<!-- Bid form -->
 			{#if showBidForm && task}
@@ -531,18 +563,28 @@
 					<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
 				{:else if !task.id}
 					<div class="alert alert-error">
-						<span>Error: Task ID is missing</span>
+						<span>{$t('bids.task_details.task_id_missing')}</span>
 					</div>
 				{:else if task.status !== TaskStatusEnum.OPEN}
 					<div class="alert alert-warning alert-outline">
-						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z" />
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
 						</svg>
-						<span>Task is not open for bidding.</span>
+						<span>{$t('bids.task_details.task_not_open_for_bidding')}</span>
 					</div>
 				{/if}
 			{:else}
-				<p class="text-base-content/60 mt-4">Loading bid form...</p>
+				<p class="text-base-content/60 mt-4">{$t('bids.task_details.loading_bid_form')}</p>
 			{/if}
 		</div>
 		<!-- Task not found state -->
@@ -562,8 +604,10 @@
 					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">Task Not Found</h3>
-			<p class="text-base-content/60 mt-1">The task you're looking for could not be found.</p>
+			<h3 class="mt-4 text-lg font-semibold">{$t('bids.task_details.task_not_found')}</h3>
+			<p class="text-base-content/60 mt-1">
+				{$t('bids.task_details.error.failed_to_load')}
+			</p>
 		</div>
 	{/if}
 </div>

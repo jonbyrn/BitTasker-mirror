@@ -98,6 +98,33 @@
 
 	// Debounced function to update searchParams
 	const debouncedSearch = debounce(async () => {
+		// Solo buscar si hay al menos 3 caracteres
+		if (searchQuery.trim().length < 3) {
+			// Si la búsqueda es muy corta, limpiar resultados y mostrar todos
+			tasksStore.update(state => ({
+				...state,
+				items: [],
+				currentPage: 1,
+				hasMore: true,
+				error: null
+			}));
+
+			// Buscar sin término de búsqueda
+			const newParams: SearchTasksParams = {
+				...searchParams,
+				page: 1,
+				search: undefined
+			};
+			searchParams = { ...searchParams, ...newParams };
+
+			try {
+				await findTasks(searchParams);
+			} catch (err) {
+				console.error('[FindTasks] Search fetch error:', err);
+			}
+			return;
+		}
+
 		const newParams: SearchTasksParams = {
 			...searchParams,
 			page: 1,
@@ -105,6 +132,15 @@
 		};
 
 		searchParams = { ...searchParams, ...newParams };
+
+		// Clear existing tasks when starting a new search
+		tasksStore.update(state => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
 
 		try {
 			await findTasks(searchParams);
@@ -116,6 +152,16 @@
 	// Handle advanced filter drawer apply
 	function handleFilterApply(filters: SearchTasksParams) {
 		isFilterDrawerOpen = false;
+
+		// Clear existing tasks when applying new filters
+		tasksStore.update(state => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
 		searchParams = {
 			...searchParams,
 			...filters,
@@ -141,6 +187,16 @@
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+
+		// Clear existing tasks when clearing filters
+		tasksStore.update(state => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
 		findTasks(searchParams);
 	}
 
@@ -218,16 +274,24 @@
 
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
+		// Clear existing tasks when changing task type
+		tasksStore.update(state => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
 		if (!type) {
 			searchParams = { ...searchParams, taskType: undefined, page: 1 };
-			return;
+		} else {
+			searchParams = {
+				...searchParams,
+				taskType: type,
+				page: 1
+			};
 		}
-
-		searchParams = {
-			...searchParams,
-			taskType: type,
-			page: 1
-		};
 
 		findTasks(searchParams);
 	}
@@ -291,6 +355,32 @@
 			}
 		}
 	};
+
+	// Función para validar si la búsqueda es válida
+	function isValidSearch(): boolean {
+		return searchQuery.trim().length >= 3;
+	}
+
+	// Función para obtener el placeholder dinámico
+	function getSearchPlaceholder(): string {
+		if (searchQuery.length > 0 && searchQuery.length < 3) {
+			return $t('find_tasks.search_minimum_chars');
+		}
+		return $t('find_tasks.search_placeholder');
+	}
+
+	// Función para obtener la clase del input de búsqueda
+	function getSearchInputClass(): string {
+		let baseClass = "input input-bordered w-full pl-10";
+
+		if (searchQuery.length > 0 && searchQuery.length < 3) {
+			baseClass += " input-warning";
+		} else if (searchQuery.length >= 3) {
+			baseClass += " input-success";
+		}
+
+		return baseClass;
+	}
 </script>
 
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
@@ -306,8 +396,8 @@
 		<div class="relative w-full sm:flex-1">
 			<input
 				type="text"
-				class="input input-bordered w-full pl-10"
-				placeholder={$t('find_tasks.search_placeholder')}
+				class={getSearchInputClass()}
+				placeholder={getSearchPlaceholder()}
 				bind:value={searchQuery}
 				oninput={debouncedSearch}
 			/>

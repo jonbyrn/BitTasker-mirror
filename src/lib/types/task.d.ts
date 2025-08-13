@@ -105,6 +105,20 @@ export interface SearchTasksParams {
 		type?: BudgetTypeEnum;
 	};
 
+	// Enhanced search options
+	search?: string;           // Búsqueda general (título + descripción + skills)
+	searchFields?: string[];   // ['title', 'description', 'skills'] - campos específicos
+	searchMode?: 'exact' | 'partial' | 'fuzzy'; // Modo de búsqueda
+
+	// Advanced filters
+	minBudget?: number;        // Presupuesto mínimo
+	maxBudget?: number;        // Presupuesto máximo
+	experienceLevel?: string;  // Nivel de experiencia requerido
+
+	// Sorting
+	sortBy?: 'relevance' | 'date' | 'budget' | 'deadline';
+	sortOrder?: 'asc' | 'desc';
+
 	// Nostr-specific fields
 	since?: number;      // Unix timestamp in seconds
 	until?: number;      // Unix timestamp in seconds
