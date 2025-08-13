@@ -38,7 +38,7 @@
 	</div>
 
 	<div class="space-y-4">
-		<h3 class="text-lg font-semibold">{$t('task.when_needed')}</h3>
+		<h4 class="font-semibold">{$t('task.when_needed')}</h4>
 
 		<div class="flex gap-4">
 			<button

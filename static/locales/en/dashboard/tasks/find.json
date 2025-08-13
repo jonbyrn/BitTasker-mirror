@@ -37,6 +37,8 @@
         "fixed": "Fixed",
         "hourly": "Hourly"
       },
+      "hourly_rate": "Hourly Rate",
+      "fixed_price": "Fixed Price",
       "location": "Location",
       "location_placeholder": "Search for a location...",
       "availability": "Availability",

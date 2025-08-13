@@ -37,6 +37,8 @@
         "fixed": "Fijo",
         "hourly": "Por hora"
       },
+      "hourly_rate": "Tarifa por Hora",
+      "fixed_price": "Precio Fijo",
       "location": "Ubicación",
       "location_placeholder": "Buscar una ubicación...",
       "availability": "Disponibilidad",

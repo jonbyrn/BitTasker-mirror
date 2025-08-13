@@ -303,7 +303,7 @@
 <div class="card bg-base-100 mx-auto mt-2 max-w-3xl rounded-xl shadow-xl sm:mt-0">
 	<div class="card-body">
 		<div class="mb-4 flex items-center justify-between">
-			<h2 class="card-title text-2xl">{$t('task.create_title')}</h2>
+			<h3 class="card-title">{$t('task.create_title')}</h3>
 			<div class="text-sm">
 				{$t('task.step')}
 				{$STEPS.indexOf($store.currentStep) + 1}

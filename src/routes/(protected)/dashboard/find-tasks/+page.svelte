@@ -371,7 +371,9 @@
 			class="btn btn-sm btn-primary gap-2"
 			onclick={() => (isSaveSearchOpen = true)}
 			disabled={!hasActiveParams}
-			title={!hasActiveParams ? $t('find_tasks.save_search_tooltip_disabled') : $t('find_tasks.save_search_tooltip_enabled')}
+			title={!hasActiveParams
+				? $t('find_tasks.save_search_tooltip_disabled')
+				: $t('find_tasks.save_search_tooltip_enabled')}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -470,7 +472,9 @@
 				<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
 				<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
 			</div>
-			<button class="btn btn-sm" onclick={() => window.location.reload()}> {$t('find_tasks.refresh')} </button>
+			<button class="btn btn-sm" onclick={() => window.location.reload()}>
+				{$t('find_tasks.refresh')}
+			</button>
 		</div>
 	{:else if $tasksStore.items && $tasksStore.items.length > 0}
 		<h2 class="mb-4 text-xl font-bold">
@@ -488,10 +492,15 @@
 			{#each $tasksStore.items as task, index}
 				<div class="card-body">
 					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
-						<div class="flex items-center justify-between gap-2 text-sm">
-							<div class="flex flex-col items-start">
-								<span class="font-semibold">{formatSatsAmount(task.budget.amount)}</span>
+						<h3 class="card-title line-clamp-2">{task.title}</h3>
+						<div class="flex items-center justify-between gap-4 text-sm">
+							<div class="flex flex-col items-center md:min-w-[140px]">
+								<div class="flex items-center gap-2">
+									<span class="font-semibold">{formatSatsAmount(task.budget.amount)}</span>
+									{#if task.budget.type === 'HOURLY'}
+										<span class="text-base-content/60 text-xs">/hr</span>
+									{/if}
+								</div>
 								<span class="text-info text-xs"
 									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
 								>
@@ -521,7 +530,9 @@
 
 							<div>
 								<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
-								<p class="font-medium">{task?.creator?.username || $t('find_tasks.not_available')}</p>
+								<p class="font-medium">
+									{task?.creator?.username || $t('find_tasks.not_available')}
+								</p>
 							</div>
 						</div>
 					</div>
@@ -553,7 +564,8 @@
 										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
 									/>
 								</svg>
-								{task.bids?.length ?? 0} {$t('find_tasks.bids')}
+								{task.bids?.length ?? 0}
+								{$t('find_tasks.bids')}
 							</div>
 						</div>
 
@@ -577,7 +589,9 @@
 									d="M12 4v16m8-8H4"
 								/>
 							</svg>
-							{task.status === TaskStatusEnum.OPEN ? $t('find_tasks.bid_now') : $t('find_tasks.bidding_closed')}
+							{task.status === TaskStatusEnum.OPEN
+								? $t('find_tasks.bid_now')
+								: $t('find_tasks.bidding_closed')}
 						</button>
 					</div>
 				</div>
@@ -614,7 +628,9 @@
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">{$t('find_tasks.no_tasks_found')}</h3>
 			<p class="text-base-content/60 mt-1">{$t('find_tasks.no_tasks_message')}</p>
-			<button class="btn btn-primary mt-4" onclick={clearFilters}>{$t('find_tasks.clear_filters')}</button>
+			<button class="btn btn-primary mt-4" onclick={clearFilters}
+				>{$t('find_tasks.clear_filters')}</button
+			>
 		</div>
 	{/if}
 </div>
