@@ -127,7 +127,7 @@
 		}
 	}
 
-	async function copyToClipboard(text: string, type: 'npub' | 'nsec') {
+	async function copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
 		try {
 			await navigator.clipboard.writeText(text);
 			copySuccess = type;
@@ -594,16 +594,58 @@
 									type={showRecoveryPassword ? 'text' : 'password'}
 									id="recovery-password"
 									bind:value={recoveryPassword}
-									class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+									class="input input-bordered w-full pr-20 {passwordError ? 'input-error' : ''}"
 									placeholder={$t('settings.recovery.password.placeholder')}
 									required
 									disabled={recoveryLoading}
 								/>
+								<!-- Copy Button -->
 								<button
 									type="button"
 									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => copyToClipboard(recoveryPassword, 'recovery')}
+									disabled={!recoveryPassword || recoveryLoading}
+									title="Copy password to clipboard"
+								>
+									{#if copySuccess === 'recovery'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-success h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											/>
+										</svg>
+									{/if}
+								</button>
+								<!-- Show/Hide Password Button -->
+								<button
+									type="button"
+									class="absolute inset-y-0 right-12 flex items-center pr-3"
 									onclick={() => (showRecoveryPassword = !showRecoveryPassword)}
 									disabled={recoveryLoading}
+									title={showRecoveryPassword ? 'Hide password' : 'Show password'}
 								>
 									{#if showRecoveryPassword}
 										<svg
@@ -653,15 +695,57 @@
 									>{$t('settings.recovery.confirmPassword-label')}</span
 								>
 							</label>
-							<input
-								type={showRecoveryPassword ? 'text' : 'password'}
-								id="confirm-recovery-password"
-								bind:value={confirmRecoveryPassword}
-								class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-								placeholder={$t('settings.recovery.confirmPassword.placeholder')}
-								required
-								disabled={recoveryLoading}
-							/>
+							<div class="relative">
+								<input
+									type={showRecoveryPassword ? 'text' : 'password'}
+									id="confirm-recovery-password"
+									bind:value={confirmRecoveryPassword}
+									class="input input-bordered w-full pr-20 {passwordError ? 'input-error' : ''}"
+									placeholder={$t('settings.recovery.confirmPassword.placeholder')}
+									required
+									disabled={recoveryLoading}
+								/>
+								<!-- Copy Button -->
+								<button
+									type="button"
+									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => copyToClipboard(confirmRecoveryPassword, 'confirm')}
+									disabled={!confirmRecoveryPassword || recoveryLoading}
+									title="Copy password to clipboard"
+								>
+									{#if copySuccess === 'confirm'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-success h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											/>
+										</svg>
+									{/if}
+								</button>
+							</div>
 							{#if passwordError}
 								<label class="label" for="confirm-recovery-password">
 									<span class="label-text-alt text-error">{passwordError}</span>

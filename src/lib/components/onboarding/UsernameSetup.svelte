@@ -117,7 +117,6 @@
 					type="text"
 					id="username"
 					bind:value={username}
-                    autofocus
 					class="input input-bordered w-full {usernameError ? 'input-error' : ''}"
 					placeholder="Choose a username"
 					required
