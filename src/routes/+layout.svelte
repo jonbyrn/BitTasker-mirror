@@ -37,6 +37,7 @@
 	let height = $state(window.innerHeight);
 	let isLandingPage = $state(false);
 	let isInitializing = $state(true); // Track initialization state
+	let isOnboardingPage = $state(false);
 
 	let breadcrumbList = $state({});
 
@@ -132,23 +133,27 @@
 		};
 	};
 
-	// Update layout based on current route - Optimized with debouncing
-	let routeChangeTimeout: ReturnType<typeof setTimeout>;
-	const updateLayoutBasedOnRoute = () => {
-		clearTimeout(routeChangeTimeout);
-		routeChangeTimeout = setTimeout(() => {
-			const path = page.url.pathname;
+    // Track the current path reactively (must read synchronously to create dependency)
+    const currentPath = $derived(page.url.pathname);
+
+    // Update layout based on current route - Optimized with debouncing
+    let routeChangeTimeout: ReturnType<typeof setTimeout>;
+    const updateLayoutBasedOnRoute = (path: string) => {
+        clearTimeout(routeChangeTimeout);
+        routeChangeTimeout = setTimeout(() => {
 			// Determine if on landing page (homepage, how-it-works, etc.)
 			isLandingPage = path === '/' || path === '/how-it-works' || path.startsWith('/auth');
 
 			// Show top bar everywhere except specific routes that handle their own layout
 			showTopBar = !path.includes('/onboarding');
 
+			isOnboardingPage = path.includes('/onboarding');
+
 			// Only show bottom bar in dashboard routes
 			showFooterSection = path.includes('/dashboard');
 
 			// Generate breadcrumbs - deferred to idle time
-			if (path !== '/') {
+            if (path !== '/') {
 				const segments = path.split('/').filter(Boolean);
 				breadcrumbList = {
 					'@context': 'https://schema.org',
@@ -166,10 +171,11 @@
 		}, 50); // Small debounce to prevent excessive updates
 	};
 
-	// Optimized effect for route changes
-	$effect(() => {
-		updateLayoutBasedOnRoute();
-	});
+    // Optimized effect for route changes
+    $effect(() => {
+        // Reading currentPath here creates a reactive dependency on the URL
+        updateLayoutBasedOnRoute(currentPath);
+    });
 
 	$effect(() => {
 		setDarkMode($darkMode);
@@ -262,7 +268,7 @@
 				</div>
 			{/if}
 		</div>
-	{#if !showFooterSection && showTopBar}
+	{#if !showFooterSection && showTopBar && !isOnboardingPage}
 		{#if !isLoggedIn}
 			<!-- Section 7: Final Call to Action (CTA) -->
 			<section class="bg-primary text-primary-content py-16">
