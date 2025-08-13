@@ -240,7 +240,7 @@
 	<main
 		data-theme={$darkMode ? 'dark' : 'light'}
 		id="main"
-		class="no-horizontal-scroll flex min-h-[100dvh] flex-col"
+		class="no-horizontal-scroll flex min-h-[100dvh] flex-col bg-base-200"
 	>
 		<!-- Desktop TopBar will be positioned fixed via its own component styles -->
 		{#if showTopBar}
@@ -252,7 +252,7 @@
 		> -->
 
 		<div
-			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
+			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
@@ -261,7 +261,7 @@
 				</div>
 			{:else}
 				<div
-					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
+					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
 					style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 				>
 					{@render children()}
