@@ -5,10 +5,10 @@
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { page } from '$app/state';
-import { beforeNavigate } from '$app/navigation';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
-import { authState } from '$lib/stores/auth.store';
+	import { beforeNavigate } from '$app/navigation';
+	import { Preferences } from '@capacitor/preferences';
+	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { authState } from '$lib/stores/auth.store';
 	// Icon imports for unplugin-icons
 	import IconLogout from '~icons/mdi/logout';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
@@ -40,13 +40,13 @@ import { authState } from '$lib/stores/auth.store';
 	import IconShieldCheck from '~icons/mdi/shield-check';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
 	import IconNewspaper from '~icons/mdi/newspaper';
-  import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
+	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
 
 	let currentSection = $state('');
 	let lastScrollPosition = $state(0);
 	let isScrollingDown = $state(false);
-let isVisible = $state(true);
-let isLoggedIn = $state(false);
+	let isVisible = $state(true);
+	let isLoggedIn = $state(false);
 
 	// Route detection for active states - immediate update
 	$effect(() => {
@@ -341,6 +341,12 @@ onDestroy(() => {
                                 <a href="/feedback" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
                                     <IconCommentTextOutline class="text-primary" />
                                     <span class="font-medium">{$t('navbar.feedback')}</span>
+                                </a>
+                            </li>
+                            <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+                                <a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+                                    <IconShieldCheck class="text-primary" />
+                                    <span class="font-medium">{$t('footer.security')}</span>
                                 </a>
                             </li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
