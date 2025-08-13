@@ -54,3 +54,31 @@ export interface EscrowCheckResponse {
 	};
 	challenge: string;
 }
+
+export interface NostrAuthPayload {
+	challenge: string;
+	signedEvent: import('nostr-tools').Event;
+}
+
+export interface ContractsByNostrResponse {
+	contracts: Array<ContractSummary & { vaults: Array<VaultSummary> }>;
+}
+
+export interface ContractSummary {
+	id: string;
+	status: string;
+	role: Party;
+	created_at?: number | null;
+	derivation_path: string;
+	client_pubkey: string;
+	freelancer_pubkey: string;
+}
+
+export interface VaultSummary {
+	id: string;
+	type: VaultType;
+	privileged_party: Party;
+	csv_blocks: number;
+	descriptor: string;
+	address?: string | null;
+}

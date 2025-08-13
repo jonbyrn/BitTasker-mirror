@@ -3,7 +3,9 @@ import type {
 	ContractRecord,
 	VaultInfo,
 	EscrowCheckInput,
-	EscrowCheckResponse
+	EscrowCheckResponse,
+	ContractsByNostrResponse,
+	NostrAuthPayload
 } from './types';
 import { rpcClient } from './rpc';
 
@@ -82,5 +84,34 @@ export async function apiCheckEscrow(input: EscrowCheckInput): Promise<EscrowChe
 		}
 	});
 	if (!res.ok) throw new Error('Failed to check escrow');
+	return await res.json();
+}
+
+export async function apiGetNostrChallenge(): Promise<string> {
+	const res = await rpc.api.contracts['challenge'].$get();
+	if (!res.ok) throw new Error('Failed to get challenge');
+	const body = await res.json();
+	return body.challenge as string;
+}
+
+export async function apiListContractsByNostr(
+	auth: NostrAuthPayload
+): Promise<ContractsByNostrResponse> {
+	const res = await rpc.api.contracts['by_nostr'].$post({
+		json: {
+			nostr_auth: {
+				challenge: auth.challenge,
+				signed_event: auth.signedEvent
+			}
+		}
+	});
+	if (!res.ok) {
+		try {
+			const body = await res.json();
+			throw new Error(body?.error || 'Auth failed');
+		} catch {
+			throw new Error('Auth failed');
+		}
+	}
 	return await res.json();
 }
