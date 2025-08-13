@@ -54,6 +54,15 @@
 		newPassword = generatePassword();
 	}
 
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			// You could add a toast notification here if you want
+		} catch (err) {
+			console.error('Failed to copy password:', err);
+		}
+	}
+
 	async function decryptPrivateKey(event: Event) {
 		event.preventDefault();
 
@@ -306,6 +315,30 @@
 								required
 							/>
 							<div class="absolute inset-y-0 right-0 flex items-center pr-3">
+								<!-- Copy Button -->
+								<button
+									type="button"
+									class="mr-2"
+									onclick={() => copyToClipboard(newPassword)}
+									disabled={!newPassword}
+									title="Copy password to clipboard"
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-5 w-5"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/>
+									</svg>
+								</button>
+								<!-- Regenerate Button -->
 								<button
 									aria-label="Regenerate password"
 									type="button"
@@ -327,6 +360,7 @@
 										/>
 									</svg>
 								</button>
+								<!-- Show/Hide Button -->
 								<button type="button" onclick={() => (showNewPassword = !showNewPassword)}>
 									{#if showNewPassword}
 										<svg
@@ -374,28 +408,79 @@
 						<label class="label" for="confirmPassword">
 							<span class="label-text">Confirm New Password</span>
 						</label>
-						<input
-							type={showNewPassword ? 'text' : 'password'}
-							id="confirmPassword"
-							bind:value={confirmPassword}
-							placeholder="Confirm new password"
-							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-							required
-						/>
+						<div class="relative">
+							<input
+								type={showNewPassword ? 'text' : 'password'}
+								id="confirmPassword"
+								bind:value={confirmPassword}
+								placeholder="Confirm new password"
+								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
+								required
+							/>
+							<!-- Copy Button -->
+							<button
+								type="button"
+								class="absolute inset-y-0 right-0 flex items-center pr-3"
+								onclick={() => copyToClipboard(confirmPassword)}
+								disabled={!confirmPassword}
+								title="Copy password to clipboard"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+									/>
+								</svg>
+							</button>
+						</div>
 						{#if passwordError}
 							<span class="text-error text-sm">{passwordError}</span>
 						{/if}
 					</div>
 
-					<div class="alert alert-info alert-outline">
-						<div class="flex items-start gap-3">
-							<ul class="list-inside list-disc text-sm">
-								<li>Use at least 8 characters</li>
-								<li>Include numbers and special characters</li>
-								<li>Avoid using personal information</li>
-							</ul>
+					<!-- Password Guidelines -->
+					{#if newPassword}
+						<div class="space-y-1 text-sm">
+							<p class="font-medium">Password Requirements</p>
+							<div class="flex flex-wrap gap-x-4 gap-y-1">
+								<span
+									class={newPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Use at least 8 characters
+								</span>
+								<span
+									class={/[A-Z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Include uppercase letters
+								</span>
+								<span
+									class={/[a-z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Include lowercase letters
+								</span>
+								<span
+									class={/[0-9]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Include numbers
+								</span>
+								<span
+									class={/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
+										? 'text-success'
+										: 'text-base-content/60'}
+								>
+									✓ Include special characters
+								</span>
+							</div>
 						</div>
-					</div>
+					{/if}
 
 					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
 						{#if isLoading}

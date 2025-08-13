@@ -3,16 +3,7 @@ import * as bip39 from 'bip39';
 // Map language codes to bip39 wordlists
 const languageMap: Record<string, string> = {
 	'en': 'english',
-	'es': 'spanish',
-	'fr': 'french',
-	'de': 'german',
-	'it': 'italian',
-	'pt': 'portuguese',
-	'cs': 'czech',
-	'ja': 'japanese',
-	'ko': 'korean',
-	'zh': 'chinese_simplified',
-	'zh-TW': 'chinese_traditional'
+	'es': 'spanish'
 };
 
 export const generatePassword = (language: string = 'english'): string => {
