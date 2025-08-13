@@ -5,6 +5,7 @@
 	import { ScreenOrientation } from '@capacitor/screen-orientation';
 	import { publishLocation, getLatestLocation } from '$lib/nostr/location';
     import { t } from 'svelte-i18n';
+    import { Capacitor } from '@capacitor/core';
     import { tick } from 'svelte';
 	import IconCheck from '~icons/mdi/check-circle-outline';
     import IconMagnify from '~icons/mdi/magnify';
@@ -113,28 +114,47 @@
 		}
 	}
 
-	async function getUserLocation() {
+    async function getUserLocation() {
 		try {
 			isLoading = true;
-			// Check permissions first
-			const permissionStatus = await Geolocation.checkPermissions();
+            const isNative = Capacitor.isNativePlatform();
 
-			if (permissionStatus.location !== 'granted') {
-				// Request permissions if not granted
-				await Geolocation.requestPermissions();
-			}
+            let lat: number | null = null;
+            let lng: number | null = null;
 
-			// Get current position
-			const position = await Geolocation.getCurrentPosition({
-				enableHighAccuracy: true,
-				timeout: 10000
-			});
+            if (isNative) {
+                // Native (iOS/Android): manage permissions explicitly
+                const permissionStatus = await Geolocation.checkPermissions();
+                if (permissionStatus.location !== 'granted') {
+                    await Geolocation.requestPermissions();
+                }
 
-			const lat = position.coords.latitude;
-			const lng = position.coords.longitude;
+                const position = await Geolocation.getCurrentPosition({
+                    enableHighAccuracy: true,
+                    timeout: 10000
+                });
+                lat = position.coords.latitude;
+                lng = position.coords.longitude;
+            } else if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+                // Web: browsers prompt implicitly on first call
+                const position = await new Promise<GeolocationPosition>((resolve, reject) =>
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000
+                    })
+                );
+                lat = position.coords.latitude;
+                lng = position.coords.longitude;
+            } else {
+                throw new Error('Geolocation is not supported in this environment');
+            }
 
 			// Update map and marker
-			updateLocationWithCoordinates(lat, lng);
+            if (lat !== null && lng !== null) {
+                updateLocationWithCoordinates(lat, lng);
+            } else {
+                throw new Error('Failed to read geolocation coordinates');
+            }
 		} catch (error) {
 			console.error('Geolocation error:', error);
 			// Use default location if geolocation fails

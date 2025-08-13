@@ -206,12 +206,12 @@
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Private</strong> — we never see your PIN, password, or biometrics</span>
                 </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                <div class="feature-item flex items-center justify-start gap-2 text-lg mb-6">
                     <IconCheck class="text-primary min-w-[1.5em]" />
                     <span><strong>Easy</strong> — the same way you login to your device</span>
                 </div>
 
-				<p class="text-primary mb-6 text-lg font-medium">Next-gen login. No passwords, ever.</p>
+				<p class="text-primary mb-6 text-lg font-medium text-center">Next-gen login. No passwords, ever.</p>
 
 				{#if error}
 					<div class="alert alert-error alert-outline mb-6 max-w-lg mx-auto">

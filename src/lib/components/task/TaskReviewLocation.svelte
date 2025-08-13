@@ -18,11 +18,11 @@
 	<div class="flex items-center justify-between">
 		<h3 class="text-lg font-semibold">{$t('task.location_title')}</h3>
 		{#if isRemoteTask}
-			<span class="badge badge-info text-black">{$t('task.remote_task')}</span>
+			<span class="badge badge-info text-black text-xs md:text-md">{$t('task.remote_task')}</span>
 		{:else if isRemovalTask}
-			<span class="badge badge-warning text-black">{$t('task.removal_delivery')}</span>
+			<span class="badge badge-warning text-black text-xs md:text-md">{$t('task.removal_delivery')}</span>
 		{:else}
-			<span class="badge badge-success text-black">{$t('task.in_person_badge')}</span>
+			<span class="badge badge-success text-black text-xs md:text-md">{$t('task.in_person_badge')}</span>
 		{/if}
 	</div>
 

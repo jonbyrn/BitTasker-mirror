@@ -179,7 +179,7 @@
 				</div>
 			</div>
 		{:else}
-			<div class="flex flex-col items-center space-y-4 text-center">
+			<div class="items-center space-y-4 text-center w-full mx-auto">
 				<!-- Educational Header (aligned with other onboarding screens) -->
                 <div class="education-header mb-6 text-center">
                     <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
@@ -230,7 +230,7 @@
 				
 				<div class="mt-4 space-y-2">
 					<h5>What's next?</h5>
-					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1">
+					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1 w-fit mx-auto">
 						<li>Browse available tasks or create your own</li>
 						<li>Expand your profile to attract more clients</li>
 						<li>Set up your payment preferences</li>

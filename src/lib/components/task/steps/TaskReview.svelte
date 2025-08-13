@@ -36,7 +36,6 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h2 class="text-xl font-semibold">{$t('task.review_title')}</h2>
 
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
@@ -96,7 +95,9 @@
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
 			<h3 class="mb-2 text-lg font-medium">{$t('task.budget_details')}</h3>
-			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+			
+			<!-- Budget Type and Amount in first row -->
+			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2 mb-4">
 				<div>
 					<span class="font-medium">{$t('task.budget_type')}</span>
 					<span>
@@ -105,56 +106,63 @@
 							: $t('task.budget_hourly')}
 					</span>
 				</div>
-				<div class="flex flex-col items-center gap-2">
+				
+				<div>
 					<span class="font-medium">{$t('task.budget_amount')}</span>
-
-					<div class="flex flex-col items-start">
+					<div class="flex flex-col">
 						<span class="font-semibold">{formatSatsAmount($store.task.budget.amount)}</span>
-						<span class="text-info text-xs"
-							>≈ {usdFromSats($store.task.budget.amount, btcPrice)} USDT</span
-						>
+						<span class="text-info text-xs">≈ {usdFromSats($store.task.budget.amount, btcPrice)} USDT</span>
 					</div>
 				</div>
+			</div>
 
-				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-					<div>
-						<span class="font-medium">{$t('task.estimated_hours_review')}</span>
-						<span>{$store.task.budget.amount}</span>
+			<!-- Estimated Hours in second row (only for hourly) -->
+			{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
+				<div class="mb-4">
+					<span class="font-medium">{$t('task.estimated_hours_review')}</span>
+					<span>{$store.task.budget.estimatedHours}</span>
+				</div>
+			{/if}
+
+			<!-- Description with fixed height and scroll -->
+			<div class="mb-4">
+				<h4 class="font-medium mb-2">{$t('task.description_label')}</h4>
+				<div class="bg-base-100 rounded-md p-3">
+					<div class="max-h-[5rem] overflow-y-auto">
+						<p>{$store.task.description}</p>
 					</div>
-				{/if}
+				</div>
 			</div>
 
-			<h4 class="mt-3 font-medium">{$t('task.description_label')}</h4>
-			<div class="bg-base-100 mt-1 rounded-md p-3">
-				<p>{$store.task.description}</p>
-			</div>
-
+			<!-- Attachments -->
 			{#if $store.task.attachments && $store.task.attachments.length > 0}
-				<h4 class="mt-3 font-medium">{$t('task.attachments_review')}</h4>
-				<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-					{#each $store.task.attachments as attachment}
-						<div class="relative overflow-hidden rounded-lg">
-							{#if attachment.type?.startsWith('video/')}
-								<video
-									src={attachment.url}
-									class="h-32 w-full object-cover"
-									controls
-									muted={false}
-									autoplay={false}
-									loop={false}
-								>
-									<track kind="captions" />
-								</video>
-							{:else}
-								<img
-									src={attachment.url}
-									alt={attachment.alt}
-									class="h-32 w-full object-cover"
-									loading="lazy"
-								/>
-							{/if}
-						</div>
-					{/each}
+				<div>
+					<h4 class="font-medium mb-2">{$t('task.attachments_review')}</h4>
+					<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
+						{#each $store.task.attachments as attachment}
+							<div class="relative overflow-hidden rounded-lg">
+								{#if attachment.type?.startsWith('video/')}
+									<video
+										src={attachment.url}
+										class="h-32 w-full object-cover"
+										controls
+										muted={false}
+										autoplay={false}
+										loop={false}
+									>
+										<track kind="captions" />
+									</video>
+								{:else}
+									<img
+										src={attachment.url}
+										alt={attachment.alt}
+										class="h-32 w-full object-cover"
+										loading="lazy"
+									/>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				</div>
 			{/if}
 		</div>

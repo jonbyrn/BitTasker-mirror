@@ -310,7 +310,7 @@
 					</label>
 					<div class="flex gap-2">
 						<div class="relative flex-1">
-							<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"
+							<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
 								>$</span
 							>
 							<input
@@ -325,7 +325,7 @@
 							/>
 						</div>
 						<div class="relative flex-1">
-							<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
+							<span class="text-base-content/70 absolute top-1/2 right-3 z-9 -translate-y-1/2"
 								>Sats</span
 							>
 							<input
@@ -558,7 +558,12 @@
 			</div>
 
 			<!-- Submit Buttons -->
-			<button type="submit" class="btn btn-primary block justify-self-end" disabled={submittingBid}>
+			<button 
+				id="bid-submit-btn"
+				type="submit" 
+				class="btn btn-primary ml-auto block mb-16 sm:mb-4" 
+				disabled={submittingBid}
+			>
 				{#if submittingBid}
 					<span class="loading loading-spinner loading-sm"></span>
 					{$t('bid_form.form.submitting')}

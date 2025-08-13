@@ -271,6 +271,7 @@
 							<li><a href="/faq" onclick={closeDropdowns}><IconFrequentlyAskedQuestions class="text-primary" /> <span>{$t('navbar.faq')}</span></a></li>
 							<li><a href="/contact" onclick={closeDropdowns}><IconEmailOutline class="text-primary" /> <span>{$t('navbar.contact_support')}</span></a></li>
                             <li><a href="/feedback" onclick={closeDropdowns}><IconCommentTextOutline class="text-primary" /> <span>{$t('navbar.feedback')}</span></a></li>
+                            <li><a href="/security" onclick={closeDropdowns}><IconShieldCheck class="text-primary" /> <span>{$t('footer.security')}</span></a></li>
 							<li><a href="/about" onclick={closeDropdowns}><IconInformationOutline class="text-primary" /> <span>{$t('navbar.about_us')}</span></a></li>
 							<li><a href="/terms" onclick={closeDropdowns}><IconFileDocumentOutline class="text-primary" /> <span>{$t('navbar.terms_of_service')}</span></a></li>
 							<li><a href="/privacy" onclick={closeDropdowns}><IconShieldAccount class="text-primary" /> <span>{$t('navbar.privacy_policy')}</span></a></li>

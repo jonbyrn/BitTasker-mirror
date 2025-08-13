@@ -127,6 +127,10 @@
                     "title": "Bitcoin Accepted",
                     "description": "Embrace the future of money. Pay and get paid globally with Bitcoin, the world's most secure and decentralized digital currency, for borderless and low-cost transactions."
                 },
+                "payments": {
+                    "title": "Pay Your Way",
+                    "description": "Pay with traditional fiat currencies via a credit or debit card, as well as paying with Bitcoin or USDT. Withdraw Bitcoin and USDT on chain, via Lightning, or Liquid."
+                },
                 "lightning": {
                     "title": "Lightning Network",
                     "description": "Experience instant and near-free payments with the Lightning Network. Perfect for micro-payments, tipping, and settling tasks the moment they are completed."

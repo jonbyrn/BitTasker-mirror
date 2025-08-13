@@ -252,7 +252,7 @@
 			<!-- Task details section -->
 			<div class="mb-6">
 				<div class="mb-4 flex items-center justify-between">
-					<h3 class="text-lg font-semibold">{task.title}</h3>
+					<h4 class="line-clamp-3">{task.title}</h4>
 					<div class="flex items-center gap-2">
 						<span class="badge badge-primary badge-outline">
 							{task.status}
@@ -265,6 +265,9 @@
 						<span class="text-base-content/60 text-sm">Budget:</span>
 						<div class="font-semibold">
 							{formatSatsAmount(task.budget.amount)}
+							{#if task.budget.type === 'HOURLY'}
+								<span class="text-base-content/60 text-xs ml-1">/hr</span>
+							{/if}
 						</div>
 						<span class="text-info text-xs"
 							>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
@@ -301,7 +304,11 @@
 
 				<div class="mb-4">
 					<span class="text-base-content/60 text-sm">Description:</span>
-					<p class="mt-1 whitespace-pre-line">{task.description}</p>
+					<div class="mt-1 bg-base-200 rounded-md p-3">
+						<div class="max-h-[5rem] overflow-y-auto">
+							<p class="whitespace-pre-line">{task.description}</p>
+						</div>
+					</div>
 				</div>
 
 				{#if task.skills?.length > 0}
@@ -519,16 +526,23 @@
 			<div class="divider"></div>							
 
 			<!-- Bid form -->
-			{#if showBidForm && task && task.id && task.status === TaskStatusEnum.OPEN}
-				<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
-			{:else if showBidForm && task && !task.id}
-				<div class="alert alert-error">
-					<span>Error: Task ID is missing</span>
-				</div>
-			{:else if showBidForm && task && task.status !== TaskStatusEnum.OPEN}
-				<p class="text-base-content/60 mt-4">Task is not open for bidding.</p>
+			{#if showBidForm && task}
+				{#if task.id && task.status === TaskStatusEnum.OPEN}
+					<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
+				{:else if !task.id}
+					<div class="alert alert-error">
+						<span>Error: Task ID is missing</span>
+					</div>
+				{:else if task.status !== TaskStatusEnum.OPEN}
+					<div class="alert alert-warning alert-outline">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L73.34 16c-.77 1.333.192 3 1.732 3z" />
+						</svg>
+						<span>Task is not open for bidding.</span>
+					</div>
+				{/if}
 			{:else}
-				<p class="text-base-content/60 mt-4">Task is not open for bidding.</p>
+				<p class="text-base-content/60 mt-4">Loading bid form...</p>
 			{/if}
 		</div>
 		<!-- Task not found state -->

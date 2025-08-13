@@ -143,12 +143,12 @@
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Optional</strong> — you can set this up later</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+				<div class="feature-item flex items-center justify-start gap-2 text-lg mb-6">
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span><strong>Private</strong> — only you can decrypt your data</span>
 				</div>
 
-				<p class="text-primary mb-6 text-lg">Optional, but highly recommended.</p>
+				<p class="text-primary mb-6 text-lg text-center">Optional, but highly recommended.</p>
 			</div>
 		</div>
 

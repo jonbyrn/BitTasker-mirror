@@ -250,17 +250,17 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="mx-auto flex w-full max-w-xl flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
-				<Logo class="w-auto" />
+				<Logo />
 				<h1 class="mt-6 text-center text-2xl font-bold">{$t('login.title')}</h1>
 				<br />
-				<p class="text-base-content/70 mt-3 text-center text-sm">
+				<p class="text-base-content mb-6 text-center text-lg">
 					{$t('login.subtitle')}
 				</p>
-				<p class="text-base-content/70 mt-2 text-center text-sm">
+				<p class="text-base-content text-center text-lg">
 					{$t('login.login_with')} <span class="text-primary">Passkey/Biometrics</span>, {$t(
 						'common.or'
 					)}
