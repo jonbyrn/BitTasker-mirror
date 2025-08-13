@@ -127,6 +127,10 @@
                     "title": "Bitcoin Aceptado",
                     "description": "Adopta el futuro del dinero. Paga y recibe pagos a nivel mundial con Bitcoin, la moneda digital más segura y descentralizada del mundo, para transacciones sin fronteras y de bajo costo."
                 },
+                "payments": {
+                    "title": "Paga a Tu Manera",
+                    "description": "Paga con monedas fiduciarias tradicionales mediante tarjeta de crédito o débito, así como con Bitcoin o USDT. Retira Bitcoin y USDT en cadena, vía Lightning o Liquid."
+                },
                 "lightning": {
                     "title": "Red Lightning",
                     "description": "Experimenta pagos instantáneos y casi gratuitos con la Red Lightning. Perfecto para micropagos, propinas y liquidar tareas en el momento en que se completan."
