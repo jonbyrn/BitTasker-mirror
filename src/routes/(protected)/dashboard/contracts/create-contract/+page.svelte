@@ -5,7 +5,6 @@
 	import { createVaultSet } from '$lib/escrow/vault';
 	import { apiCreateContract, apiSaveVaults } from '$lib/escrow/api';
 	import type { NetworkName } from '$lib/escrow/types';
-	import { getUtxos } from '$lib/escrow/psbt';
 
 	let derivationPath = $state('');
 	let csvBlocks = $state<number>(0);
@@ -42,7 +41,7 @@
 				clientPubkey = await derivePubkeyAtPath({ mnemonic, derivationPath });
 			} catch (e) {
 				console.error(e);
-				error = 'Failed to derive client pubkey';
+				error = 'Failed to derive client pubkey, try refreshing the page';
 			}
 		})();
 	});
@@ -94,6 +93,7 @@
 		let cancelled = false;
 		const poll = async () => {
 			try {
+				const { getUtxos } = await import('$lib/escrow/psbt');
 				const utxos = await getUtxos(escrowAddress!);
 				const total = utxos.reduce((a, b) => a + (b.value || 0), 0);
 				fundedSats = total;

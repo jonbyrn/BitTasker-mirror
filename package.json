@@ -117,6 +117,7 @@
 		"date-fns": "^4.1.0",
 		"ecpair": "^3.0.0",
 		"firebase": "^11.10.0",
+		"hono": "^4.9.1",
 		"iconify-icon": "^2.3.0",
 		"liquidjs-lib": "^6.0.2-liquid.37",
 		"nostr-tools": "^2.13.0",

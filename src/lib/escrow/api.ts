@@ -1,22 +1,9 @@
-import { API_BASE } from '$lib/config';
 import type { ContractCreateInput, ContractRecord, VaultInfo } from './types';
-
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(`${API_BASE}${path}`, {
-		headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
-		...init
-	});
-	if (!res.ok) {
-		const text = await res.text().catch(() => '');
-		throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-	}
-	return (await res.json()) as T;
-}
+import { rpcClient } from './rpc';
 
 export async function apiCreateContract(input: ContractCreateInput): Promise<ContractRecord> {
-	return http<ContractRecord>('/api/contracts', {
-		method: 'POST',
-		body: JSON.stringify({
+	const res = await rpcClient.api.contracts.$post({
+		json: {
 			client_id: input.clientId,
 			freelancer_id: input.freelancerId,
 			amount_sat: input.amountSat,
@@ -24,16 +11,31 @@ export async function apiCreateContract(input: ContractCreateInput): Promise<Con
 			derivation_path: input.derivationPath,
 			client_pubkey: input.clientPubkey,
 			freelancer_pubkey: input.freelancerPubkey
-		})
+		}
 	});
+	return await res.json();
 }
 
 export async function apiSaveVaults(
 	contractId: string,
 	vaults: Record<string, VaultInfo>
 ): Promise<void> {
-	await http<void>(`/api/contracts/${contractId}/vaults`, {
-		method: 'POST',
-		body: JSON.stringify({ vaults })
+	const vaultArray = Object.values(vaults).map((v) => ({
+		id: v.id,
+		type: v.type,
+		privileged_party: v.privileged,
+		csv_blocks: v.csvBlocks,
+		miniscript_policy: v.miniscriptPolicy,
+		miniscript_resolved: v.miniscriptResolved,
+		descriptor: v.descriptor,
+		address: v.address ?? undefined,
+		script_pubkey: v.scriptPubKey ?? undefined,
+		witness_script: v.witnessScript ?? undefined
+	}));
+
+	// Use direct id segment to avoid param substitution issues in untyped client
+	const res = await rpcClient.api.contracts[contractId].vaults.$post({
+		json: { vaults: vaultArray }
 	});
+	if (!res.ok) throw new Error('Failed to save vaults');
 }

@@ -1,3 +1,4 @@
+import '$lib/polyfills';
 import * as liquidjs from 'liquidjs-lib';
 import * as bitcoin from 'bitcoinjs-lib';
 import * as ecc from 'tiny-secp256k1';

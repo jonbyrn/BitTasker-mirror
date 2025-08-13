@@ -34,7 +34,7 @@
 	// Create a reactive component map for Svelte 5 compatibility
 	let iconComponents = $derived.by(() => {
 		const components = new Map();
-		sections.forEach(section => {
+		sections.forEach((section) => {
 			components.set(section.icon, getIconComponent(section.icon));
 		});
 		return components;
@@ -103,7 +103,7 @@
 	{#if $deviceInfo?.platform === 'web' && width > 768}
 		<!-- Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
-			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
+			<div class="card bg-base-100 mb-6 rounded-xl shadow-xl">
 				<div class="card-body p-4">
 					<h2 class="card-title text-lg">{$t('dashboard.titl')}</h2>
 					<div class="divider my-2"></div>
@@ -145,6 +145,8 @@
 
 	<!-- Main Content -->
 	<div class="min-h-0 w-full flex-1">
-		{@render children()}
+		{#if children}
+			{@render children()}
+		{/if}
 	</div>
 </div>

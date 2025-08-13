@@ -257,14 +257,18 @@
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
 				<div class="bg-base-200 flex flex-grow lg:block">
-					{@render children()}
+					{#if children}
+						{@render children()}
+					{/if}
 				</div>
 			{:else}
 				<div
 					class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden"
 					style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 				>
-					{@render children()}
+					{#if children}
+						{@render children()}
+					{/if}
 				</div>
 			{/if}
 		</div>

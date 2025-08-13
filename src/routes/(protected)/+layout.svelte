@@ -17,7 +17,9 @@
 		<p>Loading...</p>
 	</div>
 {:else if $authState.isAuthenticated}
-	{@render children()}
+	{#if children}
+		{@render children()}
+	{/if}
 {:else}
 	<!-- This shouldn't be seen since the +layout.ts should redirect -->
 	<div class="flex h-full w-full flex-col items-center justify-center">
