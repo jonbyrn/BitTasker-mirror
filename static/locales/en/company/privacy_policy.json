@@ -1,0 +1,60 @@
+{
+    "privacy": {
+        "title": "Privacy Policy",
+        "subtitle": "How we protect your privacy and handle your data when you use BitTasker to connect with taskers and taskees.",
+        "last_updated": "Last Updated: July 13, 2025",
+        "sections": {
+            "philosophy": {
+                "title": "Our Philosophy: You Are in Control",
+                "content": "BitTasker is fundamentally different from traditional gig platforms. We are built on <a href=\"https://nostr.com/\" target=\"_blank\" rel=\"noopener noreferrer\">Nostr</a>, a decentralized network. This means <strong>you own your identity and your data</strong>. You interact with the platform using a cryptographic key pair (a public and private key) that only you control. We never have access to your private key."
+            },
+            "data_collection": {
+                "title": "What Information Do We Collect? (Almost None)",
+                "content": "Because of our decentralized design, we do not have access to or store any of your non-public personally identifiable information (PII), unless you make it public or provide it to us."
+            },
+            "public_data": {
+                "title": "Information That is Public By Default",
+                "intro": "When you use a decentralized network like Nostr, some information is public by its very nature. This includes:",
+                "npub": "Your Nostr Public Key (npub): This is your public identifier, like a username.",
+                "profile": "Your Public Profile: Any information you add to your profile, such as a username, avatar, or bio, is publicly visible.",
+                "actions": "Public Actions: Posting a task or leaving a review are public events on the Nostr network.",
+                "transactions": "Bitcoin Transactions: Transactions on the Bitcoin blockchain are public by nature, though they do not contain personal identifiers beyond wallet addresses.",
+                "warning": "We strongly encourage you to use caution and discretion when deciding what information to make public."
+            },
+            "private_data": {
+                "title": "Information That is Private",
+                "content": "<strong>All direct messages between users on BitTasker are end-to-end encrypted (E2EE)</strong>. We, the platform operators, cannot read your private conversations. Only you and the person you are communicating with can decrypt and view the messages."
+            },
+            "analytics": {
+                "title": "Marketing Analytics",
+                "intro": "BitTasker may use marketing analytics tools to gather aggregate data for the purpose of measuring and improving our marketing efforts. These tools help us understand how users interact with our website and which marketing channels are most effective.",
+                "warning_title": "Important:",
+                "warning_body": "We do not collect personally identifiable information (PII) through these marketing tools, nor do we wish to collect such information. Any data collected is anonymous and aggregated, used solely to enhance user experience and optimize our marketing strategies.",
+                "details_intro": "These analytics may include:",
+                "usage": "Anonymous Usage Patterns: How users navigate through our website",
+                "referrals": "Referral Sources: Which websites or platforms directed traffic to BitTasker",
+                "performance": "Campaign Performance: How different marketing initiatives perform"
+            },
+            "use_of_info": {
+                "title": "How We Use Information",
+                "content": "Since we don't have access to your private data, we can't use it. We do not sell, rent, or share any personal information with third parties for marketing or any other purpose."
+            },
+            "storage": {
+                "title": "Data Storage and Retention",
+                "content": "Your public data is stored on the distributed network of Nostr relays. BitTasker does not operate a central database of user content, but does provide a Nostr relay to BitTasker users at no cost. Your data exists on the network for as long as the relays you've published to choose to store it."
+            },
+            "rights": {
+                "title": "Your Rights and Choices",
+                "content": "You have the ultimate right to your data. You can choose to stop using BitTasker at any time. Since you control your keys, you control your data. You can also connect to the Nostr network with other clients to manage the data associated with your public key, and export your private Nostr key to use on other Nostr clients while retaining your data and reputation."
+            },
+            "changes": {
+                "title": "Changes to This Policy",
+                "content": "We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page. We encourage you to review this Privacy Policy periodically for any changes. By using BitTasker, you agree to the Privacy Policy in effect at the time of your use."
+            },
+            "contact": {
+                "title": "Contact Us",
+                "content": "If you have any questions about this Privacy Policy, you can <a href=\"/contact\">contact us</a>."
+            }
+        }
+    }
+}

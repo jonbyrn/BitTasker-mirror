@@ -7,7 +7,9 @@
 	import { formatDistanceToNow, format } from 'date-fns';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
+	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { onMount } from 'svelte';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -18,6 +20,7 @@
 	let selectedImage = $state<string | null>(null);
 	let isDeleting = $state(false);
 	let errorMessage = $state('');
+	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Format helpers
 	const formatTimeAgo = (date: string | number): string => {
@@ -60,6 +63,19 @@
 			isDeleting = false;
 		}
 	}
+
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+			// Keep using fallback price
+		}
+	}
+
+	onMount(() => {
+		fetchBtcPrice();
+	});
 </script>
 
 <div class="space-y-6">
@@ -110,7 +126,7 @@
 		<div>
 			<h3 class="text-base-content/60 text-sm">Budget - {task.budget.type}</h3>
 			<p class="text-lg font-semibold">
-				{formatCurrency(task.budget.amount, task.budget.currency || 'USD')}
+				{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
 				{#if task.budget.type === 'HOURLY'}
 					<span class="text-sm font-normal">/hr</span>
 				{/if}

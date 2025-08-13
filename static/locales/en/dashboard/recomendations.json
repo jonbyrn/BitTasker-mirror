@@ -1,0 +1,16 @@
+{
+    "recommendations": {
+        "type": {
+            "skill_match": "Skills Match",
+            "title": "Recommended for You",
+            "not_found": "No recommendations available yet",
+            "generate": "Generate Recommendations",
+            "update": "Update",
+            "description": "As you engage in tasks, we will learn your preferences and provide personalized recommendations.",
+            "category_preference": "Category Preference",
+            "location_based": "Location Based",
+            "budget_range": "Budget Range",
+            "client_history": "Previous Clients"
+        }
+    }
+}

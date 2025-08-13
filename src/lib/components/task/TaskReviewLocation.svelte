@@ -2,7 +2,7 @@
 	import type { TaskBody } from '$lib/types/task';
 	import TaskLocationViewer from './TaskLocationViewer.svelte';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let { task, isRemovals = false } = $props<{
 		task: TaskBody;
@@ -27,7 +27,7 @@
 	</div>
 
 	{#if isRemoteTask}
-		<div class="alert alert-info">
+		<div class="alert alert-info alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
@@ -110,7 +110,7 @@
 			{/if}
 		</div>
 	{:else}
-		<div class="alert alert-warning">
+		<div class="alert alert-warning alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"

@@ -7,11 +7,11 @@
 		markNotificationsAsRead
 	} from '$lib/nostr/savedSearch';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	// State
 	let savedSearches = $state<SavedSearch[]>([]);
 	let isLoading = $state(true);
-	let error = $state<string | null>(null);
+    let error = $state<string | null>(null);
 	let editingSearch = $state<SavedSearch | null>(null);
 	let isEditFormOpen = $state(false);
 	let confirmDeleteId = $state<string | null>(null);
@@ -19,14 +19,14 @@
 	// Load saved searches on component mount
 	loadSavedSearches();
 
-	async function loadSavedSearches() {
+    async function loadSavedSearches() {
 		try {
 			isLoading = true;
 			error = null;
 			savedSearches = await getSavedSearches();
 		} catch (err) {
 			console.error('Error loading saved searches:', err);
-			error = 'Failed to load saved searches. Please try again.';
+            error = 'profile_task.errors.load_saved_searches';
 		} finally {
 			isLoading = false;
 		}
@@ -61,7 +61,7 @@
 	}
 
 	// Delete saved search
-	async function deleteSearch(id: string) {
+    async function deleteSearch(id: string) {
 		try {
 			await deleteSavedSearch(id);
 
@@ -70,12 +70,12 @@
 			confirmDeleteId = null;
 		} catch (err) {
 			console.error('Error deleting saved search:', err);
-			error = 'Failed to delete saved search.';
+            error = 'profile_task.errors.delete_saved_search';
 		}
 	}
 
 	// Toggle notifications
-	async function toggleNotifications(search: SavedSearch) {
+    async function toggleNotifications(search: SavedSearch) {
 		try {
 			await updateNotificationPreferences(
 				search.id,
@@ -89,12 +89,12 @@
 			);
 		} catch (err) {
 			console.error('Error toggling notifications:', err);
-			error = 'Failed to update notification settings.';
+            error = 'profile_task.errors.update_notification_settings';
 		}
 	}
 
 	// Mark all notifications as read
-	async function markNotificationsAsReadForSearch(searchId: string) {
+    async function markNotificationsAsReadForSearch(searchId: string) {
 		try {
 			await markNotificationsAsRead(searchId);
 
@@ -104,15 +104,15 @@
 			);
 		} catch (err) {
 			console.error('Error marking notifications as read:', err);
-			error = 'Failed to mark notifications as read.';
+            error = 'profile_task.errors.mark_notifications_read';
 		}
 	}
 </script>
 
 <div class="card bg-base-100 mb-6 rounded-xl p-4">
-	<h2 class="mb-4 text-xl font-bold">{$t('profile.saved_searches_title')}</h2>
+	<h2 class="mb-4 text-xl font-bold">{$t('profile_task.saved_searches_title')}</h2>
 
-	{#if error}
+    {#if error}
 		<div class="alert alert-error mb-4">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -128,8 +128,8 @@
 					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadSavedSearches}>Retry</button>
+            <span>{$t(error)}</span>
+            <button class="btn btn-sm" onclick={loadSavedSearches}>{$t('profile_task.retry')}</button>
 		</div>
 	{/if}
 
@@ -153,9 +153,9 @@
 					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 				/>
 			</svg>
-			<p class="text-lg font-medium">{$t('profile.no_saved_searches')}</p>
+			<p class="text-lg font-medium">{$t('profile_task.no_saved_searches')}</p>
 			<p class="mb-4 text-gray-500">
-				{$t('profile.saved_searches_info')}
+				{$t('profile_task.saved_searches_info')}
 			</p>
 		</div>
 	{:else}
@@ -167,13 +167,13 @@
 						<div class="flex items-start justify-between">
 							<h3 class="card-title text-md">{search.name}</h3>
 
-							{#if (search.unreadNotifications ?? 0) > 0}
+                            {#if (search.unreadNotifications ?? 0) > 0}
 								<button
-									class="badge badge-primary tooltip"
-									data-tip="New matching tasks"
+                                    class="badge badge-primary tooltip"
+                                    data-tip={$t('profile_task.new_matching_tasks')}
 									onclick={() => markNotificationsAsReadForSearch(search.id)}
 								>
-									{search.unreadNotifications} new
+                                    {search.unreadNotifications} {$t('profile_task.unread_new_label')}
 								</button>
 							{/if}
 						</div>
@@ -194,15 +194,15 @@
 								{/if}
 							</div>
 
-							{#if search.params.budget?.tier}
+                            {#if search.params.budget?.tier}
 								<div class="mt-1">
-									Budget tier: {search.params.budget.tier}
+                                    {$t('profile_task.budget_tier_label')}: {search.params.budget.tier}
 								</div>
 							{/if}
 						</div>
 
 						<div class="mt-2 text-xs text-white/90">
-							Created: {formatDate(search.createdAt)}
+                            {$t('profile_task.created_label')}: {formatDate(search.createdAt)}
 						</div>
 
 						<!-- Action buttons -->
@@ -216,7 +216,7 @@
 									/>
 
 									<!-- Notifications OFF icon -->
-									<div class="swap-off flex items-center text-gray-500">
+                                    <div class="swap-off flex items-center text-gray-500">
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="mr-1 h-5 w-5"
@@ -231,11 +231,11 @@
 												d="M6 18L18 6M6 6l12 12"
 											/>
 										</svg>
-										<span class="text-xs">Notifications off</span>
+                                        <span class="text-xs">{$t('profile_task.notifications_off')}</span>
 									</div>
 
 									<!-- Notifications ON icon -->
-									<div class="swap-on text-primary flex items-center">
+                                    <div class="swap-on text-primary flex items-center">
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="mr-1 h-5 w-5"
@@ -250,14 +250,14 @@
 												d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
 											/>
 										</svg>
-										<span class="text-xs">Notifications on</span>
+                                        <span class="text-xs">{$t('profile_task.notifications_on')}</span>
 									</div>
 								</label>
 							</div>
 
 							<div class="flex gap-2">
 								<button
-									aria-label="Edit saved search"
+                                    aria-label={$t('profile_task.actions.edit_saved_search')}
 									class="btn btn-sm btn-ghost btn-square"
 									onclick={() => openEditForm(search)}
 								>
@@ -278,7 +278,7 @@
 								</button>
 
 								<button
-									aria-label="Delete saved search"
+                                    aria-label={$t('profile_task.actions.delete_saved_search')}
 									class="btn btn-sm btn-ghost btn-square text-error"
 									onclick={() => (confirmDeleteId = search.id)}
 								>
@@ -319,12 +319,12 @@
 {#if confirmDeleteId}
 	<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50">
 		<div class="bg-base-100 w-[90%] max-w-sm rounded-lg p-6">
-			<h3 class="mb-2 text-lg font-bold">Confirm Delete</h3>
-			<p>Are you sure you want to delete this saved search? This cannot be undone.</p>
+            <h3 class="mb-2 text-lg font-bold">{$t('profile_task.confirm_delete.title')}</h3>
+            <p>{$t('profile_task.confirm_delete.message')}</p>
 
 			<div class="modal-action">
-				<button class="btn" onclick={() => (confirmDeleteId = null)}>Cancel</button>
-				<button class="btn btn-error" onclick={() => deleteSearch(confirmDeleteId!)}>Delete</button>
+                <button class="btn" onclick={() => (confirmDeleteId = null)}>{$t('profile_task.confirm_delete.cancel')}</button>
+                <button class="btn btn-error" onclick={() => deleteSearch(confirmDeleteId!)}>{$t('profile_task.confirm_delete.delete')}</button>
 			</div>
 		</div>
 	</div>

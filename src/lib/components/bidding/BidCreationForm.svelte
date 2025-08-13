@@ -1,80 +1,107 @@
 <script lang="ts">
-	import type { CreateBidParams, Currency, Milestone, PaymentType } from '$lib/types/bid';
+	import type { CreateBidParams, PaymentType } from '$lib/types/bid';
 	import { AxiosError } from 'axios';
 	import { linear } from 'svelte/easing';
-	import { t } from '$lib/stores/i18n.store';
-	import { fly, slide } from 'svelte/transition';
+	import { t } from 'svelte-i18n';
+	import { fly } from 'svelte/transition';
 	import bidService from '$lib/api/services/bid.service';
-	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 
 	// Props
-	const { taskId, onClose } = $props<{ taskId: number; onClose: () => void }>();
+	const { taskId, onClose } = $props<{ taskId: string; onClose: () => void }>();
 
 	// Form state
 	let bidType = $state<PaymentType>('FIXED');
-	let amount = $state<string>('');
-	let currency = $state<Currency>('BTC');
-	let hourlyRate = $state<string>('');
+	let amount = $state<string>(''); // This will store sats
+	let hourlyRate = $state<string>(''); // This will store sats
 	let estimatedHours = $state<string>('');
 	let description = $state('');
 	let estimatedDuration = $state('');
 	let proposedApproach = $state('');
 	let coverLetter = $state('');
-	let milestones = $state<Partial<Milestone>[]>([
-		{
-			title: '',
-			description: '',
-			amount: 0,
-			deliverables: '',
-			sequence: 1,
-			dueDate: '',
-			estimatedHours: 0
-		}
-	]);
 	let submittingBid = $state(false);
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
 
-	// Currency options
-	const currencyOptions: Currency[] = ['BTC', 'L-BTC', 'USD', 'LN'];
+	// USDT conversion state
+	let usdAmount = $state<number>(0);
+	let btcPrice = $state<number>(63000); // Default fallback price
 
-	// Dynamic array handling
-	function addItem(array: Partial<Milestone>[], index: number) {
-		const newArray = [...array];
-		newArray.splice(index + 1, 0, {
-			title: '',
-			description: '',
-			amount: 0,
-			deliverables: '',
-			sequence: array.length + 1,
-			dueDate: '',
-			estimatedHours: 0
-		});
-		return newArray;
+	// Fetch BTC price on mount
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+		}
 	}
 
-	function removeItem(array: Partial<Milestone>[], index: number) {
-		if (array.length > 1) {
-			const newArray = [...array];
-			newArray.splice(index, 1);
-			// Update sequence numbers
-			return newArray.map((item, i) => ({
-				...item,
-				sequence: i + 1
-			}));
+	// Handle USD amount changes for USDT
+	function handleUsdChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const usdValue = parseFloat(input.replace(/,/g, ''));
+		if (!isNaN(usdValue)) {
+			usdAmount = usdValue;
+			const satsValue = satsFromUsd(usdValue, btcPrice);
+			amount = satsValue.toString();
 		} else {
-			const newArray = [...array];
-			newArray[0] = {
-				title: '',
-				description: '',
-				amount: 0,
-				deliverables: '',
-				sequence: 1,
-				dueDate: '',
-				estimatedHours: 0
-			};
-			return newArray;
+			usdAmount = 0;
+			amount = '0';
 		}
+	}
+
+	// Handle sats amount changes
+	function handleSatsChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const satsValue = parseInt(input.replace(/,/g, ''), 10);
+		if (!isNaN(satsValue)) {
+			amount = satsValue.toString();
+			usdAmount = usdFromSats(satsValue, btcPrice);
+		} else {
+			amount = '0';
+			usdAmount = 0;
+		}
+	}
+
+	// Handle hourly rate USD changes
+	function handleHourlyRateUsdChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const usdValue = parseFloat(input.replace(/,/g, ''));
+		if (!isNaN(usdValue)) {
+			usdAmount = usdValue;
+			const satsValue = satsFromUsd(usdValue, btcPrice);
+			hourlyRate = satsValue.toString();
+		} else {
+			usdAmount = 0;
+			hourlyRate = '0';
+		}
+	}
+
+	// Handle hourly rate sats changes
+	function handleHourlyRateSatsChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const satsValue = parseInt(input.replace(/,/g, ''), 10);
+		if (!isNaN(satsValue)) {
+			hourlyRate = satsValue.toString();
+			usdAmount = usdFromSats(satsValue, btcPrice);
+		} else {
+			hourlyRate = '0';
+			usdAmount = 0;
+		}
+	}
+
+	function cleanInput(value: string): string {
+		// Solo permite dígitos, comas y punto
+		return value.replace(/[^0-9.,]/g, '');
 	}
 
 	// Derived calculations
@@ -88,40 +115,53 @@
 	function validateBidForm() {
 		const errors: Record<string, string> = {};
 
-		if (!amount && bidType === 'FIXED') {
-			errors.amount = 'Please enter a bid amount';
-		} else if (bidType === 'FIXED' && parseFloat(amount) <= 0) {
-			errors.amount = 'Bid amount must be greater than 0';
+		// Validate taskId
+		if (!taskId) {
+			errors.general = $t('bid_form.errors.task_id_required');
+			return false;
 		}
 
+		// Validate amount for FIXED type
+		if (bidType === 'FIXED') {
+			if (!amount || amount.trim() === '') {
+				errors.amount = $t('bid_form.errors.amount_required');
+			} else if (parseFloat(amount) <= 0) {
+				errors.amount = $t('bid_form.errors.amount_greater_than_zero');
+			}
+		}
+
+		// Validate hourly rate and estimated hours for HOURLY type
 		if (bidType === 'HOURLY') {
-			if (!hourlyRate) {
-				errors.hourlyRate = 'Please enter an hourly rate';
+			if (!hourlyRate || hourlyRate.trim() === '') {
+				errors.hourlyRate = $t('bid_form.errors.hourly_rate_required');
 			} else if (parseFloat(hourlyRate) <= 0) {
-				errors.hourlyRate = 'Hourly rate must be greater than 0';
+				errors.hourlyRate = $t('bid_form.errors.hourly_rate_greater_than_zero');
 			}
 
-			if (!estimatedHours) {
-				errors.estimatedHours = 'Please enter estimated hours';
+			if (!estimatedHours || estimatedHours.trim() === '') {
+				errors.estimatedHours = $t('bid_form.errors.estimated_hours_required');
 			} else if (parseFloat(estimatedHours) <= 0) {
-				errors.estimatedHours = 'Estimated hours must be greater than 0';
+				errors.estimatedHours = $t('bid_form.errors.estimated_hours_greater_than_zero');
 			}
 		}
 
-		if (!description.trim()) {
-			errors.description = 'Please enter a description for your bid';
-		} else if (description.length < 50) {
-			errors.description = 'Description should be at least 50 characters';
+		// Validate description
+		if (!description || description.trim() === '') {
+			errors.description = $t('bid_form.errors.description_required');
+		} else if (description.trim().length < 50) {
+			errors.description = $t('bid_form.errors.description_min_length');
 		}
 
-		if (!estimatedDuration.trim()) {
-			errors.estimatedDuration = 'Please provide an estimated completion time';
+		// Validate estimated duration
+		if (!estimatedDuration || estimatedDuration.trim() === '') {
+			errors.estimatedDuration = $t('bid_form.errors.estimated_duration_required');
 		}
 
-		if (!proposedApproach.trim()) {
-			errors.proposedApproach = 'Please describe your approach to this task';
-		} else if (proposedApproach.length < 50) {
-			errors.proposedApproach = 'Your approach description should be at least 50 characters';
+		// Validate proposed approach
+		if (!proposedApproach || proposedApproach.trim() === '') {
+			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
+		} else if (proposedApproach.trim().length < 50) {
+			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
 		}
 
 		bidFormErrors = errors;
@@ -130,38 +170,23 @@
 
 	// Handle form submission
 	async function handleBidSubmit() {
-		if (!validateBidForm()) return;
+		if (!validateBidForm()) {
+			return;
+		}
 
 		submittingBid = true;
 
 		try {
-			// Filter out empty items
-			const filteredMilestones = milestones
-				.filter(
-					(m) =>
-						m.title?.trim() !== '' || m.description?.trim() !== '' || m.deliverables?.trim() !== ''
-				)
-				.map((m, i) => ({
-					title: m.title || `Milestone ${i + 1}`,
-					description: m.description || '',
-					amount: m.amount || 0,
-					deliverables: m.deliverables || '',
-					sequence: m.sequence || i + 1,
-					dueDate: m.dueDate || '',
-					estimatedHours: m.estimatedHours || 0
-				}));
-
 			const newBid: Partial<CreateBidParams> = {
-				taskId,
+				taskId: taskId,
 				description,
 				estimatedDuration,
 				proposedApproach,
 				coverLetter: description, // Using description as coverLetter as per form
 				paymentType: bidType,
-				currency,
+				currency: 'SATS',
 				visibility: 'PUBLIC',
-				responseTime: 24, // Default response time in hours
-				milestones: filteredMilestones.length > 0 ? filteredMilestones : undefined
+				responseTime: 24 // Default response time in hours
 			};
 
 			if (bidType === 'FIXED') {
@@ -184,15 +209,20 @@
 				if (Array.isArray(message)) bidFormErrors.general = message[0];
 				else bidFormErrors.general = message;
 			} else if (error instanceof Error) bidFormErrors.general = error.message;
-			else bidFormErrors.general = 'Failed to submit bid. Please try again.';
+			else bidFormErrors.general = $t('bid_form.errors.submit_failed');
 		} finally {
 			submittingBid = false;
 		}
 	}
+
+	// Initialize BTC price on mount
+	$effect(() => {
+		fetchBtcPrice();
+	});
 </script>
 
-<div class="bg-base-100 relative mx-auto rounded-lg opacity-30 shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">Place your bid (Coming Soon)</h2>
+<div class="bg-base-100 relative mx-auto rounded-lg shadow-lg">
+	<h2 class="mb-6 text-2xl font-bold">{$t('bid_form.title')}</h2>
 
 	{#if bidSubmitted}
 		<div
@@ -220,13 +250,12 @@
 					/>
 				</svg>
 			</div>
-			<h3 class="mb-2 text-xl font-semibold">Bid Submitted Successfully!</h3>
+			<h3 class="mb-2 text-xl font-semibold">{$t('bid_form.success.title')}</h3>
 			<p class="text-base-content/70 mb-4">
-				Your bid has been submitted successfully. The task requester will review your bid and may
-				contact you with questions or a counter-offer.
+				{$t('bid_form.success.message')}
 			</p>
 			<div class="flex justify-center gap-4">
-				<button class="btn btn-primary" onclick={onClose}>Close</button>
+				<button class="btn btn-primary" onclick={onClose}>{$t('bid_form.success.close')}</button>
 			</div>
 		</div>
 	{:else}
@@ -240,7 +269,7 @@
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">
-					<span class="label-text">Payment Type</span>
+					<span class="label-text">{$t('bid_form.form.payment_type')}</span>
 				</label>
 				<div
 					id="payment-type-group"
@@ -257,7 +286,7 @@
 						role="radio"
 						aria-checked={bidType === 'FIXED'}
 					>
-						Fixed Price
+						{$t('bid_form.form.fixed_price')}
 					</button>
 					<button
 						type="button"
@@ -268,39 +297,50 @@
 						role="radio"
 						aria-checked={bidType === 'HOURLY'}
 					>
-						Hourly Rate
+						{$t('bid_form.form.hourly_rate')}
 					</button>
 				</div>
 			</div>
 
 			{#if bidType === 'FIXED'}
-				<!-- Fixed price bid amount -->
+				<!-- Fixed price bid amount - USD and Sats like in create-task -->
 				<div class="form-control">
 					<label class="label" for="bid-amount">
-						<span class="label-text">Your Bid Amount ({currency})</span>
+						<span class="label-text">{$t('bid_form.form.budget')}</span>
 					</label>
-					<div class="grid grid-cols-4 gap-2">
-						<select
-							id="bid-currency"
-							class="select select-bordered col-span-1"
-							bind:value={currency}
-						>
-							{#each currencyOptions as option}
-								<option value={option}>{option}</option>
-							{/each}
-						</select>
-						<input
-							id="bid-amount"
-							type="number"
-							class="input input-bordered col-span-3 w-full"
-							class:input-error={bidFormErrors.amount}
-							placeholder="0.00123"
-							min="0.00001"
-							step="0.00001"
-							aria-describedby={bidFormErrors.amount ? 'amount-error' : undefined}
-							aria-invalid={bidFormErrors.amount ? 'true' : undefined}
-							bind:value={amount}
-						/>
+					<div class="flex gap-2">
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"
+								>$</span
+							>
+							<input
+								type="text"
+								id="bid-usd"
+								value={formatNumberForInput(usdAmount)}
+								onchange={handleUsdChange}
+								oninput={handleUsdChange}
+								class="input input-bordered w-full pl-7 {bidFormErrors.amount ? 'input-error' : ''}"
+								placeholder={$t('bid_form.form.usd_placeholder')}
+								min="0"
+							/>
+						</div>
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
+								>Sats</span
+							>
+							<input
+								type="text"
+								id="bid-sats"
+								value={formatNumberForInput(parseInt(amount || '0'))}
+								onchange={handleSatsChange}
+								oninput={handleSatsChange}
+								class="input input-bordered w-full pr-12 {bidFormErrors.amount
+									? 'input-error'
+									: ''}"
+								placeholder={$t('bid_form.form.sats_placeholder')}
+								min="0"
+							/>
+						</div>
 					</div>
 					{#if bidFormErrors.amount}
 						<div class="label">
@@ -309,89 +349,112 @@
 							>
 						</div>
 					{/if}
+					{#if parseInt(amount || '0') > 0}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+						</span>
+					{/if}
 				</div>
 			{:else}
+				<!-- Hourly rate bid details -->
 				<div class="form-control">
-					<!-- Hourly rate bid details -->
-					<div class="grid grid-cols-2 gap-4">
-						<div class="form-control">
-							<label class="label" for="hourly-rate">
-								<span class="label-text">Hourly Rate ({currency})</span>
-							</label>
-							<div class="grid grid-cols-4 gap-2">
-								<select
-									id="hourly-currency"
-									class="select select-bordered col-span-1"
-									bind:value={currency}
-								>
-									{#each currencyOptions as option}
-										<option value={option}>{option}</option>
-									{/each}
-								</select>
-								<input
-									id="hourly-rate"
-									type="number"
-									class="input input-bordered col-span-3 w-full {bidFormErrors.hourlyRate
-										? 'input-error'
-										: ''}"
-									placeholder="0.0001"
-									min="0.00001"
-									step="0.00001"
-									bind:value={hourlyRate}
-								/>
-							</div>
-							{#if bidFormErrors.hourlyRate}
-								<div class="label">
-									<span class="label-text-alt text-error" id="hourly-rate-error" aria-live="polite"
-										>{bidFormErrors.hourlyRate}</span
-									>
-								</div>
-							{/if}
-						</div>
-						<div class="form-control">
-							<label class="label" for="estimated-hours">
-								<span class="label-text">Estimated Hours</span>
-							</label>
+					<label class="label" for="hourly-rate">
+						<span class="label-text">{$t('bid_form.form.hourly_rate_label')}</span>
+					</label>
+					<div class="flex gap-2">
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"
+								>$</span
+							>
 							<input
-								id="estimated-hours"
-								type="number"
-								class="input input-bordered w-full"
-								class:input-error={bidFormErrors.estimatedHours}
-								aria-invalid={bidFormErrors.estimatedHours ? 'true' : undefined}
-								aria-describedby={bidFormErrors.estimatedHours
-									? 'estimated-hours-error'
-									: undefined}
-								placeholder="10"
-								min="1"
-								step="1"
-								bind:value={estimatedHours}
+								type="text"
+								id="hourly-rate-usd"
+								value={formatNumberForInput(usdAmount)}
+								onchange={handleHourlyRateUsdChange}
+								oninput={handleHourlyRateUsdChange}
+								class="input input-bordered w-full pl-7 {bidFormErrors.hourlyRate
+									? 'input-error'
+									: ''}"
+								placeholder={$t('bid_form.form.hourly_usd_placeholder')}
+								min="0"
 							/>
-							{#if bidFormErrors.estimatedHours}
-								<div class="label">
-									<span
-										class="label-text-alt text-error"
-										id="estimated-hours-error"
-										aria-live="polite">{bidFormErrors.estimatedHours}</span
-									>
-								</div>
-							{/if}
+						</div>
+						<div class="relative flex-1">
+							<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
+								>Sats</span
+							>
+							<input
+								type="text"
+								id="hourly-rate-sats"
+								value={formatNumberForInput(parseInt(hourlyRate || '0'))}
+								onchange={handleHourlyRateSatsChange}
+								oninput={handleHourlyRateSatsChange}
+								class="input input-bordered w-full pr-12 {bidFormErrors.hourlyRate
+									? 'input-error'
+									: ''}"
+								placeholder={$t('bid_form.form.hourly_sats_placeholder')}
+								min="0"
+							/>
 						</div>
 					</div>
+					{#if bidFormErrors.hourlyRate}
+						<div class="label">
+							<span class="label-text-alt text-error" id="hourly-rate-error" aria-live="polite"
+								>{bidFormErrors.hourlyRate}</span
+							>
+						</div>
+					{/if}
+					{#if parseInt(hourlyRate || '0') > 0}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+						</span>
+					{/if}
+				</div>
 
-					<!-- Estimated total for hourly rate -->
-					<div class="form-control">
-						<label class="label" for="total-estimated-amount">
-							<span class="label-text">Total Estimated Amount</span>
-						</label>
-						<div class="bg-base-200 rounded-md p-3">
-							<div class="text-lg font-semibold">
-								{currency}
-								{getTotalAmount.toFixed(8)}
-							</div>
-							<div class="text-sm opacity-70">
-								{currency}
-								{parseFloat(hourlyRate || '0').toFixed(8)} × {estimatedHours || '0'} hours
-							</div>
+				<!-- Estimated Hours -->
+				<div class="form-control">
+					<label class="label" for="estimated-hours">
+						<span class="label-text">{$t('bid_form.form.estimated_hours')}</span>
+					</label>
+					<input
+						id="estimated-hours"
+						type="number"
+						class="input input-bordered w-full"
+						class:input-error={bidFormErrors.estimatedHours}
+						aria-invalid={bidFormErrors.estimatedHours ? 'true' : undefined}
+						aria-describedby={bidFormErrors.estimatedHours ? 'estimated-hours-error' : undefined}
+						placeholder={$t('bid_form.form.hours_placeholder')}
+						min="1"
+						step="1"
+						bind:value={estimatedHours}
+					/>
+					{#if bidFormErrors.estimatedHours}
+						<div class="label">
+							<span class="label-text-alt text-error" id="estimated-hours-error" aria-live="polite"
+								>{bidFormErrors.estimatedHours}</span
+							>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Estimated total for hourly rate -->
+				<div class="form-control">
+					<label class="label" for="total-estimated-amount">
+						<span class="label-text">{$t('bid_form.form.total_estimated')}</span>
+					</label>
+					<div class="bg-base-200 rounded-md p-3">
+						<div class="text-lg font-semibold">
+							${(
+								(parseInt(hourlyRate || '0') / 100_000_000) *
+								btcPrice *
+								parseFloat(estimatedHours || '0')
+							).toFixed(2)}
+						</div>
+						<div class="text-sm opacity-70">
+							{parseInt(hourlyRate || '0')} sats × {estimatedHours || '0'} hours
+						</div>
+						<div class="mt-1 text-sm opacity-70">
+							≈ {parseInt(hourlyRate || '0') * parseInt(estimatedHours || '0')} sats
 						</div>
 					</div>
 				</div>
@@ -400,14 +463,14 @@
 			<!-- Estimated completion time -->
 			<div class="form-control">
 				<label class="label" for="estimated-duration">
-					<span class="label-text">{$t('bid.form.estimated_duration.label')}</span>
+					<span class="label-text">{$t('bid_form.form.estimated_duration.label')}</span>
 				</label>
 				<input
 					id="estimated-duration"
 					type="text"
 					class="input input-bordered w-full {bidFormErrors.estimatedDuration ? 'input-error' : ''}"
 					class:input-error={bidFormErrors.estimatedDuration}
-					placeholder={$t('bid.form.estimated_duration.placeholder')}
+					placeholder={$t('bid_form.form.estimated_duration.placeholder')}
 					aria-invalid={bidFormErrors.estimatedDuration ? 'true' : undefined}
 					aria-describedby={bidFormErrors.estimatedDuration
 						? 'estimated-duration-error'
@@ -426,14 +489,14 @@
 			<!-- Bid Description -->
 			<div class="form-control">
 				<label class="label block" for="bid-description">
-					<span class="label-text">{$t('bid.form.description.label')}</span>
+					<span class="label-text">{$t('bid_form.form.description.label')}</span>
 				</label>
 				<textarea
 					id="bid-description"
 					class="textarea textarea-bordered h-24 w-full {bidFormErrors.description
 						? 'textarea-error'
 						: ''}"
-					placeholder={$t('bid.form.description.placeholder')}
+					placeholder={$t('bid_form.form.description.placeholder')}
 					bind:value={description}
 				></textarea>
 				{#if bidFormErrors.description}
@@ -448,7 +511,7 @@
 			<!-- Your approach -->
 			<div class="form-control">
 				<label class="label block" for="proposed-approach">
-					<span class="label-text">{$t('bid.form.approach.label')}</span>
+					<span class="label-text">{$t('bid_form.form.approach.label')}</span>
 				</label>
 				<textarea
 					id="proposed-approach"
@@ -456,7 +519,7 @@
 						? 'textarea-error'
 						: ''}"
 					class:textarea-error={bidFormErrors.proposedApproach}
-					placeholder={$t('bid.form.approach.placeholder')}
+					placeholder={$t('bid_form.form.approach.placeholder')}
 					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
 					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
 					bind:value={proposedApproach}
@@ -475,14 +538,14 @@
 			<!-- Cover letter -->
 			<div class="form-control">
 				<label class="label block" for="bid-cover-letter">
-					<span class="label-text">{$t('bid.form.cover_letter.label')}</span>
+					<span class="label-text">{$t('bid_form.form.cover_letter.label')}</span>
 				</label>
 				<textarea
 					id="bid-cover-letter"
 					class="textarea textarea-bordered h-24 w-full {bidFormErrors.coverLetter
 						? 'textarea-error'
 						: ''}"
-					placeholder={$t('bid.form.cover_letter.placeholder')}
+					placeholder={$t('bid_form.form.cover_letter.placeholder')}
 					bind:value={coverLetter}
 				></textarea>
 				{#if bidFormErrors.coverLetter}
@@ -494,209 +557,13 @@
 				{/if}
 			</div>
 
-			<!-- Milestones -->
-			<div class="form-control">
-				<div class="flex items-center justify-between">
-					<label class="label" id="milestones-label" for="milestones-container">
-						<span class="label-text font-medium">Milestones (Optional)</span>
-					</label>
-					<button
-						type="button"
-						class="btn btn-sm btn-outline"
-						onclick={() => (milestones = addItem(milestones, milestones.length - 1))}
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="mr-1 h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-							/>
-						</svg>
-						Add Milestone
-					</button>
-				</div>
-
-				<div id="milestones-container" class="border-base-300 bg-base-100 rounded-lg border p-1">
-					{#each milestones as milestone, i}
-						<div
-							class="border-base-200 mb-4 rounded-md border p-4"
-							transition:slide={{ duration: 200 }}
-						>
-							<div class="mb-2 flex items-center justify-between">
-								<h3 class="text-lg font-medium">Milestone {i + 1}</h3>
-								<button
-									type="button"
-									class="btn btn-circle btn-ghost btn-sm"
-									onclick={() => (milestones = removeItem(milestones, i))}
-									aria-label="Remove milestone"
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
-										/>
-									</svg>
-								</button>
-							</div>
-
-							<!-- Title field -->
-							<div class="form-control">
-								<label class="label" for={`milestone-title-${i}`}>
-									<span class="label-text">Title</span>
-								</label>
-								<input
-									id={`milestone-title-${i}`}
-									type="text"
-									class="input input-bordered w-full"
-									value={milestone.title}
-									oninput={(e) => {
-										const newMilestones = [...milestones];
-										newMilestones[i] = {
-											...newMilestones[i],
-											title: (e.target as HTMLInputElement).value
-										};
-										milestones = newMilestones;
-									}}
-									placeholder="e.g., Initial Design"
-								/>
-							</div>
-
-							<!-- Description field -->
-							<div class="form-control mt-2">
-								<label class="label" for={`milestone-description-${i}`}>
-									<span class="label-text">Description</span>
-								</label>
-								<textarea
-									id={`milestone-description-${i}`}
-									class="textarea textarea-bordered h-20 w-full"
-									value={milestone.description}
-									oninput={(e) => {
-										const newMilestones = [...milestones];
-										newMilestones[i] = {
-											...newMilestones[i],
-											description: (e.target as HTMLTextAreaElement).value
-										};
-										milestones = newMilestones;
-									}}
-									placeholder="Describe what this milestone involves"
-								></textarea>
-							</div>
-
-							<div class="mt-2 grid grid-cols-2 gap-4">
-								<!-- Amount field -->
-								<div class="form-control">
-									<label class="label" for={`milestone-amount-${i}`}>
-										<span class="label-text">Amount ({currency})</span>
-									</label>
-									<input
-										id={`milestone-amount-${i}`}
-										type="number"
-										min="0"
-										step="0.01"
-										class="input input-bordered w-full"
-										value={milestone.amount}
-										oninput={(e) => {
-											const newMilestones = [...milestones];
-											newMilestones[i] = {
-												...newMilestones[i],
-												amount: parseFloat((e.target as HTMLInputElement).value) || 0
-											};
-											milestones = newMilestones;
-										}}
-									/>
-								</div>
-
-								<!-- Estimated Hours field -->
-								<div class="form-control">
-									<label class="label" for={`milestone-hours-${i}`}>
-										<span class="label-text">Estimated Hours</span>
-									</label>
-									<input
-										id={`milestone-hours-${i}`}
-										type="number"
-										min="0"
-										step="0.5"
-										class="input input-bordered w-full"
-										value={milestone.estimatedHours}
-										oninput={(e) => {
-											const newMilestones = [...milestones];
-											newMilestones[i] = {
-												...newMilestones[i],
-												estimatedHours: parseFloat((e.target as HTMLInputElement).value) || 0
-											};
-											milestones = newMilestones;
-										}}
-									/>
-								</div>
-							</div>
-
-							<div class="mt-2 grid w-full gap-4 sm:grid-cols-2">
-								<!-- Due Date field -->
-								<div class="form-control w-full">
-									<label class="label" for={`milestone-due-date-${i}`}>
-										<span class="label-text">Due Date</span>
-									</label>
-									<DatePicker
-										value={milestone.dueDate}
-										onChange={(value: string) => {
-											const newMilestones = [...milestones];
-											newMilestones[i] = { ...newMilestones[i], dueDate: value };
-											milestones = newMilestones;
-										}}
-									/>
-								</div>
-							</div>
-
-							<!-- Deliverables field -->
-							<div class="form-control mt-2">
-								<label class="label" for={`milestone-deliverables-${i}`}>
-									<span class="label-text">Deliverables</span>
-								</label>
-								<textarea
-									id={`milestone-deliverables-${i}`}
-									class="textarea textarea-bordered h-20 w-full rounded-xl"
-									value={milestone.deliverables}
-									oninput={(e) => {
-										const newMilestones = [...milestones];
-										newMilestones[i] = {
-											...newMilestones[i],
-											deliverables: (e.target as HTMLTextAreaElement).value
-										};
-										milestones = newMilestones;
-									}}
-									placeholder="What specific items will be delivered at this milestone"
-								></textarea>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</div>
-
-			<!-- Divider -->
-			<div class="divider"></div>
-
 			<!-- Submit Buttons -->
 			<button type="submit" class="btn btn-primary block justify-self-end" disabled={submittingBid}>
 				{#if submittingBid}
 					<span class="loading loading-spinner loading-sm"></span>
-					Submitting...
+					{$t('bid_form.form.submitting')}
 				{:else}
-					Submit Bid
+					{$t('bid_form.form.submit_bid')}
 				{/if}
 			</button>
 			{#if bidFormErrors.general}
@@ -706,6 +573,4 @@
 			{/if}
 		</form>
 	{/if}
-
-	<div class="absolute top-0 left-0 h-full w-full"></div>
 </div>

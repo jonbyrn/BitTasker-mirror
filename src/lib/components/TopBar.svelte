@@ -1,8 +1,7 @@
 <script lang="ts">
-	import type { Locales } from '$lib/stores/i18n.store';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
@@ -38,6 +37,7 @@
 	import IconWallet from '~icons/mdi/wallet';
 	import IconAccount from '~icons/mdi/account';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
+  import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
 
 	// Control drawer visibility
 	let isDrawerOpen = $state(false);
@@ -266,10 +266,11 @@
 							<IconHelpCircleOutline class="text-primary" />
 							<span>{$t('navbar.support_help')}</span>
 						</summary>
-						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
+                        <ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
 							<li><a href="/how-it-works" onclick={closeDropdowns}><IconHelpCircleOutline class="text-primary" /> <span>{$t('navbar.how_it_works')}</span></a></li>
 							<li><a href="/faq" onclick={closeDropdowns}><IconFrequentlyAskedQuestions class="text-primary" /> <span>{$t('navbar.faq')}</span></a></li>
 							<li><a href="/contact" onclick={closeDropdowns}><IconEmailOutline class="text-primary" /> <span>{$t('navbar.contact_support')}</span></a></li>
+                            <li><a href="/feedback" onclick={closeDropdowns}><IconCommentTextOutline class="text-primary" /> <span>{$t('navbar.feedback')}</span></a></li>
 							<li><a href="/about" onclick={closeDropdowns}><IconInformationOutline class="text-primary" /> <span>{$t('navbar.about_us')}</span></a></li>
 							<li><a href="/terms" onclick={closeDropdowns}><IconFileDocumentOutline class="text-primary" /> <span>{$t('navbar.terms_of_service')}</span></a></li>
 							<li><a href="/privacy" onclick={closeDropdowns}><IconShieldAccount class="text-primary" /> <span>{$t('navbar.privacy_policy')}</span></a></li>
@@ -412,7 +413,7 @@
 </div>
 
 <!-- Mobile Drawer -->
-<Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" width="80%" isScrollable={true}>
+<Drawer isOpen={isDrawerOpen} onClose={closeDrawer} position="left" isScrollable={true}>
 	{#snippet children()}
 		<ul class="menu w-full">
 			<!-- Dark mode toggle -->

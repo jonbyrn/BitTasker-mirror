@@ -19,8 +19,8 @@ const config = {
 			// Path to build output
 			pages: 'build',
 			assets: 'build',
-			// Precompress content for better performance
-			precompress: true,
+			// Precompress only when explicitly enabled
+			precompress: process.env.PRECOMPRESS === '1',
 			// Make all paths strict
 			strict: true
 		}),

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { formatDate, yearsFrom } = $props<{
 		formatDate: (date: string) => string;
@@ -21,17 +21,17 @@
 	{:else if $profileStore.data}
 		<!-- About -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.about')}</h3>
+			<h3 class="mb-4 text-xl font-semibold ">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
-				<p class="text-base-content/70 max-w-2xl whitespace-pre-line">{$profileStore.data.about}</p>
+				<p class="text-base-content/70 line-clamp-2 truncate max-w-2xl whitespace-pre-line">{$profileStore.data.about}</p>
 			{:else}
-				<p class="text-base-content/70 max-w-2xl">{$t('profile.noDescription')}</p>
+				<p class="text-base-content/70 line-clamp-2 truncate max-w-2xl ">{$t('profile.noDescription')}</p>
 			{/if}
 		</div>
 
 		<!-- Skills Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.skills')}</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.skills.title')}</h3>
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each $profileStore.data.skills as skill}
@@ -104,7 +104,7 @@
 
 		<!-- Portfolio Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio')}</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.portfolio.title')}</h3>
 			{#if $profileStore.data.portfolio && $profileStore.data.portfolio.length > 0}
 				<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 					{#each $profileStore.data.portfolio as item}
@@ -116,7 +116,7 @@
 										{formatDate(item.completionDate)}
 									</span>
 								</h4>
-								<p class="my-2">{item.description}</p>
+								<p class="my-2 line-clamp-4">{item.description}</p>
 								{#if item.images && item.images.length > 0}
 									<div class="carousel w-full rounded-lg">
 										{#each item.images as image, i}

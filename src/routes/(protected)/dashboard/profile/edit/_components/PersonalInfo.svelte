@@ -5,7 +5,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -203,9 +203,9 @@
 		<!-- Profile Pictures -->
 		<div class="space-y-4">
 			<div>
-				<span class="text-base-content/80 block font-medium">{$t('profile.photosLimit')}</span>
+				<span class="text-base-content/80 block font-medium">{$t('profile_personal.photosLimit')}</span>
 				<span class="text-base-content/70 block whitespace-normal">
-					{$t('profile.primaryPhotoNote')}
+					{$t('profile_personal.primaryPhotoNote')}
 				</span>
 			</div>
 
@@ -213,7 +213,7 @@
 			<div class="border-base-300 rounded-lg border p-1">
 				<Uploader
 					id="profilePictures"
-					label="Add Pictures"
+					label={$t('profile_personal.add_images')}
 					files={pictures.map((pic) => (pic instanceof File ? pic : pic.url))}
 					maxFiles={5}
 					onChange={handleImageUpload}
@@ -225,21 +225,21 @@
 		<!-- Display Name -->
 		<div class="form-control">
 			<label class="label" for="displayName">
-				<span class="label-text">{$t('profile.displayName')}</span>
+				<span class="label-text">{$t('profile_personal.displayName')}</span>
 			</label>
 			<input
 				type="text"
 				id="displayName"
 				bind:value={displayName}
 				class="input input-bordered mt-1 w-full"
-				placeholder="Your display name"
+				placeholder={$t('profile_personal.displayName')}
 			/>
 		</div>
 
 		<!-- Professional Title -->
 		<div class="form-control">
 			<label class="label" for="professionalTitle">
-				<span class="label-text">{$t('profile.professionalTitle')}</span>
+				<span class="label-text">{$t('profile_personal.professionalTitle')}</span>
 			</label>
 			<input
 				type="text"
@@ -253,7 +253,7 @@
 		<!-- Website -->
 		<div class="form-control">
 			<label class="label" for="website">
-				<span class="label-text">{$t('profile.website')}</span>
+				<span class="label-text">{$t('profile_personal.website')}</span>
 			</label>
 			<input
 				type="url"
@@ -267,13 +267,13 @@
 		<!-- Profile Description -->
 		<div class="form-control">
 			<label class="label" for="profileDescription">
-				<span class="label-text">{$t('profile.profileDescription')}</span>
+				<span class="label-text">{$t('profile_personal.profileDescription')}</span>
 			</label>
 			<textarea
 				id="profileDescription"
 				bind:value={profileDescription}
 				class="textarea textarea-bordered h-32 w-full rounded-xl"
-				placeholder={$t('profile.profileDescriptionPlaceholder')}
+				placeholder={$t('profile_personal.profileDescriptionPlaceholder')}
 				maxlength="2000"
 				rows="4"
 			></textarea>
@@ -292,7 +292,7 @@
 				{#if isLoading}
 					<span class="loading loading-spinner"></span>
 				{/if}
-				{$t('profile.savePersonalInfo')}
+				{$t('profile_personal.savePersonalInfo')}
 			</button>
 		</div>
 	</form>

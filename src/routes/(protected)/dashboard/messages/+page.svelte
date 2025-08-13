@@ -11,7 +11,7 @@
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	// State
 	let conversations = $state<
@@ -63,8 +63,8 @@
 			for (const conversation of conversations) {
 				setupProfileSubscription(conversation.pubkey);
 			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load conversations';
+        } catch (err) {
+            error = 'messages.failed_load_conversations';
 		} finally {
 			isLoading = false;
 		}
@@ -195,15 +195,15 @@
 		let hexPubkey = value;
 
 		// Convert npub to hex if needed
-		if (value.startsWith('npub')) {
+        if (value.startsWith('npub')) {
 			try {
 				hexPubkey = nip19.decode(value).data as string;
 			} catch {
-				newMessageError = 'Invalid npub format';
+                newMessageError = 'messages.invalid_npub_format';
 				return;
 			}
-		} else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
-			newMessageError = 'Invalid public key format';
+        } else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+            newMessageError = 'messages.invalid_pubkey_format';
 			return;
 		}
 
@@ -214,8 +214,8 @@
 			if (profileEvent && profileEvent.name && profileEvent.picture) {
 				newMessageProfile = { name: profileEvent.name, picture: profileEvent.picture };
 			}
-		} catch {
-			newMessageError = 'Failed to fetch profile';
+        } catch {
+            newMessageError = 'messages.failed_fetch_profile';
 		} finally {
 			isProfileLoading = false;
 		}
@@ -225,15 +225,15 @@
 		e.preventDefault();
 		let value = newMessagePubkey.trim();
 		let hexPubkey = value;
-		if (value.startsWith('npub')) {
+        if (value.startsWith('npub')) {
 			try {
 				hexPubkey = nip19.decode(value).data as string;
 			} catch {
-				newMessageError = 'Invalid npub format';
+                newMessageError = 'messages.invalid_npub_format';
 				return;
 			}
-		} else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
-			newMessageError = 'Invalid public key format';
+        } else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+            newMessageError = 'messages.invalid_pubkey_format';
 			return;
 		}
 
@@ -257,7 +257,7 @@
 		checked={showModal}
 		style="display:none"
 		readonly
-		aria-label="Toggle new message modal"
+        aria-label={$t('messages.toggle_new_message_modal')}
 	/>
 	{#if showModal}
 		<div class="modal modal-open">
@@ -276,13 +276,13 @@
 						<label for="recipient-pubkey" class="text-sm font-medium"
 							>{$t('messages.recipient_pubkey')}</label
 						>
-						<input
+                        <input
 							id="recipient-pubkey"
 							type="text"
 							class="input input-bordered w-full text-sm"
 							bind:value={newMessagePubkey}
 							oninput={handlePubkeyInput}
-							placeholder="npub1... or hex public key"
+                            placeholder={$t('messages.new_message_placeholder')}
 						/>
 						<p class="text-base-content/50 text-xs">
 							{$t('messages.enter_npub')}
@@ -322,7 +322,7 @@
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 							<Avatar size="md" />
 							<div class="min-w-0 flex-1">
-								<p class="truncate font-medium">{newMessageProfile.name || 'Unknown User'}</p>
+                                <p class="truncate font-medium">{newMessageProfile.name || $t('messages.unknown_user')}</p>
 								<p class="text-base-content/60 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')
 										? `${newMessagePubkey.slice(0, 16)}...`
@@ -395,7 +395,7 @@
 					</div>
 				</form>
 			</div>
-			<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
+            <button class="modal-backdrop" onclick={closeModal} aria-label={$t('messages.close_modal')}></button>
 		</div>
 	{/if}
 
@@ -463,7 +463,7 @@
 								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>{error}</span>
+                        <span>{$t(error)}</span>
 					</div>
 				{:else if conversations.length === 0}
 					<!-- Empty State -->
@@ -520,9 +520,9 @@
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<div class="flex w-10 items-center gap-2 rounded-full">
-									<img
-										src={conversation.profile.picture}
-										alt={conversation.profile.name || 'Unknown'}
+                                    <img
+                                        src={conversation.profile.picture}
+                                        alt={conversation.profile.name || $t('messages.unknown_user')}
 										class="h-10 w-10 rounded-full object-cover"
 										width={40}
 										height={40}

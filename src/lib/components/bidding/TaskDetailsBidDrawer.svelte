@@ -4,8 +4,7 @@
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import BidCreationForm from './BidCreationForm.svelte';
-	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
-	import { wallet } from '$lib/utils/consts';
+	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
@@ -94,6 +93,13 @@
 
 			// Parse task data from nostr event
 			const taskData = JSON.parse(event.content) as Task;
+			
+			// Ensure we have a valid ID
+			if (!event.id) {
+				errorMessage = 'Task ID is missing. Please try again.';
+				return;
+			}
+
 			task = {
 				...taskData,
 				id: event.id
@@ -258,7 +264,7 @@
 					<div>
 						<span class="text-base-content/60 text-sm">Budget:</span>
 						<div class="font-semibold">
-							{formatBtcToSats(task.budget.amount)}
+							{formatSatsAmount(task.budget.amount)}
 						</div>
 						<span class="text-info text-xs"
 							>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
@@ -510,11 +516,17 @@
 				{/if}
 			</div>
 
-			<div class="divider"></div>
+			<div class="divider"></div>							
 
 			<!-- Bid form -->
-			{#if showBidForm && task.status === TaskStatusEnum.OPEN}
-				<BidCreationForm taskId={Number(task.id)} onClose={() => handleClose()} />
+			{#if showBidForm && task && task.id && task.status === TaskStatusEnum.OPEN}
+				<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
+			{:else if showBidForm && task && !task.id}
+				<div class="alert alert-error">
+					<span>Error: Task ID is missing</span>
+				</div>
+			{:else if showBidForm && task && task.status !== TaskStatusEnum.OPEN}
+				<p class="text-base-content/60 mt-4">Task is not open for bidding.</p>
 			{:else}
 				<p class="text-base-content/60 mt-4">Task is not open for bidding.</p>
 			{/if}

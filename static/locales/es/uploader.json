@@ -1,0 +1,9 @@
+{
+    "uploader": {
+        "uploadImage": "Subir Imagen",
+        "invalidTypeError": "Tipo de archivo no permitido. Solo se permiten imágenes",
+        "failedToLoadImage": "Error al cargar la imagen para la validación",
+        "invalidFileType": "Tipo de archivo no permitido.",
+        "failedToValidateVideo": "Error al validar el video"
+    }
+}

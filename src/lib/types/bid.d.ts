@@ -1,7 +1,7 @@
 import type { Freelancer } from './freelancer';
 
 export type PaymentType = 'FIXED' | 'HOURLY';
-export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN';
+export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN' | 'SATS';
 export type Visibility = 'PUBLIC' | 'PRIVATE';
 export type BidStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED';
 

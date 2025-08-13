@@ -1,0 +1,13 @@
+{
+    "dashboard": {
+      "title": "Mi Panel",
+      "titl": "Panel",
+      "create_task": "Crear Tarea",
+      "tabs": {
+        "tasks": "Mis Tareas",
+        "bids": "Mis Ofertas",
+        "recurring": "Tareas Recurrentes",
+        "saved_searches": "Búsquedas Guardadas"
+      }
+    }
+  }

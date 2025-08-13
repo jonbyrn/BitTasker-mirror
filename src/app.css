@@ -1,23 +1,164 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 @plugin "@tailwindcss/typography";
-@plugin "daisyui";
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
-/* Import Font Awesome CSS */
+/* DaisyUI configuration with optimized component inclusion */
+@plugin "daisyui" {
+	/* include: alert, avatar, badge, btn, card, carousel, checkbox, collapse, divider, dropdown, file-input, form, hero, indicator, input, join, label, link, loading, mask, menu, modal, navbar, radio, range, rating, select, stats, steps, swap, table, tabs, textarea, toggle, tooltip; */
+	themes: light --default, dark --prefersdark;
+	base: true;
+	styled: true;
+	utils: true;
+	logs: false;
+	/* Exclude unused components to reduce CSS size (safe list derived from repo scan) */
+	/* Supposedly these aren't in use, however excluding them breaks the layout. Scott, Aug 7, 2025 */
+	/* exclude: accordion, breadcrumbs, browser, calendar, chat, code, countdown, diff, drawer, fieldset, filter, footer, indicator, kbd, list, pagination, radialprogress, skeleton, status, themecontroller, timeline, validator, glass, typography, phone, window; */
+}
 
+@plugin "daisyui/theme" {
+	name: 'dark';
+	default: true;
+	prefersdark: true;
+	color-scheme: 'dark';
+	--color-base-100: #2d2d2d;
+	--color-base-200: #363636;
+	--color-base-300: #3f3f3f;
+	--color-base-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-primary: #f7931a;
+	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
+	--color-secondary: #3a3a3a;
+	--color-secondary-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-accent: #b35f00;
+	--color-accent-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-neutral: #5c5c5c;
+	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0.002 247.839) */
+	--color-info: #3daeff;
+	--color-info-content: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-success: #22c55e;
+	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
+	--color-warning: #facc15;
+	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
+	--color-error: #ef4444;
+	--color-error-content: #f5f5f5; /* fallback for oklch(96% 0.015 12.422) */
+	--radius-selector: 2rem;
+	--radius-field: 2rem;
+	--radius-box: 2rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 2px;
+	--depth: 1;
+	--noise: 0;
+}
 
-/* Fonts are now loaded via HTML link tags for better performance */
+@plugin "daisyui/theme" {
+	name: 'light';
+	default: false;
+	prefersdark: false;
+	color-scheme: 'light';
+	--color-base-100: #fafafa; /* fallback for oklch(98% 0 0) */
+	--color-base-200: #f1f3f5;
+	--color-base-300: #e5e7eb;
+	--color-base-content: #121212;
+	--color-primary: #f7931a;
+	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
+	--color-secondary: #ffffff; /* fallback for oklch(100% 0 0) */
+	--color-secondary-content: #121212;
+	--color-accent: #ffd8a8;
+	--color-accent-content: #8b4513; /* fallback for oklch(28% 0.109 3.907) */
+	--color-neutral: #6b7280;
+	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0 0) */
+	--color-info: #2563eb;
+	--color-info-content: #f7f7f7; /* fallback for oklch(97% 0.013 236.62) */
+	--color-success: #16a34a;
+	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
+	--color-warning: #eab308;
+	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
+	--color-error: #dc2626;
+	--color-error-content: #f7f7f7; /* fallback for oklch(97% 0.013 17.38) */
+	--radius-selector: 2rem;
+	--radius-field: 2rem;
+	--radius-box: 2rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 2px;
+	--depth: 1;
+	--noise: 1;
+}
+
+/* Tailwind theme configuration */
+@theme {
+	/* Container configuration */
+	--container-center: true;
+	--container-padding: 2rem;
+	--screen-2xl: 1400px;
+	
+	/* Font family configuration */
+	--font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+	--font-heading: 'Droid Serif', 'Georgia', ui-serif, serif;
+	--font-display: 'Droid Serif', 'Georgia', ui-serif, serif;
+	--font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+	
+	/* Animation keyframes */
+	--keyframe-fade-in-0: { opacity: 0; };
+	--keyframe-fade-in-100: { opacity: 1; };
+	
+	/* Animation configuration */
+	--animation-fade-in: fade-in 0.5s ease-in-out;
+}
+
+/* Safelist - preserving classes from optimization */
+/* Dynamic width classes for Drawer component */
+/* @source inline("w-[10%]");
+@source inline("w-[20%]");
+@source inline("w-[30%]");
+@source inline("w-[40%]");
+@source inline("w-[50%]");
+@source inline("w-[55%]");
+@source inline("w-[60%]");
+@source inline("w-[65%]");
+@source inline("w-[70%]");
+@source inline("w-[75%]");
+@source inline("w-[80%]");
+@source inline("w-[85%]");
+@source inline("w-[90%]");
+@source inline("w-[95%]");
+@source inline("w-[100%]"); */
+
+/* Font utility classes */
+@source inline("font-heading");
+@source inline("font-display");
+
+/* Transition classes */
+@source inline("transition-colors");
+@source inline("transition-all");
+@source inline("duration-300");
+@source inline("ease-in-out");
+
+/* Custom utilities */
+@utilities {
+	.scrollbar-hide {
+		-ms-overflow-style: none;
+		scrollbar-width: none;
+	}
+	.scrollbar-hide::-webkit-scrollbar {
+		display: none;
+	}
+	.font-heading {
+		font-family: var(--font-heading);
+	}
+	.font-display {
+		font-family: var(--font-display);
+	}
+}
 
 * {
 	box-sizing: border-box;
 }
 
 /* Global Typography Styles */
-h1, h2, h3, h4, h5, h6 {
+body h1, body h2, body h3, body h4, body h5, body h6 {
 	font-family: 'Droid Serif', Georgia, serif;
 	@apply font-medium;
+	line-height: 1.5em;
 }
 
 h1 {
@@ -151,85 +292,15 @@ ul[role="listbox"]:focus {
 }
 
 /* Dark mode specific adjustments */
-:root[data-theme='BitTasker-Dark'] .glow-blur {
+:root[data-theme='dark'] .glow-blur {
 	opacity: 0.15;
 	filter: blur(120px);
 }
 
 /* Light mode adjustments */
-:root[data-theme='BitTasker-Light'] .glow-blur {
+:root[data-theme='light'] .glow-blur {
 	opacity: 0.2;
 	filter: blur(100px);
-}
-
-@plugin "daisyui/theme" {
-	name: 'BitTasker-Dark';
-	default: true;
-	prefersdark: true;
-	color-scheme: 'dark';
-	--color-base-100: #2d2d2d;
-	--color-base-200: #363636;
-	--color-base-300: #3f3f3f;
-	--color-base-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-primary: #f7931a;
-	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
-	--color-secondary: #3a3a3a;
-	--color-secondary-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-accent: #b35f00;
-	--color-accent-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-neutral: #5c5c5c;
-	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0.002 247.839) */
-	--color-info: #3daeff;
-	--color-info-content: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-success: #22c55e;
-	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
-	--color-warning: #facc15;
-	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
-	--color-error: #ef4444;
-	--color-error-content: #f5f5f5; /* fallback for oklch(96% 0.015 12.422) */
-	--radius-selector: 2rem;
-	--radius-field: 2rem;
-	--radius-box: 2rem;
-	--size-selector: 0.25rem;
-	--size-field: 0.25rem;
-	--border: 2px;
-	--depth: 1;
-	--noise: 0;
-}
-
-@plugin "daisyui/theme" {
-	name: 'BitTasker-Light';
-	default: false;
-	prefersdark: false;
-	color-scheme: 'light';
-	--color-base-100: #fafafa; /* fallback for oklch(98% 0 0) */
-	--color-base-200: #f1f3f5;
-	--color-base-300: #e5e7eb;
-	--color-base-content: #121212;
-	--color-primary: #f7931a;
-	--color-primary-content: #000000; /* fallback for oklch(0% 0 0) */
-	--color-secondary: #ffffff; /* fallback for oklch(100% 0 0) */
-	--color-secondary-content: #121212;
-	--color-accent: #ffd8a8;
-	--color-accent-content: #8b4513; /* fallback for oklch(28% 0.109 3.907) */
-	--color-neutral: #6b7280;
-	--color-neutral-content: #fafafa; /* fallback for oklch(98% 0 0) */
-	--color-info: #2563eb;
-	--color-info-content: #f7f7f7; /* fallback for oklch(97% 0.013 236.62) */
-	--color-success: #16a34a;
-	--color-success-content: #fafafa; /* fallback for oklch(98% 0.031 120.757) */
-	--color-warning: #eab308;
-	--color-warning-content: #fafafa; /* fallback for oklch(98% 0.016 73.684) */
-	--color-error: #dc2626;
-	--color-error-content: #f7f7f7; /* fallback for oklch(97% 0.013 17.38) */
-	--radius-selector: 2rem;
-	--radius-field: 2rem;
-	--radius-box: 2rem;
-	--size-selector: 0.25rem;
-	--size-field: 0.25rem;
-	--border: 2px;
-	--depth: 1;
-	--noise: 1;
 }
 
 ::view-transition-old(root),
@@ -237,12 +308,12 @@ ul[role="listbox"]:focus {
 	animation-duration: 500ms;
 }
 
-@layer base {
-	body {
-		@apply text-gray-900 dark:text-gray-100;
-		background-color: var(--color-base-300);
-	}
+
+body {
+	@apply text-gray-900 dark:text-gray-100;
+	background-color: var(--color-base-300);
 }
+
 
 /* 
  * Mobile Layout Utilities

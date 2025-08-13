@@ -1,0 +1,37 @@
+{
+    "profile_availability": {
+      "availabilityTitle": "Disponibilidad",
+      "weeklySchedule": "Horario Semanal",
+      "unavailable": "No disponible",
+      "nextAvailable": "Próxima disponibilidad",
+      "timezone": "Zona horaria",
+      "noticeRequired": "Aviso requerido",
+      "hours": "horas",
+      "maxBookingsPerDay": "Máximo de reservas por día",
+      "breakBetweenBookings": "Pausa entre reservas",
+      "minutes": "minutos",
+      "payment_methods": "Métodos de pago",
+      "payment_lightning": "Lightning",
+      "your_stats": "Tus estadísticas",
+      "copyToOtherDays": "Copiar a otros días",
+      "addTimeSlot": "Agregar horario",
+      "saveAvailability": "Guardar disponibilidad",
+      "from": "Desde",
+      "to": "Hasta",
+      "stats": {
+        "tasks_completed": "Tareas completadas",
+        "success_rate": "Tasa de éxito",
+        "response_rate": "Tasa de respuesta"
+      },
+      "error_load": "No se pudo cargar el perfil. Intenta de nuevo más tarde."
+    },
+    "days": {
+      "sunday": "Domingo",
+      "monday": "Lunes",
+      "tuesday": "Martes",
+      "wednesday": "Miércoles",
+      "thursday": "Jueves",
+      "friday": "Viernes",
+      "saturday": "Sábado"
+    }
+  }

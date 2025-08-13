@@ -13,8 +13,8 @@
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
-	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
-	import { t } from '$lib/stores/i18n.store';
+	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { t } from 'svelte-i18n';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -491,7 +491,7 @@
 						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
 						<div class="flex items-center justify-between gap-2 text-sm">
 							<div class="flex flex-col items-start">
-								<span class="font-semibold">{formatBtcToSats(task.budget.amount)}</span>
+								<span class="font-semibold">{formatSatsAmount(task.budget.amount)}</span>
 								<span class="text-info text-xs"
 									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
 								>

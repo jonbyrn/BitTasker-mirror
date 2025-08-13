@@ -1,0 +1,13 @@
+{
+    "profile_personal": {
+      "photosLimit": "Fotos de perfil - máximo 5",
+      "primaryPhotoNote": "La primera foto será tu imagen de perfil principal",
+      "displayName": "Nombre visible",
+      "professionalTitle": "Título profesional",
+      "website": "Sitio web",
+      "profileDescription": "Descripción del perfil",
+      "savePersonalInfo": "Guardar información personal",
+      "add_images": "Agregar Imágenes",
+      "profileDescriptionPlaceholder": "Cuéntales a los clientes sobre tu experiencia profesional, tus habilidades y lo que te hace único..."
+    }
+  }

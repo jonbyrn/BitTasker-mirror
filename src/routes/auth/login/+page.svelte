@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import {
 		createUserDeviceShortName,
@@ -72,14 +72,14 @@
 		// Sign the challenge with the private key
 		const signedChallenge = await signLoginChallenge(challenge, privateKey);
 		if (!signedChallenge) {
-			throw new Error($t('auth.login.errors.challenge_signing'));
+			throw new Error($t('login.errors.challenge_signing'));
 		}
 
 		// Login with passkey
 		const response = await authService.loginWithPasskey(pubKey, deviceId);
 
 		if (!response.access_token) {
-			throw new Error($t('auth.login.errors.no_token'));
+			throw new Error($t('login.errors.no_token'));
 		}
 
 		authState.setupAuthData(
@@ -108,11 +108,11 @@
 			if (biometricData) {
 				await login(biometricData, deviceId, authMethod);
 			} else {
-				error = $t('auth.login.errors.no_account');
+				error = $t('login.errors.no_account');
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
-			error = err instanceof Error ? err.message : $t('auth.login.errors.failed');
+			error = err instanceof Error ? err.message : $t('login.errors.failed');
 		} finally {
 			isLoading = false;
 		}
@@ -243,25 +243,25 @@
 			}
 		} catch (err) {
 			console.error('Error:', err);
-			error = err instanceof Error ? err.message : $t('auth.login.errors.failed');
+			error = err instanceof Error ? err.message : $t('login.errors.failed');
 		} finally {
 			isLoading = false;
 		}
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-md flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="mx-auto flex w-full max-w-xl flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
-				<Logo class="w-auto" />
-				<h1 class="mt-6 text-center text-2xl font-bold">{$t('auth.login.title')}</h1>
+				<Logo />
+				<h1 class="mt-6 text-center text-2xl font-bold">{$t('login.title')}</h1>
 				<br />
-				<p class="text-base-content/70 mt-3 text-center text-sm">
-					{$t('auth.login.subtitle')}
+				<p class="text-base-content mb-6 text-center text-lg">
+					{$t('login.subtitle')}
 				</p>
-				<p class="text-base-content/70 mt-2 text-center text-sm">
-					{$t('auth.login.login_with')} <span class="text-primary">Passkey/Biometrics</span>, {$t(
+				<p class="text-base-content text-center text-lg">
+					{$t('login.login_with')} <span class="text-primary">Passkey/Biometrics</span>, {$t(
 						'common.or'
 					)}
 					<a
@@ -270,9 +270,9 @@
 						rel="noopener noreferrer"
 						class="text-primary hover:underline"
 					>
-						{$t('auth.login.alby_connect')}
+						{$t('login.alby_connect')}
 					</a>
-					{$t('auth.login.account')}.
+					{$t('login.account')}.
 				</p>
 			</div>
 			<div class="flex flex-col gap-4">
@@ -309,7 +309,7 @@
 									</svg>
 									{isLoading
 										? $t('common.processing') + '...'
-										: $t('auth.login.continue_biometrics')}
+										: $t('login.continue_biometrics')}
 								</button>
 								<p class="text-base-content/60 text-start text-xs">
 									Uses your device's native biometric authentication (Face ID, Touch ID,
@@ -338,7 +338,7 @@
 										d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 									/>
 								</svg>
-								{isLoading ? $t('common.processing') + '...' : $t('auth.login.continue_passkey')}
+								{isLoading ? $t('common.processing') + '...' : $t('login.continue_passkey')}
 							</button>
 							{#if authMethods.biometric}
 								<p class="text-base-content/60 text-start text-xs">
@@ -368,7 +368,7 @@
 									d="M210.8 199.4c0 3.1-2.5 5.7-5.7 5.7h-68c-3.1 0-5.7-2.5-5.7-5.7v-15.5c.3-19 2.3-37.2 6.5-45.5 2.5-5 6.7-7.7 11.5-9.1 9.1-2.7 24.9-.9 31.7-1.2 0 0 20.4.8 20.4-10.7s-9.1-8.6-9.1-8.6c-10 .3-17.7-.4-22.6-2.4-8.3-3.3-8.6-9.2-8.6-11.2-.4-23.1-34.5-25.9-64.5-20.1-32.8 6.2.4 53.3.4 116.1v8.4c0 3.1-2.6 5.6-5.7 5.6H57.7c-3.1 0-5.7-2.5-5.7-5.7v-144c0-3.1 2.5-5.7 5.7-5.7h31.7c3.1 0 5.7 2.5 5.7 5.7 0 4.7 5.2 7.2 9 4.5 11.4-8.2 26-12.5 42.4-12.5 36.6 0 64.4 21.4 64.4 68.7v83.2ZM150 99.3c0-6.7-5.4-12.1-12.1-12.1s-12.1 5.4-12.1 12.1 5.4 12.1 12.1 12.1S150 106 150 99.3Z"
 								/></svg
 							>
-							{$t('auth.login.login_with_nsec')}
+							{$t('login.login_with_nsec')}
 						</button>
 					</div>
 				{:else}
@@ -477,12 +477,13 @@
 				<div class="divider my-1">{$t('common.or')}</div>
 
 				<button onclick={() => goto('/auth/signup')} class="btn btn-outline">
-					{$t('auth.login.create_account')}
+					{$t('login.create_account')}
 				</button>
+				
 
 				<div class="mt-2 text-center">
 					<a href="/auth/recover/send" class="link link-primary text-sm">
-						{$t('auth.login.recover_account')}
+						{$t('login.recover_account')}
 					</a>
 				</div>
 			</div>

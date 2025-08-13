@@ -5,7 +5,7 @@
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
-import { packKeys, unPackKeys } from '$lib/utils/helpers/encoding';
+import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
 import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
@@ -35,15 +35,6 @@ const WEBAUTHN_VERIFY_OPTIONS: WebAuthnVerifyOptions = {
 };
 
 /**
- * Generate a new challenge
- */
-function generateChallenge(): ArrayBuffer {
-	const arr = new Uint8Array(32);
-	crypto.getRandomValues(arr);
-	return arr.buffer;
-}
-
-/**
  * Check if WebAuthn is available in the current browser
  */
 export const checkWebBiometricAvailability = async (): Promise<boolean> => {
@@ -71,7 +62,7 @@ export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_
 
 		// Use credential discovery - empty allowCredentials enables discovery
 		const authOptions: PublicKeyCredentialRequestOptions = {
-			challenge: generateChallenge(),
+			challenge: generateWebChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
 			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification,
 			// Empty allowCredentials enables discovery of resident keys
@@ -122,7 +113,7 @@ export async function setWebBiometricKey(
 
 		// Create registration options
 		const registrationOptions: PublicKeyCredentialCreationOptions = {
-			challenge: generateChallenge(),
+			challenge: generateWebChallenge(),
 			rp: {
 				name: 'BitTasker',
 				id: window.location.hostname
@@ -173,7 +164,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 
 		// Use credential discovery
 		const authOptions: PublicKeyCredentialRequestOptions = {
-			challenge: generateChallenge(),
+			challenge: generateWebChallenge(),
 			timeout: WEBAUTHN_VERIFY_OPTIONS.timeout,
 			userVerification: WEBAUTHN_VERIFY_OPTIONS.userVerification
 		};

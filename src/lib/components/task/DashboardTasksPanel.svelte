@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
@@ -10,6 +10,7 @@
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -70,10 +71,15 @@
 	}
 
 	// Format currency
-	function formatCurrency(amount: number): string {
+	function formatCurrency(amount: number, currency: string = 'BTC'): string {
+		// Since the amount is stored in sats, we need to convert it
+		if (currency === 'BTC' || currency === 'L-BTC' || currency === 'LN') {
+			const btcAmount = amount / 100_000_000;
+			return `${currency} ${btcAmount.toFixed(8)}`;
+		}
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
-			currency: 'BTC'
+			currency: currency
 		}).format(amount);
 	}
 
@@ -178,7 +184,7 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex items-center justify-between gap-2">
-							<h3 class="card-title text-lg">{task.title}</h3>
+							<h3 class="card-title text-md md:text-lg line-clamp-2">{task.title}</h3>
 
 							<!-- Bid Information -->
 							<div class="badge badge-sm badge-info gap-1 whitespace-nowrap">
@@ -224,7 +230,7 @@
 								{task.pickupLocation.displayName}
 							</small>
 						{/if}
-						<p class="text-base-content/80 my-2 line-clamp-2 truncate">{task.description}</p>
+						<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
 
 						<div class="flex items-center gap-2">
 							<div class="badge badge-neutral pb-[2px] lowercase">
@@ -242,13 +248,14 @@
 								<div>
 									<p class="text-base-content/70 text-xs">{$t('task.budget.label')}</p>
 									<p class="text-primary font-semibold">
-										{formatCurrency(task.budget.amount)}
-										{#if task.budget.type === 'HOURLY'}
-											<span class="text-xs">{$t('task.budget.hourly')}</span>
-										{/if}
+										{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
+										
 									</p>
 									<p class="text-info text-xs">
 										≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT
+										{#if task.budget.type === 'HOURLY'}
+											<span class="text-xs">{$t('task.budget.hourly')}</span>
+										{/if}
 									</p>
 								</div>
 							{/if}

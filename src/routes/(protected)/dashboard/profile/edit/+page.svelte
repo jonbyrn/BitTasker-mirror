@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import PersonalInfo from './_components/PersonalInfo.svelte';
 	import Skills from './_components/Skills.svelte';
 	import Portfolio from './_components/Portfolio.svelte';
