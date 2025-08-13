@@ -37,3 +37,19 @@ export interface ContractCreateInput {
 export interface ContractRecord {
 	id: string;
 }
+
+export interface EscrowCheckInput {
+	derivationPath: string;
+	clientPubkey: string;
+	freelancerPubkey: string;
+}
+
+export interface EscrowCheckResponse {
+	exists: boolean;
+	contract_id?: string;
+	escrow_vault?: {
+		id: string;
+		address: string | null;
+		descriptor: string | null;
+	};
+}

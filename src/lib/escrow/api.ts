@@ -1,4 +1,10 @@
-import type { ContractCreateInput, ContractRecord, VaultInfo } from './types';
+import type {
+	ContractCreateInput,
+	ContractRecord,
+	VaultInfo,
+	EscrowCheckInput,
+	EscrowCheckResponse
+} from './types';
 import { rpcClient } from './rpc';
 
 export async function apiCreateContract(input: ContractCreateInput): Promise<ContractRecord> {
@@ -38,4 +44,16 @@ export async function apiSaveVaults(
 		json: { vaults: vaultArray }
 	});
 	if (!res.ok) throw new Error('Failed to save vaults');
+}
+
+export async function apiCheckEscrow(input: EscrowCheckInput): Promise<EscrowCheckResponse> {
+	const res = await rpcClient.api.contracts['check_escrow'].$post({
+		json: {
+			derivation_path: input.derivationPath,
+			client_pubkey: input.clientPubkey,
+			freelancer_pubkey: input.freelancerPubkey,
+		}
+	});
+	if (!res.ok) throw new Error('Failed to check escrow');
+	return await res.json();
 }
