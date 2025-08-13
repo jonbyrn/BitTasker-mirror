@@ -52,4 +52,5 @@ export interface EscrowCheckResponse {
 		address: string | null;
 		descriptor: string | null;
 	};
+	challenge: string;
 }

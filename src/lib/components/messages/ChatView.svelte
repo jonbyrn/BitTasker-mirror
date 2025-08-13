@@ -646,7 +646,9 @@
 			const params = new URLSearchParams({
 				derivationPath: payload.derivationPath,
 				csvBlocks: String(payload.csvBlocks ?? ''),
-				freelancerPubkey: payload.freelancerPubkey ?? ''
+				freelancerPubkey: payload.freelancerPubkey ?? '',
+				// Pass freelancer's Nostr pubkey (sender of the accept DM)
+				freelancerNostrPubkey: detail.event.pubkey
 			});
 			goto(`/dashboard/contracts/create-contract?${params.toString()}`);
 			return;

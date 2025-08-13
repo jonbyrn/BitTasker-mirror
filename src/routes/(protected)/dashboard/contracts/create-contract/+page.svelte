@@ -5,6 +5,7 @@
 	import { createVaultSet } from '$lib/escrow/vault';
 	import { apiCreateContract, apiSaveVaults, apiCheckEscrow } from '$lib/escrow/api';
 	import type { NetworkName } from '$lib/escrow/types';
+	import { nip19 } from 'nostr-tools';
 
 	let derivationPath = $state('');
 	// let csvBlocks = $state<number>(0);
@@ -29,11 +30,17 @@
 		descriptor?: string | null;
 	} | null>(null);
 
+	// Nostr auth state
+	let challenge = $state<string>('');
+	let clientNostrPubkey = $state<string>(''); // hex
+	let freelancerNostrPubkey = $state<string>(''); // hex
+
 	$effect(() => {
 		const url = new URL(get(page).url);
 		derivationPath = url.searchParams.get('derivationPath') || '';
 		// csvBlocks = Number(url.searchParams.get('csvBlocks') || '0');
 		freelancerPubkey = url.searchParams.get('freelancerPubkey') || '';
+		const freelancerNostrFromUrl = url.searchParams.get('freelancerNostrPubkey') || '';
 		if (!derivationPath || !freelancerPubkey) {
 			error = 'Missing contract parameters';
 			return;
@@ -45,6 +52,20 @@
 				const { derivePubkeyAtPath } = await import('$lib/wallet/helper');
 				const mnemonic = await getMnemonicPasskey();
 				clientPubkey = await derivePubkeyAtPath({ mnemonic, derivationPath });
+
+				// Resolve nostr pubkeys
+				try {
+					const { getNostrKeyPair } = await import('$lib/utils/nostrKeys');
+					const { npub } = await getNostrKeyPair();
+					clientNostrPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+				} catch (e) {
+					console.error('Failed to load client nostr key', e);
+				}
+				if (freelancerNostrFromUrl) {
+					freelancerNostrPubkey = freelancerNostrFromUrl.startsWith('npub')
+						? (nip19.decode(freelancerNostrFromUrl).data as string)
+						: freelancerNostrFromUrl;
+				}
 				// After deriving clientPubkey, check if escrow already exists
 				isChecking = true;
 				existingEscrow = null;
@@ -54,6 +75,7 @@
 						clientPubkey,
 						freelancerPubkey
 					});
+					challenge = res.challenge;
 					if (res.exists) {
 						existingEscrow = {
 							contractId: res.contract_id!,
@@ -103,8 +125,14 @@
 				network
 			});
 
-			// Save vaults to backend
-			await apiSaveVaults(contract.id, vaults as any);
+			// Save vaults to backend with Nostr auth
+			const { getSignedEvent } = await import('$lib/utils/nostr');
+			const signedEvent = await getSignedEvent({ kind: 1, content: challenge });
+			await apiSaveVaults(contract.id, vaults as any, {
+				clientNostrPubkey,
+				freelancerNostrPubkey,
+				nostrAuth: { challenge, signedEvent }
+			});
 
 			// For UI success signal, surface escrow vault basics
 			vaultCreated = {
@@ -115,7 +143,9 @@
 			escrowAddress = vaults.escrow.address ?? null;
 		} catch (e) {
 			console.error(e);
-			error = 'Failed to create vault';
+			error = (e as Error)?.message?.includes('Nostr auth')
+				? 'Nostr authentication failed'
+				: 'Failed to create vault';
 		} finally {
 			isCreating = false;
 		}

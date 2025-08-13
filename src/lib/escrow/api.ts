@@ -7,8 +7,12 @@ import type {
 } from './types';
 import { rpcClient } from './rpc';
 
+// The generated Hono client is untyped here; treat as any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const rpc: any = rpcClient as any;
+
 export async function apiCreateContract(input: ContractCreateInput): Promise<ContractRecord> {
-	const res = await rpcClient.api.contracts.$post({
+	const res = await rpc.api.contracts.$post({
 		json: {
 			client_id: input.clientId,
 			freelancer_id: input.freelancerId,
@@ -24,7 +28,15 @@ export async function apiCreateContract(input: ContractCreateInput): Promise<Con
 
 export async function apiSaveVaults(
 	contractId: string,
-	vaults: Record<string, VaultInfo>
+	vaults: Record<string, VaultInfo>,
+	opts: {
+		clientNostrPubkey: string;
+		freelancerNostrPubkey: string;
+		nostrAuth: {
+			challenge: string;
+			signedEvent: import('nostr-tools').Event;
+		};
+	}
 ): Promise<void> {
 	const vaultArray = Object.values(vaults).map((v) => ({
 		id: v.id,
@@ -40,18 +52,33 @@ export async function apiSaveVaults(
 	}));
 
 	// Use direct id segment to avoid param substitution issues in untyped client
-	const res = await rpcClient.api.contracts[contractId].vaults.$post({
-		json: { vaults: vaultArray }
+	const res = await rpc.api.contracts[contractId].vaults.$post({
+		json: {
+			client_nostr_pubkey: opts.clientNostrPubkey,
+			freelancer_nostr_pubkey: opts.freelancerNostrPubkey,
+			nostr_auth: {
+				challenge: opts.nostrAuth.challenge,
+				signed_event: opts.nostrAuth.signedEvent
+			},
+			vaults: vaultArray
+		}
 	});
-	if (!res.ok) throw new Error('Failed to save vaults');
+	if (!res.ok) {
+		try {
+			const body = await res.json();
+			throw new Error(body?.error || 'Failed to save vaults');
+		} catch {
+			throw new Error('Failed to save vaults');
+		}
+	}
 }
 
 export async function apiCheckEscrow(input: EscrowCheckInput): Promise<EscrowCheckResponse> {
-	const res = await rpcClient.api.contracts['check_escrow'].$post({
+	const res = await rpc.api.contracts['check_escrow'].$post({
 		json: {
 			derivation_path: input.derivationPath,
 			client_pubkey: input.clientPubkey,
-			freelancer_pubkey: input.freelancerPubkey,
+			freelancer_pubkey: input.freelancerPubkey
 		}
 	});
 	if (!res.ok) throw new Error('Failed to check escrow');
