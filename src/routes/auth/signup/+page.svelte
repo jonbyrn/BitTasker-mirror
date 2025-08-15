@@ -142,15 +142,17 @@
 			<div class="flex flex-col gap-4">
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
-					<div class="flex items-center justify-between gap-2 mb-2">
+					<div class="mb-2">
 						<p class="w-full text-start text-sm mb-2">{$t('signup.verify_human')}</p>
-						{#if captchaFailed && !$isCaptchaVerified}
+					</div>
+					<div bind:this={turnstileWidget} class="flex justify-center"></div>
+					{#if captchaFailed && !$isCaptchaVerified}
+						<div class="flex justify-center mt-2">
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
 								{$t('signup.retry_verification')}
 							</button>
-						{/if}
-					</div>
-					<div bind:this={turnstileWidget} class="flex justify-center"></div>
+						</div>
+					{/if}
 					{#if $isCaptchaVerified}
 						<div class="alert alert-success alert-outline mt-3 text-sm">
 							<svg
