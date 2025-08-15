@@ -8,10 +8,11 @@
 	import type { NostrBid } from '$lib/utils/nostr-bid'; // Import from nostr-bid.ts where it's defined
 
 	// Props
-	const { taskId, onClose, taskCreatorPubkey } = $props<{ 
+	const { taskId, onClose, taskCreatorPubkey, taskTitle } = $props<{ 
 		taskId: string; 
 		onClose: () => void;
 		taskCreatorPubkey: string; // Required for sending DM
+		taskTitle?: string; // Add task title prop
 	}>();
 
 	// Form state
@@ -187,11 +188,12 @@
 			const bidData: NostrBid = {
 				type: 'bid' as const, // Use const assertion to fix type issue
 				taskId: taskId,
+				taskTitle: taskTitle || 'Untitled Task', // Add task title
 				amount: getTotalAmount,
 				currency: 'SATS',
 				paymentType: bidType,
-				hourlyRate: bidType === 'HOURLY' ? parseFloat(hourlyRate) : undefined,
-				estimatedHours: bidType === 'HOURLY' ? parseFloat(estimatedHours) : undefined,
+				hourlyRate: bidType === 'HOURLY' && hourlyRate ? parseFloat(hourlyRate) : null, // Use null instead of undefined
+				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null, // Use null instead of undefined
 				description,
 				estimatedDuration,
 				proposedApproach,

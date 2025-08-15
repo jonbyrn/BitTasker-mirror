@@ -178,12 +178,12 @@
 						<!-- Bid Header -->
 						<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 							<h3 class="card-title line-clamp-2">
-								{$t('bids.task')}: {bid.bid.taskId ? bid.bid.taskId.substring(0, 8) + '...' : $t('bids.unknown_task')}
+								{bid.bid.taskTitle || $t('bids.unknown_task')}
 							</h3>
 							<div class="flex items-center justify-between gap-4 text-sm">
 								<div class="flex flex-col items-center md:min-w-[140px]">
 									<div class="flex items-center gap-2">
-										<span class="font-semibold text-2xl">
+										<span class="font-semibold text-base">
 											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
 										</span>
 									</div>
@@ -191,9 +191,9 @@
 										≈ {calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)} USDT
 									</span>
 								</div>
-								<span class="badge badge-outline">
+								<!-- <span class="badge badge-outline">
 									{getStatusText('pending')}
-								</span>
+								</span> -->
 							</div>
 						</div>
 

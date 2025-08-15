@@ -8,11 +8,12 @@ import { bytesToHex } from '@noble/hashes/utils';
 export interface NostrBid {
 	type: 'bid';
 	taskId: string;
+	taskTitle: string; // Add task title
 	amount: number;
 	currency: string;
 	paymentType: 'FIXED' | 'HOURLY';
-	hourlyRate?: number;
-	estimatedHours?: number;
+	hourlyRate?: number | null; // Allow null values
+	estimatedHours?: number | null; // Allow null values
 	description: string;
 	estimatedDuration: string;
 	proposedApproach: string;
@@ -145,11 +146,12 @@ export async function getMyBids(): Promise<BidMessage[]> {
 							const completeBid: NostrBid = {
 								type: 'bid',
 								taskId: parsedContent.taskId || 'unknown',
+								taskTitle: parsedContent.taskTitle || 'Untitled Task', // Add task title
 								amount: parsedContent.amount || 0,
 								currency: parsedContent.currency || 'SATS',
 								paymentType: parsedContent.paymentType || 'FIXED',
-								hourlyRate: parsedContent.hourlyRate,
-								estimatedHours: parsedContent.estimatedHours,
+								hourlyRate: parsedContent.hourlyRate || null, // Use null instead of undefined
+								estimatedHours: parsedContent.estimatedHours || null, // Use null instead of undefined
 								description: parsedContent.description || '',
 								estimatedDuration: parsedContent.estimatedDuration || '',
 								proposedApproach: parsedContent.proposedApproach || '',
