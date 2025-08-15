@@ -129,6 +129,8 @@
 				<p class="text-gray-400">{$t('bids.loading_bids')}</p>
 			</div>
 		</div>
+
+		
 	{:else if error}
 		<!-- Error State -->
 		<div class="text-center py-12">
@@ -148,25 +150,32 @@
 		</div>
 	{:else if myBids.length === 0}
 		<!-- Empty State -->
-		<div class="text-center py-12">
-			<div class="card bg-base-100 shadow-md rounded-lg p-8 max-w-md mx-auto">
-				<svg class="w-16 h-16 text-gray-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-				</svg>
-				<h3 class="text-lg font-medium text-white mb-2">
-					{$t('bids.no_bids_yet')}
-				</h3>
-				<p class="text-gray-400 mb-6">
-					{$t('bids.no_bids_description')}
-				</p>
-				<div class="space-y-2">
-					<a href="/dashboard/find-tasks" class="inline-flex items-center px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors border border-gray-600">
-						<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-						</svg>
-						{$t('bids.empty.find_tasks')}
-					</a>
-				</div>
+		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="text-base-content/30 mx-auto h-12 w-12"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<h3 class="mt-4 text-lg font-semibold">{$t('bids.no_bids_yet')}</h3>
+			<p class="text-base-content/60 mt-2 mb-6">
+				{$t('bids.no_bids_description')}
+			</p>
+			<div class="space-y-2">
+				<a href="/dashboard/find-tasks" class="inline-flex items-center px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors border border-gray-600">
+					<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+					</svg>
+					{$t('bids.empty.find_tasks')}
+				</a>
 			</div>
 		</div>
 	{:else}
