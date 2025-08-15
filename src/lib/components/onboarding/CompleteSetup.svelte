@@ -9,7 +9,11 @@
 	import { t } from 'svelte-i18n';
     import IconWarning from '~icons/mdi/alert-outline';
 
-	let { restartSetup }: { restartSetup: () => void } = $props();
+	let { restartSetup, currentStep, totalSteps }: { 
+		restartSetup: () => void;
+		currentStep: number;
+		totalSteps: number;
+	} = $props();
 
 	// Completion status
 	let isLoading = $state(true);
@@ -135,7 +139,7 @@
 			<div class="items-center space-y-4 text-center">
 				<!-- Educational Header to match flow -->
 				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 7 of 7</div>
+					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step {currentStep + 1} of {totalSteps}</div>
 					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
 					<h5 class="mb-6">Complete a few details to finish</h5>
 
@@ -182,7 +186,7 @@
 			<div class="items-center space-y-4 text-center w-full mx-auto">
 				<!-- Educational Header (aligned with other onboarding screens) -->
                 <div class="education-header mb-6 text-center">
-                    <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 7 of 7</div>
+                    				<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step {currentStep + 1} of {totalSteps}</div>
 					<div class="text-success mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

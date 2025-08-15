@@ -6,7 +6,7 @@
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import UsernameSetup from '$lib/components/onboarding/UsernameSetup.svelte';
-	import NostrKeyImport from '$lib/components/onboarding/NostrKeyImport.svelte';
+	// import NostrKeyImport from '$lib/components/onboarding/NostrKeyImport.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
@@ -17,7 +17,7 @@
 	
 	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
-	const totalSteps = 7;
+	const totalSteps = 6; // Updated from 7 to 6 after removing NostrKeyImport
 
 	// Onboarding state management
 	let onboardingData = $state({
@@ -45,9 +45,9 @@
 	};
 
 	const restartSetup = () => {
-		// Only restart from ProfileSetup step (step 4)
-		// The previous steps (username, nostr key, passkey) are required and shouldn't be repeated
-		currentStep = 4;
+		// Only restart from ProfileSetup step (step 3 now, was step 4)
+		// The previous steps (username, passkey) are required and shouldn't be repeated
+		currentStep = 3;
 		direction = 'backward';
 	};
 
@@ -57,10 +57,10 @@
 		onboardingData.usernameAvailable = isAvailable;
 	};
 
-	const handleNostrKeyChange = (nsec: string, hasKey: boolean) => {
-		onboardingData.nsec = nsec;
-		onboardingData.hasNostrKey = hasKey;
-	};
+	// const handleNostrKeyChange = (nsec: string, hasKey: boolean) => {
+	// 	onboardingData.nsec = nsec;
+	// 	onboardingData.hasNostrKey = hasKey;
+	// };
 
 	const handleRecoveryChange = (email: string, password: string, enabled: boolean) => {
 		onboardingData.recoveryEmail = email;
@@ -92,31 +92,27 @@
 
 		{#if currentStep === 0}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<UsernameSetup {nextStep} onUsernameChange={handleUsernameChange} />
+				<UsernameSetup {nextStep} {currentStep} {totalSteps} onUsernameChange={handleUsernameChange} />
 			</div>
 		{:else if currentStep === 1}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<NostrKeyImport {nextStep} {prevStep} onNostrKeyChange={handleNostrKeyChange} />
+				<PasskeySetup {nextStep} {prevStep} {currentStep} {totalSteps} userData={onboardingData} />
 			</div>
 		{:else if currentStep === 2}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<PasskeySetup {nextStep} {prevStep} userData={onboardingData} />
+				<RecoverySetup {nextStep} {prevStep} {currentStep} {totalSteps} onRecoveryChange={handleRecoveryChange} />
 			</div>
 		{:else if currentStep === 3}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<RecoverySetup {nextStep} {prevStep} onRecoveryChange={handleRecoveryChange} />
+				<ProfileSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
 			</div>
 		{:else if currentStep === 4}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<ProfileSetup {nextStep} {prevStep} />
+				<LocationSetup {nextStep} {prevStep} {currentStep} {totalSteps} />
 			</div>
 		{:else if currentStep === 5}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<LocationSetup {nextStep} {prevStep} />
-			</div>
-		{:else if currentStep === 6}
-			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<CompleteSetup {restartSetup} />
+				<CompleteSetup {restartSetup} {currentStep} {totalSteps} />
 			</div>
 		{/if}
 	</div>

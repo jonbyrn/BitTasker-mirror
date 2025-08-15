@@ -5,9 +5,13 @@
 
 	let {
 		nextStep,
+		currentStep,
+		totalSteps,
 		onUsernameChange
 	}: {
 		nextStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 		onUsernameChange: (username: string, isAvailable: boolean) => void;
 	} = $props();
 
@@ -81,7 +85,7 @@
 	<div class="card-body">
 		<!-- Educational Header -->
         <div class="education-header mb-6 text-center">
-            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 1 of 7</div>
+            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step {currentStep + 1} of {totalSteps}</div>
             <h3 class="step-title mb-3 mt-4">Choose Your Username</h3>
             <h5 class="mb-3">Make it memorable</h5>
 

@@ -10,7 +10,7 @@
 	import IconCheck from '~icons/mdi/check-circle-outline';
     import IconMagnify from '~icons/mdi/magnify';
 
-	let { nextStep, prevStep } = $props();
+	let { nextStep, prevStep, currentStep, totalSteps } = $props();
 
 	// State
 	let map: google.maps.Map | null = null;
@@ -564,7 +564,7 @@
 	<div class="card-body relative">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 6 of 7</div>
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step {currentStep + 1} of {totalSteps}</div>
 			<h3 class="step-title mt-4 mb-3">Set Your Location</h3>
 			<h5 class="mb-3">Find Taskers and Taskees near you</h5>
 			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">

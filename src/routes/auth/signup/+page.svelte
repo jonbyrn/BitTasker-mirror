@@ -116,21 +116,9 @@
 				</span>
 				<span class="text-base-content my-10 block text-center text-lg">
 					{$t('signup.description')}
-					<a
-						href="https://getalby.com"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-primary hover:underline">{$t('login.alby_connect')}</a
-					> {$t('login.account')}.
 				</span>
 				<span class="text-base-content my-10 block text-center text-lg">
-					{$t('signup.nostr_info')}
-					<a
-						href="https://nostr.com"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-primary hover:underline">Nostr</a
-					>, {$t('signup.nostr_import')}.
+					{@html $t('signup.nostr_info') + $t('signup.nostr_import')}
 				</span>
 			</p>
 		</div>
