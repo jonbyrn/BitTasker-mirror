@@ -69,6 +69,7 @@
 
 	async function verifyCaptcha(token: string) {
 		try {
+			console.log('Verifying captcha token...');
 			const { data, errors } = await verifyTrunstileStore.mutate({
 				input: {
 					token,
@@ -76,16 +77,30 @@
 				}
 			});
 
-			if (errors) {
+			console.log('Captcha verification response:', { data, errors });
+
+			if (errors && errors.length > 0) {
+				console.error('GraphQL errors:', errors);
 				throw new Error(errors[0].message);
 			}
-			if (!data) {
+			
+			if (!data || !data.verifyTurnstileToken) {
+				console.error('No data returned from captcha verification');
 				throw new Error($t('signup.error.captcha_failed'));
 			}
 
-			isCaptchaVerified.set(data.verifyTurnstileToken.success);
-
-			error = ''; // Clear any previous errors
+			const success = data.verifyTurnstileToken.success;
+			console.log('Captcha verification success:', success);
+			
+			isCaptchaVerified.set(success);
+			
+			if (success) {
+				error = ''; // Clear any previous errors
+				captchaFailed = false;
+			} else {
+				error = $t('signup.error.captcha_failed');
+				captchaFailed = true;
+			}
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
 			error = $t('signup.error.captcha_failed');
