@@ -236,6 +236,7 @@
 						</summary>
 						<ul class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[12rem] w-auto p-2 shadow-sm whitespace-nowrap">
 													<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
+						<li><a href="/dashboard/bids" onclick={closeDropdowns}><IconHandshake class="text-primary" /> <span>{$t('navbar.bids')}</span></a></li>
 						<li><a href="/dashboard/wallet" onclick={closeDropdowns}><IconWallet class="text-primary" /> <span>{$t('navbar.wallet')}</span></a></li>
 						<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
 						<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>
@@ -403,6 +404,7 @@
 				</summary>
 				<ul class="menu dropdown-content bg-base-100 rounded-box z-10 w-56 p-2 shadow-md right-0 mt-2">
 												<li><a href="/dashboard" onclick={closeDropdowns}><IconFormatListBulleted class="text-primary" /> <span>{$t('navbar.my_tasks')}</span></a></li>
+							<li><a href="/dashboard/bids" onclick={closeDropdowns}><IconHandshake class="text-primary" /> <span>{$t('navbar.bids')}</span></a></li>
 							<li><a href="/dashboard/profile" onclick={closeDropdowns}><IconAccount class="text-primary" /> <span>{$t('navbar.profile')}</span></a></li>
 							<li><a href="/dashboard/messages" onclick={closeDropdowns}><IconMessage class="text-primary" /> <span>{$t('navbar.messages')}</span></a></li>
 							<li><a href="/dashboard/settings" onclick={closeDropdowns}><IconCog class="text-primary" /> <span>{$t('navbar.settings')}</span></a></li>

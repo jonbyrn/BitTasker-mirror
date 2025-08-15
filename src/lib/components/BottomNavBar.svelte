@@ -440,6 +440,12 @@ onDestroy(() => {
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+								<a href="/dashboard/bids" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<IconHandshake class="text-primary" />
+									<span class="font-medium">{$t('navbar.bids')}</span>
+								</a>
+							</li>
+							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/wallet" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconWallet class="text-primary" />
 									<span class="font-medium">{$t('navbar.wallet')}</span>

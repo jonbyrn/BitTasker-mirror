@@ -79,7 +79,8 @@
         "help": "Ayuda",
         "logout": "Cerrar",
         "settings": "Configuración",
-        "feedback": "Comentarios"
+        "feedback": "Comentarios",
+        "bids": "Mis Ofertas"
     },
     "homepage": {
         "title": "¡Hola Mundo!",

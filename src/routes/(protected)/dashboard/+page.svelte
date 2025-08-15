@@ -9,12 +9,11 @@
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
-
+	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
 		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
-		// { id: 'bids', label: $t('dashboard.tabs.bids') },
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
 	let activeTab = $state('');
@@ -113,30 +112,6 @@
 		>
 			<DashboardSavedSearchesPanel />
 		</div>
-		<!-- {:else if activeTab === 'bids'}
-		<div
-			id="panel-bids"
-			role="tabpanel"
-			aria-labelledby="tab-bids"
-			class="card bg-base-100 rounded-xl shadow-xl"
-			transition:slide={{ duration: 300 }}
-		>
-			<div class="card-body">
-				<DashboardBidsPanel />
-			</div>
-		</div>
-	{:else if activeTab === 'recurring'}
-		<div
-			id="panel-recurring"
-			role="tabpanel"
-			aria-labelledby="tab-recurring"
-			class="card bg-base-100 rounded-xl shadow-xl"
-			transition:slide={{ duration: 300 }}
-		>
-			<div class="card-body">
-				<RecurringTasksPanel />
-			</div>
-		</div> -->
 	{/if}
 </div>
 

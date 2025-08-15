@@ -23,6 +23,7 @@
 	let errorMessage = $state('');
 	let bidSubmitted = $state(false);
 	let showBidForm = $state(false);
+	let taskCreatorPubkey = $state<string>('');
 
 	// Bid form state
 	let amount = $state('');
@@ -100,6 +101,9 @@
 				errorMessage = $t('bids.task_details.error.task_id_missing');
 				return;
 			}
+
+			// Get the task creator's pubkey from the event
+			taskCreatorPubkey = event.pubkey;
 
 			task = {
 				...taskData,
@@ -560,7 +564,11 @@
 			<!-- Bid form -->
 			{#if showBidForm && task}
 				{#if task.id && task.status === TaskStatusEnum.OPEN}
-					<BidCreationForm taskId={task.id} onClose={() => handleClose()} />
+					<BidCreationForm 
+						taskId={task.id} 
+						onClose={() => handleClose()}
+						taskCreatorPubkey={taskCreatorPubkey}
+					/>
 				{:else if !task.id}
 					<div class="alert alert-error">
 						<span>{$t('bids.task_details.task_id_missing')}</span>

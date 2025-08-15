@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
 import nip44 from '$lib/nostr/nip44';
@@ -148,7 +149,7 @@ async function decryptDM(
 	return nip44.decrypt(ciphertext, conversationKey);
 }
 
-async function parseDMEvent(
+export async function parseDMEvent(
 	event: NostrEvent,
 	currentUserPrivkey: string
 ): Promise<{ plaintext: string; senderPubkey: string }> {
@@ -207,7 +208,7 @@ export function subscribeToProfileUpdates(
 			sub = pool.subscribe(relays, filter, {
 				onevent: async (event: NostrEvent) => {
 					// Create a new profile object for each update to ensure reactivity
-					let updatedProfile: { name?: string; picture?: string } = { ...profile };
+					const updatedProfile: { name?: string; picture?: string } = { ...profile };
 
 					if (event.kind === 0 && event.content) {
 						try {

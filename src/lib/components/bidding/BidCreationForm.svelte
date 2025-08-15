@@ -1,15 +1,18 @@
 <script lang="ts">
-	import type { CreateBidParams, PaymentType } from '$lib/types/bid';
-	import { AxiosError } from 'axios';
-	import { linear } from 'svelte/easing';
+	import type { PaymentType } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
-	import bidService from '$lib/api/services/bid.service';
+	import { submitBidAsDM } from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
+	import type { NostrBid } from '$lib/utils/nostr-bid'; // Import from nostr-bid.ts where it's defined
 
 	// Props
-	const { taskId, onClose } = $props<{ taskId: string; onClose: () => void }>();
+	const { taskId, onClose, taskCreatorPubkey } = $props<{ 
+		taskId: string; 
+		onClose: () => void;
+		taskCreatorPubkey: string; // Required for sending DM
+	}>();
 
 	// Form state
 	let bidType = $state<PaymentType>('FIXED');
@@ -75,11 +78,9 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			usdAmount = usdValue;
 			const satsValue = satsFromUsd(usdValue, btcPrice);
 			hourlyRate = satsValue.toString();
 		} else {
-			usdAmount = 0;
 			hourlyRate = '0';
 		}
 	}
@@ -92,10 +93,21 @@
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			hourlyRate = satsValue.toString();
-			usdAmount = usdFromSats(satsValue, btcPrice);
 		} else {
 			hourlyRate = '0';
-			usdAmount = 0;
+		}
+	}
+
+	// Handle estimated hours changes
+	function handleEstimatedHoursChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const hoursValue = parseFloat(input.replace(/,/g, ''));
+		if (!isNaN(hoursValue)) {
+			estimatedHours = hoursValue.toString();
+		} else {
+			estimatedHours = '';
 		}
 	}
 
@@ -114,12 +126,6 @@
 	// Form validation
 	function validateBidForm() {
 		const errors: Record<string, string> = {};
-
-		// Validate taskId
-		if (!taskId) {
-			errors.general = $t('bid_form.errors.task_id_required');
-			return false;
-		}
 
 		// Validate amount for FIXED type
 		if (bidType === 'FIXED') {
@@ -177,39 +183,31 @@
 		submittingBid = true;
 
 		try {
-			const newBid: Partial<CreateBidParams> = {
+			// Create bid data structure with explicit type
+			const bidData: NostrBid = {
+				type: 'bid' as const, // Use const assertion to fix type issue
 				taskId: taskId,
+				amount: getTotalAmount,
+				currency: 'SATS',
+				paymentType: bidType,
+				hourlyRate: bidType === 'HOURLY' ? parseFloat(hourlyRate) : undefined,
+				estimatedHours: bidType === 'HOURLY' ? parseFloat(estimatedHours) : undefined,
 				description,
 				estimatedDuration,
 				proposedApproach,
-				coverLetter: description, // Using description as coverLetter as per form
-				paymentType: bidType,
-				currency: 'SATS',
-				visibility: 'PUBLIC',
-				responseTime: 24 // Default response time in hours
+				coverLetter: description,
+				timestamp: Date.now(),
+				bidId: crypto.randomUUID() // Generate unique bid ID
 			};
 
-			if (bidType === 'FIXED') {
-				newBid.amount = getTotalAmount;
-			} else {
-				newBid.amount = getTotalAmount;
-				newBid.hourlyRate = parseFloat(hourlyRate);
-				newBid.estimatedHours = parseFloat(estimatedHours);
-			}
-
-			// Create bid through service
-			await bidService.createBid(newBid as CreateBidParams);
+			// Submit bid as encrypted DM using the new system
+			await submitBidAsDM(bidData, taskCreatorPubkey);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
 		} catch (error) {
 			console.error('Failed to submit bid:', error);
-			if (error instanceof AxiosError && error.response && error.response?.data?.message) {
-				const message = error.response.data.message;
-				if (Array.isArray(message)) bidFormErrors.general = message[0];
-				else bidFormErrors.general = message;
-			} else if (error instanceof Error) bidFormErrors.general = error.message;
-			else bidFormErrors.general = $t('bid_form.errors.submit_failed');
+			bidFormErrors.general = error instanceof Error ? error.message : 'Failed to submit bid';
 		} finally {
 			submittingBid = false;
 		}
@@ -229,7 +227,6 @@
 			class="p-8 text-center"
 			in:fly={{
 				duration: 200,
-				easing: linear,
 				y: 0,
 				x: 20
 			}}

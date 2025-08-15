@@ -1,11 +1,37 @@
 {
     "bids": {
+        "my_submitted_bids": "Mis Ofertas Enviadas",
+        "refresh": "Actualizar",
+        "no_bids_yet": "Aún no has enviado ofertas",
+        "no_bids_description": "Tus ofertas enviadas aparecerán aquí",
+        "manage_description": "Gestiona y rastrea todas tus ofertas enviadas",
+        "loading_bids": "Cargando tus ofertas...",
+        "error_loading_bids": "Error al Cargar Ofertas",
+        "task": "Tarea",
+        "type": "Tipo",
+        "duration": "Duración",
+        "description": "Descripción",
+        "approach": "Enfoque",
+        "cover_letter": "Carta de Presentación",
+        "submitted": "Enviado",
+        "pending": "Pendiente",
+        "accepted": "Aceptado",
+        "rejected": "Rechazado",
+        "view": "Ver",
+        "cancel": "Cancelar",
+        "hours": "horas",
+        "sats": "sats",
+        "retry": "Reintentar",
+        "hourly_rate": "Tarifa",
+        "per_hour": "hora",
+        "unknown_task": "Desconocido",
         "panel": {
             "title": "Panel de mis ofertas"
         },
         "error": {
             "loading": "Error al cargar las ofertas",
-            "retry": "Reintentar cargar ofertas"
+            "retry": "Reintentar cargar ofertas",
+            "loading_user_data": "Error al cargar datos del usuario"
         },
         "empty": {
             "title": "Aún no hay ofertas",

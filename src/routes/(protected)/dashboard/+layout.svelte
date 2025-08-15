@@ -7,6 +7,7 @@
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircle from '~icons/mdi/plus-circle';
 	import IconMagnify from '~icons/mdi/magnify';
+	import IconHandshake from '~icons/mdi/handshake';
 	import IconWallet from '~icons/mdi/wallet';
 	import IconAccount from '~icons/mdi/account';
 	import IconMessage from '~icons/mdi/message';
@@ -23,6 +24,7 @@
 			'mdi:format-list-bulleted': IconFormatListBulleted,
 			'mdi:plus-circle': IconPlusCircle,
 			'mdi:magnify': IconMagnify,
+			'mdi:handshake': IconHandshake,
 			'mdi:wallet': IconWallet,
 			'mdi:account': IconAccount,
 			'mdi:message': IconMessage,
@@ -122,6 +124,8 @@
 										<IconPlusCircle class="text-primary" />
 									{:else if section.icon === 'mdi:magnify'}
 										<IconMagnify class="text-primary" />
+									{:else if section.icon === 'mdi:handshake'}
+										<IconHandshake class="text-primary" />
 									{:else if section.icon === 'mdi:wallet'}
 										<IconWallet class="text-primary" />
 									{:else if section.icon === 'mdi:account'}

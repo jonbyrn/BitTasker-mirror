@@ -79,7 +79,8 @@
         "help": "Help",
         "logout": "Logout",
         "settings": "Settings",
-        "feedback": "Feedback"
+        "feedback": "Feedback",
+        "bids": "My Bids"
     },
     "homepage": {
         "title": "Hello, World!",
