@@ -20,6 +20,11 @@ export interface NostrBid {
 	coverLetter: string;
 	timestamp: number;
 	bidId: string;
+	// New datetime fields for fixed price bids
+	startDate?: string | null;
+	endDate?: string | null;
+	startTime?: string | null;
+	endTime?: string | null;
 }
 
 export interface BidMessage {
@@ -157,7 +162,12 @@ export async function getMyBids(): Promise<BidMessage[]> {
 								proposedApproach: parsedContent.proposedApproach || '',
 								coverLetter: parsedContent.coverLetter || '',
 								timestamp: parsedContent.timestamp || (message.event.created_at * 1000),
-								bidId: parsedContent.bidId || `bid-${message.event.id}`
+								bidId: parsedContent.bidId || `bid-${message.event.id}`,
+								// Add new datetime fields
+								startDate: parsedContent.startDate || null,
+								endDate: parsedContent.endDate || null,
+								startTime: parsedContent.startTime || null,
+								endTime: parsedContent.endTime || null
 							};
 							
 							bids.push({

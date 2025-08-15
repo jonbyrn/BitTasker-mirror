@@ -99,6 +99,10 @@
                 "label": "Tiempo Estimado de Finalización",
                 "placeholder": "ej., 3 días, 1 semana"
             },
+            "estimated_completion_time": {
+                "label": "Tiempo Estimado de Finalización",
+                "placeholder": "Selecciona fecha y hora"
+            },
             "description": {
                 "label": "Descripción de la Oferta",
                 "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
@@ -110,7 +114,11 @@
             "cover_letter": {
                 "label": "Carta de Presentación (Opcional)",
                 "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
-            }
+            },
+            "datetime_range": "Rango de Fechas",
+            "start_datetime": "Fecha y Hora de Inicio",
+            "end_datetime": "Fecha y Hora de Fin",
+            "duration": "Duración Total Estimada"
         },
         "errors": {
             "task_id_required": "Se requiere el ID de la tarea",
@@ -125,7 +133,11 @@
             "estimated_duration_required": "Por favor proporciona un tiempo estimado de finalización",
             "proposed_approach_required": "Por favor describe tu enfoque para esta tarea",
             "proposed_approach_min_length": "La descripción de tu enfoque debe tener al menos 50 caracteres",
-            "submit_failed": "Error al enviar la oferta. Por favor inténtalo de nuevo."
+            "submit_failed": "Error al enviar la oferta. Por favor inténtalo de nuevo.",
+            "estimated_completion_time_required": "Se requiere el tiempo estimado de finalización",
+            "completion_time_must_be_future": "El tiempo de finalización debe ser en el futuro",
+            "datetime_required": "Por favor selecciona fechas de inicio y fin",
+            "datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio"
         },
         "success": {
             "title": "¡Oferta Enviada Exitosamente!",

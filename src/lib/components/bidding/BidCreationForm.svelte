@@ -28,8 +28,15 @@
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
 
+	// New datetime fields for fixed price bids
+	let startDate = $state<string>('');
+	let endDate = $state<string>('');
+	let startTime = $state<string>('09:00');
+	let endTime = $state<string>('17:00');
+
 	// USDT conversion state
 	let usdAmount = $state<number>(0);
+	let hourlyRateUsd = $state<number>(0); // Add separate USD state for hourly rate
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Fetch BTC price on mount
@@ -79,9 +86,11 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
+			hourlyRateUsd = usdValue;
 			const satsValue = satsFromUsd(usdValue, btcPrice);
 			hourlyRate = satsValue.toString();
 		} else {
+			hourlyRateUsd = 0;
 			hourlyRate = '0';
 		}
 	}
@@ -94,8 +103,10 @@
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			hourlyRate = satsValue.toString();
+			hourlyRateUsd = usdFromSats(satsValue, btcPrice);
 		} else {
 			hourlyRate = '0';
+			hourlyRateUsd = 0;
 		}
 	}
 
@@ -124,6 +135,38 @@
 			: parseFloat(amount || '0')
 	);
 
+	// Handle payment type change
+	function handlePaymentTypeChange(newType: PaymentType) {
+		if (bidType === newType) return;
+		
+		bidType = newType;
+		
+		if (newType === 'HOURLY') {
+			// Clear fixed price fields and initialize hourly rate with current USD amount
+			amount = '';
+			if (usdAmount > 0) {
+				// Convert the current USD amount to hourly rate sats
+				const satsValue = satsFromUsd(usdAmount, btcPrice);
+				hourlyRate = satsValue.toString();
+				hourlyRateUsd = usdAmount; // Set the hourly rate USD value
+			} else {
+				hourlyRate = '';
+				hourlyRateUsd = 0;
+			}
+		} else {
+			// Clear hourly rate fields and initialize fixed price with current hourly rate
+			hourlyRate = '';
+			hourlyRateUsd = 0;
+			estimatedHours = '';
+			if (parseInt(hourlyRate || '0') > 0 && parseFloat(estimatedHours || '0') > 0) {
+				// Convert hourly rate to total amount
+				const totalSats = parseInt(hourlyRate) * parseFloat(estimatedHours);
+				amount = totalSats.toString();
+				usdAmount = usdFromSats(totalSats, btcPrice);
+			}
+		}
+	}
+
 	// Form validation
 	function validateBidForm() {
 		const errors: Record<string, string> = {};
@@ -134,6 +177,17 @@
 				errors.amount = $t('bid_form.errors.amount_required');
 			} else if (parseFloat(amount) <= 0) {
 				errors.amount = $t('bid_form.errors.amount_greater_than_zero');
+			}
+
+			// Validate datetime fields for fixed price
+			if (!startDate || !endDate) {
+				errors.datetime = $t('bid_form.errors.datetime_required');
+			} else {
+				const start = new Date(`${startDate}T${startTime}`);
+				const end = new Date(`${endDate}T${endTime}`);
+				if (start >= end) {
+					errors.datetime = $t('bid_form.errors.datetime_invalid');
+				}
 			}
 		}
 
@@ -159,11 +213,6 @@
 			errors.description = $t('bid_form.errors.description_min_length');
 		}
 
-		// Validate estimated duration
-		if (!estimatedDuration || estimatedDuration.trim() === '') {
-			errors.estimatedDuration = $t('bid_form.errors.estimated_duration_required');
-		}
-
 		// Validate proposed approach
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
@@ -173,6 +222,26 @@
 
 		bidFormErrors = errors;
 		return Object.keys(errors).length === 0;
+	}
+
+	// Helper function to format duration for display
+	function formatDurationForDisplay(): string {
+		if (bidType === 'FIXED' && startDate && endDate) {
+			const start = new Date(`${startDate}T${startTime}`);
+			const end = new Date(`${endDate}T${endTime}`);
+			const diffMs = end.getTime() - start.getTime();
+			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+			
+			if (diffDays > 1) {
+				return `${diffDays} days`;
+			} else if (diffHours > 1) {
+				return `${diffHours} hours`;
+			} else {
+				return '1 hour';
+			}
+		}
+		return '';
 	}
 
 	// Handle form submission
@@ -186,20 +255,25 @@
 		try {
 			// Create bid data structure with explicit type
 			const bidData: NostrBid = {
-				type: 'bid' as const, // Use const assertion to fix type issue
+				type: 'bid' as const,
 				taskId: taskId,
-				taskTitle: taskTitle || 'Untitled Task', // Add task title
+				taskTitle: taskTitle || 'Untitled Task',
 				amount: getTotalAmount,
 				currency: 'SATS',
 				paymentType: bidType,
-				hourlyRate: bidType === 'HOURLY' && hourlyRate ? parseFloat(hourlyRate) : null, // Use null instead of undefined
-				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null, // Use null instead of undefined
+				hourlyRate: bidType === 'HOURLY' && hourlyRate ? parseFloat(hourlyRate) : null,
+				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null,
 				description,
-				estimatedDuration,
+				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay() : estimatedDuration,
 				proposedApproach,
 				coverLetter: description,
 				timestamp: Date.now(),
-				bidId: crypto.randomUUID() // Generate unique bid ID
+				bidId: crypto.randomUUID(),
+				// Add new datetime fields
+				startDate: bidType === 'FIXED' ? startDate : null,
+				endDate: bidType === 'FIXED' ? endDate : null,
+				startTime: bidType === 'FIXED' ? startTime : null,
+				endTime: bidType === 'FIXED' ? endTime : null
 			};
 
 			// Submit bid as encrypted DM using the new system
@@ -281,7 +355,7 @@
 						class="tab flex-1 rounded-md {bidType === 'FIXED'
 							? 'tab-active bg-primary text-primary-content font-medium'
 							: 'hover:bg-base-300'}"
-						onclick={() => (bidType = 'FIXED')}
+						onclick={() => handlePaymentTypeChange('FIXED')}
 						role="radio"
 						aria-checked={bidType === 'FIXED'}
 					>
@@ -292,7 +366,7 @@
 						class="tab flex-1 rounded-md {bidType === 'HOURLY'
 							? 'tab-active bg-primary text-primary-content font-medium'
 							: 'hover:bg-base-300'}"
-						onclick={() => (bidType = 'HOURLY')}
+						onclick={() => handlePaymentTypeChange('HOURLY')}
 						role="radio"
 						aria-checked={bidType === 'HOURLY'}
 					>
@@ -354,6 +428,63 @@
 						</span>
 					{/if}
 				</div>
+
+				<!-- Date and Time Selection for Fixed Price -->
+				<div class="form-control">
+					<label class="label" for="datetime-range">
+						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
+					</label>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div>
+							<label class="label-text-alt mb-2 block" for="start-date">{$t('bid_form.form.start_datetime')}</label>
+							<div class="flex gap-2">
+								<input
+									type="date"
+									id="start-date"
+									bind:value={startDate}
+									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
+									min={new Date().toISOString().split('T')[0]}
+								/>
+								<input
+									type="time"
+									id="start-time"
+									bind:value={startTime}
+									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
+								/>
+							</div>
+						</div>
+						<div>
+							<label class="label-text-alt mb-2 block" for="end-date">{$t('bid_form.form.end_datetime')}</label>
+							<div class="flex gap-2">
+								<input
+									type="date"
+									id="end-date"
+									bind:value={endDate}
+									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
+									min={startDate || new Date().toISOString().split('T')[0]}
+								/>
+								<input
+									type="time"
+									id="end-time"
+									bind:value={endTime}
+									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
+								/>
+							</div>
+						</div>
+					</div>
+					{#if bidFormErrors.datetime}
+						<div class="label">
+							<span class="label-text-alt text-error" id="datetime-error" aria-live="polite"
+								>{bidFormErrors.datetime}</span
+							>
+						</div>
+					{/if}
+					{#if startDate && endDate}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('bid_form.form.duration')}: {formatDurationForDisplay()}
+						</span>
+					{/if}
+				</div>
 			{:else}
 				<!-- Hourly rate bid details -->
 				<div class="form-control">
@@ -368,7 +499,7 @@
 							<input
 								type="text"
 								id="hourly-rate-usd"
-								value={formatNumberForInput(usdAmount)}
+								value={formatNumberForInput(hourlyRateUsd)}
 								onchange={handleHourlyRateUsdChange}
 								oninput={handleHourlyRateUsdChange}
 								class="input input-bordered w-full pl-7 {bidFormErrors.hourlyRate
@@ -417,7 +548,7 @@
 					</label>
 					<input
 						id="estimated-hours"
-						type="number"
+						type="text"
 						class="input input-bordered w-full"
 						class:input-error={bidFormErrors.estimatedHours}
 						aria-invalid={bidFormErrors.estimatedHours ? 'true' : undefined}
@@ -425,7 +556,9 @@
 						placeholder={$t('bid_form.form.hours_placeholder')}
 						min="1"
 						step="1"
-						bind:value={estimatedHours}
+						value={estimatedHours}
+						onchange={handleEstimatedHoursChange}
+						oninput={handleEstimatedHoursChange}
 					/>
 					{#if bidFormErrors.estimatedHours}
 						<div class="label">
@@ -447,43 +580,20 @@
 								(parseInt(hourlyRate || '0') / 100_000_000) *
 								btcPrice *
 								parseFloat(estimatedHours || '0')
-							).toFixed(2)}
+							).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 						</div>
 						<div class="text-sm opacity-70">
-							{parseInt(hourlyRate || '0')} sats × {estimatedHours || '0'} hours
+							{parseInt(hourlyRate || '0').toLocaleString('en-US')} sats × {parseFloat(estimatedHours || '0').toLocaleString('en-US')} hours
 						</div>
 						<div class="mt-1 text-sm opacity-70">
-							≈ {parseInt(hourlyRate || '0') * parseInt(estimatedHours || '0')} sats
+							≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString('en-US')} sats
 						</div>
 					</div>
 				</div>
 			{/if}
 
-			<!-- Estimated completion time -->
-			<div class="form-control">
-				<label class="label" for="estimated-duration">
-					<span class="label-text">{$t('bid_form.form.estimated_duration.label')}</span>
-				</label>
-				<input
-					id="estimated-duration"
-					type="text"
-					class="input input-bordered w-full {bidFormErrors.estimatedDuration ? 'input-error' : ''}"
-					class:input-error={bidFormErrors.estimatedDuration}
-					placeholder={$t('bid_form.form.estimated_duration.placeholder')}
-					aria-invalid={bidFormErrors.estimatedDuration ? 'true' : undefined}
-					aria-describedby={bidFormErrors.estimatedDuration
-						? 'estimated-duration-error'
-						: undefined}
-					bind:value={estimatedDuration}
-				/>
-				{#if bidFormErrors.estimatedDuration}
-					<div class="label">
-						<span class="label-text-alt text-error" id="estimated-duration-error" aria-live="polite"
-							>{bidFormErrors.estimatedDuration}</span
-						>
-					</div>
-				{/if}
-			</div>
+			<!-- Remove the old estimated duration field since we now have datetime for fixed price -->
+			<!-- Estimated Completion Time field removed - not needed for either payment type -->
 
 			<!-- Bid Description -->
 			<div class="form-control">

@@ -99,6 +99,10 @@
                 "label": "Estimated Completion Time",
                 "placeholder": "e.g., 3 days, 1 week"
             },
+            "estimated_completion_time": {
+                "label": "Estimated Completion Time",
+                "placeholder": "Select date and time"
+            },
             "description": {
                 "label": "Bid Description",
                 "placeholder": "Explain why you're the right person for this task"
@@ -110,7 +114,11 @@
             "cover_letter": {
                 "label": "Cover Letter (Optional)",
                 "placeholder": "Add additional information about your experience and qualifications"
-            }
+            },
+            "datetime_range": "Scheduled Period",
+            "start_datetime": "Start Date & Time",
+            "end_datetime": "End Date & Time",
+            "duration": "Total Duration"
         },
         "errors": {
             "task_id_required": "Task ID is required",
@@ -125,7 +133,11 @@
             "estimated_duration_required": "Please provide an estimated completion time",
             "proposed_approach_required": "Please describe your approach to this task",
             "proposed_approach_min_length": "Your approach description must be at least 50 characters",
-            "submit_failed": "Error submitting bid. Please try again."
+            "submit_failed": "Error submitting bid. Please try again.",
+            "estimated_completion_time_required": "Estimated completion time is required",
+            "completion_time_must_be_future": "Completion time must be in the future",
+            "datetime_required": "Please select start and end dates",
+            "datetime_invalid": "End date must be after start date"
         },
         "success": {
             "title": "Bid Submitted Successfully!",

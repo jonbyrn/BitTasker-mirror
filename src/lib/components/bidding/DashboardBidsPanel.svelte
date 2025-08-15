@@ -222,6 +222,7 @@
 										</span>
 									</p>
 								</div>
+								
 								{#if bid.bid.paymentType === 'HOURLY' && bid.bid.hourlyRate}
 									<div>
 										<p class="text-base-content/60 text-sm">{$t('bids.hourly_rate')}</p>
@@ -229,11 +230,35 @@
 											{bid.bid.hourlyRate} {$t('bids.sats')}/{$t('bids.per_hour')}
 										</p>
 									</div>
+									{#if bid.bid.estimatedHours}
+										<div>
+											<p class="text-base-content/60 text-sm">{$t('bids.estimated_hours')}</p>
+											<p class="font-medium">
+												{bid.bid.estimatedHours} {$t('bids.hours')}
+											</p>
+										</div>
+									{/if}
+								{:else if bid.bid.paymentType === 'FIXED'}
+									<!-- Show datetime range for fixed price bids -->
+									{#if bid.bid.startDate && bid.bid.endDate}
+										<div>
+											<p class="text-base-content/60 text-sm">{$t('bids.scheduled_period')}</p>
+											<p class="font-medium text-sm">
+												{new Date(bid.bid.startDate).toLocaleDateString()} - {new Date(bid.bid.endDate).toLocaleDateString()}
+											</p>
+											{#if bid.bid.startTime && bid.bid.endTime}
+												<p class="text-xs text-base-content/60">
+													{bid.bid.startTime} - {bid.bid.endTime}
+												</p>
+											{/if}
+										</div>
+									{/if}
 								{/if}
+								
 								<div>
 									<p class="text-base-content/60 text-sm">{$t('bids.duration')}</p>
 									<p class="font-medium">
-										{formatDuration(bid.bid.estimatedDuration)}
+										{bid.bid.estimatedDuration || 'N/A'}
 									</p>
 								</div>
 							</div>
