@@ -556,7 +556,7 @@
 
 		<!-- Error Display -->
 		{#if validationError}
-			<div class="alert alert-error">
+			<div class="alert alert-outline alert-error">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 flex-shrink-0 stroke-current"
@@ -613,7 +613,7 @@
 
 			<!-- Pending Payments -->
 			{#if pendingPayments.length > 0}
-				<div class="alert alert-info">
+				<div class="alert alert-outline alert-info">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-5 w-5 flex-shrink-0 stroke-current"

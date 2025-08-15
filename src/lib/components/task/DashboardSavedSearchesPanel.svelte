@@ -113,7 +113,7 @@
 	<h2 class="mb-4 text-xl font-bold">{$t('profile_task.saved_searches_title')}</h2>
 
     {#if error}
-		<div class="alert alert-error mb-4">
+		<div class="alert alert-outline alert-error mb-4">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0"
