@@ -13,10 +13,6 @@
 		onSelectTask: (task: Task) => void;
 	}>();
 
-	// Cache for recommendations (5 minutes)
-	const RECOMMENDATIONS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-	const recommendationsCache = new Map<string, { data: TaskRecommendation[]; timestamp: number }>();
-
 	// State
 	let limit = 10;
 	let recommendations = $state<TaskRecommendation[]>([]);
@@ -30,35 +26,13 @@
 	// Load recommendations on component mount
 	loadRecommendations();
 
-	// Function to get cached recommendations or fetch new ones
-	async function getCachedOrFetchRecommendations(): Promise<TaskRecommendation[]> {
-		const cacheKey = `recommendations_${$user?.npub}_${limit}`;
-		const cached = recommendationsCache.get(cacheKey);
-		
-		if (cached && Date.now() - cached.timestamp < RECOMMENDATIONS_CACHE_DURATION) {
-			console.log('[RecommendedTasks] Cache hit for recommendations');
-			return cached.data;
-		}
-
-		console.log('[RecommendedTasks] Cache miss, fetching new recommendations');
-		const data = await getRecommendedTasks(limit);
-		
-		// Cache the results
-		recommendationsCache.set(cacheKey, {
-			data,
-			timestamp: Date.now()
-		});
-		
-		return data;
-	}
-
-	// Function to load recommendations using Nostr
+	// Function to load recommendations using Nostr=
 	async function loadRecommendations() {
 		try {
 			loaders.data = true;
 			error = null;
 
-			recommendations = await getCachedOrFetchRecommendations();
+			recommendations = await getRecommendedTasks(limit);
 		} catch (err) {
 			error = 'Failed to load recommendations. Please try again.';
 			console.error('Error loading recommendations:', err);
@@ -67,11 +41,8 @@
 		}
 	}
 
-	// Refresh recommendations - clear cache and reload
+	// Refresh recommendations - same as load since Nostr system handles caching
 	async function refreshRecommendations() {
-		// Clear cache for this user
-		const cacheKey = `recommendations_${$user?.npub}_${limit}`;
-		recommendationsCache.delete(cacheKey);
 		await loadRecommendations();
 	}
 
