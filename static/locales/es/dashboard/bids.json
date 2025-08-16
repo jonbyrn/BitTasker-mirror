@@ -24,7 +24,10 @@
         "retry": "Reintentar",
         "hourly_rate": "Tarifa",
         "per_hour": "hora",
+        "proposal": "Propuesta",
         "unknown_task": "Desconocido",
+        "scheduled_period": "Periodo Programado",
+        "show_more": "Mostrar más",
         "panel": {
             "title": "Panel de mis ofertas"
         },
@@ -75,7 +78,18 @@
                 "task_id_missing": "Falta el ID de la tarea. Por favor inténtalo de nuevo.",
                 "failed_to_load_details": "Error al cargar los detalles de la tarea. Por favor inténtalo de nuevo."
             }
-        }
+        },
+        "your_proposal": "Propuesta",
+        "your_bid_amount": "Oferta",
+        "payment_type": "Tipo de Pago",
+        "estimated_duration": "Duración Estimada",
+        "your_description": "Descripción",
+        "your_approach": "Enfoque",
+        "your_cover_letter": "Carta de Presentación",
+        "show_more_details": "Mostrar más detalles",
+        "show_less": "Mostrar menos",
+        "no_task_description": "No hay descripción disponible",
+        "bid_id": "ID de Oferta"
     },
     "bid_form": {
         "title": "Coloca tu oferta",

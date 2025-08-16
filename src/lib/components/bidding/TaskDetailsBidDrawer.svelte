@@ -569,6 +569,7 @@
 						onClose={() => handleClose()}
 						taskCreatorPubkey={taskCreatorPubkey}
 						taskTitle={task.title}
+						taskDescription={task.description}
 					/>
 				{:else if !task.id}
 					<div class="alert alert-error">

@@ -14,6 +14,7 @@
         "approach": "Approach",
         "cover_letter": "Cover Letter",
         "submitted": "Submitted",
+        "show_more": "Show more",
         "pending": "Pending",
         "accepted": "Accepted",
         "rejected": "Rejected",
@@ -24,7 +25,10 @@
         "retry": "Retry",
         "hourly_rate": "Rate",
         "per_hour": "hour",
+        "proposal": "Proposal",
         "unknown_task": "Unknown",
+        "scheduled_period": "Scheduled Period",
+        "estimated_hours": "Estimated Hours",
         "panel": {
             "title": "My Bids Panel"
         },
@@ -75,7 +79,18 @@
                 "task_id_missing": "Task ID is missing. Please try again.",
                 "failed_to_load_details": "Error loading task details. Please try again."
             }
-        }
+        },
+        "your_proposal": "Proposal",
+        "your_bid_amount": "Bid Amount",
+        "payment_type": "Payment Type",
+        "estimated_duration": "Estimated Duration",
+        "your_description": "Description",
+        "your_approach": "Approach",
+        "your_cover_letter": "Cover Letter",
+        "show_more_details": "Show more details",
+        "show_less": "Show less",
+        "no_task_description": "No description available",
+        "bid_id": "Bid ID"
     },
     "bid_form": {
         "title": "Place Your Bid",

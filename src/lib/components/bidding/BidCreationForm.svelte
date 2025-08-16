@@ -8,11 +8,12 @@
 	import type { NostrBid } from '$lib/utils/nostr-bid'; // Import from nostr-bid.ts where it's defined
 
 	// Props
-	const { taskId, onClose, taskCreatorPubkey, taskTitle } = $props<{ 
+	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{ 
 		taskId: string; 
 		onClose: () => void;
 		taskCreatorPubkey: string; // Required for sending DM
 		taskTitle?: string; // Add task title prop
+		taskDescription?: string; // Add task description prop
 	}>();
 
 	// Form state
@@ -258,6 +259,7 @@
 				type: 'bid' as const,
 				taskId: taskId,
 				taskTitle: taskTitle || 'Untitled Task',
+				taskDescription: taskDescription || 'No description available', // Add task description
 				amount: getTotalAmount,
 				currency: 'SATS',
 				paymentType: bidType,
