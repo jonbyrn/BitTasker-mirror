@@ -44,17 +44,24 @@
 	// Save search state
 	let isSaveSearchOpen = $state(false);
 
+	// Loading states
+	let loadingTimeout = $state(false);
+	let isInitialLoad = $state(true);
+	let dataLoaded = $state(false);
+	let showSkeleton = $state(true);
+
+	// Lazy loading state
+	let taskListRef = $state<HTMLElement | null>(null);
+	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	let intersectionObserver: IntersectionObserver | null = null;
+
 	// Infinite scroll state
-	let observer: IntersectionObserver | null = null;
+	let infiniteScrollObserver: IntersectionObserver | null = null;
 	let scrollTarget = $state<HTMLElement | null>(null);
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(null);
 	let isSidebarOpen = $state(false);
-
-	// Loading states
-	let loadingTimeout = $state(false);
-	let isInitialLoad = $state(true);
 
 	// Has active search parameters for save search button
 	let hasActiveParams = $state(false);
@@ -85,6 +92,67 @@
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
 		}
+	}
+
+	/**
+	 * Load Nostr data with proper state management
+	 */
+	async function loadNostrData(): Promise<void> {
+		if (dataLoaded) return; // Prevent multiple loads
+		
+		try {
+			console.log('[FindTasks] Loading Nostr data...');
+			await findTasks(searchParams);
+			dataLoaded = true;
+			showSkeleton = false;
+			
+			// Cleanup observers and timers
+			if (intersectionObserver) {
+				intersectionObserver.disconnect();
+				intersectionObserver = null;
+			}
+			if (fallbackTimer) {
+				clearTimeout(fallbackTimer);
+				fallbackTimer = null;
+			}
+		} catch (error) {
+			console.error('[FindTasks] Error loading Nostr data:', error);
+			// Keep skeleton visible on error
+		}
+	}
+
+	/**
+	 * Setup lazy loading with intersection observer and fallback
+	 */
+	function setupLazyLoading(): void {
+		if (!browser || dataLoaded) return;
+
+		// Setup intersection observer
+		intersectionObserver = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && !dataLoaded) {
+					console.log('[FindTasks] Task list visible, loading data...');
+					loadNostrData();
+				}
+			},
+			{ 
+				threshold: 0.1, 
+				rootMargin: '200px' // Start loading 200px before visible
+			}
+		);
+
+		// Observe the task list area
+		if (taskListRef) {
+			intersectionObserver.observe(taskListRef);
+		}
+
+		// Fallback: Load after 3 seconds if user doesn't scroll
+		fallbackTimer = setTimeout(() => {
+			if (!dataLoaded) {
+				console.log('[FindTasks] Fallback timer triggered, loading data...');
+				loadNostrData();
+			}
+		}, 3000);
 	}
 
 	// Debounce function
@@ -237,7 +305,7 @@
 		if (!browser) return;
 
 		if ('IntersectionObserver' in window) {
-			observer = new IntersectionObserver(
+			infiniteScrollObserver = new IntersectionObserver(
 				(entries) => {
 					if (entries[0].isIntersecting && $tasksStore.hasMore && !$tasksStore.loading) {
 						loadMoreTasks();
@@ -247,7 +315,7 @@
 			);
 
 			if (scrollTarget) {
-				observer.observe(scrollTarget);
+				infiniteScrollObserver.observe(scrollTarget);
 			}
 		}
 	}
@@ -263,12 +331,12 @@
 				error: null
 			};
 		});
-		if (observer && scrollTarget) {
-			observer.unobserve(scrollTarget);
+		if (infiniteScrollObserver && scrollTarget) {
+			infiniteScrollObserver.unobserve(scrollTarget);
 		}
-		if (observer) {
-			observer.disconnect();
-			observer = null;
+		if (infiniteScrollObserver) {
+			infiniteScrollObserver.disconnect();
+			infiniteScrollObserver = null;
 		}
 	}
 
@@ -299,11 +367,11 @@
 	// Initial data fetch and setup
 	onMount(() => {
 		if (browser) {
-			// Fetch BTC price for USDT conversion
+			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
 
-			// Load initial tasks
-			findTasks(searchParams);
+			// Setup lazy loading for Nostr data
+			setupLazyLoading();
 
 			// Setup infinite scroll - waiting for DOM to be ready
 			setTimeout(() => {
@@ -315,6 +383,17 @@
 	// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
+			// Cleanup lazy loading
+			if (intersectionObserver) {
+				intersectionObserver.disconnect();
+				intersectionObserver = null;
+			}
+			if (fallbackTimer) {
+				clearTimeout(fallbackTimer);
+				fallbackTimer = null;
+			}
+			
+			// Cleanup infinite scroll
 			cleanupInfiniteScroll();
 			cleanup();
 		}
@@ -322,16 +401,16 @@
 
 	// Loading state management effect
 	$effect(() => {
-		// Update initial load flag
-		if (isInitialLoad && (!$tasksStore.loading || $tasksStore.items.length > 0)) {
+		// Update initial load flag when data is loaded
+		if (isInitialLoad && dataLoaded) {
 			isInitialLoad = false;
 		}
 
-		// Handle loading timeout
+		// Handle loading timeout for Nostr data
 		let timer: ReturnType<typeof setTimeout> | undefined;
-		if ($tasksStore.loading && searchParams.page === 1) {
+		if ($tasksStore.loading && searchParams.page === 1 && !dataLoaded) {
 			timer = setTimeout(() => {
-				if ($tasksStore.loading && searchParams.page === 1) {
+				if ($tasksStore.loading && searchParams.page === 1 && !dataLoaded) {
 					loadingTimeout = true;
 					console.error('[FindTasks] Query timeout - fetching took too long');
 				}
@@ -504,145 +583,150 @@
 
 	<RecommendedTasks {onSelectTask} />
 
-	<!-- Task List -->
-	{#if (isInitialLoad || ($tasksStore.loading && searchParams.page === 1)) && !loadingTimeout}
-		<!-- Shimmer/Loading Placeholder -->
-		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md">
-			{#each Array(4) as _}
-				<div class="card-body animate-pulse">
-					<!-- Skeleton structure -->
-					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-						<div class="bg-base-300 h-7 w-3/4 rounded"></div>
-						<div class="bg-base-300 h-6 w-32 rounded"></div>
-					</div>
-					<div class="my-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-16 rounded"></div>
-							<div class="bg-base-300 h-6 w-28 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-24 rounded"></div>
-							<div class="bg-base-300 h-6 w-36 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-20 rounded"></div>
+	<!-- Task List Area (for intersection observer) -->
+	<div bind:this={taskListRef}>
+		<!-- Skeleton Loading -->
+		{#if showSkeleton && !dataLoaded}
+			<div class="space-y-4">
+				{#each Array(4) as _}
+					<div class="card bg-base-100 rounded-xl shadow-md p-6 animate-pulse">
+						<div class="flex flex-col gap-4 md:flex-row md:items-center">
+							<div class="bg-base-300 h-7 w-3/4 rounded"></div>
 							<div class="bg-base-300 h-6 w-32 rounded"></div>
 						</div>
-					</div>
-					<div class="mb-4 flex flex-wrap gap-2">
-						<div class="bg-base-300 h-6 w-20 rounded"></div>
-						<div class="bg-base-300 h-6 w-24 rounded"></div>
-						<div class="bg-base-300 h-6 w-16 rounded"></div>
-					</div>
-					<div class="card-actions mt-4 flex items-center justify-between">
-						<div class="bg-base-300 h-6 w-16 rounded"></div>
-						<div class="bg-base-300 h-9 w-24 rounded"></div>
-					</div>
-				</div>
-				<div class="divider mx-auto w-[90%]"></div>
-			{/each}
-		</div>
-	{:else if loadingTimeout}
-		<!-- Loading Timeout Warning -->
-		<div class="alert alert-warning alert-outline mb-4 rounded-xl text-black">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-				/>
-			</svg>
-			<div>
-				<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
-				<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
-			</div>
-			<button class="btn btn-sm" onclick={() => window.location.reload()}>
-				{$t('find_tasks.refresh')}
-			</button>
-		</div>
-	{:else if $tasksStore.items && $tasksStore.items.length > 0}
-		<h2 class="mb-4 text-xl font-bold">
-			{$t('find_tasks.other_tasks')}
-			<span class="text-base-content/70 ml-2 text-sm font-normal">
-				{#if $tasksStore.loading && searchParams.page === 1}
-					<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
-				{:else if $tasksStore.items.length > 0}
-					({$t('find_tasks.showing_tasks').replace('{count}', $tasksStore.items.length.toString())})
-				{/if}
-			</span>
-		</h2>
-
-		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
-			{#each $tasksStore.items as task, index}
-				<div class="card-body">
-					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-						<h3 class="card-title line-clamp-2">{task.title}</h3>
-						<div class="flex items-center justify-between gap-4 text-sm">
-							<div class="flex flex-col items-center md:min-w-[140px]">
-								<div class="flex items-center gap-2">
-									<span class="font-semibold">{formatSatsAmount(task.budget.amount)}</span>
-									{#if task.budget.type === 'HOURLY'}
-										<span class="text-base-content/60 text-xs">/hr</span>
-									{/if}
-								</div>
-								<span class="text-info text-xs"
-									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
-								>
-							</div>
-							<span class="badge badge-outline">{task.status}</span>
+						<div class="my-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+							<div class="bg-base-300 h-6 w-28 rounded"></div>
+							<div class="bg-base-300 h-6 w-36 rounded"></div>
+							<div class="bg-base-300 h-6 w-32 rounded"></div>
+						</div>
+						<div class="flex gap-2">
+							<div class="bg-base-300 h-6 w-20 rounded"></div>
+							<div class="bg-base-300 h-6 w-24 rounded"></div>
+							<div class="bg-base-300 h-6 w-16 rounded"></div>
+						</div>
+						<div class="flex items-center justify-between mt-4">
+							<div class="bg-base-300 h-6 w-16 rounded"></div>
+							<div class="bg-base-300 h-9 w-24 rounded"></div>
 						</div>
 					</div>
+				{/each}
+			</div>
+		{:else if loadingTimeout}
+			<!-- Loading Timeout Warning -->
+			<div class="alert alert-warning alert-outline mb-4 rounded-xl">
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+				</svg>
+				<div>
+					<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
+					<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
+				</div>
+				<button class="btn btn-sm" onclick={() => window.location.reload()}>
+					{$t('find_tasks.refresh')}
+				</button>
+			</div>
+		{:else if $tasksStore.items && $tasksStore.items.length > 0}
+			<h2 class="mb-4 text-xl font-bold">
+				{$t('find_tasks.other_tasks')}
+				<span class="text-base-content/70 ml-2 text-sm font-normal">
+					{#if $tasksStore.loading && searchParams.page === 1}
+						<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
+					{:else if $tasksStore.items.length > 0}
+						({$t('find_tasks.showing_tasks').replace('{count}', $tasksStore.items.length.toString())})
+					{/if}
+				</span>
+			</h2>
 
-					<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
-
-					<div class="mt-2 mb-4">
-						<div class="flex flex-wrap gap-4">
-							{#if task.deadline}
-								<div>
-									<p class="text-base-content/60 text-sm">{$t('find_tasks.deadline')}</p>
-									<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
+			<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
+				{#each $tasksStore.items as task, index}
+					<div class="card-body">
+						<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+							<h3 class="card-title line-clamp-2">{task.title}</h3>
+							<div class="flex items-center justify-between gap-4 text-sm">
+								<div class="flex flex-col items-center md:min-w-[140px]">
+									<div class="flex items-center gap-2">
+										<span class="font-semibold">{formatSatsAmount(task.budget.amount)}</span>
+										{#if task.budget.type === 'HOURLY'}
+											<span class="text-base-content/60 text-xs">/hr</span>
+										{/if}
+									</div>
+									<span class="text-info text-xs"
+										>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
+									>
 								</div>
-							{:else if task.dateRange?.start && task.dateRange?.end}
+								<span class="badge badge-outline">{task.status}</span>
+							</div>
+						</div>
+
+						<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
+
+						<div class="mt-2 mb-4">
+							<div class="flex flex-wrap gap-4">
+								{#if task.deadline}
+									<div>
+										<p class="text-base-content/60 text-sm">{$t('find_tasks.deadline')}</p>
+										<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
+									</div>
+								{:else if task.dateRange?.start && task.dateRange?.end}
+									<div>
+										<p class="text-base-content/60 text-sm">{$t('find_tasks.date_range')}</p>
+										<p class="font-medium">
+											{new Date(task.dateRange.start).toLocaleDateString()} -
+											{new Date(task.dateRange.end).toLocaleDateString()}
+										</p>
+									</div>
+								{/if}
+
 								<div>
-									<p class="text-base-content/60 text-sm">{$t('find_tasks.date_range')}</p>
+									<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
 									<p class="font-medium">
-										{new Date(task.dateRange.start).toLocaleDateString()} -
-										{new Date(task.dateRange.end).toLocaleDateString()}
+										{task?.creator?.username || $t('find_tasks.not_available')}
 									</p>
 								</div>
-							{/if}
-
-							<div>
-								<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
-								<p class="font-medium">
-									{task?.creator?.username || $t('find_tasks.not_available')}
-								</p>
 							</div>
 						</div>
-					</div>
 
-					{#if task.skills && task.skills.length > 0}
-						<div class="mb-4 flex flex-wrap gap-2">
-							{#each task.skills as skill, index}
-								{#if skill}
-									<span class="badge badge-primary badge-outline">{skill}</span>
-								{/if}
-							{/each}
-						</div>
-					{/if}
+						{#if task.skills && task.skills.length > 0}
+							<div class="mb-4 flex flex-wrap gap-2">
+								{#each task.skills as skill, index}
+									{#if skill}
+										<span class="badge badge-primary badge-outline">{skill}</span>
+									{/if}
+								{/each}
+							</div>
+						{/if}
 
-					<div class="card-actions mt-4 flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							<div class="badge badge-info gap-1">
+						<div class="card-actions mt-4 flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<div class="badge badge-info gap-1">
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+										/>
+									</svg>
+									{task.bids?.length ?? 0}
+									{$t('find_tasks.bids')}
+								</div>
+							</div>
+
+							<button
+								class="btn btn-primary btn-sm"
+								class:btn-disabled={task.status !== TaskStatusEnum.OPEN || task?.npub === $user?.npub}
+								onclick={() => onSelectTask(task)}
+								aria-label={$t('find_tasks.bid_on_task')}
+							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
+									class="h-5 w-5"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -651,78 +735,54 @@
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+										d="M12 4v16m8-8H4"
 									/>
 								</svg>
-								{task.bids?.length ?? 0}
-								{$t('find_tasks.bids')}
-							</div>
+								{task.status === TaskStatusEnum.OPEN
+									? $t('find_tasks.bid_now')
+									: $t('find_tasks.bidding_closed')}
+							</button>
 						</div>
-
-						<button
-							class="btn btn-primary btn-sm"
-							class:btn-disabled={task.status !== TaskStatusEnum.OPEN || task?.npub === $user?.npub}
-							onclick={() => onSelectTask(task)}
-							aria-label={$t('find_tasks.bid_on_task')}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4v16m8-8H4"
-								/>
-							</svg>
-							{task.status === TaskStatusEnum.OPEN
-								? $t('find_tasks.bid_now')
-								: $t('find_tasks.bidding_closed')}
-						</button>
 					</div>
-				</div>
 
-				{#if index < $tasksStore.items.length - 1}
-					<div class="divider mx-auto w-[90%]"></div>
+					{#if index < $tasksStore.items.length - 1}
+						<div class="divider mx-auto w-[90%]"></div>
+					{/if}
+				{/each}
+			</div>
+
+			<!-- Infinite Scroll Target -->
+			<div bind:this={scrollTarget} class="mt-2">
+				{#if $tasksStore.loading && searchParams.page && searchParams.page > 1}
+					<div class="flex justify-center py-2">
+						<span class="loading loading-spinner loading-md"></span>
+					</div>
 				{/if}
-			{/each}
-		</div>
-
-		<!-- Infinite Scroll Target -->
-		<div bind:this={scrollTarget} class="mt-2">
-			{#if $tasksStore.loading && searchParams.page && searchParams.page > 1}
-				<div class="flex justify-center py-2">
-					<span class="loading loading-spinner loading-md"></span>
-				</div>
-			{/if}
-		</div>
-	{:else if !$tasksStore.loading}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<h3 class="mt-4 text-lg font-semibold">{$t('find_tasks.no_tasks_found')}</h3>
-			<p class="text-base-content/60 mt-1">{$t('find_tasks.no_tasks_message')}</p>
-			<button class="btn btn-primary mt-4" onclick={clearFilters}
-				>{$t('find_tasks.clear_filters')}</button
-			>
-		</div>
-	{/if}
+			</div>
+		{:else if !$tasksStore.loading && dataLoaded}
+			<div class="py-12 text-center">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="text-base-content/30 mx-auto h-12 w-12"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<h3 class="mt-4 text-lg font-semibold">{$t('find_tasks.no_tasks_found')}</h3>
+				<p class="text-base-content/60 mt-1">{$t('find_tasks.no_tasks_message')}</p>
+				<button class="btn btn-primary mt-4" onclick={clearFilters}
+					>{$t('find_tasks.clear_filters')}</button
+				>
+			</div>
+		{/if}
+	</div>
 </div>
 
 <!-- Advanced Filter Drawer Component -->
