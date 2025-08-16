@@ -55,13 +55,29 @@
 	// Loading states
 	let loadingTimeout = $state(false);
 	let isInitialLoad = $state(true);
+	let isDataLoading = $state(true);
 
-	// Has active search parameters for save search button
-	let hasActiveParams = $state(false);
-	$effect(() => {
-		// Check if there are any meaningful search parameters set
-		hasActiveParams =
-			!!searchParams.search ||
+	// Progressive loading state
+	let componentsLoaded = $state({
+		filterDrawer: false,
+		saveSearch: false,
+		bidDrawer: false,
+		recommendations: false
+	});
+
+	// Optimized derived values for better performance
+	let formattedTasks = $derived(() => {
+		return $tasksStore.items.map(task => ({
+			...task,
+			formattedAmount: formatSatsAmount(task.budget.amount),
+			usdtEstimate: calculateUsdtEstimate(task.budget.amount, btcPrice),
+			timeAgo: formatTimeAgo(task.createdAt.toString()),
+			deadlineTimeAgo: task.deadline ? formatTimeAgo(task.deadline) : null
+		}));
+	});
+
+	let hasActiveFilters = $derived(() => {
+		return !!searchParams.search ||
 			!!searchParams.taskType ||
 			!!searchParams.location ||
 			(searchParams.status && searchParams.status.length > 0) ||
@@ -71,6 +87,9 @@
 			!!searchParams.budget?.currency ||
 			!!searchParams.budget?.type;
 	});
+
+	// Has active search parameters for save search button
+	let hasActiveParams = $derived(hasActiveFilters);
 
 	// BTC price for USDT conversion
 	let btcPrice = $state<number>(120000); // Default fallback price
@@ -84,6 +103,28 @@
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
+		}
+	}
+
+	/**
+	 * Load tasks with timeout and proper loading states
+	 */
+	async function loadTasksWithTimeout(params: SearchTasksParams): Promise<void> {
+		isDataLoading = true;
+		
+		try {
+			// Race between task loading and timeout
+			await Promise.race([
+				findTasks(params),
+				new Promise((_, reject) => 
+					setTimeout(() => reject(new Error('Task loading timeout')), 5000)
+				)
+			]);
+		} catch (error) {
+			console.error('[FindTasks] Task loading error:', error);
+			// Keep existing data if available
+		} finally {
+			isDataLoading = false;
 		}
 	}
 
@@ -296,19 +337,40 @@
 		findTasks(searchParams);
 	}
 
+	/**
+	 * Load components progressively
+	 */
+	async function loadComponentsProgressively() {
+		// Load critical components immediately
+		componentsLoaded.filterDrawer = true;
+		componentsLoaded.saveSearch = true;
+
+		// Defer non-critical components
+		setTimeout(() => {
+			componentsLoaded.bidDrawer = true;
+		}, 200);
+
+		setTimeout(() => {
+			componentsLoaded.recommendations = true;
+		}, 500);
+	}
+
 	// Initial data fetch and setup
 	onMount(() => {
 		if (browser) {
-			// Fetch BTC price for USDT conversion
-			fetchBtcPrice();
+			// Load initial tasks with timeout (critical)
+			loadTasksWithTimeout(searchParams);
 
-			// Load initial tasks
-			findTasks(searchParams);
+			// Setup infinite scroll immediately (critical)
+			setupInfiniteScroll();
 
-			// Setup infinite scroll - waiting for DOM to be ready
+			// Load components progressively
+			loadComponentsProgressively();
+
+			// Defer BTC price fetching (non-critical)
 			setTimeout(() => {
-				setupInfiniteScroll();
-			}, 1000);
+				fetchBtcPrice();
+			}, 100);
 		}
 	});
 
@@ -502,61 +564,42 @@
 		</div>
 	{/if}
 
-	<RecommendedTasks {onSelectTask} />
+	{#if componentsLoaded.recommendations}
+		<RecommendedTasks {onSelectTask} />
+	{/if}
 
 	<!-- Task List -->
-	{#if (isInitialLoad || ($tasksStore.loading && searchParams.page === 1)) && !loadingTimeout}
-		<!-- Shimmer/Loading Placeholder -->
-		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md">
+	{#if (isInitialLoad || isDataLoading) && !loadingTimeout}
+		<!-- Optimized Skeleton Loading with Reserved Space -->
+		<div class="min-h-[600px] space-y-4">
 			{#each Array(4) as _}
-				<div class="card-body animate-pulse">
-					<!-- Skeleton structure -->
-					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+				<div class="card bg-base-100 rounded-xl shadow-md p-6 animate-pulse">
+					<div class="flex flex-col gap-4 md:flex-row md:items-center">
 						<div class="bg-base-300 h-7 w-3/4 rounded"></div>
 						<div class="bg-base-300 h-6 w-32 rounded"></div>
 					</div>
 					<div class="my-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-16 rounded"></div>
-							<div class="bg-base-300 h-6 w-28 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-24 rounded"></div>
-							<div class="bg-base-300 h-6 w-36 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-20 rounded"></div>
-							<div class="bg-base-300 h-6 w-32 rounded"></div>
-						</div>
+						<div class="bg-base-300 h-6 w-28 rounded"></div>
+						<div class="bg-base-300 h-6 w-36 rounded"></div>
+						<div class="bg-base-300 h-6 w-32 rounded"></div>
 					</div>
-					<div class="mb-4 flex flex-wrap gap-2">
+					<div class="flex gap-2">
 						<div class="bg-base-300 h-6 w-20 rounded"></div>
 						<div class="bg-base-300 h-6 w-24 rounded"></div>
 						<div class="bg-base-300 h-6 w-16 rounded"></div>
 					</div>
-					<div class="card-actions mt-4 flex items-center justify-between">
+					<div class="flex items-center justify-between mt-4">
 						<div class="bg-base-300 h-6 w-16 rounded"></div>
 						<div class="bg-base-300 h-9 w-24 rounded"></div>
 					</div>
 				</div>
-				<div class="divider mx-auto w-[90%]"></div>
 			{/each}
 		</div>
 	{:else if loadingTimeout}
 		<!-- Loading Timeout Warning -->
-		<div class="alert alert-warning alert-outline mb-4 rounded-xl text-black">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-				/>
+		<div class="alert alert-warning alert-outline mb-4 rounded-xl">
+			<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
 			</svg>
 			<div>
 				<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
@@ -578,22 +621,21 @@
 			</span>
 		</h2>
 
-		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
+		<!-- Task List with Reserved Space -->
+		<div class="min-h-[400px] space-y-4">
 			{#each $tasksStore.items as task, index}
-				<div class="card-body">
-					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-						<h3 class="card-title line-clamp-2">{task.title}</h3>
-						<div class="flex items-center justify-between gap-4 text-sm">
-							<div class="flex flex-col items-center md:min-w-[140px]">
+				<div class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg p-6">
+					<div class="flex flex-col gap-4 md:flex-row md:items-center">
+						<h3 class="card-title line-clamp-2 flex-1">{task.title}</h3>
+						<div class="flex items-center gap-4 text-sm">
+							<div class="text-center md:min-w-[140px]">
 								<div class="flex items-center gap-2">
 									<span class="font-semibold">{formatSatsAmount(task.budget.amount)}</span>
 									{#if task.budget.type === 'HOURLY'}
 										<span class="text-base-content/60 text-xs">/hr</span>
 									{/if}
 								</div>
-								<span class="text-info text-xs"
-									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
-								>
+								<span class="text-info text-xs">≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span>
 							</div>
 							<span class="badge badge-outline">{task.status}</span>
 						</div>
@@ -601,34 +643,32 @@
 
 					<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
 
-					<div class="mt-2 mb-4">
-						<div class="flex flex-wrap gap-4">
-							{#if task.deadline}
-								<div>
-									<p class="text-base-content/60 text-sm">{$t('find_tasks.deadline')}</p>
-									<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
-								</div>
-							{:else if task.dateRange?.start && task.dateRange?.end}
-								<div>
-									<p class="text-base-content/60 text-sm">{$t('find_tasks.date_range')}</p>
-									<p class="font-medium">
-										{new Date(task.dateRange.start).toLocaleDateString()} -
-										{new Date(task.dateRange.end).toLocaleDateString()}
-									</p>
-								</div>
-							{/if}
-
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-3 my-4">
+						{#if task.deadline}
 							<div>
-								<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
+								<p class="text-base-content/60 text-sm">{$t('find_tasks.deadline')}</p>
+								<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
+							</div>
+						{:else if task.dateRange?.start && task.dateRange?.end}
+							<div>
+								<p class="text-base-content/60 text-sm">{$t('find_tasks.date_range')}</p>
 								<p class="font-medium">
-									{task?.creator?.username || $t('find_tasks.not_available')}
+									{new Date(task.dateRange.start).toLocaleDateString()} -
+									{new Date(task.dateRange.end).toLocaleDateString()}
 								</p>
 							</div>
+						{/if}
+
+						<div>
+							<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
+							<p class="font-medium">
+								{task?.creator?.username || $t('find_tasks.not_available')}
+							</p>
 						</div>
 					</div>
 
 					{#if task.skills && task.skills.length > 0}
-						<div class="mb-4 flex flex-wrap gap-2">
+						<div class="flex flex-wrap gap-2 mb-4">
 							{#each task.skills as skill, index}
 								{#if skill}
 									<span class="badge badge-primary badge-outline">{skill}</span>
@@ -637,25 +677,13 @@
 						</div>
 					{/if}
 
-					<div class="card-actions mt-4 flex items-center justify-between">
+					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
 							<div class="badge badge-info gap-1">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
-									/>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
 								</svg>
-								{task.bids?.length ?? 0}
-								{$t('find_tasks.bids')}
+								{task.bids?.length ?? 0} {$t('find_tasks.bids')}
 							</div>
 						</div>
 
@@ -665,30 +693,13 @@
 							onclick={() => onSelectTask(task)}
 							aria-label={$t('find_tasks.bid_on_task')}
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4v16m8-8H4"
-								/>
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
 							</svg>
-							{task.status === TaskStatusEnum.OPEN
-								? $t('find_tasks.bid_now')
-								: $t('find_tasks.bidding_closed')}
+							{task.status === TaskStatusEnum.OPEN ? $t('find_tasks.bid_now') : $t('find_tasks.bidding_closed')}
 						</button>
 					</div>
 				</div>
-
-				{#if index < $tasksStore.items.length - 1}
-					<div class="divider mx-auto w-[90%]"></div>
-				{/if}
 			{/each}
 		</div>
 
@@ -701,46 +712,40 @@
 			{/if}
 		</div>
 	{:else if !$tasksStore.loading}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
+		<!-- Empty State with Reserved Space -->
+		<div class="min-h-[400px] py-12 text-center">
+			<svg xmlns="http://www.w3.org/2000/svg" class="text-base-content/30 mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">{$t('find_tasks.no_tasks_found')}</h3>
 			<p class="text-base-content/60 mt-1">{$t('find_tasks.no_tasks_message')}</p>
-			<button class="btn btn-primary mt-4" onclick={clearFilters}
-				>{$t('find_tasks.clear_filters')}</button
-			>
+			<button class="btn btn-primary mt-4" onclick={clearFilters}>{$t('find_tasks.clear_filters')}</button>
 		</div>
 	{/if}
 </div>
 
 <!-- Advanced Filter Drawer Component -->
-<FilterDrawer
-	isOpen={isFilterDrawerOpen}
-	onClose={() => (isFilterDrawerOpen = false)}
-	onApply={handleFilterApply}
-/>
+{#if componentsLoaded.filterDrawer}
+	<FilterDrawer
+		isOpen={isFilterDrawerOpen}
+		onClose={() => (isFilterDrawerOpen = false)}
+		onApply={handleFilterApply}
+	/>
+{/if}
 
-<TaskDetailsBidDrawer
-	taskId={selectedTaskId}
-	onClose={() => (isSidebarOpen = false)}
-	isOpen={isSidebarOpen}
-/>
+{#if componentsLoaded.bidDrawer}
+	<TaskDetailsBidDrawer
+		taskId={selectedTaskId}
+		onClose={() => (isSidebarOpen = false)}
+		isOpen={isSidebarOpen}
+	/>
+{/if}
 
-<SaveSearchForm
-	isOpen={isSaveSearchOpen}
-	{searchParams}
-	onClose={() => (isSaveSearchOpen = false)}
-	onSaved={() => {}}
-/>
+{#if componentsLoaded.saveSearch}
+	<SaveSearchForm
+		isOpen={isSaveSearchOpen}
+		{searchParams}
+		onClose={() => (isSaveSearchOpen = false)}
+		onSaved={() => {}}
+	/>
+{/if}
