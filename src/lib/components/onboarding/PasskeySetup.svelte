@@ -18,10 +18,14 @@
 	let {
 		nextStep,
 		prevStep,
+		currentStep,
+		totalSteps,
 		userData
 	}: {
 		nextStep: () => void;
 		prevStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 		userData: {
 			username: string;
 			nsec: string;
@@ -185,7 +189,7 @@
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 3 of 7</div>
+			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step {currentStep + 1} of {totalSteps}</div>
 			<h3 class="step-title mb-3 mt-4">Set Up Your Passkey</h3>
             <h5 class="mb-3">What's a Passkey?</h5>
             <p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">

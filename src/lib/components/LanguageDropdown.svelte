@@ -31,6 +31,7 @@
 			// Don't switch if already selected
 			if (code === $locale) {
 				closeDropdown();
+				updateDropdownState();
 				return;
 			}
 
@@ -46,6 +47,7 @@
 			if (onLanguageChange) onLanguageChange(code);
 
 			closeDropdown();
+			updateDropdownState();
 		} catch (error) {
 			console.error('Error changing language:', error);
 		}

@@ -9,10 +9,14 @@
 	let {
 		nextStep,
 		prevStep,
+		currentStep,
+		totalSteps,
 		onRecoveryChange
 	}: {
 		nextStep: () => void;
 		prevStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 		onRecoveryChange: (email: string, password: string, enabled: boolean) => void;
 	} = $props();
 
@@ -120,7 +124,7 @@
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-				Step 4 of 7 — Optional
+				Step {currentStep + 1} of {totalSteps} — Optional
 			</div>
 			<h3 class="step-title mt-4 mb-3">Create Recovery Password (Optional)</h3>
 			<h5 class="mb-3">Add a safe backup for account access</h5>

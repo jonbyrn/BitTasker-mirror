@@ -69,6 +69,7 @@
 
 	async function verifyCaptcha(token: string) {
 		try {
+			console.log('Verifying captcha token...');
 			const { data, errors } = await verifyTrunstileStore.mutate({
 				input: {
 					token,
@@ -76,16 +77,30 @@
 				}
 			});
 
-			if (errors) {
+			console.log('Captcha verification response:', { data, errors });
+
+			if (errors && errors.length > 0) {
+				console.error('GraphQL errors:', errors);
 				throw new Error(errors[0].message);
 			}
-			if (!data) {
+			
+			if (!data || !data.verifyTurnstileToken) {
+				console.error('No data returned from captcha verification');
 				throw new Error($t('signup.error.captcha_failed'));
 			}
 
-			isCaptchaVerified.set(data.verifyTurnstileToken.success);
-
-			error = ''; // Clear any previous errors
+			const success = data.verifyTurnstileToken.success;
+			console.log('Captcha verification success:', success);
+			
+			isCaptchaVerified.set(success);
+			
+			if (success) {
+				error = ''; // Clear any previous errors
+				captchaFailed = false;
+			} else {
+				error = $t('signup.error.captcha_failed');
+				captchaFailed = true;
+			}
 		} catch (err) {
 			console.error('Error verifying captcha:', err);
 			error = $t('signup.error.captcha_failed');
@@ -116,21 +131,9 @@
 				</span>
 				<span class="text-base-content my-10 block text-center text-lg">
 					{$t('signup.description')}
-					<a
-						href="https://getalby.com"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-primary hover:underline">{$t('login.alby_connect')}</a
-					> {$t('login.account')}.
 				</span>
 				<span class="text-base-content my-10 block text-center text-lg">
-					{$t('signup.nostr_info')}
-					<a
-						href="https://nostr.com"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-primary hover:underline">Nostr</a
-					>, {$t('signup.nostr_import')}.
+					{@html $t('signup.nostr_info') + $t('signup.nostr_import')}
 				</span>
 			</p>
 		</div>
@@ -139,15 +142,17 @@
 			<div class="flex flex-col gap-4">
 				<!-- Cloudflare Turnstile Captcha -->
 				<div class="mt-2">
-					<div class="flex items-center justify-between gap-2 mb-2">
+					<div class="mb-2">
 						<p class="w-full text-start text-sm mb-2">{$t('signup.verify_human')}</p>
-						{#if captchaFailed && !$isCaptchaVerified}
+					</div>
+					<div bind:this={turnstileWidget} class="flex justify-center"></div>
+					{#if captchaFailed && !$isCaptchaVerified}
+						<div class="flex justify-center mt-2">
 							<button onclick={resetTurnstile} class="btn btn-xs btn-outline">
 								{$t('signup.retry_verification')}
 							</button>
-						{/if}
-					</div>
-					<div bind:this={turnstileWidget} class="flex justify-center"></div>
+						</div>
+					{/if}
 					{#if $isCaptchaVerified}
 						<div class="alert alert-success alert-outline mt-3 text-sm">
 							<svg

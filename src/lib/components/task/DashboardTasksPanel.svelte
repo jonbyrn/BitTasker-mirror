@@ -19,6 +19,10 @@
 
 	let btcPrice = $state<number>(63000); // Default fallback price
 
+	// Nostr caching
+	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+	let nostrCache = $state<Map<string, { data: any; timestamp: number }>>(new Map());
+
 	// Convert status to user-friendly string
 	function formatStatus(status: string): string {
 		switch (status) {
@@ -95,39 +99,71 @@
 		}
 	}
 
+	/**
+	 * Get cached tasks or fetch from Nostr
+	 */
+	async function getCachedTasks(): Promise<Task[]> {
+		const npub = await getNpub();
+		if (!npub) {
+			throw new Error('No public key found');
+		}
+
+		const cacheKey = `tasks-${npub}`;
+		const cached = nostrCache.get(cacheKey);
+		
+		// Return cached data if still valid
+		if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+			console.log('Using cached tasks');
+			return cached.data;
+		}
+
+		// Fetch fresh data
+		console.log('Fetching fresh tasks from Nostr');
+		const { data: events } = await nostrEventsService.findEvents({
+			kinds: [KINDS.TASK_CREATION],
+			authors: [npub]
+		});
+
+		const tasks = events.map((event) => {
+			const content = JSON.parse(event.content);
+			return {
+				...content,
+				id: event.id,
+				author: event.pubkey
+			};
+		});
+
+		// Cache the results
+		nostrCache.set(cacheKey, { data: tasks, timestamp: Date.now() });
+		return tasks;
+	}
+
 	onMount(async () => {
 		$myTasksStore.loading = true;
 		$myTasksStore.error = null;
 
-		// Subscribe to tasks
 		try {
-			const npub = await getNpub();
-			if (!npub) {
-				throw new Error('No public key found');
-			}
-
-			const { data: events } = await nostrEventsService.findEvents({
-				kinds: [KINDS.TASK_CREATION],
-				authors: [npub]
-			});
-
-			$myTasksStore.items = events.map((event) => {
-				const content = JSON.parse(event.content);
-
-				return {
-					...content,
-					id: event.id,
-					author: event.pubkey
-				};
-			});
+			// Load tasks (with caching)
+			const tasks = await getCachedTasks();
+			$myTasksStore.items = tasks;
 		} catch (err) {
-			console.error('Error subscribing to tasks:', err);
+			console.error('Error loading tasks:', err);
 			$myTasksStore.error = 'Failed to load tasks';
 		} finally {
 			$myTasksStore.loading = false;
 		}
 
-		fetchBtcPrice();
+		// Fetch BTC price in background (non-blocking)
+		if (typeof requestIdleCallback !== 'undefined') {
+			requestIdleCallback(() => {
+				fetchBtcPrice();
+			}, { timeout: 2000 });
+		} else {
+			// Fallback for browsers without requestIdleCallback
+			setTimeout(() => {
+				fetchBtcPrice();
+			}, 100);
+		}
 	});
 </script>
 

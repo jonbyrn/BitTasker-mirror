@@ -14,9 +14,11 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { nextStep, prevStep } = $props<{
+	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
 		nextStep: () => void;
 		prevStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 	}>();
 
 	// User data
@@ -300,7 +302,7 @@
 		<div class="card-body">
 			<!-- Educational Header -->
             <div class="education-header mb-6 text-center">
-                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 5 of 7</div>
+                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step {currentStep + 1} of {totalSteps}</div>
                 <h3 class="step-title mb-3 mt-4">Build Your Profile</h3>
                 <h5 class="mb-3">Showcase your expertise</h5>
                 <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">

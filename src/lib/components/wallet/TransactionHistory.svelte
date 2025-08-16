@@ -44,7 +44,7 @@
 			<span>Loading transactions... please wait</span>
 		</div>
 	{:else if errorMessage}
-		<div class="alert alert-error shadow-lg">
+		<div class="alert alert-outline alert-error shadow-lg">
 			<div class="flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -65,7 +65,7 @@
 			</div>
 		</div>
 	{:else if !transactions || transactions.length === 0}
-		<div class="alert alert-info shadow-lg">
+		<div class="alert alert-outline alert-info shadow-lg">
 			<div class="flex items-center gap-2">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

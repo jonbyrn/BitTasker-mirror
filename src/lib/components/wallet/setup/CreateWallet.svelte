@@ -51,7 +51,7 @@
 	<h2 class="mb-6 text-center text-2xl font-bold">Create New Wallet</h2>
 
 	{#if mnemonic}
-		<div class="alert alert-error mb-6 shadow-md">
+		<div class="alert alert-outline alert-error mb-6 shadow-md">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -160,7 +160,7 @@
 	{/if}
 
 	{#if error}
-		<div class="alert alert-error mt-6 shadow-md">
+		<div class="alert alert-outline alert-error mt-6 shadow-md">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"

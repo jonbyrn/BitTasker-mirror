@@ -22,11 +22,9 @@
 	let selectedTask = $state<Task | null>(null);
 	let drawerOpen = $state(false);
 	let drawerInitialTab = $state('details');
-	let isLoading = $state(false);
 
 	// Set active tab based on URL param
 	onMount(() => {
-		isLoading = true;
 		const tabParam = page.url.searchParams.get('tab');
 		if (tabParam && availableTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
@@ -35,7 +33,6 @@
 			// Set default tab in URL if not present
 			updateUrlParam(activeTab);
 		}
-		isLoading = false;
 	});
 
 	// Update URL when tab changes
@@ -59,12 +56,8 @@
 	};
 
 	const closeTaskDrawer = () => {
-		isLoading = true;
 		selectedTask = null;
 		drawerOpen = false;
-		setTimeout(() => {
-			isLoading = false;
-		}, 1000);
 	};
 </script>
 
@@ -93,11 +86,7 @@
 	<!-- Dashboard Tabs -->
 	<Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} />
 
-	{#if isLoading}
-		<div class="flex h-full justify-center">
-			<span class="loading loading-spinner loading-lg"></span>
-		</div>
-	{:else if activeTab === 'tasks'}
+	{#if activeTab === 'tasks'}
 		<!-- Tasks Panel -->
 		<div
 			id="panel-tasks"

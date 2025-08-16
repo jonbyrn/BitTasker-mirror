@@ -250,7 +250,7 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-xl flex-grow flex-col items-center justify-center px-4 py-8">
+<div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
@@ -261,18 +261,7 @@
 					{$t('login.subtitle')}
 				</p>
 				<p class="text-base-content text-center text-lg">
-					{$t('login.login_with')} <span class="text-primary">Passkey/Biometrics</span>, {$t(
-						'common.or'
-					)}
-					<a
-						href="https://getalby.com"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="text-primary hover:underline"
-					>
-						{$t('login.alby_connect')}
-					</a>
-					{$t('login.account')}.
+					{$t('login.passkey_info')}
 				</p>
 			</div>
 			<div class="flex flex-col gap-4">
@@ -312,8 +301,7 @@
 										: $t('login.continue_biometrics')}
 								</button>
 								<p class="text-base-content/60 text-start text-xs">
-									Uses your device's native biometric authentication (Face ID, Touch ID,
-									Fingerprint)
+									{$t('login.biometric_description')}
 								</p>
 							</div>
 						{/if}
@@ -342,13 +330,13 @@
 							</button>
 							{#if authMethods.biometric}
 								<p class="text-base-content/60 text-start text-xs">
-									Uses your default password manager: {webAuthnProvider}
+									{$t('login.passkey_description')}: {webAuthnProvider}
 								</p>
 							{/if}
 						</div>
 
 						{#if !authMethods.biometric}
-							<Alby />
+							<!-- <Alby /> -->
 						{/if}
 
 						<button
@@ -387,7 +375,7 @@
 								id="privateKey"
 								bind:value={nsec}
 								class="input input-bordered w-full pr-10 {error ? 'input-error' : ''}"
-								placeholder="Enter your Nostr private key"
+								placeholder={$t('login.nostr_private_key_placeholder')}
 								required
 							/>
 							<button
@@ -439,7 +427,7 @@
 							onclick={handleNsecLogin}
 							disabled={isLoading}
 						>
-							{isLoading ? $t('common.processing') + '...' : 'Login'}
+							{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
 						</button>
 						<button
 							class="btn btn-block btn-outline"
@@ -450,7 +438,7 @@
 							}}
 							disabled={isLoading}
 						>
-							Cancel
+							{$t('login.cancel_button')}
 						</button>
 					</div>
 				{/if}

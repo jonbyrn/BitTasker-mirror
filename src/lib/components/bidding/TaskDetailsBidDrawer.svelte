@@ -572,7 +572,7 @@
 						taskDescription={task.description}
 					/>
 				{:else if !task.id}
-					<div class="alert alert-error">
+					<div class="alert alert-outline alert-error">
 						<span>{$t('bids.task_details.task_id_missing')}</span>
 					</div>
 				{:else if task.status !== TaskStatusEnum.OPEN}

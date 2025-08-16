@@ -26,14 +26,14 @@
 
 	<!-- Connection Status -->
 	{#if $walletConnection.isConnecting}
-		<div class="alert alert-info mb-6">
+		<div class="alert alert-outline alert-info mb-6">
 			<div class="flex items-center">
 				<span class="loading loading-spinner loading-sm mr-2"></span>
 				<span>Initializing wallet...</span>
 			</div>
 		</div>
 	{:else if $walletConnection.errorMessage}
-		<div class="alert alert-error mb-6">
+		<div class="alert alert-outline alert-error mb-6">
 			<div>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"

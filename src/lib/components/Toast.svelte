@@ -8,7 +8,7 @@
 <div class="toast toast-top fixed z-[9999]">
 	{#each toasts as toast (toast.id)}
 		<div
-			class="alert {toast.type === 'success'
+			class="alert alert-outline {toast.type === 'success'
 				? 'alert-success'
 				: toast.type === 'error'
 					? 'alert-error'
