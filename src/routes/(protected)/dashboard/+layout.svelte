@@ -102,7 +102,7 @@
 <svelte:window bind:innerWidth={width} />
 
 <div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 sm:px-4 sm:py-8">
-	{#if $deviceInfo?.platform === 'web' && width > 768}
+	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width > 768}
 		<!-- Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">

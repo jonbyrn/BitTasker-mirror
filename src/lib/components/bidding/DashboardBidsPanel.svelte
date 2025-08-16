@@ -51,7 +51,6 @@
 			loading = true;
 			const bids = await getMyBids();
 			myBids = bids;
-			console.log('Bids loaded:', bids);
 		} catch (err) {
 			console.error('Error loading bids:', err);
 			error = $t('bids.error.loading');
@@ -66,43 +65,6 @@
 			return `${amount.toLocaleString()} sats`;
 		}
 		return `${amount} ${currency}`;
-	}
-
-	function formatDuration(duration: string): string {
-		if (!duration) return 'N/A';
-		return `${duration} ${$t('bids.hours')}`;
-	}
-
-	function getStatusColor(status: string): string {
-		switch (status?.toLowerCase()) {
-			case 'accepted':
-				return 'bg-green-500';
-			case 'rejected':
-				return 'bg-red-500';
-			case 'pending':
-				return 'bg-yellow-500';
-			default:
-				return 'bg-gray-500';
-		}
-	}
-
-	function getStatusText(status: string): string {
-		switch (status?.toLowerCase()) {
-			case 'accepted':
-				return $t('bids.accepted');
-			case 'rejected':
-				return $t('bids.rejected');
-			case 'pending':
-				return $t('bids.pending');
-			default:
-				return $t('bids.pending');
-		}
-	}
-
-	function truncateText(text: string, maxLength: number = 100): string {
-		if (!text) return '';
-		if (text.length <= maxLength) return text;
-		return text.substring(0, maxLength) + '...';
 	}
 
 	// Toggle bid expansion
@@ -120,27 +82,14 @@
 	<!-- Header Section -->
 	<div class="flex items-center justify-between">
 		<div>
-			<h2 class="text-2xl font-bold text-white">
+			<h2 class="text-2xl font-bold text-base-content">
 				{$t('bids.my_submitted_bids')}
 			</h2>
 			<p class="mt-1 text-gray-400">
 				{$t('bids.manage_description')}
 			</p>
 		</div>
-		<button
-			onclick={loadMyBids}
-			class="inline-flex items-center rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-gray-700"
-		>
-			<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-				/>
-			</svg>
-			{$t('bids.refresh')}
-		</button>
+		
 	</div>
 
 	<!-- Loading State -->
@@ -220,15 +169,15 @@
 			{#each myBids as bid, index}
 				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm">
 					<div class="card-body p-6">
-						<!-- Task Information - Header with submission date on the right -->
+						<!-- Task Information - Header -->
 						<div class="border-base-300 mb-6 border-b pb-4">
 							<div class="flex items-start justify-between">
 								<div class="flex-1">
-									<h3 class="mb-2 text-xl font-semibold">
+									<h3 class="mb-2 line-clamp-2 text-xl font-semibold">
 										{bid.bid.taskTitle || $t('bids.unknown_task')}
 									</h3>
 									{#if bid.bid.taskDescription}
-										<p class="text-base-content/70 text-sm">
+										<p class="text-base-content/70 line-clamp-3 max-w-4xl text-sm">
 											{bid.bid.taskDescription}
 										</p>
 									{:else}
@@ -249,60 +198,37 @@
 							</div>
 						</div>
 
-						<!-- Your Bid Details - Clean and simple -->
+						<!-- Your Bid Details -->
 						<div class="space-y-2">
 							<h4 class="text-base-content/90 font-medium">
-								{$t('bids.your_proposal')}
+								{$t('bids.your_proposal')} -
+								<small class="text-base-content/60">
+									{(bid.bid.paymentType || 'FIXED').toLowerCase()}
+								</small>
 							</h4>
 
-							<!-- Two-column layout: Left for Scheduled Period, Right for other details -->
-							<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-								<!-- Left column: Scheduled Period -->
-								{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
-									<div class="text-left order-1 lg:order-1">
-										<p class="text-base-content/60 mb-1 text-xs">
-											{$t('bids.scheduled_period')} ({bid.bid.estimatedDuration || 'N/A'})
-										</p>
-										<p class="text-sm font-medium">
-											{new Date(bid.bid.startDate).toLocaleDateString()} - {new Date(
-												bid.bid.endDate
-											).toLocaleDateString()}
-											{#if bid.bid.startTime && bid.bid.endTime}
-												<br />
-												<span class="text-base-content/70 text-xs">
-													{bid.bid.startTime} - {bid.bid.endTime}
-												</span>
-											{/if}
-										</p>
-									</div>
-								{/if}
-
-								<!-- Right column: Amount, Payment Type - Always in same row with justify-between -->
-								<div class="flex flex-row justify-between gap-4 sm:gap-6 order-2 lg:order-2 lg:ml-auto">
-									<div class="text-center">
-										<p class="text-base-content/60 mb-1 text-xs">{$t('bids.your_bid_amount')}</p>
-										<p class="text-lg font-semibold">
-											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
-										</p>
-										<p class="text-info text-xs">
-											≈ {calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)} USDT
-										</p>
-									</div>
-
-									<div class="text-center">
-										<p class="text-base-content/60 mb-1 text-xs">{$t('bids.payment_type')}</p>
-										<span class="badge badge-outline">
-											{bid.bid.paymentType || 'FIXED'}
-										</span>
-									</div>
-								</div>
-							</div>
-
-							<!-- Additional payment details if needed -->
-							{#if bid.bid.paymentType === 'HOURLY' && bid.bid.hourlyRate}
-								<div class="border-base-200 border-t pt-2">
-									<div class="flex justify-end gap-6">
-										<div class="text-center">
+							<!-- Two-column layout -->
+							<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+								<!-- Left column: FIXED period OR HOURLY rate/hours -->
+								<div class="order-1 flex flex-row gap-6 text-left lg:order-1">
+									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
+										<div>
+											<p class="text-base-content/60 mb-1 text-xs">
+												{$t('bids.scheduled_period')} ({bid.bid.estimatedDuration || 'N/A'})
+											</p>
+											<p class="text-sm font-medium">
+												{new Date(bid.bid.startDate).toLocaleDateString()} -
+												{new Date(bid.bid.endDate).toLocaleDateString()}
+												{#if bid.bid.startTime && bid.bid.endTime}
+													<br />
+													<span class="text-base-content/70 text-xs">
+														{bid.bid.startTime} - {bid.bid.endTime}
+													</span>
+												{/if}
+											</p>
+										</div>
+									{:else if bid.bid.paymentType === 'HOURLY'}
+										<div>
 											<p class="text-base-content/60 mb-1 text-xs">{$t('bids.hourly_rate')}</p>
 											<p class="font-medium">
 												{bid.bid.hourlyRate}
@@ -310,7 +236,7 @@
 											</p>
 										</div>
 										{#if bid.bid.estimatedHours}
-											<div class="text-center">
+											<div>
 												<p class="text-base-content/60 mb-1 text-xs">
 													{$t('bids.estimated_hours')}
 												</p>
@@ -320,17 +246,30 @@
 												</p>
 											</div>
 										{/if}
+									{/if}
+								</div>
+
+								<!-- Right column: Amount & Payment Type -->
+								<div class="order-2 flex flex-row gap-6 lg:order-2 lg:ml-auto">
+									<div class="text-center">
+										<p class="text-base-content/60 mb-1 text-xs">{$t('bids.your_bid_amount')}</p>
+										<p class="text-lg font-semibold">
+											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
+										</p>
+										<p class="text-info text-xs">
+											≈ {calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)} USDT
+										</p>
 									</div>
 								</div>
-							{/if}
+							</div>
 
-							<!-- Expandable sections for Description, Approach and Cover Letter -->
+							<!-- Expandable sections -->
 							{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
-								<div class="border-base-200 border-t pt-2">
+								<div class="border-base-200 pt-2">
 									<button
 										type="button"
 										onclick={() => toggleBidExpansion(bid.bid.bidId)}
-										class="btn btn-ghost btn-xs text-base-content/60 hover:text-base-content h-auto min-h-0 gap-1 p-0"
+										class="hover:bg-base-200 flex w-full items-center gap-2 rounded p-2 text-left transition-colors duration-200"
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -355,7 +294,6 @@
 
 									{#if expandedBids.has(bid.bid.bidId)}
 										<div class="mt-3 space-y-3">
-											<!-- Your Description -->
 											{#if bid.bid.description}
 												<div>
 													<p class="text-base-content/60 mb-2 text-xs">
@@ -367,7 +305,6 @@
 												</div>
 											{/if}
 
-											<!-- Proposed Approach -->
 											{#if bid.bid.proposedApproach}
 												<div>
 													<p class="text-base-content/60 mb-2 text-xs">
@@ -379,7 +316,6 @@
 												</div>
 											{/if}
 
-											<!-- Cover Letter -->
 											{#if bid.bid.coverLetter}
 												<div>
 													<p class="text-base-content/60 mb-2 text-xs">
@@ -394,20 +330,9 @@
 									{/if}
 								</div>
 							{/if}
-
-							<!-- Simple footer -->
-							<div class="border-base-200 border-t pt-2 text-right">
-								<span class="text-base-content/50 text-xs">
-									{$t('bids.bid_id')}: {bid.bid.bidId?.slice(0, 8)}...
-								</span>
-							</div>
 						</div>
 					</div>
 				</div>
-
-				{#if index < myBids.length - 1}
-					<div class="divider mx-auto w-[90%]"></div>
-				{/if}
 			{/each}
 		</div>
 	{/if}

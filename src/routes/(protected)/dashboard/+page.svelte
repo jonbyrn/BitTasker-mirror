@@ -71,18 +71,22 @@
 <div class="h-full px-4 py-8">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
-		<h2 class="text-2xl font-bold">{$t('dashboard.title')}</h2>
-		<a href="/dashboard/create-task" class="btn btn-primary">
+		<h2 class="text-3xl sm:text-4xl font-bold">{$t('dashboard.title')}</h2>
+		<a 
+			href="/dashboard/create-task" 
+			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
+		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="mr-2 h-5 w-5"
+				class="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
 			>
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 			</svg>
-			{$t('dashboard.create_task')}
+			<span class="hidden sm:inline">{$t('dashboard.create_task')}</span>
+			<span class="sm:hidden">{$t('dashboard.create_task')}</span>
 		</a>
 	</div>
 
