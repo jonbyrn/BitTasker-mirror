@@ -327,7 +327,7 @@
 								</svg>
 							</a>
 							<a
-								href="https://twitter.com/bittasker"
+								href="https://twitter.com/BitTaskerdotcom"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -338,7 +338,7 @@
 								</svg>
 							</a>
 							<a
-								href="https://facebook.com/bittasker"
+								href="https://www.facebook.com/BitTaskerdotcom/"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -356,7 +356,7 @@
 								<IconInstagram class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://youtube.com/bittasker"
+								href="https://www.youtube.com/@BitTasker"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -368,7 +368,7 @@
 						<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
 						<div class="flex space-x-4">
 							<a
-								href="https://linkedin.com/company/bittasker"
+								href="https://www.linkedin.com/company/bittasker/"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
