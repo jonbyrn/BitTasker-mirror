@@ -80,7 +80,7 @@
 
 <div class="space-y-6">
 	<!-- Header Section -->
-	<div class="flex items-center justify-between">
+	<!-- <div class="flex items-center justify-between">
 		<div>
 			<h2 class="text-2xl font-bold text-base-content">
 				{$t('bids.my_submitted_bids')}
@@ -89,9 +89,8 @@
 				{$t('bids.manage_description')}
 			</p>
 		</div>
-		
 	</div>
-
+ -->
 	<!-- Loading State -->
 	{#if loading}
 		<div class="flex justify-center py-12">

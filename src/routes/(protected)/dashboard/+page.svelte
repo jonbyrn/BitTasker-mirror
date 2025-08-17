@@ -13,7 +13,8 @@
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
-		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
+		//{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') },
+		{ id: 'bids', label: $t('dashboard.tabs.bids') }
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
 	let activeTab = $state('');
@@ -61,12 +62,12 @@
 	};
 </script>
 
-<div class="h-full px-4 py-8">
+<div class="h-full mx-auto px-4 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<h2 class="text-3xl sm:text-4xl font-bold">{$t('dashboard.title')}</h2>
 		<a 
-			href="/dashboard/create-task" 
+			href={activeTab === 'bids' ? '/dashboard/find-tasks' : '/dashboard/create-task'}
 			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
 		>
 			<svg
@@ -78,8 +79,12 @@
 			>
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 			</svg>
-			<span class="hidden sm:inline">{$t('dashboard.create_task')}</span>
-			<span class="sm:hidden">{$t('dashboard.create_task')}</span>
+			<span class="hidden sm:inline">
+				{activeTab === 'bids' ? $t('dashboard.find_tasks') : $t('dashboard.create_task')}
+			</span>
+			<span class="sm:hidden">
+				{activeTab === 'bids' ? $t('dashboard.find_tasks') : $t('dashboard.create_task')}
+			</span>
 		</a>
 	</div>
 
@@ -104,6 +109,16 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardSavedSearchesPanel />
+		</div>
+	{/if}
+	{#if activeTab === 'bids'}
+		<div
+			id="panel-bids"
+			role="tabpanel"
+			aria-labelledby="tab-bids"
+			transition:slide={{ duration: 300 }}
+		>
+			<DashboardBidsPanel />
 		</div>
 	{/if}
 </div>
