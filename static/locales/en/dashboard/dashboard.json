@@ -4,6 +4,7 @@
       "titl": "Dashboard",
       "create_task": "Create Task",
       "find_tasks": "Find Tasks",
+      
       "tabs": {
         "tasks": "My Tasks",
         "bids": "My Bids",

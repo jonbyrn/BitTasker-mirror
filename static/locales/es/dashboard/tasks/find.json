@@ -2,6 +2,10 @@
     "find_tasks": {
       "title": "Buscar Tareas",
       "description": "Descubre tareas que coincidan con tus habilidades e intereses",
+      "find_tasks_tab": "Buscar Tareas",
+      "saved_searches_tab": "Búsquedas Guardadas",
+      "saved_searches_empty_title": "Aún no hay búsquedas guardadas",
+      "saved_searches_empty_message": "Tus búsquedas guardadas aparecerán aquí",
       "search_placeholder": "Buscar tareas...",
       "remote": "Remoto",
       "in_person": "En Persona",

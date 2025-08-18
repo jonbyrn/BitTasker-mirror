@@ -14,6 +14,7 @@
         "approach": "Enfoque",
         "cover_letter": "Carta de Presentación",
         "submitted": "Enviado",
+        "show_more": "Mostrar más",
         "pending": "Pendiente",
         "accepted": "Aceptado",
         "rejected": "Rechazado",
@@ -27,7 +28,7 @@
         "proposal": "Propuesta",
         "unknown_task": "Desconocido",
         "scheduled_period": "Periodo Programado",
-        "show_more": "Mostrar más",
+        "estimated_hours": "Horas Estimadas",
         "panel": {
             "title": "Panel de mis ofertas"
         },

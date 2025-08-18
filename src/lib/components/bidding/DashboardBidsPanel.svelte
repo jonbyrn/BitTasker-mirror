@@ -176,7 +176,7 @@
 										{bid.bid.taskTitle || $t('bids.unknown_task')}
 									</h3>
 									{#if bid.bid.taskDescription}
-										<p class="text-base-content/70 line-clamp-3 max-w-4xl text-sm">
+										<p class="text-base-content/70 line-clamp-2 md:line-clamp-3 max-w-4xl text-sm">
 											{bid.bid.taskDescription}
 										</p>
 									{:else}
@@ -185,7 +185,7 @@
 										</p>
 									{/if}
 								</div>
-								<div class="ml-4 text-right">
+								<div class="ml-4 text-end">
 									<p class="text-base-content/60 mb-1 text-xs">{$t('bids.submitted')}</p>
 									<p class="text-sm font-medium">
 										{new Date(bid.bid.timestamp).toLocaleDateString()}
@@ -207,9 +207,9 @@
 							</h4>
 
 							<!-- Two-column layout -->
-							<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+							<div class="flex flex-col gap-4 lg:flex-row lg:items-start  lg:justify-between">
 								<!-- Left column: FIXED period OR HOURLY rate/hours -->
-								<div class="order-1 flex flex-row gap-6 text-left lg:order-1">
+								<div class="order-1  flex flex-row gap-6 text-left lg:order-1">
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
 											<p class="text-base-content/60 mb-1 text-xs">
@@ -227,7 +227,7 @@
 											</p>
 										</div>
 									{:else if bid.bid.paymentType === 'HOURLY'}
-										<div>
+										<div class="text-start">
 											<p class="text-base-content/60 mb-1 text-xs">{$t('bids.hourly_rate')}</p>
 											<p class="font-medium">
 												{bid.bid.hourlyRate}
@@ -235,7 +235,7 @@
 											</p>
 										</div>
 										{#if bid.bid.estimatedHours}
-											<div>
+											<div class="text-start">
 												<p class="text-base-content/60 mb-1 text-xs">
 													{$t('bids.estimated_hours')}
 												</p>
@@ -250,7 +250,7 @@
 
 								<!-- Right column: Amount & Payment Type -->
 								<div class="order-2 flex flex-row gap-6 lg:order-2 lg:ml-auto">
-									<div class="text-center">
+									<div class="text-start">
 										<p class="text-base-content/60 mb-1 text-xs">{$t('bids.your_bid_amount')}</p>
 										<p class="text-lg font-semibold">
 											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
@@ -268,7 +268,7 @@
 									<button
 										type="button"
 										onclick={() => toggleBidExpansion(bid.bid.bidId)}
-										class="hover:bg-base-200 flex w-full items-center gap-2 rounded p-2 text-left transition-colors duration-200"
+										class="hover:bg-base-content/5 cursor-pointer flex w-fit items-center gap-2 rounded-2xl p-2 text-left transition-colors duration-200"
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"

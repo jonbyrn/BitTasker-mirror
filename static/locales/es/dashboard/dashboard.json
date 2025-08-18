@@ -4,6 +4,7 @@
       "titl": "Panel",
       "create_task": "Crear Tarea",
       "find_tasks": "Buscar Tareas",
+      
       "tabs": {
         "tasks": "Mis Tareas",
         "bids": "Mis Ofertas",
