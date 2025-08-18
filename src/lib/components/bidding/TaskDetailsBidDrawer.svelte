@@ -162,8 +162,8 @@
 		: 'translate-x-full'}"
 >
 	<!-- Header -->
-	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between border-b p-4">
-		<h2 id="drawer-title" class="text-xl font-bold">
+	<div class="bg-base-200 sticky top-0 z-10 flex items-center justify-between p-4">
+		<h3 id="drawer-title" class="">
 			{loading
 				? $t('bids.task_details.loading')
 				: bidSubmitted
@@ -171,7 +171,7 @@
 					: task
 						? $t('bids.task_details.task_details')
 						: $t('bids.task_details.task_not_found')}
-		</h2>
+		</h3>
 		<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"

@@ -285,9 +285,9 @@
 	}
 </script>
 
-<div class="container mx-auto max-w-4xl p-6">
+<div class=" p-4 sm:p-0">
 	<div class="mb-8">
-		<h1 class="text-base-content text-3xl font-bold">{$t('settings.title')}</h1>
+		<h3 class="">{$t('settings.title')}</h3>
 		<p class="text-base-content/70 mt-2">{$t('settings.subtitle')}</p>
 	</div>
 
@@ -335,7 +335,7 @@
 							d="M210.8 199.4c0 3.1-2.5 5.7-5.7 5.7h-68c-3.1 0-5.7-2.5-5.7-5.7v-15.5c.3-19 2.3-37.2 6.5-45.5 2.5-5 6.7-7.7 11.5-9.1 9.1-2.7 24.9-.9 31.7-1.2 0 0 20.4.8 20.4-10.7s-9.1-8.6-9.1-8.6c-10 .3-17.7-.4-22.6-2.4-8.3-3.3-8.6-9.2-8.6-11.2-.4-23.1-34.5-25.9-64.5-20.1-32.8 6.2.4 53.3.4 116.1v8.4c0 3.1-2.6 5.6-5.7 5.6H57.7c-3.1 0-5.7-2.5-5.7-5.7v-144c0-3.1 2.5-5.7 5.7-5.7h31.7c3.1 0 5.7 2.5 5.7 5.7 0 4.7 5.2 7.2 9 4.5 11.4-8.2 26-12.5 42.4-12.5 36.6 0 64.4 21.4 64.4 68.7v83.2ZM150 99.3c0-6.7-5.4-12.1-12.1-12.1s-12.1 5.4-12.1 12.1 5.4 12.1 12.1 12.1S150 106 150 99.3Z"
 						/>
 					</svg>
-					<h2 class="card-title">{$t('settings.nostr.title')}</h2>
+					<h3 class="card-title">{$t('settings.nostr.title')}</h3>
 				</div>
 				<p class="text-base-content/70 mb-6">
 					{$t('settings.nostr.description')}
@@ -556,7 +556,7 @@
 								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<h2 class="card-title">{$t('settings.recovery.title')}</h2>
+						<h3 class="card-title">{$t('settings.recovery.title')}</h3>
 					</div>
 					<p class="text-base-content/70 mb-6">
 						{$t('settings.recovery.description')}
@@ -892,7 +892,7 @@
 								d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 							/>
 						</svg>
-						<h2 class="card-title">{$t('settings.passkey.title')}</h2>
+						<h3 class="card-title">{$t('settings.passkey.title')}</h3>
 					</div>
 					<!-- {#if hasPasskey}
 						<div class="badge badge-success">
@@ -920,9 +920,9 @@
 
 					{#if passkeyProvider}
 						<p class="text-info mb-4 text-sm">
-							{$t('settings.passkey.provider', new Map([['provider', passkeyProvider]]))}
+							{$t('settings.passkey.provider', { provider: passkeyProvider })}
 						</p>
-					{/if}
+					{/if}	
 
 					<div class="mb-4 flex flex-col gap-4 sm:flex-row">
 						{#if !hasPasskey}
@@ -1040,7 +1040,7 @@
 		<!-- Account Actions Section -->
 		<div class="card bg-base-100 shadow-xl">
 			<div class="card-body">
-				<h2 class="card-title text-error">{$t('settings.actions.title')}</h2>
+				<h3 class="card-title text-error">{$t('settings.actions.title')}</h3>
 				<p class="text-base-content/70 mb-4">{$t('settings.actions.description')}</p>
 
 				<div class="flex flex-col gap-4">

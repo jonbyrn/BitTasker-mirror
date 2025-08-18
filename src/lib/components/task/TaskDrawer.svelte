@@ -125,11 +125,11 @@
 >
 	<div class="relative">
 		<!-- Header -->
-		<div class="bg-base-200 sticky top-0 z-10 border-b p-4">
+		<div class="bg-base-200 sticky top-0 z-10 p-4">
 			<div class="flex items-center justify-between">
-				<h2 class="text-xl font-bold">
+				<h3 class="font-bold">
 					{loading ? 'Loading...' : task ? task.title : 'Task Details'}
-				</h2>
+				</h3>
 				<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

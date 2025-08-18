@@ -243,10 +243,10 @@
 	}
 </script>
 
-<div class="mx-auto flex h-full max-w-7xl flex-col p-4 sm:p-0">
-	<!-- Header -->
+<div class="mx-auto max-w-7xl p-4 sm:p-0">
+	<!-- Header -->		
 	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
-		<h2 class="text-2xl font-bold">{$t('messages.title')}</h2>
+		<h3 class="">{$t('messages.title')}</h3>
 		<button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button>
 	</div>
 
@@ -264,7 +264,7 @@
 			<div class="modal-box max-w-md">
 				<!-- Modal Header -->
 				<div class="mb-6">
-					<h3 class="text-xl font-semibold">{$t('messages.start_new_message')}</h3>
+					<h3 class="">{$t('messages.start_new_message')}</h3>
 					<p class="text-base-content/60 mt-1 text-sm">
 						{$t('messages.enter_pubkey')}
 					</p>
@@ -530,7 +530,7 @@
 								</div>
 								<div class="">
 									<div class="flex flex-col items-baseline justify-between">
-										<h3 class="font-medium">
+										<h3 class="">
 											{conversation.profile.name || conversation.pubkey.slice(0, 8) + '...'}
 										</h3>
 										<span class="text-base-content/60 text-sm">

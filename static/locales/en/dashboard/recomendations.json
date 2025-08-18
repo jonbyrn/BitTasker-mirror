@@ -2,7 +2,7 @@
     "recommendations": {
         "type": {
             "skill_match": "Skills Match",
-            "title": "Recommended for You",
+            "title": "Recommendations",
             "not_found": "No recommendations available yet",
             "generate": "Generate Recommendations",
             "update": "Update",

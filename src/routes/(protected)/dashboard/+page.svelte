@@ -65,7 +65,7 @@
 <div class="h-full mx-auto px-4 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
-		<h2 class="text-3xl sm:text-4xl font-bold">{$t('dashboard.title')}</h2>
+		<h3 class="font-bold">{$t('dashboard.title')}</h3>
 		<a 
 			href={activeTab === 'bids' ? '/dashboard/find-tasks' : '/dashboard/create-task'}
 			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"

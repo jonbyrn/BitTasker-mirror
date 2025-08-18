@@ -297,8 +297,8 @@
 	});
 </script>
 
-<div class="bg-base-100 relative mx-auto rounded-lg shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">{$t('bid_form.title')}</h2>
+<div class="bg-base-100 relative mx-auto rounded-lg">
+	<h3 class="mb-3">{$t('bid_form.title')}</h3>
 
 	{#if bidSubmitted}
 		<div

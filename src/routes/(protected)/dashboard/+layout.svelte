@@ -49,10 +49,10 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | BitTasker</title>
+	<title>Dashboard | BitTasker</title> 	
 	<meta
 		name="description"
-		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."
+		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."		 
 	/>
 </svelte:head>
 
@@ -64,8 +64,7 @@
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
 				<div class="card-body p-4">
-					<h2 class="card-title text-lg">{$t('dashboard.titl')}</h2>
-					<div class="divider my-2"></div>
+					
 					<ul class="menu bg-base-100 rounded-box w-full">
 						{#each sections as section}
 							<li>

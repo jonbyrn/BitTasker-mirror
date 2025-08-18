@@ -3,6 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
+	import { user } from '$lib/stores/user.store';
+	import { profileStore } from '$lib/stores/profile.store';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
@@ -45,6 +47,43 @@
 	// Track if user is logged in
 	let isLoggedIn = $derived($authState.isAuthenticated);
 
+	// Initialize stores when component mounts
+	onMount(async () => {
+		if (isLoggedIn) {
+			try {
+				// Initialize user store
+				await user.getUserData();
+				// Initialize profile store if not already done
+				if (!$profileStore.data) {
+					profileStore.init();
+				}
+			} catch (error) {
+				console.error('Failed to initialize stores:', error);
+			}
+		}
+
+		// Defer non-critical operations
+		deferNonCriticalOperations();
+	});
+
+	// Derived values for avatar
+	let userName = $derived($profileStore.data?.name || $user.name || '');
+	let userPicture = $derived(() => {
+		// First priority: first image from pictures array
+		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
+			return $profileStore.data.pictures[0].url;
+		}
+		// Second priority: user store picture
+		if ($user.picture) {
+			return $user.picture;
+		}
+		// Third priority: profile store picture
+		if ($profileStore.data?.picture) {
+			return $profileStore.data.picture;
+		}
+		return '';
+	});
+
 	// Defer non-critical operations
 	const deferNonCriticalOperations = () => {
 		if (typeof requestIdleCallback !== 'undefined') {
@@ -67,11 +106,6 @@
 			}, 100);
 		}
 	};
-
-	onMount(async () => {
-		// Defer non-critical operations
-		deferNonCriticalOperations();
-	});
 
 	// Optimize body class management with debouncing
 	let bodyClassTimeout: ReturnType<typeof setTimeout>;
@@ -518,7 +552,11 @@
 			<!-- Avatar Dropdown -->
 			<details class="dropdown dropdown-end">
 				<summary class="btn btn-ghost" onclick={handleDropdownClick}>
-					<Avatar />
+					<Avatar 
+						name={userName} 
+						picture={userPicture()} 
+						size="sm" 
+					/>
 				</summary>
 				<ul
 					class="menu dropdown-content bg-base-100 rounded-box right-0 z-10 mt-2 w-56 p-2 shadow-md"

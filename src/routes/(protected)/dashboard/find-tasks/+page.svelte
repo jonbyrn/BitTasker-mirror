@@ -479,7 +479,7 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
 	<!-- Page Header -->
 	<div class="mb-6">
-		<h1 class="mb-2 text-2xl font-bold">{$t('find_tasks.title')}</h1>
+		<h3 class="">{$t('find_tasks.title')}</h3>
 		<p class="text-base-content/70">{$t('find_tasks.description')}</p>
 	</div>
 
@@ -651,7 +651,7 @@
 						</button>
 					</div>
 				{:else if $tasksStore.items && $tasksStore.items.length > 0}
-					<h2 class="mb-4 text-xl font-bold">
+					<h3 class="mb-4 text-xl font-bold">
 						{$t('find_tasks.other_tasks')}
 						<span class="text-base-content/70 ml-2 text-sm font-normal">
 							{#if $tasksStore.loading && searchParams.page === 1}
@@ -660,13 +660,13 @@
 								({$t('find_tasks.showing_tasks').replace('{count}', $tasksStore.items.length.toString())})
 							{/if}
 						</span>
-					</h2>
+					</h3>
 
 					<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 						{#each $tasksStore.items as task, index}
 							<div class="card-body">
 								<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-									<h3 class="card-title line-clamp-2">{task.title}</h3>
+									<h4 class="card-title line-clamp-2">{task.title}</h4>
 									<div class="flex items-center justify-between gap-4 text-sm">
 										<div class="flex flex-col items-center md:min-w-[140px]">
 											<div class="flex items-center gap-2">

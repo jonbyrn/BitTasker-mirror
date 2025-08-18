@@ -23,9 +23,9 @@
 		<div class="mb-8">
 			<h3 class="mb-4 text-xl font-semibold ">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
-				<p class="text-base-content/70 line-clamp-2 truncate max-w-2xl whitespace-pre-line">{$profileStore.data.about}</p>
+				<p class="text-base-content/70 line-clamp-2 whitespace-pre-line">{$profileStore.data.about}</p>
 			{:else}
-				<p class="text-base-content/70 line-clamp-2 truncate max-w-2xl ">{$t('profile.noDescription')}</p>
+				<p class="text-base-content/70 line-clamp-2 ">{$t('profile.noDescription')}</p>
 			{/if}
 		</div>
 
