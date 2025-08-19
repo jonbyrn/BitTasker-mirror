@@ -79,7 +79,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('how_it_works.title')}</h1>
+				<h3>{$t('how_it_works.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('how_it_works.hero.description')}
 				</p>
@@ -88,9 +88,9 @@
 	</section>
 
 	<!-- Overview Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-12 text-center">
-			<h2>{$t('how_it_works.overview.title')}</h2>
+			<h3>{$t('how_it_works.overview.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
 				{$t('how_it_works.overview.description')}
 			</p>
@@ -139,14 +139,18 @@
 
 		<!-- Detailed Steps Section -->
 		<div class="mx-auto max-w-4xl">
-							<h3 class="mb-6 text-center">
+			<h3 class="mb-6 text-center">
 				{$t('how_it_works.detailed_guide.title')}
 			</h3>
 
 			<!-- Step 1: Sign Up -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">1</div>
+					<div
+						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+					>
+						1
+					</div>
 					<h3>{$t('how_it_works.step_1.title')}</h3>
 				</div>
 
@@ -188,7 +192,6 @@
 							</svg>
 							<span>{@html $t('how_it_works.step_1.security_note')}</span>
 						</div>
-
 					</div>
 				</div>
 			</div>
@@ -196,7 +199,11 @@
 			<!-- Step 2: Create Profile -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">2</div>
+					<div
+						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+					>
+						2
+					</div>
 					<h3>{$t('how_it_works.step_2.title')}</h3>
 				</div>
 
@@ -259,7 +266,11 @@
 			<!-- Step 3: Find Tasks/Talent -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">3</div>
+					<div
+						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+					>
+						3
+					</div>
 					<h3>{$t('how_it_works.step_3.title')}</h3>
 				</div>
 
@@ -282,10 +293,16 @@
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
-										<div class="flex items-start gap-4 mt-4">
-											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">1</div>
+										<div class="mt-4 flex items-start gap-4">
+											<div
+												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+											>
+												1
+											</div>
 											<div>
-												<h6 class="font-medium mb-0.5">{$t('how_it_works.step_3.for_taskers.1.title')}</h6>
+												<h6 class="mb-0.5 font-medium">
+													{$t('how_it_works.step_3.for_taskers.1.title')}
+												</h6>
 												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskers.1.description')}
 												</p>
@@ -293,9 +310,15 @@
 										</div>
 
 										<div class="flex items-start gap-4">
-											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">2</div>
+											<div
+												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+											>
+												2
+											</div>
 											<div>
-												<h6 class="font-medium mb-0.5">{$t('how_it_works.step_3.for_taskers.2.title')}</h6>
+												<h6 class="mb-0.5 font-medium">
+													{$t('how_it_works.step_3.for_taskers.2.title')}
+												</h6>
 												<p class="text-base-content/80 mt-1">
 													{$t('how_it_works.step_3.for_taskers.2.description')}
 												</p>
@@ -303,9 +326,15 @@
 										</div>
 
 										<div class="flex items-start gap-4">
-											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">3</div>
+											<div
+												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+											>
+												3
+											</div>
 											<div>
-												<h6 class="font-medium mb-0.5">{$t('how_it_works.step_3.for_taskers.3.title')}</h6>
+												<h6 class="mb-0.5 font-medium">
+													{$t('how_it_works.step_3.for_taskers.3.title')}
+												</h6>
 												<p class="text-base-content/80 mt-1">
 													{@html $t('how_it_works.step_3.for_taskers.3.description')}
 												</p>
@@ -346,8 +375,12 @@
 								</button>
 								<div class="collapse-content">
 									<div class="space-y-4">
-										<div class="flex items-start gap-4 mt-4">
-											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">1</div>
+										<div class="mt-4 flex items-start gap-4">
+											<div
+												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+											>
+												1
+											</div>
 											<div>
 												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.1.title')}</h6>
 												<p class="text-base-content/80 mt-1">
@@ -357,7 +390,11 @@
 										</div>
 
 										<div class="flex items-start gap-4">
-											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">2</div>
+											<div
+												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+											>
+												2
+											</div>
 											<div>
 												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.2.title')}</h6>
 												<p class="text-base-content/80 mt-1">
@@ -367,7 +404,11 @@
 										</div>
 
 										<div class="flex items-start gap-4">
-											<div class="border border-primary text-primary rounded-full w-8 h-8 flex items-center justify-center text-sm font-medium mt-1">3</div>
+											<div
+												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+											>
+												3
+											</div>
 											<div>
 												<h6 class="font-medium">{$t('how_it_works.step_3.for_taskees.3.title')}</h6>
 												<p class="text-base-content/80 mt-1">
@@ -403,7 +444,11 @@
 			<!-- Step 4: Complete Work -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">4</div>
+					<div
+						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+					>
+						4
+					</div>
 					<h3>{$t('how_it_works.step_4.title')}</h3>
 				</div>
 
@@ -473,7 +518,11 @@
 			<!-- Note: It's not clear why, but we need to use text-3xl to make the icon sizes below match the ones above -->
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
-					<div class="bg-primary text-primary-content rounded-full w-12 h-12 flex items-center justify-center text-3xl">5</div>
+					<div
+						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+					>
+						5
+					</div>
 					<h3>{$t('how_it_works.step_5.title')}</h3>
 				</div>
 
@@ -546,8 +595,8 @@
 	</div>
 
 	<!-- CTA Section -->
-	<div class="mx-auto max-w-4xl my-16 text-center px-8">
-						<h3 class="mb-4">{$t('common.cta_title')}</h3>
+	<div class="mx-auto my-16 max-w-4xl px-8 text-center">
+		<h3 class="mb-4">{$t('common.cta_title')}</h3>
 		<p class="text-base-content/80 mx-auto mb-8 max-w-2xl text-lg">
 			{$t('common.cta_description')}
 		</p>

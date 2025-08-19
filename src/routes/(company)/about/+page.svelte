@@ -45,7 +45,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl leading-[1.5]">{$t('how_it_works_about.hero.heading')}</h1>
+					<h3>{$t('how_it_works_about.hero.heading')}</h3>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('how_it_works_about.hero.tagline')}
 					</p>
@@ -56,7 +56,7 @@
 	<!-- Our Mission Section -->
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2>{$t('about_page.mission.title')}</h2>
+			<h3>{$t('about_page.mission.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about_page.mission.description')}
 			</p>
@@ -66,7 +66,7 @@
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
 				<div class="mb-6 text-center">
-					<h2>{$t('about_page.core_beliefs.title')}</h2>
+					<h3>{$t('about_page.core_beliefs.title')}</h3>
 				</div>
 
 				<div class="card bg-base-100 mb-4 shadow-lg">
@@ -116,7 +116,7 @@
 		<!-- Step 6: Our Platform -->
 		<div class="mb-12">
 			<div class="mb-6 text-center">
-				<h2>{$t('about_page.platform.title')}</h2>
+				<h3>{$t('about_page.platform.title')}</h3>
 				<p class="text-base-content/80 mx-auto mt-4 max-w-2xl text-lg">
 					{$t('about_page.platform.description')}
 				</p>

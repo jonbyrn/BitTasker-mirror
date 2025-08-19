@@ -51,7 +51,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl">{$t('contact.title')}</h1>
+					<h3>{$t('contact.title')}</h3>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('contact.description')}
 					</p>
@@ -63,7 +63,7 @@
 		<div class="flex justify-center">
 		<div class="card border-base-300 bg-base-100 w-full max-w-md border shadow-xl">
 			<div class="card-body items-center text-center">
-				<h2 class="card-title">{$t('contact.general_inquiries')}</h2>
+				<h3 class="card-title">{$t('contact.general_inquiries')}</h3>
 				<p>{$t('contact.general_info')}</p>
 				<div class="card-actions justify-end">
 					<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">

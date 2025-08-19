@@ -62,7 +62,7 @@
 			<Logo />
 			<div class="max-w-3xl text-center">
 				<!-- FAQ Section Header -->
-				<h1 class="text-5xl font-bold">{$t('faq.title')}</h1>
+				<h3>{$t('faq.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('faq.description')}
 				</p>
@@ -73,7 +73,7 @@
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- General Questions -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general.title')}</h2>
+			<h3 class="mb-4 text-2xl font-bold mt-2">{$t('faq.general.title')}</h3>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -129,7 +129,7 @@
 
 		<!-- For Taskers -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers.title')}</h2>
+			<h3 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskers.title')}</h3>
 			<div class="join join-vertical w-full">
 				<div
 					class="collapse-arrow text-base-content/70 join-item border-base-300 collapse border-b"
@@ -215,7 +215,7 @@
 		</div>
 
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees.title')}</h2>
+			<h3 class="mb-4 text-2xl font-bold mt-2">{$t('faq.taskees.title')}</h3>
 			<div class="join join-vertical w-full">
 				<!-- FAQ Taskees - How do I find tasks? -->
 				<div
@@ -306,7 +306,7 @@
 
 		<!-- Payments & Bitcoin -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.payment.title')}</h2>
+			<h3 class="mb-4 text-2xl font-bold mt-2">{$t('faq.payment.title')}</h3>
 			<div class="join join-vertical w-full">
 				<!-- Why use Bitcoin? -->
 				<div
@@ -347,7 +347,7 @@
 
 		<!-- Nostr -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.nostr.title')}</h2>
+			<h3 class="mb-4 text-2xl font-bold mt-2">{$t('faq.nostr.title')}</h3>
 			<div class="join join-vertical w-full">
 				<!-- What is Nostr? -->
 				<div
@@ -421,7 +421,7 @@
 
 		<!-- Trust & Safety -->
 		<div class="bg-base-100 rounded-box p-6 my-12">
-			<h2 class="mb-4 text-2xl font-bold mt-2">{$t('faq.safety.title')}</h2>
+			<h3 class="mb-4 text-2xl font-bold mt-2">{$t('faq.safety.title')}</h3>
 			<div class="join join-vertical w-full">
 				<!-- Is my payment secure? -->
 				<div

@@ -59,7 +59,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl">{$t('about_careers.join.title')}</h1>
+					<h3>{$t('about_careers.join.title')}</h3>
 					<p class="text-base-content/80 py-6 text-lg">
 						{$t('about_careers.join.description')}
 					</p>
@@ -70,7 +70,7 @@
 	<!-- Our Culture Section -->
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<div class="mb-12 text-center">
-			<h2>{$t('about_careers.culture.title')}</h2>
+			<h3>{$t('about_careers.culture.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about_careers.culture.description')}
 			</p>
@@ -346,7 +346,7 @@
 	<div class="bg-base-200 my-16 px-8">
 		<div class="w-full py-16">
 			<div class="mx-auto max-w-3xl text-center">
-				<h2 class="mb-6">{$t('careers.how_to_apply.title')}</h2>
+				<h3 class="mb-6">{$t('careers.how_to_apply.title')}</h3>
 				<p class="mb-6">{$t('careers.how_to_apply.description')}</p>
 
 				<div class="card-body items-center text-center">
