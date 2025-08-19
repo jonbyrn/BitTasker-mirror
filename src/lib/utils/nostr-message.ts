@@ -823,3 +823,22 @@ export async function getMessagedPeople(): Promise<
 		throw err;
 	}
 }
+
+/**
+ * Verificar si un mensaje es un bid
+ */
+export function isBidMessage(message: { plaintext: string }): boolean {
+	try {
+		const parsedContent = JSON.parse(message.plaintext);
+		return parsedContent.messageType === 'bid' && parsedContent.type === 'bid';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Verificar si un mensaje es un mensaje normal (no bid)
+ */
+export function isNormalMessage(message: { plaintext: string }): boolean {
+	return !isBidMessage(message);
+}

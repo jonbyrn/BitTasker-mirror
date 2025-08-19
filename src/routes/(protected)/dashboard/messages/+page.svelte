@@ -5,6 +5,7 @@
 	import {
 		fetchProfileMetadata,
 		getMessagedPeople,
+		getMessageHistory,
 		listenForIncomingMessages,
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
@@ -55,9 +56,40 @@
 	// Load conversations on mount
 	onMount(async () => {
 		try {
-			// Load existing conversations
+			// Obtener conversaciones pero excluir las que solo contengan bids
 			const people = await getMessagedPeople();
-			conversations = people;
+			
+			// Filtrar conversaciones que NO sean solo de bids
+			const filteredConversations = [];
+			
+			for (const person of people) {
+				try {
+					// Obtener historial de mensajes con esta persona
+					const messageHistory = await getMessageHistory(person.pubkey, { limit: 50 });
+					
+					// Verificar si hay mensajes que NO sean bids
+					const hasNonBidMessages = messageHistory.some(message => {
+						try {
+							const parsedContent = JSON.parse(message.plaintext);
+							// Incluir conversación si tiene al menos un mensaje que NO sea bid
+							return parsedContent.messageType !== 'bid';
+						} catch {
+							// Si no se puede parsear, es un mensaje normal (incluir)
+							return true;
+						}
+					});
+					
+					// Solo incluir conversaciones que tengan mensajes normales
+					if (hasNonBidMessages) {
+						filteredConversations.push(person);
+					}
+				} catch (err) {
+					// Si hay error, incluir la conversación por seguridad
+					filteredConversations.push(person);
+				}
+			}
+			
+			conversations = filteredConversations;
 
 			// Setup profile subscriptions for existing conversations
 			for (const conversation of conversations) {
