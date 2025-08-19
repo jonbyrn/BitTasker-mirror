@@ -40,8 +40,11 @@
 </script>
 
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
-	<h3 class="mb-4">{$t('profile.page.title')}</h3>
-	<div class="bg-base-100 mb-6 rounded-xl p-6 shadow-lg">
+	<div class="mb-6">
+		<h3 class="">{$t('profile.page.title')}</h3>
+		<p class="text-base-content/70">{$t('profile.page.description')}</p>
+	</div>
+	<div class="bg-base-100 rounded-xl p-6 shadow-lg">
 		<ProfileHeader {logout} />
 
 		<ProfileStats stats={$profileStore.stats} />

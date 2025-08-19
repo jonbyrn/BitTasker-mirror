@@ -60,51 +60,53 @@
 
 <div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 sm:px-4 sm:py-8">
 	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width > 768}
-		<!-- Sidebar -->
+		<!-- Fixed Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
-			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
-				<div class="card-body p-4">
-					
-					<ul class="menu bg-base-100 rounded-box w-full">
-						{#each sections as section}
-							<li>
-								<a
-									data-sveltekit-reload="off"
-									href="/dashboard/{section.id}"
-									class:menu-active={activeSection === section.id}
-									class="flex items-center gap-3"
-								>
-									{#if section.icon === 'mdi:format-list-bulleted'}
-										<IconFormatListBulleted class="text-primary" />
-									{:else if section.icon === 'mdi:plus-circle'}
-										<IconPlusCircle class="text-primary" />
-									{:else if section.icon === 'mdi:magnify'}
-										<IconMagnify class="text-primary" />
-									{:else if section.icon === 'mdi:handshake'}
-										<IconHandshake class="text-primary" />
-									{:else if section.icon === 'mdi:wallet'}
-										<IconWallet class="text-primary" />
-									{:else if section.icon === 'mdi:account'}
-										<IconAccount class="text-primary" />
-									{:else if section.icon === 'mdi:message'}
-										<IconMessage class="text-primary" />
-									{:else if section.icon === 'mdi:cog'}
-										<IconCog class="text-primary" />
-									{:else}
-										<IconFormatListBulleted class="text-primary" />
-									{/if}
-									{$t(section.label)}
-								</a>
-							</li>
-						{/each}
-					</ul>
+			<div class="fixed top-24 left-8 w-56 z-10">
+				<div class="card bg-base-100 shadow-xl rounded-xl">
+					<div class="card-body p-4">
+						
+						<ul class="menu bg-base-100 rounded-box w-full">
+							{#each sections as section}
+								<li>
+									<a
+										data-sveltekit-reload="off"
+										href="/dashboard/{section.id}"
+										class:menu-active={activeSection === section.id}
+										class="flex items-center gap-3"
+									>
+										{#if section.icon === 'mdi:format-list-bulleted'}
+											<IconFormatListBulleted class="text-primary" />
+										{:else if section.icon === 'mdi:plus-circle'}
+											<IconPlusCircle class="text-primary" />
+										{:else if section.icon === 'mdi:magnify'}
+											<IconMagnify class="text-primary" />
+										{:else if section.icon === 'mdi:handshake'}
+											<IconHandshake class="text-primary" />
+										{:else if section.icon === 'mdi:wallet'}
+											<IconWallet class="text-primary" />
+										{:else if section.icon === 'mdi:account'}
+											<IconAccount class="text-primary" />
+										{:else if section.icon === 'mdi:message'}
+											<IconMessage class="text-primary" />
+										{:else if section.icon === 'mdi:cog'}
+											<IconCog class="text-primary" />
+										{:else}
+											<IconFormatListBulleted class="text-primary" />
+										{/if}
+										{$t(section.label)}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					</div>
 				</div>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Main Content -->
-	<div class="min-h-0 w-full flex-1">
+	<!-- Main Content with left margin for fixed sidebar -->
+	<div class="min-h-0 w-full flex-1 ">
 		{@render children()}
 	</div>
 </div>

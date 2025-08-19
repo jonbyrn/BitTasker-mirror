@@ -4,7 +4,6 @@ import { nip19 } from 'nostr-tools';
 import { getNostrKeyPair } from './nostrKeys';
 import {
 	sendDirectMessage,
-	parseDMEvent,
 	getMessageHistory,
 	getMessagedPeople
 } from './nostr-message';

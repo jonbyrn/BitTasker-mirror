@@ -256,7 +256,7 @@
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex flex-grow lg:block">
+				<div class="bg-base-200 flex flex-grow lg:block overflow-hidden">
 					{@render children()}
 				</div>
 			{:else}

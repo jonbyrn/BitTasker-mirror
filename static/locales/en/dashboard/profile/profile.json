@@ -99,6 +99,7 @@
         },
         "page": {
             "title": "My Profile",
+            "description": "Manage your profile information and settings",
             "edit_profile": "Edit Profile",
             "logout_profile": "Logout",
             "completion": "Profile Completion",

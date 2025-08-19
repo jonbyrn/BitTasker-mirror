@@ -286,9 +286,9 @@
 </script>
 
 <div class=" p-4 sm:p-0">
-	<div class="mb-8">
+	<div class="mb-6">
 		<h3 class="">{$t('settings.title')}</h3>
-		<p class="text-base-content/70 mt-2">{$t('settings.subtitle')}</p>
+		<p class="text-base-content/70">{$t('settings.subtitle')}</p>
 	</div>
 
 	{#if loading}

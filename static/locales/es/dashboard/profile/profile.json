@@ -95,6 +95,7 @@
         },
         "page": {
             "title": "Mi Perfil",
+            "description": "Gestiona tu información y configuración de perfil",
             "edit_profile": "Editar Perfil",
             "logout_profile": "Cerrar sesión",
             "completion": "Completado del Perfil",

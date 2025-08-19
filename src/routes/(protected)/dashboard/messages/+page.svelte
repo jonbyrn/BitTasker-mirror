@@ -245,8 +245,11 @@
 
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
 	<!-- Header -->		
-	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
-		<h3 class="">{$t('messages.title')}</h3>
+	<div class="mb-6 flex flex-shrink-0 items-center justify-between"> 	
+		<div>
+			<h3 class="">{$t('messages.title')}</h3>
+			<p class="text-base-content/70">{$t('messages.subtitle')}</p>
+		</div>
 		<button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button>
 	</div>
 

@@ -1,15 +1,15 @@
 {
-    "dashboard": {
-      "title": "Mi Panel",
-      "titl": "Panel",
-      "create_task": "Crear Tarea",
-      "find_tasks": "Buscar Tareas",
-      
-      "tabs": {
-        "tasks": "Mis Tareas",
-        "bids": "Mis Ofertas",
-        "recurring": "Tareas Recurrentes",
-        "saved_searches": "Búsquedas Guardadas"
-      }
+  "dashboard": {
+    "title": "Mi Panel",
+    "description": "Gestiona tus tareas y ofertas en el panel de BitTasker.",
+    "titl": "Panel",
+    "create_task": "Crear Tarea",
+    "find_tasks": "Buscar Tareas",
+    "tabs": {
+      "tasks": "Mis Tareas",
+      "bids": "Mis Ofertas",
+      "recurring": "Tareas Recurrentes",
+      "saved_searches": "Búsquedas Guardadas"
     }
   }
+}
