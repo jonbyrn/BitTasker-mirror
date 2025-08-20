@@ -18,6 +18,7 @@
 	import IconReddit from '~icons/mdi/reddit';
 	import IconMusicNoteEighth from '~icons/mdi/music-note-eighth';
 	import IconPlay from '~icons/mdi/play';
+	import IconGithub from '~icons/mdi/github';
 	import '../app.css';
 	import { authState } from '$lib/stores/auth.store';
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -309,7 +310,7 @@
 					<div class="md:col-span-2 lg:col-span-1 px-4 md:px-6 lg:px-0">
 						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 						<p class="mb-4">{$t('footer.company_description')}</p>
-											<!-- Social media icons -->
+					<!-- Social media icons -->
 					<div class="flex flex-col space-y-2">
 						<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
 						<div class="flex space-x-4">
@@ -377,7 +378,7 @@
 								<IconLinkedin class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://reddit.com/r/bittasker"
+								href="https://reddit.com/u/BitTasker"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -386,7 +387,7 @@
 								<IconReddit class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://tiktok.com/@bittasker"
+								href="https://www.tiktok.com/@bittasker"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -395,13 +396,22 @@
 								<IconMusicNoteEighth class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://rumble.com/c/bittasker"
+								href="https://rumble.com/c/c-7742441"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
 								aria-label="{$t('footer.social.rumble_aria')}"
 							>
 								<IconPlay class="transition-colors duration-300 ease-in-out" />
+							</a>
+							<a
+								href="https://github.com/BitTasker"
+								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="GitHub"
+							>
+								<IconGithub class="transition-colors duration-300 ease-in-out" />
 							</a>
 						</div>
 					</div>
