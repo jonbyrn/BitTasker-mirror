@@ -68,7 +68,7 @@
 						
 						<ul class="menu bg-base-100 rounded-box w-full">
 							{#each sections as section}
-								<li>
+								<li class="my-1">
 									<a
 										data-sveltekit-reload="off"
 										href="/dashboard/{section.id}"
