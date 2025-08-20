@@ -1,14 +1,10 @@
-import { error } from '@sveltejs/kit';
-import type { PageLoad } from './$types';
+// Configurar la página para que no se prerenderice
+export const prerender = false;
 
-export const load: PageLoad = async ({ params }) => {
-	const { taskId } = params;
-	
-	if (!taskId) {
-		error(400, 'Task ID is required');
-	}
-
-	return {
-		taskId
-	};
-};
+// O si quieres que se prerenderice, especifica los taskIds conocidos
+// export const prerender = true;
+// export const entries = async () => {
+//   // Retorna un array de taskIds conocidos para prerenderizar
+//   // Por ejemplo: ['task1', 'task2', 'task3']
+//   return [];
+// };

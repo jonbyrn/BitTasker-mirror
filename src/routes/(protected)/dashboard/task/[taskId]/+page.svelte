@@ -333,8 +333,8 @@
 							<!-- Action buttons -->
 							{#if task.status === TaskStatusEnum.OPEN && !isOwner}
 								<div class="mb-6">
-									<h3 class="mb-4 text-lg font-semibold">Interested in this task?</h3>
-									<button class="btn btn-primary w-full" onclick={handleBidNow}>
+									<h4 class="mb-4">Interested in this task?</h4>
+									<button class="btn btn-primary w-full btn-sm" onclick={handleBidNow}>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
 											class="mr-2 h-5 w-5"
