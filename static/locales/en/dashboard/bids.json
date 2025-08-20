@@ -1,6 +1,7 @@
 {
     "bids": {
         "my_submitted_bids": "My Submitted Bids",
+        "view_task": "View Task",
         "refresh": "Refresh",
         "no_bids_yet": "No bids submitted yet",
         "no_bids_description": "Your submitted bids will appear here",

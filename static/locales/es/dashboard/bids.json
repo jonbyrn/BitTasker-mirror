@@ -1,6 +1,7 @@
 {
     "bids": {
         "my_submitted_bids": "Mis Ofertas Enviadas",
+        "view_task": "Ver Tarea",
         "refresh": "Actualizar",
         "no_bids_yet": "Aún no has enviado ofertas",
         "no_bids_description": "Tus ofertas enviadas aparecerán aquí",

@@ -17,7 +17,7 @@
 	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
-
+	import { goto } from '$app/navigation';
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'find-tasks', label: $t('dashboard.find_tasks') },
@@ -108,13 +108,13 @@
 	 */
 	async function loadNostrData(): Promise<void> {
 		if (dataLoaded) return; // Prevent multiple loads
-		
+
 		try {
 			console.log('[FindTasks] Loading Nostr data...');
 			await findTasks(searchParams);
 			dataLoaded = true;
 			showSkeleton = false;
-			
+
 			// Cleanup observers and timers
 			if (intersectionObserver) {
 				intersectionObserver.disconnect();
@@ -144,8 +144,8 @@
 					loadNostrData();
 				}
 			},
-			{ 
-				threshold: 0.1, 
+			{
+				threshold: 0.1,
 				rootMargin: '200px' // Start loading 200px before visible
 			}
 		);
@@ -178,7 +178,7 @@
 		// Solo buscar si hay al menos 3 caracteres
 		if (searchQuery.trim().length < 3) {
 			// Si la búsqueda es muy corta, limpiar resultados y mostrar todos
-			tasksStore.update(state => ({
+			tasksStore.update((state) => ({
 				...state,
 				items: [],
 				currentPage: 1,
@@ -211,7 +211,7 @@
 		searchParams = { ...searchParams, ...newParams };
 
 		// Clear existing tasks when starting a new search
-		tasksStore.update(state => ({
+		tasksStore.update((state) => ({
 			...state,
 			items: [],
 			currentPage: 1,
@@ -231,7 +231,7 @@
 		isFilterDrawerOpen = false;
 
 		// Clear existing tasks when applying new filters
-		tasksStore.update(state => ({
+		tasksStore.update((state) => ({
 			...state,
 			items: [],
 			currentPage: 1,
@@ -266,7 +266,7 @@
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
 
 		// Clear existing tasks when clearing filters
-		tasksStore.update(state => ({
+		tasksStore.update((state) => ({
 			...state,
 			items: [],
 			currentPage: 1,
@@ -352,7 +352,7 @@
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
 		// Clear existing tasks when changing task type
-		tasksStore.update(state => ({
+		tasksStore.update((state) => ({
 			...state,
 			items: [],
 			currentPage: 1,
@@ -401,7 +401,7 @@
 				clearTimeout(fallbackTimer);
 				fallbackTimer = null;
 			}
-			
+
 			// Cleanup infinite scroll
 			cleanupInfiniteScroll();
 			cleanup();
@@ -459,12 +459,12 @@
 
 	// Función para obtener la clase del input de búsqueda
 	function getSearchInputClass(): string {
-		let baseClass = "input input-bordered w-full pl-10";
+		let baseClass = 'input input-bordered w-full pl-10';
 
 		if (searchQuery.length > 0 && searchQuery.length < 3) {
-			baseClass += " input-warning";
+			baseClass += ' input-warning';
 		} else if (searchQuery.length >= 3) {
-			baseClass += " input-success";
+			baseClass += ' input-success';
 		}
 
 		return baseClass;
@@ -476,7 +476,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl p-4 sm:p-0">
+<div class="mx-auto max-w-7xl p-4 md:p-0">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">{$t('find_tasks.title')}</h3>
@@ -488,12 +488,7 @@
 
 	{#if activeTab === 'find-tasks'}
 		<!-- Find Tasks Panel -->
-		<div
-			id="panel-find-tasks"
-			role="tabpanel"
-			aria-labelledby="tab-find-tasks"
-			class="mt-6"
-		>
+		<div id="panel-find-tasks" role="tabpanel" aria-labelledby="tab-find-tasks" class="mt-6">
 			<!-- Search and Filter Controls -->
 			<div class="mb-6 flex flex-wrap items-center gap-3">
 				<!-- Search Input -->
@@ -614,7 +609,7 @@
 				{#if showSkeleton && !dataLoaded}
 					<div class="space-y-4">
 						{#each Array(4) as _}
-							<div class="card bg-base-100 rounded-xl shadow-md p-6 animate-pulse">
+							<div class="card bg-base-100 animate-pulse rounded-xl p-6 shadow-md">
 								<div class="flex flex-col gap-4 md:flex-row md:items-center">
 									<div class="bg-base-300 h-7 w-3/4 rounded"></div>
 									<div class="bg-base-300 h-6 w-32 rounded"></div>
@@ -629,7 +624,7 @@
 									<div class="bg-base-300 h-6 w-24 rounded"></div>
 									<div class="bg-base-300 h-6 w-16 rounded"></div>
 								</div>
-								<div class="flex items-center justify-between mt-4">
+								<div class="mt-4 flex items-center justify-between">
 									<div class="bg-base-300 h-6 w-16 rounded"></div>
 									<div class="bg-base-300 h-9 w-24 rounded"></div>
 								</div>
@@ -639,8 +634,18 @@
 				{:else if loadingTimeout}
 					<!-- Loading Timeout Warning -->
 					<div class="alert alert-warning alert-outline mb-4 rounded-xl">
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
 						</svg>
 						<div>
 							<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
@@ -657,12 +662,17 @@
 							{#if $tasksStore.loading && searchParams.page === 1}
 								<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
 							{:else if $tasksStore.items.length > 0}
-								({$t('find_tasks.showing_tasks').replace('{count}', $tasksStore.items.length.toString())})
+								({$t('find_tasks.showing_tasks').replace(
+									'{count}',
+									$tasksStore.items.length.toString()
+								)})
 							{/if}
 						</span>
 					</h3>
 
-					<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
+					<div
+						class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg"
+					>
 						{#each $tasksStore.items as task, index}
 							<div class="card-body">
 								<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -721,12 +731,18 @@
 									</div>
 								{/if}
 
-								<div class="card-actions mt-4 flex items-center justify-between">
-									<div class="flex items-center gap-2">
-										<div class="badge badge-info gap-1">
+								<div class="card-actions mt-4 flex items-center justify-end">
+									<div class="flex items-center justify-between gap-2">
+										<button
+											class="btn btn-primary btn-sm"
+											class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
+												task?.npub === $user?.npub}
+											onclick={() => onSelectTask(task)}
+											aria-label={$t('find_tasks.bid_on_task')}
+										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
-												class="h-4 w-4"
+												class="h-5 w-5"
 												fill="none"
 												viewBox="0 0 24 24"
 												stroke="currentColor"
@@ -735,38 +751,41 @@
 													stroke-linecap="round"
 													stroke-linejoin="round"
 													stroke-width="2"
-													d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+													d="M12 4v16m8-8H4"
 												/>
 											</svg>
-											{task.bids?.length ?? 0}
-											{$t('find_tasks.bids')}
-										</div>
-									</div>
-
-									<button
-										class="btn btn-primary btn-sm"
-										class:btn-disabled={task.status !== TaskStatusEnum.OPEN || task?.npub === $user?.npub}
-										onclick={() => onSelectTask(task)}
-										aria-label={$t('find_tasks.bid_on_task')}
-									>
-										<svg
-											xmlns="http://www.w3.org/2000/svg"
-											class="h-5 w-5"
-											fill="none"
-											viewBox="0 0 24 24"
-											stroke="currentColor"
+											{task.status === TaskStatusEnum.OPEN
+												? $t('find_tasks.bid_now')
+												: $t('find_tasks.bidding_closed')}
+										</button>
+										<button
+											class="btn btn-info btn-sm"
+											onclick={() => goto(`/dashboard/task/${task.id}`)}
+											aria-label={$t('find_tasks.view_task')}
 										>
-											<path
-												stroke-linecap="round"
-												stroke-linejoin="round"
-												stroke-width="2"
-												d="M12 4v16m8-8H4"
-											/>
-										</svg>
-										{task.status === TaskStatusEnum.OPEN
-											? $t('find_tasks.bid_now')
-											: $t('find_tasks.bidding_closed')}
-									</button>
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-5 w-5"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+												/>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+												/>
+											</svg>
+											{$t('find_tasks.view_task')}
+										</button>
+									</div>
 								</div>
 							</div>
 

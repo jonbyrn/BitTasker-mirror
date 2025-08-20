@@ -62,20 +62,20 @@
 	};
 </script>
 
-<div class="h-full mx-auto px-4 py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-7xl px-4 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>
 			<h3 class="font-bold">{$t('dashboard.title')}</h3>
 			<p class="text-base-content/70">{$t('dashboard.description')}</p>
 		</div>
-		<a 
+		<a
 			href={activeTab === 'bids' ? '/dashboard/find-tasks' : '/dashboard/create-task'}
 			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="mr-1 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5"
+				class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"

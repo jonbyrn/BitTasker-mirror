@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
@@ -43,7 +44,7 @@ export interface BidMessage {
 /**
  * Submit a bid as an encrypted DM to the task creator
  */
-export async function submitBidAsDM(bidData: NostrBid, recipientPubkey: string): Promise<void> {
+export async function submitBidAsDM(bidData: any, recipientPubkey: string): Promise<void> {
 	try {
 		// Agregar el identificador de tipo de mensaje
 		const bidWithType = {

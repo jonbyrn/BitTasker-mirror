@@ -8,8 +8,8 @@
 	import type { NostrBid } from '$lib/utils/nostr-bid'; // Import from nostr-bid.ts where it's defined
 
 	// Props
-	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{ 
-		taskId: string; 
+	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{
+		taskId: string;
 		onClose: () => void;
 		taskCreatorPubkey: string; // Required for sending DM
 		taskTitle?: string; // Add task title prop
@@ -139,9 +139,9 @@
 	// Handle payment type change
 	function handlePaymentTypeChange(newType: PaymentType) {
 		if (bidType === newType) return;
-		
+
 		bidType = newType;
-		
+
 		if (newType === 'HOURLY') {
 			// Clear fixed price fields and initialize hourly rate with current USD amount
 			amount = '';
@@ -233,7 +233,7 @@
 			const diffMs = end.getTime() - start.getTime();
 			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-			
+
 			if (diffDays > 1) {
 				return `${diffDays} days`;
 			} else if (diffHours > 1) {
@@ -255,7 +255,7 @@
 
 		try {
 			// Create bid data structure with explicit type
-			const bidData: NostrBid = {
+			const bidData = {
 				type: 'bid' as const,
 				taskId: taskId,
 				taskTitle: taskTitle || 'Untitled Task',
@@ -298,8 +298,6 @@
 </script>
 
 <div class="bg-base-100 relative mx-auto rounded-lg">
-	<h3 class="mb-3">{$t('bid_form.title')}</h3>
-
 	{#if bidSubmitted}
 		<div
 			class="p-8 text-center"
@@ -436,9 +434,11 @@
 					<label class="label" for="datetime-range">
 						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
 					</label>
-					<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<div>
-							<label class="label-text-alt mb-2 block" for="start-date">{$t('bid_form.form.start_datetime')}</label>
+							<label class="label-text-alt mb-2 block" for="start-date"
+								>{$t('bid_form.form.start_datetime')}</label
+							>
 							<div class="flex gap-2">
 								<input
 									type="date"
@@ -456,7 +456,9 @@
 							</div>
 						</div>
 						<div>
-							<label class="label-text-alt mb-2 block" for="end-date">{$t('bid_form.form.end_datetime')}</label>
+							<label class="label-text-alt mb-2 block" for="end-date"
+								>{$t('bid_form.form.end_datetime')}</label
+							>
 							<div class="flex gap-2">
 								<input
 									type="date"
@@ -585,10 +587,14 @@
 							).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 						</div>
 						<div class="text-sm opacity-70">
-							{parseInt(hourlyRate || '0').toLocaleString('en-US')} sats × {parseFloat(estimatedHours || '0').toLocaleString('en-US')} hours
+							{parseInt(hourlyRate || '0').toLocaleString('en-US')} sats × {parseFloat(
+								estimatedHours || '0'
+							).toLocaleString('en-US')} hours
 						</div>
 						<div class="mt-1 text-sm opacity-70">
-							≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString('en-US')} sats
+							≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString(
+								'en-US'
+							)} sats
 						</div>
 					</div>
 				</div>
@@ -669,10 +675,10 @@
 			</div>
 
 			<!-- Submit Buttons -->
-			<button 
+			<button
 				id="bid-submit-btn"
-				type="submit" 
-				class="btn btn-primary ml-auto block mb-16 sm:mb-4" 
+				type="submit"
+				class="btn btn-primary mb-16 ml-auto block sm:mb-4"
 				disabled={submittingBid}
 			>
 				{#if submittingBid}

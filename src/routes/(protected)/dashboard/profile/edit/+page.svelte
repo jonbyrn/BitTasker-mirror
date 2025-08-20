@@ -98,7 +98,7 @@
 	</div>
 {/snippet}
 
-<div class=" p-4 sm:p-0">
+<div class="mx-auto max-w-7xl p-4 md:p-0">
 	<div class="mb-4">
 		<h3 class="">{$t('profile.page.edit_profile')}</h3>
 		<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
