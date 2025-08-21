@@ -5,6 +5,7 @@
 	import { liveTasks, featuredTaskees } from '$lib/utils/constants/homepage.constants';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import TaskeeCard from '$lib/components/homepage/TaskeeCard.svelte';
+	import { analyticsService } from '$lib/api/services/analytics.service';
 
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
@@ -73,6 +74,9 @@
 	};
 
 	onMount(async () => {
+		// Track homepage view
+		analyticsService.trackPageView('/', 'Homepage');
+
 		// Start carousel auto-rotation
 		startCarouselRotation();
 	});
@@ -100,20 +104,39 @@
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
 					<div class="flex flex-col justify-center gap-4 sm:flex-row">
-						<a href="/dashboard/find-tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{$t('navbar.browse_tasks')}</a
+						<a 
+							href="/dashboard/find-tasks" 
+							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
+							onclick={() => analyticsService.trackEvent('homepage_cta_clicked', {
+								button_type: 'browse_tasks',
+								position: 'hero'
+							})}
 						>
+							{$t('navbar.browse_tasks')}
+						</a>
 						<a
 							href="/dashboard/taskees"
 							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
-							>{$t('navbar.browse_freelancers')}</a
+							onclick={() => analyticsService.trackEvent('homepage_cta_clicked', {
+								button_type: 'browse_freelancers',
+								position: 'hero'
+							})}
 						>
+							{$t('navbar.browse_freelancers')}
+						</a>
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
-						<a href="/auth/signup" class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
-							>{$t('homepage.v2.hero.cta')}</a
+						<a 
+							href="/auth/signup" 
+							class="btn btn-primary btn-lg w-64 px-8 shadow-lg sm:w-auto"
+							onclick={() => analyticsService.trackEvent('homepage_cta_clicked', {
+								button_type: 'signup',
+								position: 'hero_primary'
+							})}
 						>
+							{$t('homepage.v2.hero.cta')}
+						</a>
 					</div>
 				</div>
 			</div>

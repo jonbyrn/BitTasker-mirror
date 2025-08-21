@@ -5,6 +5,7 @@
 	import { VerifyTrunstileStore } from '$houdini';
 	import { isCaptchaVerified } from '$lib/stores/auth.store';
 	import { t } from 'svelte-i18n';
+	import { analyticsService } from '$lib/api/services/analytics.service';
 
 	const verifyTrunstileStore = new VerifyTrunstileStore();
 
@@ -16,6 +17,9 @@
 
 	onMount(async () => {
 		try {
+			// Track page view
+			analyticsService.trackPageView('/auth/signup', 'Sign Up');
+
 			// Setup callback for Turnstile
 			window.onloadTurnstileCallback = renderTurnstile;
 		} catch (err) {
@@ -170,7 +174,13 @@
 
 				<button
 					class="btn btn-primary mt-4"
-					onclick={() => goto('/auth/onboarding')}
+					onclick={() => {
+						analyticsService.trackEvent('signup_button_clicked', { 
+							method: 'captcha',
+							page: '/auth/signup'
+						});
+						goto('/auth/onboarding');
+					}}
 					disabled={isLoading || !$isCaptchaVerified}
 				>
 					<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24">

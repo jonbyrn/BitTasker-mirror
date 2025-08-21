@@ -10,6 +10,7 @@
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+	import CookieConsent from '$lib/components/CookieConsent.svelte';
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -183,6 +184,29 @@
 
 	// Font Awesome is now loaded via the link tag in the head
 
+	// Initialize Analytics and consent management
+	const initializeAnalytics = async () => {
+		try {
+			// Import Analytics service dynamically to avoid blocking initial render
+			const { analyticsService } = await import('$lib/api/services/analytics.service');
+			const { analyticsStore } = await import('$lib/stores/analytics.store');
+			const { setDefaultConsent } = await import('$lib/utils/helpers/fcm');
+
+			// Initialize analytics store
+			analyticsStore.init();
+
+			// Set default consent state (denied until user accepts)
+			setDefaultConsent();
+
+			// Initialize Analytics service (will respect consent state)
+			await analyticsService.init();
+
+			console.log('Analytics initialization complete');
+		} catch (error) {
+			console.error('Failed to initialize Analytics:', error);
+		}
+	};
+
 	// Initialize theme based on system preference - Broken up into smaller functions
 	onMount(async (): Promise<any> => {
 		// Critical operations first - only what's needed for initial render
@@ -193,6 +217,9 @@
 
 		// Setup theme change listener
 		const themeCleanup = setupThemeChangeListener();
+
+		// Initialize Analytics asynchronously (non-blocking)
+		initializeAnalytics();
 
 		// Font Awesome is loaded via link tag in the head
 
@@ -500,5 +527,8 @@
 
 		<!-- Toast notifications -->
 		<Toast />
+
+		<!-- Cookie Consent Banner -->
+		<CookieConsent theme={$darkMode ? 'dark' : 'light'} />
 	</main>
 {/if}
