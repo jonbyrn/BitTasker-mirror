@@ -7,6 +7,8 @@
 	import BidsTab from './details/BidsTab.svelte';
 	import TaskTab from './details/TaskTab.svelte';
 	import nostrEventsService from '$lib/api/services/nostr/events';
+	import { getTaskBids } from '$lib/utils/nostr-bid';
+	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -61,7 +63,107 @@
 			};
 
 			if (task) {
-				bids = task.bids || [];
+				const dmBids = await getTaskBids(task.id);
+
+				// Deduplicate: keep only the oldest bid per user for this task,
+				// and also remove any duplicates by bidId
+				const oldestPerUser = Object.values(
+					dmBids
+						.slice()
+						.sort((a, b) => a.bid.timestamp - b.bid.timestamp)
+						.reduce(
+							(acc, msg) => {
+								const key = `${msg.senderPubkey}:${msg.bid.taskId}`;
+								if (!acc[key]) acc[key] = msg; // first (oldest) wins
+								return acc;
+							},
+							{} as Record<string, (typeof dmBids)[number]>
+						)
+				);
+
+				const uniqueByBidId = Array.from(
+					new Map(oldestPerUser.map((m) => [m.bid.bidId, m])).values()
+				);
+
+				// Fetch profiles for each unique sender
+				const uniqueSenders = Array.from(new Set(uniqueByBidId.map((m) => m.senderPubkey)));
+				const profileEntries = await Promise.all(
+					uniqueSenders.map(async (pk) => [pk, await fetchProfileMetadata(pk)] as const)
+				);
+				const profileMap = new Map(profileEntries);
+
+				bids = uniqueByBidId.map(({ bid, senderPubkey }) => ({
+					id: bid.bidId,
+					taskId: bid.taskId as unknown as string,
+					freelancerId: 0,
+					amount: bid.amount,
+					currency: bid.currency as unknown as any,
+					paymentType: bid.paymentType,
+					hourlyRate: bid.hourlyRate ?? undefined,
+					estimatedHours: bid.estimatedHours ?? undefined,
+					description: bid.description,
+					estimatedDuration: bid.estimatedDuration,
+					proposedApproach: bid.proposedApproach,
+					coverLetter: bid.coverLetter,
+					visibility: 'PRIVATE',
+					milestones: [],
+					responseTime: 0,
+					status: 'PENDING',
+					createdAt: new Date(bid.timestamp).toISOString(),
+					updatedAt: new Date(bid.timestamp).toISOString(),
+					clientViewed: false,
+					clientViewedAt: null,
+					featured: false,
+					clientResponse: null,
+					competitiveScore: null,
+					rank: null,
+					impressions: 0,
+					clicks: 0,
+					isWithdrawn: false,
+					withdrawnReason: null,
+					expiresAt: null,
+					task: {
+						id: 0 as unknown as number,
+						title: task?.title || '',
+						description: task?.description || '',
+						status: (task as any)?.status || ''
+					},
+					freelancer: {
+						id: 0,
+						userId: 0,
+						professionalTitle: null,
+						bio: null,
+						promotionalVideo: null,
+						yearsExperience: null,
+						specialties: [],
+						standardRates: null,
+						tasksCompleted: 0,
+						bidsSent: 0,
+						successRate: null,
+						averageRating: null,
+						level: 0,
+						experiencePoints: 0,
+						reputationScore: 0,
+						feeDiscount: 0,
+						monthlyActivityPoints: 0,
+						verificationLevel: 'UNVERIFIED' as unknown as any,
+						identityVerified: false,
+						createdAt: new Date(bid.timestamp).toISOString(),
+						updatedAt: new Date(bid.timestamp).toISOString(),
+						user: {
+							id: 0,
+							email: ''
+						}
+					},
+					userProfile: {
+						user: {
+							displayName: (profileMap.get(senderPubkey)?.name ?? '').trim().length
+								? (profileMap.get(senderPubkey)?.name as string)
+								: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
+							picture: profileMap.get(senderPubkey)?.picture || ''
+						}
+					} as unknown as any
+				})) as unknown as TaskBid[];
 			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);

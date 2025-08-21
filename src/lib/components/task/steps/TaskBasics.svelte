@@ -34,7 +34,6 @@
 		{#if errors.title}
 			<span class="label-text-alt text-error">{errors.title}</span>
 		{/if}
-	
 	</div>
 
 	<div class="space-y-4">
@@ -137,11 +136,11 @@
 			<span class="label-text">{$t('task.required_skills')}</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
-		<TagsInput 
-			bind:tags={$store.task.skills} 
-			maxTags={10} 
+		<TagsInput
+			bind:tags={$store.task.skills}
+			maxTags={10}
 			maxCharLength={25}
-			className="w-full h-full rounded-xl" 
+			className="w-full h-full rounded-xl"
 		/>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>
