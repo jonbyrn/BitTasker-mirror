@@ -4,13 +4,19 @@
 	import type { ContractsByNostrResponse } from '$lib/escrow/types';
 	import { getSignedEvent } from '$lib/utils/nostr';
 	import { nip19 } from 'nostr-tools';
+    import { rpcClient } from '$lib/escrow/rpc';
 
 	let loading = $state(true);
 	let error = $state('');
 	let data = $state<ContractsByNostrResponse | null>(null);
+	let setupStatus = $state<Record<string, { can_fund: boolean; missing: string[] }>>({});
 
 	let signerNostrNpub = $state<string>('');
 	let signerNostrHex = $state<string>('');
+
+	// Un-typed Hono client
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const rpc: any = rpcClient as any;
 
 	async function authenticateAndLoad() {
 		loading = true;
@@ -26,6 +32,19 @@
 				signerNostrNpub = signerNostrHex;
 			}
 			data = await apiListContractsByNostr({ challenge, signedEvent });
+			// fetch setup status for each contract to gate funding display
+			setupStatus = {};
+			if (data?.contracts?.length) {
+				const results = await Promise.all(
+					data.contracts.map(async (ctr) => {
+						const res = await rpc.api.contracts[ctr.id].psbts['setup_status'].$get();
+						if (!res.ok) return [ctr.id, { can_fund: false, missing: ['error'] }];
+						const body = await res.json();
+						return [ctr.id, body];
+					})
+				);
+				setupStatus = Object.fromEntries(results as any);
+			}
 		} catch (e) {
 			console.error(e);
 			error = (e as Error)?.message || 'Failed to authenticate';
@@ -72,7 +91,19 @@
 								Path: <span class="font-mono">{ctr.derivation_path}</span>
 							</div>
 						</div>
+					<div class="flex items-center gap-2">
+						{#if setupStatus[ctr.id]?.can_fund}
+							<span class="badge badge-success">Ready to fund</span>
+						{:else}
+							<span class="badge">Setup pending</span>
+							{#if ctr.role === 'client'}
+								<span class="text-xs opacity-70">Waiting for freelancer signature</span>
+							{:else}
+								<button class="btn btn-xs" onclick={() => openDetails(ctr.id)}>Sign PSBTs</button>
+							{/if}
+						{/if}
 						<button class="btn btn-sm" onclick={() => openDetails(ctr.id)}>Open</button>
+					</div>
 					</div>
 
 					<div class="mt-3 grid gap-2">
@@ -83,9 +114,15 @@
 									<span class="badge badge-outline">privileged: {v.privileged_party}</span>
 									<span class="badge badge-outline">CSV: {v.csv_blocks}</span>
 								</div>
-								{#if v.address}
+							{#if v.type === 'escrow'}
+								{#if setupStatus[ctr.id]?.can_fund && v.address}
 									<div class="mt-1 font-mono text-xs break-all">{v.address}</div>
+								{:else}
+									<div class="mt-1 text-xs opacity-70">Funding address will appear after both parties sign required PSBTs.</div>
 								{/if}
+							{:else if v.address}
+								<div class="mt-1 font-mono text-xs break-all">{v.address}</div>
+							{/if}
 							</div>
 						{/each}
 					</div>

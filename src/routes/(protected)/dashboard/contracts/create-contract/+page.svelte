@@ -134,6 +134,18 @@
 				nostrAuth: { challenge, signedEvent }
 			});
 
+			// After vaults saved and PSBT records bootstrapped, pre-sign as client (placeholder until built)
+			try {
+				const { apiListPsbts, apiSignPsbt } = await import('$lib/escrow/api');
+				const list = await apiListPsbts(contract.id);
+				for (const p of list) {
+					if ((p.requiredSigs || 0) !== 2) continue;
+					await apiSignPsbt(p.id, 'client', p.psbtB64 || '');
+				}
+			} catch (e) {
+				console.warn('Client pre-sign failed or partial', e);
+			}
+
 			// For UI success signal, surface escrow vault basics
 			vaultCreated = {
 				id: contract.id,

@@ -73,6 +73,18 @@ export async function apiSaveVaults(
 			throw new Error('Failed to save vaults');
 		}
 	}
+
+	// Bootstrap PSBT records for standard scenarios once vaults are saved
+	const bootRes = await rpc.api.contracts[contractId].psbts['bootstrap'].$post();
+	if (!bootRes.ok) {
+		// Non-fatal, but useful to surface during setup
+		try {
+			const body = await bootRes.json();
+			console.warn('PSBT bootstrap failed:', body?.error || body);
+		} catch {
+			console.warn('PSBT bootstrap failed');
+		}
+	}
 }
 
 export async function apiCheckEscrow(input: EscrowCheckInput): Promise<EscrowCheckResponse> {
@@ -113,5 +125,44 @@ export async function apiListContractsByNostr(
 			throw new Error('Auth failed');
 		}
 	}
+	return await res.json();
+}
+
+// --- PSBT helpers ---
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const rpc: any = rpcClient as any;
+
+export async function apiListPsbts(contractId: string): Promise<any[]> {
+	const res = await rpc.api.contracts[contractId].psbts.$get();
+	if (!res.ok) throw new Error('Failed to load PSBTs');
+	const body = await res.json();
+	return body.psbts || [];
+}
+
+export async function apiSignPsbt(
+	psbtId: string,
+	signer: 'client' | 'freelancer',
+	psbtB64: string
+) {
+	const res = await rpc.api.psbts[psbtId]['sign'].$post({
+		json: { signer, psbt_b64_signed: psbtB64 }
+	});
+	if (!res.ok) {
+		// Ignore unique constraint as idempotent sign
+		try {
+			const body = await res.json();
+			throw new Error(body?.error || 'Failed to sign PSBT');
+		} catch {
+			throw new Error('Failed to sign PSBT');
+		}
+	}
+}
+
+export async function apiSetupStatus(
+	contractId: string
+): Promise<{ can_fund: boolean; missing: string[] }> {
+	const res = await rpc.api.contracts[contractId].psbts['setup_status'].$get();
+	if (!res.ok) throw new Error('Failed to get setup status');
 	return await res.json();
 }

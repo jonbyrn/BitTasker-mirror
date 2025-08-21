@@ -5,6 +5,7 @@
 	import type { VaultSummary } from '$lib/escrow/types';
 	import { apiGetNostrChallenge } from '$lib/escrow/api';
 	import { getSignedEvent } from '$lib/utils/nostr';
+    import { apiSignPsbt } from '$lib/escrow/api';
 
 	// Un-typed Hono client
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,6 +21,7 @@
 	let disputes = $state<any[]>([]);
 	let proposals = $state<any[]>([]);
 	let currentRole = $state<'client' | 'freelancer' | null>(null);
+    let setupStatus = $state<{ can_fund: boolean; missing: string[] } | null>(null);
 
 	$effect(() => {
 		const id = get(page).params.id as string;
@@ -61,6 +63,9 @@
 			vaults = vBody.vaults || [];
 			const pBody = await pRes.json();
 			psbts = pBody.psbts || [];
+			// setup status
+			const stRes = await rpc.api.contracts[id].psbts['setup_status'].$get();
+			if (stRes.ok) setupStatus = await stRes.json();
 			const dBody = await dRes.json();
 			disputes = dBody.disputes || [];
 			// proposals depend on disputes; load if any
@@ -83,19 +88,26 @@
 		return role === 'client' ? 'badge-primary' : 'badge-secondary';
 	}
 
-	// Placeholder action buttons based on role; to be wired to PSBT flows in future
-	function availableActionsFor(role: 'client' | 'freelancer') {
-		if (role === 'client') {
-			return [
-				{ key: 'approve', label: 'Approve payment', intent: 'primary' },
-				{ key: 'dispute', label: 'Open dispute', intent: 'outline' },
-				{ key: 'cancel', label: 'Cancel booking', intent: '' }
-			];
+    // Role-aware actions: freelancer can bulk sign outstanding 2-of-2 PSBT placeholders
+	async function signOutstandingPsbts() {
+		if (!contract || currentRole !== 'freelancer') return;
+		try {
+			loading = true;
+            for (const p of psbts) {
+                if ((p.requiredSigs || 0) !== 2) continue;
+                try {
+                    await apiSignPsbt(p.id, 'freelancer', p.psbtB64 || '');
+                } catch (e) {
+                    console.warn('Signing failed for PSBT', p.id, e);
+                }
+            }
+			// Reload status
+			await loadAll(contractId);
+		} catch (e) {
+			error = (e as Error)?.message || 'Signing failed';
+		} finally {
+			loading = false;
 		}
-		return [
-			{ key: 'submit', label: 'Submit work', intent: 'primary' },
-			{ key: 'remind', label: 'Remind client', intent: 'outline' }
-		];
 	}
 </script>
 
@@ -195,14 +207,26 @@
 
 			<div class="bg-base-200 rounded-lg p-3">
 				<div class="mb-1 font-semibold">Actions</div>
-				<div class="mb-2 text-xs opacity-70">
-					Shown actions vary by role. Full signing will be implemented next.
-				</div>
-				{#if currentRole}
-					<div class="flex flex-wrap gap-2">
-						{#each availableActionsFor(currentRole) as a}
-							<button class={`btn btn-sm ${a.intent ? 'btn-' + a.intent : ''}`}>{a.label}</button>
-						{/each}
+				{#if currentRole === 'freelancer'}
+					<div class="flex items-center gap-2">
+						<button class="btn btn-sm btn-primary" onclick={signOutstandingPsbts}>
+							Sign PSBTs
+						</button>
+						{#if setupStatus}
+							{#if setupStatus.can_fund}
+								<span class="badge badge-success">Setup complete</span>
+							{:else}
+								<span class="badge">Pending: {setupStatus.missing.join(', ')}</span>
+							{/if}
+						{/if}
+					</div>
+				{:else if currentRole === 'client'}
+					<div class="flex items-center gap-2">
+						{#if setupStatus && !setupStatus.can_fund}
+							<span class="text-sm opacity-70">Waiting for freelancer to sign required PSBTs.</span>
+						{:else}
+							<span class="text-sm">You can fund once the escrow address is visible above.</span>
+						{/if}
 					</div>
 				{:else}
 					<div class="text-sm opacity-70">Sign in with Nostr to see available actions.</div>
