@@ -36,7 +36,7 @@
 	// Create a reactive component map for Svelte 5 compatibility
 	let iconComponents = $derived.by(() => {
 		const components = new Map();
-		sections.forEach(section => {
+		sections.forEach((section) => {
 			components.set(section.icon, getIconComponent(section.icon));
 		});
 		return components;
@@ -49,23 +49,22 @@
 </script>
 
 <svelte:head>
-	<title>Dashboard | BitTasker</title> 	
+	<title>Dashboard | BitTasker</title>
 	<meta
 		name="description"
-		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."		 
+		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."
 	/>
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
 
-<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 sm:px-4 sm:py-8">
+<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
 	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width > 768}
 		<!-- Fixed Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
-			<div class="fixed top-24 left-8 w-56 z-10">
-				<div class="card bg-base-100 shadow-xl rounded-xl">
+			<div class="fixed top-24 left-8 z-10 w-56">
+				<div class="card bg-base-100 rounded-xl shadow-xl">
 					<div class="card-body p-4">
-						
 						<ul class="menu bg-base-100 rounded-box w-full">
 							{#each sections as section}
 								<li class="my-1">
@@ -106,7 +105,7 @@
 	{/if}
 
 	<!-- Main Content with left margin for fixed sidebar -->
-	<div class="min-h-0 w-full flex-1 ">
+	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>
 </div>
