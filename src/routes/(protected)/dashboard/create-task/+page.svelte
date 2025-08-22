@@ -98,7 +98,6 @@
 				if ($store.task.title && $store.task.title.length > 100)
 					errors.title = $t('task.errors.title_too_long');
 				if ($store.task.dateRange) {
-					console.log($store.task.dateRange);
 					// Validar que ambos campos de fecha sean requeridos
 					if (
 						!$store.task.dateRange.start ||
@@ -108,16 +107,35 @@
 					) {
 						errors.deadline = $t('task.errors.date_range_required');
 					}
+					
+					// Validar que las fechas estén en el futuro (comparando solo fechas, no horas)
+					const today = new Date();
+					today.setHours(0, 0, 0, 0); // Resetear a inicio del día
+					
+					const startDate = new Date($store.task.dateRange.start);
+					startDate.setHours(0, 0, 0, 0);
+					
+					const endDate = new Date($store.task.dateRange.end);
+					endDate.setHours(0, 0, 0, 0);
+					
 					if (
-						new Date($store.task.dateRange.end) < new Date() ||
-						new Date($store.task.dateRange.start) < new Date() ||
-						new Date($store.task.dateRange.end) < new Date($store.task.dateRange.start)
+						endDate < today ||
+						startDate < today ||
+						endDate < startDate
 					) {
 						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
-				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
-					errors.deadline = $t('task.errors.deadline_future');
+				if ($store.task.deadline) {
+					const deadlineDate = new Date($store.task.deadline);
+					deadlineDate.setHours(0, 0, 0, 0);
+					
+					const today = new Date();
+					today.setHours(0, 0, 0, 0);
+					
+					if (deadlineDate <= today) // Cambiado de < a <= para que "hoy" no sea válido
+						errors.deadline = $t('task.errors.deadline_future');
+				}
 				if ($store.task?.categories?.length === 0)
 					errors.category = $t('task.errors.category_required');
 				if ($store.task?.skills?.length === 0) errors.skill = $t('task.errors.skill_required');
@@ -308,7 +326,7 @@
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">{$t('task.create_title')}</h3>
-		<p class="text-base-content/70">{$t('task.create_description')}</p> 	
+		<p class="text-base-content/70">{$t('task.create_description')}</p>
 	</div>
 	<div class=" bg-base-100 rounded-xl">
 		<div class="card-body">

@@ -42,24 +42,33 @@
 		<div class="flex gap-4">
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-				onclick={() =>
+				onclick={() => {
+					const tomorrow = new Date();
+					tomorrow.setDate(tomorrow.getDate() + 1);
+					
 					store.updateTask({
-						deadline: new Date().toISOString(),
+						deadline: tomorrow.toISOString(),
 						dateRange: undefined
-					})}
+					});
+				}}
 			>
 				{$t('task.specific_date')}
 			</button>
 			<button
 				class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-				onclick={() =>
+				onclick={() => {
+					const today = new Date();
+					const tomorrow = new Date();
+					tomorrow.setDate(tomorrow.getDate() + 1);
+					
 					store.updateTask({
 						deadline: undefined,
 						dateRange: {
-							start: new Date().toISOString(),
-							end: new Date().toISOString()
+							start: today.toISOString(),
+							end: tomorrow.toISOString()
 						}
-					})}
+					});
+				}}
 			>
 				{$t('task.flexible')}
 			</button>

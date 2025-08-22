@@ -10,6 +10,37 @@
       "bids": "Mis Ofertas",
       "recurring": "Tareas Recurrentes",
       "saved_searches": "Búsquedas Guardadas"
+    },
+    "task_details_by_task": {
+      "title": "Detalles de la Tarea",
+      "tasker": "Detalles del Tasker",
+      "description": "Aquí puedes ver los detalles de la tarea",
+      "loading": "Cargando detalles de la tarea...",
+      "task_not_found": "Tarea No Encontrada",
+      "status": "Estado",
+      "deadline": "Fecha Límite",
+      "date_range": "Rango de Fechas",
+      "location_details": "Detalles de Ubicación",
+      "pickup_location": "Ubicación de Recogida",
+      "dropoff_location": "Ubicación de Entrega",
+      "requirements": "Requisitos",
+      "required_skills": "Habilidades Requeridas",
+      "attachments": "Adjuntos",
+      "attachment": "Adjunto",
+      "view_attachment": "Ver {name} en nueva pestaña",
+      "video_not_supported": "Tu navegador no soporta el tag de video",
+      "interested_in_task": "¿Interesado en esta tarea?",
+      "bid_now": "Ofertar Ahora",
+      "task_not_open_bidding": "Esta tarea no está abierta para ofertas",
+      "you_are_owner": "Eres el propietario de esta tarea",
+      "anonymous": "Anónimo",
+      "member_since": "Miembro desde",
+      "show_more": "Mostrar más",
+      "show_less": "Mostrar menos",
+      "to_be_done_on": "Para ser realizado el",
+      "before": "Antes",
+      "after": "Después",
+      "remote": "Remoto"
     }
   }
 }

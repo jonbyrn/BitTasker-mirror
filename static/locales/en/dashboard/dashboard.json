@@ -11,6 +11,37 @@
         "bids": "My Bids",
         "recurring": "Recurring Tasks",
         "saved_searches": "Saved Searches"
+      },
+      "task_details_by_task": {
+        "title": "Task Details",
+        "tasker": "Tasker Details",
+        "description": "Here you can see the details of the task",
+        "loading": "Loading task details...",
+        "task_not_found": "Task Not Found",
+        "status": "Status",
+        "deadline": "Deadline",
+        "date_range": "Date Range",
+        "location_details": "Location Details",
+        "pickup_location": "Pickup Location",
+        "dropoff_location": "Drop-off Location",
+        "requirements": "Requirements",
+        "required_skills": "Required Skills",
+        "attachments": "Attachments",
+        "attachment": "Attachment",
+        "view_attachment": "View {name} in new tab",
+        "video_not_supported": "Your browser does not support the video tag",
+        "interested_in_task": "Interested in this task?",
+        "bid_now": "Bid Now",
+        "task_not_open_bidding": "This task is not open for bidding",
+        "you_are_owner": "You are the owner of this task",
+        "anonymous": "Anonymous",
+        "member_since": "Member since",
+        "show_more": "Show more",
+        "show_less": "Show less", 
+        "to_be_done_on": "To be done on",
+        "before": "Before",
+        "after": "After",
+        "remote": "Remote"
       }
     }
   }

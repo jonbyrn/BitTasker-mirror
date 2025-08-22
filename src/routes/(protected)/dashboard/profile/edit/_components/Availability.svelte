@@ -26,20 +26,25 @@
 
 	// Days of the week
 	const days = [
-	$t('days.sunday'),
-	$t('days.monday'),
-	$t('days.tuesday'),
-	$t('days.wednesday'),
-	$t('days.thursday'),
-	$t('days.friday'),
-	$t('days.saturday')
-];
+		$t('days.sunday'),
+		$t('days.monday'),
+		$t('days.tuesday'),
+		$t('days.wednesday'),
+		$t('days.thursday'),
+		$t('days.friday'),
+		$t('days.saturday')
+	];
 
 	// Available timezones
 	const timezones = Intl.supportedValuesOf('timeZone');
 
 	// Subscribe to availability updates
 	onMount(async () => {
+		// Set default timezone if none is detected
+		if (!timezone) {
+			timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+		}
+
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
@@ -50,7 +55,10 @@
 					) {
 						const availabilityData = JSON.parse(event.content);
 						timeSlots = availabilityData.timeSlots || [];
-						timezone = availabilityData.timezone || timezone;
+						// Only update timezone if the profile data has one, otherwise keep the detected one
+						if (availabilityData.timezone) {
+							timezone = availabilityData.timezone;
+						}
 						noticeHours = availabilityData.noticeHours || noticeHours;
 						maxBookingsPerDay = availabilityData.maxBookingsPerDay || maxBookingsPerDay;
 						breakBetweenBookings = availabilityData.breakBetweenBookings || breakBetweenBookings;
@@ -313,6 +321,7 @@
 			<div class="form-control">
 				<label class="label" for="noticeHours">
 					<span class="label-text font-medium">{$t('profile.availability.min_notice')}</span>
+					<span class="label-text-alt text-primary font-semibold">{noticeHours} hours</span>
 				</label>
 				<br />
 				<label for="noticeHours" class="label">
@@ -323,9 +332,13 @@
 					id="noticeHours"
 					bind:value={noticeHours}
 					min="1"
-					max="72"
+					max="24"
 					class="range range-primary range-xs w-full"
 				/>
+				<div class="flex justify-between text-xs text-base-content/60 mt-1">
+					<span>1 hour</span>
+					<span>24 hours</span>
+				</div>
 			</div>
 
 			<!-- Maximum Bookings -->

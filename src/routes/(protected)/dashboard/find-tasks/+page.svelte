@@ -578,7 +578,7 @@
 
 				<!-- 	<RecommendedTasks {onSelectTask} /> -->
 
-				<div class="max-h-[calc(100vh-230px)] overflow-y-auto" bind:this={taskListRef}>
+				<div class="max-h-[calc(75vh)] overflow-y-auto" bind:this={taskListRef}>
 					<!-- Skeleton Loading -->
 					{#if showSkeleton && !dataLoaded}
 						<div class="space-y-3">
@@ -677,10 +677,10 @@
 														/>
 													</svg>
 													<div class="flex flex-col">
-														<small class="text-base-content/60 text-xs">To be done on</small>
+														<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.to_be_done_on')}</small>
 														{#if task.deadline}
 															<span class="text-sm font-medium">
-																Before {new Date(task.deadline).toLocaleDateString('en-US', {
+																{$t('dashboard.task_details_by_task.before')} {new Date(task.deadline).toLocaleDateString('en-US', {
 																	weekday: 'short',
 																	month: 'short',
 																	day: 'numeric'
@@ -688,12 +688,12 @@
 															</span>
 														{:else if task.dateRange}
 															<span class="text-sm font-medium">
-																{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+																{$t('dashboard.task_details_by_task.after')} {new Date(task.dateRange.start).toLocaleDateString('en-US', {
 																	month: 'short',
 																	day: 'numeric'
 																})}
 																-
-																{new Date(task.dateRange.end).toLocaleDateString('en-US', {
+																{$t('dashboard.task_details_by_task.after')} {new Date(task.dateRange.end).toLocaleDateString('en-US', {
 																	month: 'short',
 																	day: 'numeric'
 																})}
@@ -745,7 +745,7 @@
 														{:else if task.pickupLocation?.displayName}
 															{task.pickupLocation.displayName}
 														{:else}
-															Remote
+															{$t('dashboard.task_details_by_task.remote')}
 														{/if}
 													</span>
 												</div>
@@ -800,7 +800,7 @@
 												<!-- Username and Review Stars -->
 												<div class="flex flex-col">
 													<span class="text-sm font-medium">
-														{task.creator?.username || 'Anonymous'}
+														{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
 													</span>
 													<!-- Review Stars -->
 													<div class="flex items-center">
@@ -932,7 +932,7 @@
 			<div class="hidden lg:col-span-3 lg:block">
 				<div class="card">
 					<!-- Task Location Map -->
-					<TaskLocationMap location={null} height="480px" />
+					<TaskLocationMap location={null} height="75vh" />
 				</div>
 			</div>
 		</div>

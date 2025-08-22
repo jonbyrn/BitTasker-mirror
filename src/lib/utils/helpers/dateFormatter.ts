@@ -18,6 +18,14 @@ export function formatDate(date: Date): string {
 	}
 }
 
+export function formatTimeLarge(time: string): string {
+	if (!time) return '';
+	const [hours, minutes] = time.split(':');
+	const date = new Date();
+	date.setHours(+hours, +minutes);
+	return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 /**
  * Convert a date to a relative time string (e.g., "2 days ago")
  * @param date - The date to format

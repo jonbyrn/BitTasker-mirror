@@ -7,6 +7,7 @@
 	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
+	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
 	// State
 	let currentUserPubkey = $state<string>('');
 	let myBids = $state<any[]>([]);
@@ -169,42 +170,24 @@
 				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm">
 					<div class="card-body p-6">
 						<!-- Task Information - Header -->
-						<div class="border-base-300 mb-6 border-b pb-4">
-							<div class="flex items-start justify-between">
+						<div class="border-base-300 mb-6">
+							<div class="flex items-start">
 								<div class="flex-1">
-									<h3 class="mb-2 line-clamp-2 text-xl font-semibold">
+									<h4 class="line-clamp-2 font-bold">
 										{bid.bid.taskTitle || $t('bids.unknown_task')}
-									</h3>
-									{#if bid.bid.taskDescription}
-										<p class="text-base-content/70 line-clamp-2 max-w-4xl text-sm md:line-clamp-3">
-											{bid.bid.taskDescription}
-										</p>
-									{:else}
-										<p class="text-base-content/50 text-sm italic">
-											{$t('bids.no_task_description')}
-										</p>
-									{/if}
-								</div>
-								<div class="ml-4 text-end">
-									<p class="text-base-content/60 mb-1 text-xs">{$t('bids.submitted')}</p>
-									<p class="text-sm font-medium">
-										{new Date(bid.bid.timestamp).toLocaleDateString()}
-									</p>
-									<p class="text-base-content/60 text-xs">
-										{new Date(bid.bid.timestamp).toLocaleTimeString()}
-									</p>
+									</h4>
 								</div>
 							</div>
 						</div>
 
 						<!-- Your Bid Details -->
 						<div class="space-y-2">
-							<h4 class="text-base-content/90 font-medium">
+							<h5 class="text-base-content/90 font-medium">
 								{$t('bids.your_proposal')} -
 								<small class="text-base-content/60">
 									{(bid.bid.paymentType || 'FIXED').toLowerCase()}
 								</small>
-							</h4>
+							</h5>
 
 							<!-- Two-column layout -->
 							<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -221,7 +204,7 @@
 												{#if bid.bid.startTime && bid.bid.endTime}
 													<br />
 													<span class="text-base-content/70 text-xs">
-														{bid.bid.startTime} - {bid.bid.endTime}
+														{formatTimeLarge(bid.bid.startTime)} - {formatTimeLarge(bid.bid.endTime)}
 													</span>
 												{/if}
 											</p>
@@ -249,15 +232,81 @@
 								</div>
 
 								<!-- Right column: Amount & Payment Type -->
-								<div class="order-2 mb-5 flex flex-row lg:order-2 lg:ml-auto">
+								<div class="order-2 flex flex-row lg:order-2 lg:ml-auto">
 									<div class="text-start">
-										<p class="text-base-content/60 mb-1 text-xs">{$t('bids.your_bid_amount')}</p>
 										<p class="text-lg font-semibold">
+											${calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)}
+										</p>
+										<p class="text-base-content/60 text-xs">
 											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
 										</p>
-										<p class="text-info text-xs">
-											≈ {calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)} USDT
-										</p>
+									</div>
+								</div>
+							</div>
+
+							<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+								<!-- Left: Avatar, Username, and Review Stars -->
+								<div class="flex items-center gap-3">
+									<!-- Avatar -->
+									<div class="avatar">
+										<div class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full">
+											{#if bid.bid.creator?.avatar}
+												<img
+													src={bid.bid.creator.avatar}
+													alt="Avatar"
+													class="h-8 w-8 rounded-full object-cover"
+												/>
+											{:else}
+												<!-- Placeholder con iniciales del nombre -->
+												<div
+													class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
+												>
+													{#if bid.bid.creator?.username}
+														<span class="text-lg font-semibold">
+															{bid.bid.creator.username.charAt(0).toUpperCase()}
+														</span>
+													{:else}
+														<svg
+															xmlns="http://www.w3.org/2000/svg"
+															class="text-base-content/60 h-6 w-6"
+															fill="none"
+															viewBox="0 0 24 24"
+															stroke="currentColor"
+														>
+															<path
+																stroke-linecap="round"
+																stroke-linejoin="round"
+																stroke-width="2"
+																d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+															/>
+														</svg>
+													{/if}
+												</div>
+											{/if}
+										</div>
+									</div>
+
+									<!-- Username and Review Stars -->
+									<div class="flex flex-col">
+										<span class="text-sm font-medium">
+											{bid.bid.creator?.username || 'Anonymous'}
+										</span>
+										<!-- Review Stars -->
+										<div class="flex items-center">
+											{#each Array(5) as _, i}
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="h-3 w-3 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+													fill="currentColor"
+													viewBox="0 0 24 24"
+												>
+													<path
+														d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+													/>
+												</svg>
+											{/each}
+											<span class="text-base-content/60 ml-1 text-xs">4.0</span>
+										</div>
 									</div>
 								</div>
 							</div>
@@ -334,7 +383,7 @@
 								{/if}
 								<div class="flex justify-end">
 									<button
-										class="btn btn-info"
+										class="btn btn-info btn-sm"
 										onclick={() => goto(`/dashboard/task/${bid.bid.taskId}`)}
 									>
 										<svg
