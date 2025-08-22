@@ -308,7 +308,7 @@
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">{$t('task.create_title')}</h3>
-		<p class="text-base-content/70">{$t('task.create_description')}</p> 	
+		<p class="text-base-content/70">{$t('task.create_description')}</p>
 	</div>
 	<div class=" bg-base-100 rounded-xl">
 		<div class="card-body">

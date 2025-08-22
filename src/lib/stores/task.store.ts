@@ -10,7 +10,12 @@ import { SimplePool } from 'nostr-tools';
 
 const STORAGE_KEY = StorageKeys.DRAFT_TASK;
 
-export const STEPS = writable([TaskStepEnum.BASICS, TaskStepEnum.LOCATION, TaskStepEnum.BUDGET, TaskStepEnum.REVIEW]);
+export const STEPS = writable([
+	TaskStepEnum.BASICS,
+	TaskStepEnum.LOCATION,
+	TaskStepEnum.BUDGET,
+	TaskStepEnum.REVIEW
+]);
 
 const getInitialState = () => ({
 	task: {
@@ -229,12 +234,12 @@ export const taskStore = createTaskStore();
 // Find tasks store
 export const tasksStore = (() => {
 	const { subscribe, set, update } = writable<{
-		pool: SimplePool,
-		items: Task[],
-		loading: boolean,
-		error: string | null,
-		currentPage: number,
-		hasMore: boolean
+		pool: SimplePool;
+		items: Task[];
+		loading: boolean;
+		error: string | null;
+		currentPage: number;
+		hasMore: boolean;
 	}>({
 		pool: new SimplePool(),
 		items: [],
@@ -249,16 +254,16 @@ export const tasksStore = (() => {
 		subscribe,
 		set,
 		update
-	}
-})()
+	};
+})();
 
 // My tasks store
 export const myTasksStore = writable<{
-	items: Task[],
-	loading: boolean,
-	error: string | null
+	items: Task[];
+	loading: boolean;
+	error: string | null;
 }>({
 	items: [],
 	loading: false,
 	error: null
-})
+});

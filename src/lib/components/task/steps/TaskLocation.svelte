@@ -5,7 +5,7 @@
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import Uploader from '$lib/components/Uploader.svelte';
-	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
+	import LocationPicker from '$lib/components/maps/LocationPicker.svelte';
 	import { t, locale } from 'svelte-i18n';
 
 	let {
@@ -89,7 +89,7 @@
 	<div class="h-1"></div>
 	{#if $store.isRemovals}
 		<div class="w-full">
-			<LocationAutoComplete
+			<LocationPicker
 				label={$t('task.pickup_location')}
 				placeholder={$t('task.address_placeholder')}
 				location={$store.task.pickupLocation}
@@ -104,7 +104,7 @@
 			/>
 		</div>
 		<div class="w-full">
-			<LocationAutoComplete
+			<LocationPicker
 				label={$t('task.dropoff_location')}
 				placeholder={$t('task.address_placeholder')}
 				location={$store.task.dropOffLocation}
@@ -156,7 +156,7 @@
 
 		{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 			<div class="w-full">
-				<LocationAutoComplete
+				<LocationPicker
 					label={$t('task.location')}
 					placeholder={$t('task.address_placeholder')}
 					location={$store.task.pickupLocation}
