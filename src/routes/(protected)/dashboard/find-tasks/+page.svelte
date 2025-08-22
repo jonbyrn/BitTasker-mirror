@@ -12,19 +12,11 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
-	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
 	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	import Tabs from '$lib/components/Tabs.svelte';
-	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
+	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
-	// Tab management
-	let availableTabs = $state([
-		{ id: 'find-tasks', label: $t('dashboard.find_tasks') },
-		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
-	]);
-	let activeTab = $state('find-tasks');
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -444,11 +436,6 @@
 		}
 	};
 
-	// Función para validar si la búsqueda es válida
-	function isValidSearch(): boolean {
-		return searchQuery.trim().length >= 3;
-	}
-
 	// Función para obtener el placeholder dinámico
 	function getSearchPlaceholder(): string {
 		if (searchQuery.length > 0 && searchQuery.length < 3) {
@@ -476,6 +463,7 @@
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
 		selectedTask = task;
+		console.log('selectedTask', selectedTask);
 	}
 </script>
 
@@ -483,258 +471,200 @@
 	<!-- Dashboard Tabs -->
 	<!-- <Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} /> -->
 
-	{#if activeTab === 'find-tasks'}
-		<!-- Find Tasks Panel -->
-		<div id="panel-find-tasks" role="tabpanel" aria-labelledby="tab-find-tasks" class="">
-			<!-- Search and Filter Controls - Full Width at Top -->
-			<div class="mb-4">
-				<!-- Search and Filter Controls in Same Row -->
-				<div class="flex flex-wrap items-center gap-3">
-					<!-- Search Input -->
-					<div class="relative mt-2 min-w-[200px] flex-1">
-						<input
-							type="text"
-							class={getSearchInputClass()}
-							placeholder={getSearchPlaceholder()}
-							bind:value={searchQuery}
-							oninput={debouncedSearch}
-						/>
-						<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5 text-gray-400"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-								/>
-							</svg>
-						</div>
-					</div>
-
-					<!-- Filter Buttons -->
-					<div class="flex items-center gap-2">
-						<!-- Advanced Filters Button -->
-						<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="mr-1 h-4 w-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-								/>
-							</svg>
-							{$t('find_tasks.filters')}
-						</button>
-
-						<!-- Save Search Button -->
-						<button
-							class="btn btn-sm btn-primary gap-2"
-							onclick={() => (isSaveSearchOpen = true)}
-							disabled={!hasActiveParams}
-							title={!hasActiveParams
-								? $t('find_tasks.save_search_tooltip_disabled')
-								: $t('find_tasks.save_search_tooltip_enabled')}
+	<div id="panel-find-tasks" role="tabpanel" aria-labelledby="tab-find-tasks" class="">
+		<!-- Search and Filter Controls - Full Width at Top -->
+		<div class="mb-4">
+			<!-- Search and Filter Controls in Same Row -->
+			<div class="flex flex-wrap items-center gap-3">
+				<!-- Search Input -->
+				<div class="relative mt-2 min-w-[200px] flex-1">
+					<input
+						type="text"
+						class={getSearchInputClass()}
+						placeholder={getSearchPlaceholder()}
+						bind:value={searchQuery}
+						oninput={debouncedSearch}
+					/>
+					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 text-gray-400"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
 						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-4 w-4"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-								/>
-							</svg>
-							{$t('find_tasks.save_search')}
-						</button>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+							/>
+						</svg>
 					</div>
 				</div>
-			</div>
 
-			<!-- Main Content Grid Layout - Aligned with Find Tasks title -->
-			<div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
-				<!-- Left Column: Tasks List (60% - 3/5 columns) -->
-				<div class="lg:col-span-2">
-					<!-- Error Message -->
-					{#if $tasksStore.error}
-						<div class="alert alert-error alert-outline mb-3">
+				<!-- Filter Buttons -->
+				<div class="flex items-center gap-2">
+					<!-- Advanced Filters Button -->
+					<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+							/>
+						</svg>
+						{$t('find_tasks.filters')}
+					</button>
+
+					<!-- Save Search Button -->
+					<button
+						class="btn btn-sm btn-primary gap-2"
+						onclick={() => (isSaveSearchOpen = true)}
+						disabled={!hasActiveParams}
+						title={!hasActiveParams
+							? $t('find_tasks.save_search_tooltip_disabled')
+							: $t('find_tasks.save_search_tooltip_enabled')}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+							/>
+						</svg>
+						{$t('find_tasks.save_search')}
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Main Content Grid Layout - Aligned with Find Tasks title -->
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
+			<!-- Left Column: Tasks List (60% - 3/5 columns) -->
+			<div class="lg:col-span-2">
+				<!-- Error Message -->
+				{#if $tasksStore.error}
+					<div class="alert alert-error alert-outline mb-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/></svg
+						>
+						<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
+					</div>
+				{/if}
+
+				<!-- 	<RecommendedTasks {onSelectTask} /> -->
+
+				<div class="max-h-[calc(100vh-230px)] overflow-y-auto" bind:this={taskListRef}>
+					<!-- Skeleton Loading -->
+					{#if showSkeleton && !dataLoaded}
+						<div class="space-y-3">
+							{#each Array(4) as _}
+								<div class="card bg-base-100 animate-pulse rounded-xl p-4 shadow-md">
+									<div class="flex flex-col gap-3 md:flex-row md:items-center">
+										<div class="bg-base-300 h-6 w-3/4 rounded"></div>
+										<div class="bg-base-300 h-5 w-28 rounded"></div>
+									</div>
+									<div class="my-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+										<div class="bg-base-300 h-5 w-24 rounded"></div>
+										<div class="bg-base-300 h-5 w-32 rounded"></div>
+										<div class="bg-base-300 h-5 w-28 rounded"></div>
+									</div>
+									<div class="flex gap-2">
+										<div class="bg-base-300 h-5 w-16 rounded"></div>
+										<div class="bg-base-300 h-5 w-20 rounded"></div>
+										<div class="bg-base-300 h-5 w-12 rounded"></div>
+									</div>
+									<div class="mt-3 flex items-center justify-between">
+										<div class="bg-base-300 h-5 w-12 rounded"></div>
+										<div class="bg-base-300 h-8 w-20 rounded"></div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else if loadingTimeout}
+						<!-- Loading Timeout Warning -->
+						<div class="alert alert-warning alert-outline mb-3 rounded-xl">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="h-5 w-5 shrink-0 stroke-current"
 								fill="none"
 								viewBox="0 0 24 24"
-								><path
+							>
+								<path
 									stroke-linecap="round"
 									stroke-linejoin="round"
 									stroke-width="2"
-									d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-								/></svg
-							>
-							<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
+							</svg>
+							<div>
+								<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
+								<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
+							</div>
+							<button class="btn btn-sm" onclick={() => window.location.reload()}>
+								{$t('find_tasks.refresh')}
+							</button>
 						</div>
-					{/if}
-
-					<!-- 	<RecommendedTasks {onSelectTask} /> -->
-
-					<div class="max-h-[calc(100vh-230px)] overflow-y-auto" bind:this={taskListRef}>
-						<!-- Skeleton Loading -->
-						{#if showSkeleton && !dataLoaded}
-							<div class="space-y-3">
-								{#each Array(4) as _}
-									<div class="card bg-base-100 animate-pulse rounded-xl p-4 shadow-md">
-										<div class="flex flex-col gap-3 md:flex-row md:items-center">
-											<div class="bg-base-300 h-6 w-3/4 rounded"></div>
-											<div class="bg-base-300 h-5 w-28 rounded"></div>
-										</div>
-										<div class="my-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-											<div class="bg-base-300 h-5 w-24 rounded"></div>
-											<div class="bg-base-300 h-5 w-32 rounded"></div>
-											<div class="bg-base-300 h-5 w-28 rounded"></div>
-										</div>
-										<div class="flex gap-2">
-											<div class="bg-base-300 h-5 w-16 rounded"></div>
-											<div class="bg-base-300 h-5 w-20 rounded"></div>
-											<div class="bg-base-300 h-5 w-12 rounded"></div>
-										</div>
-										<div class="mt-3 flex items-center justify-between">
-											<div class="bg-base-300 h-5 w-12 rounded"></div>
-											<div class="bg-base-300 h-8 w-20 rounded"></div>
-										</div>
-									</div>
-								{/each}
-							</div>
-						{:else if loadingTimeout}
-							<!-- Loading Timeout Warning -->
-							<div class="alert alert-warning alert-outline mb-3 rounded-xl">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
+					{:else if $tasksStore.items && $tasksStore.items.length > 0}
+						<div class="space-y-4">
+							{#each $tasksStore.items as task, index}
+								<div
+									class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+									onclick={() => selectTaskForMap(task)}
+									tabindex="0"
+									role="button"
+									class:bg-base-300={selectedTask?.id === task.id}
+									aria-label={$t('find_tasks.view_task')}
+									aria-pressed={selectedTaskId === task.id.toString()}
+									aria-current={selectedTaskId === task.id.toString()}
+									aria-disabled={task.status !== TaskStatusEnum.OPEN}
+									aria-hidden={task.status !== TaskStatusEnum.OPEN}
 								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-									/>
-								</svg>
-								<div>
-									<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
-									<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
-								</div>
-								<button class="btn btn-sm" onclick={() => window.location.reload()}>
-									{$t('find_tasks.refresh')}
-								</button>
-							</div>
-						{:else if $tasksStore.items && $tasksStore.items.length > 0}
-							<div class="space-y-4">
-								{#each $tasksStore.items as task, index}
-									<div
-										class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
-										onclick={() => selectTaskForMap(task)}
-										tabindex="0"
-										role="button"
-										class:bg-base-300={selectedTask?.id === task.id}
-										aria-label={$t('find_tasks.view_task')}
-										aria-pressed={selectedTaskId === task.id.toString()}
-										aria-current={selectedTaskId === task.id.toString()}
-										aria-disabled={task.status !== TaskStatusEnum.OPEN}
-										aria-hidden={task.status !== TaskStatusEnum.OPEN}
-									>
-										<div class="card-body p-4 md:p-4">
-											<!-- Top Row: Title + Price -->
-											<div
-												class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
-											>
-												<!-- Left: Title and Sats -->
-												<div class="min-w-0 flex-1">
-													<h4 class="card-title line-clamp-2 text-lg md:line-clamp-1">
-														{task.title}
-													</h4>
-												</div>
+									<div class="card-body p-4 md:p-4">
+										<!-- Top Row: Title + Price -->
+										<div
+											class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+										>
+											<!-- Left: Title and Sats -->
+											<div class="">
+												<small class="card-title line-clamp-2 text-lg">
+													{task.title}
+												</small>
 											</div>
+										</div>
 
-											<!-- Schedule and Sats Row -->
-											<div class="mb-3 flex flex-col gap-4 md:flex-row md:flex-wrap">
-												<div class="flex w-full items-center justify-between">
-													<!-- Left: Schedule -->
-													<div class="flex items-center gap-2">
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="text-base-content/60 h-4 w-4 flex-shrink-0"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke="currentColor"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-															/>
-														</svg>
-														<div class="flex flex-col">
-															<span class="text-base-content/60 text-xs">To be done on</span>
-															{#if task.deadline}
-																<span class="text-sm font-medium">
-																	Before {new Date(task.deadline).toLocaleDateString('en-US', {
-																		weekday: 'short',
-																		month: 'short',
-																		day: 'numeric'
-																	})}
-																</span>
-															{:else if task.dateRange}
-																<span class="text-sm font-medium">
-																	{new Date(task.dateRange.start).toLocaleDateString('en-US', {
-																		month: 'short',
-																		day: 'numeric'
-																	})}
-																	-
-																	{new Date(task.dateRange.end).toLocaleDateString('en-US', {
-																		month: 'short',
-																		day: 'numeric'
-																	})}
-																</span>
-															{/if}
-														</div>
-													</div>
-
-													<!-- Right: Sats -->
-													<div class="">
-														<div class="text-lg font-bold">
-															${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-															{#if task.budget.type === 'HOURLY'}
-																<span class="text-sm">/hr</span>
-															{/if}
-															<div class="text-base-content/60 text-sm">
-																{formatSatsAmount(task.budget.amount)}
-															</div>
-														</div>
-													</div>
-												</div>
-
-												<!-- Location -->
-												<div class="flex w-full items-start gap-2">
+										<!-- Schedule and Sats Row -->
+										<div class="mb-3 flex flex-col gap-4 md:flex-row md:flex-wrap">
+											<div class="flex w-full items-center justify-between">
+												<!-- Left: Schedule -->
+												<div class="flex items-center gap-2">
 													<svg
 														xmlns="http://www.w3.org/2000/svg"
-														class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+														class="text-base-content/60 h-4 w-4 flex-shrink-0"
 														fill="none"
 														viewBox="0 0 24 24"
 														stroke="currentColor"
@@ -743,230 +673,270 @@
 															stroke-linecap="round"
 															stroke-linejoin="round"
 															stroke-width="2"
-															d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+															d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+														/>
+													</svg>
+													<div class="flex flex-col">
+														<small class="text-base-content/60 text-xs">To be done on</small>
+														{#if task.deadline}
+															<span class="text-sm font-medium">
+																Before {new Date(task.deadline).toLocaleDateString('en-US', {
+																	weekday: 'short',
+																	month: 'short',
+																	day: 'numeric'
+																})}
+															</span>
+														{:else if task.dateRange}
+															<span class="text-sm font-medium">
+																{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+																	month: 'short',
+																	day: 'numeric'
+																})}
+																-
+																{new Date(task.dateRange.end).toLocaleDateString('en-US', {
+																	month: 'short',
+																	day: 'numeric'
+																})}
+															</span>
+														{/if}
+													</div>
+												</div>
+
+												<!-- Right: Sats -->
+												<div class="">
+													<div class="text-lg font-bold">
+														${calculateUsdtEstimate(task.budget.amount, btcPrice)}
+														<!-- {#if task.budget.type === 'HOURLY'}
+															<span class="text-sm">/hr</span>
+														{/if} -->
+														<div class="text-base-content/60 text-sm">
+															{formatSatsAmount(task.budget.amount)}
+														</div>
+													</div>
+												</div>
+											</div>
+
+											<!-- Location -->
+											<div class="flex w-full items-start gap-2">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+													/>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+													/>
+												</svg>
+												<div class="text-base-content/60 flex min-w-0 flex-1 flex-col">
+													<span class="line-clamp-2 text-sm font-medium">
+														{#if task.dropOffLocation?.displayName}
+															{task.dropOffLocation.displayName}
+														{:else if task.pickupLocation?.displayName}
+															{task.pickupLocation.displayName}
+														{:else}
+															Remote
+														{/if}
+													</span>
+												</div>
+											</div>
+										</div>
+
+										<!-- Bottom Row: Avatar + Action Buttons -->
+										<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+											<!-- Left: Avatar, Username, and Review Stars -->
+											<div class="flex items-center gap-3">
+												<!-- Avatar -->
+												<div class="avatar">
+													<div
+														class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full"
+													>
+														{#if task.creator?.avatar}
+															<img
+																src={task.creator.avatar}
+																alt="Avatar"
+																class="h-8 w-8 rounded-full object-cover"
+															/>
+														{:else}
+															<!-- Placeholder con iniciales del nombre -->
+															<div
+																class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
+															>
+																{#if task.creator?.username}
+																	<span class="text-lg font-semibold">
+																		{task.creator.username.charAt(0).toUpperCase()}
+																	</span>
+																{:else}
+																	<svg
+																		xmlns="http://www.w3.org/2000/svg"
+																		class="text-base-content/60 h-6 w-6"
+																		fill="none"
+																		viewBox="0 0 24 24"
+																		stroke="currentColor"
+																	>
+																		<path
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																			stroke-width="2"
+																			d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+																		/>
+																	</svg>
+																{/if}
+															</div>
+														{/if}
+													</div>
+												</div>
+
+												<!-- Username and Review Stars -->
+												<div class="flex flex-col">
+													<span class="text-sm font-medium">
+														{task.creator?.username || 'Anonymous'}
+													</span>
+													<!-- Review Stars -->
+													<div class="flex items-center">
+														{#each Array(5) as _, i}
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="h-3 w-3 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+																fill="currentColor"
+																viewBox="0 0 24 24"
+															>
+																<path
+																	d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+																/>
+															</svg>
+														{/each}
+														<span class="text-base-content/60 ml-1 text-xs">4.0</span>
+													</div>
+												</div>
+											</div>
+
+											<!-- Right: Action Buttons -->
+											<div class="flex w-full items-center gap-2 md:w-auto">
+												<button
+													class="btn btn-primary btn-sm flex-1 md:flex-none"
+													class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
+														task?.npub === $user?.npub}
+													onclick={(e) => {
+														e.stopPropagation();
+														onSelectTask(task);
+													}}
+													aria-label={$t('find_tasks.bid_on_task')}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-4 w-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M12 4v16m8-8H4"
+														/>
+													</svg>
+													{task.status === TaskStatusEnum.OPEN
+														? $t('find_tasks.bid_now')
+														: $t('find_tasks.bidding_closed')}
+												</button>
+
+												<button
+													class="btn btn-info btn-sm btn-outline flex-1 md:flex-none"
+													onclick={(e) => {
+														e.stopPropagation();
+														goto(`/dashboard/task/${task.id}`);
+													}}
+													aria-label={$t('find_tasks.view_task')}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-4 w-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
 														/>
 														<path
 															stroke-linecap="round"
 															stroke-linejoin="round"
 															stroke-width="2"
-															d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+															d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
 														/>
 													</svg>
-													<div class="flex min-w-0 flex-1 flex-col">
-														<span class="text-base-content/60 text-xs">Location</span>
-														<span class="line-clamp-2 text-sm font-medium">
-															{#if task.dropOffLocation?.displayName}
-																{task.dropOffLocation.displayName}
-															{:else if task.pickupLocation?.displayName}
-																{task.pickupLocation.displayName}
-															{:else}
-																Remote
-															{/if}
-														</span>
-													</div>
-												</div>
-											</div>
-
-											<!-- Bottom Row: Avatar + Action Buttons -->
-											<div
-												class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"
-											>
-												<!-- Left: Avatar, Username, and Review Stars -->
-												<div class="flex items-center gap-3">
-													<!-- Avatar -->
-													<div class="avatar">
-														<div
-															class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full"
-														>
-															{#if task.creator?.avatar}
-																<img
-																	src={task.creator.avatar}
-																	alt="Avatar"
-																	class="h-12 w-12 rounded-full object-cover"
-																/>
-															{:else}
-																<!-- Placeholder con iniciales del nombre -->
-																<div
-																	class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
-																>
-																	{#if task.creator?.username}
-																		<span class="text-lg font-semibold">
-																			{task.creator.username.charAt(0).toUpperCase()}
-																		</span>
-																	{:else}
-																		<svg
-																			xmlns="http://www.w3.org/2000/svg"
-																			class="text-base-content/60 h-6 w-6"
-																			fill="none"
-																			viewBox="0 0 24 24"
-																			stroke="currentColor"
-																		>
-																			<path
-																				stroke-linecap="round"
-																				stroke-linejoin="round"
-																				stroke-width="2"
-																				d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-																			/>
-																		</svg>
-																	{/if}
-																</div>
-															{/if}
-														</div>
-													</div>
-
-													<!-- Username and Review Stars -->
-													<div class="flex flex-col">
-														<span class="text-sm font-medium">
-															{task.creator?.username || 'Anonymous'}
-														</span>
-														<!-- Review Stars -->
-														<div class="flex items-center">
-															{#each Array(5) as _, i}
-																<svg
-																	xmlns="http://www.w3.org/2000/svg"
-																	class="h-3 w-3 {i < 4
-																		? 'text-yellow-400'
-																		: 'text-base-content/30'}"
-																	fill="currentColor"
-																	viewBox="0 0 24 24"
-																>
-																	<path
-																		d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-																	/>
-																</svg>
-															{/each}
-															<span class="text-base-content/60 ml-1 text-xs">4.0</span>
-														</div>
-													</div>
-												</div>
-
-												<!-- Right: Action Buttons -->
-												<div class="flex w-full items-center gap-2 md:w-auto">
-													<button
-														class="btn btn-primary btn-sm flex-1 md:flex-none"
-														class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
-															task?.npub === $user?.npub}
-														onclick={(e) => {
-															e.stopPropagation();
-															onSelectTask(task);
-														}}
-														aria-label={$t('find_tasks.bid_on_task')}
-													>
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="h-4 w-4"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke="currentColor"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M12 4v16m8-8H4"
-															/>
-														</svg>
-														{task.status === TaskStatusEnum.OPEN
-															? $t('find_tasks.bid_now')
-															: $t('find_tasks.bidding_closed')}
-													</button>
-
-													<button
-														class="btn btn-info btn-sm flex-1 md:flex-none"
-														onclick={(e) => {
-															e.stopPropagation();
-															goto(`/dashboard/task/${task.id}`);
-														}}
-														aria-label={$t('find_tasks.view_task')}
-													>
-														<svg
-															xmlns="http://www.w3.org/2000/svg"
-															class="h-4 w-4"
-															fill="none"
-															viewBox="0 0 24 24"
-															stroke="currentColor"
-														>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-															/>
-															<path
-																stroke-linecap="round"
-																stroke-linejoin="round"
-																stroke-width="2"
-																d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-															/>
-														</svg>
-														{$t('find_tasks.view_task')}
-													</button>
-												</div>
+													{$t('find_tasks.view_task')}
+												</button>
 											</div>
 										</div>
 									</div>
-								{/each}
-							</div>
-
-							<!-- Infinite Scroll Target -->
-							<!-- svelte-ignore element_invalid_self_closing_tag -->
-							<div bind:this={scrollTarget} class="h-4" />
-						{:else if !$tasksStore.loading}
-							<!-- No Results -->
-							<div class="py-8 text-center">
-								<div class="text-base-content/60 mb-3">
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="mx-auto h-12 w-12"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-										/>
-									</svg>
 								</div>
-								<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
-								<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
-								<button
-									class="btn btn-primary"
-									onclick={() => {
-										searchParams = getInitialSearchParams();
-										searchQuery = '';
-										selectedTaskType = { label: '', value: '' };
-									}}
-								>
-									{$t('find_tasks.clear_filters')}
-								</button>
-							</div>
-						{/if}
-					</div>
-				</div>
+							{/each}
+						</div>
 
-				<!-- Right Column: Static Content (40% - 2/5 columns) -->
-				<div class="hidden lg:col-span-3 lg:block">
-					<div class="card">
-						<!-- Task Location Map -->
-						<TaskLocationMap location={null} height="480px" />
-					</div>
+						<!-- Infinite Scroll Target -->
+						<!-- svelte-ignore element_invalid_self_closing_tag -->
+						<div bind:this={scrollTarget} class="h-4" />
+					{:else if !$tasksStore.loading}
+						<!-- No Results -->
+						<div class="py-8 text-center">
+							<div class="text-base-content/60 mb-3">
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="mx-auto h-12 w-12"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+									/>
+								</svg>
+							</div>
+							<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
+							<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
+							<button
+								class="btn btn-primary"
+								onclick={() => {
+									searchParams = getInitialSearchParams();
+									searchQuery = '';
+									selectedTaskType = { label: '', value: '' };
+								}}
+							>
+								{$t('find_tasks.clear_filters')}
+							</button>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Right Column: Static Content (40% - 2/5 columns) -->
+			<div class="hidden lg:col-span-3 lg:block">
+				<div class="card">
+					<!-- Task Location Map -->
+					<TaskLocationMap location={null} height="480px" />
 				</div>
 			</div>
 		</div>
-	{:else if activeTab === 'saved-searches'}
-		<!-- Saved Searches Panel -->
-		<div
-			id="panel-saved-searches"
-			role="tabpanel"
-			aria-labelledby="tab-saved-searches"
-			class="mt-6"
-		>
-			<DashboardSavedSearchesPanel />
-		</div>
-	{/if}
+	</div>
 </div>
 
 <!-- Advanced Filter Drawer Component -->
