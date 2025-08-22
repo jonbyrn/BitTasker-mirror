@@ -13,19 +13,13 @@
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
-	// Tab management
-	let availableTabs = $state([
-		{ id: 'details', label: 'Details' },
-		{ id: 'bids', label: 'Bids' }
-	]);
-	let activeTab = $state('details');
-
 	// State
 	let task = $state<Task | null>(null);
 	let loading = $state(true);
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(120000); // Default fallback price
+	let showFullDescription = $state(false); // New state for description toggle
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(taskId || null);
@@ -51,6 +45,16 @@
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
+
+	// Helper function to truncate description
+	const getTruncatedDescription = (description: string, maxLength: number = 50) => {
+		if (description.length <= maxLength) return description;
+		return description.slice(0, maxLength) + '...';
+	};
+
+	const toggleDescription = () => {
+		showFullDescription = !showFullDescription;
+	};
 
 	async function loadTaskDetails(taskId: string) {
 		if (!taskId) return;
@@ -95,18 +99,13 @@
 		isSidebarOpen = true;
 	};
 
-	// Handle tab change
-	function handleTabChange(tabId: string) {
-		activeTab = tabId;
-	}
-
 	onMount(() => {
 		loadTaskDetails(taskId || '');
 	});
 </script>
 
 <svelte:head>
-	<title>{task ? task.title : 'Task Details'} - BitTasker</title>
+	<title>Task Details - BitTasker</title>
 	<meta name="description" content={task?.description || 'View complete task details'} />
 </svelte:head>
 
@@ -157,18 +156,32 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<h3 class="mb-2 line-clamp-1 max-w-2xl">{task.title}</h3>
-								<p class="line-clamp-2 text-base leading-relaxed whitespace-pre-line">
-									{task.description}
-								</p>
+								<h4 class="mb-2 line-clamp-2 max-w-2xl">{task.title}</h4>
+								<div class="text-base-content/60 text-start">
+									{#if showFullDescription}
+										{task.description}
+									{:else}
+										{getTruncatedDescription(task.description)}
+									{/if}
+
+									{#if task.description.length > 200}
+										<button
+											class="btn btn-xs hover:text-primary-focus"
+											onclick={toggleDescription}
+										>
+											{#if showFullDescription}
+												Mostrar menos
+											{:else}
+												Mostrar más
+											{/if}
+										</button>
+									{/if}
+								</div>
 							</div>
 							<div class="text-right">
-								<span class="text-base-content/60 text-sm">Posted</span>
-								<p class="text-sm font-medium">
-									{new Date(task.createdAt).toLocaleDateString()}
-								</p>
-								<p class="text-base-content/60 text-xs">
-									{new Date(task.createdAt).toLocaleTimeString()}
+								<span class="text-base-content/60 text-sm">Status</span>
+								<p class="badge badge-info badge-outline text-sm font-medium">
+									{task.status}
 								</p>
 							</div>
 						</div>
@@ -178,7 +191,7 @@
 						<!-- Description section -->
 						<div class="mb-6 flex justify-between">
 							{#if task.deadline || task.dateRange}
-								<div>
+								<div class="flex max-w-md flex-col gap-2">
 									{#if task.deadline}
 										<div>
 											<h4 class="mb-1 font-semibold">Deadline</h4>
@@ -189,9 +202,8 @@
 										<div>
 											<span class="text-base-content/60 text-sm">Date Range</span>
 											<div class="font-semibold">
-												{formatDateString(task.dateRange.start)} - {formatDateString(
-													task.dateRange.end
-												)}
+												{formatDateString(task.dateRange.start)} - <br class="block md:hidden" />
+												{formatDateString(task.dateRange.end)}
 											</div>
 										</div>
 									{/if}
@@ -199,15 +211,12 @@
 							{/if}
 
 							<div class="mt-2 pt-4">
-								<div class="text-lg font-semibold">
-									{formatSatsAmount(task.budget.amount)}
-									{#if task.budget.type === 'HOURLY'}
-										<span class="text-base-content/60 ml-1 text-sm">/hr</span>
-									{/if}
+								<div class="text-lg font-bold">
+									${calculateUsdtEstimate(task.budget.amount, btcPrice)}
 								</div>
 								<div class="text-right">
-									<span class="text-info text-sm">
-										≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT
+									<span class="text-base-content/60 text-sm">
+										{formatSatsAmount(task.budget.amount)}
 									</span>
 								</div>
 							</div>
@@ -235,40 +244,28 @@
 									</div>
 								</div>
 							{/if}
-							<!-- Requirements -->
-							<div>
-								<h4 class="mb-1 font-semibold">Requirements</h4>
-								<div class="space-y-3">
-									{#if task.skills?.length > 0}
-										<div>
-											<span class="text-base-content/60 text-sm">Required Skills</span>
-											<div class="mt-1 flex flex-wrap gap-1">
-												{#each task.skills as skill}
-													<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
-												{/each}
-											</div>
-										</div>
-									{/if}
+						</div>
 
-									<!-- 	{#if task.categories?.length > 0}
-											<div>
-												<span class="text-base-content/60 text-sm">Categories</span>
-												<div class="mt-1 flex flex-wrap gap-1">
-													{#each task.categories as category}
-														<span class="badge badge-secondary badge-outline badge-sm"
-															>{category}</span
-														>
-													{/each}
-												</div>
-											</div>
-										{/if} -->
+						<!-- Requirements section moved to the end -->
+						{#if task.skills?.length > 0}
+							<div class="border-base-300 border-t pt-6">
+								<h4 class="mb-3 font-semibold">Requirements</h4>
+								<div class="space-y-3">
+									<div>
+										<span class="text-base-content/60 text-sm">Required Skills</span>
+										<div class="mt-2 flex flex-wrap gap-2">
+											{#each task.skills as skill}
+												<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
+											{/each}
+										</div>
+									</div>
 								</div>
 							</div>
-						</div>
+						{/if}
 
 						<!-- Attachments -->
 						{#if task.attachments && task.attachments.length > 0}
-							<div class="mb-6">
+							<div class="my-4">
 								<h4 class="mb-1 font-semibold">Attachments</h4>
 								<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 									{#each task.attachments as attachment}
