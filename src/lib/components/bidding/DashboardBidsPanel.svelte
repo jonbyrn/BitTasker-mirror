@@ -174,7 +174,13 @@
 							<div class="flex items-start">
 								<div class="flex-1">
 									<h4 class="line-clamp-2 font-bold">
-										{bid.bid.taskTitle || $t('bids.unknown_task')}
+										<a 
+											href="/dashboard/task/{bid.bid.taskId}" 
+											class="hover:text-primary transition-colors"
+											onclick={(e) => e.stopPropagation()}
+										>
+											{bid.bid.taskTitle || $t('bids.unknown_task')}
+										</a>
 									</h4>
 								</div>
 							</div>
