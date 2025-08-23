@@ -25,11 +25,11 @@
 	<div class="flex items-center justify-between">
 		<h4 class="font-medium">{$t('task.location_title')}</h4>
 		{#if isRemoteTask}
-			<span class="badge badge-info text-black text-xs md:text-md">{$t('task.remote_task')}</span>
+			<span class="badge badge-info text-black text-xs px-1">{$t('task.remote_task')}</span>
 		{:else if isRemovalTask}
-			<span class="badge badge-warning text-black text-xs md:text-md">{$t('task.removal_delivery')}</span>
+			<span class="badge badge-warning text-black text-xs px-1">{$t('task.removal_delivery')}</span>
 		{:else}
-			<span class="badge badge-success text-black text-xs md:text-md">{$t('task.in_person_badge')}</span>
+			<span class="badge badge-success text-black text-xs px-1">{$t('task.in_person_badge')}</span>
 		{/if}
 	</div>
 

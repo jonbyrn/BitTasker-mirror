@@ -111,7 +111,7 @@
 	/>
 </svelte:head>
 
-<div class="mx-auto max-w-7xl px-4 md:px-0">
+<div class="mx-auto max-w-7xl p-4 md:p-0">
 	<div class="mb-2">
 		<h3 class="">{$t('dashboard.task_details_by_task.title')}</h3>
 		<p class="text-base-content/70">{$t('dashboard.task_details_by_task.description')}</p>
@@ -198,8 +198,13 @@
 											<h4 class="mb-1 font-semibold">
 												{$t('dashboard.task_details_by_task.deadline')}
 											</h4>
-											<div class="font-semibold">{formatTimeAgo(task.deadline)}</div>
-											<div class="text-sm">{formatDateString(task.deadline)}</div>
+											<div class="font-semibold">
+												{new Date(task.deadline).toLocaleDateString('en-US', {
+													day: '2-digit',
+													month: '2-digit',
+													year: 'numeric'
+												})}, 12pm
+											</div>
 										</div>
 									{:else if task.dateRange}
 										<div>
@@ -207,8 +212,15 @@
 												>{$t('dashboard.task_details_by_task.date_range')}</span
 											>
 											<div class="font-semibold">
-												{formatDateString(task.dateRange.start)} - <br class="block md:hidden" />
-												{formatDateString(task.dateRange.end)}
+												{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+													day: '2-digit',
+													month: '2-digit',
+													year: 'numeric'
+												})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
+													day: '2-digit',
+													month: '2-digit',
+													year: 'numeric'
+												})}
 											</div>
 										</div>
 									{/if}
@@ -236,7 +248,7 @@
 										{$t('dashboard.task_details_by_task.location_details')}
 									</h5>
 									<div class="grid grid-cols-1">
-										{#if task.pickupLocation}
+										{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
 											<div class="mb-2">
 												<span class="text-base-content/60 text-sm"
 													>{$t('dashboard.task_details_by_task.pickup_location')}</span
@@ -244,12 +256,17 @@
 												<div>{task.pickupLocation.displayName}</div>
 											</div>
 										{/if}
-										{#if task.dropOffLocation}
+										{#if task.dropOffLocation && task.dropOffLocation.displayName && task.dropOffLocation.displayName.trim() !== ''}
 											<div>
 												<span class="text-base-content/60 text-sm"
 													>{$t('dashboard.task_details_by_task.dropoff_location')}</span
 												>
 												<div>{task.dropOffLocation.displayName}</div>
+											</div>
+										{/if}
+										{#if (!task.pickupLocation || !task.pickupLocation.displayName || task.pickupLocation.displayName.trim() === '') && (!task.dropOffLocation || !task.dropOffLocation.displayName || task.dropOffLocation.displayName.trim() === '')}
+											<div class="text-base-content/60 text-sm">
+												{$t('dashboard.task_details_by_task.remote')}
 											</div>
 										{/if}
 									</div>

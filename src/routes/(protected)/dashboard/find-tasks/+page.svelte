@@ -677,25 +677,26 @@
 														/>
 													</svg>
 													<div class="flex flex-col">
-														<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.to_be_done_on')}</small>
 														{#if task.deadline}
+															<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.deadline')}</small>
 															<span class="text-sm font-medium">
-																{$t('dashboard.task_details_by_task.before')} {new Date(task.deadline).toLocaleDateString('en-US', {
-																	weekday: 'short',
-																	month: 'short',
-																	day: 'numeric'
-																})}
+																{new Date(task.deadline).toLocaleDateString('en-US', {
+																	day: '2-digit',
+																	month: '2-digit',
+																	year: 'numeric'
+																})}, 12pm
 															</span>
 														{:else if task.dateRange}
+															<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.date_range')}</small>
 															<span class="text-sm font-medium">
-																{$t('dashboard.task_details_by_task.after')} {new Date(task.dateRange.start).toLocaleDateString('en-US', {
-																	month: 'short',
-																	day: 'numeric'
-																})}
-																-
-																{$t('dashboard.task_details_by_task.after')} {new Date(task.dateRange.end).toLocaleDateString('en-US', {
-																	month: 'short',
-																	day: 'numeric'
+																{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+																	day: '2-digit',
+																	month: '2-digit',
+																	year: 'numeric'
+																})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
+																	day: '2-digit',
+																	month: '2-digit',
+																	year: 'numeric'
 																})}
 															</span>
 														{/if}

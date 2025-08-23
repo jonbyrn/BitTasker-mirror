@@ -10,6 +10,7 @@
 	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -93,11 +94,6 @@
 					{task.status}
 				</div>
 			{/if}
-			{#if isOwner}
-				<span class="badge badge-info">You are the owner</span>
-			{:else}
-				<span class="badge badge-info">You are the client</span>
-			{/if}
 		</div>
 
 		{#if isOwner && task.status === TaskStatusEnum.OPEN}
@@ -116,7 +112,7 @@
 						d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
 					/>
 				</svg>
-				Edit
+				{$t('dashboard.task_details_by_task.edit_task')}
 			</button>
 		{/if}
 	</div>
@@ -124,56 +120,83 @@
 	<!-- Task details -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<div>
-			<h3 class="text-base-content/60 text-sm">Budget - {task.budget.type}</h3>
+			<h5 class="text-base-content/60 text-sm">
+				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
+			</h5>
 			<p class="text-lg font-semibold">
 				{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
-				{#if task.budget.type === 'HOURLY'}
+				{#if task.budget.type === 'Hourly'}
 					<span class="text-sm font-normal">/hr</span>
 				{/if}
 			</p>
 		</div>
 
 		<div>
-			<h3 class="text-base-content/60 text-sm">Type</h3>
+			<h5 class="text-base-content/60 text-sm">
+				{$t('dashboard.task_details_by_task.type')}
+			</h5>
 			<p class="font-semibold">
-				{task.taskType === TaskTypeEnum.REMOTE ? 'Remote' : 'In-Person'}
+				{task.taskType === TaskTypeEnum.REMOTE
+					? $t('dashboard.task_details_by_task.remote')
+					: $t('dashboard.task_details_by_task.in_person')}
 			</p>
 		</div>
 
 		{#if task.deadline}
 			<div>
-				<h3 class="text-base-content/60 text-sm">Deadline</h3>
-				<p class="font-semibold">{formatTimeAgo(task.deadline)}</p>
-				<p class="text-xs">{formatDateString(task.deadline)}</p>
+				<h5 class="text-base-content/60 text-sm">
+					{$t('dashboard.task_details_by_task.deadline')}
+				</h5>
+				<p class="font-semibold">
+					{new Date(task.deadline).toLocaleDateString('en-US', {
+						day: '2-digit',
+						month: '2-digit',
+						year: 'numeric'
+					})}, 12pm
+				</p>
 			</div>
 		{:else if task.dateRange}
 			<div>
-				<h3 class="text-base-content/60 text-sm">Date Range</h3>
+				<h5 class="text-base-content/60 text-sm">
+					{$t('dashboard.task_details_by_task.date_range')}
+				</h5>
 				<p class="font-semibold">
-					{formatDateString(task.dateRange.start)} - {formatDateString(task.dateRange.end)}
+					{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+						day: '2-digit',
+						month: '2-digit',
+						year: 'numeric'
+					})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
+						day: '2-digit',
+						month: '2-digit',
+						year: 'numeric'
+					})}
 				</p>
 			</div>
 		{/if}
 
 		<div>
-			<h3 class="text-base-content/60 text-sm">Posted</h3>
+			<h5 class="text-base-content/60 text-sm">{$t('dashboard.task_details_by_task.posted')}</h5>
 			<p class="font-semibold">{formatTimeAgo(task.createdAt)}</p>
 			<p class="text-xs">{formatDateString(task.createdAt)}</p>
 		</div>
 	</div>
 
 	<!-- Task description -->
-	<div>
-		<h3 class="text-base-content/60 mb-1 text-sm">Description</h3>
-		<div class="bg-base-200 rounded-box rounded-lg p-4 whitespace-pre-wrap">
-			{task.description}
+	<div class="mb-4">
+		<h4 class="mb-2 font-medium">{$t('dashboard.task_details_by_task.description')}</h4>
+		<div class="bg-base-200 rounded-2xl p-3">
+			<div class="max-h-[7rem] overflow-y-auto">
+				<p>{task.description}</p>
+			</div>
 		</div>
 	</div>
 
 	<!-- Task skills -->
 	{#if task.skills?.length > 0}
 		<div>
-			<h3 class="text-base-content/60 mb-1 text-sm">Required Skills</h3>
+			<h5 class="text-base-content/60 mb-1 text-sm">
+				{$t('dashboard.task_details_by_task.required_skills')}
+			</h5>
 			<div class="flex flex-wrap gap-1">
 				{#each task.skills as skill}
 					<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
@@ -185,7 +208,9 @@
 	<!-- Task categories -->
 	{#if task?.categories?.length > 0}
 		<div>
-			<h3 class="text-base-content/60 mb-1 text-sm">Categories</h3>
+			<h5 class="text-base-content/60 mb-1 text-sm">
+				{$t('dashboard.task_details_by_task.categories')}
+			</h5>
 			<div class="flex flex-wrap gap-1">
 				{#each task.categories as category}
 					<span class="badge badge-outline/90 pb-[2px] text-white/90">
@@ -200,7 +225,9 @@
 	{#if task.taskType === TaskTypeEnum.IN_PERSON}
 		{#if task.pickupLocation}
 			<div>
-				<h3 class="text-base-content/60 mb-1 text-sm">Pickup Location</h3>
+				<h5 class="text-base-content/60 mb-1 text-sm">
+					{$t('dashboard.task_details_by_task.pickup_location')}
+				</h5>
 				<div class="flex items-center gap-1">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -229,7 +256,9 @@
 
 		{#if task.dropOffLocation && task.dropOffLocation.displayName}
 			<div>
-				<h3 class="text-base-content/60 mb-1 text-sm">Drop Off Location</h3>
+				<h5 class="text-base-content/60 mb-1 text-sm">
+					{$t('dashboard.task_details_by_task.dropoff_location')}
+				</h5>
 				<div class="flex items-center gap-1">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -251,14 +280,16 @@
 		{/if}
 	{:else}
 		<div>
-			<p class="text-base-content/60 mb-1 text-sm">Remote task</p>
+			<p class="text-base-content/60 mb-1 text-sm">{$t('dashboard.task_details_by_task.remote')}</p>
 		</div>
 	{/if}
 
 	<!-- Task attachments -->
 	{#if task.attachments && task.attachments.length > 0}
 		<div class={!isOwner ? 'mb-20 sm:mb-0' : ''}>
-			<h3 class="text-base-content/60 mb-1 text-sm">Attachments</h3>
+			<h5 class="text-base-content/60 mb-1 text-sm">
+				{$t('dashboard.task_details_by_task.attachments')}
+			</h5>
 			<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
 				{#each task.attachments as attachment, i}
 					<button
@@ -276,7 +307,7 @@
 								<track kind="captions" />
 							</video>
 							<div
-								class="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100"
+								class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 transition-opacity group-hover:opacity-100 sm:bg-black/60 sm:opacity-0"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -320,7 +351,7 @@
 								class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
 							/>
 							<div
-								class="absolute inset-0 flex items-center justify-center bg-black/30 sm:bg-black/60 opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100"
+								class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 transition-opacity group-hover:opacity-100 sm:bg-black/60 sm:opacity-0"
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -354,7 +385,7 @@
 			{#if isDeleting}
 				<span class="loading loading-spinner loading-sm"></span>
 			{:else}
-				Delete Task
+				{$t('dashboard.task_details_by_task.delete_task')}
 			{/if}
 		</button>
 	{/if}

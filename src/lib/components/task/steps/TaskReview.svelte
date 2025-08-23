@@ -47,7 +47,7 @@
 
 				<div>
 					<span class="font-medium">{$t('task.task_type')}</span>
-					<span
+					<span class="text-xs"
 						>{$store.task.taskType === TaskTypeEnum.IN_PERSON
 							? $t('task.in_person')
 							: $t('task.remote')}</span

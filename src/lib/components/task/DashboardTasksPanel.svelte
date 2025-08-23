@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { formatDistanceToNow } from 'date-fns';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { myTasksStore } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -10,8 +9,6 @@
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
-	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
-	import { user } from '$lib/stores/user.store';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -23,57 +20,6 @@
 	// Nostr caching
 	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 	let nostrCache = $state<Map<string, { data: any; timestamp: number }>>(new Map());
-
-	// Convert status to user-friendly string
-	function formatStatus(status: string): string {
-		switch (status) {
-			case TaskStatusEnum.IN_PROGRESS:
-				return $t('task.status.in_progress');
-			case TaskStatusEnum.OPEN:
-				return $t('task.status.open');
-			case TaskStatusEnum.COMPLETED:
-				return $t('task.status.completed');
-			case TaskStatusEnum.CANCELLED:
-				return $t('task.status.cancelled');
-			case TaskStatusEnum.DISPUTED:
-				return $t('task.status.disputed');
-			default:
-				return status;
-		}
-	}
-
-	// Get appropriate status badge class
-	function getStatusClass(status: string): string {
-		switch (status) {
-			case TaskStatusEnum.IN_PROGRESS:
-				return 'badge-primary';
-			case TaskStatusEnum.OPEN:
-				return 'badge-info';
-			case TaskStatusEnum.COMPLETED:
-				return 'badge-success';
-			case TaskStatusEnum.CANCELLED:
-				return 'badge-warning';
-			case TaskStatusEnum.DISPUTED:
-				return 'badge-error';
-			default:
-				return 'badge-ghost';
-		}
-	}
-
-	// Calculate time ago
-	function formatTimeAgo(date: string | null): string {
-		if (!date) return $t('task.deadline.none');
-		try {
-			const parsedDate = new Date(date);
-			if (isNaN(parsedDate.getTime())) {
-				return $t('task.deadline.invalid');
-			}
-			return formatDistanceToNow(parsedDate, { addSuffix: true });
-		} catch (error) {
-			console.error('Error formatting date:', error);
-			return $t('task.deadline.invalid');
-		}
-	}
 
 	/**
 	 * Fetch current BTC price
@@ -101,7 +47,6 @@
 
 		// Return cached data if still valid
 		if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-			console.log('Using cached tasks');
 			return cached.data;
 		}
 
@@ -209,8 +154,11 @@
 			{#if task}
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
-						<div class="flex items-center justify-between gap-2">
-							<h4 class="card-title line-clamp-2">{task.title}</h4>
+						<div class="flex flex-col justify-between gap-2">
+							<h4 class="card-title line-clamp-1">{task.title}</h4>
+							<div class="text-base-content/60 line-clamp-2">
+								{task.description}
+							</div>
 						</div>
 
 						<div class="flex w-full items-center justify-between">
@@ -231,25 +179,30 @@
 									/>
 								</svg>
 								<div class="flex flex-col">
-									<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.to_be_done_on')}</small>
 									{#if task.deadline}
+										<small class="text-base-content/60 text-xs">
+											{$t('dashboard.task_details_by_task.deadline')}
+										</small>
 										<span class="text-sm font-medium">
-											{$t('dashboard.task_details_by_task.before')} {new Date(task.deadline).toLocaleDateString('en-US', {
-												weekday: 'short',
-												month: 'short',
-												day: 'numeric'
-											})}
+											{new Date(task.deadline).toLocaleDateString('en-US', {
+												day: '2-digit',
+												month: '2-digit',
+												year: 'numeric'
+											})}, 12pm
 										</span>
 									{:else if task.dateRange}
+										<small class="text-base-content/60 text-xs">
+											{$t('dashboard.task_details_by_task.date_range')}
+										</small>
 										<span class="text-sm font-medium">
-											{$t('dashboard.task_details_by_task.after')} {new Date(task.dateRange.start).toLocaleDateString('en-US', {
-												month: 'short',
-												day: 'numeric'
-											})}
-											-
-											{new Date(task.dateRange.end).toLocaleDateString('en-US', {
-												month: 'short',
-												day: 'numeric'
+											{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+												day: '2-digit',
+												month: '2-digit',
+												year: 'numeric'
+											})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
+												day: '2-digit',
+												month: '2-digit',
+												year: 'numeric'
 											})}
 										</span>
 									{/if}
@@ -298,13 +251,13 @@
 									{:else if task.pickupLocation?.displayName}
 										{task.pickupLocation.displayName}
 									{:else}
-										Remote
+										{$t('dashboard.task_details_by_task.remote')}
 									{/if}
 								</span>
 							</div>
 						</div>
 
-						<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 							<!-- Left: Avatar, Username, and Review Stars -->
 							<div class="flex items-center gap-3">
 								<!-- Avatar -->
@@ -349,7 +302,7 @@
 								<!-- Username and Review Stars -->
 								<div class="flex flex-col">
 									<span class="text-sm font-medium">
-										{task.creator?.username || 'Anonymous'}
+										{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
 									</span>
 									<!-- Review Stars -->
 									<div class="flex items-center">
@@ -451,12 +404,12 @@
 				d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 			/>
 		</svg>
-		<h3 class="mt-4 text-lg font-semibold">{$t('task.empty.no_tasks')}</h3>
+		<h4 class="mt-4 text-lg font-semibold">{$t('task.empty.no_tasks')}</h4>
 	</div>
 {/if}
 
 {#if $myTasksStore.error}
 	<div class="py-12 text-center">
-		<h3 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h3>
+		<h4 class="mt-4 text-lg font-semibold">{$t('task.error.loading')}</h4>
 	</div>
 {/if}

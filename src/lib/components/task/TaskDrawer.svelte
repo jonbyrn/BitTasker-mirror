@@ -20,8 +20,8 @@
 
 	// Define tabs
 	const tabs = [
-		{ id: 'details', label: $t('task.drawer.details') },
-		{ id: 'bids', label: $t('task.drawer.bids') }
+		{ id: 'details', label: $t('dashboard.task_details_by_task.details') },
+		{ id: 'bids', label: $t('dashboard.task_details_by_task.bids') }
 	];
 
 	// State
@@ -229,10 +229,10 @@
 		<!-- Header -->
 		<div class="bg-base-200 sticky top-0 z-10 p-4">
 			<div class="flex items-center justify-between">
-				<h3 class="font-bold">
-					{loading ? 'Loading...' : task ? task.title : 'Task Details'}
-				</h3>
-				<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
+				<h4 class="font-bold line-clamp-2 ">
+					{loading ? $t('dashboard.task_details_by_task.loading') : task ? task.title : $t('dashboard.task_details_by_task.title')}
+				</h4>
+				<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label={$t('dashboard.task_details_by_task.close')}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"
@@ -282,7 +282,7 @@
 						class="btn btn-primary"
 						onclick={() => props.taskId && loadTaskDetails(props.taskId)}
 					>
-						Try Again
+						{$t('dashboard.task_details_by_task.try_again')}
 					</button>
 				</div>
 			</div>
@@ -322,8 +322,8 @@
 						d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<h3 class="mt-4 text-lg font-semibold">Task Not Found</h3>
-				<p class="text-base-content/60 mt-1">The task you're looking for could not be found.</p>
+				<h3 class="mt-4 text-lg font-semibold">{$t('dashboard.task_details_by_task.task_not_found')}</h3>	
+				<p class="text-base-content/60 mt-1">{$t('dashboard.task_details_by_task.task_not_found_message')}</p>
 			</div>
 		{/if}
 	</div>
