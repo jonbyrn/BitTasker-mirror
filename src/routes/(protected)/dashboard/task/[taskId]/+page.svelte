@@ -2,13 +2,15 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import type { Task } from '$lib/types/task';
+	import type { Attachment, Task } from '$lib/types/task';
 	import { formatDistanceToNow, format } from 'date-fns';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
 	import { user } from '$lib/stores/user.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
+	import Gallery from '$lib/components/Gallery.svelte';
+
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -26,6 +28,43 @@
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
+
+	// Helper function to prepare images for Gallery component
+	// La función ahora es asíncrona
+	const prepareGalleryImages = async (attachments: Attachment[]) => {
+		const imagePromises = attachments
+			.filter((attachment) => !isVideoFile(attachment.url))
+			.map((attachment) => {
+				// Retorna una promesa para cada imagen
+				return new Promise((resolve) => {
+					const img = new Image();
+					img.onload = () => {
+						// Cuando la imagen se carga, resuelve la promesa con sus dimensiones reales
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || 'Task attachment',
+							width: img.naturalWidth, // Ancho real de la imagen
+							height: img.naturalHeight, // Altura real de la imagen
+							size: attachment.size
+						});
+					};
+					img.onerror = () => {
+						// Si hay un error, resuelve con valores por defecto o null
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || 'Task attachment',
+							width: 0,
+							height: 0,
+							size: attachment.size
+						});
+					};
+					img.src = attachment.url;
+				});
+			});
+
+		// Espera a que todas las promesas se resuelvan
+		return await Promise.all(imagePromises);
+	};
 
 	// Format helpers
 	const formatTimeAgo = (date: string | number): string => {
@@ -301,41 +340,41 @@
 								<h4 class="mb-1 font-semibold">
 									{$t('dashboard.task_details_by_task.attachments')}
 								</h4>
-								<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-									{#each task.attachments as attachment}
-										<div class="bg-base-200 overflow-hidden rounded-lg">
-											{#if isVideoFile(attachment.url)}
+
+								{#if task.attachments.filter((att) => !isVideoFile(att.url)).length > 0}
+									<div class="mb-6">
+										{#await prepareGalleryImages(task.attachments) then galleryImages}
+											<Gallery
+												galleryID="task-images-gallery"
+												images={galleryImages}
+												thumbnailSize="h-40 w-40"
+											/>
+										{/await}
+									</div>
+								{/if}
+
+								<!-- Only show non-image attachments (videos, documents, etc.) -->
+								{#if task.attachments.filter((att) => isVideoFile(att.url)).length > 0}
+									<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+										{#each task.attachments.filter((att) => isVideoFile(att.url)) as attachment}
+											<div class="bg-base-200 overflow-hidden rounded-lg">
 												<video class="h-48 w-full object-cover" controls preload="metadata">
 													<source src={attachment.url} type="video/mp4" />
 													<track kind="captions" src="" label="English" />
 													{$t('dashboard.task_details_by_task.video_not_supported')}
 												</video>
-											{:else}
-												<button
-													class="focus:ring-primary h-48 w-full cursor-pointer object-cover transition-opacity hover:opacity-90 focus:opacity-90 focus:ring-2 focus:outline-none"
-													onclick={() => window.open(attachment.url, '_blank')}
-													onkeydown={(e) =>
-														e.key === 'Enter' && window.open(attachment.url, '_blank')}
-													aria-label={`View ${attachment?.alt || 'attachment'} in new tab`}
-												>
-													<img
-														src={attachment.url}
-														alt={attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-														class="h-48 w-full object-cover"
-													/>
-												</button>
-											{/if}
-											<div class="p-3">
-												<p class="truncate text-sm font-medium">
-													{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-												</p>
-												<p class="text-base-content/60 text-xs">
-													{(attachment.size / 1024 / 1024).toFixed(2)} MB
-												</p>
+												<div class="p-3">
+													<p class="truncate text-sm font-medium">
+														{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+													</p>
+													<p class="text-base-content/60 text-xs">
+														{(attachment.size / 1024 / 1024).toFixed(2)} MB
+													</p>
+												</div>
 											</div>
-										</div>
-									{/each}
-								</div>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
