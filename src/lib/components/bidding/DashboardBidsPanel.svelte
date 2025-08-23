@@ -175,7 +175,7 @@
 								<div class="flex-1">
 									<h4 class="line-clamp-2 font-bold">
 										<a 
-											href="/dashboard/task/{bid.bid.taskId}" 
+											href="/dashboard/task/{bid.bid.task?.id}" 
 											class="hover:text-primary transition-colors"
 											onclick={(e) => e.stopPropagation()}
 										>
@@ -390,7 +390,7 @@
 								<div class="flex justify-end">
 									<button
 										class="btn btn-info btn-sm"
-										onclick={() => goto(`/dashboard/task/${bid.bid.taskId}`)}
+										onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
