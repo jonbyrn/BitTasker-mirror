@@ -74,7 +74,7 @@
 
 	const formatDateString = (date: string | number): string => {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return format(dateObj, 'MMM d, yyyy');
+		return format(dateObj, 'MMM yyyy');
 	};
 
 	// Helper function to detect video files

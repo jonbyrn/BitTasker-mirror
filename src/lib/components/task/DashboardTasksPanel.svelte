@@ -155,7 +155,15 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex flex-col justify-between gap-2">
-							<h4 class="card-title line-clamp-1">{task.title}</h4>
+							<h4 class="card-title line-clamp-1">
+								<a 
+									href="/dashboard/task/{task.id}" 
+									class="hover:text-primary transition-colors"
+									onclick={(e) => e.stopPropagation()}
+								>
+									{task.title}
+								</a>
+							</h4>
 							<div class="text-base-content/60 line-clamp-2">
 								{task.description}
 							</div>
