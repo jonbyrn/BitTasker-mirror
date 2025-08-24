@@ -756,7 +756,7 @@
 										<!-- Bottom Row: Avatar + Action Buttons -->
 										<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 											<!-- Left: Avatar, Username, and Review Stars -->
-											<div class="flex items-center gap-3">
+											<div class="flex items-center gap-3 min-w-0 flex-1">
 												<!-- Avatar -->
 												<div class="avatar">
 													<div
@@ -799,8 +799,8 @@
 												</div>
 
 												<!-- Username and Review Stars -->
-												<div class="flex flex-col">
-													<span class="text-sm font-medium">
+												<div class="flex flex-col min-w-0 flex-1">
+													<span class="text-sm font-medium truncate">
 														{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
 													</span>
 													<!-- Review Stars -->
@@ -823,7 +823,7 @@
 											</div>
 
 											<!-- Right: Action Buttons -->
-											<div class="flex w-full items-center gap-2 md:w-auto">
+											<div class="flex w-full items-center gap-2 md:w-auto flex-shrink-0">
 												<button
 													class="btn btn-primary btn-sm flex-1 md:flex-none"
 													class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
@@ -854,7 +854,7 @@
 												</button>
 
 												<button
-													class="btn btn-info btn-sm btn-outline flex-1 md:flex-none"
+													class="btn btn-secondary btn-sm flex-1 md:flex-none"
 													onclick={(e) => {
 														e.stopPropagation();
 														goto(`/dashboard/task/${task.id}`);
@@ -959,3 +959,62 @@
 	onClose={() => (isSaveSearchOpen = false)}
 	onSaved={() => {}}
 />
+
+<style>
+	/* Custom scrollbar styling for the task list */
+	:global(.overflow-y-auto) {
+		scrollbar-width: thin;
+		scrollbar-color: hsl(var(--bc) / 0.3) transparent;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar) {
+		width: 6px;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar-thumb) {
+		background-color: hsl(var(--bc) / 0.3);
+		border-radius: 3px;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar-thumb:hover) {
+		background-color: hsl(var(--bc) / 0.5);
+	}
+
+	/* Ensure the layout takes appropriate height */
+	:global(.h-\[calc\(100vh-200px\)\]) {
+		height: calc(100vh - 200px);
+		height: calc(100dvh - 200px); /* Dynamic viewport height for mobile */
+	}
+
+	/* Task card overflow protection */
+	:global(.card-body) {
+		overflow: hidden;
+	}
+
+	/* Ensure buttons stay within card boundaries */
+	:global(.btn) {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
+
+	/* Prevent text from pushing buttons out */
+	:global(.line-clamp-2) {
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+	}
+
+	/* Ensure proper flex behavior */
+	:global(.flex-shrink-0) {
+		flex-shrink: 0;
+	}
+
+	:global(.min-w-0) {
+		min-width: 0;
+	}
+</style>

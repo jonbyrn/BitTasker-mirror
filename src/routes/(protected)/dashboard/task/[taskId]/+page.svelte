@@ -266,12 +266,12 @@
 								</div>
 							{/if}
 
-							<div class="mt-2 pt-4">
-								<div class="text-lg font-bold">
+							<div class="mb-1">
+								<div class="text-2xl font-bold">
 									${calculateUsdtEstimate(task.budget.amount, btcPrice)}
 								</div>
 								<div class="text-right">
-									<span class="text-base-content/60 text-sm">
+									<span class="text-base-content/60 text-lg">
 										{formatSatsAmount(task.budget.amount)}
 									</span>
 								</div>

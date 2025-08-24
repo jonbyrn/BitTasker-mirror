@@ -175,7 +175,7 @@
 								<div class="flex-1">
 									<h4 class="line-clamp-2 font-bold">
 										<a 
-											href="/dashboard/task/{bid.bid.task?.id}" 
+											href="/dashboard/task/{bid.bid.taskId}" 
 											class="hover:text-primary transition-colors"
 											onclick={(e) => e.stopPropagation()}
 										>
@@ -196,9 +196,9 @@
 							</h5>
 
 							<!-- Two-column layout -->
-							<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+							<div class="flex flex-row gap-4 items-start justify-between">
 								<!-- Left column: FIXED period OR HOURLY rate/hours -->
-								<div class="order-1 flex flex-row gap-6 text-left lg:order-1">
+								<div class="flex flex-row gap-6 text-left">
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
 											<p class="text-base-content/60 mb-1 text-xs">
@@ -238,19 +238,19 @@
 								</div>
 
 								<!-- Right column: Amount & Payment Type -->
-								<div class="order-2 flex flex-row lg:order-2 lg:ml-auto">
+								<div class="flex flex-row ml-auto">
 									<div class="text-start">
-										<p class="text-lg font-semibold">
+										<p class="text-2xl font-semibold">
 											${calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)}
 										</p>
-										<p class="text-base-content/60 text-xs">
+										<p class="text-base-content/60 text-lg">
 											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
 										</p>
 									</div>
 								</div>
 							</div>
 
-							<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+							<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pt-2">
 								<!-- Left: Avatar, Username, and Review Stars -->
 								<div class="flex items-center gap-3">
 									<!-- Avatar -->
@@ -389,7 +389,7 @@
 								{/if}
 								<div class="flex justify-end">
 									<button
-										class="btn btn-info btn-sm"
+										class="btn btn-secondary btn-sm"
 										onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
 									>
 										<svg
