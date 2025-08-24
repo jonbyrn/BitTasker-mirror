@@ -97,7 +97,6 @@
 			<button class="btn btn-primary" onclick={() => goto('/dashboard/profile/edit')}>
 				{$t('profile.page.edit_profile')}
 			</button>
-			<button class="btn btn-ghost" onclick={logout}>{$t('profile.page.logout_profile')}</button>
 		</div>
 	{:else if $profileStore.error}
 		<!-- Error State -->

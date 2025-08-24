@@ -184,29 +184,7 @@
 			</div>
 		</div>
 
-		<!-- Stats Card -->
-		<div class="card bg-base-200 rounded-xl p-4">
-			<h3 class="mb-4 text-lg font-bold">{$t('profile_availability.your_stats')}</h3>
-			<div class="stats stats-vertical shadow">
-				<div class="stat">
-					<div class="stat-title">{$t('profile_availability.stats.tasks_completed')}</div>
-					<div class="stat-value">{$profileStore.stats.tasksCompleted}</div>
-					<div class="stat-desc">↗︎ 4 (30%)</div>
-				</div>
 
-				<div class="stat">
-					<div class="stat-title">{$t('profile_availability.stats.success_rate')}</div>
-					<div class="stat-value">{$profileStore.stats.rating}%</div>
-					<div class="stat-desc">↗︎ 6%</div>
-				</div>
-
-				<div class="stat">
-					<div class="stat-title">{$t('profile_availability.stats.response_rate')}</div>
-					<div class="stat-value">{$profileStore.stats.responseRate}%</div>
-					<div class="stat-desc">↗︎ 2%</div>
-				</div>
-			</div>
-		</div>
 	{:else if $profileStore.error}
 		<div class="alert alert-outline alert-error">
 			<span>{$t('profile_availability.error_load')}</span>
