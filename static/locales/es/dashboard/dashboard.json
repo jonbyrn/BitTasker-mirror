@@ -14,7 +14,8 @@
     "task_details_by_task": {
       "title": "Detalles de la Tarea",
       "tasker": "Detalles del Tasker",
-      "description": "Descripción",
+      "description": "Aquí puedes ver los detalles de la tarea.",
+      "description_task": "Descripción",
       "loading": "Cargando...",
       "task_not_found": "Tarea No Encontrada",
       "task_not_found_message": "La tarea que buscas no pudo ser encontrada.",

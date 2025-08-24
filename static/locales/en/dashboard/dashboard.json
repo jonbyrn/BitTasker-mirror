@@ -15,7 +15,8 @@
       "task_details_by_task": {
         "title": "Task Details",
         "tasker": "Tasker Details",
-        "description": "Description",
+        "description": "Here you can see the details of the task.",
+        "description_task": "Description",
         "loading": "Loading...",
         "task_not_found": "Task Not Found",
         "task_not_found_message": "The task you're looking for could not be found.",

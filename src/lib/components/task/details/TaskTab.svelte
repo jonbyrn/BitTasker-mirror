@@ -1,16 +1,18 @@
 <script lang="ts">
-	import type { Task } from '$lib/types/task';
+	import type { Task, Attachment } from '$lib/types/task';
 	import { goto } from '$app/navigation';
 	import { deleteTask } from '$lib/nostr/task';
 	import { taskStore } from '$lib/stores/task.store';
 	import { myTasksStore } from '$lib/stores/task.store';
-	import { formatDistanceToNow, format } from 'date-fns';
+	import { format } from 'date-fns';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+	import Gallery from '$lib/components/Gallery.svelte';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -18,20 +20,13 @@
 		onClose: () => void;
 	}>();
 
-	let selectedImage = $state<string | null>(null);
 	let isDeleting = $state(false);
 	let errorMessage = $state('');
 	let btcPrice = $state<number>(63000); // Default fallback price
 
-	// Format helpers
-	const formatTimeAgo = (date: string | number): string => {
-		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return formatDistanceToNow(dateObj, { addSuffix: true });
-	};
-
 	const formatDateString = (date: string | number): string => {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return format(dateObj, 'MMM d, yyyy');
+		return format(dateObj, 'M/d/yyyy, haaa');
 	};
 
 	// Helper function to detect video files
@@ -40,6 +35,38 @@
 		const urlLower = url.toLowerCase();
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
+
+	// Helper function to prepare images for Gallery component
+	const prepareGalleryImages = async (attachments: Attachment[]) => {
+		const imagePromises = attachments
+			.filter((attachment) => !isVideoFile(attachment.url))
+			.map((attachment) => {
+				return new Promise((resolve) => {
+					const img = new Image();
+					img.onload = () => {
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || 'Task attachment',
+							width: img.naturalWidth,
+							height: img.naturalHeight,
+							size: attachment.size
+						});
+					};
+					img.onerror = () => {
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || 'Task attachment',
+							width: 0,
+							height: 0,
+							size: attachment.size
+						});
+					};
+					img.src = attachment.url;
+				});
+			});
+
+		return await Promise.all(imagePromises);
+	};
 
 	function handleEditTask() {
 		const editTask = { ...task };
@@ -123,12 +150,12 @@
 			<h5 class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
 			</h5>
-			<p class="text-lg font-semibold">
-				{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
-				{#if task.budget.type === 'Hourly'}
-					<span class="text-sm font-normal">/hr</span>
-				{/if}
-			</p>
+			<div class="text-lg font-bold">
+				${calculateUsdtEstimate(task.budget.amount, btcPrice)}
+				<div class="text-base-content/60 text-lowercase text-sm">
+					{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
+				</div>
+			</div>
 		</div>
 
 		<div>
@@ -176,14 +203,13 @@
 
 		<div>
 			<h5 class="text-base-content/60 text-sm">{$t('dashboard.task_details_by_task.posted')}</h5>
-			<p class="font-semibold">{formatTimeAgo(task.createdAt)}</p>
-			<p class="text-xs">{formatDateString(task.createdAt)}</p>
+			<p class="font-semibold">{formatDateString(task.createdAt)}</p>
 		</div>
 	</div>
 
 	<!-- Task description -->
 	<div class="mb-4">
-		<h4 class="mb-2 font-medium">{$t('dashboard.task_details_by_task.description')}</h4>
+		<h4 class="mb-2 font-medium">{$t('dashboard.task_details_by_task.description_task')}</h4>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-[7rem] overflow-y-auto">
 				<p>{task.description}</p>
@@ -213,7 +239,7 @@
 			</h5>
 			<div class="flex flex-wrap gap-1">
 				{#each task.categories as category}
-					<span class="badge badge-outline/90 pb-[2px] text-white/90">
+					<span class="badge badge-outline badge-info pb-[2px]">
 						{category}
 					</span>
 				{/each}
@@ -290,88 +316,42 @@
 			<h5 class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.attachments')}
 			</h5>
-			<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-				{#each task.attachments as attachment, i}
-					<button
-						class="group rounded-box relative overflow-hidden"
-						onclick={() => (selectedImage = attachment.url)}
-						aria-label="View attachment {i + 1}"
-					>
-						{#if isVideoFile(attachment.url)}
-							<video
-								src={attachment.url}
-								class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
-								muted
-								preload="metadata"
-							>
-								<track kind="captions" />
+
+			<!-- Images using PhotoSwipe Gallery -->
+			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+				<div class="mb-4">
+					{#await prepareGalleryImages(task.attachments) then galleryImages}
+						<Gallery
+							galleryID="task-tab-images-gallery"
+							images={galleryImages}
+							thumbnailSize="h-32 w-32"
+						/>
+					{/await}
+				</div>
+			{/if}
+
+			<!-- Videos in grid layout -->
+			{#if task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
+				<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
+					{#each task.attachments.filter( (att: Attachment) => isVideoFile(att.url) ) as attachment, i}
+						<div class="bg-base-200 overflow-hidden rounded-lg">
+							<video class="h-32 w-full object-cover" controls preload="metadata">
+								<source src={attachment.url} type="video/mp4" />
+								<track kind="captions" src="" label="English" />
+								{$t('dashboard.task_details_by_task.video_not_supported')}
 							</video>
-							<div
-								class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 transition-opacity group-hover:opacity-100 sm:bg-black/60 sm:opacity-0"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									width="20"
-									height="20"
-									viewBox="0 0 24 24"
-									class="h-8 w-8 text-white"
-								>
-									<path
-										fill="#fff"
-										fill-opacity="0"
-										stroke="#fff"
-										stroke-dasharray="40"
-										stroke-dashoffset="40"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M8 6l10 6l-10 6Z"
-									>
-										<animate
-											fill="freeze"
-											attributeName="fill-opacity"
-											begin="0.5s"
-											dur="0.5s"
-											values="0;1"
-										/>
-										<animate
-											fill="freeze"
-											attributeName="stroke-dashoffset"
-											dur="0.5s"
-											values="40;0"
-										/>
-									</path>
-								</svg>
+							<div class="p-3">
+								<p class="truncate text-sm font-medium">
+									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+								</p>
+								<p class="text-base-content/60 text-xs">
+									{(attachment.size / 1024 / 1024).toFixed(2)} MB
+								</p>
 							</div>
-						{:else}
-							<img
-								src={attachment.url}
-								alt="Task attachment {i + 1}"
-								loading="lazy"
-								class="h-32 w-full object-cover transition-all duration-300 group-hover:scale-105"
-							/>
-							<div
-								class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-100 transition-opacity group-hover:opacity-100 sm:bg-black/60 sm:opacity-0"
-							>
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-8 w-8 text-white"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-									/>
-								</svg>
-							</div>
-						{/if}
-					</button>
-				{/each}
-			</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -398,57 +378,3 @@
             </div>
         {/if} -->
 </div>
-
-{#if selectedImage}
-	<div
-		class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-		onclick={() => (selectedImage = null)}
-		onkeydown={(e) => e.key === 'Escape' && (selectedImage = null)}
-		role="dialog"
-		aria-modal="true"
-		aria-label="Media preview"
-		tabindex="-1"
-	>
-		<button
-			class="absolute top-4 right-4 text-white"
-			onclick={(e) => {
-				e.stopPropagation();
-				selectedImage = null;
-			}}
-			aria-label="Close media preview"
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-8 w-8"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M6 18L18 6M6 6l12 12"
-				/>
-			</svg>
-		</button>
-		<div class="max-h-[90vh] max-w-[90vw] overflow-auto">
-			{#if isVideoFile(selectedImage)}
-				<video
-					src={selectedImage}
-					controls
-					class="max-h-full max-w-full rounded-lg"
-					onclick={(e) => e.stopPropagation()}
-				>
-					<track kind="captions" />
-				</video>
-			{:else}
-				<img
-					src={selectedImage}
-					alt="Task attachment preview"
-					class="max-h-full max-w-full rounded-lg object-contain"
-				/>
-			{/if}
-		</div>
-	</div>
-{/if}
