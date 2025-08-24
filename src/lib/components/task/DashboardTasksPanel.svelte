@@ -155,15 +155,15 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex flex-col justify-between gap-2">
-							<h4 class="card-title line-clamp-1">
-								<a 
-									href="/dashboard/task/{task.id}" 
+							<small class="card-title line-clamp-1 text-lg">
+								<a
+									href="/dashboard/task/{task.id}"
 									class="hover:text-primary transition-colors"
 									onclick={(e) => e.stopPropagation()}
 								>
 									{task.title}
 								</a>
-							</h4>
+							</small>
 							<div class="text-base-content/60 line-clamp-2">
 								{task.description}
 							</div>
@@ -252,7 +252,10 @@
 									d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 								/>
 							</svg>
-							<div class="text-base-content/60 flex min-w-0 flex-1 flex-col">
+							<div class="flex min-w-0 flex-1 flex-col">
+								<small class="text-base-content/60 text-xs">
+									{$t('dashboard.task_details_by_task.location_details')}
+								</small>
 								<span class="line-clamp-2 text-sm font-medium">
 									{#if task.dropOffLocation?.displayName}
 										{task.dropOffLocation.displayName}

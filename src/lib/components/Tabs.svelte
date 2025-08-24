@@ -50,7 +50,7 @@
 	<div class="tabs tabs-bordered w-full">
 		{#each tabs as tab}
 			<button
-				class="tab {activeTab === tab.id ? 'tab-active' : ''}"
+				class="tab {activeTab === tab.id ? 'active-tab' : ''}"
 				onclick={() => onTabChange(tab.id)}
 				aria-selected={activeTab === tab.id}
 				role="tab"
@@ -64,19 +64,21 @@
 	</div>
 
 	<!-- Animated slider -->
-	<div
-		class="tab-slider bg-primary absolute bottom-0 h-0.5 transition-all duration-300"
-		style={sliderStyle}
-	></div>
 </div>
 
 <style>
-	.tabs-container {
-		overflow: hidden;
+	.tab.active-tab {
+		position: relative;
 	}
 
-	.tab-slider {
+	.tab.active-tab::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 100%;
 		height: 2px;
+		background-color: orange; /* Or your primary color variable */
 		border-radius: 1px;
 	}
 </style>

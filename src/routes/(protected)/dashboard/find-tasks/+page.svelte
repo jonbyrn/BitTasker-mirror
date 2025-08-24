@@ -650,11 +650,9 @@
 											class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
 										>
 											<!-- Left: Title and Sats -->
-											<div class="">
-												<small class="card-title line-clamp-2 text-lg">
-													{task.title}
-												</small>
-											</div>
+											<small class="card-title line-clamp-2 text-lg">
+												{task.title}
+											</small>
 										</div>
 
 										<!-- Schedule and Sats Row -->
@@ -676,9 +674,11 @@
 															d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
 														/>
 													</svg>
-													<div class="flex flex-col">
+													<div class="flex flex-col px-2">
 														{#if task.deadline}
-															<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.deadline')}</small>
+															<small class="text-base-content/60 text-xs"
+																>{$t('dashboard.task_details_by_task.deadline')}</small
+															>
 															<span class="text-sm font-medium">
 																{new Date(task.deadline).toLocaleDateString('en-US', {
 																	day: '2-digit',
@@ -687,7 +687,9 @@
 																})}, 12pm
 															</span>
 														{:else if task.dateRange}
-															<small class="text-base-content/60 text-xs">{$t('dashboard.task_details_by_task.date_range')}</small>
+															<small class="text-base-content/60 text-xs"
+																>{$t('dashboard.task_details_by_task.date_range')}</small
+															>
 															<span class="text-sm font-medium">
 																{new Date(task.dateRange.start).toLocaleDateString('en-US', {
 																	day: '2-digit',
@@ -719,6 +721,7 @@
 
 											<!-- Location -->
 											<div class="flex w-full items-start gap-2">
+												
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
 													class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
@@ -739,7 +742,10 @@
 														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
 													/>
 												</svg>
-												<div class="text-base-content/60 flex min-w-0 flex-1 flex-col">
+												<div class="flex min-w-0 flex-1 flex-col">
+													<small class="text-base-content/60 text-xs">
+														{$t('dashboard.task_details_by_task.location_details')}
+													</small>
 													<span class="line-clamp-2 text-sm font-medium">
 														{#if task.dropOffLocation?.displayName}
 															{task.dropOffLocation.displayName}
@@ -756,7 +762,7 @@
 										<!-- Bottom Row: Avatar + Action Buttons -->
 										<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 											<!-- Left: Avatar, Username, and Review Stars -->
-											<div class="flex items-center gap-3 min-w-0 flex-1">
+											<div class="flex min-w-0 flex-1 items-center gap-3">
 												<!-- Avatar -->
 												<div class="avatar">
 													<div
@@ -799,9 +805,10 @@
 												</div>
 
 												<!-- Username and Review Stars -->
-												<div class="flex flex-col min-w-0 flex-1">
-													<span class="text-sm font-medium truncate">
-														{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
+												<div class="flex min-w-0 flex-1 flex-col">
+													<span class="truncate text-sm font-medium">
+														{task.creator?.username ||
+															$t('dashboard.task_details_by_task.anonymous')}
 													</span>
 													<!-- Review Stars -->
 													<div class="flex items-center">
@@ -823,7 +830,7 @@
 											</div>
 
 											<!-- Right: Action Buttons -->
-											<div class="flex w-full items-center gap-2 md:w-auto flex-shrink-0">
+											<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
 												<button
 													class="btn btn-primary btn-sm flex-1 md:flex-none"
 													class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
@@ -1006,7 +1013,6 @@
 		overflow: hidden;
 		display: -webkit-box;
 		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
 	}
 
 	/* Ensure proper flex behavior */

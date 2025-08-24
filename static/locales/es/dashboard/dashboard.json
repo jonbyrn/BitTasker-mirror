@@ -7,7 +7,7 @@
     "find_tasks": "Buscar Tareas",
     "tabs": {
       "tasks": "Mis Tareas",
-      "bids": "Mis Ofertas",
+      "bids": "Ofertas Enviadas",
       "recurring": "Tareas Recurrentes",
       "saved_searches": "Búsquedas Guardadas"
     },

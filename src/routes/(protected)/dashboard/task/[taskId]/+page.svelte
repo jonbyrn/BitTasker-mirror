@@ -199,7 +199,9 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<h4 class="mb-2 line-clamp-2 max-w-2xl">{task.title}</h4>
+								<small class="card-title line-clamp-2 text-lg pb-1">
+									{task.title}
+								</small>
 								<div class="text-base-content/60 text-start">
 									{#if showFullDescription}
 										{task.description}
@@ -218,9 +220,9 @@
 									{/if}
 								</div>
 							</div>
-							<div class="text-right">
-								<p class="text-lg font-bold">{task.status}</p>
-								<small class="text-base-content/60 text-sm"
+							<div class="text-center">
+								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
+								<small class="text-base-content/60 text-xs"
 									>{$t('dashboard.task_details_by_task.status')}</small
 								>
 							</div>
@@ -267,11 +269,11 @@
 							{/if}
 
 							<div class="mb-1">
-								<div class="text-2xl font-bold">
+								<div class="text-lg font-bold">
 									${calculateUsdtEstimate(task.budget.amount, btcPrice)}
 								</div>
 								<div class="text-right">
-									<span class="text-base-content/60 text-lg">
+									<span class="text-base-content/60 text-sm font-semibold">
 										{formatSatsAmount(task.budget.amount)}
 									</span>
 								</div>
@@ -283,9 +285,6 @@
 							<!-- Location information -->
 							{#if task.pickupLocation || task.dropOffLocation}
 								<div class="mb-2">
-									<h5 class="mb-1 font-bold">
-										{$t('dashboard.task_details_by_task.location_details')}
-									</h5>
 									<div class="grid grid-cols-1">
 										{#if task.pickupLocation && task.pickupLocation.displayName && task.pickupLocation.displayName.trim() !== ''}
 											<div class="mb-2">

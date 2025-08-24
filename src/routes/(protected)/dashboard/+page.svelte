@@ -13,8 +13,8 @@
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
-		//{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') },
-		{ id: 'bids', label: $t('dashboard.tabs.bids') }
+		{ id: 'bids', label: $t('dashboard.tabs.bids') },
+		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
 	let activeTab = $state('');
@@ -67,7 +67,7 @@
 	<div class="mb-6 flex items-center justify-between">
 		<div>
 			<h3 class="font-bold">{$t('dashboard.title')}</h3>
-			<p class="text-base-content/70">{$t('dashboard.description')}</p>
+			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
 		</div>
 		<a
 			href={activeTab === 'bids' ? '/dashboard/find-tasks' : '/dashboard/create-task'}
