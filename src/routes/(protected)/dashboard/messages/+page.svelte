@@ -282,7 +282,8 @@
 			<h3 class="">{$t('messages.title')}</h3>
 			<p class="text-base-content/70">{$t('messages.subtitle')}</p>
 		</div>
-		<button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button>
+		<!-- The below button is commented out because we don't currently want the user to be able to message anyone, just taskers/taskees that they're hiring, or hired  -->
+		<!-- <button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button> -->
 	</div>
 
 	<!-- Modal -->

@@ -139,9 +139,11 @@
 			<div class="items-center space-y-4 text-center">
 				<!-- Educational Header to match flow -->
 				<div class="education-header mb-6 text-center">
-					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step {currentStep + 1} of {totalSteps}</div>
-					<h3 class="step-title mb-3 mt-4">You're almost there</h3>
-					<h5 class="mb-6">Complete a few details to finish</h5>
+					<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
+						{$t('onboarding_auth.form.complete_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.complete_setup.of')} {totalSteps}
+					</div>
+					<h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.complete_setup.title')}</h3>
+					<h5 class="mb-6">{$t('onboarding_auth.form.complete_setup.subtitle')}</h5>
 
                     {#if missingFields.length > 0}
                         <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
@@ -155,13 +157,13 @@
 					{/if}
 
 					<p class="text-base-content mb-6 text-lg max-w-md mx-auto">
-						Don't worry you can continue using BitTasker, and complete your profile later.
+						{$t('onboarding_auth.form.dont_worry_you_can_continue_using_bittasker_and_complete_your_onboarding_process_later')}
 					</p>
 				</div>
 
 				<div class="mt-4 flex w-full mx-auto max-w-md flex-col items-center space-y-4">
 					<button class="btn btn-primary w-full" onclick={handleRestartSetup}>
-						Complete Setup
+						{$t('onboarding_auth.form.complete_setup.complete_setup')}
 					</button>
 					<button
 						class="btn btn-secondary w-full"
@@ -175,9 +177,9 @@
 					>
 						{#if isContinueLoading}
 							<span class="loading loading-spinner loading-sm"></span>
-							Loading...
+							{$t('onboarding_auth.form.complete_setup.loading')}
 						{:else}
-							Continue without completing
+							{$t('onboarding_auth.form.complete_setup.continue_without_completing')}
 						{/if}
 					</button>
 				</div>
@@ -186,7 +188,9 @@
 			<div class="items-center space-y-4 text-center w-full mx-auto">
 				<!-- Educational Header (aligned with other onboarding screens) -->
                 <div class="education-header mb-6 text-center">
-                    				<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step {currentStep + 1} of {totalSteps}</div>
+                    				<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+									{$t('onboarding_auth.form.complete_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.complete_setup.of')} {totalSteps}
+								</div>
 					<div class="text-success mt-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -203,42 +207,42 @@
 							/>
 						</svg>
 					</div>
-					<h3 class="step-title mb-3 mt-4">🎉 Welcome to BitTasker! 🎉</h3>
-					<h5 class="mb-3">You're all set</h5>
+					<h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.complete_setup.welcome')}</h3>
+					<h5 class="mb-3">{$t('onboarding_auth.form.complete_setup.all_set')}</h5>
 					<p class="step-description text-base-content mb-6 text-lg max-w-md mx-auto">
-						Your account is ready. You are now part of the decentralized economy.
+						{$t('onboarding_auth.form.complete_setup.account_ready')}
 					</p>
 
                     <!-- Features List -->
 					<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                         <div class="feature-item flex items-center justify-start gap-2 text-lg">
                             <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span><strong>Decentralized</strong> — your data, your control</span>
+                            <span>{@html $t('onboarding_auth.form.complete_setup.features.decentralized')}</span>
                         </div>
                         <div class="feature-item flex items-center justify-start gap-2 text-lg">
                             <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span><strong>Bitcoin-native</strong> — earn and pay in Bitcoin</span>
+                            <span>{@html $t('onboarding_auth.form.complete_setup.features.bitcoin_native')}</span>
                         </div>
                         <div class="feature-item flex items-center justify-start gap-2 text-lg">
                             <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span><strong>Secure</strong> — protected by Nostr</span>
+                            <span>{@html $t('onboarding_auth.form.complete_setup.features.secure')}</span>
                         </div>
                         <div class="feature-item flex items-center justify-start gap-2 text-lg">
                             <IconWarning class="text-warning min-w-[1.5em]" />
-                            <span><strong>Global</strong> — connect with users worldwide</span>
+                            <span>{@html $t('onboarding_auth.form.complete_setup.features.global')}</span>
                         </div>
 					</div>
 
-					<p class="text-primary mb-6 text-lg">Jump in — explore tasks and opportunities.</p>
+					<p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.complete_setup.jump_in')}</p>
 				</div>
 				
 				<div class="mt-4 space-y-2">
-					<h5>What's next?</h5>
+					<h5>{$t('onboarding_auth.form.complete_setup.whats_next')}</h5>
 					<ul class="text-base-content list-inside list-disc text-start text-lg space-y-1 w-fit mx-auto">
-						<li>Browse available tasks or create your own</li>
-						<li>Expand your profile to attract more clients</li>
-						<li>Set up your payment preferences</li>
-						<li>Explore the platform features</li>
+						<li>{$t('onboarding_auth.form.complete_setup.next_steps.browse_tasks')}</li>
+						<li>{$t('onboarding_auth.form.complete_setup.next_steps.expand_profile')}</li>
+						<li>{$t('onboarding_auth.form.complete_setup.next_steps.payment_preferences')}</li>
+						<li>{$t('onboarding_auth.form.complete_setup.next_steps.explore_features')}</li>
 					</ul>
 				</div>
 				<button
@@ -252,9 +256,9 @@
 				>
 					{#if isRedirecting}
 						<span class="loading loading-spinner loading-sm"></span>
-						Loading...
+						{$t('onboarding_auth.form.complete_setup.loading')}
 					{:else}
-						Start Tasking
+						{$t('onboarding_auth.form.complete_setup.start_tasking')}
 					{/if}
 				</button>
 			</div>

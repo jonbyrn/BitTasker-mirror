@@ -1,9 +1,6 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy } from 'svelte';
-	import { Geolocation } from '@capacitor/geolocation';
-	import { Capacitor } from '@capacitor/core';
-	import { tick } from 'svelte';
 	let { location, height = '400px' } = $props<{
 		location?: Location | null;
 		height?: string;

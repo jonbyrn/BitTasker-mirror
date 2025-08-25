@@ -29,7 +29,7 @@ export function formatCurrency(
 			// Regular fiat currency with 2 decimal places
 			return `$${amount.toFixed(2)}`;
 		default:
-			return `${currency} ${amount}`;
+			return `${amount} ${currency}`;
 	}
 }
 

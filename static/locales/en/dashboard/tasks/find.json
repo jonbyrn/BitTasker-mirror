@@ -53,6 +53,8 @@
       "toggle_location_section": "Toggle Location filter section",
       "toggle_availability_section": "Toggle Availability filter section",
       "toggle_categories_section": "Toggle Categories filter section",
-      "toggle_skills_section": "Toggle Skills filter section"
+      "toggle_skills_section": "Toggle Skills filter section",
+      "no_results_title": "No results found",
+      "no_results_message": "Try adjusting your filters or search criteria"
     }
   }

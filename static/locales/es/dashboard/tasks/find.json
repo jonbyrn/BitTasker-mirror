@@ -57,6 +57,8 @@
       "toggle_location_section": "Alternar sección de Ubicación",
       "toggle_availability_section": "Alternar sección de Disponibilidad",
       "toggle_categories_section": "Alternar sección de Categorías",
-      "toggle_skills_section": "Alternar sección de Habilidades"
+      "toggle_skills_section": "Alternar sección de Habilidades",
+      "no_results_title": "No se encontraron resultados",
+      "no_results_message": "Intenta ajustar tus filtros o criterios de búsqueda"
     }
   }

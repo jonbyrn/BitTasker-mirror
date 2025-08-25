@@ -47,6 +47,7 @@ export interface TaskBody {
 }
 
 export interface Task {
+	estimatedHours: any;
 	id: string;
 	npub: string;
 	status: TaskStatusEnum;
