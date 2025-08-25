@@ -28,15 +28,6 @@
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
-	
-	// Debug: Log the npubs for comparison (remove this after debugging)
-	$effect(() => {
-		if (task && $user) {
-			console.log('Task npub:', task.npub);
-			console.log('User npub:', $user.npub);
-			console.log('Is owner:', isOwner);
-		}
-	});
 
 	// Helper function to prepare images for Gallery component
 	// La función ahora es asíncrona
