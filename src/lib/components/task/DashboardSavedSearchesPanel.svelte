@@ -132,8 +132,55 @@
 	{/if}
 
 	{#if isLoading}
-		<div class="flex justify-center p-6">
-			<div class="loading loading-spinner loading-lg"></div>
+		<div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 animate-pulse">
+			{#each Array(1) as _}
+				<div class="card border-base-content/10 rounded-xl border shadow-sm">
+					<div class="card-body p-4">
+						<!-- Header with name and notification indicator skeleton -->
+						<div class="flex items-start justify-between">
+							<!-- Search name skeleton -->
+							<div class="bg-base-300 h-6 w-32 rounded"></div>
+							
+							<!-- Notification badge skeleton (optional) -->
+							<div class="bg-base-300 h-5 w-8 rounded-full"></div>
+						</div>
+
+						<!-- Search criteria summary skeleton -->
+						<div class="mt-1">
+							<!-- Badges skeleton -->
+							<div class="flex flex-wrap gap-1">
+								<div class="bg-base-300 h-5 w-16 rounded-full"></div>
+								<div class="bg-base-300 h-5 w-20 rounded-full"></div>
+								<div class="bg-base-300 h-5 w-24 rounded-full"></div>
+							</div>
+							
+							<!-- Budget tier skeleton -->
+							<div class="mt-1">
+								<div class="bg-base-300 h-4 w-28 rounded"></div>
+							</div>
+						</div>
+
+						<!-- Created date skeleton -->
+						<div class="mt-2">
+							<div class="bg-base-300 h-3 w-24 rounded"></div>
+						</div>
+
+						<!-- Action buttons skeleton -->
+						<div class="card-actions mt-3 justify-between">
+							<!-- Notification toggle skeleton -->
+							<div class="flex items-center">
+								<div class="bg-base-300 h-6 w-20 rounded"></div>
+							</div>
+
+							<!-- Edit and delete buttons skeleton -->
+							<div class="flex gap-2">
+								<div class="bg-base-300 h-8 w-8 rounded"></div>
+								<div class="bg-base-300 h-8 w-8 rounded"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{:else if savedSearches.length === 0}
 		<div class="py-8 text-center">

@@ -1,12 +1,18 @@
 <script lang="ts">
 	import type { CounterOffer, TaskBid } from '$lib/types/bid';
-	import { t, locale } from 'svelte-i18n';
-	import { formatDistanceToNow } from 'date-fns';
+	import { t } from 'svelte-i18n';
+	import { format, formatDistanceToNow } from 'date-fns';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import bidService from '$lib/api/services/bid.service';
-
-	let { bids, isOwner, showCounterOfferForm = $bindable() } = $props<{
+	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { onMount } from 'svelte';
+	let {
+		bids,
+		isOwner,
+		showCounterOfferForm = $bindable()
+	} = $props<{
 		bids: TaskBid[];
 		isOwner: boolean;
 		showCounterOfferForm: boolean;
@@ -26,6 +32,11 @@
 	const formatTimeAgo = (date: string | number): string => {
 		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
 		return formatDistanceToNow(dateObj, { addSuffix: true });
+	};
+
+	const formatDateString = (date: string | number): string => {
+		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
+		return format(dateObj, 'MMM yyyy');
 	};
 
 	// Bid actions
@@ -131,9 +142,19 @@
 			console.error(`Error ${action}ing counter offer:`, error);
 		}
 	}
+
+	let btcPrice = $state(0);
+
+	async function fetchBtcPrice(): Promise<void> {
+		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+	}
+
+	onMount(async () => {
+		await fetchBtcPrice();
+	});
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 mb-10">
 	<!-- Loading state for bids -->
 	{#if loadingBids}
 		<div class="flex justify-center py-8">
@@ -166,44 +187,108 @@
 		</div>
 	{:else}
 		<!-- Bids list -->
-		<div class="space-y-4">
+		<div class="space-y-4 mb-10 pb-10">
 			{#each bids as bid}
 				<!-- Bid card -->
-				<div class="card bg-base-200 shadow-sm transition-shadow hover:shadow-md">
+				<div class="bg-base-200 rounded-2xl shadow-sm transition-shadow hover:shadow-md">
 					<div class="card-body p-4">
 						<!-- Bid header with status and amount -->
 						<div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-							<div>
-								<div class="flex items-center justify-between gap-4">
-									<h3 class="text-lg font-semibold">
-										{bid?.userProfile?.user?.displayName || 'Anonymous'}
-									</h3>
-									<button class="border-gray text-primary border-b-1 text-sm">
-										View user details
-									</button>
+							<div class="flex items-center gap-3">
+								<!-- Avatar -->
+								<div class="avatar">
+									<div class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full">
+										{#if bid.userProfile?.user?.avatar}
+											<img
+												src={bid.userProfile.user.avatar}
+												alt="Avatar"
+												class="h-12 w-12 rounded-full object-cover"
+											/>
+										{:else}
+											<!-- Placeholder with initials -->
+											<div
+												class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
+											>
+												{#if bid.userProfile?.user?.displayName}
+													<span class="text-xl font-semibold">
+														{bid.userProfile.user.displayName.charAt(0).toUpperCase()}
+													</span>
+												{:else}
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="text-base-content/60 h-8 w-8"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+														/>
+													</svg>
+												{/if}
+											</div>
+										{/if}
+									</div>
 								</div>
 
-								<p class="text-base-content/60 text-xs">
-									Submitted {formatTimeAgo(bid.createdAt)}
-								</p>
-							</div>
-							<div class="flex flex-col sm:items-end">
-								<div
-									class="badge badge-lg mb-1 {bid.status === 'ACCEPTED'
-										? 'badge-success'
-										: bid.status === 'REJECTED'
-											? 'badge-error'
-											: bid.status === 'WITHDRAWN'
-												? 'badge-warning'
-												: bid.status === 'COUNTERED'
-													? 'badge-info'
-													: 'badge-primary'}"
-								>
-									{bid.status}
+								<!-- Username and submission time -->
+								<div class="flex flex-col">
+									<h3 class="text-lg font-semibold">
+										{bid.userProfile?.user?.displayName || 'Anonymous User'}
+									</h3>
+
+									<p class="text-base-content/60 text-sm">
+										Member since
+										{new Date(bid.createdAt).toLocaleDateString('en-US', {
+											month: '2-digit',
+											year: 'numeric'
+										})}
+									</p>
+									<!-- Review Stars (if available) -->
+									<div class="mt-1 flex items-center">
+										{#each Array(5) as _, i}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-3 w-3 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+												fill="currentColor"
+												viewBox="0 0 24 24"
+											>
+												<path
+													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+												/>
+											</svg>
+										{/each}
+										<span class="text-base-content/60 ml-1 text-xs">
+											<!-- {(bid.userProfile.user.rating || 0).toFixed(1)} -->
+											4.0
+										</span>
+									</div>
 								</div>
-								<p class="text-primary font-bold">
-									{formatCurrency(bid.amount, bid.currency || 'USD')}
-								</p>
+							</div>
+
+							<div class="mb-1">
+								{#if bid.paymentType === 'HOURLY'}
+									<div class="text-lg font-bold">
+										${calculateUsdtEstimate(bid.hourlyRate, btcPrice)} /hr
+									</div>
+									<div class="">
+										<span class="text-base-content/60 text-sm font-semibold">
+											{formatSatsAmount(bid.hourlyRate)}
+										</span>
+									</div>
+								{:else}
+									<div class="text-lg font-bold">
+										${calculateUsdtEstimate(bid.amount, btcPrice)}
+									</div>
+									<div class="">
+										<span class="text-base-content/60 text-sm font-semibold">
+											{formatSatsAmount(bid.amount)}
+										</span>
+									</div>
+								{/if}
 							</div>
 						</div>
 
@@ -245,30 +330,41 @@
 							<div class="animate-fadeIn mt-4 space-y-4">
 								<!-- Payment details -->
 								<div>
-									<h4 class="text-base-content/60 mb-1 text-sm font-medium">Payment Details</h4>
-									<div class="bg-base-300 rounded-box p-3">
+									<div class=" rounded-box">
 										<div class="grid grid-cols-2 gap-2">
 											<div>
 												<span class="text-base-content/60 text-xs">Payment Type:</span>
-												<p>{bid.paymentType}</p>
+												<div class="text-lg font-bold">{bid.paymentType}</div>
 											</div>
 											{#if bid.paymentType === 'HOURLY'}
 												<div>
 													<span class="text-base-content/60 text-xs">Hourly Rate:</span>
-													<p>
-														{formatCurrency(bid.hourlyRate || 0, bid.currency || 'USD')}/hr
-													</p>
+													<div class="text-lg font-bold">
+														${calculateUsdtEstimate(bid.hourlyRate, btcPrice)} /hr
+													</div>
+													<span class="text-base-content/60 text-sm font-semibold">
+														{formatSatsAmount(bid.hourlyRate)}
+													</span>
 												</div>
+
 												<div>
 													<span class="text-base-content/60 text-xs">Estimated Hours:</span>
-													<p>{bid.estimatedHours || 0} hours</p>
+													<div class="text-lg font-bold">{bid.estimatedHours || 0} hours</div>
 												</div>
 											{/if}
 											<div>
 												<span class="text-base-content/60 text-xs">Total Amount:</span>
-												<p class="font-semibold">
-													{formatCurrency(bid.amount, bid.currency || 'USD')}
-												</p>
+												<div class="text-lg font-bold">
+													${calculateUsdtEstimate(bid.amount, btcPrice)}
+												</div>
+												<span class="text-base-content/60 text-sm font-semibold">
+													{formatSatsAmount(bid.amount)}
+												</span>
+											</div>
+
+											<div>
+												<span class="text-base-content/60 text-xs">Estimated Timeline:</span>
+												<div class="text-lg font-bold">{bid.estimatedDuration}</div>
 											</div>
 										</div>
 									</div>
@@ -276,30 +372,20 @@
 
 								<!-- Full description -->
 								<div>
-									<h4 class="text-base-content/60 mb-1 text-sm font-medium">Proposal</h4>
-									<div class="bg-base-300 rounded-box p-3 whitespace-pre-wrap">
+									<small class="text-base-content/60 mb-1 text-sm font-medium">Proposal</small>
+									<div class="rounded-box whitespace-pre-wrap">
 										{bid.description}
 									</div>
 								</div>
 
 								<!-- Approach -->
 								{#if bid.proposedApproach}
-									<div>
-										<h4 class="text-base-content/60 mb-1 text-sm font-medium">Proposed Approach</h4>
-										<div class="bg-base-300 rounded-box p-3 whitespace-pre-wrap">
+									<div class="mt-2">
+										<small class="text-base-content/60 mb-1 text-sm font-medium"
+											>Proposed Approach</small
+										>
+										<div class=" rounded-box whitespace-pre-wrap">
 											{bid.proposedApproach}
-										</div>
-									</div>
-								{/if}
-
-								<!-- Timeline -->
-								{#if bid.estimatedDuration}
-									<div>
-										<h4 class="text-base-content/60 mb-1 text-sm font-medium">
-											Estimated Timeline
-										</h4>
-										<div class="bg-base-300 rounded-box p-3">
-											{bid.estimatedDuration}
 										</div>
 									</div>
 								{/if}
@@ -339,7 +425,7 @@
 								{#if bid.milestones && bid.milestones.length > 0}
 									<div>
 										<h4 class="text-base-content/60 mb-1 text-sm font-medium">Milestones</h4>
-										<div class="bg-base-300 rounded-box p-3">
+										<div class="bg-base-300 rounded-box">
 											<ul class="list-inside list-disc">
 												{#each bid.milestones as milestone}
 													<li class="text-sm">{milestone?.description}</li>
@@ -364,7 +450,7 @@
 						{/if}
 
 						<!-- Action buttons -->
-						<div class="card-actions mt-4 justify-end">
+						<div class="card-actions mt-4 mb-3 pb-1 justify-end">
 							<button
 								class="btn btn-ghost btn-outline btn-sm border"
 								onclick={() => toggleBidDetails(bid.id)}

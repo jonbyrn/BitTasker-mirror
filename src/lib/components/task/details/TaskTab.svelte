@@ -147,9 +147,9 @@
 	<!-- Task details -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<div>
-			<h5 class="text-base-content/60 text-sm">
+			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
-			</h5>
+			</small>
 			<div class="text-lg font-bold">
 				${calculateUsdtEstimate(task.budget.amount, btcPrice)}
 				<div class="text-base-content/60 text-lowercase text-sm">
@@ -159,9 +159,9 @@
 		</div>
 
 		<div>
-			<h5 class="text-base-content/60 text-sm">
+			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.type')}
-			</h5>
+			</small>
 			<p class="font-semibold">
 				{task.taskType === TaskTypeEnum.REMOTE
 					? $t('dashboard.task_details_by_task.remote')
@@ -171,9 +171,9 @@
 
 		{#if task.deadline}
 			<div>
-				<h5 class="text-base-content/60 text-sm">
+				<small class="text-base-content/60 text-sm">
 					{$t('dashboard.task_details_by_task.deadline')}
-				</h5>
+				</small>
 				<p class="font-semibold">
 					{new Date(task.deadline).toLocaleDateString('en-US', {
 						day: '2-digit',
@@ -184,9 +184,9 @@
 			</div>
 		{:else if task.dateRange}
 			<div>
-				<h5 class="text-base-content/60 text-sm">
+				<small class="text-base-content/60 text-sm">
 					{$t('dashboard.task_details_by_task.date_range')}
-				</h5>
+				</small>
 				<p class="font-semibold">
 					{new Date(task.dateRange.start).toLocaleDateString('en-US', {
 						day: '2-digit',
@@ -202,14 +202,14 @@
 		{/if}
 
 		<div>
-			<h5 class="text-base-content/60 text-sm">{$t('dashboard.task_details_by_task.posted')}</h5>
+			<small class="text-base-content/60 text-sm">{$t('dashboard.task_details_by_task.posted')}</small>
 			<p class="font-semibold">{formatDateString(task.createdAt)}</p>
 		</div>
 	</div>
 
 	<!-- Task description -->
 	<div class="mb-4">
-		<h4 class="mb-2 font-medium">{$t('dashboard.task_details_by_task.description_task')}</h4>
+		<small class="text-base-content/60 ">{$t('dashboard.task_details_by_task.description_task')}</small>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-[7rem] overflow-y-auto">
 				<p>{task.description}</p>
@@ -220,9 +220,9 @@
 	<!-- Task skills -->
 	{#if task.skills?.length > 0}
 		<div>
-			<h5 class="text-base-content/60 mb-1 text-sm">
+			<small class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.required_skills')}
-			</h5>
+			</small>
 			<div class="flex flex-wrap gap-1">
 				{#each task.skills as skill}
 					<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
@@ -234,9 +234,9 @@
 	<!-- Task categories -->
 	{#if task?.categories?.length > 0}
 		<div>
-			<h5 class="text-base-content/60 mb-1 text-sm">
+			<small class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.categories')}
-			</h5>
+			</small>
 			<div class="flex flex-wrap gap-1">
 				{#each task.categories as category}
 					<span class="badge badge-outline badge-info pb-[2px]">
@@ -251,9 +251,9 @@
 	{#if task.taskType === TaskTypeEnum.IN_PERSON}
 		{#if task.pickupLocation}
 			<div>
-				<h5 class="text-base-content/60 mb-1 text-sm">
+				<small class="text-base-content/60 mb-1 text-sm">
 					{$t('dashboard.task_details_by_task.pickup_location')}
-				</h5>
+				</small>
 				<div class="flex items-center gap-1">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -282,9 +282,9 @@
 
 		{#if task.dropOffLocation && task.dropOffLocation.displayName}
 			<div>
-				<h5 class="text-base-content/60 mb-1 text-sm">
+				<small class="text-base-content/60 mb-1 text-sm">
 					{$t('dashboard.task_details_by_task.dropoff_location')}
-				</h5>
+				</small>
 				<div class="flex items-center gap-1">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -313,9 +313,9 @@
 	<!-- Task attachments -->
 	{#if task.attachments && task.attachments.length > 0}
 		<div class={!isOwner ? 'mb-20 sm:mb-0' : ''}>
-			<h5 class="text-base-content/60 mb-1 text-sm">
+			<small class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.attachments')}
-			</h5>
+			</small>
 
 			<!-- Images using PhotoSwipe Gallery -->
 			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}

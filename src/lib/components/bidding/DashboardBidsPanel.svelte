@@ -94,11 +94,84 @@
  -->
 	<!-- Loading State -->
 	{#if loading}
-		<div class="flex justify-center py-12">
-			<div class="text-center">
-				<div class="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-b-2 border-white"></div>
-				<p class="text-gray-400">{$t('bids.loading_bids')}</p>
-			</div>
+		<div class="space-y-4">
+			{#each Array(1) as _}
+				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm animate-pulse">
+					<div class="card-body p-4 md:p-6">
+						<!-- Task Information - Header skeleton -->
+						<div class="border-base-300 mb-4 md:mb-6">
+							<div class="flex items-start">
+								<div class="flex-1">
+									<!-- Task title skeleton -->
+									<div class="bg-base-300 h-6 w-3/4 rounded"></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Your Bid Details skeleton -->
+						<div class="space-y-2">
+							<!-- Proposal title skeleton -->
+							<div class="flex flex-col md:flex-row md:items-center gap-2">
+								<div class="bg-base-300 h-4 md:h-5 w-32 rounded"></div>
+								<div class="bg-base-300 h-3 md:h-4 w-16 rounded"></div>
+							</div>
+
+							<!-- Two-column layout skeleton -->
+							<div class="flex flex-col md:flex-row gap-3 md:gap-4 items-start justify-between">
+								<!-- Left column: Scheduled Period skeleton -->
+								<div class="flex flex-col gap-3 md:gap-6 text-left w-full md:w-auto">
+									<div>
+										<div class="bg-base-300 mb-1 h-3 w-28 md:w-32 rounded"></div>
+										<div class="bg-base-300 h-4 w-32 md:w-36 rounded"></div>
+										<div class="bg-base-300 mt-1 h-3 w-24 md:w-28 rounded"></div>
+									</div>
+								</div>
+
+								<!-- Right column: Amount & Payment Type skeleton -->
+								<div class="flex flex-row w-full md:w-auto md:ml-auto">
+									<div class="text-start w-full md:w-auto">
+										<div class="bg-base-300 h-6 w-20 md:w-24 rounded"></div>
+										<div class="bg-base-300 mt-1 h-4 w-24 md:w-28 rounded"></div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Avatar, Username, and Review Stars skeleton -->
+							<div class="flex flex-col gap-2 md:gap-3 md:flex-row md:items-center md:justify-between pt-2">
+								<div class="flex items-center gap-2 md:gap-3">
+									<!-- Avatar skeleton -->
+									<div class="bg-base-300 h-6 md:h-8 w-6 md:w-8 rounded-full"></div>
+
+									<!-- Username and Review Stars skeleton -->
+									<div class="flex flex-col">
+										<div class="bg-base-300 mb-1 h-3 md:h-4 w-16 md:w-20 rounded"></div>
+										<!-- Review Stars skeleton -->
+										<div class="flex items-center">
+											{#each Array(5) as _}
+												<div class="bg-base-300 mr-1 h-2 md:h-3 w-2 md:w-3 rounded"></div>
+											{/each}
+											<div class="bg-base-300 ml-1 h-2 md:h-3 w-6 md:w-8 rounded"></div>
+										</div>
+									</div>
+								</div>
+							</div>
+
+							<!-- Bottom section: Show more and View Task button skeleton -->
+							<div class="flex flex-col md:flex-row gap-3 md:gap-0 md:justify-between">
+								<!-- Show more button skeleton -->
+								<div class="border-base-200 pt-2">
+									<div class="bg-base-300 h-6 w-20 rounded-2xl"></div>
+								</div>
+								
+								<!-- View Task button skeleton -->
+								<div class="flex justify-start md:justify-end">
+									<div class="bg-base-300 h-8 w-24 rounded"></div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{:else if error}
 		<!-- Error State -->
@@ -240,12 +313,12 @@
 								<!-- Right column: Amount & Payment Type -->
 								<div class="flex flex-row ml-auto">
 									<div class="text-start">
-										<p class="text-2xl font-semibold">
+										<div class="text-lg font-semibold">
 											${calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)}
-										</p>
-										<p class="text-base-content/60 text-lg">
+										</div>
+										<div class="text-base-content/60 text-lg">
 											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
-										</p>
+										</div>
 									</div>
 								</div>
 							</div>

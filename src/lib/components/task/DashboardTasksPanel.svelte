@@ -105,41 +105,70 @@
 <!-- Loading State -->
 {#if $myTasksStore.loading}
 	<div class="space-y-2">
-		{#each Array(2) as _}
-			<div class="card bg-base-100 animate-pulse rounded-xl shadow-md">
+		{#each Array(1) as _}
+			<div class="bg-base-100 rounded-xl shadow-md animate-pulse">
 				<div class="card-body">
-					<div class="flex justify-between">
+					<!-- Title and Description Section -->
+					<div class="flex flex-col justify-between gap-2">
+						<!-- Title skeleton -->
+						<div class="bg-base-300 h-7 w-3/4 rounded"></div>
+						<!-- Description skeleton -->
+						<div class="bg-base-300 my-2 h-4 w-full rounded"></div>
+						<div class="bg-base-300 mb-4 h-4 w-2/3 rounded"></div>
+					</div>
+
+					<!-- Deadline and Budget Section -->
+					<div class="flex w-full items-center justify-between">
+						<!-- Left: Schedule skeleton -->
 						<div class="flex items-center gap-2">
-							<div class="bg-base-300 h-7 w-48 rounded"></div>
+							<div class="bg-base-300 h-4 w-4 rounded"></div>
+							<div class="flex flex-col">
+								<div class="bg-base-300 mb-1 h-3 w-16 rounded"></div>
+								<div class="bg-base-300 h-4 w-24 rounded"></div>
+							</div>
 						</div>
-						<div class="bg-base-300 h-6 w-24 rounded"></div>
-					</div>
-					<div class="bg-base-300 my-2 h-4 w-full rounded"></div>
-					<div class="bg-base-300 mb-4 h-4 w-2/3 rounded"></div>
 
-					<div class="my-2 flex flex-wrap gap-2">
-						<div class="bg-base-300 h-6 w-28 rounded"></div>
-						<div class="bg-base-300 h-6 w-32 rounded"></div>
-					</div>
-
-					<div class="my-2 grid grid-cols-2 gap-4">
-						<div>
-							<div class="bg-base-300 mb-1 h-4 w-16 rounded"></div>
-							<div class="bg-base-300 h-6 w-32 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-1 h-4 w-24 rounded"></div>
-							<div class="bg-base-300 h-6 w-36 rounded"></div>
+						<!-- Right: Budget skeleton -->
+						<div class="text-right">
+							<div class="bg-base-300 h-6 w-20 rounded"></div>
+							<div class="bg-base-300 mt-1 h-4 w-16 rounded"></div>
 						</div>
 					</div>
 
-					<div class="mt-2 mb-2 flex items-center justify-between">
-						<div class="bg-base-300 h-6 w-20 rounded"></div>
+					<!-- Location Section -->
+					<div class="flex w-full items-start gap-2">
+						<div class="bg-base-300 mt-1 h-4 w-4 rounded"></div>
+						<div class="flex min-w-0 flex-1 flex-col">
+							<div class="bg-base-300 mb-1 h-3 w-24 rounded"></div>
+							<div class="bg-base-300 h-4 w-3/4 rounded"></div>
+						</div>
 					</div>
 
-					<div class="card-actions mt-2 justify-end">
-						<div class="bg-base-300 h-9 w-28 rounded"></div>
-						<div class="bg-base-300 h-9 w-24 rounded"></div>
+					<!-- Bottom Section: Avatar, Username, Rating, and Buttons -->
+					<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+						<!-- Left: Avatar, Username, and Review Stars skeleton -->
+						<div class="flex items-center gap-3">
+							<!-- Avatar skeleton -->
+							<div class="bg-base-300 h-8 w-8 rounded-full"></div>
+
+							<!-- Username and Review Stars skeleton -->
+							<div class="flex flex-col">
+								<div class="bg-base-300 mb-1 h-4 w-16 rounded"></div>
+								<!-- Review Stars skeleton -->
+								<div class="flex items-center">
+									{#each Array(5) as _}
+										<div class="bg-base-300 mr-1 h-3 w-3 rounded"></div>
+									{/each}
+									<div class="bg-base-300 ml-1 h-3 w-8 rounded"></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Right: Action Buttons skeleton -->
+						<div class="flex w-full items-center gap-2 md:w-auto">
+							<div class="bg-base-300 h-9 w-28 rounded"></div>
+							<div class="bg-base-300 h-9 w-24 rounded"></div>
+						</div>
 					</div>
 				</div>
 			</div>

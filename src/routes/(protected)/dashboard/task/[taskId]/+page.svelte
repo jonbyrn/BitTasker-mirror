@@ -10,7 +10,7 @@
 	import { user } from '$lib/stores/user.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
-
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';	
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -19,7 +19,7 @@
 	let loading = $state(true);
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0); // Default fallback price
 	let showFullDescription = $state(false); // New state for description toggle
 
 	// Bid drawer state
@@ -138,8 +138,13 @@
 		isSidebarOpen = true;
 	};
 
+	async function fetchBtcPrice(): Promise<void> {
+		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+	}
+
 	onMount(() => {
 		loadTaskDetails(taskId || '');
+		fetchBtcPrice();
 	});
 </script>
 
