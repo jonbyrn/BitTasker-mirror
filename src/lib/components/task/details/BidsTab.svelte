@@ -4,12 +4,14 @@
 	import { formatDistanceToNow } from 'date-fns';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
+	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import bidService from '$lib/api/services/bid.service';
 
-	let { bids, isOwner, showCounterOfferForm = $bindable() } = $props<{
+	let { bids, isOwner, showCounterOfferForm = $bindable(), taskTitle = $bindable('') } = $props<{
 		bids: TaskBid[];
 		isOwner: boolean;
 		showCounterOfferForm: boolean;
+		taskTitle: string;
 	}>();
 
 	let loadingBids = $state(false);
@@ -21,6 +23,10 @@
 	let withdrawalError = $state('');
 	let selectedBid = $state<TaskBid | null>(null);
 	let expandedBidId = $state<string | null>(null);
+	
+	// Bid acceptance state
+	let showAcceptanceForm = $state(false);
+	let bidToAccept = $state<TaskBid | null>(null);
 
 	// Format helpers
 	const formatTimeAgo = (date: string | number): string => {
@@ -29,9 +35,31 @@
 	};
 
 	// Bid actions
-	async function handleAcceptBid(bid: TaskBid) {
+	function handleAcceptBid(bid: TaskBid) {
+		bidToAccept = bid;
+		showAcceptanceForm = true;
+	}
+
+	async function submitBidAcceptance(bidId: string, escrowMethod: string, escrowDetails: any) {
 		try {
-			await bidService.acceptBid(bid.id);
+			// First accept the bid
+			await bidService.acceptBid(bidId);
+			
+			// Then handle escrow funding based on the method
+			if (escrowMethod === 'bittasker') {
+				// Handle BitTasker wallet funding
+				console.log('Funding escrow from BitTasker wallet:', escrowDetails);
+				// TODO: Implement BitTasker wallet funding
+			} else if (escrowMethod === 'external') {
+				// Handle external wallet funding
+				console.log('External wallet funding details:', escrowDetails);
+				// TODO: Implement external wallet funding tracking
+			}
+			
+			// Close the form
+			showAcceptanceForm = false;
+			bidToAccept = null;
+			
 			// Refresh task to update status and bids
 			// await loadTaskDetails(props.taskId!);
 		} catch (error) {
@@ -434,6 +462,22 @@
 				onCancel={() => {
 					showCounterOfferForm = false;
 					selectedBid = null;
+				}}
+			/>
+		</div>
+	</div>
+{/if}
+
+{#if showAcceptanceForm && bidToAccept}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+		<div class="w-full max-w-3xl p-4">
+			<BidAcceptanceForm
+				bid={bidToAccept}
+				taskTitle={taskTitle}
+				onSubmit={submitBidAcceptance}
+				onCancel={() => {
+					showAcceptanceForm = false;
+					bidToAccept = null;
 				}}
 			/>
 		</div>

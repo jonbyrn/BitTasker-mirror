@@ -301,7 +301,7 @@
 					<TaskTab {task} {isOwner} onClose={handleClose} />
 				{:else if currentTab === 'bids'}
 					<!-- Bids Tab -->
-					<BidsTab {bids} {isOwner} bind:showCounterOfferForm />
+					<BidsTab {bids} {isOwner} bind:showCounterOfferForm taskTitle={task?.title || ''} />
 				{/if}
 			</div>
 
