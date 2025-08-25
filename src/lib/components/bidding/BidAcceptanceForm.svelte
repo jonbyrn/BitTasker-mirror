@@ -202,7 +202,7 @@
 
 			<!-- Bid Price -->
 			<div class="text-right">
-				<div class="text-2xl font-bold text-success">
+				<div class="text-2xl font-bold">
 					${calculateUsdtEstimate(props.bid.amount, btcPrice)}
 					<div class="text-base-content/60 text-sm">
 						{formatSatsAmount(props.bid.amount)}
@@ -216,27 +216,27 @@
 					{/if}
 				</div>
 			</div>
-
-			<!-- Escrow Information -->
-			<div class="alert alert-info alert-outline">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					class="h-6 w-6 shrink-0 stroke-current"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>
-					<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
-					BitTasker is not involved in the escrow process and cannot access your funds.
-				</span>
-			</div>
+		</div>
+		
+		<!-- Escrow Information -->
+		<div class="alert alert-info alert-outline">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="h-6 w-6 shrink-0 stroke-current"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<span>
+				<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
+				BitTasker is not involved in the escrow process and cannot access your funds.
+			</span>
 		</div>
 	</div>
 
