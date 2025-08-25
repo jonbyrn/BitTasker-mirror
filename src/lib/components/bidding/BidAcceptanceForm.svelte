@@ -177,14 +177,6 @@
 					</div>
 				</div>
 
-				<!-- Escrow Information -->
-				<div class="mt-4 p-3 bg-info/10 border border-info/20 rounded-lg">
-					<p class="text-sm text-info">
-						<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
-						BitTasker is not involved in the escrow process and cannot access your funds.
-					</p>
-				</div>
-
 				<!-- Start and End Time -->
 				{#if props.bid.startDate && props.bid.endDate}
 					<div class="mt-4 flex items-center gap-4">
@@ -224,6 +216,27 @@
 					{/if}
 				</div>
 			</div>
+
+			<!-- Escrow Information -->
+			<div class="alert alert-info alert-outline">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					class="h-6 w-6 shrink-0 stroke-current"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<span>
+					<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
+					BitTasker is not involved in the escrow process and cannot access your funds.
+				</span>
+			</div>
 		</div>
 	</div>
 
@@ -234,12 +247,14 @@
 		<!-- Tab Navigation -->
 		<div class="tabs tabs-bordered mb-4">
 			<button
+				role="tab"
 				class="tab {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
 				onclick={() => selectedEscrowTab = 'bittasker'}
 			>
 				My BitTasker Wallet
 			</button>
 			<button
+				role="tab"
 				class="tab {selectedEscrowTab === 'external' ? 'tab-active' : ''}"
 				onclick={() => selectedEscrowTab = 'external'}
 			>
@@ -429,7 +444,7 @@
 		left: 0;
 		width: 100%;
 		height: 2px;
-		background-color: hsl(var(--p)); /* Primary color */
+		background-color: orange; /* Match the Tabs.svelte component */
 		border-radius: 1px;
 	}
 </style>
