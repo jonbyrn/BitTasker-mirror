@@ -1,8 +1,10 @@
 <script lang="ts">
 	import type { TaskBid } from '$lib/types/bid';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
+	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
 	import { onMount } from 'svelte';
 	import QRCode from 'qrcode';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props
 	const props = $props<{
@@ -24,9 +26,16 @@
 	// QR codes and addresses
 	let qrCodes = $state<Record<string, string>>({});
 	let addresses = $state<Record<string, string>>({});
+	let btcPrice = $state<number>(63000); // Default fallback price
 
-	// Derived values
-	const getFormattedPrice = $derived(formatCurrency(props.bid.amount, props.bid.currency));
+	// Fetch BTC price on mount
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+		}
+	}
 
 	// Generate sample addresses and QR codes (in real implementation, these would come from the backend)
 	async function generateAddressesAndQRCodes() {
@@ -104,6 +113,7 @@
 
 	onMount(() => {
 		generateAddressesAndQRCodes();
+		fetchBtcPrice();
 	});
 </script>
 
@@ -166,11 +176,46 @@
 						</div>
 					</div>
 				</div>
+
+				<!-- Escrow Information -->
+				<div class="mt-4 p-3 bg-info/10 border border-info/20 rounded-lg">
+					<p class="text-sm text-info">
+						<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
+						BitTasker is not involved in the escrow process and cannot access your funds.
+					</p>
+				</div>
+
+				<!-- Start and End Time -->
+				{#if props.bid.startDate && props.bid.endDate}
+					<div class="mt-4 flex items-center gap-4">
+						<div class="flex items-center gap-2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							<span class="text-sm">
+								<strong>Start:</strong> {new Date(props.bid.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {props.bid.startTime || '09:00'}
+							</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							<span class="text-sm">
+								<strong>End:</strong> {new Date(props.bid.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {props.bid.endTime || '17:00'}
+							</span>
+						</div>
+					</div>
+				{/if}
 			</div>
 
 			<!-- Bid Price -->
 			<div class="text-right">
-				<div class="text-2xl font-bold text-success">{getFormattedPrice}</div>
+				<div class="text-2xl font-bold text-success">
+					${calculateUsdtEstimate(props.bid.amount, btcPrice)}
+					<div class="text-base-content/60 text-sm">
+						{formatSatsAmount(props.bid.amount)}
+					</div>
+				</div>
 				<div class="text-base-content/60 text-sm">
 					{#if props.bid.paymentType === 'HOURLY'}
 						{formatCurrency(props.bid.hourlyRate || 0, props.bid.currency)}/hr · Est. {props.bid.estimatedHours || 0} hrs
@@ -187,7 +232,7 @@
 		<h3 class="text-lg font-semibold mb-4">Escrow Funding</h3>
 		
 		<!-- Tab Navigation -->
-		<div class="tabs tabs-boxed mb-4">
+		<div class="tabs tabs-bordered mb-4">
 			<button
 				class="tab {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
 				onclick={() => selectedEscrowTab = 'bittasker'}
@@ -215,10 +260,10 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset === 'LBTC' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedBitTaskerAsset = 'LBTC'}
 					>
-						<div class="card-body p-4">
-							<div class="flex items-center gap-2 mb-2">
-								<span class="text-lg">🌊</span>
-								<span class="font-semibold">L-BTC</span>
+						<div class="card-body p-4 text-center">
+							<div class="flex flex-col items-center gap-2 mb-2">
+								<span class="text-xl">🌊</span>
+								<span class="font-semibold text-lg">L-BTC</span>
 							</div>
 							<div class="text-sm text-base-content/60">
 								Available: 0.005 L-BTC
@@ -231,10 +276,10 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset === 'USDT' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedBitTaskerAsset = 'USDT'}
 					>
-						<div class="card-body p-4">
-							<div class="flex items-center gap-2 mb-2">
-								<span class="text-lg">💵</span>
-								<span class="font-semibold">USDT</span>
+						<div class="card-body p-4 text-center">
+							<div class="flex flex-col items-center gap-2 mb-2">
+								<span class="text-xl">💵</span>
+								<span class="font-semibold text-lg">USDT</span>
 							</div>
 							<div class="text-sm text-base-content/60">
 								Available: 150.00 USDT
@@ -253,19 +298,17 @@
 				</p>
 				
 				<!-- Payment Method Selection -->
-				<div class="grid grid-cols-1 gap-4 mb-4">
+				<div class="grid grid-cols-3 gap-4 mb-4">
 					<!-- Bitcoin Lightning -->
 					<button
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod === 'bitcoin-lightning' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedExternalMethod = 'bitcoin-lightning'}
 					>
-						<div class="card-body p-4">
-							<div class="flex items-center gap-3">
+						<div class="card-body p-4 text-center">
+							<div class="flex flex-col items-center gap-2">
 								<span class="text-2xl">⚡</span>
-								<div class="flex-1">
-									<div class="font-semibold">Bitcoin Lightning</div>
-									<div class="text-sm text-base-content/60">Fast, low-fee payments</div>
-								</div>
+								<div class="font-semibold text-sm">Bitcoin Lightning</div>
+								<div class="text-xs text-base-content/60">Fast, low-fee</div>
 							</div>
 						</div>
 					</button>
@@ -275,13 +318,11 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod === 'lbtc-liquid' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedExternalMethod = 'lbtc-liquid'}
 					>
-						<div class="card-body p-4">
-							<div class="flex items-center gap-3">
+						<div class="card-body p-4 text-center">
+							<div class="flex flex-col items-center gap-2">
 								<span class="text-2xl">🌊</span>
-								<div class="flex-1">
-									<div class="font-semibold">L-BTC on Liquid</div>
-									<div class="text-sm text-base-content/60">Confidential Bitcoin</div>
-								</div>
+								<div class="font-semibold text-sm">L-BTC on Liquid</div>
+								<div class="text-xs text-base-content/60">Confidential Bitcoin</div>
 							</div>
 						</div>
 					</button>
@@ -291,13 +332,11 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod === 'usdt-liquid' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedExternalMethod = 'usdt-liquid'}
 					>
-						<div class="card-body p-4">
-							<div class="flex items-center gap-3">
+						<div class="card-body p-4 text-center">
+							<div class="flex flex-col items-center gap-2">
 								<span class="text-2xl">💵</span>
-								<div class="flex-1">
-									<div class="font-semibold">USDT on Liquid</div>
-									<div class="text-sm text-base-content/60">Stablecoin payments</div>
-								</div>
+								<div class="font-semibold text-sm">USDT on Liquid</div>
+								<div class="text-xs text-base-content/60">Stablecoin</div>
 							</div>
 						</div>
 					</button>
@@ -337,7 +376,7 @@
 									<div class="flex items-start gap-2">
 										<span class="text-warning">⚠️</span>
 										<div class="text-sm">
-											<strong>Important:</strong> Send exactly {getFormattedPrice} to this address. 
+											<strong>Important:</strong> Send exactly {formatSatsAmount(props.bid.amount)} to this address. 
 											Any other amount may result in payment issues.
 										</div>
 									</div>
@@ -377,3 +416,20 @@
 		</button>
 	</div>
 </div>
+
+<style>
+	.tab.tab-active {
+		position: relative;
+	}
+
+	.tab.tab-active::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 2px;
+		background-color: hsl(var(--p)); /* Primary color */
+		border-radius: 1px;
+	}
+</style>
