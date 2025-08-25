@@ -72,7 +72,9 @@ export const ENDPOINTS = {
 		CREATE: `${API_PATH}/${API_VERSION}/${BIDS}`,
 		UPDATE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`,
 		WITHDRAW: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/withdraw`,
-		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`
+		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`,
+		ACCEPT: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/accept`,
+		REJECT: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/reject`
 	},
 
 	// Admin endpoints

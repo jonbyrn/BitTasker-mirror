@@ -61,7 +61,7 @@ export class BidService extends BaseApiService {
 	 * @throws Error if bid acceptance fails
 	 */
 	async acceptBid(bidId: string): Promise<void> {
-		const response = await this.post(`${ENDPOINTS.BIDS.GET}/${bidId}/accept`);
+		const response = await this.post(ENDPOINTS.BIDS.ACCEPT(bidId));
 		return response.data;
 	}
 
@@ -72,7 +72,7 @@ export class BidService extends BaseApiService {
 	 * @throws Error if bid rejection fails
 	 */
 	async rejectBid(bidId: string): Promise<void> {
-		const response = await this.post(`${ENDPOINTS.BIDS.GET}/${bidId}/reject`);
+		const response = await this.post(ENDPOINTS.BIDS.REJECT(bidId));
 		return response.data;
 	}
 
