@@ -28,6 +28,15 @@
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
+	
+	// Debug: Log the npubs for comparison (remove this after debugging)
+	$effect(() => {
+		if (task && $user) {
+			console.log('Task npub:', task.npub);
+			console.log('User npub:', $user.npub);
+			console.log('Is owner:', isOwner);
+		}
+	});
 
 	// Helper function to prepare images for Gallery component
 	// La función ahora es asíncrona
@@ -122,7 +131,8 @@
 
 			task = {
 				...taskData,
-				id: event.id
+				id: event.id,
+				npub: event.pubkey // Add the npub from the event to the task object
 			};
 		} catch (error) {
 			console.error('Failed to load task details:', error);
