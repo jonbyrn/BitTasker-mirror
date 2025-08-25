@@ -10,6 +10,7 @@
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
+
 	// Social media icon imports
 	import IconFacebook from '~icons/mdi/facebook';
 	import IconInstagram from '~icons/mdi/instagram';
@@ -44,7 +45,11 @@
 
 	let deviceInfoValue = $state<DeviceInfo | null>(null);
 	$effect(() => {
-		deviceInfoValue = $deviceInfo;
+		// Subscribe to the store manually since we're in Svelte 5
+		const unsubscribe = deviceInfo.subscribe((value) => {
+			deviceInfoValue = value;
+		});
+		return unsubscribe;
 	});
 
 	// Defer device/theme/keyboard helpers to only run on relevant routes and after initial render

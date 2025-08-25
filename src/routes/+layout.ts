@@ -3,6 +3,7 @@ import { browser } from '$app/environment';
 import { setupI18n } from '$lib/i18n/i18n';
 import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
+import { setupServiceWorker } from '$lib/utils/serviceWorkerIntegration';
 import type { LayoutLoad } from './$types';
 
 export const prerender = true;
@@ -18,6 +19,9 @@ export const load: LayoutLoad = async ({ url }) => {
 		await loadPageTranslations(url.pathname);
 		
 		initializeStatusBar();
+		
+		// Initialize service worker functionality
+		await setupServiceWorker();
 	}
 
 	return {};

@@ -25,6 +25,11 @@ const config = {
 			strict: true
 		}),
 
+        // Service Worker Configuration
+        serviceWorker: {
+            register: false // We'll register manually to use our static service worker
+        },
+
         alias: {
             $houdini: ".houdini/"
         }
