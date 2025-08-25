@@ -118,13 +118,13 @@
 </script>
 
 <div class="bg-base-100 mx-auto max-w-3xl rounded-lg p-6 shadow-lg">
-	<h2 class="mb-6 text-xl font-bold">Accept Bid & Fund Escrow</h2>
+	<h3 class="mb-6 text-xl font-bold">Accept Bid & Fund Escrow</h3>
 
 	<!-- Bid Information Section -->
 	<div class="bg-base-200 mb-6 rounded-lg p-4">
-		<div class="flex items-start justify-between">
+		<div class="flex items-center justify-between">
 			<div class="flex-1">
-				<h3 class="font-semibold text-lg mb-2">{props.taskTitle}</h3>
+				<h4 class="font-semibold text-lg mb-2">{props.taskTitle}</h4>
 				
 				<!-- Bidder Information -->
 				<div class="flex items-center gap-3 mb-3">
@@ -217,7 +217,7 @@
 				</div>
 			</div>
 		</div>
-		
+
 		<!-- Escrow Information -->
 		<div class="alert alert-info alert-outline">
 			<svg
@@ -242,7 +242,7 @@
 
 	<!-- Escrow Funding Section -->
 	<div class="mb-6">
-		<h3 class="text-lg font-semibold mb-4">Escrow Funding</h3>
+		<h4 class="text-lg font-semibold mb-4">Escrow Funding</h4>
 		
 		<!-- Tab Navigation -->
 		<div class="tabs tabs-bordered mb-4">
@@ -251,7 +251,7 @@
 				class="tab {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
 				onclick={() => selectedEscrowTab = 'bittasker'}
 			>
-				My BitTasker Wallet
+				My Wallet
 			</button>
 			<button
 				role="tab"
@@ -276,7 +276,7 @@
 						onclick={() => selectedBitTaskerAsset = 'LBTC'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2 mb-2">
+							<div class="flex items-center justify-center gap-3 mb-2">
 								<span class="text-xl">🌊</span>
 								<span class="font-semibold text-lg">L-BTC</span>
 							</div>
@@ -292,7 +292,7 @@
 						onclick={() => selectedBitTaskerAsset = 'USDT'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2 mb-2">
+							<div class="flex items-center justify-center gap-3 mb-2">
 								<span class="text-xl">💵</span>
 								<span class="font-semibold text-lg">USDT</span>
 							</div>
