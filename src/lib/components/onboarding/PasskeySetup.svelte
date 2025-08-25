@@ -14,6 +14,7 @@
 	} from '$lib/utils/helpers/deviceIdentity';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import authService from '$lib/api/services/auth.service';
+	import { t } from 'svelte-i18n';
 
 	let {
 		nextStep,
@@ -116,7 +117,7 @@
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);
-			error = err instanceof Error ? err.message : 'Registration failed';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
 			throw new Error(error);
 		}
 	}
@@ -178,7 +179,7 @@
 			setTimeout(() => nextStep(), 1500);
 		} catch (err: unknown) {
 			console.error('Passkey setup failed:', err);
-			error = err instanceof Error ? err.message : 'Passkey setup failed';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -189,33 +190,35 @@
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step {currentStep + 1} of {totalSteps}</div>
-			<h3 class="step-title mb-3 mt-4">Set Up Your Passkey</h3>
-            <h5 class="mb-3">What's a Passkey?</h5>
+			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+				{$t('onboarding_auth.form.passkey_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.passkey_setup.of')} {totalSteps}
+			</div>
+			<h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.passkey_setup.title')}</h3>
+            <h5 class="mb-3">{$t('onboarding_auth.form.passkey_setup.subtitle')}</h5>
             <p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">
-                Use your Face ID, fingerprint, or device PIN/password to log in.<br /><br />No new passwords or codes — just tap and go.
+                {@html $t('onboarding_auth.form.passkey_setup.description')}
             </p>
 
 			<!-- Features List -->
             <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Secure</strong> — only on your device</span>
+                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.secure')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Encrypted</strong> — just like Bitcoin!</span>
+                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.encrypted')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Private</strong> — we never see your PIN, password, or biometrics</span>
+                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.private')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg mb-6">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Easy</strong> — the same way you login to your device</span>
+                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.easy')}</span>
                 </div>
 
-				<p class="text-primary mb-6 text-lg font-medium text-center">Next-gen login. No passwords, ever.</p>
+				<p class="text-primary mb-6 text-lg font-medium text-center">{$t('onboarding_auth.form.passkey_setup.next_gen_login')}</p>
 
 				{#if error}
 					<div class="alert alert-error alert-outline mb-6 max-w-lg mx-auto">
@@ -251,7 +254,7 @@
 								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>Passkey setup complete! Your account is now secure.</span>
+						<span>{$t('onboarding_auth.form.passkey_setup.setup_complete')}</span>
 					</div>
 				{/if}
             </div>
@@ -261,7 +264,7 @@
 		<!-- Form Actions -->
 		<div class="mt-6 flex justify-between">
 			<button type="button" class="btn btn-outline" onclick={prevStep} disabled={isLoading}>
-				Back
+				{$t('onboarding_auth.form.passkey_setup.back')}
 			</button>
 			{#if !isSetupComplete}
 				<button
@@ -272,13 +275,13 @@
 				>
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
-						Setting up...
+						{$t('onboarding_auth.form.passkey_setup.setting_up')}
 					{:else}
-							Set Up Passkey
+						{$t('onboarding_auth.form.passkey_setup.set_up_passkey')}
 					{/if}
 				</button>
 			{:else}
-				<button type="button" class="btn btn-primary" onclick={nextStep}> Continue </button>
+				<button type="button" class="btn btn-primary" onclick={nextStep}> {$t('onboarding_auth.form.passkey_setup.continue')} </button>
 			{/if}
 		</div>
 	</div>

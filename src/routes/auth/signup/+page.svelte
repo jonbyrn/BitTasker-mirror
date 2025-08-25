@@ -123,16 +123,16 @@
 	<div class="card bg-base-100 w-full p-4 shadow-xl mb-6">
 		<div class="flex flex-col items-center justify-center">
 			<Logo />
-			<h1 class="mt-6 text-center text-2xl font-bold">{$t('signup.title')}</h1>
+			<h3 class="mt-6 text-center font-bold">{$t('signup.title')}</h3>
 			<br />
 			<p class="mx-auto space-y-2 text-center px-6">
-				<span class="text-base-content mb-10 block text-center text-lg">
+				<span class="text-base-content mb-10 block text-center text-md">
 					{$t('signup.subtitle')}
 				</span>
-				<span class="text-base-content my-10 block text-center text-lg">
+				<span class="text-base-content my-10 block text-center text-md">
 					{$t('signup.description')}
 				</span>
-				<span class="text-base-content my-10 block text-center text-lg">
+				<span class="text-base-content my-10 block text-center text-md">
 					{@html $t('signup.nostr_info') + $t('signup.nostr_import')}
 				</span>
 			</p>

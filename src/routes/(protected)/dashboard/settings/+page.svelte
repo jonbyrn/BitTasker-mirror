@@ -926,7 +926,7 @@
 
 					{#if passkeyProvider}
 						<p class="text-info mb-4 text-sm">
-							{$t('settings.passkey.provider', { provider: passkeyProvider })}
+							{$t('settings.passkey.provider')}: {passkeyProvider}
 						</p>
 					{/if}
 

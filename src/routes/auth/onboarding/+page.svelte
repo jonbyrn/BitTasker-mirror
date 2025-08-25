@@ -73,12 +73,12 @@
 	<div class="w-full max-w-4xl">
 		<div class="mb-8 flex flex-col items-center">
 			<Logo />
-			<h2 class="my-4">{$t('onboarding_auth.title')}</h2>
+			<h3 class="my-2">{$t('onboarding_auth.title')}</h3>
 
 			<!-- Progress indicator -->
 			<div class="w-full">
 				<div class="flex items-center justify-between mb-2">
-					<span class="text-sm font-medium text-primary">Step {currentStep + 1} of {totalSteps}</span>
+					<span class="text-sm font-medium text-primary">{$t('onboarding_auth.form.username_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.username_setup.of')} {totalSteps}</span>
 					<span class="text-sm text-base-content/70">{Math.round(((currentStep + 1) / totalSteps) * 100)}%</span>
 				</div>
 				<div class="w-full bg-base-300 rounded-full h-2">
