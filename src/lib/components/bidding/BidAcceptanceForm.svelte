@@ -118,7 +118,7 @@
 </script>
 
 <div class="bg-base-100 mx-auto max-w-3xl rounded-lg p-6 shadow-lg">
-	<h3 class="mb-6 text-xl font-bold">Accept Bid & Fund Escrow</h3>
+	<h3 class="mb-6 text-xl font-bold">Accept Bid & Fund Contract</h3>
 
 	<!-- Bid Information Section -->
 	<div class="bg-base-200 mb-6 rounded-lg p-4">
@@ -235,8 +235,8 @@
 			/>
 		</svg>
 		<span>
-			<strong>Note:</strong> You are entering into an escrow with the taskee on the blockchain. 
-			BitTasker is not involved in the escrow process and cannot access your funds.
+			<strong>Note:</strong> You are entering into a contract with the taskee on the blockchain. 
+			BitTasker is not  able to access your funds or alter the contract after this.
 		</span>
 	</div>
 
@@ -275,14 +275,14 @@
 						onclick={() => selectedBitTaskerAsset = 'LBTC'}
 					>
 						<div class="card-body p-4">
-							<div class="flex items-start justify-between">
+							<div class="flex items-end justify-between">
 								<div class="flex flex-col items-start">
-									<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-8 h-8 mb-1" />
-									<span class="font-semibold text-sm">LBTC</span>
+									<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12 mb-1" />
+									<span class="font-semibold text-lg">LBTC</span>
 								</div>
 								<div class="flex flex-col items-end">
-									<span class="font-bold text-lg">12,000</span>
-									<span class="text-sm text-base-content/60">Sats</span>
+									<span class="font-bold text-2xl">100,000,120,000</span>
+									<span class="text-lg text-base-content/60">SATS</span>
 								</div>
 							</div>
 						</div>
@@ -294,14 +294,14 @@
 						onclick={() => selectedBitTaskerAsset = 'USDT'}
 					>
 						<div class="card-body p-4">
-							<div class="flex items-start justify-between">
+							<div class="flex items-end justify-between">
 								<div class="flex flex-col items-start">
-									<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-8 h-8 mb-1" />
-									<span class="font-semibold text-sm">USDT</span>
+									<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-12 h-12 mb-1" />
+									<span class="font-semibold text-lg">USDT</span>
 								</div>
 								<div class="flex flex-col items-end">
-									<span class="font-bold text-lg">$120.00</span>
-									<span class="text-sm text-base-content/60">USDT</span>
+									<span class="font-bold text-2xl">$120.00</span>
+									<span class="text-lg text-base-content/60">USDT</span>
 								</div>
 							</div>
 						</div>
@@ -327,8 +327,7 @@
 						<div class="card-body p-4 text-center">
 							<div class="flex flex-col items-center gap-2">
 								<span class="text-2xl">⚡</span>
-								<div class="font-semibold text-sm">Bitcoin Lightning</div>
-								<div class="text-xs text-base-content/60">Fast, low-fee</div>
+								<div class="font-semibold text-lg">Bitcoin Lightning</div>
 							</div>
 						</div>
 					</button>
@@ -340,9 +339,8 @@
 					>
 						<div class="card-body p-4 text-center">
 							<div class="flex flex-col items-center gap-2">
-								<span class="text-2xl">🌊</span>
-								<div class="font-semibold text-sm">L-BTC on Liquid</div>
-								<div class="text-xs text-base-content/60">Confidential Bitcoin</div>
+								<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12" />
+								<div class="font-semibold text-lg">L-BTC</div>
 							</div>
 						</div>
 					</button>
@@ -354,9 +352,8 @@
 					>
 						<div class="card-body p-4 text-center">
 							<div class="flex flex-col items-center gap-2">
-								<span class="text-2xl">💵</span>
-								<div class="font-semibold text-sm">USDT on Liquid</div>
-								<div class="text-xs text-base-content/60">Stablecoin</div>
+								<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-12 h-12" />
+								<div class="font-semibold text-lg">USDT</div>
 							</div>
 						</div>
 					</button>
