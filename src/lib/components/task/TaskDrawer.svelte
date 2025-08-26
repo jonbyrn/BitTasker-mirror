@@ -105,6 +105,10 @@
 					estimatedDuration: bid.estimatedDuration,
 					proposedApproach: bid.proposedApproach,
 					coverLetter: bid.coverLetter,
+					startDate: bid.startDate || null,
+					endDate: bid.endDate || null,
+					startTime: bid.startTime || null,
+					endTime: bid.endTime || null,
 					visibility: 'PRIVATE',
 					milestones: [],
 					responseTime: 0,
@@ -152,19 +156,39 @@
 						updatedAt: new Date(bid.timestamp).toISOString(),
 											user: {
 						id: 0,
-						email: '',
-						name: (profileMap.get(senderPubkey)?.name ?? '').trim().length
-							? (profileMap.get(senderPubkey)?.name as string)
-							: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
-						profilePicture: profileMap.get(senderPubkey)?.picture || ''
+						email: ''
 					}
 				},
 				userProfile: {
+					id: '0',
+					userId: '0',
+					professionalTitle: null,
+					averageRating: null,
+					tasksCompleted: 0,
 					user: {
+						id: '0',
+						name: (profileMap.get(senderPubkey)?.name ?? '').trim().length
+							? (profileMap.get(senderPubkey)?.name as string)
+							: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
+						profilePictureUrl: profileMap.get(senderPubkey)?.picture || '',
 						displayName: (profileMap.get(senderPubkey)?.name ?? '').trim().length
 							? (profileMap.get(senderPubkey)?.name as string)
 							: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
-						picture: profileMap.get(senderPubkey)?.picture || ''
+						email: '',
+						username: null,
+						createdAt: new Date().toISOString(),
+						updatedAt: new Date().toISOString(),
+						onboardingComplete: true,
+						status: 'ACTIVE',
+						userRole: 'USER',
+						biddingAllowed: true,
+						isEmailVerified: false,
+						skills: [],
+						profilePictureId: null,
+						dob: null,
+						lastLoginAt: null,
+						mobileNumber: null,
+						deletedAt: null
 					}
 				} as unknown as any
 				})) as unknown as TaskBid[];

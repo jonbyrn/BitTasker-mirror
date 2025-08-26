@@ -131,16 +131,16 @@
 					<!-- Avatar -->
 					<div class="avatar">
 						<div class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full">
-							{#if props.bid.freelancer?.user?.profilePicture}
+							{#if props.bid.userProfile?.user?.profilePictureUrl}
 								<img
-									src={props.bid.freelancer.user.profilePicture}
+									src={props.bid.userProfile.user.profilePictureUrl}
 									alt="Bidder Avatar"
 									class="h-12 w-12 rounded-full object-cover"
 								/>
 							{:else}
 								<div class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center">
 									<span class="text-xl font-semibold">
-										{(props.bid.freelancer?.user?.name || 'A').charAt(0).toUpperCase()}
+										{(props.bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
 									</span>
 								</div>
 							{/if}
@@ -150,10 +150,10 @@
 					<!-- Bidder Details -->
 					<div class="flex flex-col">
 						<span class="text-base font-medium">
-							{props.bid.freelancer?.user?.name || props.bid.freelancer?.professionalTitle || 'Anonymous'}
+							{props.bid.userProfile?.user?.name || props.bid.userProfile?.professionalTitle || 'Anonymous'}
 						</span>
-						{#if props.bid.freelancer?.professionalTitle}
-							<span class="text-base-content/60 text-sm">{props.bid.freelancer.professionalTitle}</span>
+						{#if props.bid.userProfile?.professionalTitle}
+							<span class="text-base-content/60 text-sm">{props.bid.userProfile.professionalTitle}</span>
 						{/if}
 						
 						<!-- Review Stars -->
@@ -161,7 +161,7 @@
 							{#each Array(5) as _, i}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4 {i < (props.bid.freelancer?.averageRating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
+									class="h-4 w-4 {i < (props.bid.userProfile?.averageRating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
 									fill="currentColor"
 									viewBox="0 0 24 24"
 								>
@@ -171,7 +171,7 @@
 								</svg>
 							{/each}
 							<span class="text-base-content/60 ml-2 text-sm">
-								{(props.bid.freelancer?.averageRating || 0).toFixed(1)} ({props.bid.freelancer?.tasksCompleted || 0} tasks)
+								{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile?.tasksCompleted || 0} tasks)
 							</span>
 						</div>
 					</div>
@@ -318,7 +318,7 @@
 				</p> -->
 				
 				<!-- Payment Method Selection -->
-				<div class="grid grid-cols-3 gap-4 mb-4">
+				<div class="grid grid-cols-3 gap-4">
 					<!-- Bitcoin Lightning -->
 					<button
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod === 'bitcoin-lightning' ? 'border-primary' : 'border-base-300'}"
