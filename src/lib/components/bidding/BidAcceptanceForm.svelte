@@ -278,7 +278,7 @@
 							<div class="flex items-end justify-between">
 								<div class="flex flex-col items-start">
 									<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12 mb-1" />
-									<span class="font-semibold text-lg">LBTC</span>
+									<span class="font-semibold text-lg">L-BTC</span>
 								</div>
 								<div class="flex flex-col items-end">
 									<span class="font-bold text-2xl">100,000,120,000</span>
@@ -325,9 +325,10 @@
 						onclick={() => selectedExternalMethod = 'bitcoin-lightning'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2">
-								<span class="text-2xl">⚡</span>
-								<div class="font-semibold text-lg">Bitcoin Lightning</div>
+							<div class="flex flex-col items-center">
+								<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="w-12 h-12 mb-2" />
+								<div class="font-semibold text-lg">Bitcoin</div>
+								<div class="text-base-content/60">Lightning</div>
 							</div>
 						</div>
 					</button>
@@ -338,9 +339,10 @@
 						onclick={() => selectedExternalMethod = 'lbtc-liquid'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2">
+							<div class="flex flex-col items-center">
 								<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12" />
 								<div class="font-semibold text-lg">L-BTC</div>
+								<div class="text-base-content/60">Liquid</div>
 							</div>
 						</div>
 					</button>
@@ -351,57 +353,14 @@
 						onclick={() => selectedExternalMethod = 'usdt-liquid'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2">
+							<div class="flex flex-col items-center">	
 								<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-12 h-12" />
 								<div class="font-semibold text-lg">USDT</div>
+								<div class="text-base-content/60">Liquid</div>
 							</div>
 						</div>
 					</button>
 				</div>
-
-				<!-- Address and QR Code Display -->
-				{#if addresses[selectedExternalMethod] && qrCodes[selectedExternalMethod]}
-					<div class="bg-base-100 rounded-lg p-4">
-						<h4 class="font-semibold mb-3">Send Payment To:</h4>
-						
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<!-- QR Code -->
-							<div class="flex flex-col items-center">
-								<img
-									src={qrCodes[selectedExternalMethod]}
-									alt="Payment QR Code"
-									class="w-48 h-48 border-2 border-base-300 rounded-lg"
-								/>
-								<p class="text-xs text-base-content/60 mt-2">Scan with your wallet</p>
-							</div>
-
-							<!-- Address -->
-							<div class="flex flex-col">
-								<label class="text-sm font-medium mb-2">Address:</label>
-								<button
-									class="bg-base-300 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
-									title="Click to copy"
-									onclick={() => copyToClipboard(addresses[selectedExternalMethod])}
-								>
-									<pre class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-primary">
-										{addresses[selectedExternalMethod]}
-									</pre>
-								</button>
-								<p class="text-xs text-base-content/60 mt-2">👆 Click to copy address</p>
-								
-								<div class="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg">
-									<div class="flex items-start gap-2">
-										<span class="text-warning">⚠️</span>
-										<div class="text-sm">
-											<strong>Important:</strong> Send exactly {formatSatsAmount(props.bid.amount)} to this address. 
-											Any other amount may result in payment issues.
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
 		{/if}
 	</div>
