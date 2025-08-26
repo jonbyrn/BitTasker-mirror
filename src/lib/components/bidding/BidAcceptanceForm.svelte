@@ -217,32 +217,31 @@
 				</div>
 			</div>
 		</div>
+	</div>
 
-		<!-- Escrow Information -->
-		<div class="alert alert-info alert-outline">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				class="h-6 w-6 shrink-0 stroke-current"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>
-				<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
-				BitTasker is not involved in the escrow process and cannot access your funds.
-			</span>
-		</div>
+	<!-- Escrow Information -->
+	<div class="alert alert-info alert-outline my-2">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="none"
+			viewBox="0 0 24 24"
+			class="h-6 w-6 shrink-0 stroke-current"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+			/>
+		</svg>
+		<span>
+			<strong>Note:</strong> You are entering into an escrow with the taskee on the blockchain. 
+			BitTasker is not involved in the escrow process and cannot access your funds.
+		</span>
 	</div>
 
 	<!-- Escrow Funding Section -->
 	<div class="mb-6">
-		<h4 class="text-lg font-semibold mb-4">Escrow Funding</h4>
 		
 		<!-- Tab Navigation -->
 		<div class="tabs tabs-bordered mb-4">
@@ -265,9 +264,9 @@
 		<!-- BitTasker Wallet Tab -->
 		{#if selectedEscrowTab === 'bittasker'}
 			<div class="bg-base-200 rounded-lg p-4">
-				<p class="text-base-content/70 text-sm mb-4">
+				<!-- <p class="text-base-content/70 text-sm mb-4">
 					Fund escrow directly from your BitTasker wallet balance.
-				</p>
+				</p> -->
 				
 				<div class="grid grid-cols-2 gap-4">
 					<!-- LBTC Option -->
@@ -275,13 +274,16 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset === 'LBTC' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedBitTaskerAsset = 'LBTC'}
 					>
-						<div class="card-body p-4 text-center">
-							<div class="flex items-center justify-center gap-3 mb-2">
-								<span class="text-xl">🌊</span>
-								<span class="font-semibold text-lg">L-BTC</span>
-							</div>
-							<div class="text-sm text-base-content/60">
-								Available: 0.005 L-BTC
+						<div class="card-body p-4">
+							<div class="flex items-start justify-between">
+								<div class="flex flex-col items-start">
+									<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-8 h-8 mb-1" />
+									<span class="font-semibold text-sm">LBTC</span>
+								</div>
+								<div class="flex flex-col items-end">
+									<span class="font-bold text-lg">12,000</span>
+									<span class="text-sm text-base-content/60">Sats</span>
+								</div>
 							</div>
 						</div>
 					</button>
@@ -291,13 +293,16 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset === 'USDT' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedBitTaskerAsset = 'USDT'}
 					>
-						<div class="card-body p-4 text-center">
-							<div class="flex items-center justify-center gap-3 mb-2">
-								<span class="text-xl">💵</span>
-								<span class="font-semibold text-lg">USDT</span>
-							</div>
-							<div class="text-sm text-base-content/60">
-								Available: 150.00 USDT
+						<div class="card-body p-4">
+							<div class="flex items-start justify-between">
+								<div class="flex flex-col items-start">
+									<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-8 h-8 mb-1" />
+									<span class="font-semibold text-sm">USDT</span>
+								</div>
+								<div class="flex flex-col items-end">
+									<span class="font-bold text-lg">$120.00</span>
+									<span class="text-sm text-base-content/60">USDT</span>
+								</div>
 							</div>
 						</div>
 					</button>
@@ -308,9 +313,9 @@
 		<!-- External Wallet Tab -->
 		{#if selectedEscrowTab === 'external'}
 			<div class="bg-base-200 rounded-lg p-4">
-				<p class="text-base-content/70 text-sm mb-4">
+				<!-- <p class="text-base-content/70 text-sm mb-4">
 					Send funds from your external wallet to fund the escrow.
-				</p>
+				</p> -->
 				
 				<!-- Payment Method Selection -->
 				<div class="grid grid-cols-3 gap-4 mb-4">
