@@ -81,10 +81,15 @@
 						></path></svg
 					>
 					<div>
-						<h3 class="font-bold">Recovery Code Sent</h3>
+						<h3 class="font-bold">Verification Email Sent!</h3>
 						<p class="text-sm">
-							We've sent a recovery code to your email. You'll need it in the next step.
+							We've sent a verification email to <strong>{email}</strong>. Please check your inbox and click the verification link to continue with your account recovery.
 						</p>
+						<div class="mt-3 text-xs text-base-content/70">
+							<p>• Check your spam/junk folder if you don't see the email</p>
+							<p>• The verification link will expire in 24 hours</p>
+							<p>• After verification, you'll be redirected to complete your recovery</p>
+						</div>
 					</div>
 				</div>
 			{/if}

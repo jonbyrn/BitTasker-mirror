@@ -9,6 +9,7 @@ import type {
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
+import emailService from './email.service';
 
 /**
  * Authentication Service
@@ -298,7 +299,31 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery response
 	 */
 	async initiateNostrRecovery(email: string): Promise<void> {
-		await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
+		try {
+			// First, call the backend API to initiate recovery and get verification token
+			const response = await this.post<{ verificationToken: string; message: string }>(
+				ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, 
+				{ email }
+			);
+
+			// If we get a verification token, send the verification email
+			if (response.data.verificationToken) {
+				await emailService.sendRecoveryVerificationEmail({
+					email,
+					verificationToken: response.data.verificationToken,
+					emailType: 'recovery',
+					expiryHours: 24
+				});
+			}
+		} catch (error: any) {
+			// If the backend doesn't support verification tokens yet, fall back to the old behavior
+			if (error?.status === 400 && error?.data?.message?.includes('verificationToken')) {
+				// Backend doesn't support verification tokens, just call the original endpoint
+				await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
+			} else {
+				throw error;
+			}
+		}
 	}
 
 	/**
@@ -349,6 +374,19 @@ export class AuthService extends BaseApiService {
 	 */
 	async verifyEmail(token: string): Promise<void> {
 		await this.get(ENDPOINTS.AUTH.EMAIL_VERIFICATION, { params: { token } });
+	}
+
+	/**
+	 * Verify recovery email and get recovery data
+	 * @param token Verification token
+	 * @returns Promise with recovery data
+	 */
+	async verifyRecoveryEmail(token: string): Promise<{ email: string; publicKey: string; message: string }> {
+		const response = await this.post<{ email: string; publicKey: string; message: string }>(
+			ENDPOINTS.AUTH.RECOVERY_EMAIL_VERIFICATION,
+			{ token }
+		);
+		return response.data;
 	}
 }
 
