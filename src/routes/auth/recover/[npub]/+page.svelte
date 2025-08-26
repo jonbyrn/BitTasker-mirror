@@ -46,6 +46,16 @@
 		if (!npub) return;
 		
 		try {
+			// Check if user came from email verification
+			const urlParams = new URLSearchParams(window.location.search);
+			const verified = urlParams.get('verified');
+			
+			if (verified !== 'true') {
+				// User hasn't verified their email, redirect to recovery initiation
+				goto('/auth/recover/send');
+				return;
+			}
+			
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
 			authMethods.biometric = await checkBiometricAvailability();
