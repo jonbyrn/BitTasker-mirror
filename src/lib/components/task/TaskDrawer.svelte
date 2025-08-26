@@ -150,19 +150,23 @@
 						identityVerified: false,
 						createdAt: new Date(bid.timestamp).toISOString(),
 						updatedAt: new Date(bid.timestamp).toISOString(),
-						user: {
-							id: 0,
-							email: ''
-						}
-					},
-					userProfile: {
-						user: {
-							displayName: (profileMap.get(senderPubkey)?.name ?? '').trim().length
-								? (profileMap.get(senderPubkey)?.name as string)
-								: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
-							picture: profileMap.get(senderPubkey)?.picture || ''
-						}
-					} as unknown as any
+											user: {
+						id: 0,
+						email: '',
+						name: (profileMap.get(senderPubkey)?.name ?? '').trim().length
+							? (profileMap.get(senderPubkey)?.name as string)
+							: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
+						profilePicture: profileMap.get(senderPubkey)?.picture || ''
+					}
+				},
+				userProfile: {
+					user: {
+						displayName: (profileMap.get(senderPubkey)?.name ?? '').trim().length
+							? (profileMap.get(senderPubkey)?.name as string)
+							: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
+						picture: profileMap.get(senderPubkey)?.picture || ''
+					}
+				} as unknown as any
 				})) as unknown as TaskBid[];
 			}
 		} catch (error) {
