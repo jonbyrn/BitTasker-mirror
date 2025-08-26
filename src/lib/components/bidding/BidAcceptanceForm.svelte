@@ -327,8 +327,7 @@
 						<div class="card-body p-4 text-center">
 							<div class="flex flex-col items-center">
 								<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="w-12 h-12 mb-2" />
-								<div class="font-semibold text-lg">Bitcoin</div>
-								<div class="text-base-content/60">Lightning</div>
+								<div class="font-semibold text-lg">BTC</div>
 							</div>
 						</div>
 					</button>
@@ -342,7 +341,6 @@
 							<div class="flex flex-col items-center">
 								<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12 mb-2" />
 								<div class="font-semibold text-lg">L-BTC</div>
-								<div class="text-base-content/60">Liquid</div>
 							</div>
 						</div>
 					</button>
@@ -356,7 +354,6 @@
 							<div class="flex flex-col items-center">	
 								<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-12 h-12 mb-2" />
 								<div class="font-semibold text-lg">USDT</div>
-								<div class="text-base-content/60">Liquid</div>
 							</div>
 						</div>
 					</button>
@@ -388,7 +385,7 @@
 			disabled={isSubmitting}
 			onclick={handleSubmit}
 		>
-			{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Escrow'}
+			{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Contract'}
 		</button>
 	</div>
 </div>
