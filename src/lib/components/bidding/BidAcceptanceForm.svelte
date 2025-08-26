@@ -28,6 +28,11 @@
 	let addresses = $state<Record<string, string>>({});
 	let btcPrice = $state<number>(63000); // Default fallback price
 
+	// Fee calculations
+	let platformFee = $derived(calculatePlatformFee(props.bid.amount, btcPrice));
+	let transactionFee = $derived(calculateTransactionFee(props.bid.amount, btcPrice));
+	let totalFiatPrice = $derived(calculateUsdtEstimate(props.bid.amount, btcPrice) + platformFee + transactionFee);
+
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -111,6 +116,39 @@
 		// You could add a toast notification here
 	}
 
+	// Format time to AM/PM
+	function formatTimeToAMPM(timeString: string): string {
+		if (!timeString) return '9:00 AM';
+		
+		try {
+			const [hours, minutes] = timeString.split(':').map(Number);
+			const date = new Date();
+			date.setHours(hours, minutes);
+			
+			return date.toLocaleTimeString('en-US', {
+				hour: 'numeric',
+				minute: '2-digit',
+				hour12: true
+			});
+		} catch (error) {
+			return timeString; // Return original if parsing fails
+		}
+	}
+
+	// Calculate platform fee (2.5% of bid amount)
+	function calculatePlatformFee(amountSats: number, btcPriceUsd: number): number {
+		const amountUsd = (amountSats / 100000000) * btcPriceUsd; // Convert sats to USD
+		return amountUsd * 0.025; // 2.5% platform fee
+	}
+
+	// Calculate estimated transaction fee (based on current network conditions)
+	function calculateTransactionFee(amountSats: number, btcPriceUsd: number): number {
+		// Estimate transaction fee as a percentage of the amount
+		// This is a simplified calculation - in reality it would depend on network congestion
+		const amountUsd = (amountSats / 100000000) * btcPriceUsd; // Convert sats to USD
+		return amountUsd * 0.005; // 0.5% estimated transaction fee
+	}
+
 	onMount(() => {
 		generateAddressesAndQRCodes();
 		fetchBtcPrice();
@@ -177,15 +215,28 @@
 					</div>
 				</div>
 
+				<!-- Location -->
+				{#if props.bid.task?.pickupLocation?.displayName || props.bid.task?.dropOffLocation?.displayName}
+					<div class="mt-4 flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+						</svg>
+						<span class="text-sm">
+							<strong>Location:</strong> {props.bid.task?.pickupLocation?.displayName || props.bid.task?.dropOffLocation?.displayName}
+						</span>
+					</div>
+				{/if}
+
 				<!-- Start and End Time -->
 				{#if props.bid.startDate && props.bid.endDate}
-					<div class="mt-4 flex items-center gap-4">
+					<div class="mt-4 flex flex-col gap-2">
 						<div class="flex items-center gap-2">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 							</svg>
 							<span class="text-sm">
-								<strong>Start:</strong> {new Date(props.bid.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {props.bid.startTime || '09:00'}
+								<strong>Start:</strong> {new Date(props.bid.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {formatTimeToAMPM(props.bid.startTime || '09:00')}
 							</span>
 						</div>
 						<div class="flex items-center gap-2">
@@ -193,7 +244,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 							</svg>
 							<span class="text-sm">
-								<strong>End:</strong> {new Date(props.bid.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {props.bid.endTime || '17:00'}
+								<strong>End:</strong> {new Date(props.bid.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {formatTimeToAMPM(props.bid.endTime || '17:00')}
 							</span>
 						</div>
 					</div>
@@ -201,19 +252,33 @@
 			</div>
 
 			<!-- Bid Price -->
-			<div class="text-right">
-				<div class="text-2xl font-bold">
-					${calculateUsdtEstimate(props.bid.amount, btcPrice)}
-					<div class="text-base-content/60 text-sm">
+			<div class="flex justify-end gap-8">
+				<!-- Left Column - Labels -->
+				<div class="flex flex-col items-end text-right space-y-1">
+					<div class="text-sm font-medium">Bid Price:</div>
+					<div class="text-sm font-medium">Platform Fee:</div>
+					<div class="text-sm font-medium">Est. Transaction Fee:</div>
+					<div class="text-sm font-medium">Total Fiat Price:</div>
+					<div class="text-sm font-medium">Total Sats Price:</div>
+				</div>
+				
+				<!-- Right Column - Values -->
+				<div class="flex flex-col items-end text-right space-y-1">
+					<div class="text-sm">
+						${calculateUsdtEstimate(props.bid.amount, btcPrice)}
+					</div>
+					<div class="text-sm text-base-content/60">
+						${platformFee.toFixed(2)}
+					</div>
+					<div class="text-sm text-base-content/60">
+						${transactionFee.toFixed(2)}
+					</div>
+					<div class="text-lg font-bold">
+						${totalFiatPrice.toFixed(2)}
+					</div>
+					<div class="text-lg font-bold text-base-content/60">
 						{formatSatsAmount(props.bid.amount)}
 					</div>
-				</div>
-				<div class="text-base-content/60 text-sm">
-					{#if props.bid.paymentType === 'HOURLY'}
-						{formatCurrency(props.bid.hourlyRate || 0, props.bid.currency)}/hr · Est. {props.bid.estimatedHours || 0} hrs
-					{:else}
-						Fixed Price
-					{/if}
 				</div>
 			</div>
 		</div>
