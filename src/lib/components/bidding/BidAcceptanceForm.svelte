@@ -31,7 +31,7 @@
 	// Fee calculations
 	let platformFee = $derived(calculatePlatformFee(props.bid.amount, btcPrice));
 	let transactionFee = $derived(calculateTransactionFee(props.bid.amount, btcPrice));
-	let totalFiatPrice = $derived(calculateUsdtEstimate(props.bid.amount, btcPrice) + platformFee + transactionFee);
+	let totalFiatPrice = $derived((props.bid.amount / 100000000) * btcPrice + platformFee + transactionFee);
 
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
