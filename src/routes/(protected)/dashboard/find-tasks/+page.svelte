@@ -51,6 +51,7 @@
 	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
 	let showSkeleton = $state(true);
+	let selectedLocation = $state<any | null>(null);
 
 	// Lazy loading state
 	let taskListRef = $state<HTMLElement | null>(null);
@@ -462,8 +463,13 @@
 
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
-		selectedTask = task;
-		console.log('selectedTask', selectedTask);
+		selectedTask = task
+		if (task.dropOffLocation) {
+			selectedLocation = task.dropOffLocation;
+		}
+		if (task.pickupLocation) {
+			selectedLocation = task.pickupLocation;
+		}
 	}
 </script>
 
@@ -721,7 +727,6 @@
 
 											<!-- Location -->
 											<div class="flex w-full items-start gap-2">
-												
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
 													class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
@@ -940,7 +945,7 @@
 			<div class="hidden lg:col-span-3 lg:block">
 				<div class="card">
 					<!-- Task Location Map -->
-					<TaskLocationMap location={null} height="75vh" />
+					<TaskLocationMap location={selectedLocation || null} height="75vh" />
 				</div>
 			</div>
 		</div>

@@ -2,7 +2,7 @@
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy } from 'svelte';
 	let { location, height = '400px' } = $props<{
-		location?: Location | null;
+		location?: any;
 		height?: string;
 	}>();
 
@@ -11,7 +11,7 @@
 	let mapElement: HTMLElement;
 	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
 	let circle: google.maps.Circle | null = null;
-	let serviceRadius = $state(10); // Default to 10 km
+	let serviceRadius = $state(5); // Default to 10 km
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
 	let error = $state('');
@@ -43,7 +43,7 @@
 
 				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 				const script = document.createElement('script');
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,marker&loading=async`;
+				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,marker&loading=async 		`;
 				script.async = true;
 				script.defer = true;
 
