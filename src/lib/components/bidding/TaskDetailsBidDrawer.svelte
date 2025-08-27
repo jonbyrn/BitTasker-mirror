@@ -186,8 +186,7 @@
 			</svg>
 			<h3 class="mt-4 text-xl font-semibold">{$t('bids.task_details.bid_submitted')}</h3>
 			<p class="text-base-content/60 mt-2 text-center">
-				Your bid has been submitted successfully. The task creator will review it and get back to
-				you.
+				{$t('bids.task_details.success.message')}
 			</p>
 			<button class="btn btn-primary mt-6" onclick={handleClose}>
 				{$t('bids.task_details.success.close')}

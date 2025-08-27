@@ -9,7 +9,8 @@
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
 	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
-
+	import { goto } from '$app/navigation';
+	
 	// Props
 	const { openTaskDrawer } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
@@ -395,7 +396,8 @@
 									class="btn btn-info btn-sm btn-outline flex-1 md:flex-none"
 									onclick={(e) => {
 										e.stopPropagation();
-										openTaskDrawer(task, 'bids');
+										goto(`/dashboard/task/${task.id}/bids`);
+
 									}}
 									aria-label={$t('task.actions.view_bids')}
 								>

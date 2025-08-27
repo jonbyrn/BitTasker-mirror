@@ -70,23 +70,43 @@
 			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
 		</div>
 		<a
-			href={activeTab === 'bids' ? '/dashboard/find-tasks' : '/dashboard/create-task'}
+			href={activeTab === 'bids' || activeTab === 'saved-searches'
+				? '/dashboard/find-tasks'
+				: '/dashboard/create-task'}
 			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-			</svg>
+			{#if activeTab === 'bids' || activeTab === 'saved-searches'}
+				<!-- Lupa para buscar tareas -->
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			{:else}
+				<!-- Plus para crear tarea -->
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+				</svg>
+			{/if}
 			<span class="hidden sm:inline">
-				{activeTab === 'bids' ? $t('dashboard.find_tasks') : $t('dashboard.create_task')}
+				{activeTab === 'bids' || activeTab === 'saved-searches'
+					? $t('dashboard.find_tasks')
+					: $t('dashboard.create_task')}
 			</span>
 			<span class="sm:hidden">
-				{activeTab === 'bids' ? $t('dashboard.find_tasks') : $t('dashboard.create_task')}
+				{activeTab === 'bids' || activeTab === 'saved-searches'
+					? $t('dashboard.find_tasks')
+					: $t('dashboard.create_task')}
 			</span>
 		</a>
 	</div>
