@@ -6,7 +6,12 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import { calculateUsdtEstimate, formatSatsAmount, usdFromSats } from '$lib/utils/helpers/crypto';
+	import {
+		calculateUsdtEstimate,
+		formatSatsAmount,
+		usdFromSats,
+		satsFromUsd
+	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 
 	let { direction } = $props();
@@ -15,7 +20,7 @@
 	/**
 	 * Fetch current BTC price
 	 */
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0); // Default fallback price
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -23,7 +28,6 @@
 		} catch (error) {}
 	}
 
-	// Fetch BTC price on mount
 	onMount(fetchBtcPrice);
 </script>
 
@@ -106,7 +110,7 @@
 					</span>
 					<!-- Estimated Hours in second row (only for hourly) -->
 					{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-						<div class="mb-2 mt-3">
+						<div class="mt-3 mb-2">
 							<div class="flex flex-col">
 								<span class="text-base-content/60 font-medium"
 									>{$t('task.estimated_hours_review')}</span
@@ -121,10 +125,10 @@
 					<span class="text-base-content/60 font-medium">{$t('task.budget_amount')}</span>
 
 					<div class="text-lg font-bold">
-						${calculateUsdtEstimate($store.task.budget.amount, btcPrice)}
+						${$store.task.budget.amount}
 
 						<div class="text-base-content/60 text-sm">
-							{formatSatsAmount($store.task.budget.amount)}
+							{satsFromUsd($store.task.budget.amount, btcPrice)}
 						</div>
 					</div>
 				</div>

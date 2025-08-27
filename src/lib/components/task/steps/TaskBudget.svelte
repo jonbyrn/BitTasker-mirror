@@ -5,27 +5,36 @@
 	import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import {
-		formatNumberForInput,
-		SATS_PER_BTC,
-		satsFromUsd,
-		usdFromSats
-	} from '$lib/utils/helpers/crypto';
-	import { t, locale } from 'svelte-i18n';
+	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import { t } from 'svelte-i18n';
 
 	let { errors, direction } = $props();
 
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
-	let btcPrice = $state<number>(63000); // Default fallback price
+	let btcPrice = $state<number>(100000); // Default fallback price
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
 			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
 
+			// Si ya existe un valor en amount, interpretarlo según la moneda
 			if ($store.task.budget.amount) {
-				// amount = sats -> pásalo a BTC y luego a USD
-				usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
+				if ($store.task.budget.currency === 'USD') {
+					// Si la moneda es USD, el amount ya es USD
+					usdAmount = $store.task.budget.amount;
+				} else {
+					// Si la moneda es SATS, convertir a USD
+					usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
+					// Actualizar la moneda a USD y el amount a USD
+					store.updateTask({
+						budget: { 
+							...$store.task.budget, 
+							currency: 'USD',
+							amount: usdAmount
+						}
+					});
+				}
 			}
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
@@ -38,29 +47,23 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
+			// Guardar directamente el valor USD en amount
+			store.updateTask({
+				budget: { 
+					...$store.task.budget, 
+					amount: usdValue,
+					currency: 'USD' // Asegurar que la moneda sea USD
+				}
+			});
 			usdAmount = usdValue;
-			const satsValue = satsFromUsd(usdValue, btcPrice);
-			store.updateTask({
-				budget: { ...$store.task.budget, amount: satsValue }
-			});
 		} else {
-			usdAmount = 0;
-			store.updateTask({ budget: { ...$store.task.budget, amount: 0 } });
-		}
-	}
-
-	function handleBtcChange(event: Event) {
-		let input = cleanInput((event.target as HTMLInputElement).value);
-		(event.target as HTMLInputElement).value = input;
-
-		const satsValue = parseInt(input.replace(/,/g, ''), 10);
-		if (!isNaN(satsValue)) {
-			store.updateTask({
-				budget: { ...$store.task.budget, amount: satsValue }
+			store.updateTask({ 
+				budget: { 
+					...$store.task.budget, 
+					amount: 0,
+					currency: 'USD'
+				} 
 			});
-			usdAmount = usdFromSats(satsValue, btcPrice);
-		} else {
-			store.updateTask({ budget: { ...$store.task.budget, amount: 0 } });
 			usdAmount = 0;
 		}
 	}
@@ -130,19 +133,18 @@
 				<input
 					type="text"
 					id="budget-btc"
-					value={formatNumberForInput($store.task.budget.amount)}
-					onchange={handleBtcChange}
-					oninput={handleBtcChange}
+					value={formatNumberForInput(Math.round((usdAmount / btcPrice) * SATS_PER_BTC))}
 					class="input input-bordered w-full pr-12 {errors.budget ? 'input-error' : ''}"
 					placeholder={$t('task.sats_placeholder')}
 					min="0"
+					readonly
 				/>
 			</div>
 		</div>
 		{#if errors.budget}
 			<span class="label-text-alt text-error">{errors.budget}</span>
 		{/if}
-		{#if $store.task.budget.amount > 0}
+		{#if usdAmount > 0}
 			<span class="label-text-alt text-info mt-1 block"
 				>{$t('task.btc_price')} ${btcPrice.toLocaleString()}</span
 			>

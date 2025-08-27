@@ -8,9 +8,9 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, formatSatsAmount, satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { goto } from '$app/navigation';
-	
+
 	// Props
 	const { openTaskDrawer } = $props<{
 		openTaskDrawer: (task: Task, tab?: string) => void;
@@ -107,7 +107,7 @@
 {#if $myTasksStore.loading}
 	<div class="space-y-2">
 		{#each Array(1) as _}
-			<div class="bg-base-100 rounded-xl shadow-md animate-pulse">
+			<div class="bg-base-100 animate-pulse rounded-xl shadow-md">
 				<div class="card-body">
 					<!-- Title and Description Section -->
 					<div class="flex flex-col justify-between gap-2">
@@ -250,12 +250,10 @@
 							<!-- Right: Sats -->
 							<div class="">
 								<div class="text-lg font-bold">
-									${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-									<!-- {#if task.budget.type === 'HOURLY'}
-										<span class="text-sm">/hr</span>
-									{/if} -->
+									${task.budget.amount}
+
 									<div class="text-base-content/60 text-sm">
-										{formatSatsAmount(task.budget.amount)}
+										{satsFromUsd(task.budget.amount, btcPrice)}
 									</div>
 								</div>
 							</div>
@@ -397,7 +395,6 @@
 									onclick={(e) => {
 										e.stopPropagation();
 										goto(`/dashboard/task/${task.id}/bids`);
-
 									}}
 									aria-label={$t('task.actions.view_bids')}
 								>

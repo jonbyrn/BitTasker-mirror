@@ -241,13 +241,7 @@
 		</div>
 	{/if}
 
-	<!-- Location Info -->
-	{#if location && location.displayName}
-		<div class="bg-base-200 mt-3 rounded-lg p-3">
-			<h4 class="mb-1 text-sm font-semibold">Task Location</h4>
-			<p class="text-base-content/70 text-sm">{location.displayName}</p>
-		</div>
-	{/if}
+	
 </div>
 
 <style>
