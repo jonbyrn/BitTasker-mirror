@@ -10,7 +10,7 @@
 	import { user } from '$lib/stores/user.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';	
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -205,7 +205,7 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<small class="card-title line-clamp-2 text-lg pb-1">
+								<small class="card-title line-clamp-2 pb-1 text-lg">
 									{task.title}
 								</small>
 								<div class="text-base-content/60 text-start">
@@ -226,11 +226,8 @@
 									{/if}
 								</div>
 							</div>
-							<div class="text-center">
+							<div class="flex flex-col text-center">
 								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
-								<small class="text-base-content/60 text-xs"
-									>{$t('dashboard.task_details_by_task.status')}</small
-								>
 							</div>
 						</div>
 

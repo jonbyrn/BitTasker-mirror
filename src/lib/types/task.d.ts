@@ -21,6 +21,7 @@ export interface Budget {
 	currency: string;
 	type: BudgetTypeEnum;
 	estimatedHours?: number;
+	hourlyRate?: number;
 }
 
 export interface Attachment {
