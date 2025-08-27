@@ -28,6 +28,11 @@
 	let addresses = $state<Record<string, string>>({});
 	let btcPrice = $state<number>(63000); // Default fallback price
 
+	// Fee calculations
+	let platformFee = $derived(calculatePlatformFee(props.bid.amount, btcPrice));
+	let transactionFee = $derived(calculateTransactionFee(props.bid.amount, btcPrice));
+	let totalFiatPrice = $derived((props.bid.amount / 100000000) * btcPrice + platformFee + transactionFee);
+
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -111,6 +116,39 @@
 		// You could add a toast notification here
 	}
 
+	// Format time to AM/PM
+	function formatTimeToAMPM(timeString: string): string {
+		if (!timeString) return '9:00 AM';
+		
+		try {
+			const [hours, minutes] = timeString.split(':').map(Number);
+			const date = new Date();
+			date.setHours(hours, minutes);
+			
+			return date.toLocaleTimeString('en-US', {
+				hour: 'numeric',
+				minute: '2-digit',
+				hour12: true
+			});
+		} catch (error) {
+			return timeString; // Return original if parsing fails
+		}
+	}
+
+	// Calculate platform fee (2.5% of bid amount)
+	function calculatePlatformFee(amountSats: number, btcPriceUsd: number): number {
+		const amountUsd = (amountSats / 100000000) * btcPriceUsd; // Convert sats to USD
+		return amountUsd * 0.025; // 2.5% platform fee
+	}
+
+	// Calculate estimated transaction fee (based on current network conditions)
+	function calculateTransactionFee(amountSats: number, btcPriceUsd: number): number {
+		// Estimate transaction fee as a percentage of the amount
+		// This is a simplified calculation - in reality it would depend on network congestion
+		const amountUsd = (amountSats / 100000000) * btcPriceUsd; // Convert sats to USD
+		return amountUsd * 0.005; // 0.5% estimated transaction fee
+	}
+
 	onMount(() => {
 		generateAddressesAndQRCodes();
 		fetchBtcPrice();
@@ -118,7 +156,7 @@
 </script>
 
 <div class="bg-base-100 mx-auto max-w-3xl rounded-lg p-6 shadow-lg">
-	<h3 class="mb-6 text-xl font-bold">Accept Bid & Fund Escrow</h3>
+	<h3 class="mb-6 text-xl font-bold">Accept Bid & Fund Contract</h3>
 
 	<!-- Bid Information Section -->
 	<div class="bg-base-200 mb-6 rounded-lg p-4">
@@ -131,16 +169,16 @@
 					<!-- Avatar -->
 					<div class="avatar">
 						<div class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full">
-							{#if props.bid.freelancer?.user?.profilePicture}
+							{#if props.bid.userProfile?.user?.profilePictureUrl}
 								<img
-									src={props.bid.freelancer.user.profilePicture}
+									src={props.bid.userProfile.user.profilePictureUrl}
 									alt="Bidder Avatar"
 									class="h-12 w-12 rounded-full object-cover"
 								/>
 							{:else}
 								<div class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center">
 									<span class="text-xl font-semibold">
-										{(props.bid.freelancer?.user?.name || 'A').charAt(0).toUpperCase()}
+										{(props.bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
 									</span>
 								</div>
 							{/if}
@@ -150,10 +188,10 @@
 					<!-- Bidder Details -->
 					<div class="flex flex-col">
 						<span class="text-base font-medium">
-							{props.bid.freelancer?.user?.name || props.bid.freelancer?.professionalTitle || 'Anonymous'}
+							{props.bid.userProfile?.user?.name || props.bid.userProfile?.professionalTitle || 'Anonymous'}
 						</span>
-						{#if props.bid.freelancer?.professionalTitle}
-							<span class="text-base-content/60 text-sm">{props.bid.freelancer.professionalTitle}</span>
+						{#if props.bid.userProfile?.professionalTitle}
+							<span class="text-base-content/60 text-sm">{props.bid.userProfile.professionalTitle}</span>
 						{/if}
 						
 						<!-- Review Stars -->
@@ -161,7 +199,7 @@
 							{#each Array(5) as _, i}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4 {i < (props.bid.freelancer?.averageRating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
+									class="h-4 w-4 {i < (props.bid.userProfile?.averageRating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
 									fill="currentColor"
 									viewBox="0 0 24 24"
 								>
@@ -171,21 +209,34 @@
 								</svg>
 							{/each}
 							<span class="text-base-content/60 ml-2 text-sm">
-								{(props.bid.freelancer?.averageRating || 0).toFixed(1)} ({props.bid.freelancer?.tasksCompleted || 0} tasks)
+								{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile?.tasksCompleted || 0} tasks)
 							</span>
 						</div>
 					</div>
 				</div>
 
+				<!-- Location -->
+				{#if props.bid.task?.pickupLocation?.displayName || props.bid.task?.dropOffLocation?.displayName}
+					<div class="mt-4 flex items-center gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+						</svg>
+						<span class="text-sm">
+							<strong>Location:</strong> {props.bid.task?.pickupLocation?.displayName || props.bid.task?.dropOffLocation?.displayName}
+						</span>
+					</div>
+				{/if}
+
 				<!-- Start and End Time -->
 				{#if props.bid.startDate && props.bid.endDate}
-					<div class="mt-4 flex items-center gap-4">
+					<div class="mt-4 flex flex-col gap-2">
 						<div class="flex items-center gap-2">
 							<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 							</svg>
 							<span class="text-sm">
-								<strong>Start:</strong> {new Date(props.bid.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {props.bid.startTime || '09:00'}
+								<strong>Start:</strong> {new Date(props.bid.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {formatTimeToAMPM(props.bid.startTime || '09:00')}
 							</span>
 						</div>
 						<div class="flex items-center gap-2">
@@ -193,7 +244,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 							</svg>
 							<span class="text-sm">
-								<strong>End:</strong> {new Date(props.bid.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {props.bid.endTime || '17:00'}
+								<strong>End:</strong> {new Date(props.bid.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} at {formatTimeToAMPM(props.bid.endTime || '17:00')}
 							</span>
 						</div>
 					</div>
@@ -201,48 +252,61 @@
 			</div>
 
 			<!-- Bid Price -->
-			<div class="text-right">
-				<div class="text-2xl font-bold">
-					${calculateUsdtEstimate(props.bid.amount, btcPrice)}
-					<div class="text-base-content/60 text-sm">
+			<div class="flex justify-end gap-8">
+				<!-- Left Column - Labels -->
+				<div class="flex flex-col items-end text-right space-y-1">
+					<div class="text-sm font-medium">Bid Price:</div>
+					<div class="text-sm font-medium">Platform Fee:</div>
+					<div class="text-sm font-medium">Est. Transaction Fee:</div>
+					<div class="text-sm font-medium">Total Fiat Price:</div>
+					<div class="text-sm font-medium">Total Sats Price:</div>
+				</div>
+				
+				<!-- Right Column - Values -->
+				<div class="flex flex-col items-end text-right space-y-1">
+					<div class="text-sm">
+						${calculateUsdtEstimate(props.bid.amount, btcPrice)}
+					</div>
+					<div class="text-sm text-base-content/60">
+						${platformFee.toFixed(2)}
+					</div>
+					<div class="text-sm text-base-content/60">
+						${transactionFee.toFixed(2)}
+					</div>
+					<div class="text-lg font-bold">
+						${totalFiatPrice.toFixed(2)}
+					</div>
+					<div class="text-lg font-bold text-base-content/60">
 						{formatSatsAmount(props.bid.amount)}
 					</div>
 				</div>
-				<div class="text-base-content/60 text-sm">
-					{#if props.bid.paymentType === 'HOURLY'}
-						{formatCurrency(props.bid.hourlyRate || 0, props.bid.currency)}/hr · Est. {props.bid.estimatedHours || 0} hrs
-					{:else}
-						Fixed Price
-					{/if}
-				</div>
 			</div>
 		</div>
+	</div>
 
-		<!-- Escrow Information -->
-		<div class="alert alert-info alert-outline">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				class="h-6 w-6 shrink-0 stroke-current"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<span>
-				<strong>Important:</strong> You are entering into a 2:2 multisig escrow with the taskee. 
-				BitTasker is not involved in the escrow process and cannot access your funds.
-			</span>
-		</div>
+	<!-- Escrow Information -->
+	<div class="alert alert-info alert-outline my-2">
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			fill="none"
+			viewBox="0 0 24 24"
+			class="h-6 w-6 shrink-0 stroke-current"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+			/>
+		</svg>
+		<span>
+			<strong>Note:</strong> You are entering into a contract with the taskee on the blockchain. 
+			BitTasker is not  able to access your funds or alter the contract after this.
+		</span>
 	</div>
 
 	<!-- Escrow Funding Section -->
 	<div class="mb-6">
-		<h4 class="text-lg font-semibold mb-4">Escrow Funding</h4>
 		
 		<!-- Tab Navigation -->
 		<div class="tabs tabs-bordered mb-4">
@@ -265,9 +329,9 @@
 		<!-- BitTasker Wallet Tab -->
 		{#if selectedEscrowTab === 'bittasker'}
 			<div class="bg-base-200 rounded-lg p-4">
-				<p class="text-base-content/70 text-sm mb-4">
+				<!-- <p class="text-base-content/70 text-sm mb-4">
 					Fund escrow directly from your BitTasker wallet balance.
-				</p>
+				</p> -->
 				
 				<div class="grid grid-cols-2 gap-4">
 					<!-- LBTC Option -->
@@ -275,13 +339,16 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset === 'LBTC' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedBitTaskerAsset = 'LBTC'}
 					>
-						<div class="card-body p-4 text-center">
-							<div class="flex items-center justify-center gap-3 mb-2">
-								<span class="text-xl">🌊</span>
-								<span class="font-semibold text-lg">L-BTC</span>
-							</div>
-							<div class="text-sm text-base-content/60">
-								Available: 0.005 L-BTC
+						<div class="card-body p-4">
+							<div class="flex items-end justify-between">
+								<div class="flex flex-col items-start">
+									<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12 mb-1" />
+									<span class="font-semibold text-lg">L-BTC</span>
+								</div>
+								<div class="flex flex-col items-end">
+									<span class="font-bold text-2xl">100,000,120,000</span>
+									<span class="text-lg text-base-content/60">SATS</span>
+								</div>
 							</div>
 						</div>
 					</button>
@@ -291,13 +358,16 @@
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset === 'USDT' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedBitTaskerAsset = 'USDT'}
 					>
-						<div class="card-body p-4 text-center">
-							<div class="flex items-center justify-center gap-3 mb-2">
-								<span class="text-xl">💵</span>
-								<span class="font-semibold text-lg">USDT</span>
-							</div>
-							<div class="text-sm text-base-content/60">
-								Available: 150.00 USDT
+						<div class="card-body p-4">
+							<div class="flex items-end justify-between">
+								<div class="flex flex-col items-start">
+									<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-12 h-12 mb-1" />
+									<span class="font-semibold text-lg">USDT</span>
+								</div>
+								<div class="flex flex-col items-end">
+									<span class="font-bold text-2xl">$120.00</span>
+									<span class="text-lg text-base-content/60">USDT</span>
+								</div>
 							</div>
 						</div>
 					</button>
@@ -308,22 +378,21 @@
 		<!-- External Wallet Tab -->
 		{#if selectedEscrowTab === 'external'}
 			<div class="bg-base-200 rounded-lg p-4">
-				<p class="text-base-content/70 text-sm mb-4">
+				<!-- <p class="text-base-content/70 text-sm mb-4">
 					Send funds from your external wallet to fund the escrow.
-				</p>
+				</p> -->
 				
 				<!-- Payment Method Selection -->
-				<div class="grid grid-cols-3 gap-4 mb-4">
+				<div class="grid grid-cols-3 gap-4">
 					<!-- Bitcoin Lightning -->
 					<button
 						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod === 'bitcoin-lightning' ? 'border-primary' : 'border-base-300'}"
 						onclick={() => selectedExternalMethod = 'bitcoin-lightning'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2">
-								<span class="text-2xl">⚡</span>
-								<div class="font-semibold text-sm">Bitcoin Lightning</div>
-								<div class="text-xs text-base-content/60">Fast, low-fee</div>
+							<div class="flex flex-col items-center">
+								<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="w-12 h-12 mb-2" />
+								<div class="font-semibold text-lg">BTC</div>
 							</div>
 						</div>
 					</button>
@@ -334,10 +403,9 @@
 						onclick={() => selectedExternalMethod = 'lbtc-liquid'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2">
-								<span class="text-2xl">🌊</span>
-								<div class="font-semibold text-sm">L-BTC on Liquid</div>
-								<div class="text-xs text-base-content/60">Confidential Bitcoin</div>
+							<div class="flex flex-col items-center">
+								<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="w-12 h-12 mb-2" />
+								<div class="font-semibold text-lg">L-BTC</div>
 							</div>
 						</div>
 					</button>
@@ -348,58 +416,13 @@
 						onclick={() => selectedExternalMethod = 'usdt-liquid'}
 					>
 						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center gap-2">
-								<span class="text-2xl">💵</span>
-								<div class="font-semibold text-sm">USDT on Liquid</div>
-								<div class="text-xs text-base-content/60">Stablecoin</div>
+							<div class="flex flex-col items-center">	
+								<img src="/currency-symbols/USDt.svg" alt="USDT" class="w-12 h-12 mb-2" />
+								<div class="font-semibold text-lg">USDT</div>
 							</div>
 						</div>
 					</button>
 				</div>
-
-				<!-- Address and QR Code Display -->
-				{#if addresses[selectedExternalMethod] && qrCodes[selectedExternalMethod]}
-					<div class="bg-base-100 rounded-lg p-4">
-						<h4 class="font-semibold mb-3">Send Payment To:</h4>
-						
-						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<!-- QR Code -->
-							<div class="flex flex-col items-center">
-								<img
-									src={qrCodes[selectedExternalMethod]}
-									alt="Payment QR Code"
-									class="w-48 h-48 border-2 border-base-300 rounded-lg"
-								/>
-								<p class="text-xs text-base-content/60 mt-2">Scan with your wallet</p>
-							</div>
-
-							<!-- Address -->
-							<div class="flex flex-col">
-								<label class="text-sm font-medium mb-2">Address:</label>
-								<button
-									class="bg-base-300 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
-									title="Click to copy"
-									onclick={() => copyToClipboard(addresses[selectedExternalMethod])}
-								>
-									<pre class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-primary">
-										{addresses[selectedExternalMethod]}
-									</pre>
-								</button>
-								<p class="text-xs text-base-content/60 mt-2">👆 Click to copy address</p>
-								
-								<div class="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg">
-									<div class="flex items-start gap-2">
-										<span class="text-warning">⚠️</span>
-										<div class="text-sm">
-											<strong>Important:</strong> Send exactly {formatSatsAmount(props.bid.amount)} to this address. 
-											Any other amount may result in payment issues.
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-				{/if}
 			</div>
 		{/if}
 	</div>
@@ -427,7 +450,7 @@
 			disabled={isSubmitting}
 			onclick={handleSubmit}
 		>
-			{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Escrow'}
+			{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Contract'}
 		</button>
 	</div>
 </div>
