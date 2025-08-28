@@ -310,7 +310,7 @@ export async function uploadCertification(
 ): Promise<string> {
     try {
         // Upload file
-        const uploadResult = await uploadService.uploadSingleFile(certification.file, 'certifications');
+        const uploadResult = await uploadService.uploadSingleFile(certification.file, { folder: 'certifications' });
 
         // Create certification file event (kind 1063 for file metadata)
         const certEvent = {

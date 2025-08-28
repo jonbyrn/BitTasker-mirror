@@ -4,7 +4,8 @@
 	import { fly } from 'svelte/transition';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import Uploader from '$lib/components/Uploader.svelte';
+	import MediaUploader from '$lib/components/MediaUploader.svelte';
+	import type { UploadResult } from '$lib/api/services/upload.service';
 	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
 	import { t, locale } from 'svelte-i18n';
 
@@ -20,23 +21,61 @@
 		attachmentsToRemove: Attachment[];
 	}>();
 
-	const handleFileUpload = async (files: File[]) => {
-		if (!files || files.length === 0 || files.length > 5) return;
+	// Handle file upload results from MediaUploader
+	const handleUploadResults = (results: UploadResult[]) => {
+		// Convert UploadResult to Attachment format
+		const attachments: Attachment[] = results.map(result => ({
+			key: result.key,
+			url: result.url,
+			type: result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
+			alt: result.key, // Use key as alt for now
+			cloudflareId: result.cloudflareId,
+			variants: result.variants
+		}));
 
-		// Extract only the new files (beyond saved attachments)
-		const savedAttachmentsCount = $store.task.attachments?.length || 0;
-		newFiles = files.slice(savedAttachmentsCount).filter((file) => file instanceof File);
+		// Add to existing attachments
+		$store.task.attachments = [...($store.task.attachments || []), ...attachments];
+		
+		// Clear newFiles since they've been uploaded
+		newFiles = [];
 	};
 
-	const handleFileRemove = (index: number, file?: File | string) => {
-		const savedAttachmentsCount = $store.task.attachments?.length || 0;
-
-		if (index < savedAttachmentsCount) {
-			// Removing a saved attachment
-			const attachment = $store.task.attachments?.[index];
+	// Handle file removal for both new and existing files
+	const handleFileRemove = (index: number, file?: File | string | UploadResult) => {
+		if (typeof file === 'string') {
+			// Find the attachment to remove and schedule it for deletion
+			const attachment = $store.task.attachments?.find((att) => att.url === file);
 			if (attachment) {
-				attachmentsToRemove.push(attachment);
-				$store.task.attachments?.splice(index, 1);
+				attachmentsToRemove = [...attachmentsToRemove, attachment];
+				// Remove from store
+				const attachmentIndex = $store.task.attachments?.findIndex((att) => att.url === file);
+				if (attachmentIndex !== undefined && attachmentIndex >= 0) {
+					$store.task.attachments?.splice(attachmentIndex, 1);
+				}
+			}
+		} else if (file instanceof File) {
+			// Remove from new files
+			const newFileIndex = newFiles.findIndex(f => f === file);
+			if (newFileIndex >= 0) {
+				newFiles.splice(newFileIndex, 1);
+				newFiles = [...newFiles]; // Trigger reactivity
+			}
+		} else if (file && typeof file === 'object' && 'key' in file) {
+			// UploadResult - find in attachments and remove
+			const attachment = $store.task.attachments?.find((att) => att.key === file.key);
+			if (attachment) {
+				attachmentsToRemove = [...attachmentsToRemove, attachment];
+				const attachmentIndex = $store.task.attachments?.findIndex((att) => att.key === file.key);
+				if (attachmentIndex !== undefined && attachmentIndex >= 0) {
+					$store.task.attachments?.splice(attachmentIndex, 1);
+				}
+			}
+		} else {
+			// Fallback: remove by index from attachments
+			if ($store.task.attachments && index < $store.task.attachments.length) {
+				const attachment = $store.task.attachments[index];
+				attachmentsToRemove = [...attachmentsToRemove, attachment];
+				$store.task.attachments.splice(index, 1);
 			}
 		}
 	};
@@ -186,16 +225,23 @@
 			</label>
 		</div>
 
-		<Uploader
+		<MediaUploader
 			id="attachments"
 			label={$t('task.attachments')}
 			allowedTypes={['image/*', 'video/*']}
 			files={uploaderFiles}
 			maxFiles={5}
-			maxFileSize={100}
+			maxFileSize={200}
 			maxDuration={30}
 			className="w-full h-full min-h-28"
-			onChange={handleFileUpload}
+			enableImageCompression={true}
+			compressionQuality={0.8}
+			maxImageDimension={3840}
+			showCompressionInfo={true}
+			useCloudflare={true}
+			generateVariants={true}
+			uploadFolder="tasks"
+			onChange={handleUploadResults}
 			onRemove={handleFileRemove}
 		/>
 	</div>
