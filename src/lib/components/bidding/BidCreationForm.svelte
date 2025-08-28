@@ -261,7 +261,7 @@
 				taskTitle: taskTitle || 'Untitled Task',
 				taskDescription: taskDescription || 'No description available', // Add task description
 				amount: getTotalAmount,
-				currency: 'SATS',
+				currency: 'USD',
 				paymentType: bidType,
 				hourlyRate: bidType === 'HOURLY' && hourlyRate ? parseFloat(hourlyRate) : null,
 				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null,

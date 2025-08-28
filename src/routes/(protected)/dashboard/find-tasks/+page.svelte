@@ -12,7 +12,7 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, formatSatsAmount, satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
@@ -51,6 +51,7 @@
 	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
 	let showSkeleton = $state(true);
+	let selectedLocation = $state<any | null>(null);
 
 	// Lazy loading state
 	let taskListRef = $state<HTMLElement | null>(null);
@@ -462,8 +463,13 @@
 
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
-		selectedTask = task;
-		console.log('selectedTask', selectedTask);
+		selectedTask = task
+		if (task.dropOffLocation) {
+			selectedLocation = task.dropOffLocation;
+		}
+		if (task.pickupLocation) {
+			selectedLocation = task.pickupLocation;
+		}
 	}
 </script>
 
@@ -706,22 +712,17 @@
 												</div>
 
 												<!-- Right: Sats -->
-												<div class="">
-													<div class="text-lg font-bold">
-														${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-														<!-- {#if task.budget.type === 'HOURLY'}
-															<span class="text-sm">/hr</span>
-														{/if} -->
-														<div class="text-base-content/60 text-sm">
-															{formatSatsAmount(task.budget.amount)}
-														</div>
+												<div class="text-lg font-bold">
+													${task.budget.amount}
+							
+													<div class="text-base-content/60 text-sm">
+														{satsFromUsd(task.budget.amount, btcPrice)}
 													</div>
 												</div>
 											</div>
 
 											<!-- Location -->
 											<div class="flex w-full items-start gap-2">
-												
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
 													class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
@@ -940,7 +941,7 @@
 			<div class="hidden lg:col-span-3 lg:block">
 				<div class="card">
 					<!-- Task Location Map -->
-					<TaskLocationMap location={null} height="75vh" />
+					<TaskLocationMap location={selectedLocation || null} height="75vh" />
 				</div>
 			</div>
 		</div>

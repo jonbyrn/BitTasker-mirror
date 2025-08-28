@@ -150,10 +150,15 @@ export function formatBtcToSats(amountBtc: number | string): string {
 
 export const SATS_PER_BTC = 100_000_000;
 
-export function satsFromUsd(usd: number, price: number) {
-	return Math.round((usd / price) * SATS_PER_BTC);
-}
+export function satsFromUsd(usd: number, btcPrice: number): string {
+	if (!usd || !btcPrice) return '0 Sats';
 
+	const btcAmount = usd / btcPrice;
+
+	const sats = BigInt(Math.round(btcAmount * SATS_PER_BTC));
+
+	return `${sats.toLocaleString('en-US')} Sats`;
+}
 export function usdFromSats(sats: number, price: number) {
 	const value = (sats / SATS_PER_BTC) * price;
 	return parseFloat(value.toFixed(3));

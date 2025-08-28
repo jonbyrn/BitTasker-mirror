@@ -11,7 +11,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, satsFromUsd } from '$lib/utils/helpers/crypto';
 	import Gallery from '$lib/components/Gallery.svelte';
 
 	let { task, isOwner, onClose } = $props<{
@@ -150,10 +150,12 @@
 			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
 			</small>
+
 			<div class="text-lg font-bold">
-				${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-				<div class="text-base-content/60 text-lowercase text-sm">
-					{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
+				${task.budget.amount}
+
+				<div class="text-base-content/60 text-sm">
+					{satsFromUsd(task.budget.amount, btcPrice)}
 				</div>
 			</div>
 		</div>
@@ -202,14 +204,18 @@
 		{/if}
 
 		<div>
-			<small class="text-base-content/60 text-sm">{$t('dashboard.task_details_by_task.posted')}</small>
+			<small class="text-base-content/60 text-sm"
+				>{$t('dashboard.task_details_by_task.posted')}</small
+			>
 			<p class="font-semibold">{formatDateString(task.createdAt)}</p>
 		</div>
 	</div>
 
 	<!-- Task description -->
 	<div class="mb-4">
-		<small class="text-base-content/60 ">{$t('dashboard.task_details_by_task.description_task')}</small>
+		<small class="text-base-content/60"
+			>{$t('dashboard.task_details_by_task.description_task')}</small
+		>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-[7rem] overflow-y-auto">
 				<p>{task.description}</p>

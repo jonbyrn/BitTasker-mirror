@@ -6,7 +6,7 @@
 	import { formatDistanceToNow, format } from 'date-fns';
 	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, formatSatsAmount, satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { user } from '$lib/stores/user.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
@@ -271,14 +271,11 @@
 								</div>
 							{/if}
 
-							<div class="mb-1">
-								<div class="text-lg font-bold">
-									${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-								</div>
-								<div class="text-right">
-									<span class="text-base-content/60 text-sm font-semibold">
-										{formatSatsAmount(task.budget.amount)}
-									</span>
+							<div class="text-lg font-bold">
+								${task.budget.amount}
+		
+								<div class="text-base-content/60 text-sm">
+									{satsFromUsd(task.budget.amount, btcPrice)}
 								</div>
 							</div>
 						</div>

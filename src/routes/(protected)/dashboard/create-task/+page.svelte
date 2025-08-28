@@ -95,7 +95,7 @@
 		switch ($store.currentStep) {
 			case 'basics':
 				if (!$store.task.title?.trim()) errors.title = $t('task.errors.title_required');
-				if ($store.task.title && $store.task.title.length > 100)
+				if ($store.task.title && $store.task.title.length > 200)
 					errors.title = $t('task.errors.title_too_long');
 				if ($store.task.dateRange) {
 					// Validar que ambos campos de fecha sean requeridos
@@ -107,33 +107,30 @@
 					) {
 						errors.deadline = $t('task.errors.date_range_required');
 					}
-					
+
 					// Validar que las fechas estén en el futuro (comparando solo fechas, no horas)
 					const today = new Date();
 					today.setHours(0, 0, 0, 0); // Resetear a inicio del día
-					
+
 					const startDate = new Date($store.task.dateRange.start);
 					startDate.setHours(0, 0, 0, 0);
-					
+
 					const endDate = new Date($store.task.dateRange.end);
 					endDate.setHours(0, 0, 0, 0);
-					
-					if (
-						endDate < today ||
-						startDate < today ||
-						endDate < startDate
-					) {
+
+					if (endDate < today || startDate < today || endDate < startDate) {
 						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
 				if ($store.task.deadline) {
 					const deadlineDate = new Date($store.task.deadline);
 					deadlineDate.setHours(0, 0, 0, 0);
-					
+
 					const today = new Date();
 					today.setHours(0, 0, 0, 0);
-					
-					if (deadlineDate <= today) // Cambiado de < a <= para que "hoy" no sea válido
+
+					if (deadlineDate <= today)
+						// Cambiado de < a <= para que "hoy" no sea válido
 						errors.deadline = $t('task.errors.deadline_future');
 				}
 				if ($store.task?.categories?.length === 0)
@@ -252,7 +249,7 @@
 	async function handleSubmit() {
 		if (!validateCurrentStep()) return;
 
-		let signedEventId: string | null = null; // Declarar localmente
+		let signedEventId: string | null = null;
 
 		try {
 			isSubmitting = true;
@@ -272,6 +269,7 @@
 				status: TaskStatusEnum.OPEN
 			};
 
+		
 			const isUpdating = $page.url.searchParams.get('edit') === 'true';
 
 			if (isUpdating) {
@@ -293,15 +291,17 @@
 
 			await store.clearDraft();
 			await goto('/dashboard');
+			
 		} catch (error) {
+			
 			const errorMessage = error instanceof Error ? error.message : $t('task.errors.create_failed');
 			errors.general = errorMessage;
 			appStore.showErrorToast(errorMessage);
+			
 		} finally {
+			
 			isSubmitting = false;
-			// Ejecutar en background sin bloquear - usar la variable local 'task'
 			if (signedEventId) {
-				// Usar la variable task local, no $store.task
 				const currentTask = {
 					title: $store.task.title,
 					description: $store.task.description,
@@ -318,6 +318,7 @@
 				};
 				triggerSavedSearchChecks(currentTask);
 			}
+			
 		}
 	}
 </script>
@@ -344,25 +345,6 @@
 					<span class="loading loading-spinner loading-lg"></span>
 				</div>
 			{:else}
-				<!-- TODO: Recurring Task Toggle -->
-				<!-- {#if $store.currentStep !== 'recurring'}
-					<div class="form-control mt-2 mb-4 w-full max-w-xs">
-						<label class="label cursor-pointer">
-							<span class="label-text font-medium">Create as recurring task</span>
-							<input
-								type="checkbox"
-								class="toggle toggle-primary"
-								bind:checked={$store.recurringTask.isRecurring}
-								onchange={(event) =>
-									store.setupRecurringTask((event.target as HTMLInputElement).checked)}
-							/>
-						</label>
-						{#if $store.recurringTask.isRecurring}
-							<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
-						{/if}
-					</div>
-				{/if} -->
-
 				<div class="space-y-6">
 					{#if $store.currentStep === TaskStepEnum.BASICS}
 						<TaskBasics {errors} {direction} />

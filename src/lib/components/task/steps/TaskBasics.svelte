@@ -29,7 +29,7 @@
 			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
 			placeholder={$t('task.recurring_name_placeholder')}
-			maxlength="100"
+			maxlength="200"
 		/>
 		{#if errors.title}
 			<span class="label-text-alt text-error">{errors.title}</span>
