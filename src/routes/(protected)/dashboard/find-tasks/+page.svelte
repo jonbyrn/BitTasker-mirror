@@ -12,7 +12,7 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { calculateUsdtEstimate, formatSatsAmount, satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
@@ -712,15 +712,11 @@
 												</div>
 
 												<!-- Right: Sats -->
-												<div class="">
-													<div class="text-lg font-bold">
-														${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-														<!-- {#if task.budget.type === 'HOURLY'}
-															<span class="text-sm">/hr</span>
-														{/if} -->
-														<div class="text-base-content/60 text-sm">
-															{formatSatsAmount(task.budget.amount)}
-														</div>
+												<div class="text-lg font-bold">
+													${task.budget.amount}
+							
+													<div class="text-base-content/60 text-sm">
+														{satsFromUsd(task.budget.amount, btcPrice)}
 													</div>
 												</div>
 											</div>
