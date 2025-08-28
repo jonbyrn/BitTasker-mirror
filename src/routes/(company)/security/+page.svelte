@@ -60,7 +60,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('about.security.title')}</h1>
+				<h3>{$t('about.security.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('about.security.description')}
 				</p>
@@ -71,7 +71,7 @@
 	<!-- Security Overview -->
 	<div class="prose mx-auto max-w-6xl my-16 px-8">
 		<div class="mb-8 text-center">
-			<h2>{$t('about.security_approach.title')}</h2>
+			<h3>{$t('about.security_approach.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about.security_approach.description')}
 			</p>
@@ -246,7 +246,7 @@
 
 		<!-- Additional Security Measures -->
 		<div class="mt-12">
-			<h2 class="mb-6 text-center">{$t('about.additional_security.title')}</h2>
+			<h3 class="mb-6 text-center">{$t('about.additional_security.title')}</h3>
 
 			<!-- Decentralized Identity -->
 			<div class="card bg-base-100 border-base-300 mb-6 border shadow-lg">
@@ -323,7 +323,7 @@
 
 		<!-- Security Best Practices -->
 		<div class="mt-12">
-			<h2 class="mb-6 text-center">{$t('about.security_practices.title')}</h2>
+			<h3 class="mb-6 text-center">{$t('about.security_practices.title')}</h3>
 
 			<div class="alert alert-warning alert-outline mb-8">
 				<svg
@@ -416,7 +416,7 @@
 
 		<!-- Security Commitment -->
 		<div class="mt-12 text-center max-w-6xl mx-auto prose">
-			<h2 class="mb-4">{$t('about.security_practices.commitment.title')}</h2>
+			<h3 class="mb-4">{$t('about.security_practices.commitment.title')}</h3>
 			<p class="mx-auto text-lg">
 				{$t('about.security_practices.commitment.description')}
 			</p>

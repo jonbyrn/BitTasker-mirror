@@ -5,6 +5,7 @@
 	import {
 		fetchProfileMetadata,
 		getMessagedPeople,
+		getMessageHistory,
 		listenForIncomingMessages,
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
@@ -55,9 +56,40 @@
 	// Load conversations on mount
 	onMount(async () => {
 		try {
-			// Load existing conversations
+			// Obtener conversaciones pero excluir las que solo contengan bids
 			const people = await getMessagedPeople();
-			conversations = people;
+			
+			// Filtrar conversaciones que NO sean solo de bids
+			const filteredConversations = [];
+			
+			for (const person of people) {
+				try {
+					// Obtener historial de mensajes con esta persona
+					const messageHistory = await getMessageHistory(person.pubkey, { limit: 50 });
+					
+					// Verificar si hay mensajes que NO sean bids
+					const hasNonBidMessages = messageHistory.some(message => {
+						try {
+							const parsedContent = JSON.parse(message.plaintext);
+							// Incluir conversación si tiene al menos un mensaje que NO sea bid
+							return parsedContent.messageType !== 'bid';
+						} catch {
+							// Si no se puede parsear, es un mensaje normal (incluir)
+							return true;
+						}
+					});
+					
+					// Solo incluir conversaciones que tengan mensajes normales
+					if (hasNonBidMessages) {
+						filteredConversations.push(person);
+					}
+				} catch (err) {
+					// Si hay error, incluir la conversación por seguridad
+					filteredConversations.push(person);
+				}
+			}
+			
+			conversations = filteredConversations;
 
 			// Setup profile subscriptions for existing conversations
 			for (const conversation of conversations) {
@@ -243,11 +275,15 @@
 	}
 </script>
 
-<div class="mx-auto flex h-full max-w-7xl flex-col p-4 sm:p-0">
-	<!-- Header -->
-	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
-		<h2 class="text-2xl font-bold">{$t('messages.title')}</h2>
-		<button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button>
+<div class="mx-auto max-w-7xl p-4 sm:p-0">
+	<!-- Header -->		
+	<div class="mb-6 flex flex-shrink-0 items-center justify-between"> 	
+		<div>
+			<h3 class="">{$t('messages.title')}</h3>
+			<p class="text-base-content/70">{$t('messages.subtitle')}</p>
+		</div>
+		<!-- The below button is commented out because we don't currently want the user to be able to message anyone, just taskers/taskees that they're hiring, or hired  -->
+		<!-- <button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button> -->
 	</div>
 
 	<!-- Modal -->
@@ -264,7 +300,7 @@
 			<div class="modal-box max-w-md">
 				<!-- Modal Header -->
 				<div class="mb-6">
-					<h3 class="text-xl font-semibold">{$t('messages.start_new_message')}</h3>
+					<h3 class="">{$t('messages.start_new_message')}</h3>
 					<p class="text-base-content/60 mt-1 text-sm">
 						{$t('messages.enter_pubkey')}
 					</p>
@@ -530,7 +566,7 @@
 								</div>
 								<div class="">
 									<div class="flex flex-col items-baseline justify-between">
-										<h3 class="font-medium">
+										<h3 class="">
 											{conversation.profile.name || conversation.pubkey.slice(0, 8) + '...'}
 										</h3>
 										<span class="text-base-content/60 text-sm">

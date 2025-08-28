@@ -1,6 +1,5 @@
 <script lang="ts">
-
-    import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { slide } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
@@ -71,7 +70,7 @@
 		} else {
 			currentSection = path.split('dashboard/')[1] || '';
 		}
-    // protectedRoute logic removed; login state handled separately
+		// protectedRoute logic removed; login state handled separately
 	});
 
 	// Menu closing on route change - with debounce
@@ -92,11 +91,11 @@
 	// TODO: This solution is not working as expected, need to fix
 	let scrollCleanup: (() => void) | undefined;
 
-    // Control menu visibility
-    let isMenuOpen = $state(false);
-    let isMenuClosing = $state(false);
-    // Ensures the menu animates from collapsed -> expanded on open
-    let isMenuExpanding = $state(false);
+	// Control menu visibility
+	let isMenuOpen = $state(false);
+	let isMenuClosing = $state(false);
+	// Ensures the menu animates from collapsed -> expanded on open
+	let isMenuExpanding = $state(false);
 
 	// Control individual collapse states
 	let isTaskersOpen = $state(false);
@@ -106,12 +105,15 @@
 	// Defer non-critical operations
 	const deferNonCriticalOperations = () => {
 		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(() => {
-				// Setup scroll listeners if needed
-				if (typeof window !== 'undefined') {
-					window.addEventListener('scroll', handleScroll, { passive: true });
-				}
-			}, { timeout: 1000 });
+			requestIdleCallback(
+				() => {
+					// Setup scroll listeners if needed
+					if (typeof window !== 'undefined') {
+						window.addEventListener('scroll', handleScroll, { passive: true });
+					}
+				},
+				{ timeout: 1000 }
+			);
 		} else {
 			// Fallback for browsers without requestIdleCallback
 			setTimeout(() => {
@@ -127,7 +129,7 @@
 	let scrollThrottleTimeout: ReturnType<typeof setTimeout> | undefined;
 	function handleScroll() {
 		if (scrollThrottleTimeout) return;
-		
+
 		scrollThrottleTimeout = setTimeout(() => {
 			const currentScrollPosition = window.pageYOffset;
 			isScrollingDown = currentScrollPosition > lastScrollPosition;
@@ -136,22 +138,22 @@
 		}, 100); // Throttle scroll events
 	}
 
-let unsubscribeAuth: (() => void) | undefined;
+	let unsubscribeAuth: (() => void) | undefined;
 
-onMount(() => {
-    // Subscribe to auth store for live updates
-    unsubscribeAuth = authState.subscribe((state) => {
-        isLoggedIn = state.isAuthenticated;
-    });
+	onMount(() => {
+		// Subscribe to auth store for live updates
+		unsubscribeAuth = authState.subscribe((state) => {
+			isLoggedIn = state.isAuthenticated;
+		});
 
-    // Initial token presence check (no Nostr libs)
-    (async () => {
-        const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-        isLoggedIn = Boolean(value);
-    })();
+		// Initial token presence check (no Nostr libs)
+		(async () => {
+			const { value } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
+			isLoggedIn = Boolean(value);
+		})();
 		// Defer non-critical operations
 		deferNonCriticalOperations();
-		
+
 		// Add click outside handler
 		if (typeof document !== 'undefined') {
 			document.addEventListener('click', handleClickOutside);
@@ -165,31 +167,31 @@ onMount(() => {
 		}
 	});
 
-    // Toggle menu
-    async function toggleMenu() {
-        if (isMenuOpen) {
-            closeMenu();
-        } else {
-            // Render the menu in a collapsed state first
-            isMenuOpen = true;
-            isMenuClosing = false;
-            isMenuExpanding = false;
-            // Wait for DOM to mount the element
-            await tick();
-            // Ensure the collapsed state is painted before transitioning (mobile Safari/Chrome)
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-            // Now enable expand class to trigger transition
-            isMenuExpanding = true;
-        }
-    }
+	// Toggle menu
+	async function toggleMenu() {
+		if (isMenuOpen) {
+			closeMenu();
+		} else {
+			// Render the menu in a collapsed state first
+			isMenuOpen = true;
+			isMenuClosing = false;
+			isMenuExpanding = false;
+			// Wait for DOM to mount the element
+			await tick();
+			// Ensure the collapsed state is painted before transitioning (mobile Safari/Chrome)
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			// Now enable expand class to trigger transition
+			isMenuExpanding = true;
+		}
+	}
 
 	// Close menu with animation
-    function closeMenu() {
+	function closeMenu() {
 		if (isMenuOpen && !isMenuClosing) {
-            // Stop the expand state so collapse animation takes precedence
-            isMenuExpanding = false;
-            isMenuClosing = true;
+			// Stop the expand state so collapse animation takes precedence
+			isMenuExpanding = false;
+			isMenuClosing = true;
 			// Close all collapses when closing the menu
 			closeAllCollapses();
 			// Wait for slide-down animation to complete before hiding
@@ -240,10 +242,10 @@ onMount(() => {
 
 		// Check if click is on the menu button itself (center button)
 		const isMenuButton = target.closest('[data-menu-button]');
-		
+
 		// Check if click is on any navbar button (to close menu when navigating)
 		const isNavbarButton = target.closest('.dock a, .dock button');
-		
+
 		// Close menu if clicking outside the expanded menu and not on the menu button
 		// Also close if clicking on other navbar buttons (for navigation)
 		if ((!isInsideExpandedMenu && !isMenuButton) || (isNavbarButton && !isMenuButton)) {
@@ -253,12 +255,12 @@ onMount(() => {
 		}
 	}
 
-onDestroy(() => {
-    if (unsubscribeAuth) unsubscribeAuth();
+	onDestroy(() => {
+		if (unsubscribeAuth) unsubscribeAuth();
 		// Clear timeouts
 		clearTimeout(routeChangeTimeout);
 		clearTimeout(scrollThrottleTimeout);
-		
+
 		// Remove scroll handler
 		if (scrollCleanup) {
 			scrollCleanup();
@@ -276,14 +278,14 @@ onDestroy(() => {
 	});
 </script>
 
-	<!-- Sliding Menu Overlay - Behind the navigation -->
-	{#if isMenuOpen || isMenuClosing}
-		<div
-			class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
-            style="bottom: 64px; max-height: 52rem; overflow: hidden;"
-            class:menu-expand={isMenuExpanding && !isMenuClosing}
-            class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
-        >
+<!-- Sliding Menu Overlay - Behind the navigation -->
+{#if isMenuOpen || isMenuClosing}
+	<div
+		class="bottom-nav-menu bg-base-100/80 border-base-300 fixed right-0 left-0 z-40 rounded-t-2xl border-t shadow-lg backdrop-blur-sm"
+		style="bottom: 64px; max-height: 52rem; overflow: hidden;"
+		class:menu-expand={isMenuExpanding && !isMenuClosing}
+		class:menu-collapse={isMenuClosing || (!isMenuExpanding && !isMenuClosing)}
+	>
 		<div class="pb-safe max-h-[52rem] overflow-y-auto pt-4">
 			<div class="p-4">
 				{#if isLoggedIn}
@@ -291,9 +293,14 @@ onDestroy(() => {
 					<ul class="menu w-full">
 						<!-- Logout -->
 						<li>
-							<button onclick={() => { closeMenu(); /* Add logout logic here */ }} class="min-h-[48px] py-3 w-full text-left">
+							<button
+								onclick={() => {
+									closeMenu(); /* Add logout logic here */
+								}}
+								class="min-h-[48px] w-full py-3 text-left"
+							>
 								<IconLogout class="text-error" />
-								<span class="font-medium text-error">{$t('navbar.logout')}</span>
+								<span class="text-error font-medium">{$t('navbar.logout')}</span>
 							</button>
 						</li>
 
@@ -331,24 +338,24 @@ onDestroy(() => {
 									<span class="font-medium">{$t('navbar.faq')}</span>
 								</a>
 							</li>
-                            <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/contact" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconEmailOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.contact_support')}</span>
 								</a>
 							</li>
-                            <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-                                <a href="/feedback" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-                                    <IconCommentTextOutline class="text-primary" />
-                                    <span class="font-medium">{$t('navbar.feedback')}</span>
-                                </a>
-                            </li>
-                            <li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-                                <a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-                                    <IconShieldCheck class="text-primary" />
-                                    <span class="font-medium">{$t('footer.security')}</span>
-                                </a>
-                            </li>
+							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+								<a href="/feedback" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<IconCommentTextOutline class="text-primary" />
+									<span class="font-medium">{$t('navbar.feedback')}</span>
+								</a>
+							</li>
+							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+								<a href="/security" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<IconShieldCheck class="text-primary" />
+									<span class="font-medium">{$t('footer.security')}</span>
+								</a>
+							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/about" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconInformationOutline class="text-primary" />
@@ -439,6 +446,7 @@ onDestroy(() => {
 									<span class="font-medium">{$t('navbar.messages')}</span>
 								</a>
 							</li>
+
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/wallet" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconWallet class="text-primary" />
@@ -523,7 +531,7 @@ onDestroy(() => {
 									<span class="font-medium">{$t('footer.post_task')}</span>
 								</a>
 							</li>
-						
+
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconCurrencyUsd class="text-primary" />
@@ -579,7 +587,7 @@ onDestroy(() => {
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/taskee-fees" onclick={closeMenu} class="pl-6 min-h-[44px] py-2">
+								<a href="/taskee-fees" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconCurrencyUsd class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_fees')}</span>
 								</a>
@@ -673,11 +681,17 @@ onDestroy(() => {
 <!-- Bottom Navigation Bar -->
 {#if isLoggedIn}
 	<!-- Dock is fixed at bottom of screen and animates in/out based on scroll -->
-	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black z-50" class:hidden={!isVisible}>
+	<div
+		class="dock bg-primary/95 border-base-300/70 z-50 border-t text-black backdrop-blur-sm"
+		class:hidden={!isVisible}
+	>
 		<!-- Home -->
 		<a
 			href="/dashboard"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'home'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconHome class="text-primary-content" />
@@ -687,7 +701,10 @@ onDestroy(() => {
 		<!-- New Task -->
 		<a
 			href="/dashboard/create-task"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'create-task' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'create-task'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconPlusCircle class="text-primary-content" />
@@ -723,7 +740,10 @@ onDestroy(() => {
 		<!-- Wallet -->
 		<a
 			href="/dashboard/wallet"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'wallet' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'wallet'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconWallet class="text-primary-content" />
@@ -733,7 +753,10 @@ onDestroy(() => {
 		<!-- Messages -->
 		<a
 			href="/dashboard/messages"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'messages' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'messages'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconMessage class="text-primary-content" />
@@ -741,11 +764,14 @@ onDestroy(() => {
 		</a>
 	</div>
 {:else}
-	<div class="dock bg-primary/95 border-base-300/70 border-t backdrop-blur-sm text-black z-50">
+	<div class="dock bg-primary/95 border-base-300/70 z-50 border-t text-black backdrop-blur-sm">
 		<!-- Home -->
 		<a
 			href="/"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'home' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'home'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconHome class="text-primary-content" />
@@ -755,7 +781,10 @@ onDestroy(() => {
 		<!-- About -->
 		<a
 			href="/about"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'about' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'about'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconInformationOutline class="text-primary-content" />
@@ -791,7 +820,10 @@ onDestroy(() => {
 		<!-- How It Works -->
 		<a
 			href="/how-it-works"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'help' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'help'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconHelpCircleOutline class="text-primary-content" />
@@ -801,7 +833,10 @@ onDestroy(() => {
 		<!-- Sign Up -->
 		<a
 			href="/auth/signup"
-			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection === 'signup' ? 'dock-active' : ''}"
+			class="hover:bg-primary-content/10 flex min-h-[48px] min-w-[48px] flex-col items-center gap-1 rounded-lg transition-colors {currentSection ===
+			'signup'
+				? 'dock-active'
+				: ''}"
 			data-sveltekit-reload="off"
 		>
 			<IconAccountPlus class="text-primary-content" />
@@ -815,12 +850,12 @@ onDestroy(() => {
 		padding-bottom: env(safe-area-inset-bottom, 0);
 	}
 
-    /* Menu starts collapsed, expands upward using transform instead of max-height */
-    .bottom-nav-menu {
-        transform: translateY(100%);
-        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        will-change: transform;
-    }
+	/* Menu starts collapsed, expands upward using transform instead of max-height */
+	.bottom-nav-menu {
+		transform: translateY(100%);
+		transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+		will-change: transform;
+	}
 	.menu-expand {
 		transform: translateY(0);
 	}
@@ -880,18 +915,18 @@ onDestroy(() => {
 		backface-visibility: hidden;
 	}
 
-    /* Ensure all transitions use GPU acceleration */
-    .dock a,
-    .dock button,
-    .dropdown-arrow {
-        backface-visibility: hidden;
-        transform: translateZ(0);
-    }
+	/* Ensure all transitions use GPU acceleration */
+	.dock a,
+	.dock button,
+	.dropdown-arrow {
+		backface-visibility: hidden;
+		transform: translateZ(0);
+	}
 
-    /* Do not override .bottom-nav-menu transform (used for slide animation) */
-    .bottom-nav-menu {
-        backface-visibility: hidden;
-    }
+	/* Do not override .bottom-nav-menu transform (used for slide animation) */
+	.bottom-nav-menu {
+		backface-visibility: hidden;
+	}
 
 	/* Ensure any ::after pseudo-elements use composited animations */
 	.dropdown-arrow::after {

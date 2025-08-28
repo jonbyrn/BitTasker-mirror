@@ -1,15 +1,20 @@
 <script lang="ts">
-	import type { CreateBidParams, PaymentType } from '$lib/types/bid';
-	import { AxiosError } from 'axios';
-	import { linear } from 'svelte/easing';
+	import type { PaymentType } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
-	import bidService from '$lib/api/services/bid.service';
+	import { submitBidAsDM } from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
+	import type { NostrBid } from '$lib/utils/nostr-bid'; // Import from nostr-bid.ts where it's defined
 
 	// Props
-	const { taskId, onClose } = $props<{ taskId: string; onClose: () => void }>();
+	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{
+		taskId: string;
+		onClose: () => void;
+		taskCreatorPubkey: string; // Required for sending DM
+		taskTitle?: string; // Add task title prop
+		taskDescription?: string; // Add task description prop
+	}>();
 
 	// Form state
 	let bidType = $state<PaymentType>('FIXED');
@@ -24,8 +29,15 @@
 	let bidFormErrors = $state<Record<string, string>>({});
 	let bidSubmitted = $state(false);
 
+	// New datetime fields for fixed price bids
+	let startDate = $state<string>('');
+	let endDate = $state<string>('');
+	let startTime = $state<string>('09:00');
+	let endTime = $state<string>('17:00');
+
 	// USDT conversion state
 	let usdAmount = $state<number>(0);
+	let hourlyRateUsd = $state<number>(0); // Add separate USD state for hourly rate
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Fetch BTC price on mount
@@ -75,11 +87,11 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			usdAmount = usdValue;
+			hourlyRateUsd = usdValue;
 			const satsValue = satsFromUsd(usdValue, btcPrice);
 			hourlyRate = satsValue.toString();
 		} else {
-			usdAmount = 0;
+			hourlyRateUsd = 0;
 			hourlyRate = '0';
 		}
 	}
@@ -92,10 +104,23 @@
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			hourlyRate = satsValue.toString();
-			usdAmount = usdFromSats(satsValue, btcPrice);
+			hourlyRateUsd = usdFromSats(satsValue, btcPrice);
 		} else {
 			hourlyRate = '0';
-			usdAmount = 0;
+			hourlyRateUsd = 0;
+		}
+	}
+
+	// Handle estimated hours changes
+	function handleEstimatedHoursChange(event: Event) {
+		let input = cleanInput((event.target as HTMLInputElement).value);
+		(event.target as HTMLInputElement).value = input;
+
+		const hoursValue = parseFloat(input.replace(/,/g, ''));
+		if (!isNaN(hoursValue)) {
+			estimatedHours = hoursValue.toString();
+		} else {
+			estimatedHours = '';
 		}
 	}
 
@@ -111,15 +136,41 @@
 			: parseFloat(amount || '0')
 	);
 
+	// Handle payment type change
+	function handlePaymentTypeChange(newType: PaymentType) {
+		if (bidType === newType) return;
+
+		bidType = newType;
+
+		if (newType === 'HOURLY') {
+			// Clear fixed price fields and initialize hourly rate with current USD amount
+			amount = '';
+			if (usdAmount > 0) {
+				// Convert the current USD amount to hourly rate sats
+				const satsValue = satsFromUsd(usdAmount, btcPrice);
+				hourlyRate = satsValue.toString();
+				hourlyRateUsd = usdAmount; // Set the hourly rate USD value
+			} else {
+				hourlyRate = '';
+				hourlyRateUsd = 0;
+			}
+		} else {
+			// Clear hourly rate fields and initialize fixed price with current hourly rate
+			hourlyRate = '';
+			hourlyRateUsd = 0;
+			estimatedHours = '';
+			if (parseInt(hourlyRate || '0') > 0 && parseFloat(estimatedHours || '0') > 0) {
+				// Convert hourly rate to total amount
+				const totalSats = parseInt(hourlyRate) * parseFloat(estimatedHours);
+				amount = totalSats.toString();
+				usdAmount = usdFromSats(totalSats, btcPrice);
+			}
+		}
+	}
+
 	// Form validation
 	function validateBidForm() {
 		const errors: Record<string, string> = {};
-
-		// Validate taskId
-		if (!taskId) {
-			errors.general = $t('bid_form.errors.task_id_required');
-			return false;
-		}
 
 		// Validate amount for FIXED type
 		if (bidType === 'FIXED') {
@@ -127,6 +178,17 @@
 				errors.amount = $t('bid_form.errors.amount_required');
 			} else if (parseFloat(amount) <= 0) {
 				errors.amount = $t('bid_form.errors.amount_greater_than_zero');
+			}
+
+			// Validate datetime fields for fixed price
+			if (!startDate || !endDate) {
+				errors.datetime = $t('bid_form.errors.datetime_required');
+			} else {
+				const start = new Date(`${startDate}T${startTime}`);
+				const end = new Date(`${endDate}T${endTime}`);
+				if (start >= end) {
+					errors.datetime = $t('bid_form.errors.datetime_invalid');
+				}
 			}
 		}
 
@@ -152,11 +214,6 @@
 			errors.description = $t('bid_form.errors.description_min_length');
 		}
 
-		// Validate estimated duration
-		if (!estimatedDuration || estimatedDuration.trim() === '') {
-			errors.estimatedDuration = $t('bid_form.errors.estimated_duration_required');
-		}
-
 		// Validate proposed approach
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
@@ -168,6 +225,26 @@
 		return Object.keys(errors).length === 0;
 	}
 
+	// Helper function to format duration for display
+	function formatDurationForDisplay(): string {
+		if (bidType === 'FIXED' && startDate && endDate) {
+			const start = new Date(`${startDate}T${startTime}`);
+			const end = new Date(`${endDate}T${endTime}`);
+			const diffMs = end.getTime() - start.getTime();
+			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+			if (diffDays > 1) {
+				return `${diffDays} days`;
+			} else if (diffHours > 1) {
+				return `${diffHours} hours`;
+			} else {
+				return '1 hour';
+			}
+		}
+		return '';
+	}
+
 	// Handle form submission
 	async function handleBidSubmit() {
 		if (!validateBidForm()) {
@@ -177,39 +254,38 @@
 		submittingBid = true;
 
 		try {
-			const newBid: Partial<CreateBidParams> = {
+			// Create bid data structure with explicit type
+			const bidData = {
+				type: 'bid' as const,
 				taskId: taskId,
-				description,
-				estimatedDuration,
-				proposedApproach,
-				coverLetter: description, // Using description as coverLetter as per form
-				paymentType: bidType,
+				taskTitle: taskTitle || 'Untitled Task',
+				taskDescription: taskDescription || 'No description available', // Add task description
+				amount: getTotalAmount,
 				currency: 'SATS',
-				visibility: 'PUBLIC',
-				responseTime: 24 // Default response time in hours
+				paymentType: bidType,
+				hourlyRate: bidType === 'HOURLY' && hourlyRate ? parseFloat(hourlyRate) : null,
+				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null,
+				description,
+				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay() : estimatedDuration,
+				proposedApproach,
+				coverLetter: description,
+				timestamp: Date.now(),
+				bidId: crypto.randomUUID(),
+				// Add new datetime fields
+				startDate: bidType === 'FIXED' ? startDate : null,
+				endDate: bidType === 'FIXED' ? endDate : null,
+				startTime: bidType === 'FIXED' ? startTime : null,
+				endTime: bidType === 'FIXED' ? endTime : null
 			};
 
-			if (bidType === 'FIXED') {
-				newBid.amount = getTotalAmount;
-			} else {
-				newBid.amount = getTotalAmount;
-				newBid.hourlyRate = parseFloat(hourlyRate);
-				newBid.estimatedHours = parseFloat(estimatedHours);
-			}
-
-			// Create bid through service
-			await bidService.createBid(newBid as CreateBidParams);
+			// Submit bid as encrypted DM using the new system
+			await submitBidAsDM(bidData, taskCreatorPubkey);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
 		} catch (error) {
 			console.error('Failed to submit bid:', error);
-			if (error instanceof AxiosError && error.response && error.response?.data?.message) {
-				const message = error.response.data.message;
-				if (Array.isArray(message)) bidFormErrors.general = message[0];
-				else bidFormErrors.general = message;
-			} else if (error instanceof Error) bidFormErrors.general = error.message;
-			else bidFormErrors.general = $t('bid_form.errors.submit_failed');
+			bidFormErrors.general = error instanceof Error ? error.message : 'Failed to submit bid';
 		} finally {
 			submittingBid = false;
 		}
@@ -221,15 +297,12 @@
 	});
 </script>
 
-<div class="bg-base-100 relative mx-auto rounded-lg shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">{$t('bid_form.title')}</h2>
-
+<div class="bg-base-100 relative mx-auto rounded-lg">
 	{#if bidSubmitted}
 		<div
 			class="p-8 text-center"
 			in:fly={{
 				duration: 200,
-				easing: linear,
 				y: 0,
 				x: 20
 			}}
@@ -273,16 +346,16 @@
 				</label>
 				<div
 					id="payment-type-group"
-					class="tabs tabs-boxed bg-base-200 mb-2 rounded-lg p-2"
+					class="flex gap-2 mb-2 max-w-md"
 					role="radiogroup"
 					aria-label="Payment Type"
 				>
 					<button
 						type="button"
-						class="tab flex-1 rounded-md {bidType === 'FIXED'
-							? 'tab-active bg-primary text-primary-content font-medium'
-							: 'hover:bg-base-300'}"
-						onclick={() => (bidType = 'FIXED')}
+						class="btn flex-1 {bidType === 'FIXED'
+							? 'btn-primary'
+							: 'btn-outline'}"
+						onclick={() => handlePaymentTypeChange('FIXED')}
 						role="radio"
 						aria-checked={bidType === 'FIXED'}
 					>
@@ -290,10 +363,10 @@
 					</button>
 					<button
 						type="button"
-						class="tab flex-1 rounded-md {bidType === 'HOURLY'
-							? 'tab-active bg-primary text-primary-content font-medium'
-							: 'hover:bg-base-300'}"
-						onclick={() => (bidType = 'HOURLY')}
+						class="btn flex-1 {bidType === 'HOURLY'
+							? 'btn-primary'
+							: 'btn-outline'}"
+						onclick={() => handlePaymentTypeChange('HOURLY')}
 						role="radio"
 						aria-checked={bidType === 'HOURLY'}
 					>
@@ -310,7 +383,7 @@
 					</label>
 					<div class="flex gap-2">
 						<div class="relative flex-1">
-							<span class="text-base-content/70 absolute top-1/2 left-3 z-10 -translate-y-1/2"
+							<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
 								>$</span
 							>
 							<input
@@ -325,7 +398,7 @@
 							/>
 						</div>
 						<div class="relative flex-1">
-							<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
+							<span class="text-base-content/70 absolute top-1/2 right-3 z-9 -translate-y-1/2"
 								>Sats</span
 							>
 							<input
@@ -355,6 +428,67 @@
 						</span>
 					{/if}
 				</div>
+
+				<!-- Date and Time Selection for Fixed Price -->
+				<div class="form-control">
+					<label class="label" for="datetime-range">
+						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
+					</label>
+					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<div>
+							<label class="label-text-alt mb-2 block" for="start-date"
+								>{$t('bid_form.form.start_datetime')}</label
+							>
+							<div class="flex gap-2">
+								<input
+									type="date"
+									id="start-date"
+									bind:value={startDate}
+									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
+									min={new Date().toISOString().split('T')[0]}
+								/>
+								<input
+									type="time"
+									id="start-time"
+									bind:value={startTime}
+									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
+								/>
+							</div>
+						</div>
+						<div>
+							<label class="label-text-alt mb-2 block" for="end-date"
+								>{$t('bid_form.form.end_datetime')}</label
+							>
+							<div class="flex gap-2">
+								<input
+									type="date"
+									id="end-date"
+									bind:value={endDate}
+									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
+									min={startDate || new Date().toISOString().split('T')[0]}
+								/>
+								<input
+									type="time"
+									id="end-time"
+									bind:value={endTime}
+									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
+								/>
+							</div>
+						</div>
+					</div>
+					{#if bidFormErrors.datetime}
+						<div class="label">
+							<span class="label-text-alt text-error" id="datetime-error" aria-live="polite"
+								>{bidFormErrors.datetime}</span
+							>
+						</div>
+					{/if}
+					{#if startDate && endDate}
+						<span class="label-text-alt text-info mt-1 block">
+							{$t('bid_form.form.duration')}: {formatDurationForDisplay()}
+						</span>
+					{/if}
+				</div>
 			{:else}
 				<!-- Hourly rate bid details -->
 				<div class="form-control">
@@ -369,7 +503,7 @@
 							<input
 								type="text"
 								id="hourly-rate-usd"
-								value={formatNumberForInput(usdAmount)}
+								value={formatNumberForInput(hourlyRateUsd)}
 								onchange={handleHourlyRateUsdChange}
 								oninput={handleHourlyRateUsdChange}
 								class="input input-bordered w-full pl-7 {bidFormErrors.hourlyRate
@@ -418,7 +552,7 @@
 					</label>
 					<input
 						id="estimated-hours"
-						type="number"
+						type="text"
 						class="input input-bordered w-full"
 						class:input-error={bidFormErrors.estimatedHours}
 						aria-invalid={bidFormErrors.estimatedHours ? 'true' : undefined}
@@ -426,7 +560,9 @@
 						placeholder={$t('bid_form.form.hours_placeholder')}
 						min="1"
 						step="1"
-						bind:value={estimatedHours}
+						value={estimatedHours}
+						onchange={handleEstimatedHoursChange}
+						oninput={handleEstimatedHoursChange}
 					/>
 					{#if bidFormErrors.estimatedHours}
 						<div class="label">
@@ -448,43 +584,24 @@
 								(parseInt(hourlyRate || '0') / 100_000_000) *
 								btcPrice *
 								parseFloat(estimatedHours || '0')
-							).toFixed(2)}
+							).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 						</div>
 						<div class="text-sm opacity-70">
-							{parseInt(hourlyRate || '0')} sats × {estimatedHours || '0'} hours
+							{parseInt(hourlyRate || '0').toLocaleString('en-US')} sats × {parseFloat(
+								estimatedHours || '0'
+							).toLocaleString('en-US')} hours
 						</div>
 						<div class="mt-1 text-sm opacity-70">
-							≈ {parseInt(hourlyRate || '0') * parseInt(estimatedHours || '0')} sats
+							≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString(
+								'en-US'
+							)} sats
 						</div>
 					</div>
 				</div>
 			{/if}
 
-			<!-- Estimated completion time -->
-			<div class="form-control">
-				<label class="label" for="estimated-duration">
-					<span class="label-text">{$t('bid_form.form.estimated_duration.label')}</span>
-				</label>
-				<input
-					id="estimated-duration"
-					type="text"
-					class="input input-bordered w-full {bidFormErrors.estimatedDuration ? 'input-error' : ''}"
-					class:input-error={bidFormErrors.estimatedDuration}
-					placeholder={$t('bid_form.form.estimated_duration.placeholder')}
-					aria-invalid={bidFormErrors.estimatedDuration ? 'true' : undefined}
-					aria-describedby={bidFormErrors.estimatedDuration
-						? 'estimated-duration-error'
-						: undefined}
-					bind:value={estimatedDuration}
-				/>
-				{#if bidFormErrors.estimatedDuration}
-					<div class="label">
-						<span class="label-text-alt text-error" id="estimated-duration-error" aria-live="polite"
-							>{bidFormErrors.estimatedDuration}</span
-						>
-					</div>
-				{/if}
-			</div>
+			<!-- Remove the old estimated duration field since we now have datetime for fixed price -->
+			<!-- Estimated Completion Time field removed - not needed for either payment type -->
 
 			<!-- Bid Description -->
 			<div class="form-control">
@@ -558,7 +675,12 @@
 			</div>
 
 			<!-- Submit Buttons -->
-			<button type="submit" class="btn btn-primary block justify-self-end" disabled={submittingBid}>
+			<button
+				id="bid-submit-btn"
+				type="submit"
+				class="btn btn-primary mb-16 ml-auto block sm:mb-4"
+				disabled={submittingBid}
+			>
 				{#if submittingBid}
 					<span class="loading loading-spinner loading-sm"></span>
 					{$t('bid_form.form.submitting')}

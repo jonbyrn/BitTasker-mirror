@@ -1,6 +1,7 @@
 {
     "task": {
       "create_title": "Create a New Task",
+      "create_description": "Create a new task to get quotes from taskers.",
       "step": "Step",
       "of": "of",
       "create_recurring": "Create Recurring Template",

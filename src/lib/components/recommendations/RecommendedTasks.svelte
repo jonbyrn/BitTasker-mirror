@@ -84,8 +84,8 @@
 
 <section class="bg-base-200 mb-8">
 	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-xl font-bold">{$t('recommendations.type.title')}</h2> 
-		<button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
+		<h3 class="">{$t('recommendations.type.title')}</h3> 
+		<!-- <button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
 			{#if loaders.data}
 				<div class="loading loading-spinner loading-xs"></div>
 			{:else}
@@ -105,7 +105,7 @@
 				</svg>
 			{/if}
 			{$t('recommendations.type.update')} 
-		</button>
+		</button> -->
 	</div>
 
 	{#if error}

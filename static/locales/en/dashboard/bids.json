@@ -1,20 +1,100 @@
 {
     "bids": {
+        "my_submitted_bids": "My Submitted Bids",
+        "view_task": "View Task",
+        "refresh": "Refresh",
+        "no_bids_yet": "No bids submitted yet",
+        "no_bids_description": "Your submitted bids will appear here",
+        "manage_description": "Manage and track all your submitted bids",
+        "loading_bids": "Loading your bids...",
+        "error_loading_bids": "Error Loading Bids",
+        "task": "Task",
+        "type": "Type",
+        "duration": "Duration",
+        "description": "Description",
+        "approach": "Approach",
+        "cover_letter": "Cover Letter",
+        "submitted": "Submitted",
+        "show_more": "Show more",
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "view": "View",
+        "cancel": "Cancel",
+        "hours": "hours",
+        "sats": "sats",
+        "retry": "Retry",
+        "hourly_rate": "Rate",
+        "per_hour": "hour",
+        "proposal": "Proposal",
+        "unknown_task": "Unknown",
+        "scheduled_period": "Scheduled Period",
+        "estimated_hours": "Estimated Hours",
         "panel": {
-            "title": "My bids dashboard"
+            "title": "My Bids Panel"
         },
         "error": {
             "loading": "Error loading bids",
-            "retry": "Retry loading bids"
+            "retry": "Retry loading bids",
+            "loading_user_data": "Error loading user data"
         },
         "empty": {
             "title": "No bids yet",
             "find_tasks": "Find tasks to bid on",
             "create_task": "Create a task"
-        }
+        },
+        "task_details": {
+            "loading": "Loading...",
+            "bid_submitted": "Bid Submitted",
+            "task_details": "Task Details",
+            "task_not_found": "Task Not Found",
+            "close": "Close",
+            "try_again": "Try Again",
+            "loading_bid_form": "Loading bid form...",
+            "budget": "Budget",
+            "type": "Type",
+            "remote": "Remote",
+            "in_person": "In Person",
+            "deadline": "Deadline",
+            "date_range": "Date Range",
+            "posted": "Posted",
+            "description": "Description",
+            "required_skills": "Required Skills",
+            "categories": "Categories",
+            "location_details": "Location Details",
+            "pickup_location": "Pickup Location",
+            "drop_off_location": "Drop-off Location",
+            "zip_code": "Zip Code",
+            "posted_by": "Posted by",
+            "attachments": "Attachments",
+            "open_attachment": "Open attachment",
+            "task_not_open_for_bidding": "The task is not open for bidding.",
+            "task_id_missing": "Error: Task ID is missing",
+            "success": {
+                "title": "Bid Submitted Successfully!",
+                "message": "Your bid has been sent to the task owner. You will be notified if they accept it or send a counteroffer.",
+                "close": "Close"
+            },
+            "error": {
+                "failed_to_load": "Error loading task details. Please try again.",
+                "task_id_missing": "Task ID is missing. Please try again.",
+                "failed_to_load_details": "Error loading task details. Please try again."
+            }
+        },
+        "your_proposal": "Proposal",
+        "your_bid_amount": "Bid Amount",
+        "payment_type": "Payment Type",
+        "estimated_duration": "Estimated Duration",
+        "your_description": "Description",
+        "your_approach": "Approach",
+        "your_cover_letter": "Cover Letter",
+        "show_more_details": "Show more details",
+        "show_less": "Show less",
+        "no_task_description": "No description available",
+        "bid_id": "Bid ID"
     },
     "bid_form": {
-        "title": "Place your bid",
+        "title": "Place Your Bid",
         "form": {
             "payment_type": "Payment Type",
             "fixed_price": "Fixed Price",
@@ -23,17 +103,21 @@
             "hourly_rate_label": "Hourly Rate",
             "estimated_hours": "Estimated Hours",
             "total_estimated": "Total Estimated Amount",
-            "usd_placeholder": "Enter USD amount",
-            "sats_placeholder": "Enter sats amount",
-            "hourly_usd_placeholder": "Enter hourly USD rate",
-            "hourly_sats_placeholder": "Enter hourly sats rate",
+            "usd_placeholder": "Enter amount in USD",
+            "sats_placeholder": "Enter amount in sats",
+            "hourly_usd_placeholder": "Enter hourly rate in USD",
+            "hourly_sats_placeholder": "Enter hourly rate in sats",
             "hours_placeholder": "Estimated hours needed",
-            "btc_price": "Current BTC Price:",
+            "btc_price": "Current BTC price:",
             "submitting": "Submitting...",
             "submit_bid": "Submit Bid",
             "estimated_duration": {
                 "label": "Estimated Completion Time",
                 "placeholder": "e.g., 3 days, 1 week"
+            },
+            "estimated_completion_time": {
+                "label": "Estimated Completion Time",
+                "placeholder": "Select date and time"
             },
             "description": {
                 "label": "Bid Description",
@@ -45,27 +129,35 @@
             },
             "cover_letter": {
                 "label": "Cover Letter (Optional)",
-                "placeholder": "Add any additional information about your experience and qualifications"
-            }
+                "placeholder": "Add additional information about your experience and qualifications"
+            },
+            "datetime_range": "Scheduled Period",
+            "start_datetime": "Start Date & Time",
+            "end_datetime": "End Date & Time",
+            "duration": "Total Duration"
         },
         "errors": {
             "task_id_required": "Task ID is required",
-            "amount_required": "Please enter a bid amount",
+            "amount_required": "Please enter an amount for your bid",
             "amount_greater_than_zero": "Bid amount must be greater than 0",
             "hourly_rate_required": "Please enter an hourly rate",
             "hourly_rate_greater_than_zero": "Hourly rate must be greater than 0",
             "estimated_hours_required": "Please enter estimated hours",
             "estimated_hours_greater_than_zero": "Estimated hours must be greater than 0",
             "description_required": "Please enter a description for your bid",
-            "description_min_length": "Description should be at least 50 characters",
+            "description_min_length": "Description must be at least 50 characters",
             "estimated_duration_required": "Please provide an estimated completion time",
             "proposed_approach_required": "Please describe your approach to this task",
-            "proposed_approach_min_length": "Your approach description should be at least 50 characters",
-            "submit_failed": "Failed to submit bid. Please try again."
+            "proposed_approach_min_length": "Your approach description must be at least 50 characters",
+            "submit_failed": "Error submitting bid. Please try again.",
+            "estimated_completion_time_required": "Estimated completion time is required",
+            "completion_time_must_be_future": "Completion time must be in the future",
+            "datetime_required": "Please select start and end dates",
+            "datetime_invalid": "End date must be after start date"
         },
         "success": {
             "title": "Bid Submitted Successfully!",
-            "message": "Your bid has been submitted successfully. The task requester will review your bid and may contact you with questions or a counter-offer.",
+            "message": "Your bid has been submitted successfully. The task requester will review your bid and may contact you with questions or a counteroffer.",
             "close": "Close"
         }
     }

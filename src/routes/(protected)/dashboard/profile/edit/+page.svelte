@@ -55,7 +55,7 @@
 		}}
 		onkeydown={() => {}}
 	>
-		<h2 class="card-title">
+		<h3 class="card-title">
 			<span class="relative mr-3 flex size-3">
 				<span
 					class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 {completedSections[
@@ -73,7 +73,7 @@
 			<span>
 				{title}
 			</span>
-		</h2>
+		</h3>
 		<button
 			aria-label="Collapse"
 			class="btn btn-sm btn-ghost btn-circle"
@@ -98,9 +98,9 @@
 	</div>
 {/snippet}
 
-<div class="relative mx-auto max-w-5xl p-4">
+<div class="mx-auto max-w-7xl p-4 md:p-0">
 	<div class="mb-4">
-		<h1 class="text-3xl font-bold">{$t('profile.page.edit_profile')}</h1>
+		<h3 class="">{$t('profile.page.edit_profile')}</h3>
 		<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
 	</div>
 

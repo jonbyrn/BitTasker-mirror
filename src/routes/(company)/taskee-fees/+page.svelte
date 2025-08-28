@@ -53,7 +53,7 @@
 			<Logo />
 
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('fees.title')}</h1>
+				<h3>{$t('fees.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('fees.subtitle')}
 				</p>
@@ -65,7 +65,7 @@
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
 		<!-- Fee Structure Introduction -->
 		<div class="mb-12">
-			<h2>{$t('fees.structure.title')}</h2>
+			<h3>{$t('fees.structure.title')}</h3>
 			<p class="text-base-content/80 mb-6 text-lg">
 				{$t('fees.structure.description')}
 			</p>
@@ -183,7 +183,7 @@
 
 		<!-- Taskee Benefits Section -->
 		<div class="mt-12">
-			<h2>{$t('fees.benefits.title')}</h2>
+			<h3>{$t('fees.benefits.title')}</h3>
 			<p class="mb-6">{$t('fees.benefits.description')}</p>
 			<ul class="text-base-content/80 mt-4 list-inside list-disc">
 				<li>{@html $t('fees.benefits.item_1')}</li>
@@ -195,13 +195,13 @@
 
 		<!-- Tier Maintenance Section -->
 		<div class="mt-12">
-			<h2>{$t('fees.maintenance.title')}</h2>
+			<h3>{$t('fees.maintenance.title')}</h3>
 			<p class="text-base-content/80 mb-6 text-lg">{$t('fees.maintenance.description')}</p>
 		</div>
 
 		<!-- Bitcoin Payments Section -->
 		<div class="mt-12">
-			<h2>{$t('fees.bitcoin.title')}</h2>
+			<h3>{$t('fees.bitcoin.title')}</h3>
 			<p class="mb-6">
 				{@html $t('fees.bitcoin.description')}
 			</p>
@@ -257,7 +257,7 @@
 
 		<!-- Repeat Work Bonus Section -->
 		<div class="mt-12">
-			<h2>{$t('fees.repeat.title')}</h2>
+			<h3>{$t('fees.repeat.title')}</h3>
 			<p class="mb-6">{$t('fees.repeat.description')}</p>
 		</div>
 
@@ -279,7 +279,7 @@
 
 		<!-- Call to Action Section -->
 		<div class="mt-12 flex flex-col items-center text-center">
-			<h3>{$t('fees.cta.title')}</h3>
+			<h4>{$t('fees.cta.title')}</h4>
 			<a href="/sign-up" class="btn btn-primary mt-4">{$t('fees.cta.button')}</a>
 		</div>
 	</div>

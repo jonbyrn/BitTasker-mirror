@@ -37,17 +37,14 @@
 	onDestroy(() => {
 		profileStore.destroy();
 	});
-
-	$effect(() => {
-		console.log('🔍 Debug i18n:');
-		console.log('tasksCompleted:', $t('profile'));
-		
-	});
 </script>
 
-<div class="mx-auto max-w-5xl">
-	<div class="bg-base-100 mb-6 rounded-xl p-6 shadow-lg">
-		<h1 class="mb-4 text-2xl font-bold">{$t('profile.page.title')}</h1>
+<div class="mx-auto max-w-7xl p-4 sm:p-0">
+	<div class="mb-6">
+		<h3 class="">{$t('profile.page.title')}</h3>
+		<p class="text-base-content/70">{$t('profile.page.description')}</p>
+	</div>
+	<div class="bg-base-100 rounded-xl p-6 shadow-lg">
 		<ProfileHeader {logout} />
 
 		<ProfileStats stats={$profileStore.stats} />

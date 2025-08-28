@@ -18,6 +18,7 @@
 	import IconReddit from '~icons/mdi/reddit';
 	import IconMusicNoteEighth from '~icons/mdi/music-note-eighth';
 	import IconPlay from '~icons/mdi/play';
+	import IconGithub from '~icons/mdi/github';
 	import '../app.css';
 	import { authState } from '$lib/stores/auth.store';
 	let isLoggedIn = $derived($authState.isAuthenticated);
@@ -256,7 +257,7 @@
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
 			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
-				<div class="bg-base-200 flex flex-grow lg:block">
+				<div class="bg-base-200 flex flex-grow lg:block overflow-hidden">
 					{@render children()}
 				</div>
 			{:else}
@@ -309,7 +310,7 @@
 					<div class="md:col-span-2 lg:col-span-1 px-4 md:px-6 lg:px-0">
 						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 						<p class="mb-4">{$t('footer.company_description')}</p>
-											<!-- Social media icons -->
+					<!-- Social media icons -->
 					<div class="flex flex-col space-y-2">
 						<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
 						<div class="flex space-x-4">
@@ -320,25 +321,25 @@
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								<svg width="20" height="20" viewBox="0 0 36 36" fill="currentColor" class="text-base-content hover:text-primary transition-colors duration-300 ease-in-out">
+								<svg width="24" height="24" viewBox="0 0 36 36" fill="currentColor" class="text-base-content hover:text-primary transition-colors duration-300 ease-in-out" style="width: 1.5em; height: 1.5em;">
 									<path d="m 21.8684,35.583 c -1.2461,0.2729 -2.5405,0.4167 -3.8685,0.4167 -3.645,0 -7.0369,-1.0834 -9.87134,-2.9457 C 7.42496,32.0476 7.10927,31.4935 6.87899,31.0894 6.76489,30.8892 6.67176,30.7257 6.5628,30.5623 5.48908,28.8355 4.9273,26.6174 4.80479,24.0113 4.42532,15.9363 9.3328,10.7798 14.3461,9.93346 c 3.178,-0.53651 5.7035,0.00682 7.6405,1.04274 -1.7125,-0.4764 -3.754,-0.505 -6.0813,0.1612 -5.6417,1.8184 -7.52244,7.3478 -6.71634,13.4711 1.40684,7.6726 8.92974,10.4226 12.67944,10.9745 z"/>
 									<path d="M 5.79919,31.235 C 4.74978,29.3716 3.79946,26.5912 3.68071,24.0649 3.27786,15.4924 8.51664,9.77741 14.1585,8.82493 21.8491,7.52657 26.1246,12.0794 27.5985,15.4587 27.6602,15.4171 27.6852,15.3348 27.6527,15.264 25.2293,9.99435 20.2169,6.37564 14.4271,6.37564 7.85277,6.37564 1.98661,11.0916 0,18.1005 0.028214,23.2941 2.25599,27.9669 5.79919,31.235 Z"/>
 									<path d="m 28.1246,32.8843 c -1.2983,0.8849 -2.7184,1.6044 -4.23,2.1281 -0.7258,-0.1264 -1.5299,-0.2838 -2.0961,-0.3946 -0.2683,-0.0525 -0.4833,-0.0946 -0.611,-0.118 -3.424,-0.6254 -9.546,-2.8317 -10.8872,-10.0664 -0.3789,-2.909 -0.1075,-5.5868 0.8536,-7.7109 0.9468,-2.0926 2.5809,-3.6968 5.0729,-4.5067 2.8964,-0.7891 5.2966,-0.398 7.0795,0.5595 -0.4389,-0.0925 -0.8925,-0.141 -1.3567,-0.141 -3.8577,0 -6.9851,3.3506 -6.9851,7.4839 0,1.6504 0.4987,3.1761 1.3433,4.4134 0,0 2.4179,4.5673 9,4.1591 5.8689,-0.364 8.9166,-5.6283 9.2798,-7.5728 0.1888,-1.0105 0.2875,-2.0527 0.2875,-3.118 0,-9.31974 -7.5551,-16.87491 -16.8749,-16.87491 -7.0523,0 -13.09415,4.32607 -15.61666,10.46921 -0.85203,1.11 -1.585694,2.3405 -2.176875,3.6711 C 1.52404,6.62202 8.98879,0 18.0002,0 c 9.9411,0 17.9999,8.05884 17.9999,17.9999 0,6.187 -3.1215,11.6445 -7.8755,14.8844 z"/>
 								</svg>
 							</a>
 							<a
-								href="https://twitter.com/bittasker"
+								href="https://twitter.com/BitTaskerdotcom"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
 								aria-label="{$t('footer.social.twitter_aria')}"
 							>
-								<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="transition-colors duration-300 ease-in-out">
+								<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" class="transition-colors duration-300 ease-in-out" style="width: 1.5em; height: 1.5em;">
 									<path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
 								</svg>
 							</a>
 							<a
-								href="https://facebook.com/bittasker"
+								href="https://www.facebook.com/BitTaskerdotcom/"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -356,7 +357,7 @@
 								<IconInstagram class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://youtube.com/bittasker"
+								href="https://www.youtube.com/@BitTasker"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -368,7 +369,7 @@
 						<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
 						<div class="flex space-x-4">
 							<a
-								href="https://linkedin.com/company/bittasker"
+								href="https://www.linkedin.com/company/bittasker/"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -377,7 +378,7 @@
 								<IconLinkedin class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://reddit.com/r/bittasker"
+								href="https://reddit.com/u/BitTasker"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -386,7 +387,7 @@
 								<IconReddit class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://tiktok.com/@bittasker"
+								href="https://www.tiktok.com/@bittasker"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
@@ -395,13 +396,22 @@
 								<IconMusicNoteEighth class="transition-colors duration-300 ease-in-out" />
 							</a>
 							<a
-								href="https://rumble.com/c/bittasker"
+								href="https://rumble.com/c/c-7742441"
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
 								aria-label="{$t('footer.social.rumble_aria')}"
 							>
 								<IconPlay class="transition-colors duration-300 ease-in-out" />
+							</a>
+							<a
+								href="https://github.com/BitTasker"
+								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="GitHub"
+							>
+								<IconGithub class="transition-colors duration-300 ease-in-out" />
 							</a>
 						</div>
 					</div>

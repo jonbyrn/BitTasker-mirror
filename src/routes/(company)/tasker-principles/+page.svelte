@@ -50,13 +50,13 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('taskee_principles.title')}</h1>
+				<h3>{$t('taskee_principles.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">{$t('taskee_principles.subtitle')}</p>
 			</div>
 		</div>
 	</section>
 
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-4 flex items-baseline gap-4">
 			<h3>{$t('taskee_principles.title')}</h3>
 		</div>
@@ -66,7 +66,7 @@
 				<p class="mb-4">{$t('taskee_principles.subtitle')}</p>
 
 				<div class="divider">
-					{$t('taskee_principles.section_title') || 'Principles'}
+					{$t('taskee_principles.section_title')}
 				</div>
 
 				<div class="space-y-6">

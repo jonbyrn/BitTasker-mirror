@@ -19,11 +19,35 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
  * Convert search params to Nostr filter
  */
 function createTaskFilter(params: SearchTasksParams): Filter {
-    const filter: Filter & { [key: string]: string[] | number[] | string | number | undefined } = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filter: Filter & { [key: string]: any } = {
         kinds: [KINDS.TASK_CREATION],
         limit: params.limit || BATCH_SIZE,
         until: params.until || undefined
     };
+
+    // Enhanced search with NIP-50
+    if (params.search) {
+        const searchTerm = params.search.trim();
+        
+        // Search in multiple fields
+        if (params.searchFields?.includes('title')) {
+            filter.title = searchTerm;
+        }
+        
+        if (params.searchFields?.includes('description')) {
+            filter.description = searchTerm;
+        }
+        
+        if (params.searchFields?.includes('skills')) {
+            filter.skills = searchTerm;
+        }
+        
+        // Fallback to general search if no specific fields
+        if (!params.searchFields || params.searchFields.length === 0) {
+            filter.search = searchTerm;
+        }
+    }
 
     // Status filter
     if (params.status && params.status.length > 0) {

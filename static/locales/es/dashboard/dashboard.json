@@ -1,13 +1,56 @@
 {
-    "dashboard": {
-      "title": "Mi Panel",
-      "titl": "Panel",
-      "create_task": "Crear Tarea",
-      "tabs": {
-        "tasks": "Mis Tareas",
-        "bids": "Mis Ofertas",
-        "recurring": "Tareas Recurrentes",
-        "saved_searches": "Búsquedas Guardadas"
-      }
+  "dashboard": {
+    "title": "Mi Panel",
+    "description": "Gestiona tus tareas y ofertas en el panel de BitTasker.",
+    "titl": "Panel",
+    "create_task": "Crear Tarea",
+    "find_tasks": "Buscar Tareas",
+    "tabs": {
+      "tasks": "Mis Tareas",
+      "bids": "Ofertas Enviadas",
+      "recurring": "Tareas Recurrentes",
+      "saved_searches": "Búsquedas Guardadas"
+    },
+    "task_details_by_task": {
+      "title": "Detalles de la Tarea",
+      "tasker": "Detalles del Tasker",
+      "description": "Aquí puedes ver los detalles de la tarea.",
+      "description_task": "Descripción",
+      "loading": "Cargando...",
+      "task_not_found": "Tarea No Encontrada",
+      "task_not_found_message": "La tarea que buscas no pudo ser encontrada.",
+      "status": "Estado",
+      "deadline": "Fecha Límite",
+      "date_range": "A realizar entre",
+      "location_details": "Detalles de Ubicación",
+      "pickup_location": "Ubicación de Recogida",
+      "dropoff_location": "Ubicación de Entrega",
+      "requirements": "Requisitos",
+      "required_skills": "Habilidades Requeridas",
+      "categories": "Categorías",
+      "attachments": "Adjuntos",
+      "attachment": "Adjunto",
+      "view_attachment": "Ver {name} en nueva pestaña",
+      "video_not_supported": "Tu navegador no soporta el tag de video",
+      "interested_in_task": "¿Interesado en esta tarea?",
+      "bid_now": "Ofertar Ahora",
+      "task_not_open_bidding": "Esta tarea no está abierta para ofertas",
+      "you_are_owner": "Eres el propietario de esta tarea",
+      "anonymous": "Anónimo",
+      "member_since": "Miembro desde",
+      "show_more": "Mostrar más",
+      "show_less": "Mostrar menos",
+      "remote": "Remoto",
+      "posted": "Publicado",
+      "edit_task": "Editar Tarea",
+      "delete_task": "Eliminar Tarea",
+      "type": "Tipo",
+      "budget": "Presupuesto",
+      "in_person": "En Persona",
+      "details": "Detalles",
+      "bids": "Ofertas",
+      "close": "Cerrar",
+      "try_again": "Intentar de Nuevo"
     }
   }
+}

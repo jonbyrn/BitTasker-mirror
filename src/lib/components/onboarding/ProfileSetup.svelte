@@ -14,9 +14,11 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { nextStep, prevStep } = $props<{
+	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
 		nextStep: () => void;
 		prevStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 	}>();
 
 	// User data
@@ -253,7 +255,7 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Profile setup failed:', err);
-			error = err instanceof Error ? err.message : 'Profile setup failed';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -300,34 +302,36 @@
 		<div class="card-body">
 			<!-- Educational Header -->
             <div class="education-header mb-6 text-center">
-                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 5 of 7</div>
-                <h3 class="step-title mb-3 mt-4">Build Your Profile</h3>
-                <h5 class="mb-3">Showcase your expertise</h5>
+                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+                    {$t('onboarding_auth.form.profile_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.profile_setup.of')} {totalSteps}
+                </div>
+                <h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.profile_setup.title')}</h3>
+                <h5 class="mb-3">{$t('onboarding_auth.form.profile_setup.subtitle')}</h5>
                 <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
-                    Help others understand who you are and the skills you bring. A strong profile boosts trust and discoverability.
+                    {$t('onboarding_auth.form.profile_setup.description')}
                 </p>
 
                 <!-- Features List (aligned with Nostr import styling) -->
                 <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                     <div class="feature-item flex items-center justify-start gap-2 text-lg">
                         <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span><strong>Visible</strong> — highlight your strengths and services</span>
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.visible')}</span>
                     </div>
                     <div class="feature-item flex items-center justify-start gap-2 text-lg">
                         <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span><strong>Trustworthy</strong> — clear details help clients choose you</span>
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.trustworthy')}</span>
                     </div>
                     <div class="feature-item flex items-center justify-start gap-2 text-lg">
                         <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span><strong>Discoverable</strong> — better matching with relevant tasks</span>
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.discoverable')}</span>
                     </div>
                     <div class="feature-item flex items-center justify-start gap-2 text-lg">
                         <IconCheck class="text-primary min-w-[1.5em]" />
-                        <span><strong>Professional</strong> — present your experience and background</span>
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.professional')}</span>
                     </div>
                 </div>
 
-                <p class="text-primary mb-6 text-lg">Stand out — your profile is your first impression.</p>
+                <p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.profile_setup.stand_out')}</p>
             </div>
 
 			<form onsubmit={handleSubmit} class="space-y-4">
@@ -335,7 +339,7 @@
 				<div class="form-control mx-auto w-full">
 					<Uploader
 						id="profilePicture"
-						label="Profile Picture"
+						label={$t('onboarding_auth.form.profile_setup.profile_picture')}
 						maxFiles={1}
 						className="h-32 w-full max-w-32 mx-auto"
 						files={selectedFile
@@ -434,7 +438,7 @@
 							onclick={addSkill}
 							disabled={saveForLater || !skillsInput || skills.length >= 20}
 						>
-							Add
+							{$t('onboarding_auth.form.profile_setup.add')}
 						</button>
 					</div>
 					<div class="mt-2 flex flex-wrap gap-2">
@@ -444,7 +448,7 @@
 									{skill.name}
 								</span>
 								<button
-									aria-label="Remove skill"
+									aria-label={$t('onboarding_auth.form.profile_setup.errors.remove_skill')}
 									type="button"
 									class="btn btn-ghost btn-xs p-0 text-primary-content"
 									onclick={() => removeSkill(index)}

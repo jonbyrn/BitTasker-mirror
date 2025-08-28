@@ -449,14 +449,14 @@
 
 					<!-- Error Message -->
 					{#if error}
-						<div class="alert alert-error">
+						<div class="alert alert-outline alert-error">
 							<span>{error}</span>
 						</div>
 					{/if}
 
 					<!-- Success Message -->
 					{#if successMessage}
-						<div class="alert alert-success">
+						<div class="alert alert-outline alert-success">
 							<span>{successMessage}</span>
 						</div>
 					{/if}

@@ -212,7 +212,7 @@
 		</div>
 
 		<!-- Security Warning -->
-		<div class="alert {isHighRiskOperation() ? 'alert-warning' : 'alert-info'} mb-6">
+		<div class="alert alert-outline {isHighRiskOperation() ? 'alert-warning' : 'alert-info'} mb-6">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 flex-shrink-0 stroke-current"
@@ -234,7 +234,7 @@
 
 		<!-- Error Display -->
 		{#if error}
-			<div class="alert alert-error mb-4">
+			<div class="alert alert-outline alert-error mb-4">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 flex-shrink-0 stroke-current"
@@ -295,7 +295,7 @@
 
 		<!-- Transaction Info -->
 		{#if preparedTransaction}
-			<div class="alert alert-info mt-6 text-xs sm:text-sm">
+			<div class="alert alert-outline alert-info mt-6 text-xs sm:text-sm">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-5 w-5 flex-shrink-0 stroke-current sm:h-6 sm:w-6"
@@ -321,7 +321,7 @@
 
 		<!-- Error Display -->
 		{#if $sendForm.validationError}
-			<div class="alert alert-error mt-6">
+			<div class="alert alert-outline alert-error mt-6">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 flex-shrink-0 stroke-current"

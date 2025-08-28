@@ -2,15 +2,21 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
-    import IconCheck from '~icons/mdi/check-circle-outline';
+	import { generatePassword } from '$lib/utils/helpers/password';
+	import { locale, t } from 'svelte-i18n';
+	import IconCheck from '~icons/mdi/check-circle-outline';
 
 	let {
 		nextStep,
 		prevStep,
+		currentStep,
+		totalSteps,
 		onRecoveryChange
 	}: {
 		nextStep: () => void;
 		prevStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 		onRecoveryChange: (email: string, password: string, enabled: boolean) => void;
 	} = $props();
 
@@ -20,13 +26,45 @@
 	let confirmPassword = $state('');
 	let enableRecovery = $state(false);
 	let showPassword = $state(false);
+	let showConfirmPassword = $state(false);
 
-    // Autofocus email when enabling recovery
-    let recoveryEmailInput = $state<HTMLInputElement | null>(null);
+	// Copy success state
+	let copySuccess = $state('');
+
+	// Autofocus email when enabling recovery
+	let recoveryEmailInput = $state<HTMLInputElement | null>(null);
 
 	// Error states
 	let emailError = $state('');
 	let passwordError = $state('');
+
+	// Generate password function
+	function handleGeneratePassword() {
+		const newPassword = generatePassword($locale || 'en');
+		recoveryPassword = newPassword;
+		confirmPassword = newPassword;
+		passwordError = '';
+	}
+
+	// Copy password function with success feedback
+	async function handleCopyPassword() {
+		try {
+			await navigator.clipboard.writeText(recoveryPassword);
+			copySuccess = 'password';
+			setTimeout(() => {
+				copySuccess = '';
+			}, 2000);
+		} catch (err) {
+			console.error('Failed to copy password:', err);
+		}
+	}
+
+	// Auto-generate password when recovery is enabled
+	$effect(() => {
+		if (enableRecovery) {
+			handleGeneratePassword();
+		}
+	});
 
 	function handleSubmit() {
 		emailError = '';
@@ -35,7 +73,7 @@
 		// Validate recovery fields if enabled
 		if (enableRecovery) {
 			if (!recoveryEmail) {
-				emailError = 'Recovery email is required';
+				emailError = $t('onboarding_auth.form.recovery_setup.errors.email_required');
 				return;
 			}
 
@@ -46,12 +84,12 @@
 			}
 
 			if (!recoveryPassword) {
-				passwordError = 'Recovery password is required';
+				passwordError = $t('onboarding_auth.form.recovery_setup.errors.password_required');
 				return;
 			}
 
 			if (recoveryPassword !== confirmPassword) {
-				passwordError = 'Passwords do not match';
+				passwordError = $t('onboarding_auth.form.recovery_setup.errors.passwords_mismatch');
 				return;
 			}
 
@@ -79,64 +117,66 @@
 		onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
 	});
 
-    // Focus email field when recovery is enabled
-    $effect(() => {
-        if (enableRecovery) {
-            setTimeout(() => recoveryEmailInput?.focus(), 0);
-        }
-    });
+	// Focus email field when recovery is enabled
+	$effect(() => {
+		if (enableRecovery) {
+			setTimeout(() => recoveryEmailInput?.focus(), 0);
+		}
+	});
 </script>
 
 <div class="card bg-base-100 w-full shadow-xl">
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 4 of 7 — Optional</div>
-			<h3 class="step-title mb-3 mt-4">Create Recovery Password (Optional)</h3>
-			<h5 class="mb-3">Add a safe backup for account access</h5>
-			<p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">
-				Set up a recovery method to regain access if you lose your device.<br /><br />This is optional, but highly recommended for account security.
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
+				{$t('onboarding_auth.form.recovery_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.recovery_setup.of')} {totalSteps} — {$t('onboarding_auth.form.recovery_setup.optional')}
+			</div>
+			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.recovery_setup.title')}</h3>
+			<h5 class="mb-3">{$t('onboarding_auth.form.recovery_setup.subtitle')}</h5>
+			<p class="step-description text-base-content mx-auto mb-6 max-w-lg text-lg">
+				{@html $t('onboarding_auth.form.recovery_setup.description')}
 			</p>
 
 			<!-- Features List (aligned with Nostr import styling) -->
-			<div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
+			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Secure</strong> — protected with a password only you know</span>
+					<span>{@html $t('onboarding_auth.form.recovery_setup.features.secure')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Recoverable</strong> — regain access via your email</span>
+					<span>{@html $t('onboarding_auth.form.recovery_setup.features.recoverable')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Optional</strong> — you can set this up later</span>
+					<span>{@html $t('onboarding_auth.form.recovery_setup.features.optional')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg mb-6">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Private</strong> — only you can decrypt your data</span>
+					<span>{@html $t('onboarding_auth.form.recovery_setup.features.private')}</span>
 				</div>
 
-				<p class="text-primary mb-6 text-lg text-center">Optional, but highly recommended.</p>
+				<p class="text-primary mb-6 text-lg text-center">{$t('onboarding_auth.form.recovery_setup.highly_recommended')}</p>
 			</div>
 		</div>
 
-		<form onsubmit={handleSubmit} class="space-y-4">
+		<form onsubmit={handleSubmit} class="space-y-6">
 			<!-- Recovery Password Option -->
-			<div class="form-control max-w-lg mx-auto">
+			<div class="form-control mx-auto max-w-lg">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
-					<span class="label-text">Create recovery password</span>
+					<span class="label-text">{$t('onboarding_auth.form.recovery_setup.create_recovery_password')}</span>
 				</label>
 			</div>
 
 			{#if enableRecovery}
-				<div class="space-y-4" in:fly={{ duration: 200, y: -20, easing: linear }}>
+				<div class="space-y-6" in:fly={{ duration: 200, y: -20, easing: linear }}>
 					<!-- Recovery Email Field -->
-					<div class="form-control max-w-lg mx-auto">
+					<div class="form-control mx-auto max-w-lg">
 						<label class="label" for="email">
 							<div class="flex items-center gap-2">
-								<span class="label-text">Recovery Email</span>
+								<span class="label-text">{$t('onboarding_auth.form.recovery_setup.recovery_email')}</span>
 							</div>
 						</label>
 						<input
@@ -145,7 +185,7 @@
 							bind:value={recoveryEmail}
 							bind:this={recoveryEmailInput}
 							class="input input-bordered w-full {emailError ? 'input-error' : ''}"
-							placeholder="Enter your email address"
+							placeholder={$t('onboarding_auth.form.recovery_setup.email_placeholder')}
 							required={enableRecovery}
 						/>
 						{#if emailError}
@@ -156,117 +196,217 @@
 					</div>
 
 					<!-- Recovery Password Field -->
-					<div class="form-control max-w-lg mx-auto">
-						<label class="label" for="password">
-							<span class="label-text">Recovery Password</span>
+					<div class="form-control mx-auto max-w-lg">
+						<label aria-label="Recovery Password" class="label" for="password">
+							<span class="label-text">{$t('onboarding_auth.form.recovery_setup.recovery_password')}</span>
 						</label>
-						<div class="relative">
-							<input
-								type={showPassword ? 'text' : 'password'}
-								id="password"
-								bind:value={recoveryPassword}
-								class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
-								placeholder="Create a strong password"
-								required={enableRecovery}
-							/>
+
+						<!-- Password Input with Eye Icon and Generate Button in same row -->
+						<div class="mb-3 flex gap-2">
+							<div class="relative flex-1">
+								<input
+									type={showPassword ? 'text' : 'password'}
+									id="password"
+									bind:value={recoveryPassword}
+									class="input input-bordered w-full pr-12 {passwordError ? 'input-error' : ''}"
+									placeholder={$t('onboarding_auth.form.recovery_setup.password_placeholder')}
+									required={enableRecovery}
+								/>
+								<!-- Eye Icon -->
+								<button
+									type="button"
+									class="text-base-content/70 hover:text-base-content absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => (showPassword = !showPassword)}
+									title={showPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
+									aria-label={showPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
+								>
+									{#if showPassword}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+											/>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											/>
+										</svg>
+									{/if}
+								</button>
+							</div>
+
+							<!-- Generate Button - Same row as input -->
 							<button
 								type="button"
-								class="absolute inset-y-0 right-0 flex items-center pr-3"
-								onclick={() => (showPassword = !showPassword)}
+								class="btn btn-outline btn-sm"
+								onclick={handleGeneratePassword}
+								title={$t('onboarding_auth.form.recovery_setup.generate_password', { locale: $locale === 'es' ? 'Spanish' : 'English' })}
+								aria-label={$t('onboarding_auth.form.recovery_setup.generate_password', { locale: $locale === 'es' ? 'Spanish' : 'English' })}
 							>
-								{#if showPassword}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
-										/>
-									</svg>
-								{:else}
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-5 w-5"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-										/>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-										/>
-									</svg>
-								{/if}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="mr-2 h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+									/>
+								</svg>
 							</button>
 						</div>
 					</div>
 
 					<!-- Confirm Password Field -->
-					<div class="form-control max-w-lg mx-auto">
+					<div class="form-control mx-auto max-w-lg">
 						<label class="label" for="confirmPassword">
-							<span class="label-text">Confirm Recovery Password</span>
+							<span class="label-text">{$t('onboarding_auth.form.recovery_setup.confirm_recovery_password')}</span>
 						</label>
-						<input
-							type={showPassword ? 'text' : 'password'}
-							id="confirmPassword"
-							bind:value={confirmPassword}
-							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-							placeholder="Confirm your password"
-							required={enableRecovery}
-						/>
+
+						<!-- Confirm Password Input with Eye Icon and Copy Button in same row -->
+						<div class="mb-3 flex gap-2">
+							<div class="relative flex-1">
+								<input
+									type={showConfirmPassword ? 'text' : 'password'}
+									id="confirmPassword"
+									bind:value={confirmPassword}
+									class="input input-bordered w-full pr-12 {passwordError ? 'input-error' : ''}"
+									placeholder={$t('onboarding_auth.form.recovery_setup.confirm_password_placeholder')}
+									required={enableRecovery}
+								/>
+								<!-- Eye Icon -->
+								<button
+									type="button"
+									class="text-base-content/70 hover:text-base-content absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => (showConfirmPassword = !showConfirmPassword)}
+									title={showConfirmPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
+									aria-label={showConfirmPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
+								>
+									{#if showConfirmPassword}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+											/>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											/>
+										</svg>
+									{/if}
+								</button>
+							</div>
+
+							<!-- Copy Button - Same row as input -->
+							<button
+								type="button"
+								class="btn btn-outline btn-sm"
+								onclick={handleCopyPassword}
+								title={$t('onboarding_auth.form.recovery_setup.copy_password')}
+								disabled={!recoveryPassword}
+								aria-label={$t('onboarding_auth.form.recovery_setup.copy_password')}
+							>
+								{#if copySuccess === 'password'}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="text-success h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
+								{:else}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+										/>
+									</svg>
+								{/if}
+							</button>
+						</div>
+
 						{#if passwordError}
 							<label class="label" for="confirmPassword">
 								<span class="label-text-alt text-error">{passwordError}</span>
 							</label>
 						{/if}
 					</div>
-
-					<!-- Password Guidelines -->
-					{#if recoveryPassword}
-						<p class="mt-2 text-sm" in:fly={{ duration: 200, y: -20, easing: linear }}>
-							Your password should be at least
-							<span class={recoveryPassword.length >= 8 ? 'text-success font-medium' : ''}>
-								8 characters
-							</span>, include
-							<span class={/[A-Z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								uppercase
-							</span>,
-							<span class={/[a-z]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								lowercase
-							</span>,
-							<span class={/[0-9]/.test(recoveryPassword) ? 'text-success font-medium' : ''}>
-								numbers
-							</span>, and
-							<span
-								class={/[!@#$%^&*(),.?":{}|<>]/.test(recoveryPassword)
-									? 'text-success font-medium'
-									: ''}
-							>
-								special characters
-							</span>.
-						</p>
-					{/if}
 				</div>
 			{/if}
 
 			<!-- Form Actions -->
-			<div class="mt-6 flex justify-between">
-				<button type="button" class="btn btn-outline" onclick={prevStep}>Back</button>
-				<button type="submit" class="btn btn-primary">Next</button>
+			<div class="mt-8 flex justify-between">
+				<button type="button" class="btn btn-outline" onclick={prevStep}>{$t('onboarding_auth.form.recovery_setup.back')}</button>
+				<button type="submit" class="btn btn-primary">{$t('onboarding_auth.form.recovery_setup.next')}</button>
 			</div>
 		</form>
 	</div>

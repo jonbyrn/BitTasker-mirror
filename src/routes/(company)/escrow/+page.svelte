@@ -41,98 +41,98 @@
 
 <div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-			<div class="hero-content flex-col text-center">
-				<Logo />
-				<div class="max-w-3xl">
-					<h1 class="text-5xl">{$t('title')}</h1>
-					<p class="text-base-content/80 py-6 text-lg">
-						{$t('subtitle')}
-					</p>
-				</div>
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl">
+				<h3>{$t('title')}</h3>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('subtitle')}
+				</p>
 			</div>
+		</div>
 	</section>
 
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
-			<h2 class="text-center">{$t('guideTitle')}</h2>
-			<p>
-				{@html $t('guideIntro')}
-			</p>
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
+		<h3 class="text-center">{$t('guideTitle')}</h3>
+		<p>
+			{@html $t('guideIntro')}
+		</p>
 
-			<h3>{$t('step1Title')}</h3>
-			<p>
-				{$t('step1Text1')}
-			</p>
-			<p>
-				{$t('step1Text2')}
-			</p>
-			<p>
-				{$t('step1Text3')}
-			</p>
+		<h3>{$t('step1Title')}</h3>
+		<p>
+			{$t('step1Text1')}
+		</p>
+		<p>
+			{$t('step1Text2')}
+		</p>
+		<p>
+			{$t('step1Text3')}
+		</p>
 
-			<h3>
-				{$t('step2Title')}
-			</h3>
-			<p>
-				{$t('step2Text1')}
-			</p>
-			<ul>
-				<li>
-					{@html $t('step2List1')}
-				</li>
-				<li>
-					{@html $t('step2List2')}
-				</li>
-			</ul>
+		<h3>
+			{$t('step2Title')}
+		</h3>
+		<p>
+			{$t('step2Text1')}
+		</p>
+		<ul>
+			<li>
+				{@html $t('step2List1')}
+			</li>
+			<li>
+				{@html $t('step2List2')}
+			</li>
+		</ul>
 
-			<h3>{$t('whatIfTitle')}</h3>
-			<p>{$t('whatIfIntro')}</p>
-			<ul>
-				<li>
-					{@html $t('whatIfList1')}
-				</li>
-				<li>
-					{@html $t('whatIfList2')}
-				</li>
-				<li>
-					{@html $t('whatIfList3')}
-				</li>
-			</ul>
+		<h3>{$t('whatIfTitle')}</h3>
+		<p>{$t('whatIfIntro')}</p>
+		<ul>
+			<li>
+				{@html $t('whatIfList1')}
+			</li>
+			<li>
+				{@html $t('whatIfList2')}
+			</li>
+			<li>
+				{@html $t('whatIfList3')}
+			</li>
+		</ul>
 		<div class="divider my-12"></div>
 
 		<!-- Technical Section -->
-			<h2 class="text-center">{$t('techTitle')}</h2>
-			<p>
-				{@html $t('techIntro')}
-			</p>
+		<h3 class="text-center">{$t('techTitle')}</h3>
+		<p>
+			{@html $t('techIntro')}
+		</p>
 
-			<h3>{$t('mechanismTitle')}</h3>
-			<p>
-				{$t('mechanismText')}
-			</p>
+		<h3>{$t('mechanismTitle')}</h3>
+		<p>
+			{$t('mechanismText')}
+		</p>
 
-			<h3>{$t('lifecycleTitle')}</h3>
-			<ol>
-				<li>
-					{@html $t('lifecycleList1')}
-				</li>
-				<li>
-					{@html $t('lifecycleList2')}
-				</li>
-				<li>
-					{@html $t('lifecycleList3')}
-				</li>
-				<li>
-					{@html $t('lifecycleList4')}
-				</li>
-			</ol>
+		<h3>{$t('lifecycleTitle')}</h3>
+		<ol>
+			<li>
+				{@html $t('lifecycleList1')}
+			</li>
+			<li>
+				{@html $t('lifecycleList2')}
+			</li>
+			<li>
+				{@html $t('lifecycleList3')}
+			</li>
+			<li>
+				{@html $t('lifecycleList4')}
+			</li>
+		</ol>
 
-			<p>
-				{$t('lifecycleConclusion')}
-			</p>
+		<p>
+			{$t('lifecycleConclusion')}
+		</p>
 
-			<h3>{$t('feesTitle')}</h3>
-			<p>
-				{$t('feesText')}
-			</p>
-		</div>
+		<h3>{$t('feesTitle')}</h3>
+		<p>
+			{$t('feesText')}
+		</p>
+	</div>
 </div>

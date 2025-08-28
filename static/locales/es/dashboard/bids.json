@@ -1,17 +1,97 @@
 {
     "bids": {
+        "my_submitted_bids": "Mis Ofertas Enviadas",
+        "view_task": "Ver Tarea",
+        "refresh": "Actualizar",
+        "no_bids_yet": "Aún no has enviado ofertas",
+        "no_bids_description": "Tus ofertas enviadas aparecerán aquí",
+        "manage_description": "Gestiona y rastrea todas tus ofertas enviadas",
+        "loading_bids": "Cargando tus ofertas...",
+        "error_loading_bids": "Error al Cargar Ofertas",
+        "task": "Tarea",
+        "type": "Tipo",
+        "duration": "Duración",
+        "description": "Descripción",
+        "approach": "Enfoque",
+        "cover_letter": "Carta de Presentación",
+        "submitted": "Enviado",
+        "show_more": "Mostrar más",
+        "pending": "Pendiente",
+        "accepted": "Aceptado",
+        "rejected": "Rechazado",
+        "view": "Ver",
+        "cancel": "Cancelar",
+        "hours": "horas",
+        "sats": "sats",
+        "retry": "Reintentar",
+        "hourly_rate": "Tarifa",
+        "per_hour": "hora",
+        "proposal": "Propuesta",
+        "unknown_task": "Desconocido",
+        "scheduled_period": "Periodo Programado",
+        "estimated_hours": "Horas Estimadas",
         "panel": {
             "title": "Panel de mis ofertas"
         },
         "error": {
             "loading": "Error al cargar las ofertas",
-            "retry": "Reintentar cargar ofertas"
+            "retry": "Reintentar cargar ofertas",
+            "loading_user_data": "Error al cargar datos del usuario"
         },
         "empty": {
             "title": "Aún no hay ofertas",
             "find_tasks": "Buscar tareas para ofertar",
             "create_task": "Crear una tarea"
-        }
+        },
+        "task_details": {
+            "loading": "Cargando...",
+            "bid_submitted": "Oferta Enviada",
+            "task_details": "Detalles de la Tarea",
+            "task_not_found": "Tarea No Encontrada",
+            "close": "Cerrar",
+            "try_again": "Intentar de Nuevo",
+            "loading_bid_form": "Cargando formulario de oferta...",
+            "budget": "Presupuesto",
+            "type": "Tipo",
+            "remote": "Remoto",
+            "in_person": "En Persona",
+            "deadline": "Fecha Límite",
+            "date_range": "Rango de Fechas",
+            "posted": "Publicado",
+            "description": "Descripción",
+            "required_skills": "Habilidades Requeridas",
+            "categories": "Categorías",
+            "location_details": "Detalles de Ubicación",
+            "pickup_location": "Ubicación de Recogida",
+            "drop_off_location": "Ubicación de Entrega",
+            "zip_code": "Código Postal",
+            "posted_by": "Publicado por",
+            "attachments": "Archivos Adjuntos",
+            "open_attachment": "Abrir archivo adjunto",
+            "task_not_open_for_bidding": "La tarea no está abierta para ofertas.",
+            "task_id_missing": "Error: Falta el ID de la tarea",
+            "success": {
+                "title": "¡Oferta Enviada Exitosamente!",
+                "message": "Tu oferta ha sido enviada al propietario de la tarea. Serás notificado si la aceptan o envían una contraoferta.",
+                "close": "Cerrar"
+            },
+            "error": {
+                "failed_to_load": "Error al cargar los detalles de la tarea. Por favor inténtalo de nuevo.",
+                "task_id_missing": "Falta el ID de la tarea. Por favor inténtalo de nuevo.",
+                "failed_to_load_details": "Error al cargar los detalles de la tarea. Por favor inténtalo de nuevo."
+            }
+        },
+        "your_proposal": "Propuesta",
+        "your_bid_amount": "Oferta",
+        "payment_type": "Tipo de Pago",
+        "estimated_duration": "Duración Estimada",
+        "your_description": "Descripción",
+        "your_approach": "Enfoque",
+        "your_cover_letter": "Carta de Presentación",
+        "show_more_details": "Mostrar más detalles",
+        "show_less": "Mostrar menos",
+        "no_task_description": "No hay descripción disponible",
+        "bid_id": "ID de Oferta"
     },
     "bid_form": {
         "title": "Coloca tu oferta",
@@ -35,6 +115,10 @@
                 "label": "Tiempo Estimado de Finalización",
                 "placeholder": "ej., 3 días, 1 semana"
             },
+            "estimated_completion_time": {
+                "label": "Tiempo Estimado de Finalización",
+                "placeholder": "Selecciona fecha y hora"
+            },
             "description": {
                 "label": "Descripción de la Oferta",
                 "placeholder": "Explica por qué eres la persona adecuada para esta tarea"
@@ -46,7 +130,11 @@
             "cover_letter": {
                 "label": "Carta de Presentación (Opcional)",
                 "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
-            }
+            },
+            "datetime_range": "Rango de Fechas",
+            "start_datetime": "Fecha y Hora de Inicio",
+            "end_datetime": "Fecha y Hora de Fin",
+            "duration": "Duración Total Estimada"
         },
         "errors": {
             "task_id_required": "Se requiere el ID de la tarea",
@@ -61,7 +149,11 @@
             "estimated_duration_required": "Por favor proporciona un tiempo estimado de finalización",
             "proposed_approach_required": "Por favor describe tu enfoque para esta tarea",
             "proposed_approach_min_length": "La descripción de tu enfoque debe tener al menos 50 caracteres",
-            "submit_failed": "Error al enviar la oferta. Por favor inténtalo de nuevo."
+            "submit_failed": "Error al enviar la oferta. Por favor inténtalo de nuevo.",
+            "estimated_completion_time_required": "Se requiere el tiempo estimado de finalización",
+            "completion_time_must_be_future": "El tiempo de finalización debe ser en el futuro",
+            "datetime_required": "Por favor selecciona fechas de inicio y fin",
+            "datetime_invalid": "La fecha de fin debe ser después de la fecha de inicio"
         },
         "success": {
             "title": "¡Oferta Enviada Exitosamente!",

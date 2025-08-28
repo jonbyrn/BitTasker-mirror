@@ -1,20 +1,20 @@
 import axios from 'axios';
 
 /**
- * Service for fetching cryptocurrency prices
+ * Service for fetching cryptocurrency prices using Coinbase API
  */
 class CryptoPriceService {
   private cache: Record<string, { price: number; timestamp: number }> = {};
-  private cacheExpiration = 60000; // 1 minute cache
+  private cacheExpiration = 300000; // 5 minutes cache
 
   /**
-   * Get the current price of a cryptocurrency in USDT
+   * Get the current price of a cryptocurrency in USD
    * @param symbol The cryptocurrency symbol (e.g., BTC)
    * @returns Promise resolving to the current price
    */
   async getCurrentPrice(symbol: string): Promise<number> {
     const upperSymbol = symbol.toUpperCase();
-    const cacheKey = `${upperSymbol}USDT`;
+    const cacheKey = upperSymbol;
     
     // Check cache first
     if (this.cache[cacheKey] && Date.now() - this.cache[cacheKey].timestamp < this.cacheExpiration) {
@@ -22,11 +22,11 @@ class CryptoPriceService {
     }
     
     try {
-      // Fetch from Binance public API
-      const response = await axios.get(`https://api.binance.com/api/v3/ticker/price?symbol=${cacheKey}`);
+      // Fetch from Coinbase public API
+      const response = await axios.get(`https://api.coinbase.com/v2/prices/${upperSymbol}-USD/spot`);
       
-      if (response.data && response.data.price) {
-        const price = parseFloat(response.data.price);
+      if (response.data && response.data.data && response.data.data.amount) {
+        const price = parseFloat(response.data.data.amount);
         
         // Update cache
         this.cache[cacheKey] = {
@@ -43,8 +43,8 @@ class CryptoPriceService {
       
       // Fallback prices if API fails
       const fallbackPrices: Record<string, number> = {
-        BTC: 63000,
-        ETH: 3500
+        BTC: 100000,
+        ETH: 50000
       };
       
       // Return fallback price or throw error

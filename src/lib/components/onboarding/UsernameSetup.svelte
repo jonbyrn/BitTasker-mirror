@@ -2,12 +2,17 @@
 	import { CheckUsernameAvailabilityStore } from '$houdini';
 	import { validateUsername } from '$lib/utils/helpers/validators';
     import IconCheck from '~icons/mdi/check-circle-outline';
+	import { t } from 'svelte-i18n';
 
 	let {
 		nextStep,
+		currentStep,
+		totalSteps,
 		onUsernameChange
 	}: {
 		nextStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 		onUsernameChange: (username: string, isAvailable: boolean) => void;
 	} = $props();
 
@@ -22,7 +27,7 @@
 
 	async function checkUsernameAvailability() {
 		if (!username) {
-			usernameError = 'Username is required';
+			usernameError = $t('onboarding_auth.form.username_setup.errors.required');
 			usernameAvailable = false;
 			onUsernameChange(username, false);
 			return;
@@ -53,12 +58,12 @@
 			usernameAvailable = data?.checkUsernameAvailability || false;
 
 			if (!usernameAvailable) {
-				usernameError = 'Username is already taken';
+				usernameError = $t('onboarding_auth.form.username_setup.errors.already_taken');
 			}
 
 			onUsernameChange(username, usernameAvailable);
 		} catch (err) {
-			usernameError = 'Failed to check username availability';
+			usernameError = $t('onboarding_auth.form.username_setup.errors.check_failed');
 			usernameAvailable = false;
 			onUsernameChange(username, false);
 		} finally {
@@ -81,50 +86,52 @@
 	<div class="card-body">
 		<!-- Educational Header -->
         <div class="education-header mb-6 text-center">
-            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 1 of 7</div>
-            <h3 class="step-title mb-3 mt-4">Choose Your Username</h3>
-            <h5 class="mb-3">Make it memorable</h5>
+            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+                {$t('onboarding_auth.form.username_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.username_setup.of')} {totalSteps}
+            </div>
 
-            <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
+            <h4 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.username_setup.title')}</h4>
+            <h5 class="mb-3">{$t('onboarding_auth.form.username_setup.subtitle')}</h5>
+
+            <div class="features-list mb-6 space-y-2 text-center mx-auto w-fit">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Claim your name</strong> — your dedicated name on BitTasker</span>
+                    <span>{@html $t('onboarding_auth.form.username_setup.features.claim_name')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Professional</strong> — use your brand or real name</span>
+                    <span>{@html $t('onboarding_auth.form.username_setup.features.professional')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Shareable</strong> — appears on your public profile and links</span>
+                    <span>{@html $t('onboarding_auth.form.username_setup.features.shareable')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Nostr‑portable</strong> — one handle across compatible Nostr apps</span>
+                    <span>{@html $t('onboarding_auth.form.username_setup.features.nostr_portable')}</span>
                 </div>
             </div>
 
-            <p class="text-primary mb-6 text-lg">First impressions matter — make yours stand out.</p>
+            <p class="text-primary mb-2 text-lg">{$t('onboarding_auth.form.username_setup.first_impressions')}</p>
         </div>
 
-        <form onsubmit={handleSubmit} class="space-y-4">
+        <form onsubmit={handleSubmit} class="">
 			<!-- Username Field -->
 			<div class="form-control max-w-lg mx-auto">
 				<label class="label" for="username">
-                    <span class="label-text text-base-content">Username</span>
+                    <span class="label-text pb-1 text-base-content">{$t('onboarding_auth.form.username_setup.username_field')}</span>
 				</label>
 				<input
 					type="text"
 					id="username"
 					bind:value={username}
-                    autofocus
 					class="input input-bordered w-full {usernameError ? 'input-error' : ''}"
-					placeholder="Choose a username"
+					placeholder={$t('onboarding_auth.form.username_setup.placeholder')}
 					required
 				/>
-                <div class="label">
+                <div class="label line-clamp-2">
                     <span class="label-text-alt text-base-content/70">
-                        3+ characters. Letters, numbers, dashes and underscores work best.
+                        {$t('onboarding_auth.form.username_setup.help_text')}
                     </span>
                 </div>
 				{#if usernameError}
@@ -140,9 +147,9 @@
 				<button type="submit" class="btn btn-primary" disabled={!username || isCheckingUsername}>
 					{#if isCheckingUsername}
 						<span class="loading loading-spinner loading-sm"></span>
-						Checking...
+						{$t('onboarding_auth.form.username_setup.checking')}
 					{:else}
-						Next
+						{$t('onboarding_auth.form.username_setup.next')}
 					{/if}
 				</button>
 			</div>

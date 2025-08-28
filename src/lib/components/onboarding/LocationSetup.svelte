@@ -10,7 +10,7 @@
 	import IconCheck from '~icons/mdi/check-circle-outline';
     import IconMagnify from '~icons/mdi/magnify';
 
-	let { nextStep, prevStep } = $props();
+	let { nextStep, prevStep, currentStep, totalSteps } = $props();
 
 	// State
 	let map: google.maps.Map | null = null;
@@ -167,7 +167,7 @@
 	async function tryInitMap() {
 		try {
 			if (initRetryCount >= maxRetries) {
-				throw new Error('Failed to initialize map after multiple attempts');
+				throw new Error($t('onboarding_auth.form.failed_initialize_map_after_multiple_attempts'));
 			}
 
 			// Only proceed if Google Maps is ready
@@ -564,33 +564,35 @@
 	<div class="card-body relative">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">Step 6 of 7</div>
-			<h3 class="step-title mt-4 mb-3">Set Your Location</h3>
-			<h5 class="mb-3">Find Taskers and Taskees near you</h5>
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
+				{$t('onboarding_auth.form.location_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.location_setup.of')} {totalSteps}
+			</div>
+			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.location_setup.title')}</h3>
+			<h5 class="mb-3">{$t('onboarding_auth.form.location_setup.subtitle')}</h5>
 			<p class="step-description text-base-content mx-auto mb-6 max-w-xl text-lg">
-				Define where you can provide services as a Taskee, or are searching as a Tasker. This helps match you with nearby Taskers and Taskees.
+				{$t('onboarding_auth.form.location_setup.description')}
 			</p>
 
 			<!-- Features List -->
 			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Flexible</strong> — set a custom service or search radius</span>
+					<span>{@html $t('onboarding_auth.form.location_setup.features.flexible')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Private</strong> — only your approximate area is shared</span>
+					<span>{@html $t('onboarding_auth.form.location_setup.features.private')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Adjustable</strong> — change your location anytime in settings</span>
+					<span>{@html $t('onboarding_auth.form.location_setup.features.adjustable')}</span>
 				</div>
 				<div class="feature-item flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
-					<span><strong>Optional</strong> — you can set it later if you want</span>
+					<span>{@html $t('onboarding_auth.form.location_setup.features.optional')}</span>
 				</div>
 			</div>
-			<p class="text-primary mb-6 text-lg">Find tasks near you. Set where you work.</p>
+			<p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.location_setup.find_tasks')}</p>
 		</div>
 	</div>
 	<!-- Constrained Map Wrapper -->
@@ -725,7 +727,9 @@
 					: 'absolute top-16 right-4 z-20'}
 			>
 				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
-					<div class="mb-3 text-sm font-medium text-base-content">Service Radius: {serviceRadius} km</div>
+					<div class="mb-3 text-sm font-medium text-base-content">
+						{$t('onboarding_auth.form.location_setup.service_radius')}: {serviceRadius} {$t('onboarding_auth.form.location_setup.km')}
+					</div>
 					<input
 						type="range"
 						min="1"
@@ -735,8 +739,8 @@
 						class="range range-sm range-primary mb-2"
 					/>
 					<div class="flex justify-between text-xs text-base-content/70">
-						<span>1 km</span>
-						<span>50 km</span>
+						<span>1 {$t('onboarding_auth.form.location_setup.km')}</span>
+						<span>50 {$t('onboarding_auth.form.location_setup.km')}</span>
 					</div>
 				</div>
 			</div>
@@ -774,7 +778,7 @@
 						d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/></svg
 				>
-				<span>Location set: {location.displayName}</span>
+				<span>{$t('onboarding_auth.form.location_setup.location_set')}: {location.displayName}</span>
 			</div>
 		{/if}
 

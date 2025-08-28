@@ -65,10 +65,8 @@
 			});
 
 			if (result.errors) {
-				console.warn('⚠️ Saved search check failed:', result.errors);
 			} else if (result.data?.triggerSavedSearchCheck.success) {
 				const { matchCount, message } = result.data.triggerSavedSearchCheck;
-				console.log('✅ Saved search check completed:', { matchCount, message });
 
 				if (matchCount && matchCount > 0) {
 					console.log(`📧 ${matchCount} saved search notifications sent`);
@@ -97,23 +95,47 @@
 		switch ($store.currentStep) {
 			case 'basics':
 				if (!$store.task.title?.trim()) errors.title = $t('task.errors.title_required');
-				if ($store.task.title && $store.task.title.length > 100) errors.title = $t('task.errors.title_too_long');
+				if ($store.task.title && $store.task.title.length > 100)
+					errors.title = $t('task.errors.title_too_long');
 				if ($store.task.dateRange) {
-					console.log($store.task.dateRange);
 					// Validar que ambos campos de fecha sean requeridos
-					if (!$store.task.dateRange.start || !$store.task.dateRange.end || $store.task.dateRange.end === "null" || $store.task.dateRange.end === null) {
+					if (
+						!$store.task.dateRange.start ||
+						!$store.task.dateRange.end ||
+						$store.task.dateRange.end === 'null' ||
+						$store.task.dateRange.end === null
+					) {
 						errors.deadline = $t('task.errors.date_range_required');
 					}
+					
+					// Validar que las fechas estén en el futuro (comparando solo fechas, no horas)
+					const today = new Date();
+					today.setHours(0, 0, 0, 0); // Resetear a inicio del día
+					
+					const startDate = new Date($store.task.dateRange.start);
+					startDate.setHours(0, 0, 0, 0);
+					
+					const endDate = new Date($store.task.dateRange.end);
+					endDate.setHours(0, 0, 0, 0);
+					
 					if (
-						new Date($store.task.dateRange.end) < new Date() ||
-						new Date($store.task.dateRange.start) < new Date() ||
-						new Date($store.task.dateRange.end) < new Date($store.task.dateRange.start)
+						endDate < today ||
+						startDate < today ||
+						endDate < startDate
 					) {
 						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
-				if ($store.task.deadline && new Date($store.task.deadline) < new Date())
-					errors.deadline = $t('task.errors.deadline_future');
+				if ($store.task.deadline) {
+					const deadlineDate = new Date($store.task.deadline);
+					deadlineDate.setHours(0, 0, 0, 0);
+					
+					const today = new Date();
+					today.setHours(0, 0, 0, 0);
+					
+					if (deadlineDate <= today) // Cambiado de < a <= para que "hoy" no sea válido
+						errors.deadline = $t('task.errors.deadline_future');
+				}
 				if ($store.task?.categories?.length === 0)
 					errors.category = $t('task.errors.category_required');
 				if ($store.task?.skills?.length === 0) errors.skill = $t('task.errors.skill_required');
@@ -300,109 +322,115 @@
 	}
 </script>
 
-<div class="card bg-base-100 mx-auto mt-2 max-w-3xl rounded-xl shadow-xl sm:mt-0">
-	<div class="card-body">
-		<div class="mb-4 flex items-center justify-between">
-			<h2 class="card-title text-2xl">{$t('task.create_title')}</h2>
-			<div class="text-sm">
-				{$t('task.step')}
-				{$STEPS.indexOf($store.currentStep) + 1}
-				{$t('task.of')}
-				{$STEPS.length}
-			</div>
-		</div>
-
-		{#if isLoading}
-			<div class="flex justify-center">
-				<span class="loading loading-spinner loading-lg"></span>
-			</div>
-		{:else}
-			<!-- TODO: Recurring Task Toggle -->
-			<!-- {#if $store.currentStep !== 'recurring'}
-				<div class="form-control mt-2 mb-4 w-full max-w-xs">
-					<label class="label cursor-pointer">
-						<span class="label-text font-medium">Create as recurring task</span>
-						<input
-							type="checkbox"
-							class="toggle toggle-primary"
-							bind:checked={$store.recurringTask.isRecurring}
-							onchange={(event) =>
-								store.setupRecurringTask((event.target as HTMLInputElement).checked)}
-						/>
-					</label>
-					{#if $store.recurringTask.isRecurring}
-						<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
-					{/if}
+<div class="mx-auto max-w-7xl p-4 sm:p-0">
+	<!-- Page Header -->
+	<div class="mb-6">
+		<h3 class="">{$t('task.create_title')}</h3>
+		<p class="text-base-content/70">{$t('task.create_description')}</p>
+	</div>
+	<div class=" bg-base-100 rounded-xl">
+		<div class="card-body">
+			<div class="mb-4 flex items-center justify-between">
+				<div class="text-sm">
+					{$t('task.step')}
+					{$STEPS.indexOf($store.currentStep) + 1}
+					{$t('task.of')}
+					{$STEPS.length}
 				</div>
-			{/if} -->
+			</div>
 
-			<div class="space-y-6">
-				{#if $store.currentStep === TaskStepEnum.BASICS}
-					<TaskBasics {errors} {direction} />
-				{:else if $store.currentStep === TaskStepEnum.LOCATION}
-					<TaskLocation {errors} {direction} bind:newFiles bind:attachmentsToRemove />
-				{:else if $store.currentStep === TaskStepEnum.BUDGET}
-					<TaskBudget {errors} {direction} />
-				{:else if $store.currentStep === TaskStepEnum.REVIEW}
-					<TaskReview {direction} />
-				{:else if $store.currentStep === TaskStepEnum.RECURRING}
-					<TaskRecurring {errors} {direction} />
+			{#if isLoading}
+				<div class="flex justify-center">
+					<span class="loading loading-spinner loading-lg"></span>
+				</div>
+			{:else}
+				<!-- TODO: Recurring Task Toggle -->
+				<!-- {#if $store.currentStep !== 'recurring'}
+					<div class="form-control mt-2 mb-4 w-full max-w-xs">
+						<label class="label cursor-pointer">
+							<span class="label-text font-medium">Create as recurring task</span>
+							<input
+								type="checkbox"
+								class="toggle toggle-primary"
+								bind:checked={$store.recurringTask.isRecurring}
+								onchange={(event) =>
+									store.setupRecurringTask((event.target as HTMLInputElement).checked)}
+							/>
+						</label>
+						{#if $store.recurringTask.isRecurring}
+							<div class="text-info text-sm">This task will repeat based on the schedule you set</div>
+						{/if}
+					</div>
+				{/if} -->
+
+				<div class="space-y-6">
+					{#if $store.currentStep === TaskStepEnum.BASICS}
+						<TaskBasics {errors} {direction} />
+					{:else if $store.currentStep === TaskStepEnum.LOCATION}
+						<TaskLocation {errors} {direction} bind:newFiles bind:attachmentsToRemove />
+					{:else if $store.currentStep === TaskStepEnum.BUDGET}
+						<TaskBudget {errors} {direction} />
+					{:else if $store.currentStep === TaskStepEnum.REVIEW}
+						<TaskReview {direction} />
+					{:else if $store.currentStep === TaskStepEnum.RECURRING}
+						<TaskRecurring {errors} {direction} />
+					{/if}
+
+					<!-- Control buttons -->
+					<div class="mt-6 flex justify-between">
+						{#if $store.currentStep !== 'basics'}
+							<button
+								class="btn"
+								onclick={() => {
+									store.previousStep();
+									direction = 'backward';
+								}}
+							>
+								{$t('task.back')}
+							</button>
+						{:else}
+							<div></div>
+						{/if}
+
+						{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
+							<button
+								class="btn btn-primary {isSubmitting ? 'loading' : ''}"
+								onclick={handleSubmit}
+								disabled={isSubmitting}
+							>
+								{#if isSubmitting}
+									<span></span>
+								{:else if $store.recurringTask.isRecurring}
+									{$t('task.create_recurring')}
+								{:else}
+									{$t('task.get_quotes')}
+								{/if}
+							</button>
+						{:else}
+							<button class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
+						{/if}
+					</div>
+				</div>
+
+				{#if errors.general}
+					<div class="alert alert-error alert-outline mt-6 shadow-lg">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span>{errors.general}</span>
+					</div>
 				{/if}
-
-				<!-- Control buttons -->
-				<div class="mt-6 flex justify-between">
-					{#if $store.currentStep !== 'basics'}
-						<button
-							class="btn"
-							onclick={() => {
-								store.previousStep();
-								direction = 'backward';
-							}}
-						>
-							{$t('task.back')}
-						</button>
-					{:else}
-						<div></div>
-					{/if}
-
-					{#if $STEPS.indexOf($store.currentStep) === $STEPS.length - 1}
-						<button
-							class="btn btn-primary {isSubmitting ? 'loading' : ''}"
-							onclick={handleSubmit}
-							disabled={isSubmitting}
-						>
-							{#if isSubmitting}
-								<span></span>
-							{:else if $store.recurringTask.isRecurring}
-								{$t('task.create_recurring')}
-							{:else}
-								{$t('task.get_quotes')}
-							{/if}
-						</button>
-					{:else}
-						<button class="btn btn-primary" onclick={handleNext}>{$t('task.next')}</button>
-					{/if}
-				</div>
-			</div>
-
-			{#if errors.general}
-				<div class="alert alert-error alert-outline mt-6 shadow-lg">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{errors.general}</span>
-				</div>
 			{/if}
-		{/if}
+		</div>
 	</div>
 </div>

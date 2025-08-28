@@ -108,6 +108,7 @@ export function getNamespacesForRoute(route: string): string[] {
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
+		namespaces.push('dashboard/bids');
 
 		if (route.includes('/profile')) {
 			namespaces.push(
@@ -120,20 +121,17 @@ export function getNamespacesForRoute(route: string): string[] {
 			namespaces.push('dashboard/wallet');
 		}
 		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations');
-			namespaces.push('dashboard/bids');
+			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids');
 		}
 		if (route.includes('/create-task')) {
 			namespaces.push('dashboard/tasks/create');
 		}
+
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');
 		}
 		if (route.includes('/settings')) {
 			namespaces.push('dashboard/settings');
-		}
-		if (route.includes('/taskees')) {
-			namespaces.push('dashboard/bids');
 		}
 	}
 

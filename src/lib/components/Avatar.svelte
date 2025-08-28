@@ -5,7 +5,8 @@
 	 * Displays a user's avatar, with fallback to initials in a colored badge if no image is available
 	 * Lazy loads user data and Nostr libraries only when authenticated
 	 */
-
+	import { profileStore } from '$lib/stores/profile.store';
+	import { user } from '$lib/stores/user.store';
 	import { onMount } from 'svelte';
 	import { get } from 'svelte/store';
 
@@ -14,6 +15,11 @@
 		size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 		loading?: boolean;
 		onClick?: () => void;
+		pubkey?: string;
+		picture?: string | string[];
+		name?: string;
+		professionalTitle?: string;
+		website?: string;
 	}>();
 
 	// Set defaults
@@ -23,6 +29,18 @@
 	let imageError = $state(false);
 	let userData = $state<{ name: string; picture: string | null } | null>(null);
 	let isLoading = $state(true);
+
+	// Reactive derived values that update when stores change
+	let userName = $derived(props.name || $profileStore.data?.name || $user.name || '');
+	let userPicture = $derived(props.picture || $user.picture || $profileStore.data?.picture || null);
+
+	// Update userData when derived values change
+	$effect(() => {
+		userData = {
+			name: userName,
+			picture: userPicture
+		};
+	});
 
 	// Lazy load user data only when component mounts (user is authenticated)
 	onMount(async () => {
@@ -34,9 +52,11 @@
 				// Lazy load user store only when needed
 				const { user } = await import('$lib/stores/user.store');
 				const userValue = get(user);
+				
+				// Update userData with user store values
 				userData = {
-					name: userValue?.name || '',
-					picture: userValue?.picture || null
+					name: userValue?.name || userName,
+					picture: userValue?.picture || userPicture
 				};
 			}
 		} catch (error) {
