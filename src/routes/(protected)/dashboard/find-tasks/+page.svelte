@@ -342,6 +342,9 @@
 		}
 	}
 
+	// Eliminar la variable cardRef que estaba causando conflictos
+	// let cardRef = $state<HTMLElement | null>(null);
+
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
 		// Clear existing tasks when changing task type
@@ -463,13 +466,43 @@
 
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
-		selectedTask = task
+		selectedTask = task;
 		if (task.dropOffLocation) {
 			selectedLocation = task.dropOffLocation;
 		}
 		if (task.pickupLocation) {
 			selectedLocation = task.pickupLocation;
 		}
+	}
+
+	// Referencias a las cards de las tasks para hacer scroll
+	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
+
+	// Función para hacer scroll a una card específica
+	function scrollToTaskCard(taskId: string) {
+		// Buscar la card por data attribute
+		const cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+		if (cardElement) {
+			cardElement.scrollIntoView({
+				behavior: 'smooth',
+				block: 'center'
+			});
+		}
+	}
+
+	// Action para registrar las referencias de las cards
+	function registerTaskCard(node: HTMLElement, { taskId }: { taskId: string }) {
+		// Cuando el elemento se monta
+		if (node) {
+			taskCardRefs.set(taskId, node);
+		}
+
+		return {
+			destroy() {
+				// Cuando el elemento se desmonta
+				taskCardRefs.delete(taskId);
+			}
+		};
 	}
 </script>
 
@@ -639,6 +672,7 @@
 						<div class="space-y-4">
 							{#each $tasksStore.items as task, index}
 								<div
+									use:registerTaskCard={{ taskId: task.id }}
 									class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
 									onclick={() => selectTaskForMap(task)}
 									tabindex="0"
@@ -649,6 +683,7 @@
 									aria-current={selectedTaskId === task.id.toString()}
 									aria-disabled={task.status !== TaskStatusEnum.OPEN}
 									aria-hidden={task.status !== TaskStatusEnum.OPEN}
+									data-task-id={task.id}
 								>
 									<div class="card-body p-4 md:p-4">
 										<!-- Top Row: Title + Price -->
@@ -714,7 +749,7 @@
 												<!-- Right: Sats -->
 												<div class="text-lg font-bold">
 													${task.budget.amount}
-							
+
 													<div class="text-base-content/60 text-sm">
 														{satsFromUsd(task.budget.amount, btcPrice)}
 													</div>
@@ -941,7 +976,17 @@
 			<div class="hidden lg:col-span-3 lg:block">
 				<div class="card">
 					<!-- Task Location Map -->
-					<TaskLocationMap location={selectedLocation || null} height="75vh" />
+					<TaskLocationMap
+						tasks={$tasksStore.items}
+						height="75vh"
+						{selectedTask}
+						on:taskSelected={(event) => {
+							// Cuando se hace click en un pin del mapa, seleccionar esa task
+							selectedTask = event.detail.task;
+							// Hacer scroll a la card correspondiente
+							scrollToTaskCard(event.detail.task.id);
+						}}
+					/>
 				</div>
 			</div>
 		</div>
