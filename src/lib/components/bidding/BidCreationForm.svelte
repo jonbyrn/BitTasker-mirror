@@ -43,9 +43,12 @@
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			const newPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			console.log(`Fetched BTC price: ${newPrice}`); // Debug log
+			btcPrice = newPrice;
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
+			// Keep the default price if fetch fails
 		}
 	}
 
@@ -57,7 +60,8 @@
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
 			usdAmount = usdValue;
-			const satsValue = satsFromUsd(usdValue, btcPrice);
+			// Calcular sats usando la misma fórmula que TaskBudget.svelte
+			const satsValue = Math.round((usdValue / btcPrice) * 100_000_000);
 			amount = satsValue.toString();
 		} else {
 			usdAmount = 0;
@@ -73,7 +77,8 @@
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			amount = satsValue.toString();
-			usdAmount = usdFromSats(satsValue, btcPrice);
+			// Calcular USD usando la misma fórmula que TaskBudget.svelte
+			usdAmount = (satsValue / 100_000_000) * btcPrice;
 		} else {
 			amount = '0';
 			usdAmount = 0;
@@ -88,7 +93,8 @@
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
 			hourlyRateUsd = usdValue;
-			const satsValue = satsFromUsd(usdValue, btcPrice);
+			// Calcular sats usando la misma fórmula que TaskBudget.svelte
+			const satsValue = Math.round((usdValue / btcPrice) * 100_000_000);
 			hourlyRate = satsValue.toString();
 		} else {
 			hourlyRateUsd = 0;
@@ -104,7 +110,8 @@
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
 			hourlyRate = satsValue.toString();
-			hourlyRateUsd = usdFromSats(satsValue, btcPrice);
+			// Calcular USD usando la misma fórmula que TaskBudget.svelte
+			hourlyRateUsd = (satsValue / 100_000_000) * btcPrice;
 		} else {
 			hourlyRate = '0';
 			hourlyRateUsd = 0;
@@ -147,7 +154,7 @@
 			amount = '';
 			if (usdAmount > 0) {
 				// Convert the current USD amount to hourly rate sats
-				const satsValue = satsFromUsd(usdAmount, btcPrice);
+				const satsValue = Math.round((usdAmount / btcPrice) * 100_000_000);
 				hourlyRate = satsValue.toString();
 				hourlyRateUsd = usdAmount; // Set the hourly rate USD value
 			} else {
@@ -163,7 +170,7 @@
 				// Convert hourly rate to total amount
 				const totalSats = parseInt(hourlyRate) * parseFloat(estimatedHours);
 				amount = totalSats.toString();
-				usdAmount = usdFromSats(totalSats, btcPrice);
+				usdAmount = (totalSats / 100_000_000) * btcPrice;
 			}
 		}
 	}
@@ -404,7 +411,7 @@
 							<input
 								type="text"
 								id="bid-sats"
-								value={formatNumberForInput(parseInt(amount || '0'))}
+								value={formatNumberForInput(Math.round((usdAmount / btcPrice) * 100_000_000))}
 								onchange={handleSatsChange}
 								oninput={handleSatsChange}
 								class="input input-bordered w-full pr-12 {bidFormErrors.amount
@@ -520,7 +527,7 @@
 							<input
 								type="text"
 								id="hourly-rate-sats"
-								value={formatNumberForInput(parseInt(hourlyRate || '0'))}
+								value={formatNumberForInput(Math.round((hourlyRateUsd / btcPrice) * 100_000_000))}
 								onchange={handleHourlyRateSatsChange}
 								oninput={handleHourlyRateSatsChange}
 								class="input input-bordered w-full pr-12 {bidFormErrors.hourlyRate
