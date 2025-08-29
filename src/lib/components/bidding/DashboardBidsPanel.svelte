@@ -96,7 +96,7 @@
 	{#if loading}
 		<div class="space-y-4">
 			{#each Array(1) as _}
-				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm animate-pulse">
+				<div class="card bg-base-100 border-base-300 animate-pulse rounded-lg border shadow-sm">
 					<div class="card-body p-4 md:p-6">
 						<!-- Task Information - Header skeleton -->
 						<div class="border-base-300 mb-4 md:mb-6">
@@ -111,58 +111,60 @@
 						<!-- Your Bid Details skeleton -->
 						<div class="space-y-2">
 							<!-- Proposal title skeleton -->
-							<div class="flex flex-col md:flex-row md:items-center gap-2">
-								<div class="bg-base-300 h-4 md:h-5 w-32 rounded"></div>
-								<div class="bg-base-300 h-3 md:h-4 w-16 rounded"></div>
+							<div class="flex flex-col gap-2 md:flex-row md:items-center">
+								<div class="bg-base-300 h-4 w-32 rounded md:h-5"></div>
+								<div class="bg-base-300 h-3 w-16 rounded md:h-4"></div>
 							</div>
 
 							<!-- Two-column layout skeleton -->
-							<div class="flex flex-col md:flex-row gap-3 md:gap-4 items-start justify-between">
+							<div class="flex flex-col items-start justify-between gap-3 md:flex-row md:gap-4">
 								<!-- Left column: Scheduled Period skeleton -->
-								<div class="flex flex-col gap-3 md:gap-6 text-left w-full md:w-auto">
+								<div class="flex w-full flex-col gap-3 text-left md:w-auto md:gap-6">
 									<div>
-										<div class="bg-base-300 mb-1 h-3 w-28 md:w-32 rounded"></div>
-										<div class="bg-base-300 h-4 w-32 md:w-36 rounded"></div>
-										<div class="bg-base-300 mt-1 h-3 w-24 md:w-28 rounded"></div>
+										<div class="bg-base-300 mb-1 h-3 w-28 rounded md:w-32"></div>
+										<div class="bg-base-300 h-4 w-32 rounded md:w-36"></div>
+										<div class="bg-base-300 mt-1 h-3 w-24 rounded md:w-28"></div>
 									</div>
 								</div>
 
 								<!-- Right column: Amount & Payment Type skeleton -->
-								<div class="flex flex-row w-full md:w-auto md:ml-auto">
-									<div class="text-start w-full md:w-auto">
-										<div class="bg-base-300 h-6 w-20 md:w-24 rounded"></div>
-										<div class="bg-base-300 mt-1 h-4 w-24 md:w-28 rounded"></div>
+								<div class="flex w-full flex-row md:ml-auto md:w-auto">
+									<div class="w-full text-start md:w-auto">
+										<div class="bg-base-300 h-6 w-20 rounded md:w-24"></div>
+										<div class="bg-base-300 mt-1 h-4 w-24 rounded md:w-28"></div>
 									</div>
 								</div>
 							</div>
 
 							<!-- Avatar, Username, and Review Stars skeleton -->
-							<div class="flex flex-col gap-2 md:gap-3 md:flex-row md:items-center md:justify-between pt-2">
+							<div
+								class="flex flex-col gap-2 pt-2 md:flex-row md:items-center md:justify-between md:gap-3"
+							>
 								<div class="flex items-center gap-2 md:gap-3">
 									<!-- Avatar skeleton -->
-									<div class="bg-base-300 h-6 md:h-8 w-6 md:w-8 rounded-full"></div>
+									<div class="bg-base-300 h-6 w-6 rounded-full md:h-8 md:w-8"></div>
 
 									<!-- Username and Review Stars skeleton -->
 									<div class="flex flex-col">
-										<div class="bg-base-300 mb-1 h-3 md:h-4 w-16 md:w-20 rounded"></div>
+										<div class="bg-base-300 mb-1 h-3 w-16 rounded md:h-4 md:w-20"></div>
 										<!-- Review Stars skeleton -->
 										<div class="flex items-center">
 											{#each Array(5) as _}
-												<div class="bg-base-300 mr-1 h-2 md:h-3 w-2 md:w-3 rounded"></div>
+												<div class="bg-base-300 mr-1 h-2 w-2 rounded md:h-3 md:w-3"></div>
 											{/each}
-											<div class="bg-base-300 ml-1 h-2 md:h-3 w-6 md:w-8 rounded"></div>
+											<div class="bg-base-300 ml-1 h-2 w-6 rounded md:h-3 md:w-8"></div>
 										</div>
 									</div>
 								</div>
 							</div>
 
 							<!-- Bottom section: Show more and View Task button skeleton -->
-							<div class="flex flex-col md:flex-row gap-3 md:gap-0 md:justify-between">
+							<div class="flex flex-col gap-3 md:flex-row md:justify-between md:gap-0">
 								<!-- Show more button skeleton -->
 								<div class="border-base-200 pt-2">
 									<div class="bg-base-300 h-6 w-20 rounded-2xl"></div>
 								</div>
-								
+
 								<!-- View Task button skeleton -->
 								<div class="flex justify-start md:justify-end">
 									<div class="bg-base-300 h-8 w-24 rounded"></div>
@@ -246,44 +248,43 @@
 						<div class="border-base-300 mb-6">
 							<div class="flex items-start">
 								<div class="flex-1">
-									<h4 class="line-clamp-2 font-bold">
-										<a 
-											href="/dashboard/task/{bid.bid.taskId}" 
+									<small class="card-title line-clamp-1 text-lg">
+										<a
+											href="/dashboard/task/{bid.bid.task?.id || bid.bid.taskId}"
 											class="hover:text-primary transition-colors"
 											onclick={(e) => e.stopPropagation()}
 										>
 											{bid.bid.taskTitle || $t('bids.unknown_task')}
 										</a>
-									</h4>
+									</small>
 								</div>
 							</div>
 						</div>
 
 						<!-- Your Bid Details -->
 						<div class="space-y-2">
-							<h5 class="text-base-content/90 font-medium">
+							<small class="text-base-content/90 text-xl font-medium">
 								{$t('bids.your_proposal')} -
 								<small class="text-base-content/60">
 									{(bid.bid.paymentType || 'FIXED').toLowerCase()}
 								</small>
-							</h5>
+							</small>
 
 							<!-- Two-column layout -->
-							<div class="flex flex-row gap-4 items-start justify-between">
+							<div class="flex flex-row items-start justify-between gap-4">
 								<!-- Left column: FIXED period OR HOURLY rate/hours -->
 								<div class="flex flex-row gap-6 text-left">
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
-											<p class="text-base-content/60 mb-1 text-xs">
-												{$t('bids.scheduled_period')} ({bid.bid.estimatedDuration || 'N/A'})
-											</p>
-											<p class="text-sm font-medium">
+											<p class="text-sm font-medium pt-3">
 												{new Date(bid.bid.startDate).toLocaleDateString()} -
 												{new Date(bid.bid.endDate).toLocaleDateString()}
 												{#if bid.bid.startTime && bid.bid.endTime}
 													<br />
 													<span class="text-base-content/70 text-xs">
-														{formatTimeLarge(bid.bid.startTime)} - {formatTimeLarge(bid.bid.endTime)}
+														{formatTimeLarge(bid.bid.startTime)} - {formatTimeLarge(
+															bid.bid.endTime
+														)}
 													</span>
 												{/if}
 											</p>
@@ -311,7 +312,7 @@
 								</div>
 
 								<!-- Right column: Amount & Payment Type -->
-								<div class="flex flex-row ml-auto">
+								<div class="ml-auto flex flex-row">
 									<div class="text-start">
 										<div class="text-lg font-semibold">
 											${calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)}
@@ -323,7 +324,7 @@
 								</div>
 							</div>
 
-							<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between pt-2">
+							<div class="flex flex-col gap-3 pt-2 md:flex-row md:items-center md:justify-between">
 								<!-- Left: Avatar, Username, and Review Stars -->
 								<div class="flex items-center gap-3">
 									<!-- Avatar -->

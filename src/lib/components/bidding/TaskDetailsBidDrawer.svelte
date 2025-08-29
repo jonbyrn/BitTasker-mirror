@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { Task } from '$lib/types/task';
-	import { formatDistanceToNow, format } from 'date-fns';
-	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import BidCreationForm from './BidCreationForm.svelte';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -106,12 +104,6 @@
 
 	const handleClose = () => props.onClose();
 
-	const handleViewDetails = () => {
-		if (task?.id) {
-			goto(`/dashboard/task/${task.id}`);
-			props.onClose(); // Close the drawer
-		}
-	};
 
 	onMount(() => {
 		if (browser) {

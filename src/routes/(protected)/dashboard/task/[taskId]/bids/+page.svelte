@@ -7,7 +7,7 @@
 	import type { CounterOffer, TaskBid } from '$lib/types/bid';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import bidService from '$lib/api/services/bid.service';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
@@ -418,25 +418,12 @@
 						</div>
 
 						<div class="mb-1">
-							{#if bid.paymentType === 'HOURLY'}
-								<div class="text-lg font-bold">
-									${calculateUsdtEstimate(bid.hourlyRate || 0, btcPrice)} /hr
-								</div>
-								<div class="">
-									<span class="text-base-content/60 text-sm font-semibold">
-										{formatSatsAmount(bid.hourlyRate || 0)}
-									</span>
-								</div>
-							{:else}
-								<div class="text-lg font-bold">
-									${calculateUsdtEstimate(bid.amount || 0, btcPrice)}
-								</div>
-								<div class="">
-									<span class="text-base-content/60 text-sm font-semibold">
-										{formatSatsAmount(bid.amount || 0)}
-									</span>
-								</div>
-							{/if}
+							<div class="text-lg font-bold">
+								${bid.amount}
+							</div>
+							<div class="text-base-content/60 text-sm">
+								{satsFromUsd(bid.amount, btcPrice)}
+							</div>
 						</div>
 					</div>
 
@@ -484,30 +471,15 @@
 											<span class="text-base-content/60 text-xs">Payment Type:</span>
 											<div class="text-lg font-bold">{bid.paymentType}</div>
 										</div>
-										{#if bid.paymentType === 'HOURLY'}
-											<div>
-												<span class="text-base-content/60 text-xs">Hourly Rate:</span>
-												<div class="text-lg font-bold">
-													${calculateUsdtEstimate(bid.hourlyRate || 0, btcPrice)} /hr
-												</div>
-												<span class="text-base-content/60 text-sm font-semibold">
-													{formatSatsAmount(bid.hourlyRate || 0)}
-												</span>
-											</div>
 
-											<div>
-												<span class="text-base-content/60 text-xs">Estimated Hours:</span>
-												<div class="text-lg font-bold">{bid.estimatedHours || 0} hours</div>
-											</div>
-										{/if}
 										<div>
 											<span class="text-base-content/60 text-xs">Total Amount:</span>
 											<div class="text-lg font-bold">
-												${calculateUsdtEstimate(bid.amount || 0, btcPrice)}
+												${bid.amount}
 											</div>
-											<span class="text-base-content/60 text-sm font-semibold">
-												{formatSatsAmount(bid.amount || 0)}
-											</span>
+											<div class="text-base-content/60 text-sm">
+												{satsFromUsd(bid.amount, btcPrice)}
+											</div>
 										</div>
 
 										<div>
