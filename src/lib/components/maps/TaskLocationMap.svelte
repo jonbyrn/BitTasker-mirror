@@ -19,6 +19,7 @@
 	let googleMapsReady = $state(false);
 	let initRetryCount = $state(0);
 	let maxRetries = 3;
+	let markers: google.maps.marker.AdvancedMarkerElement[] = $state([]);
 
 	// Default location (San Salvador)
 	const defaultLocation: Location = {
@@ -126,42 +127,56 @@
 			hasError = true;
 		}
 	}
+	
 
 	async function createMarkerAndCircle(lat: number, lng: number) {
 		if (!map || !googleMapsReady || !window.google?.maps) return;
 
 		const position = { lat, lng };
 
-		// Remove existing marker and circle
+		// Quitar anteriores
 		if (marker) marker.map = null;
 		if (circle) circle.setMap(null);
 
 		try {
-			// Import the marker library
 			const { AdvancedMarkerElement } = (await google.maps.importLibrary(
 				'marker'
 			)) as google.maps.MarkerLibrary;
 
-			// Create new advanced marker
+			// Usamos imagen personalizada
+			const img = document.createElement('img');
+			img.src = '/favicon-96x96.png';
+			img.style.width = '4rem';
+			img.style.height = '4rem';
+			img.style.cursor = 'pointer';
+
 			marker = new AdvancedMarkerElement({
 				position,
 				map,
-				gmpDraggable: false // Disable dragging for task location display
+				content: img,
+				gmpDraggable: false
 			});
 
-			// Create circle for service radius
+			// círculo de radio
 			circle = new google.maps.Circle({
 				strokeColor: '#F7931A',
 				strokeOpacity: 0.8,
 				strokeWeight: 2,
 				fillColor: '#F7931A',
-				fillOpacity: 0.2,
+				fillOpacity: 0.1,
 				map,
 				center: position,
-				radius: serviceRadius * 1000 // Convert km to meters
+				radius: serviceRadius * 100
 			});
 
-			// Pan map to new location
+			// 🖱️ Evento click en el marcador → ajusta zoom al círculo
+			marker.addListener('click', () => {
+				if (circle) {
+					map!.fitBounds(circle.getBounds()!);
+				}
+			});
+
+			// Pan inicial
 			map.panTo(position);
 		} catch (error) {
 			console.error('Error creating advanced marker:', error);
@@ -240,8 +255,6 @@
 			<span class="text-sm">{error}</span>
 		</div>
 	{/if}
-
-	
 </div>
 
 <style>
