@@ -2,7 +2,8 @@
 	import type { CounterOffer, Currency, TaskBid, PaymentType } from '$lib/types/bid';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	
 	// Props
 	const props = $props<{
 		bid: TaskBid;
@@ -287,7 +288,7 @@
 			<div class="flex items-center justify-between">
 				<div class="text-right">
 					<div class="text-lg font-bold">
-						${props.bid.amount}
+						${formatNumberWithTwoDecimals(props.bid.amount)}
 
 						<div class="text-base-content/60 text-sm">
 							{satsFromUsd(props.bid.amount, btcPrice)}

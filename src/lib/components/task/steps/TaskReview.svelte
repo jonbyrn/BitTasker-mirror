@@ -10,6 +10,7 @@
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	let { direction } = $props();
 
@@ -122,7 +123,7 @@
 					<span class="text-base-content/60 font-medium">{$t('task.budget_amount')}</span>
 
 					<div class="text-lg font-bold">
-						${$store.task.budget.amount}
+						${formatNumberWithTwoDecimals($store.task.budget.amount)}
 
 						<div class="text-base-content/60 text-sm">
 							{satsFromUsd($store.task.budget.amount, btcPrice)}

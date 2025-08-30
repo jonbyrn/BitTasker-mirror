@@ -10,6 +10,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { goto } from '$app/navigation';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -250,7 +251,7 @@
 							<!-- Right: Sats -->
 							<div class="">
 								<div class="text-lg font-bold">
-									${task.budget.amount}
+									${formatNumberWithTwoDecimals(task.budget.amount)}
 
 									<div class="text-base-content/60 text-sm">
 										{satsFromUsd(task.budget.amount, btcPrice)}

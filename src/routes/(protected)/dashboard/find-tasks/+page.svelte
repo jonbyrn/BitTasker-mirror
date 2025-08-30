@@ -17,6 +17,7 @@
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -748,7 +749,7 @@
 
 												<!-- Right: Sats -->
 												<div class="text-lg font-bold">
-													${task.budget.amount}
+													${formatNumberWithTwoDecimals(task.budget.amount)}
 
 													<div class="text-base-content/60 text-sm">
 														{satsFromUsd(task.budget.amount, btcPrice)}

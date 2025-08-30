@@ -12,6 +12,7 @@
 	import bidService from '$lib/api/services/bid.service';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	// State
 	let task = $state<Task | null>(null);
 	let bids = $state<TaskBid[]>([]);
@@ -419,7 +420,7 @@
 
 						<div class="mb-1">
 							<div class="text-lg font-bold">
-								${bid.amount}
+								${formatNumberWithTwoDecimals(bid.amount)}
 							</div>
 							<div class="text-base-content/60 text-sm">
 								{satsFromUsd(bid.amount, btcPrice)}
@@ -475,7 +476,7 @@
 										<div>
 											<span class="text-base-content/60 text-xs">Total Amount:</span>
 											<div class="text-lg font-bold">
-												${bid.amount}
+												${formatNumberWithTwoDecimals(bid.amount)}
 											</div>
 											<div class="text-base-content/60 text-sm">
 												{satsFromUsd(bid.amount, btcPrice)}

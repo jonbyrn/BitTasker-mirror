@@ -11,6 +11,7 @@
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -272,8 +273,8 @@
 							{/if}
 
 							<div class="text-lg font-bold">
-								${task.budget.amount}
-		
+								${formatNumberWithTwoDecimals(task.budget.amount)}
+
 								<div class="text-base-content/60 text-sm">
 									{satsFromUsd(task.budget.amount, btcPrice)}
 								</div>

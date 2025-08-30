@@ -101,9 +101,26 @@
 				maxZoom: 18, // Establece el zoom máximo
 				minZoom: 5, // Opcional: también puedes establecer un zoom mínimo
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
-				mapTypeControl: false,
-				fullscreenControl: false,
-				streetViewControl: false,
+
+				mapTypeControl: true, // Selector de capas (Roadmap, Satellite, etc.)
+				streetViewControl: true,
+				fullscreenControl: true,
+
+				// Opcional: estilo del control de capas
+				mapTypeControlOptions: {
+					style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, // o HORIZONTAL_BAR
+					position: google.maps.ControlPosition.TOP_RIGHT
+				},
+
+				// Opcional: estilo del control de zoom
+				zoomControlOptions: {
+					position: google.maps.ControlPosition.RIGHT_CENTER
+				},
+
+				// Opcional: control de street view
+				streetViewControlOptions: {
+					position: google.maps.ControlPosition.RIGHT_TOP
+				},
 				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID'
 			});
 

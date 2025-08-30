@@ -8,6 +8,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	// State
 	let currentUserPubkey = $state<string>('');
 	let myBids = $state<any[]>([]);
@@ -302,7 +303,7 @@
 								<div class="ml-auto flex flex-row">
 									<div class="text-start">
 										<div class="text-lg font-semibold">
-											${bid.bid.amount}
+											${formatNumberWithTwoDecimals(bid.bid.amount)}
 										</div>
 										<div class="text-base-content/60 text-lg">
 											{satsFromUsd(bid.bid.amount, btcPrice)}

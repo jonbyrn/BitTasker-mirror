@@ -4,6 +4,7 @@
 	import QRCode from 'qrcode';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	// Props
 	const props = $props<{
 		bid: TaskBid;
@@ -338,7 +339,7 @@
 						${totalFiatPrice.toFixed(2)}
 					</div>
 					<div class="text-base-content/60 text-lg font-bold">
-						{props.bid.amount}
+						${formatNumberWithTwoDecimals(props.bid.amount)}
 					</div>
 				</div>
 			</div>

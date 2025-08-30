@@ -12,6 +12,7 @@
 	import { t } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -151,7 +152,7 @@
 			</small>
 
 			<div class="text-lg font-bold">
-				${task.budget.amount}
+				${formatNumberWithTwoDecimals(task.budget.amount)}
 
 				<div class="text-base-content/60 text-sm">
 					{satsFromUsd(task.budget.amount, btcPrice)}
