@@ -4,9 +4,9 @@
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
 	import { formatDistanceToNow, format } from 'date-fns';
-	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
-	import { calculateUsdtEstimate, formatSatsAmount, satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { user } from '$lib/stores/user.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';

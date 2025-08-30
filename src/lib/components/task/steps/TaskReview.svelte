@@ -7,9 +7,6 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
 	import {
-		calculateUsdtEstimate,
-		formatSatsAmount,
-		usdFromSats,
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';

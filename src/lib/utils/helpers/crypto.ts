@@ -111,43 +111,6 @@ export async function deriveKeyFromPassword(
 	}
 }
 
-/**
- * Format sats amount for display (no conversion needed)
- */
-export function formatSatsAmount(sats: number): string {
-	const formatted = new Intl.NumberFormat('en-US').format(sats);
-	return `${formatted} sats`;
-}
-
-/**
- * Calculate estimated USDT value based on BTC amount
- */
-export function calculateUsdtEstimate(budget: number, btcPrice: number): string {
-	// budget is in sats, so we need to convert to BTC first
-	const btcAmount = budget / 100_000_000;
-	const estimatedValue = btcAmount * btcPrice;
-	return estimatedValue.toLocaleString('en-US', {
-		maximumFractionDigits: 2,
-		minimumFractionDigits: 2
-	});
-}
-
-export function formatBtcToSats(amountBtc: number | string): string {
-	let str = amountBtc.toString();
-
-	if (/[eE]/.test(str)) {
-		str = Number(str).toFixed(8);
-	}
-
-	const [whole = '0', decimals = ''] = str.split('.');
-	const padded = (decimals + '0'.repeat(8)).slice(0, 8);
-
-	const satsBig = BigInt(whole) * 100_000_000n + BigInt(padded);
-	const formatted = Intl.NumberFormat('en-US').format(Number(satsBig));
-
-	return `${formatted} Sats`;
-}
-
 export const SATS_PER_BTC = 100_000_000;
 
 export function satsFromUsd(usd: number, btcPrice: number): string {
