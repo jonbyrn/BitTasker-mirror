@@ -4,7 +4,7 @@
 
 	let {
 		tasks = [],
-		height = '400px',
+		height = '60vh',
 		selectedTask = null
 	} = $props<{
 		tasks: Task[];
@@ -557,7 +557,7 @@
 
 <div class="task-location-map w-full">
 	<!-- Map Container -->
-	<div class="map-container relative w-full" style="height: {height};">
+	<div class="map-container relative w-full max-h-[800px]" style="height: {height};">
 		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
 			{#if !isMapLoaded}
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
@@ -592,4 +592,5 @@
 	:global(.pac-container) {
 		z-index: 9999;
 	}
+	
 </style>

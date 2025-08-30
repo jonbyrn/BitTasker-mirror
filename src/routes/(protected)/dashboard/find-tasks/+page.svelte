@@ -618,7 +618,7 @@
 
 				<!-- 	<RecommendedTasks {onSelectTask} /> -->
 
-				<div class="max-h-[calc(75vh)] overflow-y-auto" bind:this={taskListRef}>
+				<div class="max-h-[calc(65vh)] overflow-y-auto" bind:this={taskListRef}>
 					<!-- Skeleton Loading -->
 					{#if showSkeleton && !dataLoaded}
 						<div class="space-y-3">
@@ -979,7 +979,7 @@
 					<!-- Task Location Map -->
 					<TaskLocationMap
 						tasks={$tasksStore.items}
-						height="75vh"
+						height="65vh"
 						{selectedTask}
 						on:taskSelected={(event) => {
 							// Cuando se hace click en un pin del mapa, seleccionar esa task
