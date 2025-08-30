@@ -1,13 +1,6 @@
 <script lang="ts">
-	import type { Bid, CounterOffer, Currency, TaskBid, PaymentType } from '$lib/types/bid';
-	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
-	import {
-		formatNumberForInput,
-		satsFromUsd,
-		usdFromSats,
-		calculateUsdtEstimate,
-		formatSatsAmount
-	} from '$lib/utils/helpers/crypto';
+	import type { CounterOffer, Currency, TaskBid, PaymentType } from '$lib/types/bid';
+	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props
@@ -293,26 +286,13 @@
 		<div>
 			<div class="flex items-center justify-between">
 				<div class="text-right">
-					{#if props.bid.paymentType === 'HOURLY'}
-						<div class="text-lg font-bold">
-							${calculateUsdtEstimate(props.bid.hourlyRate || 0, btcPrice)} /hr
+					<div class="text-lg font-bold">
+						${props.bid.amount}
+
+						<div class="text-base-content/60 text-sm">
+							{satsFromUsd(props.bid.amount, btcPrice)}
 						</div>
-						<div class="">
-							<span class="text-base-content/60 text-sm font-semibold">
-								{formatSatsAmount(props.bid.hourlyRate || 0)}
-							</span>
-						</div>
-					{:else}
-						<div class="text-lg font-bold">
-							${calculateUsdtEstimate(props.bid.amount || 0, btcPrice)}
-						</div>
-						<div class="">
-							<span class="text-base-content/60 text-sm font-semibold">
-								{formatSatsAmount(props.bid.amount || 0)}
-							</span>
-						</div>
-					{/if}
-					<!-- <span class="text-md font-medium">Original Bid</span> -->
+					</div>
 				</div>
 			</div>
 		</div>
@@ -326,7 +306,7 @@
 		}}
 	>
 		<!-- Payment Type -->
-		<div class="form-control">
+		<!-- 	<div class="form-control">
 			<label class="label cursor-pointer" for="payment-type-group">
 				<span class="label-text">Payment Type</span>
 			</label>
@@ -355,7 +335,7 @@
 					Hourly Rate
 				</button>
 			</div>
-		</div>
+		</div> -->
 
 		{#if bidType === 'FIXED'}
 			<!-- Fixed price counter offer amount - USD and Sats -->
@@ -369,7 +349,7 @@
 						<input
 							type="text"
 							id="counter-usd"
-							value={formatNumberForInput(usdAmount)}
+							value={formatNumberForInput(props.bid.amount)}
 							onchange={handleUsdChange}
 							oninput={handleUsdChange}
 							class="input input-bordered w-full pl-7 {validationErrors.amount
@@ -386,7 +366,7 @@
 						<input
 							type="text"
 							id="counter-sats"
-							value={formatNumberForInput(parseInt(amount || '0'))}
+							value={formatNumberForInput(Math.round((props.bid.amount / btcPrice) * 100_000_000))}
 							onchange={handleSatsChange}
 							oninput={handleSatsChange}
 							class="input input-bordered w-full pr-12 {validationErrors.amount

@@ -8,7 +8,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import KINDS from '$lib/utils/constants/kinds';
-	import { calculateUsdtEstimate, formatSatsAmount, satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { goto } from '$app/navigation';
 
 	// Props

@@ -4,7 +4,7 @@
 	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { getMyBids } from '$lib/utils/nostr-bid';
 	import { nip19 } from 'nostr-tools';
-	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
@@ -80,19 +80,6 @@
 </script>
 
 <div class="space-y-6">
-	<!-- Header Section -->
-	<!-- <div class="flex items-center justify-between">
-		<div>
-			<h2 class="text-2xl font-bold text-base-content">
-				{$t('bids.my_submitted_bids')}
-			</h2>
-			<p class="mt-1 text-gray-400">
-				{$t('bids.manage_description')}
-			</p>
-		</div>
-	</div>
- -->
-	<!-- Loading State -->
 	{#if loading}
 		<div class="space-y-4">
 			{#each Array(1) as _}
@@ -276,7 +263,7 @@
 								<div class="flex flex-row gap-6 text-left">
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
-											<p class="text-sm font-medium pt-3">
+											<p class="pt-3 text-sm font-medium">
 												{new Date(bid.bid.startDate).toLocaleDateString()} -
 												{new Date(bid.bid.endDate).toLocaleDateString()}
 												{#if bid.bid.startTime && bid.bid.endTime}
@@ -315,10 +302,10 @@
 								<div class="ml-auto flex flex-row">
 									<div class="text-start">
 										<div class="text-lg font-semibold">
-											${calculateUsdtEstimate(bid.bid.amount || 0, btcPrice)}
+											${bid.bid.amount}
 										</div>
 										<div class="text-base-content/60 text-lg">
-											{formatAmount(bid.bid.amount || 0, bid.bid.currency || 'SATS')}
+											{satsFromUsd(bid.bid.amount, btcPrice)}
 										</div>
 									</div>
 								</div>

@@ -7,11 +7,10 @@
 	import { format } from 'date-fns';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { calculateUsdtEstimate, satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import Gallery from '$lib/components/Gallery.svelte';
 
 	let { task, isOwner, onClose } = $props<{
@@ -375,12 +374,4 @@
 			{/if}
 		</button>
 	{/if}
-
-	<!-- Action button for non-owners -->
-	<!-- {#if !isOwner && task.status === TaskStatusEnum.OPEN}
-            <div class="divider"></div>
-            <div class="flex justify-center">
-                <BidCreationForm taskId={task.id} onClose={() => {}} />
-            </div>
-        {/if} -->
 </div>
