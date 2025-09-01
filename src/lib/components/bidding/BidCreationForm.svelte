@@ -180,18 +180,31 @@
 			}
 		}
 
-		// Validate description
+		// Validate description - min 50, max 500
 		if (!description || description.trim() === '') {
 			errors.description = $t('bid_form.errors.description_required');
 		} else if (description.trim().length < 50) {
 			errors.description = $t('bid_form.errors.description_min_length');
+		} else if (description.trim().length > 500) {
+			errors.description = $t('bid_form.errors.description_max_length');
 		}
 
-		// Validate proposed approach
+		// Validate proposed approach - min 50, max 1000
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
 		} else if (proposedApproach.trim().length < 50) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
+		} else if (proposedApproach.trim().length > 1000) {
+			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
+		}
+
+		// Validate cover letter - min 50, max 800
+		if (!coverLetter || coverLetter.trim() === '') {
+			errors.coverLetter = $t('bid_form.errors.cover_letter_required');
+		} else if (coverLetter.trim().length < 50) {
+			errors.coverLetter = $t('bid_form.errors.cover_letter_min_length');
+		} else if (coverLetter.trim().length > 800) {
+			errors.coverLetter = $t('bid_form.errors.cover_letter_max_length');
 		}
 
 		bidFormErrors = errors;
@@ -572,7 +585,7 @@
 			<!-- Estimated Completion Time field removed - not needed for either payment type -->
 
 			<!-- Bid Description -->
-			<div class="form-control">
+			<div class="form-control flex flex-col">
 				<label class="label block" for="bid-description">
 					<span class="label-text">{$t('bid_form.form.description.label')}</span>
 				</label>
@@ -583,7 +596,13 @@
 						: ''}"
 					placeholder={$t('bid_form.form.description.placeholder')}
 					bind:value={description}
+					maxlength="500"
 				></textarea>
+				{#if description.length > 0}
+					<small class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}">
+						{description.length}/500 max
+					</small>
+				{/if}
 				{#if bidFormErrors.description}
 					<div class="label">
 						<span class="label-text-alt text-error" id="description-error" aria-live="polite"
@@ -594,7 +613,7 @@
 			</div>
 
 			<!-- Your approach -->
-			<div class="form-control">
+			<div class="form-control flex flex-col">
 				<label class="label block" for="proposed-approach">
 					<span class="label-text">{$t('bid_form.form.approach.label')}</span>
 				</label>
@@ -608,7 +627,13 @@
 					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
 					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
 					bind:value={proposedApproach}
+					maxlength="1000"
 				></textarea>
+				{#if proposedApproach.length > 0}
+					<small class="text-base-content/60 text-xs {proposedApproach.length >= 1000 ? 'text-warning' : ''}">
+						{proposedApproach.length}/1000 max
+					</small>
+				{/if}
 				{#if bidFormErrors.proposedApproach}
 					<div class="label">
 						<span
@@ -621,7 +646,7 @@
 			</div>
 
 			<!-- Cover letter -->
-			<div class="form-control">
+			<div class="form-control flex flex-col">
 				<label class="label block" for="bid-cover-letter">
 					<span class="label-text">{$t('bid_form.form.cover_letter.label')}</span>
 				</label>
@@ -632,7 +657,13 @@
 						: ''}"
 					placeholder={$t('bid_form.form.cover_letter.placeholder')}
 					bind:value={coverLetter}
+					maxlength="800"
 				></textarea>
+				{#if coverLetter.length > 0}
+					<small class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}">
+						{coverLetter.length}/800 max
+					</small>
+				{/if}
 				{#if bidFormErrors.coverLetter}
 					<div class="label">
 						<span class="label-text-alt text-error" id="cover-letter-error" aria-live="polite"
