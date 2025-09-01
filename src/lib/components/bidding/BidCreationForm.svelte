@@ -4,8 +4,7 @@
 	import { fly } from 'svelte/transition';
 	import { submitBidAsDM } from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
-	import type { NostrBid } from '$lib/utils/nostr-bid'; // Import from nostr-bid.ts where it's defined
+	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 
 	// Props
 	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{
@@ -18,8 +17,8 @@
 
 	// Form state
 	let bidType = $state<PaymentType>('FIXED');
-	let amount = $state<string>(''); // This will store sats
-	let hourlyRate = $state<string>(''); // This will store sats
+	let amount = $state<number>(0); // This will store USD amount for FIXED type
+	let hourlyRate = $state<number>(0); // This will store USD amount for HOURLY type
 	let estimatedHours = $state<string>('');
 	let description = $state('');
 	let estimatedDuration = $state('');
@@ -35,48 +34,44 @@
 	let startTime = $state<string>('09:00');
 	let endTime = $state<string>('17:00');
 
-	// USDT conversion state
-	let usdAmount = $state<number>(0);
-	let hourlyRateUsd = $state<number>(0); // Add separate USD state for hourly rate
+	// BTC conversion state
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Fetch BTC price on mount
 	async function fetchBtcPrice(): Promise<void> {
 		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			const newPrice = await cryptoPriceService.getCurrentPrice('BTC');
+			btcPrice = newPrice;
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
+			// Keep the default price if fetch fails
 		}
 	}
 
-	// Handle USD amount changes for USDT
+	// Handle USD amount changes for FIXED type
 	function handleUsdChange(event: Event) {
 		let input = cleanInput((event.target as HTMLInputElement).value);
 		(event.target as HTMLInputElement).value = input;
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			usdAmount = usdValue;
-			const satsValue = satsFromUsd(usdValue, btcPrice);
-			amount = satsValue.toString();
+			amount = usdValue;
 		} else {
-			usdAmount = 0;
-			amount = '0';
+			amount = 0;
 		}
 	}
 
-	// Handle sats amount changes
+	// Handle sats amount changes for FIXED type
 	function handleSatsChange(event: Event) {
 		let input = cleanInput((event.target as HTMLInputElement).value);
 		(event.target as HTMLInputElement).value = input;
 
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
-			amount = satsValue.toString();
-			usdAmount = usdFromSats(satsValue, btcPrice);
+			// Convert sats to USD using the same formula as TaskBudget.svelte
+			amount = (satsValue / 100_000_000) * btcPrice;
 		} else {
-			amount = '0';
-			usdAmount = 0;
+			amount = 0;
 		}
 	}
 
@@ -87,12 +82,9 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			hourlyRateUsd = usdValue;
-			const satsValue = satsFromUsd(usdValue, btcPrice);
-			hourlyRate = satsValue.toString();
+			hourlyRate = usdValue;
 		} else {
-			hourlyRateUsd = 0;
-			hourlyRate = '0';
+			hourlyRate = 0;
 		}
 	}
 
@@ -103,11 +95,10 @@
 
 		const satsValue = parseInt(input.replace(/,/g, ''), 10);
 		if (!isNaN(satsValue)) {
-			hourlyRate = satsValue.toString();
-			hourlyRateUsd = usdFromSats(satsValue, btcPrice);
+			// Convert sats to USD using the same formula as TaskBudget.svelte
+			hourlyRate = (satsValue / 100_000_000) * btcPrice;
 		} else {
-			hourlyRate = '0';
-			hourlyRateUsd = 0;
+			hourlyRate = 0;
 		}
 	}
 
@@ -129,13 +120,6 @@
 		return value.replace(/[^0-9.,]/g, '');
 	}
 
-	// Derived calculations
-	const getTotalAmount = $derived(
-		bidType === 'HOURLY'
-			? parseFloat(hourlyRate || '0') * parseFloat(estimatedHours || '0')
-			: parseFloat(amount || '0')
-	);
-
 	// Handle payment type change
 	function handlePaymentTypeChange(newType: PaymentType) {
 		if (bidType === newType) return;
@@ -144,26 +128,19 @@
 
 		if (newType === 'HOURLY') {
 			// Clear fixed price fields and initialize hourly rate with current USD amount
-			amount = '';
-			if (usdAmount > 0) {
-				// Convert the current USD amount to hourly rate sats
-				const satsValue = satsFromUsd(usdAmount, btcPrice);
-				hourlyRate = satsValue.toString();
-				hourlyRateUsd = usdAmount; // Set the hourly rate USD value
+			amount = 0;
+			if (hourlyRate > 0) {
+				// Keep the current hourly rate USD value
 			} else {
-				hourlyRate = '';
-				hourlyRateUsd = 0;
+				hourlyRate = 0;
 			}
 		} else {
 			// Clear hourly rate fields and initialize fixed price with current hourly rate
-			hourlyRate = '';
-			hourlyRateUsd = 0;
+			hourlyRate = 0;
 			estimatedHours = '';
-			if (parseInt(hourlyRate || '0') > 0 && parseFloat(estimatedHours || '0') > 0) {
+			if (hourlyRate > 0 && parseFloat(estimatedHours || '0') > 0) {
 				// Convert hourly rate to total amount
-				const totalSats = parseInt(hourlyRate) * parseFloat(estimatedHours);
-				amount = totalSats.toString();
-				usdAmount = usdFromSats(totalSats, btcPrice);
+				amount = hourlyRate * parseFloat(estimatedHours);
 			}
 		}
 	}
@@ -174,9 +151,7 @@
 
 		// Validate amount for FIXED type
 		if (bidType === 'FIXED') {
-			if (!amount || amount.trim() === '') {
-				errors.amount = $t('bid_form.errors.amount_required');
-			} else if (parseFloat(amount) <= 0) {
+			if (amount <= 0) {
 				errors.amount = $t('bid_form.errors.amount_greater_than_zero');
 			}
 
@@ -194,9 +169,7 @@
 
 		// Validate hourly rate and estimated hours for HOURLY type
 		if (bidType === 'HOURLY') {
-			if (!hourlyRate || hourlyRate.trim() === '') {
-				errors.hourlyRate = $t('bid_form.errors.hourly_rate_required');
-			} else if (parseFloat(hourlyRate) <= 0) {
+			if (hourlyRate <= 0) {
 				errors.hourlyRate = $t('bid_form.errors.hourly_rate_greater_than_zero');
 			}
 
@@ -207,18 +180,31 @@
 			}
 		}
 
-		// Validate description
+		// Validate description - min 50, max 500
 		if (!description || description.trim() === '') {
 			errors.description = $t('bid_form.errors.description_required');
 		} else if (description.trim().length < 50) {
 			errors.description = $t('bid_form.errors.description_min_length');
+		} else if (description.trim().length > 500) {
+			errors.description = $t('bid_form.errors.description_max_length');
 		}
 
-		// Validate proposed approach
+		// Validate proposed approach - min 50, max 1000
 		if (!proposedApproach || proposedApproach.trim() === '') {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_required');
 		} else if (proposedApproach.trim().length < 50) {
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_min_length');
+		} else if (proposedApproach.trim().length > 1000) {
+			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
+		}
+
+		// Validate cover letter - min 50, max 800
+		if (!coverLetter || coverLetter.trim() === '') {
+			errors.coverLetter = $t('bid_form.errors.cover_letter_required');
+		} else if (coverLetter.trim().length < 50) {
+			errors.coverLetter = $t('bid_form.errors.cover_letter_min_length');
+		} else if (coverLetter.trim().length > 800) {
+			errors.coverLetter = $t('bid_form.errors.cover_letter_max_length');
 		}
 
 		bidFormErrors = errors;
@@ -260,10 +246,10 @@
 				taskId: taskId,
 				taskTitle: taskTitle || 'Untitled Task',
 				taskDescription: taskDescription || 'No description available', // Add task description
-				amount: getTotalAmount,
-				currency: 'SATS',
+				amount: amount, // Send USD amount directly
+				currency: 'USD',
 				paymentType: bidType,
-				hourlyRate: bidType === 'HOURLY' && hourlyRate ? parseFloat(hourlyRate) : null,
+				hourlyRate: bidType === 'HOURLY' && hourlyRate ? hourlyRate : null, // Send USD hourly rate directly
 				estimatedHours: bidType === 'HOURLY' && estimatedHours ? parseFloat(estimatedHours) : null,
 				description,
 				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay() : estimatedDuration,
@@ -346,15 +332,13 @@
 				</label>
 				<div
 					id="payment-type-group"
-					class="tabs tabs-boxed bg-base-200 mb-2 rounded-lg p-2"
+					class="mb-2 flex max-w-md gap-2"
 					role="radiogroup"
 					aria-label="Payment Type"
 				>
 					<button
 						type="button"
-						class="tab flex-1 rounded-md {bidType === 'FIXED'
-							? 'tab-active bg-primary text-primary-content font-medium'
-							: 'hover:bg-base-300'}"
+						class="btn flex-1 {bidType === 'FIXED' ? 'btn-primary' : 'btn-outline'}"
 						onclick={() => handlePaymentTypeChange('FIXED')}
 						role="radio"
 						aria-checked={bidType === 'FIXED'}
@@ -363,9 +347,7 @@
 					</button>
 					<button
 						type="button"
-						class="tab flex-1 rounded-md {bidType === 'HOURLY'
-							? 'tab-active bg-primary text-primary-content font-medium'
-							: 'hover:bg-base-300'}"
+						class="btn flex-1 {bidType === 'HOURLY' ? 'btn-primary' : 'btn-outline'}"
 						onclick={() => handlePaymentTypeChange('HOURLY')}
 						role="radio"
 						aria-checked={bidType === 'HOURLY'}
@@ -389,7 +371,7 @@
 							<input
 								type="text"
 								id="bid-usd"
-								value={formatNumberForInput(usdAmount)}
+								value={formatNumberForInput(amount)}
 								onchange={handleUsdChange}
 								oninput={handleUsdChange}
 								class="input input-bordered w-full pl-7 {bidFormErrors.amount ? 'input-error' : ''}"
@@ -404,7 +386,7 @@
 							<input
 								type="text"
 								id="bid-sats"
-								value={formatNumberForInput(parseInt(amount || '0'))}
+								value={formatNumberForInput(Math.round((amount / btcPrice) * 100_000_000))}
 								onchange={handleSatsChange}
 								oninput={handleSatsChange}
 								class="input input-bordered w-full pr-12 {bidFormErrors.amount
@@ -422,7 +404,7 @@
 							>
 						</div>
 					{/if}
-					{#if parseInt(amount || '0') > 0}
+					{#if amount > 0}
 						<span class="label-text-alt text-info mt-1 block">
 							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
 						</span>
@@ -503,7 +485,7 @@
 							<input
 								type="text"
 								id="hourly-rate-usd"
-								value={formatNumberForInput(hourlyRateUsd)}
+								value={formatNumberForInput(hourlyRate)}
 								onchange={handleHourlyRateUsdChange}
 								oninput={handleHourlyRateUsdChange}
 								class="input input-bordered w-full pl-7 {bidFormErrors.hourlyRate
@@ -520,7 +502,7 @@
 							<input
 								type="text"
 								id="hourly-rate-sats"
-								value={formatNumberForInput(parseInt(hourlyRate || '0'))}
+								value={formatNumberForInput(Math.round((hourlyRate / btcPrice) * 100_000_000))}
 								onchange={handleHourlyRateSatsChange}
 								oninput={handleHourlyRateSatsChange}
 								class="input input-bordered w-full pr-12 {bidFormErrors.hourlyRate
@@ -538,7 +520,7 @@
 							>
 						</div>
 					{/if}
-					{#if parseInt(hourlyRate || '0') > 0}
+					{#if hourlyRate > 0}
 						<span class="label-text-alt text-info mt-1 block">
 							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
 						</span>
@@ -580,21 +562,20 @@
 					</label>
 					<div class="bg-base-200 rounded-md p-3">
 						<div class="text-lg font-semibold">
-							${(
-								(parseInt(hourlyRate || '0') / 100_000_000) *
-								btcPrice *
-								parseFloat(estimatedHours || '0')
-							).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+							${(hourlyRate * parseFloat(estimatedHours || '0')).toLocaleString('en-US', {
+								minimumFractionDigits: 2,
+								maximumFractionDigits: 2
+							})}
 						</div>
 						<div class="text-sm opacity-70">
-							{parseInt(hourlyRate || '0').toLocaleString('en-US')} sats × {parseFloat(
+							${hourlyRate.toLocaleString('en-US')} × {parseFloat(
 								estimatedHours || '0'
 							).toLocaleString('en-US')} hours
 						</div>
 						<div class="mt-1 text-sm opacity-70">
-							≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString(
-								'en-US'
-							)} sats
+							≈ {Math.round(
+								(hourlyRate / btcPrice) * 100_000_000 * parseFloat(estimatedHours || '0')
+							).toLocaleString('en-US')} sats
 						</div>
 					</div>
 				</div>
@@ -604,7 +585,7 @@
 			<!-- Estimated Completion Time field removed - not needed for either payment type -->
 
 			<!-- Bid Description -->
-			<div class="form-control">
+			<div class="form-control flex flex-col">
 				<label class="label block" for="bid-description">
 					<span class="label-text">{$t('bid_form.form.description.label')}</span>
 				</label>
@@ -615,7 +596,13 @@
 						: ''}"
 					placeholder={$t('bid_form.form.description.placeholder')}
 					bind:value={description}
+					maxlength="500"
 				></textarea>
+				{#if description.length > 0}
+					<small class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}">
+						{description.length}/500 max
+					</small>
+				{/if}
 				{#if bidFormErrors.description}
 					<div class="label">
 						<span class="label-text-alt text-error" id="description-error" aria-live="polite"
@@ -626,7 +613,7 @@
 			</div>
 
 			<!-- Your approach -->
-			<div class="form-control">
+			<div class="form-control flex flex-col">
 				<label class="label block" for="proposed-approach">
 					<span class="label-text">{$t('bid_form.form.approach.label')}</span>
 				</label>
@@ -640,7 +627,13 @@
 					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
 					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
 					bind:value={proposedApproach}
+					maxlength="1000"
 				></textarea>
+				{#if proposedApproach.length > 0}
+					<small class="text-base-content/60 text-xs {proposedApproach.length >= 1000 ? 'text-warning' : ''}">
+						{proposedApproach.length}/1000 max
+					</small>
+				{/if}
 				{#if bidFormErrors.proposedApproach}
 					<div class="label">
 						<span
@@ -653,7 +646,7 @@
 			</div>
 
 			<!-- Cover letter -->
-			<div class="form-control">
+			<div class="form-control flex flex-col">
 				<label class="label block" for="bid-cover-letter">
 					<span class="label-text">{$t('bid_form.form.cover_letter.label')}</span>
 				</label>
@@ -664,7 +657,13 @@
 						: ''}"
 					placeholder={$t('bid_form.form.cover_letter.placeholder')}
 					bind:value={coverLetter}
+					maxlength="800"
 				></textarea>
+				{#if coverLetter.length > 0}
+					<small class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}">
+						{coverLetter.length}/800 max
+					</small>
+				{/if}
 				{#if bidFormErrors.coverLetter}
 					<div class="label">
 						<span class="label-text-alt text-error" id="cover-letter-error" aria-live="polite"

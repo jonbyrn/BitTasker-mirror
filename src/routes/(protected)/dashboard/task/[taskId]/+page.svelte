@@ -4,13 +4,14 @@
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
 	import { formatDistanceToNow, format } from 'date-fns';
-	import { TaskStatusEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
+	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { user } from '$lib/stores/user.store';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
-
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -19,7 +20,7 @@
 	let loading = $state(true);
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0); // Default fallback price
 	let showFullDescription = $state(false); // New state for description toggle
 
 	// Bid drawer state
@@ -122,7 +123,8 @@
 
 			task = {
 				...taskData,
-				id: event.id
+				id: event.id,
+				npub: event.pubkey // Add the npub from the event to the task object
 			};
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -137,8 +139,13 @@
 		isSidebarOpen = true;
 	};
 
+	async function fetchBtcPrice(): Promise<void> {
+		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+	}
+
 	onMount(() => {
 		loadTaskDetails(taskId || '');
+		fetchBtcPrice();
 	});
 </script>
 
@@ -199,7 +206,7 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<small class="card-title line-clamp-2 text-lg pb-1">
+								<small class="card-title line-clamp-2 pb-1 text-lg">
 									{task.title}
 								</small>
 								<div class="text-base-content/60 text-start">
@@ -220,11 +227,8 @@
 									{/if}
 								</div>
 							</div>
-							<div class="text-center">
+							<div class="flex flex-col text-center">
 								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
-								<small class="text-base-content/60 text-xs"
-									>{$t('dashboard.task_details_by_task.status')}</small
-								>
 							</div>
 						</div>
 
@@ -268,14 +272,11 @@
 								</div>
 							{/if}
 
-							<div class="mb-1">
-								<div class="text-lg font-bold">
-									${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-								</div>
-								<div class="text-right">
-									<span class="text-base-content/60 text-sm font-semibold">
-										{formatSatsAmount(task.budget.amount)}
-									</span>
+							<div class="text-lg font-bold">
+								${formatNumberWithTwoDecimals(task.budget.amount)}
+
+								<div class="text-base-content/60 text-sm">
+									{satsFromUsd(task.budget.amount, btcPrice)}
 								</div>
 							</div>
 						</div>
@@ -405,7 +406,7 @@
 								</button>
 							</div>
 						{:else if task.status !== TaskStatusEnum.OPEN}
-							<div class="alert alert-warning">
+							<div class="alert alert-warning alert-outline">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-6 w-6 shrink-0 stroke-current"
@@ -422,7 +423,7 @@
 								<span>{$t('dashboard.task_details_by_task.task_not_open_bidding')}</span>
 							</div>
 						{:else if isOwner}
-							<div class="alert alert-info">
+							<div class="alert alert-info alert-outline">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="h-6 w-6 shrink-0 stroke-current"

@@ -1,14 +1,9 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import type { TaskBid } from '$lib/types/bid';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import Tabs from '$lib/components/Tabs.svelte';
-	import BidsTab from './details/BidsTab.svelte';
 	import TaskTab from './details/TaskTab.svelte';
-	import nostrEventsService from '$lib/api/services/nostr/events';
-	import { getTaskBids } from '$lib/utils/nostr-bid';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -19,16 +14,8 @@
 	}>();
 
 	// Define tabs
-	const tabs = [
-		{ id: 'details', label: $t('dashboard.task_details_by_task.details') },
-		{ id: 'bids', label: $t('dashboard.task_details_by_task.bids') }
-	];
+	const tabs = [{ id: 'details', label: $t('dashboard.task_details_by_task.details') }];
 
-	// State
-	let task = $state<Task | null>(null);
-	let bids = $state<TaskBid[]>([]);
-	let loading = $state(false);
-	let errorMessage = $state('');
 	let currentTab = $state('details'); // 'details' or 'bids'
 	let showCounterOfferForm = $state(false);
 	let isOwner = $state(false); // Track if current user is the task owner
@@ -42,137 +29,6 @@
 		document.body.classList.remove('overflow-hidden');
 	};
 
-	async function loadTaskDetails(id: string) {
-		if (!id) return;
-		try {
-			loading = true;
-			errorMessage = '';
-
-			const { data: event } = await nostrEventsService.findEventById(id);
-
-			if (!event) {
-				errorMessage = $t('task.drawer.error.load');
-				return;
-			}
-
-			// Parse task data from nostr event
-			const taskData = JSON.parse(event.content) as Task;
-			task = {
-				...taskData,
-				id: event.id
-			};
-
-			if (task) {
-				const dmBids = await getTaskBids(task.id);
-
-				// Deduplicate: keep only the oldest bid per user for this task,
-				// and also remove any duplicates by bidId
-				const oldestPerUser = Object.values(
-					dmBids
-						.slice()
-						.sort((a, b) => a.bid.timestamp - b.bid.timestamp)
-						.reduce(
-							(acc, msg) => {
-								const key = `${msg.senderPubkey}:${msg.bid.taskId}`;
-								if (!acc[key]) acc[key] = msg; // first (oldest) wins
-								return acc;
-							},
-							{} as Record<string, (typeof dmBids)[number]>
-						)
-				);
-
-				const uniqueByBidId = Array.from(
-					new Map(oldestPerUser.map((m) => [m.bid.bidId, m])).values()
-				);
-
-				// Fetch profiles for each unique sender
-				const uniqueSenders = Array.from(new Set(uniqueByBidId.map((m) => m.senderPubkey)));
-				const profileEntries = await Promise.all(
-					uniqueSenders.map(async (pk) => [pk, await fetchProfileMetadata(pk)] as const)
-				);
-				const profileMap = new Map(profileEntries);
-
-				bids = uniqueByBidId.map(({ bid, senderPubkey }) => ({
-					id: bid.bidId,
-					taskId: bid.taskId as unknown as string,
-					freelancerId: 0,
-					amount: bid.amount,
-					currency: bid.currency as unknown as any,
-					paymentType: bid.paymentType,
-					hourlyRate: bid.hourlyRate ?? undefined,
-					estimatedHours: bid.estimatedHours ?? undefined,
-					description: bid.description,
-					estimatedDuration: bid.estimatedDuration,
-					proposedApproach: bid.proposedApproach,
-					coverLetter: bid.coverLetter,
-					visibility: 'PRIVATE',
-					milestones: [],
-					responseTime: 0,
-					status: 'PENDING',
-					createdAt: new Date(bid.timestamp).toISOString(),
-					updatedAt: new Date(bid.timestamp).toISOString(),
-					clientViewed: false,
-					clientViewedAt: null,
-					featured: false,
-					clientResponse: null,
-					competitiveScore: null,
-					rank: null,
-					impressions: 0,
-					clicks: 0,
-					isWithdrawn: false,
-					withdrawnReason: null,
-					expiresAt: null,
-					task: {
-						id: 0 as unknown as number,
-						title: task?.title || '',
-						description: task?.description || '',
-						status: (task as any)?.status || ''
-					},
-					freelancer: {
-						id: 0,
-						userId: 0,
-						professionalTitle: null,
-						bio: null,
-						promotionalVideo: null,
-						yearsExperience: null,
-						specialties: [],
-						standardRates: null,
-						tasksCompleted: 0,
-						bidsSent: 0,
-						successRate: null,
-						averageRating: null,
-						level: 0,
-						experiencePoints: 0,
-						reputationScore: 0,
-						feeDiscount: 0,
-						monthlyActivityPoints: 0,
-						verificationLevel: 'UNVERIFIED' as unknown as any,
-						identityVerified: false,
-						createdAt: new Date(bid.timestamp).toISOString(),
-						updatedAt: new Date(bid.timestamp).toISOString(),
-						user: {
-							id: 0,
-							email: ''
-						}
-					},
-					userProfile: {
-						user: {
-							displayName: (profileMap.get(senderPubkey)?.name ?? '').trim().length
-								? (profileMap.get(senderPubkey)?.name as string)
-								: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
-							picture: profileMap.get(senderPubkey)?.picture || ''
-						}
-					} as unknown as any
-				})) as unknown as TaskBid[];
-			}
-		} catch (error) {
-			console.error('Failed to load task details:', error);
-			errorMessage = $t('task.drawer.error.load');
-		} finally {
-			loading = false;
-		}
-	}
-
 	// Handle drawer state changes
 	$effect(() => {
 		if (props.isOpen) {
@@ -184,9 +40,8 @@
 				currentTab = props.activeTab;
 			}
 
-			// Load task details if task id is available
+			// Check if current user is the task owner
 			if (props.task) {
-				loadTaskDetails(props.task.id);
 				getNpub().then((npub) => {
 					isOwner = props.task.author === npub;
 				});
@@ -229,10 +84,14 @@
 		<!-- Header -->
 		<div class="bg-base-200 sticky top-0 z-10 p-4">
 			<div class="flex items-center justify-between">
-				<h4 class="font-bold line-clamp-2 ">
-					{loading ? $t('dashboard.task_details_by_task.loading') : task ? task.title : $t('dashboard.task_details_by_task.title')}
+				<h4 class="line-clamp-2 font-bold">
+					{props.task ? props.task.title : $t('dashboard.task_details_by_task.title')}
 				</h4>
-				<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label={$t('dashboard.task_details_by_task.close')}>
+				<button
+					class="btn btn-ghost btn-circle"
+					onclick={handleClose}
+					aria-label={$t('dashboard.task_details_by_task.close')}
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"
@@ -251,44 +110,8 @@
 			</div>
 		</div>
 
-		<!-- Loading state -->
-		{#if loading}
-			<div class="flex h-[calc(100vh-4rem)] items-center justify-center p-4">
-				<span class="loading loading-spinner loading-lg"></span>
-			</div>
-
-			<!-- Error state -->
-		{:else if errorMessage}
-			<div class="p-4">
-				<div class="alert alert-outline alert-error">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{errorMessage}</span>
-				</div>
-				<div class="mt-4 flex justify-center">
-					<button
-						class="btn btn-primary"
-						onclick={() => props.taskId && loadTaskDetails(props.taskId)}
-					>
-						{$t('dashboard.task_details_by_task.try_again')}
-					</button>
-				</div>
-			</div>
-
-			<!-- Task found state -->
-		{:else if task}
+		<!-- Task found state -->
+		{#if props.task}
 			<!-- Tabs -->
 			<div class="px-4 pt-4">
 				<Tabs {tabs} activeTab={currentTab} onTabChange={handleTabChange} />
@@ -298,10 +121,7 @@
 			<div class="p-4">
 				<!-- Task Details Tab -->
 				{#if currentTab === 'details'}
-					<TaskTab {task} {isOwner} onClose={handleClose} />
-				{:else if currentTab === 'bids'}
-					<!-- Bids Tab -->
-					<BidsTab {bids} {isOwner} bind:showCounterOfferForm />
+					<TaskTab task={props.task} {isOwner} onClose={handleClose} />
 				{/if}
 			</div>
 
@@ -322,8 +142,12 @@
 						d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<h3 class="mt-4 text-lg font-semibold">{$t('dashboard.task_details_by_task.task_not_found')}</h3>	
-				<p class="text-base-content/60 mt-1">{$t('dashboard.task_details_by_task.task_not_found_message')}</p>
+				<h3 class="mt-4 text-lg font-semibold">
+					{$t('dashboard.task_details_by_task.task_not_found')}
+				</h3>
+				<p class="text-base-content/60 mt-1">
+					{$t('dashboard.task_details_by_task.task_not_found_message')}
+				</p>
 			</div>
 		{/if}
 	</div>

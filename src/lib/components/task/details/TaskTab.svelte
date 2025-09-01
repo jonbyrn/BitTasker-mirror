@@ -7,12 +7,12 @@
 	import { format } from 'date-fns';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-	import { formatCurrencyWithUsd } from '$lib/utils/helpers/currencyFormatter';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { calculateUsdtEstimate } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import Gallery from '$lib/components/Gallery.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -147,21 +147,23 @@
 	<!-- Task details -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<div>
-			<h5 class="text-base-content/60 text-sm">
+			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.budget')} - {task.budget.type}
-			</h5>
+			</small>
+
 			<div class="text-lg font-bold">
-				${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-				<div class="text-base-content/60 text-lowercase text-sm">
-					{formatCurrencyWithUsd(task.budget.amount, task.budget.currency || 'USD', btcPrice, true)}
+				${formatNumberWithTwoDecimals(task.budget.amount)}
+
+				<div class="text-base-content/60 text-sm">
+					{satsFromUsd(task.budget.amount, btcPrice)}
 				</div>
 			</div>
 		</div>
 
 		<div>
-			<h5 class="text-base-content/60 text-sm">
+			<small class="text-base-content/60 text-sm">
 				{$t('dashboard.task_details_by_task.type')}
-			</h5>
+			</small>
 			<p class="font-semibold">
 				{task.taskType === TaskTypeEnum.REMOTE
 					? $t('dashboard.task_details_by_task.remote')
@@ -171,9 +173,9 @@
 
 		{#if task.deadline}
 			<div>
-				<h5 class="text-base-content/60 text-sm">
+				<small class="text-base-content/60 text-sm">
 					{$t('dashboard.task_details_by_task.deadline')}
-				</h5>
+				</small>
 				<p class="font-semibold">
 					{new Date(task.deadline).toLocaleDateString('en-US', {
 						day: '2-digit',
@@ -184,9 +186,9 @@
 			</div>
 		{:else if task.dateRange}
 			<div>
-				<h5 class="text-base-content/60 text-sm">
+				<small class="text-base-content/60 text-sm">
 					{$t('dashboard.task_details_by_task.date_range')}
-				</h5>
+				</small>
 				<p class="font-semibold">
 					{new Date(task.dateRange.start).toLocaleDateString('en-US', {
 						day: '2-digit',
@@ -202,14 +204,18 @@
 		{/if}
 
 		<div>
-			<h5 class="text-base-content/60 text-sm">{$t('dashboard.task_details_by_task.posted')}</h5>
+			<small class="text-base-content/60 text-sm"
+				>{$t('dashboard.task_details_by_task.posted')}</small
+			>
 			<p class="font-semibold">{formatDateString(task.createdAt)}</p>
 		</div>
 	</div>
 
 	<!-- Task description -->
 	<div class="mb-4">
-		<h4 class="mb-2 font-medium">{$t('dashboard.task_details_by_task.description_task')}</h4>
+		<small class="text-base-content/60"
+			>{$t('dashboard.task_details_by_task.description_task')}</small
+		>
 		<div class="bg-base-200 rounded-2xl p-3">
 			<div class="max-h-[7rem] overflow-y-auto">
 				<p>{task.description}</p>
@@ -220,9 +226,9 @@
 	<!-- Task skills -->
 	{#if task.skills?.length > 0}
 		<div>
-			<h5 class="text-base-content/60 mb-1 text-sm">
+			<small class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.required_skills')}
-			</h5>
+			</small>
 			<div class="flex flex-wrap gap-1">
 				{#each task.skills as skill}
 					<span class="badge badge-primary badge-outline pb-[2px]">{skill}</span>
@@ -234,9 +240,9 @@
 	<!-- Task categories -->
 	{#if task?.categories?.length > 0}
 		<div>
-			<h5 class="text-base-content/60 mb-1 text-sm">
+			<small class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.categories')}
-			</h5>
+			</small>
 			<div class="flex flex-wrap gap-1">
 				{#each task.categories as category}
 					<span class="badge badge-outline badge-info pb-[2px]">
@@ -251,9 +257,9 @@
 	{#if task.taskType === TaskTypeEnum.IN_PERSON}
 		{#if task.pickupLocation}
 			<div>
-				<h5 class="text-base-content/60 mb-1 text-sm">
+				<small class="text-base-content/60 mb-1 text-sm">
 					{$t('dashboard.task_details_by_task.pickup_location')}
-				</h5>
+				</small>
 				<div class="flex items-center gap-1">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -282,9 +288,9 @@
 
 		{#if task.dropOffLocation && task.dropOffLocation.displayName}
 			<div>
-				<h5 class="text-base-content/60 mb-1 text-sm">
+				<small class="text-base-content/60 mb-1 text-sm">
 					{$t('dashboard.task_details_by_task.dropoff_location')}
-				</h5>
+				</small>
 				<div class="flex items-center gap-1">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -313,9 +319,9 @@
 	<!-- Task attachments -->
 	{#if task.attachments && task.attachments.length > 0}
 		<div class={!isOwner ? 'mb-20 sm:mb-0' : ''}>
-			<h5 class="text-base-content/60 mb-1 text-sm">
+			<small class="text-base-content/60 mb-1 text-sm">
 				{$t('dashboard.task_details_by_task.attachments')}
-			</h5>
+			</small>
 
 			<!-- Images using PhotoSwipe Gallery -->
 			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
@@ -369,12 +375,4 @@
 			{/if}
 		</button>
 	{/if}
-
-	<!-- Action button for non-owners -->
-	<!-- {#if !isOwner && task.status === TaskStatusEnum.OPEN}
-            <div class="divider"></div>
-            <div class="flex justify-center">
-                <BidCreationForm taskId={task.id} onClose={() => {}} />
-            </div>
-        {/if} -->
 </div>

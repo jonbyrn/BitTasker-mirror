@@ -5,7 +5,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import TagsInput from '$lib/components/TagsInput.svelte';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
 </script>
 
@@ -29,7 +29,7 @@
 			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
 			placeholder={$t('task.recurring_name_placeholder')}
-			maxlength="100"
+			maxlength="200"
 		/>
 		{#if errors.title}
 			<span class="label-text-alt text-error">{errors.title}</span>

@@ -12,11 +12,12 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
-	import { calculateUsdtEstimate, formatSatsAmount } from '$lib/utils/helpers/crypto';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -51,6 +52,7 @@
 	let isInitialLoad = $state(true);
 	let dataLoaded = $state(false);
 	let showSkeleton = $state(true);
+	let selectedLocation = $state<any | null>(null);
 
 	// Lazy loading state
 	let taskListRef = $state<HTMLElement | null>(null);
@@ -341,6 +343,9 @@
 		}
 	}
 
+	// Eliminar la variable cardRef que estaba causando conflictos
+	// let cardRef = $state<HTMLElement | null>(null);
+
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
 		// Clear existing tasks when changing task type
@@ -463,7 +468,42 @@
 	// Function to handle task selection for map display
 	function selectTaskForMap(task: Task) {
 		selectedTask = task;
-		console.log('selectedTask', selectedTask);
+		if (task.dropOffLocation) {
+			selectedLocation = task.dropOffLocation;
+		}
+		if (task.pickupLocation) {
+			selectedLocation = task.pickupLocation;
+		}
+	}
+
+	// Referencias a las cards de las tasks para hacer scroll
+	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
+
+	// Función para hacer scroll a una card específica
+	function scrollToTaskCard(taskId: string) {
+		// Buscar la card por data attribute
+		const cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+		if (cardElement) {
+			cardElement.scrollIntoView({
+				behavior: 'smooth',
+				block: 'center'
+			});
+		}
+	}
+
+	// Action para registrar las referencias de las cards
+	function registerTaskCard(node: HTMLElement, { taskId }: { taskId: string }) {
+		// Cuando el elemento se monta
+		if (node) {
+			taskCardRefs.set(taskId, node);
+		}
+
+		return {
+			destroy() {
+				// Cuando el elemento se desmonta
+				taskCardRefs.delete(taskId);
+			}
+		};
 	}
 </script>
 
@@ -578,7 +618,7 @@
 
 				<!-- 	<RecommendedTasks {onSelectTask} /> -->
 
-				<div class="max-h-[calc(75vh)] overflow-y-auto" bind:this={taskListRef}>
+				<div class="max-h-[calc(65vh)] overflow-y-auto" bind:this={taskListRef}>
 					<!-- Skeleton Loading -->
 					{#if showSkeleton && !dataLoaded}
 						<div class="space-y-3">
@@ -633,6 +673,7 @@
 						<div class="space-y-4">
 							{#each $tasksStore.items as task, index}
 								<div
+									use:registerTaskCard={{ taskId: task.id }}
 									class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
 									onclick={() => selectTaskForMap(task)}
 									tabindex="0"
@@ -643,6 +684,7 @@
 									aria-current={selectedTaskId === task.id.toString()}
 									aria-disabled={task.status !== TaskStatusEnum.OPEN}
 									aria-hidden={task.status !== TaskStatusEnum.OPEN}
+									data-task-id={task.id}
 								>
 									<div class="card-body p-4 md:p-4">
 										<!-- Top Row: Title + Price -->
@@ -706,22 +748,17 @@
 												</div>
 
 												<!-- Right: Sats -->
-												<div class="">
-													<div class="text-lg font-bold">
-														${calculateUsdtEstimate(task.budget.amount, btcPrice)}
-														<!-- {#if task.budget.type === 'HOURLY'}
-															<span class="text-sm">/hr</span>
-														{/if} -->
-														<div class="text-base-content/60 text-sm">
-															{formatSatsAmount(task.budget.amount)}
-														</div>
+												<div class="text-lg font-bold">
+													${formatNumberWithTwoDecimals(task.budget.amount)}
+
+													<div class="text-base-content/60 text-sm">
+														{satsFromUsd(task.budget.amount, btcPrice)}
 													</div>
 												</div>
 											</div>
 
 											<!-- Location -->
 											<div class="flex w-full items-start gap-2">
-												
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
 													class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
@@ -940,7 +977,17 @@
 			<div class="hidden lg:col-span-3 lg:block">
 				<div class="card">
 					<!-- Task Location Map -->
-					<TaskLocationMap location={null} height="75vh" />
+					<TaskLocationMap
+						tasks={$tasksStore.items}
+						height="65vh"
+						{selectedTask}
+						on:taskSelected={(event) => {
+							// Cuando se hace click en un pin del mapa, seleccionar esa task
+							selectedTask = event.detail.task;
+							// Hacer scroll a la card correspondiente
+							scrollToTaskCard(event.detail.task.id);
+						}}
+					/>
 				</div>
 			</div>
 		</div>

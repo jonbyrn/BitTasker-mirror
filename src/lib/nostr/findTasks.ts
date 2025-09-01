@@ -138,7 +138,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             const tasks = cached.data;
             tasksStore.update(state => ({
                 ...state,
-                items: tasks,
+                items: tasks, // Reemplazar en lugar de concatenar
                 loading: false,
                 currentPage: params.page || 1,
                 hasMore: tasks.length >= (params.limit || BATCH_SIZE),
@@ -164,10 +164,10 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             // Update cache
             cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
 
-            // Update store
+            // Update store - REEMPLAZAR en lugar de concatenar
             tasksStore.update(state => ({
                 ...state,
-                items: [...state.items, ...tasks],
+                items: params.page === 1 ? tasks : [...state.items, ...tasks], // Solo concatenar si no es la primera página
                 loading: false,
                 currentPage: params.page || 1,
                 hasMore: tasks.length >= (params.limit || BATCH_SIZE),

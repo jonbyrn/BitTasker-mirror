@@ -1,11 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { GetInfoResponse, Rate, Payment, SdkEvent, PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
+import type {
+	GetInfoResponse,
+	Rate,
+	Payment,
+	SdkEvent,
+	PrepareSendResponse
+} from '@breeztech/breez-sdk-liquid/web';
 import { writable, derived, get } from 'svelte/store';
-import { 
-	connectToBreez, 
-	disconnect, 
-	getWalletInfo, 
-	getAssetBalances, 
+import {
+	connectToBreez,
+	disconnect,
+	getWalletInfo,
+	getAssetBalances,
 	fetchFiatRates,
 	fetchLightningLimits,
 	fetchOnchainLimits,
@@ -15,10 +21,10 @@ import {
 	pendingPaymentsStore
 } from '$lib/wallet/breez/walletService';
 import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
-import { 
-	getAssetMetadata, 
-	getCurrentNetwork, 
-	getAssetId, 
+import {
+	getAssetMetadata,
+	getCurrentNetwork,
+	getAssetId,
 	type AssetMetadata as IAssetMetadata
 } from '$lib/constants/assets';
 import { goto } from '$app/navigation';
@@ -48,10 +54,10 @@ export const walletAssets = writable({
 	totalUsdtBalance: 0
 });
 
-export const bitcoinBalance = writable<WalletBalance>({ 
-	confirmed: 0, 
-	unconfirmed: 0, 
-	total: 0 
+export const bitcoinBalance = writable<WalletBalance>({
+	confirmed: 0,
+	unconfirmed: 0,
+	total: 0
 });
 
 export const walletRates = writable({
@@ -101,9 +107,9 @@ function formatBalance(value: number, precision: number): string {
 }
 
 function createEnhancedAsset(
-	metadata: IAssetMetadata, 
-	balance: number, 
-	usdValue: number, 
+	metadata: IAssetMetadata,
+	balance: number,
+	usdValue: number,
 	network: 'Liquid' | 'Bitcoin'
 ): EnhancedAsset {
 	const balanceInUnit = balance / Math.pow(10, metadata.precision);
@@ -135,64 +141,62 @@ function calculateTotals(assets: EnhancedAsset[]) {
 	return {
 		totalUsdValue: assets.reduce((total, asset) => total + asset.usdValue, 0),
 		totalSatsBalance: assets
-			.filter(asset => ['BTC', 'L-BTC'].includes(asset.ticker))
+			.filter((asset) => ['BTC', 'L-BTC'].includes(asset.ticker))
 			.reduce((total, asset) => total + asset.balance, 0),
 		totalUsdtBalance: assets
-			.filter(asset => ['USDT', 'USDt'].includes(asset.ticker))
-			.reduce((total, asset) => total + (asset.balance / Math.pow(10, asset.precision)), 0)
+			.filter((asset) => ['USDT', 'USDt'].includes(asset.ticker))
+			.reduce((total, asset) => total + asset.balance / Math.pow(10, asset.precision), 0)
 	};
 }
-
 
 // Initialize wallet connection
 export async function initialize(): Promise<void> {
 	try {
-		walletConnection.update(state => ({ 
-			...state, 
-			isConnecting: true, 
-			errorMessage: null 
+		walletConnection.update((state) => ({
+			...state,
+			isConnecting: true,
+			errorMessage: null
 		}));
-		
+
 		// Check if already connected
 		if (get(isConnectedStore)) {
-			walletConnection.update(state => ({ 
-				...state, 
-				isConnected: true, 
-				isConnecting: false 
+			walletConnection.update((state) => ({
+				...state,
+				isConnected: true,
+				isConnecting: false
 			}));
 			await loadWalletData();
 			return;
 		}
-		
+
 		// Get mnemonic and connect
 		const mnemonic = await getMnemonicPasskey();
 		if (!mnemonic) {
 			throw new Error('No mnemonic found');
 		}
-		
+
 		await connectToBreez(mnemonic);
-		
+
 		// Load initial data
 		await loadWalletData();
-		
+
 		// Set up periodic refresh
 		setupPeriodicRefresh();
-		
-		walletConnection.update(state => ({ 
-			...state, 
-			isConnected: true, 
-			isConnecting: false, 
-			errorMessage: null 
+
+		walletConnection.update((state) => ({
+			...state,
+			isConnected: true,
+			isConnecting: false,
+			errorMessage: null
 		}));
-		
 	} catch (error) {
 		console.error('Failed to initialize wallet:', error);
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		walletConnection.update(state => ({ 
-			...state, 
-			isConnecting: false, 
-			isConnected: false, 
-			errorMessage 
+		walletConnection.update((state) => ({
+			...state,
+			isConnecting: false,
+			isConnected: false,
+			errorMessage
 		}));
 		goto('/dashboard/wallet/error?type=no-mnemonic');
 		throw error;
@@ -228,24 +232,23 @@ async function loadWalletInfo(): Promise<void> {
 export async function loadAssets(): Promise<void> {
 	try {
 		// Parallel API calls for better performance
-		const [fiatRatesResult, walletInfoResult, liquidAssetsResult] = 
-			await Promise.allSettled([
-				fetchFiatRates(),
-				getWalletInfo(), 
-				getAssetBalances()
-			]);
+		const [fiatRatesResult, walletInfoResult, liquidAssetsResult] = await Promise.allSettled([
+			fetchFiatRates(),
+			getWalletInfo(),
+			getAssetBalances()
+		]);
 
 		// Extract results with fallbacks
 		const fiatRates = fiatRatesResult.status === 'fulfilled' ? fiatRatesResult.value : [];
 		const info = walletInfoResult.status === 'fulfilled' ? walletInfoResult.value : null;
 		const liquidAssets = liquidAssetsResult.status === 'fulfilled' ? liquidAssetsResult.value : [];
-		
+
 		// Bitcoin balance is now handled entirely by Breez SDK - set to zero for compatibility
 		const btcBalance = { confirmed: 0, unconfirmed: 0, total: 0 };
 		bitcoinBalance.set(btcBalance);
 
 		// Exchange rates with fallbacks
-		const btcUsdRate = fiatRates.find(rate => rate.coin === 'BTC')?.value || 0;
+		const btcUsdRate = fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
 		const usdtRate = 1; // USDT is pegged to USD
 
 		const processedAssets: EnhancedAsset[] = [];
@@ -259,8 +262,9 @@ export async function loadAssets(): Promise<void> {
 			},
 			{
 				type: 'USDT' as const,
-				getBalance: () => liquidAssets.find(a => a.assetId === getAssetId('USDT'))?.balance || 0,
-				getUsdValue: (balance: number, precision: number) => (balance / Math.pow(10, precision)) * usdtRate
+				getBalance: () => liquidAssets.find((a) => a.assetId === getAssetId('USDT'))?.balance || 0,
+				getUsdValue: (balance: number, precision: number) =>
+					(balance / Math.pow(10, precision)) * usdtRate
 			}
 		];
 
@@ -283,7 +287,11 @@ export async function loadAssets(): Promise<void> {
 
 		// Add other Liquid assets (non-core)
 		for (const asset of liquidAssets) {
-			if (asset.balance > 0 && asset.assetId !== getAssetId('LBTC') && asset.assetId !== getAssetId('USDT')) {
+			if (
+				asset.balance > 0 &&
+				asset.assetId !== getAssetId('LBTC') &&
+				asset.assetId !== getAssetId('USDT')
+			) {
 				const metadata = getAssetMetadata(currentNetwork, asset.assetId);
 				if (metadata) {
 					const enhancedAsset = createEnhancedAsset(metadata, asset.balance, 0, 'Liquid');
@@ -308,19 +316,18 @@ export async function loadAssets(): Promise<void> {
 
 		// Calculate totals and update state
 		const totals = calculateTotals(processedAssets);
-				
-		walletAssets.update(state => ({
+
+		walletAssets.update((state) => ({
 			...state,
 			assets: processedAssets,
 			...totals
 		}));
-		walletConnection.update(state => ({ ...state, errorMessage: null }));
-
+		walletConnection.update((state) => ({ ...state, errorMessage: null }));
 	} catch (error) {
 		console.error('Failed to load assets:', error);
-		walletConnection.update(state => ({ 
-			...state, 
-			errorMessage: 'Some wallet data could not be loaded. Showing cached data.' 
+		walletConnection.update((state) => ({
+			...state,
+			errorMessage: 'Some wallet data could not be loaded. Showing cached data.'
 		}));
 	}
 }
@@ -329,7 +336,7 @@ export async function loadAssets(): Promise<void> {
 async function loadFiatRates(): Promise<void> {
 	try {
 		const rates = await fetchFiatRates();
-		walletRates.update(state => ({ ...state, fiatRates: rates }));
+		walletRates.update((state) => ({ ...state, fiatRates: rates }));
 	} catch (error) {
 		console.error('Failed to load fiat rates:', error);
 	}
@@ -342,11 +349,11 @@ async function loadLimits(): Promise<void> {
 			fetchLightningLimits(),
 			fetchOnchainLimits()
 		]);
-		
-		walletRates.update(state => ({ 
-			...state, 
-			lightningLimits, 
-			onchainLimits 
+
+		walletRates.update((state) => ({
+			...state,
+			lightningLimits,
+			onchainLimits
 		}));
 	} catch (error) {
 		console.error('Failed to load limits:', error);
@@ -357,9 +364,9 @@ async function loadLimits(): Promise<void> {
 async function loadTransactions(): Promise<void> {
 	try {
 		const recentTransactions = await getTransactions();
-		walletTransactions.update(state => ({ 
-			...state, 
-			recentTransactions 
+		walletTransactions.update((state) => ({
+			...state,
+			recentTransactions
 		}));
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
@@ -370,7 +377,7 @@ async function loadTransactions(): Promise<void> {
 function setupPeriodicRefresh(): void {
 	// Refresh balances every 30 seconds
 	balanceRefreshInterval = setInterval(loadAssets, 30000);
-	
+
 	// Refresh rates every 5 minutes
 	ratesRefreshInterval = setInterval(loadFiatRates, 300000);
 }
@@ -392,16 +399,16 @@ export async function disconnectWallet(): Promise<void> {
 	try {
 		await cleanup();
 		await disconnect();
-		
+
 		// Reset all stores to initial state
 		walletConnection.set({
 			isConnecting: false,
 			isConnected: false,
 			errorMessage: null
 		});
-		
+
 		walletInfo.set(null);
-		
+
 		walletAssets.set({
 			assets: [],
 			selectedAsset: 'L-BTC',
@@ -409,25 +416,25 @@ export async function disconnectWallet(): Promise<void> {
 			totalSatsBalance: 0,
 			totalUsdtBalance: 0
 		});
-		
+
 		bitcoinBalance.set({ confirmed: 0, unconfirmed: 0, total: 0 });
-		
+
 		walletRates.set({
 			fiatRates: [],
 			lightningLimits: null,
 			onchainLimits: null
 		});
-		
+
 		walletTransactions.set({
 			pendingPayments: [],
 			recentTransactions: [],
 			paymentEvents: []
 		});
-		
+
 		walletUI.set({
 			activeTab: 'balance'
 		});
-		
+
 		sendForm.set({
 			amount: '',
 			recipient: '',
@@ -440,7 +447,6 @@ export async function disconnectWallet(): Promise<void> {
 			estimatedFees: 0,
 			validationError: null
 		});
-		
 	} catch (error) {
 		console.error('Error during wallet cleanup:', error);
 	}
@@ -448,27 +454,29 @@ export async function disconnectWallet(): Promise<void> {
 
 // UI actions
 export function setActiveTab(tab: 'balance' | 'receive' | 'send' | 'swaps' | 'transactions'): void {
-	walletUI.update(state => ({ ...state, activeTab: tab }));
+	walletUI.update((state) => ({ ...state, activeTab: tab }));
 }
 
 export function setSelectedAsset(assetId: string): void {
-	walletAssets.update(state => ({ ...state, selectedAsset: assetId }));
+	walletAssets.update((state) => ({ ...state, selectedAsset: assetId }));
 }
 
 // Send form actions
-export function updateSendForm(updates: Partial<{
-	amount: string;
-	recipient: string;
-	description: string;
-	feeRate: 'slow' | 'medium' | 'fast';
-	useMainUnit: boolean;
-	fiatCurrency: string;
-	preparedTransaction: PrepareSendResponse | null;
-	isLoading: boolean;
-	estimatedFees: number;
-	validationError: string | null;
-}>): void {
-	sendForm.update(state => ({ ...state, ...updates }));
+export function updateSendForm(
+	updates: Partial<{
+		amount: string;
+		recipient: string;
+		description: string;
+		feeRate: 'slow' | 'medium' | 'fast';
+		useMainUnit: boolean;
+		fiatCurrency: string;
+		preparedTransaction: PrepareSendResponse | null;
+		isLoading: boolean;
+		estimatedFees: number;
+		validationError: string | null;
+	}>
+): void {
+	sendForm.update((state) => ({ ...state, ...updates }));
 }
 
 export function resetSendForm(): void {
@@ -489,8 +497,8 @@ export function resetSendForm(): void {
 // Get selected asset data
 export function getSelectedAssetData(): EnhancedAsset | undefined {
 	const assets = get(walletAssets);
-	return assets.assets.find(asset => 
-		asset.ticker === assets.selectedAsset || asset.assetId === assets.selectedAsset
+	return assets.assets.find(
+		(asset) => asset.ticker === assets.selectedAsset || asset.assetId === assets.selectedAsset
 	);
 }
 
@@ -515,43 +523,52 @@ export function formatNumber(value: number): string {
 	return parseFloat(value.toFixed(8)).toString();
 }
 
+export function formatNumberWithTwoDecimals(number: number): string {
+	return new Intl.NumberFormat('en-US', {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 2
+	}).format(number);
+}
+
 // Subscribe to external stores and sync with our wallet stores
 export function syncExternalStores(): void {
 	// Subscribe to payment events
-	paymentEventsStore.subscribe(events => {
-		walletTransactions.update(state => ({ ...state, paymentEvents: events }));
+	paymentEventsStore.subscribe((events) => {
+		walletTransactions.update((state) => ({ ...state, paymentEvents: events }));
 	});
-	
+
 	// Subscribe to pending payments
-	pendingPaymentsStore.subscribe(payments => {
-		walletTransactions.update(state => ({ ...state, pendingPayments: payments }));
+	pendingPaymentsStore.subscribe((payments) => {
+		walletTransactions.update((state) => ({ ...state, pendingPayments: payments }));
 	});
-	
+
 	// Subscribe to connection status
-	isConnectedStore.subscribe(connected => {
-		walletConnection.update(state => ({ ...state, isConnected: connected }));
+	isConnectedStore.subscribe((connected) => {
+		walletConnection.update((state) => ({ ...state, isConnected: connected }));
 	});
 }
 
 // Export refresh methods
-export { loadWalletData as refresh, loadAssets as refreshAssets, loadFiatRates as refreshRates, loadTransactions as refreshTransactions };
+export {
+	loadWalletData as refresh,
+	loadAssets as refreshAssets,
+	loadFiatRates as refreshRates,
+	loadTransactions as refreshTransactions
+};
 
 // Derived values for easy access using traditional derived stores
-export const selectedAsset = derived(
-	walletAssets,
-	($walletAssets) => $walletAssets.assets.find(asset => 
-		asset.ticker === $walletAssets.selectedAsset || asset.assetId === $walletAssets.selectedAsset
+export const selectedAsset = derived(walletAssets, ($walletAssets) =>
+	$walletAssets.assets.find(
+		(asset) =>
+			asset.ticker === $walletAssets.selectedAsset || asset.assetId === $walletAssets.selectedAsset
 	)
 );
 
-export const walletBalance = derived(
-	walletAssets,
-	($walletAssets) => ({
-		totalSats: $walletAssets.totalSatsBalance,
-		totalUsd: $walletAssets.totalUsdValue,
-		totalUsdt: $walletAssets.totalUsdtBalance
-	})
-);
+export const walletBalance = derived(walletAssets, ($walletAssets) => ({
+	totalSats: $walletAssets.totalSatsBalance,
+	totalUsd: $walletAssets.totalUsdValue,
+	totalUsdt: $walletAssets.totalUsdtBalance
+}));
 
 // Legacy exports for backward compatibility
 export const walletStore = {
