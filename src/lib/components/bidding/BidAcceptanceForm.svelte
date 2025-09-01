@@ -158,77 +158,103 @@
 	});
 </script>
 
-<div class="bg-base-100 mx-auto max-w-3xl rounded-lg p-6 shadow-lg">
-	<h3 class="mb-6 text-xl font-bold">Accept Bid & Fund Contract</h3>
+<div class="bg-base-100 mx-auto max-h-[80vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
+	<!-- Header with close button -->
+	<div
+		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b p-4 pb-4 sm:p-6"
+	>
+		<h4 class="font-bold">Accept Bid & Fund Contract</h4>
+		<button
+			type="button"
+			class="btn btn-ghost btn-sm btn-circle"
+			onclick={props.onCancel}
+			aria-label="Close dialog"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M6 18L18 6M6 6l12 12"
+				/>
+			</svg>
+		</button>
+	</div>
 
-	<!-- Bid Information Section -->
-	<div class="bg-base-200 mb-6 rounded-lg p-4">
-		<div class="flex items-center justify-between">
-			<div class="flex-1">
-				<h4 class="mb-2 text-lg font-semibold">{props.taskTitle}</h4>
+	<!-- Content with padding -->
+	<div class="p-4 sm:p-6">
+		<!-- Bid Information Section -->
+		<div class="bg-base-200 mb-4 rounded-lg p-3">
+			<!-- Mobile: Stacked layout, Desktop: Side by side -->
+			<div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+				<div class="flex-1">
+					<small class="card-title mb-2 line-clamp-2">{props.taskTitle}</small>
 
-				<!-- Bidder Information -->
-				<div class="mb-3 flex items-center gap-3">
-					<!-- Avatar -->
-					<div class="avatar">
-						<div class="bg-base-300 flex h-12 w-12 items-center justify-center rounded-full">
-							{#if props.bid.userProfile?.user?.profilePictureUrl}
-								<img
-									src={props.bid.userProfile.user.profilePictureUrl}
-									alt="Bidder Avatar"
-									class="h-12 w-12 rounded-full object-cover"
-								/>
-							{:else}
-								<div
-									class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
-								>
-									<span class="text-xl font-semibold">
-										{(props.bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
-									</span>
-								</div>
-							{/if}
-						</div>
-					</div>
-
-					<!-- Bidder Details -->
-					<div class="flex flex-col">
-						<span class="text-base font-medium">
-							{props.bid.userProfile?.user?.name ||
-								props.bid.userProfile?.professionalTitle ||
-								'Anonymous'}
-						</span>
-						{#if props.bid.userProfile?.professionalTitle}
-							<span class="text-base-content/60 text-sm"
-								>{props.bid.userProfile.professionalTitle}</span
-							>
-						{/if}
-
-						<!-- Review Stars -->
-						<div class="mt-1 flex items-center">
-							{#each Array(5) as _, i}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4 {i < (props.bid.userProfile?.averageRating || 0)
-										? 'text-yellow-400'
-										: 'text-base-content/30'}"
-									fill="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+					<!-- Bidder Information -->
+					<div class="mb-3 flex items-center gap-3">
+						<div class="avatar">
+							<div class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full">
+								{#if props.bid.userProfile?.user?.profilePictureUrl}
+									<img
+										src={props.bid.userProfile.user.profilePictureUrl}
+										alt="Bidder Avatar"
+										class="h-8 w-8 rounded-full object-cover"
 									/>
-								</svg>
-							{/each}
-							<span class="text-base-content/60 ml-2 text-sm">
-								{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile
-									?.tasksCompleted || 0} tasks)
+								{:else}
+									<div
+										class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
+									>
+										<span class="text-xl font-semibold">
+											{(props.bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
+										</span>
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						<div class="flex flex-col">
+							<span class="text-base font-medium">
+								{props.bid.userProfile?.user?.name ||
+									props.bid.userProfile?.professionalTitle ||
+									'Anonymous'}
 							</span>
+							{#if props.bid.userProfile?.professionalTitle}
+								<span class="text-base-content/60 text-sm"
+									>{props.bid.userProfile.professionalTitle}</span
+								>
+							{/if}
+
+							<div class="mt-1 flex items-center">
+								{#each Array(5) as _, i}
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4 {i < (props.bid.userProfile?.averageRating || 0)
+											? 'text-yellow-400'
+											: 'text-base-content/30'}"
+										fill="currentColor"
+										viewBox="0 0 24 24"
+									>
+										<path
+											d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+										/>
+									</svg>
+								{/each}
+								<span class="text-base-content/60 ml-2 text-sm">
+									{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile
+										?.tasksCompleted || 0} tasks)
+								</span>
+							</div>
 						</div>
 					</div>
-				</div>
 
-				<!-- Location -->
-				{#if props.bid.task?.pickupLocation?.displayName || props.bid.task?.dropOffLocation?.displayName}
+					<!-- Location -->
+					<!-- 	{#if props.bid.task?.pickupLocation?.displayName || props.bid.task?.dropOffLocation?.displayName}
 					<div class="mt-4 flex items-center gap-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -256,10 +282,10 @@
 								props.bid.task?.dropOffLocation?.displayName}
 						</span>
 					</div>
-				{/if}
+				{/if} -->
 
-				<!-- Start and End Time -->
-				{#if props.bid.startDate && props.bid.endDate}
+					<!-- Start and End Time -->
+					<!-- {#if props.bid.startDate && props.bid.endDate}
 					<div class="mt-4 flex flex-col gap-2">
 						<div class="flex items-center gap-2">
 							<svg
@@ -310,214 +336,277 @@
 							</span>
 						</div>
 					</div>
-				{/if}
-			</div>
-
-			<!-- Bid Price -->
-			<div class="flex justify-end gap-8">
-				<!-- Left Column - Labels -->
-				<div class="flex flex-col items-end space-y-1 text-right">
-					<div class="text-sm font-medium">Bid Price:</div>
-					<div class="text-sm font-medium">Platform Fee:</div>
-					<div class="text-sm font-medium">Est. Transaction Fee:</div>
-					<div class="text-sm font-medium">Total Fiat Price:</div>
-					<div class="text-sm font-medium">Total Sats Price:</div>
+				{/if} -->
 				</div>
 
-				<!-- Right Column - Values -->
-				<div class="flex flex-col items-end space-y-1 text-right">
-					<div class="text-sm">
-						${satsFromUsd(props.bid.amount, btcPrice)}
+				<!-- Bid Price - Mobile: Full width, Desktop: Right aligned -->
+				<div class="w-full lg:flex lg:w-auto lg:justify-end lg:gap-8">
+					<!-- Mobile: Single column layout -->
+					<div class="lg:hidden">
+						<div class="bg-base-100 space-y-3 rounded-lg p-4">
+							<div class="flex items-center justify-between">
+								<span class="text-sm font-medium">Bid Price:</span>
+								<span class="text-sm font-bold">${satsFromUsd(props.bid.amount, btcPrice)}</span>
+							</div>
+							<div class="flex items-center justify-between">
+								<span class="text-sm font-medium">Platform Fee:</span>
+								<span class="text-base-content/60 text-sm">${platformFee.toFixed(2)}</span>
+							</div>
+							<div class="flex items-center justify-between">
+								<span class="text-sm font-medium">Est. Transaction Fee:</span>
+								<span class="text-base-content/60 text-sm">${transactionFee.toFixed(2)}</span>
+							</div>
+							<div class="border-base-300 border-t pt-3">
+								<div class="flex items-center justify-between">
+									<span class="text-sm font-medium">Total Fiat Price:</span>
+									<span class="text-lg font-bold">${totalFiatPrice.toFixed(2)}</span>
+								</div>
+								<div class="mt-1 flex items-center justify-between">
+									<span class="text-sm font-medium">Total Sats Price:</span>
+									<span class="text-base-content/60 text-lg font-bold">
+										${formatNumberWithTwoDecimals(props.bid.amount)}
+									</span>
+								</div>
+							</div>
+						</div>
 					</div>
-					<div class="text-base-content/60 text-sm">
-						${platformFee.toFixed(2)}
-					</div>
-					<div class="text-base-content/60 text-sm">
-						${transactionFee.toFixed(2)}
-					</div>
-					<div class="text-lg font-bold">
-						${totalFiatPrice.toFixed(2)}
-					</div>
-					<div class="text-base-content/60 text-lg font-bold">
-						${formatNumberWithTwoDecimals(props.bid.amount)}
+
+					<!-- Desktop: Two column layout -->
+					<div class="hidden lg:flex lg:justify-end lg:gap-8">
+						<!-- Left Column - Labels -->
+						<div class="flex flex-col items-end space-y-1 text-right">
+							<div class="text-sm font-medium">Bid Price:</div>
+							<div class="text-sm font-medium">Platform Fee:</div>
+							<div class="text-sm font-medium">Est. Transaction Fee:</div>
+							<div class="pt-2 text-sm font-medium">Total Fiat Price:</div>
+							<div class="text-sm font-medium">Total Sats Price:</div>
+						</div>
+
+						<!-- Right Column - Values -->
+						<div class="flex flex-col items-end space-y-1 text-right">
+							<div class="text-sm">
+								${satsFromUsd(props.bid.amount, btcPrice)}
+							</div>
+							<div class="text-base-content/60 text-xs">
+								${platformFee.toFixed(2)}
+							</div>
+							<div class="text-base-content/60 pb-1 text-xs">
+								${transactionFee.toFixed(2)}
+							</div>
+							<div class="text-md font-bold">
+								${totalFiatPrice.toFixed(2)}
+							</div>
+							<div class="text-base-content/60 text-md font-bold">
+								${formatNumberWithTwoDecimals(props.bid.amount)}
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
 		</div>
-	</div>
 
-	<!-- Escrow Information -->
-	<div class="alert alert-info alert-outline my-2">
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			fill="none"
-			viewBox="0 0 24 24"
-			class="h-6 w-6 shrink-0 stroke-current"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-			/>
-		</svg>
-		<span>
-			<strong>Note:</strong> You are entering into a contract with the taskee on the blockchain. BitTasker
-			is not able to access your funds or alter the contract after this.
-		</span>
-	</div>
-
-	<!-- Escrow Funding Section -->
-	<div class="mb-6">
-		<!-- Tab Navigation -->
-		<div class="tabs tabs-bordered mb-4">
-			<button
-				role="tab"
-				class="tab {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
-				onclick={() => (selectedEscrowTab = 'bittasker')}
+		<!-- Escrow Information -->
+		<div class="alert alert-info alert-outline my-2 text-sm">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="h-5 w-5 shrink-0 stroke-current"
 			>
-				My Wallet
-			</button>
-			<button
-				role="tab"
-				class="tab {selectedEscrowTab === 'external' ? 'tab-active' : ''}"
-				onclick={() => (selectedEscrowTab = 'external')}
-			>
-				External Wallet
-			</button>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<span>
+				<strong>Note:</strong> You are entering into a contract with the taskee on the blockchain. BitTasker
+				is not able to access your funds or alter the contract after this.
+			</span>
 		</div>
 
-		<!-- BitTasker Wallet Tab -->
-		{#if selectedEscrowTab === 'bittasker'}
-			<div class="bg-base-200 rounded-lg p-4">
-				<!-- <p class="text-base-content/70 text-sm mb-4">
+		<!-- Escrow Funding Section -->
+		<div class="mb-4">
+			<!-- Tab Navigation - Mobile: Full width, Desktop: Auto width -->
+			<div class="tabs tabs-bordered mb-3 w-full">
+				<button
+					role="tab"
+					class="tab flex-1 {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
+					onclick={() => (selectedEscrowTab = 'bittasker')}
+				>
+					<span class="hidden sm:inline">My Wallet</span>
+					<span class="sm:hidden">My Wallet</span>
+				</button>
+				<button
+					role="tab"
+					class="tab flex-1 {selectedEscrowTab === 'external' ? 'tab-active' : ''}"
+					onclick={() => (selectedEscrowTab = 'external')}
+				>
+					<span class="hidden sm:inline">External Wallet</span>
+					<span class="sm:hidden">External</span>
+				</button>
+			</div>
+
+			<!-- BitTasker Wallet Tab -->
+			{#if selectedEscrowTab === 'bittasker'}
+				<div class="">
+					<!-- <p class="text-base-content/70 text-sm mb-4">
 					Fund escrow directly from your BitTasker wallet balance.
 				</p> -->
 
-				<div class="grid grid-cols-2 gap-4">
-					<!-- LBTC Option -->
-					<button
-						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset ===
-						'LBTC'
-							? 'border-primary'
-							: 'border-base-300'}"
-						onclick={() => (selectedBitTaskerAsset = 'LBTC')}
-					>
-						<div class="card-body p-4">
-							<div class="flex items-end justify-between">
-								<div class="flex flex-col items-start">
-									<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="mb-1 h-12 w-12" />
-									<span class="text-lg font-semibold">L-BTC</span>
-								</div>
-								<div class="flex flex-col items-end">
-									<span class="text-2xl font-bold">100,000,120,000</span>
-									<span class="text-base-content/60 text-lg">SATS</span>
+					<!-- Mobile: Single column, Desktop: Two columns -->
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<!-- LBTC Option -->
+						<button
+							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedBitTaskerAsset ===
+							'LBTC'
+								? 'border-primary'
+								: 'border-base-300'}"
+							onclick={() => (selectedBitTaskerAsset = 'LBTC')}
+						>
+							<div class="card-body p-4">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-3">
+										<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="h-8 w-8" />
+										<div class="flex flex-col text-start">
+											<span class="text-lg font-semibold">L-BTC</span>
+											<span class="text-base-content/60 text-sm">Liquid Bitcoin</span>
+										</div>
+									</div>
+									<div class="flex flex-col items-end">
+										<span class="text-lg font-bold">100,000</span>
+										<span class="text-base-content/60 text-sm">SATS</span>
+									</div>
 								</div>
 							</div>
-						</div>
-					</button>
+						</button>
 
-					<!-- USDT Option -->
-					<button
-						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedBitTaskerAsset ===
-						'USDT'
-							? 'border-primary'
-							: 'border-base-300'}"
-						onclick={() => (selectedBitTaskerAsset = 'USDT')}
-					>
-						<div class="card-body p-4">
-							<div class="flex items-end justify-between">
-								<div class="flex flex-col items-start">
-									<img src="/currency-symbols/USDt.svg" alt="USDT" class="mb-1 h-12 w-12" />
-									<span class="text-lg font-semibold">USDT</span>
-								</div>
-								<div class="flex flex-col items-end">
-									<span class="text-2xl font-bold">$120.00</span>
-									<span class="text-base-content/60 text-lg">USDT</span>
+						<!-- USDT Option -->
+						<button
+							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedBitTaskerAsset ===
+							'USDT'
+								? 'border-primary'
+								: 'border-base-300'}"
+							onclick={() => (selectedBitTaskerAsset = 'USDT')}
+						>
+							<div class="card-body p-4">
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-3">
+										<img src="/currency-symbols/USDt.svg" alt="USDT" class="h-8 w-8" />
+										<div class="flex flex-col text-start">
+											<span class="text-lg font-semibold">USDT</span>
+											<span class="text-base-content/60 text-sm">Tether USD</span>
+										</div>
+									</div>
+									<div class="flex flex-col items-end">
+										<span class="text-lg font-bold">$120.00</span>
+										<span class="text-base-content/60 text-sm">USDT</span>
+									</div>
 								</div>
 							</div>
-						</div>
-					</button>
+						</button>
+					</div>
 				</div>
-			</div>
-		{/if}
+			{/if}
 
-		<!-- External Wallet Tab -->
-		{#if selectedEscrowTab === 'external'}
-			<div class="bg-base-200 rounded-lg p-4">
-				<!-- <p class="text-base-content/70 text-sm mb-4">
+			<!-- External Wallet Tab -->
+			{#if selectedEscrowTab === 'external'}
+				<div class="bg-base-200 rounded-lg p-3">
+					<!-- <p class="text-base-content/70 text-sm mb-4">
 					Send funds from your external wallet to fund the escrow.
 				</p> -->
 
-				<!-- Payment Method Selection -->
-				<div class="grid grid-cols-3 gap-4">
-					<!-- Bitcoin Lightning -->
-					<button
-						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod ===
-						'bitcoin-lightning'
-							? 'border-primary'
-							: 'border-base-300'}"
-						onclick={() => (selectedExternalMethod = 'bitcoin-lightning')}
-					>
-						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center">
-								<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="mb-2 h-12 w-12" />
-								<div class="text-lg font-semibold">BTC</div>
+					<!-- Payment Method Selection - Mobile: Single column, Desktop: Three columns -->
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+						<!-- Bitcoin Lightning -->
+						<button
+							class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod ===
+							'bitcoin-lightning'
+								? 'border-primary'
+								: 'border-base-300'}"
+							onclick={() => (selectedExternalMethod = 'bitcoin-lightning')}
+						>
+							<div class="card-body p-4 text-center">
+								<div class="flex flex-col items-center">
+									<img
+										src="/currency-symbols/Bitcoin.svg"
+										alt="BTC"
+										class="mb-2 h-10 w-10 sm:h-12 sm:w-12"
+									/>
+									<div class="text-lg font-semibold">BTC</div>
+									<div class="text-base-content/60 text-sm">Lightning</div>
+								</div>
 							</div>
-						</div>
-					</button>
+						</button>
 
-					<!-- LBTC on Liquid -->
-					<button
-						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod ===
-						'lbtc-liquid'
-							? 'border-primary'
-							: 'border-base-300'}"
-						onclick={() => (selectedExternalMethod = 'lbtc-liquid')}
-					>
-						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center">
-								<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="mb-2 h-12 w-12" />
-								<div class="text-lg font-semibold">L-BTC</div>
+						<!-- LBTC on Liquid -->
+						<button
+							class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod ===
+							'lbtc-liquid'
+								? 'border-primary'
+								: 'border-base-300'}"
+							onclick={() => (selectedExternalMethod = 'lbtc-liquid')}
+						>
+							<div class="card-body p-4 text-center">
+								<div class="flex flex-col items-center">
+									<img
+										src="/currency-symbols/LBTC.svg"
+										alt="LBTC"
+										class="mb-2 h-10 w-10 sm:h-12 sm:w-12"
+									/>
+									<div class="text-lg font-semibold">L-BTC</div>
+									<div class="text-base-content/60 text-sm">Liquid</div>
+								</div>
 							</div>
-						</div>
-					</button>
+						</button>
 
-					<!-- USDT on Liquid -->
-					<button
-						class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod ===
-						'usdt-liquid'
-							? 'border-primary'
-							: 'border-base-300'}"
-						onclick={() => (selectedExternalMethod = 'usdt-liquid')}
-					>
-						<div class="card-body p-4 text-center">
-							<div class="flex flex-col items-center">
-								<img src="/currency-symbols/USDt.svg" alt="USDT" class="mb-2 h-12 w-12" />
-								<div class="text-lg font-semibold">USDT</div>
+						<!-- USDT on Liquid -->
+						<button
+							class="card bg-base-100 hover:bg-base-300 border-2 transition-colors {selectedExternalMethod ===
+							'usdt-liquid'
+								? 'border-primary'
+								: 'border-base-300'}"
+							onclick={() => (selectedExternalMethod = 'usdt-liquid')}
+						>
+							<div class="card-body p-4 text-center">
+								<div class="flex flex-col items-center">
+									<img
+										src="/currency-symbols/USDt.svg"
+										alt="USDT"
+										class="mb-2 h-10 w-10 sm:h-12 sm:w-12"
+									/>
+									<div class="text-lg font-semibold">USDT</div>
+									<div class="text-base-content/60 text-sm">Liquid</div>
+								</div>
 							</div>
-						</div>
-					</button>
+						</button>
+					</div>
 				</div>
+			{/if}
+		</div>
+
+		<!-- Validation Errors -->
+		{#if validationErrors.escrowMethod}
+			<div class="alert alert-error mb-4">
+				<span>{validationErrors.escrowMethod}</span>
 			</div>
 		{/if}
-	</div>
 
-	<!-- Validation Errors -->
-	{#if validationErrors.escrowMethod}
-		<div class="alert alert-error mb-4">
-			<span>{validationErrors.escrowMethod}</span>
+		<!-- Submit Buttons - Mobile: Stacked, Desktop: Side by side -->
+		<div
+			class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 py-4 sm:flex-row md:py-2"
+		>
+			<button type="button" class="btn btn-error" onclick={props.onCancel} disabled={isSubmitting}>
+				Cancel
+			</button>
+			<button type="button" class="btn btn-primary" disabled={isSubmitting} onclick={handleSubmit}>
+				<span class="hidden sm:inline"
+					>{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Contract'}</span
+				>
+				<span class="sm:hidden">{isSubmitting ? 'Processing...' : 'Accept & Fund'}</span>
+			</button>
 		</div>
-	{/if}
-
-	<!-- Submit Buttons -->
-	<div class="flex justify-end space-x-3 pt-4">
-		<button type="button" class="btn btn-outline" onclick={props.onCancel} disabled={isSubmitting}>
-			Cancel
-		</button>
-		<button type="button" class="btn btn-primary" disabled={isSubmitting} onclick={handleSubmit}>
-			{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Contract'}
-		</button>
 	</div>
 </div>
 

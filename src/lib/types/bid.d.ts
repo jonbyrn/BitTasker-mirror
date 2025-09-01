@@ -70,6 +70,8 @@ export interface Bid {
 }
 
 export interface TaskBid extends Bid {
+	dropOffLocation: any;
+	pickupLocation: any;
 	freelancerId: number;
 	clientViewed: boolean;
 	clientViewedAt: string | null;

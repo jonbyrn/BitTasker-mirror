@@ -3,7 +3,7 @@
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
-	
+
 	// Props
 	const props = $props<{
 		bid: TaskBid;
@@ -279,33 +279,59 @@
 	});
 </script>
 
-<div class="bg-base-100 mx-auto max-w-2xl rounded-lg p-4 shadow-lg">
-	<div class="flex items-center justify-between">
-		<div>
-			<h4 class="mb-4 font-bold">Create Counter Offer</h4>
-		</div>
-		<div>
-			<div class="flex items-center justify-between">
-				<div class="text-right">
-					<div class="text-lg font-bold">
-						${formatNumberWithTwoDecimals(props.bid.amount)}
+<div class="bg-base-100 mx-auto max-h-[80vh] max-w-2xl overflow-y-auto rounded-lg shadow-lg">
+	<!-- Header with close button -->
+	<div
+		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4"
+	>
+		<h4 class="font-bold">Create Counter Offer</h4>
+		<button
+			type="button"
+			class="btn btn-ghost btn-sm btn-circle"
+			onclick={props.onCancel}
+			aria-label="Close dialog"
+		>
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-5 w-5"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M6 18L18 6M6 6l12 12"
+				/>
+			</svg>
+		</button>
+	</div>
 
-						<div class="text-base-content/60 text-sm">
-							{satsFromUsd(props.bid.amount, btcPrice)}
-						</div>
-					</div>
+	<!-- Content with padding -->
+	<div class="px-4">
+		<!-- Original bid amount display -->
+		<div class="mb-4 flex items-center justify-between">
+			<div>
+				<span class="text-sm font-medium text-base-content/70">Original Bid Amount</span>
+			</div>
+			<div class="text-right">
+				<div class="text-lg font-bold">
+					${formatNumberWithTwoDecimals(props.bid.amount)}
+				</div>
+				<div class="text-base-content/60 text-sm">
+					{satsFromUsd(props.bid.amount, btcPrice)}
 				</div>
 			</div>
 		</div>
-	</div>
 
-	<form
-		class="space-y-6"
-		onsubmit={(e) => {
-			e.preventDefault();
-			handleSubmit();
-		}}
-	>
+		<form
+			class="space-y-6"
+			onsubmit={(e) => {
+				e.preventDefault();
+				handleSubmit();
+			}}
+		>
 		<!-- Payment Type -->
 		<!-- 	<div class="form-control">
 			<label class="label cursor-pointer" for="payment-type-group">
@@ -565,10 +591,10 @@
 			</label>
 			<textarea
 				id="counter-message"
-				class="textarea textarea-bordered h-16 w-full"
+				class="textarea textarea-bordered h-12 w-full"
 				class:textarea-error={validationErrors.message}
 				oninput={(e) => (message = (e.target as HTMLTextAreaElement).value)}
-				placeholder="Explain your counter offer conditions and why you're proposing this amount"
+				placeholder="Explain your counter offer conditions and why this amount "
 				aria-invalid={validationErrors.message ? 'true' : undefined}
 				aria-describedby={validationErrors.message ? 'message-error' : undefined}
 				>{message}</textarea
@@ -582,19 +608,23 @@
 			{/if}
 		</div>
 
-		<!-- Submit Buttons -->
-		<div class="flex justify-end space-x-3 pt-4">
+		<!-- Submit Buttons - Mobile: Stacked, Desktop: Side by side -->
+		<div
+			class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 py-4 sm:flex-row md:py-2"
+		>
 			<button
 				type="button"
-				class="btn btn-outline"
+				class="btn btn-error"
 				onclick={props.onCancel}
 				disabled={isSubmitting}
 			>
 				Cancel
 			</button>
 			<button type="submit" class="btn btn-primary" disabled={isSubmitting}>
-				{isSubmitting ? 'Submitting...' : 'Send Counter Offer'}
+				<span class="hidden sm:inline">{isSubmitting ? 'Submitting...' : 'Send Counter Offer'}</span>
+				<span class="sm:hidden">{isSubmitting ? 'Submitting...' : 'Send Offer'}</span>
 			</button>
 		</div>
 	</form>
+	</div>
 </div>
