@@ -45,7 +45,8 @@ export const ENDPOINTS = {
 		NOSTR_RECOVERY_DATA: (npub: string) =>
 			`${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`,
 		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`,
-		RECOVERY_EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/recover/verify-email`
+		RECOVERY_EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/recover/verify-email`,
+		INVALIDATE_ALL_DEVICES: `${API_PATH}/${API_VERSION}/${AUTH}/invalidate-all-devices`
 	},
 
 	// User endpoints

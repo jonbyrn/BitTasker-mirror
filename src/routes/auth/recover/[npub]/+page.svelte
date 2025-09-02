@@ -32,6 +32,7 @@
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
 	let showNewPassword = $state(false);
+	let recoverySuccess = $state(false);
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
@@ -148,7 +149,7 @@
 				return;
 			}
 			
-			await authService.completeNostrRecovery({
+			const recoveryResponse = await authService.completeNostrRecovery({
 				publicKey: npub,
 				otp: recoveryCode,
 				recoveryPrivateKey: secondaryEncrypted,
@@ -159,6 +160,15 @@
 				iterations: primaryIterations,
 				deviceId
 			});
+
+			// Invalidate all other devices for security
+			try {
+				const invalidationResult = await authService.invalidateAllDevices(npub);
+				console.log(`Invalidated ${invalidationResult.invalidatedDevices} devices`);
+			} catch (invalidationError) {
+				console.warn('Failed to invalidate devices:', invalidationError);
+				// Don't fail the entire recovery for this, but log it
+			}
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
@@ -179,8 +189,8 @@
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
-			const response = await authService.loginWithPasskey(npub, deviceId);
-			if (response && response.access_token) {
+			// Use the recovery response instead of logging in again
+			if (recoveryResponse && recoveryResponse.access_token) {
 				const biometricData = {
 					username: npub,
 					password: JSON.stringify({
@@ -193,16 +203,31 @@
 					server: deviceId
 				};
 				authState.setupAuthData(
-					response.access_token,
+					recoveryResponse.access_token,
 					'biometrics',
 					npub,
-					response.user,
+					recoveryResponse.user,
 					biometricData,
 					false
 				);
+				
+				// Show success message and redirect
+				recoverySuccess = true;
+				setTimeout(() => {
+					goto('/dashboard/find-tasks');
+				}, 2000);
 			}
 		} catch (err: any) {
-			error = err.message || 'Recovery failed';
+			console.error('Recovery completion failed:', err);
+			if (err.message?.includes('Invalid password')) {
+				error = 'Invalid recovery password. Please check your password and try again.';
+			} else if (err.message?.includes('device')) {
+				error = 'Failed to register new device. Please try again.';
+			} else if (err.message?.includes('invalidate')) {
+				error = 'Recovery completed but failed to invalidate old devices. Please contact support.';
+			} else {
+				error = err.message || 'Recovery failed. Please try again or contact support.';
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -216,7 +241,17 @@
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Account Recovery</h2>
 
-			{#if step === 1}
+			{#if recoverySuccess}
+				<div class="alert alert-success mb-6">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+					<div>
+						<h3 class="font-bold">Recovery Successful!</h3>
+						<p class="text-sm">Your account has been recovered and all other devices have been invalidated for security. Redirecting to dashboard...</p>
+					</div>
+				</div>
+			{:else if step === 1}
 				<form onsubmit={decryptPrivateKey} class="space-y-4">
 					<div class="form-control">
 						<label class="label" for="currentPassword">

@@ -9,7 +9,7 @@ import type {
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import type { OnboardingRequest, OnboardingResponse } from '../types';
-import emailService from './email.service';
+
 
 /**
  * Authentication Service
@@ -300,29 +300,30 @@ export class AuthService extends BaseApiService {
 	 */
 	async initiateNostrRecovery(email: string): Promise<void> {
 		try {
-			// First, call the backend API to initiate recovery and get verification token
-			const response = await this.post<{ verificationToken: string; message: string }>(
-				ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, 
-				{ email }
-			);
-
-			// If we get a verification token, send the verification email
-			if (response.data.verificationToken) {
-				await emailService.sendRecoveryVerificationEmail({
-					email,
-					verificationToken: response.data.verificationToken,
-					emailType: 'recovery',
-					expiryHours: 24
-				});
-			}
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const initiateRecovery = httpsCallable(functions, 'initiateNostrRecovery');
+			const result = await initiateRecovery({ email });
+			
+			// Generate a verification token for the email
+			const verificationToken = `recovery_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			
+			// Send the verification email using Firebase function
+			const sendEmail = httpsCallable(functions, 'sendRecoveryVerificationEmail');
+			await sendEmail({
+				email,
+				verificationToken: verificationToken
+			});
 		} catch (error: any) {
-			// If the backend doesn't support verification tokens yet, fall back to the old behavior
-			if (error?.status === 400 && error?.data?.message?.includes('verificationToken')) {
-				// Backend doesn't support verification tokens, just call the original endpoint
-				await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
-			} else {
-				throw error;
-			}
+			console.error('Failed to initiate recovery:', error);
+			throw new Error(error?.message || 'Failed to initiate recovery');
 		}
 	}
 
@@ -334,8 +335,25 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery data
 	 */
 	async getNostrRecoveryData(npub: string): Promise<NostrRecoveryData> {
-		const response = await this.get(ENDPOINTS.AUTH.NOSTR_RECOVERY_DATA(npub));
-		return response.data;
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const getRecoveryData = httpsCallable(functions, 'getRecoveryData');
+			const result = await getRecoveryData({ publicKey: npub });
+			
+			const response = result.data as { result: { data: NostrRecoveryData } };
+			return response.result.data;
+		} catch (error: any) {
+			console.error('Failed to get recovery data:', error);
+			throw new Error(error?.message || 'Failed to get recovery data');
+		}
 	}
 
 	/**
@@ -346,9 +364,26 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - User not found
 	 * @returns Promise with recovery response
 	 */
-	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<void> {
-		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
-		return response.data;
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<{ access_token: string; user: any }> {
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const completeRecovery = httpsCallable(functions, 'completeNostrRecovery');
+			const result = await completeRecovery(data);
+			
+			const response = result.data as { result: { access_token: string; user: any } };
+			return response.result;
+		} catch (error: any) {
+			console.error('Failed to complete recovery:', error);
+			throw new Error(error?.message || 'Failed to complete recovery');
+		}
 	}
 
 	/**
@@ -382,11 +417,52 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery data
 	 */
 	async verifyRecoveryEmail(token: string): Promise<{ email: string; publicKey: string; message: string }> {
-		const response = await this.post<{ email: string; publicKey: string; message: string }>(
-			ENDPOINTS.AUTH.RECOVERY_EMAIL_VERIFICATION,
-			{ token }
-		);
-		return response.data;
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const verifyEmail = httpsCallable(functions, 'verifyRecoveryEmail');
+			const result = await verifyEmail({ token });
+			
+			const response = result.data as { result: { data: { email: string; publicKey: string; message: string } } };
+			return response.result.data;
+		} catch (error: any) {
+			console.error('Failed to verify recovery email:', error);
+			throw new Error(error?.message || 'Failed to verify recovery email');
+		}
+	}
+
+	/**
+	 * Invalidate all devices for a user during account recovery
+	 * @param publicKey User's Nostr public key
+	 * @returns Promise with invalidation response
+	 */
+	async invalidateAllDevices(publicKey: string): Promise<{ message: string; invalidatedDevices: number }> {
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const invalidateDevices = httpsCallable(functions, 'invalidateAllDevices');
+			const result = await invalidateDevices({ publicKey });
+			
+			const response = result.data as { result: { message: string; invalidatedDevices: number } };
+			return response.result;
+		} catch (error: any) {
+			console.error('Failed to invalidate devices:', error);
+			throw new Error(error?.message || 'Failed to invalidate devices');
+		}
 	}
 }
 
