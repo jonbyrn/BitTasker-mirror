@@ -12,14 +12,9 @@ export interface UploaderProps {
 	height?: number;
 	maxDuration?: number;
 	className?: string;
-	enableImageCompression?: boolean;
-	compressionQuality?: number;
-	maxImageDimension?: number;
-	showCompressionInfo?: boolean;
 	onChange?: (files: File[]) => void;
 	onRemove?: (index: number, file?: File | string) => void;
 	onError?: (message: string) => void;
-	onCompressionProgress?: (progress: { processed: number; total: number; currentFile: string }) => void;
 }
 
 export interface TagsProps {
