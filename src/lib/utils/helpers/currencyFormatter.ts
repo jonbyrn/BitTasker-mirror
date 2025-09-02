@@ -2,9 +2,14 @@
  * Format a currency amount based on the currency type
  * @param amount - The amount to format
  * @param currency - The currency type (BTC, L-BTC, LN, USD)
+ * @param isAmountInSats - Whether the amount is in satoshis (for BTC/L-BTC/LN)
  * @returns Formatted currency string
  */
-export function formatCurrency(amount: number, currency: string): string {
+export function formatCurrency(
+	amount: number,
+	currency: string,
+	isAmountInSats: boolean = false
+): string {
 	if (amount === null || amount === undefined) {
 		return '-';
 	}
@@ -13,14 +18,54 @@ export function formatCurrency(amount: number, currency: string): string {
 		case 'BTC':
 		case 'L-BTC':
 		case 'LN':
+			if (isAmountInSats) {
+				// Convert sats to BTC for display
+				const btcAmount = amount / 100_000_000;
+				return `${currency} ${btcAmount.toFixed(8)}`;
+			}
 			// Bitcoin values typically shown with 8 decimal places
 			return `${currency} ${amount.toFixed(8)}`;
 		case 'USD':
 			// Regular fiat currency with 2 decimal places
 			return `$${amount.toFixed(2)}`;
 		default:
-			return `${currency} ${amount}`;
+			return `${amount} ${currency}`;
 	}
+}
+
+/**
+ * Format currency with USD equivalent for BTC/L-BTC/LN amounts
+ * @param amount - The amount to format
+ * @param currency - The currency type
+ * @param btcPrice - Current BTC price in USD
+ * @param isAmountInSats - Whether the amount is in satoshis (for BTC/L-BTC/LN)
+ * @returns Formatted currency string with USD equivalent
+ */
+export function formatCurrencyWithUsd(
+	amount: number,
+	currency: string,
+	btcPrice: number,
+	isAmountInSats: boolean = false
+): string {
+	if (amount === null || amount === undefined) {
+		return '-';
+	}
+
+	// For BTC/L-BTC/LN when amount is in sats, show sats directly
+	if (isAmountInSats && (currency === 'BTC' || currency === 'L-BTC' || currency === 'LN')) {
+		const formattedSats = new Intl.NumberFormat('en-US').format(amount);
+		return `${formattedSats} sats`;
+	}
+
+	// For other cases, use the regular formatCurrency function
+	const formattedAmount = formatCurrency(amount, currency, isAmountInSats);
+
+	// Add USD equivalent for BTC/L-BTC/LN
+	if (currency === 'BTC' || currency === 'L-BTC' || currency === 'LN') {
+		return `${formattedAmount}`;
+	}
+
+	return formattedAmount;
 }
 
 /**

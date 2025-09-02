@@ -8,7 +8,7 @@
 	import { user } from '$lib/stores/user.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 	let { onSelectTask } = $props<{
 		onSelectTask: (task: Task) => void;
 	}>();
@@ -84,8 +84,8 @@
 
 <section class="bg-base-200 mb-8">
 	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-xl font-bold">{$t('recommend.title')}</h2>
-		<button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
+		<h3 class="">{$t('recommendations.type.title')}</h3> 
+		<!-- <button class="btn btn-sm btn-ghost" onclick={refreshRecommendations} disabled={loaders.data}>
 			{#if loaders.data}
 				<div class="loading loading-spinner loading-xs"></div>
 			{:else}
@@ -104,8 +104,8 @@
 					/>
 				</svg>
 			{/if}
-			{$t('recommend.refresh')}
-		</button>
+			{$t('recommendations.type.update')} 
+		</button> -->
 	</div>
 
 	{#if error}
@@ -125,7 +125,7 @@
 				/>
 			</svg>
 			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadRecommendations}>{$t('recommend.retry')}</button>
+			<button class="btn btn-sm" onclick={loadRecommendations}>{$t('recommendations.type.generate')}</button>
 		</div>
 	{:else if loaders.data}
 		<div class="flex justify-center p-10">
@@ -147,10 +147,10 @@
 					d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
 				/>
 			</svg>
-			<p class="text-lg font-semibold">{$t('recommend.none_title')}</p>
-			<p class="mb-4 text-gray-500">{$t('recommend.none_subtext')}</p>
+			<p class="text-lg font-semibold">{$t('recommendations.type.not_found')}</p>
+			<p class="mb-4 text-gray-500">{$t('recommendations.type.description')}</p>
 			<button class="btn btn-primary" onclick={refreshRecommendations}
-				>{$t('recommend.generate')}</button
+				>{$t('recommendations.type.generate')}</button
 			>
 		</div>
 	{:else}

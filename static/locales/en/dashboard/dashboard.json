@@ -1,0 +1,57 @@
+{
+    "dashboard": {
+      "title": "My Dashboard",
+      "description": "Manage your tasks and bids on BitTasker's dashboard.",
+      "titl": "Dashboard",
+      "create_task": "Create Task",
+      "find_tasks": "Find Tasks",
+      
+      "tabs": {
+        "tasks": "My Tasks",
+        "bids": "Bids Sent",
+        "recurring": "Recurring Tasks",
+        "saved_searches": "Saved Searches"
+      },
+      "task_details_by_task": {
+        "title": "Task Details",
+        "tasker": "Tasker Details",
+        "description": "Here you can see the details of the task.",
+        "description_task": "Description",
+        "loading": "Loading...",
+        "task_not_found": "Task Not Found",
+        "task_not_found_message": "The task you're looking for could not be found.",
+        "status": "Status",
+        "deadline": "Deadline",
+        "date_range": "To be done between",
+        "location_details": "Location Details",
+        "pickup_location": "Pickup Location",
+        "dropoff_location": "Drop-off Location",
+        "requirements": "Requirements",
+        "required_skills": "Required Skills",
+        "categories": "Categories",
+        "attachments": "Attachments",
+        "attachment": "Attachment",
+        "view_attachment": "View {name} in new tab",
+        "video_not_supported": "Your browser does not support the video tag",
+        "interested_in_task": "Interested in this task?",
+        "bid_now": "Bid Now",
+        "task_not_open_bidding": "This task is not open for bidding",
+        "you_are_owner": "You are the owner of this task",
+        "anonymous": "Anonymous",
+        "member_since": "Member since",
+        "show_more": "Show more",
+        "show_less": "Show less", 
+        "remote": "Remote",
+        "posted": "Posted",
+        "edit_task": "Edit Task",
+        "delete_task": "Delete Task",
+        "type": "Type",
+        "budget": "Budget",
+        "in_person": "In-Person",
+        "details": "Details",
+        "bids": "Bids",
+        "close": "Close",
+        "try_again": "Try Again"
+      }
+    }
+  }

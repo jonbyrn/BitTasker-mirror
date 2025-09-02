@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
 	import { Preferences } from '@capacitor/preferences';
@@ -127,7 +127,7 @@
 		}
 	}
 
-	async function copyToClipboard(text: string, type: 'npub' | 'nsec') {
+	async function copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
 		try {
 			await navigator.clipboard.writeText(text);
 			copySuccess = type;
@@ -285,10 +285,10 @@
 	}
 </script>
 
-<div class="container mx-auto max-w-4xl p-6">
-	<div class="mb-8">
-		<h1 class="text-base-content text-3xl font-bold">{$t('settings.title')}</h1>
-		<p class="text-base-content/70 mt-2">{$t('settings.subtitle')}</p>
+<div class="mx-auto max-w-7xl p-4 md:p-0">
+	<div class="mb-6">
+		<h3 class="">{$t('settings.title')}</h3>
+		<p class="text-base-content/70">{$t('settings.subtitle')}</p>
 	</div>
 
 	{#if loading}
@@ -324,18 +324,22 @@
 		<!-- Nostr Identity Section -->
 		<div class="card bg-base-100 mb-6 shadow-xl">
 			<div class="card-body">
-				<div class="mb-4 flex items-center gap-2">
-					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="h-6 w-6">
+				<div class="mb-1 flex items-center gap-2">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
 						<path
-							fill="currentColor"
-							d="M231.2 159.5c0 20.7 0 31.1-3.5 42.2-4.4 12.2-14 21.8-26.2 26.2-11.1 3.5-21.5 3.5-42.2 3.5H96.8c-20.7 0-31.1 0-42.2-3.5-12.2-4.4-21.8-14-26.2-26.2-3.5-11.1-3.5-21.5-3.5-42.2V97c0-20.7 0-31.1 3.5-42.2 4.4-12.2 14-21.8 26.2-26.2 11.2-3.5 21.5-3.5 42.2-3.5h62.5c20.7 0 31.1 0 42.2 3.5 12.2 4.4 21.8 14 26.2 26.2 3.5 11.2 3.5 21.5 3.5 42.2v62.5Z"
-						/>
-						<path
-							fill="white"
-							d="M210.8 199.4c0 3.1-2.5 5.7-5.7 5.7h-68c-3.1 0-5.7-2.5-5.7-5.7v-15.5c.3-19 2.3-37.2 6.5-45.5 2.5-5 6.7-7.7 11.5-9.1 9.1-2.7 24.9-.9 31.7-1.2 0 0 20.4.8 20.4-10.7s-9.1-8.6-9.1-8.6c-10 .3-17.7-.4-22.6-2.4-8.3-3.3-8.6-9.2-8.6-11.2-.4-23.1-34.5-25.9-64.5-20.1-32.8 6.2.4 53.3.4 116.1v8.4c0 3.1-2.6 5.6-5.7 5.6H57.7c-3.1 0-5.7-2.5-5.7-5.7v-144c0-3.1 2.5-5.7 5.7-5.7h31.7c3.1 0 5.7 2.5 5.7 5.7 0 4.7 5.2 7.2 9 4.5 11.4-8.2 26-12.5 42.4-12.5 36.6 0 64.4 21.4 64.4 68.7v83.2ZM150 99.3c0-6.7-5.4-12.1-12.1-12.1s-12.1 5.4-12.1 12.1 5.4 12.1 12.1 12.1S150 106 150 99.3Z"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-					<h2 class="card-title">{$t('settings.nostr.title')}</h2>
+					<h4 class="card-title">{$t('settings.nostr.title')}</h4>
 				</div>
 				<p class="text-base-content/70 mb-6">
 					{$t('settings.nostr.description')}
@@ -344,7 +348,7 @@
 				<!-- Public Key (NPub) -->
 				<div class="mb-6">
 					<label class="label" for="npub">
-						<span class="label-text font-semibold">{$t('settings.nostr.publicKey')}</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.publicKey-label')}</span>
 					</label>
 					<div class="flex gap-2">
 						<input
@@ -355,7 +359,7 @@
 							placeholder={$t('settings.loading')}
 						/>
 						<button
-							class="btn btn-square btn-outline "
+							class="btn btn-square btn-outline"
 							onclick={() => copyToClipboard(npub, 'npub')}
 							disabled={!npub}
 						>
@@ -402,7 +406,7 @@
 				<!-- Private Key (NSec) -->
 				<div class="mb-4">
 					<label class="label" for="nsec">
-						<span class="label-text font-semibold">{$t('settings.nostr.privateKey')}</span>
+						<span class="label-text font-semibold">{$t('settings.nostr.privateKey-label')}</span>
 					</label>
 					<div class="flex gap-2">
 						<div class="relative flex-1">
@@ -513,25 +517,25 @@
 				</div>
 
 				<!-- Security Notice -->
-				<div class="alert alert-warning alert-outline mt-4 flex flex-col items-start gap-2 text-black">
-					<div class="flex gap-2">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-6 w-6 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
-							/>
-						</svg>
-						<h3 class="font-bold">{$t('settings.security.title')}</h3>
-					</div>
+				<div class="alert alert-warning alert-outline mt-4">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.083 15.5c-.77.833.192 2.5 1.732 2.5z"
+						/>
+					</svg>
 					<div class="text-sm">
-						{$t('settings.security.description')}
+						<p class="font-semibold">{$t('settings.security.title')}</p>
+						<p>
+							{$t('settings.security.description')}
+						</p>
 					</div>
 				</div>
 			</div>
@@ -541,7 +545,7 @@
 		{#if authMethod !== 'alby'}
 			<div class="card bg-base-100 mb-6 shadow-xl">
 				<div class="card-body">
-					<div class="mb-4 flex items-center gap-2">
+					<div class="mb-1 flex items-center gap-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6"
@@ -556,7 +560,7 @@
 								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<h2 class="card-title">{$t('settings.recovery.title')}</h2>
+						<h4 class="card-title">{$t('settings.recovery.title')}</h4>
 					</div>
 					<p class="text-base-content/70 mb-6">
 						{$t('settings.recovery.description')}
@@ -566,7 +570,7 @@
 						<!-- Recovery Email Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-email">
-								<span class="label-text font-semibold">{$t('settings.recovery.email')}</span>
+								<span class="label-text font-semibold">{$t('settings.recovery.email-label')}</span>
 							</label>
 							<input
 								type="email"
@@ -587,23 +591,67 @@
 						<!-- Recovery Password Field -->
 						<div class="form-control">
 							<label class="label" for="recovery-password">
-								<span class="label-text font-semibold">{$t('settings.recovery.password')}</span>
+								<span class="label-text font-semibold"
+									>{$t('settings.recovery.password-label')}</span
+								>
 							</label>
 							<div class="relative">
 								<input
 									type={showRecoveryPassword ? 'text' : 'password'}
 									id="recovery-password"
 									bind:value={recoveryPassword}
-									class="input input-bordered w-full pr-10 {passwordError ? 'input-error' : ''}"
+									class="input input-bordered w-full pr-20 {passwordError ? 'input-error' : ''}"
 									placeholder={$t('settings.recovery.password.placeholder')}
 									required
 									disabled={recoveryLoading}
 								/>
+								<!-- Copy Button -->
 								<button
 									type="button"
 									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => copyToClipboard(recoveryPassword, 'recovery')}
+									disabled={!recoveryPassword || recoveryLoading}
+									title="Copy password to clipboard"
+								>
+									{#if copySuccess === 'recovery'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-success h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											/>
+										</svg>
+									{/if}
+								</button>
+								<!-- Show/Hide Password Button -->
+								<button
+									type="button"
+									class="absolute inset-y-0 right-12 flex items-center pr-3"
 									onclick={() => (showRecoveryPassword = !showRecoveryPassword)}
 									disabled={recoveryLoading}
+									title={showRecoveryPassword ? 'Hide password' : 'Show password'}
 								>
 									{#if showRecoveryPassword}
 										<svg
@@ -650,18 +698,60 @@
 						<div class="form-control">
 							<label class="label" for="confirm-recovery-password">
 								<span class="label-text font-semibold"
-									>{$t('settings.recovery.confirmPassword')}</span
+									>{$t('settings.recovery.confirmPassword-label')}</span
 								>
 							</label>
-							<input
-								type={showRecoveryPassword ? 'text' : 'password'}
-								id="confirm-recovery-password"
-								bind:value={confirmRecoveryPassword}
-								class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-								placeholder={$t('settings.recovery.confirmPassword.placeholder')}
-								required
-								disabled={recoveryLoading}
-							/>
+							<div class="relative">
+								<input
+									type={showRecoveryPassword ? 'text' : 'password'}
+									id="confirm-recovery-password"
+									bind:value={confirmRecoveryPassword}
+									class="input input-bordered w-full pr-20 {passwordError ? 'input-error' : ''}"
+									placeholder={$t('settings.recovery.confirmPassword.placeholder')}
+									required
+									disabled={recoveryLoading}
+								/>
+								<!-- Copy Button -->
+								<button
+									type="button"
+									class="absolute inset-y-0 right-0 flex items-center pr-3"
+									onclick={() => copyToClipboard(confirmRecoveryPassword, 'confirm')}
+									disabled={!confirmRecoveryPassword || recoveryLoading}
+									title="Copy password to clipboard"
+								>
+									{#if copySuccess === 'confirm'}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-success h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+											/>
+										</svg>
+									{/if}
+								</button>
+							</div>
 							{#if passwordError}
 								<label class="label" for="confirm-recovery-password">
 									<span class="label-text-alt text-error">{passwordError}</span>
@@ -793,7 +883,7 @@
 		{#if authMethod !== 'alby' && biometricsAvailable}
 			<div class="card bg-base-100 mb-6 shadow-xl">
 				<div class="card-body">
-					<div class="mb-4 flex items-center gap-2">
+					<div class="mb-1 flex items-center gap-2">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -808,7 +898,7 @@
 								d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
 							/>
 						</svg>
-						<h2 class="card-title">{$t('settings.passkey.title')}</h2>
+						<h4 class="card-title">{$t('settings.passkey.title')}</h4>
 					</div>
 					<!-- {#if hasPasskey}
 						<div class="badge badge-success">
@@ -836,7 +926,7 @@
 
 					{#if passkeyProvider}
 						<p class="text-info mb-4 text-sm">
-							{$t('settings.passkey.provider', new Map([['provider', passkeyProvider]]))}
+							{$t('settings.passkey.provider')}: {passkeyProvider}
 						</p>
 					{/if}
 
@@ -956,8 +1046,8 @@
 		<!-- Account Actions Section -->
 		<div class="card bg-base-100 shadow-xl">
 			<div class="card-body">
-				<h2 class="card-title text-error">{$t('settings.actions.title')}</h2>
-				<p class="text-base-content/70 mb-4">{$t('settings.actions.description')}</p>
+				<h4 class="card-title text-error">{$t('settings.actions.title')}</h4>
+				<p class="text-base-content/70 mb-3">{$t('settings.actions.description')}</p>
 
 				<div class="flex flex-col gap-4">
 					<button class="btn btn-error btn-outline" onclick={logout}>

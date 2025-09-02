@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
@@ -110,11 +110,11 @@
 		<!-- Availability Card -->
 		<div class="card bg-base-200 mb-6 rounded-xl">
 			<div class="card-body">
-				<h3 class="card-title text-lg">{$t('profile.availabilityTitle')}</h3>
+				<h3 class="card-title text-lg">{$t('profile_availability.availabilityTitle')}</h3>
 
 				{#if $profileStore.data.availability}
 					<div class="mt-2">
-						<p class="font-medium">{$t('profile.weeklySchedule')}</p>
+						<p class="font-medium">{$t('profile_availability.weeklySchedule')}</p>
 						<div class="mt-2 space-y-2">
 							{#each Object.entries(schedule()) as [day, scheduleData]}
 								<div class="border-base-300 flex items-center justify-between border-b py-1">
@@ -123,7 +123,9 @@
 										{#if scheduleData.available}
 											{scheduleData.hours}
 										{:else}
-											<span class="text-base-content/50">{$t('profile.unavailable')}</span>
+											<span class="text-base-content/50"
+												>{$t('profile_availability.unavailable')}</span
+											>
 										{/if}
 									</span>
 								</div>
@@ -136,14 +138,17 @@
 					<div class="flex items-center justify-between">
 						{#if nextAvailable()}
 							<div class="">
-								<p class="font-medium">{$t('profile.nextAvailable')}</p>
+								<p class="font-medium">{$t('profile_availability.nextAvailable')}</p>
 								<p class="text-primary">{formatDate(nextAvailable())}</p>
 							</div>
 						{/if}
 
 						<div>
-							<p class="font-medium">{$t('profile.timezone')}</p>
-							<p class="text-base-content/70">{$profileStore.data.availability.timezone}</p>
+							<p class="font-medium">{$t('profile_availability.timezone')}</p>
+							<p class="text-base-content/70">
+								{$profileStore.data.availability?.timezone ||
+									Intl.DateTimeFormat().resolvedOptions().timeZone}
+							</p>
 						</div>
 					</div>
 
@@ -151,23 +156,23 @@
 
 					<div class="space-y-2 text-sm">
 						<div class="flex justify-between">
-							<span>{$t('profile.noticeRequired')}</span>
+							<span>{$t('profile_availability.noticeRequired')}</span>
 							<span class="text-base-content/70">
 								{$profileStore.data.availability.noticeHours}
-								{$t('profile.hours')}
+								{$t('profile_availability.hours')}
 							</span>
 						</div>
 						<div class="flex justify-between">
-							<span>{$t('profile.maxBookingsPerDay')}</span>
+							<span>{$t('profile_availability.maxBookingsPerDay')}</span>
 							<span class="text-base-content/70"
 								>{$profileStore.data.availability.maxBookingsPerDay}</span
 							>
 						</div>
 						<div class="flex justify-between">
-							<span>{$t('profile.breakBetweenBookings')}</span>
+							<span>{$t('profile_availability.breakBetweenBookings')}</span>
 							<span class="text-base-content/70">
 								{$profileStore.data.availability.breakBetweenBookings}
-								{$t('profile.minutes')}
+								{$t('profile_availability.minutes')}
 							</span>
 						</div>
 					</div>
@@ -179,69 +184,10 @@
 			</div>
 		</div>
 
-		<!-- Payment Methods Card -->
-		<div class="card bg-base-200 mb-6 rounded-xl p-4">
-			<h3 class="mb-4 text-lg font-bold">{$t('profile.payment_methods')}</h3>
-			<div class="space-y-4">
-				<div class="flex items-center gap-2">
-					<div class="badge badge-primary">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-						>
-							<path
-								d="M19.1 2.9l-14 14.1L8.5 24l3.4-7 7.1-7.1c.4-.4.4-1 0-1.4l-3.6-3.6c-.4-.4-1-.4-1.4 0zm-4.8 7.7c-.4.4-1 .4-1.4 0-.4-.4-.4-1 0-1.4.4-.4 1-.4 1.4 0 .4.4.4 1 0 1.4z"
-							/>
-						</svg>
-					</div>
-					<p class="font-medium">{$t('profile.payment_lightning')}</p>
-				</div>
-				<div class="flex items-center gap-2">
-					<div class="badge badge-secondary">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							viewBox="0 0 24 24"
-							fill="currentColor"
-						>
-							<path
-								d="M21.89 6.55c-1.98-3.08-5.79-4.82-9.52-4.41C8.47 2.54 4.9 5.33 3.71 9.25c-.82 2.7-.48 5.75 1.06 8.19 2.18 3.4 6.31 5.18 10.32 4.51 3.09-.51 5.78-2.46 7.2-5.22 1.69-3.28 1.45-7.25-.4-10.18zm-1.34 4.54c-.11.83-.52 1.72-1.11 2.33-.69.71-1.56 1.12-2.49 1.25-.66.09-1.4.05-2-.16-.87-.31-1.59-.83-2.3-1.32-.18-.12-.35-.25-.53-.37-.21-.14-.43-.27-.66-.39-.44-.23-.9-.42-1.35-.59-.45-.16-.92-.28-1.39-.29-.66-.01-1.37.17-1.77.7-.39.52-.38 1.13-.2 1.71.2.64.64 1.22 1.15 1.68.3.27.71.61.86.64-.14.27-.7.28-.97.28-.95 0-1.83-.43-2.45-1.2-.65-.82-.94-1.82-.8-2.84.13-.93.64-1.8 1.47-2.33.83-.53 1.87-.72 2.82-.52 1.35.28 2.64 1.15 3.94 1.76 1.14.53 2.33.91 3.58.59.58-.15 1.04-.43 1.42-.89.38-.46.62-1.03.68-1.64.13-.95-.19-1.72-.55-2.57.56 1.12.99 2.48.3 3.97z"
-							/>
-						</svg>
-					</div>
-					<p class="font-medium">Nostr</p>
-				</div>
-			</div>
-		</div>
 
-		<!-- Stats Card -->
-		<div class="card bg-base-200 rounded-xl p-4">
-			<h3 class="mb-4 text-lg font-bold">{$t('profile.your_stats')}</h3>
-			<div class="stats stats-vertical shadow">
-				<div class="stat">
-					<div class="stat-title">{$t('profile.stats.tasks_completed')}</div>
-					<div class="stat-value">{$profileStore.stats.tasksCompleted}</div>
-					<div class="stat-desc">↗︎ 4 (30%)</div>
-				</div>
-
-				<div class="stat">
-					<div class="stat-title">{$t('profile.stats.success_rate')}</div>
-					<div class="stat-value">{$profileStore.stats.rating}%</div>
-					<div class="stat-desc">↗︎ 6%</div>
-				</div>
-
-				<div class="stat">
-					<div class="stat-title">{$t('profile.stats.response_rate')}</div>
-					<div class="stat-value">{$profileStore.stats.responseRate}%</div>
-					<div class="stat-desc">↗︎ 2%</div>
-				</div>
-			</div>
-		</div>
 	{:else if $profileStore.error}
 		<div class="alert alert-outline alert-error">
-			<span>{$t('profile.error_load')}</span>
+			<span>{$t('profile_availability.error_load')}</span>
 		</div>
 	{/if}
 </div>

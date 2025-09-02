@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { StandardService, NostrStandardServices } from '$lib/types/profile.d';
 	import { onDestroy, onMount } from 'svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
 	import { publishStandardServices, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
@@ -462,7 +462,7 @@
 								<div class="flex items-start justify-between">
 									<div>
 										<h3 class="card-title">{service.name}</h3>
-										<p class="text-base-content/70">{service.description}</p>
+										<p class="text-base-content/70 line-clamp-4">{service.description}</p>
 									</div>
 									<div class="flex gap-2">
 										<button

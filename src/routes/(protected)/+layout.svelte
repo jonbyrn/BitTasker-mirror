@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { authState } from '$lib/stores/auth.store';
-
 	const { children } = $props();
 </script>
 

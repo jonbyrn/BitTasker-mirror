@@ -1,0 +1,76 @@
+{
+  "messages": {
+    "title": "Messages",
+    "subtitle": "Manage your conversations   ",
+    "page_title": "Messages",
+    "new_message": "New Message",
+    "start_new_message": "Start New Message",
+    "enter_pubkey": "Enter a public key to start a conversation",
+    "recipient_pubkey": "Recipient Public Key",
+    "enter_npub": "Enter an npub (starts with npub1) or hex public key",
+    "no_profile_found": "No profile found",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "start_chat": "Start Chat",
+    "search_placeholder": "Search conversations...",
+    "no_messages": "No messages yet",
+    "start_conversation": "Start a conversation with someone",
+    "no_conversations_found": "No conversations found",
+    "try_different_search": "Try a different search term",
+    "clear_search": "Clear search",
+    "failed_load_conversations": "Failed to load conversations",
+    "invalid_npub_format": "Invalid npub format",
+    "invalid_pubkey_format": "Invalid public key format",
+    "failed_fetch_profile": "Failed to fetch profile",
+    "toggle_new_message_modal": "Toggle new message modal",
+    "new_message_placeholder": "npub1... or hex public key",
+    "unknown_user": "Unknown User",
+    "close_modal": "Close modal",
+    "you": "You",
+    "failed_load_messages": "Failed to load messages",
+    "failed_send_message": "Failed to send message",
+    "chat_messages_aria": "Chat messages",
+    "loading_messages": "Loading messages...",
+    "loading_older_messages": "Loading older messages...",
+    "load_older_messages": "Load older messages",
+    "type_message_placeholder": "Type a message...",
+    "send_message": "Send message",
+    "characters": "characters",
+    "search_messages": "Search messages...",
+    "case_sensitive": "Case sensitive",
+    "whole_words_only": "Whole words only",
+    "from_date": "From date",
+    "to_date": "To date",
+    "searching": "Searching...",
+    "no_messages_found": "No messages found for \"{query}\"",
+    "unknown": "Unknown",
+    "score": "Score: {score}",
+    "clear_search_aria": "Clear search",
+    "advanced_search_options_aria": "Advanced search options",
+    "tabs": {
+      "messages": "Messages",
+      "my_bids": "My Bids",
+      "bids_received": "Bids Received"
+    },
+    "my_bids": {
+      "title": "Bids I've Sent",
+      "subtitle": "Review the status of your bids",
+      "loading": "Loading your bids...",
+      "empty": {
+        "title": "No bids sent yet",
+        "message": "Start bidding on tasks to see them here.",
+        "browse_tasks": "Browse Tasks"
+      }
+    },
+    "bids_received": {
+      "title": "Bids I've Received",
+      "subtitle": "Review and manage bids for your tasks",
+      "loading": "Loading received bids...",
+      "empty": {
+        "title": "No bids received",
+        "message": "Create tasks to start receiving bids.",
+        "create_task": "Create Task"
+      }
+    }
+  }
+}

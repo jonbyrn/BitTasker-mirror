@@ -1,12 +1,7 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TaskBid } from './bid';
 import type { Event as NostrEvent } from 'nostr-tools';
-import {
-	BudgetTypeEnum,
-	TaskTypeEnum,
-	TaskStatusEnum,
-	SortByEnum,
-	SortOrderEnum
-} from '$lib/utils/enums/task.enum';
+import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
 
 export interface Location {
 	displayName: string;
@@ -26,6 +21,7 @@ export interface Budget {
 	currency: string;
 	type: BudgetTypeEnum;
 	estimatedHours?: number;
+	hourlyRate?: number;
 }
 
 export interface Attachment {
@@ -52,6 +48,7 @@ export interface TaskBody {
 }
 
 export interface Task {
+	estimatedHours: any;
 	id: string;
 	npub: string;
 	status: TaskStatusEnum;
@@ -105,11 +102,25 @@ export interface SearchTasksParams {
 		type?: BudgetTypeEnum;
 	};
 
+	// Enhanced search options
+	search?: string; // Búsqueda general (título + descripción + skills)
+	searchFields?: string[]; // ['title', 'description', 'skills'] - campos específicos
+	searchMode?: 'exact' | 'partial' | 'fuzzy'; // Modo de búsqueda
+
+	// Advanced filters
+	minBudget?: number; // Presupuesto mínimo
+	maxBudget?: number; // Presupuesto máximo
+	experienceLevel?: string; // Nivel de experiencia requerido
+
+	// Sorting
+	sortBy?: 'relevance' | 'date' | 'budget' | 'deadline';
+	sortOrder?: 'asc' | 'desc';
+
 	// Nostr-specific fields
-	since?: number;      // Unix timestamp in seconds
-	until?: number;      // Unix timestamp in seconds
+	since?: number; // Unix timestamp in seconds
+	until?: number; // Unix timestamp in seconds
 	kinds?: number[];
-	search?: string;     // NIP-50 search term
+	search?: string; // NIP-50 search term
 }
 
 export interface TaskData extends Task {
@@ -212,6 +223,6 @@ export interface NostrFilter {
 	since?: number;
 	until?: number;
 	limit?: number;
-	search?: string;  // NIP-50 search
-	[key: string]: string[] | number[] | string | number | undefined;  // Allow for custom filter attributes
+	search?: string; // NIP-50 search
+	[key: string]: string[] | number[] | string | number | undefined; // Allow for custom filter attributes
 }

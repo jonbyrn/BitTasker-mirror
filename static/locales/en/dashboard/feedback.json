@@ -1,0 +1,33 @@
+{
+  "feedback": {
+    "page_title": "Feedback | BitTasker",
+    "intro": "Thanks for testing BitTasker. Share your feedback with us!",
+    "required_hint": "An asterisk (*) indicates mandatory questions.",
+    "type_label": "Is this a bug, or a feature request? *",
+    "type_help_text": "A bug is a feature that's present that isn't working as it should be. A feature request is for adding new abilities to the app that aren't currently present.",
+    "bug": "Bug",
+    "feature": "Feature Request",
+    "describe_label": "Describe the issue *",
+    "describe_placeholder": "Please provide a detailed description of the bug or feature request...",
+    "screenshot": "Screenshot",
+    "screenshot_hint": "If possible, please include a screenshot that illustrates the issue you're seeing.",
+    "selected": "Selected:",
+    "choose_file": "Choose File",
+    "no_file": "No file chosen",
+    "contact_label": "Your contact info",
+    "contact_hint": "Please enter your email address, Telegram username, or WhatsApp number in case we have follow up questions.",
+    "contact_placeholder": "Your email, Telegram, or WhatsApp",
+    "submit": "Submit Feedback",
+    "submitting": "Submitting...",
+    "thank_you_title": "Thank You!",
+    "thank_you_message": "Your feedback has been submitted successfully. We appreciate you taking the time to help us improve BitTasker!",
+    "submit_another": "Submit More Feedback",
+    "errors": {
+      "select_type": "Please select Bug or Feature Request",
+      "provide_description": "Please provide a description",
+      "missing_user": "Unable to identify user. Please try again.",
+      "submit_failed": "Failed to submit feedback. Please try again."
+    }
+  }
+}
+

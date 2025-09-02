@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -58,7 +57,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h1 class="text-5xl">{$t('guidelines.title')}</h1>
+					<h3>{$t('guidelines.title')}</h3>
 					<p class="text-base-content/80 py-6 text-lg mb-6">
 						{@html $t('guidelines.intro')}
 					</p>

@@ -2,6 +2,7 @@
 	import type { Event as NostrEvent } from 'nostr-tools';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
@@ -23,7 +24,7 @@
 	<div class="flex-shrink-0">
 		<Avatar
 			user={{
-				name: profile.name || (isSender ? 'You' : 'Unknown'),
+				name: profile.name || (isSender ? $t('messages.you') : $t('messages.unknown')),
 				picture: profile.picture || null
 			}}
 			size="sm"

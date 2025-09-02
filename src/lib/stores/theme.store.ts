@@ -51,6 +51,6 @@ export async function setDarkMode(isDarkMode: boolean) {
 	// Update DOM immediately for responsive UI
 	document.documentElement.setAttribute(
 		'data-theme',
-		isDarkMode ? 'BitTasker-Dark' : 'BitTasker-Light'
+		isDarkMode ? 'dark' : 'light'
 	);
 }

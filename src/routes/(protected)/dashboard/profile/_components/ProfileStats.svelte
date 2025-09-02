@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	let { stats } = $props<{
 		stats: {
 			tasksCompleted: number;
@@ -8,20 +8,21 @@
 			onTimeRate: number;
 		};
 	}>();
+
 </script>
 
 <!-- Stats Cards -->
-<div class="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+<div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">{$t('stats.tasksCompleted')}</div>
-			<div class="stat-value text-xl">{stats.tasksCompleted}</div>
+			<div class="stat-title text-lg">{$t('stats.tasksCompleted')}</div>
+			<div class="stat-value text-3xl">{stats.tasksCompleted}</div>
 		</div>
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">{$t('stats.rating')}</div>
-			<div class="stat-value flex items-center text-xl">
+			<div class="stat-title text-lg">{$t('stats.rating')}</div>
+			<div class="stat-value flex items-center text-3xl">
 				{stats.rating}
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -40,14 +41,14 @@
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">{$t('stats.responseRate')}</div>
-			<div class="stat-value text-xl">{stats.responseRate}%</div>
+			<div class="stat-title text-lg">{$t('stats.responseRate')}</div>
+			<div class="stat-value text-3xl">{stats.responseRate}%</div>
 		</div>
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title">{$t('stats.onTimeRate')}</div>
-			<div class="stat-value text-xl">{stats.onTimeRate}%</div>
+			<div class="stat-title text-lg">{$t('stats.onTimeRate')}</div>
+			<div class="stat-value text-3xl">{stats.onTimeRate}%</div>
 		</div>
 	</div>
 </div>

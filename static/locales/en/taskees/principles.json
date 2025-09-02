@@ -1,0 +1,29 @@
+{
+    "taskee_principles": {
+        "title": "Taskee Principles",
+        "subtitle": "The values that guide how taskees should conduct themselves on BitTasker.",
+        "heading": "Our Taskee Principles",
+        "description": "These principles guide how taskees should conduct themselves on BitTasker. They represent the values that make our platform trustworthy and beneficial for both taskers and taskees.",
+        "section_title": "For Taskees",
+        "1": {
+            "title": "1. Deliver Excellence",
+            "text": "Complete every task to the highest possible standard. Your reputation depends on consistent quality work."
+        },
+        "2": {
+            "title": "2. Communicate Clearly",
+            "text": "Keep taskers informed about progress, potential issues, and any changes to the agreed scope."
+        },
+        "3": {
+            "title": "3. Be Reliable",
+            "text": "Honor your commitments and meet deadlines. If issues arise, communicate early and work toward solutions."
+        },
+        "4": {
+            "title": "4. Respect Privacy",
+            "text": "Protect confidential information and respect the privacy of taskers and their business."
+        },
+        "5": {
+            "title": "5. Be Professional",
+            "text": "Maintain professional conduct in all interactions and work with integrity."
+        }
+    }
+}

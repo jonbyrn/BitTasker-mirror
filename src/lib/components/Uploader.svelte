@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
-	import { t } from '$lib/stores/i18n.store';
+	import { t, locale } from 'svelte-i18n';
 
 	let {
 		id = 'image-uploader',
@@ -280,7 +280,7 @@
 	</div>
 
 	{#if error}
-		<div class="alert alert-error alert-xs sm:alert-sm py-1">
+		<div class="alert alert-outline alert-error alert-xs sm:alert-sm py-1">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"

@@ -1,6 +1,7 @@
 node_modules
 
 # Output
+.vite-inspect
 .output
 .vercel
 .netlify

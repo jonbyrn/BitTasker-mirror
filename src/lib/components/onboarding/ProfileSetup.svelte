@@ -3,6 +3,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { Preferences } from '@capacitor/preferences';
 	import { StorageKeys } from '$lib/utils/constants/storage';
+	import { t } from 'svelte-i18n';
+	import IconCheck from '~icons/mdi/check-circle-outline';
 	import {
 		publishProfileMetadata,
 		publishMultipleImages,
@@ -12,9 +14,11 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 
-	let { nextStep, prevStep } = $props<{
+	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
 		nextStep: () => void;
 		prevStep: () => void;
+		currentStep: number;
+		totalSteps: number;
 	}>();
 
 	// User data
@@ -54,7 +58,7 @@
 					// Handle profile metadata update (NIP-01 + NIP-24)
 					if (event.kind === 0) {
 						const metadata = JSON.parse(event.content);
-						
+
 						// Basic NIP-01 fields
 						displayName =
 							metadata.display_name || metadata.displayName || metadata.name || displayName;
@@ -111,7 +115,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
-					error = 'Failed to connect to Nostr relay. Please try again later.';
+					error = $t('onboarding_auth.form.failed_process_profile_update');
 				} finally {
 					isInitialLoading = false;
 				}
@@ -143,7 +147,7 @@
 				await publishMultipleImages([uploadedPicture], imageEventId, 'profile-images');
 			} catch (uploadErr) {
 				console.error('File upload failed:', uploadErr);
-				error = 'File upload failed';
+				error = $t('onboarding_auth.form.file_upload_failed');
 				isLoading = false;
 				return;
 			} finally {
@@ -174,7 +178,7 @@
 			];
 			skillsInput = '';
 		} else {
-			error = 'Skill already exists or is too short';
+			error = $t('onboarding_auth.form.skill_already_exists_or_too_short');
 		}
 	}
 
@@ -191,7 +195,9 @@
 		}
 	}
 
-	async function handleSubmit() {
+	async function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
+		
 		try {
 			isLoading = true;
 			error = '';
@@ -200,20 +206,26 @@
 
 			// Validate display name
 			if (!displayName) {
-				nameError = 'Display name is required';
+				nameError = $t('onboarding_auth.form.display_name_required');
 				isLoading = false;
 				return;
 			}
 
-			// Validate profile description
-			if (
-				!saveForLater &&
-				(!profileDescription || profileDescription.length < 200 || profileDescription.length > 2000)
-			) {
-				descriptionError =
-					'Please provide a profile description (minimum 200 characters, max 2000 characters)';
-				isLoading = false;
-				return;
+
+			// Validate profile description only when not saving for later
+			if (!saveForLater) {
+				if (!profileDescription) {
+					descriptionError = $t('onboarding_auth.form.profile_description_required');
+					isLoading = false;
+					return;
+				}
+
+				// Enforce minimum description length of 100 characters
+				if (profileDescription.trim().length < 100) {
+					descriptionError = `${profileDescription.trim().length}/100 ${$t('onboarding_auth.form.min_characters')}`;
+					isLoading = false;
+					return;
+				}
 			}
 
 			// Upload and publish profile picture if a new file is selected
@@ -243,7 +255,7 @@
 			nextStep();
 		} catch (err: unknown) {
 			console.error('Profile setup failed:', err);
-			error = err instanceof Error ? err.message : 'Profile setup failed';
+			error = err instanceof Error ? err.message : $t('onboarding_auth.form.profile_setup.errors.profile_setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -288,12 +300,46 @@
 {:else}
 	<div class="card bg-base-100 w-full shadow-xl">
 		<div class="card-body">
+			<!-- Educational Header -->
+            <div class="education-header mb-6 text-center">
+                <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
+                    {$t('onboarding_auth.form.profile_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.profile_setup.of')} {totalSteps}
+                </div>
+                <h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.profile_setup.title')}</h3>
+                <h5 class="mb-3">{$t('onboarding_auth.form.profile_setup.subtitle')}</h5>
+                <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
+                    {$t('onboarding_auth.form.profile_setup.description')}
+                </p>
+
+                <!-- Features List (aligned with Nostr import styling) -->
+                <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.visible')}</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.trustworthy')}</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.discoverable')}</span>
+                    </div>
+                    <div class="feature-item flex items-center justify-start gap-2 text-lg">
+                        <IconCheck class="text-primary min-w-[1.5em]" />
+                        <span>{@html $t('onboarding_auth.form.profile_setup.features.professional')}</span>
+                    </div>
+                </div>
+
+                <p class="text-primary mb-6 text-lg">{$t('onboarding_auth.form.profile_setup.stand_out')}</p>
+            </div>
+
 			<form onsubmit={handleSubmit} class="space-y-4">
 				<!-- Profile Picture Upload -->
 				<div class="form-control mx-auto w-full">
 					<Uploader
 						id="profilePicture"
-						label="Profile Picture"
+						label={$t('onboarding_auth.form.profile_setup.profile_picture')}
 						maxFiles={1}
 						className="h-32 w-full max-w-32 mx-auto"
 						files={selectedFile
@@ -313,16 +359,16 @@
 				</div>
 
 				<!-- Display Name Field -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="displayName">
-						<span class="label-text">Display Name</span>
+						<span class="label-text">{$t('onboarding_auth.form.display_name')}</span>
 					</label>
 					<input
 						type="text"
 						id="displayName"
 						bind:value={displayName}
 						class="input input-bordered w-full {nameError ? 'input-error' : ''}"
-						placeholder="Your full name"
+						placeholder={$t('onboarding_auth.form.your_full_name')}
 						required
 					/>
 					{#if nameError}
@@ -333,32 +379,33 @@
 				</div>
 
 				<!-- Professional Title Field -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="professionalTitle">
-						<span class="label-text">Professional Title</span>
+						<span class="label-text">{$t('onboarding_auth.form.professional_title')}</span>
 					</label>
 					<input
 						type="text"
 						id="professionalTitle"
 						bind:value={professionalTitle}
 						class="input input-bordered w-full"
-						placeholder="e.g. Plumber, Handyman, Developer"
+						placeholder={$t('onboarding_auth.form.professional_title_placeholder')}
 					/>
 				</div>
 
 				<!-- Profile Description Field -->
-				<div class="form-control">
-					<label class="label" for="profileDescription">
-						<span class="label-text">Profile Description</span>
-						<span class="label-text-alt">{profileDescription.length}/200 min</span>
-					</label>
+				<div class="form-control mx-auto max-w-xl">
+                    <label class="label" for="profileDescription">
+                        <span class="label-text">{$t('onboarding_auth.form.profile_description')}</span>
+                        <span class="label-text-alt">{profileDescription.length}/100 {$t('onboarding_auth.form.min_characters')}</span>
+                    </label>
 					<textarea
 						id="profileDescription"
 						bind:value={profileDescription}
+                        minlength={saveForLater ? undefined : 100}
 						class="textarea textarea-bordered h-24 w-full rounded-2xl {descriptionError
 							? 'textarea-error'
 							: ''}"
-						placeholder="Tell others about yourself, your skills, and experience"
+                        placeholder={$t('onboarding_auth.form.profile_description_placeholder')}
 						disabled={saveForLater}
 					></textarea>
 					{#if descriptionError}
@@ -369,18 +416,19 @@
 				</div>
 
 				<!-- Skills Tags -->
-				<div class="form-control">
+				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="skills">
-						<span class="label-text">Skills</span>
+						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
 						<span class="label-text-alt">{skills.length}/20</span>
 					</label>
-					<div class="join w-full">
+					<div class="skills-input-group join w-full">
 						<input
 							type="text"
 							id="skills"
 							bind:value={skillsInput}
 							class="input input-bordered join-item flex-1"
-							placeholder="Add skills (e.g. Carpentry, Coding)"
+							style="border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important;"
+							placeholder={$t('onboarding_auth.form.add_skills')}
 							onkeydown={handleSkillKeypress}
 							disabled={saveForLater || skills.length >= 20}
 						/>
@@ -390,19 +438,19 @@
 							onclick={addSkill}
 							disabled={saveForLater || !skillsInput || skills.length >= 20}
 						>
-							Add
+							{$t('onboarding_auth.form.profile_setup.add')}
 						</button>
 					</div>
 					<div class="mt-2 flex flex-wrap gap-2">
 						{#each skills as skill, index}
-							<div class="badge badge-lg gap-1">
-								<span class="mb-1">
+							<div class="badge badge-lg gap-1 bg-primary text-primary-content">
+								<span>
 									{skill.name}
 								</span>
 								<button
-									aria-label="Remove skill"
+									aria-label={$t('onboarding_auth.form.profile_setup.errors.remove_skill')}
 									type="button"
-									class="btn btn-ghost btn-xs p-0"
+									class="btn btn-ghost btn-xs p-0 text-primary-content"
 									onclick={() => removeSkill(index)}
 									disabled={saveForLater}
 								>
@@ -425,13 +473,13 @@
 				</div>
 
 				<!-- Save for Later Option -->
-				<div class="form-control space-y-2">
+				<div class="form-control space-y-2 mx-auto max-w-xl">
 					<label class="label flex cursor-pointer items-center justify-start gap-2">
 						<input type="checkbox" bind:checked={saveForLater} class="checkbox checkbox-sm" />
-						<span class="label-text">Save for later</span>
+						<span class="label-text">{$t('onboarding_auth.form.save_for_later')}</span>
 					</label>
 					<span class="text-base-content/70 block text-xs">
-						You can complete your profile later, but some features may be limited until you do.
+						{$t('onboarding_auth.form.you_can_complete_your_profile_later')}
 					</span>
 				</div>
 
@@ -457,7 +505,9 @@
 				<!-- Form Actions -->
 				<div class="mt-6 flex justify-between">
 					{#if showPrevBtn}
-						<button type="button" class="btn btn-outline" onclick={prevStep}> Back </button>
+						<button type="button" class="btn btn-outline" onclick={prevStep}>
+							{$t('onboarding_auth.form.back')}	
+						</button>
 					{:else}
 						<div></div>
 					{/if}
@@ -465,10 +515,23 @@
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{/if}
-						Next
+						{$t('onboarding_auth.form.next')}
 					</button>
 				</div>
 			</form>
 		</div>
 	</div>
 {/if}
+
+<style>
+	/* Fix skills input styling to create seamless connection with Add button */
+	.skills-input-group .input.join-item {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+	}
+
+	.skills-input-group .btn.join-item {
+		border-top-left-radius: 0;
+		border-bottom-left-radius: 0;
+	}
+</style>

@@ -32,7 +32,7 @@
 		</Modal>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Modal is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -52,7 +52,7 @@
 		</Modal>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Modal is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -82,7 +82,7 @@
 		</Modal>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Modal is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -111,7 +111,7 @@
 		</Modal>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Modal is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}

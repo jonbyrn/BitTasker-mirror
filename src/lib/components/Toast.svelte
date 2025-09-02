@@ -5,7 +5,8 @@
 	const toasts = $derived($appStore.toasts);
 </script>
 
-<div class="toast toast-top fixed z-[9999]">
+<!-- Ensure Toast has the highest z-index and is positioned at center bottom -->
+<div class="toast toast-bottom fixed z-[99999] left-1/2 transform -translate-x-1/2">
 	{#each toasts as toast (toast.id)}
 		<div
 			class="alert {toast.type === 'success'

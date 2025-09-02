@@ -1,12 +1,43 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { profileStore } from '$lib/stores/profile.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { user } from '$lib/stores/user.store';
+	import { t } from 'svelte-i18n';
 
 	let { logout } = $props<{
 		logout: () => void;
 	}>();
+
+	// Initialize user store when component mounts
+	onMount(async () => {
+		try {
+			await user.getUserData();
+		} catch (error) {
+			console.error('Failed to initialize user store:', error);
+		}
+	});
+
+	// Derived values for reactive updates
+	let userName = $derived($profileStore.data?.name || $user.name || 'Anonymous');
+
+	// Get the first image from pictures array, or fallback to user.picture or profileStore.data.picture
+	let userPicture = $derived(() => {
+		// First priority: first image from pictures array
+		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
+			return $profileStore.data.pictures[0].url;
+		}
+		// Second priority: user store picture
+		if ($user.picture) {
+			return $user.picture;
+		}
+		// Third priority: profile store picture
+		if ($profileStore.data?.picture) {
+			return $profileStore.data.picture;
+		}
+		return '';
+	});
 </script>
 
 <!-- Profile Header -->
@@ -23,18 +54,12 @@
 		<div class="flex flex-col gap-4">
 			<!-- User Profile -->
 			<div class="mb-4 flex items-center gap-4 md:mb-0">
-				<Avatar
-					user={{
-						name: $profileStore.data.name || '',
-						picture: $profileStore.data.picture || null
-					}}
-					size="xl"
-				/>
+				<Avatar name={userName} picture={userPicture()} size="xl" />
 				<div>
 					<div class="flex items-center gap-2">
-						<h2 class="text-2xl font-bold">
-							{$profileStore.data.name || 'Anonymous'}
-						</h2>
+						<h3 class="">
+							{userName}
+						</h3>
 						{#if $profileStore.data.professionalTitle}
 							<div class="badge badge-primary">{$profileStore.data.professionalTitle}</div>
 						{/if}
@@ -72,7 +97,6 @@
 			<button class="btn btn-primary" onclick={() => goto('/dashboard/profile/edit')}>
 				{$t('profile.page.edit_profile')}
 			</button>
-			<button class="btn btn-ghost" onclick={logout}>{$t('profile.page.logout_profile')}</button>
 		</div>
 	{:else if $profileStore.error}
 		<!-- Error State -->

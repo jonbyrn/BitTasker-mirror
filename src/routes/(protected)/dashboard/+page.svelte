@@ -4,17 +4,17 @@
 	import { slide } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskDrawer from '$lib/components/task/TaskDrawer.svelte';
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
-
+	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
 	// Tab management
 	let availableTabs = $state([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
+		{ id: 'bids', label: $t('dashboard.tabs.bids') },
 		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
-		// { id: 'bids', label: $t('dashboard.tabs.bids') },
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
 	let activeTab = $state('');
@@ -23,11 +23,9 @@
 	let selectedTask = $state<Task | null>(null);
 	let drawerOpen = $state(false);
 	let drawerInitialTab = $state('details');
-	let isLoading = $state(false);
 
 	// Set active tab based on URL param
 	onMount(() => {
-		isLoading = true;
 		const tabParam = page.url.searchParams.get('tab');
 		if (tabParam && availableTabs.some((tab) => tab.id === tabParam)) {
 			activeTab = tabParam;
@@ -36,7 +34,6 @@
 			// Set default tab in URL if not present
 			updateUrlParam(activeTab);
 		}
-		isLoading = false;
 	});
 
 	// Update URL when tab changes
@@ -60,41 +57,64 @@
 	};
 
 	const closeTaskDrawer = () => {
-		isLoading = true;
 		selectedTask = null;
 		drawerOpen = false;
-		setTimeout(() => {
-			isLoading = false;
-		}, 1000);
 	};
 </script>
 
-<div class="h-full px-4 py-8">
+<div class="mx-auto h-full max-w-7xl px-4 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
-		<h2 class="text-2xl font-bold">{$t('dashboard.title')}</h2>
-		<a href="/dashboard/create-task" class="btn btn-primary">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="mr-2 h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-			</svg>
-			{$t('dashboard.create_task')}
+		<div>
+			<h3 class="font-bold">{$t('dashboard.title')}</h3>
+			<p class="text-base-content/70 px-1">{$t('dashboard.description')}</p>
+		</div>
+		<a
+			href={activeTab === 'bids' || activeTab === 'saved-searches'
+				? '/dashboard/find-tasks'
+				: '/dashboard/create-task'}
+			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
+		>
+			{#if activeTab === 'bids' || activeTab === 'saved-searches'}
+				<!-- Lupa para buscar tareas -->
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			{:else}
+				<!-- Plus para crear tarea -->
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+				</svg>
+			{/if}
+			<span class="hidden sm:inline">
+				{activeTab === 'bids' || activeTab === 'saved-searches'
+					? $t('dashboard.find_tasks')
+					: $t('dashboard.create_task')}
+			</span>
+			<span class="sm:hidden">
+				{activeTab === 'bids' || activeTab === 'saved-searches'
+					? $t('dashboard.find_tasks')
+					: $t('dashboard.create_task')}
+			</span>
 		</a>
 	</div>
 
 	<!-- Dashboard Tabs -->
 	<Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} />
 
-	{#if isLoading}
-		<div class="flex h-full justify-center">
-			<span class="loading loading-spinner loading-lg"></span>
-		</div>
-	{:else if activeTab === 'tasks'}
+	{#if activeTab === 'tasks'}
 		<!-- Tasks Panel -->
 		<div
 			id="panel-tasks"
@@ -113,30 +133,16 @@
 		>
 			<DashboardSavedSearchesPanel />
 		</div>
-		<!-- {:else if activeTab === 'bids'}
+	{/if}
+	{#if activeTab === 'bids'}
 		<div
 			id="panel-bids"
 			role="tabpanel"
 			aria-labelledby="tab-bids"
-			class="card bg-base-100 rounded-xl shadow-xl"
 			transition:slide={{ duration: 300 }}
 		>
-			<div class="card-body">
-				<DashboardBidsPanel />
-			</div>
+			<DashboardBidsPanel />
 		</div>
-	{:else if activeTab === 'recurring'}
-		<div
-			id="panel-recurring"
-			role="tabpanel"
-			aria-labelledby="tab-recurring"
-			class="card bg-base-100 rounded-xl shadow-xl"
-			transition:slide={{ duration: 300 }}
-		>
-			<div class="card-body">
-				<RecurringTasksPanel />
-			</div>
-		</div> -->
 	{/if}
 </div>
 

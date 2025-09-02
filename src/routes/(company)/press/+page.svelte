@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data } = $props();
@@ -50,7 +49,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('press.title')}</h1>
+				<h3>{$t('press.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('press.description')}
 				</p>
@@ -63,7 +62,7 @@
 		<!-- Media Kit -->
 		<div class="card bg-base-100 shadow-lg">
 			<div class="card-body">
-				<h2 class="mb-4 mt-6">{$t('press.media_kit.title')}</h2>
+				<h3 class="mb-4 mt-6">{$t('press.media_kit.title')}</h3>
 				<p class="mb-6">{$t('press.media_kit.description')}</p>
 				<div class="flex flex-wrap gap-4">
 					<a
@@ -87,14 +86,14 @@
 
 		<!-- About BitTasker -->
 		<div class="prose max-w-none my-12">
-			<h2>{$t('press.about.title')}</h2>
+			<h3>{$t('press.about.title')}</h3>
 			<p>{$t('press.about.description')}</p>
 		</div>
 
 		<!-- Media Inquiries -->
 		<div class="card bg-base-100 text-center shadow-lg max-w-lg mx-auto">
 			<div class="card-body text-center">
-				<h2 class="mb-4 mt-6">{$t('press.inquiries.title')}</h2>
+				<h3 class="mb-4 mt-6">{$t('press.inquiries.title')}</h3>
 				<p class="mx-auto mb-6 max-w-lg">{$t('press.inquiries.description')}</p>
 				<div class="card-actions mt-4 flex justify-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide">

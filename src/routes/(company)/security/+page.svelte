@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import IconEmailOutline from '~icons/mdi/email-outline';
 
 	let { data } = $props();
@@ -61,7 +60,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('about.security.title')}</h1>
+				<h3>{$t('about.security.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('about.security.description')}
 				</p>
@@ -72,7 +71,7 @@
 	<!-- Security Overview -->
 	<div class="prose mx-auto max-w-6xl my-16 px-8">
 		<div class="mb-8 text-center">
-			<h2>{$t('about.security_approach.title')}</h2>
+			<h3>{$t('about.security_approach.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
 				{$t('about.security_approach.description')}
 			</p>
@@ -247,7 +246,7 @@
 
 		<!-- Additional Security Measures -->
 		<div class="mt-12">
-			<h2 class="mb-6 text-center">{$t('about.additional_security.title')}</h2>
+			<h3 class="mb-6 text-center">{$t('about.additional_security.title')}</h3>
 
 			<!-- Decentralized Identity -->
 			<div class="card bg-base-100 border-base-300 mb-6 border shadow-lg">
@@ -324,7 +323,7 @@
 
 		<!-- Security Best Practices -->
 		<div class="mt-12">
-			<h2 class="mb-6 text-center">{$t('about.security_practices.title')}</h2>
+			<h3 class="mb-6 text-center">{$t('about.security_practices.title')}</h3>
 
 			<div class="alert alert-warning alert-outline mb-8">
 				<svg
@@ -417,9 +416,9 @@
 
 		<!-- Security Commitment -->
 		<div class="mt-12 text-center max-w-6xl mx-auto prose">
-			<h2 class="mb-4">{$t('about.security_commitment.title')}</h2>
+			<h3 class="mb-4">{$t('about.security_practices.commitment.title')}</h3>
 			<p class="mx-auto text-lg">
-				{$t('about.security_commitment.description')}
+				{$t('about.security_practices.commitment.description')}
 			</p>
 
 			<div class="alert alert-warning alert-outline mx-auto mt-8">
@@ -437,19 +436,19 @@
 					/>
 				</svg>
 				<span class="text-sm">
-					<strong>{$t('about.security_commitment.warning_title')}</strong>
-					{$t('about.security_commitment.warning_text')}
+					<strong>{$t('about.security_practices.commitment.warning_title')}</strong>
+					{$t('about.security_practices.commitment.warning_text')}
 				</span>
 			</div>
 
 			<div class="card bg-base-100 border-base-300 mx-auto mt-8 max-w-lg border shadow-lg">
 				<div class="card-body items-center text-center">
-					<h3 class="card-title">{$t('about.security_commitment.question_title')}</h3>
-					<p>{$t('about.security_commitment.question_description')}</p>
+					<h3 class="card-title">{$t('about.security_practices.commitment.question_title')}</h3>
+					<p>{$t('about.security_practices.commitment.question_description')}</p>
 					<div class="card-actions">
 						<a href={mailtoHref} class="btn btn-primary btn-wide mt-4">
 							<IconEmailOutline class="text-xl" />
-							{$t('about.security_commitment.contact')}
+							{$t('about.security_practices.commitment.contact')}
 						</a>
 					</div>
 				</div>

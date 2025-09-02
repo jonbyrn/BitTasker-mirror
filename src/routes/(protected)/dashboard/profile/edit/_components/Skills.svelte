@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Skill, SkillCertification } from '$lib/types/profile.d';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import {
@@ -556,7 +556,7 @@
 
 		<!-- Error Message -->
 		{#if error}
-			<div class="alert alert-error">
+			<div class="alert alert-outline alert-error">
 				<span>{error}</span>
 			</div>
 		{/if}
@@ -564,7 +564,7 @@
 
 	<!-- Success Toast -->
 	<div id="skills-toast-success" class="toast toast-end" style="display: none;">
-		<div class="alert alert-success">
+		<div class="alert alert-outline alert-success">
 			<span>{$t('profile.skills.save_success')}</span>
 		</div>
 	</div>

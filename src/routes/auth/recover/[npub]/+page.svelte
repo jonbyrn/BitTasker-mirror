@@ -5,7 +5,10 @@
 	import { onMount } from 'svelte';
 	import { authState } from '$lib/stores/auth.store';
 	import { validatePassword } from '$lib/utils/helpers/validators';
-	import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
 	import { decryptRecoveryNsec, encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
@@ -13,17 +16,18 @@
 		setWebBiometricKey
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
+	import { generatePassword } from '$lib/utils/helpers/password';
 
 	const npub = page.params.npub;
-
-	let recoveryCode = $state('');
-	let currentPassword = $state('');
-	let newPassword = $state('');
-	let confirmPassword = $state('');
-	let privateKey = $state('');
+	
+	let recoveryCode = $state<string>('');
+	let currentPassword = $state<string>('');
+	let newPassword = $state<string>('');
+	let confirmPassword = $state<string>('');
+	let privateKey = $state<string>('');
 	let isLoading = $state(false);
-	let error = $state('');
-	let passwordError = $state('');
+	let error = $state<string>('');
+	let passwordError = $state<string>('');
 	let step = $state(1); // 1: Current Password, 2: New Password
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
@@ -33,17 +37,38 @@
 		webAuthn: false
 	});
 
+	// Early return if npub is not available
+	if (!npub) {
+		error = 'Invalid recovery link';
+	}
+
 	onMount(async () => {
+		if (!npub) return;
+		
 		try {
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
+			newPassword = generatePassword();
 		} catch (err) {
 			console.error('Failed to fetch recovery data:', err);
 			error = 'Failed to load recovery data';
 		}
 	});
+
+	function regeneratePassword() {
+		newPassword = generatePassword();
+	}
+
+	async function copyToClipboard(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			// You could add a toast notification here if you want
+		} catch (err) {
+			console.error('Failed to copy password:', err);
+		}
+	}
 
 	async function decryptPrivateKey(event: Event) {
 		event.preventDefault();
@@ -108,6 +133,11 @@
 			const { encrypted: secondaryEncrypted } = await encryptRecoveryNsec(privateKey, newPassword);
 
 			// Complete recovery
+			if (!npub) {
+				error = 'Invalid recovery link';
+				return;
+			}
+			
 			await authService.completeNostrRecovery({
 				publicKey: npub,
 				otp: recoveryCode,
@@ -293,15 +323,19 @@
 								id="newPassword"
 								bind:value={newPassword}
 								placeholder="Enter new password"
-								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-10"
+								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
 								required
 							/>
-							<button
-								type="button"
-								class="absolute inset-y-0 right-0 flex items-center pr-3"
-								onclick={() => (showNewPassword = !showNewPassword)}
-							>
-								{#if showNewPassword}
+							<div class="absolute inset-y-0 right-0 flex items-center pr-3">
+								<!-- Copy Button -->
+								<button
+									type="button"
+									class="mr-2"
+									onclick={() => copyToClipboard(newPassword)}
+									disabled={!newPassword}
+									title="Copy password to clipboard"
+									aria-label="Copy password to clipboard"
+								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="h-5 w-5"
@@ -313,10 +347,17 @@
 											stroke-linecap="round"
 											stroke-linejoin="round"
 											stroke-width="2"
-											d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+											d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
 										/>
 									</svg>
-								{:else}
+								</button>
+								<!-- Regenerate Button -->
+								<button
+									aria-label="Regenerate password"
+									type="button"
+									class="mr-2"
+									onclick={regeneratePassword}
+								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
 										class="h-5 w-5"
@@ -328,17 +369,55 @@
 											stroke-linecap="round"
 											stroke-linejoin="round"
 											stroke-width="2"
-											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-										/>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											d="M8.25 4.5l7.5 7.5-7.5 7.5"
 										/>
 									</svg>
-								{/if}
-							</button>
+								</button>
+								<!-- Show/Hide Button -->
+								<button 
+									type="button" 
+									onclick={() => (showNewPassword = !showNewPassword)}
+									aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+								>
+									{#if showNewPassword}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+											/>
+										</svg>
+									{:else}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-5 w-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+											/>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											/>
+										</svg>
+									{/if}
+								</button>
+							</div>
 						</div>
 					</div>
 
@@ -346,28 +425,80 @@
 						<label class="label" for="confirmPassword">
 							<span class="label-text">Confirm New Password</span>
 						</label>
-						<input
-							type={showNewPassword ? 'text' : 'password'}
-							id="confirmPassword"
-							bind:value={confirmPassword}
-							placeholder="Confirm new password"
-							class="input input-bordered w-full {passwordError ? 'input-error' : ''}"
-							required
-						/>
+						<div class="relative">
+							<input
+								type={showNewPassword ? 'text' : 'password'}
+								id="confirmPassword"
+								bind:value={confirmPassword}
+								placeholder="Confirm new password"
+								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
+								required
+							/>
+							<!-- Copy Button -->
+							<button
+								type="button"
+								class="absolute inset-y-0 right-0 flex items-center pr-3"
+								onclick={() => copyToClipboard(confirmPassword)}
+								disabled={!confirmPassword}
+								title="Copy password to clipboard"
+								aria-label="Copy password to clipboard"
+							>
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+									/>
+								</svg>
+							</button>
+						</div>
 						{#if passwordError}
 							<span class="text-error text-sm">{passwordError}</span>
 						{/if}
 					</div>
 
-					<div class="alert alert-info alert-outline">
-						<div class="flex items-start gap-3">
-							<ul class="list-inside list-disc text-sm">
-								<li>Use at least 8 characters</li>
-								<li>Include numbers and special characters</li>
-								<li>Avoid using personal information</li>
-							</ul>
+					<!-- Password Guidelines -->
+					{#if newPassword}
+						<div class="space-y-1 text-sm">
+							<p class="font-medium">Password Requirements</p>
+							<div class="flex flex-wrap gap-x-4 gap-y-1">
+								<span
+									class={newPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Use at least 8 characters
+								</span>
+								<span
+									class={/[A-Z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Include uppercase letters
+								</span>
+								<span
+									class={/[a-z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Include lowercase letters
+								</span>
+								<span
+									class={/[0-9]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
+								>
+									✓ Include numbers
+								</span>
+								<span
+									class={/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
+										? 'text-success'
+										: 'text-base-content/60'}
+								>
+									✓ Include special characters
+								</span>
+							</div>
 						</div>
-					</div>
+					{/if}
 
 					<button type="submit" class="btn btn-primary w-full" disabled={isLoading}>
 						{#if isLoading}

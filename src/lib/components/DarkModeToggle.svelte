@@ -1,6 +1,6 @@
 <script lang="ts">
 import { darkMode } from '$lib/stores/theme.store';
-import { t } from '$lib/stores/i18n.store';
+import { t } from 'svelte-i18n';
 
 let { className = '', tooltip = '' } = $props();
 

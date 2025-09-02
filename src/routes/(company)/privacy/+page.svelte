@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import { darkMode } from '$lib/stores/theme.store';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -45,7 +44,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h1 class="text-5xl">{$t('privacy.title')}</h1>
+				<h3>{$t('privacy.title')}</h3>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('privacy.subtitle')}
 				</p>
@@ -57,10 +56,10 @@
 	</section>
 
 	<div class="prose mx-auto max-w-4xl my-16 px-8">
-		<h2>{$t('privacy.sections.philosophy.title')}</h2>
+		<h3>{$t('privacy.sections.philosophy.title')}</h3>
 		<p>{@html $t('privacy.sections.philosophy.content')}</p>
 
-		<h2>{$t('privacy.sections.data_collection.title')}</h2>
+		<h3>{$t('privacy.sections.data_collection.title')}</h3>
 		<p>{$t('privacy.sections.data_collection.content')}</p>
 
 		<h3>{$t('privacy.sections.public_data.title')}</h3>
@@ -76,7 +75,7 @@
 		<h3>{$t('privacy.sections.private_data.title')}</h3>
 		<p>{@html $t('privacy.sections.private_data.content')}</p>
 
-		<h2>{$t('privacy.sections.analytics.title')}</h2>
+		<h3>{$t('privacy.sections.analytics.title')}</h3>
 		<p>{$t('privacy.sections.analytics.intro')}</p>
 		<p>
 			<strong>{$t('privacy.sections.analytics.warning_title')}</strong>
@@ -89,19 +88,19 @@
 			<li>{$t('privacy.sections.analytics.performance')}</li>
 		</ul>
 
-		<h2>{$t('privacy.sections.use_of_info.title')}</h2>
+		<h3>{$t('privacy.sections.use_of_info.title')}</h3>
 		<p>{$t('privacy.sections.use_of_info.content')}</p>
 
-		<h2>{$t('privacy.sections.storage.title')}</h2>
+		<h3>{$t('privacy.sections.storage.title')}</h3>
 		<p>{$t('privacy.sections.storage.content')}</p>
 
-		<h2>{$t('privacy.sections.rights.title')}</h2>
+		<h3>{$t('privacy.sections.rights.title')}</h3>
 		<p>{$t('privacy.sections.rights.content')}</p>
 
-		<h2>{$t('privacy.sections.changes.title')}</h2>
+		<h3>{$t('privacy.sections.changes.title')}</h3>
 		<p>{$t('privacy.sections.changes.content')}</p>
 
-		<h2>{$t('privacy.sections.contact.title')}</h2>
+		<h3>{$t('privacy.sections.contact.title')}</h3>
 		<p>{@html $t('privacy.sections.contact.content')}</p>
 	</div>
 </div>

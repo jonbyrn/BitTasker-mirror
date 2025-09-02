@@ -2,11 +2,12 @@
 	import { deviceInfo } from '$lib/stores/deviceInfo.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircle from '~icons/mdi/plus-circle';
 	import IconMagnify from '~icons/mdi/magnify';
+	import IconHandshake from '~icons/mdi/handshake';
 	import IconWallet from '~icons/mdi/wallet';
 	import IconAccount from '~icons/mdi/account';
 	import IconMessage from '~icons/mdi/message';
@@ -23,6 +24,7 @@
 			'mdi:format-list-bulleted': IconFormatListBulleted,
 			'mdi:plus-circle': IconPlusCircle,
 			'mdi:magnify': IconMagnify,
+			'mdi:handshake': IconHandshake,
 			'mdi:wallet': IconWallet,
 			'mdi:account': IconAccount,
 			'mdi:message': IconMessage,
@@ -34,7 +36,7 @@
 	// Create a reactive component map for Svelte 5 compatibility
 	let iconComponents = $derived.by(() => {
 		const components = new Map();
-		sections.forEach(section => {
+		sections.forEach((section) => {
 			components.set(section.icon, getIconComponent(section.icon));
 		});
 		return components;
@@ -52,98 +54,57 @@
 		name="description"
 		content="Manage your tasks, bids, and wallet on BitTasker's dashboard."
 	/>
-
-	<script>
-		((g) => {
-			var h,
-				a,
-				k,
-				p = 'The Google Maps JavaScript API',
-				c = 'google',
-				l = 'importLibrary',
-				q = '__ib__',
-				m = document,
-				b = window;
-			b = b[c] || (b[c] = {});
-			var d = b.maps || (b.maps = {}),
-				r = new Set(),
-				e = new URLSearchParams(),
-				u = () =>
-					h ||
-					(h = new Promise(async (f, n) => {
-						await (a = m.createElement('script'));
-						e.set('libraries', [...r] + '');
-						for (k in g)
-							e.set(
-								k.replace(/[A-Z]/g, (t) => '_' + t[0].toLowerCase()),
-								g[k]
-							);
-						e.set('callback', c + '.maps.' + q);
-						a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
-						d[q] = f;
-						a.onerror = () => (h = n(Error(p + ' could not load.')));
-						a.nonce = m.querySelector('script[nonce]')?.nonce || '';
-						m.head.append(a);
-					}));
-			d[l]
-				? console.warn(p + ' only loads once. Ignoring:', g)
-				: (d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)));
-		})({
-			key: 'AIzaSyAqWtItXmQGJWbTOGX-CW2VciMuKiUMqZY',
-			v: 'weekly'
-			// Use the 'v' parameter to indicate the version to use (weekly, beta, alpha, etc.).
-			// Add other bootstrap parameters as needed, using camel case.
-		});
-	</script>
 </svelte:head>
 
 <svelte:window bind:innerWidth={width} />
 
-<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 sm:px-4 sm:py-8">
-	{#if $deviceInfo?.platform === 'web' && width > 768}
-		<!-- Sidebar -->
+<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width > 768}
+		<!-- Fixed Sidebar -->
 		<div class="w-full flex-shrink-0 md:w-64">
-			<div class="card bg-base-100 mb-6 shadow-xl rounded-xl">
-				<div class="card-body p-4">
-					<h2 class="card-title text-lg">{$t('dashboard.titl')}</h2>
-					<div class="divider my-2"></div>
-					<ul class="menu bg-base-100 rounded-box w-full">
-						{#each sections as section}
-							<li>
-								<a
-									data-sveltekit-reload="off"
-									href="/dashboard/{section.id}"
-									class:menu-active={activeSection === section.id}
-									class="flex items-center gap-3"
-								>
-									{#if section.icon === 'mdi:format-list-bulleted'}
-										<IconFormatListBulleted class="text-primary" />
-									{:else if section.icon === 'mdi:plus-circle'}
-										<IconPlusCircle class="text-primary" />
-									{:else if section.icon === 'mdi:magnify'}
-										<IconMagnify class="text-primary" />
-									{:else if section.icon === 'mdi:wallet'}
-										<IconWallet class="text-primary" />
-									{:else if section.icon === 'mdi:account'}
-										<IconAccount class="text-primary" />
-									{:else if section.icon === 'mdi:message'}
-										<IconMessage class="text-primary" />
-									{:else if section.icon === 'mdi:cog'}
-										<IconCog class="text-primary" />
-									{:else}
-										<IconFormatListBulleted class="text-primary" />
-									{/if}
-									{$t(section.label)}
-								</a>
-							</li>
-						{/each}
-					</ul>
+			<div class="fixed top-24 left-8 z-10 w-56">
+				<div class="card bg-base-100 rounded-xl shadow-xl">
+					<div class="card-body p-4">
+						<ul class="menu bg-base-100 rounded-box w-full">
+							{#each sections as section}
+								<li class="my-1">
+									<a
+										data-sveltekit-reload="off"
+										href="/dashboard/{section.id}"
+										class:menu-active={activeSection === section.id}
+										class="flex items-center gap-3"
+									>
+										{#if section.icon === 'mdi:format-list-bulleted'}
+											<IconFormatListBulleted class="text-primary" />
+										{:else if section.icon === 'mdi:plus-circle'}
+											<IconPlusCircle class="text-primary" />
+										{:else if section.icon === 'mdi:magnify'}
+											<IconMagnify class="text-primary" />
+										{:else if section.icon === 'mdi:handshake'}
+											<IconHandshake class="text-primary" />
+										{:else if section.icon === 'mdi:wallet'}
+											<IconWallet class="text-primary" />
+										{:else if section.icon === 'mdi:account'}
+											<IconAccount class="text-primary" />
+										{:else if section.icon === 'mdi:message'}
+											<IconMessage class="text-primary" />
+										{:else if section.icon === 'mdi:cog'}
+											<IconCog class="text-primary" />
+										{:else}
+											<IconFormatListBulleted class="text-primary" />
+										{/if}
+										{$t(section.label)}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					</div>
 				</div>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Main Content -->
+	<!-- Main Content with left margin for fixed sidebar -->
 	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>

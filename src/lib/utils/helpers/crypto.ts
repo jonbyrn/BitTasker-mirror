@@ -111,39 +111,17 @@ export async function deriveKeyFromPassword(
 	}
 }
 
-/**
- * Calculate estimated USDT value based on BTC amount
- */
-export function calculateUsdtEstimate(budget: number, btcPrice: number): string {
-	const estimatedValue = budget * btcPrice;
-	return estimatedValue.toLocaleString('en-US', {
-		maximumFractionDigits: 2,
-		minimumFractionDigits: 2
-	});
-}
-
-export function formatBtcToSats(amountBtc: number | string): string {
-	let str = amountBtc.toString();
-
-	if (/[eE]/.test(str)) {
-		str = Number(str).toFixed(8);
-	}
-
-	const [whole = '0', decimals = ''] = str.split('.');
-	const padded = (decimals + '0'.repeat(8)).slice(0, 8);
-
-	const satsBig = BigInt(whole) * 100_000_000n + BigInt(padded);
-	const formatted = Intl.NumberFormat('en-US').format(Number(satsBig));
-
-	return `${formatted} Sats`;
-}
-
 export const SATS_PER_BTC = 100_000_000;
 
-export function satsFromUsd(usd: number, price: number) {
-	return Math.round((usd / price) * SATS_PER_BTC);
-}
+export function satsFromUsd(usd: number, btcPrice: number): string {
+	if (!usd || !btcPrice) return '0 Sats';
 
+	const btcAmount = usd / btcPrice;
+
+	const sats = BigInt(Math.round(btcAmount * SATS_PER_BTC));
+
+	return `${sats.toLocaleString('en-US')} Sats`;
+}
 export function usdFromSats(sats: number, price: number) {
 	const value = (sats / SATS_PER_BTC) * price;
 	return parseFloat(value.toFixed(3));

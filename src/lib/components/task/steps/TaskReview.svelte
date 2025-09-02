@@ -6,8 +6,11 @@
 	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import TaskReviewLocation from '../TaskReviewLocation.svelte';
-	import { formatNumberForInput, usdFromSats } from '$lib/utils/helpers/crypto';
-	import { t } from '$lib/stores/i18n.store';
+	import {
+		satsFromUsd
+	} from '$lib/utils/helpers/crypto';
+	import { t } from 'svelte-i18n';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	let { direction } = $props();
 
@@ -15,7 +18,7 @@
 	/**
 	 * Fetch current BTC price
 	 */
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0); // Default fallback price
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -23,7 +26,6 @@
 		} catch (error) {}
 	}
 
-	// Fetch BTC price on mount
 	onMount(fetchBtcPrice);
 </script>
 
@@ -36,11 +38,9 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h2 class="text-xl font-semibold">{$t('task.review_title')}</h2>
-
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
-			<h3 class="mb-2 text-lg font-medium">{$t('task.basic_information')}</h3>
+			<h4 class="mb-2 font-medium">{$t('task.basic_information')}</h4>
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				<div>
 					<span class="font-medium">{$t('task.title')}</span>
@@ -49,7 +49,7 @@
 
 				<div>
 					<span class="font-medium">{$t('task.task_type')}</span>
-					<span
+					<span class="text-xs"
 						>{$store.task.taskType === TaskTypeEnum.IN_PERSON
 							? $t('task.in_person')
 							: $t('task.remote')}</span
@@ -95,67 +95,82 @@
 
 	<div class="card bg-base-200 shadow-sm">
 		<div class="card-body p-4">
-			<h3 class="mb-2 text-lg font-medium">{$t('task.budget_details')}</h3>
-			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-				<div>
-					<span class="font-medium">{$t('task.budget_type')}</span>
+			<h4 class="mb-2 font-medium">{$t('task.budget_details')}</h4>
+
+			<!-- Budget Type and Amount in first row -->
+			<div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+				<div class="flex flex-col">
+					<span class="text-base-content/60 font-medium">{$t('task.budget_type')}</span>
 					<span>
 						{$store.task.budget.type === BudgetTypeEnum.FIXED
 							? $t('task.budget_fixed')
 							: $t('task.budget_hourly')}
 					</span>
-				</div>
-				<div class="flex flex-col items-center gap-2">
-					<span class="font-medium">{$t('task.budget_amount')}</span>
-
-					<div class="flex flex-col items-start">
-						<span class="font-semibold">{formatNumberForInput($store.task.budget.amount)} Sats</span
-						>
-						<span class="text-info text-xs"
-							>≈ {usdFromSats($store.task.budget.amount, btcPrice)} USDT</span
-						>
-					</div>
-				</div>
-
-				{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-					<div>
-						<span class="font-medium">{$t('task.estimated_hours_review')}</span>
-						<span>{$store.task.budget.amount}</span>
-					</div>
-				{/if}
-			</div>
-
-			<h4 class="mt-3 font-medium">{$t('task.description_label')}</h4>
-			<div class="bg-base-100 mt-1 rounded-md p-3">
-				<p>{$store.task.description}</p>
-			</div>
-
-			{#if $store.task.attachments && $store.task.attachments.length > 0}
-				<h4 class="mt-3 font-medium">{$t('task.attachments_review')}</h4>
-				<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-					{#each $store.task.attachments as attachment}
-						<div class="relative overflow-hidden rounded-lg">
-							{#if attachment.type?.startsWith('video/')}
-								<video
-									src={attachment.url}
-									class="h-32 w-full object-cover"
-									controls
-									muted={false}
-									autoplay={false}
-									loop={false}
+					<!-- Estimated Hours in second row (only for hourly) -->
+					{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
+						<div class="mt-3 mb-2">
+							<div class="flex flex-col">
+								<span class="text-base-content/60 font-medium"
+									>{$t('task.estimated_hours_review')}</span
 								>
-									<track kind="captions" />
-								</video>
-							{:else}
-								<img
-									src={attachment.url}
-									alt={attachment.alt}
-									class="h-32 w-full object-cover"
-									loading="lazy"
-								/>
-							{/if}
+								<span>{$store.task.budget.estimatedHours}</span>
+							</div>
 						</div>
-					{/each}
+					{/if}
+				</div>
+
+				<div>
+					<span class="text-base-content/60 font-medium">{$t('task.budget_amount')}</span>
+
+					<div class="text-lg font-bold">
+						${formatNumberWithTwoDecimals($store.task.budget.amount)}
+
+						<div class="text-base-content/60 text-sm">
+							{satsFromUsd($store.task.budget.amount, btcPrice)}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Description with fixed height and scroll -->
+			<div class="mb-4">
+				<h4 class="mb-2 font-medium">{$t('task.description_label')}</h4>
+				<div class="bg-base-100 rounded-md p-3">
+					<div class="max-h-[7rem] overflow-y-auto">
+						<p>{$store.task.description}</p>
+					</div>
+				</div>
+			</div>
+
+			<!-- Attachments -->
+			{#if $store.task.attachments && $store.task.attachments.length > 0}
+				<div>
+					<h4 class="mb-2 font-medium">{$t('task.attachments_review')}</h4>
+					<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
+						{#each $store.task.attachments as attachment}
+							<div class="relative overflow-hidden rounded-lg">
+								{#if attachment.type?.startsWith('video/')}
+									<video
+										src={attachment.url}
+										class="h-32 w-full object-cover"
+										controls
+										muted={false}
+										autoplay={false}
+										loop={false}
+									>
+										<track kind="captions" />
+									</video>
+								{:else}
+									<img
+										src={attachment.url}
+										alt={attachment.alt}
+										class="h-32 w-full object-cover"
+										loading="lazy"
+									/>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				</div>
 			{/if}
 		</div>

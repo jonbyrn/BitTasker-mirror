@@ -35,7 +35,7 @@
 		</Drawer>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Drawer is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -70,7 +70,7 @@
 		</Drawer>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Drawer is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -119,7 +119,7 @@
 		</Drawer>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Drawer is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -169,7 +169,7 @@
 		</Drawer>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Drawer is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}
@@ -206,7 +206,7 @@
 		</Drawer>
 
 		{#if !args.isOpen}
-			<div class="alert alert-info">
+			<div class="alert alert-outline alert-info">
 				<p>Drawer is currently closed. Use the controls to open it.</p>
 			</div>
 		{/if}

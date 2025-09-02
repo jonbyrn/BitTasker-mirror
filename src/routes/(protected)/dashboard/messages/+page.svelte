@@ -5,13 +5,14 @@
 	import {
 		fetchProfileMetadata,
 		getMessagedPeople,
+		getMessageHistory,
 		listenForIncomingMessages,
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 
 	// State
 	let conversations = $state<
@@ -55,16 +56,47 @@
 	// Load conversations on mount
 	onMount(async () => {
 		try {
-			// Load existing conversations
+			// Obtener conversaciones pero excluir las que solo contengan bids
 			const people = await getMessagedPeople();
-			conversations = people;
+			
+			// Filtrar conversaciones que NO sean solo de bids
+			const filteredConversations = [];
+			
+			for (const person of people) {
+				try {
+					// Obtener historial de mensajes con esta persona
+					const messageHistory = await getMessageHistory(person.pubkey, { limit: 50 });
+					
+					// Verificar si hay mensajes que NO sean bids
+					const hasNonBidMessages = messageHistory.some(message => {
+						try {
+							const parsedContent = JSON.parse(message.plaintext);
+							// Incluir conversación si tiene al menos un mensaje que NO sea bid
+							return parsedContent.messageType !== 'bid';
+						} catch {
+							// Si no se puede parsear, es un mensaje normal (incluir)
+							return true;
+						}
+					});
+					
+					// Solo incluir conversaciones que tengan mensajes normales
+					if (hasNonBidMessages) {
+						filteredConversations.push(person);
+					}
+				} catch (err) {
+					// Si hay error, incluir la conversación por seguridad
+					filteredConversations.push(person);
+				}
+			}
+			
+			conversations = filteredConversations;
 
 			// Setup profile subscriptions for existing conversations
 			for (const conversation of conversations) {
 				setupProfileSubscription(conversation.pubkey);
 			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load conversations';
+        } catch (err) {
+            error = 'messages.failed_load_conversations';
 		} finally {
 			isLoading = false;
 		}
@@ -195,15 +227,15 @@
 		let hexPubkey = value;
 
 		// Convert npub to hex if needed
-		if (value.startsWith('npub')) {
+        if (value.startsWith('npub')) {
 			try {
 				hexPubkey = nip19.decode(value).data as string;
 			} catch {
-				newMessageError = 'Invalid npub format';
+                newMessageError = 'messages.invalid_npub_format';
 				return;
 			}
-		} else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
-			newMessageError = 'Invalid public key format';
+        } else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+            newMessageError = 'messages.invalid_pubkey_format';
 			return;
 		}
 
@@ -214,8 +246,8 @@
 			if (profileEvent && profileEvent.name && profileEvent.picture) {
 				newMessageProfile = { name: profileEvent.name, picture: profileEvent.picture };
 			}
-		} catch {
-			newMessageError = 'Failed to fetch profile';
+        } catch {
+            newMessageError = 'messages.failed_fetch_profile';
 		} finally {
 			isProfileLoading = false;
 		}
@@ -225,15 +257,15 @@
 		e.preventDefault();
 		let value = newMessagePubkey.trim();
 		let hexPubkey = value;
-		if (value.startsWith('npub')) {
+        if (value.startsWith('npub')) {
 			try {
 				hexPubkey = nip19.decode(value).data as string;
 			} catch {
-				newMessageError = 'Invalid npub format';
+                newMessageError = 'messages.invalid_npub_format';
 				return;
 			}
-		} else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
-			newMessageError = 'Invalid public key format';
+        } else if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+            newMessageError = 'messages.invalid_pubkey_format';
 			return;
 		}
 
@@ -243,11 +275,15 @@
 	}
 </script>
 
-<div class="mx-auto flex h-full max-w-7xl flex-col p-4 sm:p-0">
-	<!-- Header -->
-	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
-		<h2 class="text-2xl font-bold">{$t('messages.title')}</h2>
-		<button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button>
+<div class="mx-auto max-w-7xl p-4 sm:p-0">
+	<!-- Header -->		
+	<div class="mb-6 flex flex-shrink-0 items-center justify-between"> 	
+		<div>
+			<h3 class="">{$t('messages.title')}</h3>
+			<p class="text-base-content/70">{$t('messages.subtitle')}</p>
+		</div>
+		<!-- The below button is commented out because we don't currently want the user to be able to message anyone, just taskers/taskees that they're hiring, or hired  -->
+		<!-- <button class="btn btn-primary" onclick={startNewMessage}>{$t('messages.new_message')} </button> -->
 	</div>
 
 	<!-- Modal -->
@@ -257,14 +293,14 @@
 		checked={showModal}
 		style="display:none"
 		readonly
-		aria-label="Toggle new message modal"
+        aria-label={$t('messages.toggle_new_message_modal')}
 	/>
 	{#if showModal}
 		<div class="modal modal-open">
 			<div class="modal-box max-w-md">
 				<!-- Modal Header -->
 				<div class="mb-6">
-					<h3 class="text-xl font-semibold">{$t('messages.start_new_message')}</h3>
+					<h3 class="">{$t('messages.start_new_message')}</h3>
 					<p class="text-base-content/60 mt-1 text-sm">
 						{$t('messages.enter_pubkey')}
 					</p>
@@ -276,13 +312,13 @@
 						<label for="recipient-pubkey" class="text-sm font-medium"
 							>{$t('messages.recipient_pubkey')}</label
 						>
-						<input
+                        <input
 							id="recipient-pubkey"
 							type="text"
 							class="input input-bordered w-full text-sm"
 							bind:value={newMessagePubkey}
 							oninput={handlePubkeyInput}
-							placeholder="npub1... or hex public key"
+                            placeholder={$t('messages.new_message_placeholder')}
 						/>
 						<p class="text-base-content/50 text-xs">
 							{$t('messages.enter_npub')}
@@ -322,7 +358,7 @@
 						<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
 							<Avatar size="md" />
 							<div class="min-w-0 flex-1">
-								<p class="truncate font-medium">{newMessageProfile.name || 'Unknown User'}</p>
+                                <p class="truncate font-medium">{newMessageProfile.name || $t('messages.unknown_user')}</p>
 								<p class="text-base-content/60 truncate text-xs">
 									{newMessagePubkey.startsWith('npub')
 										? `${newMessagePubkey.slice(0, 16)}...`
@@ -395,7 +431,7 @@
 					</div>
 				</form>
 			</div>
-			<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
+            <button class="modal-backdrop" onclick={closeModal} aria-label={$t('messages.close_modal')}></button>
 		</div>
 	{/if}
 
@@ -463,7 +499,7 @@
 								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						<span>{error}</span>
+                        <span>{$t(error)}</span>
 					</div>
 				{:else if conversations.length === 0}
 					<!-- Empty State -->
@@ -520,9 +556,9 @@
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<div class="flex w-10 items-center gap-2 rounded-full">
-									<img
-										src={conversation.profile.picture}
-										alt={conversation.profile.name || 'Unknown'}
+                                    <img
+                                        src={conversation.profile.picture}
+                                        alt={conversation.profile.name || $t('messages.unknown_user')}
 										class="h-10 w-10 rounded-full object-cover"
 										width={40}
 										height={40}
@@ -530,7 +566,7 @@
 								</div>
 								<div class="">
 									<div class="flex flex-col items-baseline justify-between">
-										<h3 class="font-medium">
+										<h3 class="">
 											{conversation.profile.name || conversation.pubkey.slice(0, 8) + '...'}
 										</h3>
 										<span class="text-base-content/60 text-sm">

@@ -5,7 +5,7 @@
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import TagsInput from '$lib/components/TagsInput.svelte';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
 </script>
 
@@ -28,7 +28,8 @@
 			value={$store.task.title}
 			onchange={(e) => store.updateTask({ title: (e.target as HTMLInputElement).value })}
 			class="input input-bordered w-full rounded-lg {errors.title ? 'input-error' : ''}"
-			placeholder="e.g. Help move my sofa"
+			placeholder={$t('task.recurring_name_placeholder')}
+			maxlength="200"
 		/>
 		{#if errors.title}
 			<span class="label-text-alt text-error">{errors.title}</span>
@@ -36,29 +37,38 @@
 	</div>
 
 	<div class="space-y-4">
-		<h3 class="text-lg font-semibold">{$t('task.when_needed')}</h3>
+		<h4 class="font-semibold">{$t('task.when_needed')}</h4>
 
 		<div class="flex gap-4">
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-				onclick={() =>
+				onclick={() => {
+					const tomorrow = new Date();
+					tomorrow.setDate(tomorrow.getDate() + 1);
+					
 					store.updateTask({
-						deadline: new Date().toISOString(),
+						deadline: tomorrow.toISOString(),
 						dateRange: undefined
-					})}
+					});
+				}}
 			>
 				{$t('task.specific_date')}
 			</button>
 			<button
 				class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
-				onclick={() =>
+				onclick={() => {
+					const today = new Date();
+					const tomorrow = new Date();
+					tomorrow.setDate(tomorrow.getDate() + 1);
+					
 					store.updateTask({
 						deadline: undefined,
 						dateRange: {
-							start: new Date().toISOString(),
-							end: new Date().toISOString()
+							start: today.toISOString(),
+							end: tomorrow.toISOString()
 						}
-					})}
+					});
+				}}
 			>
 				{$t('task.flexible')}
 			</button>
@@ -135,7 +145,12 @@
 			<span class="label-text">{$t('task.required_skills')}</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
-		<TagsInput bind:tags={$store.task.skills} maxTags={10} className="w-full h-full rounded-xl" />
+		<TagsInput
+			bind:tags={$store.task.skills}
+			maxTags={10}
+			maxCharLength={25}
+			className="w-full h-full rounded-xl"
+		/>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>
 		{/if}

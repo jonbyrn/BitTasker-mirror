@@ -12,9 +12,12 @@
 	import FilterDrawer from '$lib/components/filters/FilterDrawer.svelte';
 	import SaveSearchForm from '$lib/components/task/SaveSearchForm.svelte';
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
-	import RecommendedTasks from '$lib/components/recommendations/RecommendedTasks.svelte';
-	import { calculateUsdtEstimate, formatBtcToSats } from '$lib/utils/helpers/crypto';
-	import { t } from '$lib/stores/i18n.store';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { t } from 'svelte-i18n';
+	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
+	import { goto } from '$app/navigation';
+	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -44,17 +47,25 @@
 	// Save search state
 	let isSaveSearchOpen = $state(false);
 
+	// Loading states
+	let loadingTimeout = $state(false);
+	let isInitialLoad = $state(true);
+	let dataLoaded = $state(false);
+	let showSkeleton = $state(true);
+	let selectedLocation = $state<any | null>(null);
+
+	// Lazy loading state
+	let taskListRef = $state<HTMLElement | null>(null);
+	let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	let intersectionObserver: IntersectionObserver | null = null;
+
 	// Infinite scroll state
-	let observer: IntersectionObserver | null = null;
+	let infiniteScrollObserver: IntersectionObserver | null = null;
 	let scrollTarget = $state<HTMLElement | null>(null);
 
 	// Bid drawer state
 	let selectedTaskId = $state<string | null>(null);
 	let isSidebarOpen = $state(false);
-
-	// Loading states
-	let loadingTimeout = $state(false);
-	let isInitialLoad = $state(true);
 
 	// Has active search parameters for save search button
 	let hasActiveParams = $state(false);
@@ -87,6 +98,66 @@
 		}
 	}
 
+	/**
+	 * Load Nostr data with proper state management
+	 */
+	async function loadNostrData(): Promise<void> {
+		if (dataLoaded) return; // Prevent multiple loads
+
+		try {
+			await findTasks(searchParams);
+			dataLoaded = true;
+			showSkeleton = false;
+
+			// Cleanup observers and timers
+			if (intersectionObserver) {
+				intersectionObserver.disconnect();
+				intersectionObserver = null;
+			}
+			if (fallbackTimer) {
+				clearTimeout(fallbackTimer);
+				fallbackTimer = null;
+			}
+		} catch (error) {
+			console.error('[FindTasks] Error loading Nostr data:', error);
+			// Keep skeleton visible on error
+		}
+	}
+
+	/**
+	 * Setup lazy loading with intersection observer and fallback
+	 */
+	function setupLazyLoading(): void {
+		if (!browser || dataLoaded) return;
+
+		// Setup intersection observer
+		intersectionObserver = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && !dataLoaded) {
+					console.log('[FindTasks] Task list visible, loading data...');
+					loadNostrData();
+				}
+			},
+			{
+				threshold: 0.1,
+				rootMargin: '200px' // Start loading 200px before visible
+			}
+		);
+
+		// Observe the task list area
+		if (taskListRef) {
+			intersectionObserver.observe(taskListRef);
+		}
+
+		// Fallback: Load after 3 seconds if user doesn't scroll
+		fallbackTimer = setTimeout(() => {
+			if (!dataLoaded) {
+				console.log('[FindTasks] Fallback timer triggered, loading data...');
+				loadNostrData();
+			}
+		}, 3000);
+	}
+
 	// Debounce function
 	function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
 		let timeoutId: ReturnType<typeof setTimeout>;
@@ -98,6 +169,33 @@
 
 	// Debounced function to update searchParams
 	const debouncedSearch = debounce(async () => {
+		// Solo buscar si hay al menos 3 caracteres
+		if (searchQuery.trim().length < 3) {
+			// Si la búsqueda es muy corta, limpiar resultados y mostrar todos
+			tasksStore.update((state) => ({
+				...state,
+				items: [],
+				currentPage: 1,
+				hasMore: true,
+				error: null
+			}));
+
+			// Buscar sin término de búsqueda
+			const newParams: SearchTasksParams = {
+				...searchParams,
+				page: 1,
+				search: undefined
+			};
+			searchParams = { ...searchParams, ...newParams };
+
+			try {
+				await findTasks(searchParams);
+			} catch (err) {
+				console.error('[FindTasks] Search fetch error:', err);
+			}
+			return;
+		}
+
 		const newParams: SearchTasksParams = {
 			...searchParams,
 			page: 1,
@@ -105,6 +203,15 @@
 		};
 
 		searchParams = { ...searchParams, ...newParams };
+
+		// Clear existing tasks when starting a new search
+		tasksStore.update((state) => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
 
 		try {
 			await findTasks(searchParams);
@@ -116,6 +223,16 @@
 	// Handle advanced filter drawer apply
 	function handleFilterApply(filters: SearchTasksParams) {
 		isFilterDrawerOpen = false;
+
+		// Clear existing tasks when applying new filters
+		tasksStore.update((state) => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
 		searchParams = {
 			...searchParams,
 			...filters,
@@ -141,6 +258,16 @@
 
 		const currentLimit = searchParams.limit;
 		searchParams = { ...getInitialSearchParams(), limit: currentLimit };
+
+		// Clear existing tasks when clearing filters
+		tasksStore.update((state) => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
 		findTasks(searchParams);
 	}
 
@@ -181,7 +308,7 @@
 		if (!browser) return;
 
 		if ('IntersectionObserver' in window) {
-			observer = new IntersectionObserver(
+			infiniteScrollObserver = new IntersectionObserver(
 				(entries) => {
 					if (entries[0].isIntersecting && $tasksStore.hasMore && !$tasksStore.loading) {
 						loadMoreTasks();
@@ -191,7 +318,7 @@
 			);
 
 			if (scrollTarget) {
-				observer.observe(scrollTarget);
+				infiniteScrollObserver.observe(scrollTarget);
 			}
 		}
 	}
@@ -207,27 +334,38 @@
 				error: null
 			};
 		});
-		if (observer && scrollTarget) {
-			observer.unobserve(scrollTarget);
+		if (infiniteScrollObserver && scrollTarget) {
+			infiniteScrollObserver.unobserve(scrollTarget);
 		}
-		if (observer) {
-			observer.disconnect();
-			observer = null;
+		if (infiniteScrollObserver) {
+			infiniteScrollObserver.disconnect();
+			infiniteScrollObserver = null;
 		}
 	}
 
+	// Eliminar la variable cardRef que estaba causando conflictos
+	// let cardRef = $state<HTMLElement | null>(null);
+
 	// Task type filter handler
 	function toggleTaskType(type: TaskTypeEnum | undefined) {
+		// Clear existing tasks when changing task type
+		tasksStore.update((state) => ({
+			...state,
+			items: [],
+			currentPage: 1,
+			hasMore: true,
+			error: null
+		}));
+
 		if (!type) {
 			searchParams = { ...searchParams, taskType: undefined, page: 1 };
-			return;
+		} else {
+			searchParams = {
+				...searchParams,
+				taskType: type,
+				page: 1
+			};
 		}
-
-		searchParams = {
-			...searchParams,
-			taskType: type,
-			page: 1
-		};
 
 		findTasks(searchParams);
 	}
@@ -235,11 +373,11 @@
 	// Initial data fetch and setup
 	onMount(() => {
 		if (browser) {
-			// Fetch BTC price for USDT conversion
+			// Fetch BTC price for USDT conversion (non-critical)
 			fetchBtcPrice();
 
-			// Load initial tasks
-			findTasks(searchParams);
+			// Setup lazy loading for Nostr data
+			setupLazyLoading();
 
 			// Setup infinite scroll - waiting for DOM to be ready
 			setTimeout(() => {
@@ -251,6 +389,17 @@
 	// Cleanup on component destroy
 	onDestroy(() => {
 		if (browser) {
+			// Cleanup lazy loading
+			if (intersectionObserver) {
+				intersectionObserver.disconnect();
+				intersectionObserver = null;
+			}
+			if (fallbackTimer) {
+				clearTimeout(fallbackTimer);
+				fallbackTimer = null;
+			}
+
+			// Cleanup infinite scroll
 			cleanupInfiniteScroll();
 			cleanup();
 		}
@@ -258,16 +407,16 @@
 
 	// Loading state management effect
 	$effect(() => {
-		// Update initial load flag
-		if (isInitialLoad && (!$tasksStore.loading || $tasksStore.items.length > 0)) {
+		// Update initial load flag when data is loaded
+		if (isInitialLoad && dataLoaded) {
 			isInitialLoad = false;
 		}
 
-		// Handle loading timeout
+		// Handle loading timeout for Nostr data
 		let timer: ReturnType<typeof setTimeout> | undefined;
-		if ($tasksStore.loading && searchParams.page === 1) {
+		if ($tasksStore.loading && searchParams.page === 1 && !dataLoaded) {
 			timer = setTimeout(() => {
-				if ($tasksStore.loading && searchParams.page === 1) {
+				if ($tasksStore.loading && searchParams.page === 1 && !dataLoaded) {
 					loadingTimeout = true;
 					console.error('[FindTasks] Query timeout - fetching took too long');
 				}
@@ -291,257 +440,510 @@
 			}
 		}
 	};
+
+	// Función para obtener el placeholder dinámico
+	function getSearchPlaceholder(): string {
+		if (searchQuery.length > 0 && searchQuery.length < 3) {
+			return $t('find_tasks.search_minimum_chars');
+		}
+		return $t('find_tasks.search_placeholder');
+	}
+
+	// Función para obtener la clase del input de búsqueda
+	function getSearchInputClass(): string {
+		let baseClass = 'input input-bordered w-full pl-10';
+
+		if (searchQuery.length > 0 && searchQuery.length < 3) {
+			baseClass += ' input-warning';
+		} else if (searchQuery.length >= 3) {
+			baseClass += ' input-success';
+		}
+
+		return baseClass;
+	}
+
+	// Selected task for map display
+	let selectedTask = $state<Task | null>(null);
+
+	// Function to handle task selection for map display
+	function selectTaskForMap(task: Task) {
+		selectedTask = task;
+		if (task.dropOffLocation) {
+			selectedLocation = task.dropOffLocation;
+		}
+		if (task.pickupLocation) {
+			selectedLocation = task.pickupLocation;
+		}
+	}
+
+	// Referencias a las cards de las tasks para hacer scroll
+	let taskCardRefs = $state<Map<string, HTMLElement>>(new Map());
+
+	// Función para hacer scroll a una card específica
+	function scrollToTaskCard(taskId: string) {
+		// Buscar la card por data attribute
+		const cardElement = document.querySelector(`[data-task-id="${taskId}"]`) as HTMLElement;
+		if (cardElement) {
+			cardElement.scrollIntoView({
+				behavior: 'smooth',
+				block: 'center'
+			});
+		}
+	}
+
+	// Action para registrar las referencias de las cards
+	function registerTaskCard(node: HTMLElement, { taskId }: { taskId: string }) {
+		// Cuando el elemento se monta
+		if (node) {
+			taskCardRefs.set(taskId, node);
+		}
+
+		return {
+			destroy() {
+				// Cuando el elemento se desmonta
+				taskCardRefs.delete(taskId);
+			}
+		};
+	}
 </script>
 
-<div class="mx-auto max-w-7xl p-4 sm:p-0">
-	<!-- Page Header -->
-	<div class="mb-6">
-		<h1 class="mb-2 text-2xl font-bold">{$t('find_tasks.title')}</h1>
-		<p class="text-base-content/70">{$t('find_tasks.description')}</p>
-	</div>
+<div class="mx-auto max-w-7xl p-4 md:p-0">
+	<!-- Dashboard Tabs -->
+	<!-- <Tabs tabs={availableTabs} {activeTab} onTabChange={handleTabChange} /> -->
 
-	<!-- Search and Filter Controls -->
-	<div class="mb-6 flex flex-wrap items-center gap-3">
-		<!-- Search Input -->
-		<div class="relative w-full sm:flex-1">
-			<input
-				type="text"
-				class="input input-bordered w-full pl-10"
-				placeholder={$t('find_tasks.search_placeholder')}
-				bind:value={searchQuery}
-				oninput={debouncedSearch}
-			/>
-			<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5 text-gray-400"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+	<div id="panel-find-tasks" role="tabpanel" aria-labelledby="tab-find-tasks" class="">
+		<!-- Search and Filter Controls - Full Width at Top -->
+		<div class="mb-4">
+			<!-- Search and Filter Controls in Same Row -->
+			<div class="flex flex-wrap items-center gap-3">
+				<!-- Search Input -->
+				<div class="relative mt-2 min-w-[200px] flex-1">
+					<input
+						type="text"
+						class={getSearchInputClass()}
+						placeholder={getSearchPlaceholder()}
+						bind:value={searchQuery}
+						oninput={debouncedSearch}
 					/>
-				</svg>
-			</div>
-		</div>
-
-		<!-- Task Type Quick Filters -->
-		<div class="hidden gap-2 sm:flex">
-			<button
-				class="btn btn-sm"
-				class:btn-primary={searchParams.taskType?.includes(TaskTypeEnum.REMOTE)}
-				onclick={() => toggleTaskType(TaskTypeEnum.REMOTE)}
-			>
-				{$t('find_tasks.remote')}
-			</button>
-			<button
-				class="btn btn-sm"
-				class:btn-primary={searchParams.taskType?.includes(TaskTypeEnum.IN_PERSON)}
-				onclick={() => toggleTaskType(TaskTypeEnum.IN_PERSON)}
-			>
-				{$t('find_tasks.in_person')}
-			</button>
-		</div>
-
-		<!-- Advanced Filters Button -->
-		<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="mr-1 h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-				/>
-			</svg>
-			{$t('find_tasks.filters')}
-		</button>
-
-		<!-- Save Search Button -->
-		<button
-			class="btn btn-sm btn-primary gap-2"
-			onclick={() => (isSaveSearchOpen = true)}
-			disabled={!hasActiveParams}
-			title={!hasActiveParams ? $t('find_tasks.save_search_tooltip_disabled') : $t('find_tasks.save_search_tooltip_enabled')}
-		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-4 w-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-				/>
-			</svg>
-			{$t('find_tasks.save_search')}
-		</button>
-	</div>
-
-	<!-- Error Message -->
-	{#if $tasksStore.error}
-		<div class="alert alert-error alert-outline mb-4">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-				><path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-				/></svg
-			>
-			<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
-		</div>
-	{/if}
-
-	<RecommendedTasks {onSelectTask} />
-
-	<!-- Task List -->
-	{#if (isInitialLoad || ($tasksStore.loading && searchParams.page === 1)) && !loadingTimeout}
-		<!-- Shimmer/Loading Placeholder -->
-		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md">
-			{#each Array(4) as _}
-				<div class="card-body animate-pulse">
-					<!-- Skeleton structure -->
-					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-						<div class="bg-base-300 h-7 w-3/4 rounded"></div>
-						<div class="bg-base-300 h-6 w-32 rounded"></div>
-					</div>
-					<div class="my-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-16 rounded"></div>
-							<div class="bg-base-300 h-6 w-28 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-24 rounded"></div>
-							<div class="bg-base-300 h-6 w-36 rounded"></div>
-						</div>
-						<div>
-							<div class="bg-base-300 mb-2 h-4 w-20 rounded"></div>
-							<div class="bg-base-300 h-6 w-32 rounded"></div>
-						</div>
-					</div>
-					<div class="mb-4 flex flex-wrap gap-2">
-						<div class="bg-base-300 h-6 w-20 rounded"></div>
-						<div class="bg-base-300 h-6 w-24 rounded"></div>
-						<div class="bg-base-300 h-6 w-16 rounded"></div>
-					</div>
-					<div class="card-actions mt-4 flex items-center justify-between">
-						<div class="bg-base-300 h-6 w-16 rounded"></div>
-						<div class="bg-base-300 h-9 w-24 rounded"></div>
+					<div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 text-gray-400"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+							/>
+						</svg>
 					</div>
 				</div>
-				<div class="divider mx-auto w-[90%]"></div>
-			{/each}
-		</div>
-	{:else if loadingTimeout}
-		<!-- Loading Timeout Warning -->
-		<div class="alert alert-warning alert-outline mb-4 rounded-xl text-black">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6 shrink-0 stroke-current"
-				fill="none"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-				/>
-			</svg>
-			<div>
-				<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
-				<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
+
+				<!-- Filter Buttons -->
+				<div class="flex items-center gap-2">
+					<!-- Advanced Filters Button -->
+					<button class="btn btn-sm btn-primary" onclick={() => (isFilterDrawerOpen = true)}>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-1 h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+							/>
+						</svg>
+						{$t('find_tasks.filters')}
+					</button>
+
+					<!-- Save Search Button -->
+					<button
+						class="btn btn-sm btn-primary gap-2"
+						onclick={() => (isSaveSearchOpen = true)}
+						disabled={!hasActiveParams}
+						title={!hasActiveParams
+							? $t('find_tasks.save_search_tooltip_disabled')
+							: $t('find_tasks.save_search_tooltip_enabled')}
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+							/>
+						</svg>
+						{$t('find_tasks.save_search')}
+					</button>
+				</div>
 			</div>
-			<button class="btn btn-sm" onclick={() => window.location.reload()}> {$t('find_tasks.refresh')} </button>
 		</div>
-	{:else if $tasksStore.items && $tasksStore.items.length > 0}
-		<h2 class="mb-4 text-xl font-bold">
-			{$t('find_tasks.other_tasks')}
-			<span class="text-base-content/70 ml-2 text-sm font-normal">
-				{#if $tasksStore.loading && searchParams.page === 1}
-					<span class="bg-base-300 inline-block h-4 w-48 animate-pulse rounded"></span>
-				{:else if $tasksStore.items.length > 0}
-					({$t('find_tasks.showing_tasks').replace('{count}', $tasksStore.items.length.toString())})
+
+		<!-- Main Content Grid Layout - Aligned with Find Tasks title -->
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-5">
+			<!-- Left Column: Tasks List (60% - 3/5 columns) -->
+			<div class="lg:col-span-2">
+				<!-- Error Message -->
+				{#if $tasksStore.error}
+					<div class="alert alert-error alert-outline mb-3">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+							><path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2 2m2-2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/></svg
+						>
+						<span>{$t('find_tasks.error_loading').replace('{error}', $tasksStore.error)}</span>
+					</div>
 				{/if}
-			</span>
-		</h2>
 
-		<div class="card bg-base-100 space-y-4 rounded-xl shadow-md transition-shadow hover:shadow-lg">
-			{#each $tasksStore.items as task, index}
-				<div class="card-body">
-					<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-						<h3 class="card-title text-lg md:text-xl">{task.title}</h3>
-						<div class="flex items-center justify-between gap-2 text-sm">
-							<div class="flex flex-col items-start">
-								<span class="font-semibold">{formatBtcToSats(task.budget.amount)}</span>
-								<span class="text-info text-xs"
-									>≈ {calculateUsdtEstimate(task.budget.amount, btcPrice)} USDT</span
-								>
-							</div>
-							<span class="badge badge-outline">{task.status}</span>
-						</div>
-					</div>
+				<!-- 	<RecommendedTasks {onSelectTask} /> -->
 
-					<p class="text-base-content/80 my-2 line-clamp-2">{task.description}</p>
-
-					<div class="mt-2 mb-4">
-						<div class="flex flex-wrap gap-4">
-							{#if task.deadline}
-								<div>
-									<p class="text-base-content/60 text-sm">{$t('find_tasks.deadline')}</p>
-									<p class="font-medium">{formatTimeAgo(task.deadline)}</p>
+				<div class="max-h-[calc(65vh)] overflow-y-auto" bind:this={taskListRef}>
+					<!-- Skeleton Loading -->
+					{#if showSkeleton && !dataLoaded}
+						<div class="space-y-3">
+							{#each Array(4) as _}
+								<div class="card bg-base-100 animate-pulse rounded-xl p-4 shadow-md">
+									<div class="flex flex-col gap-3 md:flex-row md:items-center">
+										<div class="bg-base-300 h-6 w-3/4 rounded"></div>
+										<div class="bg-base-300 h-5 w-28 rounded"></div>
+									</div>
+									<div class="my-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+										<div class="bg-base-300 h-5 w-24 rounded"></div>
+										<div class="bg-base-300 h-5 w-32 rounded"></div>
+										<div class="bg-base-300 h-5 w-28 rounded"></div>
+									</div>
+									<div class="flex gap-2">
+										<div class="bg-base-300 h-5 w-16 rounded"></div>
+										<div class="bg-base-300 h-5 w-20 rounded"></div>
+										<div class="bg-base-300 h-5 w-12 rounded"></div>
+									</div>
+									<div class="mt-3 flex items-center justify-between">
+										<div class="bg-base-300 h-5 w-12 rounded"></div>
+										<div class="bg-base-300 h-8 w-20 rounded"></div>
+									</div>
 								</div>
-							{:else if task.dateRange?.start && task.dateRange?.end}
-								<div>
-									<p class="text-base-content/60 text-sm">{$t('find_tasks.date_range')}</p>
-									<p class="font-medium">
-										{new Date(task.dateRange.start).toLocaleDateString()} -
-										{new Date(task.dateRange.end).toLocaleDateString()}
-									</p>
-								</div>
-							{/if}
-
-							<div>
-								<p class="text-base-content/60 text-sm">{$t('find_tasks.posted_by')}</p>
-								<p class="font-medium">{task?.creator?.username || $t('find_tasks.not_available')}</p>
-							</div>
-						</div>
-					</div>
-
-					{#if task.skills && task.skills.length > 0}
-						<div class="mb-4 flex flex-wrap gap-2">
-							{#each task.skills as skill, index}
-								{#if skill}
-									<span class="badge badge-primary badge-outline">{skill}</span>
-								{/if}
 							{/each}
 						</div>
-					{/if}
+					{:else if loadingTimeout}
+						<!-- Loading Timeout Warning -->
+						<div class="alert alert-warning alert-outline mb-3 rounded-xl">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-5 w-5 shrink-0 stroke-current"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+								/>
+							</svg>
+							<div>
+								<h3 class="font-bold">{$t('find_tasks.loading_timeout_title')}</h3>
+								<div class="text-xs">{$t('find_tasks.loading_timeout_message')}</div>
+							</div>
+							<button class="btn btn-sm" onclick={() => window.location.reload()}>
+								{$t('find_tasks.refresh')}
+							</button>
+						</div>
+					{:else if $tasksStore.items && $tasksStore.items.length > 0}
+						<div class="space-y-4">
+							{#each $tasksStore.items as task, index}
+								<div
+									use:registerTaskCard={{ taskId: task.id }}
+									class="card bg-base-100 cursor-pointer rounded-xl shadow-md transition-shadow hover:shadow-lg"
+									onclick={() => selectTaskForMap(task)}
+									tabindex="0"
+									role="button"
+									class:bg-base-300={selectedTask?.id === task.id}
+									aria-label={$t('find_tasks.view_task')}
+									aria-pressed={selectedTaskId === task.id.toString()}
+									aria-current={selectedTaskId === task.id.toString()}
+									aria-disabled={task.status !== TaskStatusEnum.OPEN}
+									aria-hidden={task.status !== TaskStatusEnum.OPEN}
+									data-task-id={task.id}
+								>
+									<div class="card-body p-4 md:p-4">
+										<!-- Top Row: Title + Price -->
+										<div
+											class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+										>
+											<!-- Left: Title and Sats -->
+											<small class="card-title line-clamp-2 text-lg">
+												{task.title}
+											</small>
+										</div>
 
-					<div class="card-actions mt-4 flex items-center justify-between">
-						<div class="flex items-center gap-2">
-							<div class="badge badge-info gap-1">
+										<!-- Schedule and Sats Row -->
+										<div class="mb-3 flex flex-col gap-4 md:flex-row md:flex-wrap">
+											<div class="flex w-full items-center justify-between">
+												<!-- Left: Schedule -->
+												<div class="flex items-center gap-2">
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="text-base-content/60 h-4 w-4 flex-shrink-0"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+														/>
+													</svg>
+													<div class="flex flex-col px-2">
+														{#if task.deadline}
+															<small class="text-base-content/60 text-xs"
+																>{$t('dashboard.task_details_by_task.deadline')}</small
+															>
+															<span class="text-sm font-medium">
+																{new Date(task.deadline).toLocaleDateString('en-US', {
+																	day: '2-digit',
+																	month: '2-digit',
+																	year: 'numeric'
+																})}, 12pm
+															</span>
+														{:else if task.dateRange}
+															<small class="text-base-content/60 text-xs"
+																>{$t('dashboard.task_details_by_task.date_range')}</small
+															>
+															<span class="text-sm font-medium">
+																{new Date(task.dateRange.start).toLocaleDateString('en-US', {
+																	day: '2-digit',
+																	month: '2-digit',
+																	year: 'numeric'
+																})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
+																	day: '2-digit',
+																	month: '2-digit',
+																	year: 'numeric'
+																})}
+															</span>
+														{/if}
+													</div>
+												</div>
+
+												<!-- Right: Sats -->
+												<div class="text-lg font-bold">
+													${formatNumberWithTwoDecimals(task.budget.amount)}
+
+													<div class="text-base-content/60 text-sm">
+														{satsFromUsd(task.budget.amount, btcPrice)}
+													</div>
+												</div>
+											</div>
+
+											<!-- Location -->
+											<div class="flex w-full items-start gap-2">
+												<svg
+													xmlns="http://www.w3.org/2000/svg"
+													class="text-base-content/60 mt-1 h-4 w-4 flex-shrink-0"
+													fill="none"
+													viewBox="0 0 24 24"
+													stroke="currentColor"
+												>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+													/>
+													<path
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														stroke-width="2"
+														d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+													/>
+												</svg>
+												<div class="flex min-w-0 flex-1 flex-col">
+													<small class="text-base-content/60 text-xs">
+														{$t('dashboard.task_details_by_task.location_details')}
+													</small>
+													<span class="line-clamp-2 text-sm font-medium">
+														{#if task.dropOffLocation?.displayName}
+															{task.dropOffLocation.displayName}
+														{:else if task.pickupLocation?.displayName}
+															{task.pickupLocation.displayName}
+														{:else}
+															{$t('dashboard.task_details_by_task.remote')}
+														{/if}
+													</span>
+												</div>
+											</div>
+										</div>
+
+										<!-- Bottom Row: Avatar + Action Buttons -->
+										<div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+											<!-- Left: Avatar, Username, and Review Stars -->
+											<div class="flex min-w-0 flex-1 items-center gap-3">
+												<!-- Avatar -->
+												<div class="avatar">
+													<div
+														class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full"
+													>
+														{#if task.creator?.avatar}
+															<img
+																src={task.creator.avatar}
+																alt="Avatar"
+																class="h-8 w-8 rounded-full object-cover"
+															/>
+														{:else}
+															<!-- Placeholder con iniciales del nombre -->
+															<div
+																class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
+															>
+																{#if task.creator?.username}
+																	<span class="text-lg font-semibold">
+																		{task.creator.username.charAt(0).toUpperCase()}
+																	</span>
+																{:else}
+																	<svg
+																		xmlns="http://www.w3.org/2000/svg"
+																		class="text-base-content/60 h-6 w-6"
+																		fill="none"
+																		viewBox="0 0 24 24"
+																		stroke="currentColor"
+																	>
+																		<path
+																			stroke-linecap="round"
+																			stroke-linejoin="round"
+																			stroke-width="2"
+																			d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+																		/>
+																	</svg>
+																{/if}
+															</div>
+														{/if}
+													</div>
+												</div>
+
+												<!-- Username and Review Stars -->
+												<div class="flex min-w-0 flex-1 flex-col">
+													<span class="truncate text-sm font-medium">
+														{task.creator?.username ||
+															$t('dashboard.task_details_by_task.anonymous')}
+													</span>
+													<!-- Review Stars -->
+													<div class="flex items-center">
+														{#each Array(5) as _, i}
+															<svg
+																xmlns="http://www.w3.org/2000/svg"
+																class="h-3 w-3 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+																fill="currentColor"
+																viewBox="0 0 24 24"
+															>
+																<path
+																	d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+																/>
+															</svg>
+														{/each}
+														<span class="text-base-content/60 ml-1 text-xs">4.0</span>
+													</div>
+												</div>
+											</div>
+
+											<!-- Right: Action Buttons -->
+											<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
+												<button
+													class="btn btn-primary btn-sm flex-1 md:flex-none"
+													class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
+														task?.npub === $user?.npub}
+													onclick={(e) => {
+														e.stopPropagation();
+														onSelectTask(task);
+													}}
+													aria-label={$t('find_tasks.bid_on_task')}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-4 w-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M12 4v16m8-8H4"
+														/>
+													</svg>
+													{task.status === TaskStatusEnum.OPEN
+														? $t('find_tasks.bid_now')
+														: $t('find_tasks.bidding_closed')}
+												</button>
+
+												<button
+													class="btn btn-secondary btn-sm flex-1 md:flex-none"
+													onclick={(e) => {
+														e.stopPropagation();
+														goto(`/dashboard/task/${task.id}`);
+													}}
+													aria-label={$t('find_tasks.view_task')}
+												>
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="h-4 w-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+														/>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+														/>
+													</svg>
+													{$t('find_tasks.view_task')}
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+
+						<!-- Infinite Scroll Target -->
+						<!-- svelte-ignore element_invalid_self_closing_tag -->
+						<div bind:this={scrollTarget} class="h-4" />
+					{:else if !$tasksStore.loading}
+						<!-- No Results -->
+						<div class="py-8 text-center">
+							<div class="text-base-content/60 mb-3">
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-4 w-4"
+									class="mx-auto h-12 w-12"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -550,73 +952,46 @@
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										stroke-width="2"
-										d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+										d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 									/>
 								</svg>
-								{task.bids?.length ?? 0} {$t('find_tasks.bids')}
 							</div>
-						</div>
-
-						<button
-							class="btn btn-primary btn-sm"
-							class:btn-disabled={task.status !== TaskStatusEnum.OPEN || task?.npub === $user?.npub}
-							onclick={() => onSelectTask(task)}
-							aria-label={$t('find_tasks.bid_on_task')}
-						>
-							<svg
-								xmlns="http://www.w3.org/2000/svg"
-								class="h-5 w-5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
+							<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
+							<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
+							<button
+								class="btn btn-primary"
+								onclick={() => {
+									searchParams = getInitialSearchParams();
+									searchQuery = '';
+									selectedTaskType = { label: '', value: '' };
+								}}
 							>
-								<path
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M12 4v16m8-8H4"
-								/>
-							</svg>
-							{task.status === TaskStatusEnum.OPEN ? $t('find_tasks.bid_now') : $t('find_tasks.bidding_closed')}
-						</button>
-					</div>
+								{$t('find_tasks.clear_filters')}
+							</button>
+						</div>
+					{/if}
 				</div>
+			</div>
 
-				{#if index < $tasksStore.items.length - 1}
-					<div class="divider mx-auto w-[90%]"></div>
-				{/if}
-			{/each}
-		</div>
-
-		<!-- Infinite Scroll Target -->
-		<div bind:this={scrollTarget} class="mt-2">
-			{#if $tasksStore.loading && searchParams.page && searchParams.page > 1}
-				<div class="flex justify-center py-2">
-					<span class="loading loading-spinner loading-md"></span>
+			<!-- Right Column: Static Content (40% - 2/5 columns) -->
+			<div class="hidden lg:col-span-3 lg:block">
+				<div class="card">
+					<!-- Task Location Map -->
+					<TaskLocationMap
+						tasks={$tasksStore.items}
+						height="65vh"
+						{selectedTask}
+						on:taskSelected={(event) => {
+							// Cuando se hace click en un pin del mapa, seleccionar esa task
+							selectedTask = event.detail.task;
+							// Hacer scroll a la card correspondiente
+							scrollToTaskCard(event.detail.task.id);
+						}}
+					/>
 				</div>
-			{/if}
+			</div>
 		</div>
-	{:else if !$tasksStore.loading}
-		<div class="py-12 text-center">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-12 w-12"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				/>
-			</svg>
-			<h3 class="mt-4 text-lg font-semibold">{$t('find_tasks.no_tasks_found')}</h3>
-			<p class="text-base-content/60 mt-1">{$t('find_tasks.no_tasks_message')}</p>
-			<button class="btn btn-primary mt-4" onclick={clearFilters}>{$t('find_tasks.clear_filters')}</button>
-		</div>
-	{/if}
+	</div>
 </div>
 
 <!-- Advanced Filter Drawer Component -->
@@ -638,3 +1013,61 @@
 	onClose={() => (isSaveSearchOpen = false)}
 	onSaved={() => {}}
 />
+
+<style>
+	/* Custom scrollbar styling for the task list */
+	:global(.overflow-y-auto) {
+		scrollbar-width: thin;
+		scrollbar-color: hsl(var(--bc) / 0.3) transparent;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar) {
+		width: 6px;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar-track) {
+		background: transparent;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar-thumb) {
+		background-color: hsl(var(--bc) / 0.3);
+		border-radius: 3px;
+	}
+
+	:global(.overflow-y-auto::-webkit-scrollbar-thumb:hover) {
+		background-color: hsl(var(--bc) / 0.5);
+	}
+
+	/* Ensure the layout takes appropriate height */
+	:global(.h-\[calc\(100vh-200px\)\]) {
+		height: calc(100vh - 200px);
+		height: calc(100dvh - 200px); /* Dynamic viewport height for mobile */
+	}
+
+	/* Task card overflow protection */
+	:global(.card-body) {
+		overflow: hidden;
+	}
+
+	/* Ensure buttons stay within card boundaries */
+	:global(.btn) {
+		flex-shrink: 0;
+		white-space: nowrap;
+	}
+
+	/* Prevent text from pushing buttons out */
+	:global(.line-clamp-2) {
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+	}
+
+	/* Ensure proper flex behavior */
+	:global(.flex-shrink-0) {
+		flex-shrink: 0;
+	}
+
+	:global(.min-w-0) {
+		min-width: 0;
+	}
+</style>

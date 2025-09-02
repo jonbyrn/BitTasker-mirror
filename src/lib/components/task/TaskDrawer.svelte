@@ -1,12 +1,9 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import type { TaskBid } from '$lib/types/bid';
-	import { t } from '$lib/stores/i18n.store';
+	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import Tabs from '$lib/components/Tabs.svelte';
-	import BidsTab from './details/BidsTab.svelte';
 	import TaskTab from './details/TaskTab.svelte';
-	import nostrEventsService from '$lib/api/services/nostr/events';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -17,16 +14,8 @@
 	}>();
 
 	// Define tabs
-	const tabs = [
-		{ id: 'details', label: $t('task.drawer.details') },
-		{ id: 'bids', label: $t('task.drawer.bids') }
-	];
+	const tabs = [{ id: 'details', label: $t('dashboard.task_details_by_task.details') }];
 
-	// State
-	let task = $state<Task | null>(null);
-	let bids = $state<TaskBid[]>([]);
-	let loading = $state(false);
-	let errorMessage = $state('');
 	let currentTab = $state('details'); // 'details' or 'bids'
 	let showCounterOfferForm = $state(false);
 	let isOwner = $state(false); // Track if current user is the task owner
@@ -40,37 +29,6 @@
 		document.body.classList.remove('overflow-hidden');
 	};
 
-	async function loadTaskDetails(id: string) {
-		if (!id) return;
-		try {
-			loading = true;
-			errorMessage = '';
-
-			const { data: event } = await nostrEventsService.findEventById(id);
-
-			if (!event) {
-				errorMessage = $t('task.drawer.error.load');
-				return;
-			}
-
-			// Parse task data from nostr event
-			const taskData = JSON.parse(event.content) as Task;
-			task = {
-				...taskData,
-				id: event.id
-			};
-
-			if (task) {
-				bids = task.bids || [];
-			}
-		} catch (error) {
-			console.error('Failed to load task details:', error);
-			errorMessage = $t('task.drawer.error.load');
-		} finally {
-			loading = false;
-		}
-	}
-
 	// Handle drawer state changes
 	$effect(() => {
 		if (props.isOpen) {
@@ -82,9 +40,8 @@
 				currentTab = props.activeTab;
 			}
 
-			// Load task details if task id is available
+			// Check if current user is the task owner
 			if (props.task) {
-				loadTaskDetails(props.task.id);
 				getNpub().then((npub) => {
 					isOwner = props.task.author === npub;
 				});
@@ -125,12 +82,16 @@
 >
 	<div class="relative">
 		<!-- Header -->
-		<div class="bg-base-200 sticky top-0 z-10 border-b p-4">
+		<div class="bg-base-200 sticky top-0 z-10 p-4">
 			<div class="flex items-center justify-between">
-				<h2 class="text-xl font-bold">
-					{loading ? 'Loading...' : task ? task.title : 'Task Details'}
-				</h2>
-				<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
+				<h4 class="line-clamp-2 font-bold">
+					{props.task ? props.task.title : $t('dashboard.task_details_by_task.title')}
+				</h4>
+				<button
+					class="btn btn-ghost btn-circle"
+					onclick={handleClose}
+					aria-label={$t('dashboard.task_details_by_task.close')}
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						class="h-6 w-6"
@@ -149,44 +110,8 @@
 			</div>
 		</div>
 
-		<!-- Loading state -->
-		{#if loading}
-			<div class="flex h-[calc(100vh-4rem)] items-center justify-center p-4">
-				<span class="loading loading-spinner loading-lg"></span>
-			</div>
-
-			<!-- Error state -->
-		{:else if errorMessage}
-			<div class="p-4">
-				<div class="alert alert-error">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<span>{errorMessage}</span>
-				</div>
-				<div class="mt-4 flex justify-center">
-					<button
-						class="btn btn-primary"
-						onclick={() => props.taskId && loadTaskDetails(props.taskId)}
-					>
-						Try Again
-					</button>
-				</div>
-			</div>
-
-			<!-- Task found state -->
-		{:else if task}
+		<!-- Task found state -->
+		{#if props.task}
 			<!-- Tabs -->
 			<div class="px-4 pt-4">
 				<Tabs {tabs} activeTab={currentTab} onTabChange={handleTabChange} />
@@ -196,10 +121,7 @@
 			<div class="p-4">
 				<!-- Task Details Tab -->
 				{#if currentTab === 'details'}
-					<TaskTab {task} {isOwner} onClose={handleClose} />
-				{:else if currentTab === 'bids'}
-					<!-- Bids Tab -->
-					<BidsTab {bids} {isOwner} bind:showCounterOfferForm />
+					<TaskTab task={props.task} {isOwner} onClose={handleClose} />
 				{/if}
 			</div>
 
@@ -220,8 +142,12 @@
 						d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<h3 class="mt-4 text-lg font-semibold">Task Not Found</h3>
-				<p class="text-base-content/60 mt-1">The task you're looking for could not be found.</p>
+				<h3 class="mt-4 text-lg font-semibold">
+					{$t('dashboard.task_details_by_task.task_not_found')}
+				</h3>
+				<p class="text-base-content/60 mt-1">
+					{$t('dashboard.task_details_by_task.task_not_found_message')}
+				</p>
 			</div>
 		{/if}
 	</div>
