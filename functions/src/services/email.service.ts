@@ -1,21 +1,51 @@
 import * as nodemailer from 'nodemailer';
-import * as functions from 'firebase-functions';
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    // For local development, use a test SMTP service
-    // For production, configure with your actual SMTP settings
-    this.transporter = nodemailer.createTransport({
-      host: functions.config().smtp?.host || 'smtp.mailtrap.io',
-      port: functions.config().smtp?.port || 2525,
-      secure: false,
-      auth: {
-        user: functions.config().smtp?.user || 'test',
-        pass: functions.config().smtp?.pass || 'test',
-      },
+    // Use environment variables for Firebase Functions v2 compatibility
+    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+    
+    console.log('📧 Initializing SMTP transporter with:', {
+      host: smtpHost,
+      port: smtpPort,
+      user: smtpUser,
+      pass: smtpPass ? '***' : 'NOT_SET'
     });
+    
+    // Configure transporter according to Nodemailer best practices
+    this.transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: false, // Use STARTTLS for port 587
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+      // Simplified configuration for better reliability
+      connectionTimeout: 30000, // 30 seconds
+      greetingTimeout: 15000,   // 15 seconds
+      socketTimeout: 300000,    // 5 minutes
+    });
+  }
+
+  /**
+   * Verify SMTP configuration
+   * @returns Promise<boolean> indicating if configuration is valid
+   */
+  async verifyConfiguration(): Promise<boolean> {
+    try {
+      await this.transporter.verify();
+      console.log('✅ SMTP configuration verified successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ SMTP configuration verification failed:', error);
+      return false;
+    }
   }
 
   async sendRecoveryVerificationEmail(
@@ -23,8 +53,11 @@ export class EmailService {
     verificationToken: string,
     userName?: string
   ): Promise<void> {
-    const clientUrl = functions.config().app?.client_url || 'http://localhost:3000';
+    const clientUrl = process.env.CLIENT_URL || 'https://dev.bittasker.com';
     const verificationUrl = `${clientUrl}/auth/recover/verify-email?token=${verificationToken}`;
+    
+    console.log('📧 Preparing to send recovery email to:', email);
+    console.log('📧 Verification URL:', verificationUrl);
     
     // For local development, just log the email instead of sending
     if (process.env.FUNCTIONS_EMULATOR) {
@@ -32,19 +65,25 @@ export class EmailService {
       console.log('To:', email);
       console.log('Subject: Verify Your Email - BitTasker Account Recovery');
       console.log('Verification URL:', verificationUrl);
-      console.log('HTML Content:', this.generateRecoveryEmailHtml(verificationUrl, userName));
       return;
     }
     
     const mailOptions = {
-      from: functions.config().smtp?.user || 'noreply@bittasker.com',
+      from: process.env.SMTP_USER,
       to: email,
       subject: 'Verify Your Email - BitTasker Account Recovery',
       html: this.generateRecoveryEmailHtml(verificationUrl, userName),
       text: this.generateRecoveryEmailText(verificationUrl, userName),
     };
 
-    await this.transporter.sendMail(mailOptions);
+    try {
+      console.log('📧 Sending recovery verification email to:', email);
+      const result = await this.transporter.sendMail(mailOptions);
+      console.log('✅ Email sent successfully:', result.messageId);
+    } catch (error: any) {
+      console.error('❌ Failed to send email:', error);
+      throw new Error(`Email sending failed: ${error?.message || 'Unknown error'}`);
+    }
   }
 
   private generateRecoveryEmailHtml(verificationUrl: string, userName?: string): string {
