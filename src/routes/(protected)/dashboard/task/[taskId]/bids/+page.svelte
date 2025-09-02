@@ -358,9 +358,9 @@
 										<div
 											class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
 										>
-											{#if bid.userProfile?.user?.displayName}
+											{#if bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || 'Anonymous'}
 												<span class="text-xl font-semibold">
-													{bid.userProfile.user.displayName.charAt(0).toUpperCase()}
+													{(bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
 												</span>
 											{:else}
 												<svg
@@ -386,7 +386,7 @@
 							<!-- Username and submission time -->
 							<div class="flex flex-col">
 								<h3 class="text-lg font-semibold">
-									{bid.userProfile?.user?.displayName || 'Anonymous User'}
+									{bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || 'Anonymous'}
 								</h3>
 
 								<p class="text-base-content/60 text-sm">
@@ -489,6 +489,38 @@
 										</div>
 									</div>
 								</div>
+							</div>
+
+							<div>
+								<!-- Location -->
+								{#if bid?.pickupLocation?.displayName || bid?.dropOffLocation?.displayName}
+									<div class="mt-4 flex items-center gap-2">
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-base-content/60 h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+											/>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+											/>
+										</svg>
+										<span class="text-sm">
+											<strong>Location:</strong>
+											{bid?.pickupLocation?.displayName || bid?.dropOffLocation?.displayName}
+										</span>
+									</div>
+								{/if}
 							</div>
 
 							<!-- Full description -->

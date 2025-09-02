@@ -2,7 +2,6 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
-	import Tabs from '$lib/components/Tabs.svelte';
 	import TaskTab from './details/TaskTab.svelte';
 
 	// Props using Svelte 5 runes syntax
@@ -112,11 +111,6 @@
 
 		<!-- Task found state -->
 		{#if props.task}
-			<!-- Tabs -->
-			<div class="px-4 pt-4">
-				<Tabs {tabs} activeTab={currentTab} onTabChange={handleTabChange} />
-			</div>
-
 			<!-- Tab content -->
 			<div class="p-4">
 				<!-- Task Details Tab -->
