@@ -124,6 +124,7 @@
 		"ecpair": "^3.0.0",
 		"firebase": "^11.10.0",
 		"iconify-icon": "^2.3.0",
+		"nodemailer": "^7.0.6",
 		"nostr-tools": "^2.13.0",
 		"path-browserify": "^1.0.1",
 		"photoswipe": "^5.4.4",

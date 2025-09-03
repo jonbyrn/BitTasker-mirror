@@ -25,5 +25,9 @@
         "src/**/*.ts",
         "src/**/*.js",
         "src/**/*.svelte"
+    ],
+    "exclude": [
+        "src/lib/api/functions/lib/**/*",
+        "node_modules/**/*"
     ]
 }
