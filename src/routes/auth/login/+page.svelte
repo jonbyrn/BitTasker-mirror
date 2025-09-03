@@ -112,7 +112,17 @@
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
-			error = err instanceof Error ? err.message : $t('login.errors.failed');
+			
+			// Handle specific WebAuthn cancellation error
+			if (err instanceof Error) {
+				if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
+					error = $t('login.errors.cancelled');
+				} else {
+					error = err.message;
+				}
+			} else {
+				error = $t('login.errors.failed');
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -255,12 +265,12 @@
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
 				<Logo />
-				<h1 class="mt-6 text-center text-2xl font-bold">{$t('login.title')}</h1>
+				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content mb-6 text-center text-lg">
+				<p class="text-base-content text-center text-base">
 					{$t('login.subtitle')}
 				</p>
-				<p class="text-base-content text-center text-lg">
+				<p class="text-base-content text-center text-base">
 					{$t('login.passkey_info')}
 				</p>
 			</div>
@@ -340,7 +350,7 @@
 						{/if}
 
 						<button
-							class="btn btn-outline w-full"
+							class="btn btn-secondary w-full btn-sm md:btn-md py-5"
 							onclick={() => {
 								error = '';
 								isNostrLogin = true;
@@ -430,7 +440,7 @@
 							{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
 						</button>
 						<button
-							class="btn btn-block btn-outline"
+							class="btn btn-block btn-secondary"
 							onclick={() => {
 								error = '';
 								isNostrLogin = false;
@@ -464,7 +474,7 @@
 
 				<div class="divider my-1">{$t('common.or')}</div>
 
-				<button onclick={() => goto('/auth/signup')} class="btn btn-outline">
+				<button onclick={() => goto('/auth/signup')} class="btn btn-outline btn-primary w-full">
 					{$t('login.create_account')}
 				</button>
 				
