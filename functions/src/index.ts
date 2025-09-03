@@ -7,17 +7,37 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-import { onCall } from "firebase-functions/v2/https";
+import { onCall, CallableRequest } from "firebase-functions/v2/https";
 import { EmailService } from "./services/email.service";
 
 const emailService = new EmailService();
+
+// In-memory token storage (in production, use a database like Firestore)
+interface RecoveryToken {
+  email: string;
+  publicKey?: string;
+  createdAt: number;
+  expiresAt: number;
+}
+
+const recoveryTokens = new Map<string, RecoveryToken>();
+
+// Clean up expired tokens every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, data] of recoveryTokens.entries()) {
+    if (data.expiresAt < now) {
+      recoveryTokens.delete(token);
+    }
+  }
+}, 60 * 60 * 1000); // 1 hour
 
 export const sendRecoveryVerificationEmail = onCall(
   { 
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { email, verificationToken } = request.data;
 
@@ -25,6 +45,16 @@ export const sendRecoveryVerificationEmail = onCall(
       if (!email || !verificationToken) {
         throw new Error('Email and verification token are required');
       }
+
+      // Store the token with the email (expires in 24 hours)
+      const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+      recoveryTokens.set(verificationToken, {
+        email,
+        createdAt: Date.now(),
+        expiresAt
+      });
+
+      console.log(`Stored recovery token for email: ${email}`);
 
       // Send verification email
       await emailService.sendRecoveryVerificationEmail(
@@ -48,7 +78,7 @@ export const sendVerificationEmail = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { email, verificationToken, emailType } = request.data;
 
@@ -83,7 +113,7 @@ export const invalidateAllDevices = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { publicKey } = request.data;
 
@@ -120,7 +150,7 @@ export const completeNostrRecovery = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { 
         publicKey, 
@@ -176,7 +206,7 @@ export const initiateNostrRecovery = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { email } = request.data;
 
@@ -185,19 +215,28 @@ export const initiateNostrRecovery = onCall(
         throw new Error('Email is required');
       }
 
-      // For now, we'll simulate the recovery initiation
-      // In a real implementation, this would:
-      // 1. Check if the email exists in the database
-      // 2. Generate a recovery token
-      // 3. Send verification email
-      // 4. Store the recovery session
-      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        throw new Error('Invalid email format');
+      }
+
       console.log(`Initiating recovery for email: ${email}`);
       
-      // Simulate successful initiation
+      // TODO: In a real implementation, this would:
+      // 1. Check if the email exists in the database
+      // 2. If email doesn't exist, return an error or success (for security, don't reveal if email exists)
+      // 3. Generate a recovery token
+      // 4. Send verification email
+      // 5. Store the recovery session
+      
+      // For now, we'll always return success to prevent email enumeration attacks
+      // In production, you should check if the email exists in your user database
+      // and only send emails to valid accounts
+      
       return { 
         success: true, 
-        message: 'Recovery initiated successfully. Please check your email for verification link.'
+        message: 'If an account with this email exists, you will receive a recovery email shortly.'
       };
     } catch (error) {
       console.error('Error initiating recovery:', error);
@@ -211,7 +250,7 @@ export const getRecoveryData = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { publicKey } = request.data;
 
@@ -220,26 +259,16 @@ export const getRecoveryData = onCall(
         throw new Error('Public key is required');
       }
 
-      // For now, we'll simulate getting recovery data
-      // In a real implementation, this would:
-      // 1. Verify the public key exists
-      // 2. Return the user's recovery data
-      // 3. Check if recovery is allowed
+      // TODO: In a real implementation, this would:
+      // 1. Look up the user by public key in the database
+      // 2. Return their encrypted recovery data
+      // 3. Validate that the user exists and has recovery data
       
       console.log(`Getting recovery data for public key: ${publicKey}`);
       
-      // Simulate recovery data
-      const mockRecoveryData = {
-        publicKey: publicKey,
-        email: 'user@example.com',
-        hasRecoveryPassword: true,
-        message: 'Recovery data retrieved successfully'
-      };
-      
-      return { 
-        success: true, 
-        data: mockRecoveryData
-      };
+      // For now, return an error since we don't have real recovery data
+      // This prevents the undefined error and makes it clear that recovery data is not available
+      throw new Error('No recovery data found for this account. Please contact support if you believe this is an error.');
     } catch (error) {
       console.error('Error getting recovery data:', error);
       throw new Error('Failed to get recovery data');
@@ -252,7 +281,7 @@ export const verifyRecoveryEmail = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       const { token } = request.data;
 
@@ -261,24 +290,37 @@ export const verifyRecoveryEmail = onCall(
         throw new Error('Verification token is required');
       }
 
-      // For now, we'll simulate email verification
-      // In a real implementation, this would:
-      // 1. Verify the token is valid and not expired
-      // 2. Get the user's public key from the token
-      // 3. Return the user's recovery information
-      
       console.log(`Verifying recovery email with token: ${token}`);
       
-      // Simulate successful verification
-      const mockRecoveryData = {
-        email: 'user@example.com',
-        publicKey: 'npub1example123456789',
-        message: 'Email verified successfully. You can now proceed with recovery.'
+      // Look up the token in our storage
+      const tokenData = recoveryTokens.get(token);
+      
+      if (!tokenData) {
+        throw new Error('Invalid or expired verification token. Please request a new recovery email.');
+      }
+      
+      // Check if token has expired
+      if (tokenData.expiresAt < Date.now()) {
+        recoveryTokens.delete(token); // Clean up expired token
+        throw new Error('Verification token has expired. Please request a new recovery email.');
+      }
+      
+      // TODO: Look up the actual user's public key from the database using the email
+      // For now, we'll return the email and a placeholder message
+      const recoveryData = {
+        email: tokenData.email,
+        publicKey: '', // This should be fetched from the database
+        message: 'Email verified successfully. However, no account was found with this email address. Please check your email or contact support if you believe this is an error.'
       };
+      
+      console.log(`Recovery data for email: ${tokenData.email}`);
+      
+      // Remove the token after successful verification (one-time use)
+      recoveryTokens.delete(token);
       
       return { 
         success: true, 
-        data: mockRecoveryData
+        data: recoveryData
       };
     } catch (error) {
       console.error('Error verifying recovery email:', error);
@@ -292,7 +334,7 @@ export const testSMTPConfiguration = onCall(
     maxInstances: 10,
     region: "us-central1"
   },
-  async (request) => {
+  async (request: CallableRequest) => {
     try {
       console.log('🧪 Testing SMTP configuration...');
       

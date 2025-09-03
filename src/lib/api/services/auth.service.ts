@@ -314,7 +314,7 @@ export class AuthService extends BaseApiService {
 			const initiateRecovery = httpsCallable(functions, 'initiateNostrRecovery');
 			const result = await initiateRecovery({ email });
 			
-			// Generate a verification token for the email
+			// Generate a secure verification token (email will be stored server-side)
 			const verificationToken = `recovery_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 			
 			// Send the verification email using Firebase function

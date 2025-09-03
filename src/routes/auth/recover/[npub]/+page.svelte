@@ -44,7 +44,10 @@
 	}
 
 	onMount(async () => {
-		if (!npub) return;
+		if (!npub) {
+			error = 'Invalid recovery link. No public key provided.';
+			return;
+		}
 		
 		try {
 			// Check if user came from email verification
@@ -59,12 +62,19 @@
 			
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
+			
+			// Check if recovery data is valid
+			if (!recoveryData || !recoveryData.recoveryPrivateKey) {
+				error = 'No recovery data found for this account. Please contact support if you believe this is an error.';
+				return;
+			}
+			
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
 			newPassword = generatePassword();
-		} catch (err) {
+		} catch (err: any) {
 			console.error('Failed to fetch recovery data:', err);
-			error = 'Failed to load recovery data';
+			error = err.message || 'Failed to load recovery data';
 		}
 	});
 
@@ -90,6 +100,12 @@
 
 			if (!currentPassword || !recoveryData) {
 				error = 'Current password is required';
+				return;
+			}
+
+			// Check if recovery data has the required fields
+			if (!recoveryData.recoveryPrivateKey) {
+				error = 'No recovery data available. Please contact support.';
 				return;
 			}
 
