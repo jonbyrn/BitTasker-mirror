@@ -366,9 +366,10 @@
 							</div>
 
 							<!-- Expandable sections -->
-							<div class="flex flex-col gap-3 md:flex-row md:justify-between">
-								{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
-									<div class="pt-2">
+							<div class="flex flex-col gap-3">
+								<!-- Show more button and View Task button in same row -->
+								<div class="flex items-center justify-between">
+									{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
 										<button
 											type="button"
 											onclick={() => toggleBidExpansion(bid.bid.bidId)}
@@ -396,52 +397,10 @@
 												? $t('bids.show_less')
 												: $t('bids.show_more')}
 										</button>
-
-										{#if expandedBids.has(bid.bid.bidId)}
-											<div class="mt-3 space-y-4">
-												{#if bid.bid.description}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs font-medium">
-															{$t('bids.your_description')}
-														</p>
-														<div class="bg-base-200 rounded-lg p-3">
-															<p class="text-base-content/80 text-sm leading-relaxed">
-																{bid.bid.description}
-															</p>
-														</div>
-													</div>
-												{/if}
-
-												{#if bid.bid.proposedApproach}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs font-medium">
-															{$t('bids.your_approach')}
-														</p>
-														<div class="bg-base-200 rounded-lg p-3">
-															<p class="text-base-content/80 text-sm leading-relaxed">
-																{bid.bid.proposedApproach}
-															</p>
-														</div>
-													</div>
-												{/if}
-
-												{#if bid.bid.coverLetter}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs font-medium">
-															{$t('bids.your_cover_letter')}
-														</p>
-														<div class="bg-base-200 rounded-lg p-3">
-															<p class="text-base-content/80 text-sm leading-relaxed">
-																{bid.bid.coverLetter}
-															</p>
-														</div>
-													</div>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								{/if}
-								<div class="flex justify-start md:justify-end">
+									{:else}
+										<div></div>
+									{/if}
+									
 									<button
 										class="btn btn-secondary btn-sm"
 										onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
@@ -469,6 +428,50 @@
 										{$t('bids.view_task')}
 									</button>
 								</div>
+
+								<!-- Expandable content - full width -->
+								{#if (bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter) && expandedBids.has(bid.bid.bidId)}
+									<div class="w-full space-y-4">
+										{#if bid.bid.description}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_description')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.description}
+													</p>
+												</div>
+											</div>
+										{/if}
+
+										{#if bid.bid.proposedApproach}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_approach')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.proposedApproach}
+													</p>
+												</div>
+											</div>
+										{/if}
+
+										{#if bid.bid.coverLetter}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_cover_letter')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.coverLetter}
+													</p>
+												</div>
+											</div>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>
