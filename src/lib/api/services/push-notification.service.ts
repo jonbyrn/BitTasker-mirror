@@ -71,7 +71,7 @@ class PushNotificationService {
 		try {
 			// Check if notifications are supported
 			if (!isNotificationSupported()) {
-				console.warn('⚠️ Push notifications are not supported in this browser');
+				console.warn('Push notifications are not supported in this browser');
 				return;
 			}
 
@@ -82,7 +82,7 @@ class PushNotificationService {
 
 			// Validate Firebase config
 			if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
-				throw new Error('❌ Firebase configuration is incomplete');
+				throw new Error('Firebase configuration is incomplete');
 			}
 
 			const app = initializeApp(firebaseConfig);
@@ -104,7 +104,7 @@ class PushNotificationService {
 			await registerServiceWorker();
 
 		} catch (error) {
-			console.error('❌ Error initializing web push notifications:', error);
+			console.error('Error initializing web push notifications:', error);
 			throw error;
 		}
 	}
@@ -112,7 +112,7 @@ class PushNotificationService {
 	private async requestWebPermissions(): Promise<void> {
 		const permission = await requestNotificationPermission();
 		if (permission !== 'granted') {
-			throw new Error(`❌ Notification permission not granted: ${permission}`);
+			throw new Error(`Notification permission not granted: ${permission}`);
 		}
 	}
 
@@ -123,7 +123,7 @@ class PushNotificationService {
 			const vapidKey = getVapidKey();
 
 			if (!vapidKey) {
-				throw new Error('❌ VAPID key is not configured');
+				throw new Error('VAPID key is not configured');
 			}
 
 			const token = await getToken(this.messaging, {
@@ -133,10 +133,10 @@ class PushNotificationService {
 			if (token) {
 				await this.registerTokenOnServer(token);
 			} else {
-				console.warn('⚠️ No registration token available.');
+				console.warn('No registration token available.');
 			}
 		} catch (error) {
-			throw error || new Error('❌ An error occurred while retrieving token');
+			throw error || new Error('An error occurred while retrieving token');
 		}
 	}
 
@@ -177,10 +177,10 @@ class PushNotificationService {
 		// Check for click_action first (Android-specific), then fallback to other locations
 		if (data.click_action) {
 			targetUrl = data.click_action;
-			console.log('🎯 Using click_action:', targetUrl);
+			console.log('Using click_action:', targetUrl);
 		} else if (data.clickAction || data.data?.clickAction) {
 			targetUrl = data.clickAction || data.data.clickAction;
-			console.log('🎯 Using clickAction:', targetUrl);
+			console.log('Using clickAction:', targetUrl);
 		} else if (data.type === 'task_match') {
 			targetUrl = data.clickAction || '/dashboard/find-tasks';
 		} else if (data.type === 'new_bid' && data.taskId) {
@@ -193,7 +193,7 @@ class PushNotificationService {
 			targetUrl = data.url;
 		}
 
-		console.log('🎯 Navigating to:', targetUrl);
+		console.log('Navigating to:', targetUrl);
 
 		// Navigate using appropriate method for platform
 		await this.navigateToUrl(targetUrl);
