@@ -87,7 +87,7 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h3 class="text-lg font-semibold">{$t('task.budget_question')}</h3>
+	<h4 class="text-lg font-semibold">{$t('task.budget_question')}</h4>
 
 	<div class="flex gap-4">
 		<button

@@ -198,15 +198,6 @@
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
 		}
 
-		// Validate cover letter - min 50, max 800
-		if (!coverLetter || coverLetter.trim() === '') {
-			errors.coverLetter = $t('bid_form.errors.cover_letter_required');
-		} else if (coverLetter.trim().length < 50) {
-			errors.coverLetter = $t('bid_form.errors.cover_letter_min_length');
-		} else if (coverLetter.trim().length > 800) {
-			errors.coverLetter = $t('bid_form.errors.cover_letter_max_length');
-		}
-
 		bidFormErrors = errors;
 		return Object.keys(errors).length === 0;
 	}
@@ -605,7 +596,7 @@
 				{/if}
 				{#if bidFormErrors.description}
 					<div class="label">
-						<span class="label-text-alt text-error" id="description-error" aria-live="polite"
+						<span class="label-text-alt text-error whitespace-break-spaces" id="description-error" aria-live="polite"
 							>{bidFormErrors.description}</span
 						>
 					</div>

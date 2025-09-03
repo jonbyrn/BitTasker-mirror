@@ -1,23 +1,40 @@
 <script lang="ts">
 	import type { UploaderProps } from '$lib/types/props';
 	import { t, locale } from 'svelte-i18n';
+	import { 
+		compressImage, 
+		compressImages, 
+		validateImageFile, 
+		formatFileSize,
+		type CompressionResult 
+	} from '$lib/utils/imageCompression';
 
 	let {
 		id = 'image-uploader',
 		label = $t('uploader.uploadImage'),
 		maxFiles = 1,
 		maxDuration = 30, // In seconds
-		maxFileSize = 8, // In MB
+		maxFileSize = 2, // In MB - reduced to 2MB for compressed images
 		allowedTypes = ['image/*'],
 		files = [],
 		error = '',
 		width,
 		height,
 		className = 'aspect-square h-20 w-20 sm:h-24 sm:w-24',
+		enableImageCompression = true,
+		compressionQuality = 0.8,
+		maxImageDimension = 3840,
+		showCompressionInfo = false,
 		onChange = () => {},
 		onRemove = () => {},
-		onError = () => {}
+		onError = () => {},
+		onCompressionProgress = () => {}
 	}: UploaderProps = $props();
+
+	// Compression state
+	let isCompressing = $state(false);
+	let compressionProgress = $state({ processed: 0, total: 0, currentFile: '' });
+	let compressionInfo = $state<CompressionResult[]>([]);
 
 	// Helper function to detect if a URL is a video
 	function isVideoURL(url: string): boolean {
@@ -27,7 +44,7 @@
 		return videoExtensions.some((ext) => urlLower.endsWith(ext));
 	}
 
-	async function validateFile(file: File): Promise<boolean> {
+	async function validateAndProcessFile(file: File): Promise<File | null> {
 		// Validate file type
 		const isImageAllowed = allowedTypes.includes('image/*');
 		const isVideoAllowed = allowedTypes.includes('video/*');
@@ -54,14 +71,47 @@
 				error = $t('uploader.invalidFileType');
 			}
 			onError(error);
-			return false;
+			return null;
 		}
 
-		// Validate file size
+		// Process image files with compression
+		if (isImageFile && enableImageCompression) {
+			// Validate image file before compression
+			const validation = validateImageFile(file);
+			if (!validation.isValid) {
+				error = validation.error || 'Invalid image file';
+				onError(error);
+				return null;
+			}
+
+			try {
+				// Compress the image
+				const compressionResult = await compressImage(file, {
+					maxSizeMB: maxFileSize,
+					maxWidthOrHeight: maxImageDimension,
+					quality: compressionQuality,
+					fileType: 'image/webp'
+				});
+
+				// Store compression info if requested
+				if (showCompressionInfo) {
+					compressionInfo = [...compressionInfo, compressionResult];
+				}
+
+				return compressionResult.file;
+			} catch (err) {
+				console.error('Image compression failed:', err);
+				error = 'Failed to compress image: ' + (err as Error).message;
+				onError(error);
+				return null;
+			}
+		}
+
+		// For non-image files or when compression is disabled, validate file size
 		if (file.size > maxFileSize * 1024 * 1024) {
 			error = `File size must be less than ${maxFileSize}MB`;
 			onError(error);
-			return false;
+			return null;
 		}
 
 		// Validate video duration if applicable
@@ -79,7 +129,7 @@
 					error = `Video must be ${maxDuration} seconds or shorter`;
 					onError(error);
 					URL.revokeObjectURL(video.src);
-					return false;
+					return null;
 				}
 
 				URL.revokeObjectURL(video.src);
@@ -87,12 +137,12 @@
 				console.error('Failed to validate video duration:', err);
 				error = $t('uploader.failedToValidateVideo');
 				onError(error);
-				return false;
+				return null;
 			}
 		}
 
-		// Validate image dimensions if specified
-		if (isImageAllowed && (width || height) && isImageFile) {
+		// Validate image dimensions if specified (for non-compressed images)
+		if (isImageAllowed && (width || height) && isImageFile && !enableImageCompression) {
 			try {
 				const img = new Image();
 				img.src = URL.createObjectURL(file);
@@ -105,7 +155,7 @@
 					error = `Image dimensions must be ${width}x${height}px`;
 					onError(error);
 					URL.revokeObjectURL(img.src);
-					return false;
+					return null;
 				}
 
 				URL.revokeObjectURL(img.src);
@@ -113,11 +163,11 @@
 				console.error('Failed to validate image dimensions:', err);
 				error = $t('uploader.failedToLoadImage');
 				onError(error);
-				return false;
+				return null;
 			}
 		}
 
-		return true;
+		return file;
 	}
 
 	async function handleFileChange(event: Event) {
@@ -131,18 +181,45 @@
 			return;
 		}
 
+		// Set compression state
+		const selectedFilesArray = Array.from(selectedFiles);
+		const hasImages = selectedFilesArray.some(file => file.type.startsWith('image/'));
+		
+		if (hasImages && enableImageCompression) {
+			isCompressing = true;
+			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
+		}
+
 		// Create a new array to collect the processed files
 		const newFiles = [...files];
 		let hasErrors = false;
 
 		// Process files sequentially to avoid memory issues with large files
-		for (const file of Array.from(selectedFiles)) {
-			const isValid = await validateFile(file);
-			if (!isValid) {
+		for (let i = 0; i < selectedFilesArray.length; i++) {
+			const file = selectedFilesArray[i];
+			
+			// Update compression progress
+			if (hasImages && enableImageCompression) {
+				compressionProgress = { 
+					processed: i, 
+					total: selectedFilesArray.length, 
+					currentFile: file.name 
+				};
+				onCompressionProgress(compressionProgress);
+			}
+
+			const processedFile = await validateAndProcessFile(file);
+			if (!processedFile) {
 				hasErrors = true;
 				break;
 			}
-			newFiles.push(file);
+			newFiles.push(processedFile);
+		}
+
+		// Finalize compression state
+		if (hasImages && enableImageCompression) {
+			isCompressing = false;
+			compressionProgress = { processed: selectedFilesArray.length, total: selectedFilesArray.length, currentFile: '' };
 		}
 
 		if (!hasErrors) {
@@ -177,7 +254,7 @@
 <div class="space-y-4">
 	<div
 		class={maxFiles > 1
-			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
+			? 'grid w-full grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
 			: 'h-full w-full'}
 	>
 		{#each files as file, index}
@@ -238,7 +315,7 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative overflow-hidden {className}">
+			<div class="relative overflow-hidden w-full {className}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
@@ -270,7 +347,7 @@
 				<input
 					id="file-upload-{id}"
 					type="file"
-					class="hidden"
+					class="hidden w-full"
 					accept={allowedTypes.join(',')}
 					onchange={handleFileChange}
 					multiple={files.length + 1 < maxFiles}
@@ -279,6 +356,77 @@
 		{/if}
 	</div>
 
+	<!-- Compression Progress -->
+	{#if isCompressing && compressionProgress.total > 0}
+		<div class="alert alert-info alert-xs sm:alert-sm py-2">
+			<div class="flex items-center gap-2 w-full">
+				<svg
+					class="animate-spin h-4 w-4 text-info"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<circle
+						class="opacity-25"
+						cx="12"
+						cy="12"
+						r="10"
+						stroke="currentColor"
+						stroke-width="4"
+					></circle>
+					<path
+						class="opacity-75"
+						fill="currentColor"
+						d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+					></path>
+				</svg>
+				<div class="flex-1">
+					<div class="text-xs font-medium">
+						Compressing images... ({compressionProgress.processed}/{compressionProgress.total})
+					</div>
+					{#if compressionProgress.currentFile}
+						<div class="text-xs opacity-70">{compressionProgress.currentFile}</div>
+					{/if}
+					<div class="w-full bg-base-300 rounded-full h-1 mt-1">
+						<div
+							class="bg-info h-1 rounded-full transition-all duration-300"
+							style="width: {(compressionProgress.processed / compressionProgress.total) * 100}%"
+						></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Compression Info -->
+	{#if showCompressionInfo && compressionInfo.length > 0}
+		<div class="alert alert-success alert-xs sm:alert-sm py-2">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-4 w-4 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
+			</svg>
+			<div class="text-xs">
+				<div class="font-medium">Images compressed successfully!</div>
+				{#each compressionInfo as info, index}
+					<div class="opacity-70">
+						File {index + 1}: {formatFileSize(info.originalSize)} → {formatFileSize(info.compressedSize)} 
+						({Math.round((1 - info.compressedSize / info.originalSize) * 100)}% reduction)
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Error Display -->
 	{#if error}
 		<div class="alert alert-outline alert-error alert-xs sm:alert-sm py-1">
 			<svg

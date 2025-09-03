@@ -1,20 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { getMyBids } from '$lib/utils/nostr-bid';
-	import { nip19 } from 'nostr-tools';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	
 	// State
-	let currentUserPubkey = $state<string>('');
 	let myBids = $state<any[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0); // Default fallback price
 	let expandedBids = $state<Set<string>>(new Set()); // Track expanded bids
 
 	/**
@@ -33,10 +31,6 @@
 		try {
 			// Fetch BTC price for USDT conversion
 			fetchBtcPrice();
-
-			// Get current user's pubkey
-			const { npub } = await getNostrKeyPair();
-			currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 			// Load user's bids
 			await loadMyBids();
@@ -61,14 +55,6 @@
 		}
 	}
 
-	// Helper functions
-	function formatAmount(amount: number, currency: string): string {
-		if (currency === 'SATS') {
-			return `${amount.toLocaleString()} sats`;
-		}
-		return `${amount} ${currency}`;
-	}
-
 	// Toggle bid expansion
 	function toggleBidExpansion(bidId: string) {
 		if (expandedBids.has(bidId)) {
@@ -76,7 +62,7 @@
 		} else {
 			expandedBids.add(bidId);
 		}
-		expandedBids = new Set(expandedBids); // Trigger reactivity
+		expandedBids = new Set(expandedBids); 
 	}
 </script>
 
@@ -231,9 +217,9 @@
 		<div class="space-y-4">
 			{#each myBids as bid, index}
 				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm">
-					<div class="card-body p-6">
+					<div class="card-body p-4 md:p-6">
 						<!-- Task Information - Header -->
-						<div class="border-base-300 mb-6">
+						<div class="border-base-300 mb-4 md:mb-6">
 							<div class="flex items-start">
 								<div class="flex-1">
 									<small class="card-title line-clamp-1 text-lg">
@@ -250,7 +236,7 @@
 						</div>
 
 						<!-- Your Bid Details -->
-						<div class="space-y-2">
+						<div class="space-y-3">
 							<small class="text-base-content/90 text-xl font-medium">
 								{$t('bids.your_proposal')} -
 								<small class="text-base-content/60">
@@ -259,12 +245,12 @@
 							</small>
 
 							<!-- Two-column layout -->
-							<div class="flex flex-row items-start justify-between gap-4">
+							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 								<!-- Left column: FIXED period OR HOURLY rate/hours -->
-								<div class="flex flex-row gap-6 text-left">
+								<div class="flex flex-col gap-4 md:flex-row md:gap-6">
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
-											<p class="pt-3 text-sm font-medium">
+											<p class="text-sm font-medium">
 												{new Date(bid.bid.startDate).toLocaleDateString()} -
 												{new Date(bid.bid.endDate).toLocaleDateString()}
 												{#if bid.bid.startTime && bid.bid.endTime}
@@ -300,12 +286,12 @@
 								</div>
 
 								<!-- Right column: Amount & Payment Type -->
-								<div class="ml-auto flex flex-row">
+								<div class="flex justify-start md:justify-end">
 									<div class="text-start">
 										<div class="text-lg font-semibold">
 											${formatNumberWithTwoDecimals(bid.bid.amount)}
 										</div>
-										<div class="text-base-content/60 text-lg">
+										<div class="text-base-content/60 text-sm md:text-lg">
 											{satsFromUsd(bid.bid.amount, btcPrice)}
 										</div>
 									</div>
@@ -380,9 +366,10 @@
 							</div>
 
 							<!-- Expandable sections -->
-							<div class="flex justify-between">
-								{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
-									<div class="border-base-200 pt-2">
+							<div class="flex flex-col gap-3">
+								<!-- Show more button and View Task button in same row -->
+								<div class="flex items-center justify-between">
+									{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
 										<button
 											type="button"
 											onclick={() => toggleBidExpansion(bid.bid.bidId)}
@@ -410,46 +397,10 @@
 												? $t('bids.show_less')
 												: $t('bids.show_more')}
 										</button>
-
-										{#if expandedBids.has(bid.bid.bidId)}
-											<div class="mt-3 space-y-3">
-												{#if bid.bid.description}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs">
-															{$t('bids.your_description')}
-														</p>
-														<p class="text-base-content/80 text-sm">
-															{bid.bid.description}
-														</p>
-													</div>
-												{/if}
-
-												{#if bid.bid.proposedApproach}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs">
-															{$t('bids.your_approach')}
-														</p>
-														<p class="text-base-content/80 text-sm">
-															{bid.bid.proposedApproach}
-														</p>
-													</div>
-												{/if}
-
-												{#if bid.bid.coverLetter}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs">
-															{$t('bids.your_cover_letter')}
-														</p>
-														<p class="text-base-content/80 text-sm">
-															{bid.bid.coverLetter}
-														</p>
-													</div>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								{/if}
-								<div class="flex justify-end">
+									{:else}
+										<div></div>
+									{/if}
+									
 									<button
 										class="btn btn-secondary btn-sm"
 										onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
@@ -477,6 +428,50 @@
 										{$t('bids.view_task')}
 									</button>
 								</div>
+
+								<!-- Expandable content - full width -->
+								{#if (bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter) && expandedBids.has(bid.bid.bidId)}
+									<div class="w-full space-y-4">
+										{#if bid.bid.description}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_description')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.description}
+													</p>
+												</div>
+											</div>
+										{/if}
+
+										{#if bid.bid.proposedApproach}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_approach')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.proposedApproach}
+													</p>
+												</div>
+											</div>
+										{/if}
+
+										{#if bid.bid.coverLetter}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_cover_letter')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.coverLetter}
+													</p>
+												</div>
+											</div>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>

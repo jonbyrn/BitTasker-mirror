@@ -22,7 +22,7 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between flex-wrap">
 		<h4 class="font-medium">{$t('task.location_title')}</h4>
 		{#if isRemoteTask}
 			<span class="badge badge-info text-black text-xs px-1">{$t('task.remote_task')}</span>

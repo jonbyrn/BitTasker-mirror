@@ -21,11 +21,13 @@
 	{:else if $profileStore.data}
 		<!-- About -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold ">{$t('profile.about')}</h3>
+			<h3 class="mb-4 text-xl font-semibold">{$t('profile.about')}</h3>
 			{#if $profileStore.data.about}
-				<p class="text-base-content/70 line-clamp-2 whitespace-pre-line">{$profileStore.data.about}</p>
+				<p class="text-base-content/70 line-clamp-2 whitespace-pre-line">
+					{$profileStore.data.about}
+				</p>
 			{:else}
-				<p class="text-base-content/70 line-clamp-2 ">{$t('profile.noDescription')}</p>
+				<p class="text-base-content/70 line-clamp-2">{$t('profile.noDescription')}</p>
 			{/if}
 		</div>
 
@@ -35,20 +37,20 @@
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
 				<div class="grid gap-4 md:grid-cols-2">
 					{#each $profileStore.data.skills as skill}
-						<div class="flex items-center justify-between">
+						<div class="flex w-full flex-wrap items-center justify-between">
 							<div class="flex items-center gap-2">
 								<span>{skill.name}</span>
-								<span
-									class="badge pb-[4px] {skill.verificationStatus === 'verified'
+								<small
+									class="badge badge-sm pb-[2px] {skill.verificationStatus === 'verified'
 										? 'badge-success'
 										: skill.verificationStatus === 'pending'
 											? 'badge-warning'
 											: 'badge-ghost badge-outline'}"
 								>
 									{skill.verificationStatus}
-								</span>
+								</small>
 							</div>
-							<div class="rating rating-sm">
+							<div class="rating rating-sm w-full">
 								{#each Array(5) as _, i}
 									<input
 										type="radio"
