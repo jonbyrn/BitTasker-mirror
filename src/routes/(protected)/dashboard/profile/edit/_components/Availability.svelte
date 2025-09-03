@@ -299,7 +299,6 @@
 	</div>
 {:else}
 	<div class="space-y-6">
-
 		<!-- Timezone Selection -->
 		<div class="form-control">
 			<label class="label" for="timezone">
@@ -316,16 +315,18 @@
 		</div>
 
 		<!-- Scheduling Preferences -->
-		<div class="grid gap-4">
+		<div class=" gap-4">
 			<!-- Minimum Notice -->
-			<div class="form-control">
+			<div class="form-control pt-1 gap-2">
 				<label class="label" for="noticeHours">
-					<span class="label-text font-medium">{$t('profile.availability.min_notice')}</span>
+					<span class="label-text line-clamp-2 font-medium md:line-clamp-1"
+						>{$t('profile.availability.min_notice')}</span
+					>
 					<span class="label-text-alt text-primary font-semibold">{noticeHours} hours</span>
 				</label>
 				<br />
-				<label for="noticeHours" class="label">
-					<span class="label-text-alt">{$t('profile.availability.min_notice_desc')}</span>
+				<label for="noticeHours" class="text-base-content/70 line-clamp-2 md:line-clamp-1">
+					<span class="">{$t('profile.availability.min_notice_desc')}</span>
 				</label>
 				<input
 					type="range"
@@ -335,16 +336,16 @@
 					max="24"
 					class="range range-primary range-xs w-full"
 				/>
-				<div class="flex justify-between text-xs text-base-content/60 mt-1">
+				<div class="text-base-content/60 mt-1 flex justify-between text-xs">
 					<span>1 hour</span>
 					<span>24 hours</span>
 				</div>
 			</div>
 
 			<!-- Maximum Bookings -->
-			<div class="form-control">
-				<label class="label" for="maxBookings">
-					<span class="label-text font-medium">{$t('profile.availability.max_bookings')}</span>
+			<div class="form-control gap-2 py-4">
+				<label class="text-base-content/70 line-clamp-2 md:line-clamp-1" for="maxBookings">
+					<span class="">{$t('profile.availability.max_bookings')}</span>
 				</label>
 				<input
 					type="number"
@@ -357,13 +358,13 @@
 			</div>
 
 			<!-- Break Time -->
-			<div class="form-control">
+			<div class="form-control pt-3">
 				<label class="label" for="breakTime">
 					<span class="label-text font-medium">{$t('profile.availability.break_time')}</span>
 				</label>
 				<br />
-				<label for="breakTime" class="label">
-					<span class="label-text-alt">{$t('profile.availability.break_time_desc')}</span>
+				<label for="breakTime" class="text-base-content/70 line-clamp-2 md:line-clamp-1">
+					<span class="l">{$t('profile.availability.break_time_desc')}</span>
 				</label>
 				<Input
 					type="number"
@@ -397,7 +398,9 @@
 								>
 									<div class="flex flex-col items-center gap-4 sm:flex-row">
 										<div class="flex w-full flex-row items-center justify-start gap-2">
-											<span class="text-base-content/70 w-1/5">{$t('profile_availability.from')}</span>
+											<span class="text-base-content/70 w-1/5"
+												>{$t('profile_availability.from')}</span
+											>
 											<input
 												type="time"
 												value={slot.start}
@@ -412,7 +415,8 @@
 											/>
 										</div>
 										<div class="flex w-full flex-row items-center justify-start gap-2">
-											<span class="text-base-content/70 w-1/5">{$t('profile_availability.to')}</span>
+											<span class="text-base-content/70 w-1/5">{$t('profile_availability.to')}</span
+											>
 											<input
 												type="time"
 												value={slot.end}

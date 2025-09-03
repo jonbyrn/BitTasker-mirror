@@ -972,7 +972,7 @@
 			</div>
 
 			<!-- Right Column: Static Content (40% - 2/5 columns) -->
-			<div class="col-span-3 block">
+			<div class="col-span-3 hidden md:block">
 				<div class="">
 					<!-- Task Location Map -->
 					<TaskLocationMap

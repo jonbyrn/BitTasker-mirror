@@ -39,7 +39,7 @@
 	<div class="space-y-4">
 		<h4 class="font-semibold">{$t('task.when_needed')}</h4>
 
-		<div class="flex gap-4">
+		<div class="flex gap-4 flex-wrap">
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 				onclick={() => {

@@ -311,8 +311,8 @@
 {:else}
 	<div class="space-y-6">
 		<!-- Add New Skill -->
-		<div class="grid gap-4">
-			<div class="form-control">
+		<div class=" gap-4">
+			<div class="form-control py-2">
 				<label class="label" for="newSkillName">
 					<span class="label-text font-medium">{$t('profile.skills.skill_name')}</span>
 				</label>
@@ -325,10 +325,10 @@
 				/>
 			</div>
 
-			<div class="form-control">
-				<label class="label leading-tight break-words" for="newSkillLevel">
+			<div class="form-control py-2">
+				<label class="label line-clamp-2 md:line-clamp-1" for="newSkillLevel">
 					<span class="label-text font-medium">{$t('profile.skills.proficiency')}</span>
-					<span class="label-text-alt"
+					<span class="label-text-alt block md:flex"
 						>1 = {$t('profile.skills.proficiency_beginner')}, 5 = {$t(
 							'profile.skills.proficiency_expert'
 						)}</span
@@ -342,7 +342,7 @@
 					max="5"
 					class="range range-primary range-xs w-full"
 				/>
-				<div class="flex w-full justify-between px-2 text-xs">
+				<div class="flex w-full justify-between text-xs">
 					<span>1</span>
 					<span>2</span>
 					<span>3</span>
@@ -351,9 +351,9 @@
 				</div>
 			</div>
 
-			<div class="form-control flex items-end">
+			<div class="flex justify-end">
 				<button
-					class="btn btn-primary w-full"
+					class="btn btn-primary"
 					onclick={addSkill}
 					disabled={!newSkillName.trim() || isLoading}
 				>

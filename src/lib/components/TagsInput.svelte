@@ -146,13 +146,17 @@
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
 		>
 			{#each tags as tag}
-				<span class="badge badge-primary py-3" role="listitem" aria-label="tag">
-					<span class="mb-[4px] text-base font-normal">
+				<div class="badge badge-primary py-3 max-w-full" role="listitem" aria-label="tag">
+					<span
+						class="mb-[4px] text-base font-normal break-words leading-tight
+						       sm:truncate sm:line-clamp-1 sm:text-ellipsis sm:whitespace-nowrap
+						       line-clamp-2"
+					>
 						{tag}
 					</span>
 					<button
 						type="button"
-						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none"
+						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none flex-shrink-0 ml-1"
 						onclick={() => removeTag(tag)}
 						aria-label="Remove tag"
 					>
@@ -171,7 +175,7 @@
 							/>
 						</svg>
 					</button>
-				</span>
+				</div>
 			{/each}
 
 			<input
@@ -184,12 +188,12 @@
 				onclick={handleClick}
 				onpaste={handlePaste}
 				onfocus={() => (isInputFocused = true)}
-				maxlength={maxCharLength} 
+				maxlength={maxCharLength}
 			/>
 		</div>
 
 		{#if inputValue}
-			<div class="text-xs text-base-content/60 mt-1">
+			<div class="text-base-content/60 mt-1 text-xs">
 				{inputValue.length}/{maxCharLength} caracteres
 			</div>
 		{/if}
@@ -198,7 +202,7 @@
 			<ul
 				id="tags-dropdown-{id}"
 				tabindex="-1"
-				class="dropdown-content menu menu-vertical z-[9999] mt-1 max-h-60 rounded-box bg-base-200 p-2 shadow w-full"
+				class="dropdown-content menu menu-vertical rounded-2xl bg-base-300 z-[9999] mt-1 max-h-60 w-full p-2 shadow overflow-y-scroll"
 				role="listbox"
 				aria-label="options"
 			>
@@ -211,7 +215,7 @@
 							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
 							role="option"
 							aria-selected={filteredOptions[index] === inputValue}
-							class="w-full text-left p-2 hover:bg-base-300 rounded"
+							class="hover:bg-base-300 w-full rounded p-2 text-left"
 						>
 							<span class="font-medium">{option}</span>
 						</button>

@@ -177,7 +177,7 @@
 <div class="space-y-4">
 	<div
 		class={maxFiles > 1
-			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
+			? 'grid w-full grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
 			: 'h-full w-full'}
 	>
 		{#each files as file, index}
@@ -238,7 +238,7 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative overflow-hidden {className}">
+			<div class="relative overflow-hidden w-full {className}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
@@ -270,7 +270,7 @@
 				<input
 					id="file-upload-{id}"
 					type="file"
-					class="hidden"
+					class="hidden w-full"
 					accept={allowedTypes.join(',')}
 					onchange={handleFileChange}
 					multiple={files.length + 1 < maxFiles}
