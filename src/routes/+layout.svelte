@@ -218,8 +218,8 @@
 	<link rel="manifest" href="/site.webmanifest" />
 
 	<!-- Preload critical images -->
-	<link rel="preload" href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" />
-	<link rel="preload" href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
+	<link href="/images/Logos/BitTasker-Logo-dark-mode.svg" as="image" /> 
+	<link href="/images/Logos/BitTasker-Logo-light-mode.svg" as="image" />
 
     <!-- Global JSON-LD structured data for SEO - Inlined for critical content -->
     {@html `<script type="application/ld+json">${JSON.stringify(BITTASKER_ORG_JSONLD)}</script>`}

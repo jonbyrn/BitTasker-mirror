@@ -134,7 +134,6 @@
 		intersectionObserver = new IntersectionObserver(
 			(entries) => {
 				if (entries[0].isIntersecting && !dataLoaded) {
-					console.log('[FindTasks] Task list visible, loading data...');
 					loadNostrData();
 				}
 			},
@@ -152,7 +151,6 @@
 		// Fallback: Load after 3 seconds if user doesn't scroll
 		fallbackTimer = setTimeout(() => {
 			if (!dataLoaded) {
-				console.log('[FindTasks] Fallback timer triggered, loading data...');
 				loadNostrData();
 			}
 		}, 3000);
@@ -974,8 +972,8 @@
 			</div>
 
 			<!-- Right Column: Static Content (40% - 2/5 columns) -->
-			<div class="hidden lg:col-span-3 lg:block">
-				<div class="card">
+			<div class="col-span-3 block">
+				<div class="">
 					<!-- Task Location Map -->
 					<TaskLocationMap
 						tasks={$tasksStore.items}
@@ -987,6 +985,7 @@
 							// Hacer scroll a la card correspondiente
 							scrollToTaskCard(event.detail.task.id);
 						}}
+
 					/>
 				</div>
 			</div>
@@ -1015,59 +1014,8 @@
 />
 
 <style>
-	/* Custom scrollbar styling for the task list */
-	:global(.overflow-y-auto) {
-		scrollbar-width: thin;
-		scrollbar-color: hsl(var(--bc) / 0.3) transparent;
-	}
-
-	:global(.overflow-y-auto::-webkit-scrollbar) {
-		width: 6px;
-	}
-
-	:global(.overflow-y-auto::-webkit-scrollbar-track) {
-		background: transparent;
-	}
-
-	:global(.overflow-y-auto::-webkit-scrollbar-thumb) {
-		background-color: hsl(var(--bc) / 0.3);
-		border-radius: 3px;
-	}
-
-	:global(.overflow-y-auto::-webkit-scrollbar-thumb:hover) {
-		background-color: hsl(var(--bc) / 0.5);
-	}
-
-	/* Ensure the layout takes appropriate height */
-	:global(.h-\[calc\(100vh-200px\)\]) {
-		height: calc(100vh - 200px);
-		height: calc(100dvh - 200px); /* Dynamic viewport height for mobile */
-	}
-
-	/* Task card overflow protection */
-	:global(.card-body) {
-		overflow: hidden;
-	}
-
-	/* Ensure buttons stay within card boundaries */
-	:global(.btn) {
-		flex-shrink: 0;
-		white-space: nowrap;
-	}
-
-	/* Prevent text from pushing buttons out */
-	:global(.line-clamp-2) {
-		overflow: hidden;
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-	}
-
-	/* Ensure proper flex behavior */
-	:global(.flex-shrink-0) {
-		flex-shrink: 0;
-	}
-
-	:global(.min-w-0) {
-		min-width: 0;
+	:global([name='gmp-internal-google-attribution']),
+	:global([name='gmp-internal-dialog']) {
+		display: none !important;
 	}
 </style>

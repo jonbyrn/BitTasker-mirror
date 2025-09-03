@@ -1,7 +1,7 @@
 {
     "dashboard": {
       "title": "My Dashboard",
-      "description": "Manage your tasks and bids on BitTasker's dashboard.",
+      "description": "Manage your tasks and bids.",
       "titl": "Dashboard",
       "create_task": "Create Task",
       "find_tasks": "Find Tasks",

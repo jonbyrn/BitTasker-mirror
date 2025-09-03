@@ -19,5 +19,5 @@
 	class={className}
 	width="200"
 	height="60"
-	style="aspect-ratio: 200/60;"
+	style="aspect-ratio: 200/60;"        
 />

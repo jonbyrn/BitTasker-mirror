@@ -23,8 +23,6 @@
 	let error = $state('');
 	let selectedSkill = $state<Skill | null>(null);
 	let isAddingCertificate = $state(false);
-	let isEditingCertificate = $state(false);
-	let editingCertificationId = $state<string | null>(null);
 	let isInitialLoading = $state(false);
 	let cleanup: (() => void) | null = null;
 	let certification = $state<{
@@ -328,9 +326,13 @@
 			</div>
 
 			<div class="form-control">
-				<label class="label" for="newSkillLevel">
+				<label class="label leading-tight break-words" for="newSkillLevel">
 					<span class="label-text font-medium">{$t('profile.skills.proficiency')}</span>
-					<span class="label-text-alt">1 = {$t('profile.skills.proficiency_beginner')}, 5 = {$t('profile.skills.proficiency_expert')}</span>
+					<span class="label-text-alt"
+						>1 = {$t('profile.skills.proficiency_beginner')}, 5 = {$t(
+							'profile.skills.proficiency_expert'
+						)}</span
+					>
 				</label>
 				<input
 					type="range"
@@ -386,7 +388,9 @@
 
 								<!-- Skill Level -->
 								<div class="flex items-center gap-2">
-									<label class="pr-2 text-sm font-medium" for={`rating-${i}`}>{$t('profile.skills.proficiency')}</label>
+									<label class="pr-2 text-sm font-medium" for={`rating-${i}`}
+										>{$t('profile.skills.proficiency')}</label
+									>
 									<div class="rating rating-sm">
 										{#each Array(5) as _, j}
 											<input
@@ -401,9 +405,9 @@
 								</div>
 
 								<!-- Status and Endorsements -->
-								<div class="mt-2 flex items-center gap-2">
+								<div class="mt-2 flex flex-wrap items-center gap-2">
 									<span
-										class="badge {skill.verificationStatus === 'verified'
+										class="badge w-fit {skill.verificationStatus === 'verified'
 											? 'badge-success'
 											: skill.verificationStatus === 'pending'
 												? 'badge-warning'
@@ -411,7 +415,9 @@
 									>
 										{skill.verificationStatus}
 									</span>
-									<span class="badge badge-outline">
+									<span
+										class="badge badge-outline w-fit leading-tight break-words whitespace-nowrap"
+									>
 										{skill.endorsements} endorsement{skill.endorsements !== 1 ? 's' : ''}
 									</span>
 								</div>
