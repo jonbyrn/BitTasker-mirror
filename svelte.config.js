@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-static';
+import adapter from '@sveltejs/adapter-cloudflare';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -12,17 +12,29 @@ const config = {
 	},
 
 	kit: {
-        // Configure the adapter with fallback for SPA navigation
+        // Configure the adapter for Cloudflare Workers
         adapter: adapter({
-			// Single-page app mode with fallback
-			fallback: 'index.html',
-			// Path to build output
-			pages: 'build',
-			assets: 'build',
-			// Precompress only when explicitly enabled
-			precompress: process.env.PRECOMPRESS === '1',
-			// Make all paths strict
-			strict: true
+			// Routes configuration for Cloudflare Workers
+			routes: {
+				// Include all routes except API routes handled by server functions
+				include: ['/*'],
+				// Exclude patterns that should be handled by static assets
+				exclude: [
+					'/robots.txt',
+					'/sitemap.xml',
+					'/favicon.ico',
+					'/manifest.json',
+					'/_app/immutable/assets/*'
+				]
+			},
+			// Platform configuration for Workers runtime
+			platformProxy: {
+				// Enable environment variables and bindings
+				environment: undefined,
+				experimentalJsonConfig: false,
+				configPath: 'wrangler.toml',
+				persist: false
+			}
 		}),
 
         alias: {

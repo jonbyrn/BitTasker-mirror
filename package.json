@@ -28,7 +28,13 @@
 		"storybook": "storybook dev -p 6006 --no-open",
 		"build-storybook": "storybook build",
 		"sitemap:generate": "node scripts/generate-sitemap.js",
-		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'"
+		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
+		"wrangler:dev": "wrangler dev",
+		"wrangler:build": "npm run build && wrangler dev --local",
+		"wrangler:deploy": "npm run build && wrangler deploy",
+		"wrangler:deploy:dev": "npm run build && wrangler deploy --env development",
+		"wrangler:deploy:prod": "npm run build && wrangler deploy --env production",
+		"wrangler:preview": "npm run build && wrangler dev --remote"
 	},
 	"devDependencies": {
 		"@capacitor/assets": "^3.0.5",
@@ -81,7 +87,8 @@
 		"typescript-eslint": "^8.20.0",
 		"unplugin-icons": "^22.2.0",
 		"vite": "^6.0.0",
-		"vitest": "^3.0.0"
+		"vitest": "^3.0.0",
+		"wrangler": "^4.33.2"
 	},
 	"dependencies": {
 		"@breeztech/breez-sdk-liquid": "^0.10.3",

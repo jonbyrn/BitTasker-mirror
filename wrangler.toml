@@ -1,15 +1,51 @@
-# Nostr Relay Service for BitTasker
-name = "bittasker-relay-1"
+# BitTasker SvelteKit Application Configuration
+# This replaces the previous Nostr relay configuration for the main app
 
-# Use a recent date for the latest features
-compatibility_date = "2024-05-01"
+name = "bittasker-app"
+main = "./.svelte-kit/cloudflare/_worker.js"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
 
-# Main entry point for the relay service
-main = "src/index.js"
+# Enable Workers Static Assets for better performance
+[assets]
+directory = "./.svelte-kit/cloudflare/static"
+binding = "ASSETS"
 
-# Environment variables
+# Build configuration
+[build]
+command = "npm run build"
+cwd = "."
+watch_dir = "src"
+
+# Environment variables that will be available in the Worker
 [vars]
-RELAY_NAME = "BitTasker Relay"
-RELAY_DESCRIPTION = "Nostr relay service for BitTasker platform"
-RELAY_PUBKEY = "your-relay-pubkey-here"
-RELAY_CONTACT = "contact@bittasker.com"
+# App configuration
+APP_NAME = "BitTasker"
+APP_VERSION = "1.0.0"
+NODE_ENV = "production"
+
+# API endpoints (adjust these to your actual endpoints)
+VITE_API_URL = "https://api.bittasker.com"
+VITE_CLIENT_URL = "https://bittasker.com"
+
+# Development environment configuration
+[env.development]
+name = "bittasker-app-dev"
+vars = { NODE_ENV = "development", VITE_CLIENT_URL = "https://dev.bittasker.com" }
+
+# Production environment configuration  
+[env.production]
+name = "bittasker-app-prod"
+vars = { NODE_ENV = "production", VITE_CLIENT_URL = "https://bittasker.com" }
+
+# Resource limits for large assets (WASM files)
+[limits]
+# Increase memory limit for handling large WASM files (Breez SDK)
+memory = 128
+# CPU time limit in milliseconds (required field)
+cpu_ms = 50
+
+# Routes configuration (optional - SvelteKit adapter handles this)
+# [[routes]]
+# pattern = "/*"
+# zone_name = "bittasker.com"
