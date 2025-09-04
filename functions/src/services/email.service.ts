@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as nodemailer from 'nodemailer';
 
 export class EmailService {
