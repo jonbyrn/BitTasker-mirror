@@ -54,7 +54,6 @@
 					resolve(userLoc);
 				},
 				(error) => {
-					console.log('Geolocation error:', error);
 					resolve(null);
 				},
 				{
@@ -252,8 +251,6 @@
 				centerLocation.latitude!,
 				centerLocation.longitude!
 			);
-
-			console.log(`User country detected: ${country}, zoom level: ${zoomLevel}`);
 
 			// Initialize Google Maps
 			map = new google.maps.Map(mapElement, {

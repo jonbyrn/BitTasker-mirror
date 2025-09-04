@@ -156,7 +156,6 @@
                 throw new Error('Failed to read geolocation coordinates');
             }
 		} catch (error) {
-			console.error('Geolocation error:', error);
 			// Use default location if geolocation fails
 			createMarkerAndCircle(location.latitude!, location.longitude!);
 		} finally {

@@ -479,3 +479,47 @@ body {
 		overflow-x: hidden;
 	}
 }
+
+/* Inverted color scheme utility class */
+.inverted-colors {
+	/* Dark mode: white background, black text */
+	background-color: #ffffff;
+	color: #000000;
+}
+
+/* Light mode: black background, white text */
+:root[data-theme='light'] .inverted-colors {
+	background-color: #000000;
+	color: #ffffff;
+}
+
+/* Dark mode: white background, black text */
+:root[data-theme='dark'] .inverted-colors {
+	background-color: #ffffff;
+	color: #000000;
+}
+
+/* Additional utility classes for more control */
+.inverted-bg {
+	background-color: #ffffff;
+}
+
+:root[data-theme='light'] .inverted-bg {
+	background-color: #000000;
+}
+
+:root[data-theme='dark'] .inverted-bg {
+	background-color: #ffffff;
+}
+
+.inverted-text {
+	color: #000000;
+}
+
+:root[data-theme='light'] .inverted-text {
+	color: #ffffff;
+}
+
+:root[data-theme='dark'] .inverted-text {
+	color: #000000;
+}

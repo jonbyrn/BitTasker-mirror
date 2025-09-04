@@ -59,8 +59,8 @@
 <svelte:window bind:innerWidth={width} />
 
 <div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
-	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width > 768}
-		<!-- Fixed Sidebar -->
+	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width >= 1200}
+		<!-- Fixed Sidebar - Solo en desktop -->
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="fixed top-24 left-8 z-10 w-56">
 				<div class="card bg-base-100 rounded-xl shadow-xl">
