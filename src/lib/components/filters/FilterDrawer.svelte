@@ -332,6 +332,7 @@
 						locationLoaded: false
 					}}
 					onLocationSelect={(location) => (filters.location = location.displayName)}
+					showMap={false}
 				/>
 			</div>
 		</div>

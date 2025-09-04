@@ -102,6 +102,11 @@
       "success": {
         "created": "Task created successfully!",
         "updated": "Task updated successfully!"
+      },
+      "tags": {
+        "characters": "characters",
+        "remove_tag": "Remove tag",
+        "options": "options"
       }
     }
   }

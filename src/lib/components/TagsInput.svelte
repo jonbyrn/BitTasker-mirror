@@ -158,7 +158,7 @@
 						type="button"
 						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none flex-shrink-0 ml-1"
 						onclick={() => removeTag(tag)}
-						aria-label="Remove tag"
+						aria-label={$t('task.tags.remove_tag')}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -194,7 +194,7 @@
 
 		{#if inputValue}
 			<div class="text-base-content/60 mt-1 text-xs">
-				{inputValue.length}/{maxCharLength} caracteres
+				{inputValue.length}/{maxCharLength} {$t('task.tags.characters')}
 			</div>
 		{/if}
 
@@ -204,7 +204,7 @@
 				tabindex="-1"
 				class="dropdown-content menu menu-vertical rounded-2xl bg-base-300 z-[9999] mt-1 max-h-60 w-full p-2 shadow overflow-y-scroll"
 				role="listbox"
-				aria-label="options"
+				aria-label={$t('task.tags.options')}
 			>
 				{#each filteredOptions as option, index}
 					<li>
