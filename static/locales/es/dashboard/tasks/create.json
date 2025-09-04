@@ -102,6 +102,16 @@
       "success": {
         "created": "¡Tarea creada correctamente!",
         "updated": "¡Tarea actualizada correctamente!"
+      },
+      "tags": {
+        "characters": "caracteres",
+        "remove_tag": "Eliminar etiqueta",
+        "options": "opciones"
+      },
+      "tags": {
+        "characters": "caracteres",
+        "remove_tag": "Eliminar etiqueta",
+        "options": "opciones"
       }
     }
   }
