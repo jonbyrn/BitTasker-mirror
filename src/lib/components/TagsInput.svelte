@@ -147,14 +147,14 @@
 		>
 			{#each tags as tag}
 				<span class="badge badge-primary py-3" role="listitem" aria-label="tag">
-					<span class="mb-[4px] text-base font-normal">
+					<span class="text-base font-normal">
 						{tag}
 					</span>
 					<button
 						type="button"
 						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none"
 						onclick={() => removeTag(tag)}
-						aria-label="Remove tag"
+						aria-label={$t('task.tags.remove_tag')}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -190,7 +190,7 @@
 
 		{#if inputValue}
 			<div class="text-xs text-base-content/60 mt-1">
-				{inputValue.length}/{maxCharLength} caracteres
+				{inputValue.length}/{maxCharLength} {$t('task.tags.characters')}
 			</div>
 		{/if}
 
@@ -200,7 +200,7 @@
 				tabindex="-1"
 				class="dropdown-content menu menu-vertical z-[9999] mt-1 max-h-60 rounded-box bg-base-200 p-2 shadow w-full"
 				role="listbox"
-				aria-label="options"
+				aria-label={$t('task.tags.options')}
 			>
 				{#each filteredOptions as option, index}
 					<li>
