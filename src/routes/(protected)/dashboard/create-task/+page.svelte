@@ -193,7 +193,7 @@
 	const uploadFiles = async (files: (Attachment | File)[]): Promise<Attachment[]> => {
 		const uploadPromises = files.map(async (file) => {
 			if (file instanceof File) {
-				const uploadResult = await uploadService.uploadSingleFile(file, 'task');
+				const uploadResult = await uploadService.uploadSingleFile(file, { folder: 'task' });
 				return {
 					key: uploadResult.key,
 					url: uploadResult.url,
@@ -212,8 +212,8 @@
 	const handleNext = async () => {
 		if (!validateCurrentStep()) return;
 
-		// Start image upload in the background if we're in the location step
-		if ($store.currentStep === TaskStepEnum.LOCATION) {
+		// Start image upload in the background if we're in the budget step
+		if ($store.currentStep === TaskStepEnum.BUDGET) {
 			if (newFiles.length !== 0) {
 				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
 					appStore.showErrorToast($t('task.upload.too_many_files'));
@@ -349,9 +349,9 @@
 					{#if $store.currentStep === TaskStepEnum.BASICS}
 						<TaskBasics {errors} {direction} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
-						<TaskLocation {errors} {direction} bind:newFiles bind:attachmentsToRemove />
+						<TaskLocation {errors} {direction} />
 					{:else if $store.currentStep === TaskStepEnum.BUDGET}
-						<TaskBudget {errors} {direction} />
+						<TaskBudget {errors} {direction} bind:newFiles bind:attachmentsToRemove />
 					{:else if $store.currentStep === TaskStepEnum.REVIEW}
 						<TaskReview {direction} />
 					{:else if $store.currentStep === TaskStepEnum.RECURRING}
