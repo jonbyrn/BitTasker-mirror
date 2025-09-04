@@ -1,20 +1,18 @@
 <script lang="ts">
 	import type { Task, Location } from '$lib/types/task';
-	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
+	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
+	import { onMount, onDestroy, tick } from 'svelte';
 
 	let {
 		tasks = [],
 		height = '60vh',
-		selectedTask = null
+		selectedTask = null,
+		onTaskSelected
 	} = $props<{
 		tasks: Task[];
 		height?: string;
 		selectedTask?: Task | null;
-	}>();
-
-	// Event dispatcher para comunicar con el componente padre
-	const dispatch = createEventDispatcher<{
-		taskSelected: { task: Task; locationType: 'pickup' | 'dropoff' };
+		onTaskSelected?: (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => void;
 	}>();
 
 	// State
@@ -34,15 +32,7 @@
 	let isLoading = $state(true);
 	let userLocation: Location | null = $state(null);
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
-
-	// Default location (San Salvador) - used when no tasks have locations
-	const defaultLocation: Location = {
-		displayName: 'San Salvador, El Salvador',
-		latitude: 13.6929,
-		longitude: -89.2182,
-		zipCode: '',
-		locationLoaded: false
-	};
+	let userCountry: string | null = $state(null);
 
 	// Function to get user's location
 	async function getUserLocation(): Promise<Location | null> {
@@ -68,54 +58,98 @@
 					resolve(null);
 				},
 				{
-					timeout: 5000,
-					enableHighAccuracy: false,
+					timeout: 10000,
+					enableHighAccuracy: true,
 					maximumAge: 300000 // 5 minutes
 				}
 			);
 		});
 	}
 
-	// Function to determine appropriate zoom level based on location
-	function getZoomLevelForLocation(location: Location): number {
-		// El Salvador coordinates
-		const elSalvadorBounds = {
-			north: 14.4241,
-			south: 13.1490,
-			east: -87.7235,
-			west: -90.0956
-		};
+	// Function to get country from coordinates using reverse geocoding
+	async function getCountryFromCoordinates(lat: number, lng: number): Promise<string | null> {
+		if (!window.google?.maps) return null;
 
-		// Check if location is in El Salvador
-		if (
-			location.latitude! >= elSalvadorBounds.south &&
-			location.latitude! <= elSalvadorBounds.north &&
-			location.longitude! >= elSalvadorBounds.west &&
-			location.longitude! <= elSalvadorBounds.east
-		) {
-			return 10; // Zoom closer for El Salvador
+		try {
+			const geocoder = new google.maps.Geocoder();
+			const latlng = { lat, lng };
+
+			return new Promise((resolve) => {
+				geocoder.geocode({ location: latlng }, (results, status) => {
+					if (status === 'OK' && results && results.length > 0) {
+						// Look for country in the address components
+						for (const result of results) {
+							for (const component of result.address_components) {
+								if (component.types.includes('country')) {
+									resolve(component.long_name);
+									return;
+								}
+							}
+						}
+					}
+					resolve(null);
+				});
+			});
+		} catch (error) {
+			console.error('Error getting country:', error);
+			return null;
+		}
+	}
+
+	// Function to determine appropriate zoom level based on country
+	function getZoomLevelForCountry(
+		country: string | null,
+		latitude: number,
+		longitude: number
+	): number {
+		// If we have country info, use specific zoom levels
+		if (country) {
+			if (smallCountries.includes(country)) {
+				return 8;
+			}
+
+			if (mediumCountries.includes(country)) {
+				return 6;
+			}
+
+			if (largeCountries.includes(country)) {
+				return 4;
+			}
 		}
 
-		// Central America bounds
-		const centralAmericaBounds = {
-			north: 18.5,
-			south: 7.2,
-			east: -77.0,
-			west: -92.2
-		};
-
-		// Check if location is in Central America
-		if (
-			location.latitude! >= centralAmericaBounds.south &&
-			location.latitude! <= centralAmericaBounds.north &&
-			location.longitude! >= centralAmericaBounds.west &&
-			location.longitude! <= centralAmericaBounds.east
-		) {
-			return 7; // Medium zoom for Central America
+		// Fallback: determine zoom based on latitude/longitude ranges
+		// North America
+		if (latitude >= 15 && latitude <= 72 && longitude >= -180 && longitude <= -50) {
+			return 4;
 		}
 
-		// Default zoom for other locations
-		return 5;
+		// South America
+		if (latitude >= -60 && latitude <= 15 && longitude >= -90 && longitude <= -30) {
+			return 4;
+		}
+
+		// Europe
+		if (latitude >= 35 && latitude <= 72 && longitude >= -25 && longitude <= 45) {
+			return 5;
+		}
+
+		// Africa
+		if (latitude >= -35 && latitude <= 38 && longitude >= -20 && longitude <= 55) {
+			return 4;
+		}
+
+		// Asia
+		if (latitude >= -10 && latitude <= 55 && longitude >= 45 && longitude <= 180) {
+			return 4;
+		}
+
+		// Australia/Oceania
+		if (latitude >= -50 && latitude <= -10 && longitude >= 110 && longitude <= 180) {
+			return 4;
+		}
+
+		// Default zoom for unknown locations
+		return 3;
 	}
 
 	// Function to dynamically load Google Maps script
@@ -150,7 +184,7 @@
 
 				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 				const script = document.createElement('script');
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&loading=async&libraries=marker`;
+				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&loading=async&libraries=marker,geometry`;
 				script.async = true;
 				script.defer = true;
 
@@ -181,7 +215,7 @@
 	// Function to load marker library
 	async function loadMarkerLibrary() {
 		if (markerLibrary) return markerLibrary;
-		
+
 		try {
 			markerLibrary = (await google.maps.importLibrary('marker')) as google.maps.MarkerLibrary;
 			return markerLibrary;
@@ -198,16 +232,35 @@
 				throw new Error('Map element not found');
 			}
 
-			// Get center location from tasks, user location, or use default
-			const centerLocation = getMapCenter();
-			const zoomLevel = getZoomLevelForLocation(centerLocation);
+			// Always use user location for initial map center
+			const centerLocation = userLocation || {
+				displayName: 'Centroamérica',
+				latitude: 13.6929,
+				longitude: -89.2182,
+				zipCode: '',
+				locationLoaded: false
+			};
+
+			// Get country and determine zoom level
+			const country = await getCountryFromCoordinates(
+				centerLocation.latitude!,
+				centerLocation.longitude!
+			);
+			userCountry = country;
+			const zoomLevel = getZoomLevelForCountry(
+				country,
+				centerLocation.latitude!,
+				centerLocation.longitude!
+			);
+
+			console.log(`User country detected: ${country}, zoom level: ${zoomLevel}`);
 
 			// Initialize Google Maps
 			map = new google.maps.Map(mapElement, {
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
 				zoom: zoomLevel,
 				maxZoom: 18,
-				minZoom: 3,
+				minZoom: 2,
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: true,
 				streetViewControl: true,
@@ -228,110 +281,13 @@
 			// Load marker library
 			await loadMarkerLibrary();
 
-			// Ajustar el zoom a las tareas después de inicializar el mapa
+			// Create markers after map is initialized
 			setTimeout(() => {
-				fitMapToTasks();
+				createTaskMarkers();
 			}, 1000);
-
 		} catch (error) {
 			console.error('Error initializing Google Maps:', error);
 			throw error;
-		}
-	}
-
-	function getMapCenter(): Location {
-		// Find the first task with a valid location
-		const taskWithLocation = tasks.find(
-			(task: Task) =>
-				(task.pickupLocation?.latitude && task.pickupLocation?.longitude) ||
-				(task.dropOffLocation?.latitude && task.dropOffLocation?.longitude)
-		);
-
-		if (taskWithLocation?.pickupLocation?.latitude && taskWithLocation.pickupLocation.longitude) {
-			return taskWithLocation.pickupLocation;
-		} else if (
-			taskWithLocation?.dropOffLocation?.latitude &&
-			taskWithLocation.dropOffLocation.longitude
-		) {
-			return taskWithLocation.dropOffLocation;
-		}
-
-		// Use user location if available, otherwise default
-		return userLocation || defaultLocation;
-	}
-
-	// Nueva función para ajustar el zoom a las tareas
-	function fitMapToTasks() {
-		if (!map || !tasks.length) return;
-
-		// Recopilar todas las ubicaciones válidas
-		const validLocations: { lat: number; lng: number }[] = [];
-		
-		tasks.forEach((task: Task) => {
-			if (task.pickupLocation?.latitude && task.pickupLocation?.longitude) {
-				validLocations.push({
-					lat: task.pickupLocation.latitude,
-					lng: task.pickupLocation.longitude
-				});
-			}
-			if (task.dropOffLocation?.latitude && task.dropOffLocation?.longitude) {
-				validLocations.push({
-					lat: task.dropOffLocation.latitude,
-					lng: task.dropOffLocation.longitude
-				});
-			}
-		});
-
-		if (validLocations.length === 0) return;
-
-		// Si solo hay una ubicación, centrar en ella con zoom apropiado
-		if (validLocations.length === 1) {
-			map.setCenter(validLocations[0]);
-			map.setZoom(13); // Zoom más cercano para una sola ubicación
-			return;
-		}
-
-		// Si hay múltiples ubicaciones, ajustar el bounds
-		const bounds = new google.maps.LatLngBounds();
-		validLocations.forEach(location => {
-			bounds.extend(location);
-		});
-
-		// Ajustar el mapa a los bounds con padding
-		map.fitBounds(bounds, {
-			top: 50,
-			right: 50,
-			bottom: 50,
-			left: 50
-		});
-
-		// Asegurar un zoom máximo para evitar que se vea demasiado lejos
-		google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
-			if (map!.getZoom()! > 15) {
-				map!.setZoom(15);
-			}
-		});
-	}
-
-	async function createTaskMarkers() {
-		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
-
-		try {
-			// Agrupar tareas por ubicación para evitar superposiciones
-			const groupedTasks = groupTasksByLocation(tasks);
-
-			// Create markers for grouped tasks
-			for (const group of groupedTasks) {
-				const marker = await createTaskMarker(
-					group.latitude,
-					group.longitude,
-					group.tasks,
-					group.locationType
-				);
-				if (marker) markers.push(marker);
-			}
-		} catch (error) {
-			console.error('Error creating task markers:', error);
 		}
 	}
 
@@ -341,20 +297,18 @@
 			if (!googleMapsReady) {
 				throw new Error('Google Maps not ready');
 			}
-			
+
 			if (!mapElement) {
 				throw new Error('Map element not found');
 			}
 
 			await initMap();
 			isMapLoaded = true;
-			await createTaskMarkers();
-			
+
 			// Hide loading after everything is ready
 			setTimeout(() => {
 				isLoading = false;
 			}, 1500);
-			
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error = err instanceof Error ? err.message : 'Error initializing map';
@@ -427,6 +381,28 @@
 		}
 
 		return groups;
+	}
+
+	async function createTaskMarkers() {
+		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
+
+		try {
+			// Agrupar tareas por ubicación para evitar superposiciones
+			const groupedTasks = groupTasksByLocation(tasks);
+
+			// Create markers for grouped tasks
+			for (const group of groupedTasks) {
+				const marker = await createTaskMarker(
+					group.latitude,
+					group.longitude,
+					group.tasks,
+					group.locationType
+				);
+				if (marker) markers.push(marker);
+			}
+		} catch (error) {
+			console.error('Error creating task markers:', error);
+		}
 	}
 
 	async function createTaskMarker(
@@ -505,10 +481,10 @@
 					map!.panTo(position);
 				}
 
-				// Emitir evento para que el componente padre sepa qué task fue seleccionada
+				// Emitir evento usando la nueva sintaxis de Svelte 5
 				// Si hay múltiples tareas, seleccionar la primera
 				const selectedTask = tasks[0];
-				dispatch('taskSelected', { task: selectedTask, locationType });
+				onTaskSelected?.({ task: selectedTask, locationType });
 			});
 
 			return marker;
@@ -564,12 +540,9 @@
 		if (map && isMapLoaded) {
 			// Limpiar markers existentes
 			clearMarkers();
-			
+
 			// Crear nuevos markers
 			await createTaskMarkers();
-			
-			// Ajustar el zoom a las nuevas tareas
-			fitMapToTasks();
 		}
 	}
 
@@ -668,13 +641,12 @@
 		try {
 			// Mark component as mounted
 			isComponentMounted = true;
-			
-			// Get user location first
+
+			// Get user location first - this is now the primary way to determine map center
 			userLocation = await getUserLocation();
-			
+
 			// Load Google Maps script
 			await loadGoogleMapsScript();
-			
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
@@ -700,7 +672,7 @@
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
 					<div class="text-center">
 						<span class="loading loading-spinner loading-lg mb-2"></span>
-						<p class="text-sm text-base-content/70">Cargando mapa...</p>
+						<p class="text-base-content/70 text-sm">Cargando mapa...</p>
 					</div>
 				</div>
 			{:else if hasError}
@@ -708,7 +680,7 @@
 					<div class="text-center">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="mx-auto h-12 w-12 text-error mb-2"
+							class="text-error mx-auto mb-2 h-12 w-12"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -720,7 +692,7 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 							/>
 						</svg>
-						<p class="text-sm text-error">Error al cargar el mapa</p>
+						<p class="text-error text-sm">Error al cargar el mapa</p>
 					</div>
 				</div>
 			{/if}

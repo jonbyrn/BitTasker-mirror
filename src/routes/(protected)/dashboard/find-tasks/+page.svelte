@@ -979,13 +979,10 @@
 						tasks={$tasksStore.items}
 						height="65vh"
 						{selectedTask}
-						on:taskSelected={(event) => {
-							// Cuando se hace click en un pin del mapa, seleccionar esa task
-							selectedTask = event.detail.task;
-							// Hacer scroll a la card correspondiente
-							scrollToTaskCard(event.detail.task.id);
+						onTaskSelected={(event) => {
+							selectedTask = event.task;
+							scrollToTaskCard(event.task.id);
 						}}
-
 					/>
 				</div>
 			</div>
