@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async () => {
 	// Usar variable de entorno para detectar desarrollo
 	const isDev =
-		import.meta.env.VITE_NODE_ENV === 'development' || // Local
 		process.env.ENVIRONMENT === 'development'; // Server
 
 	if (isDev) {
