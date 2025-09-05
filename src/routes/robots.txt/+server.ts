@@ -1,4 +1,4 @@
-import type { RequestHandler } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
 	// Usar variable de entorno para detectar desarrollo
