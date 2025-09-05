@@ -1,9 +1,14 @@
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const GET: RequestHandler = async ({ url }: { url: any }) => {
 	// Usar variable de entorno para detectar desarrollo
-	const isDev =
-		process.env.ENVIRONMENT === 'development'; // Server
+    const isDev = url.hostname.includes('dev.') || 
+                  url.hostname.includes('localhost') ||
+                  url.hostname.includes('127.0.0.1');
+    
+    console.log('Hostname:', url.hostname);
+    console.log('isDev:', isDev);
 
 	if (isDev) {
 		return new Response(
