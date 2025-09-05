@@ -1,8 +1,5 @@
 import type { RequestHandler } from './$types';
 
-// Disable prerendering for this server route
-export const prerender = false;
-
 const domain = 'https://bittasker.com';
 
 export const GET: RequestHandler = async () => {
