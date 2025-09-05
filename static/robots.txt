@@ -1,9 +1,0 @@
-User-agent: *
-Allow: /
-
-# Disallow private/protected routes
-Disallow: /dashboard/
-Disallow: /auth/onboarding
-
-# Sitemap
-Sitemap: https://bittasker.com/sitemap.xml 
