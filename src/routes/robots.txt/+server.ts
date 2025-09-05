@@ -1,8 +1,9 @@
 import type { RequestHandler } from './$types';
 import { dev } from '$app/environment';
 
-export const GET: RequestHandler = async ({ url }) => {
-	// Detectar entorno usando múltiples métodos
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const GET: RequestHandler = async ({ url }: { url: any }) => {
+	// Detectar entorno
 	const isDev = dev || 
 		url.hostname.includes('dev.') || 
 		url.hostname.includes('localhost') ||
@@ -10,14 +11,9 @@ export const GET: RequestHandler = async ({ url }) => {
 		url.hostname.includes('staging.') ||
 		process.env.NODE_ENV === 'development';
 
-	console.log('Environment check:', {
-		hostname: url.hostname,
-		dev,
-		isDev,
-		nodeEnv: process.env.NODE_ENV
-	});
 
 	if (isDev) {
+		// DESARROLLO - Bloquear todo
 		return new Response(
 			`User-agent: *
 Disallow: /
@@ -25,33 +21,20 @@ Disallow: /
 # Development environment - block all crawlers
 # This prevents search engines from indexing dev/staging sites`,
 			{
-				headers: { 'Content-Type': 'text/plain' }
+				headers: { 
+					'Content-Type': 'text/plain; charset=utf-8',
+					'Cache-Control': 'no-cache'
+				}
 			}
 		);
 	}
 
-	// Producción - reglas completas
+	// PRODUCCIÓN - Permitir contenido público
 	return new Response(
 		`User-agent: *
 Allow: /
 
-# Allow all public pages
-Allow: /about
-Allow: /careers
-Allow: /contact
-Allow: /faq
-Allow: /how-it-works
-Allow: /press
-Allow: /privacy
-Allow: /security
-Allow: /terms
-Allow: /tasker-fees
-Allow: /taskee-fees
-Allow: /community-guidelines
-Allow: /escrow
-Allow: /tasker-principles
-
-# Block private/dashboard areas
+# Disallow private/protected routes
 Disallow: /dashboard/
 Disallow: /auth/
 Disallow: /verify-email
@@ -66,13 +49,13 @@ Disallow: /*.css$
 Disallow: /manifest.json
 Disallow: /firebase-messaging-sw.js
 
-# Sitemap location
-Sitemap: https://bittasker.com/sitemap.xml
-
-# Crawl delay
-Crawl-delay: 1`,
+# Sitemap
+Sitemap: https://bittasker.com/sitemap.xml`,
 		{
-			headers: { 'Content-Type': 'text/plain' }
+			headers: { 
+				'Content-Type': 'text/plain; charset=utf-8',
+				'Cache-Control': 'public, max-age=3600'
+			}
 		}
 	);
 };
