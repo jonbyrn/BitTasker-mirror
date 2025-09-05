@@ -29,8 +29,7 @@
 		"build-storybook": "storybook build",
 		"sitemap:generate": "node scripts/generate-sitemap.js",
 		"sitemap:dev": "npm run sitemap:generate && echo 'Sitemap generated for development'",
-		"robots:generate": "node scripts/generate-robots.js",
-		"robots:dev": "NODE_ENV=development npm run robots:generate"
+		"robots:generate": "node scripts/generate-robots.js"
 	},
 	"devDependencies": {
 		"@capacitor/assets": "^3.0.5",
