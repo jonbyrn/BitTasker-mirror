@@ -5,7 +5,6 @@ import path from 'path';
 
 const domain = 'https://bittasker.com';
 const buildDir = 'build';
-const staticDir = 'static';
 
 // Ensure build directory exists
 if (!fs.existsSync(buildDir)) {
@@ -49,14 +48,10 @@ ${urls.map(url => `  <url>
   </url>`).join('\n')}
 </urlset>`;
 
-// Write to build directory
+// Write ONLY to build directory (not static)
 fs.writeFileSync(path.join(buildDir, 'sitemap.xml'), sitemapXml);
 
-// Also write to static directory for development
-fs.writeFileSync(path.join(staticDir, 'sitemap.xml'), sitemapXml);
-
 console.log('✅ Sitemap generated successfully!');
-console.log(`📁 Generated files:`);
-console.log(`   - ${buildDir}/sitemap.xml`);
-console.log(`   - ${staticDir}/sitemap.xml`);
-console.log(`📋 URLs included: ${urls.length}`); 
+console.log(`📁 Generated file: ${buildDir}/sitemap.xml`);
+console.log(`📋 URLs included: ${urls.length}`);
+console.log('💡 Note: sitemap.xml is now served dynamically from /sitemap.xml route'); 
