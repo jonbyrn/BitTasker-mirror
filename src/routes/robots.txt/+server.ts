@@ -1,17 +1,13 @@
 import type { RequestHandler } from './$types';
-import { dev } from '$app/environment';
-
-// Disable prerendering for this server route
-export const prerender = false;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GET: RequestHandler = async ({ url }: { url: any }) => {
 	// Detectar entorno
-	const isDev = dev || 
-		url.hostname.includes('dev.') || 
+	const isDev =
+		url.hostname.includes('dev.') ||
 		url.hostname.includes('localhost') ||
 		url.hostname.includes('127.0.0.1') ||
-		url.hostname.includes('staging.') 
+		url.hostname.includes('staging.');
 
 	if (isDev) {
 		// DESARROLLO - Bloquear todo
@@ -22,7 +18,7 @@ Disallow: /
 # Development environment - block all crawlers
 # This prevents search engines from indexing dev/staging sites`,
 			{
-				headers: { 
+				headers: {
 					'Content-Type': 'text/plain; charset=utf-8',
 					'Cache-Control': 'no-cache'
 				}
@@ -53,7 +49,7 @@ Disallow: /firebase-messaging-sw.js
 # Sitemap
 Sitemap: https://bittasker.com/sitemap.xml`,
 		{
-			headers: { 
+			headers: {
 				'Content-Type': 'text/plain; charset=utf-8',
 				'Cache-Control': 'public, max-age=3600'
 			}
