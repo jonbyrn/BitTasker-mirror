@@ -1,6 +1,9 @@
 import type { RequestHandler } from './$types';
 import { dev } from '$app/environment';
 
+// Disable prerendering for this server route
+export const prerender = false;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const GET: RequestHandler = async ({ url }: { url: any }) => {
 	// Detectar entorno

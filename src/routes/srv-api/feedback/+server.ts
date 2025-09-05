@@ -1,5 +1,8 @@
 import { json } from '@sveltejs/kit';
 
+// Disable prerendering for this server route
+export const prerender = false;
+
 export async function POST({ request, fetch, locals }) {
   const baseUrl = process.env.NOCODB_BASE_URL ?? 'https://tables.bittasker.com';
   const apiToken = process.env.NOCODB_API_TOKEN ?? '';

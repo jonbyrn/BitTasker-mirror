@@ -1,6 +1,9 @@
 import type { RequestHandler } from './$types';
 import { json } from '@sveltejs/kit';
 
+// Disable prerendering for this server route
+export const prerender = false;
+
 export const GET: RequestHandler = async () => {
 	const firebaseConfig = {
 		apiKey: import.meta.env.VITE_FIREBASE_WEB_API_KEY,
