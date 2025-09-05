@@ -1,11 +1,7 @@
 // Detectar entorno - usar argumentos de línea de comandos como fuente principal
-const isDev =
-	process.argv.includes('--dev') ||
-	process.argv.includes('--development') ||
-	process.argv.includes('--staging') ||
-	(process.env.NODE_ENV && process.env.NODE_ENV === 'development');
-const domain = isDev ? 'https://dev.bittasker.com' : 'https://bittasker.com';
 
+const isDev = 'https://dev.bittasker.com';
+const isProd = 'https://bittasker.com';
 let robotsContent;
 
 if (isDev) {
@@ -16,7 +12,7 @@ Disallow: /
 # Development environment - block all crawlers
 # This prevents search engines from indexing dev/staging sites
 # Generated at: ${new Date().toISOString()}`;
-} else {
+} else if (isProd) {
 	// Producción - permitir contenido público
 	robotsContent = `User-agent: *
 Allow: /
@@ -37,7 +33,7 @@ Disallow: /manifest.json
 Disallow: /firebase-messaging-sw.js
 
 # Sitemap
-Sitemap: ${domain}/sitemap.xml
+Sitemap: https://bittasker.com/sitemap.xml
 
 # Generated at: ${new Date().toISOString()}`;
 }
