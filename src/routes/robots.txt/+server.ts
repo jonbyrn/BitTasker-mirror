@@ -2,7 +2,7 @@ import type { RequestHandler } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async () => {
 	// Usar variable de entorno para detectar desarrollo
-	const isDev = import.meta.env.VITE_NODE_ENV === 'development';
+	const isDev = import.meta.env.NODE_ENV === 'development';
 
 	if (isDev) {
 		return new Response(
