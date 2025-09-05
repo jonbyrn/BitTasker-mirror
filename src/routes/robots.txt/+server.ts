@@ -8,9 +8,7 @@ export const GET: RequestHandler = async ({ url }: { url: any }) => {
 		url.hostname.includes('dev.') || 
 		url.hostname.includes('localhost') ||
 		url.hostname.includes('127.0.0.1') ||
-		url.hostname.includes('staging.') ||
-		process.env.NODE_ENV === 'development';
-
+		url.hostname.includes('staging.') 
 
 	if (isDev) {
 		// DESARROLLO - Bloquear todo
