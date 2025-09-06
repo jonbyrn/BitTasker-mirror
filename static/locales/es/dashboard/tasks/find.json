@@ -59,6 +59,8 @@
       "toggle_categories_section": "Alternar sección de Categorías",
       "toggle_skills_section": "Alternar sección de Habilidades",
       "no_results_title": "No se encontraron resultados",
-      "no_results_message": "Intenta ajustar tus filtros o criterios de búsqueda"
+      "no_results_message": "Intenta ajustar tus filtros o criterios de búsqueda",
+      "view_list": "Ver Lista",
+      "view_map": "Ver Mapa"
     }
   }
