@@ -5,17 +5,23 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import EscrowSuccessScreen from './EscrowSuccessScreen.svelte';
+	import ExternalWalletPaymentScreen from './ExternalWalletPaymentScreen.svelte';
 	// Props
 	const props = $props<{
 		bid: TaskBid;
 		taskTitle: string;
 		onSubmit: (bidId: string, escrowMethod: string, escrowDetails: any) => Promise<void>;
 		onCancel: () => void;
+		onGoToDashboard?: () => void;
+		onCreateNewTask?: () => void;
 	}>();
 
 	// Form state
 	let isSubmitting = $state(false);
 	let validationErrors = $state<Record<string, string>>({});
+	let currentScreen = $state<'form' | 'external-payment' | 'success'>('form');
+	let escrowDetails = $state<any>(null);
 
 	// Escrow funding state
 	let selectedEscrowTab = $state<'bittasker' | 'external'>('bittasker');
@@ -93,7 +99,7 @@
 		isSubmitting = true;
 
 		try {
-			const escrowDetails = {
+			escrowDetails = {
 				method: selectedEscrowTab,
 				...(selectedEscrowTab === 'bittasker' && {
 					asset: selectedBitTaskerAsset
@@ -105,11 +111,51 @@
 				})
 			};
 
-			await props.onSubmit(props.bid.id, selectedEscrowTab, escrowDetails);
+			// For BitTasker wallet, go directly to success screen
+			if (selectedEscrowTab === 'bittasker') {
+				await props.onSubmit(props.bid.id, selectedEscrowTab, escrowDetails);
+				currentScreen = 'success';
+			} else {
+				// For external wallet, show payment screen
+				currentScreen = 'external-payment';
+			}
 		} catch (error) {
 			console.error('Failed to accept bid:', error);
 		} finally {
 			isSubmitting = false;
+		}
+	}
+
+	// Handle external payment confirmation
+	async function handleExternalPaymentConfirmed() {
+		try {
+			await props.onSubmit(props.bid.id, selectedEscrowTab, escrowDetails);
+			currentScreen = 'success';
+		} catch (error) {
+			console.error('Failed to confirm external payment:', error);
+		}
+	}
+
+	// Handle going back to form
+	function handleBackToForm() {
+		currentScreen = 'form';
+	}
+
+	// Handle going to dashboard
+	function handleGoToDashboard() {
+		if (props.onGoToDashboard) {
+			props.onGoToDashboard();
+		} else {
+			props.onCancel();
+		}
+	}
+
+	// Handle creating new task
+	function handleCreateNewTask() {
+		if (props.onCreateNewTask) {
+			props.onCreateNewTask();
+		} else {
+			props.onCancel();
 		}
 	}
 
@@ -158,6 +204,7 @@
 	});
 </script>
 
+{#if currentScreen === 'form'}
 <div class="bg-base-100 mx-auto max-h-[80vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
 	<!-- Header with close button -->
 	<div
@@ -621,6 +668,29 @@
 		</div>
 	</div>
 </div>
+{/if}
+
+{#if currentScreen === 'external-payment' && escrowDetails}
+<ExternalWalletPaymentScreen
+	bid={props.bid}
+	taskTitle={props.taskTitle}
+	escrowDetails={escrowDetails}
+	btcPrice={btcPrice}
+	onPaymentConfirmed={handleExternalPaymentConfirmed}
+	onCancel={handleBackToForm}
+/>
+{/if}
+
+{#if currentScreen === 'success' && escrowDetails}
+<EscrowSuccessScreen
+	bid={props.bid}
+	taskTitle={props.taskTitle}
+	escrowDetails={escrowDetails}
+	btcPrice={btcPrice}
+	onGoToDashboard={handleGoToDashboard}
+	onCreateNewTask={handleCreateNewTask}
+/>
+{/if}
 
 <style>
 	.tab.tab-active {
