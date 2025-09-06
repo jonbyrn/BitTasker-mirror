@@ -8,7 +8,6 @@
     import { Capacitor } from '@capacitor/core';
     import { tick } from 'svelte';
 	import IconCheck from '~icons/mdi/check-circle-outline';
-    import IconMagnify from '~icons/mdi/magnify';
 
 	let { nextStep, prevStep, currentStep, totalSteps } = $props();
 

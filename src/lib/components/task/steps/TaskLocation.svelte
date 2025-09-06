@@ -3,7 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import LocationAutoComplete from '$lib/components/LocationAutoComplete.svelte';
+	import EnhancedLocationPicker from '$lib/components/EnhancedLocationPicker.svelte';
 	import { t, locale } from 'svelte-i18n';
 
 	let { errors, direction } = $props<{
@@ -51,7 +51,7 @@
 	<div class="h-1"></div>
 	{#if $store.isRemovals}
 		<div class="w-full">
-			<LocationAutoComplete
+			<EnhancedLocationPicker
 				label={$t('task.pickup_location')}
 				placeholder={$t('task.address_placeholder')}
 				location={$store.task.pickupLocation}
@@ -63,10 +63,15 @@
 						}
 					});
 				}}
+				showMap={true}
+				mapHeight="300px"
+				showFullscreen={true}
+				showGeolocation={true}
+				showServiceRadius={false}
 			/>
 		</div>
 		<div class="w-full">
-			<LocationAutoComplete
+			<EnhancedLocationPicker
 				label={$t('task.dropoff_location')}
 				placeholder={$t('task.address_placeholder')}
 				location={$store.task.dropOffLocation}
@@ -78,6 +83,11 @@
 						}
 					});
 				}}
+				showMap={true}
+				mapHeight="300px"
+				showFullscreen={true}
+				showGeolocation={true}
+				showServiceRadius={false}
 			/>
 		</div>
 		{#if errors.location}
@@ -118,7 +128,7 @@
 
 		{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 			<div class="w-full">
-				<LocationAutoComplete
+				<EnhancedLocationPicker
 					label={$t('task.location')}
 					placeholder={$t('task.address_placeholder')}
 					location={$store.task.pickupLocation}
@@ -130,6 +140,11 @@
 							}
 						});
 					}}
+					showMap={true}
+					mapHeight="300px"
+					showFullscreen={true}
+					showGeolocation={true}
+					showServiceRadius={false}
 				/>
 				{#if errors.location}
 					<span class="label-text-alt text-error">{errors.location}</span>
