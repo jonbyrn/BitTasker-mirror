@@ -517,79 +517,79 @@
 					Send funds from your external wallet to fund the escrow.
 				</p> -->
 
-					<!-- Payment Method Selection - Mobile: Single column, Desktop: Three columns -->
-					<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+					<!-- Payment Method Selection - Responsive grid -->
+					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 						<!-- Bitcoin Lightning -->
 						<button
-							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedExternalMethod ===
+							class="group bg-base-100 hover:bg-base-200 border relative rounded-4xl p-3 transition-all duration-200 {selectedExternalMethod ===
 							'bitcoin-lightning'
-								? 'border-primary'
-								: 'border-base-300'}"
+								? 'border-primary '
+								: 'border-base-300 '}"
 							onclick={() => (selectedExternalMethod = 'bitcoin-lightning')}
 						>
-							<div class="card-body p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="h-8 w-8" />
-										<div class="flex flex-col text-start">
-											<span class="text-lg font-semibold">BTC</span>
-											<span class="text-base-content/60 text-sm">Lightning Network</span>
-										</div>
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<div class="flex h-10 w-10 items-center justify-center rounded-full">
+										<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="h-6 w-6" />
 									</div>
-									<div class="flex flex-col items-end">
-										<span class="text-sm font-bold">Fast</span>
-										<span class="text-base-content/60 text-xs">Payments</span>
+									<div class="flex flex-col text-start">
+										<span class="text-base font-bold">BTC</span>
+										<span class="text-base-content/70 text-xs">Lightning Network</span>
 									</div>
+								</div>
+								<div class="flex flex-col items-end text-right">
+									<span class="text-primary text-xs font-bold">Fast</span>
+									<span class="text-base-content/60 text-xs">Payments</span>
 								</div>
 							</div>
 						</button>
 
 						<!-- LBTC on Liquid -->
 						<button
-							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedExternalMethod ===
+							class="group bg-base-100 hover:bg-base-200 border relative rounded-4xl p-3 transition-all duration-200 {selectedExternalMethod ===
 							'lbtc-liquid'
 								? 'border-primary'
 								: 'border-base-300'}"
 							onclick={() => (selectedExternalMethod = 'lbtc-liquid')}
 						>
-							<div class="card-body p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="h-8 w-8" />
-										<div class="flex flex-col text-start">
-											<span class="text-lg font-semibold">L-BTC</span>
-											<span class="text-base-content/60 text-sm">Liquid Bitcoin</span>
-										</div>
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<div class="flex h-10 w-10 items-center justify-center rounded-full">
+										<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="h-6 w-6" />
 									</div>
-									<div class="flex flex-col items-end">
-										<span class="text-sm font-bold">Private</span>
-										<span class="text-base-content/60 text-xs">Confidential</span>
+									<div class="flex flex-col text-start">
+										<span class="text-base font-bold">L-BTC</span>
+										<span class="text-base-content/70 text-xs">Liquid Bitcoin</span>
 									</div>
+								</div>
+								<div class="flex flex-col items-end text-right">
+									<span class="text-base-content text-xs font-bold">Private</span>
+									<span class="text-base-content/60 text-xs">Confidential</span>
 								</div>
 							</div>
 						</button>
 
 						<!-- USDT on Liquid -->
 						<button
-							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedExternalMethod ===
+							class="group bg-base-100 hover:bg-base-200 border relative rounded-4xl p-3 transition-all duration-200 {selectedExternalMethod ===
 							'usdt-liquid'
 								? 'border-primary'
 								: 'border-base-300'}"
 							onclick={() => (selectedExternalMethod = 'usdt-liquid')}
 						>
-							<div class="card-body p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<img src="/currency-symbols/USDt.svg" alt="USDT" class="h-8 w-8" />
-										<div class="flex flex-col text-start">
-											<span class="text-lg font-semibold">USDT</span>
-											<span class="text-base-content/60 text-sm">Tether USD</span>
-										</div>
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<div class="flex h-10 w-10 items-center justify-center rounded-full">
+										<img src="/currency-symbols/USDt.svg" alt="USDT" class="h-6 w-6" />
 									</div>
-									<div class="flex flex-col items-end">
-										<span class="text-sm font-bold">Stable</span>
-										<span class="text-base-content/60 text-xs">USD Pegged</span>
+									<div class="flex flex-col text-start">
+										<span class="text-base font-bold">USDT</span>
+										<span class="text-base-content/70 text-xs">Tether USD</span>
 									</div>
+								</div>
+								<div class="flex flex-col items-end text-right">
+									<span class="text-base-content text-xs font-bold">Stable</span>
+									<span class="text-base-content/60 text-xs"> Pegged</span>
 								</div>
 							</div>
 						</button>
