@@ -1,22 +1,18 @@
-// src/routes/+layout.ts
+// src/routes/+layout.ts  
 import { browser } from '$app/environment';
 import { setupI18n } from '$lib/i18n/i18n';
 import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
 import type { LayoutLoad } from './$types';
 
-export const prerender = true;
-export const ssr = false;
-export const csr = true;
+// Para SPA con adaptador estático:
+export const ssr = false;        // ✅ Solo client-side
+// NO pongas prerender ni csr
 
 export const load: LayoutLoad = async ({ url }) => {
 	if (browser) {
-		// Fast, optimized i18n setup - only loads essential translations
 		await setupI18n();
-		
-		// Load route-specific translations for all routes
 		await loadPageTranslations(url.pathname);
-		
 		initializeStatusBar();
 	}
 
