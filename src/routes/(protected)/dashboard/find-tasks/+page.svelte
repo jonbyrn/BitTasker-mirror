@@ -983,14 +983,7 @@
 									</div>
 									<h3 class="mb-2 text-lg font-semibold">{$t('find_tasks.no_results_title')}</h3>
 									<p class="text-base-content/70 mb-3">{$t('find_tasks.no_results_message')}</p>
-									<button
-										class="btn btn-primary"
-										onclick={() => {
-											searchParams = getInitialSearchParams();
-											searchQuery = '';
-											selectedTaskType = { label: '', value: '' };
-										}}
-									>
+									<button class="btn btn-primary" onclick={clearFilters}>
 										{$t('find_tasks.clear_filters')}
 									</button>
 								</div>
@@ -1058,7 +1051,7 @@
 					class:text-white={!isDarkMode}
 					class:text-black={isDarkMode}
 					onclick={toggleViewMode}
-					aria-label={$t('find_tasks.view_list')} 
+					aria-label={$t('find_tasks.view_list')}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

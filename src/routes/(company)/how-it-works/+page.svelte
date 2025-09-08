@@ -117,7 +117,7 @@
 		</div>
 
 		<!-- Steps Overview -->
-		<div class="mb-12 flex justify-center">
+		<div class="justify-left mb-12 flex sm:justify-center">
 			<div class="steps steps-vertical md:steps-horizontal gap-2">
 				<div class="step step-primary">
 					<div>{$t('how_it_works.steps.sign_up')}</div>
@@ -147,7 +147,7 @@
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div
-						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+						class="bg-primary text-primary-content flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-2xl sm:min-h-12 sm:min-w-12 sm:text-3xl"
 					>
 						1
 					</div>
@@ -200,7 +200,7 @@
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div
-						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+						class="bg-primary text-primary-content flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-2xl sm:min-h-12 sm:min-w-12 sm:text-3xl"
 					>
 						2
 					</div>
@@ -267,7 +267,7 @@
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div
-						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+						class="bg-primary text-primary-content flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-2xl sm:min-h-12 sm:min-w-12 sm:text-3xl"
 					>
 						3
 					</div>
@@ -445,7 +445,7 @@
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div
-						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+						class="bg-primary text-primary-content flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-2xl sm:min-h-12 sm:min-w-12 sm:text-3xl"
 					>
 						4
 					</div>
@@ -519,7 +519,7 @@
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
 					<div
-						class="bg-primary text-primary-content flex h-12 w-12 items-center justify-center rounded-full text-3xl"
+						class="bg-primary text-primary-content flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-2xl sm:min-h-12 sm:min-w-12 sm:text-3xl"
 					>
 						5
 					</div>
