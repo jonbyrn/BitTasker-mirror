@@ -190,24 +190,67 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			// Use unPackKeysMobile to properly decode the base64url string
 			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
 
-			// Get encrypted data from backend using the stored credential ID
-			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
-				unpackedKeys.publicKey,
-				deviceId,
-				credentialId // Use the actual stored credential ID
-			);
+			// Try to get master key encrypted data first, fallback to legacy
+			try {
+				const { masterKeyData, legacyEncryptedData, isLegacyFormat } = 
+					await authService.getMasterKeyEncryptedData(
+						unpackedKeys.publicKey,
+						deviceId,
+						credentialId
+					);
 
-			return {
-				username: unpackedKeys.publicKey,
-				password: JSON.stringify({
-					key: unpackedKeys.exportedKey,
-					data: encryptedPrivateKey,
-					iv,
-					authTag,
-					salt
-				}),
-				server: deviceId
-			};
+				if (!isLegacyFormat && masterKeyData) {
+					// New master key format
+					return {
+						username: unpackedKeys.publicKey,
+						password: JSON.stringify({
+							key: unpackedKeys.exportedKey,
+							masterKeyData: masterKeyData,
+							// Legacy compatibility fields
+							data: masterKeyData.nostr.encrypted.data,
+							iv: masterKeyData.nostr.encrypted.iv,
+							authTag: masterKeyData.nostr.encrypted.authTag,
+							salt: masterKeyData.nostr.salt
+						}),
+						server: deviceId
+					};
+				} else if (isLegacyFormat && legacyEncryptedData) {
+					// Legacy format
+					return {
+						username: unpackedKeys.publicKey,
+						password: JSON.stringify({
+							key: unpackedKeys.exportedKey,
+							data: legacyEncryptedData.encryptedPrivateKey,
+							iv: legacyEncryptedData.iv,
+							authTag: legacyEncryptedData.authTag,
+							salt: legacyEncryptedData.salt
+						}),
+						server: deviceId
+					};
+				} else {
+					throw new Error('No encrypted data found');
+				}
+			} catch (error) {
+				// Fallback to legacy method if master key endpoint doesn't exist yet
+				console.warn('Master key endpoint not available, falling back to legacy:', error);
+				const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
+					unpackedKeys.publicKey,
+					deviceId,
+					credentialId
+				);
+
+				return {
+					username: unpackedKeys.publicKey,
+					password: JSON.stringify({
+						key: unpackedKeys.exportedKey,
+						data: encryptedPrivateKey,
+						iv,
+						authTag,
+						salt
+					}),
+					server: deviceId
+				};
+			}
 		}
 	} catch (err) {
 		throw new Error(err instanceof Error ? err.message : 'Failed to get biometric data');

@@ -45,10 +45,20 @@ interface NostrKeyData {
 	deletedAt: string | null;
 	deleted: boolean;
 	deviceId?: string;
+
+	recoveryPrivateKey: null;
+	masterKeyEncrypted: {
+		nostr: ContextEncryption;
+		wallet: ContextEncryption;
+	};
+	masterSalt: string;
+	exportedMasterKey: string;
+	keyDerivationMethod: "master-key" | null;
+	encryptedWalletMnemonic: string;
 }
 
 export interface UserData {
-	id?: number;
+	id: number;
 	email: string;
 	name: string;
 	npub: string;
@@ -65,6 +75,16 @@ export interface UserData {
 	deletedAt?: Date;
 	deleted?: boolean;
 	nostrKey?: NostrKeyData;
+
+	userRole?: "USER";
+	dob?: null;
+	biddingAllowed?: false;
+	mobileNumber?: null;
+	verificationLevel?: "NONE";
+	displayName?: "test4";
+	username?: "test4";
+	profilePictureId?: null;
+	profilePictureUrl?: null;
 }
 
 export interface Location {
@@ -212,3 +232,28 @@ export interface NostrRecoveryData {
 	authTag: string;
 	iterations: number;
 }
+
+
+/********************** Master Key Encrypted Data types **********************/
+
+type ContextEncryption = {
+	encrypted: EncryptedData;
+	iterations: number;
+	salt: string;
+};
+
+export type MasterKeyEncryptedData = {
+	exportedMasterKey: string;
+	masterSalt: string;
+	nostr: ContextEncryption;
+	wallet: ContextEncryption;
+};
+
+export type MasterKeyRegistration = {
+	authMethod?: string | null | undefined;
+	deviceId?: string | null | undefined;
+	email?: string | null | undefined;
+	masterKeyData: MasterKeyEncryptedData;
+	publicKey: string;
+	username?: string | null | undefined;
+};

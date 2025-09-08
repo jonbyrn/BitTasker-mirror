@@ -102,6 +102,37 @@
           "success": "¡Probar passkey exitoso!",
           "error": "¡Probar passkey fallido. Por favor intenta de nuevo."
         }
+      },
+      "devices": {
+        "title": "Dispositivos Conectados",
+        "description": "Gestiona los dispositivos que tienen acceso a tu cuenta. Puedes revocar el acceso desde cualquier dispositivo excepto el actual.",
+        "noDevices": "No se encontraron dispositivos",
+        "currentDevice": "Actual",
+        "thisDevice": "Este Dispositivo",
+        "refresh": "Actualizar",
+        "revoke": "Revocar Acceso",
+        "revokeDevice": "Revocar acceso del dispositivo",
+        "cannotRevokeCurrentDevice": "No se puede revocar el acceso desde el dispositivo actual",
+        "status": {
+          "active": "El dispositivo está activo",
+          "inactive": "El dispositivo está inactivo"
+        },
+        "lastUsed": {
+          "label": "Último uso",
+          "never": "Nunca",
+          "justNow": "Hace un momento"
+        },
+        "error": {
+          "loadFailed": "Error al cargar dispositivos. Por favor intenta de nuevo.",
+          "revokeFailed": "Error al revocar el acceso del dispositivo. Por favor intenta de nuevo."
+        },
+        "revokeModal": {
+          "title": "Revocar Acceso del Dispositivo",
+          "confirmTitle": "¿Estás seguro?",
+          "confirmMessage": "Esto revocará permanentemente el acceso para \"{{deviceName}}\".",
+          "warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
+          "confirm": "Revocar Acceso"
+        }
       }
     }
   }

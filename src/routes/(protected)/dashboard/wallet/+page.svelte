@@ -3,17 +3,19 @@
 	import '$lib/polyfills';
 	import { onMount, onDestroy } from 'svelte';
 	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/wallet.store';
-	import { isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
+	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
 	import BalanceCard from '$lib/components/wallet/balanceTab/BalanceCard.svelte';
 	import RecentTransactions from '$lib/components/wallet/balanceTab/RecentTransactions.svelte';
 	import PaymentRequestForm from '$lib/components/wallet/PaymentRequestForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import SendForm from '$lib/components/wallet/sendTab/SendForm.svelte';
 
-	onMount(() => {
-		if ($isWasmInitialized) {
-			walletStore.initialize();
-		}
+	onMount(async () => {
+		initWasm().then(async () => {
+			if ($isWasmInitialized) {
+				await walletStore.initialize();
+			}
+		});
 	});
 
 	onDestroy(async () => {
@@ -21,7 +23,7 @@
 	});
 </script>
 
-<div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
+<div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-3 shadow-lg">
 	<h2 class="mb-6 text-2xl font-bold">Bitcoin Wallet</h2>
 
 	<!-- Connection Status -->
@@ -33,8 +35,8 @@
 			</div>
 		</div>
 	{:else if $walletConnection.errorMessage}
-		<div class="alert alert-outline alert-error mb-6">
-			<div>
+		<div class="alert alert-outline alert-error mb-6 flex flex-col rounded-2xl">
+			<div class="flex items-center justify-start gap-2 whitespace-nowrap">
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="h-6 w-6 flex-shrink-0 stroke-current"
@@ -48,13 +50,21 @@
 						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<div>
-					<h3 class="font-bold">Connection Error</h3>
-					<div class="text-xs">{$walletConnection.errorMessage}</div>
-				</div>
+				<h3 class="font-bold">Wallet Connection Error</h3>
 			</div>
-			<button class="btn btn-outline btn-sm" onclick={() => walletStore.initialize()}>
-				Retry
+			<div class="text-sm">
+				{#if $walletConnection.errorMessage.includes('No mnemonic found')}
+					Your wallet needs to be set up. This should have been done automatically during
+					registration.
+				{:else}
+					{$walletConnection.errorMessage}
+				{/if}
+			</div>
+			<button
+				class="btn btn-outline btn-sm place-self-end"
+				onclick={() => walletStore.initialize()}
+			>
+				Retry Connection
 			</button>
 		</div>
 	{:else if $walletConnection.isConnected && $walletInfo}

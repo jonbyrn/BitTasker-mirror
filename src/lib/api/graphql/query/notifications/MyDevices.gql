@@ -2,10 +2,11 @@ query MyDevices {
 	myDevices {
 		id
 		deviceId
+		deviceName
 		platform
 		isActive
 		fcmToken
 		appVersion
-		lastTokenRefresh
+		lastUsedAt
 	}
 }

@@ -1,15 +1,18 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 
 interface RequestConfig extends AxiosRequestConfig {
 	baseURL?: string;
 }
 
-const createAxiosInstance = (config: RequestConfig = {}) => {
+const createAxiosInstance = async (config: RequestConfig = {}) => {
+	const deviceId = await getDeviceIdentifier();
 	const instance = axios.create({
 		headers: {
-			'Content-Type': 'application/json'
+			'Content-Type': 'application/json',
+			'X-Device-ID': deviceId,
 		},
 		...config
 	});

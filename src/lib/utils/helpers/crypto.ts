@@ -38,11 +38,11 @@ export async function encrypt(data: string, key: CryptoKey): Promise<EncryptedDa
 	);
 
 	// Split the encrypted data into ciphertext and auth tag
-	const dataBytes2 = new Uint8Array(encryptedData.slice(0, -16));
+	const ciphertextBytes = new Uint8Array(encryptedData.slice(0, -16));
 	const authTagBytes = new Uint8Array(encryptedData.slice(-16));
 
 	return {
-		data: bytesToBase64(dataBytes2),
+		data: bytesToBase64(ciphertextBytes),
 		iv: bytesToBase64(iv),
 		authTag: bytesToBase64(authTagBytes)
 	};
@@ -108,6 +108,58 @@ export async function deriveKeyFromPassword(
 	} catch (err) {
 		console.error('Failed to derive key from password:', err);
 		throw new Error('Failed to derive key from password');
+	}
+}
+
+/**
+ * Derive a context-specific key from a master key using HKDF
+ * @param masterKey The master key to derive from
+ * @param context Context string to ensure unique keys per purpose
+ * @param salt Salt for additional entropy
+ * @returns Promise<CryptoKey> Context-specific encryption key
+ */
+export async function deriveContextKey(
+	masterKey: CryptoKey,
+	context: string,
+	salt: Uint8Array
+): Promise<CryptoKey> {
+	try {
+		const encoder = new TextEncoder();
+		const contextBytes = encoder.encode(context);
+		
+		// Combine context and salt for unique derivation
+		const combinedSalt = new Uint8Array(contextBytes.length + salt.length);
+		combinedSalt.set(contextBytes);
+		combinedSalt.set(salt, contextBytes.length);
+		
+		// Export master key to use as key material
+		const masterKeyBytes = await crypto.subtle.exportKey('raw', masterKey);
+		
+		// Import as HKDF key material
+		const keyMaterial = await crypto.subtle.importKey(
+			'raw',
+			masterKeyBytes,
+			'HKDF',
+			false,
+			['deriveKey']
+		);
+		
+		// Derive context-specific key using HKDF
+		return await crypto.subtle.deriveKey(
+			{
+				name: 'HKDF',
+				hash: 'SHA-256',
+				salt: combinedSalt,
+				info: new Uint8Array() // No additional info needed
+			},
+			keyMaterial,
+			{ name: 'AES-GCM', length: 256 },
+			true,
+			['encrypt', 'decrypt']
+		);
+	} catch (err) {
+		console.error('Failed to derive context key:', err);
+		throw new Error('Failed to derive context key');
 	}
 }
 

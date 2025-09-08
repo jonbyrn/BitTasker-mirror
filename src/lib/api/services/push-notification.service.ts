@@ -20,15 +20,19 @@ import {
 	getFirebaseWebConfig,
 	getVapidKey
 } from '$lib/utils/helpers/fcm';
-import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { appStore } from '$lib/stores/app.store';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
+import { get } from 'svelte/store';
+import { StorageKeys } from '$lib/utils/constants/storage';
+import { Preferences } from '@capacitor/preferences';
 
 class PushNotificationService {
 	private messaging: any = null;
 	private currentDeviceId: string | null = null;
 	private notificationCounter: number = 0;
+	private deviceName: string | null = null;
 
 	// Houdini Stores
 	private registerDeviceStore = new RegisterDeviceStore();
@@ -44,6 +48,12 @@ class PushNotificationService {
 		getDeviceIdentifier().then((deviceId) => {
 			this.currentDeviceId = deviceId;
 		});
+		(async () => {
+			let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
+			createUserDeviceShortName(npub).then((deviceName) => {
+				this.deviceName = deviceName;
+			});
+		})();
 	}
 
 	// Get this from your app config or package.json
@@ -543,6 +553,7 @@ class PushNotificationService {
 			const result = await this.registerDeviceStore.mutate({
 				input: {
 					deviceId: this.currentDeviceId,
+					deviceName: this.deviceName,
 					fcmToken: token,
 					platform: platform,
 					appVersion: this.getAppVersion()
@@ -597,7 +608,7 @@ class PushNotificationService {
 	// Public method to get user's devices
 	public async getMyDevices() {
 		try {
-			const result = await this.myDevicesStore.fetch();
+			const result = await this.myDevicesStore.fetch({ policy: 'NetworkOnly' });
 			if (result.errors) {
 				throw new Error(result.errors[0].message);
 			}
@@ -605,6 +616,25 @@ class PushNotificationService {
 		} catch (error) {
 			console.error('Error fetching user devices:', error);
 			return [];
+		}
+	}
+
+	// Public method to revoke a specific device
+	public async revokeDevice(deviceId: string) {
+		try {
+			const result = await this.revokeDeviceStore.mutate({
+				deviceId
+			});
+
+			if (result.errors) {
+				throw new Error(result.errors[0].message);
+			}
+
+			console.log(`Successfully revoked device: ${deviceId}`);
+			return result.data?.revokeDevice;
+		} catch (error) {
+			console.error('Error revoking device:', error);
+			throw error;
 		}
 	}
 

@@ -7,7 +7,7 @@
 		'no-mnemonic': {
 			title: 'No Wallet Found',
 			message:
-				"We couldn't find a wallet associated with your account. Please set up a new wallet or try again.",
+				"Your wallet should have been set up automatically during registration. Please try reconnecting.",
 			actions: [
 				{
 					label: 'Try Again',

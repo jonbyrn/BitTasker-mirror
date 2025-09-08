@@ -144,6 +144,12 @@ input ChangePasswordInput {
   newPassword: String!
 }
 
+input ContextEncryptionDto {
+  encrypted: EncryptedDataDto!
+  iterations: Float!
+  salt: String!
+}
+
 input CreateBidInput {
   amount: Float!
   coverLetter: String
@@ -246,6 +252,20 @@ type DeviceStatistics {
   totalDevices: Int!
 }
 
+input EncryptedDataDto {
+  authTag: String!
+  data: String!
+  iv: String!
+}
+
+type LegacyEncryptedDataDto {
+  authTag: String!
+  encryptedPrivateKey: String!
+  iterations: Float!
+  iv: String!
+  salt: String!
+}
+
 input LocationInput {
   displayName: String
   latitude: Float
@@ -269,6 +289,13 @@ type LocationOutput {
 input LoginInput {
   email: String!
   password: String!
+}
+
+input MasterKeyEncryptedDataDto {
+  exportedMasterKey: String!
+  masterSalt: String!
+  nostr: ContextEncryptionDto!
+  wallet: ContextEncryptionDto!
 }
 
 type Mutation {

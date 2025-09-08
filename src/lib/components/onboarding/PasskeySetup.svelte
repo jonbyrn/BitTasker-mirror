@@ -1,12 +1,13 @@
 <script lang="ts">
-    import IconCheck from '~icons/mdi/check-circle-outline';
+	import IconCheck from '~icons/mdi/check-circle-outline';
 	import type { AccountRecoveryData } from '$lib/types/auth';
 	import { nip19 } from 'nostr-tools';
 	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
+	import { encryptRecoveryNsec, encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+	import { generateMnemonic } from 'bip39';
 	import { setWebBiometricKey } from '$lib/utils/helpers/webBiometrics';
 	import {
 		createUserDeviceShortName,
@@ -15,6 +16,12 @@
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import authService from '$lib/api/services/auth.service';
 	import { t } from 'svelte-i18n';
+	import { Buffer } from 'buffer';
+
+	// Polyfill Buffer
+	if (typeof window !== 'undefined') {
+		(globalThis as any).Buffer = Buffer;
+	}
 
 	let {
 		nextStep,
@@ -50,59 +57,71 @@
 	}
 
 	/**
-	 * Register a new user with biometric authentication
+	 * Register a new user with master key biometric authentication (Nostr + Wallet)
 	 */
 	async function register(username: string, npub: string, nsec: string) {
 		try {
 			const deviceId = await getDeviceIdentifier();
 
-			// Encrypt the private key with device ID as the password
-			const { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
+			// Only run in browser environment to avoid Buffer issues
+			if (typeof Buffer === 'undefined') {
+				throw new Error('Buffer is not defined');
+			}
+
+			// Generate wallet mnemonic
+			const walletMnemonic = generateMnemonic();
+
+			// Create master key encryption for both Nostr and wallet
+			const masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
+			console.log(masterKeyData)
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
 			const deviceName = await createUserDeviceShortName(npub);
 
-			// Register device with server
+			// Register device with server using master key
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
+				credentialId = await setBiometricKey(
+					npub,
+					masterKeyData.exportedMasterKey,
+					'biometrics',
+					deviceName
+				);
 			} else {
-				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, deviceName);
 			}
 
 			if (!credentialId) {
 				throw new Error('Failed to get credential ID');
 			}
 
-			// Register with server
-			await authService
-				.registerWithNostr({
-					username,
-					publicKey: npub,
-					encryptedPrivateKey: encrypted.data,
-					iv: encrypted.iv,
-					salt: salt,
-					authTag: encrypted.authTag,
-					iterations,
-					authMethod: 'passkey',
-					deviceId
-				})
-				.then(async () => {
-					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-				});
+			// Register with server using master key GraphQL mutation
+			await authService.registerWithMasterKey({
+				username,
+				publicKey: npub,
+				masterKeyData: masterKeyData,
+				authMethod: 'passkey',
+				deviceId
+			}).then(async () => {
+				// Register passkey device
+				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+			});
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
+				// Store master key data in biometric format for compatibility
 				const biometricData = {
 					username: npub,
 					password: JSON.stringify({
-						key: exportedKey,
-						data: encrypted.data,
-						iv: encrypted.iv,
-						authTag: encrypted.authTag,
-						salt
+						key: masterKeyData.exportedMasterKey,
+						masterKeyData: masterKeyData, // Store full master key structure
+						// Legacy compatibility fields
+						data: masterKeyData.nostr.encrypted.data,
+						iv: masterKeyData.nostr.encrypted.iv,
+						authTag: masterKeyData.nostr.encrypted.authTag,
+						salt: masterKeyData.nostr.salt
 					}),
 					server: deviceId
 				};
@@ -117,7 +136,10 @@
 			}
 		} catch (err: unknown) {
 			console.error('Registration failed:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
 			throw new Error(error);
 		}
 	}
@@ -164,7 +186,6 @@
 				({ npub: pubKey, nsec: privKey } = await generateKeyPair());
 			}
 
-            console.log(userData)
 			// Register with passkey
 			await register(userData.username, pubKey, privKey);
 
@@ -179,7 +200,10 @@
 			setTimeout(() => nextStep(), 1500);
 		} catch (err: unknown) {
 			console.error('Passkey setup failed:', err);
-			error = err instanceof Error ? err.message : $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
+			error =
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.passkey_setup.errors.setup_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -190,38 +214,43 @@
 	<div class="card-body">
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
-			<div class="step-indicator text-primary mb-2 text-sm font-medium text-end">
-				{$t('onboarding_auth.form.passkey_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.passkey_setup.of')} {totalSteps}
+			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
+				{$t('onboarding_auth.form.passkey_setup.step')}
+				{currentStep + 1}
+				{$t('onboarding_auth.form.passkey_setup.of')}
+				{totalSteps}
 			</div>
-			<h3 class="step-title mb-3 mt-4">{$t('onboarding_auth.form.passkey_setup.title')}</h3>
-            <h5 class="mb-3">{$t('onboarding_auth.form.passkey_setup.subtitle')}</h5>
-            <p class="step-description text-base-content mb-6 text-lg max-w-lg mx-auto">
-                {@html $t('onboarding_auth.form.passkey_setup.description')}
-            </p>
+			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.passkey_setup.title')}</h3>
+			<h5 class="mb-3">{$t('onboarding_auth.form.passkey_setup.subtitle')}</h5>
+			<p class="step-description text-base-content mx-auto mb-6 max-w-lg text-lg">
+				{@html $t('onboarding_auth.form.passkey_setup.description')}
+			</p>
 
 			<!-- Features List -->
-            <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
-                <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.secure')}</span>
-                </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.encrypted')}</span>
-                </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-lg">
-                    <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.private')}</span>
-                </div>
-                <div class="feature-item flex items-center justify-start gap-2 text-lg mb-6">
-                    <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span>{@html $t('onboarding_auth.form.passkey_setup.features.easy')}</span>
-                </div>
+			<div class="features-list mx-auto mb-6 w-fit space-y-2 text-left">
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span>{@html $t('onboarding_auth.form.passkey_setup.features.secure')}</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span>{@html $t('onboarding_auth.form.passkey_setup.features.encrypted')}</span>
+				</div>
+				<div class="feature-item flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span>{@html $t('onboarding_auth.form.passkey_setup.features.private')}</span>
+				</div>
+				<div class="feature-item mb-6 flex items-center justify-start gap-2 text-lg">
+					<IconCheck class="text-primary min-w-[1.5em]" />
+					<span>{@html $t('onboarding_auth.form.passkey_setup.features.easy')}</span>
+				</div>
 
-				<p class="text-primary mb-6 text-lg font-medium text-center">{$t('onboarding_auth.form.passkey_setup.next_gen_login')}</p>
+				<p class="text-primary mb-6 text-center text-lg font-medium">
+					{$t('onboarding_auth.form.passkey_setup.next_gen_login')}
+				</p>
 
 				{#if error}
-					<div class="alert alert-error alert-outline mb-6 max-w-lg mx-auto">
+					<div class="alert alert-error alert-outline mx-auto mb-6 max-w-lg">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -240,7 +269,7 @@
 				{/if}
 
 				{#if isSetupComplete}
-					<div class="alert alert-success alert-outline mb-6 max-w-lg mx-auto">
+					<div class="alert alert-success alert-outline mx-auto mb-6 max-w-lg">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -257,9 +286,8 @@
 						<span>{$t('onboarding_auth.form.passkey_setup.setup_complete')}</span>
 					</div>
 				{/if}
-            </div>
+			</div>
 		</div>
-
 
 		<!-- Form Actions -->
 		<div class="mt-6 flex justify-between">
@@ -281,7 +309,9 @@
 					{/if}
 				</button>
 			{:else}
-				<button type="button" class="btn btn-primary" onclick={nextStep}> {$t('onboarding_auth.form.passkey_setup.continue')} </button>
+				<button type="button" class="btn btn-primary" onclick={nextStep}>
+					{$t('onboarding_auth.form.passkey_setup.continue')}
+				</button>
 			{/if}
 		</div>
 	</div>
