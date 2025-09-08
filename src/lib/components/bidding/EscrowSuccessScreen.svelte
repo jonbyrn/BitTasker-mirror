@@ -64,7 +64,7 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-auto max-h-[80vh] overflow-y-auto rounded-lg shadow-lg">
+<div class="bg-base-100 mx-auto max-h-[70vh] overflow-y-auto rounded-lg shadow-lg">
 	<!-- Header with close button -->
 	<div
 		class="bg-base-100  border-base-300 sticky top-0 z-10 flex items-center justify-between border pb-4 sm:p-6"
