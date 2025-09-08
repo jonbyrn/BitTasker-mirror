@@ -2,6 +2,7 @@
 	import type { TaskBid } from '$lib/types/bid';
 	import { onMount } from 'svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 
 	// Props
 	const props = $props<{
@@ -35,8 +36,16 @@
 	);
 	let blockExplorerUrl = $derived(`https://blockstream.info/tx/${transactionHash}`);
 
-	// Calculate totals
-	let totalFiatPrice = $derived((props.bid.amount / 100000000) * props.btcPrice);
+	// Calculate pricing breakdown (same as BidAcceptanceForm)
+	let bidAmountUsd = $derived((props.bid.amount / 100000000) * props.btcPrice);
+	let platformFeeUsd = $derived(bidAmountUsd * 0.03); // 3% platform fee
+	let transactionFeeUsd = $derived(bidAmountUsd * 0.005); // 0.5% transaction fee
+	let totalFiatPrice = $derived(bidAmountUsd + platformFeeUsd + transactionFeeUsd);
+	
+	// Convert USD amounts back to sats for display
+	let platformFeeSats = $derived(Math.round((platformFeeUsd / props.btcPrice) * 100000000));
+	let transactionFeeSats = $derived(Math.round((transactionFeeUsd / props.btcPrice) * 100000000));
+	let totalSatsPrice = $derived(props.bid.amount + platformFeeSats + transactionFeeSats);
 
 	onMount(() => {
 		// Trigger animation sequence
@@ -55,12 +64,12 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-auto max-h-[70vh] overflow-y-auto rounded-lg shadow-lg">
+<div class="bg-base-100 mx-auto max-h-[80vh] overflow-y-auto rounded-lg shadow-lg">
 	<!-- Header with close button -->
 	<div
-		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b pb-4 sm:p-6"
+		class="bg-base-100  border-base-300 sticky top-0 z-10 flex items-center justify-between border pb-4 sm:p-6"
 	>
-		<h4 class="font-bold">Escrow Funded</h4>
+		<h4 class="font-bold p-4 sm:p-0">Transaction Overview</h4>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm btn-circle"
@@ -128,37 +137,36 @@
 
 		<!-- Task Details -->
 		{#if showDetails}
-			<div class="bg-base-200 mx-2 rounded-lg p-4">
+			<div class="bg-base-200 rounded-lg p-4">
 				<!-- Task Title -->
-				<h4 class=" line-clamp-2 text-base font-bold break-words">Transaction details</h4>
+				<h4 class="mb-4 line-clamp-1 text-sm font-semibold">Payment Summary</h4>
 
-				<!-- Financial Details - Responsive Grid -->
-				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<span class="text-base-content/70 text-xs">Bid Price</span>
-							<span class="text-xs font-bold break-all"
-								>{formatNumberWithTwoDecimals(props.bid.amount)} Sats</span
-							>
-						</div>
-						<!-- <div class="flex items-center justify-between">
-							<span class="text-base-content/70 text-xs">Contract ID</span>
-							<span class="text-xs font-bold">ctr_8G7KZ</span>
-						</div> -->
+				<!-- Pricing Breakdown (same format as BidAcceptanceForm) -->
+				<div class="space-y-2">
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-medium">Bid Price</span>
+						<span class="text-xs font-bold">${formatNumberWithTwoDecimals(props.bid.amount)}</span>
 					</div>
-					<div class="space-y-2">
+
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-medium">Platform Fee</span>
+						<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
+					</div>
+
+					<div class="flex items-center justify-between">
+						<span class="text-xs font-medium">Est. Transaction Fee</span>
+						<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
+					</div>
+
+					<div class="border-base-200 border-t pt-2">
 						<div class="flex items-center justify-between">
-							<span class="text-base-content/70 text-xs">Platform Fee</span>
-							<span class="text-xs font-bold">3,100 Sats</span>
+							<span class="text-base font-bold">Total Price</span>
+							<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
 						</div>
-						<div class="flex items-center justify-between">
-							<span class="text-base-content/70 text-xs">Total (Fiat)</span>
-							<span class="text-xs font-bold">${totalFiatPrice.toFixed(2)}</span>
-						</div>
-						<div class="flex items-center justify-between">
-							<span class="text-base-content/70 text-xs">Total (Sats)</span>
-							<span class="text-xs font-bold break-all"
-								>{formatNumberWithTwoDecimals(props.bid.amount + 3100)}</span
+						<div class="mt-1 flex items-center justify-between">
+							<span class="text-base font-semibold"></span>
+							<span class="text-base-content/60 text-sm"
+								>{satsFromUsd(totalSatsPrice, props.btcPrice)} sats</span
 							>
 						</div>
 					</div>

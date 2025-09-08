@@ -170,12 +170,12 @@
 </script>
 
 {#if currentScreen === 'form'}
-	<div class="bg-base-100 mx-auto max-h-[70vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
+	<div class="bg-base-100 mx-auto max-h-[80vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
 		<!-- Header with close button -->
 		<div
-			class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b p-4 pb-4 sm:p-6"
+			class="border-b bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4 pb-4 sm:p-6"
 		>
-			<h4 class="line-clamp-2 font-bold">Accept Bid & Fund Contract</h4>
+			<h4 class="line-clamp-2 font-bold">Accept Bid & Fund Contract</h4>		
 			<button
 				type="button"
 				class="btn btn-ghost btn-sm btn-circle"
@@ -202,7 +202,7 @@
 		<!-- Content with padding -->
 		<div class="p-4">
 			<!-- Desktop: 2 column layout -->
-			<div class="hidden rounded-2xl bg-base-300 lg:flex lg:gap-4">
+			<div class="hidden rounded-2xl bg-base-200 lg:flex lg:gap-4">
 				<!-- Left Column: Bidder Information -->
 				<div class="flex-1">
 					<div class="rounded-lg p-3">
@@ -414,7 +414,7 @@
 						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<small class="text-sm">
+				<small class="md:text-sm text-xs">
 					<strong>Note:</strong> You are entering into a contract with the taskee on the blockchain.
 					BitTasker is not able to access your funds or alter the contract after this.
 				</small>
