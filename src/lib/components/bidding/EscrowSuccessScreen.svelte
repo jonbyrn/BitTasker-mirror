@@ -55,12 +55,12 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-auto max-h-[80vh] max-w-2xl overflow-y-auto rounded-lg shadow-lg">
+<div class="bg-base-100 mx-auto max-h-[70vh] overflow-y-auto rounded-lg shadow-lg">
 	<!-- Header with close button -->
 	<div
-		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b p-4 pb-4 sm:p-6"
+		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b pb-4 sm:p-6"
 	>
-		<h4 class="font-bold">Escrow Funded Successfully</h4>
+		<h4 class="font-bold">Escrow Funded</h4>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm btn-circle"
@@ -96,7 +96,7 @@
 						: ''}"
 				>
 					<svg
-						class="h-8 w-8 text-white {isAnimating ? 'animate-bounce' : ''}"
+						class="h-8 w-8 {isAnimating ? 'animate-bounce' : ''}"
 						fill="none"
 						stroke="currentColor"
 						viewBox="0 0 24 24"
@@ -120,7 +120,7 @@
 				{/if}
 			</div>
 
-			<h3 class="text-center text-lg font-bold text-white">Escrow Funded Successfully</h3>
+			<h3 class="text-center text-lg font-bold">Escrow Funded Successfully</h3>
 			<p class="text-base-content/70 px-4 text-center text-sm">
 				Your contract has been created and funded on the blockchain.
 			</p>
@@ -130,95 +130,34 @@
 		{#if showDetails}
 			<div class="bg-base-200 mx-2 rounded-lg p-4">
 				<!-- Task Title -->
-				<h4 class="mb-3 line-clamp-1 text-base font-bold break-words text-white">
-					{props.taskTitle}
-				</h4>
-
-				<!-- Bidder Info with Rating -->
-				<div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-					<div class="flex min-w-0 flex-1 items-center gap-2">
-						<svg
-							class="text-base-content/60 h-4 w-4 flex-shrink-0"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-							/>
-						</svg>
-						<span class="truncate text-sm text-white">
-							{props.bid.userProfile?.user?.name ||
-								props.bid.userProfile?.professionalTitle ||
-								'Anonymous'}
-						</span>
-						<div class="flex flex-shrink-0 items-center gap-1">
-							{#each Array(5) as _, i}
-								<svg
-									class="h-3 w-3 {i < (props.bid.userProfile?.averageRating || 0)
-										? 'text-yellow-400'
-										: 'text-base-content/30'}"
-									fill="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-									/>
-								</svg>
-							{/each}
-							<span class="text-base-content/60 ml-1 text-xs whitespace-nowrap">
-								{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile
-									?.tasksCompleted || 0} tasks)
-							</span>
-						</div>
-					</div>
-					<div class="text-right sm:text-right">
-						<div class="text-base font-bold text-white">
-							{formatNumberWithTwoDecimals(props.bid.amount)}
-						</div>
-					</div>
-				</div>
+				<h4 class=" line-clamp-2 text-base font-bold break-words">Transaction details</h4>
 
 				<!-- Financial Details - Responsive Grid -->
 				<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 					<div class="space-y-2">
 						<div class="flex items-center justify-between">
 							<span class="text-base-content/70 text-xs">Bid Price</span>
-							<span class="text-xs font-bold break-all text-white"
+							<span class="text-xs font-bold break-all"
 								>{formatNumberWithTwoDecimals(props.bid.amount)} Sats</span
 							>
 						</div>
-						<div class="flex items-center justify-between">
+						<!-- <div class="flex items-center justify-between">
 							<span class="text-base-content/70 text-xs">Contract ID</span>
-							<span class="text-xs font-bold text-white">ctr_8G7KZ</span>
-						</div>
-						<div class="text-base-content/70 text-xs break-words">
-							Created: {new Date().toLocaleDateString('en-GB', {
-								day: '2-digit',
-								month: 'short',
-								year: 'numeric'
-							})}, {new Date().toLocaleTimeString('en-US', {
-								hour: '2-digit',
-								minute: '2-digit',
-								hour12: false
-							})}
-						</div>
+							<span class="text-xs font-bold">ctr_8G7KZ</span>
+						</div> -->
 					</div>
 					<div class="space-y-2">
 						<div class="flex items-center justify-between">
 							<span class="text-base-content/70 text-xs">Platform Fee</span>
-							<span class="text-xs font-bold text-white">3,100 Sats</span>
+							<span class="text-xs font-bold">3,100 Sats</span>
 						</div>
 						<div class="flex items-center justify-between">
 							<span class="text-base-content/70 text-xs">Total (Fiat)</span>
-							<span class="text-xs font-bold text-white">${totalFiatPrice.toFixed(2)}</span>
+							<span class="text-xs font-bold">${totalFiatPrice.toFixed(2)}</span>
 						</div>
 						<div class="flex items-center justify-between">
 							<span class="text-base-content/70 text-xs">Total (Sats)</span>
-							<span class="text-xs font-bold break-all text-white"
+							<span class="text-xs font-bold break-all"
 								>{formatNumberWithTwoDecimals(props.bid.amount + 3100)}</span
 							>
 						</div>
@@ -266,8 +205,8 @@
 
 			<!-- Gamification Progress -->
 			<div class="bg-base-200 mx-2 mb-4 rounded-lg p-4">
-				<h4 class="mb-3 text-base font-bold text-white">Keep climbing!</h4>
-				<p class="mb-3 text-sm break-words text-white">
+				<h4 class="mb-3 text-base font-bold">Keep climbing!</h4>
+				<p class="mb-3 text-sm break-words">
 					Complete <span class="font-bold">{tasksToNextTier} more tasks</span> by
 					<span class="font-bold">{nextTierDate}</span>
 					to reach <span class="text-primary font-bold">{nextTier}</span>
