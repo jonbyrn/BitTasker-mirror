@@ -56,19 +56,19 @@
 
 <div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-			<div class="hero-content flex-col text-center">
-				<Logo />
-				<div class="max-w-3xl">
-					<h3>{$t('about_careers.join.title')}</h3>
-					<p class="text-base-content/80 py-6 text-lg">
-						{$t('about_careers.join.description')}
-					</p>
-				</div>
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl">
+				<h3>{$t('about_careers.join.title')}</h3>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('about_careers.join.description')}
+				</p>
 			</div>
+		</div>
 	</section>
 
 	<!-- Our Culture Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<div class="mb-12 text-center">
 			<h3>{$t('about_careers.culture.title')}</h3>
 			<p class="text-base-content/80 py-6 text-lg">
@@ -77,7 +77,7 @@
 		</div>
 	</div>
 	<!-- Why Join BitTasker Section -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-5 sm:px-8">
 		<div class="mx-auto max-w-4xl">
 			<div class="mb-8">
 				<div class="mb-4 flex items-baseline gap-4">
@@ -155,7 +155,7 @@
 	</div>
 
 	<!-- Open Positions -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-5 sm:p-8">
 		<div class="mb-4 flex items-baseline gap-4">
 			<h3>{$t('careers.section_title')}</h3>
 		</div>
@@ -172,11 +172,13 @@
 					>
 						<button
 							type="button"
-							class="collapse-title text-left text-xl font-medium"
+							class="collapse-title text-left text-lg font-medium sm:text-xl"
 							onclick={() => toggleSection('dev')}
 						>
 							{$t('careers.positions.dev.title')}
-							<span class="badge badge-primary ml-2">{$t('careers.positions.dev.location')}</span>
+							<span class="badge badge-primary ml-2 text-[10px] whitespace-nowrap sm:text-sm"
+								>{$t('careers.positions.dev.location')}</span
+							>
 						</button>
 						<div class="collapse-content">
 							<div class="mt-4 space-y-4">
@@ -216,11 +218,13 @@
 					>
 						<button
 							type="button"
-							class="collapse-title text-left text-xl font-medium"
+							class="collapse-title text-left text-lg font-medium sm:text-xl"
 							onclick={() => toggleSection('pr')}
 						>
 							{$t('careers.positions.pr.title')}
-							<span class="badge badge-primary ml-2">{$t('careers.positions.pr.location')}</span>
+							<span class="badge badge-primary ml-2 text-[10px] whitespace-nowrap sm:text-sm"
+								>{$t('careers.positions.pr.location')}</span
+							>
 						</button>
 						<div class="collapse-content">
 							<div class="mt-4 space-y-4">
@@ -259,11 +263,13 @@
 					>
 						<button
 							type="button"
-							class="collapse-title text-left text-xl font-medium"
+							class="collapse-title text-left text-lg font-medium sm:text-xl"
 							onclick={() => toggleSection('media')}
 						>
 							{$t('careers.positions.media.title')}
-							<span class="badge badge-primary ml-2">{$t('careers.positions.media.location')}</span>
+							<span class="badge badge-primary ml-2 text-[10px] whitespace-nowrap sm:text-sm">
+								{$t('careers.positions.media.location')}</span
+							>
 						</button>
 						<div class="collapse-content">
 							<div class="mt-4 space-y-4">
@@ -302,18 +308,22 @@
 					>
 						<button
 							type="button"
-							class="collapse-title text-left text-xl font-medium"
+							class="collapse-title text-left text-lg font-medium sm:text-xl"
 							onclick={() => toggleSection('ambassador')}
 						>
 							{$t('careers.positions.ambassador.title')}
-							<span class="badge badge-primary ml-2">{$t('careers.positions.ambassador.location')}</span>
+							<span class="badge badge-primary ml-2 text-[10px] whitespace-nowrap sm:text-sm"
+								>{$t('careers.positions.ambassador.location')}</span
+							>
 						</button>
 						<div class="collapse-content">
 							<div class="mt-4 space-y-4">
 								<h4 class="font-medium">{$t('careers.positions.ambassador.about_title')}</h4>
 								<p>{$t('careers.positions.ambassador.about_description')}</p>
 
-								<h4 class="font-medium">{$t('careers.positions.ambassador.responsibilities_title')}</h4>
+								<h4 class="font-medium">
+									{$t('careers.positions.ambassador.responsibilities_title')}
+								</h4>
 								<ul class="ml-5 list-disc space-y-1">
 									<li>{$t('careers.positions.ambassador.responsibility_1')}</li>
 									<li>{$t('careers.positions.ambassador.responsibility_2')}</li>
@@ -321,7 +331,9 @@
 									<li>{$t('careers.positions.ambassador.responsibility_4')}</li>
 								</ul>
 
-								<h4 class="font-medium">{$t('careers.positions.ambassador.qualifications_title')}</h4>
+								<h4 class="font-medium">
+									{$t('careers.positions.ambassador.qualifications_title')}
+								</h4>
 								<ul class="ml-5 list-disc space-y-1">
 									<li>{$t('careers.positions.ambassador.qual_1')}</li>
 									<li>{$t('careers.positions.ambassador.qual_2')}</li>

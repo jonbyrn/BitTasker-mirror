@@ -230,6 +230,39 @@
 		const isComplete = services.length > 0;
 		onComplete(isComplete);
 	});
+
+	// Handle price input validation
+	function handlePriceInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		let value = target.value;
+
+		// Remove any non-numeric characters except decimal point
+		value = value.replace(/[^0-9.]/g, '');
+
+		// Prevent multiple decimal points
+		const decimalCount = (value.match(/\./g) || []).length;
+		if (decimalCount > 1) {
+			value = value.replace(/\.(?=.*\.)/, '');
+		}
+
+		// Limit to 2 decimal places
+		if (value.includes('.')) {
+			const parts = value.split('.');
+			if (parts[1] && parts[1].length > 2) {
+				value = parts[0] + '.' + parts[1].substring(0, 2);
+			}
+		}
+
+		// Ensure value is not negative
+		const numericValue = parseFloat(value);
+		if (numericValue < 0) {
+			value = '0';
+		}
+
+		// Update the input value and the state
+		target.value = value;
+		newService.price = numericValue || 0;
+	}
 </script>
 
 {#if isInitialLoading}
@@ -393,15 +426,16 @@
 										{/each}
 									</select>
 									<input
-										type="number"
+										type="text"
 										id="servicePrice"
-										bind:value={newService.price}
+										value={newService.price?.toString() || ''}
 										required={true}
-										min="0"
 										step="0.01"
+										placeholder="0.00"
 										class="input input-bordered join-item w-full {!newService.price && error
 											? 'border-error'
 											: ''}"
+										oninput={handlePriceInput}
 									/>
 								</div>
 							</div>
