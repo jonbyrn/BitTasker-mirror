@@ -58,23 +58,23 @@
 	</section>
 
 	<!-- Content Sections -->
-	<div class="prose mx-auto max-w-4xl my-16 px-8">
+	<div class="prose mx-auto my-16 max-w-4xl px-8">
 		<!-- Media Kit -->
 		<div class="card bg-base-100 shadow-lg">
 			<div class="card-body">
-				<h3 class="mb-4 mt-6">{$t('press.media_kit.title')}</h3>
+				<h3 class="mt-6 mb-4">{$t('press.media_kit.title')}</h3>
 				<p class="mb-6">{$t('press.media_kit.description')}</p>
 				<div class="flex flex-wrap gap-4">
 					<a
 						href="/downloads/bittasker-logo-pack.zip"
-						class="btn btn-primary btn-disabled"
+						class="btn btn-outline btn-disabled text-xs sm:text-sm!"
 						aria-disabled="true"
 					>
 						{$t('press.media_kit.logo_pack')}
 					</a>
 					<a
 						href="/downloads/bittasker-brand-guidelines.pdf"
-						class="btn btn-outline btn-disabled"
+						class="btn btn-outline btn-disabled text-xs sm:text-sm!"
 						aria-disabled="true"
 					>
 						{$t('press.media_kit.guidelines')}
@@ -85,19 +85,19 @@
 		</div>
 
 		<!-- About BitTasker -->
-		<div class="prose max-w-none my-12">
+		<div class="prose my-12 max-w-none">
 			<h3>{$t('press.about.title')}</h3>
 			<p>{$t('press.about.description')}</p>
 		</div>
 
 		<!-- Media Inquiries -->
-		<div class="card bg-base-100 text-center shadow-lg max-w-lg mx-auto">
+		<div class="card bg-base-100 mx-auto max-w-lg text-center shadow-lg">
 			<div class="card-body text-center">
-				<h3 class="mb-4 mt-6">{$t('press.inquiries.title')}</h3>
+				<h3 class="mt-6 mb-4">{$t('press.inquiries.title')}</h3>
 				<p class="mx-auto mb-6 max-w-lg">{$t('press.inquiries.description')}</p>
 				<div class="card-actions mt-4 flex justify-center">
 					<a href={mailtoHref} class="btn btn-primary btn-wide">
-						<IconEmailOutline class="text-xl mr-2" />
+						<IconEmailOutline class="mr-2 text-xl" />
 						{$t('press.inquiries.button')}
 					</a>
 				</div>

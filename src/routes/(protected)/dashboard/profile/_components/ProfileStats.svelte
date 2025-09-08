@@ -8,20 +8,19 @@
 			onTimeRate: number;
 		};
 	}>();
-
 </script>
 
 <!-- Stats Cards -->
 <div class="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title text-sm leading-tight break-words">{$t('stats.tasksCompleted')}</div>
+			<div class="stat-title text-xs leading-tight break-words">{$t('stats.tasksCompleted')}</div>
 			<div class="stat-value text-3xl">{stats.tasksCompleted}</div>
 		</div>
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title text-sm leading-tight break-words">{$t('stats.rating')}</div>
+			<div class="stat-title text-xs leading-tight break-words">{$t('stats.rating')}</div>
 			<div class="stat-value flex items-center text-3xl">
 				{stats.rating}
 				<svg
@@ -41,13 +40,13 @@
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title text-sm leading-tight break-words">{$t('stats.responseRate')}</div>
+			<div class="stat-title text-xs leading-tight break-words">{$t('stats.responseRate')}</div>
 			<div class="stat-value text-3xl">{stats.responseRate}%</div>
 		</div>
 	</div>
 	<div class="stats bg-base-300 rounded-2xl shadow">
 		<div class="stat p-4">
-			<div class="stat-title text-sm leading-tight break-words">{$t('stats.onTimeRate')}</div>
+			<div class="stat-title text-xs leading-tight break-words">{$t('stats.onTimeRate')}</div>
 			<div class="stat-value text-3xl">{stats.onTimeRate}%</div>
 		</div>
 	</div>

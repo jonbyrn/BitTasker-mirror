@@ -59,6 +59,9 @@
 		} else {
 			amount = 0;
 		}
+
+		// Clear amount error when user starts typing
+		clearFieldError('amount');
 	}
 
 	// Handle sats amount changes for FIXED type
@@ -73,6 +76,9 @@
 		} else {
 			amount = 0;
 		}
+
+		// Clear amount error when user starts typing
+		clearFieldError('amount');
 	}
 
 	// Handle hourly rate USD changes
@@ -86,6 +92,9 @@
 		} else {
 			hourlyRate = 0;
 		}
+
+		// Clear hourly rate error when user starts typing
+		clearFieldError('hourlyRate');
 	}
 
 	// Handle hourly rate sats changes
@@ -100,6 +109,9 @@
 		} else {
 			hourlyRate = 0;
 		}
+
+		// Clear hourly rate error when user starts typing
+		clearFieldError('hourlyRate');
 	}
 
 	// Handle estimated hours changes
@@ -113,11 +125,40 @@
 		} else {
 			estimatedHours = '';
 		}
+
+		// Clear estimated hours error when user starts typing
+		clearFieldError('estimatedHours');
 	}
 
 	function cleanInput(value: string): string {
 		// Solo permite dígitos, comas y punto
 		return value.replace(/[^0-9.,]/g, '');
+	}
+
+	// Handle description changes - clear error when user starts typing
+	function handleDescriptionChange() {
+		// Clear error as soon as user starts typing (addresses both "required" and "min length" errors)
+		if (description.trim().length > 0) {
+			clearFieldError('description');
+		}
+	}
+
+	// Handle proposed approach changes - clear error when user starts typing
+	function handleProposedApproachChange() {
+		// Clear error as soon as user starts typing (addresses both "required" and "min length" errors)
+		if (proposedApproach.trim().length > 0) {
+			clearFieldError('proposedApproach');
+		}
+	}
+
+	// Handle cover letter changes
+	function handleCoverLetterChange() {
+		clearFieldError('coverLetter');
+	}
+
+	// Handle datetime changes
+	function handleDateTimeChange() {
+		clearFieldError('datetime');
 	}
 
 	// Handle payment type change
@@ -142,6 +183,13 @@
 				// Convert hourly rate to total amount
 				amount = hourlyRate * parseFloat(estimatedHours);
 			}
+		}
+	}
+
+	// Helper function to clear specific validation errors
+	function clearFieldError(fieldName: string) {
+		if (bidFormErrors[fieldName]) {
+			bidFormErrors = { ...bidFormErrors, [fieldName]: '' };
 		}
 	}
 
@@ -417,6 +465,7 @@
 									type="date"
 									id="start-date"
 									bind:value={startDate}
+									onchange={handleDateTimeChange}
 									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
 									min={new Date().toISOString().split('T')[0]}
 								/>
@@ -424,6 +473,7 @@
 									type="time"
 									id="start-time"
 									bind:value={startTime}
+									onchange={handleDateTimeChange}
 									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
 								/>
 							</div>
@@ -437,6 +487,7 @@
 									type="date"
 									id="end-date"
 									bind:value={endDate}
+									onchange={handleDateTimeChange}
 									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
 									min={startDate || new Date().toISOString().split('T')[0]}
 								/>
@@ -444,6 +495,7 @@
 									type="time"
 									id="end-time"
 									bind:value={endTime}
+									onchange={handleDateTimeChange}
 									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
 								/>
 							</div>
@@ -587,17 +639,22 @@
 						: ''}"
 					placeholder={$t('bid_form.form.description.placeholder')}
 					bind:value={description}
+					oninput={handleDescriptionChange}
 					maxlength="500"
 				></textarea>
 				{#if description.length > 0}
-					<small class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}">
+					<small
+						class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}"
+					>
 						{description.length}/500 max
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
 					<div class="label">
-						<span class="label-text-alt text-error whitespace-break-spaces" id="description-error" aria-live="polite"
-							>{bidFormErrors.description}</span
+						<span
+							class="label-text-alt text-error whitespace-break-spaces"
+							id="description-error"
+							aria-live="polite">{bidFormErrors.description}</span
 						>
 					</div>
 				{/if}
@@ -618,10 +675,15 @@
 					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
 					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
 					bind:value={proposedApproach}
+					oninput={handleProposedApproachChange}
 					maxlength="1000"
 				></textarea>
 				{#if proposedApproach.length > 0}
-					<small class="text-base-content/60 text-xs {proposedApproach.length >= 1000 ? 'text-warning' : ''}">
+					<small
+						class="text-base-content/60 text-xs {proposedApproach.length >= 1000
+							? 'text-warning'
+							: ''}"
+					>
 						{proposedApproach.length}/1000 max
 					</small>
 				{/if}
@@ -648,10 +710,13 @@
 						: ''}"
 					placeholder={$t('bid_form.form.cover_letter.placeholder')}
 					bind:value={coverLetter}
+					oninput={handleCoverLetterChange}
 					maxlength="800"
 				></textarea>
 				{#if coverLetter.length > 0}
-					<small class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}">
+					<small
+						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
+					>
 						{coverLetter.length}/800 max
 					</small>
 				{/if}

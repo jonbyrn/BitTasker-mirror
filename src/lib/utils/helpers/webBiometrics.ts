@@ -7,6 +7,8 @@ import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
 import authService from '$lib/api/services/auth.service';
+import { locale } from 'svelte-i18n';
+import { get } from 'svelte/store';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -54,7 +56,9 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
  * Verify user identity using WebAuthn with automatic credential discovery
  * Returns the credentials if authentication is successful
  */
-export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS): Promise<boolean> {
+export async function verifyIdentity(
+	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
+): Promise<boolean> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
@@ -90,7 +94,7 @@ export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_
 
 /**
  * Register WebAuthn credentials
- * @param publicKey User's Nostr public key  
+ * @param publicKey User's Nostr public key
  * @param exportedKey The exported private key for decryption
  * @param customName Optional custom name for the passkey
  * @returns Promise with credential ID
@@ -146,7 +150,6 @@ export async function setWebBiometricKey(
 		}
 
 		return credential.id;
-
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
 		throw new Error('Failed to set biometric key');
@@ -170,9 +173,9 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		};
 
 		// Request authentication
-		const credential = await navigator.credentials.get({
+		const credential = (await navigator.credentials.get({
 			publicKey: authOptions
-		}) as PublicKeyCredential;
+		})) as PublicKeyCredential;
 
 		if (!credential) {
 			throw new Error('No credential found');
@@ -192,7 +195,11 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 
 		const deviceId = await getDeviceIdentifier();
 
-		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id);
+		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
+			publicKey,
+			deviceId,
+			credential.id
+		);
 
 		if (!encryptedPrivateKey) {
 			throw new Error('No encrypted data found');
@@ -205,7 +212,12 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		};
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
-		throw new Error('Failed to get biometric data' + err);
+		const errorMessage =
+			get(locale) === 'en'
+				? 'Authorization either timed out, or was canceled. Try again'
+				: 'La autorización expiró o se canceló. Intentar otra vez';
+
+		throw new Error(errorMessage);
 	}
 }
 
@@ -216,7 +228,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 export function getWebAuthnProviderDescription(): string {
 	const userAgent = navigator.userAgent.toLowerCase();
 	const platform = navigator.platform.toLowerCase();
-	
+
 	// iOS devices
 	if (/iphone|ipad|ipod/.test(userAgent) || platform.includes('mac')) {
 		if (/safari/.test(userAgent) && !/chrome/.test(userAgent)) {
@@ -227,7 +239,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'iCloud Keychain'; // Default for macOS/iOS
 	}
-	
+
 	// Android devices
 	if (/android/.test(userAgent)) {
 		if (/chrome/.test(userAgent)) {
@@ -235,7 +247,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'Google Password Manager'; // Default for Android
 	}
-	
+
 	// Windows
 	if (/windows/.test(userAgent) || platform.includes('win')) {
 		if (/edge/.test(userAgent)) {
@@ -249,7 +261,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'Windows Hello'; // Default for Windows
 	}
-	
+
 	// Linux
 	if (/linux/.test(userAgent) || platform.includes('linux')) {
 		if (/chrome/.test(userAgent)) {
@@ -260,7 +272,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'Browser Password Manager';
 	}
-	
+
 	// Fallback
 	return 'Browser Password Manager';
 }
