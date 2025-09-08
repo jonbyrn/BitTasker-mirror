@@ -5,6 +5,8 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { publishStandardServices, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
+	import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -22,6 +24,7 @@
 	let servicesForm = $state<HTMLDivElement | null>(null);
 	let currentEventId = $state<string | null>(null); // Track the current event ID
 	let isInitialLoading = $state(false);
+	let btcPrice = $state<number>(100000); // Default fallback price
 
 	// New service form state
 	let newService = $state<Partial<StandardService>>({
@@ -37,7 +40,7 @@
 	let isFormOpen = $derived(addingService || editingService);
 
 	// Available currencies
-	const currencies = ['BTC', 'USD'];
+	const currencies = ['USD', 'Sats'];
 
 	// Duration options (in minutes)
 	const durationOptions = [
@@ -53,6 +56,9 @@
 	let cleanup: (() => void) | null = null;
 
 	onMount(async () => {
+		// Fetch BTC price on mount
+		await fetchBtcPrice();
+		
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
@@ -209,10 +215,35 @@
 
 	// Format price
 	function formatPrice(price: number, curr: string) {
+		if (curr === 'Sats') {
+			return `${price.toLocaleString('en-US')} sats`;
+		}
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
 			currency: curr
 		}).format(price);
+	}
+
+	// Fetch BTC price on mount
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+		}
+	}
+
+	// Convert Satoshis to USD using real-time BTC price
+	function satsToUsd(sats: number): number {
+		return (sats / SATS_PER_BTC) * btcPrice;
+	}
+
+	// Get price placeholder based on currency
+	function getPricePlaceholder(curr: string): string {
+		if (curr === 'Sats') {
+			return '5000';
+		}
+		return '5.55';
 	}
 
 	// Format duration
@@ -236,32 +267,45 @@
 		const target = event.target as HTMLInputElement;
 		let value = target.value;
 
-		// Remove any non-numeric characters except decimal point
-		value = value.replace(/[^0-9.]/g, '');
-
-		// Prevent multiple decimal points
-		const decimalCount = (value.match(/\./g) || []).length;
-		if (decimalCount > 1) {
-			value = value.replace(/\.(?=.*\.)/, '');
-		}
-
-		// Limit to 2 decimal places
-		if (value.includes('.')) {
-			const parts = value.split('.');
-			if (parts[1] && parts[1].length > 2) {
-				value = parts[0] + '.' + parts[1].substring(0, 2);
+		// For Satoshis, only allow whole numbers (no decimals)
+		if (newService.currency === 'Sats') {
+			// Remove any non-numeric characters
+			value = value.replace(/[^0-9]/g, '');
+			
+			// Ensure value is not negative
+			const numericValue = parseInt(value) || 0;
+			if (numericValue < 0) {
+				value = '0';
 			}
-		}
+		} else {
+			// For USD, allow decimals
+			// Remove any non-numeric characters except decimal point
+			value = value.replace(/[^0-9.]/g, '');
 
-		// Ensure value is not negative
-		const numericValue = parseFloat(value);
-		if (numericValue < 0) {
-			value = '0';
+			// Prevent multiple decimal points
+			const decimalCount = (value.match(/\./g) || []).length;
+			if (decimalCount > 1) {
+				value = value.replace(/\.(?=.*\.)/, '');
+			}
+
+			// Limit to 2 decimal places
+			if (value.includes('.')) {
+				const parts = value.split('.');
+				if (parts[1] && parts[1].length > 2) {
+					value = parts[0] + '.' + parts[1].substring(0, 2);
+				}
+			}
+
+			// Ensure value is not negative
+			const numericValue = parseFloat(value);
+			if (numericValue < 0) {
+				value = '0';
+			}
 		}
 
 		// Update the input value and the state
 		target.value = value;
-		newService.price = numericValue || 0;
+		newService.price = newService.currency === 'Sats' ? parseInt(value) || 0 : parseFloat(value) || 0;
 	}
 </script>
 
@@ -430,14 +474,20 @@
 										id="servicePrice"
 										value={newService.price?.toString() || ''}
 										required={true}
-										step="0.01"
-										placeholder="0.00"
+										placeholder={getPricePlaceholder(newService.currency || 'USD')}
 										class="input input-bordered join-item w-full {!newService.price && error
 											? 'border-error'
 											: ''}"
 										oninput={handlePriceInput}
 									/>
 								</div>
+								{#if newService.currency === 'Sats' && newService.price && newService.price > 0}
+									<div class="label">
+										<span class="label-text-alt text-base-content/70">
+											≈ ${satsToUsd(newService.price).toFixed(2)} USD
+										</span>
+									</div>
+								{/if}
 							</div>
 						</div>
 
