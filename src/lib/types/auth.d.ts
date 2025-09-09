@@ -2,6 +2,7 @@ export interface Credentials {
 	username: string;
 	password: string; // encrytpion data
 	server: string; // device id
+	isLegacyFormat: boolean; // TODO: To be removed later once all legacy users are migrated to master key format
 }
 
 export interface NostrRegistrationData {

@@ -13,8 +13,8 @@
 
 	let loading = $state(false);
 	let error = $state('');
-	let npub = $state('npub13hvw8jnhyp8alrhy60pajlcwjp5kh6emzk3pz7phrh4untmumcjsauf9u5');
-	let nsec = $state('nsec16c36s404dvzq6ngwq9lpymthv9v5eydyq4clcnqa350e2uxl3slsw53az9');
+	let npub = $state('');
+	let nsec = $state('');
 	let authMethod = $state('');
 
 	onMount(async () => {

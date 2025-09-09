@@ -75,6 +75,25 @@
 
 		// Decrypt private key using biometrics
 		const privateKey = await decryptNsecWithBiometrics(encryptedData);
+		
+		// migrate to master key format if legacy format
+		if (biometricData.isLegacyFormat) {
+			// Generate wallet mnemonic for both new and existing users
+			const walletMnemonic = generateMnemonic();
+
+			const masterKeyData = await encryptMasterKeyData(privateKey, walletMnemonic, deviceId);
+
+			await authService.migrateToMasterKey(pubKey, deviceId, masterKeyData);
+
+			biometricData.password = JSON.stringify({
+				key: masterKeyData.exportedMasterKey,
+				masterKeyData: masterKeyData,
+				data: masterKeyData.nostr.encrypted.data,
+				iv: masterKeyData.nostr.encrypted.iv,
+				authTag: masterKeyData.nostr.encrypted.authTag,
+				salt: masterKeyData.nostr.salt
+			});
+		}
 
 		// Sign the challenge with the private key
 		const signedChallenge = await signLoginChallenge(challenge, privateKey);
@@ -221,9 +240,10 @@
 				// Generate wallet mnemonic for both new and existing users
 				const walletMnemonic = generateMnemonic();
 
+				masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
+				
 				if (res.isNewUser && !res.user.nostrKey?.masterKeyEncrypted) {
 					// Create master key encrypted data with correct deviceId
-					masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
 
 					// Store master key data in biometrics
 					if (authMethods.biometric) {
@@ -284,7 +304,8 @@
 						} else {
 							credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
 						}
-						// await authService.migrateToMasterKey(npub, deviceId, masterKeyData);
+
+						await authService.migrateToMasterKey(npub, deviceId, masterKeyData);
 					}
 				}
 
@@ -311,7 +332,8 @@
 								authTag: encrypted.authTag,
 								salt: salt
 							}),
-					server: res.user.nostrKey?.deviceId!
+					server: res.user.nostrKey?.deviceId!,
+					isLegacyFormat: masterKeyData ? false : true
 				};
 
 				authState

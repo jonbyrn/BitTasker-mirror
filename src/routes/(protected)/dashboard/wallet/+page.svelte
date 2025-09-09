@@ -54,8 +54,7 @@
 			</div>
 			<div class="text-sm">
 				{#if $walletConnection.errorMessage.includes('No mnemonic found')}
-					Your wallet needs to be set up. This should have been done automatically during
-					registration.
+					You have no wallet set up. Please set up your wallet to continue.
 				{:else}
 					{$walletConnection.errorMessage}
 				{/if}

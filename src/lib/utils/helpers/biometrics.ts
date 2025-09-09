@@ -3,7 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { NativeBiometric } from 'capacitor-native-biometric';
 import { packKeysMobile, unPackKeysMobile, generateCredentialId, generateMobileChallenge } from '$lib/utils/helpers/encoding';
 import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
-import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import authService from '$lib/api/services/auth.service';
 
 const BIOMETRIC_VERIFY_OPTIONS: BiometricVerifyOptions = {
@@ -129,6 +129,8 @@ export async function setBiometricKey(
  */
 export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'biometrics'): Promise<Credentials | null> {
 	try {
+		const deviceId = await getDeviceIdentifier();
+
 		// Force WebAuthn if authMethod is 'passkey'
 		if (authMethod === 'passkey') {
 			const { value: webAuthnAvailable } = await Webauthn.isWebAuthnAvailable();
@@ -158,25 +160,47 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			const publicKey = unpackedKeys.publicKey;
 			const exportedKey = unpackedKeys.exportedKey;
 
-			const deviceId = await getDeviceIdentifier();
+			const deviceName = await createUserDeviceShortName(publicKey);
 
-			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credentials.id);
+			try {
+				const { masterKeyData, legacyEncryptedData, isLegacyFormat } = await authService.getMasterKeyEncryptedData(publicKey, deviceId, credentials.id, deviceName);
 
-			if (!encryptedPrivateKey) {
-				throw new Error('No encrypted data found');
+				if (!isLegacyFormat && masterKeyData) {
+					return {
+						username: publicKey,
+						password: JSON.stringify({ key: exportedKey, data: masterKeyData.nostr.encrypted.data, iv: masterKeyData.nostr.encrypted.iv, authTag: masterKeyData.nostr.encrypted.authTag, salt: masterKeyData.nostr.salt }),
+						server: deviceId,
+						isLegacyFormat: false
+					};
+				} else if (isLegacyFormat && legacyEncryptedData) {
+					return {
+						username: publicKey,
+						password: JSON.stringify({ key: exportedKey, data: legacyEncryptedData.encryptedPrivateKey, iv: legacyEncryptedData.iv, authTag: legacyEncryptedData.authTag, salt: legacyEncryptedData.salt }),
+						server: deviceId,
+						isLegacyFormat: true
+					};
+				} else {
+					throw new Error('No encrypted data found');
+				}
+			} catch (error) {
+				console.warn('Master key not available, falling back to legacy:', error);
+				const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credentials.id, deviceName);
+
+				if (!encryptedPrivateKey) {
+					throw new Error('No encrypted data found');
+				}
+
+				return {
+					username: publicKey,
+					password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+					server: deviceId,
+					isLegacyFormat: true
+				};
 			}
-
-			return {
-				username: publicKey,
-				password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
-				server: deviceId
-			};
 		} else {
 			// Use native biometrics
 			const verified = await verifyIdentity();
 			if (!verified) return null;
-
-			const deviceId = await getDeviceIdentifier();
 
 			const credentials = await NativeBiometric.getCredentials({
 				server: deviceId
@@ -190,13 +214,16 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			// Use unPackKeysMobile to properly decode the base64url string
 			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
 
+			const deviceName = await createUserDeviceShortName(unpackedKeys.publicKey);
+
 			// Try to get master key encrypted data first, fallback to legacy
 			try {
-				const { masterKeyData, legacyEncryptedData, isLegacyFormat } = 
+				const { masterKeyData, legacyEncryptedData, isLegacyFormat } =
 					await authService.getMasterKeyEncryptedData(
 						unpackedKeys.publicKey,
 						deviceId,
-						credentialId
+						credentialId,
+						deviceName
 					);
 
 				if (!isLegacyFormat && masterKeyData) {
@@ -204,7 +231,7 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 					return {
 						username: unpackedKeys.publicKey,
 						password: JSON.stringify({
-							key: unpackedKeys.exportedKey,
+							key: masterKeyData.exportedMasterKey, // TODO: To be replaced with unpackedKeys.exportedKey once all legacy users update their passkeys
 							masterKeyData: masterKeyData,
 							// Legacy compatibility fields
 							data: masterKeyData.nostr.encrypted.data,
@@ -212,7 +239,8 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 							authTag: masterKeyData.nostr.encrypted.authTag,
 							salt: masterKeyData.nostr.salt
 						}),
-						server: deviceId
+						server: deviceId,
+						isLegacyFormat: false
 					};
 				} else if (isLegacyFormat && legacyEncryptedData) {
 					// Legacy format
@@ -225,18 +253,20 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 							authTag: legacyEncryptedData.authTag,
 							salt: legacyEncryptedData.salt
 						}),
-						server: deviceId
+						server: deviceId,
+						isLegacyFormat: true
 					};
 				} else {
 					throw new Error('No encrypted data found');
 				}
 			} catch (error) {
 				// Fallback to legacy method if master key endpoint doesn't exist yet
-				console.warn('Master key endpoint not available, falling back to legacy:', error);
+				console.warn('Master key, falling back to legacy:', error);
 				const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
 					unpackedKeys.publicKey,
 					deviceId,
-					credentialId
+					credentialId,
+					deviceName
 				);
 
 				return {
@@ -248,7 +278,8 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 						authTag,
 						salt
 					}),
-					server: deviceId
+					server: deviceId,
+					isLegacyFormat: true
 				};
 			}
 		}

@@ -2,8 +2,8 @@
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
-	import Modal from '$lib/components/Modal.svelte';
 	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import Modal from '$lib/components/Modal.svelte';
 
 	// Types based on GraphQL schema
 	interface UserDevice {

@@ -194,7 +194,6 @@ async function initialize(): Promise<void> {
 				mnemonic = await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
 			}
 		} catch (error) {
-			console.error('Failed to get mnemonic from any method:', error);
 			throw new Error('No mnemonic found');
 		}
 

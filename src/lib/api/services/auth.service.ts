@@ -287,10 +287,11 @@ export class AuthService extends BaseApiService {
 	async getEncryptedKey(
 		publicKey: string,
 		deviceId: string,
-		credentialId: string
+		credentialId: string,
+		deviceName: string
 	): Promise<{ encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string }> {
 		const response = await this.get(
-			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}`
+			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}&deviceName=${encodeURIComponent(deviceName)}`
 		);
 		return response.data;
 	}
@@ -305,14 +306,15 @@ export class AuthService extends BaseApiService {
 	async getMasterKeyEncryptedData(
 		publicKey: string,
 		deviceId: string,
-		credentialId: string
+		credentialId: string,
+		deviceName: string
 	): Promise<{
 		masterKeyData?: MasterKeyEncryptedData;
 		legacyEncryptedData?: { encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string };
 		isLegacyFormat: boolean;
 	}> {
 		const response = await this.get(
-			ENDPOINTS.AUTH.MASTER_KEY_ENCRYPTED_DATA + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}`
+			ENDPOINTS.AUTH.MASTER_KEY_ENCRYPTED_DATA + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}&deviceName=${encodeURIComponent(deviceName)}`
 		);
 		return response.data;
 	}
