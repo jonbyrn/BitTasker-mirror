@@ -1,16 +1,23 @@
 # Use Node.js 22 LTS as the base image
 FROM node:22-alpine AS builder
 
+# Install build dependencies and increase memory limits
+RUN apk add --no-cache python3 make g++
+
 # Set working directory
 WORKDIR /app
+
+# Set npm configuration for better performance
+RUN npm config set fetch-retry-maxtimeout 600000 && \
+    npm config set fetch-retry-mintimeout 10000 && \
+    npm config set fetch-timeout 600000
 
 # Copy package files
 COPY package*.json ./
 
-# Clear npm cache and remove package-lock.json to force fresh install
-RUN npm cache clean --force && \
-    rm -f package-lock.json && \
-    npm install
+# Install dependencies using npm ci for faster, reliable builds
+# Split into chunks to avoid timeouts and enable better caching
+RUN npm ci --prefer-offline --no-audit --progress=false --maxsockets=1
 
 # Copy the rest of the application
 COPY . .

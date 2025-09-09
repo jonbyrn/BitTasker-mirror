@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import Logo from '$lib/components/Logo.svelte';
 	import { user } from '$lib/stores/user.store';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
+	import Logo from '$lib/components/Logo.svelte';
+	
 	type FeedbackSubmission = {
 		npub: string;
 		status: 'Bug' | 'Feature';
@@ -10,7 +12,6 @@
 		Screenshot?: File;
 		contact_info: string;
 	};
-	import { onMount } from 'svelte';
 
 	let status = $state<'' | 'Bug' | 'Feature'>('');
 	let description = $state('');
