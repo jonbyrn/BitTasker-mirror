@@ -4,7 +4,7 @@
  */
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
-import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
+import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
 import authService from '$lib/api/services/auth.service';
 import { locale } from 'svelte-i18n';
@@ -195,21 +195,62 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 
 		const deviceId = await getDeviceIdentifier();
 
-		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(
-			publicKey,
-			deviceId,
-			credential.id
-		);
+		const deviceName = await createUserDeviceShortName(publicKey);
+		
+		// Try to get master key encrypted data first, fallback to legacy
+		try {
+			const { masterKeyData, legacyEncryptedData, isLegacyFormat } = 
+				await authService.getMasterKeyEncryptedData(publicKey, deviceId, credential.id, deviceName);
 
-		if (!encryptedPrivateKey) {
-			throw new Error('No encrypted data found');
+			if (!isLegacyFormat && masterKeyData) {
+				// New master key format
+				return {
+					username: publicKey,
+					password: JSON.stringify({ 
+						key: masterKeyData.exportedMasterKey, // TODO: To be replaced with exportedKey once all legacy users update their passkeys
+						masterKeyData: masterKeyData,
+						// Legacy compatibility fields for backward compatibility
+						data: masterKeyData.nostr.encrypted.data,
+						iv: masterKeyData.nostr.encrypted.iv,
+						authTag: masterKeyData.nostr.encrypted.authTag,
+						salt: masterKeyData.nostr.salt
+					}),
+					server: deviceId,
+					isLegacyFormat: false
+				};
+			} else if (isLegacyFormat && legacyEncryptedData) {
+				// Legacy format
+				return {
+					username: publicKey,
+					password: JSON.stringify({ 
+						key: exportedKey, 
+						data: legacyEncryptedData.encryptedPrivateKey, 
+						iv: legacyEncryptedData.iv, 
+						authTag: legacyEncryptedData.authTag, 
+						salt: legacyEncryptedData.salt 
+					}),
+					server: deviceId,
+					isLegacyFormat: true
+				};
+			} else {
+				throw new Error('No encrypted data found');
+			}
+		} catch (error) {
+			// Fallback to legacy method if master key endpoint doesn't exist yet
+			console.warn('Master key not available, falling back to legacy:', error);
+			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id, deviceName);
+
+			if (!encryptedPrivateKey) {
+				throw new Error('No encrypted data found');
+			}
+
+			return {
+				username: publicKey,
+				password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+				server: deviceId,
+				isLegacyFormat: true
+			};
 		}
-
-		return {
-			username: publicKey,
-			password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
-			server: deviceId
-		};
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
 		const errorMessage =

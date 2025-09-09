@@ -7,9 +7,7 @@ export const isWasmInitialized = writable(false);
 // Function to initialize the WASM module
 export const initWasm = async (): Promise<void> => {
   const initialized = get(isWasmInitialized);
-  if (initialized) {
-    return;
-  }
+  if (initialized) return;
 
   try {
     // Initialize the WASM module

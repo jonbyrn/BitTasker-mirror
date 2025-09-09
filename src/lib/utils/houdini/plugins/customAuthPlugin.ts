@@ -2,6 +2,7 @@ import type { ClientPlugin } from '$houdini';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
 import { StorageKeys } from '$lib/utils/constants/storage';
+import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 
 // Only import Capacitor modules in browser
 let Preferences: any = null;
@@ -24,7 +25,8 @@ interface GraphQLError {
 /**
  * Comprehensive auth plugin that:
  * 1. Adds auth token to outgoing requests
- * 2. Handles auth errors in responses
+ * 2. Adds device ID to outgoing requests
+ * 3. Handles auth errors in responses
  */
 const authPlugin: ClientPlugin = () => {
 	// Keep token in memory for synchronous access
@@ -66,32 +68,28 @@ const authPlugin: ClientPlugin = () => {
 	}
 
 	return {
-		// Add auth token to outgoing requests
+		// Add auth token and device ID to outgoing requests
 		beforeNetwork: async (ctx, { next }) => {
 			// Only run in browser environment
 			if (browser) {
 				// Always ensure token is initialized before proceeding
-				if (!tokenInitialized) {
-					if (tokenInitPromise) {
-						await tokenInitPromise;
-					} else {
-					}
+				if (!tokenInitialized && tokenInitPromise) {
+					await tokenInitPromise;
 					console.log('Token initialization complete. Token exists:', !!cachedToken);
 				}
 
-				// Add token to headers if available
-				if (cachedToken) {
-					// Create or extend the fetch params with the authorization header
-					ctx.fetchParams = {
-						...(ctx.fetchParams || {}),
-						headers: {
-							...(ctx.fetchParams?.headers || {}),
-							Authorization: `Bearer ${cachedToken}`
-						}
-					};
-				} else {
-					console.warn('No token available for request');
-				}
+				// Get device ID directly (it's fast enough to do on each request)
+				const deviceId = await getDeviceIdentifier();
+
+				// Create or extend the fetch params with headers
+				ctx.fetchParams = {
+					...(ctx.fetchParams || {}),
+					headers: {
+						...(ctx.fetchParams?.headers || {}),
+						...(cachedToken && { Authorization: `Bearer ${cachedToken}` }),
+						...(deviceId && { 'X-Device-ID': deviceId })
+					}
+				};
 
 				// Continue the request pipeline
 				next(ctx);
@@ -152,3 +150,4 @@ export const TokenManager = {
 };
 
 export default authPlugin;
+

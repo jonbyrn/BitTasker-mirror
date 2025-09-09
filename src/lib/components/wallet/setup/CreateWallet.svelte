@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { setupMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
+	import { migrateLegacyToMasterKey, decryptNsecWithBiometrics } from '$lib/utils/helpers/auth';
+	import { get } from 'svelte/store';
+	import { appStore } from '$lib/stores/app.store';
+	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import authService from '$lib/api/services/auth.service';
 	import { Buffer } from 'buffer';
 	import { generateMnemonic } from 'bip39';
 
@@ -35,7 +40,23 @@
 			error = '';
 
 			if (mnemonic) {
-				await setupMnemonicPasskey(mnemonic);
+				// Check if user has legacy auth that needs migration
+				const currentState = get(appStore);
+				if (currentState.biometricData) {
+					try {
+						// Try to migrate legacy data to master key format
+						await migrateLegacyUserToMasterKey(mnemonic);
+						console.log('Successfully migrated legacy user to master key format');
+					} catch (migrationError) {
+						console.warn('Migration failed, using legacy mnemonic setup:', migrationError);
+						// Fallback to legacy mnemonic setup
+						await setupMnemonicPasskey(mnemonic);
+					}
+				} else {
+					// New user, use legacy mnemonic setup (master key is handled in onboarding)
+					await setupMnemonicPasskey(mnemonic);
+				}
+				
 				goto('/dashboard/wallet');
 			}
 		} catch (err) {
@@ -43,6 +64,63 @@
 			error = err instanceof Error ? err.message : 'Failed to setup mnemonic passkey';
 		} finally {
 			isGenerating = false;
+		}
+	}
+
+	/**
+	 * Migrate legacy user to master key format by combining existing nsec with new mnemonic
+	 */
+	async function migrateLegacyUserToMasterKey(walletMnemonic: string) {
+		const currentState = get(appStore);
+		if (!currentState.biometricData) {
+			throw new Error('No biometric data available for migration');
+		}
+
+		// Get device ID
+		const deviceId = await getDeviceIdentifier();
+
+		// Migrate to master key format
+		const masterKeyData = await migrateLegacyToMasterKey(
+			walletMnemonic,
+			currentState.biometricData.password,
+			deviceId
+		);
+
+		// Update the user's data on the server using migration endpoint
+		try {
+			const migrationResult = await authService.migrateToMasterKey(
+				currentState.biometricData.username,
+				deviceId,
+				masterKeyData
+			);
+			
+			if (!migrationResult.success) {
+				throw new Error(migrationResult.message || 'Migration failed');
+			}
+
+			// Update local biometric data to master key format
+			const newBiometricData = {
+				...currentState.biometricData,
+				password: JSON.stringify({
+					key: masterKeyData.exportedMasterKey,
+					masterKeyData: masterKeyData,
+					// Legacy compatibility fields
+					data: masterKeyData.nostr.encrypted.data,
+					iv: masterKeyData.nostr.encrypted.iv,
+					authTag: masterKeyData.nostr.encrypted.authTag,
+					salt: masterKeyData.nostr.salt
+				})
+			};
+
+			// Update app store with new biometric data
+			appStore.update(state => ({
+				...state,
+				biometricData: newBiometricData
+			}));
+
+		} catch (error) {
+			console.error('Failed to update server with master key data:', error);
+			// Continue with local migration even if server update fails
 		}
 	}
 </script>
@@ -173,7 +251,7 @@
 					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 				/></svg
 			>
-			<span class="font-medium">{error}</span>
+			<span class="font-medium overflow-wrap-anywhere break-all whitespace-normal">{error}</span>
 		</div>
 	{/if}
 </div>

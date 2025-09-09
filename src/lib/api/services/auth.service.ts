@@ -6,11 +6,13 @@ import type {
 	NostrRecoveryCompleteData,
 	NostrRecoveryData,
 	NostrRegistrationData,
-	UserData
+	UserData,
+	MasterKeyEncryptedData, 
+	MasterKeyRegistration
 } from '$lib/types/auth';
+import type { OnboardingRequest, OnboardingResponse } from '../types';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
-import type { OnboardingRequest, OnboardingResponse } from '../types';
 
 
 /**
@@ -107,7 +109,45 @@ export class AuthService extends BaseApiService {
 
 			return response.data;
 		} catch (error: any) {
-			console.log('error', error);
+			throw new Error(error);
+		}
+	}
+
+	/**
+	 * Register a new user with master key encrypted data (Nostr + Wallet) - Legacy REST endpoint
+	 * @param registrationData Master key registration data containing both Nostr and wallet encryption
+	 * @returns Promise with the registration response
+	 * @throws {Error} 400 - Bad Request or missing required encryption data
+	 * @throws {Error} 409 - Email already in use
+	 * @throws {Error} 422 - Invalid encryption data format
+	 * @throws {Error} 500 - Internal server error
+	 */
+	async registerWithMasterKey(
+		registrationData: MasterKeyRegistration
+	): Promise<{ publicKey: string; user: UserData }> {
+		try {
+			// Validate required fields
+			if (!registrationData.publicKey || !registrationData.masterKeyData) {
+				throw new Error('Missing required master key registration data');
+			}
+
+			// Validate master key data structure
+			const { masterKeyData } = registrationData;
+			if (!masterKeyData.nostr || !masterKeyData.wallet || !masterKeyData.exportedMasterKey) {
+				throw new Error('Invalid master key data structure');
+			}
+
+			const response = await this.post<{ publicKey: string; user: UserData; error: any }>(
+				ENDPOINTS.AUTH.REGISTER_MASTER_KEY,
+				registrationData
+			);
+
+			if (response?.data?.error) {
+				throw new Error(response.data.error?.message);
+			}
+
+			return response.data;
+		} catch (error: any) {
 			throw new Error(error);
 		}
 	}
@@ -247,10 +287,34 @@ export class AuthService extends BaseApiService {
 	async getEncryptedKey(
 		publicKey: string,
 		deviceId: string,
-		credentialId: string
+		credentialId: string,
+		deviceName: string
 	): Promise<{ encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string }> {
 		const response = await this.get(
-			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}`
+			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}&deviceName=${encodeURIComponent(deviceName)}`
+		);
+		return response.data;
+	}
+
+	/**
+	 * Get master key encrypted data using REST endpoint - Legacy
+	 * @param publicKey User's Nostr public key
+	 * @param deviceId Unique device identifier
+	 * @param credentialId Credential ID used for WebAuthn passkey
+	 * @returns Promise with master key encrypted data and format indicator
+	 */
+	async getMasterKeyEncryptedData(
+		publicKey: string,
+		deviceId: string,
+		credentialId: string,
+		deviceName: string
+	): Promise<{
+		masterKeyData?: MasterKeyEncryptedData;
+		legacyEncryptedData?: { encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string };
+		isLegacyFormat: boolean;
+	}> {
+		const response = await this.get(
+			ENDPOINTS.AUTH.MASTER_KEY_ENCRYPTED_DATA + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}&deviceName=${encodeURIComponent(deviceName)}`
 		);
 		return response.data;
 	}
@@ -524,6 +588,31 @@ export class AuthService extends BaseApiService {
 		} catch (error: any) {
 			console.error('Failed to invalidate devices:', error);
 			throw new Error(error?.message || 'Failed to invalidate devices');
+		}
+	}
+
+	/**
+	 * Migrate legacy user to master key format using GraphQL
+	 * @param publicKey User's Nostr public key
+	 * @param deviceId Unique device identifier
+	 * @param masterKeyData Master key encrypted data
+	 * @returns Promise with migration response
+	 */
+	async migrateToMasterKey(
+		publicKey: string,
+		deviceId: string,
+		masterKeyData: MasterKeyEncryptedData
+	): Promise<{ success: boolean; message: string }> {
+		try {
+			const response = await this.post(ENDPOINTS.AUTH.MIGRATE_TO_MASTER_KEY, {
+				publicKey,
+				deviceId,
+				masterKeyData
+			});
+			return response.data;
+		} catch (error: any) {
+			console.error('Migration to master key error:', error);
+			throw new Error(error.message || 'Failed to migrate to master key');
 		}
 	}
 }

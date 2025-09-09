@@ -22,10 +22,14 @@ export class ApiError extends Error {
 }
 
 export class BaseApiService {
-	private axiosInstance;
+	private axiosInstancePromise: Promise<any>;
 
 	constructor(baseURL: string = import.meta.env.VITE_API_URL) {
-		this.axiosInstance = createAxiosInstance({ baseURL });
+		this.axiosInstancePromise = createAxiosInstance({ baseURL });
+	}
+
+	private async getAxiosInstance() {
+		return await this.axiosInstancePromise;
 	}
 
 	/**
@@ -33,7 +37,8 @@ export class BaseApiService {
 	 */
 	protected async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
 		try {
-			const response: AxiosResponse = await this.axiosInstance.get(url, config);
+			const axiosInstance = await this.getAxiosInstance();
+			const response: AxiosResponse = await axiosInstance.get(url, config);
 			return this.formatResponse<T>(response);
 		} catch (error) {
 			return this.handleError(error);
@@ -49,7 +54,8 @@ export class BaseApiService {
 		config?: AxiosRequestConfig
 	): Promise<ApiResponse<T>> {
 		try {
-			const response: AxiosResponse = await this.axiosInstance.post(url, data, config);
+			const axiosInstance = await this.getAxiosInstance();
+			const response: AxiosResponse = await axiosInstance.post(url, data, config);
 			return this.formatResponse<T>(response);
 		} catch (error) {
 			return this.handleError(error);
@@ -65,7 +71,8 @@ export class BaseApiService {
 		config?: AxiosRequestConfig
 	): Promise<ApiResponse<T>> {
 		try {
-			const response: AxiosResponse = await this.axiosInstance.put(url, data, config);
+			const axiosInstance = await this.getAxiosInstance();
+			const response: AxiosResponse = await axiosInstance.put(url, data, config);
 			return this.formatResponse<T>(response);
 		} catch (error) {
 			return this.handleError(error);
@@ -81,7 +88,8 @@ export class BaseApiService {
 		config?: AxiosRequestConfig
 	): Promise<ApiResponse<T>> {
 		try {
-			const response: AxiosResponse = await this.axiosInstance.patch(url, data, config);
+			const axiosInstance = await this.getAxiosInstance();
+			const response: AxiosResponse = await axiosInstance.patch(url, data, config);
 			return this.formatResponse<T>(response);
 		} catch (error) {
 			return this.handleError(error);
@@ -96,7 +104,8 @@ export class BaseApiService {
 		config?: AxiosRequestConfig
 	): Promise<ApiResponse<T>> {
 		try {
-			const response: AxiosResponse = await this.axiosInstance.delete(url, config);
+			const axiosInstance = await this.getAxiosInstance();
+			const response: AxiosResponse = await axiosInstance.delete(url, config);
 			return this.formatResponse<T>(response);
 		} catch (error) {
 			return this.handleError(error);

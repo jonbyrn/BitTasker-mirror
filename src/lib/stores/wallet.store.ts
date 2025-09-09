@@ -6,7 +6,7 @@ import type {
 	SdkEvent,
 	PrepareSendResponse
 } from '@breeztech/breez-sdk-liquid/web';
-import { writable, derived, get } from 'svelte/store';
+import { writable, derived } from 'svelte/store';
 import {
 	connectToBreez,
 	disconnect,
@@ -21,6 +21,9 @@ import {
 	pendingPaymentsStore
 } from '$lib/wallet/breez/walletService';
 import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
+import { decryptWalletMnemonicWithBiometrics } from '$lib/utils/helpers/auth';
+import { get } from 'svelte/store';
+import { appStore } from '$lib/stores/app.store';
 import {
 	getAssetMetadata,
 	getCurrentNetwork,
@@ -28,6 +31,8 @@ import {
 	type AssetMetadata as IAssetMetadata
 } from '$lib/constants/assets';
 import { goto } from '$app/navigation';
+import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
+import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 
 // Enhanced asset with balance information
 export interface EnhancedAsset extends IAssetMetadata {
@@ -150,7 +155,7 @@ function calculateTotals(assets: EnhancedAsset[]) {
 }
 
 // Initialize wallet connection
-export async function initialize(): Promise<void> {
+async function initialize(): Promise<void> {
 	try {
 		walletConnection.update((state) => ({
 			...state,
@@ -169,8 +174,29 @@ export async function initialize(): Promise<void> {
 			return;
 		}
 
-		// Get mnemonic and connect
-		const mnemonic = await getMnemonicPasskey();
+		// Try to get mnemonic from master key auth first, fallback to legacy
+		let mnemonic: string;
+		try {
+			// Check if we have biometric data with master key format
+			const currentState = get(appStore);
+			if (!currentState.biometricData) {
+				const biometricsAvailable = await checkBiometricAvailability();
+				let biometricData = null;
+				if (biometricsAvailable) {
+					biometricData = await getBiometricData();
+				} else {
+					biometricData = await getWebBiometricData();
+				}
+
+				if (!biometricData) throw new Error('No biometric data found');
+				mnemonic = await decryptWalletMnemonicWithBiometrics(biometricData.password);
+			} else {
+				mnemonic = await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
+			}
+		} catch (error) {
+			throw new Error('No mnemonic found');
+		}
+
 		if (!mnemonic) {
 			throw new Error('No mnemonic found');
 		}
@@ -198,7 +224,7 @@ export async function initialize(): Promise<void> {
 			isConnected: false,
 			errorMessage
 		}));
-		goto('/dashboard/wallet/error?type=no-mnemonic');
+		// goto('/dashboard/wallet/error?type=no-mnemonic');
 		throw error;
 	}
 }
@@ -547,14 +573,6 @@ export function syncExternalStores(): void {
 		walletConnection.update((state) => ({ ...state, isConnected: connected }));
 	});
 }
-
-// Export refresh methods
-export {
-	loadWalletData as refresh,
-	loadAssets as refreshAssets,
-	loadFiatRates as refreshRates,
-	loadTransactions as refreshTransactions
-};
 
 // Derived values for easy access using traditional derived stores
 export const selectedAsset = derived(walletAssets, ($walletAssets) =>
