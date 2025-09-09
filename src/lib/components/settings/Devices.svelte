@@ -46,7 +46,6 @@
 			loading = true;
 			error = '';
 			devices = await pushNotificationService.getMyDevices();
-			console.log(devices);
 		} catch (err) {
 			console.error('Failed to load devices:', err);
 			error = $t('settings.devices.error.loadFailed');
@@ -150,7 +149,10 @@
 			revokeError = '';
 
 			// Call the revoke device API
-			await pushNotificationService.revokeDevice(deviceToRevoke.deviceId);
+			const deviceName = getDeviceDisplayName(deviceToRevoke);
+			const revocationMessage = `Your device "${deviceName}" has been revoked from your BitTasker account for security reasons. Please log in again if this was not intended.`;
+
+			await pushNotificationService.revokeDevice(deviceToRevoke.deviceId, revocationMessage);
 
 			// Reload devices list
 			await loadDevices();
@@ -354,7 +356,8 @@
 
 		{#if deviceToRevoke}
 			<p class="mb-4">
-				{$t('settings.devices.revokeModal.confirmMessage')} {getDeviceDisplayName(deviceToRevoke)}
+				{$t('settings.devices.revokeModal.confirmMessage')}
+				{getDeviceDisplayName(deviceToRevoke)}
 			</p>
 
 			<div class="bg-base-200 mb-4 rounded-lg p-4">

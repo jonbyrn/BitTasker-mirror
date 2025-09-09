@@ -314,7 +314,7 @@ type Mutation {
   rejectBid(id: Int!): BidResponse!
   revokeAllDevices: NotificationResponse!
   revokeDevice(deviceId: String!): NotificationResponse!
-  sendTestNotification(input: SendTestNotificationInput!): NotificationResponse!
+  sendNotification(input: SendNotificationInput!): NotificationResponse!
   subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
   triggerBatchTaskCheck: SavedSearchNotificationResult!
   triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
@@ -483,10 +483,11 @@ input SearchTasksDto {
   taskType: [TaskType!]
 }
 
-input SendTestNotificationInput {
+input SendNotificationInput {
   body: String!
   deviceId: String
   title: String!
+  type: String
 }
 
 type Skill {

@@ -241,8 +241,6 @@
 						);
 					}
 				} else {
-					deviceId = res.user.nostrKey?.deviceId!;
-
 					if (
 						res.user.nostrKey &&
 						res.user.nostrKey?.keyDerivationMethod === 'master-key' &&
@@ -274,7 +272,7 @@
 						// Encrypt the private key with device ID as the password
 						({ encrypted, salt, exportedKey, iterations } = await encryptNsec(
 							nsec,
-							deviceId,
+							res.user.nostrKey?.deviceId!,
 							100000,
 							res.user.nostrKey?.salt
 						));
@@ -313,7 +311,7 @@
 								authTag: encrypted.authTag,
 								salt: salt
 							}),
-					server: deviceId
+					server: res.user.nostrKey?.deviceId!
 				};
 
 				authState
