@@ -54,5 +54,8 @@ export default defineConfig({
             path: 'path-browserify',
             process: 'process/browser'
         }
+    },
+    server: {
+        allowedHosts: ['bittasker.com', 'master.bittasker.com', 'dev.bittasker.com', 'local.bittasker.com']
     }
 });

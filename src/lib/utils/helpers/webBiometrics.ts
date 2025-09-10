@@ -6,9 +6,8 @@
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
+import { handleBiometricError } from './biometricErrorHandler';
 import authService from '$lib/api/services/auth.service';
-import { locale } from 'svelte-i18n';
-import { get } from 'svelte/store';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -152,7 +151,7 @@ export async function setWebBiometricKey(
 		return credential.id;
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		throw new Error('Failed to set biometric key');
+		throw new Error(handleBiometricError(err, 'web'));
 	}
 }
 
@@ -253,12 +252,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		}
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
-		const errorMessage =
-			get(locale) === 'en'
-				? 'Authorization either timed out, or was canceled. Try again'
-				: 'La autorización expiró o se canceló. Intentar otra vez';
-
-		throw new Error(errorMessage);
+		throw new Error(handleBiometricError(err, 'web'));
 	}
 }
 

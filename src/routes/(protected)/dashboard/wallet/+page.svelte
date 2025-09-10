@@ -11,6 +11,7 @@
 	import SendForm from '$lib/components/wallet/sendTab/SendForm.svelte';
 
 	onMount(async () => {
+		$walletConnection.isConnecting = true;
 		initWasm().then(async () => {
 			if ($isWasmInitialized) {
 				await walletStore.initialize();
