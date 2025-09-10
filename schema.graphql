@@ -144,12 +144,6 @@ input ChangePasswordInput {
   newPassword: String!
 }
 
-input ContextEncryptionDto {
-  encrypted: EncryptedDataDto!
-  iterations: Float!
-  salt: String!
-}
-
 input CreateBidInput {
   amount: Float!
   coverLetter: String
@@ -252,20 +246,6 @@ type DeviceStatistics {
   totalDevices: Int!
 }
 
-input EncryptedDataDto {
-  authTag: String!
-  data: String!
-  iv: String!
-}
-
-type LegacyEncryptedDataDto {
-  authTag: String!
-  encryptedPrivateKey: String!
-  iterations: Float!
-  iv: String!
-  salt: String!
-}
-
 input LocationInput {
   displayName: String
   latitude: Float
@@ -291,13 +271,6 @@ input LoginInput {
   password: String!
 }
 
-input MasterKeyEncryptedDataDto {
-  exportedMasterKey: String!
-  masterSalt: String!
-  nostr: ContextEncryptionDto!
-  wallet: ContextEncryptionDto!
-}
-
 type Mutation {
   acceptBid(id: Int!): BidResponse!
   changePassword(input: ChangePasswordInput!): Boolean!
@@ -314,7 +287,7 @@ type Mutation {
   rejectBid(id: Int!): BidResponse!
   revokeAllDevices: NotificationResponse!
   revokeDevice(deviceId: String!): NotificationResponse!
-  sendNotification(input: SendNotificationInput!): NotificationResponse!
+  sendTestNotification(input: SendTestNotificationInput!): NotificationResponse!
   subscribeToTopic(input: SubscribeToTopicInput!): NotificationResponse!
   triggerBatchTaskCheck: SavedSearchNotificationResult!
   triggerSavedSearchCheck(task: TaskBodyInput!): SavedSearchNotificationResult!
@@ -483,11 +456,10 @@ input SearchTasksDto {
   taskType: [TaskType!]
 }
 
-input SendNotificationInput {
+input SendTestNotificationInput {
   body: String!
   deviceId: String
   title: String!
-  type: String
 }
 
 type Skill {
