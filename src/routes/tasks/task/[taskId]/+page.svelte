@@ -11,12 +11,13 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	import { goto } from '$app/navigation';
-	// Get taskId from route params
-	const taskId = $page.params.taskId;
+	import type { PageData } from './$types';
 
-	// State
-	let task = $state<Task | null>(null);
-	let loading = $state(true);
+	let { data }: { data: PageData } = $props();
+	const { seo, taskId } = data;
+
+	let task = $state<Task | null>(seo.task);
+	let loading = $state(!seo.task);
 	let errorMessage = $state('');
 	let taskCreatorPubkey = $state<string>('');
 	let btcPrice = $state<number>(0); // Default fallback price
@@ -91,6 +92,12 @@
 	};
 
 	async function loadTaskDetails(taskId: string) {
+		// If task is already loaded from SEO data, skip loading
+		if (task) {
+			loading = false;
+			return;
+		}
+
 		if (!taskId) return;
 
 		try {
@@ -145,11 +152,47 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.task_details_by_task.title')} - BitTasker</title>
-	<meta
-		name="description"
-		content={task?.description || $t('dashboard.task_details_by_task.description')}
-	/>
+	<!-- Primary Meta Tags -->
+	<title>{seo.title}</title>
+	<meta name="title" content={seo.title} />
+	<meta name="description" content={seo.description} />
+	<meta name="keywords" content={seo.keywords} />
+	<meta name="author" content="BitTasker" />
+	<meta name="robots" content="index, follow" />
+	<link rel="canonical" href={seo.canonical} />
+
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={seo.canonical} />
+	<meta property="og:title" content={seo.ogTitle} />
+	<meta property="og:description" content={seo.ogDescription} />
+	<meta property="og:image" content={seo.ogImage} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={task?.title || 'BitTasker Task'} />
+	<meta property="og:site_name" content="BitTasker" />
+
+	<!-- Twitter -->
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:url" content={seo.canonical} />
+	<meta property="twitter:title" content={seo.twitterTitle} />
+	<meta property="twitter:description" content={seo.twitterDescription} />
+	<meta property="twitter:image" content={seo.twitterImage} />
+	<meta property="twitter:image:alt" content={task?.title || 'BitTasker Task'} />
+	<meta property="twitter:site" content="@BitTaskerdotcom" />
+	<meta property="twitter:creator" content="@BitTaskerdotcom" />
+
+	<!-- Additional Meta Tags -->
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="theme-color" content="#F7931B" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+	<meta name="apple-mobile-web-app-title" content="BitTasker" />
+
+	<!-- Structured Data -->
+	{#if seo.jsonLd}
+		{@html `<script type="application/ld+json">${JSON.stringify(seo.jsonLd)}</script>`}
+	{/if}
 </svelte:head>
 
 <div class="mx-auto max-w-7xl p-4 pt-10! md:p-0">
