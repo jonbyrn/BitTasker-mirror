@@ -314,7 +314,7 @@
 							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
 						>
 							<li>
-								<a href="/dashboard/find-tasks" onclick={closeDropdowns}
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}
 									><IconMagnify class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a
 								>
 							</li>
@@ -447,7 +447,7 @@
 							class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm"
 						>
 							<li>
-								<a href="/dashboard/find-tasks" onclick={closeDropdowns}>
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}>
 									<IconMagnify class="text-primary" />
 									<span>{$t('footer.start_earning')}</span>
 								</a>
