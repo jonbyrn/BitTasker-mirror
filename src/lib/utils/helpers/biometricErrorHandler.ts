@@ -3,8 +3,9 @@
  * Handles errors from both web (WebAuthn) and mobile (Native Biometric + Capacitor WebAuthn) platforms
  */
 
-import { t } from 'svelte-i18n';
+import { t, locale } from 'svelte-i18n';
 import { get } from 'svelte/store';
+import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 
 /**
  * Platform types for biometric authentication
@@ -17,7 +18,11 @@ export type BiometricPlatform = 'web' | 'mobile-native' | 'mobile-webauthn';
  * @param platform The platform where the error occurred
  * @returns User-friendly error message
  */
-export function handleBiometricError(error: any, platform: BiometricPlatform = 'web'): string {
+export async function handleBiometricError(error: any, platform: BiometricPlatform = 'web'): Promise<string> {
+	// Ensure auth namespace is loaded for authentication error messages
+	const currentLocale = get(locale) as SupportedLanguage || 'en';
+	await loadNamespace(currentLocale, 'auth');
+	
 	const _ = get(t);
 
 	// Handle WebAuthn specific errors (both web and mobile webauthn)
@@ -141,6 +146,11 @@ export function handleBiometricError(error: any, platform: BiometricPlatform = '
 	// Handle specific error messages (common patterns across all platforms)
 	if (error?.message) {
 		const message = error.message.toLowerCase();
+		
+		// Handle passkey account mismatch errors
+		if (message.includes('passkey mismatch')) {
+			return _('login.errors.passkey_mismatch');
+		}
 		
 		if (message.includes('timeout')) {
 			return _('login.biometric_errors.timeout');

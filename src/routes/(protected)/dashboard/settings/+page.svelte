@@ -108,7 +108,7 @@
 		</div>
 	{:else if error}
 		<div
-			class="alert alert-error alert-outline mb-6 flex w-fit min-w-1/2 flex-col items-start px-5"
+			class="alert alert-error alert-outline mb-6 flex w-fit min-w-full sm:min-w-1/2 flex-col items-start px-5"
 		>
 			<p>{$t(error)}</p>
 			<button class="btn btn-sm btn-outline place-self-end" onclick={loadKeys} disabled={loading}>
@@ -135,7 +135,7 @@
 		</div>
 	{:else}
 		<NostrNsec {npub} {nsec} {authMethod} />
-		<Devices />
+		<Devices {npub} />
 		<AccRecovery {nsec} {npub} {authMethod} />
 		<PasskeySync {authMethod} />
 		<AccActions />

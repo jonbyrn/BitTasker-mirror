@@ -123,7 +123,8 @@
 						authTag: masterKeyData.nostr.encrypted.authTag,
 						salt: masterKeyData.nostr.salt
 					}),
-					server: deviceId
+					server: deviceId,
+					isLegacyFormat: false
 				};
 				authState.setupAuthData(
 					response.access_token,

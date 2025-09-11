@@ -216,7 +216,8 @@
 						authTag: primaryEncrypted.authTag,
 						salt: primarySalt
 					}),
-					server: deviceId
+					server: deviceId,
+					isLegacyFormat: true
 				};
 				authState.setupAuthData(
 					recoveryResponse.access_token,

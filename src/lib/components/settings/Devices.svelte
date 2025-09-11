@@ -1,9 +1,15 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { nip19 } from 'nostr-tools';
 	import { pushNotificationService } from '$lib/api/services/push-notification.service';
-	import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+	import {
+		createUserDeviceShortName,
+		getDeviceIdentifier
+	} from '$lib/utils/helpers/deviceIdentity';
 	import Modal from '$lib/components/Modal.svelte';
+
+	let { npub }: { npub: string } = $props();
 
 	// Types based on GraphQL schema
 	interface UserDevice {
@@ -22,13 +28,13 @@
 		revokedAt?: string | null;
 		updatedAt?: string;
 		userId?: number;
+		currentDevice?: boolean;
 	}
 
 	// Component state
 	let devices = $state<UserDevice[]>([]);
 	let loading = $state(true);
 	let error = $state('');
-	let currentDeviceId = $state<string | null>(null);
 
 	// Modal state
 	let showRevokeModal = $state(false);
@@ -37,15 +43,39 @@
 	let revokeError = $state('');
 
 	onMount(async () => {
-		await loadDevices();
-		currentDeviceId = await getDeviceIdentifier();
+		if (npub) {
+			await loadDevices();
+		}
 	});
 
 	async function loadDevices() {
 		try {
 			loading = true;
 			error = '';
-			devices = await pushNotificationService.getMyDevices();
+			const currentDeviceId = await getDeviceIdentifier();
+
+			// Create device names for both npub and hex formats since the device might have been
+			// registered with either format
+			const deviceNameNpub = await createUserDeviceShortName(npub);
+			let deviceNameHex = '';
+
+			// Convert npub to hex if needed for comparison
+			if (npub.startsWith('npub')) {
+				const { data } = nip19.decode(npub);
+				deviceNameHex = await createUserDeviceShortName(data as string);
+			}
+
+			const items = await pushNotificationService.getMyDevices();
+
+			devices = items.map((item) => {
+				// Check if this device matches current device ID and either device name format
+				const isCurrentDevice =
+					item.deviceId === currentDeviceId &&
+					(item.deviceName === deviceNameNpub ||
+						(deviceNameHex && item.deviceName === deviceNameHex));
+
+				return { ...item, currentDevice: Boolean(isCurrentDevice) };
+			});
 		} catch (err) {
 			console.error('Failed to load devices:', err);
 			error = $t('settings.devices.error.loadFailed');
@@ -57,9 +87,6 @@
 	function getDeviceIcon(platform?: string | null): string {
 		switch (platform?.toUpperCase()) {
 			case 'ANDROID':
-				return `
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-				`;
 			case 'IOS':
 				return `
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -106,12 +133,8 @@
 		return date.toLocaleDateString();
 	}
 
-	function isCurrentDevice(device: UserDevice): boolean {
-		return device.deviceId === currentDeviceId;
-	}
-
 	function getDeviceDisplayName(device: UserDevice): string {
-		if (isCurrentDevice(device)) {
+		if (device.currentDevice) {
 			return $t('settings.devices.thisDevice');
 		}
 
@@ -274,8 +297,8 @@
 								<button
 									class="btn btn-error btn-outline btn-sm"
 									onclick={() => openRevokeModal(device)}
-									disabled={isCurrentDevice(device)}
-									title={isCurrentDevice(device)
+									disabled={device.currentDevice}
+									title={device.currentDevice
 										? $t('settings.devices.cannotRevokeCurrentDevice')
 										: $t('settings.devices.revokeDevice')}
 								>
