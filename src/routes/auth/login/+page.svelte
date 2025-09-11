@@ -35,6 +35,8 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { Buffer } from 'buffer';
+	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
+	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -75,7 +77,7 @@
 
 		// Decrypt private key using biometrics
 		const privateKey = await decryptNsecWithBiometrics(encryptedData);
-		
+
 		// migrate to master key format if legacy format
 		if (biometricData.isLegacyFormat) {
 			// Generate wallet mnemonic for both new and existing users
@@ -138,7 +140,7 @@
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
-			
+
 			// Handle specific WebAuthn cancellation error
 			if (err instanceof Error) {
 				if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
@@ -241,7 +243,7 @@
 				const walletMnemonic = generateMnemonic();
 
 				masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
-				
+
 				if (res.isNewUser && !res.user.nostrKey?.masterKeyEncrypted) {
 					// Create master key encrypted data with correct deviceId
 
@@ -350,6 +352,11 @@
 			isLoading = false;
 		}
 	}
+
+	function handleLoginWithQrCode(barcode: Barcode) {
+		nsec = barcode.displayValue;
+		handleNsecLogin();
+	}
 </script>
 
 <div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
@@ -436,7 +443,7 @@
 						</div>
 
 						<button
-							class="btn btn-secondary w-full btn-sm md:btn-md py-5"
+							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
 							onclick={() => {
 								error = '';
 								isNostrLogin = true;
@@ -524,6 +531,29 @@
 						>
 							{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
 						</button>
+						<!-- QR Code login - Only for mobile -->
+						{#if authMethods.biometric}
+							<QrCodeScanner onScan={handleLoginWithQrCode}>
+								{#snippet scanBtn({ disabled, onStartScan })}
+									<button
+										class="btn btn-secondary btn-sm md:btn-md py-5"
+										onclick={onStartScan}
+										{disabled}
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+											<path
+												fill="none"
+												stroke="currentColor"
+												stroke-linejoin="round"
+												d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+												stroke-width="1"
+											/>
+										</svg>
+										{$t('login.login_with_qr_code')}
+									</button>
+								{/snippet}
+							</QrCodeScanner>
+						{/if}
 						<button
 							class="btn btn-block btn-secondary"
 							onclick={() => {
