@@ -354,7 +354,6 @@
 	}
 
 	function handleLoginWithQrCode(barcode: Barcode) {
-		console.log('barcode', barcode);
 		nsec = barcode.displayValue;
 		handleNsecLogin();
 	}

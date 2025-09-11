@@ -159,7 +159,6 @@
 
 	function setZoomRatio(event: Event) {
 		const zoomRatio = parseInt((event.target as HTMLInputElement).value);
-		console.log('zoomRatio', zoomRatio);
 		BarcodeScanner.setZoomRatio({ zoomRatio });
 	}
 
