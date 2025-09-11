@@ -33,6 +33,8 @@ import {
 import { goto } from '$app/navigation';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 // Enhanced asset with balance information
 export interface EnhancedAsset extends IAssetMetadata {
@@ -183,9 +185,10 @@ async function initialize(): Promise<void> {
 				const biometricsAvailable = await checkBiometricAvailability();
 				let biometricData = null;
 				if (biometricsAvailable) {
-					biometricData = await getBiometricData();
+					const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+					biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
 				} else {
-					biometricData = await getWebBiometricData();
+					biometricData = await getWebBiometricData(true);
 				}
 
 				if (!biometricData) throw new Error('No biometric data found');

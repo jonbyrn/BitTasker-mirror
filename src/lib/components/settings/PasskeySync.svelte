@@ -71,7 +71,7 @@
 			passkeyError = '';
 
 			// Try to authenticate using the passkey
-			const passkeyData = await getBiometricData('passkey');
+			const passkeyData = await getBiometricData('passkey', true);
 			if (passkeyData) {
 				passkeySuccess = $t('settings.passkey.test.success');
 			} else {
