@@ -135,7 +135,7 @@
 		</div>
 	{:else}
 		<NostrNsec {npub} {nsec} {authMethod} />
-		<Devices />
+		<Devices {npub} />
 		<AccRecovery {nsec} {npub} {authMethod} />
 		<PasskeySync {authMethod} />
 		<AccActions />
