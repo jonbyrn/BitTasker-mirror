@@ -66,5 +66,7 @@
 	<string>This app uses Bluetooth to discover nearby devices for passkey authentication</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to discover nearby devices for passkey authentication</string>
+	<key>NSCameraUsageDescription</key>
+	<string>The app enables the scanning of various barcodes.</string>
 </dict>
 </plist>
