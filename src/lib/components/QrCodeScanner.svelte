@@ -50,6 +50,7 @@
 	});
 
 	async function requestPermissions() {
+		if (!isSupported) return;
 		const { camera } = await BarcodeScanner.requestPermissions();
 		isPermissionGranted = camera === 'granted';
 	}
@@ -119,7 +120,6 @@
 
 			// Remove listener and call handler
 			listener.remove();
-			console.log({ firstBarcode });
 			onScan(firstBarcode);
 			closeModal();
 		});
