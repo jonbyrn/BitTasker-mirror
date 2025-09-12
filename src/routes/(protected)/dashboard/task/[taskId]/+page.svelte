@@ -12,6 +12,8 @@
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -513,6 +515,16 @@
 											{formatDateString(task.createdAt)}
 										</p>
 									</div>
+								</div>
+							</div>
+						{/if}
+						<!-- Task Location Map -->
+						{#if task.pickupLocation || task.dropOffLocation}
+							<div class="border-base-300 mt-4 border-t">
+								<h4 class="mb-2 mt-3 font-semibold">{$t('dashboard.task_details_by_task.location')}</h4>
+								<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
+								<div class="text-base-content/60 text-sm px-1 pt-2">
+									{$t('dashboard.task_details_by_task.location_map_description')}
 								</div>
 							</div>
 						{/if}

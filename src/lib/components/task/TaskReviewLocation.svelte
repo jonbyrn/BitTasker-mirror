@@ -2,7 +2,7 @@
 	import type { TaskBody } from '$lib/types/task';
 	import TaskLocationViewer from './TaskLocationViewer.svelte';
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 
 	let { task, isRemovals = false } = $props<{
 		task: TaskBody;
@@ -34,18 +34,18 @@
 	</div>
 
 	{#if isRemoteTask}
-		<div class="alert alert-info alert-outline">
+		<div class="alert alert-success alert-outline">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
 				fill="none"
 				viewBox="0 0 24 24"
-				class="h-6 w-6 shrink-0 stroke-current"
 			>
 				<path
 					stroke-linecap="round"
 					stroke-linejoin="round"
 					stroke-width="2"
-					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
 			<span>{$t('task.remote_completion_message')}</span>
@@ -62,19 +62,37 @@
 			/>
 		{/if}
 
+		<!-- Legend for removal tasks -->
+		{#if isRemovals && task.dropOffLocation?.latitude && task.dropOffLocation?.longitude}
+			<div class="mt-3 flex items-center justify-center gap-4 text-sm">
+				<div class="flex items-center gap-1">
+					<div class="h-3 w-3 rounded-full bg-orange-500"></div>
+					<span>Pickup</span>
+				</div>
+				<div class="flex items-center gap-1">
+					<div class="h-3 w-3 rounded-full bg-green-500" ></div>
+					<span>Drop-off</span>
+				</div>
+				{#if isRemovalTask && hasDropOffLocation}
+					<div class="flex items-center gap-1">
+						<div class="h-0.5 w-4 bg-blue-500"></div>
+						<span>Route</span>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Location details -->
 		<div class="space-y-3">
 			{#if isRemovalTask && hasDropOffLocation}
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-					<div class="card rounded-xl border border-green-200 bg-green-50">
-						<div class="card-body p-4">
-							<h4 class="flex items-center gap-2 text-sm font-semibold text-green-800">
-								<div class="h-3 w-3 rounded-full bg-green-500"></div>
-								{$t('task.pickup_location_review')}
-							</h4>
-							<p class="text-sm text-green-700">{task.pickupLocation.displayName}</p>
+					<div class="alert border-orange-500">
+						<div class="h-3 w-3 rounded-full bg-orange-500"></div>
+						<div>
+							<h4 class="font-semibold text-orange-500">{$t('task.pickup_location_review')}</h4>
+							<p class="text-sm text-orange-500">{task.pickupLocation.displayName}</p>
 							{#if task.pickupLocation.zipCode}
-								<p class="text-xs text-green-600">
+								<p class="text-xs text-orange-500">
 									{$t('task.zip_label')}
 									{task.pickupLocation.zipCode}
 								</p>
@@ -82,15 +100,13 @@
 						</div>
 					</div>
 
-					<div class="card rounded-xl border border-red-200 bg-red-50">
-						<div class="card-body p-4">
-							<h4 class="flex items-center gap-2 text-sm font-semibold text-red-800">
-								<div class="h-3 w-3 rounded-full bg-red-500"></div>
-								{$t('task.dropoff_location_review')}
-							</h4>
-							<p class="text-sm text-red-700">{task.dropOffLocation.displayName}</p>
+					<div class="alert alert-success alert-outline">
+						<div class="h-3 w-3 rounded-full bg-green-500"></div>
+						<div>
+							<h4 class="font-semibold ">{$t('task.dropoff_location_review')}</h4>
+							<p class="text-sm ">{task.dropOffLocation.displayName}</p>
 							{#if task.dropOffLocation.zipCode}
-								<p class="text-xs text-red-600">
+								<p class="text-xs ">
 									{$t('task.zip_label')}
 									{task.dropOffLocation.zipCode}
 								</p>
@@ -99,21 +115,22 @@
 					</div>
 				</div>
 			{:else}
-				<!-- Single location display (either pickup only or non-removal task) -->
-				<div class="card border border-blue-200 bg-blue-50">
-					<div class="card-body p-4">
-						<h4 class="flex items-center gap-2 text-sm font-semibold text-blue-800">
-							<div class="h-3 w-3 rounded-full bg-blue-500"></div>
-							{$t('task.task_location_review')}
-						</h4>
-						<p class="text-sm text-blue-700">{task.pickupLocation.displayName}</p>
-						{#if task.pickupLocation.zipCode}
-							<p class="text-xs text-blue-600">
-								{$t('task.zip_label')}
-								{task.pickupLocation.zipCode}
-							</p>
-						{/if}
-					</div>
+				<!-- Single location display with success alert design -->
+				<div class="alert alert-success alert-outline">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{$t('task.location_picker.location_set')}: {task.pickupLocation.displayName}</span>
 				</div>
 			{/if}
 		</div>

@@ -13,7 +13,7 @@
             "website_placeholder": "https://example.com",
             "description": "Profile Description",
             "description_placeholder": "Tell clients about your professional background, expertise, and what makes you unique...",
-            "save": "Save Personal Information"
+            "save": "Save"
         },
         "skills": {
             "title": "Skills & Expertise",
