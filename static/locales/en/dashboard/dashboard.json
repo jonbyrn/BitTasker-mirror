@@ -51,7 +51,9 @@
         "details": "Details",
         "bids": "Bids",
         "close": "Close",
-        "try_again": "Try Again"
+        "try_again": "Try Again",
+        "location": "Location",
+        "location_map_description": "The exact location will be provided after the offer is accepted." 
       }
     }
   }

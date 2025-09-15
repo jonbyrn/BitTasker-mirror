@@ -13,7 +13,7 @@
             "website_placeholder": "https://ejemplo.com",
             "description": "Descripción del Perfil",
             "description_placeholder": "Cuéntale a los clientes sobre tu experiencia profesional, especialidad y qué te hace único...",
-            "save": "Guardar Información Personal"
+            "save": "Guardar"
         },
         "skills": {
             "title": "Habilidades y Experiencia",

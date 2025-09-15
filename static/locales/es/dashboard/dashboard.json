@@ -50,7 +50,9 @@
       "details": "Detalles",
       "bids": "Ofertas",
       "close": "Cerrar",
-      "try_again": "Intentar de Nuevo"
+      "try_again": "Intentar de Nuevo",
+      "location": "Ubicación",
+      "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta." 
     }
   }
 }

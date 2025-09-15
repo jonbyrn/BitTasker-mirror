@@ -383,25 +383,6 @@
 						></textarea>
 					</div>
 
-					<!-- Category -->
-					<!-- <div class="form-control">
-							<label class="label" for="category">
-								<span class="label-text font-medium">Category</span>
-								<span class="label-text-alt">Required</span>
-							</label>
-							<select
-								id="category"
-								bind:value={category}
-								class="select select-bordered w-full"
-								required
-							>
-								<option value="">Select a category</option>
-								{#each $appStore.categories as cat}
-									<option value={cat.name}>{cat.name}</option>
-								{/each}
-							</select>
-						</div> -->
-
 					<!-- Completion Date -->
 					<div class="form-control">
 						<DatePicker

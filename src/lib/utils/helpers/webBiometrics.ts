@@ -6,9 +6,10 @@
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
+import { handleBiometricError } from './biometricErrorHandler';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '../constants/storage';
 import authService from '$lib/api/services/auth.service';
-import { locale } from 'svelte-i18n';
-import { get } from 'svelte/store';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
 interface WebAuthnVerifyOptions extends BiometricVerifyOptions {
@@ -152,14 +153,15 @@ export async function setWebBiometricKey(
 		return credential.id;
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		throw new Error('Failed to set biometric key');
+		throw new Error(await handleBiometricError(err, 'web'));
 	}
 }
 
 /**
  * Get stored credentials after biometric verification
+ * @param checkNpub For already logged in users check biometric npub agains localStorage npub 
  */
-export async function getWebBiometricData(): Promise<Credentials | null> {
+export async function getWebBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
@@ -192,6 +194,13 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 
 		const publicKey = unpackedKeys.publicKey;
 		const exportedKey = unpackedKeys.exportedKey;
+
+		if(checkNpub) {
+			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			if(npub !== publicKey) {
+				throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
+			}
+		}
 
 		const deviceId = await getDeviceIdentifier();
 
@@ -253,12 +262,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		}
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
-		const errorMessage =
-			get(locale) === 'en'
-				? 'Authorization either timed out, or was canceled. Try again'
-				: 'La autorización expiró o se canceló. Intentar otra vez';
-
-		throw new Error(errorMessage);
+		throw new Error(await handleBiometricError(err, 'web'));
 	}
 }
 

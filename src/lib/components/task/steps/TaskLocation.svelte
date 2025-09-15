@@ -4,7 +4,7 @@
 	import { TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
 	import EnhancedLocationPicker from '$lib/components/EnhancedLocationPicker.svelte';
-	import { t, locale } from 'svelte-i18n';
+	import { t } from 'svelte-i18n';
 
 	let { errors, direction } = $props<{
 		errors: Record<string, string>;

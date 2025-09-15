@@ -11,10 +11,8 @@ const API_VERSION = 'v1';
 const NOSTR_API_PATH = '/api';
 const NOSTR_API_VERSION = 'v1';
 const AUTH = 'auth';
-const USERS = 'users';
 const TASKS = 'tasks';
 const BIDS = 'bid';
-const ADMIN = 'admin';
 const TASK_TEMPLATES = 'task-templates';
 const SERVICE_PACKAGES = 'service-packages';
 const SAVED_SEARCHES = 'saved-searches';
@@ -52,13 +50,6 @@ export const ENDPOINTS = {
 		INVALIDATE_ALL_DEVICES: `${API_PATH}/${API_VERSION}/${AUTH}/invalidate-all-devices`
 	},
 
-	// User endpoints
-	USERS: {
-		ME: `${API_PATH}/${API_VERSION}/${USERS}/me`,
-		PROFILE: `${API_PATH}/${API_VERSION}/${USERS}/profile`,
-		SETTINGS: `${API_PATH}/${API_VERSION}/${USERS}/settings`
-	},
-
 	// Task endpoints
 	TASKS: {
 		LIST: `${API_PATH}/${API_VERSION}/${TASKS}`,
@@ -80,12 +71,6 @@ export const ENDPOINTS = {
 		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`,
 		ACCEPT: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/accept`,
 		REJECT: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/reject`
-	},
-
-	// Admin endpoints
-	ADMIN: {
-		SKILLS: `${API_PATH}/${API_VERSION}/${ADMIN}/skills`,
-		CATEGORIES: `${API_PATH}/${API_VERSION}/${ADMIN}/categories`
 	},
 
 	// Upload endpoints

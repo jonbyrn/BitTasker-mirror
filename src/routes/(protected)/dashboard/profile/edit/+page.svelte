@@ -129,17 +129,6 @@
 			</div>
 		</div>
 
-		<!-- Location & Service Area -->
-		<!-- <div class="card bg-base-100 shadow-lg">
-				<div class="card-body">
-					<h2 class="card-title">Location & Service Area</h2>
-					<LocationService
-						user={$userStore.data?.me}
-						onComplete={(completed) => handleSectionComplete('location', completed)}
-					/>
-				</div>
-			</div> -->
-
 		<!-- Skills -->
 		<div class="card bg-base-100 rounded-xl shadow-lg">
 			<div class="card-body">

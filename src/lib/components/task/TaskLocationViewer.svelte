@@ -22,6 +22,8 @@
 	let mapElement: HTMLElement | null = $state(null);
 	let pickupMarker: google.maps.marker.AdvancedMarkerElement | null = $state(null);
 	let dropoffMarker: google.maps.marker.AdvancedMarkerElement | null = $state(null);
+	let pickupCircle: google.maps.Circle | null = $state(null);
+	let dropoffCircle: google.maps.Circle | null = $state(null);
 	let directionsService: google.maps.DirectionsService | null = $state(null);
 	let directionsRenderer: google.maps.DirectionsRenderer | null = $state(null);
 	let isLoading = $state(false);
@@ -85,16 +87,18 @@
 					? { lat: pickupLocation.latitude, lng: pickupLocation.longitude }
 					: { lat: 37.7749, lng: -122.4194 }; // Default to SF
 
-			// Initialize Google Maps
+			// Initialize Google Maps with zoom restrictions
 			map = new google.maps.Map(mapElement, {
 				center,
 				zoom: 12,
+				minZoom: 8, // City level minimum zoom
+				maxZoom: 14, // Reducir el zoom máximo para evitar nivel de calle
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: false,
 				fullscreenControl: false,
 				streetViewControl: false,
-				zoomControl: true,
-				gestureHandling: 'cooperative',
+				zoomControl: false, // Disable zoom controls completely
+				disableDoubleClickZoom: true, // Disable double-click zoom
 				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
 			});
 
@@ -106,22 +110,60 @@
 		}
 	}
 
-	// Function to create custom marker element
-	function createMarkerElement(color: string, label: string): HTMLElement {
+	// Function to create custom marker element with map pin images
+	function createMarkerElement(
+		color: string,
+		label: string,
+		isPickup: boolean = true
+	): HTMLElement {
 		const markerElement = document.createElement('div');
-		markerElement.innerHTML = `
-			<div style="
-				width: 32px;
-				height: 40px;
-				position: relative;
-				cursor: pointer;
-			">
-				<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
-					<path fill="${color}" d="M16 0C7.2 0 0 7.2 0 16c0 8.8 16 24 16 24s16-15.2 16-24C32 7.2 24.8 0 16 0zm0 22c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6z"/>
-					<circle fill="white" cx="16" cy="16" r="4"/>
-				</svg>
-			</div>
-		`;
+		markerElement.style.position = 'relative';
+		markerElement.style.cursor = 'pointer';
+
+		// Create a container for the marker
+		const markerContainer = document.createElement('div');
+		markerContainer.style.position = 'relative';
+		markerContainer.style.width = '3rem';
+		markerContainer.style.height = '3rem';
+		markerContainer.style.display = 'flex';
+		markerContainer.style.alignItems = 'center';
+		markerContainer.style.justifyContent = 'center';
+
+		// Use the map-pin.png image with color filter
+		const img = document.createElement('img');
+		img.src = '/map-pin.png';
+		img.style.width = '3rem';
+		img.style.height = '3rem';
+		img.style.display = 'block';
+		img.style.borderRadius = '50%';
+
+		// Apply color filter based on marker type - FILTROS MÁS ESPECÍFICOS
+		if (isPickup) {
+			// Orange filter for pickup - más específico para anaranjado
+			img.style.filter = '';
+		} else {
+			// Green filter for dropoff - más específico para verde
+			img.style.filter =
+				'hue-rotate(100deg) saturate(2.2) brightness(1.1) contrast(1.3) sepia(0.6)';
+		}
+
+		markerContainer.appendChild(img);
+
+		// Add label overlay
+		const labelDiv = document.createElement('div');
+		labelDiv.style.position = 'absolute';
+		labelDiv.style.top = '50%';
+		labelDiv.style.left = '50%';
+		labelDiv.style.transform = 'translate(-50%, -50%)';
+		labelDiv.style.color = 'white';
+		labelDiv.style.fontWeight = 'bold';
+		labelDiv.style.fontSize = '12px';
+		labelDiv.style.textShadow = '1px 1px 2px rgba(0,0,0,0.7)';
+		labelDiv.style.pointerEvents = 'none';
+		labelDiv.textContent = label;
+
+		markerContainer.appendChild(labelDiv);
+		markerElement.appendChild(markerContainer);
 		return markerElement;
 	}
 
@@ -139,7 +181,7 @@
 
 			// Check if AdvancedMarkerElement is available
 			if (window.google.maps.marker?.AdvancedMarkerElement) {
-				const pickupMarkerElement = createMarkerElement('#10B981', 'P');
+				const pickupMarkerElement = createMarkerElement('#F59E0B', '', true);
 
 				pickupMarker = new google.maps.marker.AdvancedMarkerElement({
 					position: pickupPosition,
@@ -169,6 +211,18 @@
 				}) as any;
 			}
 
+			// Create orange circle for pickup location
+			pickupCircle = new google.maps.Circle({
+				strokeColor: '#F59E0B',
+				strokeOpacity: 0.8,
+				strokeWeight: 2,
+				fillColor: '#F59E0B',
+				fillOpacity: 0.1,
+				map,
+				center: pickupPosition,
+				radius: 1600 // 1 mile = 1600 meters
+			});
+
 			bounds.extend(pickupPosition);
 		}
 
@@ -181,7 +235,7 @@
 
 			// Check if AdvancedMarkerElement is available
 			if (window.google.maps.marker?.AdvancedMarkerElement) {
-				const dropoffMarkerElement = createMarkerElement('#EF4444', 'D');
+				const dropoffMarkerElement = createMarkerElement('#10B981', '', false);
 
 				dropoffMarker = new google.maps.marker.AdvancedMarkerElement({
 					position: dropoffPosition,
@@ -193,8 +247,7 @@
 				// Add click listener for info window
 				dropoffMarker.addListener('click', () => {
 					const infoWindow = new google.maps.InfoWindow({
-						content: `
-							<div class="p-2">
+						content: `							<div class="p-2">
 								<h3 class="font-semibold text-sm">Drop-off Location</h3>
 								<p class="text-xs text-gray-600">${dropOffLocation.displayName}</p>
 							</div>
@@ -210,6 +263,18 @@
 					title: 'Drop-off Location'
 				}) as any;
 			}
+
+			// Create green circle for dropoff location
+			dropoffCircle = new google.maps.Circle({
+				strokeColor: '#10B981',
+				strokeOpacity: 0.8,
+				strokeWeight: 2,
+				fillColor: '#10B981',
+				fillOpacity: 0.1,
+				map,
+				center: dropoffPosition,
+				radius: 1600 // 1 mile = 1600 meters
+			});
 
 			bounds.extend(dropoffPosition);
 
@@ -227,18 +292,24 @@
 			}
 		}
 
-		// Fit map to show all markers
+		// Fit map to show all markers with city-level zoom constraints
 		if (bounds.isEmpty()) {
 			// If no valid locations, center on pickup or default
 			if (pickupLocation.latitude && pickupLocation.longitude) {
 				map.setCenter({ lat: pickupLocation.latitude, lng: pickupLocation.longitude });
-				map.setZoom(15);
+				map.setZoom(12); // Use city-level zoom instead of 15
 			}
 		} else {
 			map.fitBounds(bounds);
 			// Add some padding
 			const padding = { top: 50, right: 50, bottom: 50, left: 50 };
 			map.fitBounds(bounds, padding);
+
+			// Ensure zoom level stays within city limits
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number' && currentZoom > 12) {
+				map.setZoom(12);
+			}
 		}
 	}
 
@@ -374,23 +445,3 @@
 		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg border"></div>
 	{/if}
 </div>
-
-<!-- Legend for removal tasks -->
-{#if isRemovals && dropOffLocation?.latitude && dropOffLocation?.longitude}
-	<div class="mt-3 flex items-center justify-center gap-4 text-sm">
-		<div class="flex items-center gap-1">
-			<div class="h-3 w-3 rounded-full bg-green-500"></div>
-			<span>Pickup</span>
-		</div>
-		<div class="flex items-center gap-1">
-			<div class="h-3 w-3 rounded-full bg-red-500"></div>
-			<span>Drop-off</span>
-		</div>
-		{#if showDirections}
-			<div class="flex items-center gap-1">
-				<div class="h-0.5 w-4 bg-blue-500"></div>
-				<span>Route</span>
-			</div>
-		{/if}
-	</div>
-{/if}

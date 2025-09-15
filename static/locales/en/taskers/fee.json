@@ -1,7 +1,7 @@
 {
     "tasker": {
         "fees": {
-            "title": "Taskers Fees & Pricing",
+            "title": "Tasker Fees & Pricing",
             "subtitle": "Simple, transparent pricing designed to reward loyal taskers",
             "structure": {
                 "title": "Tasker Fee Structure",
@@ -45,7 +45,7 @@
                 "title": "Rebooking Discount",
                 "description": "Love working with a particular taskee? We reward repeat partnerships with significantly reduced fees!",
                 "card_title": "Rebook & Save!",
-                "card_intro": "When you rebook a taskee you've worked with before:",
+                "card_intro": "When you rebook a taskee you've worked with before within 30 days:",
                 "standard_fee": "Standard payments: Just <strong>3% fee</strong> (down from 7.5–12.5%)",
                 "btc_fee": "Bitcoin payments: Just <strong>1% fee</strong> (down from 1.5–2.5%)",
                 "example": "Example: Rebooking a $100 task costs just $103 with standard payment or $101 with Bitcoin!",
@@ -62,6 +62,26 @@
                 "title": "Ready to hire taskees with transparent pricing?",
                 "button": "Post a Task Now"
             }
+        }
+    },
+    "fees": {
+        "tiers": {
+            "1": {
+                "badge": "Tier 1",
+                "title": "Nakamoto<br />Newbie"
+            },
+            "2": {
+                "badge": "Tier 2", 
+                "title": "Satoshi<br />Stacker"
+            },
+            "3": {
+                "badge": "Tier 3",
+                "title": "Hash<br />Master"
+            }
+        },
+        "maintenance": {
+            "title": "Tier Advancement & Maintenance",
+            "description": "Your tier status is calculated based on your activity over the past 30 days, and is updated daily. The more tasks you complete, the higher your tier and the lower your fees."
         }
     }
 }

@@ -42,15 +42,15 @@
 
 <div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-			<div class="hero-content flex-col text-center">
-				<Logo />
-				<div class="max-w-3xl">
-					<h3>{$t('how_it_works_about.hero.heading')}</h3>
-					<p class="text-base-content/80 py-6 text-lg">
-						{$t('how_it_works_about.hero.tagline')}
-					</p>
-				</div>
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl">
+				<h1>{$t('how_it_works_about.hero.heading')}</h1>
+				<p class="text-base-content/80 py-6 text-lg">
+					{$t('how_it_works_about.hero.tagline')}
+				</p>
 			</div>
+		</div>
 	</section>
 
 	<!-- Our Mission Section -->

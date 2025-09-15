@@ -51,9 +51,8 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
-
 			<div class="max-w-3xl">
-				<h3>{$t('fees.title')}</h3>
+				<h1>{$t('fees.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('fees.subtitle')}
 				</p>
@@ -264,14 +263,14 @@
 		<!-- Repeat Bonus Card -->
 		<div class="card bg-base-100 border-success mt-8 border shadow-lg">
 			<div class="card-body">
-				<h3 class="card-title">{$t('fees.repeat_bonus.title')}</h3>
+				<h3 class="card-title mt-4 mb-4">{$t('fees.repeat_bonus.title')}</h3>
 				<p>{$t('fees.repeat_bonus.description')}</p>
 				<ul>
 					<li>{@html $t('fees.repeat_bonus.item_1')}</li>
 					<li>{@html $t('fees.repeat_bonus.item_2')}</li>
 				</ul>
-									<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_1')}</p>
-					<p class="mt-3 text-sm text-base-content/80 italic">{$t('fees.repeat_bonus.note_2')}</p>
+				<p class="mt-3 text-sm text-base-content/80">{$t('fees.repeat_bonus.note_1')}</p>
+				<p class="mt-3 text-sm text-base-content/80 italic">{$t('fees.repeat_bonus.note_2')}</p>
 			</div>
 		</div>
 

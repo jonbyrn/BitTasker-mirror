@@ -186,7 +186,7 @@ Comprehensive documentation on the `nostr-tools` library, Nostr event kinds, tag
 
 #### 6.1. Private Key Management Optimization ✅
 
-- **Dedicated Nostr Session Store:** ✅ Created `src/lib/stores/nostrSessionStore.ts` for in-memory key storage
+- **@deprecated: Dedicated Nostr Session Store:** ✅ Created `src/lib/stores/nostrSessionStore.ts` for in-memory key storage
   - Secure session management with automatic expiration
   - Biometric integration with cached credentials for session duration
   - Session persistence across page reloads with configurable expiration

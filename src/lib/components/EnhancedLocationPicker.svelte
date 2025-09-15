@@ -6,8 +6,6 @@
 	import { t } from 'svelte-i18n';
 	import { Capacitor } from '@capacitor/core';
 	import { tick } from 'svelte';
-	import IconCheck from '~icons/mdi/check-circle-outline';
-	import IconMagnify from '~icons/mdi/magnify';
 
 	let {
 		label = '',
@@ -111,7 +109,7 @@
 	// Function to load marker library
 	async function loadMarkerLibrary() {
 		if (markerLibrary) return markerLibrary;
-		
+
 		try {
 			markerLibrary = (await google.maps.importLibrary('marker')) as google.maps.MarkerLibrary;
 			return markerLibrary;
@@ -127,14 +125,18 @@
 		}
 
 		try {
-			// Initialize Google Maps
+			// Initialize Google Maps with zoom restrictions
 			map = new google.maps.Map(mapElement, {
 				center: { lat: currentLocation.latitude!, lng: currentLocation.longitude! },
 				zoom: 12,
+				minZoom: 8, // City level minimum zoom
+				maxZoom: 18, // Reducir el zoom máximo para evitar nivel de calle
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: false,
 				fullscreenControl: false,
 				streetViewControl: false,
+				zoomControl: false, // Disable zoom controls completely
+				disableDoubleClickZoom: true, // Disable double-click zoom
 				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID'
 			});
 
@@ -271,10 +273,27 @@
 						addressComponents.find((component) => component.types.includes('postal_code'))
 							?.short_name || '';
 
+					// Extraer ciudad y estado
+					let city = '';
+					let stateRegion = '';
+
+					addressComponents.forEach((component) => {
+						const types = component.types;
+						if (types.includes('locality')) {
+							city = component.long_name;
+						} else if (types.includes('administrative_area_level_1')) {
+							stateRegion = component.long_name;
+						}
+					});
+
+					let displayName = '';
+
+					displayName = `${city}, ${stateRegion}`;
+
 					// Update location state
 					const newLocation = {
 						...currentLocation,
-						displayName: result.results[0].formatted_address,
+						displayName: displayName,
 						latitude: lat,
 						longitude: lng,
 						zipCode,
@@ -282,7 +301,7 @@
 					};
 
 					currentLocation = newLocation;
-					
+
 					// Update input value
 					if (searchInput) {
 						searchInput.value = newLocation.displayName;
@@ -602,23 +621,20 @@
 </script>
 
 <div class="enhanced-location-picker w-full">
-	{#if label}
-		<label class="label" for="location-search">
-			<span class="label-text">{label}</span>
-		</label>
-	{/if}
-
 	<!-- Map Container -->
 	<div class="map-container relative w-full">
 		<!-- Search bar - using fixed positioning when in fullscreen mode -->
 		<div
 			class={isFullscreen
-				? 'fixed top-6 left-6 right-6 z-[1000]'
+				? 'fixed top-6 right-6 left-6 z-[1000]'
 				: 'absolute top-4 right-0 left-0 z-10 px-4'}
 		>
 			{#if isFullscreen}
 				<div class="pointer-events-auto mb-4 flex w-full items-center justify-center">
-					<button class="btn btn-md bg-base-100/90 shadow-md border-none text-base-content hover:bg-base-100/90 hover:opacity-100" onclick={exitFullscreen}>
+					<button
+						class="btn btn-md bg-base-100/90 text-base-content hover:bg-base-100/90 border-none shadow-md hover:opacity-100"
+						onclick={exitFullscreen}
+					>
 						{$t('task.location_picker.exit_fullscreen')}
 					</button>
 				</div>
@@ -628,10 +644,10 @@
 					<input
 						bind:this={searchInput}
 						type="text"
-						placeholder={placeholder}
+						{placeholder}
 						oninput={debounce(() => getPredictions(), 300)}
 						onfocus={() => (showOptions = true)}
-						class="input input-bordered flex-1 mb-2"
+						class="input input-bordered mb-2 flex-1"
 						value={currentLocation.displayName}
 					/>
 					{#if showGeolocation}
@@ -667,12 +683,12 @@
 
 				{#if showOptions}
 					<div
-						class="predictions-dropdown bg-base-100 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg shadow-lg border border-base-300"
+						class="predictions-dropdown bg-base-100 border-base-300 absolute z-[1000] mt-2 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 					>
 						{#if predictions.length > 0}
 							{#each predictions as prediction}
 								<button
-									class="hover:bg-base-200 w-full cursor-pointer px-4 py-3 text-left border-b border-base-200 last:border-b-0"
+									class="hover:bg-base-200 border-base-200 w-full cursor-pointer border-b px-4 py-3 text-left last:border-b-0"
 									onclick={() => selectPrediction(prediction!)}
 								>
 									{prediction?.text}
@@ -688,7 +704,11 @@
 
 		<!-- Map Container -->
 		<div bind:this={mapContainerDiv} class="map-container relative w-full">
-			<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg" style="height: {mapHeight}; min-height: {mapHeight};">
+			<div
+				bind:this={mapElement}
+				class="h-full w-full overflow-hidden rounded-lg"
+				style="height: {mapHeight}; min-height: {mapHeight};"
+			>
 				{#if !isMapLoaded}
 					<div class="bg-base-200 flex h-full w-full items-center justify-center">
 						<span class="loading loading-spinner loading-lg"></span>
@@ -703,7 +723,7 @@
 				onclick={toggleFullscreen}
 				class="{isFullscreen
 					? 'fixed bottom-4 left-4 z-[1000]'
-					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 shadow-md hover:bg-base-100"
+					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
 				aria-label={isFullscreen
 					? $t('task.location_picker.exit_fullscreen')
 					: $t('task.location_picker.enter_fullscreen')}
@@ -715,21 +735,25 @@
 					<!-- Exit fullscreen icon -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 text-base-content"
+						class="text-base-content h-5 w-5"
 						viewBox="0 0 24 24"
 						fill="currentColor"
 					>
-						<path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+						<path
+							d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+						/>
 					</svg>
 				{:else}
 					<!-- Enter fullscreen icon -->
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 text-base-content"
+						class="text-base-content h-5 w-5"
 						viewBox="0 0 24 24"
 						fill="currentColor"
 					>
-						<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+						<path
+							d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+						/>
 					</svg>
 				{/if}
 			</button>
@@ -737,14 +761,11 @@
 
 		<!-- Service Radius Panel - mejor posicionado y espaciado -->
 		{#if showServiceRadius}
-			<div
-				class={isFullscreen
-					? 'fixed top-32 right-6 z-[1000]'
-					: 'absolute top-16 right-4 z-20'}
-			>
-				<div class="bg-base-100/95 rounded-lg p-4 shadow-lg border border-base-300">
-					<div class="mb-3 text-sm font-medium text-base-content">
-						{$t('task.location_picker.service_radius')}: {currentServiceRadius} {$t('task.location_picker.miles')}
+			<div class={isFullscreen ? 'fixed top-32 right-6 z-[1000]' : 'absolute top-16 right-4 z-20'}>
+				<div class="bg-base-100/95 border-base-300 rounded-lg border p-4 shadow-lg">
+					<div class="text-base-content mb-3 text-sm font-medium">
+						{$t('task.location_picker.service_radius')}: {currentServiceRadius}
+						{$t('task.location_picker.miles')}
 					</div>
 					<input
 						type="range"
@@ -755,7 +776,7 @@
 						onchange={updateServiceRadius}
 						class="range range-sm range-primary mb-2"
 					/>
-					<div class="flex justify-between text-xs text-base-content/70">
+					<div class="text-base-content/70 flex justify-between text-xs">
 						<span>0.5 {$t('task.location_picker.miles')}</span>
 						<span>10 {$t('task.location_picker.miles')}</span>
 					</div>

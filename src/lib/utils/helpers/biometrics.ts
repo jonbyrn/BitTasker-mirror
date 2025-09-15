@@ -1,9 +1,12 @@
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
 import { Capacitor } from '@capacitor/core';
 import { NativeBiometric } from 'capacitor-native-biometric';
+import { handleBiometricError } from './biometricErrorHandler';
 import { packKeysMobile, unPackKeysMobile, generateCredentialId, generateMobileChallenge } from '$lib/utils/helpers/encoding';
 import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from 'capacitor-webauthn';
 import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '../constants/storage';
 import authService from '$lib/api/services/auth.service';
 
 const BIOMETRIC_VERIFY_OPTIONS: BiometricVerifyOptions = {
@@ -104,9 +107,9 @@ export async function setBiometricKey(
 				username: userName,
 				password: JSON.stringify(credentialData),
 				server: deviceId
-			}).catch(err => {
+			}).catch(async (err) => {
 				console.error('Failed to set native biometrics:', err);
-				throw new Error('Failed to set native biometric' + err);
+				throw new Error(await handleBiometricError(err, 'mobile-native'));
 			});
 		}
 
@@ -117,8 +120,9 @@ export async function setBiometricKey(
 		// Return credential ID like WebAuthn does
 		return credentialId;
 	} catch (err) {
+		const platform = authMethod === 'passkey' ? 'mobile-webauthn' : 'mobile-native';
 		console.error('Failed to set biometric key:', err);
-		throw new Error('Failed to set biometric key' + err);
+		throw new Error(await handleBiometricError(err, platform));
 	}
 }
 
@@ -127,7 +131,7 @@ export async function setBiometricKey(
  * @param authMethod Authentication method: 'biometrics' for native, 'passkey' for WebAuthn
  * @returns Promise<Credentials | null>
  */
-export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'biometrics'): Promise<Credentials | null> {
+export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'biometrics', checkNpub: boolean = false): Promise<Credentials | null> {
 	try {
 		const deviceId = await getDeviceIdentifier();
 
@@ -159,6 +163,13 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			const unpackedKeys = unPackKeysMobile(packedKeysBase64);
 			const publicKey = unpackedKeys.publicKey;
 			const exportedKey = unpackedKeys.exportedKey;
+
+			if(checkNpub) {
+				const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+				if(npub !== publicKey) {
+					throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
+				}
+			}
 
 			const deviceName = await createUserDeviceShortName(publicKey);
 
@@ -284,6 +295,8 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			}
 		}
 	} catch (err) {
-		throw new Error(err instanceof Error ? err.message : 'Failed to get biometric data');
+		const platform = authMethod === 'passkey' ? 'mobile-webauthn' : 'mobile-native';
+		console.error('Failed to get biometric data:', err);
+		throw new Error(await handleBiometricError(err, platform));
 	}
 }

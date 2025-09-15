@@ -2,17 +2,21 @@
 	import type { Task, Location } from '$lib/types/task';
 	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
 	import { onMount, onDestroy, tick } from 'svelte';
+	import { ScreenOrientation } from '@capacitor/screen-orientation';
+	import { t } from 'svelte-i18n';
 
 	let {
 		tasks = [],
 		height = '60vh',
 		selectedTask = null,
-		onTaskSelected
+		onTaskSelected,
+		showFullscreen = true
 	} = $props<{
 		tasks: Task[];
 		height?: string;
 		selectedTask?: Task | null;
 		onTaskSelected?: (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => void;
+		showFullscreen?: boolean;
 	}>();
 
 	// State
@@ -33,7 +37,13 @@
 	let userLocation: Location | null = $state(null);
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 	let userCountry: string | null = $state(null);
+	let mapHeight = $state(height); // Add mapHeight variable
 
+	// Fullscreen state
+	let isFullscreen = $state(false);
+	let mapContainerDiv: HTMLElement | null = $state(null);
+	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
+	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
 	// Function to get user's location
 	async function getUserLocation(): Promise<Location | null> {
 		return new Promise((resolve) => {
@@ -224,6 +234,140 @@
 		}
 	}
 
+	// Fullscreen functionality
+	async function toggleFullscreen() {
+		if (isFullscreen) {
+			await exitFullscreen();
+		} else {
+			await enterFullscreen();
+		}
+	}
+
+	async function enterFullscreen() {
+		isFullscreen = true;
+
+		try {
+			// Try to use Capacitor's native fullscreen if available
+			await ScreenOrientation.lock({ orientation: 'portrait' });
+		} catch (error) {
+			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
+		}
+
+		// Store original dimensions for restoring later
+		if (mapContainerDiv) {
+			// Apply fullscreen styles
+			mapContainerDiv.style.position = 'fixed';
+			mapContainerDiv.style.top = '0';
+			mapContainerDiv.style.left = '0';
+			mapContainerDiv.style.width = '100vw';
+			mapContainerDiv.style.height = '100vh';
+			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
+			mapContainerDiv.style.backgroundColor = 'white';
+			mapContainerDiv.style.overflow = 'hidden';
+		}
+
+		// Ensure inner map element fills the fullscreen container
+		if (mapElement) {
+			mapElement.style.width = '100%';
+			mapElement.style.height = '100%';
+			mapElement.style.minHeight = '100vh';
+			mapElement.style.borderRadius = '0';
+		}
+
+		// Await DOM flush, then trigger Google Maps resize and re-center
+		await tick();
+		if (map) {
+			google.maps.event.trigger(map, 'resize');
+			// Center on the current map center instead of a specific marker
+			const center = map.getCenter();
+			if (center) {
+				map.setCenter(center);
+			}
+			// Force a redraw by toggling zoom
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number') {
+				map.setZoom(currentZoom);
+			}
+		}
+
+		// Keep size in sync when device UI chrome changes (mobile) or orientation changes
+		fullscreenResizeHandler = () => {
+			if (mapElement) {
+				mapElement.style.height = '100%';
+				mapElement.style.minHeight = '100vh';
+			}
+			if (map) {
+				google.maps.event.trigger(map, 'resize');
+			}
+		};
+		window.addEventListener('resize', fullscreenResizeHandler);
+
+		// Enable ESC to exit fullscreen
+		escKeyHandler = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				exitFullscreen();
+			}
+		};
+		window.addEventListener('keydown', escKeyHandler);
+	}
+
+	async function exitFullscreen() {
+		isFullscreen = false;
+
+		try {
+			// Release orientation lock if we used Capacitor
+			await ScreenOrientation.unlock();
+		} catch (error) {
+			console.log('Capacitor ScreenOrientation not available');
+		}
+
+		// Restore original CSS styles
+		if (mapContainerDiv) {
+			mapContainerDiv.style.position = 'relative';
+			mapContainerDiv.style.top = 'auto';
+			mapContainerDiv.style.left = 'auto';
+			mapContainerDiv.style.width = '100%';
+			mapContainerDiv.style.height = 'auto';
+			mapContainerDiv.style.zIndex = 'auto';
+			mapContainerDiv.style.backgroundColor = 'transparent';
+			mapContainerDiv.style.overflow = 'visible';
+		}
+
+		// Restore map element size
+		if (mapElement) {
+			mapElement.style.width = '100%';
+			mapElement.style.height = '';
+			mapElement.style.minHeight = mapHeight;
+			mapElement.style.borderRadius = '0.5rem'; // rounded-lg
+		}
+
+		// Remove resize listener if present
+		if (fullscreenResizeHandler) {
+			window.removeEventListener('resize', fullscreenResizeHandler);
+			fullscreenResizeHandler = null;
+		}
+
+		if (escKeyHandler) {
+			window.removeEventListener('keydown', escKeyHandler);
+			escKeyHandler = null;
+		}
+
+		// Trigger resize to update map
+		await tick();
+		if (map) {
+			google.maps.event.trigger(map, 'resize');
+			// Center on the current map center instead of a specific marker
+			const center = map.getCenter();
+			if (center) {
+				map.setCenter(center);
+			}
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number') {
+				map.setZoom(currentZoom);
+			}
+		}
+	}
+
 	async function initMap() {
 		try {
 			// Check if mapElement exists before proceeding
@@ -252,25 +396,22 @@
 				centerLocation.longitude!
 			);
 
-			// Initialize Google Maps
+			// Initialize Google Maps with zoom restrictions for privacy
 			map = new google.maps.Map(mapElement, {
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
 				zoom: zoomLevel,
-				maxZoom: 18,
-				minZoom: 2,
+				maxZoom: 14, // Máximo zoom de ciudad - no mostrar direcciones exactas
+				minZoom: 8,
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
 				mapTypeControl: true,
-				streetViewControl: true,
-				fullscreenControl: true,
+				streetViewControl: false, // Deshabilitar Street View para privacidad
+				fullscreenControl: false,
 				mapTypeControlOptions: {
 					style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
 					position: google.maps.ControlPosition.TOP_RIGHT
 				},
 				zoomControlOptions: {
 					position: google.maps.ControlPosition.RIGHT_CENTER
-				},
-				streetViewControlOptions: {
-					position: google.maps.ControlPosition.RIGHT_TOP
 				},
 				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID'
 			});
@@ -421,8 +562,8 @@
 			// Usamos tu imagen personalizada original
 			const img = document.createElement('img');
 			img.src = '/map-pin.png';
-			img.style.width = '4rem'; // Tamaño optimizado
-			img.style.height = '4rem';
+			img.style.width = '3.5rem'; // Tamaño optimizado
+			img.style.height = '3.5rem';
 			img.style.display = 'block';
 			img.style.borderRadius = '50%'; // Hacer la imagen redonda
 
@@ -458,7 +599,7 @@
 				gmpDraggable: false
 			});
 
-			// 🖱️ Evento click en el marcador → ajusta zoom al círculo
+			// 🖱️ Evento click en el marcador → ajusta zoom al círculo con restricciones
 			marker.addListener('click', () => {
 				// Ocultar todos los círculos primero
 				hideAllCircles();
@@ -466,14 +607,23 @@
 				// Crear y mostrar el círculo para este marcador
 				showCircleForMarker(lat, lng, locationType);
 
-				// Hacer zoom al círculo
+				// Hacer zoom al círculo pero con restricción de zoom máximo
 				const position = { lat, lng };
 				const circle = circles.find(
 					(c) => c.getCenter()?.lat() === lat && c.getCenter()?.lng() === lng
 				);
 
 				if (circle) {
-					map!.fitBounds(circle.getBounds()!);
+					// Ajustar el zoom pero respetar el máximo de 14
+					const bounds = circle.getBounds()!;
+					map!.fitBounds(bounds);
+
+					// Asegurar que el zoom no exceda 14
+					const currentZoom = map!.getZoom() || 0;
+					if (currentZoom > 14) {
+						map!.setZoom(14);
+					}
+
 					// Pan inicial
 					map!.panTo(position);
 				}
@@ -505,7 +655,7 @@
 			fillOpacity: 0.1,
 			map,
 			center: position,
-			radius: serviceRadius * 50 // Convertir km a metros
+			radius: serviceRadius * 100 // Convertir km a metros
 		});
 
 		circles.push(circle);
@@ -543,7 +693,7 @@
 		}
 	}
 
-	// Función para mostrar el círculo de una task específica
+	// Función para mostrar el círculo de una task específica con restricciones de zoom
 	function highlightTaskOnMap(task: Task) {
 		if (!map || !isMapLoaded) return;
 
@@ -554,7 +704,7 @@
 		if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
 			showCircleForMarker(task.pickupLocation.latitude, task.pickupLocation.longitude, 'pickup');
 
-			// Hacer zoom al círculo
+			// Hacer zoom al círculo con restricciones
 			const position = {
 				lat: task.pickupLocation.latitude,
 				lng: task.pickupLocation.longitude
@@ -567,6 +717,13 @@
 
 			if (circle) {
 				map.fitBounds(circle.getBounds()!);
+
+				// Asegurar que el zoom no exceda 14
+				const currentZoom = map.getZoom() || 0;
+				if (currentZoom > 14) {
+					map.setZoom(14);
+				}
+
 				map.panTo(position);
 			}
 			return;
@@ -576,7 +733,7 @@
 		if (task.dropOffLocation?.latitude && task.dropOffLocation.longitude) {
 			showCircleForMarker(task.dropOffLocation.latitude, task.dropOffLocation.longitude, 'dropoff');
 
-			// Hacer zoom al círculo
+			// Hacer zoom al círculo con restricciones
 			const position = {
 				lat: task.dropOffLocation.latitude,
 				lng: task.dropOffLocation.longitude
@@ -589,6 +746,13 @@
 
 			if (circle) {
 				map.fitBounds(circle.getBounds()!);
+
+				// Asegurar que el zoom no exceda 14
+				const currentZoom = map.getZoom() || 0;
+				if (currentZoom > 14) {
+					map.setZoom(14);
+				}
+
 				map.panTo(position);
 			}
 		}
@@ -663,7 +827,7 @@
 
 <div class="task-location-map w-full">
 	<!-- Map Container -->
-	<div class="map-container relative max-h-[800px] w-full" style="height: {height};">
+	<div bind:this={mapContainerDiv} class="map-container relative max-h-[800px] w-full" style="height: {height};">
 		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
 			{#if isLoading}
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
@@ -694,6 +858,48 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Fullscreen Button -->
+		{#if showFullscreen}
+			<button
+				onclick={toggleFullscreen}
+				class="{isFullscreen
+					? 'fixed bottom-4 left-4 z-[1000]'
+					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				aria-label={isFullscreen
+					? $t('task.location_picker.exit_fullscreen')
+					: $t('task.location_picker.enter_fullscreen')}
+				title={isFullscreen
+					? $t('task.location_picker.exit_fullscreen')
+					: $t('task.location_picker.enter_fullscreen')}
+			>
+				{#if isFullscreen}
+					<!-- Exit fullscreen icon -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+						/>
+					</svg>
+				{:else}
+					<!-- Enter fullscreen icon -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+						/>
+					</svg>
+				{/if}
+			</button>
+		{/if}
 	</div>
 
 	<!-- Error Message -->
