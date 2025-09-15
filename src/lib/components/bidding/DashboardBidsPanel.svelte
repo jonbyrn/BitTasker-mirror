@@ -7,7 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
-	
+
 	// State
 	let myBids = $state<any[]>([]);
 	let loading = $state(true);
@@ -62,7 +62,7 @@
 		} else {
 			expandedBids.add(bidId);
 		}
-		expandedBids = new Set(expandedBids); 
+		expandedBids = new Set(expandedBids);
 	}
 </script>
 
@@ -179,7 +179,7 @@
 		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-12 w-12"
+				class="text-primary mx-auto mb-3 h-12 w-12"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -188,29 +188,13 @@
 					stroke-linecap="round"
 					stroke-linejoin="round"
 					stroke-width="2"
-					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">{$t('bids.no_bids_yet')}</h3>
-			<p class="text-base-content/60 mt-2 mb-6">
+			<h3 class="text-lg font-medium">{$t('bids.no_bids_yet')}</h3>
+			<p class="mb-4 text-gray-500">
 				{$t('bids.no_bids_description')}
 			</p>
-			<div class="space-y-2">
-				<a
-					href="/dashboard/find-tasks"
-					class="inline-flex items-center rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-white transition-colors hover:bg-gray-600"
-				>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-						/>
-					</svg>
-					{$t('bids.empty.find_tasks')}
-				</a>
-			</div>
 		</div>
 	{:else}
 		<!-- Bids List -->
@@ -400,7 +384,7 @@
 									{:else}
 										<div></div>
 									{/if}
-									
+
 									<button
 										class="btn btn-secondary btn-sm"
 										onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}

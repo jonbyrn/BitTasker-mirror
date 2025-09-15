@@ -180,7 +180,7 @@
 
 <!-- Task List -->
 {#if !$myTasksStore.loading && $myTasksStore.items.length > 0}
-	<div class="grid grid-cols-1 gap-2">
+	<div class="grid grid-cols-1 gap-5">
 		{#each $myTasksStore.items as task}
 			{#if task}
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">

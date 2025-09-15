@@ -63,6 +63,37 @@
 	let maxRetries = 3;
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 
+	// Default fallback coordinates (San Francisco)
+	const DEFAULT_COORDINATES = {
+		lat: 37.7749,
+		lng: -122.4194
+	};
+
+	// Function to validate coordinates
+	function isValidCoordinate(lat: number | null, lng: number | null): boolean {
+		return (
+			lat !== null &&
+			lng !== null &&
+			!isNaN(lat) &&
+			!isNaN(lng) &&
+			lat >= -90 &&
+			lat <= 90 &&
+			lng >= -180 &&
+			lng <= 180
+		);
+	}
+
+	// Function to get safe coordinates
+	function getSafeCoordinates(): { lat: number; lng: number } {
+		if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude)) {
+			return {
+				lat: currentLocation.latitude!,
+				lng: currentLocation.longitude!
+			};
+		}
+		return DEFAULT_COORDINATES;
+	}
+
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
 		return new Promise<void>((resolve, reject) => {
@@ -124,10 +155,17 @@
 			throw new Error($t('task.location_picker.google_maps_not_fully_loaded'));
 		}
 
+		// Check if mapElement is available
+		if (!mapElement) {
+			throw new Error('Map element not available');
+		}
+
 		try {
+			const safeCoords = getSafeCoordinates();
+			
 			// Initialize Google Maps with zoom restrictions
 			map = new google.maps.Map(mapElement, {
-				center: { lat: currentLocation.latitude!, lng: currentLocation.longitude! },
+				center: safeCoords,
 				zoom: 12,
 				minZoom: 8, // City level minimum zoom
 				maxZoom: 18, // Reducir el zoom máximo para evitar nivel de calle
@@ -151,6 +189,9 @@
 					updateLocationWithCoordinates(clickedLat, clickedLng);
 				}
 			});
+
+			// Create initial marker with safe coordinates
+			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
 		} catch (error) {
 			console.error('Error initializing Google Maps:', error);
 			throw error;
@@ -192,15 +233,17 @@
 				throw new Error('Geolocation is not supported in this environment');
 			}
 
-			// Update map and marker
-			if (lat !== null && lng !== null) {
-				updateLocationWithCoordinates(lat, lng);
+			// Update map and marker only if we have valid coordinates
+			if (isValidCoordinate(lat, lng)) {
+				updateLocationWithCoordinates(lat!, lng!);
 			} else {
-				throw new Error('Failed to read geolocation coordinates');
+				throw new Error('Invalid geolocation coordinates received');
 			}
 		} catch (error) {
-			// Use default location if geolocation fails
-			createMarkerAndCircle(currentLocation.latitude!, currentLocation.longitude!);
+			console.warn('Geolocation failed, using default location:', error);
+			// Use safe default coordinates instead of potentially invalid ones
+			const safeCoords = getSafeCoordinates();
+			createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
 		} finally {
 			isLoading = false;
 		}
@@ -217,6 +260,13 @@
 				initRetryCount++;
 				// Wait a bit and try again
 				setTimeout(tryInitMap, 1000);
+				return;
+			}
+
+			// Wait for DOM element to be available
+			if (!mapElement) {
+				initRetryCount++;
+				setTimeout(tryInitMap, 500);
 				return;
 			}
 
@@ -240,6 +290,9 @@
 			// Load Google Maps API dynamically if not already loaded
 			await loadGoogleMapsScript();
 
+			// Wait for DOM to be ready
+			await tick();
+
 			// Try to initialize the map
 			await tryInitMap();
 		} catch (err) {
@@ -252,6 +305,12 @@
 	});
 
 	async function updateLocationWithCoordinates(lat: number, lng: number) {
+		// Validate coordinates before proceeding
+		if (!isValidCoordinate(lat, lng)) {
+			console.error('Invalid coordinates provided:', { lat, lng });
+			return;
+		}
+
 		try {
 			// Update marker and circle
 			createMarkerAndCircle(lat, lng);
@@ -323,6 +382,12 @@
 	async function createMarkerAndCircle(lat: number, lng: number) {
 		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
 
+		// Validate coordinates before creating marker
+		if (!isValidCoordinate(lat, lng)) {
+			console.error('Cannot create marker with invalid coordinates:', { lat, lng });
+			return;
+		}
+
 		const position = { lat, lng };
 
 		// Remove existing marker and circle
@@ -385,11 +450,11 @@
 				if (position) {
 					const newLat = typeof position.lat === 'function' ? position.lat() : position.lat;
 					const newLng = typeof position.lng === 'function' ? position.lng() : position.lng;
-					if (newLat && newLng) {
+					if (isValidCoordinate(newLat, newLng)) {
 						// Update circle position
-						if (circle) circle.setCenter({ lat: newLat, lng: newLng });
+						if (circle) circle.setCenter({ lat: newLat!, lng: newLng! });
 						// Update location data
-						updateLocationWithCoordinates(newLat, newLng);
+						updateLocationWithCoordinates(newLat!, newLng!);
 					}
 				}
 			});
@@ -466,10 +531,10 @@
 		const lat = place.location?.lat();
 		const lng = place.location?.lng();
 
-		if (!displayName || !lat || !lng) return;
+		if (!displayName || !isValidCoordinate(lat!, lng!	)) return;
 
 		// Update location
-		updateLocationWithCoordinates(lat, lng);
+		updateLocationWithCoordinates(lat!, lng!);
 
 		// Clear predictions
 		showOptions = false;
@@ -527,8 +592,8 @@
 				const position = marker.position;
 				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
 				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-				if (lat && lng) {
-					map.setCenter({ lat, lng });
+				if (isValidCoordinate(lat, lng)) {
+					map.setCenter({ lat: lat!, lng: lng! });
 				}
 			}
 			// Force a redraw by toggling zoom
@@ -608,8 +673,8 @@
 				const position = marker.position;
 				const lat = typeof position.lat === 'function' ? position.lat() : position.lat;
 				const lng = typeof position.lng === 'function' ? position.lng() : position.lng;
-				if (lat && lng) {
-					map.setCenter({ lat, lng });
+				if (isValidCoordinate(lat, lng)) {
+					map.setCenter({ lat: lat!, lng: lng! });
 				}
 			}
 			const currentZoom = map.getZoom();
