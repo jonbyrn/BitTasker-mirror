@@ -34,7 +34,7 @@
 
 			recommendations = await getRecommendedTasks(limit);
 		} catch (err) {
-			error = 'Failed to load recommendations. Please try again.';
+			error = $t('common.components.recommendations.error.load_failed');
 			console.error('Error loading recommendations:', err);
 		} finally {
 			loaders.data = false;
@@ -65,8 +65,8 @@
 			recommendations[index] = {
 				...recommendations[index],
 				reason: isRelevant
-					? "Thanks for your feedback! We'll show you more tasks like this."
-					: "We'll show you fewer tasks like this."
+					? $t('common.components.recommendations.feedback.thanks_more')
+					: $t('common.components.recommendations.feedback.thanks_fewer')
 			};
 		} catch (error) {
 			console.error('Error updating preferences from feedback:', error);
@@ -74,7 +74,7 @@
 			// Fallback to visual feedback only if preference update fails
 			recommendations[index] = {
 				...recommendations[index],
-				reason: isRelevant ? 'Thanks for your feedback!' : "We'll show you fewer tasks like this."
+				reason: isRelevant ? $t('common.components.recommendations.feedback.thanks_simple') : $t('common.components.recommendations.feedback.thanks_fewer')
 			};
 		} finally {
 			loaders.feedbackPositive = false;
@@ -125,7 +125,7 @@
 				/>
 			</svg>
 			<span>{error}</span>
-			<button class="btn btn-sm" onclick={loadRecommendations}>{$t('recommendations.type.generate')}</button>
+			<button class="btn btn-sm" onclick={loadRecommendations}>{$t('common.components.recommendations.error.generate')}</button>
 		</div>
 	{:else if loaders.data}
 		<div class="flex justify-center p-10">
@@ -150,7 +150,7 @@
 			<p class="text-lg font-semibold">{$t('recommendations.type.not_found')}</p>
 			<p class="mb-4 text-gray-500">{$t('recommendations.type.description')}</p>
 			<button class="btn btn-primary" onclick={refreshRecommendations}
-				>{$t('recommendations.type.generate')}</button
+				>{$t('common.components.recommendations.error.generate')}</button
 			>
 		</div>
 	{:else}

@@ -7,6 +7,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	import EscrowSuccessScreen from './EscrowSuccessScreen.svelte';
 	import ExternalWalletPaymentScreen from './ExternalWalletPaymentScreen.svelte';
+	import { t } from 'svelte-i18n';
 	// Props
 	const props = $props<{
 		bid: TaskBid;
@@ -87,7 +88,7 @@
 		const errors: Record<string, string> = {};
 
 		if (!selectedEscrowTab) {
-			errors.escrowMethod = 'Please select an escrow funding method';
+			errors.escrowMethod = $t('dashboard.bids.bid_acceptance.please_select_escrow_method');
 		}
 
 		validationErrors = errors;
@@ -175,12 +176,12 @@
 		<div
 			class="border-b bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4 pb-4 sm:p-6"
 		>
-			<h4 class="line-clamp-2 font-bold">Accept Bid & Fund Contract</h4>		
+			<h4 class="line-clamp-2 font-bold">{$t('dashboard.bids.bid_acceptance.title')}</h4>		
 			<button
 				type="button"
 				class="btn btn-ghost btn-sm btn-circle"
 				onclick={props.onCancel}
-				aria-label="Close dialog"
+				aria-label={$t('dashboard.bids.bid_acceptance.close_dialog')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -215,7 +216,7 @@
 									{#if props.bid.userProfile?.user?.profilePictureUrl}
 										<img
 											src={props.bid.userProfile.user.profilePictureUrl}
-											alt="Bidder Avatar"
+											alt={$t('dashboard.bids.bid_acceptance.bidder_avatar')}
 											class="h-10 w-10 rounded-full object-cover"
 										/>
 									{:else}
@@ -234,7 +235,7 @@
 								<span class="text-sm font-medium">
 									{props.bid.userProfile?.user?.name ||
 										props.bid.userProfile?.professionalTitle ||
-										'Anonymous'}
+										$t('dashboard.bids.bid_acceptance.anonymous')}
 								</span>
 
 								<div class="mt-1 flex items-center">
@@ -254,12 +255,12 @@
 									{/each}
 									<span class="text-base-content/60 ml-1 text-xs">
 										{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile
-											?.tasksCompleted || 0} tasks)
+											?.tasksCompleted || 0} {$t('dashboard.bids.bid_acceptance.tasks')})
 									</span>
 								</div>
 
 								<p class="text-base-content/60 mt-1 text-sm">
-									Member since
+									{$t('dashboard.bids.bid_acceptance.member_since')}
 									{new Date(props.bid.createdAt).toLocaleDateString('en-US', {
 										month: '2-digit',
 										year: 'numeric'
@@ -275,25 +276,25 @@
 					<div class="rounded-lg p-3">
 						<div class="space-y-2">
 							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium">Bid Price</span>
+								<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.bid_price')}</span>
 								<span class="text-xs font-bold"
 									>${formatNumberWithTwoDecimals(props.bid.amount)}
 								</span>
 							</div>
 
 							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium">Platform Fee</span>
+								<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.platform_fee')}</span>
 								<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
 							</div>
 
 							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium">Est. Transaction Fee</span>
+								<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.est_transaction_fee')}</span>
 								<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
 							</div>
 
 							<div class="border-base-200 border-t pt-2">
 								<div class="flex items-center justify-between">
-									<span class="text-base font-bold">Total Price</span>
+									<span class="text-base font-bold">{$t('dashboard.bids.bid_acceptance.total_price')}</span>
 									<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
 								</div>
 								<div class="mt-1 flex items-center justify-between">
@@ -317,7 +318,7 @@
 							{#if props.bid.userProfile?.user?.profilePictureUrl}
 								<img
 									src={props.bid.userProfile.user.profilePictureUrl}
-									alt="Bidder Avatar"
+									alt={$t('dashboard.bids.bid_acceptance.bidder_avatar')}
 									class="h-8 w-8 rounded-full object-cover"
 								/>
 							{:else}
@@ -336,7 +337,7 @@
 						<span class="text-sm font-medium">
 							{props.bid.userProfile?.user?.name ||
 								props.bid.userProfile?.professionalTitle ||
-								'Anonymous'}
+								$t('dashboard.bids.bid_acceptance.anonymous')}
 						</span>
 
 						<div class="mt-1 flex items-center">
@@ -356,12 +357,12 @@
 							{/each}
 							<span class="text-base-content/60 ml-1 text-xs">
 								{(props.bid.userProfile?.averageRating || 0).toFixed(1)} ({props.bid.userProfile
-									?.tasksCompleted || 0} tasks)
+									?.tasksCompleted || 0} {$t('dashboard.bids.bid_acceptance.tasks')})
 							</span>
 						</div>
 
 						<p class="text-base-content/60 mt-1 text-sm">
-							Member since
+							{$t('dashboard.bids.bid_acceptance.member_since')}
 							{new Date(props.bid.createdAt).toLocaleDateString('en-US', {
 								month: '2-digit',
 								year: 'numeric'
@@ -373,20 +374,20 @@
 				<!-- Price Breakdown -->
 				<div class=" space-y-2 rounded-2xl p-3">
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">Bid Price</span>
+						<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.bid_price')}</span>
 						<span class="text-xs font-bold">${formatNumberWithTwoDecimals(props.bid.amount)} </span>
 					</div>
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">Platform Fee</span>
+						<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.platform_fee')}</span>
 						<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
 					</div>
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">Est. Transaction Fee</span>
+						<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.est_transaction_fee')}</span>
 						<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
 					</div>
 					<div class="border-base-200 border-t pt-2">
 						<div class="flex items-center justify-between">
-							<span class="text-base font-semibold">Total Price</span>
+							<span class="text-base font-semibold">{$t('dashboard.bids.bid_acceptance.total_price')}</span>
 							<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
 						</div>
 						<div class="mt-1 flex items-center justify-between">
@@ -415,8 +416,7 @@
 					/>
 				</svg>
 				<small class="md:text-sm text-xs">
-					<strong>Note:</strong> You are entering into a contract with the taskee on the blockchain.
-					BitTasker is not able to access your funds or alter the contract after this.
+					<strong>{$t('dashboard.bids.bid_acceptance.note')}</strong> {$t('dashboard.bids.bid_acceptance.contract_note')}
 				</small>
 			</div>
 
@@ -429,16 +429,16 @@
 						class="tab flex-1 {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
 						onclick={() => (selectedEscrowTab = 'bittasker')}
 					>
-						<span class="hidden sm:inline">My Wallet</span>
-						<span class="sm:hidden">My Wallet</span>
+						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.my_wallet')}</span>
+						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.my_wallet')}</span>
 					</button>
 					<button
 						role="tab"
 						class="tab flex-1 {selectedEscrowTab === 'external' ? 'tab-active' : ''}"
 						onclick={() => (selectedEscrowTab = 'external')}
 					>
-						<span class="hidden sm:inline">External Wallet</span>
-						<span class="sm:hidden">External</span>
+						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.external_wallet')}</span>
+						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.external')}</span>
 					</button>
 				</div>
 
@@ -459,12 +459,12 @@
 										<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="h-8 w-8" />
 										<div class="flex flex-col text-start">
 											<span class="text-lg font-semibold">L-BTC</span>
-											<span class="text-base-content/60 text-sm">Liquid Bitcoin</span>
+											<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.liquid_bitcoin')}</span>
 										</div>
 									</div>
 									<div class="flex flex-col items-end">
 										<span class="text-lg font-bold">100,000</span>
-										<span class="text-base-content/60 text-sm">SATS</span>
+										<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.sats')}</span>
 									</div>
 								</div>
 							</div>
@@ -484,12 +484,12 @@
 										<img src="/currency-symbols/USDt.svg" alt="USDT" class="h-8 w-8" />
 										<div class="flex flex-col text-start">
 											<span class="text-lg font-semibold">USDT</span>
-											<span class="text-base-content/60 text-sm">Tether USD</span>
+											<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.tether_usd')}</span>
 										</div>
 									</div>
 									<div class="flex flex-col items-end">
 										<span class="text-lg font-bold">$120.00</span>
-										<span class="text-base-content/60 text-sm">USDT</span>
+										<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.usdt')}</span>
 									</div>
 								</div>
 							</div>
@@ -515,12 +515,12 @@
 									</div>
 									<div class="flex flex-col text-start">
 										<span class="text-base font-bold">BTC</span>
-										<span class="text-base-content/70 text-xs">Lightning Network</span>
+										<span class="text-base-content/70 text-xs">{$t('dashboard.bids.bid_acceptance.lightning_network')}</span>
 									</div>
 								</div>
 								<div class="flex flex-col items-end text-right">
-									<span class="text-primary text-xs font-bold">Fast</span>
-									<span class="text-base-content/60 text-xs">Payments</span>
+									<span class="text-primary text-xs font-bold">{$t('dashboard.bids.bid_acceptance.fast')}</span>
+									<span class="text-base-content/60 text-xs">{$t('dashboard.bids.bid_acceptance.payments')}</span>
 								</div>
 							</div>
 						</button>
@@ -540,12 +540,12 @@
 									</div>
 									<div class="flex flex-col text-start">
 										<span class="text-base font-bold">L-BTC</span>
-										<span class="text-base-content/70 text-xs">Liquid Bitcoin</span>
+										<span class="text-base-content/70 text-xs">{$t('dashboard.bids.bid_acceptance.liquid_bitcoin')}</span>
 									</div>
 								</div>
 								<div class="flex flex-col items-end text-right">
-									<span class="text-base-content text-xs font-bold">Private</span>
-									<span class="text-base-content/60 text-xs">Confidential</span>
+									<span class="text-base-content text-xs font-bold">{$t('dashboard.bids.bid_acceptance.private')}</span>
+									<span class="text-base-content/60 text-xs">{$t('dashboard.bids.bid_acceptance.confidential')}</span>
 								</div>
 							</div>
 						</button>
@@ -565,12 +565,12 @@
 									</div>
 									<div class="flex flex-col text-start">
 										<span class="text-base font-bold">USDT</span>
-										<span class="text-base-content/70 text-xs">Tether USD</span>
+										<span class="text-base-content/70 text-xs">{$t('dashboard.bids.bid_acceptance.tether_usd')}</span>
 									</div>
 								</div>
 								<div class="flex flex-col items-end text-right">
-									<span class="text-base-content text-xs font-bold">Stable</span>
-									<span class="text-base-content/60 text-xs"> Pegged</span>
+									<span class="text-base-content text-xs font-bold">{$t('dashboard.bids.bid_acceptance.stable')}</span>
+									<span class="text-base-content/60 text-xs"> {$t('dashboard.bids.bid_acceptance.pegged')}</span>
 								</div>
 							</div>
 						</button>
@@ -595,7 +595,7 @@
 					onclick={props.onCancel}
 					disabled={isSubmitting}
 				>
-					Cancel
+					{$t('dashboard.bids.bid_acceptance.cancel')}
 				</button>
 				<button
 					type="button"
@@ -604,9 +604,9 @@
 					onclick={handleSubmit}
 				>
 					<span class="hidden sm:inline"
-						>{isSubmitting ? 'Processing...' : 'Accept Bid & Fund Contract'}</span
+						>{isSubmitting ? $t('dashboard.bids.bid_acceptance.processing') : $t('dashboard.bids.bid_acceptance.accept_bid_fund_contract')}</span
 					>
-					<span class="sm:hidden">{isSubmitting ? 'Processing...' : 'Accept & Fund'}</span>
+					<span class="sm:hidden">{isSubmitting ? $t('dashboard.bids.bid_acceptance.processing') : $t('dashboard.bids.bid_acceptance.accept_fund')}</span>
 				</button>
 			</div>
 		</div>

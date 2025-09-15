@@ -5,6 +5,7 @@
 
 	import { goto } from '$app/navigation';
 	import { setupMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
+	import { t } from 'svelte-i18n';
 
 	let mnemonic = $state('');
 	let error = $state('');
@@ -13,7 +14,7 @@
 		const cleaned = mnemonic.trim().replace(/\s+/g, ' ');
 		const wordCount = cleaned.split(' ').length;
 		if (wordCount !== 12 && wordCount !== 24) {
-			error = 'Please enter a valid 12 or 24-word recovery phrase';
+			error = $t('common.components.wallet.import_wallet.invalid_phrase');
 			return;
 		}
 
@@ -28,24 +29,24 @@
 </script>
 
 <div class="p-8 pb-0">
-	<h2 class="mb-6 text-center text-2xl font-bold">Import Existing Wallet</h2>
+	<h2 class="mb-6 text-center text-2xl font-bold">{$t('common.components.wallet.import_wallet.title')}</h2>
 
 	<div class="form-control space-y-6">
 		<div>
-			<span class="label-text font-medium">Enter your seed phrase</span>
+			<span class="label-text font-medium">{$t('common.components.wallet.import_wallet.enter_seed')}</span>
 			<textarea
 				class="textarea textarea-bordered focus:border-primary h-32 w-full rounded-lg"
-				placeholder="Enter your 12 or 24 word seed phrase separated by spaces"
+				placeholder={$t('common.components.wallet.import_wallet.placeholder')}
 				bind:value={mnemonic}
 			></textarea>
 			<p class="text-base-content/70 mt-1 text-xs">
-				Your seed phrase is the 12 or 24 words you received when creating your wallet
+				{$t('common.components.wallet.import_wallet.description')}
 			</p>
 			{#if error}
 				<p class="text-error mt-1 text-xs overflow-ellipsis">{error}</p>
 			{/if}
 		</div>
 
-		<button class="btn btn-primary w-full" onclick={handleImport}> Import Wallet </button>
+		<button class="btn btn-primary w-full" onclick={handleImport}> {$t('common.components.wallet.import_wallet.import')} </button>
 	</div>
 </div>

@@ -2,6 +2,7 @@
 	import type { Bid, CounterOffer } from '$lib/types/bid';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { formatDate } from '$lib/utils/helpers/dateFormatter';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -41,11 +42,11 @@
 </script>
 
 <div class="space-y-6">
-	<h3 class="text-lg font-medium">Negotiation History ({props.counterOffers.length})</h3>
+	<h3 class="text-lg font-medium">{$t('common.components.bidding.counter_offer_history.title', { values: { count: props.counterOffers.length } })}</h3>
 
 	{#if props.counterOffers.length === 0}
 		<div class="bg-base-200 rounded-lg p-4 text-center">
-			<p>No counter offers yet</p>
+			<p>{$t('common.components.bidding.counter_offer_history.no_offers')}</p>
 		</div>
 	{:else}
 		<div class="space-y-4">
@@ -62,13 +63,13 @@
 								</h4>
 								{#if offer.timeFrame}
 									<p class="mt-1 text-sm">
-										Estimated completion: {offer.timeFrame.estimatedCompletion}
+										{$t('common.components.bidding.counter_offer_history.estimated_completion')} {offer.timeFrame.estimatedCompletion}
 									</p>
 								{/if}
 							</div>
 							<div class="text-right">
 								<p class="text-base-content/60 text-sm">
-									{wasProposedByCurrentUser(offer.proposedBy) ? 'You' : 'They'} proposed
+									{wasProposedByCurrentUser(offer.proposedBy) ? $t('common.components.bidding.counter_offer_history.you_proposed') : $t('common.components.bidding.counter_offer_history.they_proposed')}
 								</p>
 								<p class="text-base-content/60 text-xs">
 									{formatDate(offer.createdAt)}
@@ -87,14 +88,14 @@
 									onclick={() => handleResponse(offer.id, 'reject')}
 									disabled={isLoading}
 								>
-									Decline
+									{$t('common.components.bidding.counter_offer_history.decline')}
 								</button>
 								<button
 									class="btn btn-sm btn-primary"
 									onclick={() => handleResponse(offer.id, 'accept')}
 									disabled={isLoading}
 								>
-									Accept
+									{$t('common.components.bidding.counter_offer_history.accept')}
 								</button>
 							</div>
 						{/if}

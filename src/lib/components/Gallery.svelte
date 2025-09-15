@@ -1,5 +1,6 @@
 <script>
   import { onMount } from 'svelte';
+  import { t } from 'svelte-i18n';
   import PhotoSwipeLightbox from 'photoswipe/lightbox';
   import 'photoswipe/style.css';
 
@@ -34,7 +35,7 @@
       >
         <img
           src={image.url || image.thumbnailURL}
-          alt={image.alt || `Image ${index + 1}`}
+          alt={image.alt || $t('common.components.gallery.image_alt', { values: { index: index + 1 } })}
           class="cursor-pointer rounded-2xl px-2 shadow transition-transform hover:scale-105 {thumbnailSize} object-cover"
         />
       </a>

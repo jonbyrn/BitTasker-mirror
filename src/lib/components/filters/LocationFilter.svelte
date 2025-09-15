@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
 	import locationService from '$lib/api/services/location.service';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let { location, radius, onLocationChange } = $props<{
@@ -83,7 +84,7 @@
 			onLocationChange(location.displayName, radiusValue);
 		} catch (error) {
 			console.error('Error getting current location:', error);
-			locationError = 'Failed to get your location. Please check permissions.';
+			locationError = $t('dashboard.bids.components.filters.location.location_error');
 		} finally {
 			isGettingCurrentLocation = false;
 		}
@@ -131,7 +132,7 @@
 				<input
 					type="text"
 					class="input input-bordered w-full pr-10"
-					placeholder="Search location..."
+					placeholder={$t('dashboard.bids.components.filters.location.search_location_placeholder')}
 					bind:value={searchQuery}
 					oninput={searchLocations}
 					onfocus={() => searchQuery && (showResults = true)}
@@ -140,7 +141,7 @@
 				<!-- Clear button -->
 				{#if searchQuery}
 					<button
-						aria-label="Clear location"
+						aria-label={$t('dashboard.bids.components.filters.location.clear_location')}
 						class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
 						onclick={clearLocation}
 					>
@@ -211,7 +212,7 @@
 						onclick={() => selectLocation(result)}
 					>
 						<div class="font-medium">{result.displayName}</div>
-						<div class="text-sm text-gray-500">ZIP: {result.zipCode}</div>
+						<div class="text-sm text-gray-500">{$t('dashboard.bids.components.filters.location.zip')} {result.zipCode}</div>
 					</button>
 				{/each}
 			</div>
@@ -225,7 +226,7 @@
 	<!-- Radius selection -->
 	<div>
 		<label class="label" for="radius">
-			<span class="label-text">Search Radius: {radiusValue} km</span>
+			<span class="label-text">{$t('dashboard.bids.components.filters.location.search_radius', { values: { radius: radiusValue } })}</span>
 		</label>
 		<input
 			type="range"
@@ -236,10 +237,10 @@
 			oninput={handleRadiusChange}
 		/>
 		<div class="mt-1 flex justify-between px-1 text-xs">
-			<span>1km</span>
-			<span>25km</span>
-			<span>50km</span>
-			<span>100km</span>
+			<span>{$t('dashboard.bids.components.filters.location.radius_1km')}</span>
+			<span>{$t('dashboard.bids.components.filters.location.radius_25km')}</span>
+			<span>{$t('dashboard.bids.components.filters.location.radius_50km')}</span>
+			<span>{$t('dashboard.bids.components.filters.location.radius_100km')}</span>
 		</div>
 	</div>
 
@@ -260,7 +261,7 @@
 					d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4"
 				/>
 			</svg>
-			View on Map
+			{$t('dashboard.bids.components.filters.location.view_on_map')}
 		</button>
 	</div>
 </div>

@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import type { Task } from '$lib/types/task.d';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+	import { t } from 'svelte-i18n';
 
 	const {
 		tasks,
@@ -167,7 +168,7 @@
 							class="card bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg"
 							role="button"
 							tabindex="0"
-							aria-label="Ver tarea"
+							aria-label={$t('dashboard.bids.components.maps.mobile_map_sheet.view_task')}
 							on:click={() => onCardClick(task)}
 							on:keydown={(e) => onCardKeydown(e, task)}
 							data-task-id={task.id}
@@ -191,7 +192,7 @@
 									{:else if task.pickupLocation?.displayName}
 										{task.pickupLocation.displayName}
 									{:else}
-										Remoto
+										{$t('dashboard.bids.components.maps.mobile_map_sheet.remote')}
 									{/if}
 								</div>
 
@@ -201,17 +202,17 @@
 										class="btn btn-primary btn-sm flex-1"
 										on:click={(e) => onBidClick(task, e)}
 									>
-										Ofertar ahora
+										{$t('dashboard.bids.components.maps.mobile_map_sheet.bid_now')}
 									</button>
 									<a class="btn btn-secondary btn-sm flex-1" href={`/dashboard/task/${task.id}`}
-										>Ver tarea</a
+										>{$t('dashboard.bids.components.maps.mobile_map_sheet.view_task')}</a
 									>
 								</div>
 							</div>
 						</div>
 					{/each}
 				{:else}
-					<div class="text-base-content/70 p-6 text-center text-sm">Sin resultados</div>
+					<div class="text-base-content/70 p-6 text-center text-sm">{$t('dashboard.bids.components.maps.mobile_map_sheet.no_results')}</div>
 				{/if}
 			</div>
 		</div>

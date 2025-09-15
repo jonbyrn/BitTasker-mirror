@@ -213,7 +213,7 @@
 		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
-				alt="BitTasker Logo"
+				alt={$t('common.components.topbar.logo_alt')}
 				class="mx-auto block max-h-10"
 				width="40"
 				height="40"
@@ -238,7 +238,7 @@
 			<button
 				class="btn btn-ghost btn-circle relative md:hidden"
 				onclick={toggleDrawer}
-				aria-label={isDrawerOpen ? 'Close menu' : 'Open menu'}
+				aria-label={isDrawerOpen ? $t('common.components.topbar.close_menu') : $t('common.components.topbar.open_menu')}
 			>
 				<div class="flex h-5 w-5 flex-col items-start justify-center">
 					<span

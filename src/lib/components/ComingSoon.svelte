@@ -5,6 +5,7 @@
 	 * A reusable component to display coming soon pages with optional custom content
 	 * Includes glow effects and matches the application's theme
 	 */
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -17,11 +18,10 @@
 		children?: import('svelte').Snippet;
 	}>();
 
-	// Default values
-	const title = props.title ?? 'Coming Soon';
-	const subtitle = props.subtitle ?? 'This feature is under development';
-	const description =
-		props.description ?? "We're working hard to bring you something amazing. Stay tuned!";
+	// Default values using translations
+	const title = props.title ?? $t('common.coming_soon.title');
+	const subtitle = props.subtitle ?? $t('common.coming_soon.subtitle');
+	const description = props.description ?? $t('common.coming_soon.description');
 	const showIcon = props.showIcon ?? true;
 	const showGlow = props.showGlow ?? true;
 	const size: 'sm' | 'md' | 'lg' = props.size ?? 'md';

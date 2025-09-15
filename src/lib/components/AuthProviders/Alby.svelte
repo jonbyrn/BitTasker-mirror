@@ -3,6 +3,7 @@
 	import { browser } from '$app/environment';
 	import { authState } from '$lib/stores/auth.store';
 	import authService from '$lib/api/services/auth.service';
+	import { t } from 'svelte-i18n';
 
 	let { disabled = false } = $props();
 
@@ -17,7 +18,7 @@
 			isInitialized = typeof window.nostr !== 'undefined';
 			if (!isInitialized) {
 				showAlby = false;
-				error = 'Nostr extension not detected. Please install Alby extension.';
+				error = $t('auth.login.errors.nostr_extension_not_detected');
 			} else {
 				showAlby = true;
 			}
@@ -27,7 +28,7 @@
 	// Handle Nostr login using window.nostr directly
 	async function handleLogin() {
 		if (!isInitialized) {
-			error = 'Nostr extension not detected. Please install Alby extension.';
+			error = $t('auth.login.errors.nostr_extension_not_detected');
 			return;
 		}
 
@@ -37,12 +38,12 @@
 		try {
 			// Get public key from the Nostr extension
 			if (!window.nostr) {
-				throw new Error('Nostr extension not available');
+				throw new Error($t('auth.login.errors.nostr_extension_not_available'));
 			}
 
 			const pubkey = await window.nostr.getPublicKey();
 			if (!pubkey) {
-				throw new Error('No public key returned from Nostr extension');
+				throw new Error($t('auth.login.errors.no_public_key_returned'));
 			}
 
 			// Get challenge from the server
@@ -62,7 +63,7 @@
 
 			// Sign the event using window.nostr.signEvent
 			if (!window.nostr) {
-				throw new Error('Nostr extension not available');
+				throw new Error($t('auth.login.errors.nostr_extension_not_available'));
 			}
 
 			// signEvent returns the event with a signature and id added
@@ -80,7 +81,7 @@
 			}
 		} catch (err) {
 			console.error('Nostr login error:', err);
-			error = (err as Error)?.message || 'Failed to sign in with Nostr';
+			error = (err as Error)?.message || $t('auth.login.errors.failed_sign_in_nostr');
 		} finally {
 			isLoading = false;
 		}
@@ -176,7 +177,7 @@
 					/>
 				</svg>
 			{/if}
-			Continue with Alby
+			{$t('auth.login.continue_with_alby')}
 		</div>
 	</button>
 	{#if error}

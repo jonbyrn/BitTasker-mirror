@@ -4,6 +4,8 @@
   and time of day preferences
 -->
 <script lang="ts">
+	import { t } from 'svelte-i18n';
+
 	// Props
 	let { onAvailabilityChange = () => {} } = $props<{
 		onAvailabilityChange?: (
@@ -66,7 +68,7 @@
 	<!-- Filter Type Selection -->
 	<div class="flex items-center justify-between gap-2">
 		<label class="label" for="filter-type">
-			<span class="label-text font-medium">Filter Type</span>
+			<span class="label-text font-medium">{$t('dashboard.bids.components.filters.availability.filter_type')}</span>
 		</label>
 		<div class="flex flex-wrap gap-2">
 			<button
@@ -74,14 +76,14 @@
 				class:btn-primary={filterMode === 'date_range'}
 				onclick={() => (filterMode = 'date_range')}
 			>
-				Date Range
+				{$t('dashboard.bids.components.filters.availability.date_range')}
 			</button>
 			<button
 				class="btn btn-sm"
 				class:btn-primary={filterMode === 'deadline'}
 				onclick={() => (filterMode = 'deadline')}
 			>
-				Deadline
+				{$t('dashboard.bids.components.filters.availability.deadline')}
 			</button>
 		</div>
 	</div>
@@ -90,12 +92,12 @@
 		<!-- Date Range -->
 		<div>
 			<label class="label" for="date-range">
-				<span class="label-text font-medium">Date Range</span>
+				<span class="label-text font-medium">{$t('dashboard.bids.components.filters.availability.date_range')}</span>
 			</label>
 			<div class="grid grid-cols-2 gap-2">
 				<div>
 					<label class="label mb-1 p-0" for="start-date">
-						<span class="label-text text-xs">Start Date</span>
+						<span class="label-text text-xs">{$t('dashboard.bids.components.filters.availability.start_date')}</span>
 					</label>
 					<input
 						type="date"
@@ -105,7 +107,7 @@
 				</div>
 				<div>
 					<label class="label mb-1 p-0" for="end-date">
-						<span class="label-text text-xs">End Date</span>
+						<span class="label-text text-xs">{$t('dashboard.bids.components.filters.availability.end_date')}</span>
 					</label>
 					<input
 						type="date"
@@ -150,7 +152,7 @@
 	<!-- Clear button -->
 	<div>
 		<button class="btn btn-sm btn-ghost" onclick={clearAvailability}>
-			Clear Availability Filters
+			{$t('dashboard.bids.components.filters.availability.clear_availability_filters')}
 		</button>
 	</div>
 </div>

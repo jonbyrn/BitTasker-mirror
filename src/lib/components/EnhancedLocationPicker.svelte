@@ -9,7 +9,7 @@
 
 	let {
 		label = '',
-		placeholder = 'Enter address',
+		placeholder = $t('common.components.location_picker.enter_address'),
 		location = {
 			displayName: '',
 			longitude: -122.4194,

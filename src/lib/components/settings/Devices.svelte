@@ -105,13 +105,13 @@
 	function getDevicePlatformName(platform?: string | null): string {
 		switch (platform?.toUpperCase()) {
 			case 'ANDROID':
-				return 'Android';
+				return $t('common.components.devices.platforms.android');
 			case 'IOS':
-				return 'iOS';
+				return $t('common.components.devices.platforms.ios');
 			case 'WEB':
-				return 'Web Browser';
+				return $t('common.components.devices.platforms.web');
 			default:
-				return 'Unknown';
+				return $t('common.components.devices.platforms.unknown');
 		}
 	}
 
@@ -126,9 +126,9 @@
 		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
 		if (diffMins < 1) return $t('settings.devices.lastUsed.justNow');
-		if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
-		if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
-		if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+		if (diffMins < 60) return `${diffMins} ${diffMins === 1 ? $t('common.components.devices.time_units.minute') : $t('common.components.devices.time_units.minutes')} ago`;
+		if (diffHours < 24) return `${diffHours} ${diffHours === 1 ? $t('common.components.devices.time_units.hour') : $t('common.components.devices.time_units.hours')} ago`;
+		if (diffDays < 7) return `${diffDays} ${diffDays === 1 ? $t('common.components.devices.time_units.day') : $t('common.components.devices.time_units.days')} ago`;
 
 		return date.toLocaleDateString();
 	}

@@ -3,6 +3,8 @@
 	Handles address input with type detection and validation
 -->
 <script lang="ts">
+	import { t } from 'svelte-i18n';
+	
 	// Props
 	let {
 		recipientAddress = $bindable(''),
@@ -48,7 +50,7 @@
 
 <div class="form-control">
 	<div class="label">
-		<span class="label-text text-sm sm:text-base">Recipient</span>
+		<span class="label-text text-sm sm:text-base">{$t('common.components.wallet.recipient_input.recipient')}</span>
 		{#if addressType !== 'unknown'}
 			<span class="label-text-alt flex items-center gap-1 text-xs sm:text-sm">
 				<span class="text-lg">{getAddressTypeIcon()}</span>
@@ -59,7 +61,7 @@
 	<div class="flex w-full">
 		<input
 			type="text"
-			placeholder="Address, Lightning invoice, or Lightning address"
+			placeholder={$t('common.components.wallet.recipient_input.placeholder')}
 			class="input input-bordered w-full text-sm sm:text-base"
 			bind:value={recipientAddress}
 			oninput={(e) => onAddressChange(e)}

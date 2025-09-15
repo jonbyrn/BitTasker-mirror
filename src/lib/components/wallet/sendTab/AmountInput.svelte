@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
 	import { walletStore, selectedAsset, walletRates } from '$lib/stores/wallet.store';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
@@ -137,24 +138,20 @@
 
 <div class="form-control">
 	<div class="label">
-		<span class="label-text text-sm sm:text-base">Amount</span>
+		<span class="label-text text-sm sm:text-base">{$t('common.components.wallet.amount_input.amount')}</span>
 		<div class="label-text-alt flex items-center gap-2 text-xs">
 			{#if selectedAssetTicker === 'L-BTC' && limits.lightning?.send}
 				<span class="text-info">
-					Min: {formatSatsDisplay(limits.lightning.send.minSat)} - Max: {formatSatsDisplay(
-						limits.lightning.send.maxSat
-					)}
+					{$t('common.components.wallet.amount_input.min_max', { values: { min: formatSatsDisplay(limits.lightning.send.minSat), max: formatSatsDisplay(limits.lightning.send.maxSat) } })}
 				</span>
 			{:else if selectedAssetTicker === 'BTC' && limits.onchain?.send}
 				<span class="text-info">
-					Min: {formatSatsDisplay(limits.onchain.send.minSat)} - Max: {formatSatsDisplay(
-						limits.onchain.send.maxSat
-					)}
+					{$t('common.components.wallet.amount_input.min_max', { values: { min: formatSatsDisplay(limits.onchain.send.minSat), max: formatSatsDisplay(limits.onchain.send.maxSat) } })}
 				</span>
 			{:else if selectedAssetTicker === 'USDt'}
 				<span class="text-info"> Min: 0.01 USDt - Max: 10,000.00 USDt </span>
 			{:else}
-				<span class="text-base-content/60"> Loading limits... </span>
+				<span class="text-base-content/60"> {$t('common.components.wallet.amount_input.loading_limits')} </span>
 			{/if}
 		</div>
 	</div>
@@ -216,7 +213,7 @@
 		<div class="flex flex-col gap-1 text-xs">
 			{#if recipientAddress && (estimatedFees || validationError)}
 				<div class="text-base-content/60 flex items-center justify-between">
-					<span>Available Balance:</span>
+					<span>{$t('common.components.wallet.amount_input.available_balance')}</span>
 					<span class="font-mono">{formatSatsDisplay(availableBalance)}</span>
 				</div>
 
@@ -225,13 +222,13 @@
 					<div
 						class="text-error border-base-300 flex items-start justify-between gap-1 border-t pt-1"
 					>
-						<span>Error:</span>
+						<span>{$t('common.components.wallet.amount_input.error')}</span>
 						<span class="font-mono text-xs">{validationError}</span>
 					</div>
 				{:else}
 					<!-- Show normal fee information -->
 					<div class="text-base-content/60 flex items-center justify-between">
-						<span>Estimated Fees:</span>
+						<span>{$t('common.components.wallet.amount_input.estimated_fees')}</span>
 						<span class="font-mono">
 							{#if isLoadingFees}
 								<span class="loading loading-spinner loading-xs"></span>
@@ -244,15 +241,15 @@
 						<div
 							class="text-base-content/60 border-base-300 flex items-center justify-between border-t pt-1"
 						>
-							<span>Max Sendable:</span>
+							<span>{$t('common.components.wallet.amount_input.max_sendable')}</span>
 							<span class="text-success font-mono">
 								{formatSatsDisplay(availableBalance - estimatedFees)}
 							</span>
 						</div>
 					{:else}
 						<div class="text-error border-base-300 flex items-center justify-between border-t pt-1">
-							<span>Status:</span>
-							<span class="font-mono text-xs">Insufficient funds</span>
+							<span>{$t('common.components.wallet.amount_input.status')}</span>
+							<span class="font-mono text-xs">{$t('common.components.wallet.amount_input.insufficient_funds')}</span>
 						</div>
 					{/if}
 				{/if}

@@ -5,6 +5,7 @@
 	 * A customizable modal dialog that can be used throughout the application
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -87,7 +88,7 @@
 					<button
 						class="btn btn-circle btn-ghost btn-sm"
 						onclick={props.onClose}
-						aria-label="Close dialog"
+						aria-label={$t('common.components.modal.close')}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

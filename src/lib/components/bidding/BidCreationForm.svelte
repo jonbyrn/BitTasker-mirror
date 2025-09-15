@@ -260,11 +260,11 @@
 			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
 
 			if (diffDays > 1) {
-				return `${diffDays} days`;
+				return `${diffDays} ${$t('dashboard.bids.bid_creation.days')}`;
 			} else if (diffHours > 1) {
-				return `${diffHours} hours`;
+				return `${diffHours} ${$t('dashboard.bids.bid_creation.hours')}`;
 			} else {
-				return '1 hour';
+				return $t('dashboard.bids.bid_creation.one_hour');
 			}
 		}
 		return '';
@@ -283,8 +283,8 @@
 			const bidData = {
 				type: 'bid' as const,
 				taskId: taskId,
-				taskTitle: taskTitle || 'Untitled Task',
-				taskDescription: taskDescription || 'No description available', // Add task description
+				taskTitle: taskTitle || $t('dashboard.bids.bid_creation.untitled_task'),
+				taskDescription: taskDescription || $t('dashboard.bids.bid_creation.no_description_available'), // Add task description
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -310,7 +310,7 @@
 			bidSubmitted = true;
 		} catch (error) {
 			console.error('Failed to submit bid:', error);
-			bidFormErrors.general = error instanceof Error ? error.message : 'Failed to submit bid';
+			bidFormErrors.general = error instanceof Error ? error.message : $t('dashboard.bids.bid_creation.failed_to_submit_bid');
 		} finally {
 			submittingBid = false;
 		}
@@ -613,12 +613,12 @@
 						<div class="text-sm opacity-70">
 							${hourlyRate.toLocaleString('en-US')} × {parseFloat(
 								estimatedHours || '0'
-							).toLocaleString('en-US')} hours
+							).toLocaleString('en-US')} {$t('dashboard.bids.bid_creation.hours')}
 						</div>
 						<div class="mt-1 text-sm opacity-70">
 							≈ {Math.round(
 								(hourlyRate / btcPrice) * 100_000_000 * parseFloat(estimatedHours || '0')
-							).toLocaleString('en-US')} sats
+							).toLocaleString('en-US')} {$t('dashboard.bids.bid_creation.sats')}
 						</div>
 					</div>
 				</div>
@@ -646,7 +646,7 @@
 					<small
 						class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}"
 					>
-						{description.length}/500 max
+						{description.length}/500 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
@@ -684,7 +684,7 @@
 							? 'text-warning'
 							: ''}"
 					>
-						{proposedApproach.length}/1000 max
+						{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.proposedApproach}
@@ -717,7 +717,7 @@
 					<small
 						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
 					>
-						{coverLetter.length}/800 max
+						{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.coverLetter}

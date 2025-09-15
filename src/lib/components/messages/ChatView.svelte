@@ -31,7 +31,7 @@ import { t } from 'svelte-i18n';
 	let isSendingMessage = $state(false);
 	let error = $state('');
 	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
-let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t('messages.you') });
+let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t('dashboard.bids.components.messages.chat_message.you') });
 
 	// Pagination state
 	let isLoadingMore = $state(false);
@@ -278,7 +278,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 				recipientProfile = initialProfile;
 			}
         } catch (err) {
-            error = 'messages.failed_load_messages';
+            error = 'dashboard.bids.components.messages.chat_view.failed_load_messages';
 			console.error('Error loading messages:', err);
 		} finally {
 			isLoadingMessages = false;
@@ -415,9 +415,9 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 		}
 
 		// Fetch current user's initial profile
-        fetchProfileMetadata(currentUserHex())
+		fetchProfileMetadata(currentUserHex())
 			.then((profile) => {
-                currentUserProfile = { name: profile.name || $t('messages.you'), picture: profile.picture };
+                currentUserProfile = { name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'), picture: profile.picture };
 			})
 			.catch((err) => {
 				console.error('Failed to fetch current user profile:', err);
@@ -427,7 +427,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
         currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
 			// Only update if we get valid profile data
 			if (profile && (profile.name || profile.picture)) {
-                currentUserProfile = { name: profile.name || $t('messages.you'), picture: profile.picture };
+                currentUserProfile = { name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'), picture: profile.picture };
 			}
 		});
 	}
@@ -475,7 +475,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
 			newMessageText = messageContent;
-            error = 'messages.failed_send_message';
+            error = 'dashboard.bids.components.messages.chat_view.failed_send_message';
 			console.error('Error sending message:', err);
 
 			// Clear error after 5 seconds
@@ -535,13 +535,13 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 		class="max-h-[70dvh] min-h-0 flex-1 space-y-1 overflow-y-auto p-4"
 		role="log"
         aria-live="polite"
-        aria-label={$t('messages.chat_messages_aria')}
+        aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
 	>
 		{#if isLoadingMessages}
 			<!-- Loading State -->
             <div class="flex items-center justify-center py-8">
 				<div class="loading loading-spinner loading-md"></div>
-                <span class="ml-2">{$t('messages.loading_messages')}</span>
+                <span class="ml-2">{$t('dashboard.bids.components.messages.chat_view.loading_messages')}</span>
 			</div>
 		{:else if error}
 			<!-- Error State -->
@@ -568,13 +568,13 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
                     {#if isLoadingMore}
 						<div class="text-base-content/60 flex items-center gap-2 text-sm">
 							<div class="loading loading-spinner loading-sm"></div>
-                            {$t('messages.loading_older_messages')}
+                            {$t('dashboard.bids.components.messages.chat_view.loading_older_messages')}
 						</div>
 					{:else}
 						<button
 							class="btn btn-ghost btn-sm"
 							onclick={handleLoadMore}
-                            aria-label={$t('messages.load_older_messages')}
+                            aria-label={$t('dashboard.bids.components.messages.chat_view.load_older_messages')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -590,7 +590,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 									d="M5 15l7-7 7 7"
 								/>
 							</svg>
-                            {$t('messages.load_older_messages')}
+                            {$t('dashboard.bids.components.messages.chat_view.load_older_messages')}
 						</button>
 					{/if}
 				</div>
@@ -613,7 +613,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 							d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
 						/>
 					</svg>
-                    <p class="text-base-content/60">{$t('messages.no_messages')} {$t('messages.start_conversation')}</p>
+                    <p class="text-base-content/60">{$t('dashboard.bids.components.messages.chat_view.no_messages')} {$t('dashboard.bids.components.messages.chat_view.start_conversation')}</p>
 				</div>
 			{:else}
 				<!-- Messages List -->
@@ -643,7 +643,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
 						class="textarea placeholder-base-content/50 bg-base-200 min-h-0 w-full resize-none border-0 p-2 text-base leading-6 focus:outline-none"
-                        placeholder={$t('messages.type_message_placeholder')}
+                        placeholder={$t('dashboard.bids.components.messages.chat_view.type_message_placeholder')}
 						rows="1"
 						disabled={isSendingMessage}
 						autofocus
@@ -679,7 +679,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 					type="submit"
 					class="btn btn-primary btn-sm h-10 min-h-0 w-12 rounded-full"
 					disabled={!newMessageText.trim() || isSendingMessage}
-                    title={$t('messages.send_message')}
+                    title={$t('dashboard.bids.components.messages.chat_view.send_message')}
 				>
 					{#if isSendingMessage}
 						<span class="loading loading-spinner loading-sm"></span>
@@ -705,7 +705,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			<!-- Typing indicator or character count could go here -->
             {#if newMessageText.length > 1000}
 				<div class="text-warning mt-2 text-right text-sm">
-                    {newMessageText.length}/2000 {$t('messages.characters')}
+                    {newMessageText.length}/2000 {$t('dashboard.bids.components.messages.chat_view.characters')}
 				</div>
 			{/if}
 		</form>
