@@ -44,7 +44,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h3>{$t('title')}</h3>
+				<h1>{$t('title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('subtitle')}
 				</p>

@@ -57,7 +57,7 @@
 			<div class="hero-content flex-col text-center">
 				<Logo />
 				<div class="max-w-3xl">
-					<h3>{$t('guidelines.title')}</h3>
+					<h1>{$t('guidelines.title')}</h1>
 					<p class="text-base-content/80 py-6 text-lg mb-6">
 						{@html $t('guidelines.intro')}
 					</p>

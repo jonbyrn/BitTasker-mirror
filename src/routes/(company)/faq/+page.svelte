@@ -62,7 +62,7 @@
 			<Logo />
 			<div class="max-w-3xl text-center">
 				<!-- FAQ Section Header -->
-				<h3>{$t('faq.title')}</h3>
+				<h1>{$t('faq.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('faq.description')}
 				</p>
