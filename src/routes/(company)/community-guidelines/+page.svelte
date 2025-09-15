@@ -54,18 +54,18 @@
 
 <div class="w-full">
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
-			<div class="hero-content flex-col text-center">
-				<Logo />
-				<div class="max-w-3xl">
-					<h1>{$t('guidelines.title')}</h1>
-					<p class="text-base-content/80 py-6 text-lg mb-6">
-						{@html $t('guidelines.intro')}
-					</p>
-					<p class="text-base-content/80 text-sm">
-						{$t('guidelines.last_updated')}
-					</p>
-				</div>
+		<div class="hero-content flex-col text-center">
+			<Logo />
+			<div class="max-w-3xl">
+				<h1>{$t('guidelines.title')}</h1>
+				<p class="text-base-content/80 py-6 text-lg mb-6">
+					{@html $t('guidelines.intro')}
+				</p>
+				<p class="text-base-content/80 text-sm">
+					{$t('guidelines.last_updated')}
+				</p>
 			</div>
+		</div>
 	</section>
 
 	<div class="prose mx-auto max-w-4xl my-16 px-8">

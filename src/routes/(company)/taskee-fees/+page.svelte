@@ -51,7 +51,6 @@
 	<section class="hero bg-base-100 text-base-content min-h-[60vh] pb-12">
 		<div class="hero-content flex-col text-center">
 			<Logo />
-
 			<div class="max-w-3xl">
 				<h1>{$t('fees.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
