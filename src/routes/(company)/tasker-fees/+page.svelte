@@ -260,7 +260,7 @@
 		<!-- Rebooking Discount Card -->
 		<div class="card bg-base-100 border-success mt-8 border shadow-lg">
 			<div class="card-body">
-				<h3 class="card-title">{$t('tasker.fees.rebooking.card_title')}</h3>
+				<h3 class="card-title mt-4 mb-4">{$t('tasker.fees.rebooking.card_title')}</h3>
 				<p>{$t('tasker.fees.rebooking.card_intro')}</p>
 				<ul>
 					<li>{@html $t('tasker.fees.rebooking.standard_fee')}</li>
