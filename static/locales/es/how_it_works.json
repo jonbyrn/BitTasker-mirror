@@ -112,6 +112,10 @@
                 "title": "Seguimiento de hitos",
                 "description": "Divide los proyectos en hitos manejables con pagos individuales de custodia para cada fase completada."
             },
+            "translation": {
+                "title": "Traducción Automática",
+                "description": "Comunícate en tu propio idioma mientras los mensajes se traducen automáticamente para el otro usuario, rompiendo las barreras del idioma."
+            },
             "completion": {
                 "title": "Finalización de la tarea",
                 "description": "Marca las tareas como completadas cuando termines, lo que activa el proceso de liberación del dinero de la custodia para el pago."

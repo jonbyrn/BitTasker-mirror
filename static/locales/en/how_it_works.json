@@ -112,6 +112,10 @@
                 "title": "Milestone Tracking",
                 "description": "Break projects into manageable milestones with individual escrow payments for each completed phase."
             },
+            "translation": {
+                "title": "Automatic Translation",
+                "description": "Communicate in your own language while messages are automatically translated for the other user, breaking down language barriers."
+            },
             "completion": {
                 "title": "Task Completion",
                 "description": "Mark tasks as complete when finished, triggering the escrow release process for payment."

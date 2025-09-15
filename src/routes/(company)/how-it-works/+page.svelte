@@ -12,6 +12,7 @@
 	import IconShieldAccount from '~icons/mdi/shield-account';
 	import IconSafe from '~icons/mdi/safe';
 	import IconTrophy from '~icons/mdi/trophy';
+	import IconMessageText from '~icons/mdi/message-text';
 
 	let { data } = $props();
 	const seo = data.seo;
@@ -472,10 +473,10 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFlagCheckered class="text-primary mr-4 text-xl" />
+										<IconMessageText class="text-primary mr-4 text-xl" />
 										<div>
-											<h4 class="font-medium">{$t('how_it_works.step_4.milestones.title')}</h4>
-											<p>{$t('how_it_works.step_4.milestones.description')}</p>
+											<h4 class="font-medium">{$t('how_it_works.step_4.translation.title')}</h4>
+											<p>{$t('how_it_works.step_4.translation.description')}</p>
 										</div>
 									</div>
 								</div>
@@ -609,28 +610,6 @@
 				{$t('common.browse_faq')}
 			</a>
 		</div>
-
-		<div class="mt-12 flex flex-wrap justify-center gap-6">
-			<a href="/security" class="link link-hover flex items-center gap-2">
-				<IconShieldCheck />
-				{$t('common.link.security')}
-			</a>
-			<a href="/privacy" class="link link-hover flex items-center gap-2">
-				<IconShieldAccount />
-				{$t('common.link.privacy')}
-			</a>
-			<a href="/escrow" class="link link-hover flex items-center gap-2">
-				<IconSafe />
-				{$t('common.link.escrow')}
-			</a>
-			<a href="/taskee-principles" class="link link-hover flex items-center gap-2">
-				<IconTrophy />
-				{$t('common.link.taskee_principles')}
-			</a>
-			<a href="/community-guidelines" class="link link-hover flex items-center gap-2">
-				<IconHandshake />
-				{$t('common.link.community_guidelines')}
-			</a>
-		</div>
+		
 	</div>
 </div>
