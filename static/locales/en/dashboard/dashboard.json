@@ -55,7 +55,8 @@
         "location": "Location",
         "location_map_description": "The exact location will be provided after the offer is accepted.",
         "task_attachment": "Task attachment",
-        "avatar_alt": "Avatar"
+        "avatar_alt": "Avatar",
+        "sign_up_to_bid": "Sign up to bid",
       },
       "taskees": {
         "title": "Professionals",
@@ -65,12 +66,6 @@
       "page": {
         "search_icon_alt": "Search icon",
         "plus_icon_alt": "Plus icon"
-      },
-      "task_details_by_task": {
-        "sign_up_to_bid": "Sign up to bid",
-        "avatar_alt": "Avatar",
-        "video_not_supported": "Your browser does not support the video tag.",
-        "attachment": "Task attachment"
       },
       "find_tasks": {
         "sign_up_to_bid": "Sign up to bid",
