@@ -407,6 +407,16 @@
             }
         },
         "task": {
+            "actions": {
+                "view_details": "View Details",
+                "view_bids": "View Bids"
+            },
+            "empty": {
+                "no_tasks": "No tasks found"
+            },
+            "error": {
+                "loading": "Failed to load tasks"
+            },
             "boost": {
                 "title": "Boost Your Task",
                 "description": "Would you like to boost your task to get more visibility and faster responses?",

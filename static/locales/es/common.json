@@ -407,6 +407,16 @@
             }
         },
         "task": {
+            "actions": {
+                "view_details": "Ver Detalles",
+                "view_bids": "Ver Ofertas"
+            },
+            "empty": {
+                "no_tasks": "No se encontraron tareas"
+            },
+            "error": {
+                "loading": "Error al cargar las tareas"
+            },
             "boost": {
                 "title": "Impulsa tu Tarea",
                 "description": "¿Te gustaría impulsar tu tarea para obtener más visibilidad y respuestas más rápidas?",
