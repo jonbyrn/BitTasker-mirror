@@ -51,6 +51,31 @@
       "to": "Para",
       "status_confirmed": "Confirmada",
       "status_pending": "Pendiente",
-      "status_confirmations": "Confirmaciones"
+      "status_confirmations": "Confirmaciones",
+      "error": {
+        "no_mnemonic": {
+          "title": "No se Encontró Billetera",
+          "message": "Tu billetera debería haberse configurado automáticamente durante el registro. Por favor intenta reconectar.",
+          "try_again": "Intentar de Nuevo",
+          "setup_wallet": "Configurar Billetera"
+        },
+        "default": {
+          "title": "Algo Salió Mal",
+          "message": "Ocurrió un error inesperado. Por favor intenta de nuevo o contacta soporte.",
+          "go_back": "Volver"
+        }
+      },
+      "setup": {
+        "import_wallet": "Importar Billetera",
+        "create_wallet": "Crear Billetera"
+      },
+      "page": {
+        "title": "Billetera Bitcoin",
+        "initializing": "Inicializando billetera...",
+        "connection_error": "Error de Conexión de Billetera",
+        "no_wallet_setup": "No tienes una billetera configurada. Por favor configura tu billetera para continuar.",
+        "retry_connection": "Reintentar Conexión",
+        "receive_bitcoin": "Recibir Bitcoin"
+      }
     }
   }

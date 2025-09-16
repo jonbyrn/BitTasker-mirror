@@ -45,7 +45,7 @@
 						// Cuando la imagen se carga, resuelve la promesa con sus dimensiones reales
 						resolve({
 							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
 							width: img.naturalWidth, // Ancho real de la imagen
 							height: img.naturalHeight, // Altura real de la imagen
 							size: attachment.size
@@ -55,7 +55,7 @@
 						// Si hay un error, resuelve con valores por defecto o null
 						resolve({
 							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
 							width: 0,
 							height: 0,
 							size: attachment.size
@@ -456,7 +456,7 @@
 											{#if task.creator.avatar}
 												<img
 													src={task.creator.avatar}
-													alt="Avatar"
+													alt={$t('dashboard.task_details_by_task.avatar_alt')}
 													class="h-12 w-12 rounded-full object-cover"
 												/>
 											{:else}

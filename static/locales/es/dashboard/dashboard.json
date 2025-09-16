@@ -52,7 +52,31 @@
       "close": "Cerrar",
       "try_again": "Intentar de Nuevo",
       "location": "Ubicación",
-      "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta." 
+      "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta.",
+      "task_attachment": "Adjunto de tarea",
+      "avatar_alt": "Avatar"
+    },
+    "taskees": {
+      "title": "Profesionales",
+      "coming_soon": "Próximamente",
+      "description": "Estamos trabajando duro para traerte algo increíble. ¡Mantente atento!"
+    },
+    "page": {
+      "search_icon_alt": "Icono de búsqueda",
+      "plus_icon_alt": "Icono de más"
+    },
+    "task_details_by_task": {
+      "sign_up_to_bid": "Regístrate para ofertar",
+      "avatar_alt": "Avatar",
+      "video_not_supported": "Tu navegador no soporta el elemento de video.",
+      "attachment": "Adjunto de tarea"
+    },
+    "find_tasks": {
+      "sign_up_to_bid": "Regístrate para ofertar",
+      "bidding_closed": "Ofertas cerradas",
+      "sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
+      "avatar_alt": "Avatar",
+      "invalid_date": "Fecha inválida"
     }
   }
 }

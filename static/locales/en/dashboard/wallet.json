@@ -51,6 +51,31 @@
       "to": "To",
       "status_confirmed": "Confirmed",
       "status_pending": "Pending",
-      "status_confirmations": "Confirmations"
+      "status_confirmations": "Confirmations",
+      "error": {
+        "no_mnemonic": {
+          "title": "No Wallet Found",
+          "message": "Your wallet should have been set up automatically during registration. Please try reconnecting.",
+          "try_again": "Try Again",
+          "setup_wallet": "Setup Wallet"
+        },
+        "default": {
+          "title": "Something Went Wrong",
+          "message": "An unexpected error occurred. Please try again or contact support.",
+          "go_back": "Go Back"
+        }
+      },
+      "setup": {
+        "import_wallet": "Import Wallet",
+        "create_wallet": "Create Wallet"
+      },
+      "page": {
+        "title": "Bitcoin Wallet",
+        "initializing": "Initializing wallet...",
+        "connection_error": "Wallet Connection Error",
+        "no_wallet_setup": "You have no wallet set up. Please set up your wallet to continue.",
+        "retry_connection": "Retry Connection",
+        "receive_bitcoin": "Receive Bitcoin"
+      }
     }
   }

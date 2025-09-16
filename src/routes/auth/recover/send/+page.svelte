@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { t } from 'svelte-i18n';
 	import { validateEmail } from '$lib/utils/helpers/validators';
 	import authService from '$lib/api/services/auth.service';
 
@@ -16,19 +17,19 @@
 			error = '';
 
 			if (!email) {
-				error = 'Email is required';
+				error = $t('recovery_send.errors.email_required');
 				return;
 			}
 
 			if (!validateEmail(email).isValid) {
-				error = 'Invalid email address';
+				error = $t('recovery_send.errors.invalid_email');
 				return;
 			}
 
 			await authService.initiateNostrRecovery(email);
 			success = true;
 		} catch (err: any) {
-			error = err.message || 'Failed to initiate recovery';
+			error = err.message || $t('recovery_send.errors.failed_initiate');
 		} finally {
 			isLoading = false;
 		}
@@ -40,18 +41,18 @@
 >
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Account Recovery</h2>
+			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_send.title')}</h2>
 
 			<form onsubmit={initiateRecovery} class="space-y-4">
 				<div class="form-control">
 					<label class="label" for="email">
-						<span class="label-text">Email Address</span>
+						<span class="label-text">{$t('recovery_send.email_label')}</span>
 					</label>
 					<input
 						type="email"
 						id="email"
 						bind:value={email}
-						placeholder="Enter your email address"
+						placeholder={$t('recovery_send.email_placeholder')}
 						class="input input-bordered w-full"
 						required
 					/>
@@ -61,7 +62,7 @@
 					{#if isLoading}
 						<span class="loading loading-spinner"></span>
 					{:else}
-						Send Recovery Code
+						{$t('recovery_send.send_button')}
 					{/if}
 				</button>
 			</form>
@@ -81,14 +82,14 @@
 						></path></svg
 					>
 					<div>
-						<h3 class="font-bold">Verification Email Sent!</h3>
+						<h3 class="font-bold">{$t('recovery_send.success_title')}</h3>
 						<p class="text-sm">
-							We've sent a verification email to <strong>{email}</strong>. Please check your inbox and click the verification link to continue with your account recovery.
+							{@html $t('recovery_send.success_message', { values: { email } })}
 						</p>
 						<div class="mt-3 text-xs text-base-content/70">
-							<p>• Check your spam/junk folder if you don't see the email</p>
-							<p>• The verification link will expire in 24 hours</p>
-							<p>• After verification, you'll be redirected to complete your recovery</p>
+							<p>{$t('recovery_send.success_tips.check_spam')}</p>
+							<p>{$t('recovery_send.success_tips.expires')}</p>
+							<p>{$t('recovery_send.success_tips.redirect')}</p>
 						</div>
 					</div>
 				</div>
@@ -130,7 +131,7 @@
 						d="M10 19l-7-7m0 0l7-7m-7 7h18"
 					/>
 				</svg>
-				Back to Login
+				{$t('recovery_send.back_to_login')}
 			</button>
 		</div>
 	</div>

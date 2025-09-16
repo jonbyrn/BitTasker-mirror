@@ -144,10 +144,10 @@
 	// Add certification to skill
 	async function addCertification() {
 		try {
-			if (!selectedSkill || !selectedSkill.id) {
-				error = 'Skill not found';
-				return;
-			}
+		if (!selectedSkill || !selectedSkill.id) {
+			error = $t('profile.skills.skill_not_found');
+			return;
+		}
 
 			if (
 				!certification.name ||
@@ -155,7 +155,7 @@
 				!certification.date ||
 				!certification.file
 			) {
-				error = 'Please fill in all certification fields';
+				error = $t('profile.skills.fill_certification_fields');
 				return;
 			}
 
@@ -163,7 +163,7 @@
 
 			const skillIndex = skills.findIndex((skill) => skill.id === selectedSkill?.id);
 			if (skillIndex === -1) {
-				error = 'Skill not found';
+				error = $t('profile.skills.skill_not_found');
 				return;
 			}
 
@@ -188,10 +188,10 @@
 			};
 			selectedSkill = null;
 			isAddingCertificate = false;
-			appStore.showSuccessToast('Certification added successfully!');
+			appStore.showSuccessToast($t('profile.skills.certification_added_success'));
 		} catch (err) {
 			console.error('Failed to add certification:', err);
-			error = err instanceof Error ? err.message : 'Failed to add certification';
+			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_add_certification');
 			appStore.showErrorToast(error);
 		} finally {
 			isLoading = false;
@@ -207,10 +207,10 @@
 			// Publish skills update
 			await publishSkillsUpdate(skills);
 
-			appStore.showSuccessToast('Skills updated successfully!');
+			appStore.showSuccessToast($t('profile.skills.skills_updated_success'));
 		} catch (err) {
 			console.error('Failed to save skills:', err);
-			error = err instanceof Error ? err.message : 'Failed to save skills';
+			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_save_skills');
 		} finally {
 			isLoading = false;
 		}
@@ -219,10 +219,10 @@
 	// Remove certification
 	async function removeCertification(certId: string) {
 		try {
-			const cert = certifications[certId];
-			if (!cert) {
-				throw new Error('Certification not found');
-			}
+		const cert = certifications[certId];
+		if (!cert) {
+			throw new Error($t('profile.skills.certification_not_found'));
+		}
 
 			// Delete the certification event
 			await deleteNostrEvent(cert.eventId, '1063');
@@ -235,10 +235,10 @@
 				certifications: skill.certifications.filter((id) => id !== certId)
 			}));
 
-			appStore.showSuccessToast('Certification removed successfully!');
+			appStore.showSuccessToast($t('profile.skills.certification_removed_success'));
 		} catch (err) {
 			console.error('Failed to remove certification:', err);
-			error = err instanceof Error ? err.message : 'Failed to remove certification';
+			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_remove_certification');
 			appStore.showErrorToast(error);
 		}
 	}
@@ -418,7 +418,7 @@
 									<span
 										class="badge badge-outline w-fit leading-tight break-words whitespace-nowrap"
 									>
-										{skill.endorsements} endorsement{skill.endorsements !== 1 ? 's' : ''}
+										{skill.endorsements} {skill.endorsements !== 1 ? $t('profile.skills.endorsements') : $t('profile.skills.endorsement')}
 									</span>
 								</div>
 

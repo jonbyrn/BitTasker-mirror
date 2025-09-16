@@ -71,6 +71,10 @@
         "message": "Create tasks to start receiving bids.",
         "create_task": "Create Task"
       }
-    }
+    },
+    "back_to_messages": "Back to Messages",
+    "go_back_to_messages": "Go back to messages",
+    "copy_public_key": "Copy public key",
+    "failed_to_load_chat": "Failed to load chat"
   }
 }

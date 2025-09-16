@@ -514,6 +514,9 @@
                 "details": "Detalles"
             }
         }
+    },
+    "layout": {
+        "github_aria": "GitHub"
     }
   }
 }

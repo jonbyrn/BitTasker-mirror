@@ -26,8 +26,11 @@
       "select_type": "Please select Bug or Feature Request",
       "provide_description": "Please provide a description",
       "missing_user": "Unable to identify user. Please try again.",
-      "submit_failed": "Failed to submit feedback. Please try again."
-    }
+      "submit_failed": "Failed to submit feedback. Please try again.",
+      "invalid_image": "Please select an image file",
+      "invalid_image_file": "Invalid image file"
+    },
+    "compressing": "Compressing..."
   }
 }
 

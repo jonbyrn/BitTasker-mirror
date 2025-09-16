@@ -266,12 +266,12 @@
 		try {
 			const parsedDate = new Date(date);
 			if (isNaN(parsedDate.getTime())) {
-				return 'Invalid date';
+				return $t('dashboard.find_tasks.invalid_date') || 'Invalid date';
 			}
 			return formatDistanceToNow(parsedDate, { addSuffix: true });
 		} catch (error) {
 			console.error('[FindTasks] Error formatting date:', error);
-			return 'Invalid date';
+			return $t('dashboard.find_tasks.invalid_date') || 'Invalid date';
 		}
 	}
 
@@ -791,7 +791,7 @@
 																{#if task.creator?.avatar}
 																	<img
 																		src={task.creator.avatar}
-																		alt="Avatar"
+																		alt={$t('dashboard.find_tasks.avatar_alt') || 'Avatar'}
 																		class="h-8 w-8 rounded-full object-cover"
 																	/>
 																{:else}
@@ -860,7 +860,7 @@
 																e.stopPropagation();
 																onSelectTask(task);
 															}}
-															aria-label="Sign up to bid on this task"
+															aria-label={$t('dashboard.find_tasks.sign_up_to_bid_aria') || 'Sign up to bid on this task'}
 														>
 															<svg
 																xmlns="http://www.w3.org/2000/svg"
@@ -877,8 +877,8 @@
 																/>
 															</svg>
 															{task.status === TaskStatusEnum.OPEN
-																? 'Sign up to bid'
-																: 'Bidding closed'}
+																? ($t('dashboard.find_tasks.sign_up_to_bid') || 'Sign up to bid')
+																: ($t('dashboard.find_tasks.bidding_closed') || 'Bidding closed')}
 														</button>
 
 														<button

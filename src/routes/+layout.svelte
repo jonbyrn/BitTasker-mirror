@@ -409,7 +409,7 @@
 								class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
 								target="_blank"
 								rel="noopener noreferrer"
-								aria-label="GitHub"
+								aria-label={$t('common.layout.github_aria') || 'GitHub'}
 							>
 								<IconGithub class="transition-colors duration-300 ease-in-out" />
 							</a>

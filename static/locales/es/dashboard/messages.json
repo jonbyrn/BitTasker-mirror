@@ -45,6 +45,10 @@
       "messages": "Mensajes",
       "my_bids": "Mis Ofertas",
       "bids_received": "Ofertas Recibidas"
-    }
+    },
+    "back_to_messages": "Volver a Mensajes",
+    "go_back_to_messages": "Volver a mensajes",
+    "copy_public_key": "Copiar clave pública",
+    "failed_to_load_chat": "Error al cargar chat"
   }
 }

@@ -123,7 +123,7 @@
 	// Add or update portfolio item
 	async function handleSubmit() {
 		if (!title || !description || !completionDate || images.length === 0) {
-			error = 'Please fill in all required fields and add at least one image';
+			error = $t('profile.portfolio.please_fill_required');
 			return;
 		}
 
@@ -155,8 +155,8 @@
 
 			// Show success message
 			successMessage = editingItem
-				? 'Portfolio item updated successfully!'
-				: 'Portfolio item added successfully!';
+				? $t('profile.portfolio.item_updated_success')
+				: $t('profile.portfolio.item_added_success');
 
 			setTimeout(() => (successMessage = ''), 2000);
 
@@ -164,7 +164,7 @@
 			resetForm();
 		} catch (err) {
 			console.error('Failed to save portfolio item:', err);
-			error = err instanceof Error ? err.message : 'Failed to save portfolio item';
+			error = err instanceof Error ? err.message : $t('profile.portfolio.failed_to_save');
 		} finally {
 			isLoading = false;
 		}
@@ -179,13 +179,13 @@
 			if (item.id) {
 				await deletePortfolioItem(item.id);
 				portfolioItems = portfolioItems.filter((i) => i.id !== item.id);
-				appStore.showSuccessToast('Portfolio item deleted successfully!');
+				appStore.showSuccessToast($t('profile.portfolio.item_deleted_success'));
 			} else {
-				appStore.showErrorToast('Portfolio item not found');
+				appStore.showErrorToast($t('profile.portfolio.item_not_found'));
 			}
 		} catch (err) {
 			console.error('Failed to remove portfolio item:', err);
-			error = err instanceof Error ? err.message : 'Failed to remove portfolio item';
+			error = err instanceof Error ? err.message : $t('profile.portfolio.failed_to_remove');
 		} finally {
 			isRemovingItem = null;
 		}

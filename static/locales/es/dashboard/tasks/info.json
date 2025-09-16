@@ -97,6 +97,13 @@
         "try_again": "Intentar de nuevo",
         "task_not_found": "Tarea No Encontrada",
         "task_not_found_desc": "La tarea que estás buscando no pudo ser encontrada",
+        "bids_received": "Ofertas recibidas",
+        "bids_description": "Aquí puedes ver todas las ofertas para esta tarea. Puedes aceptar o rechazar ofertas, y también puedes hacer contraofertas.",
+        "member_since": "Miembro desde",
+        "withdraw_bid": "Retirar Tu Oferta",
+        "withdrawal_reason_placeholder": "Por favor explica por qué estás retirando tu oferta...",
+        "anonymous": "Anónimo",
+        "avatar_alt": "Avatar",
         "error": {
           "load": "Failed to load task details. Please try again.",
           "no_details": "No task details available",

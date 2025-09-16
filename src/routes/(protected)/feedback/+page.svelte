@@ -132,14 +132,14 @@
 
 			// Validate if it's an image file
 			if (!originalFile.type.startsWith('image/')) {
-				error = 'Please select an image file';
+				error = $t('feedback.errors.invalid_image') || 'Please select an image file';
 				return;
 			}
 
 			// Validate image file before compression
 			const validation = validateImageFile(originalFile);
 			if (!validation.isValid) {
-				error = validation.error || 'Invalid image file';
+				error = validation.error || $t('feedback.errors.invalid_image_file') || 'Invalid image file';
 				return;
 			}
 
@@ -325,12 +325,12 @@
 										onclick={() => fileInputEl && fileInputEl.click()}
 										disabled={isCompressing}
 									>
-										{#if isCompressing}
-											<span class="loading loading-spinner loading-xs"></span>
-											Compressing...
-										{:else}
-											{$t('feedback.choose_file') || 'Choose File'}
-										{/if}
+									{#if isCompressing}
+										<span class="loading loading-spinner loading-xs"></span>
+										{$t('feedback.compressing') || 'Compressing...'}
+									{:else}
+										{$t('feedback.choose_file') || 'Choose File'}
+									{/if}
 									</button>
 									{#if screenshot}
 										<div class="flex flex-col gap-1">
