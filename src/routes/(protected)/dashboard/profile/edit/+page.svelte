@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { goto } from '$app/navigation';
 	import PersonalInfo from './_components/PersonalInfo.svelte';
 	import Skills from './_components/Skills.svelte';
 	import Portfolio from './_components/Portfolio.svelte';
@@ -29,6 +30,18 @@
 		// aiAssistant: false
 	});
 
+	// Component references for save functionality
+	let personalInfoComponent: PersonalInfo;
+	let skillsComponent: Skills;
+	let portfolioComponent: Portfolio;
+	let videoIntroComponent: VideoIntro;
+	let availabilityComponent: Availability;
+	let standardServicesComponent: StandardServices;
+
+	// Global save state
+	let isSaving = $state(false);
+	let saveError = $state('');
+
 	// Section completion handlers
 	function handleSectionComplete(section: keyof typeof completedSections, completed: boolean) {
 		completedSections[section] = completed;
@@ -40,6 +53,48 @@
 			Object.keys(completedSections).length) *
 			100
 	);
+
+	// Save all and exit function
+	async function saveAllAndExit() {
+		isSaving = true;
+		saveError = '';
+
+		try {
+			// Trigger save for all components by dispatching submit events
+			const components = [
+				personalInfoComponent,
+				skillsComponent,
+				portfolioComponent,
+				videoIntroComponent,
+				availabilityComponent,
+				standardServicesComponent
+			];
+
+			// Find all forms in the components and submit them
+			const forms = document.querySelectorAll('form');
+			const submitPromises = Array.from(forms).map(form => {
+				return new Promise<void>((resolve) => {
+					const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+					form.dispatchEvent(submitEvent);
+					// Give a small delay to allow the form submission to process
+					setTimeout(resolve, 100);
+				});
+			});
+
+			await Promise.all(submitPromises);
+
+			// Wait a bit more for all saves to complete
+			await new Promise(resolve => setTimeout(resolve, 1000));
+
+			// Navigate back to profile view
+			goto('/dashboard/profile');
+		} catch (error) {
+			console.error('Error saving profile:', error);
+			saveError = error instanceof Error ? error.message : 'Failed to save profile';
+		} finally {
+			isSaving = false;
+		}
+	}
 </script>
 
 {#snippet cardTitle(title: string, section: keyof typeof isCollapsed)}
@@ -98,10 +153,24 @@
 	</div>
 {/snippet}
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-7xl p-4">
 	<div class="mb-4">
-		<h3 class="">{$t('profile.page.edit_profile')}</h3>
-		<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
+		<div class="flex items-center justify-between">
+			<div>
+				<h3 class="">{$t('profile.page.edit_profile')}</h3>
+				<p class="text-base-content/70">{$t('profile.page.completion_desc')}</p>
+			</div>
+			<button 
+				class="btn btn-primary" 
+				onclick={saveAllAndExit}
+				disabled={isSaving}
+			>
+				{#if isSaving}
+					<span class="loading loading-spinner loading-sm"></span>
+				{/if}
+				Save all and Exit
+			</button>
+		</div>
 	</div>
 
 	<!-- Progress Bar -->
@@ -123,6 +192,7 @@
 				{@render cardTitle($t('profile.page.sections.personal_info'), 'personalInfo')}
 				<div class="overflow-hidden" style:height={isCollapsed.personalInfo ? '1px' : 'auto'}>
 					<PersonalInfo
+						bind:this={personalInfoComponent}
 						onComplete={(completed) => handleSectionComplete('personalInfo', completed)}
 					/>
 				</div>
@@ -134,7 +204,10 @@
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.skills'), 'skills')}
 				<div class="overflow-hidden" style:height={isCollapsed.skills ? '0' : 'auto'}>
-					<Skills onComplete={(completed) => handleSectionComplete('skills', completed)} />
+					<Skills 
+						bind:this={skillsComponent}
+						onComplete={(completed) => handleSectionComplete('skills', completed)} 
+					/>
 				</div>
 			</div>
 		</div>
@@ -144,7 +217,10 @@
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.portfolio'), 'portfolio')}
 				<div class="overflow-hidden" style:height={isCollapsed.portfolio ? '0' : 'auto'}>
-					<Portfolio onComplete={(completed) => handleSectionComplete('portfolio', completed)} />
+					<Portfolio 
+						bind:this={portfolioComponent}
+						onComplete={(completed) => handleSectionComplete('portfolio', completed)} 
+					/>
 				</div>
 			</div>
 		</div>
@@ -154,7 +230,10 @@
 			<div class="card-body">
 				{@render cardTitle($t('profile.page.sections.video'), 'videoIntro')}
 				<div class="overflow-hidden" style:height={isCollapsed.videoIntro ? '0' : 'auto'}>
-					<VideoIntro onComplete={(completed) => handleSectionComplete('videoIntro', completed)} />
+					<VideoIntro 
+						bind:this={videoIntroComponent}
+						onComplete={(completed) => handleSectionComplete('videoIntro', completed)} 
+					/>
 				</div>
 			</div>
 		</div>
@@ -165,6 +244,7 @@
 				{@render cardTitle($t('profile.page.sections.availability'), 'availability')}
 				<div class="overflow-hidden" style:height={isCollapsed.availability ? '0' : 'auto'}>
 					<Availability
+						bind:this={availabilityComponent}
 						onComplete={(completed) => handleSectionComplete('availability', completed)}
 					/>
 				</div>
@@ -177,6 +257,7 @@
 				{@render cardTitle($t('profile.page.sections.services'), 'standardServices')}
 				<div class="overflow-hidden" style:height={isCollapsed.standardServices ? '0' : 'auto'}>
 					<StandardServices
+						bind:this={standardServicesComponent}
 						onComplete={(completed) => handleSectionComplete('standardServices', completed)}
 					/>
 				</div>
@@ -193,5 +274,26 @@
 					/>
 				</div>
 			</div> -->
+	</div>
+
+	<!-- Error Message -->
+	{#if saveError}
+		<div class="alert alert-error mt-4">
+			<span>{saveError}</span>
+		</div>
+	{/if}
+
+	<!-- Bottom Save Button -->
+	<div class="mt-8 flex justify-center">
+		<button 
+			class="btn btn-primary btn-lg" 
+			onclick={saveAllAndExit}
+			disabled={isSaving}
+		>
+			{#if isSaving}
+				<span class="loading loading-spinner loading-sm"></span>
+			{/if}
+			Save all and Exit
+		</button>
 	</div>
 </div>
