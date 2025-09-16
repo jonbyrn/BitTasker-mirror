@@ -2,6 +2,7 @@
     "common": {
         "or": "or",
         "processing": "Processing",
+        "loading": "Loading...",
         "close": "Close",
         "edit": "Edit",
         "remove": "Remove",

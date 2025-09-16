@@ -183,7 +183,7 @@
 </script>
 
 <svelte:head>
-	<title>{$t('feedback.page_title') || 'Feedback | BitTasker'}</title>
+	<title>Feedback | BitTasker</title>
 </svelte:head>
 
 <div class="feedback-container xs:px-4 container mx-auto px-2 py-8">
