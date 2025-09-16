@@ -18,10 +18,15 @@
 	}>();
 
 	// Task filter categories
-	type TaskFilterCategory = 'tasks_waiting_for_bids' | 'tasks_in_progress' | 'bids_received';
+	type TaskFilterCategory =
+		| 'tasks_waiting_for_bids'
+		| 'tasks_in_progress'
+		| 'bids_received'
+		| 'tasks_completed'
 
 	let activeFilter = $state<TaskFilterCategory>('tasks_waiting_for_bids');
 	let btcPrice = $state<number>(63000); // Default fallback price
+	let isDropdownOpen = $state<boolean>(false);
 
 	// Nostr caching
 	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -31,7 +36,8 @@
 	const filterOptions = [
 		{ id: 'tasks_waiting_for_bids', label: $t('task.filters.tasks_waiting_for_bids') },
 		{ id: 'tasks_in_progress', label: $t('task.filters.tasks_in_progress') },
-		{ id: 'bids_received', label: $t('task.filters.bids_received') }
+		{ id: 'bids_received', label: $t('task.filters.bids_received') },
+		{ id: 'tasks_completed', label: $t('task.filters.tasks_completed') },
 	] as const;
 
 	/**
@@ -91,13 +97,12 @@
 			case 'tasks_in_progress':
 				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
 			case 'bids_received':
-				return tasks.filter(
-					(task) => task.status === TaskStatusEnum.OPEN && task.bids && task.bids.length > 0
-				);
+				return tasks.filter((task) => task.status === TaskStatusEnum.OPEN_WITH_BIDS);
 			case 'tasks_waiting_for_bids':
-				return tasks.filter(
-					(task) => task.status === TaskStatusEnum.OPEN && (!task.bids || task.bids.length === 0)
-				);
+				return tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
+			case 'tasks_completed':
+				return tasks.filter((task) => task.status === TaskStatusEnum.COMPLETED);
+
 			default:
 				return tasks;
 		}
@@ -113,12 +118,20 @@
 					{
 						label: $t('task.actions.mark_as_done'),
 						class: 'btn-success btn-sm',
-						onclick: () => markTaskAsDone(task)
+						onclick: (e: any) => {
+							e.stopPropagation();
+							markTaskAsDone(task);
+						},
+						icon: 'mark_as_done'
 					},
 					{
 						label: $t('task.actions.rescope'),
 						class: 'btn-info btn-outline btn-sm',
-						onclick: () => rescopeTask(task)
+						onclick: (e: any) => {
+							e.stopPropagation();
+							rescopeTask(task);
+						},
+						icon: 'rescope'
 					}
 				];
 			case 'bids_received':
@@ -126,12 +139,20 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-primary btn-sm',
-						onclick: () => openTaskDrawer(task, 'details')
+						onclick: (e: any) => {
+							e.stopPropagation();
+							openTaskDrawer(task, 'details');
+						},
+						icon: 'view_details'
 					},
 					{
 						label: $t('task.actions.view_bids'),
 						class: 'btn-info btn-outline btn-sm',
-						onclick: () => openTaskDrawer(task, 'bids')
+						onclick: (e: any) => {
+							e.stopPropagation();
+							goto(`/dashboard/task/${task.id}/bids`);
+						},
+						icon: 'view_bids'
 					}
 				];
 			case 'tasks_waiting_for_bids':
@@ -139,12 +160,53 @@
 					{
 						label: $t('task.actions.view_details'),
 						class: 'btn-primary btn-sm',
-						onclick: () => openTaskDrawer(task, 'details')
+						onclick: (e: any) => {
+							e.stopPropagation();
+							openTaskDrawer(task, 'details');
+						},
+						icon: 'view_details'
 					},
 					{
 						label: $t('task.actions.delete_task'),
 						class: 'btn-error btn-outline btn-sm',
-						onclick: () => deleteTask(task)
+						onclick: (e: any) => {
+							e.stopPropagation();
+							deleteTask(task);
+						},
+						icon: 'delete'
+					}
+				];
+			case 'tasks_completed':
+				return [
+					{
+						label: $t('task.actions.view_details'),
+						class: 'btn-primary btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							openTaskDrawer(task, 'details');
+						},
+						icon: 'view_details'
+					}
+				];
+
+				return [
+					{
+						label: $t('task.actions.view_details'),
+						class: 'btn-primary btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							openTaskDrawer(task, 'details');
+						},
+						icon: 'view_details'
+					},
+					{
+						label: $t('task.actions.dispute_task'),
+						class: 'btn-warning btn-outline btn-sm',
+						onclick: (e: any) => {
+							e.stopPropagation();
+							disputeTask(task);
+						},
+						icon: 'dispute'
 					}
 				];
 			default:
@@ -174,6 +236,29 @@
 	function deleteTask(task: Task) {
 		// TODO: Implement delete task functionality
 		console.log('Delete task:', task.id);
+	}
+
+	/**
+	 * Dispute task
+	 */
+	function disputeTask(task: Task) {
+		// TODO: Implement dispute task functionality
+		console.log('Dispute task:', task.id);
+	}
+
+	/**
+	 * Toggle dropdown
+	 */
+	function toggleDropdown() {
+		isDropdownOpen = !isDropdownOpen;
+	}
+
+	/**
+	 * Select filter option
+	 */
+	function selectFilter(optionId: TaskFilterCategory) {
+		activeFilter = optionId;
+		isDropdownOpen = false;
 	}
 
 	// Reactive statement to get filtered tasks
@@ -213,67 +298,269 @@
 	});
 </script>
 
-<!-- Task Category Filters - Exact Sidebar Style -->
-<div class="mb-6 max-w-3xl">
-	<div class="mt-3 flex flex-col gap-4 sm:flex-row">
-		{#each filterOptions as option}
+<!-- Task Category Filters - Responsive -->
+<div class="mb-6 max-w-4xl">
+	<!-- Desktop: Button filters -->
+	<div class="hidden sm:block">
+		<div class="mt-3 flex flex-col gap-3 sm:flex-row">
+			{#each filterOptions as option}
+				<button
+					class="flex cursor-pointer items-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 flex-1 justify-center {activeFilter ===
+					option.id
+						? 'text-primary bg-primary/10'
+						: 'bg-base-100/40 hover:bg-base-100/50'}"
+					onclick={() => (activeFilter = option.id)}
+				>
+					<!-- Icon for each category -->
+					{#if option.id === 'tasks_waiting_for_bids'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{:else if option.id === 'tasks_in_progress'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 10V3L4 14h7v7l9-11h-7z"
+							/>
+						</svg>
+					{:else if option.id === 'bids_received'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+							/>
+						</svg>
+					{:else if option.id === 'tasks_completed'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{/if}
+					<span class="font-medium">{option.label}</span>
+				</button>
+			{/each}
+		</div>
+	</div>
+
+	<!-- Mobile: Custom dropdown -->
+	<div class="block sm:hidden">
+		<div class="mt-3 relative">
 			<button
-				class="flex cursor-pointer items-center gap-3 rounded-3xl py-3 text-left transition-all duration-200 sm:flex-1 sm:justify-center {activeFilter ===
-				option.id
-					? 'text-primary bg-primary/10'
-					: 'bg-base-100/40 hover:bg-base-100/50'}"
-				onclick={() => (activeFilter = option.id)}
+				class="flex w-full cursor-pointer items-center justify-between rounded-3xl border border-primary bg-primary/10 px-4 py-1 text-primary transition-all duration-200 hover:bg-primary/20"
+				onclick={toggleDropdown}
 			>
-				<!-- Icon for each category -->
-				{#if option.id === 'tasks_waiting_for_bids'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-				{:else if option.id === 'tasks_in_progress'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-				{:else if option.id === 'bids_received'}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-						/>
-					</svg>
-				{/if}
-				<span class="font-medium">{option.label}</span>
+				<div class="flex items-center gap-2">
+					<!-- Icon for selected category -->
+					{#if activeFilter === 'tasks_waiting_for_bids'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 text-primary"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{:else if activeFilter === 'tasks_in_progress'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 text-primary"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 10V3L4 14h7v7l9-11h-7z"
+							/>
+						</svg>
+					{:else if activeFilter === 'bids_received'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 text-primary"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+							/>
+						</svg>
+					{:else if activeFilter === 'tasks_completed'}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-5 w-5 text-primary"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{/if}
+					<span class="font-medium">
+						{filterOptions.find(opt => opt.id === activeFilter)?.label}
+					</span>
+				</div>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5 text-primary transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 9l-7 7-7-7"
+					/>
+				</svg>
 			</button>
-		{/each}
+
+			<!-- Dropdown menu -->
+			{#if isDropdownOpen}
+				<div class="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border border-base-300 bg-base-300 shadow-lg">
+					{#each filterOptions as option}
+						<button
+							class="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl hover:bg-base-200 {activeFilter === option.id ? 'bg-primary/10 text-primary' : 'text-base-content'}"
+							onclick={() => selectFilter(option.id)}
+						>
+							<!-- Icon for each category -->
+							{#if option.id === 'tasks_waiting_for_bids'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+							{:else if option.id === 'tasks_in_progress'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 10V3L4 14h7v7l9-11h-7z"
+									/>
+								</svg>
+							{:else if option.id === 'bids_received'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+									/>
+								</svg>
+							{:else if option.id === 'tasks_completed'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+							{/if}
+							<span class="font-medium">{option.label}</span>
+							{#if activeFilter === option.id}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="ml-auto h-5 w-5 text-primary"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M5 13l4 4L19 7"
+									/>
+								</svg>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
@@ -535,15 +822,112 @@
 							</div>
 
 							<!-- Right: Action Buttons - Moved more to the left -->
-							<div class="flex w-full items-center gap-2 md:ml-4 md:w-auto">
+							<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:ml-4 md:w-auto">
 								{#each getActionButtons(task, activeFilter) as action}
 									<button
-										class="btn {action.class} flex-1 sm:flex-none"
+										class="btn {action.class} w-full sm:w-auto"
 										onclick={(e) => {
 											e.stopPropagation();
-											action.onclick();
+											action.onclick(e);
 										}}
 									>
+										{#if action.icon === 'view_details'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+												/>
+											</svg>
+										{:else if action.icon === 'view_bids'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+												/>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+												/>
+											</svg>
+										{:else if action.icon === 'delete'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+												/>
+											</svg>
+										{:else if action.icon === 'mark_as_done'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+												/>
+											</svg>
+										{:else if action.icon === 'rescope'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+												/>
+											</svg>
+										{:else if action.icon === 'dispute'}
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-4 w-4"
+												fill="none"
+												viewBox="0 0 24 24"
+												stroke="currentColor"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+												/>
+											</svg>
+										{/if}
 										{action.label}
 									</button>
 								{/each}

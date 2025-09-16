@@ -30,12 +30,15 @@
         "view_bids": "Ver Ofertas",
         "mark_as_done": "Marcar como Completado",
         "rescope": "Re-Escopio",
-        "delete_task": "Eliminar Tarea"
+        "delete_task": "Eliminar Tarea",
+        "dispute_task": "Disputar Tarea"
       },
       "filters": {
         "tasks_in_progress": "Tareas en Progreso",
         "bids_received": "Ofertas Recibidas",
-        "tasks_waiting_for_bids": "Tareas Esperando Ofertas"
+        "tasks_waiting_for_bids": "Esperando Ofertas",
+        "tasks_completed": "Tareas Completadas",
+        "tasks_disputed": "Tareas en Disputa"
       },
       "empty": {
         "no_tasks": "No se encontraron tareas",

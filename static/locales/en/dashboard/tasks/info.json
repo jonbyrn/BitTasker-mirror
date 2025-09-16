@@ -30,12 +30,15 @@
         "view_bids": "View Bids",
         "mark_as_done": "Mark as Done",
         "rescope": "Rescope",
-        "delete_task": "Delete Task"
+        "delete_task": "Delete Task",
+        "dispute_task": "Dispute Task"
       },
       "filters": {
         "tasks_in_progress": "Tasks in Progress",
         "bids_received": "Bids Received",
-        "tasks_waiting_for_bids": "Tasks Waiting for Bids"
+        "tasks_waiting_for_bids": "Waiting for Bids",
+        "tasks_completed": "Tasks Completed",
+        "tasks_disputed": "Tasks Disputed"
       },
       "empty": {
         "no_tasks": "No tasks found",

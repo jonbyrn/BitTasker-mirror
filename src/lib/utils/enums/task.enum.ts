@@ -19,10 +19,11 @@ export enum TaskStepEnum {
 
 export enum TaskStatusEnum {
 	OPEN = 'OPEN',
+	OPEN_WITH_BIDS = 'OPEN_WITH_BIDS',
 	IN_PROGRESS = 'IN_PROGRESS',
 	COMPLETED = 'COMPLETED',
 	CANCELLED = 'CANCELLED',
-	DISPUTED = 'DISPUTED'
+	DISPUTED = 'DISPUTED',
 }
 
 export enum TaskTypeEnum {
