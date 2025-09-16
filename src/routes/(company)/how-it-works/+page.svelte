@@ -456,7 +456,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFileUpload class="text-primary mr-4 text-4xl lg:text-xl" />
+										<IconFileUpload class="text-primary mr-4 text-3xl md:text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
 											<p>{$t('how_it_works.step_4.files.description')}</p>
@@ -468,7 +468,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconMessageText class="text-primary mr-4 text-4xl lg:text-xl" />
+										<IconMessageText class="text-primary mr-4 text-3xl md:text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.translation.title')}</h4>
 											<p>{$t('how_it_works.step_4.translation.description')}</p>
@@ -480,7 +480,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconHandshake class="text-primary mr-4 text-4xl lg:text-xl" />
+										<IconHandshake class="text-primary mr-4 text-3xl md:text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
 											<p>{$t('how_it_works.step_4.completion.description')}</p>
@@ -534,7 +534,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLock class="text-primary mr-4 text-6xl lg:text-3xl" />
+										<IconLock class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -546,7 +546,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconClockOutline class="text-primary mr-4 text-6xl lg:text-3xl" />
+										<IconClockOutline class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -558,7 +558,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLightningBolt class="text-primary mr-4 text-6xl lg:text-3xl" />
+										<IconLightningBolt class="text-primary mr-4 text-6xl md:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>
