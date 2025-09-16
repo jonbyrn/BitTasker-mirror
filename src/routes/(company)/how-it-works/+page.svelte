@@ -3,15 +3,10 @@
 	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconFileUpload from '~icons/mdi/file-upload';
-	import IconFlagCheckered from '~icons/mdi/flag-checkered';
 	import IconHandshake from '~icons/mdi/handshake';
 	import IconLock from '~icons/mdi/lock';
 	import IconClockOutline from '~icons/mdi/clock-outline';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
-	import IconShieldCheck from '~icons/mdi/shield-check';
-	import IconShieldAccount from '~icons/mdi/shield-account';
-	import IconSafe from '~icons/mdi/safe';
-	import IconTrophy from '~icons/mdi/trophy';
 	import IconMessageText from '~icons/mdi/message-text';
 
 	let { data } = $props();
@@ -80,7 +75,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h3>{$t('how_it_works.title')}</h3>
+				<h1>{$t('how_it_works.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('how_it_works.hero.description')}
 				</p>
@@ -97,7 +92,7 @@
 			</p>
 		</div>
 
-		<div class="alert alert-primary alert-outline mb-8">
+		<div class="alert alert-success alert-outline mb-8">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				fill="none"
@@ -118,7 +113,7 @@
 		</div>
 
 		<!-- Steps Overview -->
-		<div class="justify-left mb-12 flex sm:justify-center">
+		<div class="justify-center mb-12 flex">
 			<div class="steps steps-vertical md:steps-horizontal gap-2">
 				<div class="step step-primary">
 					<div>{$t('how_it_works.steps.sign_up')}</div>
@@ -159,9 +154,9 @@
 					<div class="card-body">
 						<p class="mb-4">{$t('how_it_works.step_1.description')}</p>
 
-						<div class="mt-4 flex flex-col gap-4 md:flex-row">
+						<div class="mt-0 flex flex-col gap-4 md:flex-row">
 							<div class="flex-1">
-								<h4 class="mb-2">{$t('how_it_works.step_1.quick_secure.title')}</h4>
+								<h4 class="mb-2 mt-0">{$t('how_it_works.step_1.quick_secure.title')}</h4>
 								<ul class="list-inside list-disc space-y-1">
 									<li>{$t('how_it_works.step_1.quick_secure.item_1')}</li>
 									<li>{$t('how_it_works.step_1.quick_secure.item_2')}</li>
@@ -169,7 +164,7 @@
 								</ul>
 							</div>
 							<div class="flex-1">
-								<h4 class="mb-2">{$t('how_it_works.step_1.requirements.title')}</h4>
+								<h4 class="mb-2 mt-0">{$t('how_it_works.step_1.requirements.title')}</h4>
 								<ul class="list-inside list-disc space-y-1">
 									<li>{$t('how_it_works.step_1.requirements.item_1')}</li>
 									<li>{$t('how_it_works.step_1.requirements.item_2')}</li>
@@ -177,7 +172,7 @@
 							</div>
 						</div>
 
-						<div class="alert alert-primary alert-outline mt-6">
+						<div class="alert alert-primary alert-outline mt-0">
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
@@ -296,7 +291,7 @@
 									<div class="space-y-4">
 										<div class="mt-4 flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												1
 											</div>
@@ -312,7 +307,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												2
 											</div>
@@ -328,7 +323,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												3
 											</div>
@@ -378,7 +373,7 @@
 									<div class="space-y-4">
 										<div class="mt-4 flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												1
 											</div>
@@ -392,7 +387,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												2
 											</div>
@@ -406,7 +401,7 @@
 
 										<div class="flex items-start gap-4">
 											<div
-												class="border-primary text-primary mt-1 flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium"
+												class="border-primary text-primary mt-1 flex h-8 w-8 min-h-8 min-w-8 items-center justify-center rounded-full border text-sm font-medium"
 											>
 												3
 											</div>
@@ -461,7 +456,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconFileUpload class="text-primary mr-4 text-xl" />
+										<IconFileUpload class="text-primary mr-4 text-4xl lg:text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.files.title')}</h4>
 											<p>{$t('how_it_works.step_4.files.description')}</p>
@@ -473,7 +468,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconMessageText class="text-primary mr-4 text-xl" />
+										<IconMessageText class="text-primary mr-4 text-4xl lg:text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.translation.title')}</h4>
 											<p>{$t('how_it_works.step_4.translation.description')}</p>
@@ -485,7 +480,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconHandshake class="text-primary mr-4 text-xl" />
+										<IconHandshake class="text-primary mr-4 text-4xl lg:text-xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_4.completion.title')}</h4>
 											<p>{$t('how_it_works.step_4.completion.description')}</p>
@@ -539,7 +534,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLock class="text-primary mr-4 text-3xl" />
+										<IconLock class="text-primary mr-4 text-6xl lg:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_1.title')}</h4>
 											<p>{@html $t('how_it_works.step_5.feature_1.description')}</p>
@@ -551,7 +546,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconClockOutline class="text-primary mr-4 text-3xl" />
+										<IconClockOutline class="text-primary mr-4 text-6xl lg:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_2.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_2.description')}</p>
@@ -563,7 +558,7 @@
 							<div class="card bg-base-200 shadow-sm">
 								<div class="card-body p-4">
 									<div class="flex items-center">
-										<IconLightningBolt class="text-primary mr-4 text-3xl" />
+										<IconLightningBolt class="text-primary mr-4 text-6xl lg:text-3xl" />
 										<div>
 											<h4 class="font-medium">{$t('how_it_works.step_5.feature_3.title')}</h4>
 											<p>{$t('how_it_works.step_5.feature_3.description')}</p>

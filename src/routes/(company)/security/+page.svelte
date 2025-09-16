@@ -60,7 +60,7 @@
 		<div class="hero-content flex-col text-center">
 			<Logo />
 			<div class="max-w-3xl">
-				<h3>{$t('about.security.title')}</h3>
+				<h1>{$t('about.security.title')}</h1>
 				<p class="text-base-content/80 py-6 text-lg">
 					{$t('about.security.description')}
 				</p>
@@ -103,8 +103,8 @@
 		<div class="mt-6 grid gap-6 md:grid-cols-2">
 			<!-- Passkeys -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">
 						{$t('about.security_passkeys.title')}
 					</h3>
 					<p>
@@ -140,8 +140,8 @@
 
 			<!-- Account Recovery -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">
 						{$t('about.security_recovery.title')}
 					</h3>
 					<p>{$t('about.security_recovery.description')}</p>
@@ -175,8 +175,8 @@
 
 			<!-- Client-Side Encryption -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">
 						{$t('about.security_encryption.title')}
 					</h3>
 					<p>{$t('about.security_encryption.description')}</p>
@@ -210,8 +210,8 @@
 
 			<!-- Bitcoin Wallet Security -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">
 						{$t('about.security_wallet.title')}
 					</h3>
 					<p>{$t('about.security_wallet.description')}</p>
@@ -250,8 +250,8 @@
 
 			<!-- Decentralized Identity -->
 			<div class="card bg-base-100 border-base-300 mb-6 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">{$t('about.additional_security.identity_title')}</h3>
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">{$t('about.additional_security.identity_title')}</h3>
 					<p>{$t('about.additional_security.identity_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg
@@ -274,8 +274,8 @@
 
 			<!-- Escrow System Security -->
 			<div class="card bg-base-100 border-base-300 mb-6 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">{$t('about.additional_security.escrow_title')}</h3>
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">{$t('about.additional_security.escrow_title')}</h3>
 					<p>{$t('about.additional_security.escrow_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg
@@ -298,8 +298,8 @@
 
 			<!-- Privacy-Focused Communication -->
 			<div class="card bg-base-100 border-base-300 border shadow-lg">
-				<div class="card-body p-4 pb-6">
-					<h3 class="card-title mt-6">{$t('about.additional_security.privacy_title')}</h3>
+				<div class="card-body p-6 pb-6">
+					<h3 class="card-title mt-2">{$t('about.additional_security.privacy_title')}</h3>
 					<p>{$t('about.additional_security.privacy_description')}</p>
 					<div class="alert alert-info alert-outline mt-4">
 						<svg
