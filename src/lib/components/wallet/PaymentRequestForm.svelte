@@ -14,6 +14,7 @@
 	} from '$lib/constants/assets';
 	import { appStore } from '$lib/stores/app.store';
 	import Input from '$lib/components/Input.svelte';
+	import { t } from 'svelte-i18n';
 
 	// Payment method types supported by Breez SDK
 	type PaymentMethod = 'liquidAddress' | 'bolt11Invoice' | 'bitcoinAddress' | 'bolt12Offer';
@@ -38,16 +39,16 @@
 	let currentNetwork = getCurrentNetwork();
 
 	const paymentMethodOptions = [
-		{ label: '🌊 Liquid Address (Recommended)', value: 'liquidAddress' },
-		{ label: '⚡ Lightning Invoice', value: 'bolt11Invoice' },
-		{ label: '₿ Bitcoin Address', value: 'bitcoinAddress' },
-		{ label: '🔄 BOLT12 Offer', value: 'bolt12Offer' }
+		{ label: $t('common.components.wallet.payment_request_form.liquid_address'), value: 'liquidAddress' },
+		{ label: $t('common.components.wallet.payment_request_form.lightning_invoice'), value: 'bolt11Invoice' },
+		{ label: $t('common.components.wallet.payment_request_form.bitcoin_address'), value: 'bitcoinAddress' },
+		{ label: $t('common.components.wallet.payment_request_form.bolt12_offer'), value: 'bolt12Offer' }
 	];
 
 	const assetTypeOptions = [
-		{ label: '🎯 Any Asset (Universal)', value: 'any' },
-		{ label: '₿ L-BTC (Liquid Bitcoin)', value: 'L-BTC' },
-		{ label: '💵 USDt (Tether USD)', value: 'USDt' }
+		{ label: $t('common.components.wallet.payment_request_form.any_asset'), value: 'any' },
+		{ label: $t('common.components.wallet.payment_request_form.liquid_bitcoin'), value: 'L-BTC' },
+		{ label: $t('common.components.wallet.payment_request_form.tether_usd'), value: 'USDt' }
 	];
 
 	// Update amount requirement and limits when payment method changes
@@ -79,7 +80,7 @@
 			};
 		} catch (error) {
 			console.error('Error initializing receive form:', error);
-			errorMessage = 'Failed to load payment options. Please try again.';
+			errorMessage = $t('common.components.wallet.payment_request_form.failed_to_load');
 		} finally {
 			isLoading = false;
 		}
@@ -111,13 +112,13 @@
 
 		switch (true) {
 			case requireAmount && (isNaN(amountSats) || amountSats <= 0):
-				errorMessage = `Amount is required for ${getMethodDisplayName()}`;
+				errorMessage = $t('common.components.wallet.payment_request_form.amount_required', { values: { method: getMethodDisplayName() } });
 				return null;
 			case amountSats > 0 && amountSats < limits.min:
-				errorMessage = `Amount must be at least ${formatSats(limits.min)} sats`;
+				errorMessage = $t('common.components.wallet.payment_request_form.amount_too_low', { values: { min: formatSats(limits.min) } });
 				return null;
 			case amountSats > limits.max:
-				errorMessage = `Amount must be no more than ${formatSats(limits.max)} sats`;
+				errorMessage = $t('common.components.wallet.payment_request_form.amount_too_high', { values: { max: formatSats(limits.max) } });
 				return null;
 			default:
 				errorMessage = null;
@@ -132,28 +133,28 @@
 	function getMethodDisplayName(): string {
 		switch (paymentMethod) {
 			case 'liquidAddress':
-				return 'Liquid Address';
+				return $t('common.components.wallet.payment_request_form.liquid_address_name');
 			case 'bolt11Invoice':
-				return 'Lightning Invoice';
+				return $t('common.components.wallet.payment_request_form.lightning_invoice_name');
 			case 'bitcoinAddress':
-				return 'Bitcoin Address';
+				return $t('common.components.wallet.payment_request_form.bitcoin_address_name');
 			case 'bolt12Offer':
-				return 'BOLT12 Offer';
+				return $t('common.components.wallet.payment_request_form.bolt12_offer_name');
 			default:
-				return 'Address';
+				return $t('common.components.wallet.payment_request_form.address_name');
 		}
 	}
 
 	function getMethodDescription(): string {
 		switch (paymentMethod) {
 			case 'liquidAddress':
-				return 'Universal address for L-BTC, USDT, and other Liquid assets. No amount required.';
+				return $t('common.components.wallet.payment_request_form.liquid_address_desc');
 			case 'bolt11Invoice':
-				return 'Instant Lightning payment. Amount required, expires after use.';
+				return $t('common.components.wallet.payment_request_form.lightning_invoice_desc');
 			case 'bitcoinAddress':
-				return 'On-chain Bitcoin payment. Higher fees, slower confirmation.';
+				return $t('common.components.wallet.payment_request_form.bitcoin_address_desc');
 			case 'bolt12Offer':
-				return 'Reusable Lightning offer. Accepts any amount, ignores amount input.';
+				return $t('common.components.wallet.payment_request_form.bolt12_offer_desc');
 			default:
 				return '';
 		}
@@ -162,11 +163,11 @@
 	function getAssetDescription(): string {
 		switch (selectedAsset) {
 			case 'any':
-				return 'Accept any supported asset (L-BTC, USDT, etc.)';
+				return $t('common.components.wallet.payment_request_form.any_asset_desc');
 			case 'L-BTC':
-				return 'Liquid Bitcoin only';
+				return $t('common.components.wallet.payment_request_form.liquid_bitcoin_desc');
 			case 'USDt':
-				return 'Tether USD on Liquid only';
+				return $t('common.components.wallet.payment_request_form.tether_usd_desc');
 			default:
 				return '';
 		}
@@ -221,7 +222,7 @@
 			errorMessage =
 				error instanceof Error
 					? error.message
-					: 'Failed to generate payment request. Please try again.';
+					: $t('common.components.wallet.payment_request_form.failed_to_generate');
 		} finally {
 			isLoading = false;
 		}
@@ -229,8 +230,8 @@
 
 	function getDefaultDescription(): string {
 		const methodName = getMethodDisplayName();
-		const assetInfo = selectedAsset === 'any' ? 'multi-asset' : selectedAsset;
-		return `${methodName} payment${selectedAsset !== 'any' ? ` for ${assetInfo}` : ''}`;
+		const assetInfo = selectedAsset === 'any' ? $t('common.components.wallet.payment_request_form.multi_asset') : selectedAsset;
+		return $t('common.components.wallet.payment_request_form.default_description', { values: { method: methodName, asset: selectedAsset !== 'any' ? assetInfo : '' } });
 	}
 
 	function copyToClipboard() {
@@ -243,7 +244,7 @@
 				textToCopy = address.replace('liquidnetwork:', '');
 			}
 			navigator.clipboard.writeText(textToCopy);
-			appStore.showSuccessToast('Address copied to clipboard');
+			appStore.showSuccessToast($t('common.components.wallet.payment_request_form.address_copied'));
 		}
 	}
 
@@ -279,15 +280,14 @@
 			<!-- Header -->
 			<div class="mb-6">
 				<p class="text-base-content/70 text-sm">
-					Generate addresses and invoices using Breez SDK. Support for Lightning, Bitcoin, and
-					multi-asset Liquid payments.
+					{$t('common.components.wallet.payment_request_form.description')}
 				</p>
 			</div>
 
 			<!-- Payment Method Selection -->
 			<div class="form-control mb-4">
 				<label class="label pb-2" for="payment-method">
-					<span class="label-text font-medium">Payment Method</span>
+					<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.payment_method')}</span>
 				</label>
 				<Input
 					options={paymentMethodOptions}
@@ -305,9 +305,9 @@
 			<!-- Asset Selection (for Liquid) -->
 			{#if paymentMethod === 'liquidAddress'}
 				<div class="form-control mb-4">
-					<label class="label pb-2" for="asset-type">
-						<span class="label-text font-medium">Asset Type</span>
-					</label>
+				<label class="label pb-2" for="asset-type">
+					<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.asset_type')}</span>
+				</label>
 					<Input
 						options={assetTypeOptions}
 						value={assetTypeOptions.find((option) => option.value === selectedAsset)?.label}
@@ -327,8 +327,7 @@
 				<div class="form-control mb-4">
 					<label class="label pb-2" for="amount-input">
 						<span class="label-text font-medium">
-							Amount ({tokenType === 'BTC' ? 'BTC' : selectedAsset === 'USDt' ? 'USDT' : 'sats'})
-							{requireAmount ? ' *' : ' (optional)'}
+							{$t('common.components.wallet.payment_request_form.amount', { values: { unit: tokenType === 'BTC' ? 'BTC' : selectedAsset === 'USDt' ? 'USDT' : 'sats', required: requireAmount ? ' *' : ' (optional)' } })}
 						</span>
 					</label>
 					<div class="join w-full">
@@ -337,7 +336,7 @@
 							type="number"
 							step="any"
 							min={0}
-							placeholder={requireAmount ? 'Amount required' : 'Leave empty for any amount'}
+							placeholder={requireAmount ? $t('common.components.wallet.payment_request_form.amount_required_placeholder') : $t('common.components.wallet.payment_request_form.amount_optional_placeholder')}
 							class="input input-bordered join-item w-full flex-1 focus:border-amber-500 focus:outline-none"
 							bind:value={amount}
 						/>
@@ -359,7 +358,7 @@
 					{#if !requireAmount && paymentMethod === 'liquidAddress'}
 						<div class="label pt-1">
 							<span class="label-text-alt text-info text-xs whitespace-break-spaces">
-								💡 Liquid addresses can receive any amount without specifying upfront
+								{$t('common.components.wallet.payment_request_form.liquid_address_tip')}
 							</span>
 						</div>
 					{/if}
@@ -367,7 +366,7 @@
 					{#if paymentMethod === ('bolt12Offer' as PaymentMethod)}
 						<div class="label pt-1">
 							<span class="label-text-alt text-warning text-xs whitespace-break-spaces">
-								⚠️ BOLT12 offers ignore amount input - payers choose their own amount
+								{$t('common.components.wallet.payment_request_form.bolt12_warning')}
 							</span>
 						</div>
 					{/if}
@@ -383,12 +382,12 @@
 			<!-- Description -->
 			<div class="form-control mb-6">
 				<label class="label pb-2" for="description-input">
-					<span class="label-text font-medium">Description (optional)</span>
+					<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.description_label')}</span>
 				</label>
 				<input
 					id="description-input"
 					type="text"
-					placeholder="What's this payment for?"
+					placeholder={$t('common.components.wallet.payment_request_form.description_placeholder')}
 					class="input input-bordered w-full focus:border-amber-500 focus:outline-none"
 					bind:value={description}
 				/>
@@ -402,9 +401,9 @@
 			>
 				{#if isLoading}
 					<span class="loading loading-spinner loading-sm mr-2"></span>
-					Generating...
+					{$t('common.components.wallet.payment_request_form.generating')}
 				{:else}
-					Generate {getMethodDisplayName()}
+					{$t('common.components.wallet.payment_request_form.generate', { values: { method: getMethodDisplayName() } })}
 				{/if}
 			</button>
 		{:else}
@@ -412,10 +411,10 @@
 			<div>
 				<div class="mb-4">
 					<h4 class="card-title mb-2 text-xl font-bold">
-						{getMethodDisplayName()} Generated ✅
+						{$t('common.components.wallet.payment_request_form.generated', { values: { method: getMethodDisplayName() } })}
 					</h4>
 					<p class="text-base-content/70 text-sm">
-						Share this {paymentMethod === 'liquidAddress' ? 'address' : 'invoice'} with the payer
+						{$t('common.components.wallet.payment_request_form.share_with_payer', { values: { type: paymentMethod === 'liquidAddress' ? $t('common.components.wallet.payment_request_form.address') : $t('common.components.wallet.payment_request_form.invoice') } })}
 					</p>
 				</div>
 
@@ -424,14 +423,14 @@
 					<div class="bg-base-300 rounded-lg p-4">
 						<div class="grid grid-cols-1 gap-3">
 							<div class="flex items-center justify-between">
-								<span class="text-base-content/70 font-medium">Method:</span>
+								<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.method')}</span>
 								<span class="font-bold">{getMethodDisplayName()}</span>
 							</div>
 
 							{#if paymentMethod !== 'bolt12Offer'}
 								{#if amount > 0}
 									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 font-medium">Amount:</span>
+										<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.amount')}</span>
 										<span class="text-success font-bold">
 											{#if selectedAsset === 'USDt'}
 												${amount} USDT
@@ -442,34 +441,34 @@
 									</div>
 								{:else}
 									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 font-medium">Amount:</span>
-										<span class="text-primary font-bold">Any amount accepted</span>
+										<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.amount')}</span>
+										<span class="text-primary font-bold">{$t('common.components.wallet.payment_request_form.any_amount_accepted')}</span>
 									</div>
 								{/if}
 							{:else}
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">Amount:</span>
-									<span class="text-warning font-bold">Payer chooses amount</span>
+									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.amount')}</span>
+									<span class="text-warning font-bold">{$t('common.components.wallet.payment_request_form.payer_chooses_amount')}</span>
 								</div>
 							{/if}
 
 							{#if paymentMethod === 'liquidAddress' && selectedAsset !== 'any'}
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">Asset:</span>
+									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.asset')}</span>
 									<span class="font-bold">{selectedAsset}</span>
 								</div>
 							{/if}
 
 							{#if description}
 								<div class="flex items-start justify-between">
-									<span class="text-base-content/70 font-medium">Description:</span>
+									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.description')}</span>
 									<span class="max-w-48 text-right text-sm break-words">{description}</span>
 								</div>
 							{/if}
 
 							{#if feeSats > 0}
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">Network Fee:</span>
+									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.network_fee')}</span>
 									<span class="text-sm">{formatSats(feeSats)} sats</span>
 								</div>
 							{/if}
@@ -479,17 +478,17 @@
 					<!-- Address/Invoice Display -->
 					<div class="space-y-2">
 						<div class="text-base-content/70 font-medium">
-							{paymentMethod === 'liquidAddress' ? 'Address:' : 'Invoice:'}
+							{paymentMethod === 'liquidAddress' ? $t('common.components.wallet.payment_request_form.address') : $t('common.components.wallet.payment_request_form.invoice')}
 						</div>
 						<button
 							class="bg-base-300 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
-							title="Click to copy"
+							title={$t('common.components.wallet.payment_request_form.click_to_copy')}
 							onclick={copyToClipboard}
 						>
 							<pre
 								class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-amber-600">{getDisplayAddress()}</pre>
 						</button>
-						<p class="text-base-content/50 text-center text-xs">👆 Click to copy to clipboard</p>
+						<p class="text-base-content/50 text-center text-xs">{$t('common.components.wallet.payment_request_form.click_to_copy_hint')}</p>
 					</div>
 
 					<!-- Actions -->
@@ -498,13 +497,13 @@
 							class="btn btn-outline flex-1 border-amber-500 text-amber-500 hover:bg-amber-500 hover:text-black"
 							onclick={resetForm}
 						>
-							Generate New
+							{$t('common.components.wallet.payment_request_form.generate_new')}
 						</button>
 						<button
 							class="btn btn-primary flex-1 border-none bg-amber-500 text-black hover:bg-amber-600"
 							onclick={copyToClipboard}
 						>
-							📋 Copy
+							{$t('common.components.wallet.payment_request_form.copy')}
 						</button>
 					</div>
 				</div>

@@ -291,7 +291,7 @@
 											{#if bid.bid.creator?.avatar}
 												<img
 													src={bid.bid.creator.avatar}
-													alt="Avatar"
+													alt={$t('common.components.bidding.dashboard_bids.avatar_alt')}
 													class="h-8 w-8 rounded-full object-cover"
 												/>
 											{:else}
@@ -327,7 +327,7 @@
 									<!-- Username and Review Stars -->
 									<div class="flex flex-col">
 										<span class="text-sm font-medium">
-											{bid.bid.creator?.username || 'Anonymous'}
+											{bid.bid.creator?.username || $t('common.components.bidding.dashboard_bids.anonymous')}
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">
@@ -343,7 +343,7 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-1 text-xs">4.0</span>
+											<span class="text-base-content/60 ml-1 text-xs">{$t('common.components.bidding.dashboard_bids.rating')}</span>
 										</div>
 									</div>
 								</div>

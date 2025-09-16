@@ -8,6 +8,7 @@
 	import authService from '$lib/api/services/auth.service';
 	import { Buffer } from 'buffer';
 	import { generateMnemonic } from 'bip39';
+	import { t } from 'svelte-i18n';
 
 	// Polyfill Buffer
 	if (typeof window !== 'undefined') {
@@ -126,7 +127,7 @@
 </script>
 
 <div class="p-8 pb-0">
-	<h2 class="mb-6 text-center text-2xl font-bold">Create New Wallet</h2>
+	<h2 class="mb-6 text-center text-2xl font-bold">{$t('common.components.wallet.create_wallet.title')}</h2>
 
 	{#if mnemonic}
 		<div class="alert alert-outline alert-error mb-6 shadow-md">
@@ -143,13 +144,12 @@
 				/></svg
 			>
 			<span class="font-medium"
-				>Keep your seed phrase safe! Anyone with your seed phrase can access your wallet and
-				withdraw your funds.</span
+				>{$t('common.components.wallet.create_wallet.warning')}</span
 			>
 		</div>
 
 		<p class="mb-2 text-sm font-medium">
-			Copy the seed phrase to your clipboard by clicking on the text.
+			{$t('common.components.wallet.create_wallet.copy_instruction')}
 		</p>
 		<button
 			class="seed-phrase-text mb-4 w-full cursor-pointer rounded-lg border-2 border-dashed p-4 text-left font-mono text-sm transition-all duration-300 select-text {isCopied
@@ -195,7 +195,7 @@
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"
 						></path>
 					</svg>
-					<span class="text-sm font-medium">Copied!</span>
+					<span class="text-sm font-medium">{$t('common.components.wallet.create_wallet.copied')}</span>
 				</div>
 			{:else}
 				<div class="flex items-center place-self-end text-gray-500">
@@ -213,7 +213,7 @@
 							d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
 						></path>
 					</svg>
-					<span class="text-sm">Click to copy</span>
+					<span class="text-sm">{$t('common.components.wallet.create_wallet.click_to_copy')}</span>
 				</div>
 			{/if}
 		</button>
@@ -227,14 +227,14 @@
 			disabled={isGenerating}
 			aria-disabled={isGenerating}
 		>
-			Generate Seed Phrase
+			{$t('common.components.wallet.create_wallet.generate_seed')}
 		</button>
 	{:else if !mnemonic && isGenerating}
-		<p class="text-sm font-medium">Generating...</p>
+		<p class="text-sm font-medium">{$t('common.components.wallet.create_wallet.generating')}</p>
 	{:else if mnemonic && isGenerating}
-		<p class="btn btn-primary mt-2 w-full">Setting up passkey...</p>
+		<p class="btn btn-primary mt-2 w-full">{$t('common.components.wallet.create_wallet.setting_up')}</p>
 	{:else if mnemonic && !isGenerating}
-		<button class="btn btn-primary mt-2 w-full" onclick={setupPasskey}> Continue to Wallet </button>
+		<button class="btn btn-primary mt-2 w-full" onclick={setupPasskey}> {$t('common.components.wallet.create_wallet.continue')} </button>
 	{/if}
 
 	{#if error}

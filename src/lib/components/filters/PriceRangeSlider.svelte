@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { getBudgetTiersForCurrency, getBudgetTiersForRange } from '$lib/utils/helpers/budgetTier';
 	import Input from '$lib/components/Input.svelte';
+	import { t } from 'svelte-i18n';
 	// Props
 	let { onRangeChange, currency = $bindable() } = $props<{
 		onRangeChange: (tier: string) => void;
@@ -61,14 +62,14 @@
 <div class="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
 	<div class="col-span-2 sm:col-span-1">
 		<label class="label mb-1 p-0" for="min">
-			<span class="label-text">Currency</span>
+			<span class="label-text">{$t('dashboard.bids.components.filters.price_range.currency')}</span>
 		</label>
 		<Input
 			type="select"
 			options={[
-				{ value: 'All', label: 'All' },
-				{ value: 'USD', label: 'USD' },
-				{ value: 'BTC', label: 'BTC' }
+				{ value: 'All', label: $t('dashboard.bids.components.filters.price_range.all') },
+				{ value: 'USD', label: $t('dashboard.bids.components.filters.price_range.usd') },
+				{ value: 'BTC', label: $t('dashboard.bids.components.filters.price_range.btc') }
 			]}
 			value={currency}
 			className="input-sm"
@@ -77,11 +78,11 @@
 	</div>
 	<div>
 		<label class="label mb-1 p-0" for="min">
-			<span class="label-text">Min <small>({currency || 'All'})</small></span>
+			<span class="label-text">{$t('dashboard.bids.components.filters.price_range.min')} <small>({currency || $t('dashboard.bids.components.filters.price_range.all')})</small></span>
 		</label>
 		<input
 			type="number"
-			placeholder="Min"
+			placeholder={$t('dashboard.bids.components.filters.price_range.min')}
 			class="input input-bordered input-sm w-full"
 			bind:value={minBudget}
 			oninput={applyInputChanges}
@@ -90,11 +91,11 @@
 	</div>
 	<div>
 		<label class="label mb-1 p-0" for="max">
-			<span class="label-text">Max <small>({currency || 'All'})</small></span>
+			<span class="label-text">{$t('dashboard.bids.components.filters.price_range.max')} <small>({currency || $t('dashboard.bids.components.filters.price_range.all')})</small></span>
 		</label>
 		<input
 			type="number"
-			placeholder="Max"
+			placeholder={$t('dashboard.bids.components.filters.price_range.max')}
 			class="input input-bordered input-sm w-full"
 			bind:value={maxBudget}
 			oninput={applyInputChanges}
@@ -106,8 +107,8 @@
 <!-- Preset ranges -->
 <div>
 	<label class="label mb-1 p-0" for="presetRanges">
-		<span class="label-text">Common Ranges</span>
-		<button class="btn btn-xs" onclick={clearBudgetTier}>Clear</button>
+		<span class="label-text">{$t('dashboard.bids.components.filters.price_range.common_ranges')}</span>
+		<button class="btn btn-xs" onclick={clearBudgetTier}>{$t('dashboard.bids.components.filters.price_range.clear')}</button>
 	</label>
 	<div class="flex flex-wrap gap-2">
 		{#each getBudgetTiersForCurrency(currency || 'USD') as preset}

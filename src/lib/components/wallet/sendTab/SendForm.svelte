@@ -3,7 +3,7 @@
 	Supports multi-asset transactions with passkey security
 -->
 <script lang="ts">
-
+	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
@@ -476,13 +476,13 @@
 		}}
 	>
 		<div class="flex items-center justify-between">
-			<h3 class="text-base-content text-lg font-semibold sm:text-xl">Send Payment</h3>
+			<h3 class="text-base-content text-lg font-semibold sm:text-xl">{$t('common.components.wallet.send_form.title')}</h3>
 		</div>
 
 		<!-- Asset Selection -->
 		<div class="form-control">
 			<div class="label">
-				<span class="label-text text-sm sm:text-base">Select Asset</span>
+				<span class="label-text text-sm sm:text-base">{$t('common.components.wallet.send_form.select_asset')}</span>
 			</div>
 			<AssetSelector
 				selectedAsset={$walletAssets.selectedAsset}
@@ -540,10 +540,10 @@
 		<!-- Description -->
 		<div class="form-control">
 			<div class="label">
-				<span class="label-text text-sm sm:text-base">Description (optional)</span>
+				<span class="label-text text-sm sm:text-base">{$t('common.components.wallet.send_form.description')}</span>
 			</div>
 			<textarea
-				placeholder="What's this payment for?"
+				placeholder={$t('common.components.wallet.send_form.description_placeholder')}
 				class="textarea textarea-bordered w-full rounded-xl text-sm sm:text-base"
 				rows="3"
 				value={description}
@@ -583,8 +583,8 @@
 			>
 				{#if isLoading}
 					<span class="loading loading-spinner loading-sm sm:loading-md"></span>
-					<span class="hidden sm:inline">Processing...</span>
-					<span class="sm:hidden">Processing</span>
+					<span class="hidden sm:inline">{$t('common.components.wallet.send_form.processing')}</span>
+					<span class="sm:hidden">{$t('common.components.wallet.send_form.processing_short')}</span>
 				{:else}
 					<span class="flex items-center gap-2">
 						<svg
@@ -601,7 +601,7 @@
 								d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
 							/>
 						</svg>
-						<span>Send {$walletAssets.selectedAsset}</span>
+						<span>{$t('common.components.wallet.send_form.send')} {$walletAssets.selectedAsset}</span>
 					</span>
 				{/if}
 			</button>
@@ -609,7 +609,7 @@
 
 		<!-- Pending Payments & Events -->
 		{#if pendingPayments.length > 0}
-			<div class="divider">Activity</div>
+			<div class="divider">{$t('common.components.wallet.send_form.activity')}</div>
 
 			<!-- Pending Payments -->
 			{#if pendingPayments.length > 0}
@@ -628,8 +628,8 @@
 						/>
 					</svg>
 					<div>
-						<h4 class="font-bold">Pending Payments ({pendingPayments.length})</h4>
-						<p class="text-xs opacity-75">Some payments are waiting for confirmation</p>
+						<h4 class="font-bold">{$t('common.components.wallet.send_form.pending_payments', { values: { count: pendingPayments.length } })}</h4>
+						<p class="text-xs opacity-75">{$t('common.components.wallet.send_form.pending_message')}</p>
 					</div>
 				</div>
 			{/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { FacebookUser, FacebookLoginResponse, FacebookSDK } from '$lib/types/facebook';
 	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
 
 	// Facebook SDK configuration
 	const FB_APP_ID = import.meta.env.VITE_FACEBOOK_APP_ID;
@@ -71,7 +72,7 @@
 	const handleLogin = () => {
 		try {
 			if (!isInitialized) {
-				throw new Error('Facebook SDK not initialized');
+				throw new Error($t('auth.login.errors.facebook_sdk_not_initialized'));
 			}
 
 			isLoading = true;
@@ -81,7 +82,7 @@
 					isLoading = false;
 
 					if (!response) {
-						throw new Error('No response received from Facebook');
+						throw new Error($t('auth.login.errors.no_response_from_facebook'));
 					}
 
 					switch (response.status) {
@@ -89,11 +90,11 @@
 							handleSuccessfulLogin(response);
 							break;
 						case 'not_authorized':
-							throw new Error('User has not authorized the app');
+							throw new Error($t('auth.login.errors.user_not_authorized'));
 						case 'unknown':
-							throw new Error('Login status unknown, please try again');
+							throw new Error($t('auth.login.errors.login_status_unknown'));
 						default:
-							throw new Error(`Unexpected response status: ${response.status}`);
+							throw new Error($t('auth.login.errors.unexpected_response_status', { values: { status: response.status } }));
 					}
 				},
 				{
@@ -101,13 +102,13 @@
 					return_scopes: true // This helps us know which permissions were granted
 				}
 			).catch((error: Error) => {
-				throw new Error(`Facebook API error: ${error.message}`);
+				throw new Error($t('auth.login.errors.facebook_api_error', { values: { error: error.message } }));
 			});
 		} catch (error) {
 			isLoading = false;
 			console.error('Facebook login error:', {
 				provider: 'facebook',
-				error: error instanceof Error ? error.message : 'Unknown error occurred',
+				error: error instanceof Error ? error.message : $t('auth.login.errors.unknown_error_occurred'),
 				timestamp: new Date().toISOString()
 			});
 		}
@@ -151,6 +152,6 @@
 				></path>
 			</svg>
 		{/if}
-		Continue with Facebook
+		{$t('auth.login.continue_with_facebook')}
 	</div>
 </button>

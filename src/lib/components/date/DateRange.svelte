@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DateRangePicker } from 'bits-ui';
+	import { t } from 'svelte-i18n';
 </script>
 
 <DateRangePicker.Root
@@ -8,7 +9,7 @@
 	class="flex w-full max-w-[340px] flex-col gap-1.5"
 >
 	<DateRangePicker.Label class="block text-sm font-medium select-none">
-		Rental Days
+		{$t('dashboard.bids.components.date_range.rental_days')}
 	</DateRangePicker.Label>
 	<div
 		class="h-input border-border-input bg-background text-foreground focus-within:border-border-input-hover focus-within:shadow-date-field-focus hover:border-border-input-hover flex w-full items-center rounded-lg border px-2 py-3 text-sm tracking-[0.01em] select-none"

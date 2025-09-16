@@ -133,7 +133,7 @@
 		<div class="flex items-center gap-3">
 			<h3 id="drawer-title" class="text-lg font-semibold">{$t('bid_form.title')}</h3>
 		</div>
-		<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
+		<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label={$t('common.components.bidding.task_details.close_dialog')}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"

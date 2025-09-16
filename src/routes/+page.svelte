@@ -100,7 +100,7 @@
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
 					<div class="flex flex-col justify-center gap-4 sm:flex-row">
-						<a href="/dashboard/find-tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
+						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_tasks')}</a
 						>
 						<a
@@ -230,7 +230,7 @@
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
 				<h2>{$t('homepage.v2.livetasks.title')}</h2>
-				<a href="/dashboard/find-tasks" class="btn btn-link text-primary"
+				<a href="/tasks" class="btn btn-link text-primary"
 					>{$t('common.view_all')}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -263,7 +263,7 @@
 
 			<!-- Browse Tasks Button -->
 			<div class="mt-12 text-center">
-				<a href="/dashboard/find-tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
+				<a href="/tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
 			</div>
 		</div>
 	</section>

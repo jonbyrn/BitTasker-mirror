@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { InputProps } from '$lib/types/props.d';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { t } from 'svelte-i18n';
 
 	let {
 		id = '',
@@ -139,7 +140,7 @@
 			<ul
 				class="bg-base-200 absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-lg"
 				role="listbox"
-				aria-label="options"
+				aria-label={$t('common.components.input.options')}
 			>
 				{#each filteredOptions as option (option.value)}
 					<li

@@ -3,6 +3,8 @@
 	Handles fee rate selection for Bitcoin transactions
 -->
 <script lang="ts">
+	import { t } from 'svelte-i18n';
+	
 	// Props
 	let {
 		feeRate = $bindable('medium'),
@@ -19,8 +21,8 @@
 {#if selectedAsset === 'BTC'}
 	<div class="form-control">
 		<div class="label">
-			<span class="label-text text-sm sm:text-base">Transaction Speed</span>
-			<span class="label-text-alt text-xs">Higher speed = Higher fees</span>
+			<span class="label-text text-sm sm:text-base">{$t('common.components.wallet.fee_selection.transaction_speed')}</span>
+			<span class="label-text-alt text-xs">{$t('common.components.wallet.fee_selection.speed_description')}</span>
 		</div>
 		<div class="grid w-full grid-cols-3 gap-2">
 			<button
@@ -29,7 +31,7 @@
 			>
 				<span class="flex items-center gap-1">
 					<span class="text-xs sm:text-sm">🐌</span>
-					<span class="text-xs">Slow</span>
+					<span class="text-xs">{$t('common.components.wallet.fee_selection.slow')}</span>
 				</span>
 			</button>
 			<button
@@ -38,7 +40,7 @@
 			>
 				<span class="flex items-center gap-1">
 					<span class="text-xs sm:text-sm">🚀</span>
-					<span class="text-xs">Medium</span>
+					<span class="text-xs">{$t('common.components.wallet.fee_selection.medium')}</span>
 				</span>
 			</button>
 			<button
@@ -47,7 +49,7 @@
 			>
 				<span class="flex items-center gap-1">
 					<span class="text-xs sm:text-sm">⚡</span>
-					<span class="text-xs">Fast</span>
+					<span class="text-xs">{$t('common.components.wallet.fee_selection.fast')}</span>
 				</span>
 			</button>
 		</div>

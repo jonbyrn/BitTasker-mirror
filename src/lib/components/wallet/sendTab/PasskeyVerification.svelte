@@ -8,6 +8,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { sendForm } from '$lib/stores/wallet.store';
+	import { t } from 'svelte-i18n';
 
 	interface VerificationContext {
 		operation: string;
@@ -20,7 +21,7 @@
 	// Props
 	let {
 		context,
-		title = 'Security Verification Required',
+		title = $t('common.components.wallet.passkey_verification.title'),
 		show = $bindable(false),
 		preparedTransaction,
 		selectedAsset,
@@ -172,7 +173,7 @@
 			<span class="text-3xl">{getOperationIcon(context.operation)}</span>
 			<div>
 				<h3 class="text-lg font-bold">{title}</h3>
-				<p class="text-sm opacity-70">Confirm with your passkey or biometrics</p>
+				<p class="text-sm opacity-70">{$t('common.components.wallet.passkey_verification.subtitle')}</p>
 			</div>
 		</div>
 
@@ -180,20 +181,20 @@
 		<div class="bg-base-200 mb-6 rounded-lg p-4">
 			<div class="space-y-3">
 				<div class="flex justify-between">
-					<span class="opacity-70">Operation:</span>
+					<span class="opacity-70">{$t('common.components.wallet.passkey_verification.operation')}</span>
 					<span class="font-medium capitalize">{context.operation}</span>
 				</div>
 
 				{#if context.amount}
 					<div class="flex justify-between">
-						<span class="opacity-70">Amount:</span>
+						<span class="opacity-70">{$t('common.components.wallet.passkey_verification.amount')}</span>
 						<span class="font-medium">{formatAmount(context.amount, context.asset || 'BTC')}</span>
 					</div>
 				{/if}
 
 				{#if context.destination}
 					<div class="flex justify-between">
-						<span class="opacity-70">Destination:</span>
+						<span class="opacity-70">{$t('common.components.wallet.passkey_verification.destination')}</span>
 						<span class="font-mono text-sm break-all">
 							{context.destination.length > 20
 								? `${context.destination.substring(0, 10)}...${context.destination.substring(context.destination.length - 10)}`
@@ -204,7 +205,7 @@
 
 				{#if context.asset && context.asset !== 'BTC'}
 					<div class="flex justify-between">
-						<span class="opacity-70">Asset:</span>
+						<span class="opacity-70">{$t('common.components.wallet.passkey_verification.asset')}</span>
 						<span class="font-medium">{context.asset}</span>
 					</div>
 				{/if}
@@ -227,7 +228,7 @@
 				/>
 			</svg>
 			<div>
-				<h3 class="font-bold">Security Notice</h3>
+				<h3 class="font-bold">{$t('common.components.wallet.passkey_verification.security_notice')}</h3>
 				<p class="text-sm">{getSecurityMessage()}</p>
 			</div>
 		</div>
@@ -255,7 +256,7 @@
 		<!-- Action Buttons -->
 		<div class="flex gap-3">
 			<button class="btn btn-outline flex-1" onclick={handleCancel} disabled={isVerifying}>
-				Cancel
+				{$t('common.components.wallet.passkey_verification.cancel')}
 			</button>
 
 			<button
@@ -265,7 +266,7 @@
 			>
 				{#if isVerifying}
 					<span class="loading loading-spinner loading-sm"></span>
-					Verifying...
+					{$t('common.components.wallet.passkey_verification.verifying')}
 				{:else}
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
@@ -281,7 +282,7 @@
 							d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
 						/>
 					</svg>
-					Verify with Passkey
+{$t('common.components.wallet.passkey_verification.verify_passkey')}
 				{/if}
 			</button>
 		</div>
@@ -310,10 +311,9 @@
 					/>
 				</svg>
 				<div class="flex-1">
-					<h3 class="text-sm font-bold sm:text-base">Transaction Prepared</h3>
+					<h3 class="text-sm font-bold sm:text-base">{$t('common.components.wallet.passkey_verification.transaction_prepared')}</h3>
 					<p class="text-xs opacity-75 sm:text-sm">
-						Estimated fee: {((preparedTransaction.feesSat || 0) / 100_000_000).toFixed(8)}
-						{selectedAsset}
+						{$t('common.components.wallet.passkey_verification.estimated_fee', { values: { fee: ((preparedTransaction.feesSat || 0) / 100_000_000).toFixed(8), asset: selectedAsset } })}
 					</p>
 				</div>
 			</div>

@@ -5,6 +5,7 @@
 	 * A customizable side drawer that can be used throughout the application
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -98,7 +99,7 @@
 				{props.title}
 			{/if}
 		</h2>
-		<button class="btn btn-ghost btn-circle" onclick={props.onClose} aria-label="Close drawer">
+		<button class="btn btn-ghost btn-circle" onclick={props.onClose} aria-label={$t('common.components.drawer.close')}>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"

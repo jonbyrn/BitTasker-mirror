@@ -18,7 +18,7 @@ export default defineConfig({
             compiler: 'svelte',
             autoInstall: false,
             scale: 1.5,
-            defaultStyle: 'width: 1.5em; height: 1.5em;',
+            // defaultStyle: 'width: 1.5em; height: 1.5em;',
             defaultClass: '',
         })
     ],

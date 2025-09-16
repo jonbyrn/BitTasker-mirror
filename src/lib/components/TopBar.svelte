@@ -213,7 +213,7 @@
 		<a href={isLoggedIn ? '/dashboard' : '/'} class="block">
 			<img
 				src="/images/Logos/BitTasker-square-logo.svg"
-				alt="BitTasker Logo"
+				alt={$t('common.components.topbar.logo_alt')}
 				class="mx-auto block max-h-10"
 				width="40"
 				height="40"
@@ -238,7 +238,7 @@
 			<button
 				class="btn btn-ghost btn-circle relative md:hidden"
 				onclick={toggleDrawer}
-				aria-label={isDrawerOpen ? 'Close menu' : 'Open menu'}
+				aria-label={isDrawerOpen ? $t('common.components.topbar.close_menu') : $t('common.components.topbar.open_menu')}
 			>
 				<div class="flex h-5 w-5 flex-col items-start justify-center">
 					<span
@@ -314,7 +314,7 @@
 							class="menu dropdown-content bg-base-100 rounded-box z-1 w-auto min-w-[12rem] p-2 whitespace-nowrap shadow-sm"
 						>
 							<li>
-								<a href="/dashboard/find-tasks" onclick={closeDropdowns}
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}
 									><IconMagnify class="text-primary" /> <span>{$t('navbar.find_tasks')}</span></a
 								>
 							</li>
@@ -447,7 +447,7 @@
 							class="menu dropdown-content bg-base-100 rounded-box z-1 min-w-[16rem] p-2 shadow-sm"
 						>
 							<li>
-								<a href="/dashboard/find-tasks" onclick={closeDropdowns}>
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeDropdowns}>
 									<IconMagnify class="text-primary" />
 									<span>{$t('footer.start_earning')}</span>
 								</a>
