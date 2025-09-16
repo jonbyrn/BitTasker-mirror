@@ -24,7 +24,7 @@
 	<div class="flex-shrink-0">
 		<Avatar
 			user={{
-				name: profile.name || (isSender ? $t('messages.you') : $t('messages.unknown')),
+				name: profile.name || (isSender ? $t('dashboard.bids.components.messages.chat_message.you') : $t('dashboard.bids.components.messages.chat_message.unknown')),
 				picture: profile.picture || null
 			}}
 			size="sm"

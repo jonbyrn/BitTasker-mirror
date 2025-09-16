@@ -1,6 +1,6 @@
 <script lang="ts">
         import { darkMode } from '$lib/stores/theme.store';
-        import { locale } from 'svelte-i18n';
+        import { locale, t } from 'svelte-i18n';
 
         let { class: className = 'block mx-auto mt-8 mb-8 w-full max-w-xs sm:max-w-sm md:max-w-md' } = $props<{ class?: string }>();
         let logoUrl = $state('');
@@ -15,7 +15,7 @@
 
 <img 
 	src={logoUrl} 
-	alt="BitTasker Logo" 
+	alt={$t('common.components.logo.alt')} 
 	class={className}
 	width="200"
 	height="60"

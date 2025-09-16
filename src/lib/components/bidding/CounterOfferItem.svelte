@@ -2,6 +2,7 @@
 	import type { CounterOffer } from '$lib/types/bid';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { formatDate } from '$lib/utils/helpers/dateFormatter';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -33,7 +34,7 @@
 <div class="bg-base-200 rounded-lg p-3">
 	<div class="mb-2 flex items-start justify-between">
 		<div>
-			<span class="text-sm font-medium">Counter from {props.offer.proposedBy.slice(0, 6)}...</span>
+			<span class="text-sm font-medium">{$t('common.components.bidding.counter_offer_item.counter_from', { values: { user: props.offer.proposedBy.slice(0, 6) } })}</span>
 			<span class="ml-2 text-xs opacity-70">{getFormattedDate}</span>
 		</div>
 		<span
@@ -47,13 +48,13 @@
 	</div>
 
 	<div class="mb-2 flex items-center justify-between">
-		<span class="text-sm">Offered price:</span>
+		<span class="text-sm">{$t('common.components.bidding.counter_offer_item.offered_price')}</span>
 		<span class="font-semibold">{getFormattedPrice}</span>
 	</div>
 
 	{#if props.offer.timeFrame && props.offer.timeFrame.estimatedCompletion}
 		<div class="mb-2 flex items-center justify-between text-sm">
-			<span>Delivery:</span>
+			<span>{$t('common.components.bidding.counter_offer_item.delivery')}</span>
 			<span>{props.offer.timeFrame.estimatedCompletion}</span>
 		</div>
 	{/if}

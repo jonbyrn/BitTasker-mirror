@@ -7,6 +7,7 @@
 	import { swapManager } from '$lib/integrations/boltz/swapManager';
 	import { createBitcoinWallet } from '$lib/wallet/bitcoin/bitcoinWallet';
 	import type { SwapMonitor, SwapStatusType } from '$lib/integrations/boltz/types';
+	import { t } from 'svelte-i18n';
 
 	// State
 	let activeSwaps = $state<SwapMonitor[]>([]);
@@ -52,7 +53,7 @@
 
 		} catch (err) {
 			console.error('Failed to load swaps:', err);
-			error = 'Failed to load swap information';
+			error = $t('common.components.wallet.swap_dashboard.failed_to_load');
 		} finally {
 			isLoading = false;
 		}
@@ -133,7 +134,7 @@
 			await loadSwaps(); // Refresh the list
 		} catch (err) {
 			console.error('Failed to refund swap:', err);
-			error = 'Failed to initiate refund';
+			error = $t('common.components.wallet.swap_dashboard.failed_refund');
 		}
 	}
 </script>
@@ -141,12 +142,12 @@
 <div class="space-y-6">
 	<!-- Header -->
 	<div class="flex items-center justify-between">
-		<h3 class="text-lg font-semibold">Swap Management</h3>
+		<h3 class="text-lg font-semibold">{$t('common.components.wallet.swap_dashboard.title')}</h3>
 		<button class="btn btn-sm btn-primary" onclick={loadSwaps}>
 			<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
 			</svg>
-			Refresh
+{$t('common.components.wallet.swap_dashboard.refresh')}
 		</button>
 	</div>
 
@@ -164,13 +165,13 @@
 	{#if isLoading}
 		<div class="flex items-center justify-center py-8">
 			<div class="loading loading-spinner loading-lg"></div>
-			<span class="ml-3">Loading swaps...</span>
+			<span class="ml-3">{$t('common.components.wallet.swap_dashboard.loading_swaps')}</span>
 		</div>
 	{:else}
 		<!-- Active Swaps -->
 		{#if activeSwaps.length > 0}
 			<div class="space-y-4">
-				<h4 class="text-md font-semibold">Active Swaps</h4>
+				<h4 class="text-md font-semibold">{$t('common.components.wallet.swap_dashboard.active_swaps')}</h4>
 				<div class="space-y-3">
 					{#each activeSwaps as swap (swap.swapId)}
 						<div class="card bg-base-200">
@@ -198,7 +199,7 @@
 												class="btn btn-xs btn-outline"
 												onclick={() => handleRefund(swap.swapId)}
 											>
-												Refund
+												{$t('common.components.wallet.swap_dashboard.refund')}
 											</button>
 										{/if}
 									</div>
@@ -208,7 +209,7 @@
 								{#if swap.status === 'invoice.pending' || swap.status === 'transaction.mempool'}
 									<div class="mt-3">
 										<div class="text-xs text-base-content/70 mb-1">
-											{swap.status === 'invoice.pending' ? 'Waiting for payment...' : 'Transaction in mempool...'}
+											{swap.status === 'invoice.pending' ? $t('common.components.wallet.swap_dashboard.waiting_payment') : $t('common.components.wallet.swap_dashboard.transaction_mempool')}
 										</div>
 										<progress class="progress progress-primary w-full" value="50" max="100"></progress>
 									</div>
@@ -222,8 +223,8 @@
 			<!-- No Active Swaps -->
 			<div class="text-center py-8">
 				<div class="text-4xl mb-2">🔄</div>
-				<p class="text-base-content/70">No active swaps</p>
-				<p class="text-sm text-base-content/50">Your swaps will appear here when you create them</p>
+				<p class="text-base-content/70">{$t('common.components.wallet.swap_dashboard.no_active_swaps')}</p>
+				<p class="text-sm text-base-content/50">{$t('common.components.wallet.swap_dashboard.no_active_swaps_message')}</p>
 			</div>
 		{/if}
 
@@ -231,13 +232,13 @@
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 			<div class="card bg-base-100 border">
 				<div class="card-body">
-					<h5 class="card-title text-sm">⚡ → ₿ Lightning to Bitcoin</h5>
+					<h5 class="card-title text-sm">{$t('common.components.wallet.swap_dashboard.lightning_to_bitcoin')}</h5>
 					<p class="text-sm text-base-content/70">
-						Convert Lightning payments to Bitcoin using submarine swaps
+						{$t('common.components.wallet.swap_dashboard.lightning_to_bitcoin_desc')}
 					</p>
 					<div class="card-actions justify-end">
 						<button class="btn btn-sm btn-primary" onclick={() => window.dispatchEvent(new CustomEvent('navigate-to-send'))}>
-							Create Swap
+							{$t('common.components.wallet.swap_dashboard.create_swap')}
 						</button>
 					</div>
 				</div>
@@ -245,13 +246,13 @@
 			
 			<div class="card bg-base-100 border">
 				<div class="card-body">
-					<h5 class="card-title text-sm">₿ → ⚡ Bitcoin to Lightning</h5>
+					<h5 class="card-title text-sm">{$t('common.components.wallet.swap_dashboard.bitcoin_to_lightning')}</h5>
 					<p class="text-sm text-base-content/70">
-						Receive Lightning payments using your Bitcoin balance
+						{$t('common.components.wallet.swap_dashboard.bitcoin_to_lightning_desc')}
 					</p>
 					<div class="card-actions justify-end">
 						<button class="btn btn-sm btn-primary" onclick={() => window.dispatchEvent(new CustomEvent('navigate-to-receive'))}>
-							Create Swap
+							{$t('common.components.wallet.swap_dashboard.create_swap')}
 						</button>
 					</div>
 				</div>
@@ -261,15 +262,15 @@
 		<!-- Swap History -->
 		{#if swapHistory.length > 0}
 			<div class="space-y-4">
-				<h4 class="text-md font-semibold">Recent History</h4>
+				<h4 class="text-md font-semibold">{$t('common.components.wallet.swap_dashboard.recent_history')}</h4>
 				<div class="overflow-x-auto">
 					<table class="table table-zebra w-full">
 						<thead>
 							<tr>
-								<th>Type</th>
-								<th>Amount</th>
-								<th>Status</th>
-								<th>Date</th>
+								<th>{$t('common.components.wallet.swap_dashboard.type')}</th>
+								<th>{$t('common.components.wallet.swap_dashboard.amount')}</th>
+								<th>{$t('common.components.wallet.swap_dashboard.status')}</th>
+								<th>{$t('common.components.wallet.swap_dashboard.date')}</th>
 							</tr>
 						</thead>
 						<tbody>

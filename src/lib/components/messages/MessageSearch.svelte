@@ -15,7 +15,7 @@
 	let {
 		pubkey = '',
 		onMessageSelect = (message: DecryptedMessage) => {},
-		placeholder = $t('messages.search_messages'),
+		placeholder = $t('dashboard.bids.components.messages.message_search.search_messages'),
 		profile = null
 	}: {
 		pubkey?: string;
@@ -221,7 +221,7 @@
 
 		<div class="absolute inset-y-0 right-0 flex items-center space-x-2 pr-3">
 			{#if searchQuery}
-				<button onclick={clearSearch} class="btn btn-ghost btn-xs" aria-label={$t('messages.clear_search_aria')}>
+				<button onclick={clearSearch} class="btn btn-ghost btn-xs" aria-label={$t('dashboard.bids.components.messages.message_search.clear_search_aria')}>
 					<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path
 							stroke-linecap="round"
@@ -237,7 +237,7 @@
 				onclick={toggleAdvanced}
 				class="btn btn-ghost btn-xs"
 				class:btn-active={showAdvanced}
-				aria-label={$t('messages.advanced_search_options_aria')}
+				aria-label={$t('dashboard.bids.components.messages.message_search.advanced_search_options_aria')}
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path

@@ -4,6 +4,7 @@
 	import { fly } from 'svelte/transition';
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
     import IconCheck from '~icons/mdi/check-circle-outline';
+	import { t } from 'svelte-i18n';
 
 	let {
 		nextStep,
@@ -82,36 +83,36 @@
 	<div class="card-body">
 		<!-- Educational Header -->
     <div class="education-header mb-6 text-center">
-            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">Step 2 of 7 - Optional</div>
+            <div class="step-indicator text-primary mb-2 text-sm font-medium text-end">{$t('common.components.nostr_key_import.step_indicator')}</div>
             <h3 class="step-title mb-3 mt-4">
-                Import Your Nostr Key (Optional)
+                {$t('common.components.nostr_key_import.title')}
             </h3>
-            <h5 class="mb-3">What is a Nostr key?</h5>
+            <h5 class="mb-3">{$t('common.components.nostr_key_import.subtitle')}</h5>
             <p class="step-description text-base-content mb-6 text-lg max-w-xl mx-auto">
-                A Nostr private key (nsec…) is like your Bitcoin private key: it gives you ownership of your data. <br /><br />You can import an existing key, or let us generate one for you.
+                {@html $t('common.components.nostr_key_import.description')}
             </p>
 
             <!-- Features List (style matched to PasskeySetup) -->
             <div class="features-list mb-6 space-y-2 text-left mx-auto w-fit">
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Use existing</strong> — import your nsec to keep your identity</span>
+                    <span>{@html $t('common.components.nostr_key_import.features.use_existing')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Generate new</strong> — we’ll create a secure key if you don’t have one</span>
+                    <span>{@html $t('common.components.nostr_key_import.features.generate_new')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Manage anytime</strong> — view/export your key in App Settings</span>
+                    <span>{@html $t('common.components.nostr_key_import.features.manage_anytime')}</span>
                 </div>
                 <div class="feature-item flex items-center justify-start gap-2 text-lg">
                     <IconCheck class="text-primary min-w-[1.5em]" />
-                    <span><strong>Stored Securely</strong> — encrypted on your device so we can't see it</span>
+                    <span>{@html $t('common.components.nostr_key_import.features.stored_securely')}</span>
                 </div>
             </div>
 
-            <p class="text-primary mb-6 text-lg">You control access. Keep your key safe.</p>
+            <p class="text-primary mb-6 text-lg">{$t('common.components.nostr_key_import.control_access')}</p>
         </div>
 
 		<form onsubmit={handleSubmit} class="space-y-4">
@@ -120,7 +121,7 @@
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={importNostrKey} class="checkbox checkbox-sm" />
 					<div class="flex items-center gap-2">
-						<span class="label-text text-base-content">Import existing Nostr key (nsec)</span>
+						<span class="label-text text-base-content">{$t('common.components.nostr_key_import.import_checkbox')}</span>
 					</div>
 				</label>
 			</div>
@@ -129,7 +130,7 @@
 			{#if importNostrKey}
 				<div class="form-control max-w-xl mx-auto" in:fly={{ duration: 200, y: -20, easing: linear }}>
 					<label class="label" for="privateKey">
-						<span class="label-text text-base-content">Private Key (nsec)</span>
+						<span class="label-text text-base-content">{$t('common.components.nostr_key_import.private_key_label')}</span>
 					</label>
 					<div class="relative">
                         <input
@@ -138,7 +139,7 @@
 							bind:value={nsec}
                             bind:this={privateKeyInput}
 							class="input input-bordered w-full pr-10 {nsecError ? 'input-error' : ''}"
-                            placeholder="Enter your Nostr private key (nsec1...)"
+                            placeholder={$t('common.components.nostr_key_import.private_key_placeholder')}
 							required
 						/>
 						<button
@@ -195,8 +196,8 @@
 
 			<!-- Form Actions -->
 			<div class="mt-6 flex justify-between">
-				<button type="button" class="btn btn-outline" onclick={prevStep}>Back</button>
-				<button type="submit" class="btn btn-primary">Next</button>
+				<button type="button" class="btn btn-outline" onclick={prevStep}>{$t('common.components.nostr_key_import.back')}</button>
+				<button type="submit" class="btn btn-primary">{$t('common.components.nostr_key_import.next')}</button>
 			</div>
 		</form>
 	</div>

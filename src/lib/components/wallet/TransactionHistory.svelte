@@ -2,6 +2,7 @@
 	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
 	import { onMount } from 'svelte';
 	import { getTransactions } from '$lib/wallet/breez/walletService';
+	import { t } from 'svelte-i18n';
 
 	let transactions = $state<Payment[] | null>(null);
 	let isLoading = $state(true);
@@ -36,12 +37,12 @@
 </script>
 
 <div class="space-y-6">
-	<h3 class="mb-3 text-lg font-semibold">Transaction History</h3>
+	<h3 class="mb-3 text-lg font-semibold">{$t('common.components.wallet.transaction_history.title')}</h3>
 
 	{#if isLoading}
 		<div class="flex items-center justify-center gap-2 py-8">
 			<span class="loading loading-spinner loading-lg text-amber-500"></span>
-			<span>Loading transactions... please wait</span>
+			<span>{$t('common.components.wallet.transaction_history.loading')}</span>
 		</div>
 	{:else if errorMessage}
 		<div class="alert alert-outline alert-error shadow-lg">
@@ -61,7 +62,7 @@
 				<span>{errorMessage}</span>
 			</div>
 			<div class="flex-none">
-				<button onclick={loadTransactions} class="btn btn-sm">Retry</button>
+				<button onclick={loadTransactions} class="btn btn-sm">{$t('common.components.wallet.transaction_history.retry')}</button>
 			</div>
 		</div>
 	{:else if !transactions || transactions.length === 0}
@@ -79,7 +80,7 @@
 						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 					></path></svg
 				>
-				<span>No transactions found.</span>
+				<span>{$t('common.components.wallet.transaction_history.no_transactions')}</span>
 			</div>
 		</div>
 	{:else}
@@ -91,9 +92,9 @@
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								{#if tx.paymentType === 'receive'}
-									<div class="badge badge-success">Received</div>
+									<div class="badge badge-success">{$t('common.components.wallet.transaction_history.received')}</div>
 								{:else}
-									<div class="badge badge-warning">Sent</div>
+									<div class="badge badge-warning">{$t('common.components.wallet.transaction_history.sent')}</div>
 								{/if}
 							</div>
 							<div class="text-right">
@@ -108,13 +109,13 @@
 						<!-- Transaction details -->
 						<div class="mt-3 space-y-2 text-sm">
 							<div class="flex items-center justify-between">
-								<span class="text-base-content/70">Date:</span>
+								<span class="text-base-content/70">{$t('common.components.wallet.transaction_history.date')}</span>
 								<span>{new Date(tx.timestamp * 1000).toLocaleString()}</span>
 							</div>
 
 							{#if tx.destination}
 								<div class="flex items-start justify-between">
-									<span class="text-base-content/70">Address:</span>
+									<span class="text-base-content/70">{$t('common.components.wallet.transaction_history.address')}</span>
 									<span class="max-w-[200px] text-right font-mono text-xs break-all">
 										{truncateAddress(tx.destination, 8, 4)}
 									</span>
@@ -122,14 +123,14 @@
 							{/if}
 
 							<div class="flex items-center justify-between">
-								<span class="text-base-content/70">Status:</span>
+								<span class="text-base-content/70">{$t('common.components.wallet.transaction_history.status')}</span>
 								<div>
 									{#if tx.details.type === 'lightning'}
-										<div class="badge badge-success badge-sm">Confirmed</div>
+										<div class="badge badge-success badge-sm">{$t('common.components.wallet.transaction_history.confirmed')}</div>
 									{:else if tx.status === 'pending'}
-										<div class="badge badge-warning badge-sm">Pending</div>
+										<div class="badge badge-warning badge-sm">{$t('common.components.wallet.transaction_history.pending')}</div>
 									{:else if tx.status === 'failed'}
-										<div class="badge badge-error badge-sm">Failed</div>
+										<div class="badge badge-error badge-sm">{$t('common.components.wallet.transaction_history.failed')}</div>
 									{:else}
 										<div class="badge badge-success badge-sm">{tx.status}</div>
 									{/if}
@@ -137,7 +138,7 @@
 							</div>
 
 							<div class="flex items-center justify-between">
-								<span class="text-base-content/70">Network:</span>
+								<span class="text-base-content/70">{$t('common.components.wallet.transaction_history.network')}</span>
 								<div class="badge badge-sm">{tx.details.type}</div>
 							</div>
 						</div>

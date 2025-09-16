@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Location } from '$lib/types/task';
 	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
+	import { t } from 'svelte-i18n';
 
 	let {
 		location = {
@@ -355,7 +356,7 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 							/>
 						</svg>
-						<p class="text-sm text-error">Error loading map</p>
+						<p class="text-sm text-error">{$t('dashboard.bids.components.maps.location_picker_map.error_loading_map')}</p>
 					</div>
 				</div>
 			{/if}

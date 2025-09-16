@@ -2,6 +2,7 @@
 	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
 	import { onMount } from 'svelte';
 	import { getTransactions } from '$lib/wallet/breez/walletService';
+	import { t } from 'svelte-i18n';
 
 	let transactions = $state<Payment[]>([]);
 	let { activeTab = $bindable('') } = $props();
@@ -12,7 +13,7 @@
 </script>
 
 <div>
-	<h3 class="mb-3 text-lg font-semibold">Recent Transactions</h3>
+	<h3 class="mb-3 text-lg font-semibold">{$t('common.components.wallet.recent_transactions.title')}</h3>
 
 	{#if transactions.length > 0}
 		<div class="space-y-3">
@@ -23,9 +24,9 @@
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
 								{#if tx.paymentType === 'receive'}
-									<div class="badge badge-success badge-sm">Received</div>
+									<div class="badge badge-success badge-sm">{$t('common.components.wallet.recent_transactions.received')}</div>
 								{:else}
-									<div class="badge badge-warning badge-sm">Sent</div>
+									<div class="badge badge-warning badge-sm">{$t('common.components.wallet.recent_transactions.sent')}</div>
 								{/if}
 							</div>
 							<div class="text-right">
@@ -50,12 +51,12 @@
 		</div>
 		<div class="mt-4 text-center">
 			<button class="btn btn-ghost btn-outline btn-sm" onclick={() => (activeTab = 'transactions')}>
-				View all transactions
+				{$t('common.components.wallet.recent_transactions.view_all')}
 			</button>
 		</div>
 	{:else}
 		<div class="alert">
-			<span>No transactions found.</span>
+			<span>{$t('common.components.wallet.recent_transactions.no_transactions')}</span>
 		</div>
 	{/if}
 </div>

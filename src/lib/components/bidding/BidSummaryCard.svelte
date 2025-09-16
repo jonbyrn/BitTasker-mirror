@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import type { MyBids$result } from '$houdini';
+	import { t } from 'svelte-i18n';
 
 	const props = $props<{
 		bid:
@@ -18,12 +19,12 @@
 			const now = new Date();
 			const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-			if (diffInSeconds < 60) return 'just now';
-			if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-			if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-			return `${Math.floor(diffInSeconds / 86400)}d ago`;
+			if (diffInSeconds < 60) return $t('dashboard.bids.bid_summary.just_now');
+			if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}${$t('dashboard.bids.bid_summary.minutes_ago')}`;
+			if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}${$t('dashboard.bids.bid_summary.hours_ago')}`;
+			return `${Math.floor(diffInSeconds / 86400)}${$t('dashboard.bids.bid_summary.days_ago')}`;
 		} catch (e) {
-			return 'unknown';
+			return $t('dashboard.bids.bid_summary.unknown');
 		}
 	});
 
@@ -58,8 +59,8 @@
 			<div>
 				<h3 id={`bid-${props.bid.id}-title`} class="card-title text-base">
 					{props.isProvider
-						? `Bid on: ${props.bid.taskTitle || 'Untitled Task'}`
-						: `From: ${props.bid.freelancer.name || 'Anonymous'}`}
+						? `${$t('dashboard.bids.bid_summary.bid_on')} ${props.bid.taskTitle || $t('dashboard.bids.bid_summary.untitled_task')}`
+						: `${$t('dashboard.bids.bid_summary.from')} ${props.bid.freelancer.name || $t('dashboard.bids.bid_summary.anonymous')}`}
 				</h3>
 				<p class="text-base-content/70 text-sm">{timeAgo()}</p>
 			</div>
@@ -69,7 +70,7 @@
 					{formatCurrency(props.bid.amount, props.bid.currency)}
 				</span>
 				<span class="badge badge-sm {statusClasses} capitalize">
-					{props.bid.status || 'pending'}
+					{props.bid.status || $t('dashboard.bids.bid_summary.pending')}
 				</span>
 			</div>
 		</div>
@@ -82,9 +83,9 @@
 			<button
 				onclick={handleViewDetails}
 				class="btn btn-sm btn-primary"
-				aria-label={`View details for bid on ${props.bid.taskTitle || 'this task'}`}
+				aria-label={`${$t('dashboard.bids.bid_summary.view_details_for_bid_on')} ${props.bid.taskTitle || $t('dashboard.bids.bid_summary.this_task')}`}
 			>
-				View Details
+				{$t('dashboard.bids.bid_summary.view_details')}
 			</button>
 		</div>
 	</div>

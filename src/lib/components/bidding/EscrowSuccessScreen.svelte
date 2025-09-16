@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -69,12 +70,12 @@
 	<div
 		class="bg-base-100  border-base-300 sticky top-0 z-10 flex items-center justify-between border pb-4 sm:p-6"
 	>
-		<h4 class="font-bold p-4 sm:p-0">Transaction Overview</h4>
+		<h4 class="font-bold p-4 sm:p-0">{$t('common.components.bidding.escrow_success.title')}</h4>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm btn-circle"
 			onclick={props.onGoToDashboard}
-			aria-label="Close dialog"
+			aria-label={$t('common.components.bidding.escrow_success.close_dialog')}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -129,9 +130,9 @@
 				{/if}
 			</div>
 
-			<h3 class="text-center text-lg font-bold">Escrow Funded Successfully</h3>
+			<h3 class="text-center text-lg font-bold">{$t('common.components.bidding.escrow_success.success_title')}</h3>
 			<p class="text-base-content/70 px-4 text-center text-sm">
-				Your contract has been created and funded on the blockchain.
+				{$t('common.components.bidding.escrow_success.success_message')}
 			</p>
 		</div>
 
@@ -139,28 +140,28 @@
 		{#if showDetails}
 			<div class="bg-base-200 rounded-lg p-4">
 				<!-- Task Title -->
-				<h4 class="mb-4 line-clamp-1 text-sm font-semibold">Payment Summary</h4>
+				<h4 class="mb-4 line-clamp-1 text-sm font-semibold">{$t('common.components.bidding.escrow_success.payment_summary')}</h4>
 
 				<!-- Pricing Breakdown (same format as BidAcceptanceForm) -->
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">Bid Price</span>
+						<span class="text-xs font-medium">{$t('common.components.bidding.escrow_success.bid_price')}</span>
 						<span class="text-xs font-bold">${formatNumberWithTwoDecimals(props.bid.amount)}</span>
 					</div>
 
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">Platform Fee</span>
+						<span class="text-xs font-medium">{$t('common.components.bidding.escrow_success.platform_fee')}</span>
 						<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
 					</div>
 
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">Est. Transaction Fee</span>
+						<span class="text-xs font-medium">{$t('common.components.bidding.escrow_success.transaction_fee')}</span>
 						<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
 					</div>
 
 					<div class="border-base-200 border-t pt-2">
 						<div class="flex items-center justify-between">
-							<span class="text-base font-bold">Total Price</span>
+							<span class="text-base font-bold">{$t('common.components.bidding.escrow_success.total_price')}</span>
 							<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
 						</div>
 						<div class="mt-1 flex items-center justify-between">
@@ -175,10 +176,9 @@
 
 			<!-- Blockchain Verification -->
 			<div class="bg-base-200 mx-2 my-4 rounded-lg p-4">
-				<h4 class="mb-3 font-semibold">Blockchain Verification</h4>
+				<h4 class="mb-3 font-semibold">{$t('common.components.bidding.escrow_success.blockchain_verification')}</h4>
 				<p class="text-base-content/70 mb-3 text-sm">
-					Your transaction has been confirmed on the blockchain. You can verify it using the block
-					explorer.
+					{$t('common.components.bidding.escrow_success.verification_message')}
 				</p>
 
 				<div class="flex items-center gap-2">
@@ -188,8 +188,8 @@
 					<button
 						class="btn btn-ghost btn-xs"
 						onclick={copyTransactionHash}
-						title="Copy transaction hash"
-						aria-label="Copy transaction hash"
+						title={$t('common.components.bidding.escrow_success.copy_hash')}
+						aria-label={$t('common.components.bidding.escrow_success.copy_hash')}
 					>
 						<svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -206,18 +206,16 @@
 						rel="noopener noreferrer"
 						class="btn btn-primary btn-xs"
 					>
-						View on Explorer
+						{$t('common.components.bidding.escrow_success.view_explorer')}
 					</a>
 				</div>
 			</div>
 
 			<!-- Gamification Progress -->
 			<div class="bg-base-200 mx-2 mb-4 rounded-lg p-4">
-				<h4 class="mb-3 text-base font-bold">Keep climbing!</h4>
+				<h4 class="mb-3 text-base font-bold">{$t('common.components.bidding.escrow_success.gamification_title')}</h4>
 				<p class="mb-3 text-sm break-words">
-					Complete <span class="font-bold">{tasksToNextTier} more tasks</span> by
-					<span class="font-bold">{nextTierDate}</span>
-					to reach <span class="text-primary font-bold">{nextTier}</span>
+					{$t('common.components.bidding.escrow_success.gamification_message', { values: { tasks: tasksToNextTier, date: nextTierDate, tier: nextTier } })}
 				</p>
 				<div class="bg-base-300 h-2 w-full rounded-full">
 					<div class="from-primary to-secondary h-2 w-3/4 rounded-full bg-gradient-to-r"></div>
@@ -245,7 +243,7 @@
 					d="M8 5a2 2 0 012-2h4a2 2 0 012 2v2H8V5z"
 				/>
 			</svg>
-			Go to Dashboard
+			{$t('common.components.bidding.escrow_success.go_dashboard')}
 		</button>
 		<button type="button" class="btn btn-primary" onclick={props.onCreateNewTask}>
 			<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,7 +254,7 @@
 					d="M12 6v6m0 0v6m0-6h6m-6 0H6"
 				/>
 			</svg>
-			Create New Task
+			{$t('common.components.bidding.escrow_success.create_new_task')}
 		</button>
 	</div>
 </div>

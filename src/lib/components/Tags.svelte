@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { TagsProps } from '$lib/types/props';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { t } from 'svelte-i18n';
 
 	let {
 		options = [],
 		selectedTags = [],
-		placeholder = 'Select tags...',
+		placeholder = $t('common.components.tags.select_tags'),
 		error,
 		onChange
 	}: TagsProps = $props();
@@ -63,7 +64,7 @@
 						role="button"
 						tabindex="0"
 						onkeydown={(e) => e.key === 'Enter' && removeTag(tag, e)}
-						aria-label="Remove {tag} tag"
+						aria-label={$t('common.components.tags.remove_tag', { values: { tag } })}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -93,7 +94,7 @@
 			class="bg-base-100 border-white-300 absolute z-50 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border shadow-lg"
 			use:clickOutside={{ callback: handleClickOutside }}
 			role="listbox"
-			aria-label="Available tags"
+			aria-label={$t('common.components.tags.available_tags')}
 		>
 			{#each options as tag, index}
 				<div

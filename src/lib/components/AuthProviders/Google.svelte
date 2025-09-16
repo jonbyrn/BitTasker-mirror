@@ -11,6 +11,7 @@
 	import { Capacitor } from '@capacitor/core';
 	import { encryptNsec, decryptNsecWithPassword } from '$lib/utils/helpers/auth';
 	import authService from '$lib/api/services/auth.service';
+	import { t } from 'svelte-i18n';
 
 	const isNative = Capacitor.isNativePlatform();
 	let googleAuthInitialized = $state(false);
@@ -52,7 +53,7 @@
 				console.error('Failed to decrypt Nostr private key:', decryptError);
 				// Set error state and prevent login
 				authState.setError(
-					'Failed to decrypt user credentials. Please try again or contact support.'
+					$t('auth.login.errors.failed_decrypt_credentials')
 				);
 				// TODO: Could redirect to a help page or show an error modal
 				return;
@@ -95,7 +96,7 @@
 				goto('/auth/recover?email=' + encodeURIComponent(payload.email));
 			} else {
 				console.error('Authentication error:', error);
-				authState.setError('Authentication failed. Please try again.');
+				authState.setError($t('auth.login.errors.authentication_failed'));
 			}
 		}
 	}
@@ -166,7 +167,7 @@
 	}
 
 	const handleGoogleSignIn = () => {
-		return console.warn('Google auth disabled');
+		return console.warn($t('auth.login.errors.google_auth_disabled'));
 		if (!browser || !googleAuthInitialized) return;
 		if (isNative) {
 			handleNativeGoogleLogin();
@@ -200,5 +201,5 @@
 			d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
 		/>
 	</svg>
-	Continue with Google
+	{$t('auth.login.continue_with_google')}
 </button>

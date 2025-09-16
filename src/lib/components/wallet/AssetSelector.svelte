@@ -5,6 +5,7 @@
 <script lang="ts">
 	import { walletAssets } from '$lib/stores/wallet.store';
 	import type { EnhancedAsset } from '$lib/stores/wallet.store';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
@@ -125,7 +126,7 @@
 					d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.96-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
 				/>
 			</svg>
-			<span>No assets available</span>
+			<span>{$t('common.components.wallet.asset_selector.no_assets')}</span>
 		</div>
 	{:else}
 		<div class="dropdown dropdown-bottom w-full">
@@ -151,10 +152,10 @@
 							</div>
 						{/if}
 					{:else}
-						<span>Select Asset</span>
+						<span>{$t('common.components.wallet.asset_selector.select_asset')}</span>
 					{/if}
 				{:else}
-					<span>Select Asset</span>
+					<span>{$t('common.components.wallet.asset_selector.select_asset')}</span>
 				{/if}
 
 				{#if !disabled}
@@ -192,7 +193,7 @@
 									<span class="text-2xl">{asset.icon}</span>
 									<div>
 										<div class="font-semibold">{asset.name}</div>
-										<div class="text-xs opacity-70">{asset.network} Network</div>
+										<div class="text-xs opacity-70">{asset.network} {$t('common.components.wallet.asset_selector.network')}</div>
 									</div>
 								</div>
 
@@ -232,7 +233,7 @@
 			{#if asset}
 				<div class="mt-2 text-sm">
 					<div class="flex justify-between">
-						<span class="opacity-70">Available Balance:</span>
+						<span class="opacity-70">{$t('common.components.wallet.asset_selector.available_balance')}</span>
 						<span class="font-medium"
 							>{formatBalance(asset.balance, asset.precision)} {asset.ticker}</span
 						>

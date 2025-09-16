@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { walletStore, walletAssets, walletBalance } from '$lib/stores/wallet.store';
 	import type { EnhancedAsset } from '$lib/stores/wallet.store';
+	import { t } from 'svelte-i18n';
 
 	// Get total balance in BTC equivalent
 	function getTotalBtcBalance(): number {
@@ -18,7 +19,7 @@
 	<!-- Total Balance Card -->
 	<div class="card bg-primary text-primary-content">
 		<div class="card-body">
-			<h3 class="card-title text-lg">Total Balance</h3>
+			<h3 class="card-title text-lg">{$t('common.components.wallet.balance_card.total_balance')}</h3>
 
 			<p class="text-4xl font-bold">{walletStore.formatSats($walletBalance.totalSats)} sats</p>
 			<p class="opacity-80">≈ {walletStore.formatNumber(getTotalBtcBalance())} BTC</p>
@@ -62,10 +63,9 @@
 		<!-- Empty state -->
 		<div class="card bg-base-200">
 			<div class="card-body text-center">
-				<h4 class="mb-2 text-lg font-semibold">💰 No Assets Found</h4>
+				<h4 class="mb-2 text-lg font-semibold">{$t('common.components.wallet.balance_card.no_assets_found')}</h4>
 				<p class="text-base-content/70 mb-4">
-					Your wallet doesn't have any assets yet. Start by receiving some Bitcoin or Lightning
-					payments.
+					{$t('common.components.wallet.balance_card.no_assets_message')}
 				</p>
 			</div>
 		</div>
@@ -88,7 +88,7 @@
 					d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 				/>
 			</svg>
-			Refresh Balances
+{$t('common.components.wallet.balance_card.refresh_balances')}
 		</button>
 	</div>
 </div>

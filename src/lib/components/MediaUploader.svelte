@@ -20,6 +20,7 @@
 		uploadFolder?: string;
 		onChange?: (results: UploadResult[]) => void;
 		onUploadProgress?: (completed: number, total: number, currentFile: string) => void;
+		onCompressionProgress?: (progress: { processed: number; total: number; currentFile: string }) => void;
 	}
 
 	let {
@@ -105,11 +106,11 @@
 
 		if (!isValidType) {
 			if (isImageAllowed && isVideoAllowed) {
-				error = $t('uploader.invalidFileType') + ' Only images and videos are allowed';
+				error = $t('common.components.media_uploader.invalid_file_type_images_videos');
 			} else if (isImageAllowed) {
 				error = $t('uploader.invalidTypeError');
 			} else if (isVideoAllowed) {
-				error = $t('uploader.invalidFileType') + ' Only MP4, WebM and OGG videos are allowed';
+				error = $t('common.components.media_uploader.invalid_file_type_videos');
 			} else {
 				error = $t('uploader.invalidFileType');
 			}
@@ -122,7 +123,7 @@
 			// Validate image file before compression
 			const validation = validateImageFile(file);
 			if (!validation.isValid) {
-				error = validation.error || 'Invalid image file';
+				error = validation.error || $t('common.components.media_uploader.invalid_image');
 				onError(error);
 				return null;
 			}
@@ -144,7 +145,7 @@
 				return compressionResult.file;
 			} catch (err) {
 				console.error('Image compression failed:', err);
-				error = 'Failed to compress image: ' + (err as Error).message;
+				error = $t('common.components.media_uploader.compression_failed', { values: { error: (err as Error).message } });
 				onError(error);
 				return null;
 			}
@@ -152,7 +153,7 @@
 
 		// For non-image files or when compression is disabled, validate file size
 		if (file.size > maxFileSize * 1024 * 1024) {
-			error = `File size must be less than ${maxFileSize}MB`;
+			error = $t('common.components.media_uploader.file_size_limit', { values: { maxSize: maxFileSize } });
 			onError(error);
 			return null;
 		}
@@ -169,7 +170,7 @@
 				});
 
 				if (video.duration > maxDuration) {
-					error = `Video must be ${maxDuration} seconds or shorter`;
+					error = $t('common.components.media_uploader.video_duration_limit', { values: { maxDuration } });
 					onError(error);
 					URL.revokeObjectURL(video.src);
 					return null;
@@ -178,7 +179,7 @@
 				URL.revokeObjectURL(video.src);
 			} catch (err) {
 				console.error('Failed to validate video duration:', err);
-				error = $t('uploader.failedToValidateVideo');
+				error = $t('common.components.media_uploader.failed_validate_video');
 				onError(error);
 				return null;
 			}
@@ -195,7 +196,7 @@
 				});
 
 				if ((width && img.width !== width) || (height && img.height !== height)) {
-					error = `Image dimensions must be ${width}x${height}px`;
+					error = $t('common.components.media_uploader.image_dimensions', { values: { width, height } });
 					onError(error);
 					URL.revokeObjectURL(img.src);
 					return null;
@@ -204,7 +205,7 @@
 				URL.revokeObjectURL(img.src);
 			} catch (err) {
 				console.error('Failed to validate image dimensions:', err);
-				error = $t('uploader.failedToLoadImage');
+				error = $t('common.components.media_uploader.failed_load_image');
 				onError(error);
 				return null;
 			}
@@ -219,7 +220,7 @@
 		if (!selectedFiles) return;
 
 		if (files?.length + selectedFiles.length > maxFiles) {
-			error = `Maximum of ${maxFiles} files allowed`;
+			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles } });
 			onError?.(error);
 			return;
 		}
@@ -294,13 +295,13 @@
 			);
 
 			uploadResults = [...uploadResults, ...results];
-			files = [...files, ...results];
+			files = [...files, ...results.map(result => typeof result === 'string' ? result : result.url)];
 			error = '';
 			onChange(uploadResults);
 
 		} catch (err) {
 			console.error('Upload failed:', err);
-			error = 'Upload failed: ' + (err as Error).message;
+			error = $t('common.components.media_uploader.upload_failed', { values: { error: (err as Error).message } });
 			onError(error);
 		} finally {
 			isUploading = false;
@@ -325,8 +326,8 @@
 	let fileTypeText = $derived(
 		allowedTypes
 			.map((type) => {
-				if (type === 'image/*') return 'Images';
-				if (type === 'video/*') return 'Videos';
+				if (type === 'image/*') return $t('common.components.media_uploader.images');
+				if (type === 'video/*') return $t('common.components.media_uploader.videos');
 				return type.split('/')[1].toUpperCase();
 			})
 			.join(', ')
@@ -358,12 +359,12 @@
 				{:else}
 					<img
 						src={getFilePreview(file)}
-						alt="Preview"
+						alt={$t('common.components.media_uploader.preview')}
 						class="h-full w-full rounded-lg object-cover"
 					/>
 				{/if}
 				<button
-					aria-label="Remove file"
+					aria-label={$t('common.components.media_uploader.remove_file')}
 					type="button"
 					class="absolute -top-2 -right-2 h-6 w-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
@@ -453,7 +454,7 @@
 				</svg>
 				<div class="flex-1">
 					<div class="text-xs font-medium">
-						Compressing images... ({compressionProgress.processed}/{compressionProgress.total})
+						{$t('common.components.media_uploader.compressing_images')} ({compressionProgress.processed}/{compressionProgress.total})
 					</div>
 					{#if compressionProgress.currentFile}
 						<div class="text-xs opacity-70">{compressionProgress.currentFile}</div>
@@ -495,7 +496,7 @@
 				</svg>
 				<div class="flex-1">
 					<div class="text-xs font-medium">
-						Uploading files... ({uploadProgress.completed}/{uploadProgress.total})
+						{$t('common.components.media_uploader.uploading_files')} ({uploadProgress.completed}/{uploadProgress.total})
 					</div>
 					{#if uploadProgress.currentFile}
 						<div class="text-xs opacity-70">{uploadProgress.currentFile}</div>
@@ -528,10 +529,10 @@
 				/>
 			</svg>
 			<div class="text-xs">
-				<div class="font-medium">Images compressed successfully!</div>
+				<div class="font-medium">{$t('common.components.media_uploader.compression_success')}</div>
 				{#each compressionInfo as info, index}
 					<div class="opacity-70">
-						File {index + 1}: {formatFileSize(info.originalSize)} → {formatFileSize(info.compressedSize)} 
+						{$t('common.components.media_uploader.file_number', { values: { index: index + 1 } })}: {formatFileSize(info.originalSize)} → {formatFileSize(info.compressedSize)} 
 						({Math.round((1 - info.compressedSize / info.originalSize) * 100)}% reduction)
 					</div>
 				{/each}

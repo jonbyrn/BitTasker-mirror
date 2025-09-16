@@ -279,7 +279,7 @@
 					<div class="mt-8 flex flex-col items-center space-y-6">
 						<div class="flex flex-wrap justify-center gap-4">
 							<a
-								href="/dashboard/find-tasks"
+								href="/tasks"
 								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800 transition-all duration-300 ease-in-out"
 							>
 								{$t('homepage.v2.finalcta.tasker_cta')}
@@ -432,7 +432,7 @@
 						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.for_taskees')}</h4>
 						<ul class="space-y-2">
 							<li>
-								<a href="/dashboard/find-tasks" class="hover:text-primary transition-colors duration-300 ease-in-out">
+								<a href="/tasks" class="hover:text-primary transition-colors duration-300 ease-in-out">
 									{$t('footer.start_earning')}
 								</a>
 							</li>

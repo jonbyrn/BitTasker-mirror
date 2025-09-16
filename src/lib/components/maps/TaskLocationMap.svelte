@@ -55,7 +55,7 @@
 			navigator.geolocation.getCurrentPosition(
 				(position) => {
 					const userLoc: Location = {
-						displayName: 'Tu ubicación',
+						displayName: $t('dashboard.bids.components.maps.task_location_map.your_location'),
 						latitude: position.coords.latitude,
 						longitude: position.coords.longitude,
 						zipCode: '',
@@ -833,7 +833,7 @@
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
 					<div class="text-center">
 						<span class="loading loading-spinner loading-lg mb-2"></span>
-						<p class="text-base-content/70 text-sm">Cargando mapa...</p>
+						<p class="text-base-content/70 text-sm">{$t('dashboard.bids.components.maps.task_location_map.loading_map')}</p>
 					</div>
 				</div>
 			{:else if hasError}
@@ -853,7 +853,7 @@
 								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
 							/>
 						</svg>
-						<p class="text-error text-sm">Error al cargar el mapa</p>
+						<p class="text-error text-sm">{$t('dashboard.bids.components.maps.task_location_map.error_loading_map')}</p>
 					</div>
 				</div>
 			{/if}

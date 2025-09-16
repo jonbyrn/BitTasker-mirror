@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { TaskBid } from '$lib/types/bid';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -27,31 +28,31 @@
 		switch (props.escrowDetails.paymentMethod) {
 			case 'bitcoin-lightning':
 				return {
-					name: 'Bitcoin Lightning',
+					name: $t('common.components.bidding.external_wallet.payment_methods.bitcoin_lightning'),
 					icon: '/currency-symbols/Bitcoin.svg',
 					color: 'from-orange-400 to-orange-600',
-					network: 'Lightning Network'
+					network: $t('common.components.bidding.external_wallet.networks.lightning')
 				};
 			case 'lbtc-liquid':
 				return {
-					name: 'L-BTC',
+					name: $t('common.components.bidding.external_wallet.payment_methods.lbtc'),
 					icon: '/currency-symbols/LBTC.svg',
 					color: 'from-cyan-400 to-cyan-600',
-					network: 'Liquid Network'
+					network: $t('common.components.bidding.external_wallet.networks.liquid')
 				};
 			case 'usdt-liquid':
 				return {
-					name: 'USDT',
+					name: $t('common.components.bidding.external_wallet.payment_methods.usdt'),
 					icon: '/currency-symbols/USDt.svg',
 					color: 'from-cyan-400 to-cyan-600',
-					network: 'Liquid Network'
+					network: $t('common.components.bidding.external_wallet.networks.liquid')
 				};
 			default:
 				return {
-					name: 'Unknown',
+					name: $t('common.components.bidding.external_wallet.payment_methods.unknown'),
 					icon: '/currency-symbols/Bitcoin.svg',
 					color: 'from-gray-400 to-gray-600',
-					network: 'Unknown Network'
+					network: $t('common.components.bidding.external_wallet.networks.unknown')
 				};
 		}
 	});
@@ -80,12 +81,12 @@
 	<div
 		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between border-b p-4 pb-4 sm:p-6"
 	>
-		<h4 class="font-bold">Complete Payment</h4>
+		<h4 class="font-bold">{$t('common.components.bidding.external_wallet.title')}</h4>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm btn-circle"
 			onclick={props.onCancel}
-			aria-label="Close dialog"
+			aria-label={$t('common.components.bidding.external_wallet.close_dialog')}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -148,9 +149,9 @@
 						</svg>
 						<div class="text-info text-xs">
 							<ul class="space-y-1 ">
-								<li>Send exactly <span class="font-bold">${totalFiatPrice.toFixed(2)}</span></li>
-								<li>Use {paymentInfo().network} network</li>
-								<li>Do not send from an exchange</li>
+								<li>{$t('common.components.bidding.external_wallet.instructions.send_exactly', { values: { amount: totalFiatPrice.toFixed(2) } })}</li>
+								<li>{$t('common.components.bidding.external_wallet.instructions.use_network', { values: { network: paymentInfo().network } })}</li>
+								<li>{$t('common.components.bidding.external_wallet.instructions.no_exchange')}</li>
 							</ul>
 						</div>
 					</div>
@@ -161,18 +162,18 @@
 			<div class="flex flex-col items-center">
 
 				<div class="rounded-lg bg-white p-4 shadow-lg">
-					<img src={props.escrowDetails.qrCode} alt="Payment QR Code" class="h-40 w-40" />
+					<img src={props.escrowDetails.qrCode} alt={$t('common.components.bidding.external_wallet.qr_alt')} class="h-40 w-40" />
 				</div>
 				<!-- Payment Status -->
 				<div class="mt-4 text-center">
-					<div class="text-base-content/70 text-xs">Scan QR code or copy address</div>
+					<div class="text-base-content/70 text-xs">{$t('common.components.bidding.external_wallet.scan_qr')}</div>
 				</div>
 			</div>
 		</div>
 
 		<!-- Address Section -->
 		<div class="">
-			<label for="payment-address" class="mb-2 block text-sm font-medium">Payment Address</label>
+			<label for="payment-address" class="mb-2 block text-sm font-medium">{$t('common.components.bidding.external_wallet.payment_address')}</label>
 			<div class="bg-base-200 flex items-center gap-2 rounded-lg p-3">
 				<span id="payment-address" class="flex-1 font-mono text-xs break-all"
 					>{props.escrowDetails.address}</span
@@ -191,7 +192,7 @@
 								d="M5 13l4 4L19 7"
 							/>
 						</svg>
-						Copied!
+						{$t('common.components.bidding.external_wallet.copied')}
 					{:else}
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
@@ -201,7 +202,7 @@
 								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
 							/>
 						</svg>
-						Copy
+						{$t('common.components.bidding.external_wallet.copy')}
 					{/if}
 				</button>
 			</div>
@@ -212,9 +213,9 @@
 	<div
 		class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col justify-end gap-3 border-t p-4 sm:flex-row md:py-2"
 	>
-		<button type="button" class="btn btn-error" onclick={props.onCancel}> Cancel </button>
+		<button type="button" class="btn btn-error" onclick={props.onCancel}> {$t('common.components.bidding.external_wallet.cancel')} </button>
 		<button type="button" class="btn btn-primary" onclick={confirmPayment}>
-			I've Sent the Payment
+			{$t('common.components.bidding.external_wallet.payment_sent')}
 		</button>
 	</div>
 </div>

@@ -105,6 +105,9 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
+	if(route.includes('/tasks')) {
+		namespaces.push('dashboard/dashboard','dashboard/tasks/find','dashboard/bids');
+	}
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');

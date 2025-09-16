@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import {
 		BarcodeScanner,
 		type Barcode,
@@ -173,9 +174,9 @@
 {#if showScanner}
 	<div class="barcode-scanning-modal fixed inset-0 z-[9999]">
 		<header class="relative z-[1001] flex items-center justify-between bg-black/70 p-4">
-			<div class="text-lg font-semibold text-white">Scan QR Code</div>
+			<div class="text-lg font-semibold text-white">{$t('common.components.qr_scanner.scan_qr_code')}</div>
 			<button
-				aria-label="Close"
+				aria-label={$t('common.components.qr_scanner.close')}
 				class="btn btn-circle cursor-pointer rounded-full p-2 text-white"
 				onclick={closeModal}
 			>
@@ -226,7 +227,7 @@
 
 			{#if isTorchAvailable}
 				<button
-					aria-label="Toggle Torch"
+					aria-label={$t('common.components.qr_scanner.toggle_torch')}
 					class="btn btn-circle absolute top-4 right-4"
 					onclick={toggleTorch}
 				>

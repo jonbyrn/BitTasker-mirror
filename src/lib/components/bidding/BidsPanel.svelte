@@ -6,6 +6,7 @@
 	import BidDetailsDrawer from '$lib/components/bidding/BidDetailsDrawer.svelte';
 	import bidService from '$lib/api/services/bid.service';
 	import taskService from '$lib/api/services/task.service';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -54,7 +55,7 @@
 			isDrawerOpen = false;
 		} catch (err) {
 			console.error('Failed to accept bid:', err);
-			error = 'Failed to accept bid';
+			error = $t('dashboard.bids.bids_panel.failed_to_accept_bid');
 		}
 	}
 
@@ -66,7 +67,7 @@
 			isDrawerOpen = false;
 		} catch (err) {
 			console.error('Failed to reject bid:', err);
-			error = 'Failed to reject bid';
+			error = $t('dashboard.bids.bids_panel.failed_to_reject_bid');
 		}
 	}
 
@@ -75,10 +76,10 @@
 		// For this implementation, we'll just simulate with a prompt
 		if (!props.taskId) return;
 
-		const amount = prompt('Enter counter offer amount:');
+		const amount = prompt($t('dashboard.bids.bids_panel.enter_counter_offer_amount'));
 		if (!amount) return;
 
-		const message = prompt('Enter message for counter offer:');
+		const message = prompt($t('dashboard.bids.bids_panel.enter_message_for_counter_offer'));
 		if (!message) return;
 
 		try {
@@ -102,7 +103,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to create counter offer:', err);
-			error = 'Failed to create counter offer';
+			error = $t('dashboard.bids.bids_panel.failed_to_create_counter_offer');
 		}
 	}
 
@@ -115,9 +116,9 @@
 	<!-- Header with Bid Count -->
 	<div class="mb-4 flex items-center justify-between">
 		<div>
-			<h2 class="text-xl font-bold">Bids</h2>
+			<h2 class="text-xl font-bold">{$t('dashboard.bids.bids_panel.title')}</h2>
 			{#if !isLoading}
-				<p class="text-sm opacity-70">{bids.length} bid{bids.length !== 1 ? 's' : ''} submitted</p>
+				<p class="text-sm opacity-70">{bids.length} {bids.length !== 1 ? $t('dashboard.bids.bids_panel.bids') : $t('dashboard.bids.bids_panel.bid')} {$t('dashboard.bids.bids_panel.submitted')}</p>
 			{/if}
 		</div>
 	</div>
