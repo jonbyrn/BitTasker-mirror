@@ -27,10 +27,19 @@
       },
       "actions": {
         "view_details": "Ver Detalles",
-        "view_bids": "Ver Ofertas"
+        "view_bids": "Ver Ofertas",
+        "mark_as_done": "Marcar como Completado",
+        "rescope": "Re-Escopio",
+        "delete_task": "Eliminar Tarea"
+      },
+      "filters": {
+        "tasks_in_progress": "Tareas en Progreso",
+        "bids_received": "Ofertas Recibidas",
+        "tasks_waiting_for_bids": "Tareas Esperando Ofertas"
       },
       "empty": {
-        "no_tasks": "No se encontraron tareas"
+        "no_tasks": "No se encontraron tareas",
+        "no_tasks_description": "Tus tareas aparecerán aquí"
       },
       "error": {
         "loading": "Error al cargar las tareas"
@@ -119,7 +128,7 @@
     },
     "profile_task": {
       "no_saved_searches": "Aún no hay búsquedas guardadas",
-      "saved_searches_info": "Guarda tus criterios de búsqueda para recibir notificaciones cuando se publiquen tareas que coincidan.",
+      "saved_searches_info": "Tus búsquedas guardadas aparecerán aquí",
       "saved_searches_title": "Tus búsquedas guardadas",
       "retry": "Reintentar",
       "new_matching_tasks": "Nuevas tareas coincidentes",

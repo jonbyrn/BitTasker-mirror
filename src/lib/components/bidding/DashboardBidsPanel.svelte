@@ -191,7 +191,7 @@
 					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 				/>
 			</svg>
-			<h3 class="text-lg font-medium">{$t('bids.no_bids_yet')}</h3>
+			<span class="text-xl font-medium">{$t('bids.no_bids_yet')}</span>
 			<p class="mb-4 text-gray-500">
 				{$t('bids.no_bids_description')}
 			</p>

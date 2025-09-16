@@ -27,10 +27,19 @@
       },
       "actions": {
         "view_details": "View Details",
-        "view_bids": "View Bids"
+        "view_bids": "View Bids",
+        "mark_as_done": "Mark as Done",
+        "rescope": "Rescope",
+        "delete_task": "Delete Task"
+      },
+      "filters": {
+        "tasks_in_progress": "Tasks in Progress",
+        "bids_received": "Bids Received",
+        "tasks_waiting_for_bids": "Tasks Waiting for Bids"
       },
       "empty": {
-        "no_tasks": "No tasks found"
+        "no_tasks": "No tasks found",
+        "no_tasks_description": "Your tasks will appear here"
       },
       "error": {
         "loading": "Error loading tasks"
@@ -119,7 +128,7 @@
     },
     "profile_task": {
       "no_saved_searches": "No saved searches yet",
-      "saved_searches_info": "Save your search criteria to get notified when new matching tasks are posted.",
+      "saved_searches_info": "Your saved searches will appear here",
       "saved_searches_title": "Your Saved Searches",
       "retry": "Retry",
       "new_matching_tasks": "New matching tasks",

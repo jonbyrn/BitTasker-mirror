@@ -17,11 +17,22 @@
 		openTaskDrawer: (task: Task, tab?: string) => void;
 	}>();
 
+	// Task filter categories
+	type TaskFilterCategory = 'tasks_waiting_for_bids' | 'tasks_in_progress' | 'bids_received';
+
+	let activeFilter = $state<TaskFilterCategory>('tasks_waiting_for_bids');
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Nostr caching
 	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 	let nostrCache = $state<Map<string, { data: any; timestamp: number }>>(new Map());
+
+	// Filter options - reordered with tasks_waiting_for_bids first
+	const filterOptions = [
+		{ id: 'tasks_waiting_for_bids', label: $t('task.filters.tasks_waiting_for_bids') },
+		{ id: 'tasks_in_progress', label: $t('task.filters.tasks_in_progress') },
+		{ id: 'bids_received', label: $t('task.filters.bids_received') }
+	] as const;
 
 	/**
 	 * Fetch current BTC price
@@ -72,6 +83,104 @@
 		return tasks;
 	}
 
+	/**
+	 * Filter tasks based on selected category
+	 */
+	function getFilteredTasks(tasks: Task[], filter: TaskFilterCategory): Task[] {
+		switch (filter) {
+			case 'tasks_in_progress':
+				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
+			case 'bids_received':
+				return tasks.filter(
+					(task) => task.status === TaskStatusEnum.OPEN && task.bids && task.bids.length > 0
+				);
+			case 'tasks_waiting_for_bids':
+				return tasks.filter(
+					(task) => task.status === TaskStatusEnum.OPEN && (!task.bids || task.bids.length === 0)
+				);
+			default:
+				return tasks;
+		}
+	}
+
+	/**
+	 * Get action buttons for each category
+	 */
+	function getActionButtons(task: Task, category: TaskFilterCategory) {
+		switch (category) {
+			case 'tasks_in_progress':
+				return [
+					{
+						label: $t('task.actions.mark_as_done'),
+						class: 'btn-success btn-sm',
+						onclick: () => markTaskAsDone(task)
+					},
+					{
+						label: $t('task.actions.rescope'),
+						class: 'btn-info btn-outline btn-sm',
+						onclick: () => rescopeTask(task)
+					}
+				];
+			case 'bids_received':
+				return [
+					{
+						label: $t('task.actions.view_details'),
+						class: 'btn-primary btn-sm',
+						onclick: () => openTaskDrawer(task, 'details')
+					},
+					{
+						label: $t('task.actions.view_bids'),
+						class: 'btn-info btn-outline btn-sm',
+						onclick: () => openTaskDrawer(task, 'bids')
+					}
+				];
+			case 'tasks_waiting_for_bids':
+				return [
+					{
+						label: $t('task.actions.view_details'),
+						class: 'btn-primary btn-sm',
+						onclick: () => openTaskDrawer(task, 'details')
+					},
+					{
+						label: $t('task.actions.delete_task'),
+						class: 'btn-error btn-outline btn-sm',
+						onclick: () => deleteTask(task)
+					}
+				];
+			default:
+				return [];
+		}
+	}
+
+	/**
+	 * Mark task as done
+	 */
+	function markTaskAsDone(task: Task) {
+		// TODO: Implement mark as done functionality
+		console.log('Mark as done:', task.id);
+	}
+
+	/**
+	 * Rescope task
+	 */
+	function rescopeTask(task: Task) {
+		// TODO: Implement rescope functionality
+		console.log('Rescope task:', task.id);
+	}
+
+	/**
+	 * Delete task
+	 */
+	function deleteTask(task: Task) {
+		// TODO: Implement delete task functionality
+		console.log('Delete task:', task.id);
+	}
+
+	// Reactive statement to get filtered tasks
+	const filteredTasks = $derived(
+		$myTasksStore.items ? getFilteredTasks($myTasksStore.items, activeFilter) : []
+	);
+
 	onMount(async () => {
 		$myTasksStore.loading = true;
 		$myTasksStore.error = null;
@@ -103,6 +212,70 @@
 		}
 	});
 </script>
+
+<!-- Task Category Filters - Exact Sidebar Style -->
+<div class="mb-6 max-w-3xl">
+	<div class="mt-3 flex flex-col gap-4 sm:flex-row">
+		{#each filterOptions as option}
+			<button
+				class="flex cursor-pointer items-center gap-3 rounded-3xl py-3 text-left transition-all duration-200 sm:flex-1 sm:justify-center {activeFilter ===
+				option.id
+					? 'text-primary bg-primary/10'
+					: 'bg-base-100/40 hover:bg-base-100/50'}"
+				onclick={() => (activeFilter = option.id)}
+			>
+				<!-- Icon for each category -->
+				{#if option.id === 'tasks_waiting_for_bids'}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+				{:else if option.id === 'tasks_in_progress'}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+				{:else if option.id === 'bids_received'}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
+						/>
+					</svg>
+				{/if}
+				<span class="font-medium">{option.label}</span>
+			</button>
+		{/each}
+	</div>
+</div>
 
 <!-- Loading State -->
 {#if $myTasksStore.loading}
@@ -179,9 +352,9 @@
 {/if}
 
 <!-- Task List -->
-{#if !$myTasksStore.loading && $myTasksStore.items.length > 0}
+{#if !$myTasksStore.loading && filteredTasks.length > 0}
 	<div class="grid grid-cols-1 gap-5">
-		{#each $myTasksStore.items as task}
+		{#each filteredTasks as task}
 			{#if task}
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
@@ -220,7 +393,7 @@
 								<div class="flex flex-col">
 									{#if task.deadline}
 										<small class="text-base-content/60 text-xs">
-											{$t('dashboard.task_details_by_task.deadline')}
+											{$t('task.deadline.label')}
 										</small>
 										<span class="text-sm font-medium">
 											{new Date(task.deadline).toLocaleDateString('en-US', {
@@ -231,7 +404,7 @@
 										</span>
 									{:else if task.dateRange}
 										<small class="text-base-content/60 text-xs">
-											{$t('dashboard.task_details_by_task.date_range')}
+											{$t('task.dateRange.label')}
 										</small>
 										<span class="text-sm font-medium">
 											{new Date(task.dateRange.start).toLocaleDateString('en-US', {
@@ -282,16 +455,14 @@
 								/>
 							</svg>
 							<div class="flex min-w-0 flex-1 flex-col">
-								<small class="text-base-content/60 text-xs">
-									{$t('dashboard.task_details_by_task.location_details')}
-								</small>
+								<small class="text-base-content/60 text-xs"> Location Details </small>
 								<span class="line-clamp-2 text-sm font-medium">
 									{#if task.dropOffLocation?.displayName}
 										{task.dropOffLocation.displayName}
 									{:else if task.pickupLocation?.displayName}
 										{task.pickupLocation.displayName}
 									{:else}
-										{$t('dashboard.task_details_by_task.remote')}
+										{$t('task.type.remote')}
 									{/if}
 								</span>
 							</div>
@@ -342,7 +513,7 @@
 								<!-- Username and Review Stars -->
 								<div class="flex flex-col">
 									<span class="text-sm font-medium">
-										{task.creator?.username || $t('dashboard.task_details_by_task.anonymous')}
+										{task.creator?.username || 'Anonymous'}
 									</span>
 									<!-- Review Stars -->
 									<div class="flex items-center">
@@ -363,64 +534,19 @@
 								</div>
 							</div>
 
-							<!-- Right: Action Buttons -->
-							<div class="flex w-full items-center gap-2 md:w-auto">
-								<button
-									class="btn btn-primary btn-sm flex-1 md:flex-none"
-									class:btn-disabled={task.status !== TaskStatusEnum.OPEN}
-									onclick={(e) => {
-										e.stopPropagation();
-										openTaskDrawer(task, 'details');
-									}}
-									aria-label={$t('task.actions.view_details')}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
+							<!-- Right: Action Buttons - Moved more to the left -->
+							<div class="flex w-full items-center gap-2 md:ml-4 md:w-auto">
+								{#each getActionButtons(task, activeFilter) as action}
+									<button
+										class="btn {action.class} flex-1 sm:flex-none"
+										onclick={(e) => {
+											e.stopPropagation();
+											action.onclick();
+										}}
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M12 4v16m8-8H4"
-										/>
-									</svg>
-									{$t('task.actions.view_details')}
-								</button>
-
-								<button
-									class="btn btn-info btn-sm btn-outline flex-1 md:flex-none"
-									onclick={(e) => {
-										e.stopPropagation();
-										goto(`/dashboard/task/${task.id}/bids`);
-									}}
-									aria-label={$t('task.actions.view_bids')}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-										/>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-										/>
-									</svg>
-									{$t('task.actions.view_bids')}
-								</button>
+										{action.label}
+									</button>
+								{/each}
 							</div>
 						</div>
 					</div>
@@ -432,7 +558,7 @@
 	<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
 		<svg
 			xmlns="http://www.w3.org/2000/svg"
-			class="text-base-content/30 mx-auto h-12 w-12"
+			class="text-primary mx-auto mb-3 h-12 w-12"
 			fill="none"
 			viewBox="0 0 24 24"
 			stroke="currentColor"
@@ -441,10 +567,11 @@
 				stroke-linecap="round"
 				stroke-linejoin="round"
 				stroke-width="2"
-				d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 			/>
 		</svg>
-		<h4 class="mt-4 text-lg font-semibold">{$t('task.empty.no_tasks')}</h4>
+		<span class="text-xl font-semibold">{$t('task.empty.no_tasks')}</span>
+		<p class="mb-4 text-gray-500">{$t('task.empty.no_tasks_description')}</p>
 	</div>
 {/if}
 
