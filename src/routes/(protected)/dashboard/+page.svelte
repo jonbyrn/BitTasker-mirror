@@ -76,24 +76,24 @@
 			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
 		>
 			{#if activeTab === 'bids' || activeTab === 'saved-searches'}
-				<!-- Lupa para buscar tareas -->
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
+					aria-label={$t('dashboard.page.search_icon_alt')}
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 				</svg>
 			{:else}
-				<!-- Plus para crear tarea -->
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
 					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
+					aria-label={$t('dashboard.page.plus_icon_alt')}
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 				</svg>

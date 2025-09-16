@@ -2,6 +2,7 @@
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
 	import { onMount, onDestroy } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/wallet.store';
 	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
 	import BalanceCard from '$lib/components/wallet/balanceTab/BalanceCard.svelte';
@@ -25,14 +26,14 @@
 </script>
 
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-3 shadow-lg">
-	<h2 class="mb-6 text-2xl font-bold">Bitcoin Wallet</h2>
+	<h2 class="mb-6 text-2xl font-bold">{$t('wallet.page.title')}</h2>
 
 	<!-- Connection Status -->
 	{#if $walletConnection.isConnecting}
 		<div class="alert alert-outline alert-info mb-6">
 			<div class="flex items-center">
 				<span class="loading loading-spinner loading-sm mr-2"></span>
-				<span>Initializing wallet...</span>
+				<span>{$t('wallet.page.initializing')}</span>
 			</div>
 		</div>
 	{:else if $walletConnection.errorMessage}
@@ -51,11 +52,11 @@
 						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-				<h3 class="font-bold">Wallet Connection Error</h3>
+				<h3 class="font-bold">{$t('wallet.page.connection_error')}</h3>
 			</div>
 			<div class="text-sm">
 				{#if $walletConnection.errorMessage.includes('No mnemonic found')}
-					You have no wallet set up. Please set up your wallet to continue.
+					{$t('wallet.page.no_wallet_setup')}
 				{:else}
 					{$walletConnection.errorMessage}
 				{/if}
@@ -64,7 +65,7 @@
 				class="btn btn-outline btn-sm place-self-end"
 				onclick={() => walletStore.initialize()}
 			>
-				Retry Connection
+				{$t('wallet.page.retry_connection')}
 			</button>
 		</div>
 	{:else if $walletConnection.isConnected && $walletInfo}
@@ -153,7 +154,7 @@
 
 		{#if $walletUI.activeTab === 'receive'}
 			<div class="space-y-6">
-				<h3 class="mb-3 text-lg font-semibold">Receive Bitcoin</h3>
+				<h3 class="mb-3 text-lg font-semibold">{$t('wallet.page.receive_bitcoin')}</h3>
 
 				<!-- Request Payment Form -->
 				<PaymentRequestForm />

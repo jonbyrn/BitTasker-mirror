@@ -75,7 +75,7 @@
 			</span>
 		</h3>
 		<button
-			aria-label="Collapse"
+			aria-label={$t('profile.page.collapse')}
 			class="btn btn-sm btn-ghost btn-circle"
 			onclick={(event) => {
 				event.stopPropagation();

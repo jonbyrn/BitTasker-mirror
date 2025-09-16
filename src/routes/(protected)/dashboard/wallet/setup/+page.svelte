@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from 'svelte-i18n';
 	import CreateWallet from '$lib/components/wallet/setup/CreateWallet.svelte';
 	import ImportWallet from '$lib/components/wallet/setup/ImportWallet.svelte';
 
@@ -23,7 +24,7 @@
 			class:btn-outline={activeTab !== 'import'}
 			class:hidden={activeTab === 'import'}
 			aria-pressed={activeTab === 'import'}
-			onclick={() => (activeTab = 'import')}>Import Wallet</button
+			onclick={() => (activeTab = 'import')}>{$t('wallet.setup.import_wallet')}</button
 		>
 		<button
 			class="btn w-full"
@@ -31,7 +32,7 @@
 			class:btn-outline={activeTab !== 'create'}
 			class:hidden={activeTab === 'create'}
 			aria-pressed={activeTab === 'create'}
-			onclick={() => (activeTab = 'create')}>Create Wallet</button
+			onclick={() => (activeTab = 'create')}>{$t('wallet.setup.create_wallet')}</button
 		>
 	</div>
 </div>

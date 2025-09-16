@@ -52,7 +52,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
-					error = 'Failed to connect to Nostr relay. Please try again later.';
+					error = $t('profile_personal.failed_to_connect');
 				} finally {
 					isInitialLoading = false;
 				}
@@ -131,7 +131,7 @@
 			// }
 		} catch (err) {
 			console.error('Failed to update profile:', err);
-			error = err instanceof Error ? err.message : 'Failed to update profile';
+			error = err instanceof Error ? err.message : $t('profile_personal.failed_to_update');
 		} finally {
 			isLoading = false;
 		}
@@ -246,7 +246,7 @@
 				id="professionalTitle"
 				bind:value={professionalTitle}
 				class="input input-bordered mt-1 w-full"
-				placeholder="e.g. Software Engineer"
+				placeholder={$t('profile_personal.professional_title_placeholder')}
 			/>
 		</div>
 
@@ -260,7 +260,7 @@
 				id="website"
 				bind:value={website}
 				class="input input-bordered mt-1 w-full"
-				placeholder="https://example.com"
+				placeholder={$t('profile_personal.website_placeholder')}
 			/>
 		</div>
 

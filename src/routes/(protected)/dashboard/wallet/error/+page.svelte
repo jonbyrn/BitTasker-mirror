@@ -1,16 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { t } from 'svelte-i18n';
 
 	// Error types with their messages and actions
 	const errorTypes = {
 		'no-mnemonic': {
-			title: 'No Wallet Found',
-			message:
-				"Your wallet should have been set up automatically during registration. Please try reconnecting.",
+			title: $t('wallet.error.no_mnemonic.title'),
+			message: $t('wallet.error.no_mnemonic.message'),
 			actions: [
 				{
-					label: 'Try Again',
+					label: $t('wallet.error.no_mnemonic.try_again'),
 					onClick: () => {
 						// This delay is added to show the loading spinner
 						setTimeout(() => {
@@ -20,7 +20,7 @@
 					class: 'btn-primary'
 				},
 				{
-					label: 'Setup Wallet',
+					label: $t('wallet.error.no_mnemonic.setup_wallet'),
 					onClick: () => goto('/dashboard/wallet/setup'),
 					class: 'btn-outline'
 				}
@@ -28,11 +28,11 @@
 		},
 		// Add more error types here in the future
 		default: {
-			title: 'Something Went Wrong',
-			message: 'An unexpected error occurred. Please try again or contact support.',
+			title: $t('wallet.error.default.title'),
+			message: $t('wallet.error.default.message'),
 			actions: [
 				{
-					label: 'Go Back',
+					label: $t('wallet.error.default.go_back'),
 					onClick: () => goto('/dashboard/wallet'),
 					class: 'btn-primary'
 				}

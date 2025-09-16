@@ -37,13 +37,31 @@
             "cert_upload": "Upload Certificate",
             "save": "Save Skills",
             "no_skills": "No skills added yet. Add some skills to showcase your expertise.",
-            "save_success": "Skills saved successfully!"
+            "save_success": "Skills saved successfully!",
+            "skill_not_found": "Skill not found",
+            "fill_certification_fields": "Please fill in all certification fields",
+            "certification_added_success": "Certification added successfully!",
+            "failed_to_add_certification": "Failed to add certification",
+            "skills_updated_success": "Skills updated successfully!",
+            "failed_to_save_skills": "Failed to save skills",
+            "certification_not_found": "Certification not found",
+            "certification_removed_success": "Certification removed successfully!",
+            "failed_to_remove_certification": "Failed to remove certification",
+            "endorsements": "endorsements",
+            "endorsement": "endorsement"
         },
         "video": {
             "description": "Upload a short video introducing yourself and your services",
             "upload_title": "Upload Video",
             "upload_desc": "Drag and drop your video here or click to browse",
-            "max_size": "Maximum file size: 100MB"
+            "max_size": "Maximum file size: 100MB",
+            "failed_to_connect": "Failed to connect to Nostr relay. Please try again later.",
+            "failed_to_upload": "Failed to upload video",
+            "failed_to_access_camera": "Failed to access camera and microphone",
+            "failed_to_save_recording": "Failed to save recording",
+            "failed_to_remove": "Failed to remove video",
+            "stop_recording": "Stop Recording",
+            "record_video": "Record Video"
         },
         "portfolio": {
             "title": "Portfolio",
@@ -62,7 +80,14 @@
             "completion_date": "Completion Date",
             "skills_used": "Skills Used",
             "add_images": "Add Images",
-            "save": "Save Project"
+            "save": "Save Project",
+            "please_fill_required": "Please fill in all required fields and add at least one image",
+            "item_updated_success": "Portfolio item updated successfully!",
+            "item_added_success": "Portfolio item added successfully!",
+            "failed_to_save": "Failed to save portfolio item",
+            "item_deleted_success": "Portfolio item deleted successfully!",
+            "item_not_found": "Portfolio item not found",
+            "failed_to_remove": "Failed to remove portfolio item"
         },
         "availability": {
             "timezone": "Your Timezone",
@@ -95,7 +120,21 @@
             "no_services": "No services added yet. Add some services to start receiving bookings.",
             "service_name": "Service Name",
             "service_name_placeholder": "e.g. Basic Website Development",
-            "save": "Save Services"
+            "save": "Save Services",
+            "please_fill_required": "Please fill in all required fields",
+            "service_updated_success": "Service updated successfully!",
+            "service_added_success": "Service added successfully!",
+            "failed_to_save": "Failed to save service",
+            "cannot_delete_no_id": "Cannot delete service: No ID found",
+            "service_deleted_success": "Service deleted successfully!",
+            "failed_to_remove": "Failed to remove service",
+            "customizable": "Customizable",
+            "update_service": "Update Service",
+            "add_service": "Add Service",
+            "cancel": "Cancel",
+            "minutes": "minutes",
+            "hour": "hour",
+            "hours": "hours"
         },
         "page": {
             "title": "My Profile",
@@ -104,6 +143,7 @@
             "logout_profile": "Logout",
             "completion": "Profile Completion",
             "completion_desc": "Complete your profile to increase visibility and trust",
+            "collapse": "Collapse",
             "sections": {
                 "personal_info": "Personal Information",
                 "skills": "Skills & Expertise",
@@ -135,5 +175,19 @@
         "rating": "Rating",
         "responseRate": "Response Rate",
         "onTimeRate": "On-Time Rate"
+    },
+    "ai_assistant": {
+        "title": "AI Profile Assistant",
+        "description": "Get AI-powered suggestions to improve your profile",
+        "generate_suggestions": "Generate Suggestions",
+        "current": "Current",
+        "suggested": "Suggested",
+        "why": "Why?",
+        "apply_suggestion": "Apply Suggestion",
+        "not_set": "Not set",
+        "click_to_generate": "Click \"Generate Suggestions\" to get AI-powered recommendations for your profile.",
+        "suggestion_applied": "Suggestion applied successfully!",
+        "failed_to_generate": "Failed to generate suggestions",
+        "failed_to_apply": "Failed to apply suggestion"
     }
 }

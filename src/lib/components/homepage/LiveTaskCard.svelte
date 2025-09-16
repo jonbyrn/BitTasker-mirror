@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { LiveTask } from '$lib/types/homepage';
-	import { t } from 'svelte-i18n';
 
 	let { task } = $props<{
 		task: LiveTask;
@@ -17,11 +16,11 @@
 		</div>
 		<div class="flex items-center justify-between">
 			<span class="text-lg font-bold text-accent">${task.budget}</span>
-			<span class="text-sm text-base-content/70">{task.proposals} {$t('dashboard.bids.components.homepage.live_task_card.proposals')}</span>
+			<span class="text-sm text-base-content/70">{task.proposals} proposals</span>
 		</div>
 		<div class="card-actions items-center justify-between mt-auto">
-			<span class="text-sm text-base-content/70">{$t('dashboard.bids.components.homepage.live_task_card.time_left')} {task.timeLeft}</span>
-			<button class="btn btn-primary btn-sm">{$t('dashboard.bids.components.homepage.live_task_card.bid_now')}</button>
+			<span class="text-sm text-base-content/70">Time left: {task.timeLeft}</span>
+			<button class="btn btn-primary btn-sm">Bid Now</button>
 		</div>
 	</div>
 </div>

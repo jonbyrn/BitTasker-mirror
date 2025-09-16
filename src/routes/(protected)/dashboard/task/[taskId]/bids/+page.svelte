@@ -258,10 +258,9 @@
 
 <div class="mx-auto max-w-7xl p-4 md:p-0">
 	<div class="mb-6">
-		<h3 class="">Bids received</h3>
+		<h3 class="">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70">
-			Here you can see all the bids for this task. You can accept or reject bids, and you can also
-			counter offers.
+			{$t('task.drawer.bids_description')}
 		</p>
 	</div>
 	{#if loading}
@@ -329,11 +328,11 @@
 					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">No bids yet</h3>
+			<h3 class="mt-4 text-lg font-semibold">{$t('task.drawer.no_bids')}</h3>
 			<p class="text-base-content/60 mt-1">
 				{isOwner
-					? 'Your task has not received any bids yet.'
-					: 'You have not bid on this task yet.'}
+					? $t('task.drawer.no_bids_owner')
+					: $t('task.drawer.no_bids_provider')}
 			</p>
 		</div>
 	{/if}
@@ -350,7 +349,7 @@
 									{#if bid.userProfile?.user?.avatar}
 										<img
 											src={bid.userProfile.user.avatar}
-											alt="Avatar"
+											alt={$t('task.drawer.avatar_alt')}
 											class="h-12 w-12 rounded-full object-cover"
 										/>
 									{:else}
@@ -358,7 +357,7 @@
 										<div
 											class="avatar placeholder text-neutral-content bg-primary flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-center"
 										>
-											{#if bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || 'Anonymous'}
+											{#if bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || $t('task.drawer.anonymous')}
 												<span class="text-xl font-semibold">
 													{(bid.userProfile?.user?.name || 'A').charAt(0).toUpperCase()}
 												</span>
@@ -386,11 +385,11 @@
 							<!-- Username and submission time -->
 							<div class="flex flex-col">
 								<h3 class="text-lg font-semibold">
-									{bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || 'Anonymous'}
+									{bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || $t('task.drawer.anonymous')}
 								</h3>
 
 								<p class="text-base-content/60 text-sm">
-									Member since
+									{$t('task.drawer.member_since')}
 									{new Date(bid.createdAt).toLocaleDateString('en-US', {
 										month: '2-digit',
 										year: 'numeric'
@@ -437,8 +436,8 @@
 					{#if bidToWithdraw === bid.id}
 						<div class="animate-fadeIn mt-4 space-y-4">
 							<div class="border-base-300 border-t pt-4">
-								<h4 class="text-base-content/80 mb-3 text-sm font-medium">Withdraw Your Bid</h4>
-								<p class="mb-2 text-sm">Please provide a reason for withdrawing your bid:</p>
+								<h4 class="text-base-content/80 mb-3 text-sm font-medium">{$t('task.drawer.withdraw_bid')}</h4>
+								<p class="mb-2 text-sm">{$t('task.drawer.withdrawal_reason')}:</p>
 
 								<div class="form-control w-full">
 									<textarea
@@ -447,7 +446,7 @@
 										class="textarea textarea-bordered h-20 w-full {withdrawalError
 											? 'textarea-error'
 											: ''}"
-										placeholder="Please explain why you're withdrawing your bid..."
+										placeholder={$t('task.drawer.withdrawal_reason_placeholder')}
 										bind:value={withdrawalReason}
 									></textarea>
 
@@ -565,7 +564,7 @@
 							class="btn btn-ghost btn-outline btn-sm"
 							onclick={() => toggleBidDetails(bid.id)}
 						>
-							{expandedBidId === bid.id ? 'Hide details' : 'Show details'}
+							{expandedBidId === bid.id ? $t('task.drawer.hide_details') : $t('task.drawer.show_details')}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="ml-1 h-4 w-4 transition-transform duration-300 {expandedBidId === bid.id
@@ -585,13 +584,13 @@
 						</button>
 						{#if bid?.status === 'PENDING'}
 							<button class="btn btn-error btn-sm" onclick={() => handleRejectBid(bid)}
-								>Decline</button
+								>{$t('task.drawer.decline')}</button
 							>
 							<button class="btn btn-outline btn-sm" onclick={() => handleCounterOffer(bid)}
-								>Counter</button
+								>{$t('task.drawer.counter')}</button
 							>
 							<button class="btn btn-primary btn-sm" onclick={() => handleAcceptBid(bid)}
-								>Accept</button
+								>{$t('task.drawer.accept')}</button
 							>
 						{/if}
 					</div>

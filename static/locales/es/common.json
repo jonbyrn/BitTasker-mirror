@@ -2,6 +2,7 @@
   "common": {
     "or": "O",
     "processing": "Procesando",
+    "loading": "Cargando...",
     "close": "Cerrar",
     "edit": "Editar",
     "remove": "Eliminar",
@@ -514,6 +515,9 @@
                 "details": "Detalles"
             }
         }
+    },
+    "layout": {
+        "github_aria": "GitHub"
     }
   }
 }
