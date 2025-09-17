@@ -23,7 +23,15 @@
         "success_rate": "Success Rate",
         "response_rate": "Response Rate"
       },
-      "error_load": "Failed to load profile data. Please try again later."
+      "error_load": "Failed to load profile data. Please try again later.",
+      "failed_to_load_availability": "Failed to load availability data. Please try again later.",
+      "please_add_time_slot": "Please add at least one time slot",
+      "end_time_after_start": "End time must be after start time",
+      "failed_to_update": "Failed to update availability",
+      "end_time_minimum": "End time must be at least 15 minutes after start time",
+      "start_time_minimum": "Start time must be at least 15 minutes before end time",
+      "time_slot_conflicts": "Time slot conflicts with another slot",
+      "hours_label": "hours"
     },
     "days": {
       "sunday": "Sunday",

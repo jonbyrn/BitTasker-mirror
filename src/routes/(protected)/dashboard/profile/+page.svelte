@@ -39,7 +39,7 @@
 	});
 </script>
 
-<div class="mx-auto max-w-7xl p-4 sm:p-0">
+<div class="mx-auto max-w-7xl p-4">
 	<div class="mb-6">
 		<h3 class="">{$t('profile.page.title')}</h3>
 		<p class="text-base-content/70">{$t('profile.page.description')}</p>

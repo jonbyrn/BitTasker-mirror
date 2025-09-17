@@ -112,7 +112,7 @@
 	// Add or update service
 	async function handleSubmit() {
 		if (!newService.name || !newService.description || !newService.duration || !newService.price) {
-			error = 'Please fill in all required fields';
+			error = $t('profile.services.please_fill_required');
 			console.log('error', error);
 			return;
 		}
@@ -147,8 +147,8 @@
 
 			// Show success message
 			successMessage = editingService
-				? 'Service updated successfully!'
-				: 'Service added successfully!';
+				? $t('profile.services.service_updated_success')
+				: $t('profile.services.service_added_success');
 
 			setTimeout(() => (successMessage = ''), 2000);
 
@@ -156,7 +156,7 @@
 			resetForm();
 		} catch (err) {
 			console.error('Failed to save service:', err);
-			error = err instanceof Error ? err.message : 'Failed to save service';
+			error = err instanceof Error ? err.message : $t('profile.services.failed_to_save');
 		} finally {
 			isLoading = false;
 		}
@@ -165,10 +165,10 @@
 	// Remove service
 	async function removeService(service: StandardService) {
 		try {
-			if (!service.id) {
-				appStore.showErrorToast('Cannot delete service: No ID found');
-				return;
-			}
+		if (!service.id) {
+			appStore.showErrorToast($t('profile.services.cannot_delete_no_id'));
+			return;
+		}
 
 			isRemovingService = service.id;
 			error = '';
@@ -182,10 +182,10 @@
 			const tags = [['d', 'standard-services']];
 
 			await publishStandardServices(servicesData, tags);
-			appStore.showSuccessToast('Service deleted successfully!');
+			appStore.showSuccessToast($t('profile.services.service_deleted_success'));
 		} catch (err) {
 			console.error('Failed to remove service:', err);
-			error = err instanceof Error ? err.message : 'Failed to remove service';
+			error = err instanceof Error ? err.message : $t('profile.services.failed_to_remove');
 		} finally {
 			isRemovingService = null;
 		}
@@ -248,12 +248,12 @@
 
 	// Format duration
 	function formatDuration(minutes: number) {
-		if (minutes < 60) return `${minutes} minutes`;
+		if (minutes < 60) return `${minutes} ${$t('profile.services.minutes')}`;
 		const hours = Math.floor(minutes / 60);
 		const remainingMinutes = minutes % 60;
 		return remainingMinutes
 			? `${hours}h ${remainingMinutes}m`
-			: `${hours} hour${hours > 1 ? 's' : ''}`;
+			: `${hours} ${hours > 1 ? $t('profile.services.hours') : $t('profile.services.hour')}`;
 	}
 
 	// Track completion
@@ -494,7 +494,7 @@
 						<!-- Customizable -->
 						<div class="form-control flex items-center justify-start">
 							<label class="label cursor-pointer">
-								<span class="label-text font-medium">Customizable</span>
+								<span class="label-text font-medium">{$t('profile.services.customizable')}</span>
 								<input
 									type="checkbox"
 									bind:checked={newService.isCustomizable}
@@ -520,7 +520,7 @@
 						<!-- Form Actions -->
 						<div class="flex justify-end gap-2">
 							{#if editingService}
-								<button class="btn btn-ghost" onclick={resetForm}> Cancel </button>
+								<button class="btn btn-ghost" onclick={resetForm}>{$t('profile.services.cancel')}</button>
 							{/if}
 							<button
 								class="btn btn-primary"
@@ -530,7 +530,7 @@
 								{#if isLoading}
 									<span class="loading loading-spinner"></span>
 								{/if}
-								{editingService ? 'Update Service' : 'Add Service'}
+								{editingService ? $t('profile.services.update_service') : $t('profile.services.add_service')}
 							</button>
 						</div>
 					</div>
@@ -593,7 +593,7 @@
 										{formatDuration(service.duration)}
 									</span>
 									{#if service.isCustomizable}
-										<span class="badge badge-secondary"> Customizable </span>
+										<span class="badge badge-secondary">{$t('profile.services.customizable')}</span>
 									{/if}
 								</div>
 							</div>

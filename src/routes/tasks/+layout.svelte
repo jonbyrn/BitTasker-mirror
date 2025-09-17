@@ -19,10 +19,10 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.task_details_by_task.title')} - BitTasker</title>
+	<title>Task Details - BitTasker</title>
 	<meta
 		name="description"
-		content={$t('dashboard.task_details_by_task.description')}
+		content="Here you can see the details of the task."
 	/>
 </svelte:head>
 

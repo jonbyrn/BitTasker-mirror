@@ -4,7 +4,7 @@
     "description": "Gestiona tus tareas y ofertas.",
     "titl": "Panel",
     "create_task": "Crear Tarea",
-    "find_tasks": "Buscar Tareas",
+    "find_task": "Buscar Tareas",
     "tabs": {
       "tasks": "Mis Tareas",
       "bids": "Ofertas Enviadas",
@@ -52,7 +52,268 @@
       "close": "Cerrar",
       "try_again": "Intentar de Nuevo",
       "location": "Ubicación",
-      "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta." 
+      "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta.",
+      "task_attachment": "Adjunto de tarea",
+      "avatar_alt": "Avatar",
+      "sign_up_to_bid": "Regístrate para ofertar"
+    },
+    "taskees": {
+      "title": "Profesionales",
+      "coming_soon": "Próximamente",
+      "description": "Estamos trabajando duro para traerte algo increíble. ¡Mantente atento!"
+    },
+    "page": {
+      "search_icon_alt": "Icono de búsqueda",
+      "plus_icon_alt": "Icono de más"
+    },
+    "find_tasks": {
+      "sign_up_to_bid": "Regístrate para ofertar",
+      "bidding_closed": "Ofertas cerradas",
+      "sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
+      "avatar_alt": "Avatar",
+      "invalid_date": "Fecha inválida"
+    },
+    "bids": {
+      "bid_acceptance": {
+        "sats": "SATS",
+        "tether_usd": "Tether USD",
+        "please_select_escrow_method": "Por favor seleccione un método de depósito en garantía",
+        "title": "Aceptación de Oferta",
+        "bidder_avatar": "Avatar del Postor",
+        "anonymous": "Anónimo",
+        "member_since": "Miembro desde",
+        "tasks": "tareas",
+        "total_price": "Precio Total",
+        "bid_price": "Precio de la Oferta",
+        "contract_note": "Nota del Contrato",
+        "my_wallet": "Mi Billetera",
+        "platform_fee": "Tarifa de la Plataforma",
+        "external_wallet": "Billetera Externa",
+        "external": "Externo",
+        "liquid_bitcoin": "Liquid Bitcoin",
+        "est_transaction_fee": "Tarifa de Transacción Est.",
+        "close_dialog": "Cerrar Diálogo",
+        "usdt": "USDT",
+        "lightning_network": "Red Lightning",
+        "fast": "Rápido",
+        "payments": "Pagos",
+        "private": "Privado",
+        "confidential": "Confidencial",
+        "stable": "Estable",
+        "pegged": "Fijado",
+        "processing": "Procesando...",
+        "cancel": "Cancelar",
+        "accept_bid_fund_contract": "Aceptar Oferta y Financiar Contrato",
+        "accept_fund": "Aceptar Fondos",
+        "accept_bid": "Aceptar Oferta"
+      },
+      "bid_card": {
+        "view_details": "Ver Detalles",
+        "accept": "Aceptar",
+        "decline": "Rechazar",
+        "counter": "Contraoferta",
+        "per_hour": "/h · Est.",
+        "estimated": "Estimado",
+        "fixed_price": "Precio Fijo"
+      },
+      "bid_creation": {
+        "per_hour": "/h · Est.",
+        "estimated": "Estimado",
+        "fixed_price": "Precio Fijo",
+        "days": "días",
+        "hours": "horas",
+        "one_hour": "1 hora",
+        "untitled_task": "Tarea sin Título",
+        "no_description_available": "No hay descripción disponible",
+        "failed_to_submit_bid": "Error al enviar la oferta",
+        "sats": "SATS",
+        "max": "máx"
+      },
+      "bid_details": {
+        "per_hour": "/h · Est.",
+        "title": "Detalles de la Oferta",
+        "max": "máx",
+        "close_dialog": "Cerrar Diálogo",
+        "anonymous": "Anónimo",
+        "submitted": "Enviado",
+        "price_details": "Detalles del Precio",
+        "total_price": "Precio Total",
+        "rate_calculation": "Cálculo de tarifa:",
+        "payment_method": "Método de Pago:",
+        "proposal": "Propuesta",
+        "proposed_approach": "Enfoque Propuesto",
+        "estimated_timeline": "Cronograma Estimado",
+        "provider_highlights": "Aspectos Destacados del Proveedor",
+        "skills": "Habilidades",
+        "certifications": "Certificaciones",
+        "negotiation_history": "Historial de Negociación",
+        "decline": "Rechazar",
+        "counter": "Contraoferta",
+        "accept": "Aceptar"
+      },
+      "bid_summary": {
+        "title": "Aceptación de Oferta",
+        "bid_on": "oferta_en",
+        "from": "de",
+        "just_now": "ahora",
+        "minutes_ago": "hace m",
+        "hours_ago": "hace h",
+        "days_ago": "hace d",
+        "unknown": "desconocido",
+        "pending": "pendiente",
+        "accepted": "aceptado",
+        "rejected": "rechazado",
+        "countered": "contraofertado",
+        "view_details_for_bid_on": "Ver detalles de la oferta en",
+        "this_task": "esta tarea",
+        "view_details": "Ver detalles",
+        "untitled_task": "Tarea sin Título",
+        "anonymous": "Anónimo"
+      },
+      "bids_panel": {
+        "failed_to_accept_bid": "Error al aceptar la oferta",
+        "failed_to_reject_bid": "Error al rechazar la oferta",
+        "failed_to_load_counter_offers": "Error al cargar contraofertas",
+        "enter_counter_offer_amount": "Ingrese el monto de la contraoferta",
+        "enter_message_for_counter_offer": "Ingrese un mensaje para la contraoferta",
+        "failed_to_create_counter_offer": "Error al crear la contraoferta",
+        "bids": "ofertas",
+        "bid": "oferta",
+        "submitted": "enviado"
+      },
+      "counter_offer": {
+        "title": "Contraoferta",
+        "days": "días",
+        "hours": "horas",
+        "one_hour": "1 hora",
+        "errors": {
+          "valid_amount": "Monto válido",
+          "amount_greater_than_zero": "El monto debe ser mayor que cero",
+          "start_end_dates_required": "Se requieren fechas de inicio y fin",
+          "end_date_after_start": "La fecha de fin debe ser posterior a la de inicio",
+          "valid_hourly_rate": "Tarifa por hora válida",
+          "hourly_rate_greater_than_zero": "Ingrese una tarifa por hora mayor que cero",
+          "estimated_hours_greater_than_zero": "Ingrese horas estimadas mayores que cero",
+          "message_required": "Por favor proporcione un mensaje"
+        },
+        "close_dialog": "Cerrar Diálogo",
+        "original_bid_amount": "Monto Original de la Oferta",
+        "counter_offer_amount": "Monto de la Contraoferta",
+        "sats": "Sats",
+        "btc_price": "Precio BTC:",
+        "date_time_range": "Rango de Fecha y Hora",
+        "start_date_time": "Fecha y Hora de Inicio",
+        "end_date_time": "Fecha y Hora de Fin",
+        "duration": "Duración",
+        "hourly_rate": "Tarifa por Hora",
+        "estimated_hours": "Horas Estimadas",
+        "total_estimated_amount": "Monto Total Estimado",
+        "payment_type": "Tipo de Pago",
+        "fixed_price": "Precio Fijo",
+        "estimated_completion_time": "Tiempo Estimado de Finalización",
+        "message": "Mensaje",
+        "message_placeholder": "Explique las condiciones de su contraoferta y por qué este monto",
+        "cancel": "Cancelar",
+        "submitting": "Enviando...",
+        "send_counter_offer": "Enviar Contraoferta",
+        "send_offer": "Enviar Oferta"
+      },
+      "components": {
+        "date_range": {
+          "rental_days": "Días de Alquiler",
+          "rental_hours": "Horas de Alquiler",
+          "rental_minutes": "Minutos de Alquiler",
+          "rental_seconds": "Segundos de Alquiler"
+        },
+        "filters": {
+          "availability": {
+            "filter_type": "Tipo de Filtro",
+            "date_range": "Rango de Fechas",
+            "deadline": "Fecha Límite",
+            "start_date": "Fecha de Inicio",
+            "end_date": "Fecha de Fin",
+            "clear_availability_filters": "Borrar Filtros de Disponibilidad"
+          },
+          "price_range": {
+            "all": "Todos",
+            "usd": "USD",
+            "btc": "BTC",
+            "currency": "Moneda",
+            "common_ranges": "Rangos Comunes",
+            "clear": "Borrar",
+            "min": "Mín",
+            "max": "Máx"
+          },
+          "location": {
+            "location_error": "Error al obtener tu ubicación. Por favor revisa los permisos.",
+            "search_location_placeholder": "Buscar ubicación...",
+            "clear_location": "Borrar ubicación",
+            "zip": "Código Postal:",
+            "search_radius": "Radio de Búsqueda:",
+            "radius_1km": "1 km",
+            "radius_25km": "25 km",
+            "radius_50km": "50 km",
+            "radius_100km": "100 km",
+            "view_on_map": "Ver en el Mapa"
+          }
+        },
+        "homepage": {
+          "live_task_card": {
+            "proposals": "propuestas",
+            "time_left": "tiempo restante",
+            "bid_now": "Ofertar Ahora"
+          }
+        },
+        "maps": {
+          "location_picker_map": {
+            "error_loading_map": "Error al cargar el mapa"
+          },
+          "mobile_map_sheet": {
+            "view_task": "Ver Tarea",
+            "remote": "Remoto",
+            "bid_now": "Ofertar Ahora",
+            "no_results": "Sin resultados"
+          },
+          "task_location_map": {
+            "your_location": "Tu Ubicación",
+            "loading_map": "Cargando mapa...",
+            "error_loading_map": "Error al cargar el mapa"
+          }
+        },
+        "messages": {
+          "chat_message": {
+            "you": "Tú",
+            "they": "Ellos",
+            "unknown": "desconocido"
+          },
+          "chat_view": {
+            "failed_load_messages": "Error al cargar los mensajes",
+            "chat_messages_aria": "Escribe un mensaje...",
+            "loading_messages": "Cargando mensajes...",
+            "loading_older_messages": "Cargando mensajes antiguos...",
+            "no_messages": "Sin Mensajes",
+            "start_conversation": "Inicia una conversación con alguien",
+            "type_message_placeholder": "Escribe un mensaje...",
+            "send_message": "Enviar mensaje",
+            "characters": "caracteres"
+          },
+          "message_search": {
+            "failed_load_messages": "Error al cargar los mensajes",
+            "chat_messages_aria": "Escribe un mensaje...",
+            "loading_messages": "Cargando mensajes...",
+            "loading_older_messages": "Cargando mensajes antiguos...",
+            "no_messages": "Sin Mensajes",
+            "search_messages": "Buscar mensajes...",
+            "clear_search_aria": "Borrar búsqueda",
+            "advanced_search_options_aria": "Opciones de búsqueda avanzada"
+          }
+        }
+      },
+      "title": "Ofertas",
+      "description": "Administre sus ofertas",
+      "bids": "Ofertas",
+      "bid_now": "Ofertar Ahora",
+      "view_bid": "Ver Oferta"
     }
   }
 }

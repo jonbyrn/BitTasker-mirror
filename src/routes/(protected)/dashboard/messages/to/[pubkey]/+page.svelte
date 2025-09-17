@@ -7,6 +7,7 @@
 	import { nip19 } from 'nostr-tools';
 	import ChatView from '$lib/components/messages/ChatView.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
+	import { t } from 'svelte-i18n';
 
 	// Get pubkey from URL
 	let recipientPubkey = $derived($page.params.pubkey);
@@ -30,12 +31,12 @@
 				try {
 					hexPubkey = nip19.decode(recipientPubkey).data as string;
 				} catch {
-					error = 'Invalid npub format';
+					error = $t('messages.invalid_npub_format');
 					isLoading = false;
 					return;
 				}
 			} else if (!/^[a-fA-F0-9]{64}$/.test(recipientPubkey)) {
-				error = 'Invalid public key format';
+				error = $t('messages.invalid_pubkey_format');
 				isLoading = false;
 				return;
 			}
@@ -55,7 +56,7 @@
 				// Continue even if profile fetch fails
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load chat';
+			error = err instanceof Error ? err.message : $t('messages.failed_to_load_chat');
 		} finally {
 			isLoading = false;
 		}
@@ -91,7 +92,7 @@
 				</svg>
 				<span>{error}</span>
 			</div>
-			<button class="btn btn-primary mt-4" onclick={goBackToMessages}> Back to Messages </button>
+			<button class="btn btn-primary mt-4" onclick={goBackToMessages}> {$t('messages.back_to_messages')} </button>
 		</div>
 	{:else}
 		<!-- Chat Header with Back Button -->
@@ -99,7 +100,7 @@
 			<button
 				class="btn btn-ghost btn-sm"
 				onclick={goBackToMessages}
-				aria-label="Go back to messages"
+				aria-label={$t('messages.go_back_to_messages')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -122,7 +123,7 @@
 				<div class="flex items-center gap-3">
 					<Avatar
 						user={{
-							name: recipientProfile?.name || 'Unknown',
+							name: recipientProfile?.name || $t('messages.unknown'),
 							picture: recipientProfile?.picture || null
 						}}
 						size="sm"
@@ -141,8 +142,8 @@
 						navigator.clipboard.writeText(recipientPubkey);
 						// Optional: Add a toast notification here
 					}}
-					title="Copy public key"
-					aria-label="Copy public key"
+					title={$t('messages.copy_public_key')}
+					aria-label={$t('messages.copy_public_key')}
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

@@ -2,6 +2,7 @@
     "common": {
         "or": "or",
         "processing": "Processing",
+        "loading": "Loading...",
         "close": "Close",
         "edit": "Edit",
         "remove": "Remove",
@@ -106,8 +107,8 @@
                 "title": "Negotiation History ({count})",
                 "no_offers": "No counter offers yet",
                 "estimated_completion": "Estimated completion:",
-                "you_proposed": "You proposed",
-                "they_proposed": "They proposed",
+                "you_proposed": "You",
+                "they_proposed": "They",
                 "decline": "Decline",
                 "accept": "Accept"
             },
@@ -514,6 +515,9 @@
                 "details": "Details"
             }
         }
+    },
+    "layout": {
+        "github_aria": "GitHub"
     }
     }
 }

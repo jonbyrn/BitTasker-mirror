@@ -73,8 +73,7 @@
 
 			// Create master key encryption for both Nostr and wallet
 			const masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
-			console.log(masterKeyData)
-
+			
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 

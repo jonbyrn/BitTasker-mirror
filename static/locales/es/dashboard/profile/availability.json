@@ -23,7 +23,15 @@
         "success_rate": "Tasa de éxito",
         "response_rate": "Tasa de respuesta"
       },
-      "error_load": "No se pudo cargar el perfil. Intenta de nuevo más tarde."
+      "error_load": "No se pudo cargar el perfil. Intenta de nuevo más tarde.",
+      "failed_to_load_availability": "No se pudo cargar la información de disponibilidad. Intenta de nuevo más tarde.",
+      "please_add_time_slot": "Por favor agrega al menos un horario",
+      "end_time_after_start": "La hora de fin debe ser después de la hora de inicio",
+      "failed_to_update": "Error al actualizar disponibilidad",
+      "end_time_minimum": "La hora de fin debe ser al menos 15 minutos después de la hora de inicio",
+      "start_time_minimum": "La hora de inicio debe ser al menos 15 minutos antes de la hora de fin",
+      "time_slot_conflicts": "El horario entra en conflicto con otro horario",
+      "hours_label": "horas"
     },
     "days": {
       "sunday": "Domingo",

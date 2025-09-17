@@ -39,7 +39,7 @@
 						// Cuando la imagen se carga, resuelve la promesa con sus dimensiones reales
 						resolve({
 							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
+							alt: attachment.alt || $t('dashboard.task_details_by_task.attachment'),
 							width: img.naturalWidth, // Ancho real de la imagen
 							height: img.naturalHeight, // Altura real de la imagen
 							size: attachment.size
@@ -49,7 +49,7 @@
 						// Si hay un error, resuelve con valores por defecto o null
 						resolve({
 							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
+							alt: attachment.alt || $t('dashboard.task_details_by_task.attachment'),
 							width: 0,
 							height: 0,
 							size: attachment.size
@@ -440,7 +440,7 @@
 											d="M12 4v16m8-8H4"
 										/>
 									</svg>
-									Sign up to bid
+									{$t('dashboard.task_details_by_task.sign_up_to_bid')}
 								</button>
 							</div>
 						{:else if task.status !== TaskStatusEnum.OPEN}
@@ -492,7 +492,7 @@
 											{#if task.creator.avatar}
 												<img
 													src={task.creator.avatar}
-													alt="Avatar"
+													alt={$t('dashboard.task_details_by_task.avatar_alt')}
 													class="h-12 w-12 rounded-full object-cover"
 												/>
 											{:else}

@@ -84,8 +84,8 @@
 </script>
 
 <svelte:head>
-    <title>{$t('homepage.v2.hero.page_title')}</title>
-    <meta name="description" content={$t('homepage.v2.hero.description')} />
+    <title>The Decentralized Workforce | BitTasker</title>
+    <meta name="description" content="Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr." />
     
     <link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>

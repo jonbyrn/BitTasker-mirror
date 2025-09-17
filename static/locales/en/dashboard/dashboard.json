@@ -4,8 +4,7 @@
       "description": "Manage your tasks and bids.",
       "titl": "Dashboard",
       "create_task": "Create Task",
-      "find_tasks": "Find Tasks",
-      
+      "find_task": "Find Tasks",    
       "tabs": {
         "tasks": "My Tasks",
         "bids": "Bids Sent",
@@ -53,7 +52,268 @@
         "close": "Close",
         "try_again": "Try Again",
         "location": "Location",
-        "location_map_description": "The exact location will be provided after the offer is accepted." 
+        "location_map_description": "The exact location will be provided after the offer is accepted.",
+        "task_attachment": "Task attachment",
+        "avatar_alt": "Avatar",
+        "sign_up_to_bid": "Sign up to bid"
+      },
+      "taskees": {
+        "title": "Professionals",
+        "coming_soon": "Coming Soon",
+        "description": "We're working hard to bring you something amazing. Stay tuned!"
+      },
+      "page": {
+        "search_icon_alt": "Search icon",
+        "plus_icon_alt": "Plus icon"
+      },
+      "find_tasks": {
+        "sign_up_to_bid": "Sign up to bid",
+        "bidding_closed": "Bidding closed",
+        "sign_up_to_bid_aria": "Sign up to bid on this task",
+        "avatar_alt": "Avatar",
+        "invalid_date": "Invalid date"
+      },
+      "bids": {
+        "bid_acceptance":{
+          "sats":"SATS",
+          "tether_usd":"Tether USD",
+         "please_select_escrow_method": "Please select an escrow method",
+         "title": "Bid Acceptance",
+         "bidder_avatar":"Bidder Avatar",
+         "anonymous":"Anonymous",
+         "member_since":"Member since",
+         "tasks":"tasks",
+         "total_price":"Total Price",
+         "bid_price":"Bid Price",
+         "contract_note":"Contract Note",
+         "my_wallet":"My Wallet",
+         "platform_fee":"Platform Fee",
+         "external_wallet":"External Wallet",
+         "external":"External",
+         "liquid_bitcoin":"Liquid Bitcoin",
+         "est_transaction_fee":"Est. Transaction Fee",
+         "close_dialog": "Close Dialog",
+         "usdt":"USDT",
+         "lightning_network":"Lightning Network",
+         "fast":"Fast",
+         "payments":"Payments",
+         "private":"Private",
+         "confidential":"Confidential",
+         "stable":"Stable",
+         "pegged":"Pegged",
+         "processing":"Processing...",
+         "cancel":"Cancel",
+         "accept_bid_fund_contract":"Accept Bid & Fund Contract",
+         "accept_fund":"Accept Fund",
+         "accept_bid":"Accept Bid"
+        },
+        "bid_card":{
+          "view_details":"View Details",
+          "accept":"Accept",
+          "decline":"Decline",
+          "counter":"Counter",
+          "per_hour":"/hr · Est.",
+          "estimated":"Estimated",
+          "fixed_price":"Fixed Price"
+        },
+        "bid_creation":{
+          "per_hour":"/hr · Est.",
+          "estimated":"Estimated",
+          "fixed_price":"Fixed Price",
+          "days":"days",
+          "hours":"hours",
+          "one_hour":"1 hour",
+          "untitled_task":"Untitled Task",
+          "no_description_available":"No description available",
+          "failed_to_submit_bid":"Failed to submit bid",
+          "sats":"SATS",
+          "max":"max"
+        },
+        "bid_details":{
+          "per_hour":"/hr · Est.",
+          "title":"Bid Details",
+          "max":"max",
+          "close_dialog":"Close Dialog",
+          "anonymous":"Anonymous",
+          "submitted":"Submitted",
+          "price_details":"Price Details",
+          "total_price":"Total Price",
+          "rate_calculation":"Rate calculation:",
+          "payment_method":"Payment Method:",
+          "proposal":"Proposal",
+          "proposed_approach":"Proposed Approach",
+          "estimated_timeline":"Estimated Timeline",
+          "provider_highlights":"Provider Highlights",
+          "skills":"Skills",
+          "certifications":"Certifications",
+          "negotiation_history":"Negotiation History",
+          "decline":"Decline",
+          "counter":"Counter",
+          "accept":"Accept"
+        },
+        "bid_summary":{
+          "title":"Bid Acceptance",
+          "bid_on":"bid_on",
+          "from":"from",
+          "just_now":"just_now",
+          "minutes_ago":"m ago",
+          "hours_ago":"h ago",
+          "days_ago":"d ago",
+          "unknown":"unknown",
+          "pending":"pending",
+          "accepted":"accepted",
+          "rejected":"rejected",
+          "countered":"countered",
+          "view_details_for_bid_on":"View details for bid on",
+          "this_task":"this task",
+          "view_details":"View details",
+          "untitled_task":"Untitled Task",
+          "anonymous":"Anonymous"
+        },
+        "bids_panel":{
+          "failed_to_accept_bid":"Failed to accept bid",
+          "failed_to_reject_bid":"Failed to reject bid",
+          "failed_to_load_counter_offers":"Failed to load counter offers",
+          "enter_counter_offer_amount":"Enter counter offer amount",
+          "enter_message_for_counter_offer":"Enter message for counter offer",
+          "failed_to_create_counter_offer":"Failed to create counter offer",
+          "bids":"s",
+          "bid":"bid",
+          "submitted":"submitted"
+        },
+        "counter_offer":{
+          "title":"Counter Offer",
+          "days":"days",
+          "hours":"hours",
+          "one_hour":"1 hour",
+          "errors":{
+            "valid_amount":"Valid amount",
+            "amount_greater_than_zero":"Amount greater than zero",
+            "start_end_dates_required":"Start and end dates are required",
+            "end_date_after_start":"End date must be after start date",
+            "valid_hourly_rate":"Valid hourly rate",
+            "hourly_rate_greater_than_zero":"Please enter an hourly rate greater than zero",
+            "estimated_hours_greater_than_zero":"Please enter estimated hours greater than zero",
+            "message_required":"Please provide a message"
+          },
+          "close_dialog":"Close Dialog",
+          "original_bid_amount":"Original Bid Amount",
+          "counter_offer_amount":"Counter Offer Amount",
+          "sats":"Sats",
+          "btc_price":"BTC Price:",
+          "date_time_range":"Date and Time Range",
+          "start_date_time":"Start Date & Time",
+          "end_date_time":"End Date & Time",
+          "duration":"Duration",
+          "hourly_rate":"Hourly Rate",
+          "estimated_hours":"Estimated Hours",
+          "total_estimated_amount":"Total Estimated Amount",
+          "payment_type":"Payment Type",
+          "fixed_price":"Fixed Price",
+          "estimated_completion_time":"Estimated Completion Time",
+          "message":"Message",
+          "message_placeholder":"Explain your counter offer conditions and why this amount ",
+          "cancel":"Cancel",
+          "submitting":"Submitting...",
+          "send_counter_offer":"Send Counter Offer",
+          "send_offer":"Send Offer"
+        },
+        "components":{
+          "date_range":{
+            "rental_days":"Rental Days",
+            "rental_hours":"Rental Hours",
+            "rental_minutes":"Rental Minutes",
+            "rental_seconds":"Rental Seconds"
+          },
+          "filters":{
+            "availability":{
+              "filter_type":"Filter Type",
+              "date_range":"Date Range",
+              "deadline":"Deadline",
+              "start_date":"Start Date",
+              "end_date":"End Date",
+              "clear_availability_filters":"Clear Availability Filters"
+            },
+            "price_range":{
+              "all":"All",
+              "usd":"USD",
+              "btc":"BTC",
+              "currency":"Currency",
+              "common_ranges":"Common Ranges",
+              "clear":"Clear",
+              "min":"Min",
+              "max":"Max"
+            },
+            "location":{
+              "location_error":"Failed to get your location. Please check permissions.",
+              "search_location_placeholder":"Search location...",
+              "clear_location":"Clear location",
+              "zip":"ZIP:",
+              "search_radius":"Search Radius: ",
+              "radius_1km":"1km",
+              "radius_25km":"25km",
+              "radius_50km":"50km",
+              "radius_100km":"100km",
+              "view_on_map":"View on Map"
+            }
+          },
+          "homepage":{
+            "live_task_card":{
+              "proposals":"proposals",
+              "time_left":"time left",
+              "bid_now":"Bid Now"
+            }
+          },
+          "maps":{
+            "location_picker_map":{
+              "error_loading_map":"Error loading map"
+            },
+            "mobile_map_sheet":{
+              "view_task":"View Task",
+              "remote":"Remote",
+              "bid_now":"Bid Now",
+              "no_results":"No results"
+            },
+            "task_location_map":{
+              "your_location":"Your Location",
+              "loading_map":"Loading map...",
+              "error_loading_map":"Error loading map"
+            }
+          },
+          "messages":{
+            "chat_message":{
+              "you":"You",
+              "they":"They",
+              "unknown":"unknown"
+            },
+            "chat_view":{
+              "failed_load_messages":"Failed to load messages",
+              "chat_messages_aria":"Type a message...",
+              "loading_messages":"Loading messages...",
+              "loading_older_messages":"Loading older messages...",
+              "no_messages":"No Message",
+              "start_conversation":"Start a conversation with someone",
+              "type_message_placeholder":"Type a message...",
+              "send_message":"Send message",
+              "characters":"characters"
+            },
+            "message_search":{
+              "failed_load_messages":"Failed to load messages",
+              "chat_messages_aria":"Type a message...",
+              "loading_messages":"Loading messages...",
+              "loading_older_messages":"Loading older messages...",
+              "no_messages":"No Message",
+              "search_messages":"Search messages...",
+              "clear_search_aria":"Clear search",
+              "advanced_search_options_aria":"Advanced search options"
+            }
+          }
+        },
+        "title": "Bids",
+        "description": "Manage your bids",
+        "bids": "Bids",
+        "bid_now": "Bid Now",
+        "view_bid": "View Bid"
       }
     }
   }

@@ -65,7 +65,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process availability update:', err);
-					error = 'Failed to load availability data. Please try again later.';
+					error = $t('profile_availability.failed_to_load_availability');
 				} finally {
 					isInitialLoading = false;
 				}
@@ -152,7 +152,7 @@
 			if (verifyTimeSlot(value, currentSlot.start)) {
 				timeSlotError.day = currentSlot.day;
 				timeSlotError.slotIndex = slotIndex;
-				timeSlotError.end = 'End time must be at least 15 minutes after start time';
+				timeSlotError.end = $t('profile_availability.end_time_minimum');
 				return;
 			}
 		}
@@ -161,7 +161,7 @@
 			if (verifyTimeSlot(currentSlot.end, value)) {
 				timeSlotError.day = currentSlot.day;
 				timeSlotError.slotIndex = slotIndex;
-				timeSlotError.start = 'Start time must be at least 15 minutes before end time';
+				timeSlotError.start = $t('profile_availability.start_time_minimum');
 				return;
 			}
 		}
@@ -170,8 +170,8 @@
 		if (checkTimeSlotConflicts(currentSlot.day, updatedStart, updatedEnd, index)) {
 			timeSlotError.day = currentSlot.day;
 			timeSlotError.slotIndex = slotIndex;
-			timeSlotError.start = field === 'start' ? 'Time slot conflicts with another slot' : '';
-			timeSlotError.end = field === 'end' ? 'Time slot conflicts with another slot' : '';
+			timeSlotError.start = field === 'start' ? $t('profile_availability.time_slot_conflicts') : '';
+			timeSlotError.end = field === 'end' ? $t('profile_availability.time_slot_conflicts') : '';
 			return;
 		}
 
@@ -206,14 +206,14 @@
 			error = '';
 
 			if (timeSlots.length === 0) {
-				error = 'Please add at least one time slot';
+				error = $t('profile_availability.please_add_time_slot');
 				return;
 			}
 
 			// Validate time slots
 			for (const slot of timeSlots) {
 				if (slot.start >= slot.end) {
-					error = 'End time must be after start time';
+					error = $t('profile_availability.end_time_after_start');
 					return;
 				}
 			}
@@ -231,7 +231,7 @@
 			await publishAvailabilityUpdate(availabilityData);
 		} catch (err) {
 			console.error('Availability update failed:', err);
-			error = err instanceof Error ? err.message : 'Failed to update availability';
+			error = err instanceof Error ? err.message : $t('profile_availability.failed_to_update');
 		} finally {
 			isLoading = false;
 		}
@@ -322,7 +322,7 @@
 					<span class="label-text line-clamp-2 font-medium md:line-clamp-1"
 						>{$t('profile.availability.min_notice')}</span
 					>
-					<span class="label-text-alt text-primary font-semibold">{noticeHours} hours</span>
+					<span class="label-text-alt text-primary font-semibold">{noticeHours} {$t('profile_availability.hours_label')}</span>
 				</label>
 				<br />
 				<label for="noticeHours" class="text-base-content/70 line-clamp-2 md:line-clamp-1">
@@ -337,8 +337,8 @@
 					class="range range-primary range-xs w-full"
 				/>
 				<div class="text-base-content/60 mt-1 flex justify-between text-xs">
-					<span>1 hour</span>
-					<span>24 hours</span>
+					<span>1 {$t('profile_availability.hours_label')}</span>
+					<span>24 {$t('profile_availability.hours_label')}</span>
 				</div>
 			</div>
 

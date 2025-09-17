@@ -451,6 +451,8 @@
 				<div class="card bg-base-100 mb-4 shadow-lg">
 					<div class="card-body">
 						<p class="mb-4">{$t('how_it_works.step_4.description')}</p>
+						
+						<div class="divider">{$t('how_it_works.step_4.divider')}</div>
 
 						<div class="space-y-6">
 							<div class="card bg-base-200 shadow-sm">
