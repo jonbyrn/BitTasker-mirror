@@ -33,6 +33,9 @@ export interface NostrBid {
 	endTime?: string | null;
 	// Agregar este campo para identificar que es un bid
 	messageType: 'bid';
+	taskCreatorUsername?: string;
+	taskCreatorAvatar?: string;
+	taskCreatorPubkey?: string;
 }
 
 export interface BidMessage {

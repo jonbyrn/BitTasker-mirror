@@ -145,10 +145,8 @@
 					},
 					userProfile: {
 						user: {
-							displayName: (profileMap.get(senderPubkey)?.name ?? '').trim().length
-								? (profileMap.get(senderPubkey)?.name as string)
-								: `${senderPubkey.slice(0, 8)}...${senderPubkey.slice(-4)}`,
-							picture: profileMap.get(senderPubkey)?.picture || ''
+							displayName: (bid.taskCreatorUsername as string) || 'Anonymous',
+							picture: (bid.taskCreatorAvatar as string) || ''
 						}
 					} as unknown as any
 				})) as unknown as TaskBid[];
@@ -199,17 +197,6 @@
 			// First accept the bid
 			await bidService.acceptBid(bidId);
 
-			// Then handle escrow funding based on the method
-			if (escrowMethod === 'bittasker') {
-				// Handle BitTasker wallet funding
-				console.log('Funding escrow from BitTasker wallet:', escrowDetails);
-				// TODO: Implement BitTasker wallet funding
-			} else if (escrowMethod === 'external') {
-				// Handle external wallet funding
-				console.log('External wallet funding details:', escrowDetails);
-				// TODO: Implement external wallet funding tracking
-			}
-
 			// Close the form
 			showAcceptanceForm = false;
 			bidToAccept = null;
@@ -219,21 +206,6 @@
 		} catch (error) {
 			console.error('Error accepting bid:', error);
 		}
-	}
-
-	function toggleBidWithdrawal(bidId: string) {
-		// If we're already withdrawing this bid, cancel withdrawal mode
-		if (bidToWithdraw === bidId) {
-			bidToWithdraw = null;
-			withdrawalReason = '';
-			withdrawalError = '';
-			return;
-		}
-
-		// Otherwise, enter withdrawal mode for this bid
-		withdrawalReason = '';
-		withdrawalError = '';
-		bidToWithdraw = bidId;
 	}
 
 	async function handleRejectBid(bid: TaskBid) {
@@ -330,9 +302,7 @@
 			</svg>
 			<h3 class="mt-4 text-lg font-semibold">{$t('task.drawer.no_bids')}</h3>
 			<p class="text-base-content/60 mt-1">
-				{isOwner
-					? $t('task.drawer.no_bids_owner')
-					: $t('task.drawer.no_bids_provider')}
+				{isOwner ? $t('task.drawer.no_bids_owner') : $t('task.drawer.no_bids_provider')}
 			</p>
 		</div>
 	{/if}
@@ -385,7 +355,9 @@
 							<!-- Username and submission time -->
 							<div class="flex flex-col">
 								<h3 class="text-lg font-semibold">
-									{bid.userProfile?.user?.name || bid.userProfile?.professionalTitle || $t('task.drawer.anonymous')}
+									{bid.userProfile?.user?.name ||
+										bid.userProfile?.professionalTitle ||
+										$t('task.drawer.anonymous')}
 								</h3>
 
 								<p class="text-base-content/60 text-sm">
@@ -436,7 +408,9 @@
 					{#if bidToWithdraw === bid.id}
 						<div class="animate-fadeIn mt-4 space-y-4">
 							<div class="border-base-300 border-t pt-4">
-								<h4 class="text-base-content/80 mb-3 text-sm font-medium">{$t('task.drawer.withdraw_bid')}</h4>
+								<h4 class="text-base-content/80 mb-3 text-sm font-medium">
+									{$t('task.drawer.withdraw_bid')}
+								</h4>
 								<p class="mb-2 text-sm">{$t('task.drawer.withdrawal_reason')}:</p>
 
 								<div class="form-control w-full">
@@ -564,7 +538,9 @@
 							class="btn btn-ghost btn-outline btn-sm"
 							onclick={() => toggleBidDetails(bid.id)}
 						>
-							{expandedBidId === bid.id ? $t('task.drawer.hide_details') : $t('task.drawer.show_details')}
+							{expandedBidId === bid.id
+								? $t('task.drawer.hide_details')
+								: $t('task.drawer.show_details')}
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								class="ml-1 h-4 w-4 transition-transform duration-300 {expandedBidId === bid.id

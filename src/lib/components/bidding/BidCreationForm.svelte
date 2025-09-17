@@ -7,12 +7,14 @@
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 
 	// Props
-	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{
+	const { taskId, onClose, taskCreatorPubkey, taskCreatorUsername, taskCreatorAvatar, taskTitle, taskDescription } = $props<{
 		taskId: string;
 		onClose: () => void;
-		taskCreatorPubkey: string; // Required for sending DM
 		taskTitle?: string; // Add task title prop
 		taskDescription?: string; // Add task description prop
+		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
+		taskCreatorUsername?: string; // Add task creator username prop
+		taskCreatorAvatar?: string; // Add task creator avatar prop
 	}>();
 
 	// Form state
@@ -296,7 +298,11 @@
 				coverLetter: description,
 				timestamp: Date.now(),
 				bidId: crypto.randomUUID(),
-				// Add new datetime fields
+
+				taskCreatorPubkey: taskCreatorPubkey,
+				taskCreatorUsername: taskCreatorUsername,
+				taskCreatorAvatar: taskCreatorAvatar,		
+							// Add new datetime fields
 				startDate: bidType === 'FIXED' ? startDate : null,
 				endDate: bidType === 'FIXED' ? endDate : null,
 				startTime: bidType === 'FIXED' ? startTime : null,

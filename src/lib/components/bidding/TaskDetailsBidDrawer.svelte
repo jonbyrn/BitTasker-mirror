@@ -21,6 +21,8 @@
 	let errorMessage = $state('');
 	let bidSubmitted = $state(false);
 	let taskCreatorPubkey = $state<string>('');
+	let taskCreatorUsername = $state<string | undefined>(undefined);
+	let taskCreatorAvatar = $state<string | undefined>(undefined);
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -90,6 +92,9 @@
 			// Get the task creator's pubkey from the event
 			taskCreatorPubkey = event.pubkey;
 
+			taskCreatorUsername = taskData.creator?.username;
+			taskCreatorAvatar = taskData.creator?.avatar;
+
 			task = {
 				...taskData,
 				id: event.id
@@ -103,7 +108,6 @@
 	}
 
 	const handleClose = () => props.onClose();
-
 
 	onMount(() => {
 		if (browser) {
@@ -133,7 +137,11 @@
 		<div class="flex items-center gap-3">
 			<h3 id="drawer-title" class="text-lg font-semibold">{$t('bid_form.title')}</h3>
 		</div>
-		<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label={$t('common.components.bidding.task_details.close_dialog')}>
+		<button
+			class="btn btn-ghost btn-circle"
+			onclick={handleClose}
+			aria-label={$t('common.components.bidding.task_details.close_dialog')}
+		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -192,6 +200,8 @@
 					taskId={task.id}
 					onClose={() => handleClose()}
 					{taskCreatorPubkey}
+					taskCreatorUsername={taskCreatorUsername!}
+					taskCreatorAvatar={taskCreatorAvatar!}
 					taskTitle={task.title}
 					taskDescription={task.description}
 				/>
