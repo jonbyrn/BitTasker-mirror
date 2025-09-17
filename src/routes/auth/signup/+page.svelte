@@ -39,7 +39,6 @@
 			},
 			'expired-callback': function () {
 				// This function is called when the token expires after 300 seconds
-				console.log('Captcha expired, please solve again');
 				isCaptchaVerified.set(false);
 				captchaFailed = true;
 				error = $t('signup.error.captcha_expired');
@@ -52,7 +51,6 @@
 					return true; // Return true to indicate we've handled this error
 				}
 
-				console.error('Turnstile widget encountered an error:', errorCode);
 				captchaFailed = true;
 				error = $t('signup.error.verification_error');
 			}
@@ -69,15 +67,12 @@
 
 	async function verifyCaptcha(token: string) {
 		try {
-			console.log('Verifying captcha token...');
 			const { data, errors } = await verifyTrunstileStore.mutate({
 				input: {
 					token,
 					action: 'signup' // Optional custom action to track in analytics
 				}
 			});
-
-			console.log('Captcha verification response:', { data, errors });
 
 			if (errors && errors.length > 0) {
 				console.error('GraphQL errors:', errors);
@@ -90,7 +85,6 @@
 			}
 
 			const success = data.verifyTurnstileToken.success;
-			console.log('Captcha verification success:', success);
 			
 			isCaptchaVerified.set(success);
 			

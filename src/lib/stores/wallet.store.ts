@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
 	GetInfoResponse,
 	Rate,
@@ -20,7 +19,6 @@ import {
 	paymentEventsStore,
 	pendingPaymentsStore
 } from '$lib/wallet/breez/walletService';
-import { getMnemonicPasskey } from '$lib/wallet/mnemonicBiometrics';
 import { decryptWalletMnemonicWithBiometrics } from '$lib/utils/helpers/auth';
 import { get } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
@@ -30,7 +28,6 @@ import {
 	getAssetId,
 	type AssetMetadata as IAssetMetadata
 } from '$lib/constants/assets';
-import { goto } from '$app/navigation';
 import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
 import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 import { Preferences } from '@capacitor/preferences';
@@ -197,7 +194,13 @@ async function initialize(): Promise<void> {
 				mnemonic = await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
 			}
 		} catch (error) {
-			throw new Error('No mnemonic found');
+			walletConnection.update((state) => ({
+				...state,
+				isConnecting: false,
+				isConnected: false,
+				errorMessage: error instanceof Error ? error.message : 'Unknown error'
+			}));
+			throw new Error(error instanceof Error ? error.message : 'Unknown error');
 		}
 
 		if (!mnemonic) {
@@ -227,7 +230,6 @@ async function initialize(): Promise<void> {
 			isConnected: false,
 			errorMessage
 		}));
-		// goto('/dashboard/wallet/error?type=no-mnemonic');
 		throw error;
 	}
 }
