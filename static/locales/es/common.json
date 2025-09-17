@@ -107,8 +107,8 @@
           "title": "Historial de Negociación ({count})",
           "no_offers": "Aún no hay contraofertas",
           "estimated_completion": "Finalización estimada:",
-          "you_proposed": "Tú propusiste",
-          "they_proposed": "Ellos propusieron",
+          "you_proposed": "Tú",
+          "they_proposed": "Ellos",
           "decline": "Rechazar",
           "accept": "Aceptar"
         },

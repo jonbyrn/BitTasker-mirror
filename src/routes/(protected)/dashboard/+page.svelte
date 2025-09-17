@@ -100,12 +100,12 @@
 			{/if}
 			<span class="hidden sm:inline">
 				{activeTab === 'bids' || activeTab === 'saved-searches'
-					? $t('dashboard.find_tasks')
+					? $t('dashboard.find_task')
 					: $t('dashboard.create_task')}
 			</span>
 			<span class="sm:hidden">
 				{activeTab === 'bids' || activeTab === 'saved-searches'
-					? $t('dashboard.find_tasks')
+					? $t('dashboard.find_task')
 					: $t('dashboard.create_task')}
 			</span>
 		</a>
