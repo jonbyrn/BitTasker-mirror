@@ -405,14 +405,7 @@
 			// Show success message
 			showSuccessMessage(result);
 		} catch (err) {
-			const errorMessage = err instanceof Error ? err.message : 'Transaction failed'
-			walletStore.updateSendForm({
-				validationError: errorMessage,
-				isLoading: false
-			});
-			
-			// Show error toast for better UX
-			appStore.showErrorToast(errorMessage);
+			appStore.showErrorToast(err instanceof Error ? err.message : 'Transaction failed');
 		} finally {
 			walletStore.updateSendForm({ isLoading: false });
 		}
@@ -452,6 +445,7 @@
 	function resetForm() {
 		walletStore.resetSendForm();
 		addressType = 'unknown';
+		showPasskeyVerification = false;
 	}
 
 	// Ensure assets are loaded when the component mounts
