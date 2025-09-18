@@ -32,7 +32,8 @@
 				currency: undefined,
 				type: undefined
 			},
-			search: ''
+			search: '',
+			status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
 		};
 	}
 
@@ -185,7 +186,8 @@
 			const newParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				search: undefined
+				search: undefined,
+				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
 			};
 			searchParams = { ...searchParams, ...newParams };
 
@@ -200,7 +202,8 @@
 		const newParams: SearchTasksParams = {
 			...searchParams,
 			page: 1,
-			search: searchQuery.trim()
+			search: searchQuery.trim(),
+			status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
 		};
 
 		searchParams = { ...searchParams, ...newParams };
@@ -237,7 +240,8 @@
 		searchParams = {
 			...searchParams,
 			...filters,
-			page: 1
+			page: 1,
+			status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
 		};
 
 		// Update UI controls based on applied filters
@@ -298,7 +302,8 @@
 			searchParams = {
 				...searchParams,
 				page: nextPage,
-				until: untilTimestamp
+				until: untilTimestamp,
+				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
 			};
 			await findTasks(searchParams);
 		}
@@ -359,12 +364,18 @@
 		}));
 
 		if (!type) {
-			searchParams = { ...searchParams, taskType: undefined, page: 1 };
+			searchParams = {
+				...searchParams,
+				taskType: undefined,
+				page: 1,
+				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+			};
 		} else {
 			searchParams = {
 				...searchParams,
 				taskType: type,
-				page: 1
+				page: 1,
+				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
 			};
 		}
 
@@ -432,7 +443,7 @@
 	});
 
 	const onSelectTask = (task: Task) => {
-		if (task.status === TaskStatusEnum.OPEN) {
+		if (task.status === TaskStatusEnum.OPEN || task.status === TaskStatusEnum.OPEN_WITH_BIDS) {
 			if (task?.npub === $user?.npub) {
 				appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
 			} else {
@@ -895,8 +906,10 @@
 													<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm flex-1 md:flex-none"
-															class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
-																task?.npub === $user?.npub}
+															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
+																task.status === TaskStatusEnum.DISPUTED ||
+																task.status === TaskStatusEnum.COMPLETED ||
+																task.status === TaskStatusEnum.IN_PROGRESS}
 															onclick={(e) => {
 																e.stopPropagation();
 																onSelectTask(task);
@@ -917,7 +930,8 @@
 																	d="M12 4v16m8-8H4"
 																/>
 															</svg>
-															{task.status === TaskStatusEnum.OPEN
+															{task.status === TaskStatusEnum.OPEN ||
+															task.status === TaskStatusEnum.OPEN_WITH_BIDS
 																? $t('find_tasks.bid_now')
 																: $t('find_tasks.bidding_closed')}
 														</button>

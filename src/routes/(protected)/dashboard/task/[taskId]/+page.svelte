@@ -229,9 +229,9 @@
 									{/if}
 								</div>
 							</div>
-							<div class="flex flex-col text-center">
+							<!-- <div class="flex flex-col text-center">
 								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
-							</div>
+							</div> -->
 						</div>
 
 						<div class="divider"></div>

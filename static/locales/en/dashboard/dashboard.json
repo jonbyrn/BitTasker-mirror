@@ -55,7 +55,14 @@
         "location_map_description": "The exact location will be provided after the offer is accepted.",
         "task_attachment": "Task attachment",
         "avatar_alt": "Avatar",
-        "sign_up_to_bid": "Sign up to bid"
+        "sign_up_to_bid": "Sign up to bid",
+        "task_cancelled": "Task cancelled",
+        "task_disputed": "Task disputed",
+        "task_in_progress": "Task in progress",
+        "task_completed": "Task completed",
+        "bidding_closed": "Bidding closed",
+        "bid_sent": "Bid sent",
+        "bid_already_sent": "Bid already sent"
       },
       "taskees": {
         "title": "Professionals",
@@ -71,7 +78,14 @@
         "bidding_closed": "Bidding closed",
         "sign_up_to_bid_aria": "Sign up to bid on this task",
         "avatar_alt": "Avatar",
-        "invalid_date": "Invalid date"
+        "invalid_date": "Invalid date",
+        "task_cancelled": "Task cancelled",
+        "task_disputed": "Task disputed",
+        "task_in_progress": "Task in progress",
+        "task_completed": "Task completed",
+        "bid_sent": "Bid sent",
+        "cannot_bid_own_task": "Cannot bid on your own task",
+      "bid_already_sent": "Bid already sent"
       },
       "bids": {
         "bid_acceptance":{

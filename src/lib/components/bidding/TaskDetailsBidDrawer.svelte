@@ -195,7 +195,7 @@
 	{:else if task}
 		<!-- Bid form only -->
 		<div class="p-6">
-			{#if task.id && task.status === TaskStatusEnum.OPEN}
+			{#if (task.id && task.status === TaskStatusEnum.OPEN) || task.status === TaskStatusEnum.OPEN_WITH_BIDS}
 				<BidCreationForm
 					taskId={task.id}
 					onClose={() => handleClose()}
@@ -209,7 +209,7 @@
 				<div class="alert alert-outline alert-error">
 					<span>{$t('bids.task_details.task_id_missing')}</span>
 				</div>
-			{:else if task.status !== TaskStatusEnum.OPEN}
+			{:else if task.status === TaskStatusEnum.CANCELLED || task.status === TaskStatusEnum.DISPUTED || task.status === TaskStatusEnum.COMPLETED || task.status === TaskStatusEnum.IN_PROGRESS}
 				<div class="alert alert-warning alert-outline">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
