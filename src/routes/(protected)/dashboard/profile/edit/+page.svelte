@@ -168,7 +168,7 @@
 				{#if isSaving}
 					<span class="loading loading-spinner loading-sm"></span>
 				{/if}
-				Save all and Exit
+				{$t('profile.page.save_all_and_exit')}
 			</button>
 		</div>
 	</div>
@@ -293,7 +293,7 @@
 			{#if isSaving}
 				<span class="loading loading-spinner loading-sm"></span>
 			{/if}
-			Save all and Exit
+			{$t('profile.page.save_all_and_exit')}
 		</button>
 	</div>
 </div>

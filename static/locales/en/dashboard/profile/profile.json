@@ -144,6 +144,8 @@
             "completion": "Profile Completion",
             "completion_desc": "Complete your profile to increase visibility and trust",
             "collapse": "Collapse",
+            "save_all_and_exit": "Save all and Exit",
+            "saving": "Saving...",
             "sections": {
                 "personal_info": "Personal Information",
                 "skills": "Skills & Expertise",

@@ -140,6 +140,8 @@
             "completion": "Completado del Perfil",
             "completion_desc": "Completa tu perfil para aumentar la visibilidad y confianza",
             "collapse": "Contraer",
+            "save_all_and_exit": "Guardar todo y Salir",
+            "saving": "Guardando...",
             "sections": {
                 "personal_info": "Información Personal",
                 "skills": "Habilidades y Experiencia",
