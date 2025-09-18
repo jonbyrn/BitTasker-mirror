@@ -62,7 +62,7 @@
 			</div>
 			<button
 				class="btn btn-outline btn-sm place-self-end"
-				onclick={() => walletStore.initialize()}
+				onclick={async () => await walletStore.initialize()}
 			>
 				Retry Connection
 			</button>

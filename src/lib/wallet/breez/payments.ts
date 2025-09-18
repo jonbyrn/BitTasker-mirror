@@ -16,7 +16,7 @@ import type {
 	Payment
 } from '@breeztech/breez-sdk-liquid/web';
 import { getSdk } from './sdk';
-import { passkeyMiddleware, breezSecurity } from './security';
+import { walletStore } from '$lib/stores/wallet.store';
 
 /**
  * Parse input to detect Lightning addresses, BOLT12 offers, LNURL, etc.
@@ -44,15 +44,7 @@ export async function sendPayment(
 ): Promise<SendPaymentResponse> {
 	const sdk = getSdk();
 
-	// Apply passkey security middleware
-	const isAuthorized = await passkeyMiddleware.secureSendPayment(
-		{ destination: 'unknown' }, // We need to track the original prepare request
-		params.prepareResponse
-	);
-
-	if (!isAuthorized) {
-		throw new Error('Payment not authorized - passkey verification failed');
-	}
+	await walletStore.verifyMnemonicPasskey();
 
 	return await sdk.sendPayment(params);
 }
@@ -114,15 +106,7 @@ export async function sendOnchainPayment(
 ): Promise<SendPaymentResponse> {
 	const sdk = getSdk();
 
-	// Apply passkey security for on-chain payments (always off-platform)
-	const isAuthorized = await breezSecurity.verifyPasskeyForOffPlatform(
-		address,
-		amountSat
-	);
-
-	if (!isAuthorized) {
-		throw new Error('On-chain payment not authorized - passkey verification failed');
-	}
+	await walletStore.verifyMnemonicPasskey();
 
 	// Prepare the payment using Bitcoin address
 	const prepareResponse = await sdk.prepareSendPayment({
@@ -162,15 +146,7 @@ export async function sendAssetPayment(
 		}
 	});
 
-	// Apply passkey security
-	const isAuthorized = await passkeyMiddleware.secureSendPayment(
-		{ destination },
-		prepareResponse
-	);
-
-	if (!isAuthorized) {
-		throw new Error('Asset payment not authorized - passkey verification failed');
-	}
+	await walletStore.verifyMnemonicPasskey();
 
 	// Send payment
 	return await sdk.sendPayment({

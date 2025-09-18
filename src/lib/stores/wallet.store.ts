@@ -153,6 +153,36 @@ function calculateTotals(assets: EnhancedAsset[]) {
 	};
 }
 
+async function verifyMnemonicPasskey(): Promise<string> {
+	try {
+		let mnemonic: string;
+
+		// Check if we have biometric data with master key format
+		const currentState = get(appStore);
+		if (currentState.biometricData && currentState.biometricData.password) {
+			mnemonic = await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
+		} else {
+			const biometricsAvailable = await checkBiometricAvailability();
+			let biometricData = null;
+			if (biometricsAvailable) {
+				const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
+				biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
+			} else {
+				biometricData = await getWebBiometricData(true);
+			}
+
+			if (!biometricData) throw new Error('No biometric data found');
+			mnemonic = await decryptWalletMnemonicWithBiometrics(biometricData.password);
+		}
+
+		if (!mnemonic) throw new Error('No mnemonic found');
+
+		return mnemonic;
+	} catch (error) {
+		throw new Error(error instanceof Error ? error.message : 'Failed to verify mnemonic passkey');
+	}
+}
+
 // Initialize wallet connection
 async function initialize(): Promise<void> {
 	try {
@@ -173,39 +203,7 @@ async function initialize(): Promise<void> {
 			return;
 		}
 
-		// Try to get mnemonic from master key auth first, fallback to legacy
-		let mnemonic: string;
-		try {
-			// Check if we have biometric data with master key format
-			const currentState = get(appStore);
-			if (!currentState.biometricData) {
-				const biometricsAvailable = await checkBiometricAvailability();
-				let biometricData = null;
-				if (biometricsAvailable) {
-					const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
-					biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-				} else {
-					biometricData = await getWebBiometricData(true);
-				}
-
-				if (!biometricData) throw new Error('No biometric data found');
-				mnemonic = await decryptWalletMnemonicWithBiometrics(biometricData.password);
-			} else {
-				mnemonic = await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
-			}
-		} catch (error) {
-			walletConnection.update((state) => ({
-				...state,
-				isConnecting: false,
-				isConnected: false,
-				errorMessage: error instanceof Error ? error.message : 'Unknown error'
-			}));
-			throw new Error(error instanceof Error ? error.message : 'Unknown error');
-		}
-
-		if (!mnemonic) {
-			throw new Error('No mnemonic found');
-		}
+		const mnemonic = await verifyMnemonicPasskey();
 
 		await connectToBreez(mnemonic);
 
@@ -596,6 +594,7 @@ export const walletBalance = derived(walletAssets, ($walletAssets) => ({
 // Legacy exports for backward compatibility
 export const walletStore = {
 	initialize,
+	verifyMnemonicPasskey,
 	disconnectWallet,
 	loadAssets,
 	loadFiatRates,
