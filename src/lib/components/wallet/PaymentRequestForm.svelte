@@ -15,6 +15,7 @@
 	import { appStore } from '$lib/stores/app.store';
 	import Input from '$lib/components/Input.svelte';
 	import { t } from 'svelte-i18n';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	// Payment method types supported by Breez SDK
 	type PaymentMethod = 'liquidAddress' | 'bolt11Invoice' | 'bitcoinAddress' | 'bolt12Offer';
@@ -29,20 +30,33 @@
 	let paymentMethod = $state<PaymentMethod>('liquidAddress');
 	let selectedAsset = $state<AssetType>('any');
 	let requireAmount = $state(false);
-	let lightningLimits = $state({ min: 1, max: 21000000 * 100_000_000 });
-	let onchainLimits = $state({ min: 1, max: 21000000 * 100_000_000 });
+	let lightningLimits = $state({ min: 0, max: 21000000 * 100_000_000 });
+	let onchainLimits = $state({ min: 0, max: 21000000 * 100_000_000 });
 	let isLoading = $state(false);
 	let errorMessage = $state<string | null>(null);
 	let feeSats = $state(0);
 	let address = $state<string | null>(null);
 	let supportedAssets = $state<AssetMetadata[]>([]);
 	let currentNetwork = getCurrentNetwork();
+	let qrCodeDataUrl = $state('');
 
 	const paymentMethodOptions = [
-		{ label: $t('common.components.wallet.payment_request_form.liquid_address'), value: 'liquidAddress' },
-		{ label: $t('common.components.wallet.payment_request_form.lightning_invoice'), value: 'bolt11Invoice' },
-		{ label: $t('common.components.wallet.payment_request_form.bitcoin_address'), value: 'bitcoinAddress' },
-		{ label: $t('common.components.wallet.payment_request_form.bolt12_offer'), value: 'bolt12Offer' }
+		{
+			label: $t('common.components.wallet.payment_request_form.liquid_address'),
+			value: 'liquidAddress'
+		},
+		{
+			label: $t('common.components.wallet.payment_request_form.lightning_invoice'),
+			value: 'bolt11Invoice'
+		},
+		{
+			label: $t('common.components.wallet.payment_request_form.bitcoin_address'),
+			value: 'bitcoinAddress'
+		},
+		{
+			label: $t('common.components.wallet.payment_request_form.bolt12_offer'),
+			value: 'bolt12Offer'
+		}
 	];
 
 	const assetTypeOptions = [
@@ -112,13 +126,19 @@
 
 		switch (true) {
 			case requireAmount && (isNaN(amountSats) || amountSats <= 0):
-				errorMessage = $t('common.components.wallet.payment_request_form.amount_required', { values: { method: getMethodDisplayName() } });
+				errorMessage = $t('common.components.wallet.payment_request_form.amount_required', {
+					values: { method: getMethodDisplayName() }
+				});
 				return null;
 			case amountSats > 0 && amountSats < limits.min:
-				errorMessage = $t('common.components.wallet.payment_request_form.amount_too_low', { values: { min: formatSats(limits.min) } });
+				errorMessage = $t('common.components.wallet.payment_request_form.amount_too_low', {
+					values: { min: formatSats(limits.min) }
+				});
 				return null;
 			case amountSats > limits.max:
-				errorMessage = $t('common.components.wallet.payment_request_form.amount_too_high', { values: { max: formatSats(limits.max) } });
+				errorMessage = $t('common.components.wallet.payment_request_form.amount_too_high', {
+					values: { max: formatSats(limits.max) }
+				});
 				return null;
 			default:
 				errorMessage = null;
@@ -217,6 +237,7 @@
 
 			address = receiveResponse.destination;
 			feeSats = prepareResponse.feesSat || 0;
+			qrCodeDataUrl = await generateQrCodeUrl(address);
 		} catch (error) {
 			console.error('Error generating payment request:', error);
 			errorMessage =
@@ -230,8 +251,13 @@
 
 	function getDefaultDescription(): string {
 		const methodName = getMethodDisplayName();
-		const assetInfo = selectedAsset === 'any' ? $t('common.components.wallet.payment_request_form.multi_asset') : selectedAsset;
-		return $t('common.components.wallet.payment_request_form.default_description', { values: { method: methodName, asset: selectedAsset !== 'any' ? assetInfo : '' } });
+		const assetInfo =
+			selectedAsset === 'any'
+				? $t('common.components.wallet.payment_request_form.multi_asset')
+				: selectedAsset;
+		return $t('common.components.wallet.payment_request_form.default_description', {
+			values: { method: methodName, asset: selectedAsset !== 'any' ? assetInfo : '' }
+		});
 	}
 
 	function copyToClipboard() {
@@ -287,7 +313,9 @@
 			<!-- Payment Method Selection -->
 			<div class="form-control mb-4">
 				<label class="label pb-2" for="payment-method">
-					<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.payment_method')}</span>
+					<span class="label-text font-medium"
+						>{$t('common.components.wallet.payment_request_form.payment_method')}</span
+					>
 				</label>
 				<Input
 					options={paymentMethodOptions}
@@ -305,9 +333,11 @@
 			<!-- Asset Selection (for Liquid) -->
 			{#if paymentMethod === 'liquidAddress'}
 				<div class="form-control mb-4">
-				<label class="label pb-2" for="asset-type">
-					<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.asset_type')}</span>
-				</label>
+					<label class="label pb-2" for="asset-type">
+						<span class="label-text font-medium"
+							>{$t('common.components.wallet.payment_request_form.asset_type')}</span
+						>
+					</label>
 					<Input
 						options={assetTypeOptions}
 						value={assetTypeOptions.find((option) => option.value === selectedAsset)?.label}
@@ -327,16 +357,36 @@
 				<div class="form-control mb-4">
 					<label class="label pb-2" for="amount-input">
 						<span class="label-text font-medium">
-							{$t('common.components.wallet.payment_request_form.amount', { values: { unit: tokenType === 'BTC' ? 'BTC' : selectedAsset === 'USDt' ? 'USDT' : 'sats', required: requireAmount ? ' *' : ' (optional)' } })}
+							{$t('common.components.wallet.payment_request_form.amount', {
+								values: {
+									unit: tokenType === 'BTC' ? 'BTC' : selectedAsset === 'USDt' ? 'USDT' : 'sats',
+									required: requireAmount ? ' *' : ' (optional)'
+								}
+							})}
 						</span>
+
 					</label>
+					
+					<!-- Show min and max limits -->
+					{#if paymentMethod === 'bitcoinAddress' && onchainLimits.min > 0 && onchainLimits.max > 0}
+						<span class="label-text-alt text-info text-xs whitespace-break-spaces block sm:inline">
+							Min: {formatSats(onchainLimits.min)} - Max: {formatSats(onchainLimits.max)}
+						</span>
+					{:else if lightningLimits.min > 0 && lightningLimits.max > 0}
+						<span class="label-text-alt text-info text-xs whitespace-break-spaces block sm:inline">
+							Min: {formatSats(lightningLimits.min)} - Max: {formatSats(lightningLimits.max)}
+						</span>
+					{/if}
+					
 					<div class="join w-full">
 						<input
 							id="amount-input"
 							type="number"
 							step="any"
 							min={0}
-							placeholder={requireAmount ? $t('common.components.wallet.payment_request_form.amount_required_placeholder') : $t('common.components.wallet.payment_request_form.amount_optional_placeholder')}
+							placeholder={requireAmount
+								? $t('common.components.wallet.payment_request_form.amount_required_placeholder')
+								: $t('common.components.wallet.payment_request_form.amount_optional_placeholder')}
 							class="input input-bordered join-item w-full flex-1 focus:border-amber-500 focus:outline-none"
 							bind:value={amount}
 						/>
@@ -372,7 +422,7 @@
 					{/if}
 
 					{#if errorMessage}
-						<div class="label pt-1">
+						<div class="label pt-1 block">
 							<span class="label-text-alt text-error whitespace-break-spaces">{errorMessage}</span>
 						</div>
 					{/if}
@@ -382,7 +432,9 @@
 			<!-- Description -->
 			<div class="form-control mb-6">
 				<label class="label pb-2" for="description-input">
-					<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.description_label')}</span>
+					<span class="label-text font-medium"
+						>{$t('common.components.wallet.payment_request_form.description_label')}</span
+					>
 				</label>
 				<input
 					id="description-input"
@@ -403,7 +455,9 @@
 					<span class="loading loading-spinner loading-sm mr-2"></span>
 					{$t('common.components.wallet.payment_request_form.generating')}
 				{:else}
-					{$t('common.components.wallet.payment_request_form.generate', { values: { method: getMethodDisplayName() } })}
+					{$t('common.components.wallet.payment_request_form.generate', {
+						values: { method: getMethodDisplayName() }
+					})}
 				{/if}
 			</button>
 		{:else}
@@ -411,84 +465,136 @@
 			<div>
 				<div class="mb-4">
 					<h4 class="card-title mb-2 text-xl font-bold">
-						{$t('common.components.wallet.payment_request_form.generated', { values: { method: getMethodDisplayName() } })}
+						{$t('common.components.wallet.payment_request_form.generated', {
+							values: { method: getMethodDisplayName() }
+						})}
 					</h4>
 					<p class="text-base-content/70 text-sm">
-						{$t('common.components.wallet.payment_request_form.share_with_payer', { values: { type: paymentMethod === 'liquidAddress' ? $t('common.components.wallet.payment_request_form.address') : $t('common.components.wallet.payment_request_form.invoice') } })}
+						{$t('common.components.wallet.payment_request_form.share_with_payer', {
+							values: {
+								type:
+									paymentMethod === 'liquidAddress'
+										? $t('common.components.wallet.payment_request_form.address')
+										: $t('common.components.wallet.payment_request_form.invoice')
+							}
+						})}
 					</p>
 				</div>
 
 				<div class="space-y-4">
-					<!-- Payment Details -->
-					<div class="bg-base-300 rounded-lg p-4">
-						<div class="grid grid-cols-1 gap-3">
-							<div class="flex items-center justify-between">
-								<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.method')}</span>
-								<span class="font-bold">{getMethodDisplayName()}</span>
+					<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
+						<div class="w-full space-y-4 sm:w-1/2">
+							<!-- Payment Details -->
+							<div class="bg-base-300 rounded-lg p-4">
+								<div class="grid grid-cols-1 gap-3">
+									<div class="flex items-center justify-between">
+										<span class="text-base-content/70 font-medium"
+											>{$t('common.components.wallet.payment_request_form.method')}</span
+										>
+										<span class="font-bold">{getMethodDisplayName()}</span>
+									</div>
+
+									{#if paymentMethod !== 'bolt12Offer'}
+										{#if amount > 0}
+											<div class="flex items-center justify-between">
+												<span class="text-base-content/70 font-medium"
+													>{$t('common.components.wallet.payment_request_form.amount')}</span
+												>
+												<span class="text-success font-bold">
+													{#if selectedAsset === 'USDt'}
+														${amount} USDT
+													{:else}
+														{amount} {tokenType === 'BTC' ? 'BTC' : 'sats'}
+													{/if}
+												</span>
+											</div>
+										{:else}
+											<div class="flex items-center justify-between">
+												<span class="text-base-content/70 font-medium"
+													>{$t('common.components.wallet.payment_request_form.amount')}</span
+												>
+												<span class="text-primary font-bold"
+													>{$t(
+														'common.components.wallet.payment_request_form.any_amount_accepted'
+													)}</span
+												>
+											</div>
+										{/if}
+									{:else}
+										<div class="flex items-center justify-between">
+											<span class="text-base-content/70 font-medium"
+												>{$t('common.components.wallet.payment_request_form.amount')}</span
+											>
+											<span class="text-warning font-bold"
+												>{$t(
+													'common.components.wallet.payment_request_form.payer_chooses_amount'
+												)}</span
+											>
+										</div>
+									{/if}
+
+									{#if paymentMethod === 'liquidAddress' && selectedAsset !== 'any'}
+										<div class="flex items-center justify-between">
+											<span class="text-base-content/70 font-medium"
+												>{$t('common.components.wallet.payment_request_form.asset')}</span
+											>
+											<span class="font-bold">{selectedAsset}</span>
+										</div>
+									{/if}
+
+									{#if description}
+										<div class="flex items-start justify-between">
+											<span class="text-base-content/70 font-medium"
+												>{$t('common.components.wallet.payment_request_form.description')}</span
+											>
+											<span class="max-w-48 text-right text-sm break-words">{description}</span>
+										</div>
+									{/if}
+
+									{#if feeSats > 0}
+										<div class="flex items-center justify-between">
+											<span class="text-base-content/70 font-medium"
+												>{$t('common.components.wallet.payment_request_form.network_fee')}</span
+											>
+											<span class="text-sm">{formatSats(feeSats)} sats</span>
+										</div>
+									{/if}
+								</div>
 							</div>
 
-							{#if paymentMethod !== 'bolt12Offer'}
-								{#if amount > 0}
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.amount')}</span>
-										<span class="text-success font-bold">
-											{#if selectedAsset === 'USDt'}
-												${amount} USDT
-											{:else}
-												{amount} {tokenType === 'BTC' ? 'BTC' : 'sats'}
-											{/if}
-										</span>
-									</div>
-								{:else}
-									<div class="flex items-center justify-between">
-										<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.amount')}</span>
-										<span class="text-primary font-bold">{$t('common.components.wallet.payment_request_form.any_amount_accepted')}</span>
-									</div>
-								{/if}
-							{:else}
-								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.amount')}</span>
-									<span class="text-warning font-bold">{$t('common.components.wallet.payment_request_form.payer_chooses_amount')}</span>
+							<!-- Address/Invoice Display -->
+							<div class="space-y-2">
+								<div class="text-base-content/70 font-medium">
+									{paymentMethod === 'liquidAddress'
+										? $t('common.components.wallet.payment_request_form.address')
+										: $t('common.components.wallet.payment_request_form.invoice')}
 								</div>
-							{/if}
-
-							{#if paymentMethod === 'liquidAddress' && selectedAsset !== 'any'}
-								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.asset')}</span>
-									<span class="font-bold">{selectedAsset}</span>
-								</div>
-							{/if}
-
-							{#if description}
-								<div class="flex items-start justify-between">
-									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.description')}</span>
-									<span class="max-w-48 text-right text-sm break-words">{description}</span>
-								</div>
-							{/if}
-
-							{#if feeSats > 0}
-								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">{$t('common.components.wallet.payment_request_form.network_fee')}</span>
-									<span class="text-sm">{formatSats(feeSats)} sats</span>
-								</div>
-							{/if}
+								<button
+									class="bg-base-300 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
+									title={$t('common.components.wallet.payment_request_form.click_to_copy')}
+									onclick={copyToClipboard}
+								>
+									<pre
+										class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-amber-600">{getDisplayAddress()}</pre>
+								</button>
+								<p class="text-base-content/50 text-center text-xs">
+									{$t('common.components.wallet.payment_request_form.click_to_copy_hint')}
+								</p>
+							</div>
 						</div>
-					</div>
 
-					<!-- Address/Invoice Display -->
-					<div class="space-y-2">
-						<div class="text-base-content/70 font-medium">
-							{paymentMethod === 'liquidAddress' ? $t('common.components.wallet.payment_request_form.address') : $t('common.components.wallet.payment_request_form.invoice')}
-						</div>
-						<button
-							class="bg-base-300 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
-							title={$t('common.components.wallet.payment_request_form.click_to_copy')}
-							onclick={copyToClipboard}
-						>
-							<pre
-								class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-amber-600">{getDisplayAddress()}</pre>
-						</button>
-						<p class="text-base-content/50 text-center text-xs">{$t('common.components.wallet.payment_request_form.click_to_copy_hint')}</p>
+						<!-- QR Code -->
+						{#if qrCodeDataUrl}
+							<div class="w-full flex-shrink-0 text-center sm:w-1/2">
+								<div class="mx-auto flex w-fit justify-center rounded-lg bg-white p-1 shadow-lg">
+									<img
+										src={qrCodeDataUrl}
+										alt="Private Key QR Code"
+										class="h-full max-h-48 w-full max-w-48 lg:max-h-64 lg:max-w-64"
+									/>
+								</div>
+							</div>
+						{/if}
 					</div>
 
 					<!-- Actions -->

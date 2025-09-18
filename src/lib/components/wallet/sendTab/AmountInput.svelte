@@ -234,6 +234,8 @@
 								<span class="loading loading-spinner loading-xs"></span>
 							{:else if estimatedFees > 0}
 								<span class="text-warning">~{formatSatsDisplay(estimatedFees)}</span>
+							{:else}
+								<span class="text-base-content/40">Calculating...</span>
 							{/if}
 						</span>
 					</div>

@@ -95,7 +95,7 @@
 				});
 				walletStore.updateSendForm({
 					estimatedFees: result.estimatedFees,
-					validationError: result.feeError, // Store fee errors as validation errors
+					validationError: result.estimatedFees > 0 ? null : result.feeError, // Only show error if no fees estimated
 					isLoading: false
 				});
 			} catch (err) {
@@ -169,7 +169,7 @@
 				addressType = 'lightning';
 			} else if (address.startsWith('bc1') || address.startsWith('1') || address.startsWith('3')) {
 				addressType = 'bitcoin';
-			} else if (address.startsWith('ex1') || address.startsWith('lq1')) {
+			} else if (address.startsWith('ex1') || address.startsWith('lq1') || address.startsWith('VJL') || address.startsWith('VTP')) {
 				addressType = 'liquid';
 			} else if (address.includes('@')) {
 				addressType = 'lnurlPay';
@@ -405,14 +405,7 @@
 			// Show success message
 			showSuccessMessage(result);
 		} catch (err) {
-			const errorMessage = err instanceof Error ? err.message : 'Transaction failed'
-			walletStore.updateSendForm({
-				validationError: errorMessage,
-				isLoading: false
-			});
-			
-			// Show error toast for better UX
-			appStore.showErrorToast(errorMessage);
+			appStore.showErrorToast(err instanceof Error ? err.message : 'Transaction failed');
 		} finally {
 			walletStore.updateSendForm({ isLoading: false });
 		}
@@ -452,13 +445,13 @@
 	function resetForm() {
 		walletStore.resetSendForm();
 		addressType = 'unknown';
+		showPasskeyVerification = false;
 	}
 
 	// Ensure assets are loaded when the component mounts
 	onMount(async () => {
 		try {
 			await walletStore.loadAssets();
-			console.log('📊 SendForm: Assets refreshed on mount');
 		} catch (error) {
 			console.warn('Failed to refresh assets on SendForm mount:', error);
 		}

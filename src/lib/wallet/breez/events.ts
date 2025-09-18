@@ -14,9 +14,7 @@ let pendingPaymentPollingInterval: NodeJS.Timeout | null = null;
  * Payment event listener for production monitoring
  */
 class PaymentEventListener implements EventListener {
-	onEvent = (event: SdkEvent) => {
-		console.log('Payment Event:', event);
-		
+	onEvent = (event: SdkEvent) => {		
 		// Update event store for UI consumption (keep last 50 events)
 		paymentEventsStore.update(events => [...events.slice(-49), event]);
 		
