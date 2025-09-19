@@ -56,14 +56,10 @@ src/lib/
 ├── contracts/
 │   ├── SimplifiedEscrowContract.ts  # Contract ABI and configuration
 │   └── README.md                    # This file
-├── config/
 │   └── escrow.config.ts            # Environment configuration
+│   └── escrow-usage.ts             # Usage examples
 ├── stores/
 │   └── rskWallet.store.ts          # Main wallet store with escrow functions
-├── examples/
-│   └── escrow-usage.ts             # Usage examples
-└── utils/helpers/
-    └── clipboard.ts                # Clipboard utilities
 ```
 
 ## 🔧 Configuration
@@ -258,19 +254,6 @@ const escrow = await rskWallet.getEscrow(escrowId);
 const proposal = await rskWallet.getDisputeProposal(escrowId);
 ```
 
-## 🛠️ Utility Functions
-
-### Clipboard Operations
-```typescript
-import { copyToClipboard, readFromClipboard } from '$lib/utils/helpers/clipboard';
-
-// Copy transaction hash
-await copyToClipboard(result.hash);
-
-// Read address from clipboard
-const address = await readFromClipboard();
-```
-
 ### Configuration Status
 ```typescript
 import { 
@@ -370,7 +353,7 @@ try {
 
 ## 🧪 Testing
 
-See `src/lib/examples/escrow-usage.ts` for comprehensive usage examples including:
+See `src/lib/contracts/escrow-usage.ts` for comprehensive usage examples including:
 
 - Complete escrow workflow
 - Dispute resolution workflow  

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { rskTransactions, rskWalletStore, RSK_NETWORKS, rskWallet } from '$lib/stores/rskWallet.store';
+	import { rskTransactions, rskWalletStore, rskWallet } from '$lib/stores/rskWallet.store';
+	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { ethers } from 'ethers';
 	import { appStore } from '$lib/stores/app.store';
