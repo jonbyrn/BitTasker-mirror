@@ -110,27 +110,28 @@
 
 					// Validar que las fechas estén en el futuro (comparando solo fechas, no horas)
 					const today = new Date();
-					today.setHours(0, 0, 0, 0); // Resetear a inicio del día
+					const todayDateStr = today.toISOString().split('T')[0];
 
 					const startDate = new Date($store.task.dateRange.start);
-					startDate.setHours(0, 0, 0, 0);
+					const startDateStr = startDate.toISOString().split('T')[0];
 
 					const endDate = new Date($store.task.dateRange.end);
-					endDate.setHours(0, 0, 0, 0);
+					const endDateStr = endDate.toISOString().split('T')[0];
 
-					if (endDate < today || startDate < today || endDate < startDate) {
+					if (endDateStr < todayDateStr || startDateStr < todayDateStr || endDateStr < startDateStr) {
 						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
 				if ($store.task.deadline) {
 					const deadlineDate = new Date($store.task.deadline);
-					deadlineDate.setHours(0, 0, 0, 0);
-
 					const today = new Date();
-					today.setHours(0, 0, 0, 0);
+					
+					// Compare dates using date strings to avoid timezone issues
+					const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
+					const todayDateStr = today.toISOString().split('T')[0];
 
-					if (deadlineDate <= today)
-						// Cambiado de < a <= para que "hoy" no sea válido
+					if (deadlineDateStr < todayDateStr)
+						// Allow today's date for deadline
 						errors.deadline = $t('task.errors.deadline_future');
 				}
 				if ($store.task?.categories?.length === 0)
