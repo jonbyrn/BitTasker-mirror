@@ -3,14 +3,13 @@
 
 import { rskWallet } from '$lib/stores/rskWallet.store';
 import { get } from 'svelte/store';
-import { 
-    rskEscrows, 
-    rskActiveEscrows, 
-    rskClientEscrows, 
-    rskFreelancerEscrows,
-    rskContractConnected 
+import {
+    rskEscrows,
+    rskContractConnected
 } from '$lib/stores/rskWallet.store';
-import { EscrowStatus, type FeeTier } from '$lib/contracts/SimplifiedEscrowContract';
+import { rskActiveEscrows, rskClientEscrows, rskFreelancerEscrows, escrow } from '$lib/utils/wallet/escrow';
+import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import type { FeeTier } from '$lib/utils/wallet/escrowContract';
 
 /**
  * Example: Initialize RSK Wallet and Connect to Escrow Contract
@@ -22,7 +21,7 @@ export async function initializeWalletExample() {
         console.log('✅ RSK Wallet initialized');
 
         // Connect to the escrow contract
-        await rskWallet.connectToEscrowContract();
+        await escrow.connectToEscrowContract();
         console.log('✅ Escrow contract connected');
 
         // Check connection status
@@ -48,7 +47,7 @@ export async function createEscrowExample() {
         const freelancerFeeTier: FeeTier = 1; // 2.5% fee
 
         // Estimate gas first
-        const gasEstimate = await rskWallet.estimateEscrowCreationGas(
+        const gasEstimate = await escrow.estimateEscrowCreationGas(
             freelancerAddress,
             baseAmount,
             startTime,
@@ -61,7 +60,7 @@ export async function createEscrowExample() {
         console.log('Total cost:', gasEstimate.totalCostFormatted, 'RBTC');
 
         // Create the escrow
-        const result = await rskWallet.createEscrow(
+        const result = await escrow.createEscrow(
             freelancerAddress,
             baseAmount,
             startTime,
@@ -85,11 +84,11 @@ export async function createEscrowExample() {
 export async function completeTaskExample(escrowId: string) {
     try {
         // Estimate gas first
-        const gasEstimate = await rskWallet.estimateContractGas('completeTask', escrowId);
+        const gasEstimate = await escrow.estimateContractGas('completeTask', escrowId);
         console.log('Complete task gas estimate:', gasEstimate);
 
         // Complete the task
-        const result = await rskWallet.completeTask(escrowId);
+        const result = await escrow.completeTask(escrowId);
         console.log('✅ Task completed:', result);
         return result;
 
@@ -105,21 +104,21 @@ export async function completeTaskExample(escrowId: string) {
 export async function acceptTaskExample(escrowId: string) {
     try {
         // Get escrow details first
-        const escrow = await rskWallet.getEscrow(escrowId);
-        if (!escrow) {
+        const escrowDetails = await escrow.getEscrow(escrowId);
+        if (!escrowDetails) {
             throw new Error('Escrow not found');
         }
 
-        if (escrow.status !== EscrowStatus.Completed) {
+        if (escrowDetails.status !== EscrowStatus.Completed) {
             throw new Error('Task must be completed before acceptance');
         }
 
         // Estimate gas
-        const gasEstimate = await rskWallet.estimateContractGas('acceptTask', escrowId);
+        const gasEstimate = await escrow.estimateContractGas('acceptTask', escrowId);
         console.log('Accept task gas estimate:', gasEstimate);
 
         // Accept the task
-        const result = await rskWallet.acceptTask(escrowId);
+        const result = await escrow.acceptTask(escrowId);
         console.log('✅ Task accepted:', result);
         return result;
 
@@ -135,21 +134,21 @@ export async function acceptTaskExample(escrowId: string) {
 export async function cancelEscrowExample(escrowId: string) {
     try {
         // Get escrow details first
-        const escrow = await rskWallet.getEscrow(escrowId);
-        if (!escrow) {
+        const escrowDetails = await escrow.getEscrow(escrowId);
+        if (!escrowDetails) {
             throw new Error('Escrow not found');
         }
 
-        if (escrow.status !== EscrowStatus.Funded) {
+        if (escrowDetails.status !== EscrowStatus.Funded) {
             throw new Error('Only funded escrows can be cancelled');
         }
 
         // Estimate gas
-        const gasEstimate = await rskWallet.estimateContractGas('cancelEscrow', escrowId);
+        const gasEstimate = await escrow.estimateContractGas('cancelEscrow', escrowId);
         console.log('Cancel escrow gas estimate:', gasEstimate);
 
         // Cancel the escrow
-        const result = await rskWallet.cancelEscrow(escrowId);
+        const result = await escrow.cancelEscrow(escrowId);
         console.log('✅ Escrow cancelled:', result);
         return result;
 
@@ -165,21 +164,21 @@ export async function cancelEscrowExample(escrowId: string) {
 export async function disputeTaskExample(escrowId: string) {
     try {
         // Get escrow details first
-        const escrow = await rskWallet.getEscrow(escrowId);
-        if (!escrow) {
+        const escrowDetails = await escrow.getEscrow(escrowId);
+        if (!escrowDetails) {
             throw new Error('Escrow not found');
         }
 
-        if (escrow.status !== EscrowStatus.Completed) {
+        if (escrowDetails.status !== EscrowStatus.Completed) {
             throw new Error('Task must be completed before disputing');
         }
 
         // Estimate gas
-        const gasEstimate = await rskWallet.estimateContractGas('disputeTask', escrowId);
+        const gasEstimate = await escrow.estimateContractGas('disputeTask', escrowId);
         console.log('Dispute task gas estimate:', gasEstimate);
 
         // Dispute the task
-        const result = await rskWallet.disputeTask(escrowId);
+        const result = await escrow.disputeTask(escrowId);
         console.log('✅ Task disputed:', result);
         return result;
 
@@ -195,29 +194,29 @@ export async function disputeTaskExample(escrowId: string) {
 export async function proposeResolutionExample(escrowId: string, clientAmount: string, freelancerAmount: string) {
     try {
         // Get escrow details first
-        const escrow = await rskWallet.getEscrow(escrowId);
-        if (!escrow) {
+        const escrowDetails = await escrow.getEscrow(escrowId);
+        if (!escrowDetails) {
             throw new Error('Escrow not found');
         }
 
-        if (escrow.status !== EscrowStatus.InDispute) {
+        if (escrowDetails.status !== EscrowStatus.InDispute) {
             throw new Error('Escrow must be in dispute to propose resolution');
         }
 
         // Validate amounts sum to base amount
         const totalProposed = parseFloat(clientAmount) + parseFloat(freelancerAmount);
-        const baseAmount = parseFloat(escrow.baseAmount);
-        
+        const baseAmount = parseFloat(escrowDetails.baseAmount);
+
         if (Math.abs(totalProposed - baseAmount) > 0.0001) {
             throw new Error(`Proposed amounts (${totalProposed}) must sum to base amount (${baseAmount})`);
         }
 
         // Estimate gas
-        const gasEstimate = await rskWallet.estimateContractGas('proposeResolution', escrowId, clientAmount, freelancerAmount);
+        const gasEstimate = await escrow.estimateContractGas('proposeResolution', escrowId, clientAmount, freelancerAmount);
         console.log('Propose resolution gas estimate:', gasEstimate);
 
         // Propose resolution
-        const result = await rskWallet.proposeResolution(escrowId, clientAmount, freelancerAmount);
+        const result = await escrow.proposeResolution(escrowId, freelancerAmount);
         console.log('✅ Resolution proposed:', result);
         return result;
 
@@ -233,7 +232,7 @@ export async function proposeResolutionExample(escrowId: string, clientAmount: s
 export async function acceptProposalExample(escrowId: string) {
     try {
         // Get dispute proposal first
-        const proposal = await rskWallet.getDisputeProposal(escrowId);
+        const proposal = await escrow.getDisputeProposal(escrowId);
         if (!proposal) {
             throw new Error('No dispute proposal found');
         }
@@ -243,11 +242,11 @@ export async function acceptProposalExample(escrowId: string) {
         }
 
         // Estimate gas
-        const gasEstimate = await rskWallet.estimateContractGas('acceptProposal', escrowId);
+        const gasEstimate = await escrow.estimateContractGas('acceptProposal', escrowId);
         console.log('Accept proposal gas estimate:', gasEstimate);
 
         // Accept proposal
-        const result = await rskWallet.acceptProposal(escrowId);
+        const result = await escrow.acceptProposal(escrowId);
         console.log('✅ Proposal accepted:', result);
         return result;
 
@@ -263,23 +262,23 @@ export async function acceptProposalExample(escrowId: string) {
 export async function resolveAfterTimelockExample(escrowId: string) {
     try {
         // Get escrow details first
-        const escrow = await rskWallet.getEscrow(escrowId);
-        if (!escrow) {
+        const escrowDetails = await escrow.getEscrow(escrowId);
+        if (!escrowDetails) {
             throw new Error('Escrow not found');
         }
 
         const now = Math.floor(Date.now() / 1000);
-        if (escrow.timelockExpiry > now) {
-            const timeLeft = escrow.timelockExpiry - now;
+        if (escrowDetails.timelockExpiry > now) {
+            const timeLeft = escrowDetails.timelockExpiry - now;
             throw new Error(`Timelock not expired. ${Math.ceil(timeLeft / 3600)} hours remaining`);
         }
 
         // Estimate gas
-        const gasEstimate = await rskWallet.estimateContractGas('resolveAfterTimelock', escrowId);
+        const gasEstimate = await escrow.estimateContractGas('resolveAfterTimelock', escrowId);
         console.log('Resolve after timelock gas estimate:', gasEstimate);
 
         // Resolve after timelock
-        const result = await rskWallet.resolveAfterTimelock(escrowId);
+        const result = await escrow.resolveAfterTimelock(escrowId);
         console.log('✅ Escrow resolved after timelock:', result);
         return result;
 
@@ -370,10 +369,10 @@ export async function disputeWorkflowExample(escrowId: string) {
         await disputeTaskExample(escrowId);
 
         // 2. Propose resolution (50/50 split)
-        const escrow = await rskWallet.getEscrow(escrowId);
-        if (!escrow) throw new Error('Escrow not found');
+        const escrowDetails = await escrow.getEscrow(escrowId);
+        if (!escrowDetails) throw new Error('Escrow not found');
 
-        const baseAmount = parseFloat(escrow.baseAmount);
+        const baseAmount = parseFloat(escrowDetails.baseAmount);
         const clientAmount = (baseAmount * 0.5).toString();
         const freelancerAmount = (baseAmount * 0.5).toString();
 
@@ -398,7 +397,7 @@ export async function refreshEscrowDataExample() {
         console.log('🔄 Refreshing escrow data...');
 
         // Refresh all escrows
-        await rskWallet.refreshEscrows();
+        await escrow.refreshEscrows();
 
         // Get current escrows
         const allEscrows = get(rskEscrows);
@@ -408,7 +407,7 @@ export async function refreshEscrowDataExample() {
         console.log(`🔥 Active escrows: ${activeEscrows.length}`);
 
         // Check contract status
-        const isPaused = await rskWallet.isContractPaused();
+        const isPaused = await escrow.isContractPaused();
         console.log(`🔒 Contract paused: ${isPaused}`);
 
         return {

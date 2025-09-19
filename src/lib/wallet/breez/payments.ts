@@ -16,7 +16,7 @@ import type {
 	Payment
 } from '@breeztech/breez-sdk-liquid/web';
 import { getSdk } from './sdk';
-import { walletStore } from '$lib/stores/wallet.store';
+import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 
 /**
  * Parse input to detect Lightning addresses, BOLT12 offers, LNURL, etc.
@@ -44,7 +44,7 @@ export async function sendPayment(
 ): Promise<SendPaymentResponse> {
 	const sdk = getSdk();
 
-	await walletStore.verifyMnemonicPasskey();
+	await getMnemonic()
 
 	return await sdk.sendPayment(params);
 }
@@ -106,7 +106,7 @@ export async function sendOnchainPayment(
 ): Promise<SendPaymentResponse> {
 	const sdk = getSdk();
 
-	await walletStore.verifyMnemonicPasskey();
+	await getMnemonic();
 
 	// Prepare the payment using Bitcoin address
 	const prepareResponse = await sdk.prepareSendPayment({
@@ -146,7 +146,7 @@ export async function sendAssetPayment(
 		}
 	});
 
-	await walletStore.verifyMnemonicPasskey();
+	await getMnemonic();
 
 	// Send payment
 	return await sdk.sendPayment({

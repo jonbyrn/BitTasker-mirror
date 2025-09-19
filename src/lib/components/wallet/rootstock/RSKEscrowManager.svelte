@@ -1,24 +1,14 @@
 <script lang="ts">
 	import { appStore } from '$lib/stores/app.store';
-	import { rskWalletStore, rskEscrows, rskWallet } from '$lib/stores/rskWallet.store';
+	import { rskWalletStore, rskEscrows } from '$lib/stores/rskWallet.store';
+	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+	import { escrow } from '$lib/utils/wallet/escrow';
 	import { ethers } from 'ethers';
-
-	// Placeholder contract ABI - in production, import from generated types
-	const ESCROW_CONTRACT_ABI = [
-		'function createEscrow(address freelancer, uint256 estimatedStartTime, uint256 estimatedCompletionTime, uint256 clientFeeTier, uint256 freelancerFeeTier) payable returns (uint256)',
-		'function completeTask(uint256 escrowId)',
-		'function acceptTask(uint256 escrowId)',
-		'function cancelEscrow(uint256 escrowId)',
-		'function disputeTask(uint256 escrowId)',
-		'event EscrowCreated(uint256 indexed escrowId, address indexed client, address indexed freelancer, uint256 amount)',
-		'event TaskCompleted(uint256 indexed escrowId)',
-		'event TaskAccepted(uint256 indexed escrowId)',
-		'event EscrowCancelled(uint256 indexed escrowId)'
-	];
 
 	// Form states
 	let activeTab = $state('create');
 	let isLoading = $state(false);
+	let contractValidationError = $state('');
 
 	// Create escrow form
 	let freelancerAddress = $state('');
@@ -28,37 +18,37 @@
 	let clientFeeTier = $state(1);
 	let freelancerFeeTier = $state(1);
 
-	// Manage escrow
-	let selectedEscrowId = '';
+	// Loading state for escrows
+	let isLoadingEscrows = $state(false);
 
-	function formatEscrowStatus(status: string): string {
+	function formatEscrowStatus(status: EscrowStatus): string {
 		switch (status) {
-			case 'Funded':
+			case EscrowStatus.Funded:
 				return 'Awaiting Work';
-			case 'Completed':
+			case EscrowStatus.Completed:
 				return 'Work Completed';
-			case 'InDispute':
+			case EscrowStatus.InDispute:
 				return 'In Dispute';
-			case 'Resolved':
+			case EscrowStatus.Resolved:
 				return 'Resolved';
-			case 'Cancelled':
+			case EscrowStatus.Cancelled:
 				return 'Cancelled';
 			default:
 				return status;
 		}
 	}
 
-	function getStatusBadgeClass(status: string): string {
+	function getStatusBadgeClass(status: EscrowStatus): string {
 		switch (status) {
-			case 'Funded':
+			case EscrowStatus.Funded:
 				return 'badge-info';
-			case 'Completed':
+			case EscrowStatus.Completed:
 				return 'badge-success';
-			case 'InDispute':
+			case EscrowStatus.InDispute:
 				return 'badge-warning';
-			case 'Resolved':
+			case EscrowStatus.Resolved:
 				return 'badge-success';
-			case 'Cancelled':
+			case EscrowStatus.Cancelled:
 				return 'badge-error';
 			default:
 				return 'badge-ghost';
@@ -99,6 +89,13 @@
 			return;
 		}
 
+		// Validate escrow amount
+		const amountNum = parseFloat(escrowAmount);
+		if (isNaN(amountNum) || amountNum <= 0) {
+			appStore.showErrorToast('Invalid escrow amount');
+			return;
+		}
+
 		try {
 			isLoading = true;
 
@@ -116,19 +113,53 @@
 				return;
 			}
 
-			// Calculate total payment including client fee
-			const totalPayment = calculateTotalPayment(escrowAmount, clientFeeTier);
+			// First connect to escrow contract if not connected
+			if (!$rskWalletStore.contractConnected) {
+				try {
+					await escrow.connectToEscrowContract();
+					contractValidationError = ''; // Clear any previous errors
+				} catch (error) {
+					if (error instanceof Error && error.message.includes('No contract deployed')) {
+						contractValidationError =
+							'Smart contract not deployed at the configured address. Please check your contract deployment.';
+						appStore.showErrorToast(contractValidationError);
+						return;
+					} else if (
+						error instanceof Error &&
+						error.message.includes('could not decode result data')
+					) {
+						contractValidationError =
+							'Contract interface mismatch. The deployed contract may not have the expected functions.';
+						appStore.showErrorToast(contractValidationError);
+						return;
+					}
+					throw error; // Re-throw if it's a different error
+				}
+			}
 
-			// This would call the actual contract - placeholder for now
-			appStore.showInfoToast('Escrow creation functionality coming soon');
+			// Create the escrow
+			const result = await escrow.createEscrow(
+				freelancerAddress,
+				escrowAmount.toString(), // Ensure it's a string
+				startTimestamp,
+				completionTimestamp,
+				clientFeeTier as 1 | 2 | 3,
+				freelancerFeeTier as 1 | 2 | 3
+			);
 
-			// Reset form
-			freelancerAddress = '';
-			escrowAmount = '';
-			startTime = '';
-			completionTime = '';
-			clientFeeTier = 1;
-			freelancerFeeTier = 1;
+			if (result.status === 'pending') {
+				appStore.showSuccessToast(`Escrow created! Transaction hash: ${result.hash}`);
+
+				// Reset form
+				freelancerAddress = '';
+				escrowAmount = '';
+				startTime = '';
+				completionTime = '';
+				clientFeeTier = 1;
+				freelancerFeeTier = 1;
+			} else {
+				appStore.showErrorToast('Escrow creation failed');
+			}
 		} catch (error) {
 			console.error('Escrow creation failed:', error);
 			appStore.showErrorToast(error instanceof Error ? error.message : 'Escrow creation failed');
@@ -161,6 +192,43 @@
 			setDefaultTimes();
 		}
 	});
+
+	// Escrow loading function
+	async function loadEscrows() {
+		if (isLoadingEscrows) return; // Prevent multiple simultaneous loads
+
+		try {
+			isLoadingEscrows = true;
+			console.log('Loading user escrows...');
+
+			// First ensure contract is connected
+			if (!$rskWalletStore.contractConnected) {
+				console.log('Contract not connected, connecting...');
+				await escrow.connectToEscrowContract();
+			}
+
+			// Load escrows using the existing function
+			await escrow.loadUserEscrows();
+			console.log('Escrows loaded successfully');
+		} catch (error) {
+			console.error('Failed to load escrows:', error);
+			appStore.showErrorToast('Failed to load escrows. Please try again.');
+		} finally {
+			isLoadingEscrows = false;
+		}
+	}
+
+	// Auto-load escrows when switching to manage tab
+	$effect(() => {
+		if (
+			activeTab === 'manage' &&
+			$rskWalletStore.isConnected &&
+			$rskWalletStore.escrows.length === 0
+		) {
+			console.log('Auto-loading escrows for manage tab...');
+			loadEscrows();
+		}
+	});
 </script>
 
 <div class="card bg-base-100 shadow-xl">
@@ -180,33 +248,58 @@
 				onclick={() => (activeTab = 'manage')}
 			>
 				My Escrows ({$rskEscrows.length})
+				{#if isLoadingEscrows}
+					<span class="loading loading-spinner loading-xs ml-2"></span>
+				{/if}
 			</button>
 		</div>
 
 		{#if activeTab === 'create'}
 			<!-- Create Escrow Form -->
 			<div class="space-y-4">
-				<div class="alert alert-info">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 shrink-0 stroke-current"
-						fill="none"
-						viewBox="0 0 24 24"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					<div>
-						<div class="font-bold">Smart Contract Integration</div>
-						<div class="text-sm">
-							This feature requires your SimplifiedEscrowContract to be deployed and configured.
+				{#if contractValidationError}
+					<div class="alert alert-error">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<div>
+							<div class="font-bold">Contract Validation Error</div>
+							<div class="text-sm">{contractValidationError}</div>
 						</div>
 					</div>
-				</div>
+				{:else}
+					<div class="alert alert-info">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<div>
+							<div class="font-bold">Smart Contract Integration</div>
+							<div class="text-sm">
+								This feature requires your SimplifiedEscrowContract to be deployed and configured.
+							</div>
+						</div>
+					</div>
+				{/if}
 
 				<div class="form-control">
 					<label class="label" for="freelancer-address">
@@ -339,7 +432,8 @@
 							!escrowAmount ||
 							!startTime ||
 							!completionTime ||
-							!ethers.isAddress(freelancerAddress)}
+							!ethers.isAddress(freelancerAddress) ||
+							!!contractValidationError}
 					>
 						{#if isLoading}
 							<span class="loading loading-spinner loading-sm"></span>
@@ -352,15 +446,41 @@
 			</div>
 		{:else if activeTab === 'manage'}
 			<!-- Manage Escrows -->
-			{#if $rskEscrows.length === 0}
+			<div class="mb-4 flex items-center justify-between">
+				<div class="text-sm opacity-70">
+					{#if isLoadingEscrows}
+						Loading your escrows...
+					{:else if $rskEscrows.length === 0}
+						No escrows found. Try refreshing or create your first escrow.
+					{:else}
+						Showing {$rskEscrows.length} escrow{$rskEscrows.length !== 1 ? 's' : ''}
+					{/if}
+				</div>
+				<button class="btn btn-sm btn-outline" onclick={loadEscrows} disabled={isLoadingEscrows}>
+					{#if isLoadingEscrows}
+						<span class="loading loading-spinner loading-xs"></span>
+					{:else}
+						🔄 Refresh
+					{/if}
+				</button>
+			</div>
+
+			{#if $rskEscrows.length === 0 && !isLoadingEscrows}
 				<div class="py-12 text-center">
 					<div class="mb-4 text-6xl opacity-20">🤝</div>
 					<div class="text-lg font-semibold opacity-60">No escrows found</div>
 					<div class="mt-2 text-sm opacity-40">
 						Create your first escrow to get started with secure task payments.
 					</div>
+					<button
+						class="btn btn-primary btn-sm mt-4"
+						onclick={loadEscrows}
+						disabled={isLoadingEscrows}
+					>
+						🔄 Check for Escrows
+					</button>
 				</div>
-			{:else}
+			{:else if $rskEscrows.length > 0}
 				<div class="space-y-4">
 					{#each $rskEscrows as escrow}
 						<div class="card bg-base-200 shadow-sm">
@@ -368,9 +488,12 @@
 								<div class="flex items-start justify-between">
 									<div class="flex-1">
 										<div class="mb-2 flex items-center gap-2">
-											<span class="font-semibold">Escrow #{escrow.id}</span>
+											<span class="text-primary font-semibold">Escrow #{escrow.id}</span>
 											<div class="badge {getStatusBadgeClass(escrow.status)}">
 												{formatEscrowStatus(escrow.status)}
+											</div>
+											<div class="badge badge-outline badge-xs">
+												ID: {escrow.id}
 											</div>
 										</div>
 
@@ -378,23 +501,25 @@
 											<div>Client: {formatAddress(escrow.client)}</div>
 											<div>Freelancer: {formatAddress(escrow.freelancer)}</div>
 											<div>Created: {formatTimestamp(escrow.createdAt)}</div>
-											{#if escrow.startTime > 0}
-												<div>Start: {formatTimestamp(escrow.startTime * 1000)}</div>
+											{#if escrow.estimatedStartTime > 0}
+												<div>Start: {formatTimestamp(escrow.estimatedStartTime * 1000)}</div>
 											{/if}
-											{#if escrow.completionTime > 0}
-												<div>Completion: {formatTimestamp(escrow.completionTime * 1000)}</div>
+											{#if escrow.estimatedCompletionTime > 0}
+												<div>
+													Completion: {formatTimestamp(escrow.estimatedCompletionTime * 1000)}
+												</div>
 											{/if}
 										</div>
 									</div>
 
 									<div class="text-right">
-										<div class="text-lg font-bold">{escrow.amount} RBTC</div>
+										<div class="text-lg font-bold">{escrow.totalAmount} RBTC</div>
 
 										<!-- Action buttons based on status and user role -->
 										<div class="mt-2 flex gap-1">
-											{#if escrow.status === 'Funded'}
+											{#if escrow.status === EscrowStatus.Funded}
 												<button class="btn btn-sm btn-outline" disabled> Complete Task </button>
-											{:else if escrow.status === 'Completed'}
+											{:else if escrow.status === EscrowStatus.Completed}
 												<button class="btn btn-sm btn-success" disabled> Accept Work </button>
 												<button class="btn btn-sm btn-warning" disabled> Dispute </button>
 											{/if}
