@@ -36,6 +36,10 @@ export interface NostrBid {
 	taskCreatorUsername?: string;
 	taskCreatorAvatar?: string;
 	taskCreatorPubkey?: string;
+	// Bidder information
+	bidderId?: string;
+	bidderName?: string;
+	bidderAvatar?: string;
 }
 
 export interface BidMessage {

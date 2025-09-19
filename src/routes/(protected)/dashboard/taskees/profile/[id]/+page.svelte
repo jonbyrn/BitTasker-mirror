@@ -105,7 +105,11 @@
 
 								<!-- Información del perfil -->
 								<div class="flex-1 text-center lg:text-left">
-									<h3 class="text-base-content mb-2 font-bold">{mockProfile.name}</h3>
+									<div
+										class="mb-2 flex flex-col items-center gap-2 lg:flex-row lg:items-center lg:justify-between"
+									>
+										<h3 class="text-base-content font-bold">{mockProfile.name}</h3>
+									</div>
 									<div class="badge badge-primary badge-lg mb-4 px-3 py-1 text-sm">
 										{mockProfile.professionalTitle}
 									</div>

@@ -1,9 +1,6 @@
 import type { Bid, BidsResponse, CounterOffer, CreateBidParams } from '$lib/types/bid';
-import type { Task } from '../types';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
-import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import taskService from '$lib/api/services/task.service';
 
 /**
  * Bid Service

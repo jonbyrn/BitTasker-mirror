@@ -18,12 +18,18 @@ export enum TaskStepEnum {
 }
 
 export enum TaskStatusEnum {
-	OPEN = 'OPEN',
-	OPEN_WITH_BIDS = 'OPEN_WITH_BIDS',
-	IN_PROGRESS = 'IN_PROGRESS',
-	COMPLETED = 'COMPLETED',
-	CANCELLED = 'CANCELLED',
-	DISPUTED = 'DISPUTED',
+	OPEN = 'OPEN', // no bids
+	OPEN_WITH_BIDS = 'OPEN_WITH_BIDS', // has bids
+	BID_ACCEPTED = 'BID_ACCEPTED', // tasker accepted a bid, before funding
+	ESCROW_FUNDED = 'ESCROW_FUNDED', // escrow funded, ready to start
+	IN_PROGRESS = 'IN_PROGRESS', // work ongoing
+	RESCOPED = 'RESCOPED', // taskee proposed rescope
+	RESCOPE_ACCEPTED = 'RESCOPE_ACCEPTED', // tasker accepted rescope
+	COMPLETED = 'COMPLETED', // taskee marks task complete
+	CANCELLED = 'CANCELLED', // taskee cancelled task
+	REFUNDED = 'REFUNDED', // taskee refunded tasker
+	DISPUTED = 'DISPUTED', // tasker opened dispute
+	DISPUTE_PROPOSAL = 'DISPUTE_PROPOSAL' // proposals submitted
 }
 
 export enum TaskTypeEnum {

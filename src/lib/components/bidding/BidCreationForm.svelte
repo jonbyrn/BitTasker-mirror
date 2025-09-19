@@ -7,7 +7,18 @@
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
 
 	// Props
-	const { taskId, onClose, taskCreatorPubkey, taskCreatorUsername, taskCreatorAvatar, taskTitle, taskDescription } = $props<{
+	const {
+		taskId,
+		onClose,
+		taskCreatorPubkey,
+		taskCreatorUsername,
+		taskCreatorAvatar,
+		taskTitle,
+		taskDescription,
+		loggedInUserId,
+		loggedInUserName,
+		loggedInUserAvatar
+	} = $props<{
 		taskId: string;
 		onClose: () => void;
 		taskTitle?: string; // Add task title prop
@@ -15,6 +26,9 @@
 		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
 		taskCreatorUsername?: string; // Add task creator username prop
 		taskCreatorAvatar?: string; // Add task creator avatar prop
+		loggedInUserId?: string; // Add logged-in user ID prop
+		loggedInUserName?: string; // Add logged-in user name prop
+		loggedInUserAvatar?: string; // Add logged-in user avatar prop
 	}>();
 
 	// Form state
@@ -286,7 +300,8 @@
 				type: 'bid' as const,
 				taskId: taskId,
 				taskTitle: taskTitle || $t('dashboard.bids.bid_creation.untitled_task'),
-				taskDescription: taskDescription || $t('dashboard.bids.bid_creation.no_description_available'), // Add task description
+				taskDescription:
+					taskDescription || $t('dashboard.bids.bid_creation.no_description_available'), // Add task description
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -301,8 +316,14 @@
 
 				taskCreatorPubkey: taskCreatorPubkey,
 				taskCreatorUsername: taskCreatorUsername,
-				taskCreatorAvatar: taskCreatorAvatar,		
-							// Add new datetime fields
+				taskCreatorAvatar: taskCreatorAvatar,
+
+				// Add logged-in user information
+				bidderId: loggedInUserId,
+				bidderName: loggedInUserName,
+				bidderAvatar: loggedInUserAvatar,
+
+				// Add new datetime fields
 				startDate: bidType === 'FIXED' ? startDate : null,
 				endDate: bidType === 'FIXED' ? endDate : null,
 				startTime: bidType === 'FIXED' ? startTime : null,
@@ -316,7 +337,10 @@
 			bidSubmitted = true;
 		} catch (error) {
 			console.error('Failed to submit bid:', error);
-			bidFormErrors.general = error instanceof Error ? error.message : $t('dashboard.bids.bid_creation.failed_to_submit_bid');
+			bidFormErrors.general =
+				error instanceof Error
+					? error.message
+					: $t('dashboard.bids.bid_creation.failed_to_submit_bid');
 		} finally {
 			submittingBid = false;
 		}
@@ -619,12 +643,14 @@
 						<div class="text-sm opacity-70">
 							${hourlyRate.toLocaleString('en-US')} × {parseFloat(
 								estimatedHours || '0'
-							).toLocaleString('en-US')} {$t('dashboard.bids.bid_creation.hours')}
+							).toLocaleString('en-US')}
+							{$t('dashboard.bids.bid_creation.hours')}
 						</div>
 						<div class="mt-1 text-sm opacity-70">
 							≈ {Math.round(
 								(hourlyRate / btcPrice) * 100_000_000 * parseFloat(estimatedHours || '0')
-							).toLocaleString('en-US')} {$t('dashboard.bids.bid_creation.sats')}
+							).toLocaleString('en-US')}
+							{$t('dashboard.bids.bid_creation.sats')}
 						</div>
 					</div>
 				</div>

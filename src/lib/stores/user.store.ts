@@ -8,6 +8,7 @@ const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove
 
 // Initial States
 const initialProfile: UserData = {
+	id: 0,
 	name: '',
 	email: '',
 	npub: '',
@@ -41,20 +42,51 @@ const createUserStore = () => {
 				throw new Error('No valid relay URLs available');
 			}
 
-			const filter = {
+			// Fetch both metadata (kind 0) and images (kind 30063)
+			const metadataFilter = {
 				authors: [npub],
 				kinds: [0]
 			};
 
-			const events = await pool.querySync(RELAYS, filter);
-			events.forEach((event) => {
+			const imagesFilter = {
+				authors: [npub],
+				kinds: [30063],
+				'#d': ['profile-images']
+			};
+
+			const [metadataEvents, imageEvents] = await Promise.all([
+				pool.querySync(RELAYS, metadataFilter),
+				pool.querySync(RELAYS, imagesFilter)
+			]);
+
+			// Process metadata events
+			metadataEvents.forEach((event) => {
 				if (event.kind === 0) {
 					const content = JSON.parse(event.content);
 					update((state) => ({
 						...state,
 						name: content.display_name || content.displayName || content.name || '',
-						picture: content.picture || ''
+						picture: content.picture || '' // This might be empty if using new image system
 					}));
+				}
+			});
+
+			// Process image events to get profile picture
+			imageEvents.forEach((event) => {
+				if (event.kind === 30063) {
+					try {
+						const images = JSON.parse(event.content);
+						if (Array.isArray(images) && images.length > 0) {
+							// Use the first image as the profile picture
+							const primaryImage = images[0];
+							update((state) => ({
+								...state,
+								picture: primaryImage.url || state.picture
+							}));
+						}
+					} catch (err) {
+						console.error('Failed to parse image event content:', err);
+					}
 				}
 			});
 		},
