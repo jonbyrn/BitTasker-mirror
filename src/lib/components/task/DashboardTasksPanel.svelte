@@ -276,7 +276,7 @@
 			$myTasksStore.items = tasks;
 		} catch (err) {
 			console.error('Error loading tasks:', err);
-			$myTasksStore.error = 'Failed to load tasks';
+			$myTasksStore.error = $t('task.error.loading');
 		} finally {
 			$myTasksStore.loading = false;
 		}
@@ -742,7 +742,7 @@
 								/>
 							</svg>
 							<div class="flex min-w-0 flex-1 flex-col">
-								<small class="text-base-content/60 text-xs"> Location Details </small>
+								<small class="text-base-content/60 text-xs">{$t('task.location.details')}</small>
 								<span class="line-clamp-2 text-sm font-medium">
 									{#if task.dropOffLocation?.displayName}
 										{task.dropOffLocation.displayName}
@@ -800,7 +800,7 @@
 								<!-- Username and Review Stars -->
 								<div class="flex flex-col">
 									<span class="text-sm font-medium">
-										{task.creator?.username || 'Anonymous'}
+										{task.creator?.username || $t('task.user.anonymous')}
 									</span>
 									<!-- Review Stars -->
 									<div class="flex items-center">

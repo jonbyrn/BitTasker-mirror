@@ -47,6 +47,12 @@
       "error": {
         "loading": "Error loading tasks"
       },
+      "location": {
+        "details": "Location Details"
+      },
+      "user": {
+        "anonymous": "Anonymous"
+      },
       "status": {
         "in_progress": "In Progress",
         "draft": "Draft",

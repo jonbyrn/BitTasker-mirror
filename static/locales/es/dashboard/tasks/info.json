@@ -47,6 +47,12 @@
       "error": {
         "loading": "Error al cargar las tareas"
       },
+      "location": {
+        "details": "Detalles de Ubicación"
+      },
+      "user": {
+        "anonymous": "Anónimo"
+      },
       "status": {
         "in_progress": "En Progreso",
         "draft": "Borrador",
