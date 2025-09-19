@@ -756,73 +756,11 @@
 						</div>
 
 						<div class="mt-1 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-							<!-- Left: Avatar, Username, and Review Stars -->
-							<div class="flex items-center gap-3">
-								<!-- Avatar -->
-								<div class="avatar">
-									<div class="bg-base-300 flex h-8 w-8 items-center justify-center rounded-full">
-										{#if task.creator?.avatar}
-											<img
-												src={task.creator.avatar}
-												alt="Avatar"
-												class="h-8 w-8 rounded-full object-cover"
-											/>
-										{:else}
-											<!-- Placeholder con iniciales del nombre -->
-											<div
-												class="avatar placeholder text-neutral-content bg-primary flex h-8 w-8 items-center justify-center overflow-hidden rounded-full text-center"
-											>
-												{#if task.creator?.username}
-													<span class="text-lg font-semibold">
-														{task.creator.username.charAt(0).toUpperCase()}
-													</span>
-												{:else}
-													<svg
-														xmlns="http://www.w3.org/2000/svg"
-														class="text-base-content/60 h-6 w-6"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-													>
-														<path
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															stroke-width="2"
-															d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-														/>
-													</svg>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								</div>
+							<!-- Left: Empty space on larger screens, full width on mobile -->
+							<div class="hidden md:block"></div>
 
-								<!-- Username and Review Stars -->
-								<div class="flex flex-col">
-									<span class="text-sm font-medium">
-										{task.creator?.username || $t('task.user.anonymous')}
-									</span>
-									<!-- Review Stars -->
-									<div class="flex items-center">
-										{#each Array(5) as _, i}
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												class="h-3 w-3 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
-												fill="currentColor"
-												viewBox="0 0 24 24"
-											>
-												<path
-													d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-												/>
-											</svg>
-										{/each}
-										<span class="text-base-content/60 ml-1 text-xs">4.0</span>
-									</div>
-								</div>
-							</div>
-
-							<!-- Right: Action Buttons - Moved more to the left -->
-							<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:ml-4 md:w-auto">
+							<!-- Right: Action Buttons -->
+							<div class="flex w-full flex-col gap-3 sm:flex-row sm:items-center md:w-auto">
 								{#each getActionButtons(task, activeFilter) as action}
 									<button
 										class="btn {action.class} w-full sm:w-auto"
