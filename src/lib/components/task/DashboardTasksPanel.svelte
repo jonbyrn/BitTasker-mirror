@@ -32,13 +32,13 @@
 	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 	let nostrCache = $state<Map<string, { data: any; timestamp: number }>>(new Map());
 
-	// Filter options - reordered with tasks_waiting_for_bids first
-	const filterOptions = [
+	// Filter options - reactive to language changes
+	const filterOptions = $derived([
 		{ id: 'tasks_waiting_for_bids', label: $t('task.filters.tasks_waiting_for_bids') },
 		{ id: 'tasks_in_progress', label: $t('task.filters.tasks_in_progress') },
 		{ id: 'bids_received', label: $t('task.filters.bids_received') },
 		{ id: 'tasks_completed', label: $t('task.filters.tasks_completed') },
-	] as const;
+	] as const);
 
 	/**
 	 * Fetch current BTC price
