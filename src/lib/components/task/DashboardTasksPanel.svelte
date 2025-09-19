@@ -254,6 +254,17 @@
 	}
 
 	/**
+	 * Close dropdown when clicking outside
+	 */
+	function handleClickOutside(event: MouseEvent) {
+		const target = event.target as HTMLElement;
+		const dropdownContainer = target.closest('.dropdown-container');
+		if (!dropdownContainer && isDropdownOpen) {
+			isDropdownOpen = false;
+		}
+	}
+
+	/**
 	 * Select filter option
 	 */
 	function selectFilter(optionId: TaskFilterCategory) {
@@ -266,35 +277,46 @@
 		$myTasksStore.items ? getFilteredTasks($myTasksStore.items, activeFilter) : []
 	);
 
-	onMount(async () => {
-		$myTasksStore.loading = true;
-		$myTasksStore.error = null;
+	onMount(() => {
+		// Add click outside listener for dropdown
+		document.addEventListener('click', handleClickOutside);
 
-		try {
-			// Load tasks (with caching)
-			const tasks = await getCachedTasks();
-			$myTasksStore.items = tasks;
-		} catch (err) {
-			console.error('Error loading tasks:', err);
-			$myTasksStore.error = $t('task.error.loading');
-		} finally {
-			$myTasksStore.loading = false;
-		}
+		// Load tasks and BTC price asynchronously
+		(async () => {
+			$myTasksStore.loading = true;
+			$myTasksStore.error = null;
 
-		// Fetch BTC price in background (non-blocking)
-		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(
-				() => {
+			try {
+				// Load tasks (with caching)
+				const tasks = await getCachedTasks();
+				$myTasksStore.items = tasks;
+			} catch (err) {
+				console.error('Error loading tasks:', err);
+				$myTasksStore.error = $t('task.error.loading');
+			} finally {
+				$myTasksStore.loading = false;
+			}
+
+			// Fetch BTC price in background (non-blocking)
+			if (typeof requestIdleCallback !== 'undefined') {
+				requestIdleCallback(
+					() => {
+						fetchBtcPrice();
+					},
+					{ timeout: 2000 }
+				);
+			} else {
+				// Fallback for browsers without requestIdleCallback
+				setTimeout(() => {
 					fetchBtcPrice();
-				},
-				{ timeout: 2000 }
-			);
-		} else {
-			// Fallback for browsers without requestIdleCallback
-			setTimeout(() => {
-				fetchBtcPrice();
-			}, 100);
-		}
+				}, 100);
+			}
+		})();
+
+		// Cleanup on unmount
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+		};
 	});
 </script>
 
@@ -381,7 +403,7 @@
 
 	<!-- Mobile: Custom dropdown -->
 	<div class="block sm:hidden">
-		<div class="mt-3 relative">
+		<div class="dropdown-container mt-3 relative">
 			<button
 				class="flex w-full cursor-pointer items-center justify-between rounded-3xl border border-primary bg-primary/10 px-4 py-1 text-primary transition-all duration-200 hover:bg-primary/20"
 				onclick={toggleDropdown}
