@@ -47,7 +47,7 @@ export function getEventListeners(): (() => void)[] {
 }
 
 // Initialize wallet from mnemonic
-async function initializeWalletFromMnemonic(): Promise<void> {
+async function initializeWallet(): Promise<void> {
     try {
         const mnemonic = await getMnemonic();
 
@@ -87,7 +87,7 @@ async function initialize(): Promise<void> {
         provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
 
         // Initialize wallet from existing mnemonic
-        await initializeWalletFromMnemonic();
+        await initializeWallet();
 
         // Get initial data
         await updateBalance();
@@ -431,7 +431,8 @@ export const rskWallet = {
     estimateGas,
     refreshTransactions: loadTransactionHistory,
     cleanup,
-    updateTransactionStatus
+    updateTransactionStatus,
+    initializeWallet
 };
 
 // Unit conversion utilities

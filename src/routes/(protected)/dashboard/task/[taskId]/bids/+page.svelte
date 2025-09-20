@@ -1,18 +1,18 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import { t } from 'svelte-i18n';
-	import nostrEventsService from '$lib/api/services/nostr/events';
-	import { getTaskBids, type NostrBid } from '$lib/utils/nostr-bid';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import type { CounterOffer, TaskBid } from '$lib/types/bid';
+	import { t } from 'svelte-i18n';
+	import { getBidsFromDMs } from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import nostrEventsService from '$lib/api/services/nostr/events';
 	import bidService from '$lib/api/services/bid.service';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+
 	// State
 	let task = $state<Task | null>(null);
 	let bids = $state<TaskBid[]>([]);
@@ -20,10 +20,6 @@
 	let errorMessage = $state('');
 	let isOwner = $state(false);
 	let btcPrice = $state(0);
-	let withdrawalReason = $state('');
-	let withdrawalError = $state('');
-	let bidToWithdraw = $state<string | null>(null);
-	let withdrawingBid = $state(false);
 	let expandedBidId = $state<string | null>(null);
 	let showAcceptanceForm = $state(false);
 	let bidToAccept = $state<TaskBid | null>(null);
@@ -50,111 +46,102 @@
 				id: event.id
 			};
 
+			// Update task status based on existing bids
 			if (task) {
-				// Update task status based on existing bids
+				const dmBids = await getBidsFromDMs(task.id);
 
-				if (task) {
-					const dmBids = await getTaskBids(task.id);
+				// Deduplicate: keep only the newest bid per user for this task,
+				// and also remove any duplicates by bidId
+				const newestPerUser = Object.values(
+					dmBids
+						.slice()
+						.sort((a, b) => b.bid.timestamp - a.bid.timestamp)
+						.reduce(
+							(acc, msg) => {
+								const key = `${msg.senderPubkey}:${msg.bid.taskId}`;
+								if (!acc[key]) acc[key] = msg; // first (newest) wins
+								return acc;
+							},
+							{} as Record<string, (typeof dmBids)[number]>
+						)
+				);
 
-					// Deduplicate: keep only the oldest bid per user for this task,
-					// and also remove any duplicates by bidId
-					const oldestPerUser = Object.values(
-						dmBids
-							.slice()
-							.sort((a, b) => a.bid.timestamp - b.bid.timestamp)
-							.reduce(
-								(acc, msg) => {
-									const key = `${msg.senderPubkey}:${msg.bid.taskId}`;
-									if (!acc[key]) acc[key] = msg; // first (oldest) wins
-									return acc;
-								},
-								{} as Record<string, (typeof dmBids)[number]>
-							)
-					);
+				const uniqueByBidId = Array.from(
+					new Map(newestPerUser.map((m) => [m.bid.bidId, m])).values()
+				);
 
-					const uniqueByBidId = Array.from(
-						new Map(oldestPerUser.map((m) => [m.bid.bidId, m])).values()
-					);
-
-					// Fetch profiles for each unique sender
-					const uniqueSenders = Array.from(new Set(uniqueByBidId.map((m) => m.senderPubkey)));
-					const profileEntries = await Promise.all(
-						uniqueSenders.map(async (pk) => [pk, await fetchProfileMetadata(pk)] as const)
-					);
-					const profileMap = new Map(profileEntries);
-
-					bids = uniqueByBidId.map(({ bid, senderPubkey }) => ({
-						id: bid.bidId,
-						taskId: bid.taskId as unknown as string,
-						freelancerId: 0,
-						amount: bid.amount,
-						currency: bid.currency as unknown as any,
-						paymentType: bid.paymentType,
-						hourlyRate: bid.hourlyRate ?? undefined,
-						estimatedHours: bid.estimatedHours ?? undefined,
-						description: bid.description,
-						estimatedDuration: bid.estimatedDuration,
-						proposedApproach: bid.proposedApproach,
-						coverLetter: bid.coverLetter,
-						visibility: 'PRIVATE',
-						milestones: [],
-						responseTime: 0,
-						status: 'PENDING',
+				bids = uniqueByBidId.map(({ bid, senderPubkey }) => ({
+					id: bid.bidId,
+					taskId: bid.taskId as unknown as string,
+					freelancerId: 0,
+					bidderWalletAddress: bid.bidderWalletAddress,
+					amount: bid.amount,
+					currency: bid.currency as unknown as any,
+					paymentType: bid.paymentType,
+					hourlyRate: bid.hourlyRate ?? undefined,
+					estimatedHours: bid.estimatedHours ?? undefined,
+					description: bid.description,
+					estimatedDuration: bid.estimatedDuration,
+					proposedApproach: bid.proposedApproach,
+					coverLetter: bid.coverLetter,
+					visibility: 'PRIVATE',
+					milestones: [],
+					responseTime: 0,
+					status: 'PENDING',
+					createdAt: new Date(bid.timestamp).toISOString(),
+					updatedAt: new Date(bid.timestamp).toISOString(),
+					clientViewed: false,
+					clientViewedAt: null,
+					featured: false,
+					clientResponse: null,
+					competitiveScore: null,
+					rank: null,
+					impressions: 0,
+					clicks: 0,
+					isWithdrawn: false,
+					withdrawnReason: null,
+					expiresAt: null,
+					task: {
+						id: 0 as unknown as number,
+						title: task?.title || '',
+						description: task?.description || '',
+						status: (task as any)?.status || ''
+					},
+					freelancer: {
+						id: 0,
+						userId: 0,
+						professionalTitle: null,
+						bio: null,
+						promotionalVideo: null,
+						yearsExperience: null,
+						specialties: [],
+						standardRates: null,
+						tasksCompleted: 0,
+						bidsSent: 0,
+						successRate: null,
+						averageRating: null,
+						level: 0,
+						experiencePoints: 0,
+						reputationScore: 0,
+						feeDiscount: 0,
+						monthlyActivityPoints: 0,
+						verificationLevel: 'UNVERIFIED' as unknown as any,
+						identityVerified: false,
 						createdAt: new Date(bid.timestamp).toISOString(),
 						updatedAt: new Date(bid.timestamp).toISOString(),
-						clientViewed: false,
-						clientViewedAt: null,
-						featured: false,
-						clientResponse: null,
-						competitiveScore: null,
-						rank: null,
-						impressions: 0,
-						clicks: 0,
-						isWithdrawn: false,
-						withdrawnReason: null,
-						expiresAt: null,
-						task: {
-							id: 0 as unknown as number,
-							title: task?.title || '',
-							description: task?.description || '',
-							status: (task as any)?.status || ''
-						},
-						freelancer: {
+						user: {
 							id: 0,
-							userId: 0,
-							professionalTitle: null,
-							bio: null,
-							promotionalVideo: null,
-							yearsExperience: null,
-							specialties: [],
-							standardRates: null,
-							tasksCompleted: 0,
-							bidsSent: 0,
-							successRate: null,
-							averageRating: null,
-							level: 0,
-							experiencePoints: 0,
-							reputationScore: 0,
-							feeDiscount: 0,
-							monthlyActivityPoints: 0,
-							verificationLevel: 'UNVERIFIED' as unknown as any,
-							identityVerified: false,
-							createdAt: new Date(bid.timestamp).toISOString(),
-							updatedAt: new Date(bid.timestamp).toISOString(),
-							user: {
-								id: 0,
-								email: ''
-							}
-						},
-						userProfile: {
-							user: {
-								id: bid.bidderId || 'unknown', // This will now be the npub
-								name: (bid.bidderName as string) || 'Anonymous',
-								avatar: (bid.bidderAvatar as string) || ''
-							}
-						} as unknown as any
-					})) as unknown as TaskBid[];
-				}
+							email: ''
+						}
+					},
+					userProfile: {
+						user: {
+							id: bid.bidderId || 'unknown', // This will now be the npub
+							name: (bid.bidderName as string) || 'Anonymous',
+							avatar: (bid.bidderAvatar as string) || ''
+						}
+					} as unknown as any
+				})) as unknown as TaskBid[];
 			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -197,22 +184,6 @@
 		}
 	}
 
-	async function submitBidAcceptance(bidId: string, escrowMethod: string, escrowDetails: any) {
-		try {
-			// First accept the bid
-			await bidService.acceptBid(bidId);
-
-			// Close the form
-			showAcceptanceForm = false;
-			bidToAccept = null;
-
-			// Refresh task to update status and bids
-			// await loadTaskDetails(props.taskId!);
-		} catch (error) {
-			console.error('Error accepting bid:', error);
-		}
-	}
-
 	async function handleRejectBid(bid: TaskBid) {
 		try {
 			await bidService.rejectBid(bid.id);
@@ -228,7 +199,7 @@
 	}
 
 	onMount(async () => {
-		await loadTaskDetails($page.params.taskId as string);
+		await loadTaskDetails(page.params.taskId as string);
 		await fetchBtcPrice();
 	});
 </script>
@@ -345,25 +316,29 @@
 
 								<!-- User info -->
 								<div class="min-w-0 flex-1">
-									<div class="flex items-center gap-2 mb-1">
+									<div class="mb-1 flex items-center gap-2">
 										<h3 class="truncate text-base font-semibold sm:text-lg">
 											{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
 										</h3>
-										<button 
+										<button
 											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
-											onclick={() => window.open(`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`, '_blank')}
+											onclick={() =>
+												window.open(
+													`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`,
+													'_blank'
+												)}
 										>
-											<svg 
-												xmlns="http://www.w3.org/2000/svg" 
-												class="h-3 w-3" 
-												fill="none" 
-												viewBox="0 0 24 24" 
+											<svg
+												xmlns="http://www.w3.org/2000/svg"
+												class="h-3 w-3"
+												fill="none"
+												viewBox="0 0 24 24"
 												stroke="currentColor"
 											>
-												<path 
-													stroke-linecap="round" 
-													stroke-linejoin="round" 
-													stroke-width="2" 
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
 													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
 												/>
 											</svg>
@@ -597,15 +572,17 @@
 {#if showAcceptanceForm && bidToAccept}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 		<div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
-			<BidAcceptanceForm
-				bid={bidToAccept}
-				taskTitle={task?.title || ''}
-				onSubmit={submitBidAcceptance}
-				onCancel={() => {
-					showAcceptanceForm = false;
-					bidToAccept = null;
-				}}
-			/>
+			{#if task}
+				<BidAcceptanceForm
+					bid={bidToAccept}
+					{task}
+					taskTitle={task.title || ''}
+					onCancel={() => {
+						showAcceptanceForm = false;
+						bidToAccept = null;
+					}}
+				/>
+			{/if}
 		</div>
 	</div>
 {/if}
