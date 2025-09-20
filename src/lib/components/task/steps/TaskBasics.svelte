@@ -2,9 +2,9 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
-	import TagsInput from '$lib/components/TagsInput.svelte';
+	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
+	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
 </script>
@@ -127,12 +127,11 @@
 
 	<div class="w-full">
 		<label for="category" class="label">{$t('task.category')}</label>
-		<TagsInput
-			options={TASK_CATEGORIES.map((cat) => cat.id)}
-			bind:tags={$store.task.categories}
-			autoComplete="on"
-			maxTags={3}
-			className="w-full h-full rounded-xl"
+		<CategoryMultiselect
+			bind:selectedCategories={$store.task.categories}
+			maxSelections={3}
+			placeholder="Add tags..."
+			className="w-full"
 		/>
 
 		{#if errors.category}
@@ -145,11 +144,11 @@
 			<span class="label-text">{$t('task.required_skills')}</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
-		<TagsInput
-			bind:tags={$store.task.skills}
-			maxTags={10}
-			maxCharLength={25}
-			className="w-full h-full rounded-xl"
+		<SkillsMultiselect
+			bind:selectedSkills={$store.task.skills}
+			maxSelections={10}
+			placeholder="Add skills..."
+			className="w-full"
 		/>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>

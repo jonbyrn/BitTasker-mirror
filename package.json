@@ -138,6 +138,7 @@
 		"qrcode": "^1.5.4",
 		"stream-browserify": "^3.0.0",
 		"svelte-i18n": "^4.0.1",
+		"svelte-multiselect": "^11.2.3",
 		"swiper": "^11.2.6",
 		"tiny-secp256k1": "^2.2.4",
 		"vite-plugin-inspect": "^11.3.2",

@@ -327,8 +327,8 @@
 <div class="mx-auto max-w-7xl p-4 sm:p-0">
 	<!-- Page Header -->
 	<div class="mb-6">
-		<h3 class="">{$t('task.create_title')}</h3>
-		<p class="text-base-content/70">{$t('task.create_description')}</p>
+		<h3 class="">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_title') : $t('task.create_title')}</h3>
+		<p class="text-base-content/70">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_description') : $t('task.create_description')}</p>
 	</div>
 	<div class=" bg-base-100 rounded-xl">
 		<div class="card-body">

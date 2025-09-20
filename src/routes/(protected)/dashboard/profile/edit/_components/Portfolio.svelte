@@ -10,7 +10,7 @@
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import Tags from '$lib/components/Tags.svelte';
+	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 
 	let { onComplete } = $props<{
@@ -399,13 +399,11 @@
 							<span class="label-text font-medium">{$t('profile.portfolio.skills_used')}</span>
 						</label>
 
-						<Tags
-							selectedTags={selectedSkills}
-							options={skills.map((skill) => ({
-								id: skill.id || '',
-								name: skill.name
-							}))}
-							onChange={(value: (string | number)[]) => (selectedSkills = value as string[])}
+						<SkillsMultiselect
+							bind:selectedSkills={selectedSkills}
+							maxSelections={10}
+							placeholder={$t('profile.portfolio.skills_used')}
+							className="w-full"
 						/>
 					</div>
 

@@ -13,8 +13,8 @@
 	} from '$lib/utils/enums/task.enum';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
-	import Tags from '$lib/components/Tags.svelte';
-	import TagsInput from '../TagsInput.svelte';
+	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
+	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import LocationAutoComplete from '../LocationAutoComplete.svelte';
     import { t } from 'svelte-i18n';
 
@@ -153,6 +153,11 @@
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
 		filters.categories = tags.map((tag) => tag.toLowerCase());
+	}
+
+	// Handle skills change
+	function handleSkillsChange(skills: string[]) {
+		filters.skills = skills;
 	}
 
 	// Handle location filter changes
@@ -361,11 +366,11 @@
 			/>
             <div class="collapse-title font-medium" id="categories-section">{$t('find_tasks.categories')}</div>
 			<div class="collapse-content">
-				<Tags
-                    placeholder={$t('find_tasks.add_categories')}
-					selectedTags={filters.categories}
-					options={TASK_CATEGORIES.map((cat) => ({ id: cat.id, name: cat.name }))}
-					onChange={(tags) => handleCategoryChange(tags as string[])}
+				<CategoryMultiselect
+					bind:selectedCategories={filters.categories}
+					maxSelections={5}
+					placeholder={$t('find_tasks.add_categories')}
+					className="w-full"
 				/>
 			</div>
 		</div>
@@ -380,7 +385,12 @@
 			/>
             <div class="collapse-title font-medium" id="skills-section">{$t('find_tasks.skills')}</div>
 			<div class="collapse-content">
-                <TagsInput placeholder={$t('find_tasks.add_skills')} bind:tags={filters.skills} />
+				<SkillsMultiselect
+					bind:selectedSkills={filters.skills}
+					maxSelections={10}
+					placeholder={$t('find_tasks.add_skills')}
+					className="w-full"
+				/>
 			</div>
 		</div>
 
