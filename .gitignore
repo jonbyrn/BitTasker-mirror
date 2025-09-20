@@ -35,5 +35,3 @@ vite.config.ts.timestamp-*
 cert
 
 .houdini
-
-bun.lock
