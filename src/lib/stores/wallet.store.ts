@@ -19,19 +19,13 @@ import {
 	paymentEventsStore,
 	pendingPaymentsStore
 } from '$lib/wallet/breez/walletService';
-import { decryptWalletMnemonicWithBiometrics } from '$lib/utils/helpers/auth';
 import { get } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
 import {
 	getAssetMetadata,
 	getCurrentNetwork,
 	getAssetId,
 	type AssetMetadata as IAssetMetadata
-} from '$lib/constants/assets';
-import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
-import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
+} from '$lib/utils/constants/assets';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 
 // Enhanced asset with balance information

@@ -392,7 +392,8 @@ export async function fetchProfileMetadata(
 export async function sendDirectMessage(
 	message: string,
 	recipientPubkey: string,
-	threadRootId?: string
+	threadRootId?: string,
+	additionalTags?: string[][]
 ): Promise<void> {
 	try {
 		const { nsec } = await getNostrKeyPair();
@@ -404,7 +405,17 @@ export async function sendDirectMessage(
 			: recipientPubkey;
 
 		const ciphertext = await encryptDM(message, recipientPubkeyHex, senderPrivkey);
-		const tags: string[][] = threadRootId ? [['e', threadRootId, '', 'root']] : [];
+		const tags: string[][] = [];
+
+		// Add thread root tag if provided
+		if (threadRootId) {
+			tags.push(['e', threadRootId, '', 'root']);
+		}
+
+		// Add any additional custom tags
+		if (additionalTags && additionalTags.length > 0) {
+			tags.push(...additionalTags);
+		}
 
 		// Create event metadata for signing
 		const eventMetadata: Partial<NostrEvent> = {
@@ -630,7 +641,10 @@ export async function getMessageHistory(
 					const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
 					return { plaintext, senderPubkey, event };
 				} catch (error) {
-					console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
+					// Only log detailed errors for non-MAC issues to reduce noise
+					if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+						console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
+					}
 					return null;
 				}
 			})
@@ -794,7 +808,10 @@ export async function getMessagedPeople(): Promise<
 						content: plaintext
 					};
 				} catch (decryptError) {
-					console.error('Failed to decrypt last message for', pubkey, decryptError);
+					// Only log detailed errors for non-MAC issues to reduce noise
+					if (decryptError instanceof Error && !decryptError.message.includes('Invalid MAC')) {
+						console.error('Failed to decrypt last message for', pubkey, decryptError);
+					}
 					// Keep the original event but mark content as undecryptable
 					decryptedLastEvent = {
 						...lastEvent,
@@ -825,7 +842,7 @@ export async function getMessagedPeople(): Promise<
 }
 
 /**
- * Verificar si un mensaje es un bid
+ * Check if a message is a bid
  */
 export function isBidMessage(message: { plaintext: string }): boolean {
 	try {
@@ -837,7 +854,7 @@ export function isBidMessage(message: { plaintext: string }): boolean {
 }
 
 /**
- * Verificar si un mensaje es un mensaje normal (no bid)
+ * Check if a message is a normal message (not a bid)
  */
 export function isNormalMessage(message: { plaintext: string }): boolean {
 	return !isBidMessage(message);

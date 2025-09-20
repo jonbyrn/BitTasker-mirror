@@ -26,7 +26,7 @@ import {
 	preparePayOnchain,
 	parseInput
 } from '$lib/wallet/breez/walletService';
-import { getAssetId, getCurrentNetwork, LIQUID_ASSET_IDS } from '$lib/constants/assets';
+import { getAssetId, getCurrentNetwork, LIQUID_ASSET_IDS } from '$lib/utils/constants/assets';
 
 function getCleanAddress(input: string): string {
 	// Handle BIP21 URIs

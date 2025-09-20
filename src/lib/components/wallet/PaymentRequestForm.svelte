@@ -11,7 +11,7 @@
 		getCurrentNetwork,
 		getAssetId,
 		type AssetMetadata
-	} from '$lib/constants/assets';
+	} from '$lib/utils/constants/assets';
 	import { appStore } from '$lib/stores/app.store';
 	import Input from '$lib/components/Input.svelte';
 	import { t } from 'svelte-i18n';
