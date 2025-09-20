@@ -22,12 +22,16 @@
 
 	// Convert categories to the format expected by svelte-multiselect with translations
 	// This will reactively update when the language changes
-	$derived const categoryOptions = TASK_CATEGORIES
-		.map(category => ({
-			value: $t(`categories.${category.id}.name`),
-			label: $t(`categories.${category.id}.name`)
-		}))
-		.sort((a, b) => a.label.localeCompare(b.label));
+	let categoryOptions = $state([]);
+	
+	$effect(() => {
+		categoryOptions = TASK_CATEGORIES
+			.map(category => ({
+				value: $t(`categories.${category.id}.name`),
+				label: $t(`categories.${category.id}.name`)
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
+	});
 
 	// Call onChange when selectedCategories changes
 	$effect(() => {

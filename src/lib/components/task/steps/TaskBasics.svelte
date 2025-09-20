@@ -10,9 +10,13 @@
 	let { errors, direction } = $props();
 
 	// Convert category IDs to translated names for display
-	$derived const translatedCategories = $store.task.categories.map(categoryId => {
-		const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
-		return category ? $t(`categories.${category.id}.name`) : categoryId;
+	let translatedCategories = $state([]);
+	
+	$effect(() => {
+		translatedCategories = $store.task.categories.map(categoryId => {
+			const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+			return category ? $t(`categories.${category.id}.name`) : categoryId;
+		});
 	});
 
 	// Handle category changes - convert translated names back to IDs
