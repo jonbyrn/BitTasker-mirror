@@ -2,13 +2,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
-import { getNostrKeyPair } from './nostrKeys';
+import { getNpub } from './nostrKeys';
 import {
 	sendDirectMessage,
 	getMessageHistory,
 	getMessagedPeople
 } from './nostr-message';
-import { bytesToHex } from '@noble/hashes/utils';
 
 export interface NostrBid {
 	type: 'bid';
@@ -31,7 +30,7 @@ export interface NostrBid {
 	endDate?: string | null;
 	startTime?: string | null;
 	endTime?: string | null;
-	// Agregar este campo para identificar que es un bid
+	// Add this field to identify it as a bid
 	messageType: 'bid';
 	taskCreatorUsername?: string;
 	taskCreatorAvatar?: string;
@@ -40,60 +39,51 @@ export interface NostrBid {
 	bidderId?: string;
 	bidderName?: string;
 	bidderAvatar?: string;
+	// RSK wallet address for escrow funding
+	bidderWalletAddress?: string;
 }
 
 export interface BidMessage {
-	bid: NostrBid; // Los datos del bid
-	senderPubkey: string; // Quien envió el bid
-	event: NostrEvent; // El evento Nostr
+	bid: NostrBid; // The bid data
+	senderPubkey: string; // Who sent the bid
+	event: NostrEvent; // The Nostr event
 }
 
 /**
- * Submit a bid as an encrypted DM to the task creator
- */
-export async function submitBidAsDM(bidData: any, recipientPubkey: string): Promise<void> {
-	try {
-		// Agregar el identificador de tipo de mensaje
-		const bidWithType = {
-			...bidData,
-			messageType: 'bid' as const
-		};
-
-		// Enviar como DM encriptado
-		await sendDirectMessage(JSON.stringify(bidWithType), recipientPubkey);
-	} catch (error) {
-		console.error('Error al enviar bid como DM:', error);
-		throw error;
-	}
-}
-
-/**
- * Obtener solo los bids de los DMs (excluyendo mensajes normales)
+ * Get only bids from DMs (excluding normal messages)
  */
 export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 	try {
-		const { nsec, npub } = await getNostrKeyPair();
-		const privkey = bytesToHex(nsec);
-		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
-
-		// Obtener todas las personas con las que has intercambiado mensajes
+		// Get all people you've exchanged messages with
 		const messagedPeople = await getMessagedPeople();
 		const bids: BidMessage[] = [];
 
-		// Para cada conversación, buscar solo mensajes que sean bids
+		// For each conversation, search only for messages that are bids
 		for (const person of messagedPeople) {
 			try {
-				// Obtener historial de mensajes con esta persona
+				// Get bid-specific message history with this person (more efficient)
 				const messageHistory = await getMessageHistory(person.pubkey, { limit: 100 });
 
-				// Filtrar solo mensajes que contengan bids
+				// Filter only messages that contain bids
 				for (const message of messageHistory) {
 					try {
-						const parsedContent = JSON.parse(message.plaintext);
+						// Skip if message is empty or invalid
+						if (!message.plaintext || message.plaintext.trim() === '') {
+							continue;
+						}
 
-						// Verificar que sea un bid válido
+						// Try to parse as JSON first
+						let parsedContent;
+						try {
+							parsedContent = JSON.parse(message.plaintext);
+						} catch {
+							// Not JSON, skip
+							continue;
+						}
+
+						// Verify it's a valid bid
 						if (parsedContent.messageType === 'bid' && parsedContent.type === 'bid') {
-							// Si se especifica taskId, filtrar por esa tarea
+							// If taskId is specified, filter by that task
 							if (!taskId || parsedContent.taskId === taskId) {
 								bids.push({
 									bid: parsedContent,
@@ -103,7 +93,7 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 							}
 						}
 					} catch (parseError) {
-						// No es un bid válido, continuar
+						// Not a valid bid, continue
 						continue;
 					}
 				}
@@ -111,50 +101,47 @@ export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 				continue;
 			}
 		}
-
-		// Ordenar por timestamp (más recientes primero)
+		
+		// Sort by timestamp (most recent first)
 		return bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
 	} catch (error) {
-		console.error('Error al obtener bids de DMs:', error);
+		console.error('Error getting bids from DMs:', error);
 		throw error;
 	}
 }
 
 /**
- * Obtener todos los bids para una tarea específica
- */
-export async function getTaskBids(taskId: string): Promise<BidMessage[]> {
-	return getBidsFromDMs(taskId);
-}
-
-/**
- * Obtener todos los bids enviados por el usuario actual
+ * Get all bids sent by the current user
  */
 export async function getMyBids(): Promise<BidMessage[]> {
 	try {
-		const { nsec, npub } = await getNostrKeyPair();
-		const privkey = bytesToHex(nsec);
+		const npub = await getNpub();
 		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
-		// Obtener todas las personas con las que has intercambiado mensajes
+		// Get all people you've exchanged messages with
 		const messagedPeople = await getMessagedPeople();
 		const bids: BidMessage[] = [];
 
-		// Para cada conversación, buscar solo bids enviados por el usuario actual
+		// For each conversation, search only for bids sent by the current user
 		for (const person of messagedPeople) {
 			try {
 				const messageHistory = await getMessageHistory(person.pubkey, { limit: 100 });
 
 				for (const message of messageHistory) {
 					try {
+						// Skip if message is empty or invalid
+						if (!message.plaintext || message.plaintext.trim() === '') {
+							continue;
+						}
+
 						const parsedContent = JSON.parse(message.plaintext);
 
-						// Verificar que sea un bid enviado por el usuario actual
+						// Verify it's a bid sent by the current user
 						if (parsedContent.messageType === 'bid' && 
 							parsedContent.type === 'bid' && 
 							message.senderPubkey === pubkeyHex) {
 							
-							// Asegurar que todos los campos estén presentes
+							// Ensure all fields are present
 							const completeBid: NostrBid = {
 								...parsedContent,
 								messageType: 'bid'
@@ -171,13 +158,15 @@ export async function getMyBids(): Promise<BidMessage[]> {
 					}
 				}
 			} catch (err) {
+				// Skip this conversation if there's an error
+				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
 				continue;
 			}
 		}
 
 		return bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
 	} catch (error) {
-		console.error('Error al obtener mis bids:', error);
+		console.error('Error getting my bids:', error);
 		throw error;
 	}
 }

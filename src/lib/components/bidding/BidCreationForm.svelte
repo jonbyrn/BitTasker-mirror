@@ -2,9 +2,10 @@
 	import type { PaymentType } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
-	import { submitBidAsDM } from '$lib/utils/nostr-bid';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
+	import { sendDirectMessage } from '$lib/utils/nostr-message';
+	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// Props
 	const {
@@ -287,14 +288,16 @@
 	}
 
 	// Handle form submission
-	async function handleBidSubmit() {
-		if (!validateBidForm()) {
-			return;
-		}
+	async function handleBidSubmit(e: Event) {
+		e.preventDefault();
+
+		if (!validateBidForm()) return;
 
 		submittingBid = true;
 
 		try {
+			await rskWallet.initializeWallet();
+
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid' as const,
@@ -323,15 +326,25 @@
 				bidderName: loggedInUserName,
 				bidderAvatar: loggedInUserAvatar,
 
+				// Add RSK wallet address for escrow funding
+				bidderWalletAddress: $rskAddress,
+
 				// Add new datetime fields
 				startDate: bidType === 'FIXED' ? startDate : null,
 				endDate: bidType === 'FIXED' ? endDate : null,
 				startTime: bidType === 'FIXED' ? startTime : null,
-				endTime: bidType === 'FIXED' ? endTime : null
+				endTime: bidType === 'FIXED' ? endTime : null,
+
+				messageType: 'bid'
 			};
 
-			// Submit bid as encrypted DM using the new system
-			await submitBidAsDM(bidData, taskCreatorPubkey);
+			// Create custom tags for the nostr event
+			const customTags: string[][] = [
+				['t', taskId] // Add task ID as a custom tag for filtering
+			];
+
+			// Submit a bid as an encrypted DM to the task creator with custom tags
+			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
 
 			// Mark bid as submitted
 			bidSubmitted = true;
@@ -387,13 +400,7 @@
 			</div>
 		</div>
 	{:else}
-		<form
-			class="space-y-4"
-			onsubmit={(e) => {
-				e.preventDefault();
-				handleBidSubmit();
-			}}
-		>
+		<form class="space-y-4" onsubmit={handleBidSubmit}>
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">

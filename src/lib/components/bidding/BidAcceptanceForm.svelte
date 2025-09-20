@@ -1,18 +1,22 @@
 <script lang="ts">
 	import type { TaskBid } from '$lib/types/bid';
-	import { onMount } from 'svelte';
-	import QRCode from 'qrcode';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
-	import EscrowSuccessScreen from './EscrowSuccessScreen.svelte';
-	import ExternalWalletPaymentScreen from './ExternalWalletPaymentScreen.svelte';
+	import type { Task } from '$lib/types/task';
+	import { rskWalletStore, rskWallet } from '$lib/stores/rskWallet.store';
 	import { t } from 'svelte-i18n';
+	import {
+		calculateBidEscrowDetails,
+		validateEscrowDetails,
+		acceptBidAndCreateEscrow,
+		getFeePercentageDisplay,
+		formatRBTCAmount,
+		formatTimestamp
+	} from '$lib/utils/bidEscrowService';
+	
 	// Props
 	const props = $props<{
 		bid: TaskBid;
+		task: Task;
 		taskTitle: string;
-		onSubmit: (bidId: string, escrowMethod: string, escrowDetails: any) => Promise<void>;
 		onCancel: () => void;
 		onGoToDashboard?: () => void;
 		onCreateNewTask?: () => void;
@@ -20,130 +24,55 @@
 
 	// Form state
 	let isSubmitting = $state(false);
-	let validationErrors = $state<Record<string, string>>({});
-	let currentScreen = $state<'form' | 'external-payment' | 'success'>('form');
+	let validationErrors = $state<string[]>([]);
+	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
 
-	// Escrow funding state
-	let selectedEscrowTab = $state<'bittasker' | 'external'>('bittasker');
-	let selectedBitTaskerAsset = $state<'LBTC' | 'USDT'>('LBTC');
-	let selectedExternalMethod = $state<'bitcoin-lightning' | 'lbtc-liquid' | 'usdt-liquid'>(
-		'bitcoin-lightning'
-	);
+	// Calculate escrow details from bid
+	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task));
 
-	// QR codes and addresses
-	let qrCodes = $state<Record<string, string>>({});
-	let addresses = $state<Record<string, string>>({});
-	let btcPrice = $state<number>(63000); // Default fallback price
+	$effect(() => {
+		validationErrors = validateEscrowDetails(bidEscrowDetails);
+	});
 
-	// Fee calculations - Fixed calculations
-	let bidAmountUsd = $derived((props.bid.amount / 100000000) * btcPrice);
-	let platformFeeUsd = $derived(bidAmountUsd * 0.025); // 2.5% platform fee
-	let transactionFeeUsd = $derived(bidAmountUsd * 0.005); // 0.5% transaction fee
-	let totalFiatPrice = $derived(bidAmountUsd + platformFeeUsd + transactionFeeUsd);
-
-	// Convert USD amounts back to sats for display
-	let platformFeeSats = $derived(Math.round((platformFeeUsd / btcPrice) * 100000000));
-	let transactionFeeSats = $derived(Math.round((transactionFeeUsd / btcPrice) * 100000000));
-	let totalSatsPrice = $derived(props.bid.amount + platformFeeSats + transactionFeeSats);
-
-	// Fetch BTC price on mount
-	async function fetchBtcPrice(): Promise<void> {
-		try {
-			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
-		} catch (error) {
-			console.error('Error fetching BTC price:', error);
+	// Auto-initialize RSK wallet if not connected
+	$effect(() => {
+		if (!$rskWalletStore.isConnected && !$rskWalletStore.isConnecting && !$rskWalletStore.error) {
+			rskWallet.initialize().catch(error => {
+				console.error('Auto-initialization of RSK wallet failed:', error);
+			});
 		}
-	}
-
-	// Generate sample addresses and QR codes (in real implementation, these would come from the backend)
-	async function generateAddressesAndQRCodes() {
-		const sampleAddresses = {
-			'bitcoin-lightning': 'lnbc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-			'lbtc-liquid': 'VJL8rRKYNNvEYpef4nqEGtTGjpYYTzGcUDGvvTp9tgUNGLRBwUuB',
-			'usdt-liquid': 'VJL8rRKYNNvEYpef4nqEGtTGjpYYTzGcUDGvvTp9tgUNGLRBwUuB'
-		};
-
-		// Generate QR codes for each address
-		for (const [method, address] of Object.entries(sampleAddresses)) {
-			try {
-				const qrDataUrl = await QRCode.toDataURL(address, {
-					width: 200,
-					margin: 2,
-					color: {
-						dark: '#000000',
-						light: '#FFFFFF'
-					}
-				});
-				qrCodes[method] = qrDataUrl;
-				addresses[method] = address;
-			} catch (error) {
-				console.error(`Failed to generate QR code for ${method}:`, error);
-			}
-		}
-	}
-
-	// Form validation
-	function validateForm() {
-		const errors: Record<string, string> = {};
-
-		if (!selectedEscrowTab) {
-			errors.escrowMethod = $t('dashboard.bids.bid_acceptance.please_select_escrow_method');
-		}
-
-		validationErrors = errors;
-		return Object.keys(errors).length === 0;
-	}
+	});
 
 	// Handle form submission
 	async function handleSubmit() {
-		if (!validateForm() || !props.bid.id) {
+		if (validationErrors.length !== 0 || !props.bid.id) {
 			return;
 		}
 
 		isSubmitting = true;
 
 		try {
-			escrowDetails = {
-				method: selectedEscrowTab,
-				...(selectedEscrowTab === 'bittasker' && {
-					asset: selectedBitTaskerAsset
-				}),
-				...(selectedEscrowTab === 'external' && {
-					paymentMethod: selectedExternalMethod,
-					address: addresses[selectedExternalMethod],
-					qrCode: qrCodes[selectedExternalMethod]
-				})
-			};
+			// Accept bid and create escrow
+			const result = await acceptBidAndCreateEscrow(props.bid, props.task);
 
-			// For BitTasker wallet, go directly to success screen
-			if (selectedEscrowTab === 'bittasker') {
-				await props.onSubmit(props.bid.id, selectedEscrowTab, escrowDetails);
+			if (result.success) {
+				escrowDetails = {
+					transactionResult: result.transactionResult,
+					escrowDetails: bidEscrowDetails
+				};
+
 				currentScreen = 'success';
 			} else {
-				// For external wallet, show payment screen
-				currentScreen = 'external-payment';
+				// Show error
+				validationErrors = [result.error || 'Failed to create escrow'];
 			}
 		} catch (error) {
 			console.error('Failed to accept bid:', error);
+			validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
 		} finally {
 			isSubmitting = false;
 		}
-	}
-
-	// Handle external payment confirmation
-	async function handleExternalPaymentConfirmed() {
-		try {
-			await props.onSubmit(props.bid.id, selectedEscrowTab, escrowDetails);
-			currentScreen = 'success';
-		} catch (error) {
-			console.error('Failed to confirm external payment:', error);
-		}
-	}
-
-	// Handle going back to form
-	function handleBackToForm() {
-		currentScreen = 'form';
 	}
 
 	// Handle going to dashboard
@@ -164,10 +93,6 @@
 		}
 	}
 
-	onMount(() => {
-		generateAddressesAndQRCodes();
-		fetchBtcPrice();
-	});
 </script>
 
 {#if currentScreen === 'form'}
@@ -276,32 +201,19 @@
 					<div class="rounded-lg p-3">
 						<div class="space-y-2">
 							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.bid_price')}</span>
-								<span class="text-xs font-bold"
-									>${formatNumberWithTwoDecimals(props.bid.amount)}
-								</span>
+								<span class="text-xs font-medium">Base Amount:</span>
+								<span class="text-xs font-bold">{formatRBTCAmount(bidEscrowDetails.baseAmount)} RBTC</span>
 							</div>
 
 							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.platform_fee')}</span>
-								<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
-							</div>
-
-							<div class="flex items-center justify-between">
-								<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.est_transaction_fee')}</span>
-								<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
+								<span class="text-xs font-medium">Client Fee ({getFeePercentageDisplay(bidEscrowDetails.clientFeeTier)}):</span>
+								<span class="text-xs font-bold">{formatRBTCAmount(bidEscrowDetails.clientFee)} RBTC</span>
 							</div>
 
 							<div class="border-base-200 border-t pt-2">
 								<div class="flex items-center justify-between">
-									<span class="text-base font-bold">{$t('dashboard.bids.bid_acceptance.total_price')}</span>
-									<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
-								</div>
-								<div class="mt-1 flex items-center justify-between">
-									<span class="text-base font-semibold"></span>
-									<span class="text-base-content/60 text-sm"
-										>{satsFromUsd(totalSatsPrice, btcPrice)}</span
-									>
+									<span class="text-base font-bold">Total Payment:</span>
+									<span class="text-base font-bold text-primary">{formatRBTCAmount(bidEscrowDetails.totalAmount)} RBTC</span>
 								</div>
 							</div>
 						</div>
@@ -374,27 +286,17 @@
 				<!-- Price Breakdown -->
 				<div class=" space-y-2 rounded-2xl p-3">
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.bid_price')}</span>
-						<span class="text-xs font-bold">${formatNumberWithTwoDecimals(props.bid.amount)} </span>
+						<span class="text-xs font-medium">Base Amount:</span>
+						<span class="text-xs font-bold">{formatRBTCAmount(bidEscrowDetails.baseAmount)} RBTC</span>
 					</div>
 					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.platform_fee')}</span>
-						<span class="text-xs font-bold">${platformFeeUsd.toFixed(2)}</span>
-					</div>
-					<div class="flex items-center justify-between">
-						<span class="text-xs font-medium">{$t('dashboard.bids.bid_acceptance.est_transaction_fee')}</span>
-						<span class="text-xs font-bold">${transactionFeeUsd.toFixed(2)}</span>
+						<span class="text-xs font-medium">Client Fee ({getFeePercentageDisplay(bidEscrowDetails.clientFeeTier)}):</span>
+						<span class="text-xs font-bold">{formatRBTCAmount(bidEscrowDetails.clientFee)} RBTC</span>
 					</div>
 					<div class="border-base-200 border-t pt-2">
 						<div class="flex items-center justify-between">
-							<span class="text-base font-semibold">{$t('dashboard.bids.bid_acceptance.total_price')}</span>
-							<span class="text-base font-bold">${totalFiatPrice.toFixed(2)}</span>
-						</div>
-						<div class="mt-1 flex items-center justify-between">
-							<span class="text-base font-semibold"></span>
-							<span class="text-base-content/60 text-sm"
-								>{satsFromUsd(totalSatsPrice, btcPrice)}</span
-							>
+							<span class="text-base font-semibold">Total Payment:</span>
+							<span class="text-base font-bold text-primary">{formatRBTCAmount(bidEscrowDetails.totalAmount)} RBTC</span>
 						</div>
 					</div>
 				</div>
@@ -420,168 +322,126 @@
 				</small>
 			</div>
 
-			<!-- Escrow Funding Section -->
+			<!-- RSK Escrow Contract Details -->
 			<div class="mb-4">
-				<!-- Tab Navigation -->
-				<div class="tabs tabs-bordered mb-3 w-full">
-					<button
-						role="tab"
-						class="tab flex-1 {selectedEscrowTab === 'bittasker' ? 'tab-active' : ''}"
-						onclick={() => (selectedEscrowTab = 'bittasker')}
-					>
-						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.my_wallet')}</span>
-						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.my_wallet')}</span>
-					</button>
-					<button
-						role="tab"
-						class="tab flex-1 {selectedEscrowTab === 'external' ? 'tab-active' : ''}"
-						onclick={() => (selectedEscrowTab = 'external')}
-					>
-						<span class="hidden sm:inline">{$t('dashboard.bids.bid_acceptance.external_wallet')}</span>
-						<span class="sm:hidden">{$t('dashboard.bids.bid_acceptance.external')}</span>
-					</button>
+				<div class="mb-3">
+					<h5 class="text-lg font-semibold mb-2">RSK Escrow Contract</h5>
+					<p class="text-sm text-base-content/70 mb-4">
+						This will create a secure escrow contract on the RSK network to hold the payment until the task is completed.
+					</p>
 				</div>
 
-				<!-- BitTasker Wallet Tab -->
-				{#if selectedEscrowTab === 'bittasker'}
-					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						<!-- LBTC Option -->
-						<button
-							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedBitTaskerAsset ===
-							'LBTC'
-								? 'border-primary'
-								: 'border-base-300'}"
-							onclick={() => (selectedBitTaskerAsset = 'LBTC')}
-						>
-							<div class="card-body p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="h-8 w-8" />
-										<div class="flex flex-col text-start">
-											<span class="text-lg font-semibold">L-BTC</span>
-											<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.liquid_bitcoin')}</span>
-										</div>
-									</div>
-									<div class="flex flex-col items-end">
-										<span class="text-lg font-bold">100,000</span>
-										<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.sats')}</span>
-									</div>
-								</div>
-							</div>
-						</button>
+				<!-- Contract Details Card -->
+				<div class="bg-base-200 rounded-lg p-4 space-y-3">
+					<div class="flex justify-between items-center">
+						<span class="text-sm font-medium">Freelancer Address:</span>
+						<span class="text-sm font-mono text-primary">
+							{bidEscrowDetails.freelancerAddress.slice(0, 6)}...{bidEscrowDetails.freelancerAddress.slice(-4)}
+						</span>
+					</div>
 
-						<!-- USDT Option -->
-						<button
-							class="card bg-base-100 hover:bg-base-200 border-2 transition-colors {selectedBitTaskerAsset ===
-							'USDT'
-								? 'border-primary'
-								: 'border-base-300'}"
-							onclick={() => (selectedBitTaskerAsset = 'USDT')}
-						>
-							<div class="card-body p-4">
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-3">
-										<img src="/currency-symbols/USDt.svg" alt="USDT" class="h-8 w-8" />
-										<div class="flex flex-col text-start">
-											<span class="text-lg font-semibold">USDT</span>
-											<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.tether_usd')}</span>
-										</div>
-									</div>
-									<div class="flex flex-col items-end">
-										<span class="text-lg font-bold">$120.00</span>
-										<span class="text-base-content/60 text-sm">{$t('dashboard.bids.bid_acceptance.usdt')}</span>
-									</div>
-								</div>
+					<div class="flex justify-between items-center">
+						<span class="text-sm font-medium">Base Amount:</span>
+						<span class="text-sm font-bold">{formatRBTCAmount(bidEscrowDetails.baseAmount)} RBTC</span>
+					</div>
+
+					<div class="flex justify-between items-center">
+						<span class="text-sm font-medium">Client Fee ({getFeePercentageDisplay(bidEscrowDetails.clientFeeTier)}):</span>
+						<span class="text-sm">{formatRBTCAmount(bidEscrowDetails.clientFee)} RBTC</span>
+					</div>
+
+					<div class="border-t border-base-300 pt-2">
+						<div class="flex justify-between items-center">
+							<span class="text-base font-semibold">Total Payment:</span>
+							<span class="text-base font-bold text-primary">{formatRBTCAmount(bidEscrowDetails.totalAmount)} RBTC</span>
+						</div>
+					</div>
+
+					<div class="mt-4 space-y-2">
+						<div class="flex justify-between items-center text-xs">
+							<span class="text-base-content/60">Estimated Start:</span>
+							<span class="text-base-content/80">{formatTimestamp(bidEscrowDetails.estimatedStartTime)}</span>
+						</div>
+						<div class="flex justify-between items-center text-xs">
+							<span class="text-base-content/60">Estimated Completion:</span>
+							<span class="text-base-content/80">{formatTimestamp(bidEscrowDetails.estimatedCompletionTime)}</span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Wallet Connection Status -->
+				{#if !$rskWalletStore.isConnected}
+					<div class="alert alert-warning mt-4">
+						<div class="flex w-full items-center justify-between">
+							<div class="flex items-center">
+								<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+								</svg>
+								<span>RSK wallet not connected. Please connect your wallet to proceed.</span>
 							</div>
-						</button>
+							<button 
+								class="btn btn-sm btn-primary"
+								onclick={async () => {
+									try {
+										await rskWallet.initialize();
+									} catch (error) {
+										console.error('Failed to connect RSK wallet:', error);
+									}
+								}}
+								disabled={$rskWalletStore.isConnecting}
+							>
+								{#if $rskWalletStore.isConnecting}
+									<span class="loading loading-spinner loading-xs"></span>
+									Connecting...
+								{:else}
+									Connect RSK Wallet
+								{/if}
+							</button>
+						</div>
 					</div>
 				{/if}
-
-				<!-- External Wallet Tab -->
-				{#if selectedEscrowTab === 'external'}
-					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-						<!-- Bitcoin Lightning -->
-						<button
-							class="group bg-base-100 hover:bg-base-200 relative rounded-4xl border p-3 transition-all duration-200 {selectedExternalMethod ===
-							'bitcoin-lightning'
-								? 'border-primary '
-								: 'border-base-300 '}"
-							onclick={() => (selectedExternalMethod = 'bitcoin-lightning')}
-						>
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<div class="flex h-10 w-10 items-center justify-center rounded-full">
-										<img src="/currency-symbols/Bitcoin.svg" alt="BTC" class="h-6 w-6" />
-									</div>
-									<div class="flex flex-col text-start">
-										<span class="text-base font-bold">BTC</span>
-										<span class="text-base-content/70 text-xs">{$t('dashboard.bids.bid_acceptance.lightning_network')}</span>
-									</div>
-								</div>
-								<div class="flex flex-col items-end text-right">
-									<span class="text-primary text-xs font-bold">{$t('dashboard.bids.bid_acceptance.fast')}</span>
-									<span class="text-base-content/60 text-xs">{$t('dashboard.bids.bid_acceptance.payments')}</span>
-								</div>
+				
+				<!-- RSK Wallet Connection Error -->
+				{#if $rskWalletStore.error}
+					<div class="alert alert-error mt-4">
+						<div class="flex w-full items-center justify-between">
+							<div class="flex items-center">
+								<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+								</svg>
+								<span>RSK Wallet Error: {$rskWalletStore.error}</span>
 							</div>
-						</button>
-
-						<!-- LBTC on Liquid -->
-						<button
-							class="group bg-base-100 hover:bg-base-200 relative rounded-4xl border p-3 transition-all duration-200 {selectedExternalMethod ===
-							'lbtc-liquid'
-								? 'border-primary'
-								: 'border-base-300'}"
-							onclick={() => (selectedExternalMethod = 'lbtc-liquid')}
-						>
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<div class="flex h-10 w-10 items-center justify-center rounded-full">
-										<img src="/currency-symbols/LBTC.svg" alt="LBTC" class="h-6 w-6" />
-									</div>
-									<div class="flex flex-col text-start">
-										<span class="text-base font-bold">L-BTC</span>
-										<span class="text-base-content/70 text-xs">{$t('dashboard.bids.bid_acceptance.liquid_bitcoin')}</span>
-									</div>
-								</div>
-								<div class="flex flex-col items-end text-right">
-									<span class="text-base-content text-xs font-bold">{$t('dashboard.bids.bid_acceptance.private')}</span>
-									<span class="text-base-content/60 text-xs">{$t('dashboard.bids.bid_acceptance.confidential')}</span>
-								</div>
-							</div>
-						</button>
-
-						<!-- USDT on Liquid -->
-						<button
-							class="group bg-base-100 hover:bg-base-200 relative rounded-4xl border p-3 transition-all duration-200 {selectedExternalMethod ===
-							'usdt-liquid'
-								? 'border-primary'
-								: 'border-base-300'}"
-							onclick={() => (selectedExternalMethod = 'usdt-liquid')}
-						>
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<div class="flex h-10 w-10 items-center justify-center rounded-full">
-										<img src="/currency-symbols/USDt.svg" alt="USDT" class="h-6 w-6" />
-									</div>
-									<div class="flex flex-col text-start">
-										<span class="text-base font-bold">USDT</span>
-										<span class="text-base-content/70 text-xs">{$t('dashboard.bids.bid_acceptance.tether_usd')}</span>
-									</div>
-								</div>
-								<div class="flex flex-col items-end text-right">
-									<span class="text-base-content text-xs font-bold">{$t('dashboard.bids.bid_acceptance.stable')}</span>
-									<span class="text-base-content/60 text-xs"> {$t('dashboard.bids.bid_acceptance.pegged')}</span>
-								</div>
-							</div>
-						</button>
+							<button 
+								class="btn btn-sm btn-outline"
+								onclick={async () => {
+									try {
+										await rskWallet.initialize();
+									} catch (error) {
+										console.error('Failed to retry RSK wallet connection:', error);
+									}
+								}}
+								disabled={$rskWalletStore.isConnecting}
+							>
+								{#if $rskWalletStore.isConnecting}
+									<span class="loading loading-spinner loading-xs"></span>
+									Retrying...
+								{:else}
+									Retry
+								{/if}
+							</button>
+						</div>
 					</div>
 				{/if}
 			</div>
 
 			<!-- Validation Errors -->
-			{#if validationErrors.escrowMethod}
+			{#if validationErrors.length > 0}
 				<div class="alert alert-error mb-4">
-					<span>{validationErrors.escrowMethod}</span>
+					<ul class="list-disc list-inside">
+						{#each validationErrors as error}
+							<li>{error}</li>
+						{/each}
+					</ul>
 				</div>
 			{/if}
 
@@ -600,54 +460,94 @@
 				<button
 					type="button"
 					class="btn btn-primary"
-					disabled={isSubmitting}
+					disabled={isSubmitting || validationErrors.length > 0 || !$rskWalletStore.isConnected}
 					onclick={handleSubmit}
 				>
-					<span class="hidden sm:inline"
-						>{isSubmitting ? $t('dashboard.bids.bid_acceptance.processing') : $t('dashboard.bids.bid_acceptance.accept_bid_fund_contract')}</span
-					>
-					<span class="sm:hidden">{isSubmitting ? $t('dashboard.bids.bid_acceptance.processing') : $t('dashboard.bids.bid_acceptance.accept_fund')}</span>
+					{#if isSubmitting}
+						<span class="loading loading-spinner loading-sm"></span>
+						<span class="hidden sm:inline">Creating Escrow...</span>
+						<span class="sm:hidden">Creating...</span>
+					{:else}
+						<span class="hidden sm:inline">Accept Bid & Fund Contract</span>
+						<span class="sm:hidden">Accept & Fund</span>
+					{/if}
 				</button>
 			</div>
 		</div>
 	</div>
 {/if}
 
-{#if currentScreen === 'external-payment' && escrowDetails}
-	<ExternalWalletPaymentScreen
-		bid={props.bid}
-		taskTitle={props.taskTitle}
-		{escrowDetails}
-		{btcPrice}
-		onPaymentConfirmed={handleExternalPaymentConfirmed}
-		onCancel={handleBackToForm}
-	/>
-{/if}
 
 {#if currentScreen === 'success' && escrowDetails}
-	<EscrowSuccessScreen
-		bid={props.bid}
-		taskTitle={props.taskTitle}
-		{escrowDetails}
-		{btcPrice}
-		onGoToDashboard={handleGoToDashboard}
-		onCreateNewTask={handleCreateNewTask}
-	/>
+	<div class="bg-base-100 mx-auto max-h-[70vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
+		<!-- Header -->
+		<div class="border-b bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4 pb-4 sm:p-6">
+			<h4 class="line-clamp-2 font-bold text-success">Escrow Created Successfully!</h4>
+		</div>
+
+		<!-- Content -->
+		<div class="p-6 text-center space-y-6">
+			<!-- Success Icon -->
+			<div class="flex justify-center">
+				<div class="bg-success/10 rounded-full p-4">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+				</div>
+			</div>
+
+			<!-- Success Message -->
+			<div class="space-y-2">
+				<h3 class="text-xl font-bold">Bid Accepted & Escrow Funded</h3>
+				<p class="text-base-content/70">
+					The RSK escrow contract has been successfully created and funded with {formatRBTCAmount(bidEscrowDetails.totalAmount)} RBTC.
+				</p>
+			</div>
+
+			<!-- Transaction Details -->
+			{#if escrowDetails.transactionResult}
+				<div class="bg-base-200 rounded-lg p-4 space-y-2">
+					<h4 class="font-semibold">Transaction Details</h4>
+					<div class="text-sm space-y-1">
+						<div class="flex justify-between">
+							<span>Transaction Hash:</span>
+							<span class="font-mono text-xs">{escrowDetails.transactionResult.hash}</span>
+						</div>
+						<div class="flex justify-between">
+							<span>Status:</span>
+							<span class="capitalize badge badge-info badge-sm">{escrowDetails.transactionResult.status}</span>
+						</div>
+						{#if escrowDetails.transactionResult.escrowId}
+							<div class="flex justify-between">
+								<span>Escrow ID:</span>
+								<span class="font-bold">{escrowDetails.transactionResult.escrowId}</span>
+							</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Next Steps -->
+			<div class="bg-info/10 rounded-lg p-4">
+				<h4 class="font-semibold text-info mb-2">What happens next?</h4>
+				<ul class="text-sm text-left space-y-1 text-base-content/80">
+					<li>• The freelancer will be notified of the accepted bid</li>
+					<li>• Work can begin as per the agreed timeline</li>
+					<li>• Funds are securely held in the RSK escrow contract</li>
+					<li>• Payment will be released upon task completion</li>
+				</ul>
+			</div>
+
+			<!-- Action Buttons -->
+			<div class="flex flex-col sm:flex-row gap-3 pt-4">
+				<button class="btn btn-outline flex-1" onclick={handleCreateNewTask}>
+					Create New Task
+				</button>
+				<button class="btn btn-primary flex-1" onclick={handleGoToDashboard}>
+					Go to Dashboard
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
-<style>
-	.tab.tab-active {
-		position: relative;
-	}
-
-	.tab.tab-active::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		width: 100%;
-		height: 2px;
-		background-color: orange; /* Match the Tabs.svelte component */
-		border-radius: 1px;
-	}
-</style>
