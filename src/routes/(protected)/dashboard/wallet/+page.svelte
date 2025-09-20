@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+	import { t } from 'svelte-i18n';
 
 	let mounted = $state(false);
 	onMount(() => (mounted = true));
@@ -98,6 +99,25 @@
 				class="btn btn-primary flex w-fit min-w-1/3 items-center justify-center place-self-end"
 			>
 				Connect
+			</a>
+		</div>
+		<div
+			class="bg-base-100 w-full space-y-4 rounded-lg p-3 shadow-lg"
+			transition:fly={{ y: 20, duration: 700, easing: linear }}
+		>
+			<div class="h-10 w-fit">
+				<img 
+					src="/currency-symbols/USDt.svg" 
+					alt="BSC USDT" 
+					class="h-full w-auto"
+				/>
+			</div>
+			<small class="block text-sm">{$t('wallet.bsc.title')}</small>
+			<a
+				href="/dashboard/wallet/bsc"
+				class="btn btn-primary flex w-fit min-w-1/3 items-center justify-center place-self-end"
+			>
+				{$t('wallet.bsc.tab_balance')}
 			</a>
 		</div>
 	{/if}
