@@ -36,10 +36,15 @@
 			if (currentLanguage !== lastLanguage) {
 				lastLanguage = currentLanguage;
 				categoryOptions = TASK_CATEGORIES
-					.map(category => ({
-						value: $t(`categories.${category.id}.name`),
-						label: $t(`categories.${category.id}.name`)
-					}))
+					.map(category => {
+						const translatedName = $t(`categories.${category.id}.name`);
+						// Fallback to category.name if translation key is returned (translation not loaded)
+						const displayName = translatedName.startsWith('categories.') ? category.name : translatedName;
+						return {
+							value: displayName,
+							label: displayName
+						};
+					})
 					.sort((a, b) => a.label.localeCompare(b.label));
 			}
 		} catch (error) {

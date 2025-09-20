@@ -154,10 +154,16 @@
 	function handleCategoryChange(tags: string[]) {
 		// Convert translated category names back to category IDs
 		filters.categories = tags.map((translatedName) => {
-			// Find the category ID that matches the translated name
-			const category = TASK_CATEGORIES.find(cat => 
+			// First try to find by translated name
+			let category = TASK_CATEGORIES.find(cat => 
 				$t(`categories.${cat.id}.name`) === translatedName
 			);
+			
+			// If not found, try to find by original name (fallback case)
+			if (!category) {
+				category = TASK_CATEGORIES.find(cat => cat.name === translatedName);
+			}
+			
 			return category ? category.id : translatedName.toLowerCase();
 		});
 	}

@@ -27,7 +27,12 @@
 				
 				translatedCategories = currentCategories.map(categoryId => {
 					const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
-					return category ? $t(`categories.${category.id}.name`) : categoryId;
+					if (category) {
+						const translatedName = $t(`categories.${category.id}.name`);
+						// Fallback to category.name if translation key is returned (translation not loaded)
+						return translatedName.startsWith('categories.') ? category.name : translatedName;
+					}
+					return categoryId;
 				});
 			}
 		} catch (error) {
@@ -39,9 +44,16 @@
 	function handleCategoryChange(translatedNames: string[]) {
 		try {
 			const categoryIds = translatedNames.map(translatedName => {
-				const category = TASK_CATEGORIES.find(cat => 
+				// First try to find by translated name
+				let category = TASK_CATEGORIES.find(cat => 
 					$t(`categories.${cat.id}.name`) === translatedName
 				);
+				
+				// If not found, try to find by original name (fallback case)
+				if (!category) {
+					category = TASK_CATEGORIES.find(cat => cat.name === translatedName);
+				}
+				
 				return category ? category.id : translatedName;
 			});
 			store.updateTask({ categories: categoryIds });
