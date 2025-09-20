@@ -152,7 +152,14 @@
 
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
-		filters.categories = tags.map((tag) => tag.toLowerCase());
+		// Convert translated category names back to category IDs
+		filters.categories = tags.map((translatedName) => {
+			// Find the category ID that matches the translated name
+			const category = TASK_CATEGORIES.find(cat => 
+				$t(`categories.${cat.id}.name`) === translatedName
+			);
+			return category ? category.id : translatedName.toLowerCase();
+		});
 	}
 
 	// Handle skills change
@@ -368,6 +375,7 @@
 			<div class="collapse-content">
 				<CategoryMultiselect
 					bind:selectedCategories={filters.categories}
+					onChange={handleCategoryChange}
 					maxSelections={5}
 					placeholder={$t('find_tasks.add_categories')}
 					className="w-full"

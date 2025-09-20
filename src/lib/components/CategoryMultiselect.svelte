@@ -1,12 +1,14 @@
 <script lang="ts">
 	import Multiselect from 'svelte-multiselect';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { t } from 'svelte-i18n';
 
 	let {
 		selectedCategories = $bindable([]),
 		maxSelections = 3,
 		placeholder = 'Add tags...',
-		className = ''
+		className = '',
+		onChange = () => {}
 	} = $props();
 
 	// Clear any "Cleaning & Maintenance" entries on component mount only
@@ -18,15 +20,19 @@
 		}
 	});
 
-	// Convert categories to the format expected by svelte-multiselect and sort alphabetically
-	const categoryOptions = TASK_CATEGORIES
+	// Convert categories to the format expected by svelte-multiselect with translations
+	// This will reactively update when the language changes
+	$derived const categoryOptions = TASK_CATEGORIES
 		.map(category => ({
-			value: category.name,
-			label: category.name
+			value: $t(`categories.${category.id}.name`),
+			label: $t(`categories.${category.id}.name`)
 		}))
 		.sort((a, b) => a.label.localeCompare(b.label));
 
-	// No need for handleChange since we're using bind:selected
+	// Call onChange when selectedCategories changes
+	$effect(() => {
+		onChange(selectedCategories);
+	});
 </script>
 
 <div class="category-multiselect {className}">

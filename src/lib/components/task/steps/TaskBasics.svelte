@@ -5,8 +5,26 @@
 	import DatePicker from '$lib/components/date/DatePicker.svelte';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
+
+	// Convert category IDs to translated names for display
+	$derived const translatedCategories = $store.task.categories.map(categoryId => {
+		const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+		return category ? $t(`categories.${category.id}.name`) : categoryId;
+	});
+
+	// Handle category changes - convert translated names back to IDs
+	function handleCategoryChange(translatedNames: string[]) {
+		const categoryIds = translatedNames.map(translatedName => {
+			const category = TASK_CATEGORIES.find(cat => 
+				$t(`categories.${cat.id}.name`) === translatedName
+			);
+			return category ? category.id : translatedName;
+		});
+		store.updateTask({ categories: categoryIds });
+	}
 </script>
 
 <div
@@ -127,12 +145,13 @@
 
 	<div class="w-full">
 		<label for="category" class="label">{$t('task.category')}</label>
-		<CategoryMultiselect
-			bind:selectedCategories={$store.task.categories}
-			maxSelections={3}
-			placeholder="Add tags..."
-			className="w-full"
-		/>
+            <CategoryMultiselect
+                    bind:selectedCategories={translatedCategories}
+                    onChange={handleCategoryChange}
+                    maxSelections={3}
+                    placeholder="Add tags..."
+                    className="w-full"
+            />
 
 		{#if errors.category}
 			<span class="label-text-alt text-error">{errors.category}</span>
