@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-cloudflare';
+import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 
 /** @type {import('@sveltejs/kit').Config} */
@@ -12,8 +12,18 @@ const config = {
 	},
 
 	kit: {
-        // Configure the Cloudflare adapter
-        adapter: adapter(),
+        // Configure the adapter with fallback for SPA navigation
+        adapter: adapter({
+			// Single-page app mode with fallback
+			fallback: 'index.html',
+			// Path to build output
+			pages: 'build',
+			assets: 'build',
+			// Precompress only when explicitly enabled
+			precompress: process.env.PRECOMPRESS === '1',
+			// Make all paths strict
+			strict: true
+		}),
 
         alias: {
             $houdini: ".houdini/"
