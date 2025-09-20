@@ -33,7 +33,7 @@
 				type: undefined
 			},
 			search: '',
-			status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+			status: [TaskStatusEnum.OPEN]
 		};
 	}
 
@@ -187,7 +187,7 @@
 				...searchParams,
 				page: 1,
 				search: undefined,
-				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+				status: [TaskStatusEnum.OPEN]
 			};
 			searchParams = { ...searchParams, ...newParams };
 
@@ -203,7 +203,7 @@
 			...searchParams,
 			page: 1,
 			search: searchQuery.trim(),
-			status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+			status: [TaskStatusEnum.OPEN]
 		};
 
 		searchParams = { ...searchParams, ...newParams };
@@ -241,7 +241,7 @@
 			...searchParams,
 			...filters,
 			page: 1,
-			status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+			status: [TaskStatusEnum.OPEN]
 		};
 
 		// Update UI controls based on applied filters
@@ -303,7 +303,7 @@
 				...searchParams,
 				page: nextPage,
 				until: untilTimestamp,
-				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+				status: [TaskStatusEnum.OPEN]
 			};
 			await findTasks(searchParams);
 		}
@@ -368,14 +368,14 @@
 				...searchParams,
 				taskType: undefined,
 				page: 1,
-				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+				status: [TaskStatusEnum.OPEN]
 			};
 		} else {
 			searchParams = {
 				...searchParams,
 				taskType: type,
 				page: 1,
-				status: [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS]
+				status: [TaskStatusEnum.OPEN]
 			};
 		}
 
@@ -443,7 +443,7 @@
 	});
 
 	const onSelectTask = (task: Task) => {
-		if (task.status === TaskStatusEnum.OPEN || task.status === TaskStatusEnum.OPEN_WITH_BIDS) {
+		if (task.status === TaskStatusEnum.OPEN) {
 			if (task?.npub === $user?.npub) {
 				appStore.showErrorToast($t('find_tasks.cannot_bid_own_task'));
 			} else {
@@ -930,8 +930,7 @@
 																	d="M12 4v16m8-8H4"
 																/>
 															</svg>
-															{task.status === TaskStatusEnum.OPEN ||
-															task.status === TaskStatusEnum.OPEN_WITH_BIDS
+															{task.status === TaskStatusEnum.OPEN
 																? $t('find_tasks.bid_now')
 																: $t('find_tasks.bidding_closed')}
 														</button>

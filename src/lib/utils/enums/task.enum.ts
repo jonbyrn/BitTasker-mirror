@@ -19,7 +19,6 @@ export enum TaskStepEnum {
 
 export enum TaskStatusEnum {
 	OPEN = 'OPEN', // no bids
-	OPEN_WITH_BIDS = 'OPEN_WITH_BIDS', // has bids
 	BID_ACCEPTED = 'BID_ACCEPTED', // tasker accepted a bid, before funding
 	ESCROW_FUNDED = 'ESCROW_FUNDED', // escrow funded, ready to start
 	IN_PROGRESS = 'IN_PROGRESS', // work ongoing

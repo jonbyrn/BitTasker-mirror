@@ -18,13 +18,9 @@
 	}>();
 
 	// Task filter categories
-	type TaskFilterCategory =
-		| 'tasks_waiting_for_bids'
-		| 'tasks_in_progress'
-		| 'bids_received'
-		| 'tasks_completed'
+	type TaskFilterCategory = 'bids_received' | 'tasks_in_progress' | 'tasks_completed';
 
-	let activeFilter = $state<TaskFilterCategory>('tasks_waiting_for_bids');
+	let activeFilter = $state<TaskFilterCategory>('bids_received');
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let isDropdownOpen = $state<boolean>(false);
 
@@ -34,10 +30,9 @@
 
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
-		{ id: 'tasks_waiting_for_bids', label: $t('task.filters.tasks_waiting_for_bids') },
-		{ id: 'tasks_in_progress', label: $t('task.filters.tasks_in_progress') },
 		{ id: 'bids_received', label: $t('task.filters.bids_received') },
-		{ id: 'tasks_completed', label: $t('task.filters.tasks_completed') },
+		{ id: 'tasks_in_progress', label: $t('task.filters.tasks_in_progress') },
+		{ id: 'tasks_completed', label: $t('task.filters.tasks_completed') }
 	] as const);
 
 	/**
@@ -94,12 +89,11 @@
 	 */
 	function getFilteredTasks(tasks: Task[], filter: TaskFilterCategory): Task[] {
 		switch (filter) {
+			case 'bids_received':
+				return tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
+
 			case 'tasks_in_progress':
 				return tasks.filter((task) => task.status === TaskStatusEnum.IN_PROGRESS);
-			case 'bids_received':
-				return tasks.filter((task) => task.status === TaskStatusEnum.OPEN_WITH_BIDS);
-			case 'tasks_waiting_for_bids':
-				return tasks.filter((task) => task.status === TaskStatusEnum.OPEN);
 			case 'tasks_completed':
 				return tasks.filter((task) => task.status === TaskStatusEnum.COMPLETED);
 
@@ -113,27 +107,6 @@
 	 */
 	function getActionButtons(task: Task, category: TaskFilterCategory) {
 		switch (category) {
-			case 'tasks_in_progress':
-				return [
-					{
-						label: $t('task.actions.mark_as_done'),
-						class: 'btn-success btn-sm',
-						onclick: (e: any) => {
-							e.stopPropagation();
-							markTaskAsDone(task);
-						},
-						icon: 'mark_as_done'
-					},
-					{
-						label: $t('task.actions.rescope'),
-						class: 'btn-info btn-outline btn-sm',
-						onclick: (e: any) => {
-							e.stopPropagation();
-							rescopeTask(task);
-						},
-						icon: 'rescope'
-					}
-				];
 			case 'bids_received':
 				return [
 					{
@@ -155,27 +128,29 @@
 						icon: 'view_bids'
 					}
 				];
-			case 'tasks_waiting_for_bids':
+
+			case 'tasks_in_progress':
 				return [
 					{
-						label: $t('task.actions.view_details'),
-						class: 'btn-primary btn-sm',
+						label: $t('task.actions.mark_as_done'),
+						class: 'btn-success btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
-							openTaskDrawer(task, 'details');
+							markTaskAsDone(task);
 						},
-						icon: 'view_details'
+						icon: 'mark_as_done'
 					},
 					{
-						label: $t('task.actions.delete_task'),
-						class: 'btn-error btn-outline btn-sm',
+						label: $t('task.actions.rescope'),
+						class: 'btn-info btn-outline btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
-							deleteTask(task);
+							rescopeTask(task);
 						},
-						icon: 'delete'
+						icon: 'rescope'
 					}
 				];
+
 			case 'tasks_completed':
 				return [
 					{
@@ -189,26 +164,6 @@
 					}
 				];
 
-				return [
-					{
-						label: $t('task.actions.view_details'),
-						class: 'btn-primary btn-sm',
-						onclick: (e: any) => {
-							e.stopPropagation();
-							openTaskDrawer(task, 'details');
-						},
-						icon: 'view_details'
-					},
-					{
-						label: $t('task.actions.dispute_task'),
-						class: 'btn-warning btn-outline btn-sm',
-						onclick: (e: any) => {
-							e.stopPropagation();
-							disputeTask(task);
-						},
-						icon: 'dispute'
-					}
-				];
 			default:
 				return [];
 		}
@@ -327,14 +282,14 @@
 		<div class="mt-3 flex flex-col gap-3 sm:flex-row">
 			{#each filterOptions as option}
 				<button
-					class="flex cursor-pointer items-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 flex-1 justify-center {activeFilter ===
+					class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-3xl py-2 text-center transition-all duration-200 {activeFilter ===
 					option.id
 						? 'text-primary bg-primary/10'
 						: 'bg-base-100/40 hover:bg-base-100/50'}"
 					onclick={() => (activeFilter = option.id)}
 				>
 					<!-- Icon for each category -->
-					{#if option.id === 'tasks_waiting_for_bids'}
+					{#if option.id === 'bids_received'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
@@ -364,7 +319,7 @@
 								d="M13 10V3L4 14h7v7l9-11h-7z"
 							/>
 						</svg>
-					{:else if option.id === 'bids_received'}
+					{:else if option.id === 'tasks_completed'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
@@ -379,21 +334,6 @@
 								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
 							/>
 						</svg>
-					{:else if option.id === 'tasks_completed'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : ''}"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
 					{/if}
 					<span class="font-medium">{option.label}</span>
 				</button>
@@ -403,17 +343,17 @@
 
 	<!-- Mobile: Custom dropdown -->
 	<div class="block sm:hidden">
-		<div class="dropdown-container mt-3 relative">
+		<div class="dropdown-container relative mt-3">
 			<button
-				class="flex w-full cursor-pointer items-center justify-between rounded-3xl border border-primary bg-primary/10 px-4 py-1 text-primary transition-all duration-200 hover:bg-primary/20"
+				class="border-primary bg-primary/10 text-primary hover:bg-primary/20 flex w-full cursor-pointer items-center justify-between rounded-3xl border px-4 py-1 transition-all duration-200"
 				onclick={toggleDropdown}
 			>
 				<div class="flex items-center gap-2">
 					<!-- Icon for selected category -->
-					{#if activeFilter === 'tasks_waiting_for_bids'}
+					{#if activeFilter === 'bids_received'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-primary"
+							class="text-primary h-5 w-5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -428,7 +368,7 @@
 					{:else if activeFilter === 'tasks_in_progress'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-primary"
+							class="text-primary h-5 w-5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -440,10 +380,10 @@
 								d="M13 10V3L4 14h7v7l9-11h-7z"
 							/>
 						</svg>
-					{:else if activeFilter === 'bids_received'}
+					{:else if activeFilter === 'tasks_completed'}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-primary"
+							class="text-primary h-5 w-5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -455,29 +395,16 @@
 								d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
 							/>
 						</svg>
-					{:else if activeFilter === 'tasks_completed'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 text-primary"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
 					{/if}
 					<span class="font-medium">
-						{filterOptions.find(opt => opt.id === activeFilter)?.label}
+						{filterOptions.find((opt) => opt.id === activeFilter)?.label}
 					</span>
 				</div>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5 text-primary transition-transform duration-200 {isDropdownOpen ? 'rotate-180' : ''}"
+					class="text-primary h-5 w-5 transition-transform duration-200 {isDropdownOpen
+						? 'rotate-180'
+						: ''}"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -493,17 +420,24 @@
 
 			<!-- Dropdown menu -->
 			{#if isDropdownOpen}
-				<div class="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border border-base-300 bg-base-300 shadow-lg">
+				<div
+					class="border-base-300 bg-base-300 absolute top-full right-0 left-0 z-50 mt-2 rounded-xl border shadow-lg"
+				>
 					{#each filterOptions as option}
 						<button
-							class="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl hover:bg-base-200 {activeFilter === option.id ? 'bg-primary/10 text-primary' : 'text-base-content'}"
+							class="hover:bg-base-200 flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl {activeFilter ===
+							option.id
+								? 'bg-primary/10 text-primary'
+								: 'text-base-content'}"
 							onclick={() => selectFilter(option.id)}
 						>
 							<!-- Icon for each category -->
-							{#if option.id === 'tasks_waiting_for_bids'}
+							{#if option.id === 'bids_received'}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									class="h-5 w-5 {activeFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -518,7 +452,9 @@
 							{:else if option.id === 'tasks_in_progress'}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									class="h-5 w-5 {activeFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -530,10 +466,12 @@
 										d="M13 10V3L4 14h7v7l9-11h-7z"
 									/>
 								</svg>
-							{:else if option.id === 'bids_received'}
+							{:else if option.id === 'tasks_completed'}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
+									class="h-5 w-5 {activeFilter === option.id
+										? 'text-primary'
+										: 'text-base-content/60'}"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -545,27 +483,12 @@
 										d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
 									/>
 								</svg>
-							{:else if option.id === 'tasks_completed'}
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="h-5 w-5 {activeFilter === option.id ? 'text-primary' : 'text-base-content/60'}"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
-								</svg>
 							{/if}
 							<span class="font-medium">{option.label}</span>
 							{#if activeFilter === option.id}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
-									class="ml-auto h-5 w-5 text-primary"
+									class="text-primary ml-auto h-5 w-5"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"

@@ -25,7 +25,7 @@
 	let taskCreatorPubkey = $state<string>('');
 	let taskCreatorUsername = $state<string | undefined>(undefined);
 	let taskCreatorAvatar = $state<string | undefined>(undefined);
-	
+
 	// Logged-in user information
 	let loggedInUser = $state({
 		id: '',
@@ -82,7 +82,7 @@
 		try {
 			// First, fetch the latest user data including profile images
 			await user.getUserData();
-			
+
 			// Then get current user data from the store
 			let userData: UserData | undefined;
 			const unsubscribe = user.subscribe((data) => {
@@ -231,7 +231,7 @@
 	{:else if task}
 		<!-- Bid form only -->
 		<div class="p-6">
-			{#if (task.id && task.status === TaskStatusEnum.OPEN) || task.status === TaskStatusEnum.OPEN_WITH_BIDS}
+			{#if task.id && task.status === TaskStatusEnum.OPEN}
 				<BidCreationForm
 					taskId={task.id}
 					onClose={() => handleClose()}

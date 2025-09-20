@@ -105,9 +105,9 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter.search = params.search.trim();
     }
 
-    // Always filter to show only OPEN and OPEN_WITH_BIDS tasks
+    // Always filter to show only OPEN tasks
     // Override any status filter to ensure we only show active tasks
-    filter['S'] = [TaskStatusEnum.OPEN, TaskStatusEnum.OPEN_WITH_BIDS];
+    filter['S'] = [TaskStatusEnum.OPEN];
 
     return filter;
 }
