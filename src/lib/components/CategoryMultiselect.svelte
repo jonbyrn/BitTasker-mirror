@@ -14,28 +14,51 @@
 	// Clear any "Cleaning & Maintenance" entries on component mount only
 	let hasCleaned = false;
 	$effect(() => {
-		if (!hasCleaned && selectedCategories.includes('Cleaning & Maintenance')) {
-			selectedCategories = selectedCategories.filter(cat => cat !== 'Cleaning & Maintenance');
-			hasCleaned = true;
+		try {
+			if (!hasCleaned && selectedCategories.includes('Cleaning & Maintenance')) {
+				selectedCategories = selectedCategories.filter(cat => cat !== 'Cleaning & Maintenance');
+				hasCleaned = true;
+			}
+		} catch (error) {
+			console.error('Error cleaning default categories:', error);
 		}
 	});
 
 	// Convert categories to the format expected by svelte-multiselect with translations
 	// This will reactively update when the language changes
 	let categoryOptions = $state([]);
+	let lastLanguage = $state('');
 	
 	$effect(() => {
-		categoryOptions = TASK_CATEGORIES
-			.map(category => ({
-				value: $t(`categories.${category.id}.name`),
-				label: $t(`categories.${category.id}.name`)
-			}))
-			.sort((a, b) => a.label.localeCompare(b.label));
+		try {
+			// Only update if language has changed to prevent excessive re-renders
+			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
+			if (currentLanguage !== lastLanguage) {
+				lastLanguage = currentLanguage;
+				categoryOptions = TASK_CATEGORIES
+					.map(category => ({
+						value: $t(`categories.${category.id}.name`),
+						label: $t(`categories.${category.id}.name`)
+					}))
+					.sort((a, b) => a.label.localeCompare(b.label));
+			}
+		} catch (error) {
+			console.error('Error updating category options:', error);
+		}
 	});
 
-	// Call onChange when selectedCategories changes
+	// Call onChange when selectedCategories changes - with guard to prevent infinite loops
+	let lastSelectedCategories = $state([]);
 	$effect(() => {
-		onChange(selectedCategories);
+		try {
+			// Only call onChange if the selection actually changed
+			if (JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
+				lastSelectedCategories = [...selectedCategories];
+				onChange(selectedCategories);
+			}
+		} catch (error) {
+			console.error('Error handling category change:', error);
+		}
 	});
 </script>
 

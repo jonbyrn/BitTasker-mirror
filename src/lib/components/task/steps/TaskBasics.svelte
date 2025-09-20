@@ -11,23 +11,43 @@
 
 	// Convert category IDs to translated names for display
 	let translatedCategories = $state([]);
+	let lastCategories = $state([]);
+	let lastLanguage = $state('');
 	
 	$effect(() => {
-		translatedCategories = $store.task.categories.map(categoryId => {
-			const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
-			return category ? $t(`categories.${category.id}.name`) : categoryId;
-		});
+		try {
+			// Only update if categories or language has changed to prevent excessive re-renders
+			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
+			const currentCategories = $store.task.categories;
+			
+			if (JSON.stringify(currentCategories) !== JSON.stringify(lastCategories) || 
+				currentLanguage !== lastLanguage) {
+				lastCategories = [...currentCategories];
+				lastLanguage = currentLanguage;
+				
+				translatedCategories = currentCategories.map(categoryId => {
+					const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+					return category ? $t(`categories.${category.id}.name`) : categoryId;
+				});
+			}
+		} catch (error) {
+			console.error('Error updating translated categories:', error);
+		}
 	});
 
 	// Handle category changes - convert translated names back to IDs
 	function handleCategoryChange(translatedNames: string[]) {
-		const categoryIds = translatedNames.map(translatedName => {
-			const category = TASK_CATEGORIES.find(cat => 
-				$t(`categories.${cat.id}.name`) === translatedName
-			);
-			return category ? category.id : translatedName;
-		});
-		store.updateTask({ categories: categoryIds });
+		try {
+			const categoryIds = translatedNames.map(translatedName => {
+				const category = TASK_CATEGORIES.find(cat => 
+					$t(`categories.${cat.id}.name`) === translatedName
+				);
+				return category ? category.id : translatedName;
+			});
+			store.updateTask({ categories: categoryIds });
+		} catch (error) {
+			console.error('Error handling category change:', error);
+		}
 	}
 </script>
 
