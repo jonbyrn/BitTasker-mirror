@@ -4,6 +4,8 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
 	import { t } from 'svelte-i18n';
+	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
+	import '$lib/styles/air-datepicker.css';
 
 	// Props
 	const props = $props<{
@@ -26,10 +28,8 @@
 	let validationErrors = $state<Record<string, string>>({});
 
 	// New datetime fields for fixed price bids
-	let startDate = $state<string>('');
-	let endDate = $state<string>('');
-	let startTime = $state<string>('09:00');
-	let endTime = $state<string>('17:00');
+	let startDateTime = $state<Date | null>(null);
+	let endDateTime = $state<Date | null>(null);
 
 	// USDT conversion state
 	let usdAmount = $state<number>(0);
@@ -166,10 +166,8 @@
 
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
-		if (bidType === 'FIXED' && startDate && endDate) {
-			const start = new Date(`${startDate}T${startTime}`);
-			const end = new Date(`${endDate}T${endTime}`);
-			const diffMs = end.getTime() - start.getTime();
+		if (bidType === 'FIXED' && startDateTime && endDateTime) {
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
 			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
 
@@ -199,14 +197,10 @@
 			}
 
 			// Validate datetime fields for fixed price
-			if (!startDate || !endDate) {
+			if (!startDateTime || !endDateTime) {
 				errors.datetime = $t('dashboard.bids.counter_offer.errors.start_end_dates_required');
-			} else {
-				const start = new Date(`${startDate}T${startTime}`);
-				const end = new Date(`${endDate}T${endTime}`);
-				if (start >= end) {
-					errors.datetime = $t('dashboard.bids.counter_offer.errors.end_date_after_start');
-				}
+			} else if (startDateTime >= endDateTime) {
+				errors.datetime = $t('dashboard.bids.counter_offer.errors.end_date_after_start');
 			}
 		}
 
@@ -425,42 +419,24 @@
 					<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
 				</label>
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-					<div>
-						<label class="label-text-alt mb-2 block" for="start-date">{$t('dashboard.bids.counter_offer.start_date_time')}</label>
-						<div class="flex gap-2">
-							<input
-								type="date"
-								id="start-date"
-								bind:value={startDate}
-								class="input input-bordered flex-1 {validationErrors.datetime ? 'input-error' : ''}"
-								min={new Date().toISOString().split('T')[0]}
-							/>
-							<input
-								type="time"
-								id="start-time"
-								bind:value={startTime}
-								class="input input-bordered w-32 {validationErrors.datetime ? 'input-error' : ''}"
-							/>
-						</div>
-					</div>
-					<div>
-						<label class="label-text-alt mb-2 block" for="end-date">{$t('dashboard.bids.counter_offer.end_date_time')}</label>
-						<div class="flex gap-2">
-							<input
-								type="date"
-								id="end-date"
-								bind:value={endDate}
-								class="input input-bordered flex-1 {validationErrors.datetime ? 'input-error' : ''}"
-								min={startDate || new Date().toISOString().split('T')[0]}
-							/>
-							<input
-								type="time"
-								id="end-time"
-								bind:value={endTime}
-								class="input input-bordered w-32 {validationErrors.datetime ? 'input-error' : ''}"
-							/>
-						</div>
-					</div>
+					<AirDatepicker
+						bind:value={startDateTime}
+						type="datetime"
+						labelKey="airdatepicker.select_start_datetime"
+						placeholderKey="airdatepicker.select_start_datetime"
+						minDate={new Date()}
+						onChange={(date) => startDateTime = date}
+						className={validationErrors.datetime ? 'input-error' : ''}
+					/>
+					<AirDatepicker
+						bind:value={endDateTime}
+						type="datetime"
+						labelKey="airdatepicker.select_end_datetime"
+						placeholderKey="airdatepicker.select_end_datetime"
+						minDate={startDateTime || new Date()}
+						onChange={(date) => endDateTime = date}
+						className={validationErrors.datetime ? 'input-error' : ''}
+					/>
 				</div>
 				{#if validationErrors.datetime}
 					<div class="label">
@@ -469,7 +445,7 @@
 						>
 					</div>
 				{/if}
-				{#if startDate && endDate}
+				{#if startDateTime && endDateTime}
 					<span class="label-text-alt text-info mt-1 block">
 						{$t('dashboard.bids.counter_offer.duration')} {formatDurationForDisplay()}
 					</span>

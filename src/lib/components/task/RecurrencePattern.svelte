@@ -2,7 +2,8 @@
 	import { type MyTaskTemplates$result, type RecurrencePatternInput } from '$houdini';
 	import { RecurringFrequencyEnum } from '$lib/utils/enums/task.enum';
 	import Input from '../Input.svelte';
-	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
+	import '$lib/styles/air-datepicker.css';
 	import { t } from 'svelte-i18n';
 
 	// Define a more specific type for the pattern prop, handling potential null
@@ -268,9 +269,12 @@
 			<label class="label" for="endDate">
 				<span class="label-text">{$t('common.task.recurrence_pattern.end_date_optional')}</span>
 			</label>
-			<DatePicker
-				value={localPattern.endDate ? localPattern.endDate : undefined}
+			<AirDatepicker
+				value={localPattern.endDate ? localPattern.endDate : null}
 				onChange={handleEndDateChange}
+				type="single"
+				labelKey="airdatepicker.select_date"
+				placeholderKey="airdatepicker.select_date"
 			/>
 		</div>
 

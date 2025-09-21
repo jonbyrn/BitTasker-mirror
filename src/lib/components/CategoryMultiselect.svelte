@@ -75,7 +75,7 @@
 		maxSelect={maxSelections}
 		outerDivClass="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
 		ulSelectedClass="selected-categories flex flex-wrap gap-2 mb-2"
-		liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-xs font-medium flex items-center gap-1"
+		liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1"
 		ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 border-2 border-base-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
 		liOptionClass="category-option p-3 cursor-pointer transition-colors border-b border-gray-700 last:border-b-0"
 		liActiveOptionClass="category-option-active bg-primary text-white"

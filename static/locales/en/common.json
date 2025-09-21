@@ -12,6 +12,8 @@
         "required": "Required",
         "previous": "Previous",
         "next": "Next",
+        "today": "Today",
+        "clear": "Clear",
         "slide": "Slide",
         "view_all": "View All",
         "view_profile": "View Profile",
@@ -513,8 +515,18 @@
                 "task_not_found": "Task Not Found",
                 "task_not_found_message": "The requested task could not be found or may have been removed.",
                 "details": "Details"
-            }
         }
+    }
+    },
+    "airdatepicker": {
+        "select_date": "Select a date",
+        "select_date_range": "Select date range",
+        "select_datetime": "Select date and time",
+        "select_time": "Select time",
+        "select_start_date": "Select start date",
+        "select_end_date": "Select end date",
+        "select_start_datetime": "Select start date and time",
+        "select_end_datetime": "Select end date and time"
     },
     "layout": {
         "github_aria": "GitHub"

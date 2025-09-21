@@ -4,6 +4,8 @@
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { ethers } from 'ethers';
+	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
+	import '$lib/styles/air-datepicker.css';
 
 	// Form states
 	let activeTab = $state('create');
@@ -13,8 +15,8 @@
 	// Create escrow form
 	let freelancerAddress = $state('');
 	let escrowAmount = $state('');
-	let startTime = $state('');
-	let completionTime = $state('');
+	let startTime = $state<Date | null>(null);
+	let completionTime = $state<Date | null>(null);
 	let clientFeeTier = $state(1);
 	let freelancerFeeTier = $state(1);
 
@@ -100,8 +102,8 @@
 			isLoading = true;
 
 			// Convert times to timestamps
-			const startTimestamp = Math.floor(new Date(startTime).getTime() / 1000);
-			const completionTimestamp = Math.floor(new Date(completionTime).getTime() / 1000);
+			const startTimestamp = Math.floor(startTime!.getTime() / 1000);
+			const completionTimestamp = Math.floor(completionTime!.getTime() / 1000);
 
 			if (startTimestamp <= Math.floor(Date.now() / 1000)) {
 				appStore.showErrorToast('Start time must be in the future');
@@ -337,27 +339,25 @@
 
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					<div class="form-control">
-						<label class="label" for="start-time">
-							<span class="label-text">Estimated Start Time</span>
-						</label>
-						<input
-							id="start-time"
-							type="datetime-local"
-							class="input input-bordered"
+						<AirDatepicker
 							bind:value={startTime}
+							type="datetime"
+							labelKey="airdatepicker.select_start_datetime"
+							placeholderKey="airdatepicker.select_start_datetime"
+							minDate={new Date()}
+							onChange={(date) => startTime = date}
 							disabled={isLoading}
 						/>
 					</div>
 
 					<div class="form-control">
-						<label class="label" for="completion-time">
-							<span class="label-text">Estimated Completion Time</span>
-						</label>
-						<input
-							id="completion-time"
-							type="datetime-local"
-							class="input input-bordered"
+						<AirDatepicker
 							bind:value={completionTime}
+							type="datetime"
+							labelKey="airdatepicker.select_end_datetime"
+							placeholderKey="airdatepicker.select_end_datetime"
+							minDate={startTime || new Date()}
+							onChange={(date) => completionTime = date}
 							disabled={isLoading}
 						/>
 					</div>

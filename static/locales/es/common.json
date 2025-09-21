@@ -12,6 +12,8 @@
     "required": "Requerido",
     "previous": "Anterior",
     "next": "Siguiente",
+    "today": "Hoy",
+    "clear": "Limpiar",
     "slide": "Diapositiva",
     "view_all": "Ver Todo",
     "view_profile": "Ver Perfil",
@@ -515,6 +517,16 @@
                 "details": "Detalles"
             }
         }
+    },
+    "airdatepicker": {
+        "select_date": "Seleccionar una fecha",
+        "select_date_range": "Seleccionar rango de fechas",
+        "select_datetime": "Seleccionar fecha y hora",
+        "select_time": "Seleccionar hora",
+        "select_start_date": "Seleccionar fecha de inicio",
+        "select_end_date": "Seleccionar fecha de fin",
+        "select_start_datetime": "Seleccionar fecha y hora de inicio",
+        "select_end_datetime": "Seleccionar fecha y hora de fin"
     },
     "layout": {
         "github_aria": "GitHub"

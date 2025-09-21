@@ -2,7 +2,8 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
+	import '$lib/styles/air-datepicker.css';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
@@ -129,53 +130,29 @@
 		</div>
 
 		{#if $store.task.dateRange}
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<DatePicker
-					label={$t('task.start_date')}
-					value={$store.task.dateRange.start}
-					minDate={new Date().toISOString()}
-					onChange={(value: string) => {
-						const start = value;
-						const end = $store.task.dateRange?.end ?? new Date().toISOString();
-						store.updateTask({
-							dateRange: {
-								start,
-								end
-							}
-						});
-					}}
-				/>
-				<DatePicker
-					label={$t('task.end_date')}
-					value={$store.task.dateRange.end}
-					minDate={new Date().toISOString()}
-					onChange={(value: string) => {
-						const end = value;
-						const start = $store.task.dateRange?.start ?? new Date().toISOString();
-						store.updateTask({
-							dateRange: {
-								start,
-								end
-							}
-						});
-					}}
-				/>
-				{#if errors.deadline}
-					<span class="label-text-alt text-error -mt-2">{errors.deadline}</span>
-				{/if}
-			</div>
+			<AirDatepicker
+				bind:value={$store.task.dateRange}
+				type="range"
+				labelKey="airdatepicker.select_date_range"
+				placeholderKey="airdatepicker.select_date_range"
+				minDate={new Date().toISOString()}
+				onChange={(range) => store.updateTask({ dateRange: range })}
+			/>
+			{#if errors.deadline}
+				<span class="label-text-alt text-error -mt-2">{errors.deadline}</span>
+			{/if}
 		{:else}
-			<div>
-				<DatePicker
-					label={$t('task.deadline')}
-					minDate={new Date().toISOString()}
-					value={$store.task.deadline}
-					onChange={(value: string) => store.updateTask({ deadline: value })}
-				/>
-				{#if errors.deadline}
-					<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
-				{/if}
-			</div>
+			<AirDatepicker
+				bind:value={$store.task.deadline}
+				type="single"
+				labelKey="airdatepicker.select_date"
+				placeholderKey="airdatepicker.select_date"
+				minDate={new Date().toISOString()}
+				onChange={(date) => store.updateTask({ deadline: date })}
+			/>
+			{#if errors.deadline}
+				<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
+			{/if}
 		{/if}
 	</div>
 

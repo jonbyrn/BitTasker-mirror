@@ -5,6 +5,8 @@
 -->
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
+	import '$lib/styles/air-datepicker.css';
 
 	// Props
 	let { onAvailabilityChange = () => {} } = $props<{
@@ -16,11 +18,11 @@
 	}>();
 
 	// State
-	let dateRange = $state<{ start: string; end: string }>({
-		start: '',
-		end: ''
+	let dateRange = $state<{ start: Date | null; end: Date | null }>({
+		start: null,
+		end: null
 	});
-	let deadline = $state<string>('');
+	let deadline = $state<Date | null>(null);
 
 	let timePreferences = $state<string[]>([]);
 	const timeOptions = $state([
@@ -44,17 +46,21 @@
 
 	// Clear availability filters
 	function clearAvailability() {
-		dateRange.start = '';
-		dateRange.end = '';
+		dateRange.start = null;
+		dateRange.end = null;
+		deadline = null;
 		timePreferences = [];
 	}
 
 	// Apply availability filter changes
 	function applyChanges() {
 		if (filterMode === 'date_range') {
-			return onAvailabilityChange('date_range', dateRange.start, dateRange.end);
+			const startStr = dateRange.start ? dateRange.start.toISOString().split('T')[0] : '';
+			const endStr = dateRange.end ? dateRange.end.toISOString().split('T')[0] : '';
+			return onAvailabilityChange('date_range', startStr, endStr);
 		} else if (filterMode === 'deadline') {
-			return onAvailabilityChange('deadline', deadline);
+			const deadlineStr = deadline ? deadline.toISOString().split('T')[0] : '';
+			return onAvailabilityChange('deadline', deadlineStr);
 		}
 	}
 
@@ -95,26 +101,22 @@
 				<span class="label-text font-medium">{$t('dashboard.bids.components.filters.availability.date_range')}</span>
 			</label>
 			<div class="grid grid-cols-2 gap-2">
-				<div>
-					<label class="label mb-1 p-0" for="start-date">
-						<span class="label-text text-xs">{$t('dashboard.bids.components.filters.availability.start_date')}</span>
-					</label>
-					<input
-						type="date"
-						class="input input-bordered input-sm w-full"
-						bind:value={dateRange.start}
-					/>
-				</div>
-				<div>
-					<label class="label mb-1 p-0" for="end-date">
-						<span class="label-text text-xs">{$t('dashboard.bids.components.filters.availability.end_date')}</span>
-					</label>
-					<input
-						type="date"
-						class="input input-bordered input-sm w-full"
-						bind:value={dateRange.end}
-					/>
-				</div>
+				<AirDatepicker
+					bind:value={dateRange.start}
+					type="single"
+					labelKey="airdatepicker.select_start_date"
+					placeholderKey="airdatepicker.select_start_date"
+					minDate={new Date()}
+					onChange={(date) => dateRange.start = date}
+				/>
+				<AirDatepicker
+					bind:value={dateRange.end}
+					type="single"
+					labelKey="airdatepicker.select_end_date"
+					placeholderKey="airdatepicker.select_end_date"
+					minDate={dateRange.start || new Date()}
+					onChange={(date) => dateRange.end = date}
+				/>
 			</div>
 		</div>
 	{/if}
@@ -140,11 +142,13 @@
 	{#if filterMode === 'deadline'}
 		<!-- Deadline Before -->
 		<div>
-			<input
-				type="date"
-				class="input input-bordered input-sm w-full"
+			<AirDatepicker
 				bind:value={deadline}
-				id="deadline-before-date"
+				type="single"
+				labelKey="airdatepicker.select_date"
+				placeholderKey="airdatepicker.select_date"
+				minDate={new Date()}
+				onChange={(date) => deadline = date}
 			/>
 		</div>
 	{/if}
