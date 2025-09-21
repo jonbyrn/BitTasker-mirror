@@ -120,7 +120,7 @@
 					},
 					{
 						label: $t('task.actions.view_bids'),
-						class: 'btn-info btn-outline btn-sm',
+						class: 'btn-outline btn-sm',
 						onclick: (e: any) => {
 							e.stopPropagation();
 							goto(`/dashboard/task/${task.id}/bids`);
