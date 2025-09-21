@@ -65,23 +65,6 @@
   let todayText = $derived($t('common.today', { default: 'Today' }));
   let clearText = $derived($t('common.clear', { default: 'Clear' }));
   
-  // Debug logging
-  $effect(() => {
-    console.log('AirDatepicker translations debug:', {
-      labelKey,
-      placeholderKey,
-      localizedLabel,
-      localizedPlaceholder,
-      todayText,
-      clearText,
-      locale: $locale,
-      isLoading: $isI18nLoading,
-      // Test specific translations
-      testTranslation: $t('airdatepicker.select_date_range'),
-      testNested: $t('common.airdatepicker.select_date_range'),
-      testCommon: $t('common.today')
-    });
-  });
   
   // Type-specific configuration
   function getTypeConfig(type: string) {
