@@ -42,8 +42,24 @@
 	});
 
 	// Handle category changes - convert translated names back to IDs
-	function handleCategoryChange(translatedNames: string[]) {
+	function handleCategoryChange(selectedItems: any[]) {
 		try {
+			console.log('handleCategoryChange called with:', selectedItems);
+			
+			// Extract values from the selected items (they might be objects with value/label or just strings)
+			const translatedNames = selectedItems.map(item => {
+				if (typeof item === 'string') {
+					return item;
+				} else if (item && typeof item === 'object' && item.value) {
+					return item.value;
+				} else if (item && typeof item === 'object' && item.label) {
+					return item.label;
+				}
+				return String(item);
+			});
+			
+			console.log('Extracted translatedNames:', translatedNames);
+			
 			const categoryIds = translatedNames.map(translatedName => {
 				// First try to find by translated name
 				let category = TASK_CATEGORIES.find(cat => 
@@ -55,8 +71,11 @@
 					category = TASK_CATEGORIES.find(cat => cat.name === translatedName);
 				}
 				
-				return category ? category.id : translatedName;
+				const result = category ? category.id : translatedName;
+				console.log(`Converting "${translatedName}" to "${result}"`);
+				return result;
 			});
+			console.log('Final categoryIds:', categoryIds);
 			store.updateTask({ categories: categoryIds });
 		} catch (error) {
 			console.error('Error handling category change:', error);
