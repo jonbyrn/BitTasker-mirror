@@ -35,17 +35,13 @@ export interface OnboardingRequest {
 	};
 }
 
-export interface UserProfile {
-	// Add profile fields as needed
-}
-
 export interface OnboardingResponse {
 	id: number;
 	email: string;
 	name: string;
 	userRole: UserType;
-	client: UserProfile | null;
-	freelancer: UserProfile | null;
+	client: null;
+	freelancer: null;
 }
 
 // ----- Task Types ----- //

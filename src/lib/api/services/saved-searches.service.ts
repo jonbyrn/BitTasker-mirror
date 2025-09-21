@@ -55,7 +55,7 @@ export class SavedSearchesService extends BaseApiService {
 	 */
 	async updateSavedSearch(id: string, updates: Partial<SavedSearch>): Promise<SavedSearch> {
 		// Map frontend frequency terms to backend enum values if present
-		let processedUpdates = { ...updates };
+		const processedUpdates = { ...updates };
 
 		if (updates.notificationFrequency) {
 			if (updates.notificationFrequency in NotificationFrequency) {

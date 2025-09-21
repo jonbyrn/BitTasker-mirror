@@ -8,8 +8,6 @@
 // Base route segments
 const API_PATH = '/api';
 const API_VERSION = 'v1';
-const NOSTR_API_PATH = '/api';
-const NOSTR_API_VERSION = 'v1';
 const AUTH = 'auth';
 const TASKS = 'tasks';
 const BIDS = 'bid';
@@ -19,9 +17,18 @@ const SAVED_SEARCHES = 'saved-searches';
 const RECOMMENDATIONS = 'recommendations';
 const LOCATION = 'location';
 const NOTIFICATIONS = 'notifications';
+const USER_HISTORY = 'user-history';
 
 // Full endpoint paths
 export const ENDPOINTS = {
+	// User history endpoints
+	USER_HISTORY: {
+		RECENTLY_VIEWED: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/recently-viewed`,
+		INTERACTION_STATS: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/interaction-stats`,
+		ENGAGED_TASKS: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/engaged-tasks`,
+		RECORD_VIEW: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/record-view`
+	},
+
 	// Auth endpoints
 	AUTH: {
 		ONBOARDING: `${API_PATH}/${API_VERSION}/${AUTH}/onboarding`,
