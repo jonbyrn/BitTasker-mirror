@@ -4,6 +4,7 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { ethers } from 'ethers';
 	import { appStore } from '$lib/stores/app.store';
+	import { t } from 'svelte-i18n';
 
 	let isRefreshing = $state(false);
 
@@ -56,6 +57,19 @@
 		}
 	}
 
+	function getTranslatedStatus(status: string): string {
+		switch (status) {
+			case 'confirmed':
+				return $t('common.components.wallet.transaction_history.confirmed');
+			case 'failed':
+				return $t('common.components.wallet.transaction_history.failed');
+			case 'pending':
+				return $t('common.components.wallet.transaction_history.pending');
+			default:
+				return status;
+		}
+	}
+
 	async function refreshTransactions() {
 		if (isRefreshing) return;
 		
@@ -80,7 +94,7 @@
 <div class="card bg-base-100 shadow-xl">
 	<div class="card-body">
 		<div class="mb-4 flex items-center justify-between">
-			<h3 class="card-title">Transaction History</h3>
+			<h3 class="card-title">{$t('wallet.rsk.transaction_history')}</h3>
 			<div class="badge badge-outline text-xs">
 				{allTransactions.length} tx
 			</div>
@@ -89,9 +103,9 @@
 		{#if allTransactions.length === 0}
 			<div class="py-12 text-center">
 				<div class="mb-4 text-6xl opacity-20">📝</div>
-				<div class="text-lg font-semibold opacity-60">No transactions yet</div>
+				<div class="text-lg font-semibold opacity-60">{$t('wallet.rsk.no_transactions_yet')}</div>
 				<div class="mt-2 text-sm opacity-40">
-					Your transaction history will appear here once you start using your RSK wallet.
+					{$t('wallet.rsk.no_transactions_description')}
 				</div>
 			</div>
 		{:else}
@@ -109,7 +123,7 @@
 										<div class="mb-1 flex items-center gap-2">
 											<span class="font-semibold capitalize">{tx.type}</span>
 											<div class="badge badge-sm {getStatusBadgeClass(tx.status)}">
-												{tx.status}
+												{getTranslatedStatus(tx.status)}
 											</div>
 											{#if tx.status === 'pending'}
 												<span class="loading loading-spinner loading-xs"></span>
@@ -118,7 +132,7 @@
 
 										<div class="space-y-1 text-sm opacity-70">
 											<div class="flex items-center gap-2">
-												<span>To:</span>
+												<span>{$t('wallet.rsk.to')}</span>
 												<span class="font-mono">{formatAddress(tx.to)}</span>
 												<button
 													aria-label="Copy address"
@@ -144,7 +158,7 @@
 											</div>
 
 											<div class="flex items-center gap-2">
-												<span>Hash:</span>
+												<span>{$t('wallet.rsk.hash')}</span>
 												<span class="font-mono">{formatAddress(tx.hash)}</span>
 												<button
 													aria-label="Copy hash"
@@ -170,7 +184,7 @@
 											</div>
 
 											{#if tx.blockNumber > 0}
-												<div>Block: #{tx.blockNumber.toLocaleString()}</div>
+												<div>{$t('wallet.rsk.block')} #{tx.blockNumber.toLocaleString()}</div>
 											{/if}
 
 											<div>{formatTimestamp(tx.timestamp)}</div>
@@ -191,7 +205,7 @@
 
 									{#if tx.gasUsed !== '0'}
 										<div class="text-xs opacity-60">
-											Fee: {formatAmount((BigInt(tx.gasUsed) * BigInt(tx.gasPrice)).toString())} RBTC
+											{$t('wallet.rsk.fee')} {formatAmount((BigInt(tx.gasUsed) * BigInt(tx.gasPrice)).toString())} RBTC
 										</div>
 									{/if}
 
@@ -232,8 +246,8 @@
 		<!-- Load More (placeholder for future pagination) -->
 		{#if allTransactions.length >= 10}
 			<div class="mt-6 text-center">
-				<button class="btn btn-outline btn-sm" disabled> Load More Transactions </button>
-				<div class="mt-2 text-xs opacity-60">Pagination coming soon</div>
+				<button class="btn btn-outline btn-sm" disabled> {$t('wallet.rsk.load_more_transactions')} </button>
+				<div class="mt-2 text-xs opacity-60">{$t('wallet.rsk.pagination_coming_soon')}</div>
 			</div>
 		{/if}
 	</div>
@@ -264,6 +278,6 @@
 				/>
 			</svg>
 		{/if}
-		{isRefreshing ? 'Refreshing...' : 'Refresh'}
+		{isRefreshing ? $t('wallet.rsk.refreshing') : $t('wallet.rsk.refresh')}
 	</button>
 </div>
