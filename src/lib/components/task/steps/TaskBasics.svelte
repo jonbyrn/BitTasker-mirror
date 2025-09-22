@@ -157,8 +157,8 @@
 					<DateInput
 						bind:value={$store.task.dateRange.start}
 						type="single"
-						labelKey="airdatepicker.select_start_date"
-						placeholderKey="airdatepicker.select_start_date"
+						labelKey="task.start_date"
+						placeholderKey="task.start_date"
 						minDate={new Date().toISOString()}
 						onChange={(date) => store.updateTask({ dateRange: { ...$store.task.dateRange, start: date } })}
 					/>
@@ -167,8 +167,8 @@
 					<DateInput
 						bind:value={$store.task.dateRange.end}
 						type="single"
-						labelKey="airdatepicker.select_end_date"
-						placeholderKey="airdatepicker.select_end_date"
+						labelKey="task.end_date"
+						placeholderKey="task.end_date"
 						minDate={$store.task.dateRange.start || new Date().toISOString()}
 						onChange={(date) => store.updateTask({ dateRange: { ...$store.task.dateRange, end: date } })}
 					/>
@@ -181,8 +181,8 @@
 			<DateInput
 				bind:value={$store.task.deadline}
 				type="single"
-				labelKey="airdatepicker.select_date"
-				placeholderKey="airdatepicker.select_date"
+				labelKey="task.deadline"
+				placeholderKey="task.deadline"
 				minDate={new Date().toISOString()}
 				onChange={(date) => store.updateTask({ deadline: date })}
 			/>

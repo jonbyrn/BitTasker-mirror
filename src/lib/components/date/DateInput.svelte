@@ -31,11 +31,11 @@
   
   // Reactive localized text
   let localizedLabel = $derived(
-    !labelKey ? '' : $t(`common.${labelKey}`)
+    !labelKey ? '' : $t(labelKey)
   );
   
   let localizedPlaceholder = $derived(
-    !placeholderKey ? '' : $t(`common.${placeholderKey}`)
+    !placeholderKey ? '' : $t(placeholderKey)
   );
   
   // Convert value to HTML5 input format
