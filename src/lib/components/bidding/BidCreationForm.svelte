@@ -6,8 +6,7 @@
 	import { sendDirectMessage } from '$lib/utils/nostr-message';
 	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
 	const {
@@ -267,16 +266,35 @@
 	function formatDurationForDisplay(): string {
 		if (bidType === 'FIXED' && startDateTime && endDateTime) {
 			const diffMs = endDateTime.getTime() - startDateTime.getTime();
-			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-			if (diffDays > 1) {
-				return `${diffDays} ${$t('dashboard.bids.bid_creation.days')}`;
-			} else if (diffHours > 1) {
-				return `${diffHours} ${$t('dashboard.bids.bid_creation.hours')}`;
-			} else {
+			const parts = [];
+			
+			if (diffDays > 0) {
+				parts.push(`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`);
+			}
+			
+			if (diffHours > 0) {
+				parts.push(`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`);
+			}
+			
+			if (diffMinutes > 0) {
+				parts.push(`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`);
+			}
+
+			if (parts.length === 0) {
 				return $t('dashboard.bids.bid_creation.one_hour');
 			}
+
+			if (parts.length === 1) {
+				return parts[0];
+			}
+
+			// Join with "and" for multiple parts
+			const lastPart = parts.pop();
+			return `${parts.join(', ')} and ${lastPart}`;
 		}
 		return '';
 	}
@@ -473,7 +491,7 @@
 						</div>
 					{/if}
 					{#if amount > 0}
-						<span class="label-text-alt text-info mt-1 block">
+						<span class="label-text-alt text-base-content/60 mt-1 block">
 							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
 						</span>
 					{/if}
@@ -484,31 +502,37 @@
 					<label class="label" for="datetime-range">
 						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
 					</label>
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<AirDatepicker
-							bind:value={startDateTime}
-							type="datetime"
-							labelKey="airdatepicker.select_start_datetime"
-							placeholderKey="airdatepicker.select_start_datetime"
-							minDate={new Date()}
-							onChange={(date) => {
-								startDateTime = date;
-								handleDateTimeChange();
-							}}
-							className={bidFormErrors.datetime ? 'input-error' : ''}
-						/>
-						<AirDatepicker
-							bind:value={endDateTime}
-							type="datetime"
-							labelKey="airdatepicker.select_end_datetime"
-							placeholderKey="airdatepicker.select_end_datetime"
-							minDate={startDateTime || new Date()}
-							onChange={(date) => {
-								endDateTime = date;
-								handleDateTimeChange();
-							}}
-							className={bidFormErrors.datetime ? 'input-error' : ''}
-						/>
+					<div class="flex flex-row gap-4">
+						<div class="flex-1">
+							<DateInput
+								bind:value={startDateTime}
+								type="datetime"
+								labelKey="airdatepicker.select_start_datetime"
+								placeholderKey="airdatepicker.select_start_datetime"
+								minDate={new Date()}
+								timeStep={15}
+								onChange={(date) => {
+									startDateTime = date;
+									handleDateTimeChange();
+								}}
+								className={bidFormErrors.datetime ? 'input-error' : ''}
+							/>
+						</div>
+						<div class="flex-1">
+							<DateInput
+								bind:value={endDateTime}
+								type="datetime"
+								labelKey="airdatepicker.select_end_datetime"
+								placeholderKey="airdatepicker.select_end_datetime"
+								minDate={startDateTime || new Date()}
+								timeStep={15}
+								onChange={(date) => {
+									endDateTime = date;
+									handleDateTimeChange();
+								}}
+								className={bidFormErrors.datetime ? 'input-error' : ''}
+							/>
+						</div>
 					</div>
 					{#if bidFormErrors.datetime}
 						<div class="label">
@@ -518,7 +542,7 @@
 						</div>
 					{/if}
 					{#if startDateTime && endDateTime}
-						<span class="label-text-alt text-info mt-1 block">
+						<span class="label-text-alt text-base-content/60 mt-1 block">
 							{$t('bid_form.form.duration')}: {formatDurationForDisplay()}
 						</span>
 					{/if}
@@ -573,7 +597,7 @@
 						</div>
 					{/if}
 					{#if hourlyRate > 0}
-						<span class="label-text-alt text-info mt-1 block">
+						<span class="label-text-alt text-base-content/60 mt-1 block">
 							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
 						</span>
 					{/if}

@@ -2,8 +2,7 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
@@ -117,6 +116,7 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 				onclick={() => {
+					console.log('Specific date button clicked');
 					const tomorrow = new Date();
 					tomorrow.setDate(tomorrow.getDate() + 1);
 					
@@ -124,13 +124,15 @@
 						deadline: tomorrow.toISOString(),
 						dateRange: undefined
 					});
+					console.log('Updated task:', $store.task);
 				}}
 			>
 				{$t('task.specific_date')}
 			</button>
 			<button
-				class="btn {!$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
+				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => {
+					console.log('Flexible date button clicked');
 					const today = new Date();
 					const tomorrow = new Date();
 					tomorrow.setDate(tomorrow.getDate() + 1);
@@ -142,6 +144,7 @@
 							end: tomorrow.toISOString()
 						}
 					});
+					console.log('Updated task:', $store.task);
 				}}
 			>
 				{$t('task.flexible')}
@@ -149,19 +152,33 @@
 		</div>
 
 		{#if $store.task.dateRange}
-			<AirDatepicker
-				bind:value={$store.task.dateRange}
-				type="range"
-				labelKey="airdatepicker.select_date_range"
-				placeholderKey="airdatepicker.select_date_range"
-				minDate={new Date().toISOString()}
-				onChange={(range) => store.updateTask({ dateRange: range })}
-			/>
+			<div class="flex gap-4">
+				<div class="flex-1">
+					<DateInput
+						bind:value={$store.task.dateRange.start}
+						type="single"
+						labelKey="airdatepicker.select_start_date"
+						placeholderKey="airdatepicker.select_start_date"
+						minDate={new Date().toISOString()}
+						onChange={(date) => store.updateTask({ dateRange: { ...$store.task.dateRange, start: date } })}
+					/>
+				</div>
+				<div class="flex-1">
+					<DateInput
+						bind:value={$store.task.dateRange.end}
+						type="single"
+						labelKey="airdatepicker.select_end_date"
+						placeholderKey="airdatepicker.select_end_date"
+						minDate={$store.task.dateRange.start || new Date().toISOString()}
+						onChange={(date) => store.updateTask({ dateRange: { ...$store.task.dateRange, end: date } })}
+					/>
+				</div>
+			</div>
 			{#if errors.deadline}
 				<span class="label-text-alt text-error -mt-2">{errors.deadline}</span>
 			{/if}
 		{:else}
-			<AirDatepicker
+			<DateInput
 				bind:value={$store.task.deadline}
 				type="single"
 				labelKey="airdatepicker.select_date"

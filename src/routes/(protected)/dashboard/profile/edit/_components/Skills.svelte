@@ -10,8 +10,7 @@
 		deleteNostrEvent
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -474,7 +473,7 @@
 
 										<!-- Issue Date -->
 										<div class="form-control">
-											<AirDatepicker
+											<DateInput
 												value={certification.date ? new Date(certification.date) : null}
 												onChange={(date: Date | null) => {
 													certification.date = date ? date.toISOString() : '';

@@ -11,8 +11,7 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -386,7 +385,7 @@
 
 					<!-- Completion Date -->
 					<div class="form-control">
-						<AirDatepicker
+						<DateInput
 							value={completionDate ? new Date(completionDate) : null}
 							onChange={(date: Date | null) => (completionDate = date ? date.toISOString() : '')}
 							type="single"
