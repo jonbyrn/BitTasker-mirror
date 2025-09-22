@@ -216,7 +216,7 @@
 	});
 </script>
 
-<div class="mx-auto max-w-7xl">
+<div class="mx-auto max-w-7xl p-4 md:p-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
@@ -288,18 +288,15 @@
 					d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-xl font-semibold text-error">Error Loading Bids</h3>
+			<h3 class="text-error mt-4 text-xl font-semibold">Error Loading Bids</h3>
 			<p class="text-base-content/60 mt-2 mb-4">
 				{errorMessage}
 			</p>
 			{#if showRetryButton}
-				<button 
-					class="btn btn-primary"
-					onclick={retryLoadingData}
-				>
+				<button class="btn btn-primary" onclick={retryLoadingData}>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 mr-2"
+						class="mr-2 h-4 w-4"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -397,7 +394,7 @@
 													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
 												/>
 											</svg>
-											<span class="hidden sm:inline">See Profile</span>
+											<span class="">See Profile</span>
 										</button>
 									</div>
 									<div class="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
@@ -476,28 +473,69 @@
 								</svg>
 							</button>
 
-							{#if bid?.status === 'PENDING'}
-								<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-									<button
-										class="btn btn-error btn-sm flex-1 sm:flex-none"
-										onclick={() => handleRejectBid(bid)}
+							<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+								<button
+									class="btn btn-error py-1 btn-sm flex-1 sm:flex-none"
+									onclick={() => handleRejectBid(bid)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
 									>
-										Decline
-									</button>
-									<button
-										class="btn btn-outline btn-sm flex-1 sm:flex-none"
-										onclick={() => handleCounterOffer(bid)}
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+									Decline
+								</button>
+								
+								<button
+									class="btn btn-info btn-outline py-1 btn-sm flex-1 sm:flex-none"
+									onclick={() => handleCounterOffer(bid)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
 									>
-										Counter
-									</button>
-									<button
-										class="btn btn-primary btn-sm flex-1 sm:flex-none"
-										onclick={() => handleAcceptBid(bid)}
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+										/>
+									</svg>
+									Counter
+								</button>
+								<button
+									class="btn btn-primary py-1 btn-sm flex-1 sm:flex-none"
+									onclick={() => handleAcceptBid(bid)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
 									>
-										Accept
-									</button>
-								</div>
-							{/if}
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M5 13l4 4L19 7"
+										/>
+									</svg>
+									Accept
+								</button>
+							</div>
 						</div>
 
 						<!-- Expanded details -->

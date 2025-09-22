@@ -57,7 +57,7 @@
 				<Avatar name={userName} picture={userPicture()} size="xl" />
 				<div>
 					<div class="flex flex-wrap items-center gap-2">
-						<h3 class="">
+						<h3 class="truncate">
 							{userName}
 						</h3>
 						{#if $profileStore.data.professionalTitle}
