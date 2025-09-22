@@ -284,12 +284,12 @@
 							>
 								{$t('homepage.v2.finalcta.tasker_cta')}
 							</a>
-							<a
+							<!-- <a
 								href="/dashboard/taskees"
 								class="btn btn-lg border-none bg-black text-white shadow-lg hover:bg-gray-800 transition-all duration-300 ease-in-out"
 							>
 								{$t('homepage.v2.finalcta.taskee_cta')}
-							</a>
+							</a> -->
 						</div>
 						<div>
 							<a

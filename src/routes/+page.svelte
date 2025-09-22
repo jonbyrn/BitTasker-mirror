@@ -129,11 +129,11 @@
 						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_tasks')}</a
 						>
-						<a
+						<!-- <a
 							href="/dashboard/taskees"
 							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_freelancers')}</a
-						>
+						> -->
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
