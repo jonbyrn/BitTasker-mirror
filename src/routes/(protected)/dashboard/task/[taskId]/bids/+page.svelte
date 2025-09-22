@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import bidService from '$lib/api/services/bid.service';
@@ -25,12 +25,14 @@
 	let bidToAccept = $state<TaskBid | null>(null);
 	let showCounterOfferForm = $state(false);
 	let selectedBid = $state<TaskBid | null>(null);
+	let showRetryButton = $state(false);
 
 	async function loadTaskDetails(id: string) {
 		if (!id) return;
 		try {
 			loading = true;
 			errorMessage = '';
+			showRetryButton = false;
 
 			const { data: event } = await nostrEventsService.findEventById(id);
 
@@ -146,6 +148,7 @@
 		} catch (error) {
 			console.error('Failed to load task details:', error);
 			errorMessage = $t('task.drawer.error.load');
+			showRetryButton = true;
 		} finally {
 			loading = false;
 		}
@@ -195,7 +198,16 @@
 	}
 
 	async function fetchBtcPrice(): Promise<void> {
-		btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Failed to fetch BTC price:', error);
+		}
+	}
+
+	function retryLoadingData() {
+		loadTaskDetails(page.params.taskId as string);
+		fetchBtcPrice();
 	}
 
 	onMount(async () => {
@@ -259,6 +271,49 @@
 					</div>
 				</div>
 			{/each}
+		</div>
+	{:else if errorMessage}
+		<div class="py-12 text-center">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="text-error mx-auto h-16 w-16"
+				fill="none"
+				viewBox="0 0 24 24"
+				stroke="currentColor"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="1.5"
+					d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+				/>
+			</svg>
+			<h3 class="mt-4 text-xl font-semibold text-error">Error Loading Bids</h3>
+			<p class="text-base-content/60 mt-2 mb-4">
+				{errorMessage}
+			</p>
+			{#if showRetryButton}
+				<button 
+					class="btn btn-primary"
+					onclick={retryLoadingData}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4 mr-2"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
+					</svg>
+					Retry
+				</button>
+			{/if}
 		</div>
 	{:else if bids.length === 0}
 		<div class="py-12 text-center">
@@ -576,6 +631,7 @@
 				<BidAcceptanceForm
 					bid={bidToAccept}
 					{task}
+					{btcPrice}
 					taskTitle={task.title || ''}
 					onCancel={() => {
 						showAcceptanceForm = false;

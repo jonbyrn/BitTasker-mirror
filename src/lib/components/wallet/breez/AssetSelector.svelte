@@ -3,8 +3,8 @@
 	Dynamically loads and displays available assets with balances
 -->
 <script lang="ts">
-	import { walletAssets } from '$lib/stores/wallet.store';
-	import type { EnhancedAsset } from '$lib/stores/wallet.store';
+	import { walletAssets } from '$lib/stores/breezWallet.store';
+	import type { EnhancedAsset } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 
 	// Props

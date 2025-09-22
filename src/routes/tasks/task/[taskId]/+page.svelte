@@ -9,7 +9,7 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 

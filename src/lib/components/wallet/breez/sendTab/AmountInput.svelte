@@ -3,7 +3,7 @@
 	Handles amount input with unit conversion and balance display
 -->
 <script lang="ts">
-	import { walletStore, selectedAsset, walletRates } from '$lib/stores/wallet.store';
+	import { walletStore, selectedAsset, walletRates } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 
 	// Props

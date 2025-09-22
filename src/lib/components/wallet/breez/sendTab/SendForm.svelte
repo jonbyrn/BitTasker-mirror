@@ -15,7 +15,7 @@
 		sendForm,
 		walletRates,
 		walletTransactions
-	} from '$lib/stores/wallet.store';
+	} from '$lib/stores/breezWallet.store';
 	import { getAssetId } from '$lib/utils/constants/assets';
 	import { estimateFees } from '$lib/wallet/breez/feeEstimation';
 	import { validateForm } from '$lib/wallet/breez/formValidation';

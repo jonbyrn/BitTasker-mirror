@@ -2,8 +2,9 @@ import type { TaskBid } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
 import type { ContractTransactionResult } from '$lib/types/wallet';
 import type { FeeTier } from '$lib/utils/wallet/escrowContract';
+import { FEE_TIERS } from '$lib/utils/wallet/escrowContract';
 import { escrow } from '$lib/utils/wallet/escrow';
-import { rskWallet, rskWalletStore } from '$lib/stores/rskWallet.store';
+import { rskWalletStore } from '$lib/stores/rskWallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 
@@ -27,30 +28,39 @@ export interface BidAcceptanceResult {
 
 /**
  * Calculate escrow details from bid data
+ * @param bid TaskBid with amount in USD
+ * @param task Task details
+ * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: TaskBid, task: Task): BidEscrowDetails {	
-	// Use bid amount directly as RBTC (assuming bid.amount is already in RBTC)
+export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: number): BidEscrowDetails {	
+	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
 		throw new Error('Invalid bid amount: amount must be greater than 0');
 	}
 	
+	if (!btcPrice || btcPrice <= 0) {
+		throw new Error('Invalid BTC price: price must be greater than 0');
+	}
+	
+	// Convert USD to rBTC (rBTC has same value as BTC)
+	const baseAmountRBTC = bid.amount / btcPrice;
+	
 	// Format the amount properly for ethers (ensure no scientific notation)
-	const baseAmount = bid.amount.toFixed(8);
+	const baseAmount = baseAmountRBTC.toFixed(8);
 	
-	// TODO: Use default fee tiers (can be made configurable later)
-	const clientFeeTier: FeeTier = 1; // 2.5%
-	const freelancerFeeTier: FeeTier = 1; // 2.5%
-	
-	// Calculate fees using RBTC amounts
+	// Calculate fees using rBTC amounts and FEE_TIERS (using tier 1 as default)
 	const baseAmountWei = ethers.parseEther(baseAmount);
-	const clientFeeAmount = (baseAmountWei * BigInt(250)) / BigInt(10000); // 2.5%
-	const freelancerFeeAmount = (baseAmountWei * BigInt(250)) / BigInt(10000); // 2.5%
+	const clientFeePercentage = FEE_TIERS[1].percentage; // 250 for tier 1 (2.5%)
+	const freelancerFeePercentage = FEE_TIERS[1].percentage; // 250 for tier 1 (2.5%)
+	
+	const clientFeeAmount = (baseAmountWei * BigInt(clientFeePercentage)) / BigInt(10000); // Divide by 10000 to convert basis points to percentage
+	const freelancerFeeAmount = (baseAmountWei * BigInt(freelancerFeePercentage)) / BigInt(10000); // Divide by 10000 to convert basis points to percentage
 	const totalAmountWei = baseAmountWei + clientFeeAmount;
 	
 	// Determine timing - prioritize task dates since bid dates aren't available in TaskBid type
-	let startTime: number;
-	let completionTime: number;
+	let startTime: number | undefined;
+	let completionTime: number | undefined;
 	
 	if (task?.dateRange) {
 		// Use task date range
@@ -60,11 +70,10 @@ export function calculateBidEscrowDetails(bid: TaskBid, task: Task): BidEscrowDe
 		// Use task deadline, set start time to now + 1 hour
 		startTime = Math.floor((Date.now() + 60 * 60 * 1000) / 1000);
 		completionTime = Math.floor(new Date(task.deadline).getTime() / 1000);
-	} else {
-		// Default to reasonable timeframes
-		const now = Date.now();
-		startTime = Math.floor((now + 60 * 60 * 1000) / 1000); // 1 hour from now
-		completionTime = Math.floor((now + 7 * 24 * 60 * 60 * 1000) / 1000); // 1 week from now
+	}
+
+	if (!startTime || !completionTime) {
+		throw new Error('Invalid start or completion time');
 	}
 	
 	return {
@@ -75,8 +84,8 @@ export function calculateBidEscrowDetails(bid: TaskBid, task: Task): BidEscrowDe
 		freelancerFee: ethers.formatEther(freelancerFeeAmount),
 		estimatedStartTime: startTime,
 		estimatedCompletionTime: completionTime,
-		clientFeeTier,
-		freelancerFeeTier
+		clientFeeTier: 1, // Default to tier 1 (2.5%)
+		freelancerFeeTier: 1 // Default to tier 1 (2.5%)
 	};
 }
 
@@ -117,11 +126,12 @@ export function validateEscrowDetails(details: BidEscrowDetails): string[] {
  */
 export async function acceptBidAndCreateEscrow(
 	bid: TaskBid,
-	task: Task
+	task: Task,
+	btcPrice: number
 ): Promise<BidAcceptanceResult> {
 	try {
 		// Calculate escrow details
-		const escrowDetails = calculateBidEscrowDetails(bid, task);
+		const escrowDetails = calculateBidEscrowDetails(bid, task, btcPrice);
 		
 		// Validate details
 		const validationErrors = validateEscrowDetails(escrowDetails);
@@ -181,16 +191,7 @@ export async function acceptBidAndCreateEscrow(
  * Get fee percentage display string
  */
 export function getFeePercentageDisplay(tier: FeeTier): string {
-	switch (tier) {
-		case 1:
-			return '2.5%';
-		case 2:
-			return '2.0%';
-		case 3:
-			return '1.5%';
-		default:
-			return '2.5%';
-	}
+	return FEE_TIERS[tier]?.label || FEE_TIERS[1].label;
 }
 
 /**

@@ -2,7 +2,7 @@
 	import type { CounterOffer, Currency, TaskBid, PaymentType } from '$lib/types/bid';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
 	import '$lib/styles/air-datepicker.css';

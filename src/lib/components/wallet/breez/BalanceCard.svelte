@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { walletStore, walletAssets, walletBalance } from '$lib/stores/wallet.store';
-	import type { EnhancedAsset } from '$lib/stores/wallet.store';
+	import { walletStore, walletAssets, walletBalance } from '$lib/stores/breezWallet.store';
+	import type { EnhancedAsset } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 
 	// Get total balance in BTC equivalent

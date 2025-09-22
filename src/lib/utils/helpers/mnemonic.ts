@@ -24,6 +24,8 @@ export async function getMnemonic(): Promise<string> {
             }
 
             if (!biometricData) throw new Error('No biometric data found');
+
+            appStore.update((state) => ({ ...state, biometricData }));
             return await decryptWalletMnemonicWithBiometrics(biometricData.password);
         }
     } catch (error) {
