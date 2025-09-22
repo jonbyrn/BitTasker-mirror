@@ -10,7 +10,7 @@
 	import KINDS from '$lib/utils/constants/kinds';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { goto } from '$app/navigation';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 
 	// Props
 	const { openTaskDrawer } = $props<{

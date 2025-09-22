@@ -10,7 +10,7 @@
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 
 	let { direction } = $props();

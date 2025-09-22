@@ -12,7 +12,7 @@
 	import { t } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import Gallery from '$lib/components/Gallery.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;

@@ -10,13 +10,14 @@
 		getFeePercentageDisplay,
 		formatRBTCAmount,
 		formatTimestamp
-	} from '$lib/utils/bidEscrowService';
+	} from '$lib/utils/wallet/escrowBid';
 	
 	// Props
 	const props = $props<{
 		bid: TaskBid;
 		task: Task;
 		taskTitle: string;
+		btcPrice: number;
 		onCancel: () => void;
 		onGoToDashboard?: () => void;
 		onCreateNewTask?: () => void;
@@ -29,7 +30,7 @@
 	let escrowDetails = $state<any>(null);
 
 	// Calculate escrow details from bid
-	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task));
+	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
 
 	$effect(() => {
 		validationErrors = validateEscrowDetails(bidEscrowDetails);
@@ -54,7 +55,7 @@
 
 		try {
 			// Accept bid and create escrow
-			const result = await acceptBidAndCreateEscrow(props.bid, props.task);
+			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice);
 
 			if (result.success) {
 				escrowDetails = {

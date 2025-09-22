@@ -6,7 +6,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 
 	// State
 	let myBids = $state<any[]>([]);

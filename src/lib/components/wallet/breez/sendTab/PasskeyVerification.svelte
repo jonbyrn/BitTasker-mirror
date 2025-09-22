@@ -6,7 +6,7 @@
 	import type { PrepareSendResponse } from '@breeztech/breez-sdk-liquid/web';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import { sendForm } from '$lib/stores/wallet.store';
+	import { sendForm } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 
 	interface VerificationContext {
