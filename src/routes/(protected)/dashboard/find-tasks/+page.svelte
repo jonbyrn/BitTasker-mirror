@@ -17,7 +17,7 @@
 	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {
@@ -32,7 +32,8 @@
 				currency: undefined,
 				type: undefined
 			},
-			search: ''
+			search: '',
+			status: [TaskStatusEnum.OPEN]
 		};
 	}
 
@@ -185,7 +186,8 @@
 			const newParams: SearchTasksParams = {
 				...searchParams,
 				page: 1,
-				search: undefined
+				search: undefined,
+				status: [TaskStatusEnum.OPEN]
 			};
 			searchParams = { ...searchParams, ...newParams };
 
@@ -200,7 +202,8 @@
 		const newParams: SearchTasksParams = {
 			...searchParams,
 			page: 1,
-			search: searchQuery.trim()
+			search: searchQuery.trim(),
+			status: [TaskStatusEnum.OPEN]
 		};
 
 		searchParams = { ...searchParams, ...newParams };
@@ -237,7 +240,8 @@
 		searchParams = {
 			...searchParams,
 			...filters,
-			page: 1
+			page: 1,
+			status: [TaskStatusEnum.OPEN]
 		};
 
 		// Update UI controls based on applied filters
@@ -298,7 +302,8 @@
 			searchParams = {
 				...searchParams,
 				page: nextPage,
-				until: untilTimestamp
+				until: untilTimestamp,
+				status: [TaskStatusEnum.OPEN]
 			};
 			await findTasks(searchParams);
 		}
@@ -359,12 +364,18 @@
 		}));
 
 		if (!type) {
-			searchParams = { ...searchParams, taskType: undefined, page: 1 };
+			searchParams = {
+				...searchParams,
+				taskType: undefined,
+				page: 1,
+				status: [TaskStatusEnum.OPEN]
+			};
 		} else {
 			searchParams = {
 				...searchParams,
 				taskType: type,
-				page: 1
+				page: 1,
+				status: [TaskStatusEnum.OPEN]
 			};
 		}
 
@@ -895,8 +906,10 @@
 													<div class="flex w-full flex-shrink-0 items-center gap-2 md:w-auto">
 														<button
 															class="btn btn-primary btn-sm flex-1 md:flex-none"
-															class:btn-disabled={task.status !== TaskStatusEnum.OPEN ||
-																task?.npub === $user?.npub}
+															class:btn-disabled={task.status === TaskStatusEnum.CANCELLED ||
+																task.status === TaskStatusEnum.DISPUTED ||
+																task.status === TaskStatusEnum.COMPLETED ||
+																task.status === TaskStatusEnum.IN_PROGRESS}
 															onclick={(e) => {
 																e.stopPropagation();
 																onSelectTask(task);

@@ -55,7 +55,14 @@
       "location_map_description": "Se proporcionará la ubicación exacta después de la aceptación de la oferta.",
       "task_attachment": "Adjunto de tarea",
       "avatar_alt": "Avatar",
-      "sign_up_to_bid": "Regístrate para ofertar"
+      "sign_up_to_bid": "Regístrate para ofertar",
+      "task_cancelled": "Tarea cancelada",
+      "task_disputed": "Tarea en disputa",
+      "task_in_progress": "Tarea en progreso",
+      "task_completed": "Tarea completada",
+      "bidding_closed": "Ofertas cerradas",
+      "bid_sent": "Oferta enviada",
+      "bid_already_sent": "Oferta ya enviada"
     },
     "taskees": {
       "title": "Profesionales",
@@ -71,7 +78,14 @@
       "bidding_closed": "Ofertas cerradas",
       "sign_up_to_bid_aria": "Regístrate para ofertar en esta tarea",
       "avatar_alt": "Avatar",
-      "invalid_date": "Fecha inválida"
+      "invalid_date": "Fecha inválida",
+      "task_cancelled": "Tarea cancelada",
+      "task_disputed": "Tarea en disputa",
+      "task_in_progress": "Tarea en progreso",
+      "task_completed": "Tarea completada",
+      "bid_sent": "Oferta enviada",
+      "bid_already_sent": "Oferta ya enviada",
+      "cannot_bid_own_task": "No puedes hacer oferta en tu propia tarea"
     },
     "bids": {
       "bid_acceptance": {
@@ -85,7 +99,8 @@
         "tasks": "tareas",
         "total_price": "Precio Total",
         "bid_price": "Precio de la Oferta",
-        "contract_note": "Nota del Contrato",
+        "note": "Nota:",
+        "contract_note": "Estás entrando en un contrato con el ejecutor de la tarea en la blockchain. BitTasker no puede acceder a tus fondos o alterar el contrato después de esto.",
         "my_wallet": "Mi Billetera",
         "platform_fee": "Tarifa de la Plataforma",
         "external_wallet": "Billetera Externa",

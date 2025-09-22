@@ -3,7 +3,6 @@
 		rskWalletStore,
 		rskWallet,
 		rskBalance,
-		rskUnitPreference,
 		getUnitLabel,
 		parseRSKAmount,
 		formatRSKAmount
@@ -22,13 +21,13 @@
 		if (!gasEstimate || !$rskBalance) return $rskBalance;
 
 		const balanceInRBTC =
-			$rskUnitPreference === 'wei' ? parseRSKAmount($rskBalance, 'wei') : $rskBalance;
+			$rskWalletStore.unitPreference === 'wei' ? parseRSKAmount($rskBalance, 'wei') : $rskBalance;
 
 		const balance = parseFloat(balanceInRBTC);
 		const fees = parseFloat(gasEstimate.totalCost);
 		const maxSendable = Math.max(0, balance - fees);
 
-		if ($rskUnitPreference === 'wei') {
+		if ($rskWalletStore.unitPreference === 'wei') {
 			return formatRSKAmount(maxSendable.toString(), 'wei');
 		} else {
 			// Use higher precision for small differences
@@ -72,11 +71,11 @@
 
 			// Convert amount to RBTC for validation and API calls
 			const amountInRBTC =
-				$rskUnitPreference === 'wei' ? parseRSKAmount(String(amount), 'wei') : String(amount);
+				$rskWalletStore.unitPreference === 'wei' ? parseRSKAmount(String(amount), 'wei') : String(amount);
 
 			// Check balance (convert displayed balance to RBTC for comparison)
 			const balanceInRBTC =
-				$rskUnitPreference === 'wei' ? parseRSKAmount($rskBalance, 'wei') : $rskBalance;
+				$rskWalletStore.unitPreference === 'wei' ? parseRSKAmount($rskBalance, 'wei') : $rskBalance;
 			const balanceNum = parseFloat(balanceInRBTC);
 			const amountInRBTCNum = parseFloat(amountInRBTC);
 
@@ -100,13 +99,13 @@
 
 		// Convert amount to RBTC for the transaction
 		const amountInRBTC =
-			$rskUnitPreference === 'wei' ? parseRSKAmount(String(amount), 'wei') : String(amount);
+			$rskWalletStore.unitPreference === 'wei' ? parseRSKAmount(String(amount), 'wei') : String(amount);
 
 		// Show immediate feedback and reset form
 		isLoading = true;
 		const txRecipient = recipientAddress;
 		const txAmount = amount;
-		const txUnit = getUnitLabel($rskUnitPreference, $rskWalletStore.network);
+		const txUnit = getUnitLabel($rskWalletStore.unitPreference, $rskWalletStore.network);
 		const txGasLimit = gasEstimate?.gasLimit;
 
 		// Reset form immediately to allow new transactions
@@ -247,10 +246,10 @@
 		<div class="form-control flex flex-col">
 			<label class="label" for="amount">
 				<span class="label-text"
-					>Amount ({getUnitLabel($rskUnitPreference, $rskWalletStore.network)})</span
+					>Amount ({getUnitLabel($rskWalletStore.unitPreference, $rskWalletStore.network)})</span
 				>
 				<span class="label-text-alt"
-					>Balance: {$rskBalance} {getUnitLabel($rskUnitPreference, $rskWalletStore.network)}</span
+					>Balance: {$rskBalance} {getUnitLabel($rskWalletStore.unitPreference, $rskWalletStore.network)}</span
 				>
 			</label>
 			<div class="input-group flex gap-2">
@@ -335,7 +334,7 @@
 				<div class="text-sm font-semibold">Transaction Summary</div>
 				<div class="flex justify-between text-sm">
 					<span>Amount:</span>
-					<span>{amount} {getUnitLabel($rskUnitPreference, $rskWalletStore.network)}</span>
+					<span>{amount} {getUnitLabel($rskWalletStore.unitPreference, $rskWalletStore.network)}</span>
 				</div>
 				<div class="flex justify-between text-sm">
 					<span>Network Fee:</span>
@@ -352,7 +351,7 @@
 					<span>
 						{(() => {
 							const amountInRBTC =
-								$rskUnitPreference === 'wei'
+								$rskWalletStore.unitPreference === 'wei'
 									? parseFloat(parseRSKAmount(String(amount), 'wei'))
 									: parseFloat(amount);
 							const total = amountInRBTC + parseFloat(gasEstimate.totalCost);

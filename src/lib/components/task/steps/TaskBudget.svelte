@@ -95,6 +95,7 @@
 			url: result.url,
 			type: result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
 			alt: result.key, // Use key as alt for now
+			size: result.size,
 			cloudflareId: result.cloudflareId,
 			variants: result.variants
 		}));
@@ -225,11 +226,9 @@
 		{#if errors.budget}
 			<span class="label-text-alt text-error">{errors.budget}</span>
 		{/if}
-		{#if usdAmount > 0}
-			<span class="label-text-alt text-info mt-1 block"
+			<span class="label-text-alt text-white/70 mt-1 block"
 				>{$t('task.btc_price')} ${btcPrice.toLocaleString()}</span
 			>
-		{/if}
 	</div>
 
 	{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}

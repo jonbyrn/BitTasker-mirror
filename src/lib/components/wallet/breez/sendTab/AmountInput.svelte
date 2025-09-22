@@ -3,7 +3,7 @@
 	Handles amount input with unit conversion and balance display
 -->
 <script lang="ts">
-	import { walletStore, selectedAsset, walletRates } from '$lib/stores/wallet.store';
+	import { walletStore, selectedAsset, walletRates } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 
 	// Props
@@ -234,6 +234,8 @@
 								<span class="loading loading-spinner loading-xs"></span>
 							{:else if estimatedFees > 0}
 								<span class="text-warning">~{formatSatsDisplay(estimatedFees)}</span>
+							{:else}
+								<span class="text-base-content/40">Calculating...</span>
 							{/if}
 						</span>
 					</div>

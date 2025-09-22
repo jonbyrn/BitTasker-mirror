@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Freelancer } from './freelancer';
 
 export type PaymentType = 'FIXED' | 'HOURLY';
@@ -58,6 +59,11 @@ export interface Bid {
 	// Freelancer Information
 	freelancer: Freelancer;
 
+	// Bidder Information (for Nostr bids)
+	bidderId?: string;
+	bidderName?: string;
+	bidderAvatar?: string;
+
 	// Provider Information
 	// providerHighlights?: {
 	// 	skills: string[];
@@ -69,10 +75,19 @@ export interface Bid {
 	counterOffers?: CounterOffer[];
 }
 
+export interface UserProfileOutput {
+	user: {
+		id: string;
+		name: string;
+		avatar: string;
+	};
+}
+
 export interface TaskBid extends Bid {
 	dropOffLocation: any;
 	pickupLocation: any;
 	freelancerId: number;
+	bidderWalletAddress: string;
 	clientViewed: boolean;
 	clientViewedAt: string | null;
 	featured: boolean;
@@ -104,7 +119,7 @@ export interface TaskBid extends Bid {
 		reputationScore: number;
 		feeDiscount: number;
 		monthlyActivityPoints: number;
-		verificationLevel: VerificationLevelEnum;
+		verificationLevel: 'UNVERIFIED' | 'VERIFIED' | 'PREMIUM';
 		identityVerified: boolean;
 		createdAt: string;
 		updatedAt: string;

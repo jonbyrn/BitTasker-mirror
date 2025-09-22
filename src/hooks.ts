@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { HandleClientError } from '@sveltejs/kit';
 
 export const handleError: HandleClientError = async ({ error, event, status, message }) => {

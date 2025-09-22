@@ -2,6 +2,8 @@
     "task": {
       "create_title": "Crear una nueva tarea",
       "create_description": "Crea una nueva tarea para obtener cotizaciones de taskers.",
+      "edit_title": "Editar Tarea",
+      "edit_description": "Actualiza los detalles y requisitos de tu tarea.",
       "step": "Paso",
       "of": "de",
       "create_recurring": "Crear plantilla recurrente",

@@ -47,6 +47,12 @@
       "error": {
         "loading": "Error loading tasks"
       },
+      "location": {
+        "details": "Location Details"
+      },
+      "user": {
+        "anonymous": "Anonymous"
+      },
       "status": {
         "in_progress": "In Progress",
         "draft": "Draft",
@@ -110,7 +116,7 @@
         "task_not_found": "Task Not Found",
         "task_not_found_desc": "The task you're looking for could not be found",
         "bids_received": "Bids received",
-        "bids_description": "Here you can see all the bids for this task. You can accept or reject bids, and you can also counter offers.",
+        "bids_description": "Here you can see all the bids for this task.",
         "member_since": "Member since",
         "withdraw_bid": "Withdraw Your Bid",
         "withdrawal_reason_placeholder": "Please explain why you're withdrawing your bid...",

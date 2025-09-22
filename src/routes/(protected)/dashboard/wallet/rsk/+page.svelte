@@ -5,6 +5,7 @@
 	import RSKSendForm from '$lib/components/wallet/rootstock/RSKSendForm.svelte';
 	import RSKReceiveForm from '$lib/components/wallet/rootstock/RSKReceiveForm.svelte';
 	import RSKTransactionHistory from '$lib/components/wallet/rootstock/RSKTransactionHistory.svelte';
+	import RskEscrowManager from '$lib/components/wallet/rootstock/RSKEscrowManager.svelte';
 
 	let activeTab = $state('balance');
 
@@ -30,11 +31,11 @@
 		</div>
 	{:else if $rskWalletStore.error}
 		<div class="alert alert-outline alert-error mb-6">
-			<div class="flex items-center justify-between w-full">
+			<div class="flex w-full items-center justify-between">
 				<div class="flex items-center">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-6 w-6 flex-shrink-0 stroke-current mr-2"
+						class="mr-2 h-6 w-6 flex-shrink-0 stroke-current"
 						fill="none"
 						viewBox="0 0 24 24"
 					>
@@ -47,12 +48,23 @@
 					</svg>
 					<span class="flex-1">{$rskWalletStore.error}</span>
 				</div>
-				<button 
+				<button
 					class="btn btn-sm btn-outline ml-4"
-					onclick={() => rskWallet.initialize()}
+					onclick={async () => await rskWallet.initialize()}
 				>
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+						/>
 					</svg>
 					Retry
 				</button>
@@ -86,6 +98,12 @@
 		>
 			History
 		</button>
+		<button
+			class="tab {activeTab === 'escrow' ? 'tab-active' : ''}"
+			onclick={() => (activeTab = 'escrow')}
+		>
+			Escrow
+		</button>
 	</div>
 
 	<!-- Tab Content -->
@@ -97,5 +115,7 @@
 		<RSKReceiveForm />
 	{:else if activeTab === 'history'}
 		<RSKTransactionHistory />
+	{:else if activeTab === 'escrow'}
+		<RskEscrowManager />
 	{/if}
 </div>

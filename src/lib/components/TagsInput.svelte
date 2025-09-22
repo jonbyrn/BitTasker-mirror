@@ -202,12 +202,12 @@
 			<ul
 				id="tags-dropdown-{id}"
 				tabindex="-1"
-				class="dropdown-content menu menu-vertical rounded-2xl bg-base-300 z-[9999] mt-1 max-h-60 w-full p-2 shadow overflow-y-scroll"
+				class="dropdown-content menu menu-vertical rounded-2xl bg-base-300 z-[9999] mt-1 max-h-48 w-full p-2 shadow overflow-y-scroll overflow-x-hidden tags-dropdown-scrollable"
 				role="listbox"
 				aria-label={$t('task.tags.options')}
 			>
 				{#each filteredOptions as option, index}
-					<li>
+					<li class="w-full block">
 						<button
 							type="button"
 							tabindex="0"
@@ -215,9 +215,9 @@
 							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
 							role="option"
 							aria-selected={filteredOptions[index] === inputValue}
-							class="hover:bg-base-300 w-full rounded p-2 text-left"
+							class="hover:bg-base-200 w-full rounded p-3 text-left min-h-[44px] block"
 						>
-							<span class="font-medium">{option}</span>
+							<span class="font-medium text-sm">{option}</span>
 						</button>
 					</li>
 				{/each}
@@ -229,3 +229,32 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	:global(.tags-dropdown-scrollable) {
+		scrollbar-width: thin;
+		scrollbar-color: #6b7280 #374151;
+		overflow-y: scroll !important;
+		overflow-x: hidden !important;
+		height: 12rem; /* 192px - same as max-h-48 */
+		max-height: 12rem;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar) {
+		width: 6px;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar-track) {
+		background: #374151;
+		border-radius: 3px;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar-thumb) {
+		background: #6b7280;
+		border-radius: 3px;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar-thumb:hover) {
+		background: #9ca3af;
+	}
+</style>

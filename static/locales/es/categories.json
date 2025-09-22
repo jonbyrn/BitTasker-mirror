@@ -1,0 +1,104 @@
+{
+    "categories": {
+        "cleaning": {
+            "name": "Limpieza y Mantenimiento",
+            "description": "Limpieza de casas, oficinas, alfombras, ventanas y tareas de mantenimiento"
+        },
+        "handyman": {
+            "name": "Servicios de Manitas",
+            "description": "Reparaciones generales, instalaciones, montaje de muebles y mantenimiento del hogar"
+        },
+        "moving": {
+            "name": "Mudanzas y Entrega",
+            "description": "Servicios de mudanza, entrega de muebles, servicios de mensajería y transporte"
+        },
+        "home-improvement": {
+            "name": "Mejoras del Hogar",
+            "description": "Pintura, renovaciones, plomería, trabajo eléctrico y mejoras del hogar"
+        },
+        "gardening": {
+            "name": "Jardinería y Paisajismo",
+            "description": "Cuidado del césped, mantenimiento del jardín, paisajismo y servicios al aire libre"
+        },
+        "automotive": {
+            "name": "Automotriz",
+            "description": "Reparación de autos, mecánicos móviles, detallado de autos y servicios vehiculares"
+        },
+        "personal-services": {
+            "name": "Servicios Personales",
+            "description": "Servicios de belleza, entrenamiento físico, cuidado personal y bienestar"
+        },
+        "pet-care": {
+            "name": "Cuidado de Mascotas",
+            "description": "Cuidado de mascotas, paseo de perros, aseo y servicios de cuidado animal"
+        },
+        "events": {
+            "name": "Eventos y Entretenimiento",
+            "description": "Planificación de eventos, catering, entretenimiento y ocasiones especiales"
+        },
+        "professional": {
+            "name": "Servicios Profesionales",
+            "description": "Legal, contabilidad, consultoría empresarial y servicios profesionales"
+        },
+        "tutoring": {
+            "name": "Educación y Tutoría",
+            "description": "Tutoría privada, lecciones, coaching y servicios educativos"
+        },
+        "tech": {
+            "name": "Tecnología e IT",
+            "description": "Reparación de computadoras, soporte técnico, desarrollo de software y servicios digitales"
+        },
+        "creative": {
+            "name": "Creativo y Diseño",
+            "description": "Diseño gráfico, fotografía, videografía y servicios creativos"
+        },
+        "food": {
+            "name": "Comida y Catering",
+            "description": "Servicios de chef personal, preparación de comidas, catering y entrega de comida"
+        },
+        "financial-legal": {
+            "name": "Servicios Financieros y Legales",
+            "description": "Contabilidad, teneduría de libros, consultoría legal, servicios fiscales y planificación financiera"
+        },
+        "business-admin": {
+            "name": "Apoyo Empresarial y Administración",
+            "description": "Servicios administrativos, apoyo de RRHH, asistencia de ventas y consultoría empresarial"
+        },
+        "healthcare-wellness": {
+            "name": "Salud y Bienestar",
+            "description": "Servicios médicos, terapia, consultoría nutricional, entrenamiento físico y servicios de bienestar"
+        },
+        "marketing": {
+            "name": "Marketing",
+            "description": "Marketing digital, publicidad, creación de contenido, gestión de redes sociales y estrategia de marca"
+        },
+        "security-safety": {
+            "name": "Seguridad y Protección",
+            "description": "Servicios de seguridad, inspecciones de seguridad, servicios de cerrajería y consultoría de seguridad"
+        },
+        "waste-recycling": {
+            "name": "Residuos y Reciclaje",
+            "description": "Eliminación de basura, eliminación de chatarra, servicios de reciclaje y gestión de residuos"
+        },
+        "installation-assembly": {
+            "name": "Instalación y Montaje",
+            "description": "Instalación de electrodomésticos, montaje de muebles, configuración de electrónicos e instalación de equipos"
+        },
+        "inspection-assessment": {
+            "name": "Inspección y Evaluación",
+            "description": "Inspecciones de hogar, inspecciones de vehículos, evaluaciones de propiedades y evaluaciones de seguridad"
+        },
+        "delivery-logistics": {
+            "name": "Entrega y Logística",
+            "description": "Entrega de paquetes, entrega el mismo día, transporte especializado y servicios logísticos"
+        },
+        "real-estate": {
+            "name": "Bienes Raíces",
+            "description": "Gestión de propiedades, fotografía inmobiliaria, escenografía y servicios inmobiliarios"
+        },
+        "other": {
+            "name": "Otros",
+            "description": "Otros tipos de tareas no cubiertas por otras categorías"
+        }
+    }
+}

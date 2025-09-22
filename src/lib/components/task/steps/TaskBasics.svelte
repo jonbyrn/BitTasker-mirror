@@ -2,11 +2,85 @@
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 	import { taskStore as store } from '$lib/stores/task.store';
+	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
+	import '$lib/styles/air-datepicker.css';
+	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
+	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import DatePicker from '$lib/components/date/DatePicker.svelte';
-	import TagsInput from '$lib/components/TagsInput.svelte';
 	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
+
+	// Convert category IDs to translated names for display
+	let translatedCategories = $state([]);
+	let lastCategories = $state([]);
+	let lastLanguage = $state('');
+	
+	$effect(() => {
+		try {
+			// Only update if categories or language has changed to prevent excessive re-renders
+			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
+			const currentCategories = $store.task.categories;
+			
+			if (JSON.stringify(currentCategories) !== JSON.stringify(lastCategories) || 
+				currentLanguage !== lastLanguage) {
+				lastCategories = [...currentCategories];
+				lastLanguage = currentLanguage;
+				
+				translatedCategories = currentCategories.map(categoryId => {
+					const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+					if (category) {
+						const translatedName = $t(`categories.${category.id}.name`);
+						// Fallback to category.name if translation key is returned (translation not loaded)
+						return translatedName.startsWith('categories.') ? category.name : translatedName;
+					}
+					return categoryId;
+				});
+			}
+		} catch (error) {
+			console.error('Error updating translated categories:', error);
+		}
+	});
+
+	// Handle category changes - convert translated names back to IDs
+	function handleCategoryChange(selectedItems: any[]) {
+		try {
+			console.log('handleCategoryChange called with:', selectedItems);
+			
+			// Extract values from the selected items (they might be objects with value/label or just strings)
+			const translatedNames = selectedItems.map(item => {
+				if (typeof item === 'string') {
+					return item;
+				} else if (item && typeof item === 'object' && item.value) {
+					return item.value;
+				} else if (item && typeof item === 'object' && item.label) {
+					return item.label;
+				}
+				return String(item);
+			});
+			
+			console.log('Extracted translatedNames:', translatedNames);
+			
+			const categoryIds = translatedNames.map(translatedName => {
+				// First try to find by translated name
+				let category = TASK_CATEGORIES.find(cat => 
+					$t(`categories.${cat.id}.name`) === translatedName
+				);
+				
+				// If not found, try to find by original name (fallback case)
+				if (!category) {
+					category = TASK_CATEGORIES.find(cat => cat.name === translatedName);
+				}
+				
+				const result = category ? category.id : translatedName;
+				console.log(`Converting "${translatedName}" to "${result}"`);
+				return result;
+			});
+			console.log('Final categoryIds:', categoryIds);
+			store.updateTask({ categories: categoryIds });
+		} catch (error) {
+			console.error('Error handling category change:', error);
+		}
+	}
 </script>
 
 <div
@@ -75,65 +149,41 @@
 		</div>
 
 		{#if $store.task.dateRange}
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-				<DatePicker
-					label={$t('task.start_date')}
-					value={$store.task.dateRange.start}
-					minDate={new Date().toISOString()}
-					onChange={(value: string) => {
-						const start = value;
-						const end = $store.task.dateRange?.end ?? new Date().toISOString();
-						store.updateTask({
-							dateRange: {
-								start,
-								end
-							}
-						});
-					}}
-				/>
-				<DatePicker
-					label={$t('task.end_date')}
-					value={$store.task.dateRange.end}
-					minDate={new Date().toISOString()}
-					onChange={(value: string) => {
-						const end = value;
-						const start = $store.task.dateRange?.start ?? new Date().toISOString();
-						store.updateTask({
-							dateRange: {
-								start,
-								end
-							}
-						});
-					}}
-				/>
-				{#if errors.deadline}
-					<span class="label-text-alt text-error -mt-2">{errors.deadline}</span>
-				{/if}
-			</div>
+			<AirDatepicker
+				bind:value={$store.task.dateRange}
+				type="range"
+				labelKey="airdatepicker.select_date_range"
+				placeholderKey="airdatepicker.select_date_range"
+				minDate={new Date().toISOString()}
+				onChange={(range) => store.updateTask({ dateRange: range })}
+			/>
+			{#if errors.deadline}
+				<span class="label-text-alt text-error -mt-2">{errors.deadline}</span>
+			{/if}
 		{:else}
-			<div>
-				<DatePicker
-					label={$t('task.deadline')}
-					minDate={new Date().toISOString()}
-					value={$store.task.deadline}
-					onChange={(value: string) => store.updateTask({ deadline: value })}
-				/>
-				{#if errors.deadline}
-					<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
-				{/if}
-			</div>
+			<AirDatepicker
+				bind:value={$store.task.deadline}
+				type="single"
+				labelKey="airdatepicker.select_date"
+				placeholderKey="airdatepicker.select_date"
+				minDate={new Date().toISOString()}
+				onChange={(date) => store.updateTask({ deadline: date })}
+			/>
+			{#if errors.deadline}
+				<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
+			{/if}
 		{/if}
 	</div>
 
 	<div class="w-full">
 		<label for="category" class="label">{$t('task.category')}</label>
-		<TagsInput
-			options={TASK_CATEGORIES.map((cat) => cat.id)}
-			bind:tags={$store.task.categories}
-			autoComplete="on"
-			maxTags={3}
-			className="w-full h-full rounded-xl"
-		/>
+            <CategoryMultiselect
+                    bind:selectedCategories={translatedCategories}
+                    onChange={handleCategoryChange}
+                    maxSelections={3}
+                    placeholder="Add tags..."
+                    className="w-full"
+            />
 
 		{#if errors.category}
 			<span class="label-text-alt text-error">{errors.category}</span>
@@ -145,11 +195,11 @@
 			<span class="label-text">{$t('task.required_skills')}</span>
 			<span class="label-text-alt">{$store.task?.skills?.length}/10</span>
 		</label>
-		<TagsInput
-			bind:tags={$store.task.skills}
-			maxTags={10}
-			maxCharLength={25}
-			className="w-full h-full rounded-xl"
+		<SkillsMultiselect
+			bind:selectedSkills={$store.task.skills}
+			maxSelections={10}
+			placeholder="Add skills..."
+			className="w-full"
 		/>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>

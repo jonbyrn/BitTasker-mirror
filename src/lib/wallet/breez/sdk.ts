@@ -9,7 +9,7 @@ import init, {
 } from '@breeztech/breez-sdk-liquid/web';
 import { writable, get } from 'svelte/store';
 import { isWasmInitialized } from './wasmLoader';
-import { getAssetId } from '$lib/constants/assets';
+import { getAssetId } from '$lib/utils/constants/assets';
 
 // Core SDK state
 export const sdkStore = writable<BindingLiquidSdk | null>(null);

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
 import cloudflareMediaService from './cloudflare-media.service';
@@ -48,7 +49,7 @@ class UploadService extends BaseApiService {
 
 		let processedFile = file;
 		let compressed = false;
-		let originalSize = file.size;
+		const originalSize = file.size;
 
 		// Determine file type
 		const isImage = file.type.startsWith('image/');

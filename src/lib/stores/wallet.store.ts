@@ -1,616 +1,493 @@
+/**
+ * Unified Wallet Store
+ * 
+ * This store combines both Breez (Liquid) and RSK wallet functionality
+ * into a single, centralized implementation without importing from the separate stores.
+ */
+
+import { writable, derived, get } from 'svelte/store';
+import { ethers } from 'ethers';
 import type {
 	GetInfoResponse,
 	Rate,
-	Payment,
-	SdkEvent,
-	PrepareSendResponse
+	Payment
 } from '@breeztech/breez-sdk-liquid/web';
-import { writable, derived } from 'svelte/store';
-import {
-	connectToBreez,
-	disconnect,
-	getWalletInfo,
-	getAssetBalances,
-	fetchFiatRates,
-	fetchLightningLimits,
-	fetchOnchainLimits,
-	isConnectedStore,
-	getTransactions,
-	paymentEventsStore,
-	pendingPaymentsStore
-} from '$lib/wallet/breez/walletService';
-import { decryptWalletMnemonicWithBiometrics } from '$lib/utils/helpers/auth';
-import { get } from 'svelte/store';
-import { appStore } from '$lib/stores/app.store';
+import type { RSKTransaction } from '$lib/types/wallet';
+import { getMnemonic } from '$lib/utils/helpers/mnemonic';
+import { RSK_NETWORKS, type RSKNetwork } from '$lib/utils/wallet/escrowContract';
 import {
 	getAssetMetadata,
 	getCurrentNetwork,
 	getAssetId,
 	type AssetMetadata as IAssetMetadata
-} from '$lib/constants/assets';
-import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
-import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
+} from '$lib/utils/constants/assets';
+// Import Breez SDK functions directly
+import {
+	connectToBreez,
+	disconnect,
+	getWalletInfo,
+	fetchFiatRates,
+	isConnectedStore
+} from '$lib/wallet/breez/walletService';
 
-// Enhanced asset with balance information
-export interface EnhancedAsset extends IAssetMetadata {
+// Wallet asset interface
+export interface WalletAsset extends IAssetMetadata {
 	balance: number;
 	usdValue: number;
 	formattedBalance: string;
-	network: 'Liquid' | 'Bitcoin';
+	network: 'Liquid' | 'Bitcoin' | 'RSK';
 }
 
-// Core wallet state using traditional stores
-export const walletConnection = writable({
-	isConnecting: false,
+// Combined wallet state
+export interface CombinedWalletState {
+	// Connection status
+	isInitializing: boolean;
+	isConnected: boolean;
+	isConnecting: boolean;
+	hasAnyConnection: boolean;
+	error: string | null;
+
+	// Network states
+	liquid: {
+		connected: boolean;
+		connecting: boolean;
+		error: string | null;
+		walletInfo: GetInfoResponse | null;
+	};
+
+	rsk: {
+		connected: boolean;
+		connecting: boolean;
+		error: string | null;
+		address: string | null;
+		balance: string;
+		formattedBalance: string;
+		blockNumber: number | null;
+		provider: ethers.JsonRpcProvider | null;
+		wallet: ethers.Wallet | null;
+	};
+
+	// Combined data
+	assets: WalletAsset[];
+	transactions: (Payment | RSKTransaction)[];
+	fiatRates: Rate[];
+	totalBalances: {
+		usd: number;
+		sats: number;
+		rbtc: number;
+	};
+
+	// UI state
+	activeNetwork: 'liquid' | 'rsk';
+	activeTab: 'balance' | 'send' | 'receive' | 'transactions';
+	selectedAsset: string;
+}
+
+// Initial state
+const initialState: CombinedWalletState = {
+	isInitializing: false,
 	isConnected: false,
-	errorMessage: null as string | null
-});
+	isConnecting: false,
+	hasAnyConnection: false,
+	error: null,
 
-export const walletInfo = writable<GetInfoResponse | null>(null);
+	liquid: {
+		connected: false,
+		connecting: false,
+		error: null,
+		walletInfo: null
+	},
 
-export const walletAssets = writable({
-	assets: [] as EnhancedAsset[],
-	selectedAsset: 'L-BTC',
-	totalUsdValue: 0,
-	totalSatsBalance: 0,
-	totalUsdtBalance: 0
-});
+	rsk: {
+		connected: false,
+		connecting: false,
+		error: null,
+		address: null,
+		balance: '0',
+		formattedBalance: '0.00',
+		blockNumber: null,
+		provider: null,
+		wallet: null
+	},
 
-export const bitcoinBalance = writable<WalletBalance>({
-	confirmed: 0,
-	unconfirmed: 0,
-	total: 0
-});
+	assets: [],
+	transactions: [],
+	fiatRates: [],
+	totalBalances: {
+		usd: 0,
+		sats: 0,
+		rbtc: 0
+	},
 
-export const walletRates = writable({
-	fiatRates: [] as Rate[],
-	lightningLimits: null as any,
-	onchainLimits: null as any
-});
+	activeNetwork: 'liquid',
+	activeTab: 'balance',
+	selectedAsset: 'L-BTC'
+};
 
-export const walletTransactions = writable({
-	pendingPayments: [] as Payment[],
-	recentTransactions: [] as Payment[],
-	paymentEvents: [] as SdkEvent[]
-});
+// Create the wallet store
+export const walletStore = writable(initialState);
 
-export const walletUI = writable({
-	activeTab: 'balance' as 'balance' | 'receive' | 'send' | 'swaps' | 'transactions'
-});
+// Internal state for event listeners
+let eventListeners: (() => void)[] = [];
+let refreshIntervals: NodeJS.Timeout[] = [];
 
-export const sendForm = writable({
-	amount: '',
-	recipient: '',
-	description: '',
-	feeRate: 'medium' as 'slow' | 'medium' | 'fast',
-	useMainUnit: false,
-	fiatCurrency: 'USD',
-	preparedTransaction: null as PrepareSendResponse | null,
-	isLoading: false,
-	estimatedFees: 0,
-	validationError: null as string | null
-});
-
-export interface WalletBalance {
-	confirmed: number;
-	unconfirmed: number;
-	total: number;
-}
-
-const currentNetwork = getCurrentNetwork();
-
-// Auto-refresh intervals
-let balanceRefreshInterval: NodeJS.Timeout | null = null;
-let ratesRefreshInterval: NodeJS.Timeout | null = null;
-
-// Helper functions
-function formatBalance(value: number, precision: number): string {
-	return value.toFixed(precision).replace(/\.?0+$/, '');
-}
-
-function createEnhancedAsset(
-	metadata: IAssetMetadata,
-	balance: number,
-	usdValue: number,
-	network: 'Liquid' | 'Bitcoin'
-): EnhancedAsset {
-	const balanceInUnit = balance / Math.pow(10, metadata.precision);
-	return {
-		...metadata,
-		balance,
-		usdValue,
-		formattedBalance: formatBalance(balanceInUnit, metadata.precision),
-		network
-	};
-}
-
-function createBitcoinAsset(bitcoinBalance: WalletBalance, btcUsdRate: number): EnhancedAsset {
-	const balanceInBtc = bitcoinBalance.total / 100_000_000;
-	return {
-		assetId: 'bitcoin',
-		name: 'Bitcoin',
-		ticker: 'BTC',
-		precision: 8,
-		icon: '₿',
-		balance: bitcoinBalance.total,
-		usdValue: balanceInBtc * btcUsdRate,
-		formattedBalance: formatBalance(balanceInBtc, 8),
-		network: 'Bitcoin'
-	};
-}
-
-function calculateTotals(assets: EnhancedAsset[]) {
-	return {
-		totalUsdValue: assets.reduce((total, asset) => total + asset.usdValue, 0),
-		totalSatsBalance: assets
-			.filter((asset) => ['BTC', 'L-BTC'].includes(asset.ticker))
-			.reduce((total, asset) => total + asset.balance, 0),
-		totalUsdtBalance: assets
-			.filter((asset) => ['USDT', 'USDt'].includes(asset.ticker))
-			.reduce((total, asset) => total + asset.balance / Math.pow(10, asset.precision), 0)
-	};
-}
-
-// Initialize wallet connection
-async function initialize(): Promise<void> {
+// Helper functions (simplified implementations)
+async function loadAllData(): Promise<void> {
 	try {
-		walletConnection.update((state) => ({
-			...state,
-			isConnecting: true,
-			errorMessage: null
-		}));
-
-		// Check if already connected
-		if (get(isConnectedStore)) {
-			walletConnection.update((state) => ({
-				...state,
-				isConnected: true,
-				isConnecting: false
-			}));
-			await loadWalletData();
-			return;
-		}
-
-		// Try to get mnemonic from master key auth first, fallback to legacy
-		let mnemonic: string;
-		try {
-			// Check if we have biometric data with master key format
-			const currentState = get(appStore);
-			if (!currentState.biometricData) {
-				const biometricsAvailable = await checkBiometricAvailability();
-				let biometricData = null;
-				if (biometricsAvailable) {
-					const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
-					biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-				} else {
-					biometricData = await getWebBiometricData(true);
-				}
-
-				if (!biometricData) throw new Error('No biometric data found');
-				mnemonic = await decryptWalletMnemonicWithBiometrics(biometricData.password);
-			} else {
-				mnemonic = await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
-			}
-		} catch (error) {
-			walletConnection.update((state) => ({
-				...state,
-				isConnecting: false,
-				isConnected: false,
-				errorMessage: error instanceof Error ? error.message : 'Unknown error'
-			}));
-			throw new Error(error instanceof Error ? error.message : 'Unknown error');
-		}
-
-		if (!mnemonic) {
-			throw new Error('No mnemonic found');
-		}
-
-		await connectToBreez(mnemonic);
-
-		// Load initial data
-		await loadWalletData();
-
-		// Set up periodic refresh
-		setupPeriodicRefresh();
-
-		walletConnection.update((state) => ({
-			...state,
-			isConnected: true,
-			isConnecting: false,
-			errorMessage: null
-		}));
-	} catch (error) {
-		console.error('Failed to initialize wallet:', error);
-		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-		walletConnection.update((state) => ({
-			...state,
-			isConnecting: false,
-			isConnected: false,
-			errorMessage
-		}));
-		throw error;
-	}
-}
-
-// Load all wallet data
-async function loadWalletData(): Promise<void> {
-	try {
-		await Promise.all([
-			loadWalletInfo(),
+		await Promise.allSettled([
 			loadAssets(),
-			loadFiatRates(),
-			loadLimits(),
-			loadTransactions()
+			loadFiatRates()
 		]);
 	} catch (error) {
 		console.error('Failed to load wallet data:', error);
 	}
 }
 
-// Load wallet info
-async function loadWalletInfo(): Promise<void> {
+function setupRSKEventListeners(provider: ethers.JsonRpcProvider, wallet: ethers.Wallet): void {
+	// Listen for new blocks
+	const blockListener = (blockNumber: number) => {
+		walletStore.update(state => ({
+			...state,
+			rsk: { ...state.rsk, blockNumber }
+		}));
+	};
+
+	provider.on('block', blockListener);
+	eventListeners.push(() => provider.off('block', blockListener));
+}
+
+/**
+ * Initialize both Liquid and RSK wallets
+ */
+export async function initializeWallet(): Promise<void> {
+	walletStore.update(state => ({
+		...state,
+		isInitializing: true,
+		isConnecting: true,
+		error: null
+	}));
+
 	try {
-		const info = await getWalletInfo();
-		walletInfo.set(info);
+		// Get shared mnemonic
+		const mnemonic = await getMnemonic();
+		if (!mnemonic) {
+			throw new Error('No wallet mnemonic found. Please set up your wallet first.');
+		}
+
+		// Initialize both wallets concurrently
+		const results = await Promise.allSettled([
+			initializeLiquidWallet(mnemonic),
+			initializeRSKWallet(mnemonic)
+		]);
+
+		// Check results and update state
+		const liquidResult = results[0];
+		const rskResult = results[1];
+
+		const liquidConnected = liquidResult.status === 'fulfilled';
+		const rskConnected = rskResult.status === 'fulfilled';
+		const hasAnyConnection = liquidConnected || rskConnected;
+
+		// Collect errors
+		const errors: string[] = [];
+		if (liquidResult.status === 'rejected') {
+			errors.push(`Liquid: ${liquidResult.reason?.message || 'Unknown error'}`);
+		}
+		if (rskResult.status === 'rejected') {
+			errors.push(`RSK: ${rskResult.reason?.message || 'Unknown error'}`);
+		}
+
+		walletStore.update(state => ({
+			...state,
+			isInitializing: false,
+			isConnecting: false,
+			isConnected: hasAnyConnection,
+			hasAnyConnection,
+			error: errors.length > 0 && !hasAnyConnection ? errors.join('\n') : null
+		}));
+
+		// Load initial data if any wallet connected
+		if (hasAnyConnection) {
+			await loadAllData();
+		}
+
 	} catch (error) {
-		console.error('Failed to load wallet info:', error);
+		console.error('Failed to initialize wallets:', error);
+		walletStore.update(state => ({
+			...state,
+			isInitializing: false,
+			isConnecting: false,
+			isConnected: false,
+			hasAnyConnection: false,
+			error: error instanceof Error ? error.message : 'Failed to initialize wallets'
+		}));
+		throw error;
 	}
 }
 
-// Load and process assets
-export async function loadAssets(): Promise<void> {
+/**
+ * Initialize Liquid wallet (Breez SDK)
+ */
+async function initializeLiquidWallet(mnemonic: string): Promise<void> {
 	try {
-		// Parallel API calls for better performance
-		const [fiatRatesResult, walletInfoResult, liquidAssetsResult] = await Promise.allSettled([
-			fetchFiatRates(),
-			getWalletInfo(),
-			getAssetBalances()
-		]);
+		walletStore.update(state => ({
+			...state,
+			liquid: { ...state.liquid, connecting: true, error: null }
+		}));
 
-		// Extract results with fallbacks
-		const fiatRates = fiatRatesResult.status === 'fulfilled' ? fiatRatesResult.value : [];
-		const info = walletInfoResult.status === 'fulfilled' ? walletInfoResult.value : null;
-		const liquidAssets = liquidAssetsResult.status === 'fulfilled' ? liquidAssetsResult.value : [];
-
-		// Bitcoin balance is now handled entirely by Breez SDK - set to zero for compatibility
-		const btcBalance = { confirmed: 0, unconfirmed: 0, total: 0 };
-		bitcoinBalance.set(btcBalance);
-
-		// Exchange rates with fallbacks
-		const btcUsdRate = fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
-		const usdtRate = 1; // USDT is pegged to USD
-
-		const processedAssets: EnhancedAsset[] = [];
-
-		// Core assets configuration
-		const coreAssets = [
-			{
-				type: 'LBTC' as const,
-				getBalance: () => info?.walletInfo?.balanceSat || 0,
-				getUsdValue: (balance: number) => (balance / 100_000_000) * btcUsdRate
-			},
-			{
-				type: 'USDT' as const,
-				getBalance: () => liquidAssets.find((a) => a.assetId === getAssetId('USDT'))?.balance || 0,
-				getUsdValue: (balance: number, precision: number) =>
-					(balance / Math.pow(10, precision)) * usdtRate
-			}
-		];
-
-		// Process core Liquid assets - always add them even with zero balance
-		for (const coreAsset of coreAssets) {
-			const metadata = getAssetMetadata(currentNetwork, getAssetId(coreAsset.type));
-			if (metadata) {
-				const balance = coreAsset.getBalance();
-				const usdValue = coreAsset.getUsdValue(balance, metadata.precision);
-				const asset = createEnhancedAsset(metadata, balance, usdValue, 'Liquid');
-				processedAssets.push(asset);
-			} else {
-				console.warn(`No metadata found for core asset: ${coreAsset.type}`);
-			}
+		// Check if already connected
+		if (get(isConnectedStore)) {
+			walletStore.update(state => ({
+				...state,
+				liquid: { ...state.liquid, connected: true, connecting: false }
+			}));
+			return;
 		}
 
-		// Add Bitcoin - always add it even with zero balance
-		const bitcoinAsset = createBitcoinAsset(btcBalance, btcUsdRate);
-		processedAssets.push(bitcoinAsset);
+		// Connect to Breez
+		await connectToBreez(mnemonic);
 
-		// Add other Liquid assets (non-core)
-		for (const asset of liquidAssets) {
-			if (
-				asset.balance > 0 &&
-				asset.assetId !== getAssetId('LBTC') &&
-				asset.assetId !== getAssetId('USDT')
-			) {
-				const metadata = getAssetMetadata(currentNetwork, asset.assetId);
-				if (metadata) {
-					const enhancedAsset = createEnhancedAsset(metadata, asset.balance, 0, 'Liquid');
-					processedAssets.push(enhancedAsset);
-				} else {
-					// Handle unknown assets
-					const balanceInUnit = asset.balance / 100_000_000;
-					processedAssets.push({
-						assetId: asset.assetId,
-						name: 'Unknown Asset',
-						ticker: asset.assetId.substring(0, 8) + '...',
-						precision: 8,
-						icon: '?',
-						balance: asset.balance,
-						usdValue: 0,
-						formattedBalance: formatBalance(balanceInUnit, 8),
+		// Get wallet info
+		const walletInfo = await getWalletInfo();
+
+		walletStore.update(state => ({
+			...state,
+			liquid: {
+				...state.liquid,
+				connected: true,
+				connecting: false,
+				error: null,
+				walletInfo
+			}
+		}));
+
+	} catch (error) {
+		console.error('Liquid wallet initialization failed:', error);
+		walletStore.update(state => ({
+			...state,
+			liquid: {
+				...state.liquid,
+				connecting: false,
+				error: error instanceof Error ? error.message : 'Failed to initialize Liquid wallet'
+			}
+		}));
+		throw error;
+	}
+}
+
+/**
+ * Initialize RSK wallet
+ */
+async function initializeRSKWallet(mnemonic: string): Promise<void> {
+	try {
+		walletStore.update(state => ({
+			...state,
+			rsk: { ...state.rsk, connecting: true, error: null }
+		}));
+
+		// Get network config
+		const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+		const networkConfig = RSK_NETWORKS[network];
+
+		// Create provider
+		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+
+		// Create wallet from mnemonic with RSK derivation path
+		const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/137'/0'/0/0");
+		const wallet = new ethers.Wallet(hdNode.privateKey, provider);
+
+		// Get initial balance and block number
+		const balance = await provider.getBalance(wallet.address);
+		const blockNumber = await provider.getBlockNumber();
+		const formattedBalance = ethers.formatEther(balance);
+
+		walletStore.update(state => ({
+			...state,
+			rsk: {
+				...state.rsk,
+				connected: true,
+				connecting: false,
+				error: null,
+				address: wallet.address,
+				balance: balance.toString(),
+				formattedBalance: parseFloat(formattedBalance).toFixed(6),
+				blockNumber,
+				provider,
+				wallet
+			}
+		}));
+
+		// Set up RSK event listeners
+		setupRSKEventListeners(provider, wallet);
+
+	} catch (error) {
+		console.error('RSK wallet initialization failed:', error);
+		walletStore.update(state => ({
+			...state,
+			rsk: {
+				...state.rsk,
+				connecting: false,
+				error: error instanceof Error ? error.message : 'Failed to initialize RSK wallet'
+			}
+		}));
+		throw error;
+	}
+}
+
+/**
+ * Load and combine assets from both networks
+ */
+export async function loadAssets(): Promise<void> {
+	try {
+		const state = get(walletStore);
+		const assets: WalletAsset[] = [];
+
+		// Load Liquid assets if connected
+		if (state.liquid.connected) {
+			try {
+				const info = await getWalletInfo();
+				const fiatRates = await fetchFiatRates();
+				const btcUsdRate = fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
+				const currentNetwork = getCurrentNetwork();
+
+				// L-BTC asset
+				const lbtcBalance = info?.walletInfo?.balanceSat || 0;
+				const lbtcMetadata = getAssetMetadata(currentNetwork, getAssetId('LBTC'));
+				if (lbtcMetadata) {
+					const balanceInBtc = lbtcBalance / 100_000_000;
+					assets.push({
+						...lbtcMetadata,
+						balance: lbtcBalance,
+						usdValue: balanceInBtc * btcUsdRate,
+						formattedBalance: balanceInBtc.toFixed(8).replace(/\.?0+$/, ''),
 						network: 'Liquid'
 					});
 				}
+			} catch (error) {
+				console.error('Failed to load Liquid assets:', error);
 			}
 		}
 
-		// Calculate totals and update state
-		const totals = calculateTotals(processedAssets);
+		// Load RSK assets if connected
+		if (state.rsk.connected && state.rsk.provider && state.rsk.wallet) {
+			try {
+				const balance = await state.rsk.provider.getBalance(state.rsk.wallet.address);
+				const rbtcValue = parseFloat(ethers.formatEther(balance));
+				const btcPrice = state.fiatRates.find(rate => rate.coin === 'BTC')?.value || 0;
 
-		walletAssets.update((state) => ({
-			...state,
-			assets: processedAssets,
-			...totals
-		}));
-		walletConnection.update((state) => ({ ...state, errorMessage: null }));
+				assets.push({
+					assetId: 'rbtc',
+					name: 'Rootstock Bitcoin',
+					ticker: 'rBTC',
+					precision: 18,
+					icon: '₿',
+					balance: rbtcValue,
+					usdValue: rbtcValue * btcPrice,
+					formattedBalance: rbtcValue.toFixed(6),
+					network: 'RSK'
+				});
+			} catch (error) {
+				console.error('Failed to load RSK assets:', error);
+			}
+		}
+
+		const totalBalances = {
+			usd: assets.reduce((sum, asset) => sum + asset.usdValue, 0),
+			sats: assets.filter(a => a.ticker === 'L-BTC').reduce((sum, asset) => sum + asset.balance, 0),
+			rbtc: assets.filter(a => a.network === 'RSK').reduce((sum, asset) => sum + asset.balance, 0)
+		};
+
+		walletStore.update(state => ({ ...state, assets, totalBalances }));
 	} catch (error) {
 		console.error('Failed to load assets:', error);
-		walletConnection.update((state) => ({
-			...state,
-			errorMessage: 'Some wallet data could not be loaded. Showing cached data.'
-		}));
 	}
 }
 
-// Load fiat rates
-async function loadFiatRates(): Promise<void> {
+/**
+ * Load fiat rates
+ */
+export async function loadFiatRates(): Promise<void> {
 	try {
 		const rates = await fetchFiatRates();
-		walletRates.update((state) => ({ ...state, fiatRates: rates }));
+		walletStore.update(state => ({ ...state, fiatRates: rates }));
 	} catch (error) {
 		console.error('Failed to load fiat rates:', error);
 	}
 }
 
-// Load limits
-async function loadLimits(): Promise<void> {
-	try {
-		const [lightningLimits, onchainLimits] = await Promise.all([
-			fetchLightningLimits(),
-			fetchOnchainLimits()
-		]);
-
-		walletRates.update((state) => ({
-			...state,
-			lightningLimits,
-			onchainLimits
-		}));
-	} catch (error) {
-		console.error('Failed to load limits:', error);
+/**
+ * Send RSK transaction
+ */
+export async function sendRBTC(to: string, amount: string): Promise<string> {
+	const state = get(walletStore);
+	if (!state.rsk.connected || !state.rsk.wallet) {
+		throw new Error('RSK wallet not connected');
 	}
-}
 
-// Load transactions
-async function loadTransactions(): Promise<void> {
-	try {
-		const recentTransactions = await getTransactions();
-		walletTransactions.update((state) => ({
-			...state,
-			recentTransactions
-		}));
-	} catch (error) {
-		console.error('Failed to load transactions:', error);
-	}
-}
-
-// Setup periodic refresh
-function setupPeriodicRefresh(): void {
-	// Refresh balances every 30 seconds
-	balanceRefreshInterval = setInterval(loadAssets, 30000);
-
-	// Refresh rates every 5 minutes
-	ratesRefreshInterval = setInterval(loadFiatRates, 300000);
-}
-
-// Cleanup intervals
-export async function cleanup(): Promise<void> {
-	if (balanceRefreshInterval) {
-		clearInterval(balanceRefreshInterval);
-		balanceRefreshInterval = null;
-	}
-	if (ratesRefreshInterval) {
-		clearInterval(ratesRefreshInterval);
-		ratesRefreshInterval = null;
-	}
-}
-
-// Disconnect wallet
-export async function disconnectWallet(): Promise<void> {
-	try {
-		await cleanup();
-		await disconnect();
-
-		// Reset all stores to initial state
-		walletConnection.set({
-			isConnecting: false,
-			isConnected: false,
-			errorMessage: null
-		});
-
-		walletInfo.set(null);
-
-		walletAssets.set({
-			assets: [],
-			selectedAsset: 'L-BTC',
-			totalUsdValue: 0,
-			totalSatsBalance: 0,
-			totalUsdtBalance: 0
-		});
-
-		bitcoinBalance.set({ confirmed: 0, unconfirmed: 0, total: 0 });
-
-		walletRates.set({
-			fiatRates: [],
-			lightningLimits: null,
-			onchainLimits: null
-		});
-
-		walletTransactions.set({
-			pendingPayments: [],
-			recentTransactions: [],
-			paymentEvents: []
-		});
-
-		walletUI.set({
-			activeTab: 'balance'
-		});
-
-		sendForm.set({
-			amount: '',
-			recipient: '',
-			description: '',
-			feeRate: 'medium',
-			useMainUnit: false,
-			fiatCurrency: 'USD',
-			preparedTransaction: null,
-			isLoading: false,
-			estimatedFees: 0,
-			validationError: null
-		});
-	} catch (error) {
-		console.error('Error during wallet cleanup:', error);
-	}
-}
-
-// UI actions
-export function setActiveTab(tab: 'balance' | 'receive' | 'send' | 'swaps' | 'transactions'): void {
-	walletUI.update((state) => ({ ...state, activeTab: tab }));
-}
-
-export function setSelectedAsset(assetId: string): void {
-	walletAssets.update((state) => ({ ...state, selectedAsset: assetId }));
-}
-
-// Send form actions
-export function updateSendForm(
-	updates: Partial<{
-		amount: string;
-		recipient: string;
-		description: string;
-		feeRate: 'slow' | 'medium' | 'fast';
-		useMainUnit: boolean;
-		fiatCurrency: string;
-		preparedTransaction: PrepareSendResponse | null;
-		isLoading: boolean;
-		estimatedFees: number;
-		validationError: string | null;
-	}>
-): void {
-	sendForm.update((state) => ({ ...state, ...updates }));
-}
-
-export function resetSendForm(): void {
-	sendForm.set({
-		amount: '',
-		recipient: '',
-		description: '',
-		feeRate: 'medium',
-		useMainUnit: false,
-		fiatCurrency: 'USD',
-		preparedTransaction: null,
-		isLoading: false,
-		estimatedFees: 0,
-		validationError: null
+	const tx = await state.rsk.wallet.sendTransaction({
+		to,
+		value: ethers.parseEther(amount)
 	});
+	await tx.wait();
+	await loadAssets();
+	return tx.hash;
 }
 
-// Get selected asset data
-export function getSelectedAssetData(): EnhancedAsset | undefined {
-	const assets = get(walletAssets);
-	return assets.assets.find(
-		(asset) => asset.ticker === assets.selectedAsset || asset.assetId === assets.selectedAsset
-	);
+/**
+ * UI State Management
+ */
+export function setActiveNetwork(network: 'liquid' | 'rsk'): void {
+	walletStore.update(state => ({ ...state, activeNetwork: network }));
 }
 
-// Format currency values
+export function setActiveTab(tab: 'balance' | 'send' | 'receive' | 'transactions'): void {
+	walletStore.update(state => ({ ...state, activeTab: tab }));
+}
+
+/**
+ * Cleanup
+ */
+export async function cleanup(): Promise<void> {
+	refreshIntervals.forEach(interval => clearInterval(interval));
+	eventListeners.forEach(cleanup => cleanup());
+	await disconnect();
+	walletStore.set(initialState);
+}
+
+// Derived stores for easy access
+export const liquidConnection = derived(walletStore, $store => $store.liquid);
+export const rskConnection = derived(walletStore, $store => $store.rsk);
+export const combinedWalletState = derived(walletStore, $store => $store);
+export const allAssets = derived(walletStore, $store => $store.assets);
+export const totalBalances = derived(walletStore, $store => $store.totalBalances);
+
+/**
+ * Utility functions
+ */
 export function formatSats(sats: number): string {
-	return new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 0
-	}).format(sats);
+	return new Intl.NumberFormat('en-US').format(sats);
 }
 
 export function formatUsd(amount: number): string {
-	return new Intl.NumberFormat('en-US', {
-		style: 'currency',
-		currency: 'USD',
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2
-	}).format(amount);
+	return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
-export function formatNumber(value: number): string {
-	return parseFloat(value.toFixed(8)).toString();
+export function formatAddress(address: string | null, startChars: number = 6, endChars: number = 4): string {
+	if (!address) return '';
+	if (address.length <= startChars + endChars) return address;
+	return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
-export function formatNumberWithTwoDecimals(number: number): string {
-	return new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 2
-	}).format(number);
-}
-
-// Subscribe to external stores and sync with our wallet stores
-export function syncExternalStores(): void {
-	// Subscribe to payment events
-	paymentEventsStore.subscribe((events) => {
-		walletTransactions.update((state) => ({ ...state, paymentEvents: events }));
-	});
-
-	// Subscribe to pending payments
-	pendingPaymentsStore.subscribe((payments) => {
-		walletTransactions.update((state) => ({ ...state, pendingPayments: payments }));
-	});
-
-	// Subscribe to connection status
-	isConnectedStore.subscribe((connected) => {
-		walletConnection.update((state) => ({ ...state, isConnected: connected }));
-	});
-}
-
-// Derived values for easy access using traditional derived stores
-export const selectedAsset = derived(walletAssets, ($walletAssets) =>
-	$walletAssets.assets.find(
-		(asset) =>
-			asset.ticker === $walletAssets.selectedAsset || asset.assetId === $walletAssets.selectedAsset
-	)
-);
-
-export const walletBalance = derived(walletAssets, ($walletAssets) => ({
-	totalSats: $walletAssets.totalSatsBalance,
-	totalUsd: $walletAssets.totalUsdValue,
-	totalUsdt: $walletAssets.totalUsdtBalance
-}));
-
-// Legacy exports for backward compatibility
-export const walletStore = {
-	initialize,
-	disconnectWallet,
+// Main wallet manager
+export const walletManager = {
+	initialize: initializeWallet,
+	cleanup,
 	loadAssets,
 	loadFiatRates,
-	loadTransactions: loadTransactions,
-	cleanup,
+	sendRBTC,
+	setActiveNetwork,
 	setActiveTab,
-	setSelectedAsset,
-	updateSendForm,
-	resetSendForm,
-	getSelectedAssetData,
 	formatSats,
 	formatUsd,
-	formatNumber,
-	refresh: loadWalletData,
-	refreshAssets: loadAssets,
-	refreshRates: loadFiatRates,
-	refreshTransactions: loadTransactions
+	formatAddress
 };

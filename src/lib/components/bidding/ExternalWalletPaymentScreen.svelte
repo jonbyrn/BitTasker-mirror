@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TaskBid } from '$lib/types/bid';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
 
 	// Props

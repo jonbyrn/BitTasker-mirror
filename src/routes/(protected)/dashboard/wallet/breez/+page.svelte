@@ -2,13 +2,13 @@
 	// Import polyfills FIRST before any other imports that might use Buffer/bitcoinjs-lib
 	import '$lib/polyfills';
 	import { onMount, onDestroy } from 'svelte';
-	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/wallet.store';
+	import { walletStore, walletConnection, walletInfo, walletUI } from '$lib/stores/breezWallet.store';
 	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
-	import BalanceCard from '$lib/components/wallet/balanceTab/BalanceCard.svelte';
-	import RecentTransactions from '$lib/components/wallet/balanceTab/RecentTransactions.svelte';
-	import PaymentRequestForm from '$lib/components/wallet/PaymentRequestForm.svelte';
-	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
-	import SendForm from '$lib/components/wallet/sendTab/SendForm.svelte';
+	import BalanceCard from '$lib/components/wallet/breez/BalanceCard.svelte';
+	import RecentTransactions from '$lib/components/wallet/breez/RecentTransactions.svelte';
+	import PaymentRequestForm from '$lib/components/wallet/breez/PaymentRequestForm.svelte';
+	import TransactionHistory from '$lib/components/wallet/breez/TransactionHistory.svelte';
+	import SendForm from '$lib/components/wallet/breez/sendTab/SendForm.svelte';
 
 	onMount(async () => {
 		$walletConnection.isConnecting = true;
@@ -62,7 +62,7 @@
 			</div>
 			<button
 				class="btn btn-outline btn-sm place-self-end"
-				onclick={() => walletStore.initialize()}
+				onclick={async () => await walletStore.initialize()}
 			>
 				Retry Connection
 			</button>
