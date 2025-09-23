@@ -5,10 +5,14 @@
 		selectedSkills = $bindable([]),
 		maxSelections = 10,
 		placeholder = 'Add skills...',
-		className = ''
+		className = '',
+		onChange = () => {}
 	} = $props();
 
-	// No need for handleChange since we're using bind:selected
+	// Handle skills change and call onChange callback
+	$effect(() => {
+		onChange(selectedSkills);
+	});
 </script>
 
 <div class="skills-multiselect {className}">

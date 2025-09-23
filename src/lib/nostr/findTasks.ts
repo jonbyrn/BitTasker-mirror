@@ -53,15 +53,15 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['S'] = params.status;
     }
 
-    // Category filter
-    if (params.categories && params.categories.length > 0) {
-        filter['c'] = params.categories;
-    }
+    // Category filter - REMOVED: Now handled in frontend filtering
+    // if (params.categories && params.categories.length > 0) {
+    //     filter['c'] = params.categories;
+    // }
 
-    // Skills filter
-    if (params.skills && params.skills.length > 0) {
-        filter['s'] = params.skills;
-    }
+    // Skills filter - REMOVED: Now handled in frontend filtering
+    // if (params.skills && params.skills.length > 0) {
+    //     filter['s'] = params.skills;
+    // }
 
     // Budget filters
     if (params.budget?.tier) {
@@ -136,7 +136,30 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         const cacheKey = JSON.stringify(filter);
         const cached = cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            const tasks = cached.data;
+            let tasks = cached.data;
+
+            // Apply frontend filtering for skills and categories since they're in JSON content
+            if (params.skills && params.skills.length > 0) {
+                tasks = tasks.filter(task => {
+                    const taskSkills = task.skills || [];
+                    return params.skills!.some(skill => 
+                        taskSkills.some((taskSkill: string) => 
+                            taskSkill.toLowerCase().includes(skill.toLowerCase()) ||
+                            skill.toLowerCase().includes(taskSkill.toLowerCase())
+                        )
+                    );
+                });
+            }
+
+            if (params.categories && params.categories.length > 0) {
+                tasks = tasks.filter(task => {
+                    const taskCategories = task.categories || [];
+                    return params.categories!.some(category => 
+                        taskCategories.includes(category)
+                    );
+                });
+            }
+
             tasksStore.update(state => ({
                 ...state,
                 items: tasks, // Reemplazar en lugar de concatenar
@@ -159,7 +182,29 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 
             // For public users, show all tasks without filtering by npub
             // This avoids triggering biometric authentication for public users
-            const tasks = events.map((event: Event) => convertEventToTask(event));
+            let tasks = events.map((event: Event) => convertEventToTask(event));
+
+            // Apply frontend filtering for skills and categories since they're in JSON content
+            if (params.skills && params.skills.length > 0) {
+                tasks = tasks.filter(task => {
+                    const taskSkills = task.skills || [];
+                    return params.skills!.some(skill => 
+                        taskSkills.some((taskSkill: string) => 
+                            taskSkill.toLowerCase().includes(skill.toLowerCase()) ||
+                            skill.toLowerCase().includes(taskSkill.toLowerCase())
+                        )
+                    );
+                });
+            }
+
+            if (params.categories && params.categories.length > 0) {
+                tasks = tasks.filter(task => {
+                    const taskCategories = task.categories || [];
+                    return params.categories!.some(category => 
+                        taskCategories.includes(category)
+                    );
+                });
+            }
 
             // Update cache
             cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
@@ -208,7 +253,6 @@ export function cleanup(): void {
 // Cleanup pool and subscriptions when browser closes
 if (browser) {
     window.addEventListener('beforeunload', () => {
-        console.log('Cleaning up Nostr connections');
         cache.clear();
     });
 }

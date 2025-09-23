@@ -172,6 +172,11 @@
 			return category ? category.id : translatedName.toLowerCase();
 		});
 	}
+
+	// Handle skills change
+	function handleSkillsChange(skills: string[]) {
+		filters.skills = skills;
+	}
 </script>
 
 <!-- Drawer Overlay -->
@@ -381,6 +386,7 @@
 			<div class="collapse-content">
 				<SkillsMultiselect
 					bind:selectedSkills={filters.skills}
+					onChange={handleSkillsChange}
 					maxSelections={10}
 					placeholder={$t('find_tasks.add_skills')}
 					className="w-full"

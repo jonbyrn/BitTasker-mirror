@@ -16,7 +16,11 @@
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
-	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDate,
+		formatStandardDateTime,
+		formatStandardDateShort
+	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
 	// Function to create initial search parameters
@@ -726,7 +730,10 @@
 																		>{$t('dashboard.task_details_by_task.date_range')}</small
 																	>
 																	<span class="text-sm font-medium">
-																		{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
+																		{formatDateRangeReactive(
+																			new Date(task.dateRange.start),
+																			new Date(task.dateRange.end)
+																		)}
 																	</span>
 																{/if}
 															</div>
