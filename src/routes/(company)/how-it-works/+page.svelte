@@ -92,26 +92,6 @@
 			</p>
 		</div>
 
-		<div class="alert alert-success alert-outline mb-8">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				fill="none"
-				viewBox="0 0 24 24"
-				class="h-6 w-6 shrink-0 stroke-current"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-				></path>
-			</svg>
-			<span>
-				<strong>{$t('how_it_works.alert.title')}</strong>
-				{@html $t('how_it_works.alert.description')}
-			</span>
-		</div>
-
 		<!-- Steps Overview -->
 		<div class="justify-center mb-12 flex">
 			<div class="steps steps-vertical md:steps-horizontal gap-2">
@@ -131,6 +111,26 @@
 					<div>{$t('how_it_works.steps.get_paid')}</div>
 				</div>
 			</div>
+		</div>
+
+		<div class="alert alert-success alert-outline mb-8">
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				fill="none"
+				viewBox="0 0 24 24"
+				class="h-6 w-6 shrink-0 stroke-current"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+				></path>
+			</svg>
+			<span>
+				<strong>{$t('how_it_works.alert.title')}</strong>
+				{@html $t('how_it_works.alert.description')}
+			</span>
 		</div>
 
 		<!-- Detailed Steps Section -->
