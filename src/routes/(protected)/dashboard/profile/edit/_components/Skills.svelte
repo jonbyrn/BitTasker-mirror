@@ -10,13 +10,8 @@
 		deleteNostrEvent
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
-<<<<<<< HEAD
 	import DateInput from '$lib/components/date/DateInput.svelte';
-=======
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
 	import KINDS from '$lib/utils/constants/kinds';
->>>>>>> 15b4220 (setup escrow contract as nostr events DMs between tasker & taskee)
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
