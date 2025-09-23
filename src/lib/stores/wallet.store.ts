@@ -30,6 +30,7 @@ import {
 	isConnectedStore,
 	getTransactions
 } from '$lib/wallet/breez/walletService';
+import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 // Wallet asset interface
 export interface WalletAsset extends IAssetMetadata {
@@ -77,6 +78,10 @@ export interface CombinedWalletState {
 		sats: number;
 		rbtc: number;
 	};
+	
+	// Exchange rates
+	rbtcToBtcRate: number;
+	rbtcRateError: boolean;
 
 	// UI state
 	activeNetwork: 'liquid' | 'rsk';
@@ -119,6 +124,9 @@ const initialState: CombinedWalletState = {
 		sats: 0,
 		rbtc: 0
 	},
+	
+	rbtcToBtcRate: 1.0, // Default 1:1 when no rate available
+	rbtcRateError: false,
 
 	activeNetwork: 'liquid',
 	activeTab: 'balance',
@@ -137,7 +145,8 @@ async function loadAllData(): Promise<void> {
 	try {
 		await Promise.allSettled([
 			loadAssets(),
-			loadFiatRates()
+			loadFiatRates(),
+			loadRbtcExchangeRate()
 		]);
 	} catch (error) {
 		console.error('Failed to load wallet data:', error);
@@ -609,6 +618,28 @@ export async function loadFiatRates(): Promise<void> {
 }
 
 /**
+ * Load rBTC to BTC exchange rate
+ */
+export async function loadRbtcExchangeRate(): Promise<void> {
+	try {
+		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
+		walletStore.update(state => ({ 
+			...state, 
+			rbtcToBtcRate: rate,
+			rbtcRateError: false 
+		}));
+	} catch (error) {
+		console.error('Failed to load rBTC exchange rate:', error);
+		// Set error flag so UI can handle appropriately
+		walletStore.update(state => ({ 
+			...state, 
+			rbtcToBtcRate: 1.0, // Use 1:1 as safe fallback
+			rbtcRateError: true 
+		}));
+	}
+}
+
+/**
  * Send RSK transaction
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
@@ -717,6 +748,7 @@ export const rskConnection = derived(walletStore, $store => $store.rsk);
 export const combinedWalletState = derived(walletStore, $store => $store);
 export const allAssets = derived(walletStore, $store => $store.assets);
 export const totalBalances = derived(walletStore, $store => $store.totalBalances);
+export const rbtcToBtcRate = derived(walletStore, $store => $store.rbtcToBtcRate);
 
 /**
  * Utility functions
@@ -741,7 +773,9 @@ export const walletManager = {
 	cleanup,
 	loadAssets,
 	loadFiatRates,
+	loadRbtcExchangeRate,
 	loadTransactions,
+	retryRbtcExchangeRate: () => loadRbtcExchangeRate(),
 	sendRBTC,
 	setActiveNetwork,
 	setActiveTab,

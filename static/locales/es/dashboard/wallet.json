@@ -6,6 +6,7 @@
       "tab_send": "Enviar",
       "tab_transactions": "Transacciones",
       "total_balance": "Saldo total",
+      "liquid_balance": "Saldo Liquid",
       "receive": "Recibir",
       "send_button": "Enviar",
       "recent_transactions": "Transacciones recientes",
