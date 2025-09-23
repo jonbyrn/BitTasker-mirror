@@ -10,6 +10,8 @@
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
 	import type { PageData } from './$types';
 
@@ -25,6 +27,21 @@
 
 	// Check if current user is the task creator (always false for public users)
 	const isOwner = $derived(false);
+
+	// Reactive date formatting functions using Svelte 5 runes
+	function formatDateReactive(date: Date) {
+		return formatStandardDate(date, $locale || 'en');
+	}
+
+	function formatDateTimeReactive(date: Date) {
+		return formatStandardDateTime(date, $locale || 'en');
+	}
+
+	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+		const start = formatStandardDateShort(startDate, $locale || 'en');
+		const end = formatStandardDateShort(endDate, $locale || 'en');
+		return `${start} - ${end}`;
+	}
 
 	// Helper function to prepare images for Gallery component
 	// La función ahora es asíncrona
@@ -282,11 +299,7 @@
 												{$t('dashboard.task_details_by_task.deadline')}
 											</h4>
 											<div class="font-semibold">
-												{new Date(task.deadline).toLocaleDateString('en-US', {
-													day: '2-digit',
-													month: '2-digit',
-													year: 'numeric'
-												})}, 12pm
+												{formatDateTimeReactive(new Date(task.deadline))}
 											</div>
 										</div>
 									{:else if task.dateRange}
@@ -295,15 +308,7 @@
 												>{$t('dashboard.task_details_by_task.date_range')}</span
 											>
 											<div class="font-semibold">
-												{new Date(task.dateRange.start).toLocaleDateString('en-US', {
-													day: '2-digit',
-													month: '2-digit',
-													year: 'numeric'
-												})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
-													day: '2-digit',
-													month: '2-digit',
-													year: 'numeric'
-												})}
+												{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
 											</div>
 										</div>
 									{/if}

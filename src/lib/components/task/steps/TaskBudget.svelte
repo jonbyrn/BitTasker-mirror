@@ -300,7 +300,7 @@
 			enableImageCompression={true}
 			compressionQuality={0.8}
 			maxImageDimension={3840}
-			showCompressionInfo={true}
+			showCompressionInfo={false}
 			useCloudflare={true}
 			generateVariants={true}
 			uploadFolder="tasks"

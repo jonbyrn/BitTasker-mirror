@@ -51,6 +51,10 @@
 	<div class="h-1"></div>
 	{#if $store.isRemovals}
 		<div class="w-full">
+			<div class="mb-6">
+				<h5 class="text-md font-semibold text-primary">📍 {$t('task.start_location')}</h5>
+				<p class="text-sm text-base-content">{$t('task.pickup_location_description')}</p>
+			</div>
 			<EnhancedLocationPicker
 				label={$t('task.pickup_location')}
 				placeholder={$t('task.address_placeholder')}
@@ -71,6 +75,10 @@
 			/>
 		</div>
 		<div class="w-full">
+			<div class="mb-6 mt-10">
+				<h5 class="text-md font-semibold text-success">🏁 {$t('task.destination_location')}</h5>
+				<p class="text-sm text-base-content">{$t('task.dropoff_location_description')}</p>
+			</div>
 			<EnhancedLocationPicker
 				label={$t('task.dropoff_location')}
 				placeholder={$t('task.address_placeholder')}

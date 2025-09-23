@@ -18,6 +18,110 @@ export function formatDate(date: Date): string {
 	}
 }
 
+/**
+ * Format a date to the standard app format: "September 23, 2025"
+ * This is the standard date display format used throughout the app
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (defaults to current locale)
+ * @returns Formatted date string in standard app format
+ */
+export function formatStandardDate(date: Date, locale: string = 'en'): string {
+	try {
+		const formatted = new Intl.DateTimeFormat(locale, {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		}).format(date);
+		
+		// For Spanish, capitalize only the month name, not connecting words like "de"
+		if (locale === 'es') {
+			return formatted.replace(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi, 
+				(match) => match.charAt(0).toUpperCase() + match.slice(1));
+		}
+		
+		return formatted;
+	} catch (error) {
+		console.error('Error formatting standard date:', error);
+		return 'Invalid date';
+	}
+}
+
+/**
+ * Format a date to the short month format: "Sept 23, 2025"
+ * This is used for date ranges to keep them more compact
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (defaults to current locale)
+ * @returns Formatted date string with short month
+ */
+export function formatStandardDateShort(date: Date, locale: string = 'en'): string {
+	try {
+		const formatted = new Intl.DateTimeFormat(locale, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		}).format(date);
+		
+		// For Spanish, capitalize only the month name, not connecting words like "de"
+		if (locale === 'es') {
+			return formatted.replace(/\b(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/gi, 
+				(match) => match.charAt(0).toUpperCase() + match.slice(1));
+		}
+		
+		return formatted;
+	} catch (error) {
+		console.error('Error formatting standard date short:', error);
+		return 'Invalid date';
+	}
+}
+
+/**
+ * Format a date to the standard app format with time: "September 23, 2025 at 2:30 PM"
+ * @param date - The date to format
+ * @param locale - The locale to use for formatting (defaults to current locale)
+ * @returns Formatted date string with time in standard app format
+ */
+export function formatStandardDateTime(date: Date, locale: string = 'en'): string {
+	try {
+		const formatted = new Intl.DateTimeFormat(locale, {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
+		
+		// For Spanish, capitalize only the month name and use AM/PM instead of a.m./p.m.
+		if (locale === 'es') {
+			return formatted
+				.replace(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\b/gi, 
+					(match) => match.charAt(0).toUpperCase() + match.slice(1)) // Capitalize only month name
+				.replace(/a\.\s*m\./gi, 'AM') // Replace a.m. with AM
+				.replace(/p\.\s*m\./gi, 'PM'); // Replace p.m. with PM
+		}
+		
+		return formatted;
+	} catch (error) {
+		console.error('Error formatting standard date time:', error);
+		return 'Invalid date';
+	}
+}
+
+/**
+ * Reactive date formatter that automatically uses the current locale from svelte-i18n
+ * This should be used in Svelte components for reactive date formatting
+ * @param date - The date to format
+ * @param includeTime - Whether to include time in the format
+ * @returns Reactive formatted date string
+ */
+export function createReactiveDateFormatter() {
+	// This will be imported in components that need reactive date formatting
+	return {
+		formatStandardDate: (date: Date, locale: string) => formatStandardDate(date, locale),
+		formatStandardDateTime: (date: Date, locale: string) => formatStandardDateTime(date, locale)
+	};
+}
+
 export function formatTimeLarge(time: string): string {
 	if (!time) return '';
 	const [hours, minutes] = time.split(':');

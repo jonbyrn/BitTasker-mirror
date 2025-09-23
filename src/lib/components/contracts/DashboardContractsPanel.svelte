@@ -110,7 +110,7 @@
 			<!-- Status Filter -->
 			<select 
 				bind:value={statusFilter}
-				class="select select-bordered select-sm whitespace-nowrap w-fit"
+				class="select select-bordered select-sm whitespace-nowrap"
 				aria-label={$t('dashboard.contracts.filter_by_status')}
 			>
 				<option value="all">{$t('dashboard.contracts.all_statuses')}</option>

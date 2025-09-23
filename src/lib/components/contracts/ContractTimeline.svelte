@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { locale } from 'svelte-i18n';
+	import { formatStandardDateShort, formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import type { ContractStatusEvent } from '$lib/types/contract';
 
 	const { statusEvents } = $props<{
@@ -19,12 +21,8 @@
 			const hours = Math.floor(diffInHours);
 			return $t('dashboard.contracts.timeline.hours_ago', { values: { hours } });
 		} else {
-			return date.toLocaleDateString('en-US', {
-				month: 'short',
-				day: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit'
-			});
+			// Use standardized date formatting with reactive locale
+			return formatStandardDateTime(date, $locale || 'en');
 		}
 	}
 
