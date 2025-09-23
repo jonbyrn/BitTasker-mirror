@@ -19,7 +19,7 @@
 	let rbtcBalance = $derived($totalBalances.rbtc);
 	let hasRbtcRateError = $derived($walletStore.rbtcRateError);
 	let rbtcRate = $derived($walletStore.rbtcToBtcRate);
-	
+
 	// Only combine balances if we have a reliable exchange rate
 	let canCombineBalances = $derived(!hasRbtcRateError && rbtcBalance > 0);
 	let rbtcInSats = $derived(rbtcBalance * rbtcRate * 100_000_000);
@@ -52,10 +52,8 @@
 		<div class="card-body">
 			<div class="flex items-center justify-between">
 				<div class="flex-1">
-					<h3 class="card-title text-white">
-						{canCombineBalances ? $t('wallet.total_balance') : $t('wallet.liquid_balance')}
-					</h3>
-					
+					<h3 class="card-title text-white">{$t('wallet.total_balance')}</h3>
+
 					{#if canCombineBalances}
 						<!-- Combined balance when exchange rate is available -->
 						<p class="text-3xl font-bold text-white">
@@ -72,7 +70,7 @@
 									<span class="text-2xl font-bold text-white">
 										{liquidSats.toLocaleString()}
 									</span>
-									<span class="text-sm text-white opacity-90 ml-2">sats</span>
+									<span class="ml-2 text-sm text-white opacity-90">sats</span>
 								</div>
 							{/if}
 							{#if rbtcBalance > 0}
@@ -80,14 +78,14 @@
 									<span class="text-2xl font-bold text-white">
 										{rbtcBalance.toFixed(6)}
 									</span>
-									<span class="text-sm text-white opacity-90 ml-2">rBTC</span>
+									<span class="ml-2 text-sm text-white opacity-90">rBTC</span>
 								</div>
 								{#if hasRbtcRateError}
 									<div class="mt-1">
 										<p class="text-xs text-white opacity-70">
 											⚠️ Exchange rate unavailable - showing separate balances
 										</p>
-										<button 
+										<button
 											class="text-xs text-white underline opacity-80 hover:opacity-100"
 											onclick={() => walletManager.retryRbtcExchangeRate()}
 										>
@@ -97,15 +95,13 @@
 								{/if}
 							{/if}
 							{#if liquidSats === 0 && rbtcBalance === 0}
-								<p class="text-2xl font-bold text-white opacity-70">
-									No assets
-								</p>
+								<p class="text-2xl font-bold text-white opacity-70">No assets</p>
 							{/if}
 						</div>
 					{/if}
-					
+
 					{#if totalUsdValue > 0}
-						<p class="text-white opacity-80 mt-1">
+						<p class="mt-1 text-white opacity-80">
 							≈ ${totalUsdValue.toFixed(2)} USD
 						</p>
 					{/if}
