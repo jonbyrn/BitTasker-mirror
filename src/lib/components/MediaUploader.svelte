@@ -430,7 +430,7 @@
 
 	<!-- Compression Progress -->
 	{#if isCompressing && compressionProgress.total > 0}
-		<div class="alert alert-info alert-xs sm:alert-sm py-2">
+		<div class="alert alert-outline alert-info alert-xs sm:alert-sm py-2">
 			<div class="flex items-center gap-2 w-full">
 				<svg
 					class="animate-spin h-4 w-4 text-info"
@@ -472,7 +472,7 @@
 
 	<!-- Upload Progress -->
 	{#if isUploading && uploadProgress.total > 0}
-		<div class="alert alert-info alert-xs sm:alert-sm py-2">
+		<div class="alert alert-outline alert-info alert-xs sm:alert-sm py-2">
 			<div class="flex items-center gap-2 w-full">
 				<svg
 					class="animate-spin h-4 w-4 text-info"
@@ -514,7 +514,7 @@
 
 	<!-- Compression Info -->
 	{#if showCompressionInfo && compressionInfo.length > 0}
-		<div class="alert alert-success alert-xs sm:alert-sm py-2">
+		<div class="alert alert-outline alert-success alert-xs sm:alert-sm py-2">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-4 w-4 shrink-0 stroke-current"
@@ -542,7 +542,7 @@
 
 	<!-- Error Display -->
 	{#if error}
-		<div class="alert alert-error alert-xs sm:alert-sm py-1">
+		<div class="alert alert-outline alert-error alert-xs sm:alert-sm py-1">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
