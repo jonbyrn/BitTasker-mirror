@@ -11,6 +11,7 @@
 		formatRBTCAmount,
 		formatTimestamp
 	} from '$lib/utils/wallet/escrowBid';
+	import { goto } from '$app/navigation';
 	
 	// Props
 	const props = $props<{
@@ -19,7 +20,6 @@
 		taskTitle: string;
 		btcPrice: number;
 		onCancel: () => void;
-		onGoToDashboard?: () => void;
 		onCreateNewTask?: () => void;
 	}>();
 
@@ -28,6 +28,7 @@
 	let validationErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
+	let contractCreationStatus = $state<'pending' | 'success' | 'failed'>('pending');
 
 	// Calculate escrow details from bid
 	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
@@ -45,6 +46,26 @@
 		}
 	});
 
+	// Contract creation event listeners using stores
+	/* $effect(() => {
+		// Import the contract creation store
+		import('$lib/utils/wallet/escrowEvents').then(({ contractCreationStore }) => {
+			const unsubscribe = contractCreationStore.subscribe((event) => {
+				if (event) {
+					if (event.error) {
+						contractCreationStatus = 'failed';
+						// Toast is already shown in escrowEvents.ts
+					} else if (event.contractEventId) {
+						contractCreationStatus = 'success';
+						// Toast is already shown in escrowEvents.ts
+					}
+				}
+			});
+			
+			return unsubscribe;
+		});
+	}); */
+
 	// Handle form submission
 	async function handleSubmit() {
 		if (validationErrors.length !== 0 || !props.bid.id) {
@@ -52,6 +73,7 @@
 		}
 
 		isSubmitting = true;
+		contractCreationStatus = 'pending'; // Reset contract creation status
 
 		try {
 			// Accept bid and create escrow
@@ -76,15 +98,6 @@
 		}
 	}
 
-	// Handle going to dashboard
-	function handleGoToDashboard() {
-		if (props.onGoToDashboard) {
-			props.onGoToDashboard();
-		} else {
-			props.onCancel();
-		}
-	}
-
 	// Handle creating new task
 	function handleCreateNewTask() {
 		if (props.onCreateNewTask) {
@@ -97,7 +110,7 @@
 </script>
 
 {#if currentScreen === 'form'}
-	<div class="bg-base-100 mx-auto max-h-[70vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
+	<div class="bg-base-100 mx-auto max-h-[70vh] max-w-3xl overflow-y-auto overflow-x-hidden rounded-lg shadow-lg">
 		<!-- Header with close button -->
 		<div
 			class="border-b bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4 pb-4 sm:p-6"
@@ -127,7 +140,7 @@
 		</div>
 
 		<!-- Content with padding -->
-		<div class="p-4">
+		<div class="p-4 overflow-x-hidden">
 			<!-- Desktop: 2 column layout -->
 			<div class="hidden rounded-2xl bg-base-200 lg:flex lg:gap-4">
 				<!-- Left Column: Bidder Information -->
@@ -438,11 +451,22 @@
 			<!-- Validation Errors -->
 			{#if validationErrors.length > 0}
 				<div class="alert alert-error mb-4">
-					<ul class="list-disc list-inside">
-						{#each validationErrors as error}
-							<li>{error}</li>
-						{/each}
-					</ul>
+					<div class="flex items-start gap-3">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<div class="flex-1 min-w-0">
+							{#if validationErrors.length === 1}
+								<p class="break-words">{validationErrors[0]}</p>
+							{:else}
+								<ul class="list-disc list-inside space-y-1">
+									{#each validationErrors as error}
+										<li class="break-words">{error}</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+					</div>
 				</div>
 			{/if}
 
@@ -480,7 +504,7 @@
 
 
 {#if currentScreen === 'success' && escrowDetails}
-	<div class="bg-base-100 mx-auto max-h-[70vh] max-w-3xl overflow-y-auto rounded-lg shadow-lg">
+	<div class="bg-base-100 mx-auto max-h-[70vh] max-w-3xl overflow-y-auto overflow-x-hidden rounded-lg shadow-lg">
 		<!-- Header -->
 		<div class="border-b bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4 pb-4 sm:p-6">
 			<h4 class="line-clamp-2 font-bold text-success">Escrow Created Successfully!</h4>
@@ -510,9 +534,9 @@
 				<div class="bg-base-200 rounded-lg p-4 space-y-2">
 					<h4 class="font-semibold">Transaction Details</h4>
 					<div class="text-sm space-y-1">
-						<div class="flex justify-between">
+						<div class="flex flex-col sm:flex-row sm:justify-between gap-1">
 							<span>Transaction Hash:</span>
-							<span class="font-mono text-xs">{escrowDetails.transactionResult.hash}</span>
+							<span class="font-mono text-xs break-all">{escrowDetails.transactionResult.hash}</span>
 						</div>
 						<div class="flex justify-between">
 							<span>Status:</span>
@@ -528,6 +552,27 @@
 				</div>
 			{/if}
 
+			<!-- Contract Creation Status -->
+			<div class="bg-base-200 rounded-lg p-4">
+				<h4 class="font-semibold mb-3">Contract Creation Status</h4>
+				<div class="flex items-center gap-3">
+					{#if contractCreationStatus === 'pending'}
+						<span class="loading loading-spinner loading-sm text-info"></span>
+						<span class="text-info">Creating Nostr contract...</span>
+					{:else if contractCreationStatus === 'success'}
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<span class="text-success">Nostr contract created successfully!</span>
+					{:else if contractCreationStatus === 'failed'}
+						<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<span class="text-error">Failed to create Nostr contract</span>
+					{/if}
+				</div>
+			</div>
+
 			<!-- Next Steps -->
 			<div class="bg-info/10 rounded-lg p-4">
 				<h4 class="font-semibold text-info mb-2">What happens next?</h4>
@@ -536,6 +581,9 @@
 					<li>• Work can begin as per the agreed timeline</li>
 					<li>• Funds are securely held in the RSK escrow contract</li>
 					<li>• Payment will be released upon task completion</li>
+					{#if contractCreationStatus === 'success'}
+						<li>• Contract details are available in your dashboard</li>
+					{/if}
 				</ul>
 			</div>
 
@@ -544,8 +592,8 @@
 				<button class="btn btn-outline flex-1" onclick={handleCreateNewTask}>
 					Create New Task
 				</button>
-				<button class="btn btn-primary flex-1" onclick={handleGoToDashboard}>
-					Go to Dashboard
+				<button class="btn btn-primary flex-1" onclick={() => goto('/dashboard?tab=contracts')}>
+					Go to Contracts
 				</button>
 			</div>
 		</div>

@@ -7,6 +7,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -64,7 +65,7 @@
 				try {
 					isInitialLoading = true;
 					if (
-						event.kind === 30003 &&
+						event.kind === KINDS.PROFILE_STANDARD_SERVICES &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'standard-services')
 					) {
 						const servicesData = JSON.parse(event.content) as NostrStandardServices;

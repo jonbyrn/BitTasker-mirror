@@ -10,10 +10,12 @@
 	import DashboardTasksPanel from '$lib/components/task/DashboardTasksPanel.svelte';
 	import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import DashboardBidsPanel from '$lib/components/bidding/DashboardBidsPanel.svelte';
+	import DashboardContractsPanel from '$lib/components/contracts/DashboardContractsPanel.svelte';
 	// Tab management - reactive to language changes
 	const availableTabs = $derived([
 		{ id: 'tasks', label: $t('dashboard.tabs.tasks') },
 		{ id: 'bids', label: $t('dashboard.tabs.bids') },
+		{ id: 'contracts', label: $t('dashboard.tabs.contracts') },
 		{ id: 'saved-searches', label: $t('dashboard.tabs.saved_searches') }
 		// { id: 'recurring', label: $t('dashboard.tabs.recurring') }
 	]);
@@ -72,6 +74,8 @@
 		<a
 			href={activeTab === 'bids' || activeTab === 'saved-searches'
 				? '/dashboard/find-tasks'
+				: activeTab === 'contracts'
+				? '/dashboard/wallet'
 				: '/dashboard/create-task'}
 			class="btn btn-primary btn-sm sm:btn-md whitespace-nowrap"
 		>
@@ -85,6 +89,17 @@
 					aria-label={$t('dashboard.page.search_icon_alt')}
 				>
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			{:else if activeTab === 'contracts'}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="mr-1 h-4 w-4 sm:mr-2 sm:h-5 sm:w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					aria-label="Wallet icon"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
 				</svg>
 			{:else}
 				<svg
@@ -101,11 +116,15 @@
 			<span class="hidden sm:inline">
 				{activeTab === 'bids' || activeTab === 'saved-searches'
 					? $t('dashboard.find_task')
+					: activeTab === 'contracts'
+					? $t('dashboard.manage_wallet')
 					: $t('dashboard.create_task')}
 			</span>
 			<span class="sm:hidden">
 				{activeTab === 'bids' || activeTab === 'saved-searches'
 					? $t('dashboard.find_task')
+					: activeTab === 'contracts'
+					? $t('dashboard.wallet')
 					: $t('dashboard.create_task')}
 			</span>
 		</a>
@@ -133,8 +152,7 @@
 		>
 			<DashboardSavedSearchesPanel />
 		</div>
-	{/if}
-	{#if activeTab === 'bids'}
+	{:else if activeTab === 'bids'}
 		<div
 			id="panel-bids"
 			role="tabpanel"
@@ -142,6 +160,15 @@
 			transition:slide={{ duration: 300 }}
 		>
 			<DashboardBidsPanel />
+		</div>
+	{:else if activeTab === 'contracts'}
+		<div
+			id="panel-contracts"
+			role="tabpanel"
+			aria-labelledby="tab-contracts"
+			transition:slide={{ duration: 300 }}
+		>
+			<DashboardContractsPanel />
 		</div>
 	{/if}
 </div>
