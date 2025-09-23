@@ -1,6 +1,10 @@
 <script lang="ts">
+	import type { Payment } from '@breeztech/breez-sdk-liquid/web';
+	import type { RSKTransaction } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
+	import { ethers } from 'ethers';
+	import { combinedWalletState, walletManager } from '$lib/stores/wallet.store';
 
 	// Transaction types
 	interface Transaction {
@@ -55,83 +59,154 @@
 		error = null;
 
 		try {
-			// Load transactions from both networks
-			const [liquidTxs, rskTxs] = await Promise.allSettled([
-				loadLiquidTransactions(),
-				loadRskTransactions()
-			]);
+			// Load transactions using the combined wallet manager
+			await walletManager.loadTransactions();
+			
+			// Get transactions from the combined store and convert them to our interface
+			const storeTransactions = $combinedWalletState.transactions;
+			const convertedTransactions: Transaction[] = [];
 
-			const allTransactions: Transaction[] = [];
+			for (const tx of storeTransactions) {
+				// Check if it's a Breez Payment or RSK Transaction
+				if ('paymentType' in tx) {
+					// It's a Breez Payment
+					const payment = tx as Payment;
+					const isReceive = payment.paymentType === 'receive';
+					const timestamp = payment.timestamp * 1000; // Convert to milliseconds
+					
+					// Get asset info
+					let asset = 'L-BTC';
+					let formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(8).replace(/\.?0+$/, '')} L-BTC`;
+					
+					// Check if it's a different asset
+					if (payment.details.type === 'liquid' && 'assetId' in payment.details && payment.details.assetId) {
+						// Handle other Liquid assets (USDt, etc.)
+						// Mainnet USDt asset ID
+						if (payment.details.assetId === 'ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2') {
+							asset = 'USDt';
+							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(2)} USDt`;
+						}
+						// Testnet USDt asset ID
+						else if (payment.details.assetId === 'b612eb46313a2cd6ebabd8b7a8eed5696e29898b87a43bff41c94f51acef9d73') {
+							asset = 'USDt';
+							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(2)} USDt`;
+						}
+						// Other assets - show first 6 chars of asset ID
+						else {
+							asset = payment.details.assetId.slice(0, 6) + '...';
+							formattedAmount = `${(payment.amountSat / 100_000_000).toFixed(8).replace(/\.?0+$/, '')} ${asset}`;
+						}
+					}
 
-			// Process Liquid transactions
-			if (liquidTxs.status === 'fulfilled') {
-				allTransactions.push(...liquidTxs.value);
-			}
+					convertedTransactions.push({
+						id: payment.txId || `liquid-${payment.timestamp}-${payment.amountSat}`,
+						type: isReceive ? 'receive' : 'send',
+						network: 'liquid' as const,
+						asset,
+						amount: payment.amountSat,
+						formattedAmount,
+						address: payment.destination,
+						timestamp,
+						status: getBreezTransactionStatus(payment),
+						txHash: payment.txId,
+						description: getBreezTransactionDescription(payment),
+						fee: payment.feesSat
+					});
+				} else {
+					// It's an RSK Transaction
+					const rskTx = tx as RSKTransaction;
+					const amount = parseFloat(ethers.formatEther(rskTx.value || '0'));
+					const formattedAmount = `${amount.toFixed(6)} rBTC`;
+					
+					// Calculate fee if available
+					let fee: number | undefined;
+					if (rskTx.gasUsed && rskTx.gasUsed !== '0' && rskTx.gasPrice && rskTx.gasPrice !== '0') {
+						try {
+							const feeWei = BigInt(rskTx.gasUsed) * BigInt(rskTx.gasPrice);
+							fee = parseFloat(ethers.formatEther(feeWei));
+						} catch (error) {
+							console.warn('Failed to calculate transaction fee:', error);
+						}
+					}
 
-			// Process RSK transactions
-			if (rskTxs.status === 'fulfilled') {
-				allTransactions.push(...rskTxs.value);
+					convertedTransactions.push({
+						id: rskTx.hash || `rsk-${rskTx.timestamp}-${rskTx.value}`,
+						type: rskTx.type as 'send' | 'receive',
+						network: 'rsk' as const,
+						asset: 'rBTC',
+						amount,
+						formattedAmount,
+						address: rskTx.to,
+						timestamp: rskTx.timestamp,
+						status: rskTx.status as 'confirmed' | 'pending' | 'failed',
+						txHash: rskTx.hash,
+						description: getTransactionDescription(rskTx),
+						fee
+					});
+				}
 			}
 
 			// Sort by timestamp (newest first)
-			transactions = allTransactions.sort((a, b) => b.timestamp - a.timestamp);
+			transactions = convertedTransactions.sort((a, b) => b.timestamp - a.timestamp);
 		} catch (err) {
 			console.error('Failed to load transactions:', err);
-			error = $t('wallet.failed_to_load_transactions');
+			error = err instanceof Error ? err.message : $t('wallet.failed_to_load_transactions');
 		} finally {
 			isLoading = false;
 		}
 	}
 
-	async function loadLiquidTransactions(): Promise<Transaction[]> {
-		// This would integrate with the existing Breez SDK transaction loading
-		// For now, return placeholder data
-		return [
-			{
-				id: 'liquid-1',
-				type: 'receive',
-				network: 'liquid',
-				asset: 'L-BTC',
-				amount: 50000,
-				formattedAmount: '0.0005 L-BTC',
-				timestamp: Date.now() - 3600000,
-				status: 'confirmed',
-				txHash: '0x123...abc',
-				description: 'Lightning payment received'
-			},
-			{
-				id: 'liquid-2',
-				type: 'send',
-				network: 'liquid',
-				asset: 'USDt',
-				amount: 10,
-				formattedAmount: '10 USDt',
-				timestamp: Date.now() - 7200000,
-				status: 'confirmed',
-				txHash: '0x456...def',
-				description: 'Payment sent'
-			}
-		];
+	async function refreshTransactions() {
+		await loadTransactions();
 	}
 
-	async function loadRskTransactions(): Promise<Transaction[]> {
-		// This would integrate with the existing RSK transaction loading
-		// For now, return placeholder data
-		return [
-			{
-				id: 'rsk-1',
-				type: 'send',
-				network: 'rsk',
-				asset: 'rBTC',
-				amount: 0.001,
-				formattedAmount: '0.001 rBTC',
-				timestamp: Date.now() - 1800000,
-				status: 'confirmed',
-				txHash: '0x789...ghi',
-				description: 'Contract interaction',
-				fee: 0.0001
+
+	function getBreezTransactionStatus(tx: Payment): 'confirmed' | 'pending' | 'failed' {
+		if (tx.status === 'pending') return 'pending';
+		if (tx.status === 'failed') return 'failed';
+		return 'confirmed';
+	}
+
+	function getBreezTransactionDescription(tx: Payment): string {
+		if (tx.paymentType === 'receive') {
+			if (tx.details.type === 'lightning') {
+				return 'Lightning payment received';
+			} else if (tx.details.type === 'liquid') {
+				return 'Liquid payment received';
 			}
-		];
+			return 'Payment received';
+		} else {
+			if (tx.details.type === 'lightning') {
+				return 'Lightning payment sent';
+			} else if (tx.details.type === 'liquid') {
+				return 'Liquid payment sent';
+			}
+			return 'Payment sent';
+		}
+	}
+
+	function getTransactionDescription(tx: RSKTransaction): string {
+		if (tx.type === 'send') {
+			return 'RSK transaction sent';
+		} else if (tx.type === 'receive') {
+			return 'RSK payment received';
+		} else if (tx.type === 'contract') {
+			return 'Smart contract interaction';
+		}
+		return 'RSK transaction';
+	}
+
+	function getTranslatedStatus(status: string): string {
+		switch (status) {
+			case 'confirmed':
+				return 'Confirmed';
+			case 'pending':
+				return 'Pending';
+			case 'failed':
+				return 'Failed';
+			default:
+				return status;
+		}
 	}
 
 	function getStatusBadgeClass(status: string): string {
@@ -172,7 +247,13 @@
 		if (network === 'liquid') {
 			explorerUrl = `https://liquid.network/tx/${txHash}`;
 		} else if (network === 'rsk') {
-			explorerUrl = `https://explorer.rsk.co/tx/${txHash}`;
+			// Use the correct RSK explorer based on network (default to testnet for now)
+			const rskNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+			if (rskNetwork === 'mainnet') {
+				explorerUrl = `https://rootstock.blockscout.com/tx/${txHash}`;
+			} else {
+				explorerUrl = `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
+			}
 		}
 		
 		if (explorerUrl) {
@@ -204,7 +285,7 @@
 		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
 		<button
 			class="btn btn-outline btn-sm"
-			onclick={loadTransactions}
+			onclick={refreshTransactions}
 			disabled={isLoading}
 		>
 			{#if isLoading}
@@ -330,7 +411,7 @@
 	{:else}
 		<!-- Transaction List -->
 		<div class="space-y-3">
-			{#each paginatedTransactions as tx (tx.id)}
+			{#each paginatedTransactions as tx}
 				<div class="card bg-base-200 hover:bg-base-300 transition-colors">
 					<div class="card-body p-4">
 						<div class="flex items-center justify-between">
@@ -346,13 +427,13 @@
 								<div class="flex-1">
 									<div class="flex items-center gap-2 mb-1">
 										<span class="font-semibold capitalize">
-											{$t(`wallet.${tx.type}`)}
+											{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
 										</span>
 										<div class="badge badge-outline badge-sm text-xs">
 											{tx.network.toUpperCase()}
 										</div>
 										<div class="badge {getStatusBadgeClass(tx.status)} badge-sm text-xs">
-											{$t(`wallet.status_${tx.status}`)}
+											{getTranslatedStatus(tx.status)}
 										</div>
 									</div>
 

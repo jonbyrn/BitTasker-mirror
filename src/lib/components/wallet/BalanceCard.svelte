@@ -6,15 +6,25 @@
 		liquidConnection,
 		rskConnection,
 		walletManager,
-		combinedWalletState
+		combinedWalletState,
+		walletStore
 	} from '$lib/stores/wallet.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import type { WalletAsset } from '$lib/stores/wallet.store';
 
-	// Use totalBalances from store instead of calculating here
+	// Convert rBTC to sats using dynamic market rate or show separate balances on error
 	let totalUsdValue = $derived($totalBalances.usd);
-	let totalBtcEquivalent = $derived($totalBalances.sats / 100_000_000 + $totalBalances.rbtc);
+	let liquidSats = $derived($totalBalances.sats);
+	let rbtcBalance = $derived($totalBalances.rbtc);
+	let hasRbtcRateError = $derived($walletStore.rbtcRateError);
+	let rbtcRate = $derived($walletStore.rbtcToBtcRate);
+
+	// Only combine balances if we have a reliable exchange rate
+	let canCombineBalances = $derived(!hasRbtcRateError && rbtcBalance > 0);
+	let rbtcInSats = $derived(rbtcBalance * rbtcRate * 100_000_000);
+	let totalSats = $derived(canCombineBalances ? liquidSats + rbtcInSats : liquidSats);
+	let totalBtcEquivalent = $derived(totalSats / 100_000_000);
 
 	async function copyLiquidAddress() {
 		// Get the actual liquid address from walletInfo
@@ -41,26 +51,60 @@
 	<div class="card bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-xl">
 		<div class="card-body">
 			<div class="flex items-center justify-between">
-				<div>
+				<div class="flex-1">
 					<h3 class="card-title text-white">{$t('wallet.total_balance')}</h3>
-					<p class="text-3xl font-bold text-white">
-						{$totalBalances.sats} sats
-					</p>
-					<p class="text-white opacity-90">
-						≈ {totalBtcEquivalent.toFixed(8)} BTC
-					</p>
+
+					{#if canCombineBalances}
+						<!-- Combined balance when exchange rate is available -->
+						<p class="text-3xl font-bold text-white">
+							{totalSats.toLocaleString()} sats
+						</p>
+						<p class="text-white opacity-90">
+							≈ {totalBtcEquivalent.toFixed(8)} BTC
+						</p>
+					{:else}
+						<!-- Separate balances when rate is unavailable -->
+						<div class="space-y-1">
+							{#if liquidSats > 0}
+								<div>
+									<span class="text-2xl font-bold text-white">
+										{liquidSats.toLocaleString()}
+									</span>
+									<span class="ml-2 text-sm text-white opacity-90">sats</span>
+								</div>
+							{/if}
+							{#if rbtcBalance > 0}
+								<div>
+									<span class="text-2xl font-bold text-white">
+										{rbtcBalance.toFixed(6)}
+									</span>
+									<span class="ml-2 text-sm text-white opacity-90">rBTC</span>
+								</div>
+								{#if hasRbtcRateError}
+									<div class="mt-1">
+										<p class="text-xs text-white opacity-70">
+											⚠️ Exchange rate unavailable - showing separate balances
+										</p>
+										<button
+											class="text-xs text-white underline opacity-80 hover:opacity-100"
+											onclick={() => walletManager.retryRbtcExchangeRate()}
+										>
+											Retry
+										</button>
+									</div>
+								{/if}
+							{/if}
+							{#if liquidSats === 0 && rbtcBalance === 0}
+								<p class="text-2xl font-bold text-white opacity-70">No assets</p>
+							{/if}
+						</div>
+					{/if}
+
 					{#if totalUsdValue > 0}
-						<p class="text-white opacity-80">
+						<p class="mt-1 text-white opacity-80">
 							≈ ${totalUsdValue.toFixed(2)} USD
 						</p>
 					{/if}
-				</div>
-				<div class="text-right">
-					<div class="flex flex-col gap-1">
-						<div class="badge badge-outline badge-lg border-white text-white">
-							{$t('wallet.multi_network')}
-						</div>
-					</div>
 				</div>
 			</div>
 		</div>
@@ -143,29 +187,21 @@
 
 				{#if $combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
 					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
-						<div class="flex items-center gap-2">
-							<code class="bg-base-300 flex-1 rounded px-2 py-1 text-xs">
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • Click to copy</div>
+						<button
+							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 text-left transition-colors"
+							onclick={copyLiquidAddress}
+							disabled={!$liquidConnection.connected ||
+								!$combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
+						>
+							<code class="text-xs">
 								{walletManager.formatAddress(
 									$combinedWalletState.liquid.walletInfo.walletInfo.pubkey
 								)}
 							</code>
-						</div>
+						</button>
 					</div>
 				{/if}
-
-				<!-- Quick Actions -->
-				<div class="divider"></div>
-				<div class="flex gap-2">
-					<button
-						class="btn btn-outline btn-xs flex-1"
-						onclick={copyLiquidAddress}
-						disabled={!$liquidConnection.connected ||
-							!$combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
-					>
-						{$t('wallet.copy_address')}
-					</button>
-				</div>
 			</div>
 		</div>
 
@@ -186,49 +222,51 @@
 					</div>
 				</div>
 
-				<div class="space-y-2">
-					{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								<span class="text-lg">{asset.icon}</span>
-								<span class="font-medium">{asset.ticker}</span>
+				{#if $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc').length > 0}
+					<div class="space-y-2">
+						{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-2">
+									<span class="text-lg">{asset.icon}</span>
+									<span class="font-medium">{asset.ticker}</span>
+								</div>
+								<div class="text-right">
+									<div class="font-semibold">{asset.formattedBalance}</div>
+									{#if asset.usdValue > 0}
+										<div class="text-xs opacity-70">
+											${asset.usdValue.toFixed(2)}
+										</div>
+									{/if}
+								</div>
 							</div>
-							<div class="text-right">
-								<div class="font-semibold">{asset.formattedBalance}</div>
-								<div class="text-xs opacity-70">rBTC</div>
-							</div>
-						</div>
-					{/each}
-				</div>
-
-				{#if $combinedWalletState.rsk.address}
-					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
-						<div class="flex items-center gap-2">
-							<code class="bg-base-300 flex-1 rounded px-2 py-1 text-xs">
-								{walletManager.formatAddress($combinedWalletState.rsk.address)}
-							</code>
-						</div>
+						{/each}
+					</div>
+				{:else}
+					<div class="py-4 text-center opacity-70">
+						<p>{$t('wallet.no_assets_loaded')}</p>
 					</div>
 				{/if}
 
-				<!-- Quick Actions -->
-				<div class="divider"></div>
-				<div class="flex gap-2">
-					<button
-						class="btn btn-outline btn-xs flex-1"
-						onclick={copyRskAddress}
-						disabled={!$rskConnection.connected || !$combinedWalletState.rsk.address}
-					>
-						{$t('wallet.copy_address')}
-					</button>
-				</div>
+				{#if $combinedWalletState.rsk.address}
+					<div class="mt-4">
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • Click to copy</div>
+						<button
+							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 text-left transition-colors"
+							onclick={copyRskAddress}
+							disabled={!$rskConnection.connected || !$combinedWalletState.rsk.address}
+						>
+							<code class="text-xs">
+								{walletManager.formatAddress($combinedWalletState.rsk.address)}
+							</code>
+						</button>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
 
 	<!-- Recent Activity Summary -->
-	<div class="card bg-base-200">
+	<!-- <div class="card bg-base-200">
 		<div class="card-body">
 			<h4 class="mb-4 font-semibold">{$t('wallet.recent_transactions')}</h4>
 
@@ -251,5 +289,5 @@
 				<p class="mt-1 text-xs">{$t('wallet.view_all_transactions_tab')}</p>
 			</div>
 		</div>
-	</div>
+	</div> -->
 </div>

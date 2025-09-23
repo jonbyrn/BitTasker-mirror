@@ -8,6 +8,7 @@
 	import nip44 from '$lib/nostr/nip44';
 	import { t } from 'svelte-i18n';
     import IconWarning from '~icons/mdi/alert-outline';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { restartSetup, currentStep, totalSteps }: { 
 		restartSetup: () => void;
@@ -68,7 +69,7 @@
 						profile.picture = metadata.picture || '';
 						checkCompletionStatus();
 					} else if (
-						event.kind === 30005 &&
+						event.kind === KINDS.PROFILE_LOCATION &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'location')
 					) {
 						// Handle location data

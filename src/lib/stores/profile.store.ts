@@ -3,6 +3,7 @@ import { SimplePool, type NostrEvent } from 'nostr-tools';
 import type { Profile } from '$lib/types/profile';
 import { writable } from 'svelte/store';
 import { subscribeToProfileUpdates, closeNostrPool } from '$lib/nostr/profile';
+import KINDS from '$lib/utils/constants/kinds';
 
 // Define the profile state type
 type ProfileState = {
@@ -100,7 +101,7 @@ function createProfileStore() {
                                                 }))
                                             }
                                         };
-                                    case 30000: // Skills
+                                    case KINDS.PROFILE_SKILLS: // Skills (30000)
                                         return {
                                             ...state,
                                             data: {
@@ -114,7 +115,7 @@ function createProfileStore() {
                                                 }))
                                             }
                                         };
-                                    case 30001: // Portfolio
+                                    case KINDS.PROFILE_PORTFOLIO: // Portfolio
                                         return {
                                             ...state,
                                             data: {
@@ -132,7 +133,7 @@ function createProfileStore() {
                                                 ]
                                             }
                                         };
-                                    case 30002: // Availability
+                                    case KINDS.PROFILE_AVAILABILITY: // Availability
                                         return {
                                             ...state,
                                             data: {
@@ -146,7 +147,7 @@ function createProfileStore() {
                                                 }
                                             }
                                         };
-                                    case 30003: // Reviews
+                                    case KINDS.PROFILE_REVIEWS: // Reviews
                                         return {
                                             ...state,
                                             data: {
@@ -160,7 +161,7 @@ function createProfileStore() {
                                                 }))
                                             }
                                         };
-                                    case 1063: // Certifications
+                                    case KINDS.FILE_METADATA: // Certifications
                                         return {
                                             ...state,
                                             data: {
@@ -192,7 +193,7 @@ function createProfileStore() {
                         30000: { d: 'skills' }, // Kind 30000 for skills
                         1063: { d: 'certification' }, // Kind 1063 for certifications
                         30001: null, // Kind 30001 for portfolio
-                        30003: { d: 'reviews' }, // Kind 30003 for reviews
+                        30004: { d: 'reviews' }, // Kind 30004 for reviews
                         30002: { d: 'availability' }, // Kind 30002 for availability
                     }
                 );

@@ -4,8 +4,7 @@
 	import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { ethers } from 'ethers';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Form states
 	let activeTab = $state('create');
@@ -337,26 +336,28 @@
 					/>
 				</div>
 
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				<div class="flex flex-col gap-4">
 					<div class="form-control">
-						<AirDatepicker
+						<DateInput
 							bind:value={startTime}
 							type="datetime"
 							labelKey="airdatepicker.select_start_datetime"
 							placeholderKey="airdatepicker.select_start_datetime"
 							minDate={new Date()}
+							timeStep={15}
 							onChange={(date) => startTime = date}
 							disabled={isLoading}
 						/>
 					</div>
 
 					<div class="form-control">
-						<AirDatepicker
+						<DateInput
 							bind:value={completionTime}
 							type="datetime"
 							labelKey="airdatepicker.select_end_datetime"
 							placeholderKey="airdatepicker.select_end_datetime"
 							minDate={startTime || new Date()}
+							timeStep={15}
 							onChange={(date) => completionTime = date}
 							disabled={isLoading}
 						/>

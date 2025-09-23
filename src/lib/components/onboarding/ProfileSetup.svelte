@@ -14,6 +14,7 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
 		nextStep: () => void;
@@ -104,7 +105,7 @@
 					}
 					// Handle skills update
 					else if (
-						event.kind === 30000 &&
+						event.kind === KINDS.PROFILE_SKILLS &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
 					) {
 						const skillsData = JSON.parse(event.content);

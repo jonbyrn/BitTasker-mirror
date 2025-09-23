@@ -4,8 +4,7 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
 	const props = $props<{
@@ -418,22 +417,24 @@
 				<label class="label" for="datetime-range">
 					<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
 				</label>
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-					<AirDatepicker
+				<div class="flex flex-col gap-4">
+					<DateInput
 						bind:value={startDateTime}
 						type="datetime"
 						labelKey="airdatepicker.select_start_datetime"
 						placeholderKey="airdatepicker.select_start_datetime"
 						minDate={new Date()}
+						timeStep={15}
 						onChange={(date) => startDateTime = date}
 						className={validationErrors.datetime ? 'input-error' : ''}
 					/>
-					<AirDatepicker
+					<DateInput
 						bind:value={endDateTime}
 						type="datetime"
 						labelKey="airdatepicker.select_end_datetime"
 						placeholderKey="airdatepicker.select_end_datetime"
 						minDate={startDateTime || new Date()}
+						timeStep={15}
 						onChange={(date) => endDateTime = date}
 						className={validationErrors.datetime ? 'input-error' : ''}
 					/>

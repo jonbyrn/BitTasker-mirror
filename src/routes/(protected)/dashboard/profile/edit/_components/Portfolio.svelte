@@ -11,8 +11,8 @@
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -47,7 +47,7 @@
 			async (event) => {
 				try {
 					isInitialLoading = true;
-					if (event.kind === 30001) {
+					if (event.kind === KINDS.PROFILE_PORTFOLIO) {
 						const item = JSON.parse(event.content);
 						const identifier = event.tags[0][1];
 						if (!portfolioItems.some((item) => item?.tags?.[0]?.[1] === identifier)) {
@@ -60,7 +60,7 @@
 								portfolioItems[index] = { id: event.id, ...item, tags: event.tags };
 							}
 						}
-					} else if (event.kind === 30000) {
+					} else if (event.kind === KINDS.PROFILE_SKILLS) {
 						skills = JSON.parse(event.content);
 					}
 				} catch (err) {
@@ -386,7 +386,7 @@
 
 					<!-- Completion Date -->
 					<div class="form-control">
-						<AirDatepicker
+						<DateInput
 							value={completionDate ? new Date(completionDate) : null}
 							onChange={(date: Date | null) => (completionDate = date ? date.toISOString() : '')}
 							type="single"

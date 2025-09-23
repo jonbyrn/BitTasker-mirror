@@ -5,8 +5,7 @@
 -->
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
 	let { onAvailabilityChange = () => {} } = $props<{
@@ -101,7 +100,7 @@
 				<span class="label-text font-medium">{$t('dashboard.bids.components.filters.availability.date_range')}</span>
 			</label>
 			<div class="grid grid-cols-2 gap-2">
-				<AirDatepicker
+				<DateInput
 					bind:value={dateRange.start}
 					type="single"
 					labelKey="airdatepicker.select_start_date"
@@ -109,7 +108,7 @@
 					minDate={new Date()}
 					onChange={(date) => dateRange.start = date}
 				/>
-				<AirDatepicker
+				<DateInput
 					bind:value={dateRange.end}
 					type="single"
 					labelKey="airdatepicker.select_end_date"
@@ -142,7 +141,7 @@
 	{#if filterMode === 'deadline'}
 		<!-- Deadline Before -->
 		<div>
-			<AirDatepicker
+			<DateInput
 				bind:value={deadline}
 				type="single"
 				labelKey="airdatepicker.select_date"

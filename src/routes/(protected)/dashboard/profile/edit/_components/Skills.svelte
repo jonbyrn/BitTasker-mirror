@@ -10,8 +10,8 @@
 		deleteNostrEvent
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
-	import AirDatepicker from '$lib/components/date/AirDatepicker.svelte';
-	import '$lib/styles/air-datepicker.css';
+	import DateInput from '$lib/components/date/DateInput.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -44,7 +44,7 @@
 			(event) => {
 				try {
 					isInitialLoading = true;
-					if (event.kind === 30000 && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
+					if (event.kind === KINDS.PROFILE_SKILLS && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
 						// Handle skills update
 						const skillsData = JSON.parse(event.content);
 						if (Array.isArray(skillsData)) {
@@ -54,7 +54,7 @@
 							}));
 						}
 					} else if (
-						event.kind === 1063 &&
+						event.kind === KINDS.FILE_METADATA &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'certification')
 					) {
 						// Handle certification
@@ -122,7 +122,7 @@
 		// Delete all certifications for this skill
 		const skillCerts = Object.values(certifications).filter((cert) => cert.skillId === skill.id);
 		for (const cert of skillCerts) {
-			await deleteNostrEvent(cert.eventId, '1063');
+			await deleteNostrEvent(cert.eventId, KINDS.FILE_METADATA.toString());
 			delete certifications[cert.eventId];
 		}
 
@@ -226,7 +226,7 @@
 		}
 
 			// Delete the certification event
-			await deleteNostrEvent(cert.eventId, '1063');
+			await deleteNostrEvent(cert.eventId, KINDS.FILE_METADATA.toString());
 
 			// Remove from local state
 			delete certifications[certId];
@@ -474,7 +474,7 @@
 
 										<!-- Issue Date -->
 										<div class="form-control">
-											<AirDatepicker
+											<DateInput
 												value={certification.date ? new Date(certification.date) : null}
 												onChange={(date: Date | null) => {
 													certification.date = date ? date.toISOString() : '';

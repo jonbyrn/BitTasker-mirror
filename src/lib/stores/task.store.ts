@@ -23,11 +23,8 @@ const getInitialState = () => ({
 			type: BudgetTypeEnum.FIXED,
 			estimatedHours: 0
 		},
-		deadlineDate: '',
-		dateRange: {
-			start: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
-			end: 'null'
-		},
+		deadline: '',
+		dateRange: undefined,
 		categories: [],
 		skills: [],
 		pickupLocation: {

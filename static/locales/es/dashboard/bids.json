@@ -213,8 +213,12 @@
     "bid_creation": {
         "untitled_task": "Tarea Sin Título",
         "no_description_available": "No hay descripción disponible",
+        "day": "día",
         "days": "días",
+        "hour": "hora",
         "hours": "horas",
+        "minute": "minuto",
+        "minutes": "minutos",
         "one_hour": "1 hora",
         "sats": "sats",
         "max": "máx",
