@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
-import nip44 from '$lib/nostr/nip44';
 import { getNostrKeyPair } from './nostrKeys';
 import { bytesToHex } from '@noble/hashes/utils';
 import { subscribeToEvents, getSignedEvent } from './nostr';
 import { appStore } from '$lib/stores/app.store';
 import { profileCache } from './profile-cache';
+import nip44 from '$lib/nostr/nip44';
+import KINDS from '$lib/utils/constants/kinds';
 
 // --- Relay Configuration ---
 const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -200,7 +201,7 @@ export function subscribeToProfileUpdates(
 			const pubkeyHex = pubkey.startsWith('npub') ? (nip19.decode(pubkey).data as string) : pubkey;
 
 			const filter: Filter = {
-				kinds: [0, 1063, 30063], // Profile metadata, file metadata, and profile images
+				kinds: [0, KINDS.FILE_METADATA, 30063], // Profile metadata, file metadata, and profile images
 				authors: [pubkeyHex]
 			};
 			let profile: { name?: string; picture?: string } = {};
@@ -235,7 +236,7 @@ export function subscribeToProfileUpdates(
 								console.error('❌ Failed to parse profile images in subscription:', e);
 							}
 						}
-					} else if (event.kind === 1063) {
+					} else if (event.kind === KINDS.FILE_METADATA) {
 						const urlTag = event.tags.find((t) => t[0] === 'url');
 						const altTag = event.tags.find((t) => t[0] === 'alt');
 						const mTag = event.tags.find((t) => t[0] === 'm');
@@ -293,7 +294,7 @@ export async function fetchProfileMetadata(
 
 		// If not in cache, fetch from relays
 		const filter: Filter = {
-			kinds: [0, 1063, 30063, 10002], // Profile metadata, file metadata, profile images, and NIP-65 relay list
+			kinds: [0, KINDS.FILE_METADATA, 30063, 10002], // Profile metadata, file metadata, profile images, and NIP-65 relay list
 			authors: [pubkey],
 			limit: 20 // Increased limit to get more profile events
 		};
@@ -348,7 +349,7 @@ export async function fetchProfileMetadata(
 						console.error('❌ Failed to parse profile images content:', e);
 					}
 				}
-			} else if (event.kind === 1063) {
+			} else if (event.kind === KINDS.FILE_METADATA) {
 				const urlTag = event.tags.find((t) => t[0] === 'url');
 				const altTag = event.tags.find((t) => t[0] === 'alt');
 				const mTag = event.tags.find((t) => t[0] === 'm'); // MIME type

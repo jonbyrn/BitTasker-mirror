@@ -4,6 +4,7 @@ import { profileStore } from '$lib/stores/profile.store';
 import { getNpub } from '$lib/utils/nostrKeys';
 import { getSignedEvent } from '$lib/utils/nostr';
 import uploadService from '$lib/api/services/upload.service';
+import KINDS from '$lib/utils/constants/kinds';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL, 'wss://relay.primal.net'].filter(Boolean); // Remove any undefined values
@@ -280,7 +281,7 @@ export async function publishSkillsUpdate(
     try {
         // Create skills event (kind 30000 is replaceable)
         const skillsEvent = {
-            kind: 30000,
+            kind: KINDS.PROFILE_SKILLS,
             created_at: Math.floor(Date.now() / 1000),
             tags: [['d', 'skills']],
             content: JSON.stringify(skills)
@@ -314,7 +315,7 @@ export async function uploadCertification(
 
         // Create certification file event (kind 1063 for file metadata)
         const certEvent = {
-            kind: 1063,
+            kind: KINDS.FILE_METADATA,
             created_at: Math.floor(Date.now() / 1000),
             tags: [
                 ['d', 'certification'],
@@ -355,7 +356,7 @@ export async function publishPortfolioItem(
     try {
         // Create portfolio item event
         const itemEvent = {
-            kind: 30001,
+            kind: KINDS.PROFILE_PORTFOLIO,
             created_at: Math.floor(Date.now() / 1000),
             tags,
             content: JSON.stringify(item)
@@ -383,7 +384,7 @@ export async function deletePortfolioItem(
             created_at: Math.floor(Date.now() / 1000),
             tags: [
                 ['e', id], // Event being deleted
-                ['k', '30001'] // Kind of event being deleted
+                ['k', KINDS.PROFILE_PORTFOLIO.toString()] // Kind of event being deleted
             ],
             content: 'Portfolio item deleted' // Optional reason
         };
@@ -403,7 +404,7 @@ export async function deletePortfolioItem(
 export async function publishAvailabilityUpdate(availability: Availability): Promise<void> {
     try {
         const event = {
-            kind: 30002, // Changed from 31000 to follow our kind numbering convention
+            kind: KINDS.PROFILE_AVAILABILITY,
             created_at: Math.floor(Date.now() / 1000),
             tags: [['d', 'availability']],
             content: JSON.stringify(availability)
@@ -425,7 +426,7 @@ export async function publishAvailabilityUpdate(availability: Availability): Pro
 export async function publishStandardServices(servicesData: NostrStandardServices, tags: string[][], relays = RELAYS): Promise<void> {
     try {
         const event = {
-            kind: 30003,
+            kind: KINDS.PROFILE_STANDARD_SERVICES,
             created_at: Math.floor(Date.now() / 1000),
             content: JSON.stringify(servicesData),
             tags: [...tags]
@@ -450,7 +451,7 @@ export async function deleteStandardService(eventId: string, relays = RELAYS): P
             created_at: Math.floor(Date.now() / 1000),
             tags: [
                 ['e', eventId],
-                ['k', '30003']
+                ['k', KINDS.PROFILE_STANDARD_SERVICES.toString()]
             ],
             content: 'Standard service deleted'
         };

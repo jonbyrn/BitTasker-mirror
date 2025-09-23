@@ -7,6 +7,7 @@ import { escrow } from '$lib/utils/wallet/escrow';
 import { rskWalletStore } from '$lib/stores/rskWallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
+import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -32,36 +33,36 @@ export interface BidAcceptanceResult {
  * @param task Task details
  * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: number): BidEscrowDetails {	
+export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: number): BidEscrowDetails {
 	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
 		throw new Error('Invalid bid amount: amount must be greater than 0');
 	}
-	
+
 	if (!btcPrice || btcPrice <= 0) {
 		throw new Error('Invalid BTC price: price must be greater than 0');
 	}
-	
+
 	// Convert USD to rBTC (rBTC has same value as BTC)
 	const baseAmountRBTC = bid.amount / btcPrice;
-	
+
 	// Format the amount properly for ethers (ensure no scientific notation)
 	const baseAmount = baseAmountRBTC.toFixed(8);
-	
+
 	// Calculate fees using rBTC amounts and FEE_TIERS (using tier 1 as default)
 	const baseAmountWei = ethers.parseEther(baseAmount);
 	const clientFeePercentage = FEE_TIERS[1].percentage; // 250 for tier 1 (2.5%)
 	const freelancerFeePercentage = FEE_TIERS[1].percentage; // 250 for tier 1 (2.5%)
-	
+
 	const clientFeeAmount = (baseAmountWei * BigInt(clientFeePercentage)) / BigInt(10000); // Divide by 10000 to convert basis points to percentage
 	const freelancerFeeAmount = (baseAmountWei * BigInt(freelancerFeePercentage)) / BigInt(10000); // Divide by 10000 to convert basis points to percentage
 	const totalAmountWei = baseAmountWei + clientFeeAmount;
-	
+
 	// Determine timing - prioritize task dates since bid dates aren't available in TaskBid type
 	let startTime: number | undefined;
 	let completionTime: number | undefined;
-	
+
 	if (task?.dateRange) {
 		// Use task date range
 		startTime = Math.floor(new Date(task.dateRange.start).getTime() / 1000);
@@ -75,7 +76,7 @@ export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: nu
 	if (!startTime || !completionTime) {
 		throw new Error('Invalid start or completion time');
 	}
-	
+
 	return {
 		freelancerAddress: bid?.bidderWalletAddress || '',
 		baseAmount,
@@ -94,30 +95,30 @@ export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: nu
  */
 export function validateEscrowDetails(details: BidEscrowDetails): string[] {
 	const errors: string[] = [];
-	
+
 	// Validate freelancer address
 	if (!details.freelancerAddress) {
 		errors.push('Freelancer address is required');
 	} else if (!ethers.isAddress(details.freelancerAddress)) {
 		errors.push('Invalid freelancer address format');
 	}
-	
+
 	// Validate amount
 	const amount = parseFloat(details.baseAmount);
 	if (isNaN(amount) || amount <= 0) {
 		errors.push('Invalid escrow amount');
 	}
-	
+
 	// Validate timing
 	const now = Math.floor(Date.now() / 1000);
 	if (details.estimatedStartTime <= now) {
 		errors.push('Start time must be in the future');
 	}
-	
+
 	if (details.estimatedCompletionTime <= details.estimatedStartTime) {
 		errors.push('Completion time must be after start time');
 	}
-	
+
 	return errors;
 }
 
@@ -132,7 +133,7 @@ export async function acceptBidAndCreateEscrow(
 	try {
 		// Calculate escrow details
 		const escrowDetails = calculateBidEscrowDetails(bid, task, btcPrice);
-		
+
 		// Validate details
 		const validationErrors = validateEscrowDetails(escrowDetails);
 		if (validationErrors.length > 0) {
@@ -141,7 +142,7 @@ export async function acceptBidAndCreateEscrow(
 				error: `Validation failed: ${validationErrors.join(', ')}`
 			};
 		}
-		
+
 		// Check if RSK wallet is connected
 		const walletState = get(rskWalletStore);
 		if (!walletState.isConnected) {
@@ -150,7 +151,7 @@ export async function acceptBidAndCreateEscrow(
 				error: 'RSK wallet not connected. Please connect your wallet first.'
 			};
 		}
-		
+
 		// Connect to escrow contract if not already connected
 		if (!walletState.contractConnected) {
 			try {
@@ -158,11 +159,11 @@ export async function acceptBidAndCreateEscrow(
 			} catch (error) {
 				return {
 					success: false,
-					error: error instanceof Error ? error.message : 'Failed to connect to escrow contract'
+					error: extractUserFriendlyError(error)
 				};
 			}
 		}
-		
+
 		// Create the escrow
 		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
@@ -172,19 +173,89 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.clientFeeTier,
 			escrowDetails.freelancerFeeTier
 		);
-		
+
+		console.log({ transactionResult })
+
+		// Register pending contract creation with our event management system		
+		registerPendingContractByTxHash({
+			taskId: task.id,
+			taskTitle: task.title,
+			taskDescription: task.description,
+			freelancerPubkey: bid.userProfile?.user?.id || '',
+			amount: escrowDetails.baseAmount,
+			estimatedStartTime: escrowDetails.estimatedStartTime,
+			estimatedCompletionTime: escrowDetails.estimatedCompletionTime,
+			transactionHash: transactionResult.hash
+		});
+
 		return {
 			success: true,
 			transactionResult
 		};
-		
+
 	} catch (error) {
 		console.error('Failed to accept bid and create escrow:', error);
 		return {
 			success: false,
-			error: error instanceof Error ? error.message : 'Unknown error occurred'
+			error: extractUserFriendlyError(error)
 		};
 	}
+}
+
+/**
+ * Extract user-friendly error message from blockchain/wallet errors
+ */
+function extractUserFriendlyError(error: unknown): string {
+	if (!(error instanceof Error)) {
+		return 'An unknown error occurred';
+	}
+
+	const errorMessage = error.message.toLowerCase();
+
+	// Insufficient funds errors
+	if (errorMessage.includes('insufficient funds')) {
+		if (errorMessage.includes('intrinsic transaction cost') || errorMessage.includes('gas')) {
+			return 'Insufficient RBTC balance to pay for transaction fees. Please add more RBTC to your wallet.';
+		}
+		return 'Insufficient funds in your wallet. Please add more RBTC.';
+	}
+
+	// Gas related errors
+	if (errorMessage.includes('gas') || errorMessage.includes('out of gas')) {
+		return 'Transaction failed due to insufficient gas. Please try again with higher gas settings.';
+	}
+
+	// Network errors
+	if (errorMessage.includes('network') || errorMessage.includes('connection')) {
+		return 'Network connection error. Please check your internet connection and try again.';
+	}
+
+	// User rejection
+	if (errorMessage.includes('user rejected') || errorMessage.includes('user denied')) {
+		return 'Transaction was cancelled by user.';
+	}
+
+	// Contract errors
+	if (errorMessage.includes('revert') || errorMessage.includes('execution reverted')) {
+		return 'Smart contract rejected the transaction. Please verify the transaction details.';
+	}
+
+	// Wallet connection errors
+	if (errorMessage.includes('wallet') || errorMessage.includes('provider')) {
+		return 'Wallet connection error. Please reconnect your wallet and try again.';
+	}
+
+	// Nonce errors
+	if (errorMessage.includes('nonce')) {
+		return 'Transaction nonce error. Please try again in a moment.';
+	}
+
+	// For any other error, return a cleaned version or generic message
+	if (error.message.length > 100) {
+		return 'Transaction failed. Please check your wallet balance and network connection.';
+	}
+
+	return error.message;
 }
 
 /**

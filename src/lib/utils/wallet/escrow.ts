@@ -60,12 +60,9 @@ async function connectToEscrowContract(): Promise<void> {
             contractConfig
         }));
 
-        // Set up contract event listeners (skip on RSK due to eth_getLogs compatibility issues)
-        try {
-            setupContractEventListeners();
-        } catch (error) {
-            console.warn('Failed to set up contract event listeners (this is expected on RSK):', error);
-        }
+        // Skip event listeners on RSK due to eth_getLogs compatibility issues
+        // Event handling is now done directly in transaction receipts
+        console.log('Skipping event listeners setup (RSK compatibility - using receipt-based event handling)');
 
         // Validate contract deployment before loading escrows
         try {
@@ -94,117 +91,6 @@ async function connectToEscrowContract(): Promise<void> {
     }
 }
 
-// Set up contract event listeners
-function setupContractEventListeners(): void {
-    const wallet = getRSKWallet();
-    if (!contract || !wallet) return;
-
-    // Skip event listeners on RSK due to eth_getLogs compatibility issues
-    // RSK doesn't support eth_getLogs, so we disable all event listeners
-    console.log('Skipping event listeners on RSK network due to eth_getLogs compatibility issues');
-    return;
-
-    /* Disabled for RSK compatibility
-    const userAddress = wallet.address.toLowerCase();
-
-    // Listen for EscrowCreated events
-    const escrowCreatedListener = (escrowId: bigint, client: string, freelancer: string, amount: bigint) => {
-        // Only handle events where user is involved
-        if (client.toLowerCase() !== userAddress && freelancer.toLowerCase() !== userAddress) return;
-
-        loadEscrowDetails(escrowId.toString()).then(escrowData => {
-            if (escrowData) {
-                rskWalletStore.update(state => ({
-                    ...state,
-                    escrows: [escrowData, ...state.escrows.filter(e => e.id !== escrowData.id)]
-                }));
-            }
-        }).catch(console.error);
-    };
-
-    // Listen for TaskCompleted events
-    const taskCompletedListener = (escrowId: bigint) => {
-        updateEscrowStatus(escrowId.toString(), EscrowStatus.Completed);
-    };
-
-    // Listen for TaskAccepted events
-    const taskAcceptedListener = (escrowId: bigint) => {
-        updateEscrowStatus(escrowId.toString(), EscrowStatus.Resolved);
-    };
-
-    // Listen for TaskDisputed events
-    const taskDisputedListener = (escrowId: bigint, disputer: string) => {
-        updateEscrowStatus(escrowId.toString(), EscrowStatus.InDispute);
-    };
-
-    // Listen for DisputeProposed events
-    const disputeProposedListener = (escrowId: bigint, proposer: string, clientAmount: bigint, freelancerAmount: bigint) => {
-        loadDisputeProposal(escrowId.toString()).then(proposal => {
-            if (proposal) {
-                rskWalletStore.update(state => ({
-                    ...state,
-                    disputeProposals: [proposal, ...state.disputeProposals.filter(p => p.escrowId !== proposal.escrowId)]
-                }));
-            }
-        }).catch(console.error);
-    };
-
-    // Listen for DisputeResolved events
-    const disputeResolvedListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
-        updateEscrowStatus(escrowId.toString(), EscrowStatus.Resolved);
-        // Remove dispute proposal
-        rskWalletStore.update(state => ({
-            ...state,
-            disputeProposals: state.disputeProposals.filter(p => p.escrowId !== escrowId.toString())
-        }));
-    };
-
-    // Listen for EscrowCancelled events
-    const escrowCancelledListener = (escrowId: bigint, clientAmount: bigint, freelancerAmount: bigint) => {
-        updateEscrowStatus(escrowId.toString(), EscrowStatus.Cancelled);
-    };
-
-    // Listen for EscrowResolved events
-    const escrowResolvedListener = (escrowId: bigint, freelancerAmount: bigint, platformFee: bigint) => {
-        updateEscrowStatus(escrowId.toString(), EscrowStatus.Resolved);
-    };
-
-    // Set up all event listeners (wrap in try-catch for RSK compatibility)
-    try {
-        contract.on('EscrowCreated', escrowCreatedListener);
-        contract.on('TaskCompleted', taskCompletedListener);
-        contract.on('TaskAccepted', taskAcceptedListener);
-        contract.on('TaskDisputed', taskDisputedListener);
-        contract.on('DisputeProposed', disputeProposedListener);
-        contract.on('DisputeResolved', disputeResolvedListener);
-        contract.on('EscrowCancelled', escrowCancelledListener);
-        contract.on('EscrowResolved', escrowResolvedListener);
-        
-        console.log('Contract event listeners set up successfully');
-    } catch (error) {
-        console.warn('Failed to set up some contract event listeners (this may be normal on RSK):', error);
-    }
-
-    // Store cleanup functions
-    const eventListeners = getEventListeners();
-    eventListeners.push(() => {
-        if (contract) {
-            try {
-                contract.off('EscrowCreated', escrowCreatedListener);
-                contract.off('TaskCompleted', taskCompletedListener);
-                contract.off('TaskAccepted', taskAcceptedListener);
-                contract.off('TaskDisputed', taskDisputedListener);
-                contract.off('DisputeProposed', disputeProposedListener);
-                contract.off('DisputeResolved', disputeResolvedListener);
-                contract.off('EscrowCancelled', escrowCancelledListener);
-                contract.off('EscrowResolved', escrowResolvedListener);
-            } catch (error) {
-                console.warn('Error cleaning up event listeners:', error);
-            }
-        }
-    });
-    */
-}
 
 // Helper function to update escrow status
 function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
@@ -373,6 +259,8 @@ async function createEscrow(
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
+        // Note: We'll get the actual escrow ID from the transaction receipt
+
         // Estimate gas first
         const gasEstimate = await contract.createEscrow.estimateGas(
             freelancerAddress,
@@ -395,39 +283,74 @@ async function createEscrow(
             }
         );
 
+        // Return immediately with pending status for better UX
         const result: ContractTransactionResult = {
             hash: tx.hash,
             status: 'pending'
         };
 
-        // Wait for transaction to be mined to get escrow ID
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
+        // Handle confirmation asynchronously and create Nostr contract directly
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
             if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Escrow transaction confirmed, extracting escrow ID...', receipt);
+                
+                // Extract escrow ID from the EscrowCreated event in the receipt
                 try {
-                    // Find EscrowCreated event to get escrow ID
-                    const escrowCreatedEvent = receipt.logs.find((log: ethers.Log) => {
+                    if (!contract) {
+                        console.error('Contract is null, cannot parse events');
+                        return;
+                    }
+
+                    const escrowCreatedEvent = receipt.logs.find(log => {
                         try {
-                            const parsed = contract!.interface.parseLog(log);
-                            return parsed?.name === 'EscrowCreated';
+                            const parsedLog = contract!.interface.parseLog({
+                                topics: log.topics,
+                                data: log.data
+                            });
+                            return parsedLog?.name === 'EscrowCreated';
                         } catch {
                             return false;
                         }
                     });
 
+                    console.log({ escrowCreatedEvent })
+
                     if (escrowCreatedEvent) {
-                        const parsed = contract!.interface.parseLog(escrowCreatedEvent);
-                        result.escrowId = parsed?.args[0].toString();
+                        const parsedLog = contract.interface.parseLog({
+                            topics: escrowCreatedEvent.topics,
+                            data: escrowCreatedEvent.data
+                        });
+                        
+                        if (parsedLog) {
+                            const escrowId = parsedLog.args[0].toString();
+                            const client = parsedLog.args[1];
+                            const freelancer = parsedLog.args[2];
+                            const amount = parsedLog.args[3].toString();
+                            
+                            console.log('Extracted escrow ID from receipt:', escrowId);
+                            result.escrowId = escrowId;
+                            
+                            // Handle escrow created event through our event management system
+                            const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
+                            await handleEscrowCreated({
+                                escrowId,
+                                transactionHash: receipt.hash,
+                                client,
+                                freelancer,
+                                amount
+                            });
+                        }
+                    } else {
+                        console.warn('EscrowCreated event not found in transaction receipt');
                     }
-
-                    result.status = 'confirmed';
-                    result.gasUsed = receipt.gasUsed.toString();
-
-                    // Reload escrows after successful creation
-                    loadUserEscrows().catch(console.error);
                 } catch (error) {
-                    console.warn('Failed to parse transaction receipt:', error);
-                    result.status = 'confirmed'; // Still mark as confirmed since tx was mined
+                    console.error('Failed to extract escrow ID from receipt:', error);
                 }
+            } else {
+                result.status = 'failed';
+                console.error('Transaction receipt is null');
             }
         }).catch((error: unknown) => {
             console.error('Transaction failed:', error);

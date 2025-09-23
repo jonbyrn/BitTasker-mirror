@@ -4,6 +4,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { subscribeToProfileUpdates, publishAvailabilityUpdate } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -50,7 +51,7 @@
 				try {
 					isInitialLoading = true;
 					if (
-						event.kind === 30002 &&
+						event.kind === KINDS.PROFILE_AVAILABILITY &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'availability')
 					) {
 						const availabilityData = JSON.parse(event.content);
