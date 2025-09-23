@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { locale } from 'svelte-i18n';
+	import { formatStandardDate } from '$lib/utils/helpers/dateFormatter';
 	import type { ContractWithEvents } from '$lib/types/contract';
 
 	const { contract, onclick } = $props<{
@@ -13,13 +15,9 @@
 		return num.toFixed(4);
 	}
 
-	// Format date
+	// Format date using standardized formatting with reactive locale
 	function formatDate(timestamp: number): string {
-		return new Date(timestamp).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
+		return formatStandardDate(new Date(timestamp), $locale || 'en');
 	}
 
 	// Get status badge class

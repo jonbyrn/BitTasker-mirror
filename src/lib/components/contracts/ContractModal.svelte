@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
+	import { locale } from 'svelte-i18n';
+	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
@@ -17,16 +19,9 @@
 		return num.toFixed(4);
 	}
 
-	// Format date
+	// Format date using standardized formatting with reactive locale
 	function formatDate(timestamp: number): string {
-		return new Date(timestamp).toLocaleDateString('en-US', {
-			weekday: 'short',
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatStandardDateTime(new Date(timestamp), $locale || 'en');
 	}
 
 	// Get status badge class

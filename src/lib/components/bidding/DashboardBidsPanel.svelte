@@ -5,8 +5,9 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
-	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
+	import { formatTimeLarge, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { locale } from 'svelte-i18n';
 
 	// State
 	let myBids = $state<any[]>([]);
@@ -63,6 +64,13 @@
 			expandedBids.add(bidId);
 		}
 		expandedBids = new Set(expandedBids);
+	}
+
+	// Reactive date formatting functions using Svelte 5 runes
+	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+		const start = formatStandardDateShort(startDate, $locale || 'en');
+		const end = formatStandardDateShort(endDate, $locale || 'en');
+		return `${start} - ${end}`;
 	}
 </script>
 
@@ -235,8 +243,7 @@
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
 											<p class="text-sm font-medium">
-												{new Date(bid.bid.startDate).toLocaleDateString()} -
-												{new Date(bid.bid.endDate).toLocaleDateString()}
+												{formatDateRangeReactive(new Date(bid.bid.startDate), new Date(bid.bid.endDate))}
 												{#if bid.bid.startTime && bid.bid.endTime}
 													<br />
 													<span class="text-base-content/70 text-xs">
