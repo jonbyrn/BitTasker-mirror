@@ -2,7 +2,6 @@
 	import type { Task, SearchTasksParams } from '$lib/types/task.d';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { formatDistanceToNow } from 'date-fns';
 	import { user } from '$lib/stores/user.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { tasksStore } from '$lib/stores/task.store';
@@ -14,7 +13,6 @@
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	//import DashboardSavedSearchesPanel from '$lib/components/task/DashboardSavedSearchesPanel.svelte';
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
@@ -276,20 +274,6 @@
 		findTasks(searchParams);
 	}
 
-	// Format date
-	function formatTimeAgo(date: string): string {
-		try {
-			const parsedDate = new Date(date);
-			if (isNaN(parsedDate.getTime())) {
-				return 'Invalid date';
-			}
-			return formatDistanceToNow(parsedDate, { addSuffix: true });
-		} catch (error) {
-			console.error('[FindTasks] Error formatting date:', error);
-			return 'Invalid date';
-		}
-	}
-
 	// Load more tasks (for infinite scroll)
 	async function loadMoreTasks() {
 		if ($tasksStore.hasMore && !$tasksStore.loading) {
@@ -347,39 +331,6 @@
 			infiniteScrollObserver.disconnect();
 			infiniteScrollObserver = null;
 		}
-	}
-
-	// Eliminar la variable cardRef que estaba causando conflictos
-	// let cardRef = $state<HTMLElement | null>(null);
-
-	// Task type filter handler
-	function toggleTaskType(type: TaskTypeEnum | undefined) {
-		// Clear existing tasks when changing task type
-		tasksStore.update((state) => ({
-			...state,
-			items: [],
-			currentPage: 1,
-			hasMore: true,
-			error: null
-		}));
-
-		if (!type) {
-			searchParams = {
-				...searchParams,
-				taskType: undefined,
-				page: 1,
-				status: [TaskStatusEnum.OPEN]
-			};
-		} else {
-			searchParams = {
-				...searchParams,
-				taskType: type,
-				page: 1,
-				status: [TaskStatusEnum.OPEN]
-			};
-		}
-
-		findTasks(searchParams);
 	}
 
 	// Initial data fetch and setup
@@ -593,7 +544,7 @@
 
 					<!-- Save Search Button -->
 					<button
-						class="btn btn-sm btn-primary gap-2"
+						class="btn btn-sm btn-secondary gap-2"
 						onclick={() => (isSaveSearchOpen = true)}
 						disabled={!hasActiveParams}
 						title={!hasActiveParams
@@ -1092,6 +1043,7 @@
 	isOpen={isFilterDrawerOpen}
 	onClose={() => (isFilterDrawerOpen = false)}
 	onApply={handleFilterApply}
+	initialFilters={searchParams}
 />
 
 <TaskDetailsBidDrawer
