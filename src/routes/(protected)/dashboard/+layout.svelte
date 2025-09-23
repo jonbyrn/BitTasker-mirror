@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { deviceInfo } from '$lib/stores/deviceInfo.store';
+	import { devicePlatform } from '$lib/stores/device.store';
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
@@ -59,7 +59,7 @@
 <svelte:window bind:innerWidth={width} />
 
 <div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
-	{#if $deviceInfo?.platform !== 'ios' && $deviceInfo?.platform !== 'android' && width >= 1200}
+	{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 		<!-- Fixed Sidebar - Solo en desktop -->
 		<div class="w-full flex-shrink-0 md:w-64">
 			<div class="fixed top-24 left-8 z-10 w-56">

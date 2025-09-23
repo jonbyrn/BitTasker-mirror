@@ -5,8 +5,7 @@
 	import { page } from '$app/state';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { darkMode, setDarkMode } from '$lib/stores/theme.store';
-	import { deviceInfo } from '$lib/stores/deviceInfo.store'; // Import the store only
-	import type { DeviceInfo } from '@capacitor/device';
+	import { devicePlatform, initializeDevicePlatform } from '$lib/stores/device.store';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import BottomNavBar from '$lib/components/BottomNavBar.svelte';
 	import Toast from '$lib/components/Toast.svelte';
@@ -42,9 +41,9 @@
 
 	let breadcrumbList = $state({});
 
-	let deviceInfoValue = $state<DeviceInfo | null>(null);
+	let devicePlatformValue = $state<string>('web');
 	$effect(() => {
-		deviceInfoValue = $deviceInfo;
+		devicePlatformValue = $devicePlatform;
 	});
 
 	// Defer device/theme/keyboard helpers to only run on relevant routes and after initial render
@@ -54,13 +53,13 @@
 				const path = page.url.pathname;
 				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
 				if (isProtected) {
-					const [deviceInfoModule, keyboardModule] = await Promise.all([
-						import('$lib/stores/deviceInfo.store'),
+					const [deviceModule, keyboardModule] = await Promise.all([
+						import('$lib/stores/device.store'),
 						import('$lib/utils/helpers/keyboard')
 					]);
 					await Promise.all([
-						deviceInfoModule.getDeviceInfo(),
-						deviceInfoModule.getOnboardingCompleted()
+						initializeDevicePlatform(),
+						deviceModule.getOnboardingCompleted()
 					]);
 					keyboardModule.setupKeyboardListeners();
 					keyboardModule.setupGlobalInputFocusScroll();
@@ -71,13 +70,13 @@
 				const path = page.url.pathname;
 				const isProtected = path.includes('/dashboard') || path.includes('/profile') || path.includes('/settings');
 				if (isProtected) {
-					const [deviceInfoModule, keyboardModule] = await Promise.all([
-						import('$lib/stores/deviceInfo.store'),
+					const [deviceModule, keyboardModule] = await Promise.all([
+						import('$lib/stores/device.store'),
 						import('$lib/utils/helpers/keyboard')
 					]);
 					await Promise.all([
-						deviceInfoModule.getDeviceInfo(),
-						deviceInfoModule.getOnboardingCompleted()
+						initializeDevicePlatform(),
+						deviceModule.getOnboardingCompleted()
 					]);
 					keyboardModule.setupKeyboardListeners();
 					keyboardModule.setupGlobalInputFocusScroll();
@@ -249,14 +248,14 @@
 		{/if}
 
 		<!-- <div
-			class="flex flex-1 flex-col overflow-auto {deviceInfoValue?.platform === 'web' ? 'lg:pt-16' : ''}"
+			class="flex flex-1 flex-col overflow-auto {devicePlatformValue === 'web' ? 'lg:pt-16' : ''}"
 		> -->
 
 		<div
 			class="bg-base-200 flex flex-1 flex-col justify-between overflow-x-hidden pb-8"
 			style={showFooterSection ? 'padding-bottom: var(--bottom-nav-height, 5rem);' : ''}
 		>
-			{#if deviceInfoValue?.platform === 'web' && !isLandingPage}
+			{#if devicePlatformValue === 'web' && !isLandingPage}
 				<div class="bg-base-200 flex flex-grow lg:block overflow-hidden">
 					{@render children()}
 				</div>
@@ -311,7 +310,7 @@
 						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 						<p class="mb-4">{$t('footer.company_description')}</p>
 						<!-- Social media icons -->
-						<div class="flex flex-col space-y-2 lg:space-y-2 space-y-4">
+						<div class="flex flex-col space-y-2 lg:space-y-2">
 							<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
 							<div class="col-span-2 md:col-span3 lg:col-span-1 flex lg:space-x-4 space-x-8 justify-center lg:justify-start">
 								<a
@@ -367,7 +366,7 @@
 								</a>
 							</div>
 							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
-							<div class="flex space-x-4 lg:space-x-4 space-x-8 justify-center lg:justify-start">
+							<div class="flex space-x-4 lg:space-x-4 justify-center lg:justify-start">
 								<a
 									href="https://www.linkedin.com/company/bittasker/"
 									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"

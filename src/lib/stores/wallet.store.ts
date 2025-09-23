@@ -27,8 +27,10 @@ import {
 	disconnect,
 	getWalletInfo,
 	fetchFiatRates,
-	isConnectedStore
+	isConnectedStore,
+	getTransactions
 } from '$lib/wallet/breez/walletService';
+import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 // Wallet asset interface
 export interface WalletAsset extends IAssetMetadata {
@@ -76,6 +78,10 @@ export interface CombinedWalletState {
 		sats: number;
 		rbtc: number;
 	};
+	
+	// Exchange rates
+	rbtcToBtcRate: number;
+	rbtcRateError: boolean;
 
 	// UI state
 	activeNetwork: 'liquid' | 'rsk';
@@ -118,6 +124,9 @@ const initialState: CombinedWalletState = {
 		sats: 0,
 		rbtc: 0
 	},
+	
+	rbtcToBtcRate: 1.0, // Default 1:1 when no rate available
+	rbtcRateError: false,
 
 	activeNetwork: 'liquid',
 	activeTab: 'balance',
@@ -136,7 +145,8 @@ async function loadAllData(): Promise<void> {
 	try {
 		await Promise.allSettled([
 			loadAssets(),
-			loadFiatRates()
+			loadFiatRates(),
+			loadRbtcExchangeRate()
 		]);
 	} catch (error) {
 		console.error('Failed to load wallet data:', error);
@@ -209,6 +219,7 @@ export async function initializeWallet(): Promise<void> {
 		// Load initial data if any wallet connected
 		if (hasAnyConnection) {
 			await loadAllData();
+			await loadTransactions();
 		}
 
 	} catch (error) {
@@ -335,6 +346,197 @@ async function initializeRSKWallet(mnemonic: string): Promise<void> {
 }
 
 /**
+ * Load RSK transactions using the unified wallet's RSK instance
+ */
+async function loadRSKTransactions(): Promise<RSKTransaction[]> {
+	try {
+		const state = get(walletStore);
+		if (!state.rsk.connected || !state.rsk.provider || !state.rsk.wallet) {
+			return [];
+		}
+
+		const transactions: RSKTransaction[] = [];
+		const address = state.rsk.wallet.address.toLowerCase();
+		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+
+		// Use RSK Explorer API to get transaction history
+		const explorerApiUrl = network === 'mainnet'
+			? 'https://rootstock.blockscout.com/api'
+			: 'https://rootstock-testnet.blockscout.com/api';
+
+		try {
+			// Fetch transactions from RSK Explorer API
+			const response = await fetch(
+				`${explorerApiUrl}/v2/addresses/${address}/transactions`
+			);
+
+			if (!response.ok) {
+				throw new Error(`API responded with status: ${response.status}`);
+			}
+
+			const data = await response.json();
+
+			if (data.items && Array.isArray(data.items)) {
+				for (const tx of data.items.slice(0, 50)) { // Limit to 50 most recent
+					const transaction: RSKTransaction = {
+						hash: tx.hash,
+						from: tx.from.hash,
+						to: tx.to?.hash || '0x0000000000000000000000000000000000000000',
+						value: tx.value || '0',
+						gasUsed: tx.gas_used?.toString() || '0',
+						gasPrice: tx.gas_price?.toString() || '0',
+						blockNumber: parseInt(tx.block_number) || 0,
+						timestamp: new Date(tx.timestamp).getTime(),
+						status: tx.status === 'ok' ? 'confirmed' : 'failed',
+						type: tx.from.hash.toLowerCase() === address ? 'send' : 'receive'
+					};
+
+					transactions.push(transaction);
+				}
+			}
+
+		} catch (apiError) {
+			console.error('Failed to fetch from explorer API:', apiError);
+
+			// Try alternative API endpoint format
+			try {
+				const altResponse = await fetch(
+					`${explorerApiUrl}/v2/addresses/${address}/transactions?type=all`
+				);
+
+				if (altResponse.ok) {
+					const altData = await altResponse.json();
+
+					if (altData.items && Array.isArray(altData.items)) {
+						for (const tx of altData.items.slice(0, 50)) {
+							const transaction: RSKTransaction = {
+								hash: tx.hash,
+								from: tx.from?.hash || tx.from,
+								to: tx.to?.hash || tx.to || '0x0000000000000000000000000000000000000000',
+								value: tx.value || '0',
+								gasUsed: tx.gas_used?.toString() || '0',
+								gasPrice: tx.gas_price?.toString() || '0',
+								blockNumber: parseInt(tx.block_number) || 0,
+								timestamp: new Date(tx.timestamp).getTime(),
+								status: tx.status === 'ok' ? 'confirmed' : 'failed',
+								type: (tx.from?.hash || tx.from)?.toLowerCase() === address ? 'send' : 'receive'
+							};
+
+							transactions.push(transaction);
+						}
+					}
+				}
+			} catch (altError) {
+				console.error('Alternative API also failed:', altError);
+
+				// Try v1 API as final fallback
+				try {
+					const v1Response = await fetch(
+						`${explorerApiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc`
+					);
+
+					if (v1Response.ok) {
+						const v1Data = await v1Response.json();
+
+						if (v1Data.result && Array.isArray(v1Data.result)) {
+							for (const tx of v1Data.result.slice(0, 50)) {
+								const transaction: RSKTransaction = {
+									hash: tx.hash,
+									from: tx.from,
+									to: tx.to || '0x0000000000000000000000000000000000000000',
+									value: tx.value || '0',
+									gasUsed: tx.gasUsed?.toString() || '0',
+									gasPrice: tx.gasPrice?.toString() || '0',
+									blockNumber: parseInt(tx.blockNumber) || 0,
+									timestamp: parseInt(tx.timeStamp) * 1000, // Convert to milliseconds
+									status: tx.isError === '0' ? 'confirmed' : 'failed',
+									type: tx.from.toLowerCase() === address ? 'send' : 'receive'
+								};
+
+								transactions.push(transaction);
+							}
+						}
+					}
+				} catch (v1Error) {
+					console.error('V1 API also failed:', v1Error);
+
+					// Final fallback: Check transaction count
+					const txCount = await state.rsk.provider.getTransactionCount(state.rsk.wallet.address);
+
+					if (txCount > 0) {
+						console.warn(`Address has ${txCount} transactions, but all APIs are unavailable`);
+					}
+				}
+			}
+		}
+
+		return transactions;
+	} catch (error) {
+		console.error('Failed to load RSK transactions:', error);
+		return [];
+	}
+}
+
+/**
+ * Load Liquid transactions using the Breez SDK
+ */
+async function loadLiquidTransactions(): Promise<Payment[]> {
+	try {
+		const state = get(walletStore);
+		if (!state.liquid.connected) {
+			return [];
+		}
+
+		const liquidTransactions = await getTransactions();
+		return liquidTransactions || [];
+	} catch (error) {
+		console.error('Failed to load Liquid transactions:', error);
+		return [];
+	}
+}
+
+/**
+ * Load transactions from both networks
+ */
+export async function loadTransactions(): Promise<void> {
+	try {
+		const allTransactions: (Payment | RSKTransaction)[] = [];
+
+		// Load transactions from both networks in parallel
+		const [liquidTxs, rskTxs] = await Promise.allSettled([
+			loadLiquidTransactions(),
+			loadRSKTransactions()
+		]);
+
+		// Process Liquid transactions
+		if (liquidTxs.status === 'fulfilled' && liquidTxs.value.length > 0) {
+			allTransactions.push(...liquidTxs.value);
+		} else if (liquidTxs.status === 'rejected') {
+			console.warn('Failed to load Liquid transactions:', liquidTxs.reason);
+		}
+
+		// Process RSK transactions
+		if (rskTxs.status === 'fulfilled' && rskTxs.value.length > 0) {
+			allTransactions.push(...rskTxs.value);
+		} else if (rskTxs.status === 'rejected') {
+			console.warn('Failed to load RSK transactions:', rskTxs.reason);
+		}
+
+		// Sort by timestamp (newest first)
+		const sortedTransactions = allTransactions.sort((a, b) => {
+			// For Payment objects, timestamp is in seconds, for RSKTransaction it's in milliseconds
+			const aTime = 'paymentType' in a ? a.timestamp * 1000 : a.timestamp;
+			const bTime = 'paymentType' in b ? b.timestamp * 1000 : b.timestamp;
+			return bTime - aTime;
+		});
+
+		walletStore.update(state => ({ ...state, transactions: sortedTransactions }));
+	} catch (error) {
+		console.error('Failed to load transactions:', error);
+	}
+}
+
+/**
  * Load and combine assets from both networks
  */
 export async function loadAssets(): Promise<void> {
@@ -416,6 +618,28 @@ export async function loadFiatRates(): Promise<void> {
 }
 
 /**
+ * Load rBTC to BTC exchange rate
+ */
+export async function loadRbtcExchangeRate(): Promise<void> {
+	try {
+		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
+		walletStore.update(state => ({ 
+			...state, 
+			rbtcToBtcRate: rate,
+			rbtcRateError: false 
+		}));
+	} catch (error) {
+		console.error('Failed to load rBTC exchange rate:', error);
+		// Set error flag so UI can handle appropriately
+		walletStore.update(state => ({ 
+			...state, 
+			rbtcToBtcRate: 1.0, // Use 1:1 as safe fallback
+			rbtcRateError: true 
+		}));
+	}
+}
+
+/**
  * Send RSK transaction
  */
 export async function sendRBTC(to: string, amount: string): Promise<string> {
@@ -424,13 +648,77 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 		throw new Error('RSK wallet not connected');
 	}
 
-	const tx = await state.rsk.wallet.sendTransaction({
-		to,
-		value: ethers.parseEther(amount)
+	try {
+		const tx = await state.rsk.wallet.sendTransaction({
+			to,
+			value: ethers.parseEther(amount)
+		});
+
+		// Add to pending transactions in the store
+		const pendingTx: RSKTransaction = {
+			hash: tx.hash,
+			from: state.rsk.wallet.address,
+			to,
+			value: ethers.parseEther(amount).toString(),
+			gasUsed: '0',
+			gasPrice: tx.gasPrice?.toString() || '0',
+			blockNumber: 0,
+			timestamp: Date.now(),
+			status: 'pending',
+			type: 'send'
+		};
+
+		// Add pending transaction to the combined transactions
+		walletStore.update(storeState => ({
+			...storeState,
+			transactions: [pendingTx, ...storeState.transactions]
+		}));
+
+		// Wait for confirmation
+		const receipt = await tx.wait();
+
+		// Update transaction status
+		updateRSKTransactionStatus(tx.hash, receipt);
+
+		// Refresh assets and transactions
+		await loadAssets();
+		await loadTransactions();
+
+		return tx.hash;
+
+	} catch (error) {
+		throw new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+	}
+}
+
+/**
+ * Update RSK transaction status when confirmed
+ */
+function updateRSKTransactionStatus(hash: string, receipt: ethers.TransactionReceipt | null): void {
+	if (!receipt) return;
+
+	walletStore.update(state => {
+		// Remove the pending transaction and add the confirmed one
+		const updatedTransactions = state.transactions.map(tx => {
+			if ('hash' in tx && tx.hash === hash) {
+				// Update the RSK transaction
+				return {
+					...tx,
+					gasUsed: receipt.gasUsed.toString(),
+					gasPrice: receipt.gasPrice?.toString() || '0',
+					blockNumber: receipt.blockNumber,
+					timestamp: Date.now(),
+					status: receipt.status === 1 ? 'confirmed' : 'failed'
+				} as RSKTransaction;
+			}
+			return tx;
+		});
+
+		return {
+			...state,
+			transactions: updatedTransactions
+		};
 	});
-	await tx.wait();
-	await loadAssets();
-	return tx.hash;
 }
 
 /**
@@ -460,6 +748,7 @@ export const rskConnection = derived(walletStore, $store => $store.rsk);
 export const combinedWalletState = derived(walletStore, $store => $store);
 export const allAssets = derived(walletStore, $store => $store.assets);
 export const totalBalances = derived(walletStore, $store => $store.totalBalances);
+export const rbtcToBtcRate = derived(walletStore, $store => $store.rbtcToBtcRate);
 
 /**
  * Utility functions
@@ -484,6 +773,9 @@ export const walletManager = {
 	cleanup,
 	loadAssets,
 	loadFiatRates,
+	loadRbtcExchangeRate,
+	loadTransactions,
+	retryRbtcExchangeRate: () => loadRbtcExchangeRate(),
 	sendRBTC,
 	setActiveNetwork,
 	setActiveTab,

@@ -6,6 +6,7 @@
 	import {
 		calculateBidEscrowDetails,
 		validateEscrowDetails,
+		validateSufficientBalance,
 		acceptBidAndCreateEscrow,
 		getFeePercentageDisplay,
 		formatRBTCAmount,
@@ -26,6 +27,7 @@
 	// Form state
 	let isSubmitting = $state(false);
 	let validationErrors = $state<string[]>([]);
+	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
 	let contractCreationStatus = $state<'pending' | 'success' | 'failed'>('pending');
@@ -35,6 +37,16 @@
 
 	$effect(() => {
 		validationErrors = validateEscrowDetails(bidEscrowDetails);
+	});
+
+	// Separate effect for balance validation
+	$effect(() => {
+		// Only check balance if wallet is connected and basic validation passes
+		if ($rskWalletStore.isConnected && validationErrors.length === 0) {
+			balanceErrors = validateSufficientBalance(bidEscrowDetails);
+		} else {
+			balanceErrors = [];
+		}
 	});
 
 	// Auto-initialize RSK wallet if not connected
@@ -68,7 +80,7 @@
 
 	// Handle form submission
 	async function handleSubmit() {
-		if (validationErrors.length !== 0 || !props.bid.id) {
+		if (validationErrors.length !== 0 || balanceErrors.length !== 0 || !props.bid.id) {
 			return;
 		}
 
@@ -385,7 +397,7 @@
 
 				<!-- Wallet Connection Status -->
 				{#if !$rskWalletStore.isConnected}
-					<div class="alert alert-warning mt-4">
+					<div class="alert alert-warning text-black mt-4">
 						<div class="flex w-full items-center justify-between">
 							<div class="flex items-center">
 								<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
@@ -448,6 +460,36 @@
 				{/if}
 			</div>
 
+			<!-- Insufficient Balance Warning -->
+			{#if balanceErrors.length > 0}
+				<div class="alert alert-warning text-black mb-4">
+					<div class="flex items-start gap-3">
+						<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+						</svg>
+						<div class="flex-1 min-w-0">
+							<div class="font-semibold mb-1">Insufficient Balance</div>
+							{#if balanceErrors.length === 1}
+								<p class="break-words text-sm">{balanceErrors[0]}</p>
+							{:else}
+								<ul class="list-disc list-inside space-y-1 text-sm">
+									{#each balanceErrors as error}
+										<li class="break-words">{error}</li>
+									{/each}
+								</ul>
+							{/if}
+							<div class="mt-2 text-sm">
+								<p>Current balance: <strong>{$rskWalletStore.formattedBalance} RBTC</strong></p>
+								<p class="text-xs mt-1 opacity-80">
+									You need additional RBTC to cover the escrow amount plus transaction fees. 
+									Please add more RBTC to your wallet or consider a smaller bid amount.
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Validation Errors -->
 			{#if validationErrors.length > 0}
 				<div class="alert alert-error mb-4">
@@ -485,7 +527,7 @@
 				<button
 					type="button"
 					class="btn btn-primary"
-					disabled={isSubmitting || validationErrors.length > 0 || !$rskWalletStore.isConnected}
+					disabled={isSubmitting || validationErrors.length > 0 || balanceErrors.length > 0 || !$rskWalletStore.isConnected}
 					onclick={handleSubmit}
 				>
 					{#if isSubmitting}

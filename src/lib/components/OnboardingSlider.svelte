@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { register } from 'swiper/element/bundle';
 	import { Preferences } from '@capacitor/preferences';
-	import { onboardingCompleted } from '$lib/stores/deviceInfo.store';
+	import { onboardingCompleted } from '$lib/stores/device.store';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 
 	register();

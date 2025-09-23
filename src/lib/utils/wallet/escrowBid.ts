@@ -91,6 +91,48 @@ export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: nu
 }
 
 /**
+ * Check if user has sufficient balance for the escrow
+ */
+export function validateSufficientBalance(details: BidEscrowDetails): string[] {
+	const errors: string[] = [];
+	
+	// Get current wallet state
+	const walletState = get(rskWalletStore);
+	
+	if (!walletState.isConnected || !walletState.balance) {
+		errors.push('RSK wallet not connected. Please connect your wallet to check balance.');
+		return errors;
+	}
+
+	try {
+		// Parse current balance (in wei) and required amount
+		const currentBalanceWei = BigInt(walletState.balance);
+		const requiredAmountWei = ethers.parseEther(details.totalAmount);
+		
+		// Estimate gas cost (approximate)
+		const estimatedGasLimit = BigInt(150000); // Conservative estimate for escrow creation
+		const estimatedGasPrice = BigInt(65164000); // 0.065164 gwei (typical RSK gas price)
+		const estimatedGasCost = estimatedGasLimit * estimatedGasPrice;
+		
+		// Total required = escrow amount + gas fees
+		const totalRequired = requiredAmountWei + estimatedGasCost;
+		
+		if (currentBalanceWei < totalRequired) {
+			const currentBalanceRBTC = ethers.formatEther(currentBalanceWei);
+			const requiredRBTC = ethers.formatEther(totalRequired);
+			const shortfallRBTC = ethers.formatEther(totalRequired - currentBalanceWei);
+			
+			errors.push(`Insufficient RBTC balance. You have ${parseFloat(currentBalanceRBTC).toFixed(6)} RBTC but need ${parseFloat(requiredRBTC).toFixed(6)} RBTC (including gas fees). Shortfall: ${parseFloat(shortfallRBTC).toFixed(6)} RBTC.`);
+		}
+	} catch (error) {
+		console.error('Error validating balance:', error);
+		errors.push('Unable to validate balance. Please check your wallet connection.');
+	}
+
+	return errors;
+}
+
+/**
  * Validate escrow details before creation
  */
 export function validateEscrowDetails(details: BidEscrowDetails): string[] {
