@@ -12,23 +12,21 @@ export const initializeDevicePlatform = async () => {
 	try {
 		// Use Capacitor's built-in platform detection - this is safe and doesn't conflict with WebAuthn
 		const platform = Capacitor.getPlatform();
-		
+
 		// Capacitor.getPlatform() returns 'ios', 'android', or 'web'
 		devicePlatform.set(platform);
-		
-		console.log('Device platform detected:', platform);
 	} catch (error) {
 		console.error('Error detecting device platform:', error);
 		// Fallback to user agent detection if Capacitor fails
 		const userAgent = navigator.userAgent.toLowerCase();
 		let fallbackPlatform = 'web';
-		
+
 		if (/android/.test(userAgent)) {
 			fallbackPlatform = 'android';
 		} else if (/iphone|ipad|ipod/.test(userAgent)) {
 			fallbackPlatform = 'ios';
 		}
-		
+
 		devicePlatform.set(fallbackPlatform);
 	}
 };
@@ -49,6 +47,6 @@ export const getOnboardingCompleted = async () => {
 			}, 100);
 		}
 	};
-	
+
 	deferOperation();
 };

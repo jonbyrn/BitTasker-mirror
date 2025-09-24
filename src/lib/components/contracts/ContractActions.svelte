@@ -527,7 +527,7 @@
 			<!-- Cancel Escrow -->
 			{#if contract.canCancel}
 				<button
-					class="btn btn-error btn-outline btn-sm w-full"
+					class="btn btn-error btn-sm w-full"
 					onclick={cancelEscrow}
 					disabled={isLoading.cancel}
 				>
