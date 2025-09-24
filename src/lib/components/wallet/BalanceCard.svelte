@@ -48,7 +48,7 @@
 
 <div class="space-y-4">
 	<!-- Total Portfolio Value Card -->
-	<div class="card bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-xl">
+	<div class="card bg-gradient-to-br bg-primary text-white shadow-xl">
 		<div class="card-body">
 			<div class="flex items-center justify-between">
 				<div class="flex-1">
@@ -57,7 +57,7 @@
 					{#if canCombineBalances}
 						<!-- Combined balance when exchange rate is available -->
 						<p class="text-3xl font-bold text-white">
-							{totalSats.toLocaleString()} sats
+							{totalSats.toLocaleString()} Sats
 						</p>
 						<p class="text-white opacity-90">
 							≈ {totalBtcEquivalent.toFixed(8)} BTC
@@ -70,7 +70,7 @@
 									<span class="text-2xl font-bold text-white">
 										{liquidSats.toLocaleString()}
 									</span>
-									<span class="ml-2 text-sm text-white opacity-90">sats</span>
+									<span class="ml-2 text-sm text-white opacity-90">Sats</span>
 								</div>
 							{/if}
 							{#if rbtcBalance > 0}
@@ -83,7 +83,7 @@
 								{#if hasRbtcRateError}
 									<div class="mt-1">
 										<p class="text-xs text-white opacity-70">
-											⚠️ Exchange rate unavailable - showing separate balances
+											⚠️ {$t('wallet.exchange_rate_unavailable')}
 										</p>
 										<button
 											class="text-xs text-white underline opacity-80 hover:opacity-100"
@@ -95,7 +95,7 @@
 								{/if}
 							{/if}
 							{#if liquidSats === 0 && rbtcBalance === 0}
-								<p class="text-2xl font-bold text-white opacity-70">No assets</p>
+								<p class="text-2xl font-bold text-white opacity-70">{$t('wallet.no_assets')}</p>
 							{/if}
 						</div>
 					{/if}
@@ -187,7 +187,7 @@
 
 				{#if $combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
 					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • Click to copy</div>
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • {$t('wallet.click_to_copy')}</div>
 						<button
 							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 text-left transition-colors"
 							onclick={copyLiquidAddress}
@@ -249,7 +249,7 @@
 
 				{#if $combinedWalletState.rsk.address}
 					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • Click to copy</div>
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • {$t('wallet.click_to_copy')}</div>
 						<button
 							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 text-left transition-colors"
 							onclick={copyRskAddress}

@@ -124,7 +124,6 @@
 
 		try {
 			await findTasks(searchParams);
-			console.log('tasksStore', $tasksStore.items);
 
 			dataLoaded = true;
 			showSkeleton = false;

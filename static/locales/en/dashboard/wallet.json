@@ -263,6 +263,8 @@
       "method": "Method",
       "any_amount_accepted": "Any amount accepted",
       "click_to_copy": "Click to copy",
-      "generate_new": "Generate New"
+      "generate_new": "Generate New",
+      "exchange_rate_unavailable": "Exchange rate unavailable - showing separate balances",
+      "no_assets": "No assets"
     }
   }

@@ -66,7 +66,7 @@ async function initializeWallet(): Promise<void> {
         }));
 
     } catch (error) {
-        throw new Error(`Failed to initialize wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        throw new Error(`${error instanceof Error ? error.message : 'Failed to initialize wallet'}`);
     }
 }
 

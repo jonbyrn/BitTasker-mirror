@@ -60,9 +60,7 @@ export function registerPendingContract(params: PendingContractCreation): void {
 /**
  * Handle escrow created event - called from contract event listener
  */
-export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {
-	console.log('Escrow created event received:', event);
-	
+export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {	
 	// Update the store
 	escrowCreatedStore.set(event);
 	

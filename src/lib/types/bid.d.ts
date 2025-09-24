@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Freelancer } from './freelancer';
 
+// Legacy bid types
 export type PaymentType = 'FIXED' | 'HOURLY';
 export type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN' | 'SATS';
 export type Visibility = 'PUBLIC' | 'PRIVATE';
@@ -196,4 +197,113 @@ export interface CreateBidParams {
 	milestones?: Array<Milestone>;
 	visibility: Visibility;
 	responseTime: number;
+}
+
+
+// New nostr bid types
+export interface NostrBid {
+	type: 'bid';
+	taskId: string;
+	taskTitle: string; // Add task title
+	taskDescription: string; // Add task description
+	amount: number;
+	currency: string;
+	paymentType: 'FIXED' | 'HOURLY';
+	hourlyRate?: number | null; // Allow null values
+	estimatedHours?: number | null; // Allow null values
+	description: string;
+	estimatedDuration: string;
+	proposedApproach: string;
+	coverLetter: string;
+	timestamp: number;
+	bidId: string;
+	// Updated datetime fields to match actual data structure
+	startDateTime: string;
+	endDateTime: string;
+	// Add this field to identify it as a bid
+	messageType: 'bid';
+	taskCreatorUsername?: string;
+	taskCreatorAvatar?: string;
+	taskCreatorPubkey?: string;
+	// Bidder information
+	bidderId?: string;
+	bidderName?: string;
+	bidderAvatar?: string;
+	// RSK wallet address for escrow funding
+	bidderWalletAddress?: string;
+}
+
+export interface BidMessage {
+	bid: NostrBid; // The bid data
+	senderPubkey: string; // Who sent the bid
+	event: NostrEvent; // The Nostr event
+}
+
+
+export interface NostrBidData {
+	type: 'bid';
+	taskId: string;
+	taskTitle: string;
+	taskDescription: string;
+	amount: number;
+	currency: string;
+	paymentType: 'FIXED' | 'HOURLY';
+	hourlyRate: number | null;
+	estimatedHours: number | null;
+	description: string;
+	estimatedDuration: string;
+	proposedApproach: string;
+	coverLetter: string;
+	timestamp: number;
+	bidId: string;
+	taskCreatorPubkey: string;
+	taskCreatorUsername: string;
+	taskCreatorAvatar: string;
+	bidderId: string;
+	bidderName: string;
+	bidderAvatar: string;
+	bidderWalletAddress: string;
+	startDateTime: string;
+	endDateTime: string;
+	messageType: 'bid';
+}
+
+export interface NostrBidMessage {
+	bid: NostrBidData;
+	senderPubkey: string;
+	event: {
+		id: string;
+		pubkey: string;
+		created_at: number;
+		kind: number;
+		tags: string[][];
+		content: string;
+		sig: string;
+	};
+}
+
+export interface SimplifiedTaskBid {
+	id: string;
+	taskId: string;
+	bidderWalletAddress: string;
+	amount: number;
+	currency: string;
+	paymentType: 'FIXED' | 'HOURLY';
+	hourlyRate?: number;
+	estimatedHours?: number;
+	description: string;
+	estimatedDuration: string;
+	proposedApproach: string;
+	coverLetter: string;
+	status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED';
+	createdAt: string;
+	startDateTime: string;
+	endDateTime: string;
+	userProfile: {
+		user: {
+			id: string;
+			name: string;
+			avatar: string;
+		};
+	};
 }

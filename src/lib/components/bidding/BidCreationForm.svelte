@@ -271,17 +271,23 @@
 			const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
 			const parts = [];
-			
+
 			if (diffDays > 0) {
-				parts.push(`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`);
+				parts.push(
+					`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`
+				);
 			}
-			
+
 			if (diffHours > 0) {
-				parts.push(`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`);
+				parts.push(
+					`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`
+				);
 			}
-			
+
 			if (diffMinutes > 0) {
-				parts.push(`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`);
+				parts.push(
+					`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`
+				);
 			}
 
 			if (parts.length === 0) {
@@ -492,7 +498,7 @@
 					{/if}
 					{#if amount > 0}
 						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
@@ -502,7 +508,7 @@
 					<label class="label" for="datetime-range">
 						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
 					</label>
-					<div class="flex flex-row gap-4">
+					<div class="flex flex-col gap-4 sm:flex-row">
 						<div class="flex-1">
 							<DateInput
 								bind:value={startDateTime}
@@ -598,7 +604,7 @@
 					{/if}
 					{#if hourlyRate > 0}
 						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
@@ -768,7 +774,7 @@
 			<button
 				id="bid-submit-btn"
 				type="submit"
-				class="btn btn-primary mb-16 ml-auto block sm:mb-4"
+				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-16 sm:mb-4'}"
 				disabled={submittingBid}
 			>
 				{#if submittingBid}
@@ -779,7 +785,7 @@
 				{/if}
 			</button>
 			{#if bidFormErrors.general}
-				<div class="alert alert-error alert-outline">
+				<div class="alert alert-error alert-outline mb-16 sm:mb-4">
 					<span>{bidFormErrors.general}</span>
 				</div>
 			{/if}
