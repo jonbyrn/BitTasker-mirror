@@ -324,7 +324,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl p-4 sm:p-0">
+<div class="mx-auto max-w-7xl py-4 sm:p-0">
 	<!-- Page Header -->
 	<div class="mb-6">
 		<h3 class="">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_title') : $t('task.create_title')}</h3>
