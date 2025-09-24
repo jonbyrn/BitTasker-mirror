@@ -115,10 +115,11 @@
 
 		<!-- Token Selection -->
 		<div class="form-control mb-4">
-			<label class="label">
+			<label class="label" for="send-token-select">
 				<span class="label-text">{$t('wallet.bsc.token')}</span>
 			</label>
 			<select 
+				id="send-token-select"
 				bind:value={selectedToken} 
 				class="select select-bordered w-full"
 			>
@@ -129,10 +130,11 @@
 
 		<!-- Recipient Address -->
 		<div class="form-control mb-4">
-			<label class="label">
+			<label class="label" for="recipient-address">
 				<span class="label-text">{$t('wallet.bsc.recipient_address')}</span>
 			</label>
 			<input
+				id="recipient-address"
 				type="text"
 				bind:value={recipientAddress}
 				placeholder="0x..."
@@ -140,18 +142,19 @@
 				class:input-error={recipientAddress && !isValidAddress(recipientAddress)}
 			/>
 			{#if recipientAddress && !isValidAddress(recipientAddress)}
-				<label class="label">
+				<div class="label">
 					<span class="label-text-alt text-error">{$t('wallet.bsc.invalid_address')}</span>
-				</label>
+				</div>
 			{/if}
 		</div>
 
 		<!-- Amount -->
 		<div class="form-control mb-4">
-			<label class="label">
+			<label class="label" for="amount-input">
 				<span class="label-text">{$t('wallet.bsc.amount')} ({selectedToken})</span>
 			</label>
 			<input
+				id="amount-input"
 				type="number"
 				bind:value={amount}
 				placeholder="0.00"
@@ -161,9 +164,9 @@
 				class:input-error={amount && !isValidAmount(amount)}
 			/>
 			{#if amount && !isValidAmount(amount)}
-				<label class="label">
+				<div class="label">
 					<span class="label-text-alt text-error">{$t('wallet.bsc.invalid_amount')}</span>
-				</label>
+				</div>
 			{/if}
 		</div>
 

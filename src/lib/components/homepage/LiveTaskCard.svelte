@@ -9,9 +9,24 @@
 	const handleTaskClick = () => {
 		window.location.href = `/tasks/task/${task.id}`;
 	};
+
+	// Handle keyboard events for accessibility
+	const handleKeyDown = (event: KeyboardEvent) => {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			handleTaskClick();
+		}
+	};
 </script>
 
-<div class="card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col cursor-pointer" onclick={handleTaskClick}>
+<div 
+	class="card card-compact bg-base-100 shadow-xl transition-transform hover:scale-105 h-full flex flex-col cursor-pointer" 
+	role="button"
+	tabindex="0"
+	onclick={handleTaskClick}
+	onkeydown={handleKeyDown}
+	aria-label="View task: {task.title}"
+>
 	{#if task.image}
 		<figure>
 			<img src={task.image} alt={task.title} class="h-48 w-full object-cover" loading="lazy" />
