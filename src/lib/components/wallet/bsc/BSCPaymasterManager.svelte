@@ -117,11 +117,12 @@
 
 		<!-- Deposit Section -->
 		<div class="form-control mb-4">
-			<label class="label">
+			<label class="label" for="deposit-amount">
 				<span class="label-text">{$t('wallet.bsc.deposit_bnb_to_paymaster')}</span>
 			</label>
 			<div class="input-group">
 				<input
+					id="deposit-amount"
 					type="number"
 					bind:value={depositAmount}
 					placeholder="0.0"
@@ -147,11 +148,12 @@
 
 		<!-- Withdraw Section -->
 		<div class="form-control mb-4">
-			<label class="label">
+			<label class="label" for="withdraw-amount">
 				<span class="label-text">{$t('wallet.bsc.withdraw_bnb_from_paymaster')}</span>
 			</label>
 			<div class="input-group">
 				<input
+					id="withdraw-amount"
 					type="number"
 					bind:value={withdrawAmount}
 					placeholder="0.0"

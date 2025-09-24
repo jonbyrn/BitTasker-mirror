@@ -281,10 +281,10 @@
 </script>
 
 <div class="space-y-6">
-	<div class="flex items-center justify-between">
+	<div class="flex flex-wrap gap-4">
 		<h3 class="text-lg font-semibold">{$t('wallet.transaction_history')}</h3>
 		<button
-			class="btn btn-outline btn-sm"
+			class="btn btn-outline btn-sm self-start sm:self-auto"
 			onclick={refreshTransactions}
 			disabled={isLoading}
 		>
@@ -311,37 +311,39 @@
 	</div>
 
 	<!-- Filter Tabs -->
-	<div class="tabs tabs-boxed">
-		<button
-			class="tab {selectedFilter === 'all' ? 'tab-active' : ''}"
-			onclick={() => {selectedFilter = 'all'; currentPage = 0;}}
-		>
-			{$t('wallet.all')} ({transactions.length})
-		</button>
-		<button
-			class="tab {selectedFilter === 'liquid' ? 'tab-active' : ''}"
-			onclick={() => {selectedFilter = 'liquid'; currentPage = 0;}}
-		>
-			🌊 Liquid ({transactions.filter(tx => tx.network === 'liquid').length})
-		</button>
-		<button
-			class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''}"
-			onclick={() => {selectedFilter = 'rsk'; currentPage = 0;}}
-		>
-			⚡ RSK ({transactions.filter(tx => tx.network === 'rsk').length})
-		</button>
-		<button
-			class="tab {selectedFilter === 'send' ? 'tab-active' : ''}"
-			onclick={() => {selectedFilter = 'send'; currentPage = 0;}}
-		>
-			↑ {$t('wallet.sent')} ({transactions.filter(tx => tx.type === 'send').length})
-		</button>
-		<button
-			class="tab {selectedFilter === 'receive' ? 'tab-active' : ''}"
-			onclick={() => {selectedFilter = 'receive'; currentPage = 0;}}
-		>
-			↓ {$t('wallet.received')} ({transactions.filter(tx => tx.type === 'receive').length})
-		</button>
+	<div class="overflow-x-auto">
+		<div class="tabs tabs-boxed min-w-max">
+			<button
+				class="tab {selectedFilter === 'all' ? 'tab-active' : ''} whitespace-nowrap"
+				onclick={() => {selectedFilter = 'all'; currentPage = 0;}}
+			>
+				{$t('wallet.all')} ({transactions.length})
+			</button>
+			<button
+				class="tab {selectedFilter === 'liquid' ? 'tab-active' : ''} whitespace-nowrap"
+				onclick={() => {selectedFilter = 'liquid'; currentPage = 0;}}
+			>
+				🌊 Liquid ({transactions.filter(tx => tx.network === 'liquid').length})
+			</button>
+			<button
+				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"
+				onclick={() => {selectedFilter = 'rsk'; currentPage = 0;}}
+			>
+				⚡ RSK ({transactions.filter(tx => tx.network === 'rsk').length})
+			</button>
+			<button
+				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap"
+				onclick={() => {selectedFilter = 'send'; currentPage = 0;}}
+			>
+				↑ {$t('wallet.sent')} ({transactions.filter(tx => tx.type === 'send').length})
+			</button>
+			<button
+				class="tab {selectedFilter === 'receive' ? 'tab-active' : ''} whitespace-nowrap"
+				onclick={() => {selectedFilter = 'receive'; currentPage = 0;}}
+			>
+				↓ {$t('wallet.received')} ({transactions.filter(tx => tx.type === 'receive').length})
+			</button>
+		</div>
 	</div>
 
 	{#if error}
@@ -414,7 +416,8 @@
 			{#each paginatedTransactions as tx}
 				<div class="card bg-base-200 hover:bg-base-300 transition-colors">
 					<div class="card-body p-4">
-						<div class="flex items-center justify-between">
+						<!-- Desktop Layout -->
+						<div class="hidden md:flex items-center justify-between">
 							<div class="flex items-center gap-3">
 								<!-- Network and Type Icons -->
 								<div class="flex flex-col items-center">
@@ -481,6 +484,79 @@
 									</button>
 								{/if}
 							</div>
+						</div>
+
+						<!-- Mobile Layout -->
+						<div class="md:hidden space-y-3">
+							<!-- Header Row -->
+							<div class="flex items-center justify-between">
+								<div class="flex items-center gap-3">
+									<div class="flex items-center gap-1">
+										<span class="text-lg">{getNetworkIcon(tx.network)}</span>
+										<span class="text-sm {tx.type === 'receive' ? 'text-success' : 'text-warning'}">
+											{getTypeIcon(tx.type)}
+										</span>
+									</div>
+									<span class="font-semibold capitalize">
+										{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
+									</span>
+								</div>
+								<div class="font-semibold {tx.type === 'receive' ? 'text-success' : 'text-warning'}">
+									{tx.type === 'receive' ? '+' : '-'}{tx.formattedAmount}
+								</div>
+							</div>
+
+							<!-- Badges Row -->
+							<div class="flex items-center gap-2">
+								<div class="badge badge-outline badge-sm text-xs">
+									{tx.network.toUpperCase()}
+								</div>
+								<div class="badge {getStatusBadgeClass(tx.status)} badge-sm text-xs">
+									{getTranslatedStatus(tx.status)}
+								</div>
+							</div>
+
+							<!-- Details -->
+							<div class="text-sm opacity-70 space-y-1">
+								<div>{formatTimestamp(tx.timestamp)}</div>
+								{#if tx.address}
+									<div>{$t('wallet.address')}: {formatAddress(tx.address)}</div>
+								{/if}
+								{#if tx.description}
+									<div>{tx.description}</div>
+								{/if}
+								{#if tx.fee}
+									<div class="text-xs">
+										{$t('wallet.transaction_fee')}: {tx.fee} {tx.asset}
+									</div>
+								{/if}
+							</div>
+
+							<!-- Action Button -->
+							{#if tx.txHash}
+								<div class="flex justify-end">
+									<button
+										class="btn btn-ghost btn-xs"
+										onclick={() => openExplorer(tx.txHash, tx.network)}
+									>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-3 w-3"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+											/>
+										</svg>
+										{$t('wallet.view_explorer')}
+									</button>
+								</div>
+							{/if}
 						</div>
 					</div>
 				</div>

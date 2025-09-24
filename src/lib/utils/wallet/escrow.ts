@@ -1,12 +1,60 @@
 import type { ContractTransactionResult, DisputeProposal, EscrowData, GasEstimation } from "$lib/types/wallet";
-import { rskAddress, rskWalletStore, getRSKWallet, getRSKProvider, getEventListeners } from "$lib/stores/rskWallet.store";
-import { derived, get } from 'svelte/store';
+import { rskAddress, getRSKWallet, getRSKProvider, walletStore } from "$lib/stores/wallet.store";
+import { derived } from 'svelte/store';
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
-import { FEE_TIERS, type FeeTier } from "$lib/utils/wallet/escrowContract";
+import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/escrowContract";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 
 let contract: ethers.Contract | null = null;
+
+/**
+ * Simple initialization check for escrow operations
+ * Ensures wallet, contract, provider are ready and wallet has balance
+ */
+async function ensureEscrowReady(): Promise<{
+    contract: ethers.Contract;
+    wallet: ethers.Wallet;
+    provider: ethers.JsonRpcProvider;
+}> {
+    // Check and initialize wallet if needed
+    let wallet = getRSKWallet();
+    if (!wallet) {
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initializeRSKWallet();
+        wallet = getRSKWallet();
+        if (!wallet) {
+            throw new Error('Failed to initialize wallet');
+        }
+    }
+    
+    // Check and get provider if needed
+    let provider = getRSKProvider();
+    if (!provider) {
+        const { walletManager } = await import('$lib/stores/wallet.store');
+        await walletManager.initializeRSKWallet();
+        provider = getRSKProvider();
+        if (!provider) {
+            throw new Error('Failed to get provider');
+        }
+    }
+    
+    // Check and connect contract if needed
+    if (!contract) {
+        await connectToEscrowContract();
+        if (!contract) {
+            throw new Error('Failed to connect to contract');
+        }
+    }
+    
+    // Check wallet balance
+    const balance = await provider.getBalance(wallet.address);
+    if (balance === 0n) {
+        throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
+    }
+    
+    return { contract, wallet, provider };
+}
 
 // Utility function to calculate fee amount
 export function calculateFeeAmount(baseAmount: bigint, feeTier: FeeTier): bigint {
@@ -41,7 +89,7 @@ async function connectToEscrowContract(): Promise<void> {
     }
 
     try {
-        const network = get(rskWalletStore).network;
+        const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
         const contractConfig = {
             address: (import.meta.env.VITE_RSK_CONTRACT_ADDRESS).toLowerCase(),
             abi: escrowABI,
@@ -53,11 +101,14 @@ async function connectToEscrowContract(): Promise<void> {
 
         contract = new ethers.Contract(contractAddress, contractConfig.abi, wallet);
 
-        rskWalletStore.update(state => ({
+        // Update the unified wallet store with contract connection info
+        walletStore.update(state => ({
             ...state,
-            contractAddress: contractConfig.address,
-            contractConnected: true,
-            contractConfig
+            rsk: {
+                ...state.rsk,
+                contractAddress: contractConfig.address,
+                contractConnected: true
+            }
         }));
 
         // Skip event listeners on RSK due to eth_getLogs compatibility issues
@@ -94,13 +145,16 @@ async function connectToEscrowContract(): Promise<void> {
 
 // Helper function to update escrow status
 function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
-    rskWalletStore.update(state => ({
+    walletStore.update(state => ({
         ...state,
-        escrows: state.escrows.map(escrow =>
-            escrow.id === escrowId
-                ? { ...escrow, status, lastUpdated: Date.now() }
-                : escrow
-        )
+        rsk: {
+            ...state.rsk,
+            escrows: (state.rsk.escrows || []).map(escrow =>
+                escrow.id === escrowId
+                    ? { ...escrow, status, lastUpdated: Date.now() }
+                    : escrow
+            )
+        }
     }));
 }
 
@@ -199,9 +253,12 @@ async function loadUserEscrows(): Promise<void> {
         } catch (error) {
             console.error('Failed to get nextEscrowId - contract may not be deployed correctly:', error);
             // Set escrows to empty array and return
-            rskWalletStore.update(state => ({
+            walletStore.update(state => ({
                 ...state,
-                escrows: []
+                rsk: {
+                    ...state.rsk,
+                    escrows: []
+                }
             }));
             return;
         }
@@ -231,9 +288,12 @@ async function loadUserEscrows(): Promise<void> {
             }
         }
 
-        rskWalletStore.update(state => ({
+        walletStore.update(state => ({
             ...state,
-            escrows: escrows.sort((a, b) => b.createdAt - a.createdAt)
+            rsk: {
+                ...state.rsk,
+                escrows: escrows.sort((a, b) => b.createdAt - a.createdAt)
+            }
         }));
 
     } catch (error) {
@@ -250,12 +310,9 @@ async function createEscrow(
     clientFeeTier: FeeTier,
     freelancerFeeTier: FeeTier
 ): Promise<ContractTransactionResult> {
-    const wallet = getRSKWallet();
-    if (!contract || !wallet) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
@@ -305,7 +362,7 @@ async function createEscrow(
 
                     const escrowCreatedEvent = receipt.logs.find(log => {
                         try {
-                            const parsedLog = contract!.interface.parseLog({
+                            const parsedLog = contract.interface.parseLog({
                                 topics: log.topics,
                                 data: log.data
                             });
@@ -366,26 +423,9 @@ async function createEscrow(
 
 // Complete task
 async function completeTask(escrowId: string): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
-    const wallet = getRSKWallet();
-    if (!wallet) {
-        throw new Error('Wallet not available');
-    }
-
-    // Check wallet balance
-    if (!wallet.provider) {
-        throw new Error('Wallet provider not available');
-    }
-
-    const balance = await wallet.provider.getBalance(wallet.address);
-    if (balance === 0n) {
-        throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const gasEstimate = await contract.completeTask.estimateGas(escrowId);
         const tx = await contract.completeTask(escrowId, {
             gasLimit: gasEstimate + (gasEstimate / 10n)
@@ -413,11 +453,9 @@ async function completeTask(escrowId: string): Promise<ContractTransactionResult
 
 // Accept task
 async function acceptTask(escrowId: string): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const gasEstimate = await contract.acceptTask.estimateGas(escrowId);
         const tx = await contract.acceptTask(escrowId, {
             gasLimit: gasEstimate + (gasEstimate / 10n)
@@ -445,11 +483,9 @@ async function acceptTask(escrowId: string): Promise<ContractTransactionResult> 
 
 // Cancel escrow
 async function cancelEscrow(escrowId: string): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const gasEstimate = await contract.cancelEscrow.estimateGas(escrowId);
         const tx = await contract.cancelEscrow(escrowId, {
             gasLimit: gasEstimate + (gasEstimate / 10n)
@@ -477,11 +513,9 @@ async function cancelEscrow(escrowId: string): Promise<ContractTransactionResult
 
 // Dispute task
 async function disputeTask(escrowId: string): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const gasEstimate = await contract.disputeTask.estimateGas(escrowId);
         const tx = await contract.disputeTask(escrowId, {
             gasLimit: gasEstimate + (gasEstimate / 10n)
@@ -512,11 +546,9 @@ async function proposeResolution(
     escrowId: string,
     freelancerAmount: string
 ): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const freelancerAmountWei = ethers.parseEther(freelancerAmount);
 
         const gasEstimate = await contract.proposeResolution.estimateGas(
@@ -552,11 +584,9 @@ async function proposeResolution(
 
 // Accept proposal
 async function acceptProposal(escrowId: string): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const gasEstimate = await contract.acceptProposal.estimateGas(escrowId);
         const tx = await contract.acceptProposal(escrowId, {
             gasLimit: gasEstimate + (gasEstimate / 10n)
@@ -584,11 +614,9 @@ async function acceptProposal(escrowId: string): Promise<ContractTransactionResu
 
 // Resolve after timelock
 async function resolveAfterTimelock(escrowId: string): Promise<ContractTransactionResult> {
-    if (!contract) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract } = await ensureEscrowReady();
+
         const gasEstimate = await contract.resolveAfterTimelock.estimateGas(escrowId);
         const tx = await contract.resolveAfterTimelock(escrowId, {
             gasLimit: gasEstimate + (gasEstimate / 10n)
@@ -623,12 +651,9 @@ async function estimateEscrowCreationGas(
     clientFeeTier: FeeTier,
     freelancerFeeTier: FeeTier
 ): Promise<GasEstimation> {
-    const provider = getRSKProvider();
-    if (!contract || !provider) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract, provider } = await ensureEscrowReady();
+
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
@@ -659,12 +684,9 @@ async function estimateEscrowCreationGas(
 
 // Estimate gas for contract function
 async function estimateContractGas(functionName: string, escrowId: string, ...args: any[]): Promise<GasEstimation> {
-    const provider = getRSKProvider();
-    if (!contract || !provider) {
-        throw new Error('Contract not connected');
-    }
-
     try {
+        const { contract, provider } = await ensureEscrowReady();
+
         const contractFunction = contract[functionName];
         if (!contractFunction) {
             throw new Error(`Function ${functionName} not found`);
@@ -704,9 +726,8 @@ async function refreshEscrows(): Promise<void> {
 
 // Check if contract is paused
 async function isContractPaused(): Promise<boolean> {
-    if (!contract) return true;
-
     try {
+        const { contract } = await ensureEscrowReady();
         return await contract.paused();
     } catch (error) {
         console.error('Failed to check contract pause status:', error);
@@ -734,38 +755,38 @@ export const escrow = {
 }
 
 // Enhanced derived stores for escrow data
-export const rskActiveEscrows = derived(rskWalletStore, $store =>
-    $store.escrows.filter(escrow =>
+export const rskActiveEscrows = derived(walletStore, $store =>
+    ($store.rsk.escrows || []).filter(escrow =>
         escrow.status === EscrowStatus.Funded ||
         escrow.status === EscrowStatus.Completed ||
         escrow.status === EscrowStatus.InDispute
     )
 );
 
-export const rskClientEscrows = derived([rskWalletStore, rskAddress], ([$store, $address]) =>
-    $store.escrows.filter(escrow => escrow.client.toLowerCase() === $address?.toLowerCase())
+export const rskClientEscrows = derived([walletStore, rskAddress], ([$store, $address]) =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.client.toLowerCase() === $address?.toLowerCase())
 );
 
-export const rskFreelancerEscrows = derived([rskWalletStore, rskAddress], ([$store, $address]) =>
-    $store.escrows.filter(escrow => escrow.freelancer.toLowerCase() === $address?.toLowerCase())
+export const rskFreelancerEscrows = derived([walletStore, rskAddress], ([$store, $address]) =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.freelancer.toLowerCase() === $address?.toLowerCase())
 );
 
-export const rskPendingEscrows = derived(rskWalletStore, $store =>
-    $store.escrows.filter(escrow => escrow.status === EscrowStatus.Funded)
+export const rskPendingEscrows = derived(walletStore, $store =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Funded)
 );
 
-export const rskCompletedEscrows = derived(rskWalletStore, $store =>
-    $store.escrows.filter(escrow => escrow.status === EscrowStatus.Completed)
+export const rskCompletedEscrows = derived(walletStore, $store =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Completed)
 );
 
-export const rskDisputedEscrows = derived(rskWalletStore, $store =>
-    $store.escrows.filter(escrow => escrow.status === EscrowStatus.InDispute)
+export const rskDisputedEscrows = derived(walletStore, $store =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.InDispute)
 );
 
-export const rskResolvedEscrows = derived(rskWalletStore, $store =>
-    $store.escrows.filter(escrow => escrow.status === EscrowStatus.Resolved)
+export const rskResolvedEscrows = derived(walletStore, $store =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Resolved)
 );
 
-export const rskCancelledEscrows = derived(rskWalletStore, $store =>
-    $store.escrows.filter(escrow => escrow.status === EscrowStatus.Cancelled)
+export const rskCancelledEscrows = derived(walletStore, $store =>
+    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Cancelled)
 );
