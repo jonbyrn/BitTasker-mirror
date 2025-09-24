@@ -369,9 +369,9 @@
 								<!-- User info -->
 								<div class="min-w-0 flex-1">
 									<div class="mb-1 flex items-center gap-2">
-										<h3 class="truncate text-base font-semibold sm:text-lg">
+										<p class="truncate text-base font-semibold sm:text-lg">
 											{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
-										</h3>
+										</p>
 										<button
 											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
 											onclick={() =>

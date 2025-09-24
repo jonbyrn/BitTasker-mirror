@@ -43,7 +43,7 @@
 		<div class="flex items-start justify-between">
 			<!-- Bidder Info -->
 			<div class="flex-1">
-				<h3 class="text-lg font-semibold">{props.bid.bidderName || $t('dashboard.bids.bid_card.anonymous')}</h3>
+				<p class="text-lg font-semibold">{props.bid.bidderName || $t('dashboard.bids.bid_card.anonymous')}</p>
 				<div class="text-sm opacity-70">{getFormattedTime()}</div>
 			</div>
 
