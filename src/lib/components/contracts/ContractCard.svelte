@@ -1,8 +1,6 @@
 <script lang="ts">
-	import { t } from 'svelte-i18n';
-	import { locale } from 'svelte-i18n';
-	import { formatStandardDate } from '$lib/utils/helpers/dateFormatter';
 	import type { ContractWithEvents } from '$lib/types/contract';
+	import { t } from 'svelte-i18n';
 
 	const { contract, onclick } = $props<{
 		contract: ContractWithEvents;

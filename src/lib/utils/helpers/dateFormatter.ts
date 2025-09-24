@@ -203,3 +203,10 @@ export function timeAgo(date: Date): string {
 		return 'Unknown time ago';
 	}
 }
+
+/**
+ * Format timestamp for display
+ */
+export function formatTimestamp(timestamp: number): string {
+	return new Date(timestamp * 1000).toLocaleString();
+}

@@ -1,10 +1,10 @@
-import type { TaskBid } from '$lib/types/bid';
 import type { Task } from '$lib/types/task';
+import type { SimplifiedTaskBid } from '$lib/types/bid';
 import type { ContractTransactionResult } from '$lib/types/wallet';
 import type { FeeTier } from '$lib/utils/wallet/escrowContract';
 import { FEE_TIERS } from '$lib/utils/wallet/escrowContract';
 import { escrow } from '$lib/utils/wallet/escrow';
-import { rskWalletStore } from '$lib/stores/rskWallet.store';
+import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
@@ -33,7 +33,7 @@ export interface BidAcceptanceResult {
  * @param task Task details
  * @param btcPrice Current BTC price in USD (needed to convert USD to rBTC)
  */
-export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: number): BidEscrowDetails {
+export function calculateBidEscrowDetails(bid: SimplifiedTaskBid, task: Task, btcPrice: number): BidEscrowDetails {
 	// Convert bid amount from USD to rBTC
 	// Ensure minimum amount to avoid parsing issues
 	if (bid.amount <= 0) {
@@ -59,21 +59,25 @@ export function calculateBidEscrowDetails(bid: TaskBid, task: Task, btcPrice: nu
 	const freelancerFeeAmount = (baseAmountWei * BigInt(freelancerFeePercentage)) / BigInt(10000); // Divide by 10000 to convert basis points to percentage
 	const totalAmountWei = baseAmountWei + clientFeeAmount;
 
-	// Determine timing - prioritize task dates since bid dates aren't available in TaskBid type
+	// Determine timing from bid data - check for startDateTime and endDateTime
 	let startTime: number | undefined;
 	let completionTime: number | undefined;
 
-	if (task?.dateRange) {
-		// Use task date range
+	// First check if bid has timing information
+	if (bid.startDateTime && bid.endDateTime) {
+		startTime = Math.floor(new Date(bid.startDateTime).getTime() / 1000);
+		completionTime = Math.floor(new Date(bid.endDateTime).getTime() / 1000);
+	} else if (task?.dateRange) {
+		// Fallback to task date range
 		startTime = Math.floor(new Date(task.dateRange.start).getTime() / 1000);
 		completionTime = Math.floor(new Date(task.dateRange.end).getTime() / 1000);
 	} else if (task?.deadline) {
-		// Use task deadline, set start time to now + 1 hour
+		// Fallback to task deadline, set start time to now + 1 hour
 		startTime = Math.floor((Date.now() + 60 * 60 * 1000) / 1000);
 		completionTime = Math.floor(new Date(task.deadline).getTime() / 1000);
 	}
 
-	if (!startTime || !completionTime) {
+	if (!startTime || !completionTime || completionTime <= startTime) {
 		throw new Error('Invalid start or completion time');
 	}
 
@@ -97,16 +101,16 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 	const errors: string[] = [];
 	
 	// Get current wallet state
-	const walletState = get(rskWalletStore);
+	const walletState = get(walletStore);
 	
-	if (!walletState.isConnected || !walletState.balance) {
+	if (!walletState.rsk.connected || !walletState.rsk.balance) {
 		errors.push('RSK wallet not connected. Please connect your wallet to check balance.');
 		return errors;
 	}
 
 	try {
 		// Parse current balance (in wei) and required amount
-		const currentBalanceWei = BigInt(walletState.balance);
+		const currentBalanceWei = BigInt(walletState.rsk.balance);
 		const requiredAmountWei = ethers.parseEther(details.totalAmount);
 		
 		// Estimate gas cost (approximate)
@@ -168,7 +172,7 @@ export function validateEscrowDetails(details: BidEscrowDetails): string[] {
  * Accept bid and create escrow contract
  */
 export async function acceptBidAndCreateEscrow(
-	bid: TaskBid,
+	bid: SimplifiedTaskBid,
 	task: Task,
 	btcPrice: number
 ): Promise<BidAcceptanceResult> {
@@ -186,18 +190,20 @@ export async function acceptBidAndCreateEscrow(
 		}
 
 		// Check if RSK wallet is connected
-		const walletState = get(rskWalletStore);
-		if (!walletState.isConnected) {
+		const walletState = get(walletStore);
+
+		if (!walletState.rsk.connected) {
 			return {
 				success: false,
 				error: 'RSK wallet not connected. Please connect your wallet first.'
 			};
 		}
-
+		
 		// Connect to escrow contract if not already connected
-		if (!walletState.contractConnected) {
+		if (!walletState.rsk.contractConnected) {
 			try {
-				await escrow.connectToEscrowContract();
+				const { ensureEscrowReady } = await import('$lib/utils/wallet/escrow');
+				await ensureEscrowReady();
 			} catch (error) {
 				return {
 					success: false,
@@ -314,11 +320,4 @@ export function formatRBTCAmount(amount: string): string {
 	const num = parseFloat(amount);
 	if (isNaN(num)) return '0.000000';
 	return num.toFixed(6);
-}
-
-/**
- * Format timestamp for display
- */
-export function formatTimestamp(timestamp: number): string {
-	return new Date(timestamp * 1000).toLocaleString();
 }
