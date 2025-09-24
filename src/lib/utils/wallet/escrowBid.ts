@@ -4,7 +4,7 @@ import type { ContractTransactionResult } from '$lib/types/wallet';
 import type { FeeTier } from '$lib/utils/wallet/escrowContract';
 import { FEE_TIERS } from '$lib/utils/wallet/escrowContract';
 import { escrow } from '$lib/utils/wallet/escrow';
-import { rskWalletStore } from '$lib/stores/rskWallet.store';
+import { walletStore } from '$lib/stores/wallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
@@ -101,16 +101,16 @@ export function validateSufficientBalance(details: BidEscrowDetails): string[] {
 	const errors: string[] = [];
 	
 	// Get current wallet state
-	const walletState = get(rskWalletStore);
+	const walletState = get(walletStore);
 	
-	if (!walletState.isConnected || !walletState.balance) {
+	if (!walletState.rsk.connected || !walletState.rsk.balance) {
 		errors.push('RSK wallet not connected. Please connect your wallet to check balance.');
 		return errors;
 	}
 
 	try {
 		// Parse current balance (in wei) and required amount
-		const currentBalanceWei = BigInt(walletState.balance);
+		const currentBalanceWei = BigInt(walletState.rsk.balance);
 		const requiredAmountWei = ethers.parseEther(details.totalAmount);
 		
 		// Estimate gas cost (approximate)
@@ -190,9 +190,9 @@ export async function acceptBidAndCreateEscrow(
 		}
 
 		// Check if RSK wallet is connected
-		const walletState = get(rskWalletStore);
+		const walletState = get(walletStore);
 
-		if (!walletState.isConnected) {
+		if (!walletState.rsk.connected) {
 			return {
 				success: false,
 				error: 'RSK wallet not connected. Please connect your wallet first.'
@@ -200,7 +200,7 @@ export async function acceptBidAndCreateEscrow(
 		}
 		
 		// Connect to escrow contract if not already connected
-		if (!walletState.contractConnected) {
+		if (!walletState.rsk.contractConnected) {
 			try {
 				const { ensureEscrowReady } = await import('$lib/utils/wallet/escrow');
 				await ensureEscrowReady();
@@ -320,11 +320,4 @@ export function formatRBTCAmount(amount: string): string {
 	const num = parseFloat(amount);
 	if (isNaN(num)) return '0.000000';
 	return num.toFixed(6);
-}
-
-/**
- * Format timestamp for display
- */
-export function formatTimestamp(timestamp: number): string {
-	return new Date(timestamp * 1000).toLocaleString();
 }

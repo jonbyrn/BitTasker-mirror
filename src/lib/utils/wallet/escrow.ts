@@ -113,7 +113,7 @@ async function connectToEscrowContract(): Promise<void> {
 
         // Skip event listeners on RSK due to eth_getLogs compatibility issues
         // Event handling is now done directly in transaction receipts
-        console.log('Skipping event listeners setup (RSK compatibility - using receipt-based event handling)');
+        // TODO: Setup event listeners
 
         // Validate contract deployment before loading escrows
         try {
@@ -125,7 +125,6 @@ async function connectToEscrowContract(): Promise<void> {
 
             // Test if contract has the expected interface
             await contract.nextEscrowId();
-            console.log('Contract validation successful');
 
             // Load existing escrows for the user
             await loadUserEscrows();
@@ -134,9 +133,6 @@ async function connectToEscrowContract(): Promise<void> {
             // Don't throw here - allow connection to succeed even if contract validation fails
             // This allows the UI to show but with a warning
         }
-
-        console.log('Successfully connected to escrow contract:', contractConfig.address);
-
     } catch (error) {
         throw new Error(`Failed to connect to contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -371,8 +367,6 @@ async function createEscrow(
                             return false;
                         }
                     });
-
-                    console.log({ escrowCreatedEvent })
 
                     if (escrowCreatedEvent) {
                         const parsedLog = contract.interface.parseLog({

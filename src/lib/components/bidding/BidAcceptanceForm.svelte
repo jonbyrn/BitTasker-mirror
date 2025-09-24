@@ -1,21 +1,19 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
 	import type { SimplifiedTaskBid } from '$lib/types/bid';
-	import { rskWalletStore, rskWallet } from '$lib/stores/rskWallet.store';
 	import { t } from 'svelte-i18n';
-	import { locale } from 'svelte-i18n';
 	import {
 		calculateBidEscrowDetails,
 		validateEscrowDetails,
 		validateSufficientBalance,
 		acceptBidAndCreateEscrow,
 		getFeePercentageDisplay,
-		formatRBTCAmount,
-		formatTimestamp
+		formatRBTCAmount
 	} from '$lib/utils/wallet/escrowBid';
-	import { formatStandardDate, formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+	import { formatTimestamp } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
+	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 
 	// Props
 	const props = $props<{
@@ -44,7 +42,7 @@
 	// Separate effect for balance validation
 	$effect(() => {
 		// Only check balance if wallet is connected and basic validation passes
-		if ($rskWalletStore.isConnected && validationErrors.length === 0) {
+		if ($walletStore.rsk.connected && validationErrors.length === 0) {
 			balanceErrors = validateSufficientBalance(bidEscrowDetails);
 		} else {
 			balanceErrors = [];
@@ -53,8 +51,8 @@
 
 	// Auto-initialize Rootstock wallet if not connected
 	$effect(() => {
-		if (!$rskWalletStore.isConnected && !$rskWalletStore.isConnecting && !$rskWalletStore.error) {
-			rskWallet.initialize().catch((error) => {
+		if (!$walletStore.rsk.connected && !$walletStore.rsk.connecting && !$walletStore.rsk.error) {
+			walletManager.initializeRSKWallet().catch((error) => {
 				console.error('Auto-initialization of Rootstock wallet failed:', error);
 			});
 		}
@@ -98,10 +96,6 @@
 		} else {
 			props.onCancel();
 		}
-	}
-
-	function formatDateTimeReactive(date: Date) {
-		return formatStandardDateTime(date, $locale || 'en');
 	}
 
 	function formatDuration(startTime: number, endTime: number): string {
@@ -158,7 +152,7 @@
 	}
 
 	function getTotalWithGasFee(): number {
-		return bidEscrowDetails.totalAmount * props.btcPrice + getEstimatedGasFee();
+		return parseFloat(bidEscrowDetails.totalAmount) * props.btcPrice + getEstimatedGasFee();
 	}
 </script>
 
@@ -196,15 +190,17 @@
 
 		<!-- Content with padding -->
 		<div class="overflow-x-hidden p-4">
-			<!-- Desktop: 2 column layout -->
-			<div class="bg-base-200 hidden rounded-2xl lg:flex lg:gap-4">
-				<!-- Left Column: Bidder Information -->
-				<div class="flex-1">
-					<div class="rounded-lg p-3">
-						<h5 class="mb-3 line-clamp-1 text-sm font-semibold">{props.taskTitle}</h5>
+			<!-- Unified Responsive Layout -->
+			<div class="bg-base-300 lg:bg-base-200 rounded-2xl">
+				<!-- Task Title Row -->
+				<div class="w-full px-6 pt-3">
+					<h5 class="line-clamp-2 text-lg font-semibold">{props.taskTitle}</h5>
+				</div>
 
 				<!-- Divider (Desktop only) -->
-				<div class="divider text-base-content/60 mx-6 my-2 text-sm">{$t('dashboard.bids.bid_acceptance.contract_information')}</div>
+				<div class="divider text-base-content/60 mx-6 my-2 text-sm">
+					{$t('dashboard.bids.bid_acceptance.contract_information')}
+				</div>
 
 				<!-- User Info and Pricing Layout -->
 				<div class="flex flex-col gap-4 px-3 lg:flex-row">
@@ -306,7 +302,7 @@
 										</div>
 									</div>
 									<span class="text-xs font-bold"
-										>{formatUSDAmount(bidEscrowDetails.baseAmount)}</span
+										>{formatUSDAmount(parseFloat(bidEscrowDetails.baseAmount))}</span
 									>
 								</div>
 
@@ -338,7 +334,7 @@
 										</div>
 									</div>
 									<span class="text-xs font-bold"
-										>{formatUSDAmount(bidEscrowDetails.clientFee)}</span
+										>{formatUSDAmount(parseFloat(bidEscrowDetails.clientFee))}</span
 									>
 								</div>
 
@@ -404,7 +400,7 @@
 							>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
 						>
 						<span class="text-base-content/80"
-							>{formatDateTimeReactive(new Date(bidEscrowDetails.estimatedStartTime))}</span
+							>{formatTimestamp(bidEscrowDetails.estimatedStartTime)}</span
 						>
 					</div>
 					<div class="flex items-center justify-between text-xs">
@@ -412,7 +408,7 @@
 							>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
 						>
 						<span class="text-base-content/80"
-							>{formatDateTimeReactive(new Date(bidEscrowDetails.estimatedCompletionTime))}</span
+							>{formatTimestamp(bidEscrowDetails.estimatedCompletionTime)}</span
 						>
 					</div>
 					<div class="flex items-center justify-between text-xs">
@@ -453,7 +449,7 @@
 			<!-- Rootstock Escrow Contract Details -->
 			<div class="mb-4">
 				<!-- Wallet Connection Status -->
-				{#if !$rskWalletStore.isConnected}
+				{#if !$walletStore.rsk.connected}
 					<div
 						class="alert alert-outline alert-warning mt-4 !flex !flex-row !items-center !justify-between text-black"
 					>
@@ -477,14 +473,14 @@
 							class="btn btn-sm btn-primary ml-auto"
 							onclick={async () => {
 								try {
-									await rskWallet.initialize();
+									await walletManager.initializeRSKWallet();
 								} catch (error) {
 									console.error('Failed to connect Rootstock wallet:', error);
 								}
 							}}
-							disabled={$rskWalletStore.isConnecting}
+							disabled={$walletStore.rsk.connecting}
 						>
-							{#if $rskWalletStore.isConnecting}
+							{#if $walletStore.rsk.connecting}
 								<span class="loading loading-spinner loading-xs"></span>
 								{$t('dashboard.bids.bid_acceptance.connecting')}
 							{:else}
@@ -495,37 +491,27 @@
 				{/if}
 
 				<!-- Rootstock Wallet Connection Error -->
-				{#if $rskWalletStore.error}
-					<div class="alert alert-error mt-4">
+				<!-- {#if $walletStore.rsk.error}
+					<div class="alert alert-outline alert-error mt-4">
 						<div class="flex w-full items-center justify-between">
 							<div class="flex items-center">
-								<svg
-									xmlns="http://www.w3.org/2000/svg"
-									class="mr-2 h-6 w-6 shrink-0 stroke-current"
-									fill="none"
-									viewBox="0 0 24 24"
-								>
-									<path
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										stroke-width="2"
-										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-									/>
+								<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
-                                <span>{$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} {$rskWalletStore.error}</span>
+                                <span>{$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} {$walletStore.rsk.error}</span>
 							</div>
-							<button
+							<button 
 								class="btn btn-sm btn-outline"
 								onclick={async () => {
 									try {
-										await rskWallet.initialize();
+										await walletManager.initializeRSKWallet();
 									} catch (error) {
 										console.error('Failed to retry Rootstock wallet connection:', error);
 									}
 								}}
-								disabled={$rskWalletStore.isConnecting}
+								disabled={$walletStore.rsk.connecting}
 							>
-								{#if $rskWalletStore.isConnecting}
+								{#if $walletStore.rsk.connecting}
 									<span class="loading loading-spinner loading-xs"></span>
                                     {$t('dashboard.bids.bid_acceptance.retrying')}
 								{:else}
@@ -534,7 +520,7 @@
 							</button>
 						</div>
 					</div>
-				{/if}
+				{/if} -->
 			</div>
 
 			<!-- Insufficient Balance Warning -->
@@ -570,7 +556,7 @@
 							<div class="mt-2 text-sm">
 								<p>
 									{$t('dashboard.bids.bid_acceptance.current_balance')}
-									<strong>{$rskWalletStore.formattedBalance} rBTC</strong>
+									<strong>{$walletStore.rsk.formattedBalance} rBTC</strong>
 								</p>
 								<p class="mt-1 text-xs opacity-80">
 									{$t('dashboard.bids.bid_acceptance.insufficient_balance_help')}
@@ -645,7 +631,7 @@
 					disabled={isSubmitting ||
 						validationErrors.length > 0 ||
 						balanceErrors.length > 0 ||
-						!$rskWalletStore.isConnected}
+						!$walletStore.rsk.connected}
 					onclick={handleSubmit}
 				>
 					{#if isSubmitting}
