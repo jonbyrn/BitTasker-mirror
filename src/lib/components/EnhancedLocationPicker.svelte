@@ -63,6 +63,11 @@
 	let maxRetries = 3;
 	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
 
+	// Update currentLocation when location prop changes
+	$effect(() => {
+		currentLocation = location;
+	});
+
 	// Default fallback coordinates (San Francisco)
 	const DEFAULT_COORDINATES = {
 		lat: 37.7749,
@@ -192,6 +197,13 @@
 
 			// Create initial marker with safe coordinates
 			await createMarkerAndCircle(safeCoords.lat, safeCoords.lng);
+			
+			// If we have a valid existing location, update the search input
+			if (isValidCoordinate(currentLocation.latitude, currentLocation.longitude) && currentLocation.displayName) {
+				if (searchInput) {
+					searchInput.value = currentLocation.displayName;
+				}
+			}
 		} catch (error) {
 			console.error('Error initializing Google Maps:', error);
 			throw error;
@@ -273,8 +285,13 @@
 			await initMap();
 			isMapLoaded = true;
 
-			// Try to get user's geolocation
-			getUserLocation();
+			// Only try to get user's geolocation if no valid location is already provided
+			if (!isValidCoordinate(currentLocation.latitude, currentLocation.longitude) || !currentLocation.locationLoaded) {
+				getUserLocation();
+			} else {
+				// If we have a valid existing location, update the marker to that location
+				updateLocationWithCoordinates(currentLocation.latitude!, currentLocation.longitude!);
+			}
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error =

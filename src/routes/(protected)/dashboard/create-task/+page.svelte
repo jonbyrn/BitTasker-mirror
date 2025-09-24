@@ -82,7 +82,17 @@
 	onMount(async () => {
 		try {
 			isLoading = true;
-			await store.loadDraft();
+			
+			// Check if we're in edit mode
+			const isEditing = $page.url.searchParams.get('edit') === 'true';
+			
+			if (isEditing) {
+				// Load the draft for editing
+				await store.loadDraft();
+			} else {
+				// Clear any existing draft for new task creation
+				await store.clearDraft();
+			}
 		} catch (error) {
 			console.error('Error loading draft:', error);
 		} finally {
