@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
-	import { formatDistanceToNow, format } from 'date-fns';
+	import { format } from 'date-fns';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
@@ -12,7 +12,10 @@
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
-	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import {
+		formatStandardDateTime,
+		formatStandardDateShort
+	} from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 
@@ -33,11 +36,6 @@
 
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
-
-	// Reactive date formatting functions using Svelte 5 runes
-	function formatDateReactive(date: Date) {
-		return formatStandardDate(date, $locale || 'en');
-	}
 
 	function formatDateTimeReactive(date: Date) {
 		return formatStandardDateTime(date, $locale || 'en');
@@ -84,12 +82,6 @@
 
 		// Espera a que todas las promesas se resuelvan
 		return await Promise.all(imagePromises);
-	};
-
-	// Format helpers
-	const formatTimeAgo = (date: string | number): string => {
-		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return formatDistanceToNow(dateObj, { addSuffix: true });
 	};
 
 	const formatDateString = (date: string | number): string => {
@@ -172,7 +164,7 @@
 	<title>Task Details - BitTasker</title>
 	<meta
 		name="description"
-		content={task?.description || "Here you can see the details of the task."}
+		content={task?.description || 'Here you can see the details of the task.'}
 	/>
 </svelte:head>
 
@@ -272,7 +264,10 @@
 												>{$t('dashboard.task_details_by_task.date_range')}</span
 											>
 											<div class="font-semibold">
-												{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
+												{formatDateRangeReactive(
+													new Date(task.dateRange.start),
+													new Date(task.dateRange.end)
+												)}
 											</div>
 										</div>
 									{/if}
@@ -323,13 +318,10 @@
 						<!-- Requirements section moved to the end -->
 						{#if task.skills?.length > 0}
 							<div class="border-base-300 border-t pt-6">
-								<h4 class="mb-3 font-semibold">
-									{$t('dashboard.task_details_by_task.requirements')}
-								</h4>
 								<div class="space-y-3">
 									<div>
-										<span class="text-base-content/60 text-sm"
-											>{$t('dashboard.task_details_by_task.required_skills')}</span
+										<h4 class="font-semibold mb-3"
+											>{$t('dashboard.task_details_by_task.required_skills')}</h4
 										>
 										<div class="mt-2 flex flex-wrap gap-2">
 											{#each task.skills as skill}
@@ -337,6 +329,20 @@
 											{/each}
 										</div>
 									</div>
+								</div>
+							</div>
+						{/if}
+
+						<!-- Categories -->
+						{#if task.categories?.length > 0}
+							<div class="border-base-300 border-t pt-6">
+								<h4 class="mb-3 font-semibold">
+									{$t('dashboard.task_details_by_task.categories')}
+								</h4>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#each task.categories as category}
+										<span class="badge badge-primary badge-outline badge-sm">{category}</span>
+									{/each}
 								</div>
 							</div>
 						{/if}
@@ -526,9 +532,11 @@
 						<!-- Task Location Map -->
 						{#if task.pickupLocation || task.dropOffLocation}
 							<div class="border-base-300 mt-4 border-t">
-								<h4 class="mb-2 mt-3 font-semibold">{$t('dashboard.task_details_by_task.location')}</h4>
+								<h4 class="mt-3 mb-2 font-semibold">
+									{$t('dashboard.task_details_by_task.location')}
+								</h4>
 								<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
-								<div class="text-base-content/60 text-sm px-1 pt-2">
+								<div class="text-base-content/60 px-1 pt-2 text-sm">
 									{$t('dashboard.task_details_by_task.location_map_description')}
 								</div>
 							</div>

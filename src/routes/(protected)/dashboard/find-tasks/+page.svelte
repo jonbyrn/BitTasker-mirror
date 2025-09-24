@@ -59,11 +59,6 @@
 	let showSkeleton = $state(true);
 	let selectedLocation = $state<any | null>(null);
 
-	// Reactive date formatting functions using Svelte 5 runes
-	function formatDateReactive(date: Date) {
-		return formatStandardDate(date, $locale || 'en');
-	}
-
 	function formatDateTimeReactive(date: Date) {
 		return formatStandardDateTime(date, $locale || 'en');
 	}
@@ -129,6 +124,8 @@
 
 		try {
 			await findTasks(searchParams);
+			console.log('tasksStore', $tasksStore.items);
+
 			dataLoaded = true;
 			showSkeleton = false;
 

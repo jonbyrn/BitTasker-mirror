@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { SearchTasksParams } from '$lib/types/task.d';
-	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
+	import { BudgetTypeEnum, TaskTypeEnum } from '$lib/utils/enums/task.enum';
 	import PriceRangeSlider from '$lib/components/filters/PriceRangeSlider.svelte';
 	import AvailabilityFilter from '$lib/components/filters/AvailabilityFilter.svelte';
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
@@ -157,20 +156,8 @@
 
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
-		// Convert translated category names back to category IDs
-		filters.categories = tags.map((translatedName) => {
-			// First try to find by translated name
-			let category = TASK_CATEGORIES.find(
-				(cat) => $t(`categories.${cat.id}.name`) === translatedName
-			);
-
-			// If not found, try to find by original name (fallback case)
-			if (!category) {
-				category = TASK_CATEGORIES.find((cat) => cat.name === translatedName);
-			}
-
-			return category ? category.id : translatedName.toLowerCase();
-		});
+		// Tags now contain category names directly
+		filters.categories = tags;
 	}
 
 	// Handle skills change
