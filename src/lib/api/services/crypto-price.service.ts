@@ -23,15 +23,14 @@ class CryptoPriceService {
       return this.cache[cacheKey].price;
     }
 
-    console.log(upperFromSymbol, upperToSymbol);
-
     try {
-      // For rBTC/BTC specifically, use CoinGecko API (Coinbase doesn't support rBTC)
-      if (upperFromSymbol === 'RBTC' && upperToSymbol === 'BTC') {
-        const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=rootstock-smart-bitcoin&vs_currencies=btc');
+      // For rBTC pairs, use CoinGecko API (Coinbase doesn't support rBTC)
+      if (upperFromSymbol === 'RBTC') {
+        const vsCurrency = upperToSymbol.toLowerCase();
+        const response = await axios.get(`https://api.coingecko.com/api/v3/simple/price?ids=rootstock&vs_currencies=${vsCurrency}`);
 
-        if (response.data && response.data['rootstock-smart-bitcoin'] && response.data['rootstock-smart-bitcoin'].btc) {
-          const rate = response.data['rootstock-smart-bitcoin'].btc;
+        if (response.data && response.data.rootstock && response.data.rootstock[vsCurrency]) {
+          const rate = response.data.rootstock[vsCurrency];
 
           // Update cache
           this.cache[cacheKey] = {
@@ -61,8 +60,8 @@ class CryptoPriceService {
 
       // Critical: Don't return fallback for rBTC - throw error instead
       // This prevents showing incorrect balance to users
-      if (upperFromSymbol === 'RBTC' && upperToSymbol === 'BTC') {
-        throw new Error(`Unable to fetch rBTC/BTC exchange rate. Please try again later.`);
+      if (upperFromSymbol === 'RBTC') {
+        throw new Error(`Unable to fetch rBTC/${upperToSymbol} exchange rate. Please try again later.`);
       }
 
       // For other pairs, use fallback rates
@@ -94,7 +93,26 @@ class CryptoPriceService {
     }
 
     try {
-      // Fetch from Coinbase public API
+      // For RBTC, use CoinGecko API (Coinbase doesn't support it)
+      if (upperSymbol === 'RBTC') {
+        const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=rootstock&vs_currencies=usd');
+
+        if (response.data && response.data.rootstock && response.data.rootstock.usd) {
+          const price = response.data.rootstock.usd;
+
+          // Update cache
+          this.cache[cacheKey] = {
+            price,
+            timestamp: Date.now()
+          };
+
+          return price;
+        }
+
+        throw new Error('Invalid CoinGecko response format for RBTC');
+      }
+
+      // For other cryptocurrencies, fetch from Coinbase public API
       const response = await axios.get(`https://api.coinbase.com/v2/prices/${upperSymbol}-USD/spot`);
 
       if (response.data && response.data.data && response.data.data.amount) {
@@ -116,7 +134,8 @@ class CryptoPriceService {
       // Fallback prices if API fails
       const fallbackPrices: Record<string, number> = {
         BTC: 100000,
-        ETH: 50000
+        ETH: 50000,
+        RBTC: 100000 // Same as BTC since they're typically 1:1
       };
 
       // Return fallback price or throw error
