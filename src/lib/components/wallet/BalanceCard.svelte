@@ -148,7 +148,7 @@
 			<div class="card-body">
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<div class="h-3 w-3 rounded-full bg-blue-500"></div>
+						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid Network" class="h-6 w-6" />
 						<h4 class="font-semibold">{$t('wallet.liquid_network')}</h4>
 					</div>
 					<div
@@ -210,7 +210,7 @@
 			<div class="card-body">
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
-						<div class="h-3 w-3 rounded-full bg-orange-500"></div>
+						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
 						<h4 class="font-semibold">{$t('wallet.rootstock_network')}</h4>
 					</div>
 					<div

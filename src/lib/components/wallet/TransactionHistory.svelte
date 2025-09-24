@@ -223,7 +223,7 @@
 	}
 
 	function getNetworkIcon(network: string): string {
-		return network === 'liquid' ? '🌊' : '⚡';
+		return network === 'liquid' ? '/images/chains/Liquid-Bitcoin.svg' : '/images/chains/Bitcoin-Rootstock-logo.webp';
 	}
 
 	function getTypeIcon(type: string): string {
@@ -323,13 +323,15 @@
 				class="tab {selectedFilter === 'liquid' ? 'tab-active' : ''} whitespace-nowrap"
 				onclick={() => {selectedFilter = 'liquid'; currentPage = 0;}}
 			>
-				🌊 Liquid ({transactions.filter(tx => tx.network === 'liquid').length})
+				<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid" class="h-4 w-4 inline mr-1" />
+				Liquid ({transactions.filter(tx => tx.network === 'liquid').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"
 				onclick={() => {selectedFilter = 'rsk'; currentPage = 0;}}
 			>
-				⚡ RSK ({transactions.filter(tx => tx.network === 'rsk').length})
+				<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="RSK" class="h-4 w-4 inline mr-1" />
+				RSK ({transactions.filter(tx => tx.network === 'rsk').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap"
@@ -421,7 +423,11 @@
 							<div class="flex items-center gap-3">
 								<!-- Network and Type Icons -->
 								<div class="flex flex-col items-center">
-									<span class="text-lg">{getNetworkIcon(tx.network)}</span>
+									{#if getNetworkIcon(tx.network).startsWith('/')}
+										<img src={getNetworkIcon(tx.network)} alt="Network icon" class="h-6 w-6" />
+									{:else}
+										<span class="text-lg">{getNetworkIcon(tx.network)}</span>
+									{/if}
 									<span class="text-sm {tx.type === 'receive' ? 'text-success' : 'text-warning'}">
 										{getTypeIcon(tx.type)}
 									</span>
@@ -492,7 +498,11 @@
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-3">
 									<div class="flex items-center gap-1">
-										<span class="text-lg">{getNetworkIcon(tx.network)}</span>
+										{#if getNetworkIcon(tx.network).startsWith('/')}
+											<img src={getNetworkIcon(tx.network)} alt="Network icon" class="h-6 w-6" />
+										{:else}
+											<span class="text-lg">{getNetworkIcon(tx.network)}</span>
+										{/if}
 										<span class="text-sm {tx.type === 'receive' ? 'text-success' : 'text-warning'}">
 											{getTypeIcon(tx.type)}
 										</span>

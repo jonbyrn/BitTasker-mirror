@@ -225,7 +225,7 @@
                 "payment_request_form": {
                     "description": "Generate addresses and invoices using Breez SDK. Support for Lightning, Bitcoin, and multi-asset Liquid payments.",
                     "payment_method": "Payment Method",
-                    "liquid_address": "🌊 Liquid Address (Recommended)",
+                    "liquid_address": "🌊 Liquid Address",
                     "lightning_invoice": "⚡ Lightning Invoice",
                     "bitcoin_address": "₿ Bitcoin Address",
                     "bolt12_offer": "🔄 BOLT12 Offer",
@@ -569,7 +569,7 @@
             "payment_request_form": {
                 "description": "Generate addresses and invoices using Breez SDK. Support for Lightning, Bitcoin, and multi-asset Liquid payments.",
                 "payment_method": "Payment Method",
-                "liquid_address": "🌊 Liquid Address (Recommended)",
+                "liquid_address": "🌊 Liquid Address",
                 "lightning_invoice": "⚡ Lightning Invoice",
                 "bitcoin_address": "₿ Bitcoin Address",
                 "bolt12_offer": "🔄 BOLT12 Offer",

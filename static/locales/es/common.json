@@ -225,7 +225,7 @@
         "payment_request_form": {
           "description": "Genera direcciones e facturas usando Breez SDK. Soporte para pagos Lightning, Bitcoin y Liquid multi-activo.",
           "payment_method": "Método de Pago",
-          "liquid_address": "🌊 Dirección Liquid (Recomendado)",
+          "liquid_address": "Dirección Liquid",
           "lightning_invoice": "⚡ Factura Lightning",
           "bitcoin_address": "₿ Dirección Bitcoin",
           "bolt12_offer": "🔄 Oferta BOLT12",

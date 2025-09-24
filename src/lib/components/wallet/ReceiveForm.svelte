@@ -60,23 +60,23 @@
 		}
 	});
 
-	// Network options
-	const networkOptions = [
+	// Network options - reactive to locale changes
+	let networkOptions = $derived([
 		{
 			value: 'liquid',
-			label: 'Liquid Network',
-			description: 'Lightning, Bitcoin, L-BTC, USDT',
-			icon: '🌊',
+			label: $t('wallet.liquid_network'),
+			description: $t('wallet.liquid_network_description'),
+			icon: '/images/chains/Liquid-Bitcoin.svg',
 			disabled: !$liquidConnection.connected
 		},
 		{
 			value: 'rsk',
-			label: 'Rootstock Network',
-			description: 'rBTC, Smart Contracts',
-			icon: '⚡',
+			label: $t('wallet.rootstock_network'),
+			description: $t('wallet.rootstock_network_description'),
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			disabled: !$rskConnection.connected
 		}
-	];
+	]);
 
 	// Payment method options based on selected network
 	let paymentMethodOptions = $derived(selectedNetwork === 'liquid' ? [
@@ -251,7 +251,7 @@
 <div class="space-y-6">
 
 	{#if errorMessage}
-		<div class="alert alert-error">
+		<div class="alert alert-outline alert-error">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -287,7 +287,11 @@
 					<div class="card {selectedNetwork === network.value ? 'border-primary border-2' : 'border border-base-300'} {network.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'} transition-colors">
 						<div class="card-body p-4">
 							<div class="flex items-center gap-3">
-								<span class="text-2xl">{network.icon}</span>
+								{#if network.icon.startsWith('/')}
+									<img src={network.icon} alt="Network icon" class="h-8 w-8" />
+								{:else}
+									<span class="text-2xl">{network.icon}</span>
+								{/if}
 								<div class="flex-1">
 									<div class="font-semibold">{network.label}</div>
 									<div class="text-sm opacity-70">{network.description}</div>
@@ -400,8 +404,8 @@
 				<!-- Amount Field for RSK -->
 				<div class="form-control">
 					<label class="label" for="rsk-amount">
-						<span class="label-text">Amount (rBTC)</span>
-						<span class="label-text-alt">Optional</span>
+						<span class="label-text">{$t('wallet.amount_rbtc')}</span>
+						<span class="label-text-alt">{$t('wallet.optional')}</span>
 					</label>
 					<input
 						id="rsk-amount"
@@ -417,12 +421,12 @@
 				<!-- Description Field for RSK -->
 				<div class="form-control">
 					<label class="label" for="rsk-description">
-						<span class="label-text">Description</span>
-						<span class="label-text-alt">Optional</span>
+						<span class="label-text">{$t('wallet.description')}</span>
+						<span class="label-text-alt">{$t('wallet.optional')}</span>
 					</label>
 					<textarea
 						id="rsk-description"
-						placeholder="Payment for..."
+						placeholder={$t('wallet.payment_for_placeholder')}
 						class="textarea textarea-bordered w-full"
 						rows="3"
 						bind:value={rskDescription}
@@ -432,7 +436,7 @@
 
 				{#if amount || description}
 					<div class="bg-base-200 rounded-lg p-3">
-						<div class="text-sm font-semibold mb-2">Payment Request Details</div>
+						<div class="text-sm font-semibold mb-2">{$t('wallet.payment_request_details')}</div>
 						{#if amount}
 							<div class="flex justify-between text-sm">
 								<span>{$t('wallet.amount')}:</span>
@@ -441,7 +445,7 @@
 						{/if}
 						{#if description}
 							<div class="mt-2 text-sm">
-								<span class="font-medium">Description:</span>
+								<span class="font-medium">{$t('wallet.description_label')}</span>
 								<div class="mt-1 opacity-80">{description}</div>
 							</div>
 						{/if}
@@ -462,7 +466,7 @@
 						<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
 						</svg>
-						<span class="text-xs text-center text-warning">RSK wallet not connected</span>
+						<span class="text-xs text-center text-warning">{$t('wallet.rsk_wallet_not_connected')}</span>
 					</div>
 				{:else}
 					<div class="bg-base-200 flex h-48 w-48 items-center justify-center rounded-lg">
@@ -492,7 +496,7 @@
 					</div>
 				{:else if $rskConnection.connected}
 					<div class="mt-4 w-full">
-						<div class="text-xs text-center text-error">No RSK address available</div>
+						<div class="text-xs text-center text-error">{$t('wallet.no_rsk_address_available')}</div>
 					</div>
 				{/if}
 			</div>
@@ -562,7 +566,7 @@
 						</div>
 						<button
 							class="bg-base-200 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
-							title="Click to copy"
+							title={$t('wallet.click_to_copy')}
 							onclick={copyAddress}
 						>
 							<pre class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-primary">{generatedAddress}</pre>
@@ -615,7 +619,7 @@
 	<!-- RSK Network Info -->
 	{#if selectedNetwork === 'rsk'}
 		{@const network = (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet'}
-		<div class="alert alert-info">
+		<div class="alert alert-outline alert-info">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6 shrink-0 stroke-current"
@@ -632,8 +636,7 @@
 			<div>
 				<div class="font-bold">Network: {RSK_NETWORKS[network].name}</div>
 				<div class="text-sm">
-					Only send {RSK_NETWORKS[network].currency.symbol} and RSK-compatible tokens to
-					this address. Sending other cryptocurrencies may result in permanent loss.
+					{$t('wallet.rsk_network_warning', { currency: RSK_NETWORKS[network].currency.symbol })}
 				</div>
 			</div>
 		</div>

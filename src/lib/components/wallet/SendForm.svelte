@@ -49,14 +49,14 @@
 			value: 'liquid',
 			label: 'Liquid Network',
 			description: 'Lightning, Bitcoin, L-BTC, USDT',
-			icon: '🌊',
+			icon: '/images/chains/Liquid-Bitcoin.svg',
 			disabled: !$liquidConnection.connected
 		},
 		{
 			value: 'rsk',
 			label: 'Rootstock Network',
 			description: 'rBTC, Smart Contracts',
-			icon: '⚡',
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			disabled: !$rskConnection.connected
 		}
 	];
@@ -135,7 +135,11 @@
 					<div class="card {selectedNetwork === network.value ? 'border-primary border-2' : 'border border-base-300'} {network.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'} transition-colors">
 						<div class="card-body p-4">
 							<div class="flex items-center gap-3">
-								<span class="text-2xl">{network.icon}</span>
+								{#if network.icon.startsWith('/')}
+									<img src={network.icon} alt="Network icon" class="h-8 w-8" />
+								{:else}
+									<span class="text-2xl">{network.icon}</span>
+								{/if}
 								<div class="flex-1">
 									<div class="font-semibold">{network.label}</div>
 									<div class="text-sm opacity-70">{network.description}</div>

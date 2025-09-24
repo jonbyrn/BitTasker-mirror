@@ -265,6 +265,20 @@
       "click_to_copy": "Click to copy",
       "generate_new": "Generate New",
       "exchange_rate_unavailable": "Exchange rate unavailable - showing separate balances",
-      "no_assets": "No assets"
+      "no_assets": "No assets",
+      "liquid_network": "Liquid Network",
+      "liquid_network_description": "Lightning, Bitcoin, L-BTC, USDT",
+      "rootstock_network": "Rootstock Network",
+      "rootstock_network_description": "rBTC, Smart Contracts",
+      "amount_rbtc": "Amount (rBTC)",
+      "optional": "Optional",
+      "description": "Description",
+      "payment_for_placeholder": "Payment for...",
+      "payment_request_details": "Payment Request Details",
+      "description_label": "Description:",
+      "rsk_wallet_not_connected": "RSK wallet not connected",
+      "no_rsk_address_available": "No RSK address available",
+      "click_to_copy": "Click to copy",
+      "rsk_network_warning": "Only send {currency} and RSK-compatible tokens to this address. Sending other cryptocurrencies may result in permanent loss."
     }
   }
