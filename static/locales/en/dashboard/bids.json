@@ -162,7 +162,7 @@
         },
         "success": {
             "title": "Bid Submitted Successfully!",
-            "message": "Your bid has been submitted successfully. The task requester will review your bid and may contact you with questions or a counteroffer.",
+            "message": "Your bid has been submitted successfully. The tasker will review your bid and may contact you with questions or a counteroffer.",
             "close": "Close"
         }
     },

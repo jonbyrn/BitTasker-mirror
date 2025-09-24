@@ -498,7 +498,7 @@
 					{/if}
 					{#if amount > 0}
 						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
@@ -604,7 +604,7 @@
 					{/if}
 					{#if hourlyRate > 0}
 						<span class="label-text-alt text-base-content/60 mt-1 block">
-							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>

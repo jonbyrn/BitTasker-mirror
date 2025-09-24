@@ -162,7 +162,7 @@
         },
         "success": {
             "title": "¡Oferta Enviada Exitosamente!",
-            "message": "Tu oferta ha sido enviada exitosamente. El solicitante de la tarea revisará tu oferta y puede contactarte con preguntas o una contraoferta.",
+            "message": "Tu oferta ha sido enviada exitosamente. El tasker revisará tu oferta y puede contactarte con preguntas o una contraoferta.",
             "close": "Cerrar"
         }
     },

@@ -263,6 +263,8 @@
       "method": "Método",
       "any_amount_accepted": "Cualquier cantidad aceptada",
       "click_to_copy": "Clic para copiar",
-      "generate_new": "Generar Nueva"
+      "generate_new": "Generar Nueva",
+      "exchange_rate_unavailable": "Tipo de cambio no disponible - mostrando saldos separados",
+      "no_assets": "Sin activos"
     }
   }

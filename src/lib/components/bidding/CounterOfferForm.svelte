@@ -407,7 +407,7 @@
 				{/if}
 				{#if parseInt(amount || '0') > 0}
 					<span class="label-text-alt text-info mt-1 block">
-						{$t('dashboard.bids.counter_offer.btc_price')} ${btcPrice.toLocaleString()}
+						{$t('dashboard.bids.counter_offer.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 					</span>
 				{/if}
 			</div>

@@ -59,21 +59,21 @@
 
 		<!-- Connection Status -->
 		{#if $combinedWalletState.isInitializing}
-			<div class="alert alert-info mb-6">
+			<div class="alert alert-outlinealert-info mb-6">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
 					<span>{$t('wallet.page.initializing')}</span>
 				</div>
 			</div>
 		{:else if isConnecting}
-			<div class="alert alert-info mb-6">
+			<div class="alert alert-outline alert-info mb-6">
 				<div class="flex items-center">
 					<span class="loading loading-spinner loading-sm mr-2"></span>
 					<span>{$t('wallet.connecting')}</span>
 				</div>
 			</div>
 		{:else if hasErrors}
-			<div class="alert alert-error mb-6">
+			<div class="alert alert-outline alert-error mb-6">
 				<div class="flex w-full items-center justify-between">
 					<div class="flex items-center">
 						<svg
