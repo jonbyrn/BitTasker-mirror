@@ -12,7 +12,7 @@ import type {
 	Rate,
 	Payment
 } from '@breeztech/breez-sdk-liquid/web';
-import type { RSKTransaction } from '$lib/types/wallet';
+import type { RSKTransaction, EscrowData } from '$lib/types/wallet';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { RSK_NETWORKS, type RSKNetwork } from '$lib/utils/wallet/escrowContract';
 import {
@@ -67,6 +67,9 @@ export interface CombinedWalletState {
 		blockNumber: number | null;
 		provider: ethers.JsonRpcProvider | null;
 		wallet: ethers.Wallet | null;
+		contractAddress?: string;
+		contractConnected?: boolean;
+		escrows?: EscrowData[];
 	};
 
 	// Combined data
@@ -78,7 +81,7 @@ export interface CombinedWalletState {
 		sats: number;
 		rbtc: number;
 	};
-	
+
 	// Exchange rates
 	rbtcToBtcRate: number;
 	rbtcRateError: boolean;
@@ -124,7 +127,7 @@ const initialState: CombinedWalletState = {
 		sats: 0,
 		rbtc: 0
 	},
-	
+
 	rbtcToBtcRate: 1.0, // Default 1:1 when no rate available
 	rbtcRateError: false,
 
@@ -289,8 +292,16 @@ async function initializeLiquidWallet(mnemonic: string): Promise<void> {
 /**
  * Initialize RSK wallet
  */
-async function initializeRSKWallet(mnemonic: string): Promise<void> {
+async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 	try {
+		if (!mnemonic) {
+			mnemonic = await getMnemonic();
+
+			if (!mnemonic) {
+				throw new Error('No mnemonic found. Please set up your wallet first.');
+			}
+		}
+
 		walletStore.update(state => ({
 			...state,
 			rsk: { ...state.rsk, connecting: true, error: null }
@@ -330,7 +341,6 @@ async function initializeRSKWallet(mnemonic: string): Promise<void> {
 
 		// Set up RSK event listeners
 		setupRSKEventListeners(provider, wallet);
-
 	} catch (error) {
 		console.error('RSK wallet initialization failed:', error);
 		walletStore.update(state => ({
@@ -623,18 +633,18 @@ export async function loadFiatRates(): Promise<void> {
 export async function loadRbtcExchangeRate(): Promise<void> {
 	try {
 		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
-		walletStore.update(state => ({ 
-			...state, 
+		walletStore.update(state => ({
+			...state,
 			rbtcToBtcRate: rate,
-			rbtcRateError: false 
+			rbtcRateError: false
 		}));
 	} catch (error) {
 		console.error('Failed to load rBTC exchange rate:', error);
 		// Set error flag so UI can handle appropriately
-		walletStore.update(state => ({ 
-			...state, 
+		walletStore.update(state => ({
+			...state,
 			rbtcToBtcRate: 1.0, // Use 1:1 as safe fallback
-			rbtcRateError: true 
+			rbtcRateError: true
 		}));
 	}
 }
@@ -767,9 +777,31 @@ export function formatAddress(address: string | null, startChars: number = 6, en
 	return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
 }
 
+/**
+ * Get RSK wallet instance
+ */
+export function getRSKWallet(): ethers.Wallet | null {
+	const state = get(walletStore);
+	return state.rsk.wallet;
+}
+
+/**
+ * Get RSK provider instance
+ */
+export function getRSKProvider(): ethers.JsonRpcProvider | null {
+	const state = get(walletStore);
+	return state.rsk.provider;
+}
+
+/**
+ * Get RSK address
+ */
+export const rskAddress = derived(walletStore, $store => $store.rsk.address);
+
 // Main wallet manager
 export const walletManager = {
 	initialize: initializeWallet,
+	initializeRSKWallet,
 	cleanup,
 	loadAssets,
 	loadFiatRates,
@@ -781,5 +813,7 @@ export const walletManager = {
 	setActiveTab,
 	formatSats,
 	formatUsd,
-	formatAddress
+	formatAddress,
+	getRSKWallet,
+	getRSKProvider
 };

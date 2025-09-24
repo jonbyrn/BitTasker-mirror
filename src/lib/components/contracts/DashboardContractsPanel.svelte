@@ -4,14 +4,14 @@
 	import { getUserContracts } from '$lib/utils/nostr-bid';
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import ContractCard from './ContractCard.svelte';
-	import ContractModal from './ContractModal.svelte';
+	import ContractDrawer from './ContractDrawer.svelte';
 
 	// State
 	let contracts = $state<ContractWithEvents[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
 	let selectedContract = $state<ContractWithEvents | null>(null);
-	let showContractModal = $state(false);
+	let showContractDrawer = $state(false);
 
 	// Filters
 	let statusFilter = $state<string>('all');
@@ -54,21 +54,21 @@
 		}
 	}
 
-	function openContractModal(contract: ContractWithEvents) {
+	function openContractDrawer(contract: ContractWithEvents) {
 		selectedContract = contract;
-		showContractModal = true;
+		showContractDrawer = true;
 	}
 
-	function closeContractModal() {
+	function closeContractDrawer() {
 		selectedContract = null;
-		showContractModal = false;
+		showContractDrawer = false;
 	}
 
-	// Handle contract updates (from modal)
+	// Handle contract updates (from drawer)
 	function handleContractUpdate() {
 		// Reload contracts to get latest data
 		loadContracts();
-		closeContractModal();
+		closeContractDrawer();
 	}
 
 	// Status badge classes
@@ -190,7 +190,7 @@
 				{#each filteredContracts() as contract (contract.contract.escrowId)}
 					<ContractCard 
 						{contract} 
-						onclick={() => openContractModal(contract)}
+						onclick={() => openContractDrawer(contract)}
 					/>
 				{/each}
 			</div>
@@ -198,12 +198,10 @@
 	{/if}
 </div>
 
-<!-- Contract Modal -->
-{#if showContractModal && selectedContract}
-	<ContractModal 
-		contract={selectedContract}
-		isOpen={showContractModal}
-		onClose={closeContractModal}
-		onUpdate={handleContractUpdate}
-	/>
-{/if}
+<!-- Contract Drawer -->
+<ContractDrawer 
+	contract={selectedContract}
+	isOpen={showContractDrawer}
+	onClose={closeContractDrawer}
+	onUpdate={handleContractUpdate}
+/>
