@@ -12,7 +12,7 @@ let contract: ethers.Contract | null = null;
  * Simple initialization check for escrow operations
  * Ensures wallet, contract, provider are ready and wallet has balance
  */
-async function ensureEscrowReady(): Promise<{
+export async function ensureEscrowReady(): Promise<{
     contract: ethers.Contract;
     wallet: ethers.Wallet;
     provider: ethers.JsonRpcProvider;
@@ -737,6 +737,7 @@ async function isContractPaused(): Promise<boolean> {
 
 export const escrow = {
     connectToEscrowContract,
+    ensureEscrowReady,
     createEscrow,
     completeTask,
     acceptTask,

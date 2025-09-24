@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { TaskBid } from '$lib/types/bid';
 	import type { Task } from '$lib/types/task';
+	import type { SimplifiedTaskBid } from '$lib/types/bid';
 	import { rskWalletStore, rskWallet } from '$lib/stores/rskWallet.store';
 	import { t } from 'svelte-i18n';
 	import { locale } from 'svelte-i18n';
@@ -15,10 +15,11 @@
 	} from '$lib/utils/wallet/escrowBid';
 	import { formatStandardDate, formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
+	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 
 	// Props
 	const props = $props<{
-		bid: TaskBid;
+		bid: SimplifiedTaskBid;
 		task: Task;
 		taskTitle: string;
 		btcPrice: number;
@@ -26,16 +27,84 @@
 		onCreateNewTask?: () => void;
 	}>();
 
-	// Reactive date formatting functions using Svelte 5 runes
-	function formatDateReactive(date: Date) {
-		return formatStandardDate(date, $locale || 'en');
+	// Form state
+	let isSubmitting = $state(false);
+	let validationErrors = $state<string[]>([]);
+	let balanceErrors = $state<string[]>([]);
+	let currentScreen = $state<'form' | 'success'>('form');
+	let escrowDetails = $state<any>(null);
+
+	// Calculate escrow details from bid
+	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
+
+	$effect(() => {
+		validationErrors = validateEscrowDetails(bidEscrowDetails);
+	});
+
+	// Separate effect for balance validation
+	$effect(() => {
+		// Only check balance if wallet is connected and basic validation passes
+		if ($rskWalletStore.isConnected && validationErrors.length === 0) {
+			balanceErrors = validateSufficientBalance(bidEscrowDetails);
+		} else {
+			balanceErrors = [];
+		}
+	});
+
+	// Auto-initialize Rootstock wallet if not connected
+	$effect(() => {
+		if (!$rskWalletStore.isConnected && !$rskWalletStore.isConnecting && !$rskWalletStore.error) {
+			rskWallet.initialize().catch((error) => {
+				console.error('Auto-initialization of Rootstock wallet failed:', error);
+			});
+		}
+	});
+
+	// Handle form submission
+	async function handleSubmit() {
+		if (validationErrors.length !== 0 || balanceErrors.length !== 0 || !props.bid.id) {
+			return;
+		}
+
+		isSubmitting = true;
+
+		try {
+			// Accept bid and create escrow
+			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice);
+
+			if (result.success) {
+				escrowDetails = {
+					transactionResult: result.transactionResult,
+					escrowDetails: bidEscrowDetails
+				};
+
+				currentScreen = 'success';
+			} else {
+				// Show error
+				validationErrors = [result.error || 'Failed to create escrow'];
+			}
+		} catch (error) {
+			console.error('Failed to accept bid:', error);
+			validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
+		} finally {
+			isSubmitting = false;
+		}
+	}
+
+	// Handle creating new task
+	function handleCreateNewTask() {
+		if (props.onCreateNewTask) {
+			props.onCreateNewTask();
+		} else {
+			props.onCancel();
+		}
 	}
 
 	function formatDateTimeReactive(date: Date) {
 		return formatStandardDateTime(date, $locale || 'en');
 	}
 
-	function formatDuration(startTime: string, endTime: string): string {
+	function formatDuration(startTime: number, endTime: number): string {
 		const start = new Date(startTime);
 		const end = new Date(endTime);
 		const diffMs = end.getTime() - start.getTime();
@@ -91,101 +160,6 @@
 	function getTotalWithGasFee(): number {
 		return bidEscrowDetails.totalAmount * props.btcPrice + getEstimatedGasFee();
 	}
-
-	// Form state
-	let isSubmitting = $state(false);
-	let validationErrors = $state<string[]>([]);
-	let balanceErrors = $state<string[]>([]);
-	let currentScreen = $state<'form' | 'success'>('form');
-	let escrowDetails = $state<any>(null);
-	let contractCreationStatus = $state<'pending' | 'success' | 'failed'>('pending');
-
-	// Calculate escrow details from bid
-	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
-
-	$effect(() => {
-		validationErrors = validateEscrowDetails(bidEscrowDetails);
-	});
-
-	// Separate effect for balance validation
-	$effect(() => {
-		// Only check balance if wallet is connected and basic validation passes
-		if ($rskWalletStore.isConnected && validationErrors.length === 0) {
-			balanceErrors = validateSufficientBalance(bidEscrowDetails);
-		} else {
-			balanceErrors = [];
-		}
-	});
-
-	// Auto-initialize Rootstock wallet if not connected
-	$effect(() => {
-		if (!$rskWalletStore.isConnected && !$rskWalletStore.isConnecting && !$rskWalletStore.error) {
-			rskWallet.initialize().catch((error) => {
-				console.error('Auto-initialization of Rootstock wallet failed:', error);
-			});
-		}
-	});
-
-	// Contract creation event listeners using stores
-	/* $effect(() => {
-		// Import the contract creation store
-		import('$lib/utils/wallet/escrowEvents').then(({ contractCreationStore }) => {
-			const unsubscribe = contractCreationStore.subscribe((event) => {
-				if (event) {
-					if (event.error) {
-						contractCreationStatus = 'failed';
-						// Toast is already shown in escrowEvents.ts
-					} else if (event.contractEventId) {
-						contractCreationStatus = 'success';
-						// Toast is already shown in escrowEvents.ts
-					}
-				}
-			});
-			
-			return unsubscribe;
-		});
-	}); */
-
-	// Handle form submission
-	async function handleSubmit() {
-		if (validationErrors.length !== 0 || balanceErrors.length !== 0 || !props.bid.id) {
-			return;
-		}
-
-		isSubmitting = true;
-		contractCreationStatus = 'pending'; // Reset contract creation status
-
-		try {
-			// Accept bid and create escrow
-			const result = await acceptBidAndCreateEscrow(props.bid, props.task, props.btcPrice);
-
-			if (result.success) {
-				escrowDetails = {
-					transactionResult: result.transactionResult,
-					escrowDetails: bidEscrowDetails
-				};
-
-				currentScreen = 'success';
-			} else {
-				// Show error
-				validationErrors = [result.error || 'Failed to create escrow'];
-			}
-		} catch (error) {
-			console.error('Failed to accept bid:', error);
-			validationErrors = [error instanceof Error ? error.message : 'Unknown error occurred'];
-		} finally {
-			isSubmitting = false;
-		}
-	}
-
-	// Handle creating new task
-	function handleCreateNewTask() {
-		if (props.onCreateNewTask) {
-			props.onCreateNewTask();
-		} else {
-			props.onCancel();
-		}
-	}
 </script>
 
 {#if currentScreen === 'form'}
@@ -222,12 +196,12 @@
 
 		<!-- Content with padding -->
 		<div class="overflow-x-hidden p-4">
-			<!-- Unified Responsive Layout -->
-			<div class="bg-base-200 lg:bg-base-200 bg-base-300 rounded-2xl">
-				<!-- Task Title Row -->
-				<div class="w-full px-6 pt-3">
-					<h5 class="line-clamp-2 text-lg font-semibold">{props.taskTitle}</h5>
-				</div>
+			<!-- Desktop: 2 column layout -->
+			<div class="bg-base-200 hidden rounded-2xl lg:flex lg:gap-4">
+				<!-- Left Column: Bidder Information -->
+				<div class="flex-1">
+					<div class="rounded-lg p-3">
+						<h5 class="mb-3 line-clamp-1 text-sm font-semibold">{props.taskTitle}</h5>
 
 				<!-- Divider (Desktop only) -->
 				<div class="divider text-base-content/60 mx-6 my-2 text-sm">{$t('dashboard.bids.bid_acceptance.contract_information')}</div>
@@ -521,16 +495,26 @@
 				{/if}
 
 				<!-- Rootstock Wallet Connection Error -->
-				<!-- {#if $rskWalletStore.error}
-					<div class="alert alert-outline alert-error mt-4">
+				{#if $rskWalletStore.error}
+					<div class="alert alert-error mt-4">
 						<div class="flex w-full items-center justify-between">
 							<div class="flex items-center">
-								<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="mr-2 h-6 w-6 shrink-0 stroke-current"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
 								</svg>
                                 <span>{$t('dashboard.bids.bid_acceptance.wallet_error_prefix')} {$rskWalletStore.error}</span>
 							</div>
-							<button 
+							<button
 								class="btn btn-sm btn-outline"
 								onclick={async () => {
 									try {
@@ -550,7 +534,7 @@
 							</button>
 						</div>
 					</div>
-				{/if} -->
+				{/if}
 			</div>
 
 			<!-- Insufficient Balance Warning -->
@@ -770,30 +754,7 @@
 					{$t('dashboard.bids.bid_acceptance.contract_creation_status')}
 				</h4>
 				<div class="flex items-center gap-3">
-					{#if contractCreationStatus === 'pending'}
-						<span class="loading loading-spinner loading-sm text-info"></span>
-						<span class="text-info"
-							>{$t('dashboard.bids.bid_acceptance.creating_nostr_contract')}</span
-						>
-					{:else if contractCreationStatus === 'success'}
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="text-success h-5 w-5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span class="text-success"
-							>{$t('dashboard.bids.bid_acceptance.nostr_contract_success')}</span
-						>
-					{:else if contractCreationStatus === 'failed'}
+					{#if $contractCreationStore?.error}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="text-error h-5 w-5"
@@ -811,6 +772,29 @@
 						<span class="text-error"
 							>{$t('dashboard.bids.bid_acceptance.nostr_contract_failed')}</span
 						>
+					{:else if $contractCreationStore?.contractEventId}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-success h-5 w-5"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+						<span class="text-success"
+							>{$t('dashboard.bids.bid_acceptance.nostr_contract_success')}</span
+						>
+					{:else}
+						<span class="loading loading-spinner loading-sm text-info"></span>
+						<span class="text-info"
+							>{$t('dashboard.bids.bid_acceptance.creating_nostr_contract')}</span
+						>
 					{/if}
 				</div>
 			</div>
@@ -825,7 +809,7 @@
 					<li>• {$t('dashboard.bids.bid_acceptance.next_item_begin')}</li>
 					<li>• {$t('dashboard.bids.bid_acceptance.next_item_funds_held')}</li>
 					<li>• {$t('dashboard.bids.bid_acceptance.next_item_release')}</li>
-					{#if contractCreationStatus === 'success'}
+					{#if $contractCreationStore?.contractEventId}
 						<li>• {$t('dashboard.bids.bid_acceptance.next_item_contract_details')}</li>
 					{/if}
 				</ul>

@@ -1,9 +1,9 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import type { BidMessage, NostrBid } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
 import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
 import { SimplePool } from 'nostr-tools/pool';
-import KINDS from './constants/kinds';
 import type {
 	NostrContract,
 	NostrContractStatus,
@@ -14,46 +14,6 @@ import type {
 	ContractFilter,
 	ContractStatus
 } from '$lib/types/contract';
-
-export interface NostrBid {
-	type: 'bid';
-	taskId: string;
-	taskTitle: string; // Add task title
-	taskDescription: string; // Add task description
-	amount: number;
-	currency: string;
-	paymentType: 'FIXED' | 'HOURLY';
-	hourlyRate?: number | null; // Allow null values
-	estimatedHours?: number | null; // Allow null values
-	description: string;
-	estimatedDuration: string;
-	proposedApproach: string;
-	coverLetter: string;
-	timestamp: number;
-	bidId: string;
-	// New datetime fields for fixed price bids
-	startDate?: string | null;
-	endDate?: string | null;
-	startTime?: string | null;
-	endTime?: string | null;
-	// Add this field to identify it as a bid
-	messageType: 'bid';
-	taskCreatorUsername?: string;
-	taskCreatorAvatar?: string;
-	taskCreatorPubkey?: string;
-	// Bidder information
-	bidderId?: string;
-	bidderName?: string;
-	bidderAvatar?: string;
-	// RSK wallet address for escrow funding
-	bidderWalletAddress?: string;
-}
-
-export interface BidMessage {
-	bid: NostrBid; // The bid data
-	senderPubkey: string; // Who sent the bid
-	event: NostrEvent; // The Nostr event
-}
 
 /**
  * Get only bids from DMs (excluding normal messages)
@@ -555,8 +515,3 @@ export async function updateContractStatus(
 		throw error;
 	}
 }
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-

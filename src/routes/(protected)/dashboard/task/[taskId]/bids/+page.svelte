@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import type { CounterOffer, TaskBid } from '$lib/types/bid';
+	import type { CounterOffer, SimplifiedTaskBid } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { getBidsFromDMs } from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
@@ -15,16 +15,16 @@
 
 	// State
 	let task = $state<Task | null>(null);
-	let bids = $state<TaskBid[]>([]);
+	let bids = $state<SimplifiedTaskBid[]>([]);
 	let loading = $state(false);
 	let errorMessage = $state('');
 	let isOwner = $state(false);
 	let btcPrice = $state(0);
 	let expandedBidId = $state<string | null>(null);
 	let showAcceptanceForm = $state(false);
-	let bidToAccept = $state<TaskBid | null>(null);
+	let bidToAccept = $state<SimplifiedTaskBid | null>(null);
 	let showCounterOfferForm = $state(false);
-	let selectedBid = $state<TaskBid | null>(null);
+	let selectedBid = $state<SimplifiedTaskBid | null>(null);
 	let showRetryButton = $state(false);
 
 	async function loadTaskDetails(id: string) {
@@ -72,78 +72,33 @@
 					new Map(newestPerUser.map((m) => [m.bid.bidId, m])).values()
 				);
 
-				bids = uniqueByBidId.map(({ bid, senderPubkey }) => ({
-					id: bid.bidId,
-					taskId: bid.taskId as unknown as string,
-					freelancerId: 0,
-					bidderWalletAddress: bid.bidderWalletAddress,
-					amount: bid.amount,
-					currency: bid.currency as unknown as any,
-					paymentType: bid.paymentType,
-					hourlyRate: bid.hourlyRate ?? undefined,
-					estimatedHours: bid.estimatedHours ?? undefined,
-					description: bid.description,
-					estimatedDuration: bid.estimatedDuration,
-					proposedApproach: bid.proposedApproach,
-					coverLetter: bid.coverLetter,
-					visibility: 'PRIVATE',
-					milestones: [],
-					responseTime: 0,
-					status: 'PENDING',
-					createdAt: new Date(bid.timestamp).toISOString(),
-					updatedAt: new Date(bid.timestamp).toISOString(),
-					clientViewed: false,
-					clientViewedAt: null,
-					featured: false,
-					clientResponse: null,
-					competitiveScore: null,
-					rank: null,
-					impressions: 0,
-					clicks: 0,
-					isWithdrawn: false,
-					withdrawnReason: null,
-					expiresAt: null,
-					task: {
-						id: 0 as unknown as number,
-						title: task?.title || '',
-						description: task?.description || '',
-						status: (task as any)?.status || ''
-					},
-					freelancer: {
-						id: 0,
-						userId: 0,
-						professionalTitle: null,
-						bio: null,
-						promotionalVideo: null,
-						yearsExperience: null,
-						specialties: [],
-						standardRates: null,
-						tasksCompleted: 0,
-						bidsSent: 0,
-						successRate: null,
-						averageRating: null,
-						level: 0,
-						experiencePoints: 0,
-						reputationScore: 0,
-						feeDiscount: 0,
-						monthlyActivityPoints: 0,
-						verificationLevel: 'UNVERIFIED' as unknown as any,
-						identityVerified: false,
+				bids = uniqueByBidId.map(
+					({ bid }): SimplifiedTaskBid => ({
+						id: bid.bidId,
+						taskId: bid.taskId,
+						bidderWalletAddress: bid.bidderWalletAddress || '',
+						amount: bid.amount,
+						currency: bid.currency,
+						paymentType: bid.paymentType,
+						hourlyRate: bid.hourlyRate ?? undefined,
+						estimatedHours: bid.estimatedHours ?? undefined,
+						description: bid.description,
+						estimatedDuration: bid.estimatedDuration,
+						proposedApproach: bid.proposedApproach,
+						coverLetter: bid.coverLetter,
+						status: 'PENDING',
 						createdAt: new Date(bid.timestamp).toISOString(),
-						updatedAt: new Date(bid.timestamp).toISOString(),
-						user: {
-							id: 0,
-							email: ''
+						startDateTime: bid.startDateTime,
+						endDateTime: bid.endDateTime,
+						userProfile: {
+							user: {
+								id: bid.bidderId || 'unknown',
+								name: bid.bidderName || 'Anonymous',
+								avatar: bid.bidderAvatar || ''
+							}
 						}
-					},
-					userProfile: {
-						user: {
-							id: bid.bidderId || 'unknown', // This will now be the npub
-							name: (bid.bidderName as string) || 'Anonymous',
-							avatar: (bid.bidderAvatar as string) || ''
-						}
-					} as unknown as any
-				})) as unknown as TaskBid[];
+					})
+				);
 			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -158,12 +113,12 @@
 		expandedBidId = expandedBidId === bidId ? null : bidId;
 	}
 
-	function handleCounterOffer(bid: TaskBid) {
+	function handleCounterOffer(bid: SimplifiedTaskBid) {
 		selectedBid = bid;
 		showCounterOfferForm = true;
 	}
 
-	function handleAcceptBid(bid: TaskBid) {
+	function handleAcceptBid(bid: SimplifiedTaskBid) {
 		bidToAccept = bid;
 		showAcceptanceForm = true;
 	}
@@ -187,7 +142,7 @@
 		}
 	}
 
-	async function handleRejectBid(bid: TaskBid) {
+	async function handleRejectBid(bid: SimplifiedTaskBid) {
 		try {
 			await bidService.rejectBid(bid.id);
 			// Refresh task to update status and bids
@@ -216,7 +171,7 @@
 	});
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-7xl py-4 sm:p-0">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
@@ -477,10 +432,10 @@
 								</svg>
 							</button>
 
-							<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+							<div class="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
 								<button
-									class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
-									onclick={() => handleAcceptBid(bid)}
+									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
+									onclick={() => handleRejectBid(bid)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -493,10 +448,10 @@
 											stroke-linecap="round"
 											stroke-linejoin="round"
 											stroke-width="2"
-											d="M5 13l4 4L19 7"
+											d="M6 18L18 6M6 6l12 12"
 										/>
 									</svg>
-									{$t('dashboard.bids.bid_acceptance.accept')}
+									{$t('dashboard.bids.bid_acceptance.decline')}
 								</button>
 								<button
 									class="btn btn-info btn-outline btn-sm flex-1 py-1 sm:flex-none"
@@ -519,8 +474,8 @@
 									{$t('dashboard.bids.bid_acceptance.counter')}
 								</button>
 								<button
-									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
-									onclick={() => handleRejectBid(bid)}
+									class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
+									onclick={() => handleAcceptBid(bid)}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -533,10 +488,10 @@
 											stroke-linecap="round"
 											stroke-linejoin="round"
 											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
+											d="M5 13l4 4L19 7"
 										/>
 									</svg>
-									{$t('dashboard.bids.bid_acceptance.decline')}
+									{$t('dashboard.bids.bid_acceptance.accept')}
 								</button>
 							</div>
 						</div>
@@ -588,8 +543,8 @@
 									</div>
 								{/if}
 
-								<!-- Milestones -->
-								{#if bid.milestones && bid.milestones.length > 0}
+								<!-- TODO: Milestones -->
+								<!-- {#if bid.milestones && bid.milestones.length > 0}
 									<div>
 										<p class="text-base-content/60 mb-2 text-xs font-medium">
 											{$t('dashboard.bids.bid_acceptance.milestones')}
@@ -607,10 +562,10 @@
 											</ul>
 										</div>
 									</div>
-								{/if}
+								{/if} -->
 
-								<!-- Location -->
-								{#if bid?.pickupLocation?.displayName || bid?.dropOffLocation?.displayName}
+								<!-- TODO: Location -->
+								<!-- {#if bid?.pickupLocation?.displayName || bid?.dropOffLocation?.displayName}
 									<div>
 										<p class="text-base-content/60 mb-2 text-xs font-medium">
 											{$t('dashboard.bids.bid_acceptance.location')}
@@ -643,7 +598,7 @@
 											</div>
 										</div>
 									</div>
-								{/if}
+								{/if} -->
 							</div>
 						{/if}
 					</div>
