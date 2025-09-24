@@ -131,6 +131,30 @@ export function formatTimeLarge(time: string): string {
 }
 
 /**
+ * Format a time string from 24-hour format (HH:MM) to 12-hour format with AM/PM
+ * @param time - Time string in HH:MM format (e.g., "09:00", "17:30")
+ * @returns Formatted time string in 12-hour format (e.g., "9:00 AM", "5:30 PM")
+ */
+export function formatTime12Hour(time: string): string {
+	if (!time) return '';
+	
+	try {
+		const [hours, minutes] = time.split(':').map(Number);
+		const date = new Date();
+		date.setHours(hours, minutes, 0, 0);
+		
+		return date.toLocaleTimeString('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
+	} catch (error) {
+		console.error('Error formatting time:', error);
+		return time; // Return original time if formatting fails
+	}
+}
+
+/**
  * Convert a date to a relative time string (e.g., "2 days ago")
  * @param date - The date to format
  * @returns Relative time string

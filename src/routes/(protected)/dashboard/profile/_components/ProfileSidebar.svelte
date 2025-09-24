@@ -1,15 +1,17 @@
 <script lang="ts">
 	import { profileStore } from '$lib/stores/profile.store';
 	import { t } from 'svelte-i18n';
-	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
+	import { formatTime12Hour } from '$lib/utils/helpers/dateFormatter';
 
 	let { formatDate } = $props<{
 		formatDate: (date: string) => string;
 	}>();
 
-	// Format time slot for display
+	// Format time slot for display in 12-hour format
 	function formatTimeSlot(start: string, end: string): string {
-		return `${formatTimeLarge(start)} - ${formatTimeLarge(end)}`;
+		const formattedStart = formatTime12Hour(start);
+		const formattedEnd = formatTime12Hour(end);
+		return `${formattedStart} - ${formattedEnd}`;
 	}
 
 	// Get schedule for a specific day
