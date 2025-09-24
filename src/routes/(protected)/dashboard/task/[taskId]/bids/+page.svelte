@@ -288,7 +288,9 @@
 					d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
 				/>
 			</svg>
-			<h3 class="text-error mt-4 text-xl font-semibold">Error Loading Bids</h3>
+			<h3 class="text-error mt-4 text-xl font-semibold">
+				{$t('dashboard.bids.bid_acceptance.error_loading_bids')}
+			</h3>
 			<p class="text-base-content/60 mt-2 mb-4">
 				{errorMessage}
 			</p>
@@ -308,7 +310,7 @@
 							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 						/>
 					</svg>
-					Retry
+					{$t('dashboard.bids.bid_acceptance.retry')}
 				</button>
 			{/if}
 		</div>
@@ -394,14 +396,14 @@
 													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
 												/>
 											</svg>
-											<span class="">See Profile</span>
+											<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
 										</button>
 									</div>
 									<div class="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
 										<span class="text-base-content/60 text-xs sm:text-sm">
 											{$t('task.drawer.member_since')}
 											{new Date(bid.createdAt).toLocaleDateString('en-US', {
-												month: '2-digit',
+												month: 'short',
 												year: 'numeric'
 											})}
 										</span>
@@ -454,7 +456,9 @@
 								class="btn btn-ghost btn-sm w-full sm:w-auto"
 								onclick={() => toggleBidDetails(bid.id)}
 							>
-								{expandedBidId === bid.id ? 'Hide Details' : 'Show Details'}
+								{expandedBidId === bid.id
+									? $t('dashboard.bids.bid_acceptance.hide_details')
+									: $t('dashboard.bids.bid_acceptance.show_details')}
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
 									class="ml-1 h-4 w-4 transition-transform duration-200 {expandedBidId === bid.id
@@ -475,48 +479,7 @@
 
 							<div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
 								<button
-									class="btn btn-error py-1 btn-sm flex-1 sm:flex-none"
-									onclick={() => handleRejectBid(bid)}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M6 18L18 6M6 6l12 12"
-										/>
-									</svg>
-									Decline
-								</button>
-								
-								<button
-									class="btn btn-info btn-outline py-1 btn-sm flex-1 sm:flex-none"
-									onclick={() => handleCounterOffer(bid)}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-										/>
-									</svg>
-									Counter
-								</button>
-								<button
-									class="btn btn-primary py-1 btn-sm flex-1 sm:flex-none"
+									class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleAcceptBid(bid)}
 								>
 									<svg
@@ -533,7 +496,47 @@
 											d="M5 13l4 4L19 7"
 										/>
 									</svg>
-									Accept
+									{$t('dashboard.bids.bid_acceptance.accept')}
+								</button>
+								<button
+									class="btn btn-info btn-outline btn-sm flex-1 py-1 sm:flex-none"
+									onclick={() => handleCounterOffer(bid)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+										/>
+									</svg>
+									{$t('dashboard.bids.bid_acceptance.counter')}
+								</button>
+								<button
+									class="btn btn-error btn-sm flex-1 py-1 sm:flex-none"
+									onclick={() => handleRejectBid(bid)}
+								>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										class="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											stroke-width="2"
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+									{$t('dashboard.bids.bid_acceptance.decline')}
 								</button>
 							</div>
 						</div>
@@ -588,7 +591,9 @@
 								<!-- Milestones -->
 								{#if bid.milestones && bid.milestones.length > 0}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">Milestones</p>
+										<p class="text-base-content/60 mb-2 text-xs font-medium">
+											{$t('dashboard.bids.bid_acceptance.milestones')}
+										</p>
 										<div class="bg-base-200 rounded-lg p-3">
 											<ul class="space-y-2">
 												{#each bid.milestones as milestone}
@@ -607,7 +612,9 @@
 								<!-- Location -->
 								{#if bid?.pickupLocation?.displayName || bid?.dropOffLocation?.displayName}
 									<div>
-										<p class="text-base-content/60 mb-2 text-xs font-medium">Location</p>
+										<p class="text-base-content/60 mb-2 text-xs font-medium">
+											{$t('dashboard.bids.bid_acceptance.location')}
+										</p>
 										<div class="bg-base-200 rounded-lg p-3">
 											<div class="flex items-start gap-2 text-sm">
 												<svg

@@ -45,11 +45,11 @@
 		const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
 		if (days > 0) {
-			return `${days} day${days !== 1 ? 's' : ''} ${hours} hour${hours !== 1 ? 's' : ''}`;
+			return `${days} ${days !== 1 ? $t('dashboard.bids.bid_acceptance.days') : $t('dashboard.bids.bid_acceptance.day')} ${hours} ${hours !== 1 ? $t('dashboard.bids.bid_acceptance.hours') : $t('dashboard.bids.bid_acceptance.hour')}`;
 		} else if (hours > 0) {
-			return `${hours} hour${hours !== 1 ? 's' : ''} ${minutes} minute${minutes !== 1 ? 's' : ''}`;
+			return `${hours} ${hours !== 1 ? $t('dashboard.bids.bid_acceptance.hours') : $t('dashboard.bids.bid_acceptance.hour')} ${minutes} ${minutes !== 1 ? $t('dashboard.bids.bid_acceptance.minutes') : $t('dashboard.bids.bid_acceptance.minute')}`;
 		} else {
-			return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+			return `${minutes} ${minutes !== 1 ? $t('dashboard.bids.bid_acceptance.minutes') : $t('dashboard.bids.bid_acceptance.minute')}`;
 		}
 	}
 
@@ -230,7 +230,7 @@
 				</div>
 
 				<!-- Divider (Desktop only) -->
-				<div class="divider text-base-content/60 mx-6 my-2 text-sm">Contract Information</div>
+				<div class="divider text-base-content/60 mx-6 my-2 text-sm">{$t('dashboard.bids.bid_acceptance.contract_information')}</div>
 
 				<!-- User Info and Pricing Layout -->
 				<div class="flex flex-col gap-4 px-3 lg:flex-row">
@@ -586,7 +586,7 @@
 							<div class="mt-2 text-sm">
 								<p>
 									{$t('dashboard.bids.bid_acceptance.current_balance')}
-									<strong>{$rskWalletStore.formattedBalance} RBTC</strong>
+									<strong>{$rskWalletStore.formattedBalance} rBTC</strong>
 								</p>
 								<p class="mt-1 text-xs opacity-80">
 									{$t('dashboard.bids.bid_acceptance.insufficient_balance_help')}
@@ -685,7 +685,7 @@
 								d="M5 13l4 4L19 7"
 							/>
 						</svg>
-						Accept & Pay
+						{$t('dashboard.bids.bid_acceptance.accept_and_pay')}
 					{/if}
 				</button>
 			</div>
