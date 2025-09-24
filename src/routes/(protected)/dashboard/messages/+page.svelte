@@ -440,7 +440,7 @@
 	{/if}
 
 	<!-- Main Content - Conversation List Only -->
-	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl shadow-lg p-2">
+	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl shadow-lg p-4">
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
 			{#if conversations.length > 0}

@@ -11,6 +11,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 
 	// Props
 	let {
@@ -40,6 +41,10 @@
 		senderPubkey: string;
 		event: NostrEvent;
 	} | null>(null);
+
+	// Emoji picker state
+	let showEmojiPicker = $state(false);
+	let emojiButtonRef = $state<HTMLElement | null>(null);
 
 	// Pagination state
 	let isLoadingMore = $state(false);
@@ -544,6 +549,25 @@
 		replyingToMessage = null;
 	}
 
+	// Function to handle emoji selection
+	function handleEmojiSelect(emoji: string) {
+		newMessageText += emoji;
+		messageInput?.focus();
+		showEmojiPicker = false;
+	}
+
+	// Function to handle reaction add
+	function handleReactionAdd(messageId: string, emoji: string) {
+		// TODO: Implement reaction storage and sync with Nostr
+		console.log('Add reaction:', messageId, emoji);
+	}
+
+	// Function to handle reaction remove
+	function handleReactionRemove(messageId: string, emoji: string) {
+		// TODO: Implement reaction removal and sync with Nostr
+		console.log('Remove reaction:', messageId, emoji);
+	}
+
 	function handleSubmit(event: Event) {
 		event.preventDefault();
 		sendMessage();
@@ -561,7 +585,7 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex flex-col">
 	<!-- Messages Area -->
 	<div
 		bind:this={messagesContainer}
@@ -663,6 +687,9 @@
 							? currentUserProfile
 							: recipientProfile}
 						onReply={startReply}
+						currentUserId={currentUserHex()}
+						onReactionAdd={handleReactionAdd}
+						onReactionRemove={handleReactionRemove}
 					/>
 				{/each}
 			{/if}
@@ -670,7 +697,7 @@
 	</div>
 
 	<!-- Message Input Area -->
-	<div class="border-base-300/20 flex-shrink-0 border-t p-4">
+	<div class="border-base-300/20 flex-shrink-0 border-t p-3 sm:p-4">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">
@@ -713,8 +740,33 @@
 
 		<form onsubmit={handleSubmit} class="relative">
 			<div
-				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 transition-all duration-200"
+				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 sm:p-3 transition-all duration-200"
 			>
+				<!-- Emoji Button -->
+				<button
+					type="button"
+					bind:this={emojiButtonRef}
+					class="btn btn-ghost btn-sm h-8 min-h-0 w-8 sm:h-9 sm:w-9 p-0 hover:bg-base-300 transition-colors flex-shrink-0"
+					onclick={() => showEmojiPicker = !showEmojiPicker}
+					title="Add emoji"
+					aria-label="Add emoji"
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4 sm:h-5 sm:w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+				</button>
+
 				<!-- Message Input -->
 				<div class="min-w-0 flex-1">
 					<!-- svelte-ignore a11y_autofocus -->
@@ -723,7 +775,7 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 text-sm leading-5 focus:ring-0 focus:outline-none"
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 sm:p-3 text-sm sm:text-base leading-5 focus:ring-0 focus:outline-none"
 						placeholder={$t(
 							'dashboard.bids.components.messages.chat_view.type_message_placeholder'
 						)}
@@ -733,29 +785,6 @@
 						style="max-height: 120px;"
 					></textarea>
 				</div>
-
-				<!-- Attachment Button (Optional - can be expanded later) -->
-				<!-- <button
-					type="button"
-					class="btn btn-ghost btn-sm h-8 min-h-0 w-8 p-0"
-					title="Attach file"
-					disabled={isSendingMessage}
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-						/>
-					</svg>
-				</button> -->
 
 				<!-- Send Button -->
 				<button
@@ -769,7 +798,7 @@
 					{:else}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5"
+							class="h-10 w-10"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -795,4 +824,12 @@
 			{/if}
 		</form>
 	</div>
+
+	<!-- Emoji Picker -->
+	<EmojiPicker
+		bind:isOpen={showEmojiPicker}
+		onEmojiSelect={handleEmojiSelect}
+		position="top"
+		triggerElement={emojiButtonRef}
+	/>
 </div>

@@ -3,18 +3,27 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { formatTimeAgo } from '$lib/utils/helpers/date';
 	import { t } from 'svelte-i18n';
+	import MessageReactions from './MessageReactions.svelte';
 
 	// Props
 	let {
 		message,
 		isSender,
 		profile,
-		onReply
+		onReply,
+		reactions = [],
+		currentUserId,
+		onReactionAdd,
+		onReactionRemove
 	}: {
 		message: { plaintext: string; senderPubkey: string; event: NostrEvent };
 		isSender: boolean;
 		profile: { name?: string; picture?: string };
 		onReply?: (message: { plaintext: string; senderPubkey: string; event: NostrEvent }) => void;
+		reactions?: { emoji: string; count: number; users: string[] }[];
+		currentUserId?: string;
+		onReactionAdd?: (messageId: string, emoji: string) => void;
+		onReactionRemove?: (messageId: string, emoji: string) => void;
 	} = $props();
 
 	// Derived timestamp
@@ -71,5 +80,16 @@
 				</button>
 			{/if}
 		</div>
+
+		<!-- Message Reactions -->
+		{#if currentUserId && (onReactionAdd || onReactionRemove)}
+			<MessageReactions
+				messageId={message.event.id}
+				{reactions}
+				{currentUserId}
+				{onReactionAdd}
+				{onReactionRemove}
+			/>
+		{/if}
 	</div>
 </div>

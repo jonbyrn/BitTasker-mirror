@@ -17,6 +17,7 @@
 	let recipientProfile = $state<{ name?: string; picture?: string } | null>(null);
 	let isLoading = $state(true);
 	let error = $state('');
+	let copySuccess = $state(false);
 
 	onMount(async () => {
 		try {
@@ -65,9 +66,21 @@
 	function goBackToMessages() {
 		goto('/dashboard/messages');
 	}
+
+	async function copyPubkey() {
+		try {
+			await navigator.clipboard.writeText(recipientPubkey);
+			copySuccess = true;
+			setTimeout(() => {
+				copySuccess = false;
+			}, 2000);
+		} catch (err) {
+			console.error('Failed to copy pubkey:', err);
+		}
+	}
 </script>
 
-<div class="bg-base-100 max-w-7xl p-4 md:p-0 rounded-2xl shadow-lg mt-8 mx-2">
+<div class="bg-base-100 mx-2 md:mx-auto max-w-7xl p-4 md:p-0 rounded-2xl shadow-lg mt-8 md:mt-4 ">
 	{#if isLoading}
 		<!-- Loading State -->
 		<div class="flex h-full items-center justify-center">
@@ -103,7 +116,7 @@
 		<div class="flex flex-shrink-0 items-center border-b border-base-300/20">
 			<!-- Back Button -->
 			<button
-				class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors flex-shrink-0"
+				class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors flex-shrink-0 ml-2"
 				onclick={goBackToMessages}
 				aria-label={$t('messages.go_back_to_messages')}
 			>
@@ -144,35 +157,51 @@
 				<div class="flex items-center gap-2 flex-shrink-0">
 					<!-- Copy Public Key Button -->
 					<button
-						class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors"
-						onclick={() => {
-							navigator.clipboard.writeText(recipientPubkey);
-							// Optional: Add a toast notification here
-						}}
-						title={$t('messages.copy_public_key')}
-						aria-label={$t('messages.copy_public_key')}
+						class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors relative"
+						onclick={copyPubkey}
+						title={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
+						aria-label={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
 					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-							/>
-						</svg>
+						{#if copySuccess}
+							<!-- Check icon for success state -->
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 text-success"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 13l4 4L19 7"
+								/>
+							</svg>
+						{:else}
+							<!-- Copy icon -->
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+								/>
+							</svg>
+						{/if}
 					</button>
 				</div>
 			</div>
 		</div>
 
 		<!-- ChatView Component -->
-		<div class="min-h-0 flex-1 overflow-hidden">
+		<div class="flex-1 overflow-hidden">
 			<ChatView
 				{recipientPubkey}
 				currentUserPubkey={currentUserNpub}
