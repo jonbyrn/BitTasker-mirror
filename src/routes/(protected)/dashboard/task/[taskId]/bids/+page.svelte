@@ -519,7 +519,7 @@
 									{$t('dashboard.bids.bid_acceptance.counter')}
 								</button>
 								<button
-									class="btn btn-error btn-sm flex-1 py-1 sm:flex-none"
+									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleRejectBid(bid)}
 								>
 									<svg

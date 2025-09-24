@@ -635,7 +635,7 @@
 			>
 				<button
 					type="button"
-					class="btn btn-error"
+					class="btn btn-error btn-outline"
 					onclick={props.onCancel}
 					disabled={isSubmitting}
 				>
