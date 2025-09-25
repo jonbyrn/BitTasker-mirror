@@ -43,7 +43,7 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 			name: 'Tether USD',
 			ticker: 'USDt',
 			precision: 8,
-			icon: '/images/chains/Tether-USD.svg', // TODO: Add Tether-USD.svg to static/images/chains/
+			icon: '/images/chains/Tether-USD.svg',
 			fiatId: 'USD' // Enables fee payment with USDT
 		}
 	},
@@ -60,7 +60,7 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 			name: 'Testnet Tether USD',
 			ticker: 'USDt',
 			precision: 8,
-			icon: '/images/chains/Tether-USD.svg', // TODO: Add Tether-USD.svg to static/images/chains/
+			icon: '/images/chains/Tether-USD.svg',
 			fiatId: 'USD'
 		}
 	}
