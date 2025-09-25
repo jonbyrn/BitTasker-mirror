@@ -165,7 +165,7 @@
 						{#each $allAssets.filter((a: WalletAsset) => a.network === 'Liquid') as asset (asset.assetId)}
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-2">
-									<span class="text-lg">{asset.icon}</span>
+									<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
 									<span class="font-medium">{asset.ticker}</span>
 								</div>
 								<div class="text-right">
@@ -227,7 +227,7 @@
 						{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
 							<div class="flex items-center justify-between">
 								<div class="flex items-center gap-2">
-									<span class="text-lg">{asset.icon}</span>
+									<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
 									<span class="font-medium">{asset.ticker}</span>
 								</div>
 								<div class="text-right">
