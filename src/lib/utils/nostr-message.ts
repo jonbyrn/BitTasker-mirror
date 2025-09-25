@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { nip19 } from 'nostr-tools';
-import { getNostrKeyPair } from './nostrKeys';
+import { getNostrKeyPair, getNpub } from './nostrKeys';
 import { bytesToHex } from '@noble/hashes/utils';
 import { subscribeToEvents, getSignedEvent } from './nostr';
 import { appStore } from '$lib/stores/app.store';
