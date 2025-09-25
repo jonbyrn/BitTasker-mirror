@@ -39,6 +39,20 @@
 	// This will reactively update when the language changes
 	let categoryOptions = $state<{ value: string; label: string }[]>([]);
 	let lastLanguage = $state('');
+	let isInitialized = $state(false);
+	
+	// Initialize with default categories first to prevent empty options error
+	$effect(() => {
+		if (!isInitialized) {
+			categoryOptions = TASK_CATEGORIES
+				.map(category => ({
+					value: category.id,
+					label: category.name // Use default name initially
+				}))
+				.sort((a, b) => a.label.localeCompare(b.label));
+			isInitialized = true;
+		}
+	});
 	
 	$effect(() => {
 		try {
@@ -102,7 +116,6 @@
 					return String(item);
 				});
 				
-				console.log('🔧 CategoryMultiselect: Extracting IDs from:', selectedCategories, 'to:', categoryIds);
 				onChange(categoryIds);
 			}
 		} catch (error) {
@@ -112,19 +125,25 @@
 </script>
 
 <div class="category-multiselect {className}">
-	<Multiselect
-		options={categoryOptions}
-		bind:selected={selectedCategories}
-		placeholder={placeholder}
-		maxSelect={maxSelections}
-		outerDivClass="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
-		ulSelectedClass="selected-categories flex flex-wrap gap-2 mb-2"
-		liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1"
-		ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 border-2 border-base-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-		liOptionClass="category-option p-3 cursor-pointer transition-colors border-b border-gray-700 last:border-b-0"
-		liActiveOptionClass="category-option-active bg-primary text-white"
-		maxSelectMsgClass="max-select-message text-xs text-neutral ml-auto"
-	/>
+	{#if categoryOptions.length > 0}
+		<Multiselect
+			options={categoryOptions}
+			bind:selected={selectedCategories}
+			placeholder={placeholder}
+			maxSelect={maxSelections}
+			outerDivClass="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
+			ulSelectedClass="selected-categories flex flex-wrap gap-2 mb-2"
+			liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1"
+			ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 border-2 border-base-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+			liOptionClass="category-option p-3 cursor-pointer transition-colors border-b border-gray-700 last:border-b-0"
+			liActiveOptionClass="category-option-active bg-primary text-white"
+			maxSelectMsgClass="max-select-message text-xs text-neutral ml-auto"
+		/>
+	{:else}
+		<div class="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors">
+			<span class="text-neutral opacity-70">{placeholder}</span>
+		</div>
+	{/if}
 </div>
 
 <style>

@@ -21,8 +21,8 @@
 		bind:selected={selectedSkills}
 		max={maxSelections}
 		{placeholder}
-		noMatchingOptionsMsg=""
-		createOptionMsg=""
+		noMatchingOptionsMsg="No matching skills found"
+		createOptionMsg="Add new skill"
 		outerDivClass="skills-multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
 		ulSelectedClass="selected-options flex flex-wrap gap-2 p-0 m-0"
 		liSelectedClass="selected-option bg-primary text-primary-content rounded-full px-3 py-1 flex items-center gap-1 text-sm"

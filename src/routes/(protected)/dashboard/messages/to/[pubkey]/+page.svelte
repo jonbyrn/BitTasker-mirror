@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
 	import ChatView from '$lib/components/messages/ChatView.svelte';
@@ -48,14 +47,8 @@
 				return;
 			}
 
-			// Fetch recipient profile
-			try {
-				const profile = await fetchProfileMetadata(hexPubkey);
-				recipientProfile = profile;
-			} catch (profileErr) {
-				console.error('Failed to fetch recipient profile:', profileErr);
-				// Continue even if profile fetch fails
-			}
+			// Set default profile (no fetching)
+			recipientProfile = { name: undefined, picture: undefined };
 		} catch (err) {
 			error = err instanceof Error ? err.message : $t('messages.failed_to_load_chat');
 		} finally {
