@@ -679,8 +679,19 @@ export async function getMessageHistoryOptimized(
         // Start auth warmup without awaiting yet
         const authPromise = getNostrKeyPair();
 
-        // Resolve our own pubkey in hex without requiring private key
-        const npub = await getNpub();
+        // Resolve our own pubkey in hex; try cached npub first to avoid prompting
+        let npub: string | null = null;
+        try {
+            const { Preferences } = await import('@capacitor/preferences');
+            const { StorageKeys } = await import('$lib/utils/constants/storage');
+            const { value } = await Preferences.get({ key: StorageKeys.NPUB });
+            if (value) npub = value;
+        } catch {
+            // ignore; will fallback
+        }
+        if (!npub) {
+            npub = await getNpub();
+        }
         const selfHex = npub.startsWith('npub')
             ? (nip19.decode(npub).data as string)
             : npub;
