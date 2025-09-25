@@ -279,6 +279,17 @@
       "rsk_wallet_not_connected": "RSK wallet not connected",
       "no_rsk_address_available": "No RSK address available",
       "click_to_copy": "Click to copy",
-      "rsk_network_warning": "Only send {currency} and RSK-compatible tokens to this address. Sending other cryptocurrencies may result in permanent loss."
+      "rsk_network_warning": "Only send {currency} and RSK-compatible tokens to this address. Sending other cryptocurrencies may result in permanent loss.",
+      "testnet_warning": {
+        "title": "⚠️ TESTNET MODE ACTIVE",
+        "do_not_send_real_assets": "DO NOT send real assets!",
+        "description": "This app is currently running on Rootstock Testnet. Any funds sent to this wallet will be lost permanently as they are test tokens only.",
+        "your_address": "Your Testnet Address:",
+        "copy_address": "Copy Address",
+        "address_copied": "Address copied to clipboard",
+        "faucet_instruction": "To get testnet rBTC for testing, visit the",
+        "faucet_link_text": "Rootstock Testnet Faucet",
+        "faucet_instruction_end": "and request testnet rBTC tokens."
+      }
     }
   }

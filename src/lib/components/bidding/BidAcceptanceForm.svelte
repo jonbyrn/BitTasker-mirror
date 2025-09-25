@@ -14,6 +14,12 @@
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	// Icon imports for unplugin-icons
+	import IconContentCopy from '~icons/mdi/content-copy';
+	// i18n imports
+	import { loadNamespace } from '$lib/i18n/i18n';
+	import { locale } from 'svelte-i18n';
+	import { browser } from '$app/environment';
 
 	// Props
 	const props = $props<{
@@ -31,6 +37,13 @@
 	let balanceErrors = $state<string[]>([]);
 	let currentScreen = $state<'form' | 'success'>('form');
 	let escrowDetails = $state<any>(null);
+
+	// Ensure wallet translations are loaded
+	$effect(() => {
+		if (browser && $locale) {
+			loadNamespace($locale, 'dashboard/wallet');
+		}
+	});
 
 	// Calculate escrow details from bid
 	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
@@ -570,7 +583,7 @@
 			<!-- Validation Errors -->
 			{#if validationErrors.length > 0}
 				<div class="alert alert-outline alert-error mb-4">
-					<div class="flex items-start gap-3">
+					<div class="flex items-center gap-3">
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							class="h-6 w-6 shrink-0 stroke-current"
@@ -594,6 +607,72 @@
 									{/each}
 								</ul>
 							{/if}
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Testnet Warning Alert -->
+			{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
+				<div class="alert alert-outline alert-warning mb-6">
+					<div class="flex items-center">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="mr-3 h-6 w-6 flex-shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
+						</svg>
+						<div class="flex-1">
+							<div class="font-bold text-warning text-center">{$t('wallet.testnet_warning.title')}</div>
+							<div class="text-sm">
+								<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong> {$t('wallet.testnet_warning.description')}
+							</div>
+							
+							<!-- User's Testnet Address -->
+							{#if $walletStore.rsk.address}
+								<div class="mt-3 p-3 bg-base-200 rounded-lg">
+									<div class="text-sm font-medium mb-2">{$t('wallet.testnet_warning.your_address')}</div>
+									<div class="flex items-center gap-2">
+										<input
+											type="text"
+											value={$walletStore.rsk.address}
+											readonly
+											class="input input-sm flex-1 font-mono text-xs"
+										/>
+										<button
+											class="btn btn-sm btn-outline"
+											onclick={() => {
+												navigator.clipboard.writeText($walletStore.rsk.address);
+												// You could add a toast notification here
+											}}
+											title={$t('wallet.testnet_warning.copy_address')}
+											aria-label={$t('wallet.testnet_warning.copy_address')}
+										>
+											<IconContentCopy class="h-4 w-4" />
+										</button>
+									</div>
+								</div>
+							{/if}
+							
+							<div class="mt-2 text-sm">
+								{$t('wallet.testnet_warning.faucet_instruction')} 
+								<a 
+									href="https://faucet.rootstock.io/" 
+									target="_blank" 
+									rel="noopener noreferrer"
+									class="link link-primary font-semibold"
+								>
+									{$t('wallet.testnet_warning.faucet_link_text')}
+								</a>
+								{$t('wallet.testnet_warning.faucet_instruction_end')}
+							</div>
 						</div>
 					</div>
 				</div>

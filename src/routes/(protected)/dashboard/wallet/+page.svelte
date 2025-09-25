@@ -5,6 +5,8 @@
 	import { t } from 'svelte-i18n';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+	// Icon imports for unplugin-icons
+	import IconContentCopy from '~icons/mdi/content-copy';
 	import {
 		walletManager,
 		combinedWalletState,
@@ -110,6 +112,71 @@
 					>
 						{$t('wallet.page.retry_connection')}
 					</button>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Testnet Warning Alert -->
+		{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
+			<div class="alert alert-outline alert-warning mb-6">
+				<div class="flex items-center">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="mr-3 h-6 w-6 flex-shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+						/>
+					</svg>
+					<div class="flex-1">
+						<div class="font-bold text-warning text-center">{$t('wallet.testnet_warning.title')}</div>
+						<div class="text-sm">
+							<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong> {$t('wallet.testnet_warning.description')}
+						</div>
+						<!-- User's Testnet Address -->
+						{#if $rskConnection.address}
+							<div class="mt-3 p-3 bg-base-200 rounded-lg">
+								<div class="text-sm font-medium mb-2">{$t('wallet.testnet_warning.your_address')}</div>
+								<div class="flex items-center gap-2">
+									<input
+										type="text"
+										value={$rskConnection.address}
+										readonly
+										class="input input-sm flex-1 font-mono text-xs"
+									/>
+									<button
+										class="btn btn-sm btn-outline"
+										onclick={() => {
+											navigator.clipboard.writeText($rskConnection.address);
+											// You could add a toast notification here
+										}}
+										title={$t('wallet.testnet_warning.copy_address')}
+										aria-label={$t('wallet.testnet_warning.copy_address')}
+									>
+										<IconContentCopy class="h-4 w-4" />
+									</button>
+								</div>
+							</div>
+						{/if}
+						
+						<div class="mt-2 text-sm">
+							{$t('wallet.testnet_warning.faucet_instruction')} 
+							<a 
+								href="https://faucet.rootstock.io/" 
+								target="_blank" 
+								rel="noopener noreferrer"
+								class="link link-primary font-semibold"
+							>
+								{$t('wallet.testnet_warning.faucet_link_text')}
+							</a>
+							{$t('wallet.testnet_warning.faucet_instruction_end')}
+						</div>
+					</div>
 				</div>
 			</div>
 		{/if}
