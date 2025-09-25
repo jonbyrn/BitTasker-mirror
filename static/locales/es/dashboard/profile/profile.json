@@ -105,7 +105,6 @@
             "end_time": "Hora de Fin"
         },
         "services": {
-            "add_service": "Agregar Servicio",
             "edit_service": "Editar Servicio",
             "service_name": "Nombre del Servicio",
             "service_name_placeholder": "ej. Desarrollo de Sitio Web Básico",

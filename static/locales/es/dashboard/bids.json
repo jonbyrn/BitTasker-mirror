@@ -131,6 +131,16 @@
                 "label": "Carta de Presentación (Opcional)",
                 "placeholder": "Añade información adicional sobre tu experiencia y cualificaciones"
             },
+            "airdatepicker": {
+                "select_date": "Seleccionar una fecha",
+                "select_date_range": "Seleccionar rango de fechas",
+                "select_datetime": "Seleccionar fecha y hora",
+                "select_time": "Seleccionar hora",
+                "select_start_date": "Seleccionar fecha de inicio",
+                "select_end_date": "Seleccionar fecha de fin",
+                "select_start_datetime": "Seleccionar fecha y hora de inicio",
+                "select_end_datetime": "Seleccionar fecha y hora de fin"
+            },
             "datetime_range": "Rango de Fechas",
             "start_datetime": "Fecha y Hora de Inicio",
             "end_datetime": "Fecha y Hora de Fin",

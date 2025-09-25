@@ -105,7 +105,6 @@
             "end_time": "End Time"
         },
         "services": {
-            "add_service": "Add New Service",
             "edit_service": "Edit service",
             "service_title": "Service Title",
             "service_title_placeholder": "Enter service title",

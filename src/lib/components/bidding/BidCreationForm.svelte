@@ -513,8 +513,8 @@
 							<DateInput
 								bind:value={startDateTime}
 								type="datetime"
-								labelKey="common.airdatepicker.select_start_datetime"
-								placeholderKey="common.airdatepicker.select_start_datetime"
+								labelKey="bid_form.form.airdatepicker.select_start_datetime"
+								placeholderKey="bid_form.form.airdatepicker.select_start_datetime"
 								minDate={new Date()}
 								maxDate={undefined}
 								timeStep={15}
@@ -529,8 +529,8 @@
 							<DateInput
 								bind:value={endDateTime}
 								type="datetime"
-								labelKey="common.airdatepicker.select_end_datetime"
-								placeholderKey="common.airdatepicker.select_end_datetime"
+								labelKey="bid_form.form.airdatepicker.select_end_datetime"
+								placeholderKey="bid_form.form.airdatepicker.select_end_datetime"
 								minDate={startDateTime || new Date()}
 								maxDate={undefined}
 								timeStep={15}

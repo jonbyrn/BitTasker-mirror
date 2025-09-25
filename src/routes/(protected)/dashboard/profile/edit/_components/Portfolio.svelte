@@ -393,6 +393,8 @@
 							labelKey="profile.portfolio.completion_date"
 							placeholderKey="airdatepicker.select_date"
 							required
+							minDate={new Date()}
+							maxDate={undefined}
 						/>
 					</div>
 

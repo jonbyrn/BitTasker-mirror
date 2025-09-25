@@ -49,7 +49,7 @@
 				description: taskData.description,
 				taskType: graphqlTaskType,
 				skills: taskData.skills || [],
-				categories: taskData.categories || [],
+				categories: taskData.categories.map((category) => category.id) || [],		
 				deadline: taskData.deadline,
 				budget: taskData.budget
 					? {

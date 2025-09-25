@@ -479,10 +479,11 @@
 												onChange={(date: Date | null) => {
 													certification.date = date ? date.toISOString() : '';
 												}}
+												minDate={new Date()}
 												type="single"
 												labelKey="profile.skills.cert_date"
-												placeholderKey="airdatepicker.select_date"
-												maxDate={new Date()}
+												placeholderKey="profile.airdatepicker.select_date"
+												maxDate={undefined}
 											/>
 										</div>
 

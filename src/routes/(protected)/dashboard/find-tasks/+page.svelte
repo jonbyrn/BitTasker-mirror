@@ -17,7 +17,6 @@
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import {
-		formatStandardDate,
 		formatStandardDateTime,
 		formatStandardDateShort
 	} from '$lib/utils/helpers/dateFormatter';

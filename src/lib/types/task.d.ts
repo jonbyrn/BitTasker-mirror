@@ -49,7 +49,7 @@ export interface TaskBody {
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	skills: string[];
-	categories: (string | Category)[];
+	categories: Category[];
 	attachments?: Attachment[];
 	status?: TaskStatusEnum;
 }
@@ -68,7 +68,7 @@ export interface Task {
 	pickupLocation: Location | null;
 	dropOffLocation: Location | null;
 	skills: string[];
-	categories: (string | Category)[];
+	categories: Category[];
 	attachments?: Attachment[];
 
 	isRemovals: boolean;

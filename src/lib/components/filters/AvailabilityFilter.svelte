@@ -103,8 +103,8 @@
 				<DateInput
 					bind:value={dateRange.start}
 					type="single"
-					labelKey="common.airdatepicker.select_start_date"
-					placeholderKey="common.airdatepicker.select_start_date"
+					labelKey="dashboard.bids.components.filters.availability.airdatepicker.select_start_date"
+					placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_start_date"
 					minDate={new Date()}
 					maxDate={undefined}
 					onChange={(date: Date | null) => dateRange.start = date}
@@ -112,8 +112,8 @@
 				<DateInput
 					bind:value={dateRange.end}
 					type="single"
-					labelKey="common.airdatepicker.select_end_date"
-					placeholderKey="common.airdatepicker.select_end_date"
+					labelKey="dashboard.bids.components.filters.availability.airdatepicker.select_end_date"
+					placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_end_date"
 					minDate={dateRange.start || new Date()}
 					maxDate={undefined}
 					onChange={(date: Date | null) => dateRange.end = date}
@@ -146,8 +146,8 @@
 			<DateInput
 				bind:value={deadline}
 				type="single"
-				labelKey="common.airdatepicker.select_date"
-				placeholderKey="common.airdatepicker.select_date"
+				labelKey="dashboard.bids.components.filters.availability.airdatepicker.select_date"
+				placeholderKey="dashboard.bids.components.filters.availability.airdatepicker.select_date"
 				minDate={new Date()}
 				maxDate={undefined}
 				onChange={(date: Date | null) => deadline = date}
