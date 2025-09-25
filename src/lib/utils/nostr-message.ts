@@ -16,6 +16,15 @@ const RELAY_TIMEOUT = 10000; // 10 seconds
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY = 1000; // 1 second
 
+// --- Auth memoization to prevent multiple passkey prompts ---
+let authSingleton: Promise<{ nsec: Uint8Array; npub: string }> | null = null;
+function getAuthOnce(): Promise<{ nsec: Uint8Array; npub: string }> {
+    if (!authSingleton) {
+        authSingleton = getNostrKeyPair();
+    }
+    return authSingleton;
+}
+
 // --- Enhanced Relay Management ---
 interface RelayConnectionResult {
 	relay: string;
@@ -467,7 +476,7 @@ export function listenForIncomingMessages(
 		if (isUnsubscribed) return;
 
 		try {
-			const { nsec, npub } = await getNostrKeyPair();
+        const { nsec, npub } = await getAuthOnce();
 
 			// Validate npub format before attempting to decode
 			if (!npub || typeof npub !== 'string') {
@@ -676,9 +685,6 @@ export async function getMessageHistoryOptimized(
     options?: { limit?: number; since?: number; until?: number }
 ): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
     try {
-        // Start auth warmup without awaiting yet
-        const authPromise = getNostrKeyPair();
-
         // Resolve our own pubkey in hex; try cached npub first to avoid prompting
         let npub: string | null = null;
         try {
@@ -687,17 +693,17 @@ export async function getMessageHistoryOptimized(
             const { value } = await Preferences.get({ key: StorageKeys.NPUB });
             if (value) {
                 npub = value;
-                console.debug('[DM] Using cached NPUB from Preferences:', npub.substring(0, 16) + '...');
+                console.log('[DM] Using cached NPUB from Preferences:', npub.substring(0, 16) + '...');
             } else {
-                console.debug('[DM] No cached NPUB found in Preferences');
+                console.log('[DM] No cached NPUB found in Preferences');
             }
         } catch {
             // ignore; will fallback
         }
         if (!npub) {
-            console.debug('[DM] Resolving NPUB via getNpub() (may prompt user)');
+            console.log('[DM] Resolving NPUB via getNpub() (may prompt user)');
             npub = await getNpub();
-            console.debug('[DM] getNpub() returned NPUB:', npub.substring(0, 16) + '...');
+            console.log('[DM] getNpub() returned NPUB:', npub.substring(0, 16) + '...');
         }
         const selfHex = npub.startsWith('npub')
             ? (nip19.decode(npub).data as string)
@@ -717,20 +723,43 @@ export async function getMessageHistoryOptimized(
             ...(options?.until ? { until: options.until } : {})
         };
 
-        // Fetch encrypted events
-        console.debug('[DM] Starting relay fetch for DMs', { authors: [withHex.substring(0, 8) + '...', selfHex.substring(0, 8) + '...'], limit: filter.limit, since: filter.since, until: filter.until });
+        // Fetch encrypted events off main thread using a worker to avoid prompt blocking
+        console.log('[DM] Starting relay fetch (worker) for DMs', { authors: [withHex.substring(0, 8) + '...', selfHex.substring(0, 8) + '...'], limit: filter.limit });
         const t0 = performance.now();
-        const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
-        const t1 = performance.now();
-        console.debug(`[DM] Relay fetch completed: ${events.length} events in ${(t1 - t0).toFixed(2)}ms`);
+        const workerPromise = new Promise<NostrEvent[]>((resolve, reject) => {
+            try {
+                const worker = new Worker(new URL('$lib/workers/nostrDM.worker.ts', import.meta.url), { type: 'module' });
+                worker.onmessage = (e: MessageEvent<any>) => {
+                    if (e.data?.type === 'fetched') {
+                        resolve(e.data.payload.events || []);
+                    } else if (e.data?.type === 'error') {
+                        reject(new Error(e.data.payload?.message || 'worker error'));
+                    }
+                };
+                worker.onerror = (err) => reject(err);
+                worker.postMessage({ type: 'fetchDMs', payload: { relays: DEFAULT_RELAYS, filter } });
+                console.log('[DM] Worker posted fetchDMs');
+            } catch (err) {
+                reject(err);
+            }
+        });
+        // Start auth concurrently (do not await yet) so the prompt can show while worker runs
+        console.log('[DM] Starting auth concurrently');
+        const authStart = performance.now();
+        const authPromise = getAuthOnce();
 
-        // Now await auth and decrypt in batch
-        console.debug('[DM] Awaiting auth to decrypt...');
+        // Wait for worker results first
+        const events = await workerPromise;
+        const t1 = performance.now();
+        console.log(`[DM] Worker relay fetch completed: ${events.length} events in ${(t1 - t0).toFixed(2)}ms`);
+
+        // Now prompt for auth and decrypt in batch (deferred until after fetch completes)
+        console.log('[DM] Awaiting auth to decrypt...');
         const tAuth0 = performance.now();
         const { nsec } = await authPromise;
         const privkey = bytesToHex(nsec);
         const tAuth1 = performance.now();
-        console.debug(`[DM] Auth ready, proceeding to decrypt (auth wait ${(tAuth1 - tAuth0).toFixed(2)}ms)`);
+        console.log(`[DM] Auth ready, proceeding to decrypt (auth wait ${(tAuth1 - tAuth0).toFixed(2)}ms)`);
 
         const tDec0 = performance.now();
         const decrypted = await Promise.all(
@@ -747,7 +776,7 @@ export async function getMessageHistoryOptimized(
             })
         );
         const tDec1 = performance.now();
-        console.debug(`[DM] Decryption finished in ${(tDec1 - tDec0).toFixed(2)}ms`);
+        console.log(`[DM] Decryption finished in ${(tDec1 - tDec0).toFixed(2)}ms`);
 
         return decrypted.filter(Boolean) as {
             plaintext: string;
@@ -936,6 +965,106 @@ export async function getMessagedPeople(): Promise<
 		appStore.showErrorToast(errorMessage);
 		throw err;
 	}
+}
+
+/**
+ * Optimized variant: build the messaged-people list without requiring private key or decryption.
+ * Uses cached NPUB (Preferences) if available to avoid auth prompt.
+ */
+export async function getMessagedPeopleOptimized(): Promise<
+    { pubkey: string; lastEvent: NostrEvent; profile: { name?: string; picture?: string } }[]
+> {
+    try {
+        // Resolve our own npub without prompting if possible
+        let npub: string | null = null;
+        try {
+            const { Preferences } = await import('@capacitor/preferences');
+            const { StorageKeys } = await import('$lib/utils/constants/storage');
+            const { value } = await Preferences.get({ key: StorageKeys.NPUB });
+            if (value) {
+                npub = value;
+                console.log('[People] Using cached NPUB from Preferences:', npub.substring(0, 16) + '...');
+            }
+        } catch {
+            // ignore
+        }
+        if (!npub) {
+            console.log('[People] Resolving NPUB via getNpub()');
+            npub = await getNpub();
+        }
+
+        if (!npub || typeof npub !== 'string') {
+            throw new Error('Invalid npub: not a string or empty');
+        }
+
+        let pubkeyHex: string;
+        if (npub.startsWith('npub')) {
+            const decoded = nip19.decode(npub);
+            if (decoded.type !== 'npub') throw new Error(`Expected npub type, got: ${decoded.type}`);
+            pubkeyHex = decoded.data as string;
+        } else if (/^[0-9a-fA-F]{64}$/.test(npub)) {
+            pubkeyHex = npub.toLowerCase();
+        } else {
+            throw new Error(`Invalid pubkey format: ${npub.substring(0, 20)}...`);
+        }
+
+        const sentFilter: Filter = {
+            kinds: [4],
+            authors: [pubkeyHex],
+            limit: 1000
+        };
+        const receivedFilter: Filter = {
+            kinds: [4],
+            '#p': [pubkeyHex],
+            limit: 1000
+        };
+
+        console.log('[People] Fetching sent/received DM headers');
+        const [sentEvents, receivedEvents] = await Promise.all([
+            withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, sentFilter)),
+            withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, receivedFilter))
+        ]);
+
+        const allEvents = [...sentEvents, ...receivedEvents];
+
+        // Map: pubkey -> latest event
+        const peopleMap = new Map<string, NostrEvent>();
+        for (const event of allEvents) {
+            let otherPubkey: string | undefined;
+            if (event.pubkey === pubkeyHex) {
+                const pTag = event.tags.find((t) => t[0] === 'p');
+                if (pTag && pTag[1]) otherPubkey = pTag[1];
+            } else {
+                otherPubkey = event.pubkey;
+            }
+            if (!otherPubkey || otherPubkey === pubkeyHex) continue;
+            const prev = peopleMap.get(otherPubkey);
+            if (!prev || event.created_at > prev.created_at) {
+                peopleMap.set(otherPubkey, event);
+            }
+        }
+
+        // Fetch profiles (no decryption) in parallel
+        const results = await Promise.all(
+            Array.from(peopleMap.entries()).map(async ([pubkey, lastEvent]) => {
+                let profile = { name: undefined as string | undefined, picture: undefined as string | undefined };
+                try {
+                    const fetchedProfile = await fetchProfileMetadata(pubkey);
+                    profile = { name: fetchedProfile.name, picture: fetchedProfile.picture };
+                } catch (e) {
+                    console.error('[People] Failed to fetch profile for', pubkey, e);
+                }
+                return { pubkey, lastEvent, profile };
+            })
+        );
+
+        return results;
+    } catch (err) {
+        console.error('💥 getMessagedPeopleOptimized error:', err);
+        const errorMessage = (err as Error)?.message || 'Failed to fetch messaged people';
+        appStore.showErrorToast(errorMessage);
+        throw err;
+    }
 }
 
 /**
