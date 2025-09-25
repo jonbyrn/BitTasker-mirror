@@ -83,7 +83,7 @@
 	}
 </script>
 
-<div class="bg-base-100 mx-2 md:mx-auto max-w-7xl p-4 md:p-0 rounded-2xl shadow-lg mt-8 md:mt-4 ">
+<div class="bg-base-100 mx-2 md:mx-auto max-w-7xl rounded-2xl shadow-lg mt-8 md:mt-4 overflow-hidden h-[calc(100vh-16rem)] flex flex-col">
 	{#if isLoading}
 		<!-- Loading State -->
 		<div class="flex h-full items-center justify-center">
@@ -115,8 +115,8 @@
 			</div>
 		</div>
 	{:else}
-		<!-- Chat Header with Back Button -->
-		<div class="flex flex-shrink-0 items-center border-b border-base-300/20">
+		<!-- Chat Header with Back Button - Fixed Header -->
+		<div class="flex flex-shrink-0 items-center border-b border-base-300/20 p-4">
 			<!-- Back Button -->
 			<button
 				class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors flex-shrink-0 ml-2"
@@ -140,7 +140,7 @@
 			</button>
 
 			<!-- Recipient Info -->
-			<div class="flex flex-1 items-center justify-between min-w-0 p-0 md:p-4">
+			<div class="flex flex-1 items-center justify-between min-w-0">
 				<div class="flex items-center gap-2 min-w-0 flex-1">
 					<div class="flex-shrink-0">
 						{#if recipientProfile?.picture}
@@ -219,8 +219,8 @@
 			</div>
 		</div>
 
-		<!-- ChatView Component -->
-		<div class="flex-1 overflow-hidden">
+		<!-- ChatView Component - Scrollable Area -->
+		<div class="flex-1 overflow-hidden min-w-0 flex flex-col">
 			<ChatView
 				{recipientPubkey}
 				currentUserPubkey={currentUserNpub}

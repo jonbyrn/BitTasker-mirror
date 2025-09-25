@@ -17,7 +17,7 @@
 	let {
 		recipientPubkey,
 		currentUserPubkey,
-		initialProfile
+		initialProfile,
 	}: {
 		recipientPubkey: string;
 		currentUserPubkey: string;
@@ -30,7 +30,7 @@
 	let isLoadingMessages = $state(true);
 	let isSendingMessage = $state(false);
 	let error = $state('');
-	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
+	let recipientProfile = $state<{ name?: string; picture?: string }>({});
 	let currentUserProfile = $state<{ name?: string; picture?: string }>({
 		name: $t('dashboard.bids.components.messages.chat_message.you')
 	});
@@ -76,7 +76,8 @@
 			return currentUserPubkey.startsWith('npub')
 				? (nip19.decode(currentUserPubkey).data as string)
 				: currentUserPubkey;
-		} catch {
+		} catch (error) {
+			console.error('Error converting currentUserPubkey to hex:', error);
 			return currentUserPubkey;
 		}
 	});
@@ -265,6 +266,7 @@
 				limit: MESSAGES_PER_PAGE
 			});
 
+
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
@@ -410,13 +412,23 @@
 			profileUnsubscribe();
 		}
 
+		// First, try to fetch the profile immediately
+		fetchProfileMetadata(recipientHex())
+			.then((profile) => {
+				if (profile && (profile.name || profile.picture)) {
+					recipientProfile = { ...profile };
+				}
+			})
+			.catch((err) => {
+				console.error('Failed to fetch recipient profile:', err);
+			});
+
 		// Setup new subscription for profile updates using hex format
 		profileUnsubscribe = subscribeToProfileUpdates(recipientHex(), (profile) => {
 			// Only update if we get valid profile data, otherwise keep existing
 			if (profile && (profile.name || profile.picture)) {
 				// Create a new object reference to ensure Svelte reactivity
 				recipientProfile = { ...profile };
-			} else {
 			}
 		});
 	}
@@ -585,11 +597,11 @@
 	}
 </script>
 
-<div class="flex flex-col">
-	<!-- Messages Area -->
+<div class="flex flex-col h-full">
+	<!-- Messages Area - Scrollable -->
 	<div
 		bind:this={messagesContainer}
-		class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4"
+		class="flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-6 py-4 min-h-0"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -680,12 +692,24 @@
 			{:else}
 				<!-- Messages List -->
 				{#each messages as message}
+					{@const isCurrentUserSender = message.senderPubkey === currentUserHex()}
+					{@const messageProfile = isCurrentUserSender ? currentUserProfile : recipientProfile}
+					
+					<!-- Debug logs -->
+					{console.log('MESSAGE DEBUG:', {
+						messageText: message.plaintext.substring(0, 20) + '...',
+						isCurrentUserSender,
+						recipientProfile,
+						currentUserProfile,
+						messageProfile
+					})}
+					
 					<ChatMessage
 						{message}
-						isSender={message.senderPubkey === currentUserHex()}
-						profile={message.senderPubkey === currentUserHex()
-							? currentUserProfile
-							: recipientProfile}
+						isSender={isCurrentUserSender}
+						profile={messageProfile}
+						currentUserProfile={currentUserProfile}
+						recipientProfile={recipientProfile}
 						onReply={startReply}
 						currentUserId={currentUserHex()}
 						onReactionAdd={handleReactionAdd}
@@ -696,8 +720,8 @@
 		{/if}
 	</div>
 
-	<!-- Message Input Area -->
-	<div class="border-base-300/20 flex-shrink-0 border-t px-6 py-4">
+	<!-- Message Input Area - Fixed at bottom -->
+	<div class="border-base-300/20 flex-shrink-0 border-t px-6 py-4 bg-base-100">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">

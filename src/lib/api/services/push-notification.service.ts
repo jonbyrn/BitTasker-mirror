@@ -590,7 +590,6 @@ class PushNotificationService {
 				throw new Error(result.errors[0].message);
 			}
 
-			console.log('✅ Successfully registered device on server');
 		} catch (error) {
 			throw error || new Error('❌ An error occurred while registering device on server');
 		}
