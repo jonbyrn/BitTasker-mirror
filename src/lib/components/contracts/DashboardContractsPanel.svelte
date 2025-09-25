@@ -1,8 +1,8 @@
 <script lang="ts">
+	import type { ContractWithEvents } from '$lib/types/contract';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
-	import type { ContractWithEvents } from '$lib/types/contract';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
@@ -81,24 +81,6 @@
 		// Reload contracts to get latest data
 		loadContracts();
 		closeContractDrawer();
-	}
-
-	// Status badge classes
-	function getStatusBadgeClass(status: string): string {
-		switch (status) {
-			case 'active':
-				return 'badge-info';
-			case 'completed':
-				return 'badge-warning';
-			case 'disputed':
-				return 'badge-error';
-			case 'resolved':
-				return 'badge-success';
-			case 'cancelled':
-				return 'badge-neutral';
-			default:
-				return 'badge-ghost';
-		}
 	}
 </script>
 
@@ -204,6 +186,7 @@
 						{contract} 
 						btcPrice={btcPrice}
 						onclick={() => openContractDrawer(contract)}
+						onActionComplete={loadContracts}
 					/>
 				{/each}
 			</div>

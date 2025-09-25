@@ -483,10 +483,10 @@ export async function publishContractStatus(params: PublishStatusParams): Promis
 
 		// Get the contract data from the first (creation) message
 		const contractData: NostrContract = JSON.parse(contractEvents[0].plaintext);
-		
+
 		// Determine recipient: if sender is client, send to freelancer, and vice versa
-		const recipientPubkey = senderPubkey === contractData.clientPubkey 
-			? contractData.freelancerPubkey 
+		const recipientPubkey = senderPubkey === contractData.clientPubkey
+			? contractData.freelancerPubkey
 			: contractData.clientPubkey;
 
 		// Send as encrypted DM with single-character tags
@@ -563,11 +563,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						if (!contractCreationMessage) continue;
 
 						const contractData: NostrContract = JSON.parse(contractCreationMessage.plaintext);
-						
+
 						// Check if user is involved in this contract
 						const isClient = contractData.clientPubkey === userPubkey;
 						const isFreelancer = contractData.freelancerPubkey === userPubkey;
-						
+
 						if (!isClient && !isFreelancer) continue;
 
 						// Apply additional filters
@@ -599,17 +599,103 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							}
 						}
 
-						// Update contract with current status
-						const updatedContract = { ...contractData, status: currentStatus };
+						// Determine available actions by checking actual RSK contract state
+						let canComplete = false;
+						let canAccept = false;
+						let canDispute = false;
+						let canPropose = false;
+						let canAcceptProposal = false;
+						let canCancel = false;
+						let canResolveTimelock = false;
 
-						// Determine available actions
-						const canComplete = isFreelancer && currentStatus === 'active';
-						const canAccept = isClient && currentStatus === 'completed';
-						const canDispute = isClient && currentStatus === 'completed';
-						const canPropose = currentStatus === 'disputed';
-						const canAcceptProposal = currentStatus === 'disputed'; // TODO: Check if proposal exists
-						const canCancel = currentStatus === 'active';
-						const canResolveTimelock = currentStatus === 'disputed'; // TODO: Check timelock
+						try {
+							// Import escrow functions to check actual contract state
+							const { escrow } = await import('$lib/utils/wallet/escrow');
+							const { rskAddress } = await import('$lib/stores/wallet.store');
+							const { get } = await import('svelte/store');
+
+							// Get actual escrow data from RSK contract
+							const escrowData = await escrow.getEscrow(contractData.escrowId);
+							const disputeProposal = await escrow.getDisputeProposal(contractData.escrowId);
+							const userAddress = get(rskAddress);
+
+							// console.log({ escrowData, disputeProposal, contractData });
+
+							console.log(`Contract ${contractData.escrowId}: RSK status = ${escrowData?.status} (${escrowData ? ['Funded', 'InDispute', 'DisputeResolved', 'DisputeUnresolved', 'Completed', 'Cancelled'][escrowData.status] || 'Unknown' : 'No Data'})`);
+
+							if (escrowData && userAddress) {
+								const userAddr = userAddress.toLowerCase();
+
+								// Import EscrowStatus for comparison
+								const { EscrowStatus } = await import('$lib/utils/enums/wallet.enum');
+
+								// RSK contract state is the ONLY source of truth
+								// Always sync Nostr status to match RSK and determine permissions accordingly
+								switch (escrowData.status) {
+									case EscrowStatus.Funded: // 0
+										currentStatus = 'active';
+										canComplete = isFreelancer;
+										canCancel = true; // Either party can cancel when funded
+										break;
+										
+									case EscrowStatus.InDispute: // 1
+										currentStatus = 'disputed';
+										
+										// Can propose resolution if no active proposal exists
+										canPropose = !disputeProposal;
+										
+										// Can accept proposal if:
+										// 1. Proposal exists
+										// 2. User is not the proposer
+										canAcceptProposal = !!disputeProposal &&
+											disputeProposal.proposer.toLowerCase() !== userAddr;
+										
+										// Can resolve after timelock if timelock has expired
+										canResolveTimelock = Date.now() > (escrowData.timelockExpiry * 1000);
+										break;
+										
+									case EscrowStatus.DisputeResolved: // 2
+									case EscrowStatus.DisputeUnresolved: // 3
+										currentStatus = 'resolved';
+										// TODO: No actions available for resolved disputes
+										break;
+										
+									case EscrowStatus.Completed: // 4
+										currentStatus = 'completed';
+										canAccept = isClient;
+										canDispute = isClient;
+										break;
+										
+									case EscrowStatus.Cancelled: // 5
+										currentStatus = 'cancelled';
+										// No actions available for cancelled contracts
+										break;
+								}
+							} else {
+								// Fallback to Nostr status if RSK data unavailable
+								console.warn('RSK escrow data unavailable, falling back to Nostr status');
+								canComplete = isFreelancer && currentStatus === 'active';
+								canAccept = isClient && currentStatus === 'completed';
+								canDispute = isClient && currentStatus === 'completed';
+								canPropose = currentStatus === 'disputed';
+								canAcceptProposal = currentStatus === 'disputed';
+								canCancel = currentStatus === 'active';
+								canResolveTimelock = currentStatus === 'disputed';
+							}
+						} catch (error) {
+							// If RSK check fails, fall back to Nostr status
+							console.warn('Failed to check RSK contract state, using Nostr status:', error);
+							canComplete = isFreelancer && currentStatus === 'active';
+							canAccept = isClient && currentStatus === 'completed';
+							canDispute = isClient && currentStatus === 'completed';
+							canPropose = currentStatus === 'disputed';
+							canAcceptProposal = currentStatus === 'disputed';
+							canCancel = currentStatus === 'active';
+							canResolveTimelock = currentStatus === 'disputed';
+						}
+
+						// NOW create the updated contract with RSK-synced status as the source of truth
+						const updatedContract = { ...contractData, status: currentStatus };
 
 						contracts.push({
 							contract: updatedContract,
@@ -665,7 +751,7 @@ async function getContractMessagesByEscrowId(escrowId: string): Promise<{ plaint
 						const parsedContent = JSON.parse(message.plaintext);
 
 						// Check if it's a contract-related message for this escrow
-						if ((parsedContent.messageType === 'contract' || parsedContent.messageType === 'contract-status') 
+						if ((parsedContent.messageType === 'contract' || parsedContent.messageType === 'contract-status')
 							&& parsedContent.escrowId === escrowId) {
 							contractMessages.push(message);
 						}
@@ -691,7 +777,7 @@ async function getContractMessagesByEscrowId(escrowId: string): Promise<{ plaint
  * Get status events for a specific contract from messages
  */
 async function getContractStatusEventsFromMessages(
-	escrowId: string, 
+	escrowId: string,
 	messages: { plaintext: string; event: NostrEvent; senderPubkey: string }[]
 ): Promise<ContractStatusEvent[]> {
 	try {

@@ -3,11 +3,13 @@
 	import { t } from 'svelte-i18n';
 	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 	import UserProfile from '$lib/components/UserNostrBadge.svelte';
+	import ContractActions from './ContractActions.svelte';
 
-	const { contract, btcPrice, onclick } = $props<{
+	const { contract, btcPrice, onclick, onActionComplete } = $props<{
 		contract: ContractWithEvents;
 		btcPrice: number;
 		onclick?: () => void;
+		onActionComplete?: () => void;
 	}>();
 
 	// Format RBTC amount
@@ -56,18 +58,6 @@
 		return count;
 	}
 
-	// Get next action text
-	function getNextActionText(): string {
-		if (contract.canComplete) return $t('dashboard.contracts.actions.complete_task');
-		if (contract.canAccept) return $t('dashboard.contracts.actions.accept_work');
-		if (contract.canDispute) return $t('dashboard.contracts.actions.dispute_work');
-		if (contract.canPropose) return $t('dashboard.contracts.actions.propose_resolution');
-		if (contract.canAcceptProposal) return $t('dashboard.contracts.actions.accept_proposal');
-		if (contract.canCancel) return $t('dashboard.contracts.actions.cancel_contract');
-		if (contract.canResolveTimelock) return $t('dashboard.contracts.actions.resolve_timelock');
-		return '';
-	}
-
 	/**
 	 * Get status badge color classes based on task status
 	 */
@@ -91,13 +81,7 @@
 	}
 </script>
 
-<div
-	class="card bg-base-100 border-base-300 hover:border-primary/20 group cursor-pointer border shadow-sm transition-all duration-200 hover:shadow-lg"
-	{onclick}
-	role="button"
-	tabindex="0"
-	onkeydown={(e) => e.key === 'Enter' && onclick?.()}
->
+<div class="card bg-base-100 border-base-300 border shadow-sm hover:border-primary/20 group cursor-pointer transition-all duration-200 hover:shadow-lg">
 	<div class="card-body p-4">
 		<!-- Header -->
 		<div class="flex items-start justify-between gap-4">
@@ -193,20 +177,22 @@
 		<!-- Actions Footer -->
 		{#if getAvailableActionsCount() > 0}
 			<div class="divider my-3"></div>
-			<div class="place-self-end">
-				{#if contract.canCancel}
+			<div class="flex justify-end items-center gap-2">
+				<ContractActions 
+					{contract} 
+					{onActionComplete}
+					containerClass="flex flex-row-reverse gap-2"
+					openDrawer={() => onclick?.()}
+					isInline={true}
+				/>
+				{#if onclick}
 					<button
-						class="btn btn-error btn-xs"
-						onclick={(e) => {
-							e.stopPropagation();
-							// Open drawer to show cancel action
-							onclick?.();
-						}}
-						title={$t('dashboard.contracts.actions.cancel_contract')}
+						class="btn btn-outline btn-sm"
+						onclick={() => onclick?.()}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-3 w-3"
+							class="h-4 w-4"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -215,43 +201,37 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M6 18L18 6M6 6l12 12"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 							/>
 						</svg>
-						{$t('dashboard.contracts.actions.cancel_contract')}
+						{$t('dashboard.contracts.view_details')}
 					</button>
 				{/if}
-
-				{#if getAvailableActionsCount() > 1}
-					<div class="badge badge-outline badge-md">
-						+{getAvailableActionsCount() - 1}
-						{$t('dashboard.contracts.more_actions')}
-					</div>
-				{/if}
+			</div>
+		{:else if onclick}
+			<div class="divider my-3"></div>
+			<div class="flex justify-end">
+				<button
+					class="btn btn-outline btn-sm"
+					onclick={() => onclick?.()}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-4 w-4"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					{$t('dashboard.contracts.view_details')}
+				</button>
 			</div>
 		{/if}
-
-		<!-- Click indicator -->
-		<div
-			class="absolute top-3 right-3 transform opacity-0 transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-100"
-		>
-			<div class="bg-primary/10 rounded-full p-1">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="text-primary h-4 w-4"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-				</svg>
-			</div>
-		</div>
 	</div>
 </div>
-
-<style>
-	.card:hover .absolute {
-		opacity: 1;
-	}
-</style>

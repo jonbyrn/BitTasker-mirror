@@ -76,6 +76,18 @@
 				return 'badge-ghost';
 		}
 	}
+
+	const getAvailableActionsCount = () => {
+		let count = 0;
+		if (contract.canComplete) count++;
+		if (contract.canAccept) count++;
+		if (contract.canDispute) count++;
+		if (contract.canPropose) count++;
+		if (contract.canAcceptProposal) count++;
+		if (contract.canCancel) count++;
+		if (contract.canResolveTimelock) count++;
+		return count;
+	};
 </script>
 
 <Drawer
@@ -253,7 +265,37 @@
 			</div>
 
 			<!-- Available Actions -->
-			<ContractActions {contract} onActionComplete={handleActionComplete} />
+			<div class="card bg-base-200">
+				<div class="card-body p-4">
+					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.available_actions')}</h4>
+
+					<!-- No actions available -->
+					{#if getAvailableActionsCount() === 0}
+						<div class="text-base-content/60 py-4 text-center">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="mx-auto mb-2 h-8 w-8 opacity-50"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+								/>
+							</svg>
+							<p class="text-sm">{$t('dashboard.contracts.no_actions_available')}</p>
+						</div>
+					{/if}
+					<ContractActions
+						{contract}
+						onActionComplete={handleActionComplete}
+						containerClass="grid grid-cols-1 sm:grid-cols-2 gap-3"
+					/>
+				</div>
+			</div>
 
 			<!-- Status Timeline -->
 			<div class="card bg-base-200">

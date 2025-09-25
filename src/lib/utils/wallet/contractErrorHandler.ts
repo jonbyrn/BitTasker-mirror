@@ -173,6 +173,14 @@ export function extractContractError(error: unknown): ContractError {
 		};
 	}
 
+	if (errorLower.includes('invalid_argument') || errorLower.includes('invalid argument')) {
+		return {
+			userMessage: _('dashboard.contracts.errors.invalid_argument'),
+			technicalMessage: errorMessage,
+			errorCode: 'INVALID_ARGUMENT'
+		};
+	}
+
 	if (errorLower.includes('wallet') || errorLower.includes('provider')) {
 		return {
 			userMessage: _('dashboard.contracts.errors.wallet_error'),

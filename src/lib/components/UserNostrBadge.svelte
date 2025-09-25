@@ -99,12 +99,12 @@
 			{isLoading ? 'Loading...' : getDisplayName()}
 		</span>
 
-		{#if showReviews && !isLoading}
-			<!-- Review System - Currently not implemented in Nostr -->
+		<!-- TODO: Review System - Currently not implemented in Nostr -->
+		<!-- {#if showReviews && !isLoading}
 			<div class="flex items-center gap-1">
 				<span class="text-base-content/60 {config.details}"> No reviews yet </span>
 			</div>
-		{/if}
+		{/if} -->
 
 		{#if showMemberSince && !isLoading}
 			<p class="text-base-content/60 {config.details}">

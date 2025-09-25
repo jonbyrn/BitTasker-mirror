@@ -435,6 +435,7 @@
       "status_updates": "Actualizaciones de Estado",
       "updates": "actualizaciones",
       "more_actions": "más acciones",
+      "view_details": "Ver Detalles",
       "close_modal": "Cerrar modal",
       "close": "Cerrar",
       "contract_details": "Detalles del Contrato",
@@ -497,7 +498,12 @@
         "escrow_cancelled_error": "Error al cancelar el contrato",
         "timelock_resolved_message": "Contrato resuelto después de la expiración del timelock",
         "timelock_resolved_success": "¡Contrato resuelto exitosamente!",
-        "timelock_resolved_error": "Error al resolver el contrato"
+        "timelock_resolved_error": "Error al resolver el contrato",
+        "timelock_resolution": "Resolución después del Timelock",
+        "timelock_expired_message": "El período de timelock ha expirado. Por favor resuelve el contrato.",
+        "current_proposal": "Propuesta Actual",
+        "proposed_by": "Propuesto por",
+        "loading_proposal": "Cargando propuesta..."
       },
       "errors": {
         "unknown_error": "Ocurrió un error inesperado. Por favor inténtalo de nuevo.",

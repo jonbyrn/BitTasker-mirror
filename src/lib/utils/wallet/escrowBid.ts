@@ -222,8 +222,6 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.freelancerFeeTier
 		);
 
-		console.log({ transactionResult })
-
 		// Register pending contract creation with our event management system		
 		registerPendingContractByTxHash({
 			taskId: task.id,

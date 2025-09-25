@@ -437,6 +437,7 @@
       "status_updates": "Status Updates",
       "updates": "updates",
       "more_actions": "more actions",
+      "view_details": "View Details",
       "close_modal": "Close modal",
       "close": "Close",
       "contract_details": "Contract Details",
@@ -499,7 +500,12 @@
         "escrow_cancelled_error": "Failed to cancel contract",
         "timelock_resolved_message": "Contract resolved after timelock expiration",
         "timelock_resolved_success": "Contract resolved successfully!",
-        "timelock_resolved_error": "Failed to resolve contract"
+        "timelock_resolved_error": "Failed to resolve contract",
+        "timelock_resolution": "Timelock Resolution",
+        "timelock_expired_message": "The timelock period has expired. Please resolve the contract.",
+        "current_proposal": "Current Proposal",
+        "proposed_by": "Proposed by",
+        "loading_proposal": "Loading proposal..."
       },
       "errors": {
         "unknown_error": "An unexpected error occurred. Please try again.",

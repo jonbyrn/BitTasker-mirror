@@ -27,7 +27,7 @@ export async function ensureEscrowReady(): Promise<{
             throw new Error('Failed to initialize wallet');
         }
     }
-    
+
     // Check and get provider if needed
     let provider = getRSKProvider();
     if (!provider) {
@@ -38,7 +38,7 @@ export async function ensureEscrowReady(): Promise<{
             throw new Error('Failed to get provider');
         }
     }
-    
+
     // Check and connect contract if needed
     if (!contract) {
         await connectToEscrowContract();
@@ -46,13 +46,13 @@ export async function ensureEscrowReady(): Promise<{
             throw new Error('Failed to connect to contract');
         }
     }
-    
+
     // Check wallet balance
     const balance = await provider.getBalance(wallet.address);
     if (balance === 0n) {
         throw new Error('Insufficient balance. Please fund your wallet with RBTC to pay for transaction fees.');
     }
-    
+
     return { contract, wallet, provider };
 }
 
@@ -138,25 +138,12 @@ async function connectToEscrowContract(): Promise<void> {
     }
 }
 
-
-// Helper function to update escrow status
-function updateEscrowStatus(escrowId: string, status: EscrowStatus): void {
-    walletStore.update(state => ({
-        ...state,
-        rsk: {
-            ...state.rsk,
-            escrows: (state.rsk.escrows || []).map(escrow =>
-                escrow.id === escrowId
-                    ? { ...escrow, status, lastUpdated: Date.now() }
-                    : escrow
-            )
-        }
-    }));
-}
-
 // Load escrow details from contract
 async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
-    if (!contract) return null;
+    if (!contract) {
+        await ensureEscrowReady();
+        if (!contract) return null;
+    }
 
     try {
         const escrowData = await contract.getEscrow(escrowId);
@@ -164,10 +151,11 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
         // Map contract state enum to our EscrowStatus
         const statusMapping: Record<number, EscrowStatus> = {
             0: EscrowStatus.Funded,
-            1: EscrowStatus.Completed,
-            2: EscrowStatus.InDispute,
-            3: EscrowStatus.Resolved,
-            4: EscrowStatus.Cancelled
+            1: EscrowStatus.InDispute,
+            2: EscrowStatus.DisputeResolved,
+            3: EscrowStatus.DisputeUnresolved,
+            4: EscrowStatus.Completed,
+            5: EscrowStatus.Cancelled
         };
 
         const escrow: EscrowData = {
@@ -196,22 +184,13 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
     }
 }
 
-// Helper function to determine fee tier from amounts
-function getFeeTierFromAmount(baseAmount: bigint, feeAmount: bigint): FeeTier {
-    if (baseAmount === 0n) return 1;
-
-    const percentage = Number((feeAmount * 10000n) / baseAmount);
-
-    if (percentage >= 240 && percentage <= 260) return 1; // 2.5%
-    if (percentage >= 190 && percentage <= 210) return 2; // 2.0%
-    if (percentage >= 140 && percentage <= 160) return 3; // 1.5%
-
-    return 1; // Default to tier 1
-}
-
 // Load dispute proposal details
-async function loadDisputeProposal(escrowId: string): Promise<DisputeProposal | null> {
-    if (!contract) return null;
+async function getDisputeProposal(escrowId: string): Promise<DisputeProposal | null> {
+    if (!contract) {
+        await ensureEscrowReady();
+        console.log({ contract });
+        if (!contract) return null;
+    }
 
     try {
         const proposalData = await contract.getDisputeProposal(escrowId);
@@ -348,7 +327,7 @@ async function createEscrow(
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();
                 console.log('Escrow transaction confirmed, extracting escrow ID...', receipt);
-                
+
                 // Extract escrow ID from the EscrowCreated event in the receipt
                 try {
                     if (!contract) {
@@ -373,16 +352,16 @@ async function createEscrow(
                             topics: escrowCreatedEvent.topics,
                             data: escrowCreatedEvent.data
                         });
-                        
+
                         if (parsedLog) {
                             const escrowId = parsedLog.args[0].toString();
                             const client = parsedLog.args[1];
                             const freelancer = parsedLog.args[2];
                             const amount = parsedLog.args[3].toString();
-                            
+
                             console.log('Extracted escrow ID from receipt:', escrowId);
                             result.escrowId = escrowId;
-                            
+
                             // Handle escrow created event through our event management system
                             const { handleEscrowCreated } = await import('$lib/utils/wallet/escrowEvents');
                             await handleEscrowCreated({
@@ -703,21 +682,6 @@ async function estimateContractGas(functionName: string, escrowId: string, ...ar
     }
 }
 
-// Get escrow by ID
-async function getEscrow(escrowId: string): Promise<EscrowData | null> {
-    return await loadEscrowDetails(escrowId);
-}
-
-// Get dispute proposal by escrow ID
-async function getDisputeProposal(escrowId: string): Promise<DisputeProposal | null> {
-    return await loadDisputeProposal(escrowId);
-}
-
-// Refresh escrow data
-async function refreshEscrows(): Promise<void> {
-    await loadUserEscrows();
-}
-
 // Check if contract is paused
 async function isContractPaused(): Promise<boolean> {
     try {
@@ -742,9 +706,9 @@ export const escrow = {
     resolveAfterTimelock,
     estimateEscrowCreationGas,
     estimateContractGas,
-    getEscrow,
+    getEscrow: loadEscrowDetails,
     getDisputeProposal,
-    refreshEscrows,
+    refreshEscrows: loadUserEscrows,
     loadUserEscrows,
     isContractPaused
 }
@@ -779,7 +743,10 @@ export const rskDisputedEscrows = derived(walletStore, $store =>
 );
 
 export const rskResolvedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => escrow.status === EscrowStatus.Resolved)
+    ($store.rsk.escrows || []).filter(escrow => 
+        escrow.status === EscrowStatus.DisputeResolved || 
+        escrow.status === EscrowStatus.DisputeUnresolved
+    )
 );
 
 export const rskCancelledEscrows = derived(walletStore, $store =>

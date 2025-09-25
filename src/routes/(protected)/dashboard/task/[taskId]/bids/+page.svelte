@@ -459,7 +459,7 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 									</svg>
 									{$t('dashboard.bids.bid_acceptance.decline')}
 								</button>
-								<button
+								<!-- <button
 									class="btn btn-info btn-outline btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleCounterOffer(bid)}
 								>
@@ -478,7 +478,7 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 										/>
 									</svg>
 									{$t('dashboard.bids.bid_acceptance.counter')}
-								</button>
+								</button> -->
 								<button
 									class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleAcceptBid(bid)}

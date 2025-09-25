@@ -75,7 +75,6 @@ const authPlugin: ClientPlugin = () => {
 				// Always ensure token is initialized before proceeding
 				if (!tokenInitialized && tokenInitPromise) {
 					await tokenInitPromise;
-					console.log('Token initialization complete. Token exists:', !!cachedToken);
 				}
 
 				// Get device ID directly (it's fast enough to do on each request)
