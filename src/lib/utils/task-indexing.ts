@@ -30,27 +30,34 @@ export interface FilterPerformanceMetrics {
 export function indexTaskData(tasks: Task[]): IndexedTask[] {
 	const startTime = performance.now();
 	
+    const normalizeToKey = (value: unknown): string => {
+        if (typeof value === 'string') return value.toLowerCase().trim();
+        if (value && typeof value === 'object') {
+            const v = value as any;
+            if (typeof v.id === 'string' || typeof v.id === 'number') return String(v.id).toLowerCase().trim();
+            if (typeof v.name === 'string') return v.name.toLowerCase().trim();
+            if (typeof v.title === 'string') return v.title.toLowerCase().trim();
+        }
+        return String(value ?? '').toLowerCase().trim();
+    };
+
 	const indexedTasks = tasks.map((task): IndexedTask => {
 		// Create normalized skill and category sets for O(1) lookups
-		const skillsSet = new Set(
-			(task.skills || []).map(skill => skill.toLowerCase().trim())
-		);
+        const skillsSet = new Set((task.skills || []).map((skill) => normalizeToKey(skill)));
 		
-		const categoriesSet = new Set(
-			(task.categories || []).map(category => category.toLowerCase().trim())
-		);
+        const categoriesSet = new Set((task.categories || []).map((category) => normalizeToKey(category)));
 		
 		// Pre-normalize text fields for search
 		const normalizedTitle = task.title?.toLowerCase().trim() || '';
 		const normalizedDescription = task.description?.toLowerCase().trim() || '';
 		
 		// Create combined searchable text for full-text search
-		const searchableText = [
-			normalizedTitle,
-			normalizedDescription,
-			...(task.skills || []).map(s => s.toLowerCase()),
-			...(task.categories || []).map(c => c.toLowerCase())
-		].join(' ');
+        const searchableText = [
+            normalizedTitle,
+            normalizedDescription,
+            ...Array.from(skillsSet),
+            ...Array.from(categoriesSet)
+        ].join(' ');
 		
 		return {
 			...task,
@@ -91,8 +98,19 @@ export function filterIndexedTasks(
 	}
 	
 	// Pre-process filter criteria for O(1) lookups
-	const normalizedSkills = params.skills?.map(skill => skill.toLowerCase().trim()) || [];
-	const normalizedCategories = params.categories?.map(cat => cat.toLowerCase().trim()) || [];
+    const normalizeToKey = (value: unknown): string => {
+        if (typeof value === 'string') return value.toLowerCase().trim();
+        if (value && typeof value === 'object') {
+            const v = value as any;
+            if (typeof v.id === 'string' || typeof v.id === 'number') return String(v.id).toLowerCase().trim();
+            if (typeof v.name === 'string') return v.name.toLowerCase().trim();
+            if (typeof v.title === 'string') return v.title.toLowerCase().trim();
+        }
+        return String(value ?? '').toLowerCase().trim();
+    };
+
+    const normalizedSkills = (params.skills || []).map(normalizeToKey);
+    const normalizedCategories = (params.categories || []).map(normalizeToKey);
 	const searchTerm = params.search?.toLowerCase().trim();
 	
 	// Convert to Sets for O(1) lookup performance
