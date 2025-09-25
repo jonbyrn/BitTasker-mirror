@@ -39,6 +39,9 @@
 		})
 	);
 
+	// Currently selected asset details (for icon + label rendering)
+	let selectedAssetDetails = $derived(availableAssets.find(a => a.assetId === selectedAsset));
+
 	// Auto-select first available asset when network changes and reset state
 	$effect(() => {
 		// Reset form state when network changes
@@ -78,35 +81,42 @@
 		}
 	]);
 
-	// Payment method options based on selected network
+	// Payment method options based on selected network (with optional icons)
 	let paymentMethodOptions = $derived(selectedNetwork === 'liquid' ? [
 		{
 			label: $t('common.components.wallet.payment_request_form.liquid_address'),
 			value: 'liquidAddress',
-			description: $t('wallet.liquid_address_desc')
+			description: $t('wallet.liquid_address_desc'),
+			icon: '/images/chains/Liquid-Bitcoin.svg'
 		},
 		{
 			label: $t('common.components.wallet.payment_request_form.lightning_invoice'),
 			value: 'bolt11Invoice',
-			description: $t('wallet.lightning_desc')
+			description: $t('wallet.lightning_desc'),
+			icon: null
 		},
 		{
 			label: $t('common.components.wallet.payment_request_form.bitcoin_address'),
 			value: 'bitcoinAddress',
-			description: $t('wallet.bitcoin_desc')
+			description: $t('wallet.bitcoin_desc'),
+			icon: null
 		},
 		{
 			label: $t('common.components.wallet.payment_request_form.bolt12_offer'),
 			value: 'bolt12Offer',
-			description: $t('wallet.bolt12_desc')
+			description: $t('wallet.bolt12_desc'),
+			icon: null
 		}
 	] : [
 		{
 			label: $t('wallet.rsk_address'),
 			value: 'rskAddress',
-			description: $t('wallet.rsk_address_desc')
+			description: $t('wallet.rsk_address_desc'),
+			icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
 		}
 	]);
+
+	let selectedPaymentMethod = $derived(paymentMethodOptions.find(m => m.value === paymentMethod));
 
 	// Auto-select first payment method when network changes
 	$effect(() => {
@@ -315,20 +325,32 @@
 			<label class="label" for="payment-method">
 				<span class="label-text font-medium">{$t('common.components.wallet.payment_request_form.payment_method')}</span>
 			</label>
-			<select
-				id="payment-method"
-				bind:value={paymentMethod}
-				class="select select-bordered w-full"
-			>
-				{#each paymentMethodOptions as method}
-					<option value={method.value}>{method.label}</option>
-				{/each}
-			</select>
-			{#if paymentMethodOptions.find(m => m.value === paymentMethod)?.description}
+			<div class="dropdown dropdown-bottom w-full">
+				<div tabindex="0" role="button" class="btn btn-outline justify-between w-full">
+					<div class="flex items-center gap-2">
+						{#if selectedPaymentMethod?.icon}
+							<img src={selectedPaymentMethod.icon} alt={selectedPaymentMethod.label} class="h-5 w-5" />
+						{/if}
+						<span class="font-medium">{selectedPaymentMethod?.label}</span>
+					</div>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z" clip-rule="evenodd"/></svg>
+				</div>
+				<ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full">
+					{#each paymentMethodOptions as method}
+						<li>
+							<button class="flex items-center gap-2 w-full justify-start" onclick={() => { paymentMethod = method.value; }}>
+								{#if method.icon}
+									<img src={method.icon} alt={method.label} class="h-5 w-5" />
+								{/if}
+								<span class="font-medium">{method.label}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</div>
+			{#if selectedPaymentMethod?.description}
 				<div class="label">
-					<span class="label-text-alt">
-						{paymentMethodOptions.find(m => m.value === paymentMethod)?.description}
-					</span>
+					<span class="label-text-alt">{selectedPaymentMethod.description}</span>
 				</div>
 			{/if}
 		</div>
@@ -340,17 +362,38 @@
 			<label class="label" for="asset-select">
 				<span class="label-text font-medium">{$t('wallet.select_asset')}</span>
 			</label>
-			<select
-				id="asset-select"
-				bind:value={selectedAsset}
-				class="select select-bordered w-full"
-			>
-				{#each availableAssets as asset}
-					<option value={asset.assetId}>
-						{asset.icon} {asset.ticker} - {asset.name}
-					</option>
-				{/each}
-			</select>
+			<div class="dropdown dropdown-bottom w-full">
+			<!-- Custom dropdown to allow icons inside options -->
+			<div class="dropdown dropdown-bottom w-full">
+				<div tabindex="0" role="button" class="btn btn-outline justify-between w-full">
+					<div class="flex items-center gap-2">
+						{#if selectedAssetDetails?.icon && selectedAssetDetails.icon.startsWith('/')}
+							<img src={selectedAssetDetails.icon} alt={selectedAssetDetails.ticker} class="h-5 w-5" />
+						{:else}
+							<span class="text-lg">{selectedAssetDetails?.icon}</span>
+						{/if}
+						<span class="font-medium">{selectedAssetDetails?.ticker}</span>
+						<span class="opacity-70">- {selectedAssetDetails?.name}</span>
+					</div>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z" clip-rule="evenodd"/></svg>
+				</div>
+				<ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-full max-h-64 overflow-auto">
+					{#each availableAssets as asset}
+						<li>
+							<button class="flex items-center gap-2" onclick={() => { selectedAsset = asset.assetId; }}>
+								{#if asset.icon && asset.icon.startsWith('/')}
+									<img src={asset.icon} alt={asset.ticker} class="h-5 w-5" />
+								{:else}
+									<span class="text-lg">{asset.icon}</span>
+								{/if}
+								<span class="font-medium">{asset.ticker}</span>
+								<span class="opacity-70">- {asset.name}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</div>
+			</div>
 		</div>
 	{/if}
 
