@@ -9,73 +9,50 @@
 	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
 
-	// Convert category IDs to translated names for display
-	let translatedCategories = $state([]);
-	let lastCategories = $state([]);
-	let lastLanguage = $state('');
-	
+	// Use category IDs directly - CategoryMultiselect now handles translation internally
+	let selectedCategoryIds = $state([] as string[]);
+	let lastCategories = $state([]) as string[];
+
 	$effect(() => {
 		try {
-			// Only update if categories or language has changed to prevent excessive re-renders
-			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
+			// Sync with store categories
 			const currentCategories = $store.task.categories;
-			
-			if (JSON.stringify(currentCategories) !== JSON.stringify(lastCategories) || 
-				currentLanguage !== lastLanguage) {
-				lastCategories = [...currentCategories];
-				lastLanguage = currentLanguage;
-				
-				translatedCategories = currentCategories.map(categoryId => {
-					const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
-					if (category) {
-						const translatedName = $t(`categories.${category.id}.name`);
-						// Fallback to category.name if translation key is returned (translation not loaded)
-						return translatedName.startsWith('categories.') ? category.name : translatedName;
-					}
-					return categoryId;
-				});
+			// Extract IDs from category objects
+			const categoryIds = currentCategories.map((cat) =>
+				typeof cat === 'string' ? cat : (cat as any).id
+			);
+			if (JSON.stringify(categoryIds) !== JSON.stringify(selectedCategoryIds)) {
+				selectedCategoryIds = [...categoryIds];
 			}
 		} catch (error) {
-			console.error('Error updating translated categories:', error);
+			console.error('Error syncing category IDs:', error);
 		}
 	});
 
-	// Handle category changes - convert translated names back to IDs
-	function handleCategoryChange(selectedItems: any[]) {
+	// Handle category changes - now CategoryMultiselect returns IDs directly
+	function handleCategoryChange(selectedItems: string[]) {
 		try {
-			console.log('handleCategoryChange called with:', selectedItems);
-			
-			// Extract values from the selected items (they might be objects with value/label or just strings)
-			const translatedNames = selectedItems.map(item => {
-				if (typeof item === 'string') {
-					return item;
-				} else if (item && typeof item === 'object' && item.value) {
-					return item.value;
-				} else if (item && typeof item === 'object' && item.label) {
-					return item.label;
-				}
-				return String(item);
+			// Convert IDs to full category objects
+			const categoryObjects = selectedItems
+				.map((categoryId) => {
+					const category = TASK_CATEGORIES.find((cat) => cat.id === categoryId);
+					if (category) {
+						return {
+							id: category.id,
+							slug: category.slug,
+							name: category.name,
+							description: category.description
+						};
+					}
+					return null;
+				})
+				.filter(Boolean);
+
+			// Update the task with the full category objects
+			store.updateTask({
+				categories: categoryObjects as any
 			});
-			
-			console.log('Extracted translatedNames:', translatedNames);
-			
-			const categoryIds = translatedNames.map(translatedName => {
-				// First try to find by translated name
-				let category = TASK_CATEGORIES.find(cat => 
-					$t(`categories.${cat.id}.name`) === translatedName
-				);
-				
-				// If not found, try to find by original name (fallback case)
-				if (!category) {
-					category = TASK_CATEGORIES.find(cat => cat.name === translatedName);
-				}
-				
-				const result = category ? category.id : translatedName;
-				console.log(`Converting "${translatedName}" to "${result}"`);
-				return result;
-			});
-			console.log('Final categoryIds:', categoryIds);
-			store.updateTask({ categories: categoryIds });
+
 		} catch (error) {
 			console.error('Error handling category change:', error);
 		}
@@ -112,19 +89,17 @@
 	<div class="space-y-4">
 		<h4 class="font-semibold">{$t('task.when_needed')}</h4>
 
-		<div class="flex gap-4 flex-wrap">
+		<div class="flex flex-wrap gap-4">
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 				onclick={() => {
-					console.log('Specific date button clicked');
 					const tomorrow = new Date();
 					tomorrow.setDate(tomorrow.getDate() + 1);
-					
+
 					store.updateTask({
 						deadline: tomorrow.toISOString(),
 						dateRange: undefined
 					});
-					console.log('Updated task:', $store.task);
 				}}
 			>
 				{$t('task.specific_date')}
@@ -132,11 +107,10 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-primary' : 'btn-outline'}"
 				onclick={() => {
-					console.log('Flexible date button clicked');
 					const today = new Date();
 					const tomorrow = new Date();
 					tomorrow.setDate(tomorrow.getDate() + 1);
-					
+
 					store.updateTask({
 						deadline: undefined,
 						dateRange: {
@@ -144,7 +118,6 @@
 							end: tomorrow.toISOString()
 						}
 					});
-					console.log('Updated task:', $store.task);
 				}}
 			>
 				{$t('task.flexible')}
@@ -157,20 +130,40 @@
 					<DateInput
 						bind:value={$store.task.dateRange.start}
 						type="single"
+						maxDate={undefined}
 						labelKey="task.start_date"
 						placeholderKey="task.start_date"
 						minDate={new Date().toISOString()}
-						onChange={(date) => store.updateTask({ dateRange: { ...$store.task.dateRange, start: date } })}
+						onChange={(date: Date | null) => {
+							if (date && $store.task.dateRange) {
+								store.updateTask({
+									dateRange: {
+										...$store.task.dateRange,
+										start: date.toISOString()
+									}
+								});
+							}
+						}}
 					/>
 				</div>
 				<div class="flex-1">
 					<DateInput
 						bind:value={$store.task.dateRange.end}
 						type="single"
+						maxDate={undefined}
 						labelKey="task.end_date"
 						placeholderKey="task.end_date"
 						minDate={$store.task.dateRange.start || new Date().toISOString()}
-						onChange={(date) => store.updateTask({ dateRange: { ...$store.task.dateRange, end: date } })}
+						onChange={(date: Date | null) => {
+							if (date && $store.task.dateRange) {
+								store.updateTask({
+									dateRange: {
+										...$store.task.dateRange,
+										end: date.toISOString()
+									}
+								});
+							}
+						}}
 					/>
 				</div>
 			</div>
@@ -183,8 +176,10 @@
 				type="single"
 				labelKey="task.deadline"
 				placeholderKey="task.deadline"
+				maxDate={undefined}
 				minDate={new Date().toISOString()}
-				onChange={(date) => store.updateTask({ deadline: date })}
+				onChange={(date: Date | null) =>
+					store.updateTask({ deadline: date ? date.toISOString() : undefined })}
 			/>
 			{#if errors.deadline}
 				<span class="label-text-alt text-error -mt-4">{errors.deadline}</span>
@@ -194,13 +189,13 @@
 
 	<div class="w-full">
 		<label for="category" class="label">{$t('task.category')}</label>
-            <CategoryMultiselect
-                    bind:selectedCategories={translatedCategories}
-                    onChange={handleCategoryChange}
-                    maxSelections={3}
-                    placeholder="Add tags..."
-                    className="w-full"
-            />
+		<CategoryMultiselect
+			bind:externalCategoryIds={selectedCategoryIds}
+			onChange={handleCategoryChange}
+			maxSelections={3}
+			placeholder="Add tags..."
+			className="w-full"
+		/>
 
 		{#if errors.category}
 			<span class="label-text-alt text-error">{errors.category}</span>

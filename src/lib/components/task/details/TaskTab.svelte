@@ -216,7 +216,7 @@
 			<div class="flex flex-wrap gap-1">
 				{#each task.categories as category}
 					<span class="badge badge-outline badge-info pb-[2px]">
-						{category}
+						{typeof category === 'string' ? category : category.name}
 					</span>
 				{/each}
 			</div>

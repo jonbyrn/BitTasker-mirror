@@ -16,8 +16,8 @@
 	let { direction } = $props();
 
 	// Convert category IDs to translated names for display
-	let translatedCategories = $state([]);
-	let lastCategories = $state([]);
+	let translatedCategories = $state<string[]>([]);
+	let lastCategories = $state<(string | any)[]>([]);
 	let lastLanguage = $state('');
 	
 	$effect(() => {
@@ -26,28 +26,22 @@
 			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
 			const currentCategories = $store.task.categories;
 			
-			console.log('TaskReview: currentCategories from store:', currentCategories);
-			console.log('TaskReview: currentLanguage:', currentLanguage);
-			
 			if (JSON.stringify(currentCategories) !== JSON.stringify(lastCategories) || 
 				currentLanguage !== lastLanguage) {
 				lastCategories = [...currentCategories];
 				lastLanguage = currentLanguage;
 				
-				translatedCategories = currentCategories.map(categoryId => {
-					console.log('TaskReview: processing categoryId:', categoryId, 'type:', typeof categoryId);
-					const category = TASK_CATEGORIES.find(cat => cat.id === categoryId);
-					if (category) {
-						const translatedName = $t(`categories.${category.id}.name`);
+				translatedCategories = currentCategories.map(category => {
+					// Extract ID from category (handle both string and object)
+					const categoryId = typeof category === 'string' ? category : (category as any).id;
+					const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+					if (categoryObj) {
+						const translatedName = $t(`categories.${categoryObj.id}.name`);
 						// Fallback to category.name if translation key is returned (translation not loaded)
-						const result = translatedName.startsWith('categories.') ? category.name : translatedName;
-						console.log('TaskReview: translated result:', result);
-						return result;
+						return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
 					}
-					console.log('TaskReview: category not found for ID:', categoryId);
 					return categoryId;
 				});
-				console.log('TaskReview: final translatedCategories:', translatedCategories);
 			}
 		} catch (error) {
 			console.error('Error updating translated categories:', error);

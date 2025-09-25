@@ -389,7 +389,12 @@
             },
             "chat_message": {
                 "you": "You",
-                "unknown": "Unknown"
+                "unknown": "Unknown",
+                "translating": "Translating...",
+                "translation_failed": "Translation failed",
+                "retry_translation": "Retry translation",
+                "show_original_text": "Show original text",
+                "show_translation": "Show translation"
             }
         }
     }

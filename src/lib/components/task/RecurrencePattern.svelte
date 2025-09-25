@@ -103,8 +103,8 @@
 	}
 
 	// Handle end date change
-	function handleEndDateChange(value: string | null) {
-		localPattern.endDate = value;
+	function handleEndDateChange(value: Date | null) {
+		localPattern.endDate = value ? value.toISOString() : null;
 		emitUpdate();
 	}
 
@@ -269,11 +269,13 @@
 				<span class="label-text">{$t('common.task.recurrence_pattern.end_date_optional')}</span>
 			</label>
 			<DateInput
-				value={localPattern.endDate ? localPattern.endDate : null}
-				onChange={handleEndDateChange}
+				value={localPattern.endDate ? new Date(localPattern.endDate) : null}
+				onChange={(date: Date | null) => handleEndDateChange(date)}
 				type="single"
-				labelKey="airdatepicker.select_date"
-				placeholderKey="airdatepicker.select_date"
+				maxDate={undefined}
+				minDate={undefined}
+				labelKey="common.airdatepicker.select_date"
+				placeholderKey="common.airdatepicker.select_date"
 			/>
 		</div>
 

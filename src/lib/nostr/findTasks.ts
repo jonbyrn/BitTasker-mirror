@@ -1,9 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { SearchTasksParams, Task } from '$lib/types/task.d';
 import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { tasksStore } from '$lib/stores/task.store';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
+// import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
 
@@ -18,7 +19,6 @@ const cache = new Map<string, { data: Task[]; timestamp: number }>();
  * Convert search params to Nostr filter
  */
 function createTaskFilter(params: SearchTasksParams): Filter {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Filter & { [key: string]: any } = {
         kinds: [KINDS.TASK_CREATION],
         limit: params.limit || BATCH_SIZE,
@@ -74,19 +74,21 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['t'] = [params.budget.type];
     }
 
-    // Date tier filtering
-    if (params.dateRange) {
-        const dateRangeTags = getDateRangeTags(params.dateRange?.end, params.dateRange?.start);
-        filter['M'] = dateRangeTags.months;
-        filter['D'] = dateRangeTags.days;
-    }
+    // Date range filtering - we'll handle this in frontend filtering
+    // since Nostr doesn't have native date range filtering
+    // if (params.dateRange) {
+    //     const dateRangeTags = getDateRangeTags(params.dateRange?.end, params.dateRange?.start);
+    //     filter['M'] = dateRangeTags.months;
+    //     filter['D'] = dateRangeTags.days;
+    // }
 
-    // Deadline filter using tier system (single date)
-    if (params.deadline) {
-        const dateRangeTags = getDateRangeTags(params.deadline);
-        filter['M'] = dateRangeTags.months;
-        filter['D'] = dateRangeTags.days;
-    }
+    // Deadline filtering - we'll handle this in frontend filtering
+    // since we need to compare actual deadline dates
+    // if (params.deadline) {
+    //     const dateRangeTags = getDateRangeTags(params.deadline);
+    //     filter['M'] = dateRangeTags.months;
+    //     filter['D'] = dateRangeTags.days;
+    // }
 
 
     // Task type filter (onsite or remote)
@@ -154,9 +156,48 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             if (params.categories && params.categories.length > 0) {
                 tasks = tasks.filter(task => {
                     const taskCategories = task.categories || [];
-                    return params.categories!.some(category => 
-                        taskCategories.includes(category)
-                    );
+                    const hasMatch = params.categories!.some(categoryId => {
+                        // Check if task has this category (either as ID or as object with this ID)
+                        return taskCategories.some(taskCat => {
+                            if (typeof taskCat === 'string') {
+                                return taskCat === categoryId;
+                            } else if (taskCat && typeof taskCat === 'object' && (taskCat as any).id) {
+                                return (taskCat as any).id === categoryId;
+                            }
+                            return false;
+                        });
+                    });
+                    return hasMatch;
+                });
+            }
+
+            // Apply deadline filtering
+            if (params.deadline) {
+                const filterDate = new Date(params.deadline);
+                tasks = tasks.filter(task => {
+                    if (!task.deadline) return false;
+                    const taskDeadline = new Date(task.deadline);
+                    // Filter tasks with deadline on or before the selected date
+                    return taskDeadline <= filterDate;
+                });
+            }
+
+            // Apply date range filtering
+            if (params.dateRange) {
+                const startDate = new Date(params.dateRange.start);
+                const endDate = new Date(params.dateRange.end);
+                tasks = tasks.filter(task => {
+                    if (task.deadline) {
+                        const taskDeadline = new Date(task.deadline);
+                        return taskDeadline >= startDate && taskDeadline <= endDate;
+                    }
+                    if (task.dateRange) {
+                        const taskStart = new Date(task.dateRange.start);
+                        const taskEnd = new Date(task.dateRange.end);
+                        // Check if task date range overlaps with filter date range
+                        return (taskStart <= endDate && taskEnd >= startDate);
+                    }
+                    return false;
                 });
             }
 
@@ -200,9 +241,48 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             if (params.categories && params.categories.length > 0) {
                 tasks = tasks.filter(task => {
                     const taskCategories = task.categories || [];
-                    return params.categories!.some(category => 
-                        taskCategories.includes(category)
-                    );
+                    const hasMatch = params.categories!.some(categoryId => {
+                        // Check if task has this category (either as ID or as object with this ID)
+                        return taskCategories.some(taskCat => {
+                            if (typeof taskCat === 'string') {
+                                return taskCat === categoryId;
+                            } else if (taskCat && typeof taskCat === 'object' && (taskCat as any).id) {
+                                return (taskCat as any).id === categoryId;
+                            }
+                            return false;
+                        });
+                    });
+                    return hasMatch;
+                });
+            }
+
+            // Apply deadline filtering
+            if (params.deadline) {
+                const filterDate = new Date(params.deadline);
+                tasks = tasks.filter(task => {
+                    if (!task.deadline) return false;
+                    const taskDeadline = new Date(task.deadline);
+                    // Filter tasks with deadline on or before the selected date
+                    return taskDeadline <= filterDate;
+                });
+            }
+
+            // Apply date range filtering
+            if (params.dateRange) {
+                const startDate = new Date(params.dateRange.start);
+                const endDate = new Date(params.dateRange.end);
+                tasks = tasks.filter(task => {
+                    if (task.deadline) {
+                        const taskDeadline = new Date(task.deadline);
+                        return taskDeadline >= startDate && taskDeadline <= endDate;
+                    }
+                    if (task.dateRange) {
+                        const taskStart = new Date(task.dateRange.start);
+                        const taskEnd = new Date(task.dateRange.end);
+                        // Check if task date range overlaps with filter date range
+                        return (taskStart <= endDate && taskEnd >= startDate);
+                    }
+                    return false;
                 });
             }
 

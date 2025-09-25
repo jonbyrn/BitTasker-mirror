@@ -116,12 +116,24 @@
 		filters.dateRange = undefined;
 		
 		// Apply cleared filters immediately
-		onApply({ ...filters });
+		const cleanFilters = {
+			...filters,
+			categories: [...(filters.categories || [])],
+			skills: [...(filters.skills || [])]
+		};
+		onApply(cleanFilters);
 	}
 
 	// Apply filters and close drawer
 	function applyFilters() {
-		onApply({ ...filters });
+		// Create a clean copy of filters to avoid proxy issues
+		const cleanFilters = {
+			...filters,
+			categories: [...(filters.categories || [])],
+			skills: [...(filters.skills || [])]
+		};
+		console.log('🔧 FilterDrawer: Applying filters:', cleanFilters);
+		onApply(cleanFilters);
 		onClose();
 	}
 
@@ -156,8 +168,8 @@
 
 	// Handle category tags change
 	function handleCategoryChange(tags: string[]) {
-		// Tags now contain category names directly
-		filters.categories = tags;
+		// Tags now contain category IDs directly
+		filters.categories = [...tags]; // Create a new array to avoid proxy issues
 	}
 
 	// Handle skills change
@@ -352,7 +364,7 @@
 			</div>
 			<div class="collapse-content">
 				<CategoryMultiselect
-					bind:selectedCategories={filters.categories}
+					bind:externalCategoryIds={filters.categories}
 					onChange={handleCategoryChange}
 					maxSelections={5}
 					placeholder={$t('find_tasks.add_categories')}

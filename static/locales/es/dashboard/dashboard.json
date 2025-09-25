@@ -92,7 +92,6 @@
     },
     "bids": {
       "bid_acceptance": {
-        "sats": "SATS",
         "tether_usd": "Tether USD",
         "please_select_escrow_method": "Por favor seleccione un método de depósito en garantía",
         "title": "Aceptación de Oferta",
@@ -126,7 +125,6 @@
         "cancel": "Cancelar",
         "accept_bid_fund_contract": "Aceptar Oferta y Financiar Contrato",
         "accept_fund": "Aceptar Fondos",
-        "accept_bid": "Aceptar Oferta",
         "rootstock_escrow_contract": "Contrato de Depósito en Rootstock",
         "rootstock_escrow_contract_desc": "Esto creará un contrato de depósito seguro en la red Rootstock para mantener el pago hasta que se complete la tarea.",
         "freelancer_address": "Dirección del Freelancer:",
@@ -163,7 +161,6 @@
         "connect_wallet": "Conectar Billetera Rootstock",
         "wallet_error_prefix": "Error de Billetera Rootstock:",
         "retrying": "Reintentando...",
-        "retry": "Reintentar",
         "insufficient_balance": "Saldo Insuficiente",
         "current_balance": "Saldo actual:",
         "insufficient_balance_help": "Necesitas RBTC adicional para cubrir el monto en depósito más las tarifas de transacción. Agrega más RBTC a tu billetera o considera un monto de oferta menor.",

@@ -8,15 +8,26 @@
 		maxSelections = 3,
 		placeholder = 'Add tags...',
 		className = '',
-		onChange = () => {}
+		onChange = () => {},
+		externalCategoryIds = $bindable([])
 	} = $props();
 
-	// Clear any "Cleaning & Maintenance" entries on component mount only
+	// Clear any "1" entries on component mount only (Cleaning & Maintenance)
 	let hasCleaned = false;
 	$effect(() => {
 		try {
-			if (!hasCleaned && selectedCategories.includes('Cleaning & Maintenance')) {
-				selectedCategories = selectedCategories.filter(cat => cat !== 'Cleaning & Maintenance');
+			if (!hasCleaned && selectedCategories.some(cat => 
+				(typeof cat === 'string' && cat === '1') || 
+				(cat && typeof cat === 'object' && cat.value === '1')
+			)) {
+				selectedCategories = selectedCategories.filter(cat => {
+					if (typeof cat === 'string') {
+						return cat !== '1';
+					} else if (cat && typeof cat === 'object' && cat.value) {
+						return cat.value !== '1';
+					}
+					return true;
+				});
 				hasCleaned = true;
 			}
 		} catch (error) {
@@ -26,40 +37,73 @@
 
 	// Convert categories to the format expected by svelte-multiselect with translations
 	// This will reactively update when the language changes
-	let categoryOptions = $state([]);
+	let categoryOptions = $state<{ value: string; label: string }[]>([]);
 	let lastLanguage = $state('');
 	
 	$effect(() => {
 		try {
-			// Only update if language has changed to prevent excessive re-renders
+			// Force update on every effect run to ensure translations are applied
 			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
-			if (currentLanguage !== lastLanguage) {
-				lastLanguage = currentLanguage;
-				categoryOptions = TASK_CATEGORIES
-					.map(category => {
-						const translatedName = $t(`categories.${category.id}.name`);
-						// Fallback to category.name if translation key is returned (translation not loaded)
-						const displayName = translatedName.startsWith('categories.') ? category.name : translatedName;
-						return {
-							value: displayName,
-							label: displayName
-						};
-					})
-					.sort((a, b) => a.label.localeCompare(b.label));
-			}
+			
+			// Always update categoryOptions to ensure translations are current
+			categoryOptions = TASK_CATEGORIES
+				.map(category => {
+					const translatedName = $t(`categories.${category.slug}.name`);
+					// Fallback to category.name if translation key is returned (translation not loaded)
+					const displayName = translatedName.startsWith('categories.') ? category.name : translatedName;
+					return {
+						value: category.id, // Use category ID as value for filtering
+						label: displayName // Use translated name for display
+					};
+				})
+				.sort((a, b) => a.label.localeCompare(b.label));
+			lastLanguage = currentLanguage;
 		} catch (error) {
 			console.error('Error updating category options:', error);
 		}
 	});
 
+	// Sync selectedCategories with external category IDs
+	let lastExternalIds = $state<string[]>([]);
+	
+	$effect(() => {
+		try {
+			// Convert external IDs to full objects for display
+			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
+				lastExternalIds = [...externalCategoryIds];
+				
+				const fullObjects = externalCategoryIds.map((id: string) => {
+					const option = categoryOptions.find(opt => opt.value === id);
+					return option || { value: id, label: id };
+				});
+				
+				selectedCategories = fullObjects;
+			}
+		} catch (error) {
+			console.error('Error syncing external category IDs:', error);
+		}
+	});
+
 	// Call onChange when selectedCategories changes - with guard to prevent infinite loops
-	let lastSelectedCategories = $state([]);
+	let lastSelectedCategories = $state<any[]>([]);
 	$effect(() => {
 		try {
 			// Only call onChange if the selection actually changed
 			if (JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
 				lastSelectedCategories = [...selectedCategories];
-				onChange(selectedCategories);
+				
+				// Extract only the values (IDs) from the selected items
+				const categoryIds = selectedCategories.map(item => {
+					if (typeof item === 'string') {
+						return item;
+					} else if (item && typeof item === 'object' && item.value) {
+						return item.value;
+					}
+					return String(item);
+				});
+				
+				console.log('🔧 CategoryMultiselect: Extracting IDs from:', selectedCategories, 'to:', categoryIds);
+				onChange(categoryIds);
 			}
 		} catch (error) {
 			console.error('Error handling category change:', error);

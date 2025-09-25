@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Task } from '$lib/types/task.d';
 import type { LiveTask } from '$lib/types/homepage';
 import { findTasks } from '$lib/nostr/findTasks';

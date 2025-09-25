@@ -320,9 +320,9 @@
 							<div class="border-base-300 border-t pt-6">
 								<div class="space-y-3">
 									<div>
-										<h4 class="font-semibold mb-3"
-											>{$t('dashboard.task_details_by_task.required_skills')}</h4
-										>
+										<h4 class="mb-3 font-semibold">
+											{$t('dashboard.task_details_by_task.required_skills')}
+										</h4>
 										<div class="mt-2 flex flex-wrap gap-2">
 											{#each task.skills as skill}
 												<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
@@ -341,7 +341,9 @@
 								</h4>
 								<div class="mt-2 flex flex-wrap gap-2">
 									{#each task.categories as category}
-										<span class="badge badge-primary badge-outline badge-sm">{category}</span>
+										<span class="badge badge-primary badge-outline badge-sm">
+											{typeof category === 'string' ? category : category.name}
+										</span>
 									{/each}
 								</div>
 							</div>

@@ -421,21 +421,23 @@
 					<DateInput
 						bind:value={startDateTime}
 						type="datetime"
-						labelKey="airdatepicker.select_start_datetime"
-						placeholderKey="airdatepicker.select_start_datetime"
+						labelKey="common.airdatepicker.select_start_datetime"
+						placeholderKey="common.airdatepicker.select_start_datetime"
 						minDate={new Date()}
+						maxDate={undefined}
 						timeStep={15}
-						onChange={(date) => startDateTime = date}
+						onChange={(date: Date | null) => startDateTime = date}
 						className={validationErrors.datetime ? 'input-error' : ''}
 					/>
 					<DateInput
 						bind:value={endDateTime}
 						type="datetime"
-						labelKey="airdatepicker.select_end_datetime"
-						placeholderKey="airdatepicker.select_end_datetime"
+						labelKey="common.airdatepicker.select_end_datetime"
+						placeholderKey="common.airdatepicker.select_end_datetime"
 						minDate={startDateTime || new Date()}
+						maxDate={undefined}
 						timeStep={15}
-						onChange={(date) => endDateTime = date}
+						onChange={(date: Date | null) => endDateTime = date}
 						className={validationErrors.datetime ? 'input-error' : ''}
 					/>
 				</div>

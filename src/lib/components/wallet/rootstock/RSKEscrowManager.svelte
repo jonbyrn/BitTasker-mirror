@@ -154,8 +154,8 @@
 				// Reset form
 				freelancerAddress = '';
 				escrowAmount = '';
-				startTime = '';
-				completionTime = '';
+				startTime = null;
+				completionTime = null;
 				clientFeeTier = 1;
 				freelancerFeeTier = 1;
 			} else {
@@ -183,8 +183,8 @@
 		const start = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
 		const completion = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 1 day from now
 
-		startTime = start.toISOString().slice(0, 16); // Format for datetime-local input
-		completionTime = completion.toISOString().slice(0, 16);
+		startTime = start;
+		completionTime = completion;
 	}
 
 	// Set default times on component mount
@@ -341,11 +341,12 @@
 						<DateInput
 							bind:value={startTime}
 							type="datetime"
-							labelKey="airdatepicker.select_start_datetime"
-							placeholderKey="airdatepicker.select_start_datetime"
+							labelKey="common.airdatepicker.select_start_datetime"
+							placeholderKey="common.airdatepicker.select_start_datetime"
 							minDate={new Date()}
 							timeStep={15}
-							onChange={(date) => startTime = date}
+							maxDate={undefined}
+							onChange={(date: Date | null) => startTime = date}
 							disabled={isLoading}
 						/>
 					</div>
@@ -354,11 +355,12 @@
 						<DateInput
 							bind:value={completionTime}
 							type="datetime"
-							labelKey="airdatepicker.select_end_datetime"
-							placeholderKey="airdatepicker.select_end_datetime"
+							labelKey="common.airdatepicker.select_end_datetime"
+							placeholderKey="common.airdatepicker.select_end_datetime"
 							minDate={startTime || new Date()}
 							timeStep={15}
-							onChange={(date) => completionTime = date}
+							maxDate={undefined}
+							onChange={(date: Date | null) => completionTime = date}
 							disabled={isLoading}
 						/>
 					</div>

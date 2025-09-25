@@ -103,18 +103,20 @@
 				<DateInput
 					bind:value={dateRange.start}
 					type="single"
-					labelKey="airdatepicker.select_start_date"
-					placeholderKey="airdatepicker.select_start_date"
+					labelKey="common.airdatepicker.select_start_date"
+					placeholderKey="common.airdatepicker.select_start_date"
 					minDate={new Date()}
-					onChange={(date) => dateRange.start = date}
+					maxDate={undefined}
+					onChange={(date: Date | null) => dateRange.start = date}
 				/>
 				<DateInput
 					bind:value={dateRange.end}
 					type="single"
-					labelKey="airdatepicker.select_end_date"
-					placeholderKey="airdatepicker.select_end_date"
+					labelKey="common.airdatepicker.select_end_date"
+					placeholderKey="common.airdatepicker.select_end_date"
 					minDate={dateRange.start || new Date()}
-					onChange={(date) => dateRange.end = date}
+					maxDate={undefined}
+					onChange={(date: Date | null) => dateRange.end = date}
 				/>
 			</div>
 		</div>
@@ -144,10 +146,11 @@
 			<DateInput
 				bind:value={deadline}
 				type="single"
-				labelKey="airdatepicker.select_date"
-				placeholderKey="airdatepicker.select_date"
+				labelKey="common.airdatepicker.select_date"
+				placeholderKey="common.airdatepicker.select_date"
 				minDate={new Date()}
-				onChange={(date) => deadline = date}
+				maxDate={undefined}
+				onChange={(date: Date | null) => deadline = date}
 			/>
 		</div>
 	{/if}

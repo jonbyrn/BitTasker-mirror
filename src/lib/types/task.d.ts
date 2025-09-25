@@ -11,6 +11,13 @@ export interface Location {
 	locationLoaded: boolean;
 }
 
+export interface Category {
+	id: string;
+	name: string;
+	slug: string;
+	description: string;
+}
+
 export interface DateRange {
 	start: string;
 	end: string;
@@ -42,7 +49,7 @@ export interface TaskBody {
 	pickupLocation?: Location;
 	dropOffLocation?: Location;
 	skills: string[];
-	categories: string[];
+	categories: (string | Category)[];
 	attachments?: Attachment[];
 	status?: TaskStatusEnum;
 }
@@ -61,7 +68,7 @@ export interface Task {
 	pickupLocation: Location | null;
 	dropOffLocation: Location | null;
 	skills: string[];
-	categories: string[];
+	categories: (string | Category)[];
 	attachments?: Attachment[];
 
 	isRemovals: boolean;
