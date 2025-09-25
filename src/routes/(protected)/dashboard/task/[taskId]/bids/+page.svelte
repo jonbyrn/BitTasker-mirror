@@ -2,10 +2,9 @@
 	import type { Task } from '$lib/types/task';
 	import type { CounterOffer, SimplifiedTaskBid } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
-	import { getBidsFromDMs } from '$lib/utils/nostr-bid';
+import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
@@ -26,6 +25,25 @@
 	let showCounterOfferForm = $state(false);
 	let selectedBid = $state<SimplifiedTaskBid | null>(null);
 	let showRetryButton = $state(false);
+
+	// Cache for formatted dates to avoid re-computation
+	let dateFormatterCache = $state<Map<string, string>>(new Map());
+
+	// Optimized date formatting with caching
+	function getCachedFormattedDate(date: Date): string {
+		const key = date.getTime().toString();
+		if (dateFormatterCache.has(key)) {
+			return dateFormatterCache.get(key)!;
+		}
+
+		const formatted = new Date(date).toLocaleDateString('en-US', {
+			month: 'short',
+			year: 'numeric'
+		});
+
+		dateFormatterCache.set(key, formatted);
+		return formatted;
+	}
 
 	async function loadTaskDetails(id: string) {
 		if (!id) return;
@@ -50,55 +68,35 @@
 
 			// Update task status based on existing bids
 			if (task) {
-				const dmBids = await getBidsFromDMs(task.id);
+				// Use optimized bid fetching with caching and efficient deduplication
+				const dmBids = await getBidsForTaskOptimized(task.id);
 
-				// Deduplicate: keep only the newest bid per user for this task,
-				// and also remove any duplicates by bidId
-				const newestPerUser = Object.values(
-					dmBids
-						.slice()
-						.sort((a, b) => b.bid.timestamp - a.bid.timestamp)
-						.reduce(
-							(acc, msg) => {
-								const key = `${msg.senderPubkey}:${msg.bid.taskId}`;
-								if (!acc[key]) acc[key] = msg; // first (newest) wins
-								return acc;
-							},
-							{} as Record<string, (typeof dmBids)[number]>
-						)
-				);
-
-				const uniqueByBidId = Array.from(
-					new Map(newestPerUser.map((m) => [m.bid.bidId, m])).values()
-				);
-
-				bids = uniqueByBidId.map(
-					({ bid }): SimplifiedTaskBid => ({
-						id: bid.bidId,
-						taskId: bid.taskId,
-						bidderWalletAddress: bid.bidderWalletAddress || '',
-						amount: bid.amount,
-						currency: bid.currency,
-						paymentType: bid.paymentType,
-						hourlyRate: bid.hourlyRate ?? undefined,
-						estimatedHours: bid.estimatedHours ?? undefined,
-						description: bid.description,
-						estimatedDuration: bid.estimatedDuration,
-						proposedApproach: bid.proposedApproach,
-						coverLetter: bid.coverLetter,
-						status: 'PENDING',
-						createdAt: new Date(bid.timestamp).toISOString(),
-						startDateTime: bid.startDateTime,
-						endDateTime: bid.endDateTime,
-						userProfile: {
-							user: {
-								id: bid.bidderId || 'unknown',
-								name: bid.bidderName || 'Anonymous',
-								avatar: bid.bidderAvatar || ''
-							}
+				// Transform to SimplifiedTaskBid format (sync mapping)
+				bids = dmBids.map(({ bid }) => ({
+					id: bid.bidId,
+					taskId: bid.taskId,
+					bidderWalletAddress: bid.bidderWalletAddress || '',
+					amount: bid.amount,
+					currency: bid.currency,
+					paymentType: bid.paymentType,
+					hourlyRate: bid.hourlyRate ?? undefined,
+					estimatedHours: bid.estimatedHours ?? undefined,
+					description: bid.description,
+					estimatedDuration: bid.estimatedDuration,
+					proposedApproach: bid.proposedApproach,
+					coverLetter: bid.coverLetter,
+					status: 'PENDING',
+					createdAt: new Date(bid.timestamp).toISOString(),
+					startDateTime: bid.startDateTime,
+					endDateTime: bid.endDateTime,
+					userProfile: {
+						user: {
+							id: bid.bidderId || 'unknown',
+							name: bid.bidderName || 'Anonymous',
+							avatar: bid.bidderAvatar || ''
 						}
-					})
-				);
+					}
+				} as SimplifiedTaskBid));
 			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -130,13 +128,13 @@
 		try {
 			// API call to create counter offer
 			await bidService.createCounterOffer(bidId, counterOffer);
+			// Clear bid cache to ensure fresh data
+			clearBidCache();
 			// Reset state
 			showCounterOfferForm = false;
 			selectedBid = null;
 			// Reload task to update bids with counter offer
-			// if (props.taskId) {
-			// 	await loadTaskDetails(props.taskId);
-			// }
+			await loadTaskDetails(page.params.taskId as string);
 		} catch (error) {
 			console.error($t('task.drawer.error.counter_offer'), error);
 		}
@@ -145,8 +143,9 @@
 	async function handleRejectBid(bid: SimplifiedTaskBid) {
 		try {
 			await bidService.rejectBid(bid.id);
-			// Refresh task to update status and bids
-			// await loadTaskDetails(props.taskId!);
+			// Clear bid cache and refresh task to update status and bids
+			clearBidCache();
+			await loadTaskDetails(page.params.taskId as string);
 		} catch (error) {
 			console.error('Error rejecting bid:', error);
 		}
@@ -335,7 +334,8 @@
 												window.open(
 													`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`,
 													'_blank'
-												)}
+												)
+											}
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
@@ -349,7 +349,7 @@
 													stroke-linejoin="round"
 													stroke-width="2"
 													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-												/>
+													/>
 											</svg>
 											<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
 										</button>
@@ -357,10 +357,7 @@
 									<div class="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
 										<span class="text-base-content/60 text-xs sm:text-sm">
 											{$t('task.drawer.member_since')}
-											{new Date(bid.createdAt).toLocaleDateString('en-US', {
-												month: 'short',
-												year: 'numeric'
-											})}
+											{getCachedFormattedDate(new Date(bid.createdAt))}
 										</span>
 										<!-- Rating -->
 										<div class="flex items-center gap-1">
@@ -390,7 +387,7 @@
 									${formatNumberWithTwoDecimals(bid.amount)}
 								</div>
 								<div class="sm:text-md text-base-content/60 text-sm font-bold">
-									{satsFromUsd(bid.amount, btcPrice)}
+									{bid.amount}
 								</div>
 								<div class="text-base-content/50 mt-1 text-xs">
 									{bid.paymentType} • {bid.estimatedDuration}

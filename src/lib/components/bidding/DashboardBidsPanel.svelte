@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { getMyBids } from '$lib/utils/nostr-bid';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
 	import { formatTimeLarge, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
@@ -283,7 +283,7 @@
 											${formatNumberWithTwoDecimals(bid.bid.amount)}
 										</div>
 										<div class="text-base-content/60 text-sm md:text-lg">
-											{satsFromUsd(bid.bid.amount, btcPrice)}
+											{cachedSatsFromUsd(bid.bid.amount, btcPrice)}
 										</div>
 									</div>
 								</div>

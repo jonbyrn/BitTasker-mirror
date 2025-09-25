@@ -6,6 +6,7 @@
 	import { sendDirectMessage } from '$lib/utils/nostr-message';
 	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { clearBidCache } from '$lib/utils/nostr-bid';
 	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
@@ -361,6 +362,9 @@
 
 			// Submit a bid as an encrypted DM to the task creator with custom tags
 			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
+
+			// Clear bid cache to ensure fresh data on next load
+			clearBidCache();
 
 			// Mark bid as submitted
 			bidSubmitted = true;

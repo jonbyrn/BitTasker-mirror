@@ -1,10 +1,7 @@
-interface ProfileData {
-	name?: string;
-	picture?: string;
-}
+import type { NostrProfile } from '$lib/types/profile';
 
 interface ProfileCacheEntry {
-	data: ProfileData;
+	profile: NostrProfile;
 	timestamp: number;
 	expiresAt: number;
 }
@@ -14,65 +11,36 @@ export class ProfileCache {
 	private readonly MAX_CACHE_SIZE = 100; // profiles
 	private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
-	async getProfile(pubkey: string): Promise<ProfileData | null> {
-		// Check if profile is in cache and still valid
+	async getProfile(pubkey: string): Promise<{ name?: string; picture?: string } | null> {
 		const cached = this.cache.get(pubkey);
-		if (cached && this.isCacheValid(cached)) {
-			return cached.data;
+		if (cached && cached.expiresAt > Date.now()) {
+			return cached.profile;
 		}
-
-		// Remove expired entry if it exists
-		if (cached) {
-			this.cache.delete(pubkey);
-		}
-
 		return null;
 	}
 
-	async cacheProfile(pubkey: string, profileData: ProfileData): Promise<void> {
-		// Enforce cache size limit
+	setProfile(pubkey: string, profile: { name?: string; picture?: string }) {
 		if (this.cache.size >= this.MAX_CACHE_SIZE) {
-			this.evictOldestEntry();
-		}
-
-		const now = Date.now();
-		const entry: ProfileCacheEntry = {
-			data: profileData,
-			timestamp: now,
-			expiresAt: now + this.CACHE_DURATION
-		};
-
-		this.cache.set(pubkey, entry);
-	}
-
-	private isCacheValid(entry: ProfileCacheEntry): boolean {
-		return Date.now() < entry.expiresAt;
-	}
-
-	private evictOldestEntry(): void {
-		let oldestKey: string | null = null;
-		let oldestTimestamp = Date.now();
-
-		for (const [key, entry] of this.cache.entries()) {
-			if (entry.timestamp < oldestTimestamp) {
-				oldestTimestamp = entry.timestamp;
-				oldestKey = key;
-			}
-		}
-
-		if (oldestKey) {
+			// Remove the oldest entry
+			const oldestKey = this.cache.keys().next().value;
 			this.cache.delete(oldestKey);
 		}
+
+		this.cache.set(pubkey, {
+			profile,
+			timestamp: Date.now(),
+			expiresAt: Date.now() + this.CACHE_DURATION
+		});
 	}
 
-	clear(): void {
+	// Backwards-compatible alias expected by existing callers
+	async cacheProfile(pubkey: string, profile: { name?: string; picture?: string }): Promise<void> {
+		this.setProfile(pubkey, profile);
+	}
+
+	clear() {
 		this.cache.clear();
-	}
-
-	size(): number {
-		return this.cache.size;
 	}
 }
 
-// Export singleton instance
 export const profileCache = new ProfileCache();

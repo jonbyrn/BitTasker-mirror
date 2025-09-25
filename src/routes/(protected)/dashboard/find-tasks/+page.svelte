@@ -16,6 +16,10 @@
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	
+	// Import performance testing helper in development
+	import '$lib/utils/performance-testing-helper';
+	
 	import {
 		formatStandardDateTime,
 		formatStandardDateShort

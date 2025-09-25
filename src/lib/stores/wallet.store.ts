@@ -575,6 +575,21 @@ export async function loadAssets(): Promise<void> {
 						network: 'Liquid'
 					});
 				}
+
+				// USDT asset
+				const usdtAssetId = getAssetId('USDT');
+				const usdtMetadata = getAssetMetadata(currentNetwork, usdtAssetId);
+				if (usdtMetadata) {
+					const usdtBalance = info?.walletInfo?.assetBalances?.find(ab => ab.assetId === usdtAssetId)?.balanceSat || 0;
+					const balanceInUsdt = usdtBalance / Math.pow(10, usdtMetadata.precision);
+					assets.push({
+						...usdtMetadata,
+						balance: usdtBalance,
+						usdValue: balanceInUsdt * (fiatRates.find((rate) => rate.coin === 'USD')?.value || 1),
+						formattedBalance: balanceInUsdt.toFixed(2),
+						network: 'Liquid'
+					});
+				}
 			} catch (error) {
 				console.error('Failed to load Liquid assets:', error);
 			}
@@ -592,7 +607,7 @@ export async function loadAssets(): Promise<void> {
 					name: 'Rootstock Bitcoin',
 					ticker: 'rBTC',
 					precision: 18,
-					icon: '₿',
+					icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 					balance: rbtcValue,
 					usdValue: rbtcValue * btcPrice,
 					formattedBalance: rbtcValue.toFixed(6),

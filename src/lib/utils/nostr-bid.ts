@@ -16,60 +16,290 @@ import type {
 } from '$lib/types/contract';
 
 /**
+ * Enhanced cache utility for bid data with different cache types
+ */
+interface CacheEntry<T> {
+	data: T;
+	timestamp: number;
+	ttl: number;
+}
+
+interface ProcessedBidData {
+	originalBids: BidMessage[];
+	deduplicatedBids: BidMessage[];
+	transformedBids: any[];
+}
+
+class BidCache {
+	private cache = new Map<string, CacheEntry<any>>();
+
+	set<T>(key: string, data: T, ttlMinutes: number = 5): void {
+		this.cache.set(key, {
+			data,
+			timestamp: Date.now(),
+			ttl: ttlMinutes * 60 * 1000 // Convert minutes to milliseconds
+		});
+	}
+
+	get<T>(key: string): T | null {
+		const entry = this.cache.get(key);
+		if (!entry) return null;
+
+		if (Date.now() - entry.timestamp > entry.ttl) {
+			this.cache.delete(key);
+			return null;
+		}
+
+		return entry.data;
+	}
+
+	// Cache processed bid data with different processing stages
+	setProcessedBidData(key: string, data: ProcessedBidData, ttlMinutes: number = 5): void {
+		this.set(`processed-${key}`, data, ttlMinutes);
+	}
+
+	getProcessedBidData(key: string): ProcessedBidData | null {
+		return this.get<ProcessedBidData>(`processed-${key}`);
+	}
+
+	clear(): void {
+		this.cache.clear();
+	}
+
+	// Clean up expired entries
+	cleanup(): void {
+		const now = Date.now();
+		for (const [key, entry] of this.cache.entries()) {
+			if (now - entry.timestamp > entry.ttl) {
+				this.cache.delete(key);
+			}
+		}
+	}
+}
+
+// Global cache instance
+const bidCache = new BidCache();
+
+/**
+ * Currency conversion cache for performance optimization
+ */
+class CurrencyCache {
+	private conversions = new Map<string, { sats: number; timestamp: number; ttl: number }>();
+
+	setConversion(usdAmount: number, btcPrice: number, ttlMinutes: number = 10): number {
+		const sats = Math.round(usdAmount / btcPrice * 100000000); // Convert to sats
+		const key = `${usdAmount}-${btcPrice}`;
+		const ttl = ttlMinutes * 60 * 1000;
+
+		this.conversions.set(key, {
+			sats,
+			timestamp: Date.now(),
+			ttl
+		});
+
+		return sats;
+	}
+
+	getConversion(usdAmount: number, btcPrice: number): number | null {
+		const key = `${usdAmount}-${btcPrice}`;
+		const conversion = this.conversions.get(key);
+
+		if (!conversion) return null;
+
+		if (Date.now() - conversion.timestamp > conversion.ttl) {
+			this.conversions.delete(key);
+			return null;
+		}
+
+		return conversion.sats;
+	}
+
+	// Batch convert multiple amounts at once for better performance
+	batchConvert(amounts: number[], btcPrice: number): number[] {
+		return amounts.map(amount => {
+			const cached = this.getConversion(amount, btcPrice);
+			if (cached !== null) {
+				return cached;
+			}
+			return this.setConversion(amount, btcPrice);
+		});
+	}
+
+	clear(): void {
+		this.conversions.clear();
+	}
+}
+
+// Global currency cache
+const currencyCache = new CurrencyCache();
+
+/**
+ * Clear bid cache (call this when bids are created, updated, or deleted)
+ */
+export function clearBidCache(): void {
+	bidCache.clear();
+	currencyCache.clear();
+}
+
+/**
+ * Clean up expired cache entries
+ */
+export function cleanupBidCache(): void {
+	bidCache.cleanup();
+}
+
+/**
+ * Optimized currency conversion with caching
+ */
+export function cachedSatsFromUsd(usdAmount: number, btcPrice: number): number {
+	return currencyCache.getConversion(usdAmount, btcPrice) ?? currencyCache.setConversion(usdAmount, btcPrice);
+}
+
+/**
+ * Batch convert multiple USD amounts to sats with caching
+ */
+export function batchSatsFromUsd(amounts: number[], btcPrice: number): number[] {
+	return currencyCache.batchConvert(amounts, btcPrice);
+}
+
+/**
+ * Optimized deduplication using efficient data structures
+ */
+export function deduplicateBids(bids: BidMessage[]): BidMessage[] {
+	if (bids.length === 0) return [];
+
+	// Use Map for efficient deduplication by bidId
+	const uniqueByBidId = new Map<string, BidMessage>();
+
+	for (const bid of bids) {
+		// Only keep if we haven't seen this bidId before
+		if (!uniqueByBidId.has(bid.bid.bidId)) {
+			uniqueByBidId.set(bid.bid.bidId, bid);
+		}
+	}
+
+	return Array.from(uniqueByBidId.values());
+}
+
+/**
+ * Get bids for a specific task with optimized processing
+ */
+export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessage[]> {
+	const cacheKey = `task-optimized-${taskId}`;
+
+	// Check if we have cached processed data
+	const cachedData = bidCache.getProcessedBidData(cacheKey);
+	if (cachedData) {
+		console.log('Using cached processed bid data');
+		return cachedData.transformedBids;
+	}
+
+	try {
+		// Get raw bids from DMs
+		const dmBids = await getBidsFromDMs(taskId);
+
+		// Deduplicate efficiently
+		const deduplicatedBids = deduplicateBids(dmBids);
+
+		// Sort by timestamp (most recent first)
+		const sortedBids = deduplicatedBids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
+
+		// Cache the processed data
+		bidCache.setProcessedBidData(cacheKey, {
+			originalBids: dmBids,
+			deduplicatedBids,
+			transformedBids: sortedBids
+		}, 5);
+
+		return sortedBids;
+	} catch (error) {
+		console.error('Error getting optimized task bids:', error);
+		throw error;
+	}
+}
+
+/**
  * Get only bids from DMs (excluding normal messages)
  */
 export async function getBidsFromDMs(taskId?: string): Promise<BidMessage[]> {
 	try {
+		const npub = await getNpub();
+		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
+
+		// Create cache key based on user's pubkey and taskId
+		const cacheKey = `task-bids-${pubkeyHex}-${taskId || 'all'}`;
+
+		// Check cache first
+		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
+		if (cachedBids) {
+			console.log('Using cached task bid data');
+			return cachedBids;
+		}
+
 		// Get all people you've exchanged messages with
 		const messagedPeople = await getMessagedPeople();
 		const bids: BidMessage[] = [];
 
-		// For each conversation, search only for messages that are bids
-		for (const person of messagedPeople) {
+		// Fetch message histories for all conversations in parallel
+		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
-				// Get bid-specific message history with this person (more efficient)
-				const messageHistory = await getMessageHistory(person.pubkey, { limit: 100 });
+				return await getMessageHistory(person.pubkey, { limit: 100 });
+			} catch (err) {
+				// Return empty array for failed conversations
+				return [];
+			}
+		});
 
-				// Filter only messages that contain bids
-				for (const message of messageHistory) {
-					try {
-						// Skip if message is empty or invalid
-						if (!message.plaintext || message.plaintext.trim() === '') {
-							continue;
-						}
+		// Wait for all message histories to be fetched in parallel
+		const messageHistories = await Promise.all(messageHistoryPromises);
 
-						// Try to parse as JSON first
-						let parsedContent;
-						try {
-							parsedContent = JSON.parse(message.plaintext);
-						} catch {
-							// Not JSON, skip
-							continue;
-						}
+		// Process all message histories to extract bids
+		for (let i = 0; i < messagedPeople.length; i++) {
+			const person = messagedPeople[i];
+			const messageHistory = messageHistories[i];
 
-						// Verify it's a valid bid
-						if (parsedContent.messageType === 'bid' && parsedContent.type === 'bid') {
-							// If taskId is specified, filter by that task
-							if (!taskId || parsedContent.taskId === taskId) {
-								bids.push({
-									bid: parsedContent,
-									senderPubkey: message.senderPubkey,
-									event: message.event
-								});
-							}
-						}
-					} catch (parseError) {
-						// Not a valid bid, continue
+			// Filter only messages that contain bids
+			for (const message of messageHistory) {
+				try {
+					// Skip if message is empty or invalid
+					if (!message.plaintext || message.plaintext.trim() === '') {
 						continue;
 					}
+
+					// Try to parse as JSON first
+					let parsedContent;
+					try {
+						parsedContent = JSON.parse(message.plaintext);
+					} catch {
+						// Not JSON, skip
+						continue;
+					}
+
+					// Verify it's a valid bid
+					if (parsedContent.messageType === 'bid' && parsedContent.type === 'bid') {
+						// If taskId is specified, filter by that task
+						if (!taskId || parsedContent.taskId === taskId) {
+							bids.push({
+								bid: parsedContent,
+								senderPubkey: message.senderPubkey,
+								event: message.event
+							});
+						}
+					}
+				} catch (parseError) {
+					// Not a valid bid, continue
+					continue;
 				}
-			} catch (err) {
-				continue;
 			}
 		}
-		
+
 		// Sort by timestamp (most recent first)
-		return bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
+		const sortedBids = bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
+
+		// Cache the results for 5 minutes
+		bidCache.set(cacheKey, sortedBids, 5);
+
+		return sortedBids;
 	} catch (error) {
 		console.error('Error getting bids from DMs:', error);
 		throw error;
@@ -84,53 +314,77 @@ export async function getMyBids(): Promise<BidMessage[]> {
 		const npub = await getNpub();
 		const pubkeyHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
+		// Create cache key based on user's pubkey
+		const cacheKey = `my-bids-${pubkeyHex}`;
+
+		// Check cache first
+		const cachedBids = bidCache.get<BidMessage[]>(cacheKey);
+		if (cachedBids) {
+			console.log('Using cached bid data');
+			return cachedBids;
+		}
+
 		// Get all people you've exchanged messages with
 		const messagedPeople = await getMessagedPeople();
 		const bids: BidMessage[] = [];
 
-		// For each conversation, search only for bids sent by the current user
-		for (const person of messagedPeople) {
+		// Fetch message histories for all conversations in parallel
+		const messageHistoryPromises = messagedPeople.map(async (person) => {
 			try {
-				const messageHistory = await getMessageHistory(person.pubkey, { limit: 100 });
-
-				for (const message of messageHistory) {
-					try {
-						// Skip if message is empty or invalid
-						if (!message.plaintext || message.plaintext.trim() === '') {
-							continue;
-						}
-
-						const parsedContent = JSON.parse(message.plaintext);
-
-						// Verify it's a bid sent by the current user
-						if (parsedContent.messageType === 'bid' && 
-							parsedContent.type === 'bid' && 
-							message.senderPubkey === pubkeyHex) {
-							
-							// Ensure all fields are present
-							const completeBid: NostrBid = {
-								...parsedContent,
-								messageType: 'bid'
-							};
-
-							bids.push({
-								bid: completeBid,
-								senderPubkey: message.senderPubkey,
-								event: message.event
-							});
-						}
-					} catch (parseError) {
-						continue;
-					}
-				}
+				return await getMessageHistory(person.pubkey, { limit: 100 });
 			} catch (err) {
 				// Skip this conversation if there's an error
 				console.warn('Failed to get message history for pubkey:', person.pubkey, err);
-				continue;
+				return [];
+			}
+		});
+
+		// Wait for all message histories to be fetched in parallel
+		const messageHistories = await Promise.all(messageHistoryPromises);
+
+		// Process all message histories to extract bids
+		for (let i = 0; i < messagedPeople.length; i++) {
+			const person = messagedPeople[i];
+			const messageHistory = messageHistories[i];
+
+			for (const message of messageHistory) {
+				try {
+					// Skip if message is empty or invalid
+					if (!message.plaintext || message.plaintext.trim() === '') {
+						continue;
+					}
+
+					const parsedContent = JSON.parse(message.plaintext);
+
+					// Verify it's a bid sent by the current user
+					if (parsedContent.messageType === 'bid' &&
+						parsedContent.type === 'bid' &&
+						message.senderPubkey === pubkeyHex) {
+
+						// Ensure all fields are present
+						const completeBid: NostrBid = {
+							...parsedContent,
+							messageType: 'bid'
+						};
+
+						bids.push({
+							bid: completeBid,
+							senderPubkey: message.senderPubkey,
+							event: message.event
+						});
+					}
+				} catch (parseError) {
+					continue;
+				}
 			}
 		}
 
-		return bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
+		const sortedBids = bids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
+
+		// Cache the results for 5 minutes
+		bidCache.set(cacheKey, sortedBids, 5);
+
+		return sortedBids;
 	} catch (error) {
 		console.error('Error getting my bids:', error);
 		throw error;

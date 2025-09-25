@@ -36,14 +36,14 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 			name: 'Liquid Bitcoin',
 			ticker: 'L-BTC',
 			precision: 8,
-			icon: '₿'
+			icon: '/images/chains/Liquid-Bitcoin.svg'
 		},
 		[LIQUID_ASSET_IDS.mainnet.USDT]: {
 			assetId: LIQUID_ASSET_IDS.mainnet.USDT,
 			name: 'Tether USD',
 			ticker: 'USDt',
 			precision: 8,
-			icon: '₮',
+			icon: '/images/chains/Tether-USD.svg', // TODO: Add Tether-USD.svg to static/images/chains/
 			fiatId: 'USD' // Enables fee payment with USDT
 		}
 	},
@@ -53,14 +53,14 @@ export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetM
 			name: 'Testnet Liquid Bitcoin',
 			ticker: 'L-BTC',
 			precision: 8,
-			icon: '₿'
+			icon: '/images/chains/Liquid-Bitcoin.svg'
 		},
 		[LIQUID_ASSET_IDS.testnet.USDT]: {
 			assetId: LIQUID_ASSET_IDS.testnet.USDT,
 			name: 'Testnet Tether USD',
 			ticker: 'USDt',
 			precision: 8,
-			icon: '₮',
+			icon: '/images/chains/Tether-USD.svg', // TODO: Add Tether-USD.svg to static/images/chains/
 			fiatId: 'USD'
 		}
 	}

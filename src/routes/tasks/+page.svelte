@@ -16,6 +16,9 @@
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
+	
+	// Import performance testing helper in development
+	import '$lib/utils/performance-testing-helper';
 
 	// Function to create initial search parameters
 	function getInitialSearchParams(): SearchTasksParams {

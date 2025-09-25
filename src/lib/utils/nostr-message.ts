@@ -629,7 +629,7 @@ export async function getMessageHistory(
 			kinds: [4],
 			authors: [withPubkeyHex, pubkeyHex],
 			'#p': [withPubkeyHex, pubkeyHex],
-			limit: options?.limit || 50,
+			limit: options?.limit || 25,
 			...(options?.since ? { since: options.since } : {}),
 			...(options?.until ? { until: options.until } : {})
 		};
