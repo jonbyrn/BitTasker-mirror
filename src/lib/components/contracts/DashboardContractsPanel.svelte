@@ -1,10 +1,11 @@
 <script lang="ts">
+	import type { ContractWithEvents } from '$lib/types/contract';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { getUserContracts } from '$lib/utils/nostr-bid';
-	import type { ContractWithEvents } from '$lib/types/contract';
 	import ContractCard from './ContractCard.svelte';
 	import ContractDrawer from './ContractDrawer.svelte';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 
 	// State
 	let contracts = $state<ContractWithEvents[]>([]);
@@ -16,6 +17,8 @@
 	// Filters
 	let statusFilter = $state<string>('all');
 	let roleFilter = $state<string>('all'); // 'all', 'client', 'freelancer'
+
+	let btcPrice = $state<number>(0);
 
 	// Filtered contracts
 	let filteredContracts = $derived(() => {
@@ -37,8 +40,17 @@
 	});
 
 	// Load contracts on mount
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+		}
+	}
+
 	onMount(async () => {
 		await loadContracts();
+		await fetchBtcPrice();
 	});
 
 	async function loadContracts() {
@@ -69,24 +81,6 @@
 		// Reload contracts to get latest data
 		loadContracts();
 		closeContractDrawer();
-	}
-
-	// Status badge classes
-	function getStatusBadgeClass(status: string): string {
-		switch (status) {
-			case 'active':
-				return 'badge-info';
-			case 'completed':
-				return 'badge-warning';
-			case 'disputed':
-				return 'badge-error';
-			case 'resolved':
-				return 'badge-success';
-			case 'cancelled':
-				return 'badge-neutral';
-			default:
-				return 'badge-ghost';
-		}
 	}
 </script>
 
@@ -190,7 +184,9 @@
 				{#each filteredContracts() as contract (contract.contract.escrowId)}
 					<ContractCard 
 						{contract} 
+						btcPrice={btcPrice}
 						onclick={() => openContractDrawer(contract)}
+						onActionComplete={loadContracts}
 					/>
 				{/each}
 			</div>
@@ -202,6 +198,7 @@
 <ContractDrawer 
 	contract={selectedContract}
 	isOpen={showContractDrawer}
+	btcPrice={btcPrice}
 	onClose={closeContractDrawer}
 	onUpdate={handleContractUpdate}
 />
