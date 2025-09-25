@@ -667,6 +667,73 @@ export async function getMessageHistory(
 }
 
 /**
+ * Optimized: Fetch encrypted DM events first (no private key),
+ * in parallel warm up auth (get private key), then decrypt in batch.
+ * This allows the passkey/extension prompt to occur while network I/O is in flight.
+ */
+export async function getMessageHistoryOptimized(
+    withPubkey: string,
+    options?: { limit?: number; since?: number; until?: number }
+): Promise<{ plaintext: string; senderPubkey: string; event: NostrEvent }[]> {
+    try {
+        // Start auth warmup without awaiting yet
+        const authPromise = getNostrKeyPair();
+
+        // Resolve our own pubkey in hex without requiring private key
+        const npub = await getNpub();
+        const selfHex = npub.startsWith('npub')
+            ? (nip19.decode(npub).data as string)
+            : npub;
+
+        // Convert withPubkey to hex if it's in npub format
+        const withHex = withPubkey.startsWith('npub')
+            ? (nip19.decode(withPubkey).data as string)
+            : withPubkey;
+
+        const filter: Filter = {
+            kinds: [4],
+            authors: [withHex, selfHex],
+            '#p': [withHex, selfHex],
+            limit: options?.limit || 25,
+            ...(options?.since ? { since: options.since } : {}),
+            ...(options?.until ? { until: options.until } : {})
+        };
+
+        // Fetch encrypted events
+        const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+
+        // Now await auth and decrypt in batch
+        const { nsec } = await authPromise;
+        const privkey = bytesToHex(nsec);
+
+        const decrypted = await Promise.all(
+            events.map(async (event, index) => {
+                try {
+                    const { plaintext, senderPubkey } = await parseDMEvent(event, privkey);
+                    return { plaintext, senderPubkey, event };
+                } catch (error) {
+                    if (error instanceof Error && !error.message.includes('Invalid MAC')) {
+                        console.error(`❌ Failed to decrypt event ${index + 1} (${event.id}):`, error);
+                    }
+                    return null;
+                }
+            })
+        );
+
+        return decrypted.filter(Boolean) as {
+            plaintext: string;
+            senderPubkey: string;
+            event: NostrEvent;
+        }[];
+    } catch (err) {
+        console.error('💥 getMessageHistoryOptimized error:', err);
+        const errorMessage = (err as Error)?.message || 'Failed to fetch message history';
+        appStore.showErrorToast(errorMessage);
+        throw err;
+    }
+}
+
+/**
  * Get all messages in a thread (by root event id)
  */
 export async function getThreadMessages(

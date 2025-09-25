@@ -2,7 +2,7 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { BidMessage, NostrBid } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
+import { sendDirectMessage, getMessageHistoryOptimized as getMessageHistory, getMessagedPeople } from './nostr-message';
 import { SimplePool } from 'nostr-tools/pool';
 import type {
 	NostrContract,
