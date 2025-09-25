@@ -165,6 +165,14 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 	}
 
 	onMount(async () => {
+		try {
+			const { Preferences } = await import('@capacitor/preferences');
+			const { StorageKeys } = await import('$lib/utils/constants/storage');
+			const { value } = await Preferences.get({ key: StorageKeys.NPUB });
+			console.debug('[BidsPage] Cached NPUB at mount:', value ? value.substring(0, 16) + '...' : '(none)');
+		} catch (e) {
+			console.debug('[BidsPage] Unable to read cached NPUB:', e);
+		}
 		await loadTaskDetails(page.params.taskId as string);
 		await fetchBtcPrice();
 	});

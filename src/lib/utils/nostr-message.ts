@@ -685,12 +685,19 @@ export async function getMessageHistoryOptimized(
             const { Preferences } = await import('@capacitor/preferences');
             const { StorageKeys } = await import('$lib/utils/constants/storage');
             const { value } = await Preferences.get({ key: StorageKeys.NPUB });
-            if (value) npub = value;
+            if (value) {
+                npub = value;
+                console.debug('[DM] Using cached NPUB from Preferences:', npub.substring(0, 16) + '...');
+            } else {
+                console.debug('[DM] No cached NPUB found in Preferences');
+            }
         } catch {
             // ignore; will fallback
         }
         if (!npub) {
+            console.debug('[DM] Resolving NPUB via getNpub() (may prompt user)');
             npub = await getNpub();
+            console.debug('[DM] getNpub() returned NPUB:', npub.substring(0, 16) + '...');
         }
         const selfHex = npub.startsWith('npub')
             ? (nip19.decode(npub).data as string)
@@ -711,12 +718,21 @@ export async function getMessageHistoryOptimized(
         };
 
         // Fetch encrypted events
+        console.debug('[DM] Starting relay fetch for DMs', { authors: [withHex.substring(0, 8) + '...', selfHex.substring(0, 8) + '...'], limit: filter.limit, since: filter.since, until: filter.until });
+        const t0 = performance.now();
         const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+        const t1 = performance.now();
+        console.debug(`[DM] Relay fetch completed: ${events.length} events in ${(t1 - t0).toFixed(2)}ms`);
 
         // Now await auth and decrypt in batch
+        console.debug('[DM] Awaiting auth to decrypt...');
+        const tAuth0 = performance.now();
         const { nsec } = await authPromise;
         const privkey = bytesToHex(nsec);
+        const tAuth1 = performance.now();
+        console.debug(`[DM] Auth ready, proceeding to decrypt (auth wait ${(tAuth1 - tAuth0).toFixed(2)}ms)`);
 
+        const tDec0 = performance.now();
         const decrypted = await Promise.all(
             events.map(async (event, index) => {
                 try {
@@ -730,6 +746,8 @@ export async function getMessageHistoryOptimized(
                 }
             })
         );
+        const tDec1 = performance.now();
+        console.debug(`[DM] Decryption finished in ${(tDec1 - tDec0).toFixed(2)}ms`);
 
         return decrypted.filter(Boolean) as {
             plaintext: string;
