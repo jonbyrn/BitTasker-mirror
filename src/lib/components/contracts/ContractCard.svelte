@@ -1,9 +1,12 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
+	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
+	import UserProfile from '$lib/components/UserNostrBadge.svelte';
 
-	const { contract, onclick } = $props<{
+	const { contract, btcPrice, onclick } = $props<{
 		contract: ContractWithEvents;
+		btcPrice: number;
 		onclick?: () => void;
 	}>();
 
@@ -35,24 +38,6 @@
 		});
 	}
 
-	// Get status badge class
-	function getStatusBadgeClass(status: string): string {
-		switch (status) {
-			case 'active':
-				return 'badge-info';
-			case 'completed':
-				return 'badge-warning';
-			case 'disputed':
-				return 'badge-error';
-			case 'resolved':
-				return 'badge-success';
-			case 'cancelled':
-				return 'badge-neutral';
-			default:
-				return 'badge-ghost';
-		}
-	}
-
 	// Get role badge class
 	function getRoleBadgeClass(isClient: boolean): string {
 		return isClient ? 'badge-primary' : 'badge-secondary';
@@ -82,6 +67,28 @@
 		if (contract.canResolveTimelock) return $t('dashboard.contracts.actions.resolve_timelock');
 		return '';
 	}
+
+	/**
+	 * Get status badge color classes based on task status
+	 */
+	export function getStatusColorClass(status: string): string {
+		switch (status.toLowerCase()) {
+			case 'cancelled':
+				return 'badge-error'; // Red
+			case 'active':
+			case 'in_progress':
+			case 'funded':
+				return 'badge-info'; // Blue
+			case 'completed':
+			case 'resolved':
+				return 'badge-success'; // Green
+			case 'disputed':
+			case 'in_dispute':
+				return 'badge-warning'; // Yellow
+			default:
+				return 'badge-ghost';
+		}
+	}
 </script>
 
 <div
@@ -105,25 +112,21 @@
 
 			<!-- Desktop: Side by side badges -->
 			<div class="hidden flex-shrink-0 items-center gap-2 sm:flex">
-				<div class="badge {getStatusBadgeClass(contract.contract.status)} badge-sm">
+				<div class="badge {getStatusColorClass(contract.contract.status)} badge-sm">
 					{$t(`dashboard.contracts.status.${contract.contract.status}`)}
 				</div>
 				<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
-					{contract.isClient
-						? $t('dashboard.contracts.role.client')
-						: $t('dashboard.contracts.role.freelancer')}
+					{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 				</div>
 			</div>
 
 			<!-- Mobile: Stacked badges -->
 			<div class="flex flex-shrink-0 flex-col items-end gap-2 sm:hidden">
-				<div class="badge {getStatusBadgeClass(contract.contract.status)} badge-sm">
+				<div class="badge {getStatusColorClass(contract.contract.status)} badge-sm">
 					{$t(`dashboard.contracts.status.${contract.contract.status}`)}
 				</div>
 				<div class="badge {getRoleBadgeClass(contract.isClient)} badge-sm">
-					{contract.isClient
-						? $t('dashboard.contracts.role.client')
-						: $t('dashboard.contracts.role.freelancer')}
+					{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 				</div>
 			</div>
 		</div>
@@ -135,17 +138,21 @@
 					{$t('dashboard.contracts.amount')}
 				</div>
 				<div class="font-semibold">
-					{formatRBTC(contract.contract.amount)} RBTC
+					{btcPrice > 0 ? formatUSDWithSatsSync(contract.contract.amount, btcPrice) : `${formatRBTC(contract.contract.amount)} RBTC`}
 				</div>
 			</div>
 
+			<!-- User Info -->
 			<div>
-				<div class="text-base-content/60 mb-1 text-xs">
-					{$t('dashboard.contracts.escrow_id')}
+				<div class="text-base-content/60 mb-2 text-xs">
+					{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
 				</div>
-				<div class="font-mono text-sm">
-					#{contract.contract.escrowId}
-				</div>
+				<UserProfile
+					pubkey={contract.isClient
+						? contract.contract.freelancerPubkey
+						: contract.contract.clientPubkey}
+					size="sm"
+				/>
 			</div>
 		</div>
 

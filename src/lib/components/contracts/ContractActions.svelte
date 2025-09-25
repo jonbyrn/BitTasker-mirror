@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { ContractWithEvents } from '$lib/types/contract';
-	import { publishContractStatus, updateContractStatus } from '$lib/utils/nostr-bid';
+	import { publishContractStatus } from '$lib/utils/nostr-bid';
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { appStore } from '$lib/stores/app.store';
+	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
 
 	const { contract, onActionComplete } = $props<{
 		contract: ContractWithEvents;
@@ -44,18 +45,15 @@
 				transactionHash: result.hash
 			});
 
-			// Update contract status
-			await updateContractStatus(contract.contract.escrowId, 'completed');
-
 			appStore.showSuccessToast($t('dashboard.contracts.actions.task_completed_success'));
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error completing task:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.task_completed_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.task_completed_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('complete', false);
 		}
@@ -79,18 +77,15 @@
 				transactionHash: result.hash
 			});
 
-			// Update contract status
-			await updateContractStatus(contract.contract.escrowId, 'resolved');
-
 			appStore.showSuccessToast($t('dashboard.contracts.actions.payment_released_success'));
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error accepting task:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.payment_released_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.payment_released_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('accept', false);
 		}
@@ -114,18 +109,15 @@
 				transactionHash: result.hash
 			});
 
-			// Update contract status
-			await updateContractStatus(contract.contract.escrowId, 'disputed');
-
 			appStore.showSuccessToast($t('dashboard.contracts.actions.dispute_raised_success'));
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error disputing task:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.dispute_raised_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.dispute_raised_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('dispute', false);
 		}
@@ -175,11 +167,11 @@
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error proposing resolution:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.resolution_proposed_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.resolution_proposed_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('propose', false);
 		}
@@ -203,18 +195,15 @@
 				transactionHash: result.hash
 			});
 
-			// Update contract status
-			await updateContractStatus(contract.contract.escrowId, 'resolved');
-
 			appStore.showSuccessToast($t('dashboard.contracts.actions.proposal_accepted_success'));
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.proposal_accepted_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.proposal_accepted_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('acceptProposal', false);
 		}
@@ -238,18 +227,15 @@
 				transactionHash: result.hash
 			});
 
-			// Update contract status
-			await updateContractStatus(contract.contract.escrowId, 'cancelled');
-
 			appStore.showSuccessToast($t('dashboard.contracts.actions.escrow_cancelled_success'));
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error cancelling escrow:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.escrow_cancelled_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.escrow_cancelled_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('cancel', false);
 		}
@@ -273,18 +259,15 @@
 				transactionHash: result.hash
 			});
 
-			// Update contract status
-			await updateContractStatus(contract.contract.escrowId, 'resolved');
-
 			appStore.showSuccessToast($t('dashboard.contracts.actions.timelock_resolved_success'));
 			handleActionComplete();
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
-			appStore.showErrorToast(
+			const errorMessage =
 				error instanceof Error
-					? error.message
-					: $t('dashboard.contracts.actions.timelock_resolved_error')
-			);
+					? getErrorMessage(error)
+					: $t('dashboard.contracts.actions.timelock_resolved_error');
+			appStore.showErrorToast(errorMessage);
 		} finally {
 			setLoading('resolveTimelock', false);
 		}

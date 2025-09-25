@@ -741,31 +741,3 @@ async function getContractStatusEventsFromMessages(
 		return [];
 	}
 }
-
-/**
- * Update contract status (client only) - now handled through status messages
- */
-export async function updateContractStatus(
-	escrowId: string, 
-	status: ContractStatus, 
-	latestStatusEventId?: string
-): Promise<void> {
-	try {
-		// In the DM-based system, contract status is updated through status messages
-		console.warn('updateContractStatus is deprecated in DM-based contract system. Use publishContractStatus instead.');
-		
-		// Create a status update message instead
-		await publishContractStatus({
-			contractEventId: latestStatusEventId || `contract-${escrowId}`,
-			escrowId,
-			action: status === 'completed' ? 'task-completed' : 
-					status === 'resolved' ? 'payment-released' :
-					status === 'disputed' ? 'dispute-raised' :
-					status === 'cancelled' ? 'contract-cancelled' : 'task-completed',
-			message: `Contract status updated to ${status}`
-		});
-	} catch (error) {
-		console.error('Error updating contract status:', error);
-		throw error;
-	}
-}

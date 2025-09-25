@@ -1,16 +1,23 @@
 <script lang="ts">
 	import type { ContractWithEvents } from '$lib/types/contract';
 	import { t } from 'svelte-i18n';
+	import { formatUSDWithSatsSync } from '$lib/utils/helpers/currencyFormatter';
 	import Drawer from '$lib/components/Drawer.svelte';
 	import ContractTimeline from './ContractTimeline.svelte';
 	import ContractActions from './ContractActions.svelte';
+	import UserProfile from '$lib/components/UserNostrBadge.svelte';
 
-	const { contract, isOpen, onClose, onUpdate } = $props<{
+	const { contract, isOpen, btcPrice, onClose, onUpdate } = $props<{
 		contract: ContractWithEvents | null;
 		isOpen: boolean;
+		btcPrice: number;
 		onClose: () => void;
 		onUpdate: () => void;
 	}>();
+
+	// Technical details toggle state
+	let isTechnicalDetailsOpen = $state(false);
+	let isOriginalBidOpen = $state(false);
 
 	// Format RBTC amount
 	function formatRBTC(amount: string): string {
@@ -43,27 +50,31 @@
 		});
 	}
 
-	// Get status badge class
-	function getStatusBadgeClass(status: string): string {
-		switch (status) {
-			case 'active':
-				return 'badge-info';
-			case 'completed':
-				return 'badge-warning';
-			case 'disputed':
-				return 'badge-error';
-			case 'resolved':
-				return 'badge-success';
-			case 'cancelled':
-				return 'badge-neutral';
-			default:
-				return 'badge-ghost';
-		}
-	}
-
 	// Handle action completion
 	function handleActionComplete() {
 		onUpdate();
+	}
+
+	/**
+	 * Get status badge color classes based on task status
+	 */
+	export function getStatusColorClass(status: string): string {
+		switch (status.toLowerCase()) {
+			case 'cancelled':
+				return 'badge-error'; // Red
+			case 'active':
+			case 'in_progress':
+			case 'funded':
+				return 'badge-info'; // Blue
+			case 'completed':
+			case 'resolved':
+				return 'badge-success'; // Green
+			case 'disputed':
+			case 'in_dispute':
+				return 'badge-warning'; // Yellow
+			default:
+				return 'badge-ghost';
+		}
 	}
 </script>
 
@@ -77,13 +88,11 @@
 	{#snippet children()}
 		<!-- Header with badges -->
 		<div class="mb-6 flex items-center gap-2">
-			<div class="badge {getStatusBadgeClass(contract.contract.status)}">
+			<div class="badge {getStatusColorClass(contract.contract.status)}">
 				{$t(`dashboard.contracts.status.${contract.contract.status}`)}
 			</div>
 			<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
-				{contract.isClient
-					? $t('dashboard.contracts.role.client')
-					: $t('dashboard.contracts.role.freelancer')}
+				{contract.isClient ? $t('dashboard.client') : $t('dashboard.freelancer')}
 			</div>
 		</div>
 
@@ -97,17 +106,20 @@
 					<div class="space-y-3">
 						<div class="flex justify-between gap-2">
 							<span class="text-base-content/70">{$t('dashboard.contracts.amount')}:</span>
-							<span class="font-semibold">{formatRBTC(contract.contract.amount)} RBTC</span>
+							<span class="font-semibold"
+								>{btcPrice > 0
+									? formatUSDWithSatsSync(contract.contract.amount, btcPrice)
+									: `${formatRBTC(contract.contract.amount)} RBTC`}</span
+							>
 						</div>
 
 						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70">{$t('dashboard.contracts.escrow_id')}:</span>
-							<span class="font-mono text-sm">#{contract.contract.escrowId}</span>
-						</div>
-
-						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70 whitespace-nowrap">{$t('dashboard.contracts.task_id')}:</span>
-							<span class="font-mono text-sm overflow-wrap-anywhere break-all whitespace-normal">#{contract.contract.taskId}</span>
+							<span class="text-base-content/70 whitespace-nowrap"
+								>{$t('dashboard.contracts.task_id')}:</span
+							>
+							<span class="overflow-wrap-anywhere font-mono text-sm break-all whitespace-normal"
+								>#{contract.contract.taskId}</span
+							>
 						</div>
 
 						<div class="flex justify-between gap-2">
@@ -125,27 +137,118 @@
 
 					<div class="space-y-3">
 						<div class="flex justify-between gap-2">
-							<span class="text-base-content/70 whitespace-nowrap">{$t('dashboard.contracts.estimated_start')}:</span>
-							<span class="text-sm overflow-wrap-anywhere break-all whitespace-normal">{formatDate(contract.contract.estimatedStartTime)}</span>
+							<span class="text-base-content/70 whitespace-nowrap"
+								>{$t('dashboard.contracts.estimated_start')}:</span
+							>
+							<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
+								>{formatDate(contract.contract.estimatedStartTime)}</span
+							>
 						</div>
 
 						<div class="flex justify-between gap-2">
 							<span class="text-base-content/70 whitespace-nowrap"
 								>{$t('dashboard.contracts.estimated_completion')}:</span
 							>
-							<span class="text-sm overflow-wrap-anywhere break-all whitespace-normal">{formatDate(contract.contract.estimatedCompletionTime)}</span>
+							<span class="overflow-wrap-anywhere text-sm break-all whitespace-normal"
+								>{formatDate(contract.contract.estimatedCompletionTime)}</span
+							>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			<!-- Task Description Card -->
+			<!-- User Info Card -->
 			<div class="card bg-base-200">
+				<div class="card-body p-4">
+					<h4 class="mb-3 font-semibold">
+						{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
+					</h4>
+					<UserProfile
+						pubkey={contract.isClient
+							? contract.contract.freelancerPubkey
+							: contract.contract.clientPubkey}
+						size="md"
+					/>
+				</div>
+			</div>
+
+			<!-- Task Description Card -->
+			<div class="card bg-base-200 overflow-hidden">
 				<div class="card-body p-4">
 					<h4 class="mb-3 font-semibold">{$t('dashboard.contracts.task_description')}</h4>
 					<p class="text-base-content/80 text-sm leading-relaxed">
 						{contract.contract.taskDescription}
 					</p>
+
+					<!-- Original Bid Proposal - Expandable Section -->
+					<div class="mt-4">
+						<div class="bg-transparent">
+							<button
+								class="flex w-full cursor-pointer items-center justify-between px-0 py-2 text-sm font-medium"
+								onclick={() => (isOriginalBidOpen = !isOriginalBidOpen)}
+							>
+								<span>{$t('dashboard.contracts.original_bid_proposal')}</span>
+								<svg
+									class="h-4 w-4 transition-transform duration-200 {isOriginalBidOpen
+										? 'rotate-180'
+										: 'rotate-0'}"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M19 9l-7 7-7-7"
+									/>
+								</svg>
+							</button>
+							{#if isOriginalBidOpen}
+								<div class="px-0 pb-0">
+									<div class="bg-base-300 space-y-2 rounded-lg p-3 text-sm">
+										<div class="text-base-content/60 mb-2 text-xs">
+											{$t('dashboard.contracts.bid_details')}
+										</div>
+
+										<!-- Placeholder for bid information -->
+										<div class="space-y-2">
+											<div>
+												<span class="text-xs font-medium"
+													>{$t('dashboard.contracts.proposed_approach')}:</span
+												>
+												<p class="text-base-content/80 mt-1 text-xs">
+													{$t('dashboard.contracts.bid_info_not_available')}
+												</p>
+											</div>
+
+											<div>
+												<span class="text-xs font-medium"
+													>{$t('dashboard.contracts.estimated_duration')}:</span
+												>
+												<p class="text-base-content/80 mt-1 text-xs">
+													{formatDate(contract.contract.estimatedStartTime)} - {formatDate(
+														contract.contract.estimatedCompletionTime
+													)}
+												</p>
+											</div>
+
+											<div>
+												<span class="text-xs font-medium"
+													>{$t('dashboard.contracts.original_amount')}:</span
+												>
+												<p class="text-base-content/80 mt-1 text-xs">
+													{btcPrice > 0
+														? formatUSDWithSatsSync(contract.contract.amount, btcPrice)
+														: `${formatRBTC(contract.contract.amount)} RBTC`}
+												</p>
+											</div>
+										</div>
+									</div>
+								</div>
+							{/if}
+						</div>
+					</div>
 				</div>
 			</div>
 
@@ -167,13 +270,31 @@
 			</div>
 
 			<!-- Technical Details -->
-			<div class="card bg-base-200 overflow-visible">
-				<div class="card-body p-0">
-					<details class="collapse-arrow collapse bg-transparent">
-						<summary class="collapse-title min-h-fit px-4 py-3 text-sm font-medium">
-							{$t('dashboard.contracts.technical_details')}
-						</summary>
-						<div class="collapse-content px-4 pb-4">
+			<div class="card bg-base-200 mb-16 overflow-hidden sm:mb-0">
+				<div class="card-body bg-base-200 p-0">
+					<button
+						class="flex w-full cursor-pointer items-center justify-between px-4 py-3 text-sm font-medium"
+						onclick={() => (isTechnicalDetailsOpen = !isTechnicalDetailsOpen)}
+					>
+						<span>{$t('dashboard.contracts.technical_details')}</span>
+						<svg
+							class="h-4 w-4 transition-transform duration-200 {isTechnicalDetailsOpen
+								? 'rotate-180'
+								: 'rotate-0'}"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M19 9l-7 7-7-7"
+							/>
+						</svg>
+					</button>
+					{#if isTechnicalDetailsOpen}
+						<div class="px-4 pb-4">
 							<div class="space-y-3 text-xs">
 								<div>
 									<span class="text-base-content/60"
@@ -205,7 +326,7 @@
 								</div>
 							</div>
 						</div>
-					</details>
+					{/if}
 				</div>
 			</div>
 		</div>

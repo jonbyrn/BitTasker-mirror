@@ -6,6 +6,7 @@ import { bytesToHex } from '@noble/hashes/utils';
 import { subscribeToEvents, getSignedEvent } from './nostr';
 import { appStore } from '$lib/stores/app.store';
 import { profileCache } from './profile-cache';
+import { formatStandardDateShort } from './helpers/dateFormatter';
 import nip44 from '$lib/nostr/nip44';
 import KINDS from '$lib/utils/constants/kinds';
 
@@ -293,7 +294,7 @@ export function subscribeToProfileUpdates(
 
 export async function fetchProfileMetadata(
 	pubkey: string
-): Promise<{ name?: string; picture?: string }> {
+): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
 		// First check cache
 		const cachedProfile = await profileCache.getProfile(pubkey);
@@ -312,6 +313,7 @@ export async function fetchProfileMetadata(
 
 		let name: string | undefined = undefined;
 		let picture: string | undefined = undefined;
+		let createdAt: string | undefined = undefined;
 
 		// Sort events by created_at (newest first) to get the latest profile info
 		const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
@@ -323,7 +325,11 @@ export async function fetchProfileMetadata(
 
 					// Map displayName to name if name is not available
 					if ((content.name || content.displayName) && !name) {
-						name = content.name || content.displayName;
+						name = content.display_name || content.displayName || content.name;
+					}
+
+					if (event.created_at) {
+						createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
 					}
 
 					if (content.picture && !picture) {
@@ -380,7 +386,7 @@ export async function fetchProfileMetadata(
 			}
 		}
 
-		const profile = { name, picture };
+		const profile = { name, picture, createdAt };
 
 		// Cache the result (even if empty, to avoid repeated failed requests)
 		await profileCache.cacheProfile(pubkey, profile);
