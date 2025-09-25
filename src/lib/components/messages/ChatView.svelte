@@ -589,7 +589,7 @@
 	<!-- Messages Area -->
 	<div
 		bind:this={messagesContainer}
-		class="min-h-0 flex-1 space-y-2 overflow-y-auto p-4 "
+		class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-4"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -697,7 +697,7 @@
 	</div>
 
 	<!-- Message Input Area -->
-	<div class="border-base-300/20 flex-shrink-0 border-t p-3 sm:p-4">
+	<div class="border-base-300/20 flex-shrink-0 border-t px-6 py-4">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">

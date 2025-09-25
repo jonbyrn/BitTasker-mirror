@@ -4,8 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
+	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import ChatView from '$lib/components/messages/ChatView.svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
 	import { t } from 'svelte-i18n';
 
 	// Get pubkey from URL
@@ -47,8 +47,18 @@
 				return;
 			}
 
-			// Set default profile (no fetching)
-			recipientProfile = { name: undefined, picture: undefined };
+			// Fetch recipient profile
+			try {
+				const profile = await fetchProfileMetadata(hexPubkey);
+				recipientProfile = {
+					name: profile?.name || undefined,
+					picture: profile?.picture || undefined
+				};
+			} catch (err) {
+				console.error('Failed to fetch recipient profile:', err);
+				// Set default profile if fetch fails
+				recipientProfile = { name: undefined, picture: undefined };
+			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : $t('messages.failed_to_load_chat');
 		} finally {
@@ -133,11 +143,27 @@
 			<div class="flex flex-1 items-center justify-between min-w-0 p-0 md:p-4">
 				<div class="flex items-center gap-2 min-w-0 flex-1">
 					<div class="flex-shrink-0">
-						<Avatar
-							name={recipientProfile?.name || $t('messages.unknown')}
-							picture={recipientProfile?.picture || undefined}
-							size="sm"
-						/>
+						{#if recipientProfile?.picture}
+							<img
+								src={recipientProfile.picture}
+								alt={recipientProfile.name || $t('messages.unknown')}
+								class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
+								width={40}
+								height={40}
+							/>
+						{:else}
+							<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
+								{#if recipientProfile?.name}
+									<span class="text-primary font-semibold text-sm">
+										{recipientProfile.name.charAt(0).toUpperCase()}
+									</span>
+								{:else}
+									<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+									</svg>
+								{/if}
+							</div>
+						{/if}
 					</div>
 					<div class="min-w-0 flex-1">
 						<h4 class="text-base font-medium truncate">
