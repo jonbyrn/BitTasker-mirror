@@ -12,6 +12,8 @@
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 	import type { WalletAsset } from '$lib/stores/wallet.store';
+	// Icon imports for unplugin-icons
+	import IconContentCopy from '~icons/mdi/content-copy';
 
 	// Convert rBTC to sats using dynamic market rate or show separate balances on error
 	let totalUsdValue = $derived($totalBalances.usd);
@@ -187,19 +189,24 @@
 
 				{#if $combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
 					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • {$t('wallet.click_to_copy')}</div>
-						<button
-							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 text-left transition-colors"
-							onclick={copyLiquidAddress}
-							disabled={!$liquidConnection.connected ||
-								!$combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
-						>
-							<code class="text-xs">
-								{walletManager.formatAddress(
-									$combinedWalletState.liquid.walletInfo.walletInfo.pubkey
-								)}
-							</code>
-						</button>
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
+						<div class="relative">
+							<button
+								class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
+								onclick={copyLiquidAddress}
+								disabled={!$liquidConnection.connected ||
+									!$combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
+							>
+								<code class="text-xs">
+									{walletManager.formatAddress(
+										$combinedWalletState.liquid.walletInfo.walletInfo.pubkey
+									)}
+								</code>
+							</button>
+							<div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+								<IconContentCopy class="h-4 w-4 opacity-70" />
+							</div>
+						</div>
 					</div>
 				{/if}
 			</div>
@@ -249,16 +256,21 @@
 
 				{#if $combinedWalletState.rsk.address}
 					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')} • {$t('wallet.click_to_copy')}</div>
-						<button
-							class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 text-left transition-colors"
-							onclick={copyRskAddress}
-							disabled={!$rskConnection.connected || !$combinedWalletState.rsk.address}
-						>
-							<code class="text-xs">
-								{walletManager.formatAddress($combinedWalletState.rsk.address)}
-							</code>
-						</button>
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
+						<div class="relative">
+							<button
+								class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
+								onclick={copyRskAddress}
+								disabled={!$rskConnection.connected || !$combinedWalletState.rsk.address}
+							>
+								<code class="text-xs">
+									{walletManager.formatAddress($combinedWalletState.rsk.address)}
+								</code>
+							</button>
+							<div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+								<IconContentCopy class="h-4 w-4 opacity-70" />
+							</div>
+						</div>
 					</div>
 				{/if}
 			</div>

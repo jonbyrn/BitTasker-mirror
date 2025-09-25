@@ -183,27 +183,27 @@
 
 		{#if $combinedWalletState.hasAnyConnection || !hasErrors}
 			<!-- Tab Navigation -->
-			<div class="tabs tabs-boxed mb-6">
+			<div class="tabs tabs-bordered w-full mb-6">
 				<button
-					class="tab {$combinedWalletState.activeTab === 'balance' ? 'tab-active' : ''}"
+					class="tab {$combinedWalletState.activeTab === 'balance' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('balance')}
 				>
 					{$t('wallet.tab_balance')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'receive' ? 'tab-active' : ''}"
+					class="tab {$combinedWalletState.activeTab === 'receive' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('receive')}
 				>
 					{$t('wallet.tab_receive')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'send' ? 'tab-active' : ''}"
+					class="tab {$combinedWalletState.activeTab === 'send' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('send')}
 				>
 					{$t('wallet.tab_send')}
 				</button>
 				<button
-					class="tab {$combinedWalletState.activeTab === 'transactions' ? 'tab-active' : ''}"
+					class="tab {$combinedWalletState.activeTab === 'transactions' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('transactions')}
 				>
 					{$t('wallet.tab_transactions')}
@@ -260,3 +260,21 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	.tab.active-tab {
+		position: relative;
+		color: white;
+	}
+
+	.tab.active-tab::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		height: 2px;
+		background-color: orange;
+		border-radius: 1px;
+	}
+</style>
