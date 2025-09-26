@@ -33,7 +33,7 @@ export function indexTaskData(tasks: Task[]): IndexedTask[] {
     const normalizeToKey = (value: unknown): string => {
         if (typeof value === 'string') return value.toLowerCase().trim();
         if (value && typeof value === 'object') {
-            const v = value as any;
+            const v = value as Record<string, unknown>;
             if (typeof v.id === 'string' || typeof v.id === 'number') return String(v.id).toLowerCase().trim();
             if (typeof v.name === 'string') return v.name.toLowerCase().trim();
             if (typeof v.title === 'string') return v.title.toLowerCase().trim();
@@ -101,7 +101,7 @@ export function filterIndexedTasks(
     const normalizeToKey = (value: unknown): string => {
         if (typeof value === 'string') return value.toLowerCase().trim();
         if (value && typeof value === 'object') {
-            const v = value as any;
+            const v = value as Record<string, unknown>;
             if (typeof v.id === 'string' || typeof v.id === 'number') return String(v.id).toLowerCase().trim();
             if (typeof v.name === 'string') return v.name.toLowerCase().trim();
             if (typeof v.title === 'string') return v.title.toLowerCase().trim();
@@ -160,6 +160,50 @@ export function filterIndexedTasks(
 		});
 	}
 	
+	// Apply location filter with radius - ONLY use pickup location
+	if (params.location && params.radius) {
+		const searchLocation = params.location.toLowerCase().trim();
+		const radius = params.radius;
+		
+		filteredTasks = filteredTasks.filter(task => {
+			// Only check pickup location for filtering
+			const hasPickupLocation = task.pickupLocation && 
+				task.pickupLocation.latitude && 
+				task.pickupLocation.longitude;
+			
+			// Get pickup location name for text matching
+			const pickupLocationName = task.pickupLocation?.displayName?.toLowerCase() || '';
+			
+			// If we have coordinates for the search location, use distance calculation
+			if (params.locationCoords) {
+				const searchLat = params.locationCoords.latitude;
+				const searchLng = params.locationCoords.longitude;
+				
+				// Check pickup location distance (if coordinates available)
+				if (hasPickupLocation) {
+					const distance = calculateDistance(
+						searchLat, 
+						searchLng, 
+						task.pickupLocation!.latitude!, 
+						task.pickupLocation!.longitude!
+					);
+					if (distance <= radius) {
+						return true;
+					}
+				}
+				
+				// If no coordinates available for pickup location, fall back to text matching
+				// Extract city name from pickup location for better matching
+				const cityMatch = extractCityFromLocation(pickupLocationName, searchLocation);
+				return cityMatch;
+			} else {
+				// Fallback to text-based matching if no search coordinates available
+				const cityMatch = extractCityFromLocation(pickupLocationName, searchLocation);
+				return cityMatch;
+			}
+		});
+	}
+	
 	const filterTime = performance.now() - startTime;
 	
 	const metrics: FilterPerformanceMetrics = {
@@ -176,13 +220,49 @@ export function filterIndexedTasks(
 }
 
 /**
+ * Calculate distance between two geographic points using Haversine formula
+ * Returns distance in kilometers
+ */
+function calculateDistance(
+	lat1: number,
+	lng1: number,
+	lat2: number,
+	lng2: number
+): number {
+	const R = 6371; // Earth's radius in kilometers
+	const dLat = (lat2 - lat1) * Math.PI / 180;
+	const dLng = (lng2 - lng1) * Math.PI / 180;
+	const a =
+		Math.sin(dLat/2) * Math.sin(dLat/2) +
+		Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+		Math.sin(dLng/2) * Math.sin(dLng/2);
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+	return R * c;
+}
+
+/**
+ * Extract city name from location string for better matching
+ * Handles cases like "Nuevo Lourdes, Lourdes, El Salvador" -> "nuevo lourdes"
+ */
+function extractCityFromLocation(locationString: string, searchTerm: string): boolean {
+	if (!locationString || !searchTerm) return false;
+	
+	// Split by comma and get the first part (usually the city/neighborhood)
+	const parts = locationString.split(',').map(part => part.trim().toLowerCase());
+	
+	// Check if any part contains the search term
+	return parts.some(part => part.includes(searchTerm));
+}
+
+/**
  * Check if any active filters are applied
  */
 function hasActiveFilters(params: SearchTasksParams): boolean {
 	return !!(
 		(params.skills && params.skills.length > 0) ||
 		(params.categories && params.categories.length > 0) ||
-		(params.search && params.search.trim().length > 0)
+		(params.search && params.search.trim().length > 0) ||
+		(params.location && params.radius)
 	);
 }
 
@@ -233,6 +313,7 @@ function calculateStringSimilarity(str1: string, str2: string): number {
  */
 export function cleanupIndexedTasks(tasks: IndexedTask[]): Task[] {
 	return tasks.map(task => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { _skillsSet, _categoriesSet, _normalizedTitle, _normalizedDescription, _searchableText, ...cleanTask } = task;
 		return cleanTask;
 	});

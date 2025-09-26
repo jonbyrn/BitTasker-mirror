@@ -509,10 +509,10 @@
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">
-											{#each Array(5) as _, i}
+											{#each Array(5) as _, i}	
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
-													class="h-4 w-4 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+													class="h-4 w-4 {i < (task.creator?.rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
 													fill="currentColor"
 													viewBox="0 0 24 24"
 												>
@@ -521,7 +521,7 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-2 text-sm">4.0</span>
+											<span class="text-base-content/60 ml-2 text-sm">{task.creator?.rating || 0}</span>
 										</div>
 										<p class="text-base-content/60 text-sm">
 											{$t('dashboard.task_details_by_task.member_since')}
@@ -531,11 +531,11 @@
 								</div>
 							</div>
 						{/if}
-						<!-- Task Location Map -->
-						{#if task.pickupLocation || task.dropOffLocation}
+						<!-- Task Location Map - Only show pickup location -->
+						{#if task.pickupLocation}
 							<div class="border-base-300 mt-4 border-t">
 								<h4 class="mt-3 mb-2 font-semibold">
-									{$t('dashboard.task_details_by_task.location')}
+									{$t('dashboard.task_details_by_task.pickup_location')}
 								</h4>
 								<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
 								<div class="text-base-content/60 px-1 pt-2 text-sm">

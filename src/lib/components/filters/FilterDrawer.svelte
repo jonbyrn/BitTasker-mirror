@@ -28,12 +28,15 @@
 			type: undefined
 		},
 		location: undefined,
-		radius: undefined,
+		radius: 1.5, // Default radius of 1.5 km
 		deadline: undefined,
 		dateRange: undefined,
 		page: 1,
 		limit: 10
 	});
+
+	// Store selected location coordinates for distance calculation
+	let selectedLocationCoords = $state<{ latitude: number; longitude: number } | null>(null);
 
 	// Sync with initial filters when drawer opens
 	$effect(() => {
@@ -111,7 +114,7 @@
 			tier: undefined
 		};
 		filters.location = undefined;
-		filters.radius = undefined;
+		filters.radius = 1.5; // Reset to default radius
 		filters.deadline = undefined;
 		filters.dateRange = undefined;
 		
@@ -130,7 +133,9 @@
 		const cleanFilters = {
 			...filters,
 			categories: [...(filters.categories || [])],
-			skills: [...(filters.skills || [])]
+			skills: [...(filters.skills || [])],
+			// Include location coordinates for distance calculation
+			locationCoords: selectedLocationCoords
 		};
 		console.log('🔧 FilterDrawer: Applying filters:', cleanFilters);
 		onApply(cleanFilters);
@@ -324,14 +329,49 @@
 					placeholder={$t('find_tasks.location_placeholder')}
 					location={{
 						displayName: filters.location || '',
-						longitude: 0,
-						latitude: 0,
+						longitude: selectedLocationCoords?.longitude || 0,
+						latitude: selectedLocationCoords?.latitude || 0,
 						zipCode: '',
-						locationLoaded: false
+						locationLoaded: !!selectedLocationCoords
 					}}
-					onLocationSelect={(location) => (filters.location = location.displayName)}
+					onLocationSelect={(location) => {
+						filters.location = location.displayName;
+						selectedLocationCoords = {
+							latitude: location.latitude || 0,
+							longitude: location.longitude || 0
+						};
+					}}
 					showMap={false}
+					searchRadius={filters.radius || 1.5}
 				/>
+				
+				<!-- Radio de búsqueda -->
+				{#if filters.location}
+					<div class="mt-4">
+						<label class="label" for="search-radius">
+							<span class="label-text font-medium">{$t('find_tasks.search_radius')}</span>
+							<span class="label-text-alt">{filters.radius || 1.5} km</span>
+						</label>
+						<input
+							id="search-radius"
+							type="range"
+							min="0.5"
+							max="10"
+							step="0.5"
+							class="range range-primary w-full"
+							bind:value={filters.radius}
+							oninput={() => {
+								// Asegurar que siempre tengamos un valor por defecto
+								if (!filters.radius) filters.radius = 1.5;
+							}}
+						/>
+						<div class="flex justify-between text-xs text-base-content/60 mt-1">
+							<span>0.5 km</span>
+							<span>5 km</span>
+							<span>10 km</span>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 

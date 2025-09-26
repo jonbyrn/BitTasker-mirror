@@ -13,12 +13,14 @@
 		},
 		height = '300px',
 		showPin = true,
-		allowPinDrop = true
+		allowPinDrop = true,
+		searchRadius = 1.5
 	} = $props<{
 		location?: Location;
 		height?: string;
 		showPin?: boolean;
 		allowPinDrop?: boolean;
+		searchRadius?: number;
 	}>();
 
 	// Event dispatcher
@@ -30,6 +32,7 @@
 	let map: google.maps.Map | null = null;
 	let mapElement: HTMLElement | null = null;
 	let marker: google.maps.marker.AdvancedMarkerElement | null = null;
+	let searchRadiusCircle: google.maps.Circle | null = null;
 	let isMapLoaded = $state(false);
 	let hasError = $state(false);
 	let error = $state('');
@@ -150,6 +153,9 @@
 				await createMarker();
 			}
 
+			// Create search radius circle
+			createSearchRadiusCircle();
+
 			// Add click listener for pin dropping if allowed
 			if (allowPinDrop) {
 				map.addListener('click', handleMapClick);
@@ -196,6 +202,39 @@
 		} catch (error) {
 			console.error('Error creating marker:', error);
 		}
+	}
+
+	// Function to create or update the search radius circle
+	function createSearchRadiusCircle() {
+		if (!map || !googleMapsReady || !window.google?.maps) return;
+
+		// Remove existing circle
+		if (searchRadiusCircle) {
+			searchRadiusCircle.setMap(null);
+		}
+
+		const position = { lat: location.latitude!, lng: location.longitude! };
+
+		// Create new circle
+		searchRadiusCircle = new google.maps.Circle({
+			strokeColor: '#ff6b35',
+			strokeOpacity: 0.8,
+			strokeWeight: 2,
+			fillColor: '#ff6b35',
+			fillOpacity: 0.1,
+			map: map,
+			center: position,
+			radius: searchRadius * 1000 // Convert km to meters
+		});
+	}
+
+	// Function to update the search radius circle
+	function updateSearchRadiusCircle() {
+		if (!searchRadiusCircle || !map) return;
+
+		const position = { lat: location.latitude!, lng: location.longitude! };
+		searchRadiusCircle.setCenter(position);
+		searchRadiusCircle.setRadius(searchRadius * 1000); // Convert km to meters
 	}
 
 	async function handleMapClick(event: google.maps.MapMouseEvent) {
@@ -285,12 +324,22 @@
 		if (marker && showPin) {
 			marker.position = newCenter;
 		}
+
+		// Update search radius circle
+		updateSearchRadiusCircle();
 	}
 
 	// Watch for location changes
 	$effect(() => {
 		if (location.latitude && location.longitude && isMapLoaded) {
 			updateMapCenter();
+		}
+	});
+
+	// Watch for search radius changes
+	$effect(() => {
+		if (isMapLoaded && searchRadiusCircle) {
+			updateSearchRadiusCircle();
 		}
 	});
 
@@ -322,6 +371,7 @@
 	onDestroy(() => {
 		// Cleanup
 		if (marker) marker.map = null;
+		if (searchRadiusCircle) searchRadiusCircle.setMap(null);
 		if (map) {
 			google.maps.event.clearInstanceListeners(map);
 		}

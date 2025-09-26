@@ -373,7 +373,7 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 											{#each Array(5) as _, i}
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
-													class="h-3 w-3 sm:h-4 sm:w-4 {i < 4
+													class="h-3 w-3 sm:h-4 sm:w-4 {i < (bid.userProfile?.user?.rating || 0)
 														? 'text-yellow-400'
 														: 'text-base-content/30'}"
 													fill="currentColor"
@@ -384,7 +384,7 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-1 text-xs sm:text-sm">4.0</span>
+											<span class="text-base-content/60 ml-1 text-xs sm:text-sm">{bid.userProfile?.user?.rating || 0}</span>
 										</div>
 									</div>
 								</div>

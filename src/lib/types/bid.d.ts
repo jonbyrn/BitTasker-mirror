@@ -301,6 +301,7 @@ export interface SimplifiedTaskBid {
 	endDateTime: string;
 	userProfile: {
 		user: {
+			rating: number;
 			id: string;
 			name: string;
 			avatar: string;

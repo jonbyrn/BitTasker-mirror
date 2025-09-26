@@ -103,11 +103,12 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['T'] = [params.taskType];
     }
 
-    // Location filter with enhanced structure
-    if (params.location) {
-        filter['T'] = ['onsite'];
-        filter['L'] = [params.location];
-    }
+    // Location filter - REMOVED: Now handled in frontend filtering
+    // The frontend will handle location filtering with radius calculation
+    // if (params.location) {
+    //     filter['T'] = ['onsite'];
+    //     filter['L'] = [params.location];
+    // }
 
     // Add NIP-50 search support
     if (params.search) {
@@ -174,7 +175,7 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             const response = await nostrEventsService.findEvents(filter);
 
             const events = response.data || [];
-            const total = events.length;
+            // const total = events.length;
 
             // For public users, show all tasks without filtering by npub
             // This avoids triggering biometric authentication for public users

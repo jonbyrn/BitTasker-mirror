@@ -86,6 +86,7 @@ export interface Task {
 	creator?: {
 		username: string;
 		avatar: string;
+		rating?: number;
 	};
 
 	bids?: TaskBid[];
@@ -100,6 +101,7 @@ export interface SearchTasksParams {
 	skills?: string[];
 	location?: string;
 	radius?: number;
+	locationCoords?: { latitude: number; longitude: number };
 	deadline?: string;
 	dateRange?: DateRange;
 

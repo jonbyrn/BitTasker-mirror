@@ -47,6 +47,7 @@
       "fixed_price": "Precio Fijo",
       "location": "Ubicación",
       "location_placeholder": "Buscar una ubicación...",
+      "search_radius": "Radio de búsqueda",
       "availability": "Disponibilidad",
       "categories": "Categorías",
       "add_categories": "Agregar categorías...",

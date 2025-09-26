@@ -17,10 +17,12 @@
 		},
 		onLocationSelect,
 		showMap = true,
-		mapHeight = '300px'
+		mapHeight = '300px',
+		searchRadius = 1.5
 	}: LocationProps & {
 		showMap?: boolean;
 		mapHeight?: string;
+		searchRadius?: number;
 	} = $props();
 
 	// State
@@ -167,6 +169,7 @@
 				height={mapHeight}
 				showPin={true}
 				allowPinDrop={true}
+				searchRadius={searchRadius}
 				on:locationChanged={handleMapLocationChange}
 			/>
 		</div>
