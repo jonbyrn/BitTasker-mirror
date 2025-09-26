@@ -146,8 +146,8 @@
 	<!-- Network Breakdown -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<!-- Liquid Network Card -->
-		<div class="card bg-base-200">
-			<div class="card-body">
+		<div class="card bg-base-200 flex flex-col">
+			<div class="card-body flex flex-col flex-1">
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid Network" class="h-6 w-6" />
@@ -162,30 +162,32 @@
 					</div>
 				</div>
 
-				{#if $allAssets.filter((a: WalletAsset) => a.network === 'Liquid').length > 0}
-					<div class="space-y-2">
-						{#each $allAssets.filter((a: WalletAsset) => a.network === 'Liquid') as asset (asset.assetId)}
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
-									<span class="font-medium">{asset.ticker}</span>
+				<div class="flex-1">
+					{#if $allAssets.filter((a: WalletAsset) => a.network === 'Liquid').length > 0}
+						<div class="space-y-2">
+							{#each $allAssets.filter((a: WalletAsset) => a.network === 'Liquid') as asset (asset.assetId)}
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
+										<span class="font-medium">{asset.ticker}</span>
+									</div>
+									<div class="text-right">
+										<div class="font-semibold">{asset.formattedBalance}</div>
+										{#if asset.usdValue > 0}
+											<div class="text-xs opacity-70">
+												${asset.usdValue.toFixed(2)}
+											</div>
+										{/if}
+									</div>
 								</div>
-								<div class="text-right">
-									<div class="font-semibold">{asset.formattedBalance}</div>
-									{#if asset.usdValue > 0}
-										<div class="text-xs opacity-70">
-											${asset.usdValue.toFixed(2)}
-										</div>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="py-4 text-center opacity-70">
-						<p>{$t('wallet.no_assets_loaded')}</p>
-					</div>
-				{/if}
+							{/each}
+						</div>
+					{:else}
+						<div class="py-4 text-center opacity-70">
+							<p>{$t('wallet.no_assets_loaded')}</p>
+						</div>
+					{/if}
+				</div>
 
 				{#if $combinedWalletState.liquid.walletInfo?.walletInfo?.pubkey}
 					<div class="mt-4">
@@ -213,8 +215,8 @@
 		</div>
 
 		<!-- Rootstock Network Card -->
-		<div class="card bg-base-200">
-			<div class="card-body">
+		<div class="card bg-base-200 flex flex-col">
+			<div class="card-body flex flex-col flex-1">
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
@@ -229,30 +231,32 @@
 					</div>
 				</div>
 
-				{#if $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc').length > 0}
-					<div class="space-y-2">
-						{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
-							<div class="flex items-center justify-between">
-								<div class="flex items-center gap-2">
-									<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
-									<span class="font-medium">{asset.ticker}</span>
+				<div class="flex-1">
+					{#if $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc').length > 0}
+						<div class="space-y-2">
+							{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
+										<span class="font-medium">{asset.ticker}</span>
+									</div>
+									<div class="text-right">
+										<div class="font-semibold">{asset.formattedBalance}</div>
+										{#if asset.usdValue > 0}
+											<div class="text-xs opacity-70">
+												${asset.usdValue.toFixed(2)}
+											</div>
+										{/if}
+									</div>
 								</div>
-								<div class="text-right">
-									<div class="font-semibold">{asset.formattedBalance}</div>
-									{#if asset.usdValue > 0}
-										<div class="text-xs opacity-70">
-											${asset.usdValue.toFixed(2)}
-										</div>
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="py-4 text-center opacity-70">
-						<p>{$t('wallet.no_assets_loaded')}</p>
-					</div>
-				{/if}
+							{/each}
+						</div>
+					{:else}
+						<div class="py-4 text-center opacity-70">
+							<p>{$t('wallet.no_assets_loaded')}</p>
+						</div>
+					{/if}
+				</div>
 
 				{#if $combinedWalletState.rsk.address}
 					<div class="mt-4">
