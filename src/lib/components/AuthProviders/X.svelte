@@ -2,6 +2,7 @@
 	import type { XUser, XAuthResponse } from '$lib/types/x';
 	import { onMount } from 'svelte';
 	import createAxiosInstance from '$lib/api/axios';
+	import { t } from 'svelte-i18n';
 
 	// X API configuration
 	const X_CLIENT_ID = import.meta.env.VITE_X_CLIENT_ID;
@@ -30,7 +31,7 @@
 			return response.data;
 		} catch (error) {
 			console.error('Error fetching user data:', error);
-			throw new Error('Failed to fetch user data');
+			throw new Error($t('auth.login.errors.failed_fetch_user_data'));
 		}
 	};
 
@@ -38,7 +39,7 @@
 	const exchangeCodeForTokens = async (code: string): Promise<XAuthResponse> => {
 		const codeVerifier = sessionStorage.getItem('x_code_verifier');
 		if (!codeVerifier) {
-			throw new Error('Code verifier not found');
+			throw new Error($t('auth.login.errors.code_verifier_not_found'));
 		}
 
 		const params = new URLSearchParams({
@@ -60,7 +61,7 @@
 			return response.data;
 		} catch (error) {
 			console.error('Error exchanging code for tokens:', error);
-			throw new Error('Failed to exchange code for tokens');
+			throw new Error($t('auth.login.errors.failed_exchange_code_tokens'));
 		}
 	};
 
@@ -70,7 +71,7 @@
 			// Verify state to prevent CSRF attacks
 			const savedState = sessionStorage.getItem('x_auth_state');
 			if (state !== savedState) {
-				throw new Error('Invalid state parameter');
+				throw new Error($t('auth.login.errors.invalid_state_parameter'));
 			}
 
 			// Exchange code for tokens using PKCE
@@ -127,7 +128,7 @@
 		if (!isInitialized) {
 			console.log('error', {
 				provider: 'x',
-				error: 'X auth not initialized'
+				error: $t('auth.login.errors.x_auth_not_initialized')
 			});
 			return;
 		}
@@ -184,6 +185,6 @@
 				/>
 			</svg>
 		{/if}
-		Continue with X
+		{$t('auth.login.continue_with_x')}
 	</div>
 </button>

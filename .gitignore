@@ -10,6 +10,12 @@ node_modules
 /build
 /storybook-static
 
+# Firebase Functions
+functions/lib/**/*.js
+functions/lib/**/*.js.map
+functions/typings/
+functions/*.local
+
 # OS
 .DS_Store
 Thumbs.db

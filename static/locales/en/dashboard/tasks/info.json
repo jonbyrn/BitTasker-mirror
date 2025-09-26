@@ -27,13 +27,31 @@
       },
       "actions": {
         "view_details": "View Details",
-        "view_bids": "View Bids"
+        "view_bids": "View Bids",
+        "mark_as_done": "Mark as Done",
+        "rescope": "Rescope",
+        "delete_task": "Delete Task",
+        "dispute_task": "Dispute Task"
+      },
+      "filters": {
+        "tasks_in_progress": "Tasks in Progress",
+        "bids_received": "Bids Received",
+        "tasks_waiting_for_bids": "Waiting for Bids",
+        "tasks_completed": "Tasks Completed",
+        "tasks_disputed": "Tasks Disputed"
       },
       "empty": {
-        "no_tasks": "No tasks found"
+        "no_tasks": "No tasks found",
+        "no_tasks_description": "Your tasks will appear here"
       },
       "error": {
         "loading": "Error loading tasks"
+      },
+      "location": {
+        "details": "Location Details"
+      },
+      "user": {
+        "anonymous": "Anonymous"
       },
       "status": {
         "in_progress": "In Progress",
@@ -97,6 +115,13 @@
         "try_again": "Try Again",
         "task_not_found": "Task Not Found",
         "task_not_found_desc": "The task you're looking for could not be found",
+        "bids_received": "Bids received",
+        "bids_description": "Here you can see all the bids for this task.",
+        "member_since": "Member since",
+        "withdraw_bid": "Withdraw Your Bid",
+        "withdrawal_reason_placeholder": "Please explain why you're withdrawing your bid...",
+        "anonymous": "Anonymous",
+        "avatar_alt": "Avatar",
         "error": {
           "load": "Failed to load task details. Please try again.",
           "no_details": "No task details available",
@@ -119,7 +144,7 @@
     },
     "profile_task": {
       "no_saved_searches": "No saved searches yet",
-      "saved_searches_info": "Save your search criteria to get notified when new matching tasks are posted.",
+      "saved_searches_info": "Your saved searches will appear here",
       "saved_searches_title": "Your Saved Searches",
       "retry": "Retry",
       "new_matching_tasks": "New matching tasks",

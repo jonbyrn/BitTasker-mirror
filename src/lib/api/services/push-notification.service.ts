@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Token, PushNotificationSchema, ActionPerformed } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
@@ -8,7 +9,7 @@ import {
 	RevokeDeviceStore,
 	MyDevicesStore,
 	MyNotificationPreferencesStore,
-	SendTestNotificationStore,
+	SendNotificationStore,
 	SubscribeToTopicStore,
 	UnsubscribeFromTopicStore,
 	UpdateDeviceActivityStore
@@ -20,22 +21,26 @@ import {
 	getFirebaseWebConfig,
 	getVapidKey
 } from '$lib/utils/helpers/fcm';
-import { getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
+import { createUserDeviceShortName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { appStore } from '$lib/stores/app.store';
 import { goto } from '$app/navigation';
 import { browser } from '$app/environment';
+import { get } from 'svelte/store';
+import { StorageKeys } from '$lib/utils/constants/storage';
+import { Preferences } from '@capacitor/preferences';
 
 class PushNotificationService {
 	private messaging: any = null;
 	private currentDeviceId: string | null = null;
 	private notificationCounter: number = 0;
+	private deviceName: string | null = null;
 
 	// Houdini Stores
 	private registerDeviceStore = new RegisterDeviceStore();
 	private revokeDeviceStore = new RevokeDeviceStore();
 	private myDevicesStore = new MyDevicesStore();
 	private myNotificationPreferencesStore = new MyNotificationPreferencesStore();
-	private sendTestNotificationStore = new SendTestNotificationStore();
+	private sendNotificationStore = new SendNotificationStore();
 	private subscribeToTopicStore = new SubscribeToTopicStore();
 	private unsubscribeFromTopicStore = new UnsubscribeFromTopicStore();
 	private updateDeviceActivityStore = new UpdateDeviceActivityStore();
@@ -44,6 +49,12 @@ class PushNotificationService {
 		getDeviceIdentifier().then((deviceId) => {
 			this.currentDeviceId = deviceId;
 		});
+		(async () => {
+			let npub = get(appStore)?.biometricData?.username || (await Preferences.get({ key: StorageKeys.NPUB })).value || '';
+			createUserDeviceShortName(npub).then((deviceName) => {
+				this.deviceName = deviceName;
+			});
+		})();
 	}
 
 	// Get this from your app config or package.json
@@ -143,14 +154,14 @@ class PushNotificationService {
 	private handleForegroundMessage(payload: any): void {
 		const { notification, data } = payload;
 
+		// Handle data payload first (includes device revocation)
+		if (data) {
+			this.handleNotificationData(data);
+		}
+
 		// Show notification in foreground (optional, since browser handles this)
 		if (notification) {
 			this.showInAppNotification(notification);
-		}
-
-		// Handle data payload
-		if (data) {
-			this.handleNotificationData(data);
 		}
 	}
 
@@ -169,6 +180,13 @@ class PushNotificationService {
 	private async handleNotificationData(data: any): Promise<void> {
 		// Handle notification data (e.g., navigate to specific page)
 		console.log('📱 Handling notification data:', data);
+
+		// Handle device revocation notification first
+		if (data.type === 'device_revoked') {
+			console.log('🚨 Device revocation notification received');
+			await this.handleDeviceRevocation(data);
+			return; // Exit early, don't navigate anywhere
+		}
 
 		// Determine the target URL based on notification type
 		let targetUrl = '/dashboard';
@@ -197,6 +215,23 @@ class PushNotificationService {
 
 		// Navigate using appropriate method for platform
 		await this.navigateToUrl(targetUrl);
+	}
+
+	/**
+	 * Handle device revocation notification - immediately log out the user
+	 */
+	private async handleDeviceRevocation(data: any): Promise<void> {
+		console.log('🚨 Processing device revocation:', data);
+
+		// Show toast notification
+		appStore.showInfoToast(data.message || 'Your device access has been revoked');
+
+		// Use existing logout functionality
+		const { authState } = await import('$lib/stores/auth.store');
+		await authState.logout();
+
+		// Navigate to login
+		goto('/auth/login');
 	}
 
 	/**
@@ -543,6 +578,7 @@ class PushNotificationService {
 			const result = await this.registerDeviceStore.mutate({
 				input: {
 					deviceId: this.currentDeviceId,
+					deviceName: this.deviceName,
 					fcmToken: token,
 					platform: platform,
 					appVersion: this.getAppVersion()
@@ -554,7 +590,6 @@ class PushNotificationService {
 				throw new Error(result.errors[0].message);
 			}
 
-			console.log('✅ Successfully registered device on server');
 		} catch (error) {
 			throw error || new Error('❌ An error occurred while registering device on server');
 		}
@@ -597,7 +632,7 @@ class PushNotificationService {
 	// Public method to get user's devices
 	public async getMyDevices() {
 		try {
-			const result = await this.myDevicesStore.fetch();
+			const result = await this.myDevicesStore.fetch({ policy: 'NetworkOnly' });
 			if (result.errors) {
 				throw new Error(result.errors[0].message);
 			}
@@ -605,6 +640,34 @@ class PushNotificationService {
 		} catch (error) {
 			console.error('Error fetching user devices:', error);
 			return [];
+		}
+	}
+
+	// Public method to revoke a specific device
+	public async revokeDevice(deviceId: string, message?: string) {
+		try {
+			const result = await this.revokeDeviceStore.mutate({
+				deviceId
+			});
+
+			if (result.errors) {
+				throw new Error(result.errors[0].message);
+			}
+
+			console.log(`Successfully revoked device: ${deviceId}`);
+
+			// Then, send push notification to the revoked device to force logout
+			try {
+				await this.sendNotification('Device Access Revoked', message || 'Your device access has been revoked for security reasons. You will be logged out immediately.');
+			} catch (notificationError) {
+				console.warn('Error sending revocation notification:', notificationError);
+				// Continue - the device revocation was successful even if notification failed
+			}
+
+			return result.data?.revokeDevice;
+		} catch (error) {
+			console.error('Error revoking device:', error);
+			throw error;
 		}
 	}
 
@@ -623,13 +686,14 @@ class PushNotificationService {
 	}
 
 	// Public method to send test notification
-	public async sendTestNotification(title: string, body: string) {
+	public async sendNotification(title: string, body: string) {
 		try {
-			const result = await this.sendTestNotificationStore.mutate({
+			const result = await this.sendNotificationStore.mutate({
 				input: {
 					title,
 					body,
-					deviceId: this.currentDeviceId
+					deviceId: this.currentDeviceId,
+					type: 'device_revoked'
 				}
 			});
 
@@ -637,7 +701,7 @@ class PushNotificationService {
 				throw new Error(result.errors[0].message);
 			}
 
-			return result.data?.sendTestNotification;
+			return result.data?.sendNotification;
 		} catch (error) {
 			console.error('Error sending test notification:', error);
 			throw error;
@@ -713,8 +777,8 @@ class PushNotificationService {
 			console.log('🧪 Testing notification...');
 
 			if (Capacitor.isNativePlatform()) {
-				// For native platforms, we'll use the sendTestNotification mutation
-				await this.sendTestNotification('Test Notification', 'This is a test notification from BitTasker');
+				// For native platforms, we'll use the sendNotification mutation
+				await this.sendNotification('Test Notification', 'This is a test notification from BitTasker');
 			} else {
 				// For web, show a local notification
 				if (Notification.permission === 'granted') {
@@ -749,9 +813,3 @@ class PushNotificationService {
 
 // Export singleton instance
 export const pushNotificationService = new PushNotificationService();
-
-// Add to window for debugging in development
-// if (typeof window !== 'undefined' && import.meta.env.DEV) {
-// 	(window as any).pushService = pushNotificationService;
-// 	console.log('🐛 Push service available on window.pushService for debugging');
-// } 

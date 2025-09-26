@@ -8,16 +8,18 @@
 		subscribeToProfileUpdates
 	} from '$lib/utils/nostr-message';
 	import ChatMessage from './ChatMessage.svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
 	import { nip19 } from 'nostr-tools';
-import { onDestroy } from 'svelte';
-import { t } from 'svelte-i18n';
+	import { onDestroy } from 'svelte';
+	import { t } from 'svelte-i18n';
+	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
+	import { TranslationStore } from '$lib/stores/translation.store';
+	import { TranslationService } from '$lib/services/translation.service';
 
 	// Props
 	let {
 		recipientPubkey,
 		currentUserPubkey,
-		initialProfile
+		initialProfile,
 	}: {
 		recipientPubkey: string;
 		currentUserPubkey: string;
@@ -30,8 +32,21 @@ import { t } from 'svelte-i18n';
 	let isLoadingMessages = $state(true);
 	let isSendingMessage = $state(false);
 	let error = $state('');
-	let recipientProfile = $state<{ name?: string; picture?: string }>(initialProfile || {});
-let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t('messages.you') });
+	let recipientProfile = $state<{ name?: string; picture?: string }>({});
+	let currentUserProfile = $state<{ name?: string; picture?: string }>({
+		name: $t('dashboard.bids.components.messages.chat_message.you')
+	});
+
+	// Reply state
+	let replyingToMessage = $state<{
+		plaintext: string;
+		senderPubkey: string;
+		event: NostrEvent;
+	} | null>(null);
+
+	// Emoji picker state
+	let showEmojiPicker = $state(false);
+	let emojiButtonRef = $state<HTMLElement | null>(null);
 
 	// Pagination state
 	let isLoadingMore = $state(false);
@@ -63,7 +78,8 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			return currentUserPubkey.startsWith('npub')
 				? (nip19.decode(currentUserPubkey).data as string)
 				: currentUserPubkey;
-		} catch {
+		} catch (error) {
+			console.error('Error converting currentUserPubkey to hex:', error);
 			return currentUserPubkey;
 		}
 	});
@@ -81,9 +97,32 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 	// Draft persistence key
 	const draftKey = $derived(() => `chat_draft_${currentUserHex()}_${recipientHex()}`);
 
+	// Track translated message IDs to prevent duplicate calls
+	// Note: translatedMessageIds is now managed by TranslationStore to avoid conflicts
+	
+	// Track previous message count for auto-scroll
+	let previousMessageCount = $state(0);
+	
+	// Track if user is at bottom for scroll-to-bottom button
+	let isAtBottom = $state(true);
+	
+	// Translation service instance
+	const translationService = new TranslationService();
+
+	// Preload translations for current conversation
+	$effect(() => {
+		if (messages.length > 0) {
+			const messageIds = messages.map(msg => msg.event.id);
+			TranslationStore.preloadConversationTranslations(messageIds);
+		}
+	});
+
 	// Load messages when recipient changes
 	$effect(() => {
 		if (recipientPubkey) {
+			// Clear processed message IDs when switching conversations
+			processedMessageIds.clear();
+			// TranslationStore handles message ID tracking internally
 			resetPagination();
 			loadMessages();
 			setupRealtimeListener();
@@ -109,6 +148,47 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 		};
 	});
 
+	// Track processed message IDs to avoid re-processing
+	let processedMessageIds = $state(new Set<string>());
+	
+	// Auto-translate only NEW messages when they arrive
+	$effect(() => {
+		const currentMessages = messages;
+		
+		if (currentMessages.length > 0) {
+			// Find only NEW messages that haven't been processed yet
+			const newMessages = currentMessages.filter(message => {
+				const messageId = message.event.id;
+				return !processedMessageIds.has(messageId);
+			});
+			
+			// Process new messages for translation
+			newMessages.forEach(async (message) => {
+				const messageId = message.event.id;
+				const isFromCurrentUser = message.senderPubkey === currentUserHex();
+				const hasText = message.plaintext.trim();
+				
+				// Mark as processed immediately to avoid duplicates
+				processedMessageIds.add(messageId);
+				
+				// Only translate incoming messages with text content
+				if (!isFromCurrentUser && hasText && hasText.length > 3) {
+					const isNotSystemMessage = !message.plaintext.startsWith('[') && !message.plaintext.startsWith('{');
+					
+					if (isNotSystemMessage) {
+						try {
+							// TranslationStore handles duplicate prevention internally
+							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
+							
+						} catch (error) {
+							console.error('Translation error for new message', messageId, ':', error);
+						}
+					}
+				}
+			});
+		}
+	});
+
 	// Auto-save draft when message text changes
 	$effect(() => {
 		if (newMessageText !== lastSavedDraft && recipientPubkey) {
@@ -126,16 +206,48 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 	// Auto-scroll to bottom when new messages arrive (but not when loading more)
 	$effect(() => {
 		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
-			scrollToBottom();
+			// Use setTimeout to ensure DOM is updated
+			setTimeout(() => {
+				scrollToBottom();
+			}, 100);
 		}
 	});
 
-	// Monitor scroll position for infinite scroll
+	// Auto-scroll when new messages are added (not just when array changes)
+	$effect(() => {
+		const currentMessageCount = messages.length;
+		const hasNewMessages = currentMessageCount > previousMessageCount;
+		
+		if (hasNewMessages && messagesContainer && !isLoadingMore) {
+			// Immediate scroll for new messages
+			setTimeout(() => {
+				scrollToBottomImmediate();
+			}, 50);
+		}
+		
+		previousMessageCount = currentMessageCount;
+	});
+
+	// Auto-scroll when translations complete
+	$effect(() => {
+		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
+			// Scroll after a short delay to allow translations to render
+			setTimeout(() => {
+				scrollToBottom();
+			}, 500);
+		}
+	});
+
+	// Monitor scroll position for infinite scroll and bottom detection
 	$effect(() => {
 		if (messagesContainer) {
 			const handleScroll = () => {
-				const { scrollTop } = messagesContainer;
+				const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
 				isNearTop = scrollTop < SCROLL_THRESHOLD;
+				
+				// Check if user is at bottom (within 50px)
+				const isNearBottom = scrollTop + clientHeight >= scrollHeight - 50;
+				isAtBottom = isNearBottom;
 
 				// Trigger load more when near top and not already loading
 				if (isNearTop && hasMoreMessages && !isLoadingMore && !isLoadingMessages) {
@@ -252,6 +364,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 				limit: MESSAGES_PER_PAGE
 			});
 
+
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
 			messages = sortedMessages;
@@ -277,8 +390,8 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			} else {
 				recipientProfile = initialProfile;
 			}
-        } catch (err) {
-            error = 'messages.failed_load_messages';
+		} catch (err) {
+			error = 'dashboard.bids.components.messages.chat_view.failed_load_messages';
 			console.error('Error loading messages:', err);
 		} finally {
 			isLoadingMessages = false;
@@ -397,13 +510,23 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			profileUnsubscribe();
 		}
 
+		// First, try to fetch the profile immediately
+		fetchProfileMetadata(recipientHex())
+			.then((profile) => {
+				if (profile && (profile.name || profile.picture)) {
+					recipientProfile = { ...profile };
+				}
+			})
+			.catch((err) => {
+				console.error('Failed to fetch recipient profile:', err);
+			});
+
 		// Setup new subscription for profile updates using hex format
 		profileUnsubscribe = subscribeToProfileUpdates(recipientHex(), (profile) => {
 			// Only update if we get valid profile data, otherwise keep existing
 			if (profile && (profile.name || profile.picture)) {
 				// Create a new object reference to ensure Svelte reactivity
 				recipientProfile = { ...profile };
-			} else {
 			}
 		});
 	}
@@ -415,19 +538,25 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 		}
 
 		// Fetch current user's initial profile
-        fetchProfileMetadata(currentUserHex())
+		fetchProfileMetadata(currentUserHex())
 			.then((profile) => {
-                currentUserProfile = { name: profile.name || $t('messages.you'), picture: profile.picture };
+				currentUserProfile = {
+					name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
+					picture: profile.picture
+				};
 			})
 			.catch((err) => {
 				console.error('Failed to fetch current user profile:', err);
 			});
 
 		// Setup new subscription for current user profile updates using hex format
-        currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
+		currentUserProfileUnsubscribe = subscribeToProfileUpdates(currentUserHex(), (profile) => {
 			// Only update if we get valid profile data
 			if (profile && (profile.name || profile.picture)) {
-                currentUserProfile = { name: profile.name || $t('messages.you'), picture: profile.picture };
+				currentUserProfile = {
+					name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
+					picture: profile.picture
+				};
 			}
 		});
 	}
@@ -435,14 +564,22 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 	async function sendMessage() {
 		if (!newMessageText.trim() || isSendingMessage) return;
 
-		const messageContent = newMessageText.trim();
+		let messageContent = newMessageText.trim();
+
+		// Add reply context if replying to a message
+		if (replyingToMessage) {
+			const replyPrefix = `> ${replyingToMessage.plaintext}\n\n`;
+			messageContent = replyPrefix + messageContent;
+		}
+
 		const tempId = `temp-${currentUserHex()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 		isSendingMessage = true;
 
 		try {
-			// Clear the input and draft immediately for better UX
+			// Clear the input, draft, and reply state immediately for better UX
 			newMessageText = '';
 			clearDraft();
+			replyingToMessage = null;
 
 			// Create a local message object to add to the UI immediately
 			const localMessage = {
@@ -471,11 +608,11 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			if (messageInput) {
 				messageInput.focus();
 			}
-        } catch (err) {
+		} catch (err) {
 			// On error, remove the temporary message and restore the input
 			messages = messages.filter((msg) => msg.event.id !== tempId);
 			newMessageText = messageContent;
-            error = 'messages.failed_send_message';
+			error = 'dashboard.bids.components.messages.chat_view.failed_send_message';
 			console.error('Error sending message:', err);
 
 			// Clear error after 5 seconds
@@ -488,6 +625,17 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 	}
 
 	function scrollToBottom() {
+		if (messagesContainer) {
+			// Use smooth scrolling for better UX
+			messagesContainer.scrollTo({
+				top: messagesContainer.scrollHeight,
+				behavior: 'smooth'
+			});
+		}
+	}
+
+	// Force scroll to bottom (immediate, no animation)
+	function scrollToBottomImmediate() {
 		if (messagesContainer) {
 			messagesContainer.scrollTop = messagesContainer.scrollHeight;
 		}
@@ -511,6 +659,36 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 		}
 	}
 
+	// Function to start replying to a message
+	function startReply(message: { plaintext: string; senderPubkey: string; event: NostrEvent }) {
+		replyingToMessage = message;
+		messageInput?.focus();
+	}
+
+	// Function to cancel reply
+	function cancelReply() {
+		replyingToMessage = null;
+	}
+
+	// Function to handle emoji selection
+	function handleEmojiSelect(emoji: string) {
+		newMessageText += emoji;
+		messageInput?.focus();
+		showEmojiPicker = false;
+	}
+
+	// Function to handle reaction add
+	function handleReactionAdd(messageId: string, emoji: string) {
+		// TODO: Implement reaction storage and sync with Nostr
+		console.log('Add reaction:', messageId, emoji);
+	}
+
+	// Function to handle reaction remove
+	function handleReactionRemove(messageId: string, emoji: string) {
+		// TODO: Implement reaction removal and sync with Nostr
+		console.log('Remove reaction:', messageId, emoji);
+	}
+
 	function handleSubmit(event: Event) {
 		event.preventDefault();
 		sendMessage();
@@ -528,20 +706,22 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 	}
 </script>
 
-<div class="flex flex-col">
-	<!-- Messages Area -->
-    <div
+<div class="flex flex-col h-full">
+	<!-- Messages Area - Scrollable -->
+	<div
 		bind:this={messagesContainer}
-		class="max-h-[70dvh] min-h-0 flex-1 space-y-1 overflow-y-auto p-4"
+		class="flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-6 py-4 min-h-0 relative"
 		role="log"
-        aria-live="polite"
-        aria-label={$t('messages.chat_messages_aria')}
+		aria-live="polite"
+		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
 	>
 		{#if isLoadingMessages}
 			<!-- Loading State -->
-            <div class="flex items-center justify-center py-8">
+			<div class="flex items-center justify-center py-6">
 				<div class="loading loading-spinner loading-md"></div>
-                <span class="ml-2">{$t('messages.loading_messages')}</span>
+				<span class="ml-2"
+					>{$t('dashboard.bids.components.messages.chat_view.loading_messages')}</span
+				>
 			</div>
 		{:else if error}
 			<!-- Error State -->
@@ -559,22 +739,22 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
 					/>
 				</svg>
-                <span>{$t(error)}</span>
+				<span>{$t(error)}</span>
 			</div>
 		{:else}
 			<!-- Load More Section (shown at top when more messages available) -->
 			{#if hasMoreMessages}
 				<div class="flex justify-center py-2">
-                    {#if isLoadingMore}
+					{#if isLoadingMore}
 						<div class="text-base-content/60 flex items-center gap-2 text-sm">
 							<div class="loading loading-spinner loading-sm"></div>
-                            {$t('messages.loading_older_messages')}
+							{$t('dashboard.bids.components.messages.chat_view.loading_older_messages')}
 						</div>
 					{:else}
 						<button
 							class="btn btn-ghost btn-sm"
 							onclick={handleLoadMore}
-                            aria-label={$t('messages.load_older_messages')}
+							aria-label={$t('dashboard.bids.components.messages.chat_view.load_older_messages')}
 						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
@@ -590,7 +770,7 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 									d="M5 15l7-7 7 7"
 								/>
 							</svg>
-                            {$t('messages.load_older_messages')}
+							{$t('dashboard.bids.components.messages.chat_view.load_older_messages')}
 						</button>
 					{/if}
 				</div>
@@ -613,54 +793,118 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 							d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
 						/>
 					</svg>
-                    <p class="text-base-content/60">{$t('messages.no_messages')} {$t('messages.start_conversation')}</p>
+					<p class="text-base-content/60">
+						{$t('dashboard.bids.components.messages.chat_view.no_messages')}
+						{$t('dashboard.bids.components.messages.chat_view.start_conversation')}
+					</p>
 				</div>
 			{:else}
 				<!-- Messages List -->
 				{#each messages as message}
+					{@const isCurrentUserSender = message.senderPubkey === currentUserHex()}
+					{@const messageProfile = isCurrentUserSender ? currentUserProfile : recipientProfile}
+					
+					<!-- Debug logs removed for performance -->
+					
 					<ChatMessage
 						{message}
-						isSender={message.senderPubkey === currentUserHex()}
-						profile={message.senderPubkey === currentUserHex()
-							? currentUserProfile
-							: recipientProfile}
+						isSender={isCurrentUserSender}
+						profile={messageProfile}
+						currentUserProfile={currentUserProfile}
+						recipientProfile={recipientProfile}
+						onReply={startReply}
+						currentUserId={currentUserHex()}
+						onReactionAdd={handleReactionAdd}
+						onReactionRemove={handleReactionRemove}
 					/>
 				{/each}
 			{/if}
 		{/if}
+		
+		<!-- Scroll to Bottom Button -->
+		{#if !isAtBottom && messages.length > 0}
+			<button
+				class="btn btn-primary btn-circle fixed bottom-20 right-6 z-10 shadow-lg"
+				onclick={scrollToBottom}
+				aria-label="Scroll to bottom"
+				title="Scroll to latest message"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 14l-7 7m0 0l-7-7m7 7V3"
+					/>
+				</svg>
+			</button>
+		{/if}
 	</div>
 
-	<!-- Message Input Area -->
-	<div class="border-base-300 bg-base-100 flex-shrink-0 rounded-b-[2rem] border-t p-2">
-		<form onsubmit={handleSubmit} class="relative">
-			<div class="flex items-center gap-2 rounded-2xl p-1">
-				<!-- Message Input -->
-				<div class="flex-1">
-					<!-- svelte-ignore a11y_autofocus -->
-                    <textarea
-						bind:this={messageInput}
-						bind:value={newMessageText}
-						onkeydown={handleKeyPress}
-						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 bg-base-200 min-h-0 w-full resize-none border-0 p-2 text-base leading-6 focus:outline-none"
-                        placeholder={$t('messages.type_message_placeholder')}
-						rows="1"
-						disabled={isSendingMessage}
-						autofocus
-						style="max-height: 120px;"
-					></textarea>
+	<!-- Message Input Area - Fixed at bottom -->
+	<div class="border-base-300/20 flex-shrink-0 border-t px-6 py-4 bg-base-100">
+		<!-- Reply Indicator -->
+		{#if replyingToMessage}
+			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">
+				<div class="flex items-start justify-between gap-2">
+					<div class="min-w-0 flex-1">
+						<div class="text-base-content/60 mb-1 text-xs">
+							Replying to {replyingToMessage.senderPubkey === currentUserHex()
+								? 'yourself'
+								: 'message'}:
+						</div>
+						<div class="text-base-content/80 line-clamp-2 text-sm">
+							{replyingToMessage.plaintext}
+						</div>
+					</div>
+					<button
+						type="button"
+						class="btn btn-ghost btn-xs hover:bg-base-300 flex-shrink-0"
+						onclick={cancelReply}
+						title="Cancel reply"
+						aria-label="Cancel reply"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M6 18L18 6M6 6l12 12"
+							/>
+						</svg>
+					</button>
 				</div>
+			</div>
+		{/if}
 
-				<!-- Attachment Button (Optional - can be expanded later) -->
-				<!-- <button
+		<form onsubmit={handleSubmit} class="relative">
+			<div
+				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 sm:p-3 transition-all duration-200"
+			>
+				<!-- Emoji Button -->
+				<button
 					type="button"
-					class="btn btn-ghost btn-sm h-8 min-h-0 w-8 p-0"
-					title="Attach file"
-					disabled={isSendingMessage}
+					bind:this={emojiButtonRef}
+					class="btn btn-ghost btn-sm h-8 min-h-0 w-8 sm:h-9 sm:w-9 p-0 hover:bg-base-300 transition-colors flex-shrink-0"
+					onclick={() => showEmojiPicker = !showEmojiPicker}
+					title="Add emoji"
+					aria-label="Add emoji"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
+						class="h-4 w-4 sm:h-5 sm:w-5"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -669,24 +913,43 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+							d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 						/>
 					</svg>
-				</button> -->
+				</button>
+
+				<!-- Message Input -->
+				<div class="min-w-0 flex-1">
+					<!-- svelte-ignore a11y_autofocus -->
+					<textarea
+						bind:this={messageInput}
+						bind:value={newMessageText}
+						onkeydown={handleKeyPress}
+						oninput={handleInputChange}
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 sm:p-3 text-sm sm:text-base leading-5 focus:ring-0 focus:outline-none"
+						placeholder={$t(
+							'dashboard.bids.components.messages.chat_view.type_message_placeholder'
+						)}
+						rows="1"
+						disabled={isSendingMessage}
+						autofocus
+						style="max-height: 120px;"
+					></textarea>
+				</div>
 
 				<!-- Send Button -->
-                <button
+				<button
 					type="submit"
-					class="btn btn-primary btn-sm h-10 min-h-0 w-12 rounded-full"
+					class="btn btn-primary btn-sm h-10 w-10 flex-shrink-0 rounded-full shadow-md transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
 					disabled={!newMessageText.trim() || isSendingMessage}
-                    title={$t('messages.send_message')}
+					title={$t('dashboard.bids.components.messages.chat_view.send_message')}
 				>
 					{#if isSendingMessage}
 						<span class="loading loading-spinner loading-sm"></span>
 					{:else}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-4 w-4"
+							class="h-10 w-10"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -703,11 +966,21 @@ let currentUserProfile = $state<{ name?: string; picture?: string }>({ name: $t(
 			</div>
 
 			<!-- Typing indicator or character count could go here -->
-            {#if newMessageText.length > 1000}
+			{#if newMessageText.length > 1000}
 				<div class="text-warning mt-2 text-right text-sm">
-                    {newMessageText.length}/2000 {$t('messages.characters')}
+					{newMessageText.length}/2000 {$t(
+						'dashboard.bids.components.messages.chat_view.characters'
+					)}
 				</div>
 			{/if}
 		</form>
 	</div>
+
+	<!-- Emoji Picker -->
+	<EmojiPicker
+		bind:isOpen={showEmojiPicker}
+		onEmojiSelect={handleEmojiSelect}
+		position="top"
+		triggerElement={emojiButtonRef}
+	/>
 </div>

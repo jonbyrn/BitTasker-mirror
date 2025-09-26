@@ -8,7 +8,6 @@
     import { Capacitor } from '@capacitor/core';
     import { tick } from 'svelte';
 	import IconCheck from '~icons/mdi/check-circle-outline';
-    import IconMagnify from '~icons/mdi/magnify';
 
 	let { nextStep, prevStep, currentStep, totalSteps } = $props();
 
@@ -156,7 +155,6 @@
                 throw new Error('Failed to read geolocation coordinates');
             }
 		} catch (error) {
-			console.error('Geolocation error:', error);
 			// Use default location if geolocation fails
 			createMarkerAndCircle(location.latitude!, location.longitude!);
 		} finally {

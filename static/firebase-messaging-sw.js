@@ -14,12 +14,18 @@ async function initializeFirebase(config = {}) {
 
 		if (!firebaseConfig.apiKey || !firebaseConfig.projectId || !firebaseConfig.messagingSenderId) {
 			// Fetch Firebase config from app
-			const response = await fetch('/firebase-config.json');
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
+			try {
+				const response = await fetch('/firebase-config.json');
+				if (!response.ok) {
+					throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+				}
 
-			firebaseConfig = await response.json();
+				firebaseConfig = await response.json();
+			} catch (error) {
+				console.error('Failed to fetch Firebase config:', error);
+				// Don't throw here, just log and wait for message from main thread
+				return;
+			}
 		}
 
 		// Validate config
@@ -31,7 +37,6 @@ async function initializeFirebase(config = {}) {
 		firebase.initializeApp(firebaseConfig);
 		messaging = firebase.messaging();
 
-		console.log('✅ Firebase initialized in service worker');
 	} catch (error) {
 		console.error('❌ Failed to initialize Firebase in service worker:', error);
 	}

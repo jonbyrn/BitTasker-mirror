@@ -32,7 +32,7 @@ export const load: LayoutLoad = async ({ url }) => {
 			// TODO: Temporary fix until proper cleanup of resources is implemented - After logout or invalid access token
 			Preferences.remove({ key: StorageKeys.NPUB})
 			if (!get(isCaptchaVerified)) {
-				// redirect(303, '/auth/signup');
+				redirect(303, '/auth/signup');
 			}
 		}
 	}

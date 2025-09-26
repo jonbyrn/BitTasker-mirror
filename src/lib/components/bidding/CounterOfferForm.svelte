@@ -1,12 +1,14 @@
 <script lang="ts">
-	import type { CounterOffer, Currency, TaskBid, PaymentType } from '$lib/types/bid';
+	import type { CounterOffer, Currency, PaymentType, SimplifiedTaskBid } from '$lib/types/bid';
 	import { formatNumberForInput, satsFromUsd, usdFromSats } from '$lib/utils/helpers/crypto';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { t } from 'svelte-i18n';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
 	const props = $props<{
-		bid: TaskBid;
+		bid: SimplifiedTaskBid;
 		onSubmit: (
 			bidId: string,
 			counterOffer: Omit<CounterOffer, 'id' | 'bidId' | 'createdAt' | 'status'>
@@ -25,10 +27,8 @@
 	let validationErrors = $state<Record<string, string>>({});
 
 	// New datetime fields for fixed price bids
-	let startDate = $state<string>('');
-	let endDate = $state<string>('');
-	let startTime = $state<string>('09:00');
-	let endTime = $state<string>('17:00');
+	let startDateTime = $state<Date | null>(null);
+	let endDateTime = $state<Date | null>(null);
 
 	// USDT conversion state
 	let usdAmount = $state<number>(0);
@@ -165,19 +165,17 @@
 
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
-		if (bidType === 'FIXED' && startDate && endDate) {
-			const start = new Date(`${startDate}T${startTime}`);
-			const end = new Date(`${endDate}T${endTime}`);
-			const diffMs = end.getTime() - start.getTime();
+		if (bidType === 'FIXED' && startDateTime && endDateTime) {
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
 			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
 
 			if (diffDays > 1) {
-				return `${diffDays} days`;
+				return `${diffDays} ${$t('dashboard.bids.counter_offer.days')}`;
 			} else if (diffHours > 1) {
-				return `${diffHours} hours`;
+				return `${diffHours} ${$t('dashboard.bids.counter_offer.hours')}`;
 			} else {
-				return '1 hour';
+				return $t('dashboard.bids.counter_offer.one_hour');
 			}
 		}
 		return '';
@@ -192,40 +190,36 @@
 		// Validate amount for FIXED type
 		if (bidType === 'FIXED') {
 			if (!amount || amount.trim() === '') {
-				errors.amount = 'Please enter a valid amount';
+				errors.amount = $t('dashboard.bids.counter_offer.errors.valid_amount');
 			} else if (parseFloat(amount) <= 0) {
-				errors.amount = 'Please enter an amount greater than zero';
+				errors.amount = $t('dashboard.bids.counter_offer.errors.amount_greater_than_zero');
 			}
 
 			// Validate datetime fields for fixed price
-			if (!startDate || !endDate) {
-				errors.datetime = 'Start and end dates are required';
-			} else {
-				const start = new Date(`${startDate}T${startTime}`);
-				const end = new Date(`${endDate}T${endTime}`);
-				if (start >= end) {
-					errors.datetime = 'End date must be after start date';
-				}
+			if (!startDateTime || !endDateTime) {
+				errors.datetime = $t('dashboard.bids.counter_offer.errors.start_end_dates_required');
+			} else if (startDateTime >= endDateTime) {
+				errors.datetime = $t('dashboard.bids.counter_offer.errors.end_date_after_start');
 			}
 		}
 
 		// Validate hourly rate and estimated hours for HOURLY type
 		if (bidType === 'HOURLY') {
 			if (!hourlyRate || hourlyRate.trim() === '') {
-				errors.hourlyRate = 'Please enter a valid hourly rate';
+				errors.hourlyRate = $t('dashboard.bids.counter_offer.errors.valid_hourly_rate');
 			} else if (parseFloat(hourlyRate) <= 0) {
-				errors.hourlyRate = 'Please enter an hourly rate greater than zero';
+				errors.hourlyRate = $t('dashboard.bids.counter_offer.errors.hourly_rate_greater_than_zero');
 			}
 
 			if (!estimatedHours || estimatedHours.trim() === '') {
-				errors.estimatedHours = 'Please enter estimated hours';
+				errors.estimatedHours = $t('dashboard.bids.counter_offer.errors.estimated_hours_required');
 			} else if (parseFloat(estimatedHours) <= 0) {
-				errors.estimatedHours = 'Please enter estimated hours greater than zero';
+				errors.estimatedHours = $t('dashboard.bids.counter_offer.errors.estimated_hours_greater_than_zero');
 			}
 		}
 
 		if (!message.trim()) {
-			errors.message = 'Please provide a message';
+			errors.message = $t('dashboard.bids.counter_offer.errors.message_required');
 		}
 
 		validationErrors = errors;
@@ -257,10 +251,10 @@
 						}
 					: {}),
 				// Add new datetime fields for fixed price
-				startDate: bidType === 'FIXED' ? startDate : null,
-				endDate: bidType === 'FIXED' ? endDate : null,
-				startTime: bidType === 'FIXED' ? startTime : null,
-				endTime: bidType === 'FIXED' ? endTime : null,
+				startDate: bidType === 'FIXED' ? startDateTime : null,
+				endDate: bidType === 'FIXED' ? endDateTime : null,
+				startTime: bidType === 'FIXED' ? startDateTime : null,
+				endTime: bidType === 'FIXED' ? endDateTime : null,
 				message,
 				proposedBy: 'current-user-id' // This would come from user store
 			};
@@ -284,12 +278,12 @@
 	<div
 		class="bg-base-100 border-base-300 sticky top-0 z-10 flex items-center justify-between p-4"
 	>
-		<h4 class="font-bold">Create Counter Offer</h4>
+		<h4 class="font-bold">{$t('dashboard.bids.counter_offer.title')}</h4>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm btn-circle"
 			onclick={props.onCancel}
-			aria-label="Close dialog"
+			aria-label={$t('dashboard.bids.counter_offer.close_dialog')}
 		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
@@ -313,7 +307,7 @@
 		<!-- Original bid amount display -->
 		<div class="mb-4 flex items-center justify-between">
 			<div>
-				<span class="text-sm font-medium text-base-content/70">Original Bid Amount</span>
+				<span class="text-sm font-medium text-base-content/70">{$t('dashboard.bids.counter_offer.original_bid_amount')}</span>
 			</div>
 			<div class="text-right">
 				<div class="text-lg font-bold">
@@ -368,7 +362,7 @@
 			<!-- Fixed price counter offer amount - USD and Sats -->
 			<div class="form-control">
 				<label class="label" for="counter-amount">
-					<span class="label-text font-medium">Counter Offer Amount</span>
+					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.counter_offer_amount')}</span>
 				</label>
 				<div class="flex gap-2">
 					<div class="relative flex-1">
@@ -388,7 +382,7 @@
 					</div>
 					<div class="relative flex-1">
 						<span class="text-base-content/70 absolute top-1/2 right-3 z-9 -translate-y-1/2"
-							>Sats</span
+							>{$t('dashboard.bids.counter_offer.sats')}</span
 						>
 						<input
 							type="text"
@@ -413,7 +407,7 @@
 				{/if}
 				{#if parseInt(amount || '0') > 0}
 					<span class="label-text-alt text-info mt-1 block">
-						BTC Price: ${btcPrice.toLocaleString()}
+						{$t('dashboard.bids.counter_offer.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 					</span>
 				{/if}
 			</div>
@@ -421,45 +415,31 @@
 			<!-- Date and Time Selection for Fixed Price -->
 			<div class="form-control">
 				<label class="label" for="datetime-range">
-					<span class="label-text">Date and Time Range</span>
+					<span class="label-text">{$t('dashboard.bids.counter_offer.date_time_range')}</span>
 				</label>
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-					<div>
-						<label class="label-text-alt mb-2 block" for="start-date">Start Date & Time</label>
-						<div class="flex gap-2">
-							<input
-								type="date"
-								id="start-date"
-								bind:value={startDate}
-								class="input input-bordered flex-1 {validationErrors.datetime ? 'input-error' : ''}"
-								min={new Date().toISOString().split('T')[0]}
-							/>
-							<input
-								type="time"
-								id="start-time"
-								bind:value={startTime}
-								class="input input-bordered w-32 {validationErrors.datetime ? 'input-error' : ''}"
-							/>
-						</div>
-					</div>
-					<div>
-						<label class="label-text-alt mb-2 block" for="end-date">End Date & Time</label>
-						<div class="flex gap-2">
-							<input
-								type="date"
-								id="end-date"
-								bind:value={endDate}
-								class="input input-bordered flex-1 {validationErrors.datetime ? 'input-error' : ''}"
-								min={startDate || new Date().toISOString().split('T')[0]}
-							/>
-							<input
-								type="time"
-								id="end-time"
-								bind:value={endTime}
-								class="input input-bordered w-32 {validationErrors.datetime ? 'input-error' : ''}"
-							/>
-						</div>
-					</div>
+				<div class="flex flex-col gap-4">
+					<DateInput
+						bind:value={startDateTime}
+						type="datetime"
+						labelKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
+						placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_start_datetime"
+						minDate={new Date()}
+						maxDate={undefined}
+						timeStep={15}
+						onChange={(date: Date | null) => startDateTime = date}
+						className={validationErrors.datetime ? 'input-error' : ''}
+					/>
+					<DateInput
+						bind:value={endDateTime}
+						type="datetime"
+						labelKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
+						placeholderKey="dashboard.bids.counter_offer.airdatepicker.select_end_datetime"
+						minDate={startDateTime || new Date()}
+						maxDate={undefined}
+						timeStep={15}
+						onChange={(date: Date | null) => endDateTime = date}
+						className={validationErrors.datetime ? 'input-error' : ''}
+					/>
 				</div>
 				{#if validationErrors.datetime}
 					<div class="label">
@@ -468,9 +448,9 @@
 						>
 					</div>
 				{/if}
-				{#if startDate && endDate}
+				{#if startDateTime && endDateTime}
 					<span class="label-text-alt text-info mt-1 block">
-						Duration: {formatDurationForDisplay()}
+						{$t('dashboard.bids.counter_offer.duration')} {formatDurationForDisplay()}
 					</span>
 				{/if}
 			</div>
@@ -478,7 +458,7 @@
 			<!-- Hourly rate counter offer details -->
 			<div class="form-control">
 				<label class="label" for="hourly-rate">
-					<span class="label-text font-medium">Hourly Rate</span>
+					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.hourly_rate')}</span>
 				</label>
 				<div class="flex gap-2">
 					<div class="relative flex-1">
@@ -499,7 +479,7 @@
 					</div>
 					<div class="relative flex-1">
 						<span class="text-base-content/70 absolute top-1/2 right-3 z-10 -translate-y-1/2"
-							>Sats</span
+							>{$t('dashboard.bids.counter_offer.sats')}</span
 						>
 						<input
 							type="text"
@@ -524,7 +504,7 @@
 				{/if}
 				{#if parseInt(hourlyRate || '0') > 0}
 					<span class="label-text-alt text-info mt-1 block">
-						BTC Price: ${btcPrice.toLocaleString()}
+						{$t('dashboard.bids.counter_offer.btc_price')} ${btcPrice.toLocaleString()}
 					</span>
 				{/if}
 			</div>
@@ -532,7 +512,7 @@
 			<!-- Estimated Hours -->
 			<div class="form-control">
 				<label class="label" for="estimated-hours">
-					<span class="label-text font-medium">Estimated Hours</span>
+					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.estimated_hours')}</span>
 				</label>
 				<input
 					id="estimated-hours"
@@ -560,7 +540,7 @@
 			<!-- Estimated total for hourly rate -->
 			<div class="form-control">
 				<label class="label" for="total-estimated-amount">
-					<span class="label-text font-medium">Total Estimated Amount</span>
+					<span class="label-text font-medium">{$t('dashboard.bids.counter_offer.total_estimated_amount')}</span>
 				</label>
 				<div class="bg-base-200 rounded-md p-3">
 					<div class="text-lg font-semibold">
@@ -571,14 +551,14 @@
 						).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 					</div>
 					<div class="text-sm opacity-70">
-						{parseInt(hourlyRate || '0').toLocaleString('en-US')} sats × {parseFloat(
+						{parseInt(hourlyRate || '0').toLocaleString('en-US')} {$t('dashboard.bids.counter_offer.sats')} × {parseFloat(
 							estimatedHours || '0'
-						).toLocaleString('en-US')} hours
+						).toLocaleString('en-US')} {$t('dashboard.bids.counter_offer.hours')}
 					</div>
 					<div class="mt-1 text-sm opacity-70">
 						≈ {(parseInt(hourlyRate || '0') * parseFloat(estimatedHours || '0')).toLocaleString(
 							'en-US'
-						)} sats
+						)} {$t('dashboard.bids.counter_offer.sats')}
 					</div>
 				</div>
 			</div>
@@ -587,14 +567,14 @@
 		<!-- Message -->
 		<div class="form-control flex flex-col">
 			<label class="label" for="counter-message">
-				<span class="label-text">Message</span>
+				<span class="label-text">{$t('dashboard.bids.counter_offer.message')}</span>
 			</label>
 			<textarea
 				id="counter-message"
 				class="textarea textarea-bordered h-12 w-full"
 				class:textarea-error={validationErrors.message}
 				oninput={(e) => (message = (e.target as HTMLTextAreaElement).value)}
-				placeholder="Explain your counter offer conditions and why this amount "
+				placeholder={$t('dashboard.bids.counter_offer.message_placeholder')}
 				aria-invalid={validationErrors.message ? 'true' : undefined}
 				aria-describedby={validationErrors.message ? 'message-error' : undefined}
 				>{message}</textarea
@@ -618,11 +598,11 @@
 				onclick={props.onCancel}
 				disabled={isSubmitting}
 			>
-				Cancel
+				{$t('dashboard.bids.counter_offer.cancel')}
 			</button>
 			<button type="submit" class="btn btn-primary" disabled={isSubmitting}>
-				<span class="hidden sm:inline">{isSubmitting ? 'Submitting...' : 'Send Counter Offer'}</span>
-				<span class="sm:hidden">{isSubmitting ? 'Submitting...' : 'Send Offer'}</span>
+				<span class="hidden sm:inline">{isSubmitting ? $t('dashboard.bids.counter_offer.submitting') : $t('dashboard.bids.counter_offer.send_counter_offer')}</span>
+				<span class="sm:hidden">{isSubmitting ? $t('dashboard.bids.counter_offer.submitting') : $t('dashboard.bids.counter_offer.send_offer')}</span>
 			</button>
 		</div>
 	</form>

@@ -1,7 +1,7 @@
 {
     "tasker": {
         "fees": {
-            "title": "Tarifas y Precios para Taskees",
+            "title": "Tarifas y Precios para Taskers",
             "subtitle": "Precios simples y transparentes diseñados para premiar a los taskees leales",
             "structure": {
                 "title": "Estructura de Tarifas para Taskees",
@@ -45,7 +45,7 @@
                 "title": "Descuento por nueva contratación",
                 "description": "¿Te encanta trabajar con un taskee en particular? Recompensamos las asociaciones repetidas con tarifas significativamente reducidas.",
                 "card_title": "¡Vuelve a contratar y ahorra!",
-                "card_intro": "Cuando vuelves a contratar a un taskee con el que ya trabajaste:",
+                "card_intro": "Cuando vuelves a contratar a un taskee con el que ya trabajaste dentro de 30 días:",
                 "standard_fee": "Pagos estándar: Solo <strong>3% de comisión</strong> (en lugar del 7.5–12.5%)",
                 "btc_fee": "Pagos con Bitcoin: Solo <strong>1% de comisión</strong> (en lugar del 1.5–2.5%)",
                 "example": "Ejemplo: Volver a contratar una tarea de $100 cuesta solo $103 con pago estándar o $101 con Bitcoin.",
@@ -62,6 +62,26 @@
                 "title": "¿Listo para contratar taskees con precios transparentes?",
                 "button": "Publicar una tarea ahora"
             }
+        }
+    },
+    "fees": {
+        "tiers": {
+            "1": {
+                "badge": "Nivel 1",
+                "title": "Nakamoto<br />Principiante"
+            },
+            "2": {
+                "badge": "Nivel 2", 
+                "title": "Satoshi<br />Acumulador"
+            },
+            "3": {
+                "badge": "Nivel 3",
+                "title": "Hash<br />Master"
+            }
+        },
+        "maintenance": {
+            "title": "Avance y Mantenimiento de Niveles",
+            "description": "Tu nivel se calcula basado en tu actividad durante los últimos 30 días y se actualiza diariamente. Cuantas más tareas completes, mayor será tu nivel y menores serán tus tarifas."
         }
     }
 }

@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import type { Attachment, Task } from '$lib/types/task';
-	import { formatDistanceToNow, format } from 'date-fns';
+	import { format } from 'date-fns';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
@@ -11,7 +11,14 @@
 	import TaskDetailsBidDrawer from '$lib/components/bidding/TaskDetailsBidDrawer.svelte';
 	import Gallery from '$lib/components/Gallery.svelte';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import {
+		formatStandardDateTime,
+		formatStandardDateShort
+	} from '$lib/utils/helpers/dateFormatter';
+	import { locale } from 'svelte-i18n';
+	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
+
 	// Get taskId from route params
 	const taskId = $page.params.taskId;
 
@@ -30,6 +37,16 @@
 	// Check if current user is the task creator
 	const isOwner = $derived(task?.npub === $user?.npub);
 
+	function formatDateTimeReactive(date: Date) {
+		return formatStandardDateTime(date, $locale || 'en');
+	}
+
+	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+		const start = formatStandardDateShort(startDate, $locale || 'en');
+		const end = formatStandardDateShort(endDate, $locale || 'en');
+		return `${start} - ${end}`;
+	}
+
 	// Helper function to prepare images for Gallery component
 	// La función ahora es asíncrona
 	const prepareGalleryImages = async (attachments: Attachment[]) => {
@@ -43,7 +60,7 @@
 						// Cuando la imagen se carga, resuelve la promesa con sus dimensiones reales
 						resolve({
 							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
 							width: img.naturalWidth, // Ancho real de la imagen
 							height: img.naturalHeight, // Altura real de la imagen
 							size: attachment.size
@@ -53,7 +70,7 @@
 						// Si hay un error, resuelve con valores por defecto o null
 						resolve({
 							url: attachment.url,
-							alt: attachment.alt || 'Task attachment',
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
 							width: 0,
 							height: 0,
 							size: attachment.size
@@ -65,12 +82,6 @@
 
 		// Espera a que todas las promesas se resuelvan
 		return await Promise.all(imagePromises);
-	};
-
-	// Format helpers
-	const formatTimeAgo = (date: string | number): string => {
-		const dateObj = typeof date === 'string' ? new Date(date) : new Date(date * 1000);
-		return formatDistanceToNow(dateObj, { addSuffix: true });
 	};
 
 	const formatDateString = (date: string | number): string => {
@@ -150,10 +161,10 @@
 </script>
 
 <svelte:head>
-	<title>{$t('dashboard.task_details_by_task.title')} - BitTasker</title>
+	<title>Task Details - BitTasker</title>
 	<meta
 		name="description"
-		content={task?.description || $t('dashboard.task_details_by_task.description')}
+		content={task?.description || 'Here you can see the details of the task.'}
 	/>
 </svelte:head>
 
@@ -227,9 +238,9 @@
 									{/if}
 								</div>
 							</div>
-							<div class="flex flex-col text-center">
+							<!-- <div class="flex flex-col text-center">
 								<div class="badge badge-primary badge-outline text-sm font-bold">{task.status}</div>
-							</div>
+							</div> -->
 						</div>
 
 						<div class="divider"></div>
@@ -244,11 +255,7 @@
 												{$t('dashboard.task_details_by_task.deadline')}
 											</h4>
 											<div class="font-semibold">
-												{new Date(task.deadline).toLocaleDateString('en-US', {
-													day: '2-digit',
-													month: '2-digit',
-													year: 'numeric'
-												})}, 12pm
+												{formatDateTimeReactive(new Date(task.deadline))}
 											</div>
 										</div>
 									{:else if task.dateRange}
@@ -257,15 +264,10 @@
 												>{$t('dashboard.task_details_by_task.date_range')}</span
 											>
 											<div class="font-semibold">
-												{new Date(task.dateRange.start).toLocaleDateString('en-US', {
-													day: '2-digit',
-													month: '2-digit',
-													year: 'numeric'
-												})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
-													day: '2-digit',
-													month: '2-digit',
-													year: 'numeric'
-												})}
+												{formatDateRangeReactive(
+													new Date(task.dateRange.start),
+													new Date(task.dateRange.end)
+												)}
 											</div>
 										</div>
 									{/if}
@@ -316,20 +318,33 @@
 						<!-- Requirements section moved to the end -->
 						{#if task.skills?.length > 0}
 							<div class="border-base-300 border-t pt-6">
-								<h4 class="mb-3 font-semibold">
-									{$t('dashboard.task_details_by_task.requirements')}
-								</h4>
 								<div class="space-y-3">
 									<div>
-										<span class="text-base-content/60 text-sm"
-											>{$t('dashboard.task_details_by_task.required_skills')}</span
-										>
+										<h4 class="mb-3 font-semibold">
+											{$t('dashboard.task_details_by_task.required_skills')}
+										</h4>
 										<div class="mt-2 flex flex-wrap gap-2">
 											{#each task.skills as skill}
 												<span class="badge badge-primary badge-outline badge-sm">{skill}</span>
 											{/each}
 										</div>
 									</div>
+								</div>
+							</div>
+						{/if}
+
+						<!-- Categories -->
+						{#if task.categories?.length > 0}
+							<div class="border-base-300 border-t pt-6">
+								<h4 class="mb-3 font-semibold">
+									{$t('dashboard.task_details_by_task.categories')}
+								</h4>
+								<div class="mt-2 flex flex-wrap gap-2">
+									{#each task.categories as category}
+										<span class="badge badge-primary badge-outline badge-sm">
+											{typeof category === 'string' ? category : category.name}
+										</span>
+									{/each}
 								</div>
 							</div>
 						{/if}
@@ -454,7 +469,7 @@
 											{#if task.creator.avatar}
 												<img
 													src={task.creator.avatar}
-													alt="Avatar"
+													alt={$t('dashboard.task_details_by_task.avatar_alt')}
 													class="h-12 w-12 rounded-full object-cover"
 												/>
 											{:else}
@@ -513,6 +528,18 @@
 											{formatDateString(task.createdAt)}
 										</p>
 									</div>
+								</div>
+							</div>
+						{/if}
+						<!-- Task Location Map -->
+						{#if task.pickupLocation || task.dropOffLocation}
+							<div class="border-base-300 mt-4 border-t">
+								<h4 class="mt-3 mb-2 font-semibold">
+									{$t('dashboard.task_details_by_task.location')}
+								</h4>
+								<TaskLocationMap tasks={[task]} height="300px" showFullscreen={true} />
+								<div class="text-base-content/60 px-1 pt-2 text-sm">
+									{$t('dashboard.task_details_by_task.location_map_description')}
 								</div>
 							</div>
 						{/if}

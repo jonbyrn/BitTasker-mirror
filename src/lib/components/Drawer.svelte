@@ -5,6 +5,7 @@
 	 * A customizable side drawer that can be used throughout the application
 	 * Handles its own body scroll locking/unlocking and accessibility
 	 */
+	import { t } from 'svelte-i18n';
 
 	// Props
 	const props = $props<{
@@ -87,44 +88,50 @@
 		transform shadow-xl transition-transform duration-300"
 	style="transform: {getPositionTransform(position)};"
 >
-	<!-- Header -->
-	<div
-		class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
-			? 'bg-base-200 border-b'
-			: ''}"
-	>
-		<h2 id="drawer-title" class="text-xl font-bold">
-			{#if props.title}
-				{props.title}
-			{/if}
-		</h2>
-		<button class="btn btn-ghost btn-circle" onclick={props.onClose} aria-label="Close drawer">
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-6 w-6"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
+	{#if props.isOpen}
+		<!-- Header -->
+		<div
+			class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
+				? 'bg-base-200 border-b'
+				: ''}"
+		>
+			<h2 id="drawer-title" class="text-xl font-bold">
+				{#if props.title}
+					{props.title}
+				{/if}
+			</h2>
+			<button
+				class="btn btn-ghost btn-circle"
+				onclick={props.onClose}
+				aria-label={$t('common.components.drawer.close')}
 			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M6 18L18 6M6 6l12 12"
-				/>
-			</svg>
-		</button>
-	</div>
-
-	<!-- Content -->
-	<div class="p-4">
-		{@render props.children?.()}
-	</div>
-
-	<!-- Footer (Optional) -->
-	{#if props?.footer?.()}
-		<div class="bg-base-200 sticky bottom-0 border-t p-4">
-			{@render props.footer?.()}
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					/>
+				</svg>
+			</button>
 		</div>
+
+		<!-- Content -->
+		<div class="p-4">
+			{@render props.children?.()}
+		</div>
+
+		<!-- Footer (Optional) -->
+		{#if props?.footer?.()}
+			<div class="bg-base-200 sticky bottom-0 border-t p-4">
+				{@render props.footer?.()}
+			</div>
+		{/if}
 	{/if}
 </div>

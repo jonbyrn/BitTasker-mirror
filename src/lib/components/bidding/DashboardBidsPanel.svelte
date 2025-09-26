@@ -1,20 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
 	import { getMyBids } from '$lib/utils/nostr-bid';
-	import { nip19 } from 'nostr-tools';
-	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { cachedSatsFromUsd } from '$lib/utils/nostr-bid';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { goto } from '$app/navigation';
-	import { formatTimeLarge } from '$lib/utils/helpers/dateFormatter';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatTimeLarge, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { locale } from 'svelte-i18n';
+
 	// State
-	let currentUserPubkey = $state<string>('');
 	let myBids = $state<any[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
-	let btcPrice = $state<number>(120000); // Default fallback price
+	let btcPrice = $state<number>(0); // Default fallback price
 	let expandedBids = $state<Set<string>>(new Set()); // Track expanded bids
 
 	/**
@@ -33,10 +32,6 @@
 		try {
 			// Fetch BTC price for USDT conversion
 			fetchBtcPrice();
-
-			// Get current user's pubkey
-			const { npub } = await getNostrKeyPair();
-			currentUserPubkey = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 			// Load user's bids
 			await loadMyBids();
@@ -61,14 +56,6 @@
 		}
 	}
 
-	// Helper functions
-	function formatAmount(amount: number, currency: string): string {
-		if (currency === 'SATS') {
-			return `${amount.toLocaleString()} sats`;
-		}
-		return `${amount} ${currency}`;
-	}
-
 	// Toggle bid expansion
 	function toggleBidExpansion(bidId: string) {
 		if (expandedBids.has(bidId)) {
@@ -76,7 +63,14 @@
 		} else {
 			expandedBids.add(bidId);
 		}
-		expandedBids = new Set(expandedBids); // Trigger reactivity
+		expandedBids = new Set(expandedBids);
+	}
+
+	// Reactive date formatting functions using Svelte 5 runes
+	function formatDateRangeReactive(startDate: Date, endDate: Date) {
+		const start = formatStandardDateShort(startDate, $locale || 'en');
+		const end = formatStandardDateShort(endDate, $locale || 'en');
+		return `${start} - ${end}`;
 	}
 </script>
 
@@ -193,7 +187,7 @@
 		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
-				class="text-base-content/30 mx-auto h-12 w-12"
+				class="text-primary mx-auto mb-3 h-12 w-12"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -202,38 +196,22 @@
 					stroke-linecap="round"
 					stroke-linejoin="round"
 					stroke-width="2"
-					d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 				/>
 			</svg>
-			<h3 class="mt-4 text-lg font-semibold">{$t('bids.no_bids_yet')}</h3>
-			<p class="text-base-content/60 mt-2 mb-6">
+			<span class="text-xl font-medium">{$t('bids.no_bids_yet')}</span>
+			<p class="mb-4 text-gray-500">
 				{$t('bids.no_bids_description')}
 			</p>
-			<div class="space-y-2">
-				<a
-					href="/dashboard/find-tasks"
-					class="inline-flex items-center rounded-lg border border-gray-600 bg-gray-700 px-4 py-2 text-white transition-colors hover:bg-gray-600"
-				>
-					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-						/>
-					</svg>
-					{$t('bids.empty.find_tasks')}
-				</a>
-			</div>
 		</div>
 	{:else}
 		<!-- Bids List -->
 		<div class="space-y-4">
 			{#each myBids as bid, index}
 				<div class="card bg-base-100 border-base-300 rounded-lg border shadow-sm">
-					<div class="card-body p-6">
+					<div class="card-body p-4 md:p-6">
 						<!-- Task Information - Header -->
-						<div class="border-base-300 mb-6">
+						<div class="border-base-300 mb-4 md:mb-6">
 							<div class="flex items-start">
 								<div class="flex-1">
 									<small class="card-title line-clamp-1 text-lg">
@@ -250,7 +228,7 @@
 						</div>
 
 						<!-- Your Bid Details -->
-						<div class="space-y-2">
+						<div class="space-y-3">
 							<small class="text-base-content/90 text-xl font-medium">
 								{$t('bids.your_proposal')} -
 								<small class="text-base-content/60">
@@ -259,14 +237,13 @@
 							</small>
 
 							<!-- Two-column layout -->
-							<div class="flex flex-row items-start justify-between gap-4">
+							<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 								<!-- Left column: FIXED period OR HOURLY rate/hours -->
-								<div class="flex flex-row gap-6 text-left">
+								<div class="flex flex-col gap-4 md:flex-row md:gap-6">
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
-											<p class="pt-3 text-sm font-medium">
-												{new Date(bid.bid.startDate).toLocaleDateString()} -
-												{new Date(bid.bid.endDate).toLocaleDateString()}
+											<p class="text-sm font-medium">
+												{formatDateRangeReactive(new Date(bid.bid.startDate), new Date(bid.bid.endDate))}
 												{#if bid.bid.startTime && bid.bid.endTime}
 													<br />
 													<span class="text-base-content/70 text-xs">
@@ -300,13 +277,13 @@
 								</div>
 
 								<!-- Right column: Amount & Payment Type -->
-								<div class="ml-auto flex flex-row">
+								<div class="flex justify-start md:justify-end">
 									<div class="text-start">
 										<div class="text-lg font-semibold">
 											${formatNumberWithTwoDecimals(bid.bid.amount)}
 										</div>
-										<div class="text-base-content/60 text-lg">
-											{satsFromUsd(bid.bid.amount, btcPrice)}
+										<div class="text-base-content/60 text-sm md:text-lg">
+											{cachedSatsFromUsd(bid.bid.amount, btcPrice)}
 										</div>
 									</div>
 								</div>
@@ -321,7 +298,7 @@
 											{#if bid.bid.creator?.avatar}
 												<img
 													src={bid.bid.creator.avatar}
-													alt="Avatar"
+													alt={$t('common.components.bidding.dashboard_bids.avatar_alt')}
 													class="h-8 w-8 rounded-full object-cover"
 												/>
 											{:else}
@@ -357,7 +334,7 @@
 									<!-- Username and Review Stars -->
 									<div class="flex flex-col">
 										<span class="text-sm font-medium">
-											{bid.bid.creator?.username || 'Anonymous'}
+											{bid.bid.creator?.username || $t('common.components.bidding.dashboard_bids.anonymous')}
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">
@@ -373,16 +350,17 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-1 text-xs">4.0</span>
+											<span class="text-base-content/60 ml-1 text-xs">{$t('common.components.bidding.dashboard_bids.rating')}</span>
 										</div>
 									</div>
 								</div>
 							</div>
 
 							<!-- Expandable sections -->
-							<div class="flex justify-between">
-								{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
-									<div class="border-base-200 pt-2">
+							<div class="flex flex-col gap-3">
+								<!-- Show more button and View Task button in same row -->
+								<div class="flex items-center justify-between">
+									{#if bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter}
 										<button
 											type="button"
 											onclick={() => toggleBidExpansion(bid.bid.bidId)}
@@ -410,46 +388,10 @@
 												? $t('bids.show_less')
 												: $t('bids.show_more')}
 										</button>
+									{:else}
+										<div></div>
+									{/if}
 
-										{#if expandedBids.has(bid.bid.bidId)}
-											<div class="mt-3 space-y-3">
-												{#if bid.bid.description}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs">
-															{$t('bids.your_description')}
-														</p>
-														<p class="text-base-content/80 text-sm">
-															{bid.bid.description}
-														</p>
-													</div>
-												{/if}
-
-												{#if bid.bid.proposedApproach}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs">
-															{$t('bids.your_approach')}
-														</p>
-														<p class="text-base-content/80 text-sm">
-															{bid.bid.proposedApproach}
-														</p>
-													</div>
-												{/if}
-
-												{#if bid.bid.coverLetter}
-													<div>
-														<p class="text-base-content/60 mb-2 text-xs">
-															{$t('bids.your_cover_letter')}
-														</p>
-														<p class="text-base-content/80 text-sm">
-															{bid.bid.coverLetter}
-														</p>
-													</div>
-												{/if}
-											</div>
-										{/if}
-									</div>
-								{/if}
-								<div class="flex justify-end">
 									<button
 										class="btn btn-secondary btn-sm"
 										onclick={() => goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`)}
@@ -477,6 +419,50 @@
 										{$t('bids.view_task')}
 									</button>
 								</div>
+
+								<!-- Expandable content - full width -->
+								{#if (bid.bid.description || bid.bid.proposedApproach || bid.bid.coverLetter) && expandedBids.has(bid.bid.bidId)}
+									<div class="w-full space-y-4">
+										{#if bid.bid.description}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_description')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.description}
+													</p>
+												</div>
+											</div>
+										{/if}
+
+										{#if bid.bid.proposedApproach}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_approach')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.proposedApproach}
+													</p>
+												</div>
+											</div>
+										{/if}
+
+										{#if bid.bid.coverLetter}
+											<div>
+												<p class="text-base-content/60 mb-2 text-xs font-medium">
+													{$t('bids.your_cover_letter')}
+												</p>
+												<div class="bg-base-200 rounded-lg p-3">
+													<p class="text-base-content/80 text-sm leading-relaxed">
+														{bid.bid.coverLetter}
+													</p>
+												</div>
+											</div>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						</div>
 					</div>

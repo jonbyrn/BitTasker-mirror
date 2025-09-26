@@ -49,7 +49,7 @@
 				description: taskData.description,
 				taskType: graphqlTaskType,
 				skills: taskData.skills || [],
-				categories: taskData.categories || [],
+				categories: taskData.categories.map((category) => category.id) || [],		
 				deadline: taskData.deadline,
 				budget: taskData.budget
 					? {
@@ -82,7 +82,17 @@
 	onMount(async () => {
 		try {
 			isLoading = true;
-			await store.loadDraft();
+			
+			// Check if we're in edit mode
+			const isEditing = $page.url.searchParams.get('edit') === 'true';
+			
+			if (isEditing) {
+				// Load the draft for editing
+				await store.loadDraft();
+			} else {
+				// Clear any existing draft for new task creation
+				await store.clearDraft();
+			}
 		} catch (error) {
 			console.error('Error loading draft:', error);
 		} finally {
@@ -110,27 +120,28 @@
 
 					// Validar que las fechas estén en el futuro (comparando solo fechas, no horas)
 					const today = new Date();
-					today.setHours(0, 0, 0, 0); // Resetear a inicio del día
+					const todayDateStr = today.toISOString().split('T')[0];
 
 					const startDate = new Date($store.task.dateRange.start);
-					startDate.setHours(0, 0, 0, 0);
+					const startDateStr = startDate.toISOString().split('T')[0];
 
 					const endDate = new Date($store.task.dateRange.end);
-					endDate.setHours(0, 0, 0, 0);
+					const endDateStr = endDate.toISOString().split('T')[0];
 
-					if (endDate < today || startDate < today || endDate < startDate) {
+					if (endDateStr < todayDateStr || startDateStr < todayDateStr || endDateStr < startDateStr) {
 						errors.deadline = $t('task.errors.date_range_future');
 					}
 				}
 				if ($store.task.deadline) {
 					const deadlineDate = new Date($store.task.deadline);
-					deadlineDate.setHours(0, 0, 0, 0);
-
 					const today = new Date();
-					today.setHours(0, 0, 0, 0);
+					
+					// Compare dates using date strings to avoid timezone issues
+					const deadlineDateStr = deadlineDate.toISOString().split('T')[0];
+					const todayDateStr = today.toISOString().split('T')[0];
 
-					if (deadlineDate <= today)
-						// Cambiado de < a <= para que "hoy" no sea válido
+					if (deadlineDateStr < todayDateStr)
+						// Allow today's date for deadline
 						errors.deadline = $t('task.errors.deadline_future');
 				}
 				if ($store.task?.categories?.length === 0)
@@ -193,7 +204,7 @@
 	const uploadFiles = async (files: (Attachment | File)[]): Promise<Attachment[]> => {
 		const uploadPromises = files.map(async (file) => {
 			if (file instanceof File) {
-				const uploadResult = await uploadService.uploadSingleFile(file, 'task');
+				const uploadResult = await uploadService.uploadSingleFile(file, { folder: 'task' });
 				return {
 					key: uploadResult.key,
 					url: uploadResult.url,
@@ -212,8 +223,8 @@
 	const handleNext = async () => {
 		if (!validateCurrentStep()) return;
 
-		// Start image upload in the background if we're in the location step
-		if ($store.currentStep === TaskStepEnum.LOCATION) {
+		// Start image upload in the background if we're in the budget step
+		if ($store.currentStep === TaskStepEnum.BUDGET) {
 			if (newFiles.length !== 0) {
 				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
 					appStore.showErrorToast($t('task.upload.too_many_files'));
@@ -323,11 +334,11 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl p-4 sm:p-0">
+<div class="mx-auto max-w-7xl py-4 sm:p-0">
 	<!-- Page Header -->
 	<div class="mb-6">
-		<h3 class="">{$t('task.create_title')}</h3>
-		<p class="text-base-content/70">{$t('task.create_description')}</p>
+		<h3 class="">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_title') : $t('task.create_title')}</h3>
+		<p class="text-base-content/70">{$page.url.searchParams.get('edit') === 'true' ? $t('task.edit_description') : $t('task.create_description')}</p>
 	</div>
 	<div class=" bg-base-100 rounded-xl">
 		<div class="card-body">
@@ -349,9 +360,9 @@
 					{#if $store.currentStep === TaskStepEnum.BASICS}
 						<TaskBasics {errors} {direction} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
-						<TaskLocation {errors} {direction} bind:newFiles bind:attachmentsToRemove />
+						<TaskLocation {errors} {direction} />
 					{:else if $store.currentStep === TaskStepEnum.BUDGET}
-						<TaskBudget {errors} {direction} />
+						<TaskBudget {errors} {direction} bind:newFiles bind:attachmentsToRemove />
 					{:else if $store.currentStep === TaskStepEnum.REVIEW}
 						<TaskReview {direction} />
 					{:else if $store.currentStep === TaskStepEnum.RECURRING}

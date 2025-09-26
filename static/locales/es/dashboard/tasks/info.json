@@ -27,13 +27,31 @@
       },
       "actions": {
         "view_details": "Ver Detalles",
-        "view_bids": "Ver Ofertas"
+        "view_bids": "Ver Ofertas",
+        "mark_as_done": "Marcar como Completado",
+        "rescope": "Re-Escopio",
+        "delete_task": "Eliminar Tarea",
+        "dispute_task": "Disputar Tarea"
+      },
+      "filters": {
+        "tasks_in_progress": "Tareas en Progreso",
+        "bids_received": "Ofertas Recibidas",
+        "tasks_waiting_for_bids": "Esperando Ofertas",
+        "tasks_completed": "Tareas Completadas",
+        "tasks_disputed": "Tareas en Disputa"
       },
       "empty": {
-        "no_tasks": "No se encontraron tareas"
+        "no_tasks": "No se encontraron tareas",
+        "no_tasks_description": "Tus tareas aparecerán aquí"
       },
       "error": {
         "loading": "Error al cargar las tareas"
+      },
+      "location": {
+        "details": "Detalles de Ubicación"
+      },
+      "user": {
+        "anonymous": "Anónimo"
       },
       "status": {
         "in_progress": "En Progreso",
@@ -97,6 +115,13 @@
         "try_again": "Intentar de nuevo",
         "task_not_found": "Tarea No Encontrada",
         "task_not_found_desc": "La tarea que estás buscando no pudo ser encontrada",
+        "bids_received": "Ofertas recibidas",
+        "bids_description": "Aquí puedes ver todas las ofertas para esta tarea.",
+        "member_since": "Miembro desde",
+        "withdraw_bid": "Retirar Tu Oferta",
+        "withdrawal_reason_placeholder": "Por favor explica por qué estás retirando tu oferta...",
+        "anonymous": "Anónimo",
+        "avatar_alt": "Avatar",
         "error": {
           "load": "Failed to load task details. Please try again.",
           "no_details": "No task details available",
@@ -119,7 +144,7 @@
     },
     "profile_task": {
       "no_saved_searches": "Aún no hay búsquedas guardadas",
-      "saved_searches_info": "Guarda tus criterios de búsqueda para recibir notificaciones cuando se publiquen tareas que coincidan.",
+      "saved_searches_info": "Tus búsquedas guardadas aparecerán aquí",
       "saved_searches_title": "Tus búsquedas guardadas",
       "retry": "Reintentar",
       "new_matching_tasks": "Nuevas tareas coincidentes",

@@ -1,21 +1,22 @@
 /**
  * Get the budget bucket (tier) based on amount and currency
- * Supports USD and BTC only
+ * Supports USD, BTC, and SATS
  */
 export function getBudgetBucket(amount: number, currency: string): string {
     if(!amount || amount === 0) return 'micro';
     const upperCurrency = currency.toUpperCase();
     
-    // Bitcoin ranges (in BTC)
-    if (upperCurrency === 'BTC') {
-        if (amount < 0.001) return 'micro';           // < 0.001 BTC (~$40)
-        if (amount < 0.01) return 'small';            // 0.001-0.01 BTC (~$40-400)
-        if (amount < 0.1) return 'medium';            // 0.01-0.1 BTC (~$400-4000)
-        if (amount < 1) return 'large';               // 0.1-1 BTC (~$4000-40000)
-        return 'enterprise';                          // 1+ BTC (~$40000+)
+    
+    // Satoshi ranges (in sats)
+    if (upperCurrency === 'SATS') {
+        if (amount < 1000) return 'micro';            // < 1,000 sats (~$40)
+        if (amount < 10000) return 'small';           // 1,000-10,000 sats (~$40-400)
+        if (amount < 100000) return 'medium';         // 10,000-100,000 sats (~$400-4000)
+        if (amount < 1000000) return 'large';         // 100,000-1,000,000 sats (~$4K-40K)
+        return 'enterprise';                          // 1,000,000+ sats (~$40K+)
     }
     
-    // USD ranges (default for all non-BTC)
+    // USD ranges (default for all non-BTC/SATS)
     if (amount < 100) return 'micro';                 // < $100
     if (amount < 500) return 'small';                 // $100-500
     if (amount < 1000) return 'medium';               // $500-1000
@@ -35,16 +36,16 @@ export function getBudgetTiersForRange(minBudget?: number, maxBudget?: number, c
     // Define tier ranges based on currency
     let tierRanges: { tier: string; min: number; max: number }[] = [];
     
-    if (upperCurrency === 'BTC') {
+    if (upperCurrency === 'SATS') {
         tierRanges = [
-            { tier: 'micro', min: 0, max: 0.001 },
-            { tier: 'small', min: 0.001, max: 0.01 },
-            { tier: 'medium', min: 0.01, max: 0.1 },
-            { tier: 'large', min: 0.1, max: 1 },
-            { tier: 'enterprise', min: 1, max: Infinity }
+            { tier: 'micro', min: 0, max: 1000 },
+            { tier: 'small', min: 1000, max: 10000 },
+            { tier: 'medium', min: 10000, max: 100000 },
+            { tier: 'large', min: 100000, max: 1000000 },
+            { tier: 'enterprise', min: 1000000, max: Infinity }
         ];
     } else {
-        // USD (default for all non-BTC)
+        // USD (default for all non-BTC/SATS)
         tierRanges = [
             { tier: 'micro', min: 0, max: 100 },
             { tier: 'small', min: 100, max: 500 },
@@ -86,23 +87,23 @@ export function getBudgetTiersForRange(minBudget?: number, maxBudget?: number, c
 
 /**
  * Get all available budget tiers for a currency with their ranges
- * Supports USD and BTC only
+ * Supports USD, BTC, and SATS
  */
 export function getBudgetTiersForCurrency(currency: string): Array<{ tier: string; min: number; max: number; label: string }> {
     if (!currency) return [];
     const upperCurrency = currency.toUpperCase();
     
-    if (upperCurrency === 'BTC') {
+    if (upperCurrency === 'SATS') {
         return [
-            { tier: 'micro', min: 0, max: 0.001, label: '< 0.001 BTC (~$40)' },
-            { tier: 'small', min: 0.001, max: 0.01, label: '0.001-0.01 BTC (~$40-400)' },
-            { tier: 'medium', min: 0.01, max: 0.1, label: '0.01-0.1 BTC (~$400-4K)' },
-            { tier: 'large', min: 0.1, max: 1, label: '0.1-1 BTC (~$4K-40K)' },
-            { tier: 'enterprise', min: 1, max: Infinity, label: '1+ BTC (~$40K+)' }
+            { tier: 'micro', min: 0, max: 1000, label: '< 1,000 sats (~$40)' },
+            { tier: 'small', min: 1000, max: 10000, label: '1K-10K sats (~$40-400)' },
+            { tier: 'medium', min: 10000, max: 100000, label: '10K-100K sats (~$400-4K)' },
+            { tier: 'large', min: 100000, max: 1000000, label: '100K-1M sats (~$4K-40K)' },
+            { tier: 'enterprise', min: 1000000, max: Infinity, label: '1M+ sats (~$40K+)' }
         ];
     }
     
-    // USD (default for all non-BTC)
+    // USD (default for all non-BTC/SATS)
     return [
         { tier: 'micro', min: 0, max: 100, label: 'Under $100' },
         { tier: 'small', min: 100, max: 500, label: '$100-500' },

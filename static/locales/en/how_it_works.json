@@ -100,6 +100,7 @@
         "step_4": {
             "title": "Complete the Work",
             "description": "BitTasker provides all the tools you need to successfully complete projects, track progress, and maintain clear communication throughout.",
+            "divider": "Powerful Work Tools",
             "messaging": {
                 "title": "End-to-End Encrypted Messaging",
                 "description": "Private and secure communication between taskers and taskees with <a href=\"/security\" class=\"link link-primary\">end-to-end encryption</a>."
@@ -111,6 +112,10 @@
             "milestones": {
                 "title": "Milestone Tracking",
                 "description": "Break projects into manageable milestones with individual escrow payments for each completed phase."
+            },
+            "translation": {
+                "title": "Automatic Translation",
+                "description": "Communicate in your own language while messages are automatically translated for the other user, breaking down language barriers."
             },
             "completion": {
                 "title": "Task Completion",

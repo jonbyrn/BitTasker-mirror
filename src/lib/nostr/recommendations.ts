@@ -326,7 +326,7 @@ async function getUserPreferences(): Promise<{
     try {
         const userNpub = await getNpub();
 
-        // First, try to get user preferences from kind 31002 (our custom preferences)
+        // First, try to get user preferences from kind 31003 (our custom preferences)
         const preferencesFilter: Filter = {
             kinds: [KINDS.USER_PREFERENCES],
             authors: [userNpub],

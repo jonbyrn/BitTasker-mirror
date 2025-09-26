@@ -399,7 +399,7 @@
 						</li>
 						{#if isTaskeesOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconMagnify class="text-primary" />
 									<span class="font-medium">{$t('navbar.find_tasks')}</span>
 								</a>
@@ -575,7 +575,7 @@
 						</li>
 						{#if isTaskeesOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/find-tasks" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href={isLoggedIn ? "/dashboard/find-tasks" : "/tasks"} onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconCurrencyBtc class="text-primary" />
 									<span class="font-medium">{$t('footer.start_earning')}</span>
 								</a>

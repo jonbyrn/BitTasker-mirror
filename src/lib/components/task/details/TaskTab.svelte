@@ -10,9 +10,11 @@
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
+	import { locale } from 'svelte-i18n';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
+	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import Gallery from '$lib/components/Gallery.svelte';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 
 	let { task, isOwner, onClose } = $props<{
 		task: Task;
@@ -157,11 +159,7 @@
 					{$t('dashboard.task_details_by_task.deadline')}
 				</small>
 				<p class="font-semibold">
-					{new Date(task.deadline).toLocaleDateString('en-US', {
-						day: '2-digit',
-						month: '2-digit',
-						year: 'numeric'
-					})}, 12pm
+					{formatStandardDate(new Date(task.deadline), $locale || 'en')}, 12pm
 				</p>
 			</div>
 		{:else if task.dateRange}
@@ -170,15 +168,7 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{new Date(task.dateRange.start).toLocaleDateString('en-US', {
-						day: '2-digit',
-						month: '2-digit',
-						year: 'numeric'
-					})} - {new Date(task.dateRange.end).toLocaleDateString('en-US', {
-						day: '2-digit',
-						month: '2-digit',
-						year: 'numeric'
-					})}
+					{formatStandardDateShort(new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(new Date(task.dateRange.end), $locale || 'en')}
 				</p>
 			</div>
 		{/if}
@@ -226,7 +216,7 @@
 			<div class="flex flex-wrap gap-1">
 				{#each task.categories as category}
 					<span class="badge badge-outline badge-info pb-[2px]">
-						{category}
+						{typeof category === 'string' ? category : category.name}
 					</span>
 				{/each}
 			</div>

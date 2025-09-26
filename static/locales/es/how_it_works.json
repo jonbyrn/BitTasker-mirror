@@ -100,6 +100,7 @@
         "step_4": {
             "title": "Completa el trabajo",
             "description": "BitTasker proporciona todas las herramientas que necesitas para completar proyectos con éxito, seguir el progreso y mantener una comunicación clara en todo momento.",
+            "divider": "Herramientas de Trabajo Poderosas",
             "messaging": {
                 "title": "Mensajería con cifrado de extremo a extremo",
                 "description": "Comunicación privada y segura entre 'taskers' y 'taskees' con <a href=\"/security\" class=\"link link-primary\">cifrado de extremo a extremo</a>."
@@ -111,6 +112,10 @@
             "milestones": {
                 "title": "Seguimiento de hitos",
                 "description": "Divide los proyectos en hitos manejables con pagos individuales de custodia para cada fase completada."
+            },
+            "translation": {
+                "title": "Traducción Automática",
+                "description": "Comunícate en tu propio idioma mientras los mensajes se traducen automáticamente para el otro usuario, rompiendo las barreras del idioma."
             },
             "completion": {
                 "title": "Finalización de la tarea",

@@ -52,7 +52,7 @@
 					}
 				} catch (err) {
 					console.error('Failed to process video update:', err);
-					error = 'Failed to connect to Nostr relay. Please try again later.';
+					error = $t('profile.video.failed_to_connect');
 				} finally {
 					isInitialLoading = false;
 				}
@@ -192,7 +192,7 @@
 			URL.revokeObjectURL(videoUrl);
 		} catch (err) {
 			console.error('Video upload failed:', err);
-			error = err instanceof Error ? err.message : 'Failed to upload video';
+			error = err instanceof Error ? err.message : $t('profile.video.failed_to_upload');
 		} finally {
 			isLoading = false;
 		}
@@ -230,7 +230,7 @@
 			}, 180000);
 		} catch (err) {
 			console.error('Failed to start recording:', err);
-			error = 'Failed to access camera and microphone';
+			error = $t('profile.video.failed_to_access_camera');
 		}
 	}
 
@@ -323,7 +323,7 @@
 			videoData = videoMetadata;
 		} catch (err) {
 			console.error('Failed to save recording:', err);
-			error = 'Failed to save recording';
+			error = $t('profile.video.failed_to_save_recording');
 		} finally {
 			isLoading = false;
 			recordedChunks = [];
@@ -351,7 +351,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to remove video:', err);
-			error = 'Failed to remove video';
+			error = $t('profile.video.failed_to_remove');
 		} finally {
 			isLoading = false;
 		}
@@ -409,11 +409,11 @@
 								<track kind="captions" />
 							</video>
 							<button class="btn btn-error btn-block" onclick={stopRecording} disabled={isLoading}>
-								Stop Recording
+								{$t('profile.video.stop_recording')}
 							</button>
 						{:else}
 							<button class="btn btn-primary btn-block" onclick={startRecording} disabled={isLoading}>
-								Record Video
+								{$t('profile.video.record_video')}
 							</button>
 						{/if}
 					</div>

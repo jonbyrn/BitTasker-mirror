@@ -2,17 +2,36 @@
 	import type { PaymentType } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
 	import { fly } from 'svelte/transition';
-	import { submitBidAsDM } from '$lib/utils/nostr-bid';
-	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberForInput } from '$lib/utils/helpers/crypto';
+	import { sendDirectMessage } from '$lib/utils/nostr-message';
+	import { rskAddress, rskWallet } from '$lib/stores/rskWallet.store';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import { clearBidCache } from '$lib/utils/nostr-bid';
+	import DateInput from '$lib/components/date/DateInput.svelte';
 
 	// Props
-	const { taskId, onClose, taskCreatorPubkey, taskTitle, taskDescription } = $props<{
+	const {
+		taskId,
+		onClose,
+		taskCreatorPubkey,
+		taskCreatorUsername,
+		taskCreatorAvatar,
+		taskTitle,
+		taskDescription,
+		loggedInUserId,
+		loggedInUserName,
+		loggedInUserAvatar
+	} = $props<{
 		taskId: string;
 		onClose: () => void;
-		taskCreatorPubkey: string; // Required for sending DM
 		taskTitle?: string; // Add task title prop
 		taskDescription?: string; // Add task description prop
+		taskCreatorPubkey?: string | undefined; // Add task creator pubkey prop
+		taskCreatorUsername?: string; // Add task creator username prop
+		taskCreatorAvatar?: string; // Add task creator avatar prop
+		loggedInUserId?: string; // Add logged-in user ID prop
+		loggedInUserName?: string; // Add logged-in user name prop
+		loggedInUserAvatar?: string; // Add logged-in user avatar prop
 	}>();
 
 	// Form state
@@ -29,10 +48,8 @@
 	let bidSubmitted = $state(false);
 
 	// New datetime fields for fixed price bids
-	let startDate = $state<string>('');
-	let endDate = $state<string>('');
-	let startTime = $state<string>('09:00');
-	let endTime = $state<string>('17:00');
+	let startDateTime = $state<Date | null>(null);
+	let endDateTime = $state<Date | null>(null);
 
 	// BTC conversion state
 	let btcPrice = $state<number>(63000); // Default fallback price
@@ -59,6 +76,9 @@
 		} else {
 			amount = 0;
 		}
+
+		// Clear amount error when user starts typing
+		clearFieldError('amount');
 	}
 
 	// Handle sats amount changes for FIXED type
@@ -73,6 +93,9 @@
 		} else {
 			amount = 0;
 		}
+
+		// Clear amount error when user starts typing
+		clearFieldError('amount');
 	}
 
 	// Handle hourly rate USD changes
@@ -86,6 +109,9 @@
 		} else {
 			hourlyRate = 0;
 		}
+
+		// Clear hourly rate error when user starts typing
+		clearFieldError('hourlyRate');
 	}
 
 	// Handle hourly rate sats changes
@@ -100,6 +126,9 @@
 		} else {
 			hourlyRate = 0;
 		}
+
+		// Clear hourly rate error when user starts typing
+		clearFieldError('hourlyRate');
 	}
 
 	// Handle estimated hours changes
@@ -113,11 +142,40 @@
 		} else {
 			estimatedHours = '';
 		}
+
+		// Clear estimated hours error when user starts typing
+		clearFieldError('estimatedHours');
 	}
 
 	function cleanInput(value: string): string {
 		// Solo permite dígitos, comas y punto
 		return value.replace(/[^0-9.,]/g, '');
+	}
+
+	// Handle description changes - clear error when user starts typing
+	function handleDescriptionChange() {
+		// Clear error as soon as user starts typing (addresses both "required" and "min length" errors)
+		if (description.trim().length > 0) {
+			clearFieldError('description');
+		}
+	}
+
+	// Handle proposed approach changes - clear error when user starts typing
+	function handleProposedApproachChange() {
+		// Clear error as soon as user starts typing (addresses both "required" and "min length" errors)
+		if (proposedApproach.trim().length > 0) {
+			clearFieldError('proposedApproach');
+		}
+	}
+
+	// Handle cover letter changes
+	function handleCoverLetterChange() {
+		clearFieldError('coverLetter');
+	}
+
+	// Handle datetime changes
+	function handleDateTimeChange() {
+		clearFieldError('datetime');
 	}
 
 	// Handle payment type change
@@ -145,6 +203,13 @@
 		}
 	}
 
+	// Helper function to clear specific validation errors
+	function clearFieldError(fieldName: string) {
+		if (bidFormErrors[fieldName]) {
+			bidFormErrors = { ...bidFormErrors, [fieldName]: '' };
+		}
+	}
+
 	// Form validation
 	function validateBidForm() {
 		const errors: Record<string, string> = {};
@@ -156,14 +221,10 @@
 			}
 
 			// Validate datetime fields for fixed price
-			if (!startDate || !endDate) {
+			if (!startDateTime || !endDateTime) {
 				errors.datetime = $t('bid_form.errors.datetime_required');
-			} else {
-				const start = new Date(`${startDate}T${startTime}`);
-				const end = new Date(`${endDate}T${endTime}`);
-				if (start >= end) {
-					errors.datetime = $t('bid_form.errors.datetime_invalid');
-				}
+			} else if (startDateTime >= endDateTime) {
+				errors.datetime = $t('bid_form.errors.datetime_invalid');
 			}
 		}
 
@@ -198,54 +259,71 @@
 			errors.proposedApproach = $t('bid_form.errors.proposed_approach_max_length');
 		}
 
-		// Validate cover letter - min 50, max 800
-		if (!coverLetter || coverLetter.trim() === '') {
-			errors.coverLetter = $t('bid_form.errors.cover_letter_required');
-		} else if (coverLetter.trim().length < 50) {
-			errors.coverLetter = $t('bid_form.errors.cover_letter_min_length');
-		} else if (coverLetter.trim().length > 800) {
-			errors.coverLetter = $t('bid_form.errors.cover_letter_max_length');
-		}
-
 		bidFormErrors = errors;
 		return Object.keys(errors).length === 0;
 	}
 
 	// Helper function to format duration for display
 	function formatDurationForDisplay(): string {
-		if (bidType === 'FIXED' && startDate && endDate) {
-			const start = new Date(`${startDate}T${startTime}`);
-			const end = new Date(`${endDate}T${endTime}`);
-			const diffMs = end.getTime() - start.getTime();
-			const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-			const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+		if (bidType === 'FIXED' && startDateTime && endDateTime) {
+			const diffMs = endDateTime.getTime() - startDateTime.getTime();
+			const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+			const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-			if (diffDays > 1) {
-				return `${diffDays} days`;
-			} else if (diffHours > 1) {
-				return `${diffHours} hours`;
-			} else {
-				return '1 hour';
+			const parts = [];
+
+			if (diffDays > 0) {
+				parts.push(
+					`${diffDays} ${diffDays === 1 ? $t('dashboard.bids.bid_creation.day') : $t('dashboard.bids.bid_creation.days')}`
+				);
 			}
+
+			if (diffHours > 0) {
+				parts.push(
+					`${diffHours} ${diffHours === 1 ? $t('dashboard.bids.bid_creation.hour') : $t('dashboard.bids.bid_creation.hours')}`
+				);
+			}
+
+			if (diffMinutes > 0) {
+				parts.push(
+					`${diffMinutes} ${diffMinutes === 1 ? $t('dashboard.bids.bid_creation.minute') : $t('dashboard.bids.bid_creation.minutes')}`
+				);
+			}
+
+			if (parts.length === 0) {
+				return $t('dashboard.bids.bid_creation.one_hour');
+			}
+
+			if (parts.length === 1) {
+				return parts[0];
+			}
+
+			// Join with "and" for multiple parts
+			const lastPart = parts.pop();
+			return `${parts.join(', ')} and ${lastPart}`;
 		}
 		return '';
 	}
 
 	// Handle form submission
-	async function handleBidSubmit() {
-		if (!validateBidForm()) {
-			return;
-		}
+	async function handleBidSubmit(e: Event) {
+		e.preventDefault();
+
+		if (!validateBidForm()) return;
 
 		submittingBid = true;
 
 		try {
+			await rskWallet.initializeWallet();
+
 			// Create bid data structure with explicit type
 			const bidData = {
 				type: 'bid' as const,
 				taskId: taskId,
-				taskTitle: taskTitle || 'Untitled Task',
-				taskDescription: taskDescription || 'No description available', // Add task description
+				taskTitle: taskTitle || $t('dashboard.bids.bid_creation.untitled_task'),
+				taskDescription:
+					taskDescription || $t('dashboard.bids.bid_creation.no_description_available'), // Add task description
 				amount: amount, // Send USD amount directly
 				currency: 'USD',
 				paymentType: bidType,
@@ -257,21 +335,45 @@
 				coverLetter: description,
 				timestamp: Date.now(),
 				bidId: crypto.randomUUID(),
+
+				taskCreatorPubkey: taskCreatorPubkey,
+				taskCreatorUsername: taskCreatorUsername,
+				taskCreatorAvatar: taskCreatorAvatar,
+
+				// Add logged-in user information
+				bidderId: loggedInUserId,
+				bidderName: loggedInUserName,
+				bidderAvatar: loggedInUserAvatar,
+
+				// Add RSK wallet address for escrow funding
+				bidderWalletAddress: $rskAddress,
+
 				// Add new datetime fields
-				startDate: bidType === 'FIXED' ? startDate : null,
-				endDate: bidType === 'FIXED' ? endDate : null,
-				startTime: bidType === 'FIXED' ? startTime : null,
-				endTime: bidType === 'FIXED' ? endTime : null
+				startDateTime: bidType === 'FIXED' ? startDateTime : null,
+				endDateTime: bidType === 'FIXED' ? endDateTime : null,
+
+				messageType: 'bid'
 			};
 
-			// Submit bid as encrypted DM using the new system
-			await submitBidAsDM(bidData, taskCreatorPubkey);
+			// Create custom tags for the nostr event
+			const customTags: string[][] = [
+				['t', taskId] // Add task ID as a custom tag for filtering
+			];
+
+			// Submit a bid as an encrypted DM to the task creator with custom tags
+			await sendDirectMessage(JSON.stringify(bidData), taskCreatorPubkey, undefined, customTags);
+
+			// Clear bid cache to ensure fresh data on next load
+			clearBidCache();
 
 			// Mark bid as submitted
 			bidSubmitted = true;
 		} catch (error) {
 			console.error('Failed to submit bid:', error);
-			bidFormErrors.general = error instanceof Error ? error.message : 'Failed to submit bid';
+			bidFormErrors.general =
+				error instanceof Error
+					? error.message
+					: $t('dashboard.bids.bid_creation.failed_to_submit_bid');
 		} finally {
 			submittingBid = false;
 		}
@@ -318,13 +420,7 @@
 			</div>
 		</div>
 	{:else}
-		<form
-			class="space-y-4"
-			onsubmit={(e) => {
-				e.preventDefault();
-				handleBidSubmit();
-			}}
-		>
+		<form class="space-y-4" onsubmit={handleBidSubmit}>
 			<!-- Payment Type -->
 			<div class="form-control">
 				<label class="label cursor-pointer" for="payment-type-group">
@@ -405,8 +501,8 @@
 						</div>
 					{/if}
 					{#if amount > 0}
-						<span class="label-text-alt text-info mt-1 block">
-							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+						<span class="label-text-alt text-base-content/60 mt-1 block">
+							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
@@ -416,46 +512,38 @@
 					<label class="label" for="datetime-range">
 						<span class="label-text">{$t('bid_form.form.datetime_range')}</span>
 					</label>
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<div>
-							<label class="label-text-alt mb-2 block" for="start-date"
-								>{$t('bid_form.form.start_datetime')}</label
-							>
-							<div class="flex gap-2">
-								<input
-									type="date"
-									id="start-date"
-									bind:value={startDate}
-									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
-									min={new Date().toISOString().split('T')[0]}
-								/>
-								<input
-									type="time"
-									id="start-time"
-									bind:value={startTime}
-									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
-								/>
-							</div>
+					<div class="flex flex-col gap-4 sm:flex-row">
+						<div class="flex-1">
+							<DateInput
+								bind:value={startDateTime}
+								type="datetime"
+								labelKey="bid_form.form.airdatepicker.select_start_datetime"
+								placeholderKey="bid_form.form.airdatepicker.select_start_datetime"
+								minDate={new Date()}
+								maxDate={undefined}
+								timeStep={15}
+								onChange={(date: Date | null) => {
+									startDateTime = date;
+									handleDateTimeChange();
+								}}
+								className={bidFormErrors.datetime ? 'input-error' : ''}
+							/>
 						</div>
-						<div>
-							<label class="label-text-alt mb-2 block" for="end-date"
-								>{$t('bid_form.form.end_datetime')}</label
-							>
-							<div class="flex gap-2">
-								<input
-									type="date"
-									id="end-date"
-									bind:value={endDate}
-									class="input input-bordered flex-1 {bidFormErrors.datetime ? 'input-error' : ''}"
-									min={startDate || new Date().toISOString().split('T')[0]}
-								/>
-								<input
-									type="time"
-									id="end-time"
-									bind:value={endTime}
-									class="input input-bordered w-32 {bidFormErrors.datetime ? 'input-error' : ''}"
-								/>
-							</div>
+						<div class="flex-1">
+							<DateInput
+								bind:value={endDateTime}
+								type="datetime"
+								labelKey="bid_form.form.airdatepicker.select_end_datetime"
+								placeholderKey="bid_form.form.airdatepicker.select_end_datetime"
+								minDate={startDateTime || new Date()}
+								maxDate={undefined}
+								timeStep={15}
+								onChange={(date: Date | null) => {
+									endDateTime = date;
+									handleDateTimeChange();
+								}}
+								className={bidFormErrors.datetime ? 'input-error' : ''}
+							/>
 						</div>
 					</div>
 					{#if bidFormErrors.datetime}
@@ -465,8 +553,8 @@
 							>
 						</div>
 					{/if}
-					{#if startDate && endDate}
-						<span class="label-text-alt text-info mt-1 block">
+					{#if startDateTime && endDateTime}
+						<span class="label-text-alt text-base-content/60 mt-1 block">
 							{$t('bid_form.form.duration')}: {formatDurationForDisplay()}
 						</span>
 					{/if}
@@ -521,8 +609,8 @@
 						</div>
 					{/if}
 					{#if hourlyRate > 0}
-						<span class="label-text-alt text-info mt-1 block">
-							{$t('bid_form.form.btc_price')} ${btcPrice.toLocaleString()}
+						<span class="label-text-alt text-base-content/60 mt-1 block">
+							{$t('bid_form.form.btc_price')} ${Math.round(btcPrice).toLocaleString()}
 						</span>
 					{/if}
 				</div>
@@ -570,12 +658,14 @@
 						<div class="text-sm opacity-70">
 							${hourlyRate.toLocaleString('en-US')} × {parseFloat(
 								estimatedHours || '0'
-							).toLocaleString('en-US')} hours
+							).toLocaleString('en-US')}
+							{$t('dashboard.bids.bid_creation.hours')}
 						</div>
 						<div class="mt-1 text-sm opacity-70">
 							≈ {Math.round(
 								(hourlyRate / btcPrice) * 100_000_000 * parseFloat(estimatedHours || '0')
-							).toLocaleString('en-US')} sats
+							).toLocaleString('en-US')}
+							{$t('dashboard.bids.bid_creation.sats')}
 						</div>
 					</div>
 				</div>
@@ -596,17 +686,22 @@
 						: ''}"
 					placeholder={$t('bid_form.form.description.placeholder')}
 					bind:value={description}
+					oninput={handleDescriptionChange}
 					maxlength="500"
 				></textarea>
 				{#if description.length > 0}
-					<small class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}">
-						{description.length}/500 max
+					<small
+						class="text-base-content/60 text-xs {description.length >= 500 ? 'text-warning' : ''}"
+					>
+						{description.length}/500 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.description}
 					<div class="label">
-						<span class="label-text-alt text-error" id="description-error" aria-live="polite"
-							>{bidFormErrors.description}</span
+						<span
+							class="label-text-alt text-error whitespace-break-spaces"
+							id="description-error"
+							aria-live="polite">{bidFormErrors.description}</span
 						>
 					</div>
 				{/if}
@@ -627,11 +722,16 @@
 					aria-invalid={bidFormErrors.proposedApproach ? 'true' : undefined}
 					aria-describedby={bidFormErrors.proposedApproach ? 'proposed-approach-error' : undefined}
 					bind:value={proposedApproach}
+					oninput={handleProposedApproachChange}
 					maxlength="1000"
 				></textarea>
 				{#if proposedApproach.length > 0}
-					<small class="text-base-content/60 text-xs {proposedApproach.length >= 1000 ? 'text-warning' : ''}">
-						{proposedApproach.length}/1000 max
+					<small
+						class="text-base-content/60 text-xs {proposedApproach.length >= 1000
+							? 'text-warning'
+							: ''}"
+					>
+						{proposedApproach.length}/1000 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.proposedApproach}
@@ -657,11 +757,14 @@
 						: ''}"
 					placeholder={$t('bid_form.form.cover_letter.placeholder')}
 					bind:value={coverLetter}
+					oninput={handleCoverLetterChange}
 					maxlength="800"
 				></textarea>
 				{#if coverLetter.length > 0}
-					<small class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}">
-						{coverLetter.length}/800 max
+					<small
+						class="text-base-content/60 text-xs {coverLetter.length >= 800 ? 'text-warning' : ''}"
+					>
+						{coverLetter.length}/800 {$t('dashboard.bids.bid_creation.max')}
 					</small>
 				{/if}
 				{#if bidFormErrors.coverLetter}
@@ -677,7 +780,7 @@
 			<button
 				id="bid-submit-btn"
 				type="submit"
-				class="btn btn-primary mb-16 ml-auto block sm:mb-4"
+				class="btn btn-primary ml-auto block {bidFormErrors.general ? '' : 'mb-16 sm:mb-4'}"
 				disabled={submittingBid}
 			>
 				{#if submittingBid}
@@ -688,7 +791,7 @@
 				{/if}
 			</button>
 			{#if bidFormErrors.general}
-				<div class="alert alert-error alert-outline">
+				<div class="alert alert-error alert-outline mb-16 sm:mb-4">
 					<span>{bidFormErrors.general}</span>
 				</div>
 			{/if}

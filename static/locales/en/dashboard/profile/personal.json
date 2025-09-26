@@ -6,8 +6,12 @@
       "professionalTitle": "Professional Title",
       "website": "Website",
       "profileDescription": "Profile Description",
-      "savePersonalInfo": "Save Personal Information",
+      "savePersonalInfo": "Save",
       "add_images": "Add Images",
-      "profileDescriptionPlaceholder": "Tell clients about your professional background, expertise, and what makes you unique..."
+      "profileDescriptionPlaceholder": "Tell clients about your professional background, expertise, and what makes you unique...",
+      "failed_to_connect": "Failed to connect to Nostr relay. Please try again later.",
+      "failed_to_update": "Failed to update profile",
+      "professional_title_placeholder": "e.g. Software Engineer",
+      "website_placeholder": "https://example.com"
     }
   }

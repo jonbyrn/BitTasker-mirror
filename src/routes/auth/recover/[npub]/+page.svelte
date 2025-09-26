@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 	import { validatePassword } from '$lib/utils/helpers/validators';
 	import {
@@ -32,6 +33,7 @@
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
 	let showNewPassword = $state(false);
+	let recoverySuccess = $state(false);
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
@@ -39,21 +41,41 @@
 
 	// Early return if npub is not available
 	if (!npub) {
-		error = 'Invalid recovery link';
+		error = $t('recovery_npub.errors.invalid_link');
 	}
 
 	onMount(async () => {
-		if (!npub) return;
+		if (!npub) {
+			error = $t('recovery_npub.errors.no_public_key');
+			return;
+		}
 		
 		try {
+			// Check if user came from email verification
+			const urlParams = new URLSearchParams(window.location.search);
+			const verified = urlParams.get('verified');
+			
+			if (verified !== 'true') {
+				// User hasn't verified their email, redirect to recovery initiation
+				goto('/auth/recover/send');
+				return;
+			}
+			
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
+			
+			// Check if recovery data is valid
+			if (!recoveryData || !recoveryData.recoveryPrivateKey) {
+				error = $t('recovery_npub.errors.no_recovery_data');
+				return;
+			}
+			
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
 			newPassword = generatePassword();
-		} catch (err) {
+		} catch (err: any) {
 			console.error('Failed to fetch recovery data:', err);
-			error = 'Failed to load recovery data';
+			error = err.message || $t('recovery_npub.errors.decrypt_failed');
 		}
 	});
 
@@ -78,7 +100,13 @@
 			error = '';
 
 			if (!currentPassword || !recoveryData) {
-				error = 'Current password is required';
+				error = $t('recovery_npub.errors.password_required');
+				return;
+			}
+
+			// Check if recovery data has the required fields
+			if (!recoveryData.recoveryPrivateKey) {
+				error = $t('recovery_npub.errors.no_recovery_data_available');
 				return;
 			}
 
@@ -88,10 +116,10 @@
 				step = 2;
 			} catch (err: any) {
 				console.error('Detailed decryption error:', err);
-				error = err.message || 'Invalid password or encryption data';
+				error = err.message || $t('recovery_npub.errors.invalid_password');
 			}
 		} catch (err: any) {
-			error = err.message || 'Failed to decrypt private key';
+			error = err.message || $t('recovery_npub.errors.decrypt_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -106,12 +134,12 @@
 			passwordError = '';
 
 			if (!newPassword || !confirmPassword || !recoveryCode) {
-				error = 'All fields are required';
+				error = $t('recovery_npub.errors.all_fields_required');
 				return;
 			}
 
 			if (newPassword !== confirmPassword) {
-				passwordError = 'Passwords do not match';
+				passwordError = $t('recovery_npub.errors.passwords_mismatch');
 				return;
 			}
 
@@ -134,11 +162,11 @@
 
 			// Complete recovery
 			if (!npub) {
-				error = 'Invalid recovery link';
+				error = $t('recovery_npub.errors.invalid_link');
 				return;
 			}
 			
-			await authService.completeNostrRecovery({
+			const recoveryResponse = await authService.completeNostrRecovery({
 				publicKey: npub,
 				otp: recoveryCode,
 				recoveryPrivateKey: secondaryEncrypted,
@@ -149,6 +177,15 @@
 				iterations: primaryIterations,
 				deviceId
 			});
+
+			// Invalidate all other devices for security
+			try {
+				const invalidationResult = await authService.invalidateAllDevices(npub);
+				console.log(`Invalidated ${invalidationResult.invalidatedDevices} devices`);
+			} catch (invalidationError) {
+				console.warn('Failed to invalidate devices:', invalidationError);
+				// Don't fail the entire recovery for this, but log it
+			}
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
@@ -164,13 +201,13 @@
 			}
 
 			if (!credentialId) {
-				throw new Error('Failed to register device');
+				throw new Error($t('recovery_npub.errors.register_device_failed'));
 			}
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
-			const response = await authService.loginWithPasskey(npub, deviceId);
-			if (response && response.access_token) {
+			// Use the recovery response instead of logging in again
+			if (recoveryResponse && recoveryResponse.access_token) {
 				const biometricData = {
 					username: npub,
 					password: JSON.stringify({
@@ -180,19 +217,35 @@
 						authTag: primaryEncrypted.authTag,
 						salt: primarySalt
 					}),
-					server: deviceId
+					server: deviceId,
+					isLegacyFormat: true
 				};
 				authState.setupAuthData(
-					response.access_token,
+					recoveryResponse.access_token,
 					'biometrics',
 					npub,
-					response.user,
+					recoveryResponse.user,
 					biometricData,
 					false
 				);
+				
+				// Show success message and redirect
+				recoverySuccess = true;
+				setTimeout(() => {
+					goto('/dashboard/find-tasks');
+				}, 2000);
 			}
 		} catch (err: any) {
-			error = err.message || 'Recovery failed';
+			console.error('Recovery completion failed:', err);
+			if (err.message?.includes('Invalid password')) {
+				error = $t('recovery_npub.errors.invalid_recovery_password');
+			} else if (err.message?.includes('device')) {
+				error = $t('recovery_npub.errors.device_registration_failed');
+			} else if (err.message?.includes('invalidate')) {
+				error = $t('recovery_npub.errors.invalidation_failed');
+			} else {
+				error = err.message || $t('recovery_npub.errors.recovery_failed');
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -204,20 +257,30 @@
 >
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
-			<h2 class="card-title mb-6 justify-center text-2xl font-bold">Account Recovery</h2>
+			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_npub.title')}</h2>
 
-			{#if step === 1}
+			{#if recoverySuccess}
+				<div class="alert alert-success mb-6">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+					<div>
+						<h3 class="font-bold">{$t('recovery_npub.success_title')}</h3>
+						<p class="text-sm">{$t('recovery_npub.success_message')}</p>
+					</div>
+				</div>
+			{:else if step === 1}
 				<form onsubmit={decryptPrivateKey} class="space-y-4">
 					<div class="form-control">
 						<label class="label" for="currentPassword">
-							<span class="label-text">Current Recovery Password</span>
+							<span class="label-text">{$t('recovery_npub.current_password_label')}</span>
 						</label>
 						<div class="relative">
 							<input
 								type={showCurrentPassword ? 'text' : 'password'}
 								id="currentPassword"
 								bind:value={currentPassword}
-								placeholder="Enter your current recovery password"
+								placeholder={$t('recovery_npub.current_password_placeholder')}
 								class="input input-bordered w-full pr-10"
 								required
 							/>
@@ -271,7 +334,7 @@
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{:else}
-							Continue
+							{$t('recovery_npub.continue_button')}
 						{/if}
 					</button>
 					<button
@@ -294,20 +357,20 @@
 								d="M10 19l-7-7m0 0l7-7m-7 7h18"
 							/>
 						</svg>
-						Back to account recovery
+						{$t('recovery_npub.back_to_recovery')}
 					</button>
 				</form>
 			{:else if step === 2}
 				<form onsubmit={completeRecovery} class="space-y-4">
 					<div class="form-control">
 						<label class="label" for="recoveryCode">
-							<span class="label-text">Recovery Code</span>
+							<span class="label-text">{$t('recovery_npub.recovery_code_label')}</span>
 						</label>
 						<input
 							type="text"
 							id="recoveryCode"
 							bind:value={recoveryCode}
-							placeholder="Enter recovery code from your email"
+							placeholder={$t('recovery_npub.recovery_code_placeholder')}
 							class="input input-bordered w-full"
 							required
 						/>
@@ -315,14 +378,14 @@
 
 					<div class="form-control">
 						<label class="label" for="newPassword">
-							<span class="label-text">New Recovery Password</span>
+							<span class="label-text">{$t('recovery_npub.new_password_label')}</span>
 						</label>
 						<div class="relative">
 							<input
 								type={showNewPassword ? 'text' : 'password'}
 								id="newPassword"
 								bind:value={newPassword}
-								placeholder="Enter new password"
+								placeholder={$t('recovery_npub.new_password_placeholder')}
 								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
 								required
 							/>
@@ -333,8 +396,8 @@
 									class="mr-2"
 									onclick={() => copyToClipboard(newPassword)}
 									disabled={!newPassword}
-									title="Copy password to clipboard"
-									aria-label="Copy password to clipboard"
+									title={$t('recovery_npub.copy_password_title')}
+									aria-label={$t('recovery_npub.copy_password_title')}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -353,7 +416,7 @@
 								</button>
 								<!-- Regenerate Button -->
 								<button
-									aria-label="Regenerate password"
+									aria-label={$t('recovery_npub.regenerate_password_title')}
 									type="button"
 									class="mr-2"
 									onclick={regeneratePassword}
@@ -377,7 +440,7 @@
 								<button 
 									type="button" 
 									onclick={() => (showNewPassword = !showNewPassword)}
-									aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+									aria-label={showNewPassword ? $t('recovery_npub.hide_password_title') : $t('recovery_npub.show_password_title')}
 								>
 									{#if showNewPassword}
 										<svg
@@ -423,14 +486,14 @@
 
 					<div class="form-control">
 						<label class="label" for="confirmPassword">
-							<span class="label-text">Confirm New Password</span>
+							<span class="label-text">{$t('recovery_npub.confirm_password_label')}</span>
 						</label>
 						<div class="relative">
 							<input
 								type={showNewPassword ? 'text' : 'password'}
 								id="confirmPassword"
 								bind:value={confirmPassword}
-								placeholder="Confirm new password"
+								placeholder={$t('recovery_npub.confirm_password_placeholder')}
 								class="input input-bordered w-full {passwordError ? 'input-error' : ''} pr-20"
 								required
 							/>
@@ -440,8 +503,8 @@
 								class="absolute inset-y-0 right-0 flex items-center pr-3"
 								onclick={() => copyToClipboard(confirmPassword)}
 								disabled={!confirmPassword}
-								title="Copy password to clipboard"
-								aria-label="Copy password to clipboard"
+								title={$t('recovery_npub.copy_password_title')}
+								aria-label={$t('recovery_npub.copy_password_title')}
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -467,34 +530,34 @@
 					<!-- Password Guidelines -->
 					{#if newPassword}
 						<div class="space-y-1 text-sm">
-							<p class="font-medium">Password Requirements</p>
+							<p class="font-medium">{$t('recovery_npub.password_requirements_title')}</p>
 							<div class="flex flex-wrap gap-x-4 gap-y-1">
 								<span
 									class={newPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}
 								>
-									✓ Use at least 8 characters
+									{$t('recovery_npub.password_requirements.min_length')}
 								</span>
 								<span
 									class={/[A-Z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
 								>
-									✓ Include uppercase letters
+									{$t('recovery_npub.password_requirements.uppercase')}
 								</span>
 								<span
 									class={/[a-z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
 								>
-									✓ Include lowercase letters
+									{$t('recovery_npub.password_requirements.lowercase')}
 								</span>
 								<span
 									class={/[0-9]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
 								>
-									✓ Include numbers
+									{$t('recovery_npub.password_requirements.numbers')}
 								</span>
 								<span
 									class={/[!@#$%^&*(),.?":{}|<>]/.test(newPassword)
 										? 'text-success'
 										: 'text-base-content/60'}
 								>
-									✓ Include special characters
+									{$t('recovery_npub.password_requirements.special_chars')}
 								</span>
 							</div>
 						</div>
@@ -504,7 +567,7 @@
 						{#if isLoading}
 							<span class="loading loading-spinner"></span>
 						{:else}
-							Reset Password
+							{$t('recovery_npub.reset_password_button')}
 						{/if}
 					</button>
 					<button
@@ -527,7 +590,7 @@
 								d="M10 19l-7-7m0 0l7-7m-7 7h18"
 							/>
 						</svg>
-						Back to account recovery
+						{$t('recovery_npub.back_to_recovery')}
 					</button>
 				</form>
 			{/if}

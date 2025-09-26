@@ -59,7 +59,7 @@
 
 		// Validate file size
 		if (file.size > maxFileSize * 1024 * 1024) {
-			error = `File size must be less than ${maxFileSize}MB`;
+			error = $t('common.components.uploader.file_size_limit', { values: { maxSize: maxFileSize } });
 			onError(error);
 			return false;
 		}
@@ -76,7 +76,7 @@
 				});
 
 				if (video.duration > maxDuration) {
-					error = `Video must be ${maxDuration} seconds or shorter`;
+					error = $t('common.components.uploader.video_duration_limit', { values: { maxDuration } });
 					onError(error);
 					URL.revokeObjectURL(video.src);
 					return false;
@@ -102,7 +102,7 @@
 				});
 
 				if ((width && img.width !== width) || (height && img.height !== height)) {
-					error = `Image dimensions must be ${width}x${height}px`;
+					error = $t('common.components.uploader.image_dimensions', { values: { width, height } });
 					onError(error);
 					URL.revokeObjectURL(img.src);
 					return false;
@@ -126,7 +126,7 @@
 		if (!selectedFiles) return;
 
 		if (files?.length + selectedFiles.length > maxFiles) {
-			error = `Maximum of ${maxFiles} files allowed`;
+			error = $t('common.components.uploader.max_files_limit', { values: { maxFiles } });
 			onError?.(error);
 			return;
 		}
@@ -163,8 +163,8 @@
 	let fileTypeText = $derived(
 		allowedTypes
 			.map((type) => {
-				if (type === 'image/*') return 'Images';
-				if (type === 'video/*') return 'Videos';
+				if (type === 'image/*') return $t('common.components.uploader.images');
+				if (type === 'video/*') return $t('common.components.uploader.videos');
 				return type.split('/')[1].toUpperCase();
 			})
 			.join(', ')
@@ -177,7 +177,7 @@
 <div class="space-y-4">
 	<div
 		class={maxFiles > 1
-			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
+			? 'grid w-full grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
 			: 'h-full w-full'}
 	>
 		{#each files as file, index}
@@ -195,7 +195,7 @@
 							<track kind="captions" />
 						</video>
 					{:else}
-						<img src={file} alt="Preview" class="h-full w-full rounded-lg object-cover" />
+						<img src={file} alt={$t('common.components.uploader.preview')} class="h-full w-full rounded-lg object-cover" />
 					{/if}
 				{:else if file.type.startsWith('video/')}
 					<video
@@ -211,12 +211,12 @@
 				{:else}
 					<img
 						src={URL.createObjectURL(file)}
-						alt="Preview"
+						alt={$t('common.components.uploader.preview')}
 						class="h-full w-full rounded-lg object-cover"
 					/>
 				{/if}
 				<button
-					aria-label="Remove file"
+					aria-label={$t('common.components.uploader.remove_file')}
 					type="button"
 					class="absolute -top-2 -right-2 h-6 w-6 cursor-pointer rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
 					onclick={() => removeFile(index)}
@@ -238,7 +238,7 @@
 		{/each}
 
 		{#if files.length < maxFiles}
-			<div class="relative overflow-hidden {className}">
+			<div class="relative overflow-hidden w-full {className}">
 				<label
 					for="file-upload-{id}"
 					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
@@ -270,7 +270,7 @@
 				<input
 					id="file-upload-{id}"
 					type="file"
-					class="hidden"
+					class="hidden w-full"
 					accept={allowedTypes.join(',')}
 					onchange={handleFileChange}
 					multiple={files.length + 1 < maxFiles}

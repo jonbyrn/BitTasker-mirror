@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
-	import type { Credentials } from '$lib/types/auth';
+	import type { Credentials, MasterKeyEncryptedData } from '$lib/types/auth';
 	import type { NostrEvent } from '$lib/types/nostr';
 	import { onMount } from 'svelte';
 	import { nip19 } from 'nostr-tools';
@@ -15,8 +15,10 @@
 	import {
 		decryptNsecWithBiometrics,
 		encryptNsec,
+		encryptMasterKeyData,
 		signLoginChallenge
 	} from '$lib/utils/helpers/auth';
+	import { generateMnemonic } from 'bip39';
 	import {
 		checkBiometricAvailability,
 		getBiometricData,
@@ -30,9 +32,16 @@
 		getWebAuthnProviderDescription
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
-	import Alby from '$lib/components/AuthProviders/Alby.svelte';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
+	import { Buffer } from 'buffer';
+	import QrCodeScanner from '$lib/components/QrCodeScanner.svelte';
+	import type { Barcode } from '@capacitor-mlkit/barcode-scanning';
+
+	// Polyfill Buffer
+	if (typeof window !== 'undefined') {
+		(globalThis as any).Buffer = Buffer;
+	}
 
 	let error = $state('');
 	let isLoading = $state(false);
@@ -61,13 +70,32 @@
 	 */
 	async function login(biometricData: Credentials, deviceId: string, authMethod: string) {
 		const pubKey = biometricData.username;
-		const encryptedKey = biometricData.password;
+		const encryptedData = biometricData.password;
 
 		// Get login challenge from server
 		const { challenge } = await authService.getLoginChallenge();
 
 		// Decrypt private key using biometrics
-		const privateKey = await decryptNsecWithBiometrics(encryptedKey);
+		const privateKey = await decryptNsecWithBiometrics(encryptedData);
+
+		// migrate to master key format if legacy format
+		if (biometricData.isLegacyFormat) {
+			// Generate wallet mnemonic for both new and existing users
+			const walletMnemonic = generateMnemonic();
+
+			const masterKeyData = await encryptMasterKeyData(privateKey, walletMnemonic, deviceId);
+
+			await authService.migrateToMasterKey(pubKey, deviceId, masterKeyData);
+
+			biometricData.password = JSON.stringify({
+				key: masterKeyData.exportedMasterKey,
+				masterKeyData: masterKeyData,
+				data: masterKeyData.nostr.encrypted.data,
+				iv: masterKeyData.nostr.encrypted.iv,
+				authTag: masterKeyData.nostr.encrypted.authTag,
+				salt: masterKeyData.nostr.salt
+			});
+		}
 
 		// Sign the challenge with the private key
 		const signedChallenge = await signLoginChallenge(challenge, privateKey);
@@ -112,7 +140,17 @@
 			}
 		} catch (err: unknown) {
 			console.error('Authentication failed:', err);
-			error = err instanceof Error ? err.message : $t('login.errors.failed');
+
+			// Handle specific WebAuthn cancellation error
+			if (err instanceof Error) {
+				if (err.name === 'NotAllowedError' || err.message.includes('NotAllowedError')) {
+					error = $t('login.errors.cancelled');
+				} else {
+					error = err.message;
+				}
+			} else {
+				error = $t('login.errors.failed');
+			}
 		} finally {
 			isLoading = false;
 		}
@@ -123,6 +161,11 @@
 		try {
 			isLoading = true;
 			error = '';
+
+			// Only run in browser environment to avoid Buffer issues
+			if (typeof Buffer === 'undefined') {
+				throw new Error('Buffer is not defined');
+			}
 
 			const { challenge } = await authService.getLoginChallenge();
 
@@ -174,8 +217,11 @@
 
 			let deviceId = await getDeviceIdentifier();
 
+			// Use legacy login first to check if user exists and get isNewUser flag
+			// TODO: To be removed once all users are migrated to master key format
 			let { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
 
+			// Login with nostr, register user if it does not exist
 			const res = await authService.loginWithNostr({
 				event: signedEvent,
 				challenge,
@@ -190,31 +236,78 @@
 
 			if (res.access_token) {
 				const deviceName = await createUserDeviceShortName(npub);
-				let credentialId = '';
+				let credentialId = '',
+					masterKeyData: MasterKeyEncryptedData | null = null;
 
-				if (res.isNewUser) {
+				// Generate wallet mnemonic for both new and existing users
+				const walletMnemonic = generateMnemonic();
+
+				masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
+
+				if (res.isNewUser && !res.user.nostrKey?.masterKeyEncrypted) {
+					// Create master key encrypted data with correct deviceId
+
+					// Store master key data in biometrics
 					if (authMethods.biometric) {
-						credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
+						credentialId = await setBiometricKey(
+							npub,
+							masterKeyData.exportedMasterKey,
+							'biometrics',
+							deviceName
+						);
 					} else {
-						credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+						credentialId = await setWebBiometricKey(
+							npub,
+							masterKeyData.exportedMasterKey,
+							deviceName
+						);
 					}
 				} else {
-					deviceId = res.user.nostrKey?.deviceId!;
+					if (
+						res.user.nostrKey &&
+						res.user.nostrKey?.keyDerivationMethod === 'master-key' &&
+						res.user.nostrKey?.masterKeyEncrypted
+					) {
+						masterKeyData = {
+							nostr: res.user.nostrKey?.masterKeyEncrypted.nostr,
+							wallet: res.user.nostrKey?.masterKeyEncrypted.wallet,
+							masterSalt: res.user.nostrKey?.masterSalt,
+							exportedMasterKey: res.user.nostrKey?.exportedMasterKey
+						};
 
-					// Encrypt the private key with device ID as the password
-					({ encrypted, salt, exportedKey, iterations } = await encryptNsec(
-						nsec,
-						deviceId,
-						100000,
-						res.user.nostrKey?.salt
-					));
-
-					const deviceName = await createUserDeviceShortName(npub);
-
-					if (authMethods.biometric) {
-						credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
+						// Store master key data in biometrics
+						if (authMethods.biometric) {
+							credentialId = await setBiometricKey(
+								npub,
+								masterKeyData.exportedMasterKey,
+								'biometrics',
+								deviceName
+							);
+						} else {
+							credentialId = await setWebBiometricKey(
+								npub,
+								masterKeyData.exportedMasterKey,
+								deviceName
+							);
+						}
 					} else {
-						credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+						// Encrypt the private key with device ID as the password
+						({ encrypted, salt, exportedKey, iterations } = await encryptNsec(
+							nsec,
+							res.user.nostrKey?.deviceId!,
+							100000,
+							res.user.nostrKey?.salt
+						));
+
+						const deviceName = await createUserDeviceShortName(npub);
+
+						if (authMethods.biometric) {
+							credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
+						} else {
+							credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+						}
+
+						await authService.migrateToMasterKey(npub, deviceId, masterKeyData);
 					}
 				}
 
@@ -224,14 +317,25 @@
 
 				const biometricData = {
 					username: npub,
-					password: JSON.stringify({
-						key: exportedKey,
-						data: encrypted.data,
-						iv: encrypted.iv,
-						authTag: encrypted.authTag,
-						salt
-					}),
-					server: deviceId
+					password: masterKeyData
+						? JSON.stringify({
+								key: masterKeyData.exportedMasterKey,
+								masterKeyData: masterKeyData, // Store full master key structure
+								// Legacy compatibility fields
+								data: masterKeyData.nostr.encrypted.data,
+								iv: masterKeyData.nostr.encrypted.iv,
+								authTag: masterKeyData.nostr.encrypted.authTag,
+								salt: masterKeyData.nostr.salt
+							})
+						: JSON.stringify({
+								key: exportedKey,
+								data: encrypted.data,
+								iv: encrypted.iv,
+								authTag: encrypted.authTag,
+								salt: salt
+							}),
+					server: res.user.nostrKey?.deviceId!,
+					isLegacyFormat: masterKeyData ? false : true
 				};
 
 				authState
@@ -248,6 +352,11 @@
 			isLoading = false;
 		}
 	}
+
+	function handleLoginWithQrCode(barcode: Barcode) {
+		nsec = barcode.displayValue;
+		handleNsecLogin();
+	}
 </script>
 
 <div class="mx-auto flex w-full max-w-2xl flex-grow flex-col items-center justify-center px-4 py-8">
@@ -255,12 +364,12 @@
 		<div class="card-body">
 			<div class="mb-8 flex flex-col items-center justify-center">
 				<Logo />
-				<h1 class="mt-6 text-center text-2xl font-bold">{$t('login.title')}</h1>
+				<h3 class="mt-2 text-center font-bold">{$t('login.title')}</h3>
 				<br />
-				<p class="text-base-content mb-6 text-center text-lg">
+				<p class="text-base-content text-center text-base">
 					{$t('login.subtitle')}
 				</p>
-				<p class="text-base-content text-center text-lg">
+				<p class="text-base-content text-center text-base">
 					{$t('login.passkey_info')}
 				</p>
 			</div>
@@ -296,9 +405,7 @@
 											d="M7.864 4.243A7.5 7.5 0 0 1 19.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 0 0 4.5 10.5a7.464 7.464 0 0 1-1.15 3.993m1.989 3.559A11.209 11.209 0 0 0 8.25 10.5a3.75 3.75 0 1 1 7.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 0 1-3.6 9.75m6.633-4.596a18.666 18.666 0 0 1-2.485 5.33"
 										/>
 									</svg>
-									{isLoading
-										? $t('common.processing') + '...'
-										: $t('login.continue_biometrics')}
+									{isLoading ? $t('common.processing') + '...' : $t('login.continue_biometrics')}
 								</button>
 								<p class="text-base-content/60 text-start text-xs">
 									{$t('login.biometric_description')}
@@ -335,18 +442,13 @@
 							{/if}
 						</div>
 
-						{#if !authMethods.biometric}
-							<!-- <Alby /> -->
-						{/if}
-
 						<button
-							class="btn btn-outline w-full"
+							class="btn btn-secondary btn-sm md:btn-md w-full py-5"
 							onclick={() => {
 								error = '';
 								isNostrLogin = true;
 							}}
 						>
-							<!-- https://github.com/mbarulli/nostr-logo/blob/main/SVG/nostr-icon-purple-on-white.svg -->
 							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6"
 								><path
 									fill="#fff"
@@ -429,8 +531,31 @@
 						>
 							{isLoading ? $t('common.processing') + '...' : $t('login.login_button')}
 						</button>
+						<!-- QR Code login - Only for mobile -->
+						{#if authMethods.biometric}
+							<QrCodeScanner onScan={handleLoginWithQrCode}>
+								{#snippet scanBtn({ disabled, onStartScan })}
+									<button
+										class="btn btn-secondary btn-sm md:btn-md py-5"
+										onclick={onStartScan}
+										{disabled}
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" class="size-6" viewBox="0 0 16 16">
+											<path
+												fill="none"
+												stroke="currentColor"
+												stroke-linejoin="round"
+												d="M6 2.5H2.5V6M10 2.5h3.5V6M10 13.5h3.5V10M6 13.5H2.5V10M2 8h12"
+												stroke-width="1"
+											/>
+										</svg>
+										{$t('login.login_with_qr_code')}
+									</button>
+								{/snippet}
+							</QrCodeScanner>
+						{/if}
 						<button
-							class="btn btn-block btn-outline"
+							class="btn btn-block btn-secondary"
 							onclick={() => {
 								error = '';
 								isNostrLogin = false;
@@ -464,10 +589,9 @@
 
 				<div class="divider my-1">{$t('common.or')}</div>
 
-				<button onclick={() => goto('/auth/signup')} class="btn btn-outline">
+				<button onclick={() => goto('/auth/signup')} class="btn btn-outline btn-primary w-full">
 					{$t('login.create_account')}
 				</button>
-				
 
 				<div class="mt-2 text-center">
 					<a href="/auth/recover/send" class="link link-primary text-sm">

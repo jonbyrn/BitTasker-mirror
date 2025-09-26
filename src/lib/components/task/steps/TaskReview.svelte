@@ -10,9 +10,43 @@
 		satsFromUsd
 	} from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
-	import { formatNumberWithTwoDecimals } from '$lib/stores/wallet.store';
+	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
 
 	let { direction } = $props();
+
+	// Convert category IDs to translated names for display
+	let translatedCategories = $state<string[]>([]);
+	let lastCategories = $state<(string | any)[]>([]);
+	let lastLanguage = $state('');
+	
+	$effect(() => {
+		try {
+			// Only update if categories or language has changed to prevent excessive re-renders
+			const currentLanguage = $t('categories.cleaning.name'); // Use any translation to get current language
+			const currentCategories = $store.task.categories;
+			
+			if (JSON.stringify(currentCategories) !== JSON.stringify(lastCategories) || 
+				currentLanguage !== lastLanguage) {
+				lastCategories = [...currentCategories];
+				lastLanguage = currentLanguage;
+				
+				translatedCategories = currentCategories.map(category => {
+					// Extract ID from category (handle both string and object)
+					const categoryId = typeof category === 'string' ? category : (category as any).id;
+					const categoryObj = TASK_CATEGORIES.find(cat => cat.id === categoryId);
+					if (categoryObj) {
+						const translatedName = $t(`categories.${categoryObj.id}.name`);
+						// Fallback to category.name if translation key is returned (translation not loaded)
+						return translatedName.startsWith('categories.') ? categoryObj.name : translatedName;
+					}
+					return categoryId;
+				});
+			}
+		} catch (error) {
+			console.error('Error updating translated categories:', error);
+		}
+	});
 
 	// TODO: Refactor by adding to app store global state
 	/**
@@ -73,15 +107,15 @@
 
 			<h4 class="mt-3 font-medium">{$t('task.categories')}</h4>
 			<div class="flex flex-wrap gap-2">
-				{#each $store.task.categories as category}
-					<div class="badge badge-primary pb-[4px]">{category}</div>
+				{#each translatedCategories as category}
+					<div class="badge badge-primary">{category}</div>
 				{/each}
 			</div>
 
 			<h4 class="mt-3 font-medium">{$t('task.skills')}</h4>
 			<div class="flex flex-wrap gap-2">
 				{#each $store.task.skills as skill}
-					<div class="badge badge-primary pb-[4px]">{skill}</div>
+					<div class="badge badge-primary">{skill}</div>
 				{/each}
 			</div>
 		</div>

@@ -4,8 +4,11 @@
  */
 
 import type { Credentials, BiometricVerifyOptions } from '$lib/types/auth';
-import { createDisplayName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
+import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from './deviceIdentity';
 import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/encoding';
+import { handleBiometricError } from './biometricErrorHandler';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '../constants/storage';
 import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
@@ -54,7 +57,9 @@ export const checkWebBiometricAvailability = async (): Promise<boolean> => {
  * Verify user identity using WebAuthn with automatic credential discovery
  * Returns the credentials if authentication is successful
  */
-export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS): Promise<boolean> {
+export async function verifyIdentity(
+	options: BiometricVerifyOptions = WEBAUTHN_VERIFY_OPTIONS
+): Promise<boolean> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
@@ -76,7 +81,7 @@ export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_
 
 		// Add manual timeout to prevent hanging
 		const timeoutPromise = new Promise<null>((_, reject) => {
-			setTimeout(() => reject(new Error('Authentication timeout')), 35000);
+			setTimeout(() => reject(new Error('La operación expiró o no fue permitida')), 35000);
 		});
 
 		const credential = await Promise.race([credentialPromise, timeoutPromise]);
@@ -90,7 +95,7 @@ export async function verifyIdentity(options: BiometricVerifyOptions = WEBAUTHN_
 
 /**
  * Register WebAuthn credentials
- * @param publicKey User's Nostr public key  
+ * @param publicKey User's Nostr public key
  * @param exportedKey The exported private key for decryption
  * @param customName Optional custom name for the passkey
  * @returns Promise with credential ID
@@ -146,17 +151,17 @@ export async function setWebBiometricKey(
 		}
 
 		return credential.id;
-
 	} catch (err) {
 		console.error('Failed to set biometric key:', err);
-		throw new Error('Failed to set biometric key');
+		throw new Error(await handleBiometricError(err, 'web'));
 	}
 }
 
 /**
  * Get stored credentials after biometric verification
+ * @param checkNpub For already logged in users check biometric npub agains localStorage npub 
  */
-export async function getWebBiometricData(): Promise<Credentials | null> {
+export async function getWebBiometricData(checkNpub: boolean = false): Promise<Credentials | null> {
 	try {
 		if (!(await checkWebBiometricAvailability())) {
 			throw new Error('WebAuthn is not available on this device');
@@ -170,9 +175,9 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		};
 
 		// Request authentication
-		const credential = await navigator.credentials.get({
+		const credential = (await navigator.credentials.get({
 			publicKey: authOptions
-		}) as PublicKeyCredential;
+		})) as PublicKeyCredential;
 
 		if (!credential) {
 			throw new Error('No credential found');
@@ -190,22 +195,74 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 		const publicKey = unpackedKeys.publicKey;
 		const exportedKey = unpackedKeys.exportedKey;
 
-		const deviceId = await getDeviceIdentifier();
-
-		const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id);
-
-		if (!encryptedPrivateKey) {
-			throw new Error('No encrypted data found');
+		if(checkNpub) {
+			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+			if(npub !== publicKey) {
+				throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
+			}
 		}
 
-		return {
-			username: publicKey,
-			password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
-			server: deviceId
-		};
+		const deviceId = await getDeviceIdentifier();
+
+		const deviceName = await createUserDeviceShortName(publicKey);
+		
+		// Try to get master key encrypted data first, fallback to legacy
+		try {
+			const { masterKeyData, legacyEncryptedData, isLegacyFormat } = 
+				await authService.getMasterKeyEncryptedData(publicKey, deviceId, credential.id, deviceName);
+
+			if (!isLegacyFormat && masterKeyData) {
+				// New master key format
+				return {
+					username: publicKey,
+					password: JSON.stringify({ 
+						key: masterKeyData.exportedMasterKey, // TODO: To be replaced with exportedKey once all legacy users update their passkeys
+						masterKeyData: masterKeyData,
+						// Legacy compatibility fields for backward compatibility
+						data: masterKeyData.nostr.encrypted.data,
+						iv: masterKeyData.nostr.encrypted.iv,
+						authTag: masterKeyData.nostr.encrypted.authTag,
+						salt: masterKeyData.nostr.salt
+					}),
+					server: deviceId,
+					isLegacyFormat: false
+				};
+			} else if (isLegacyFormat && legacyEncryptedData) {
+				// Legacy format
+				return {
+					username: publicKey,
+					password: JSON.stringify({ 
+						key: exportedKey, 
+						data: legacyEncryptedData.encryptedPrivateKey, 
+						iv: legacyEncryptedData.iv, 
+						authTag: legacyEncryptedData.authTag, 
+						salt: legacyEncryptedData.salt 
+					}),
+					server: deviceId,
+					isLegacyFormat: true
+				};
+			} else {
+				throw new Error('No encrypted data found');
+			}
+		} catch (error) {
+			// Fallback to legacy method if master key endpoint doesn't exist yet
+			console.warn('Master key not available, falling back to legacy:', error);
+			const { encryptedPrivateKey, iv, authTag, salt } = await authService.getEncryptedKey(publicKey, deviceId, credential.id, deviceName);
+
+			if (!encryptedPrivateKey) {
+				throw new Error('No encrypted data found');
+			}
+
+			return {
+				username: publicKey,
+				password: JSON.stringify({ key: exportedKey, data: encryptedPrivateKey, iv, authTag, salt }),
+				server: deviceId,
+				isLegacyFormat: true
+			};
+		}
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
-		throw new Error('Failed to get biometric data' + err);
+		throw new Error(await handleBiometricError(err, 'web'));
 	}
 }
 
@@ -216,7 +273,7 @@ export async function getWebBiometricData(): Promise<Credentials | null> {
 export function getWebAuthnProviderDescription(): string {
 	const userAgent = navigator.userAgent.toLowerCase();
 	const platform = navigator.platform.toLowerCase();
-	
+
 	// iOS devices
 	if (/iphone|ipad|ipod/.test(userAgent) || platform.includes('mac')) {
 		if (/safari/.test(userAgent) && !/chrome/.test(userAgent)) {
@@ -227,7 +284,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'iCloud Keychain'; // Default for macOS/iOS
 	}
-	
+
 	// Android devices
 	if (/android/.test(userAgent)) {
 		if (/chrome/.test(userAgent)) {
@@ -235,7 +292,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'Google Password Manager'; // Default for Android
 	}
-	
+
 	// Windows
 	if (/windows/.test(userAgent) || platform.includes('win')) {
 		if (/edge/.test(userAgent)) {
@@ -249,7 +306,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'Windows Hello'; // Default for Windows
 	}
-	
+
 	// Linux
 	if (/linux/.test(userAgent) || platform.includes('linux')) {
 		if (/chrome/.test(userAgent)) {
@@ -260,7 +317,7 @@ export function getWebAuthnProviderDescription(): string {
 		}
 		return 'Browser Password Manager';
 	}
-	
+
 	// Fallback
 	return 'Browser Password Manager';
 }

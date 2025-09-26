@@ -5,6 +5,7 @@
 	import TaskTemplateCard from '$lib/components/task/TaskTemplateCard.svelte';
 	import RecurrencePattern from '$lib/components/task/RecurrencePattern.svelte';
 	import { appStore } from '$lib/stores/app.store';
+	import { t } from 'svelte-i18n';
 	import {
 		MyTaskTemplatesStore,
 		UpdateTaskTemplateStore,
@@ -50,7 +51,7 @@
 				template.id === templateId ? { ...template, status: newStatus } : template
 			);
 		} catch (err) {
-			error = 'Failed to update template status. Please try again.';
+			error = $t('common.task.recurring_tasks.failed_update_status');
 			console.error('Error updating template status:', err);
 		} finally {
 			isLoading = false;
@@ -71,11 +72,11 @@
 
 			// Refetch the list to reflect the deletion
 			await taskTemplatesStore.fetch();
-			appStore.showSuccessToast('Template deleted successfully');
+			appStore.showSuccessToast($t('common.task.recurring_tasks.template_deleted'));
 		} catch (err: any) {
 			// Need better error handling here, as graphql does not throw errors when the mutation fails
 			const graphqlError = err.source?.errors?.[0]?.message;
-			error = graphqlError || err.message || 'Failed to delete template. Please try again.';
+			error = graphqlError || err.message || $t('common.task.recurring_tasks.failed_delete');
 			console.error('Error deleting template:', err);
 		} finally {
 			isLoading = false;
@@ -134,13 +135,13 @@
 			showRecurrenceEditor = false;
 			selectedTemplate = null;
 			editablePattern = null; // Clear editable pattern
-			appStore.showSuccessToast('Recurrence pattern updated successfully');
+			appStore.showSuccessToast($t('common.task.recurring_tasks.pattern_updated'));
 		} catch (err: any) {
 			// Set error for the modal instead of the global error
 			// Try to extract the specific GraphQL error message
 			const graphqlError = err.source?.errors?.[0]?.message;
 			updateError =
-				graphqlError || err.message || 'Failed to update recurrence pattern. Please try again.';
+				graphqlError || err.message || $t('common.task.recurring_tasks.failed_update_pattern');
 			console.error('Error updating recurrence pattern:', err);
 		} finally {
 			isUpdating = false;
@@ -208,9 +209,9 @@
 	{:else if !$taskTemplatesStore.fetching && !$taskTemplatesStore.errors && $taskTemplatesStore.data}
 		<!-- Templates View -->
 		<div class="mb-4 flex items-center justify-between">
-			<h3 class="text-lg font-semibold">Recurring Task Templates</h3>
+			<h3 class="text-lg font-semibold">{$t('common.task.recurring_tasks.title')}</h3>
 			<a href="/dashboard/create-task?recurring=true" class="btn btn-primary btn-sm">
-				Create Template
+				{$t('common.task.recurring_tasks.create_template')}
 			</a>
 		</div>
 
@@ -219,11 +220,11 @@
 				<div class="card bg-base-100 w-full max-w-2xl shadow-xl">
 					<div class="card-body">
 						<div class="mb-4 flex items-center justify-between">
-							<h3 class="card-title">Update Recurrence Pattern</h3>
+							<h3 class="card-title">{$t('common.task.recurring_tasks.update_recurrence_pattern')}</h3>
 							<button
 								class="btn btn-circle btn-ghost btn-sm"
 								onclick={closeRecurrenceEditor}
-								aria-label="Close dialog"
+								aria-label={$t('common.task.recurring_tasks.close_dialog')}
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -243,7 +244,7 @@
 						</div>
 
 						<p class="mb-4">
-							Updating recurrence pattern for: <span class="font-semibold"
+							{$t('common.task.recurring_tasks.updating_for')} <span class="font-semibold"
 								>{selectedTemplate.name || selectedTemplate.task.title}</span
 							>
 						</p>
@@ -274,7 +275,7 @@
 						{/if}
 
 						<div class="card-actions mt-6 justify-end">
-							<button class="btn btn-ghost" onclick={closeRecurrenceEditor}>Cancel</button>
+							<button class="btn btn-ghost" onclick={closeRecurrenceEditor}>{$t('common.cancel')}</button>
 							<button
 								class="btn btn-primary"
 								onclick={updateRecurrencePattern}
@@ -283,7 +284,7 @@
 								{#if isUpdating}
 									<span class="loading loading-spinner loading-xs"></span>
 								{/if}
-								Save Changes
+								{$t('common.task.recurring_tasks.save_changes')}
 							</button>
 						</div>
 					</div>
@@ -293,9 +294,9 @@
 
 		{#if $taskTemplatesStore.data.taskTemplates.length === 0}
 			<div class="card bg-base-200 p-6 text-center">
-				<h3 class="mb-2 text-lg">You don't have any recurring task templates yet</h3>
-				<p class="mb-4">Create a template to automate your regular tasks</p>
-				<a class="btn btn-primary mx-auto" href="/dashboard/create-task"> Create Template </a>
+				<h3 class="mb-2 text-lg">{$t('common.task.recurring_tasks.no_templates')}</h3>
+				<p class="mb-4">{$t('common.task.recurring_tasks.create_template_description')}</p>
+				<a class="btn btn-primary mx-auto" href="/dashboard/create-task"> {$t('common.task.recurring_tasks.create_template_button')} </a>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-4">

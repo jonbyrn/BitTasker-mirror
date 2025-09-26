@@ -2,7 +2,9 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { liveTasks, featuredTaskees } from '$lib/utils/constants/homepage.constants';
+	import { featuredTaskees } from '$lib/utils/constants/homepage.constants';
+	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
+	import type { LiveTask } from '$lib/types/homepage';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
 	import TaskeeCard from '$lib/components/homepage/TaskeeCard.svelte';
 
@@ -43,12 +45,34 @@
 	let activeFeatureIndex = $state(0);
 	const activeFeatureId = $derived(featureIds[activeFeatureIndex] as FeatureId);
 
+	// Featured tasks state
+	let liveTasks = $state<LiveTask[]>([]);
+	let tasksLoading = $state(true);
+	let tasksError = $state<string | null>(null);
+
 	// Auto-rotation interval reference
 	let carouselInterval: ReturnType<typeof setInterval> | null = null;
 
 	// Function to rotate to the next slide
 	const rotateCarousel = () => {
 		activeFeatureIndex = (activeFeatureIndex + 1) % featureIds.length;
+	};
+
+	// Load featured tasks from Nostr relay
+	const loadFeaturedTasks = async () => {
+		try {
+			tasksLoading = true;
+			tasksError = null;
+			const tasks = await FeaturedTasksService.getFeaturedTasks(8);
+			liveTasks = tasks;
+		} catch (error) {
+			console.error('Error loading featured tasks:', error);
+			tasksError = 'Failed to load featured tasks';
+			// Fallback to empty array
+			liveTasks = [];
+		} finally {
+			tasksLoading = false;
+		}
 	};
 
 	// Start carousel auto-rotation
@@ -75,6 +99,8 @@
 	onMount(async () => {
 		// Start carousel auto-rotation
 		startCarouselRotation();
+		// Load featured tasks from Nostr relay
+		loadFeaturedTasks();
 	});
 
 	// Clean up interval when component is destroyed
@@ -84,8 +110,8 @@
 </script>
 
 <svelte:head>
-    <title>{$t('homepage.v2.hero.page_title')}</title>
-    <meta name="description" content={$t('homepage.v2.hero.description')} />
+    <title>The Decentralized Workforce | BitTasker</title>
+    <meta name="description" content="Hire professionals for any task. Pay with Bitcoin or fiat. Built on Nostr." />
     
     <link rel="preload" href={featureImages['bitcoin']} as="image" />
 </svelte:head>
@@ -100,14 +126,14 @@
 				<div class="space-y-6">
 					<!-- Two secondary buttons on top row -->
 					<div class="flex flex-col justify-center gap-4 sm:flex-row">
-						<a href="/dashboard/find-tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
+						<a href="/tasks" class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_tasks')}</a
 						>
-						<a
+						<!-- <a
 							href="/dashboard/taskees"
 							class="btn btn-secondary mx-auto w-64 sm:mx-0 sm:w-auto"
 							>{$t('navbar.browse_freelancers')}</a
-						>
+						> -->
 					</div>
 					<!-- Large primary button below -->
 					<div class="flex justify-center">
@@ -230,40 +256,79 @@
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
 				<h2>{$t('homepage.v2.livetasks.title')}</h2>
-				<a href="/dashboard/find-tasks" class="btn btn-link text-primary"
-					>{$t('common.view_all')}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="1.5"
-						stroke="currentColor"
-						class="ml-1 h-5 w-5"
+				<div class="flex items-center gap-2">
+					<button 
+						class="btn btn-ghost btn-sm" 
+						onclick={loadFeaturedTasks}
+						disabled={tasksLoading}
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-						/>
-					</svg>
-				</a>
+						{#if tasksLoading}
+							<span class="loading loading-spinner loading-xs"></span>
+						{:else}
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-4 w-4">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+							</svg>
+						{/if}
+						Refresh
+					</button>
+					<a href="/tasks" class="btn btn-link text-primary"
+						>{$t('common.view_all')}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="1.5"
+							stroke="currentColor"
+							class="ml-1 h-5 w-5"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
+							/>
+						</svg>
+					</a>
+				</div>
 			</div>
 			<div class="overflow-hidden">
-				<div
-					class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6 pl-8 pt-4 pr-0 md:px-4"
-					style="scrollbar-width:none;"
-				>
-					{#each liveTasks as task (task.id)}
-						<div class="w-80 flex-shrink-0 snap-start">
-							<LiveTaskCard {task} />
+				{#if tasksLoading}
+					<div class="flex justify-center items-center py-12">
+						<div class="loading loading-spinner loading-lg"></div>
+						<span class="ml-2">Loading featured tasks...</span>
+					</div>
+				{:else if tasksError}
+					<div class="flex justify-center items-center py-12">
+						<div class="alert alert-warning max-w-md">
+							<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+							</svg>
+							<span>{tasksError}</span>
 						</div>
-					{/each}
-				</div>
+					</div>
+				{:else if liveTasks.length === 0}
+					<div class="flex justify-center items-center py-12">
+						<div class="text-center">
+							<p class="text-base-content/70">No featured tasks available at the moment.</p>
+							<button class="btn btn-primary btn-sm mt-4" onclick={loadFeaturedTasks}>Refresh</button>
+						</div>
+					</div>
+				{:else}
+					<div
+						class="scrollbar-hide flex snap-x snap-mandatory gap-4 overflow-x-auto pb-6 pl-8 pt-4 pr-0 md:px-4"
+						style="scrollbar-width:none;"
+					>
+						{#each liveTasks as task (task.id)}
+							<div class="w-80 flex-shrink-0 snap-start">
+								<LiveTaskCard {task} />
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>
 
 			<!-- Browse Tasks Button -->
 			<div class="mt-12 text-center">
-				<a href="/dashboard/find-tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
+				<a href="/tasks" class="btn btn-primary">{$t('navbar.browse_tasks')}</a>
 			</div>
 		</div>
 	</section>
@@ -341,7 +406,7 @@
 	</section>
 
 	<!-- Section 6: Featured Freelancers -->
-	<section class="bg-base-200 py-16">
+	<!-- <section class="bg-base-200 py-16">
 		<div class="container mx-auto px-4">
 			<div class="mb-8 flex items-center justify-between">
 				<h2>{$t('homepage.v2.taskees.title')}</h2>
@@ -374,12 +439,12 @@
 						</div>
 					{/each}
 				</div>
-			</div>
+			</div> -->
 
 			<!-- Browse Taskees Button -->
-			<div class="mt-12 text-center">
+			<!-- <div class="mt-12 text-center">
 				<a href="/dashboard/taskees" class="btn btn-primary">{$t('navbar.browse_freelancers')}</a>
 			</div>
 		</div>
-	</section>
+	</section> -->
 </div>

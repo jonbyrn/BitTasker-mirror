@@ -105,10 +105,17 @@ async function loadEssentialTranslations(currentLocale: SupportedLanguage): Prom
 export function getNamespacesForRoute(route: string): string[] {
 	const namespaces: string[] = [];
 
+	if(route.includes('/tasks')) {
+		namespaces.push('dashboard/dashboard','dashboard/tasks/find','dashboard/bids');
+		// Include wallet namespace for bid-related components
+		namespaces.push('dashboard/wallet');
+	}
 	// Dashboard routes
 	if (route.includes('/dashboard')) {
 		namespaces.push('dashboard/dashboard', 'dashboard/tasks/info');
 		namespaces.push('dashboard/bids');
+		// Always load wallet namespace for bid-related components that use wallet translations
+		namespaces.push('dashboard/wallet');
 
 		if (route.includes('/profile')) {
 			namespaces.push(
@@ -118,14 +125,14 @@ export function getNamespacesForRoute(route: string): string[] {
 			);
 		}
 		if (route.includes('/wallet')) {
-			namespaces.push('dashboard/wallet');
+			// Already included above
 		}
-		if (route.includes('/find-tasks')) {
-			namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids');
-		}
-		if (route.includes('/create-task')) {
-			namespaces.push('dashboard/tasks/create');
-		}
+	if (route.includes('/find-tasks')) {
+		namespaces.push('dashboard/tasks/find', 'dashboard/recomendations', 'dashboard/bids', 'categories');
+	}
+	if (route.includes('/create-task')) {
+		namespaces.push('dashboard/tasks/create', 'categories');
+	}
 
 		if (route.includes('/messages')) {
 			namespaces.push('dashboard/messages');

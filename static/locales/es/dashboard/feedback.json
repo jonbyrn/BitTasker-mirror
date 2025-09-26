@@ -26,8 +26,11 @@
       "select_type": "Selecciona Error o Solicitud de función",
       "provide_description": "Proporciona una descripción",
       "missing_user": "No se pudo identificar al usuario. Inténtalo nuevamente.",
-      "submit_failed": "No se pudieron enviar los comentarios. Inténtalo nuevamente."
-    }
+      "submit_failed": "No se pudieron enviar los comentarios. Inténtalo nuevamente.",
+      "invalid_image": "Por favor selecciona un archivo de imagen",
+      "invalid_image_file": "Archivo de imagen inválido"
+    },
+    "compressing": "Comprimiendo..."
   }
 }
 

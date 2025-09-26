@@ -8,22 +8,27 @@
 // Base route segments
 const API_PATH = '/api';
 const API_VERSION = 'v1';
-const NOSTR_API_PATH = '/api';
-const NOSTR_API_VERSION = 'v1';
 const AUTH = 'auth';
-const USERS = 'users';
 const TASKS = 'tasks';
 const BIDS = 'bid';
-const ADMIN = 'admin';
 const TASK_TEMPLATES = 'task-templates';
 const SERVICE_PACKAGES = 'service-packages';
 const SAVED_SEARCHES = 'saved-searches';
 const RECOMMENDATIONS = 'recommendations';
 const LOCATION = 'location';
 const NOTIFICATIONS = 'notifications';
+const USER_HISTORY = 'user-history';
 
 // Full endpoint paths
 export const ENDPOINTS = {
+	// User history endpoints
+	USER_HISTORY: {
+		RECENTLY_VIEWED: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/recently-viewed`,
+		INTERACTION_STATS: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/interaction-stats`,
+		ENGAGED_TASKS: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/engaged-tasks`,
+		RECORD_VIEW: `${API_PATH}/${API_VERSION}/${USER_HISTORY}/record-view`
+	},
+
 	// Auth endpoints
 	AUTH: {
 		ONBOARDING: `${API_PATH}/${API_VERSION}/${AUTH}/onboarding`,
@@ -33,9 +38,12 @@ export const ENDPOINTS = {
 		NOSTR_CHALLENGE: `${API_PATH}/${API_VERSION}/${AUTH}/nostr/challenge`,
 		CHECK_REGISTRATION: `${API_PATH}/${API_VERSION}/${AUTH}/check-registration`,
 		REGISTER_NOSTR: `${API_PATH}/${API_VERSION}/${AUTH}/register/nostr`,
+		REGISTER_MASTER_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/register/master-key`,
 		GOOGLE_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/google/login`,
 		FACEBOOK_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/facebook/login`,
 		ENCRYPTED_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/encrypted-key`,
+		MASTER_KEY_ENCRYPTED_DATA: `${API_PATH}/${API_VERSION}/${AUTH}/encrypted-master-key`,
+		MIGRATE_TO_MASTER_KEY: `${API_PATH}/${API_VERSION}/${AUTH}/migrate/master-key`,
 		REGISTER_PASSKEY: `${API_PATH}/${API_VERSION}/${AUTH}/register/passkey-device`,
 		PASSKEY_LOGIN: `${API_PATH}/${API_VERSION}/${AUTH}/login/passkey`,
 		REVOKE_DEVICE: `${API_PATH}/${API_VERSION}/${AUTH}/revoke-device`,
@@ -44,14 +52,9 @@ export const ENDPOINTS = {
 		NOSTR_RECOVERY_COMPLETE: `${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/complete`,
 		NOSTR_RECOVERY_DATA: (npub: string) =>
 			`${API_PATH}/${API_VERSION}/${AUTH}/recover/nostr/${npub}`,
-		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`
-	},
-
-	// User endpoints
-	USERS: {
-		ME: `${API_PATH}/${API_VERSION}/${USERS}/me`,
-		PROFILE: `${API_PATH}/${API_VERSION}/${USERS}/profile`,
-		SETTINGS: `${API_PATH}/${API_VERSION}/${USERS}/settings`
+		EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/verification/verify-email`,
+		RECOVERY_EMAIL_VERIFICATION: `${API_PATH}/${API_VERSION}/${AUTH}/recover/verify-email`,
+		INVALIDATE_ALL_DEVICES: `${API_PATH}/${API_VERSION}/${AUTH}/invalidate-all-devices`
 	},
 
 	// Task endpoints
@@ -75,12 +78,6 @@ export const ENDPOINTS = {
 		DELETE: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}`,
 		ACCEPT: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/accept`,
 		REJECT: (bidId: string) => `${API_PATH}/${API_VERSION}/${BIDS}/${bidId}/reject`
-	},
-
-	// Admin endpoints
-	ADMIN: {
-		SKILLS: `${API_PATH}/${API_VERSION}/${ADMIN}/skills`,
-		CATEGORIES: `${API_PATH}/${API_VERSION}/${ADMIN}/categories`
 	},
 
 	// Upload endpoints

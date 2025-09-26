@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { LocationProps } from '$lib/types/props';
 	import type { GooglePlaceFields } from '$lib/types/placeFields';
+	import LocationPickerMap from '$lib/components/maps/LocationPickerMap.svelte';
+	import { t } from 'svelte-i18n';
 
 	// Props
 	let {
 		label = '',
-		placeholder = 'Enter address',
+		placeholder = $t('common.components.location_autocomplete.enter_address'),
 		location = {
 			displayName: '',
 			longitude: -122.4194,
@@ -13,8 +15,13 @@
 			zipCode: '',
 			locationLoaded: false
 		},
-		onLocationSelect
-	}: LocationProps = $props();
+		onLocationSelect,
+		showMap = true,
+		mapHeight = '300px'
+	}: LocationProps & {
+		showMap?: boolean;
+		mapHeight?: string;
+	} = $props();
 
 	// State
 	let searchInput: HTMLInputElement;
@@ -83,6 +90,21 @@
 
 		showOptions = false;
 	}
+
+	// Handle location changes from map
+	function handleMapLocationChange(event: CustomEvent<{ location: any }>) {
+		const newLocation = event.detail.location;
+		location = newLocation;
+		
+		// Update input value
+		if (searchInput) {
+			searchInput.value = newLocation.displayName;
+		}
+
+		if (onLocationSelect) {
+			onLocationSelect(newLocation);
+		}
+	}
 </script>
 
 <div class="form-control relative w-full">
@@ -111,7 +133,7 @@
 	{#if hasError}
 		<label class="label" for="location-search">
 			<span class="label-text-alt text-error whitespace-break-spaces">
-				Failed to get address suggestions. Please try again.
+				{$t('common.components.location_autocomplete.failed_suggestions')}
 			</span>
 		</label>
 	{/if}
@@ -131,9 +153,22 @@
 				{/each}
 			{:else}
 				<label class="label" for="location-search">
-					<span class="label-text-alt text-error">No places found..</span>
+					<span class="label-text-alt text-error">{$t('common.components.location_autocomplete.no_places_found')}</span>
 				</label>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Map Component -->
+	{#if showMap}
+		<div class="mt-4">
+			<LocationPickerMap 
+				{location} 
+				height={mapHeight}
+				showPin={true}
+				allowPinDrop={true}
+				on:locationChanged={handleMapLocationChange}
+			/>
 		</div>
 	{/if}
 </div>

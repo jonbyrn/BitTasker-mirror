@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+	import { t } from 'svelte-i18n';
 
 	let { direction } = $props();
 </script>
@@ -14,9 +15,9 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
-	<h2 class="text-xl font-semibold">Boost Your Task</h2>
+	<h2 class="text-xl font-semibold">{$t('common.task.boost.title')}</h2>
 	<p class="text-sm">
-		Would you like to boost your task to get more visibility and faster responses?
+		{$t('common.task.boost.description')}
 	</p>
 
 	<!-- <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -110,10 +111,10 @@
 				d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
 			></path></svg
 		>
-		<span> Boosting your task increases your chances of finding the right tasker faster! </span>
+		<span>{$t('common.task.boost.info_message')}</span>
 	</div>
 
-	<div class="divider">Payment Options</div>
+	<div class="divider">{$t('common.task.boost.payment_options')}</div>
 
 	<!-- <div class="flex flex-wrap gap-3">
 						<div class="form-control">

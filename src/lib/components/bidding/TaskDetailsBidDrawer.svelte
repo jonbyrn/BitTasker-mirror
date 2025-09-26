@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { Task } from '$lib/types/task';
+	import type { UserData } from '$lib/types/auth.d';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import nostrEventsService from '$lib/api/services/nostr/events';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import BidCreationForm from './BidCreationForm.svelte';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { user } from '$lib/stores/user.store';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -21,6 +23,15 @@
 	let errorMessage = $state('');
 	let bidSubmitted = $state(false);
 	let taskCreatorPubkey = $state<string>('');
+	let taskCreatorUsername = $state<string | undefined>(undefined);
+	let taskCreatorAvatar = $state<string | undefined>(undefined);
+
+	// Logged-in user information
+	let loggedInUser = $state({
+		id: '',
+		name: '',
+		avatar: ''
+	});
 
 	// Scroll lock management
 	const disableBodyScroll = () => {
@@ -36,6 +47,9 @@
 		if (props.isOpen) {
 			// Lock scroll when drawer is open
 			disableBodyScroll();
+
+			// Load logged-in user data
+			loadLoggedInUserData();
 
 			// Load task details if taskId is available
 			if (props.taskId) {
@@ -61,6 +75,30 @@
 		} catch (error) {
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
+		}
+	}
+
+	async function loadLoggedInUserData(): Promise<void> {
+		try {
+			// First, fetch the latest user data including profile images
+			await user.getUserData();
+
+			// Then get current user data from the store
+			let userData: UserData | undefined;
+			const unsubscribe = user.subscribe((data) => {
+				userData = data;
+			});
+			unsubscribe(); // Immediately unsubscribe after getting the current value
+
+			if (userData) {
+				loggedInUser = {
+					id: userData.npub || userData.id?.toString() || '',
+					name: userData.name || userData.displayName || userData.username || '',
+					avatar: userData.picture || ''
+				};
+			}
+		} catch (error) {
+			console.error('Error loading logged-in user data:', error);
 		}
 	}
 
@@ -90,8 +128,11 @@
 			// Get the task creator's pubkey from the event
 			taskCreatorPubkey = event.pubkey;
 
+			taskCreatorUsername = taskData.creator?.username;
+			taskCreatorAvatar = taskData.creator?.avatar;
 			task = {
 				...taskData,
+				...loggedInUser,
 				id: event.id
 			};
 		} catch (error) {
@@ -103,7 +144,6 @@
 	}
 
 	const handleClose = () => props.onClose();
-
 
 	onMount(() => {
 		if (browser) {
@@ -133,7 +173,11 @@
 		<div class="flex items-center gap-3">
 			<h3 id="drawer-title" class="text-lg font-semibold">{$t('bid_form.title')}</h3>
 		</div>
-		<button class="btn btn-ghost btn-circle" onclick={handleClose} aria-label="Close dialog">
+		<button
+			class="btn btn-ghost btn-circle"
+			onclick={handleClose}
+			aria-label={$t('common.components.bidding.task_details.close_dialog')}
+		>
 			<svg
 				xmlns="http://www.w3.org/2000/svg"
 				class="h-6 w-6"
@@ -192,14 +236,19 @@
 					taskId={task.id}
 					onClose={() => handleClose()}
 					{taskCreatorPubkey}
+					taskCreatorUsername={taskCreatorUsername!}
+					taskCreatorAvatar={taskCreatorAvatar!}
 					taskTitle={task.title}
 					taskDescription={task.description}
+					loggedInUserId={loggedInUser.id}
+					loggedInUserName={loggedInUser.name}
+					loggedInUserAvatar={loggedInUser.avatar}
 				/>
 			{:else if !task.id}
 				<div class="alert alert-outline alert-error">
 					<span>{$t('bids.task_details.task_id_missing')}</span>
 				</div>
-			{:else if task.status !== TaskStatusEnum.OPEN}
+			{:else if task.status === TaskStatusEnum.CANCELLED || task.status === TaskStatusEnum.DISPUTED || task.status === TaskStatusEnum.COMPLETED || task.status === TaskStatusEnum.IN_PROGRESS}
 				<div class="alert alert-warning alert-outline">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"

@@ -1,14 +1,19 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
 	AccountRecoveryData,
 	NostrLoginData,
 	NostrRecoveryCompleteData,
 	NostrRecoveryData,
 	NostrRegistrationData,
-	UserData
+	UserData,
+	MasterKeyEncryptedData, 
+	MasterKeyRegistration
 } from '$lib/types/auth';
+import type { OnboardingRequest, OnboardingResponse } from '../types';
 import { BaseApiService } from '../apiService';
 import { ENDPOINTS } from '../endpoints';
-import type { OnboardingRequest, OnboardingResponse } from '../types';
+
 
 /**
  * Authentication Service
@@ -104,7 +109,45 @@ export class AuthService extends BaseApiService {
 
 			return response.data;
 		} catch (error: any) {
-			console.log('error', error);
+			throw new Error(error);
+		}
+	}
+
+	/**
+	 * Register a new user with master key encrypted data (Nostr + Wallet) - Legacy REST endpoint
+	 * @param registrationData Master key registration data containing both Nostr and wallet encryption
+	 * @returns Promise with the registration response
+	 * @throws {Error} 400 - Bad Request or missing required encryption data
+	 * @throws {Error} 409 - Email already in use
+	 * @throws {Error} 422 - Invalid encryption data format
+	 * @throws {Error} 500 - Internal server error
+	 */
+	async registerWithMasterKey(
+		registrationData: MasterKeyRegistration
+	): Promise<{ publicKey: string; user: UserData }> {
+		try {
+			// Validate required fields
+			if (!registrationData.publicKey || !registrationData.masterKeyData) {
+				throw new Error('Missing required master key registration data');
+			}
+
+			// Validate master key data structure
+			const { masterKeyData } = registrationData;
+			if (!masterKeyData.nostr || !masterKeyData.wallet || !masterKeyData.exportedMasterKey) {
+				throw new Error('Invalid master key data structure');
+			}
+
+			const response = await this.post<{ publicKey: string; user: UserData; error: any }>(
+				ENDPOINTS.AUTH.REGISTER_MASTER_KEY,
+				registrationData
+			);
+
+			if (response?.data?.error) {
+				throw new Error(response.data.error?.message);
+			}
+
+			return response.data;
+		} catch (error: any) {
 			throw new Error(error);
 		}
 	}
@@ -244,10 +287,34 @@ export class AuthService extends BaseApiService {
 	async getEncryptedKey(
 		publicKey: string,
 		deviceId: string,
-		credentialId: string
+		credentialId: string,
+		deviceName: string
 	): Promise<{ encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string }> {
 		const response = await this.get(
-			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}`
+			ENDPOINTS.AUTH.ENCRYPTED_KEY + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}&deviceName=${encodeURIComponent(deviceName)}`
+		);
+		return response.data;
+	}
+
+	/**
+	 * Get master key encrypted data using REST endpoint - Legacy
+	 * @param publicKey User's Nostr public key
+	 * @param deviceId Unique device identifier
+	 * @param credentialId Credential ID used for WebAuthn passkey
+	 * @returns Promise with master key encrypted data and format indicator
+	 */
+	async getMasterKeyEncryptedData(
+		publicKey: string,
+		deviceId: string,
+		credentialId: string,
+		deviceName: string
+	): Promise<{
+		masterKeyData?: MasterKeyEncryptedData;
+		legacyEncryptedData?: { encryptedPrivateKey: string; iv: string; authTag: string; iterations: number; salt: string };
+		isLegacyFormat: boolean;
+	}> {
+		const response = await this.get(
+			ENDPOINTS.AUTH.MASTER_KEY_ENCRYPTED_DATA + `/${encodeURIComponent(publicKey)}?deviceId=${encodeURIComponent(deviceId)}&credentialId=${encodeURIComponent(credentialId)}&deviceName=${encodeURIComponent(deviceName)}`
 		);
 		return response.data;
 	}
@@ -298,7 +365,32 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery response
 	 */
 	async initiateNostrRecovery(email: string): Promise<void> {
-		await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const initiateRecovery = httpsCallable(functions, 'initiateNostrRecovery');
+			const result = await initiateRecovery({ email });
+			
+			// Generate a secure verification token (email will be stored server-side)
+			const verificationToken = `recovery_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+			
+			// Send the verification email using Firebase function
+			const sendEmail = httpsCallable(functions, 'sendRecoveryVerificationEmail');
+			await sendEmail({
+				email,
+				verificationToken: verificationToken
+			});
+		} catch (error: any) {
+			console.error('Failed to initiate recovery:', error);
+			throw new Error(error?.message || 'Failed to initiate recovery');
+		}
 	}
 
 	/**
@@ -309,8 +401,55 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery data
 	 */
 	async getNostrRecoveryData(npub: string): Promise<NostrRecoveryData> {
-		const response = await this.get(ENDPOINTS.AUTH.NOSTR_RECOVERY_DATA(npub));
-		return response.data;
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const getRecoveryData = httpsCallable(functions, 'getRecoveryData');
+			const result = await getRecoveryData({ publicKey: npub });
+			
+			// Check if result exists and has the expected structure
+			if (!result || !result.data) {
+				throw new Error('No response received from recovery data service');
+			}
+			
+			const response = result.data as any;
+			
+			// Handle the actual response structure: { success: true, data: {...} }
+			if (response.success && response.data) {
+				return response.data;
+			}
+			
+			// Check if the response has the expected nested structure (legacy)
+			if (response.result && response.result.data) {
+				return response.result.data;
+			}
+			
+			// Check if the response is directly the data we need
+			if (response.encryptedPrivateKey || response.publicKey) {
+				return response;
+			}
+			
+			// If neither structure matches, log the actual response for debugging
+			console.error('Unexpected response structure:', response);
+			throw new Error('Unexpected response format from recovery data service');
+			
+		} catch (error: any) {
+			console.error('Failed to get recovery data:', error);
+			
+			// Handle Firebase function errors specifically
+			if (error?.code) {
+				throw new Error(`Firebase function error: ${error.message || error.code}`);
+			}
+			
+			throw new Error(error?.message || 'Failed to get recovery data');
+		}
 	}
 
 	/**
@@ -321,9 +460,26 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - User not found
 	 * @returns Promise with recovery response
 	 */
-	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<void> {
-		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
-		return response.data;
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<{ access_token: string; user: any }> {
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const completeRecovery = httpsCallable(functions, 'completeNostrRecovery');
+			const result = await completeRecovery(data);
+			
+			const response = result.data as { result: { access_token: string; user: any } };
+			return response.result;
+		} catch (error: any) {
+			console.error('Failed to complete recovery:', error);
+			throw new Error(error?.message || 'Failed to complete recovery');
+		}
 	}
 
 	/**
@@ -349,6 +505,115 @@ export class AuthService extends BaseApiService {
 	 */
 	async verifyEmail(token: string): Promise<void> {
 		await this.get(ENDPOINTS.AUTH.EMAIL_VERIFICATION, { params: { token } });
+	}
+
+	/**
+	 * Verify recovery email and get recovery data
+	 * @param token Verification token
+	 * @returns Promise with recovery data
+	 */
+	async verifyRecoveryEmail(token: string): Promise<{ email: string; publicKey: string; message: string }> {
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const verifyEmail = httpsCallable(functions, 'verifyRecoveryEmail');
+			const result = await verifyEmail({ token });
+			
+			// Check if result exists and has the expected structure
+			if (!result || !result.data) {
+				throw new Error('No response received from verification service');
+			}
+			
+			const response = result.data as any;
+			
+			// Handle the actual response structure: { success: true, data: {...} }
+			if (response.success && response.data) {
+				return response.data;
+			}
+			
+			// Check if the response has the expected nested structure (legacy)
+			if (response.result && response.result.data) {
+				return response.result.data;
+			}
+			
+			// Check if the response is directly the data we need
+			if (response.email && response.publicKey && response.message) {
+				return response;
+			}
+			
+			// If neither structure matches, log the actual response for debugging
+			console.error('Unexpected response structure:', response);
+			throw new Error('Unexpected response format from verification service');
+			
+		} catch (error: any) {
+			console.error('Failed to verify recovery email:', error);
+			
+			// Handle Firebase function errors specifically
+			if (error?.code) {
+				throw new Error(`Firebase function error: ${error.message || error.code}`);
+			}
+			
+			throw new Error(error?.message || 'Failed to verify recovery email');
+		}
+	}
+
+	/**
+	 * Invalidate all devices for a user during account recovery
+	 * @param publicKey User's Nostr public key
+	 * @returns Promise with invalidation response
+	 */
+	async invalidateAllDevices(publicKey: string): Promise<{ message: string; invalidatedDevices: number }> {
+		try {
+			// Use Firebase function instead of REST API
+			const { getFunctions, httpsCallable } = await import('firebase/functions');
+			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
+			const { initializeApp } = await import('firebase/app');
+			
+			const firebaseConfig = getFirebaseWebConfig();
+			const app = initializeApp(firebaseConfig);
+			const functions = getFunctions(app);
+			
+			const invalidateDevices = httpsCallable(functions, 'invalidateAllDevices');
+			const result = await invalidateDevices({ publicKey });
+			
+			const response = result.data as { result: { message: string; invalidatedDevices: number } };
+			return response.result;
+		} catch (error: any) {
+			console.error('Failed to invalidate devices:', error);
+			throw new Error(error?.message || 'Failed to invalidate devices');
+		}
+	}
+
+	/**
+	 * Migrate legacy user to master key format using GraphQL
+	 * @param publicKey User's Nostr public key
+	 * @param deviceId Unique device identifier
+	 * @param masterKeyData Master key encrypted data
+	 * @returns Promise with migration response
+	 */
+	async migrateToMasterKey(
+		publicKey: string,
+		deviceId: string,
+		masterKeyData: MasterKeyEncryptedData
+	): Promise<{ success: boolean; message: string }> {
+		try {
+			const response = await this.post(ENDPOINTS.AUTH.MIGRATE_TO_MASTER_KEY, {
+				publicKey,
+				deviceId,
+				masterKeyData
+			});
+			return response.data;
+		} catch (error: any) {
+			console.error('Migration to master key error:', error);
+			throw new Error(error.message || 'Failed to migrate to master key');
+		}
 	}
 }
 

@@ -2,6 +2,7 @@
 	import type { Bid, TaskBid } from '$lib/types/bid';
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { timeAgo } from '$lib/utils/helpers/dateFormatter';
+	import { t } from 'svelte-i18n';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -42,7 +43,7 @@
 		<div class="flex items-start justify-between">
 			<!-- Bidder Info -->
 			<div class="flex-1">
-				<h3 class="text-lg font-semibold">{props.bid.bidderName || 'Anonymous'}</h3>
+				<p class="text-lg font-semibold">{props.bid.bidderName || $t('dashboard.bids.bid_card.anonymous')}</p>
 				<div class="text-sm opacity-70">{getFormattedTime()}</div>
 			</div>
 
@@ -51,10 +52,10 @@
 				<div class="text-xl font-bold">{getFormattedPrice()}</div>
 				<div class="text-sm">
 					{#if props.bid.paymentType === 'HOURLY'}
-						{formatCurrency(props.bid.hourlyRate || 0, props.bid.currency)}/hr · Est. {props.bid
-							.estimatedHours || 0} hrs
+						{formatCurrency(props.bid.hourlyRate || 0, props.bid.currency)}{$t('dashboard.bids.bid_card.per_hour')} · {$t('dashboard.bids.bid_card.estimated')} {props.bid
+							.estimatedHours || 0} {$t('dashboard.bids.bid_card.hours')}
 					{:else}
-						Fixed Price
+						{$t('dashboard.bids.bid_card.fixed_price')}
 					{/if}
 				</div>
 			</div>
@@ -73,24 +74,24 @@
 		<!-- Action Buttons -->
 		<div class="card-actions mt-4 justify-end">
 			<button class="btn btn-xs btn-outline" onclick={() => props.onViewDetails(props.bid)}>
-				View Details
+				{$t('dashboard.bids.bid_card.view_details')}
 			</button>
 
 			{#if props.bid.status === 'PENDING'}
 				<button class="btn btn-xs btn-primary" onclick={() => props.onAcceptBid(props.bid)}>
-					Accept
+					{$t('dashboard.bids.bid_card.accept')}
 				</button>
 				<button
 					class="btn btn-xs btn-outline btn-error"
 					onclick={() => props.onRejectBid(props.bid)}
 				>
-					Decline
+					{$t('dashboard.bids.bid_card.decline')}
 				</button>
 				<button
 					class="btn btn-xs btn-outline btn-info"
 					onclick={() => props.onCounterOffer(props.bid)}
 				>
-					Counter
+					{$t('dashboard.bids.bid_card.counter')}
 				</button>
 			{/if}
 		</div>

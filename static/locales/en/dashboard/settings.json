@@ -102,6 +102,37 @@
           "success": "Passkey test successful!",
           "error": "Passkey test failed. Please try again."
         }
+      },
+      "devices": {
+        "title": "Connected Devices",
+        "description": "Manage devices that have access to your account. You can revoke access from any device except the current one.",
+        "noDevices": "No devices found",
+        "currentDevice": "Current",
+        "thisDevice": "This Device",
+        "refresh": "Refresh",
+        "revoke": "Revoke Access",
+        "revokeDevice": "Revoke device access",
+        "cannotRevokeCurrentDevice": "Cannot revoke access from current device",
+        "status": {
+          "active": "Device is active",
+          "inactive": "Device is inactive"
+        },
+        "lastUsed": {
+          "label": "Last used",
+          "never": "Never",
+          "justNow": "Just now"
+        },
+        "error": {
+          "loadFailed": "Failed to load devices. Please try again.",
+          "revokeFailed": "Failed to revoke device access. Please try again."
+        },
+        "revokeModal": {
+          "title": "Revoke Device Access",
+          "confirmTitle": "Are you sure?",
+          "confirmMessage": "This will permanently revoke access for",
+          "warning": "This device will no longer be able to access your account and will need to re-authenticate.",
+          "confirm": "Revoke Access"
+        }
       }
     }
   }

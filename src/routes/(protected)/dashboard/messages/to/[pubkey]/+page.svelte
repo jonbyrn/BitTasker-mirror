@@ -2,11 +2,12 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import { nip19 } from 'nostr-tools';
+	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import ChatView from '$lib/components/messages/ChatView.svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
+	import { t } from 'svelte-i18n';
+	import TranslationSettings from '$lib/components/translation/TranslationSettings.svelte';
 
 	// Get pubkey from URL
 	let recipientPubkey = $derived($page.params.pubkey);
@@ -16,6 +17,7 @@
 	let recipientProfile = $state<{ name?: string; picture?: string } | null>(null);
 	let isLoading = $state(true);
 	let error = $state('');
+	let copySuccess = $state(false);
 
 	onMount(async () => {
 		try {
@@ -30,12 +32,12 @@
 				try {
 					hexPubkey = nip19.decode(recipientPubkey).data as string;
 				} catch {
-					error = 'Invalid npub format';
+					error = $t('messages.invalid_npub_format');
 					isLoading = false;
 					return;
 				}
 			} else if (!/^[a-fA-F0-9]{64}$/.test(recipientPubkey)) {
-				error = 'Invalid public key format';
+				error = $t('messages.invalid_pubkey_format');
 				isLoading = false;
 				return;
 			}
@@ -49,13 +51,17 @@
 			// Fetch recipient profile
 			try {
 				const profile = await fetchProfileMetadata(hexPubkey);
-				recipientProfile = profile;
-			} catch (profileErr) {
-				console.error('Failed to fetch recipient profile:', profileErr);
-				// Continue even if profile fetch fails
+				recipientProfile = {
+					name: profile?.name || undefined,
+					picture: profile?.picture || undefined
+				};
+			} catch (err) {
+				console.error('Failed to fetch recipient profile:', err);
+				// Set default profile if fetch fails
+				recipientProfile = { name: undefined, picture: undefined };
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load chat';
+			error = err instanceof Error ? err.message : $t('messages.failed_to_load_chat');
 		} finally {
 			isLoading = false;
 		}
@@ -64,46 +70,63 @@
 	function goBackToMessages() {
 		goto('/dashboard/messages');
 	}
+
+	async function copyPubkey() {
+		try {
+			await navigator.clipboard.writeText(recipientPubkey);
+			copySuccess = true;
+			setTimeout(() => {
+				copySuccess = false;
+			}, 2000);
+		} catch (err) {
+			console.error('Failed to copy pubkey:', err);
+		}
+	}
 </script>
 
-<div class="bg-base-100 flex h-full max-h-screen flex-col rounded-[2rem]">
+<div class="bg-base-100 mx-2 md:mx-auto max-w-7xl rounded-2xl shadow-lg mt-8 md:mt-4 overflow-hidden h-[calc(100vh-16rem)] flex flex-col">
 	{#if isLoading}
 		<!-- Loading State -->
 		<div class="flex h-full items-center justify-center">
-			<div class="loading loading-spinner loading-lg"></div>
+			<div class="loading loading-spinner loading-md text-primary"></div>
 		</div>
 	{:else if error}
 		<!-- Error State -->
-		<div class="flex h-full flex-col items-center justify-center">
-			<div class="alert alert-error alert-outline max-w-md">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					class="h-6 w-6 shrink-0 stroke-current"
-					fill="none"
-					viewBox="0 0 24 24"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
-				<span>{error}</span>
+		<div class="flex h-full flex-col items-center justify-center p-6">
+			<div class="text-center space-y-4 max-w-md">
+				<div class="alert alert-error alert-outline">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					<span>{error}</span>
+				</div>
+				<button class="btn btn-primary" onclick={goBackToMessages}> 
+					{$t('messages.back_to_messages')} 
+				</button>
 			</div>
-			<button class="btn btn-primary mt-4" onclick={goBackToMessages}> Back to Messages </button>
 		</div>
 	{:else}
-		<!-- Chat Header with Back Button -->
-		<div class="border-base-300 flex flex-shrink-0 items-center gap-3 border-b p-4">
+		<!-- Chat Header with Back Button - Fixed Header -->
+		<div class="flex flex-shrink-0 items-center border-b border-base-300/20 p-4">
+			<!-- Back Button -->
 			<button
-				class="btn btn-ghost btn-sm"
+				class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors flex-shrink-0 ml-2"
 				onclick={goBackToMessages}
-				aria-label="Go back to messages"
+				aria-label={$t('messages.go_back_to_messages')}
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
-					class="h-5 w-5"
+					class="h-4 w-4"
 					fill="none"
 					viewBox="0 0 24 24"
 					stroke="currentColor"
@@ -118,52 +141,90 @@
 			</button>
 
 			<!-- Recipient Info -->
-			<div class="flex flex-1 items-center justify-between">
-				<div class="flex items-center gap-3">
-					<Avatar
-						user={{
-							name: recipientProfile?.name || 'Unknown',
-							picture: recipientProfile?.picture || null
-						}}
-						size="sm"
-					/>
-					<div>
-						<h3 class="text-lg font-semibold">
+			<div class="flex flex-1 items-center justify-between min-w-0">
+				<div class="flex items-center gap-2 min-w-0 flex-1">
+					<div class="flex-shrink-0">
+						{#if recipientProfile?.picture}
+							<img
+								src={recipientProfile.picture}
+								alt={recipientProfile.name || $t('messages.unknown')}
+								class="h-10 w-10 rounded-full object-cover ring-2 ring-base-300"
+								width={40}
+								height={40}
+							/>
+						{:else}
+							<div class="bg-gradient-to-br from-primary/20 to-secondary/20 flex h-10 w-10 items-center justify-center rounded-full ring-2 ring-base-300">
+								{#if recipientProfile?.name}
+									<span class="text-primary font-semibold text-sm">
+										{recipientProfile.name.charAt(0).toUpperCase()}
+									</span>
+								{:else}
+									<svg xmlns="http://www.w3.org/2000/svg" class="text-primary h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+									</svg>
+								{/if}
+							</div>
+						{/if}
+					</div>
+					<div class="min-w-0 flex-1">
+						<h4 class="text-base font-medium truncate">
 							{recipientProfile?.name || `${recipientPubkey.slice(0, 8)}...`}
-						</h3>
+						</h4>
 					</div>
 				</div>
 
-				<!-- Copy Public Key Button -->
-				<button
-					class="btn btn-ghost btn-sm"
-					onclick={() => {
-						navigator.clipboard.writeText(recipientPubkey);
-						// Optional: Add a toast notification here
-					}}
-					title="Copy public key"
-					aria-label="Copy public key"
-				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
+				<!-- Action Buttons -->
+				<div class="flex items-center gap-2 flex-shrink-0">
+					<!-- Translation Settings Button -->
+					<TranslationSettings />
+					
+					<!-- Copy Public Key Button -->
+					<button
+						class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors relative"
+						onclick={copyPubkey}
+						title={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
+						aria-label={copySuccess ? $t('messages.copied') : $t('messages.copy_public_key')}
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-						/>
-					</svg>
-				</button>
+						{#if copySuccess}
+							<!-- Check icon for success state -->
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 text-success"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M5 13l4 4L19 7"
+								/>
+							</svg>
+						{:else}
+							<!-- Copy icon -->
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke="currentColor"
+							>
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+								/>
+							</svg>
+						{/if}
+					</button>
+				</div>
 			</div>
 		</div>
 
-		<!-- ChatView Component -->
-		<div class="min-h-0 flex-1 overflow-hidden">
+		<!-- ChatView Component - Scrollable Area -->
+		<div class="flex-1 overflow-hidden min-w-0 flex flex-col">
 			<ChatView
 				{recipientPubkey}
 				currentUserPubkey={currentUserNpub}

@@ -1,25 +1,27 @@
 <script lang="ts">
 	import type { Task, Location } from '$lib/types/task';
-	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { smallCountries, mediumCountries, largeCountries } from '$lib/utils/constants/countries';
+	import { onMount, onDestroy, tick } from 'svelte';
+	import { ScreenOrientation } from '@capacitor/screen-orientation';
+	import { t } from 'svelte-i18n';
 
 	let {
 		tasks = [],
 		height = '60vh',
-		selectedTask = null
+		selectedTask = null,
+		onTaskSelected,
+		showFullscreen = true
 	} = $props<{
 		tasks: Task[];
 		height?: string;
 		selectedTask?: Task | null;
-	}>();
-
-	// Event dispatcher para comunicar con el componente padre
-	const dispatch = createEventDispatcher<{
-		taskSelected: { task: Task; locationType: 'pickup' | 'dropoff' };
+		onTaskSelected?: (event: { task: Task; locationType: 'pickup' | 'dropoff' }) => void;
+		showFullscreen?: boolean;
 	}>();
 
 	// State
 	let map: google.maps.Map | null = null;
-	let mapElement: HTMLElement;
+	let mapElement: HTMLElement | null = null;
 	let markers: google.maps.marker.AdvancedMarkerElement[] = $state([]);
 	let circles: google.maps.Circle[] = $state([]);
 	let isMapLoaded = $state(false);
@@ -27,20 +29,137 @@
 	let error = $state('');
 	let scriptLoaded = $state(false);
 	let googleMapsReady = $state(false);
-	let initRetryCount = $state(0);
-	let maxRetries = 3;
 	let lastTaskIds = $state('');
 	let lastSelectedTaskId = $state<string | null>(null);
 	let serviceRadius = $state(5); // Default to 5 km
+	let isComponentMounted = $state(false);
+	let isLoading = $state(true);
+	let userLocation: Location | null = $state(null);
+	let markerLibrary: google.maps.MarkerLibrary | null = $state(null);
+	let userCountry: string | null = $state(null);
+	let mapHeight = $state(height); // Add mapHeight variable
 
-	// Default location (San Salvador) - used when no tasks have locations
-	const defaultLocation: Location = {
-		displayName: 'San Salvador, El Salvador',
-		latitude: 13.6929,
-		longitude: -89.2182,
-		zipCode: '',
-		locationLoaded: false
-	};
+	// Fullscreen state
+	let isFullscreen = $state(false);
+	let mapContainerDiv: HTMLElement | null = $state(null);
+	let fullscreenResizeHandler: ((this: Window, ev: UIEvent) => any) | null = null;
+	let escKeyHandler: ((this: Window, ev: KeyboardEvent) => any) | null = null;
+	// Function to get user's location
+	async function getUserLocation(): Promise<Location | null> {
+		return new Promise((resolve) => {
+			if (!navigator.geolocation) {
+				resolve(null);
+				return;
+			}
+
+			navigator.geolocation.getCurrentPosition(
+				(position) => {
+					const userLoc: Location = {
+						displayName: $t('dashboard.bids.components.maps.task_location_map.your_location'),
+						latitude: position.coords.latitude,
+						longitude: position.coords.longitude,
+						zipCode: '',
+						locationLoaded: true
+					};
+					resolve(userLoc);
+				},
+				(error) => {
+					resolve(null);
+				},
+				{
+					timeout: 10000,
+					enableHighAccuracy: true,
+					maximumAge: 300000 // 5 minutes
+				}
+			);
+		});
+	}
+
+	// Function to get country from coordinates using reverse geocoding
+	async function getCountryFromCoordinates(lat: number, lng: number): Promise<string | null> {
+		if (!window.google?.maps) return null;
+
+		try {
+			const geocoder = new google.maps.Geocoder();
+			const latlng = { lat, lng };
+
+			return new Promise((resolve) => {
+				geocoder.geocode({ location: latlng }, (results, status) => {
+					if (status === 'OK' && results && results.length > 0) {
+						// Look for country in the address components
+						for (const result of results) {
+							for (const component of result.address_components) {
+								if (component.types.includes('country')) {
+									resolve(component.long_name);
+									return;
+								}
+							}
+						}
+					}
+					resolve(null);
+				});
+			});
+		} catch (error) {
+			console.error('Error getting country:', error);
+			return null;
+		}
+	}
+
+	// Function to determine appropriate zoom level based on country
+	function getZoomLevelForCountry(
+		country: string | null,
+		latitude: number,
+		longitude: number
+	): number {
+		// If we have country info, use specific zoom levels
+		if (country) {
+			if (smallCountries.includes(country)) {
+				return 8;
+			}
+
+			if (mediumCountries.includes(country)) {
+				return 6;
+			}
+
+			if (largeCountries.includes(country)) {
+				return 4;
+			}
+		}
+
+		// Fallback: determine zoom based on latitude/longitude ranges
+		// North America
+		if (latitude >= 15 && latitude <= 72 && longitude >= -180 && longitude <= -50) {
+			return 4;
+		}
+
+		// South America
+		if (latitude >= -60 && latitude <= 15 && longitude >= -90 && longitude <= -30) {
+			return 4;
+		}
+
+		// Europe
+		if (latitude >= 35 && latitude <= 72 && longitude >= -25 && longitude <= 45) {
+			return 5;
+		}
+
+		// Africa
+		if (latitude >= -35 && latitude <= 38 && longitude >= -20 && longitude <= 55) {
+			return 4;
+		}
+
+		// Asia
+		if (latitude >= -10 && latitude <= 55 && longitude >= 45 && longitude <= 180) {
+			return 4;
+		}
+
+		// Australia/Oceania
+		if (latitude >= -50 && latitude <= -10 && longitude >= 110 && longitude <= 180) {
+			return 4;
+		}
+
+		// Default zoom for unknown locations
+		return 3;
+	}
 
 	// Function to dynamically load Google Maps script
 	async function loadGoogleMapsScript() {
@@ -54,17 +173,33 @@
 					return;
 				}
 
+				// Check if script is already being loaded
+				const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+				if (existingScript) {
+					// Wait for existing script to load
+					existingScript.addEventListener('load', () => {
+						setTimeout(() => {
+							if (window.google?.maps?.Map) {
+								scriptLoaded = true;
+								googleMapsReady = true;
+								resolve();
+							} else {
+								reject(new Error('Google Maps API not initialized'));
+							}
+						}, 500);
+					});
+					return;
+				}
+
 				const API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 				const script = document.createElement('script');
-				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,marker&loading=async`;
+				script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&loading=async&libraries=marker,geometry`;
 				script.async = true;
 				script.defer = true;
 
 				script.onload = () => {
 					scriptLoaded = true;
-					// Add a small delay to ensure Google Maps API is fully initialized
 					setTimeout(() => {
-						// Check if the API is actually available
 						if (window.google?.maps?.Map) {
 							googleMapsReady = true;
 							resolve();
@@ -72,6 +207,7 @@
 							reject(new Error('Google Maps API not initialized'));
 						}
 					}, 500);
+					return;
 				};
 
 				script.onerror = () => {
@@ -85,128 +221,237 @@
 		});
 	}
 
-	async function initMap() {
-		if (!googleMapsReady || !window.google?.maps?.Map) {
-			throw new Error('Google Maps not fully loaded');
-		}
+	// Function to load marker library
+	async function loadMarkerLibrary() {
+		if (markerLibrary) return markerLibrary;
 
 		try {
-			// Get center location from tasks or use default
-			const centerLocation = getMapCenter();
+			markerLibrary = (await google.maps.importLibrary('marker')) as google.maps.MarkerLibrary;
+			return markerLibrary;
+		} catch (error) {
+			console.error('Error loading marker library:', error);
+			throw error;
+		}
+	}
 
-			// Initialize Google Maps
+	// Fullscreen functionality
+	async function toggleFullscreen() {
+		if (isFullscreen) {
+			await exitFullscreen();
+		} else {
+			await enterFullscreen();
+		}
+	}
+
+	async function enterFullscreen() {
+		isFullscreen = true;
+
+		try {
+			// Try to use Capacitor's native fullscreen if available
+			await ScreenOrientation.lock({ orientation: 'portrait' });
+		} catch (error) {
+			console.log('Using fallback fullscreen method - Capacitor ScreenOrientation not available');
+		}
+
+		// Store original dimensions for restoring later
+		if (mapContainerDiv) {
+			// Apply fullscreen styles
+			mapContainerDiv.style.position = 'fixed';
+			mapContainerDiv.style.top = '0';
+			mapContainerDiv.style.left = '0';
+			mapContainerDiv.style.width = '100vw';
+			mapContainerDiv.style.height = '100vh';
+			mapContainerDiv.style.zIndex = '100'; // Lower z-index so controls stay on top
+			mapContainerDiv.style.backgroundColor = 'white';
+			mapContainerDiv.style.overflow = 'hidden';
+		}
+
+		// Ensure inner map element fills the fullscreen container
+		if (mapElement) {
+			mapElement.style.width = '100%';
+			mapElement.style.height = '100%';
+			mapElement.style.minHeight = '100vh';
+			mapElement.style.borderRadius = '0';
+		}
+
+		// Await DOM flush, then trigger Google Maps resize and re-center
+		await tick();
+		if (map) {
+			google.maps.event.trigger(map, 'resize');
+			// Center on the current map center instead of a specific marker
+			const center = map.getCenter();
+			if (center) {
+				map.setCenter(center);
+			}
+			// Force a redraw by toggling zoom
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number') {
+				map.setZoom(currentZoom);
+			}
+		}
+
+		// Keep size in sync when device UI chrome changes (mobile) or orientation changes
+		fullscreenResizeHandler = () => {
+			if (mapElement) {
+				mapElement.style.height = '100%';
+				mapElement.style.minHeight = '100vh';
+			}
+			if (map) {
+				google.maps.event.trigger(map, 'resize');
+			}
+		};
+		window.addEventListener('resize', fullscreenResizeHandler);
+
+		// Enable ESC to exit fullscreen
+		escKeyHandler = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				exitFullscreen();
+			}
+		};
+		window.addEventListener('keydown', escKeyHandler);
+	}
+
+	async function exitFullscreen() {
+		isFullscreen = false;
+
+		try {
+			// Release orientation lock if we used Capacitor
+			await ScreenOrientation.unlock();
+		} catch (error) {
+			console.log('Capacitor ScreenOrientation not available');
+		}
+
+		// Restore original CSS styles
+		if (mapContainerDiv) {
+			mapContainerDiv.style.position = 'relative';
+			mapContainerDiv.style.top = 'auto';
+			mapContainerDiv.style.left = 'auto';
+			mapContainerDiv.style.width = '100%';
+			mapContainerDiv.style.height = 'auto';
+			mapContainerDiv.style.zIndex = 'auto';
+			mapContainerDiv.style.backgroundColor = 'transparent';
+			mapContainerDiv.style.overflow = 'visible';
+		}
+
+		// Restore map element size
+		if (mapElement) {
+			mapElement.style.width = '100%';
+			mapElement.style.height = '';
+			mapElement.style.minHeight = mapHeight;
+			mapElement.style.borderRadius = '0.5rem'; // rounded-lg
+		}
+
+		// Remove resize listener if present
+		if (fullscreenResizeHandler) {
+			window.removeEventListener('resize', fullscreenResizeHandler);
+			fullscreenResizeHandler = null;
+		}
+
+		if (escKeyHandler) {
+			window.removeEventListener('keydown', escKeyHandler);
+			escKeyHandler = null;
+		}
+
+		// Trigger resize to update map
+		await tick();
+		if (map) {
+			google.maps.event.trigger(map, 'resize');
+			// Center on the current map center instead of a specific marker
+			const center = map.getCenter();
+			if (center) {
+				map.setCenter(center);
+			}
+			const currentZoom = map.getZoom();
+			if (typeof currentZoom === 'number') {
+				map.setZoom(currentZoom);
+			}
+		}
+	}
+
+	async function initMap() {
+		try {
+			// Check if mapElement exists before proceeding
+			if (!mapElement) {
+				throw new Error('Map element not found');
+			}
+
+			// Always use user location for initial map center
+			const centerLocation = userLocation || {
+				displayName: 'Centroamérica',
+				latitude: 13.6929,
+				longitude: -89.2182,
+				zipCode: '',
+				locationLoaded: false
+			};
+
+			// Get country and determine zoom level
+			const country = await getCountryFromCoordinates(
+				centerLocation.latitude!,
+				centerLocation.longitude!
+			);
+			userCountry = country;
+			const zoomLevel = getZoomLevelForCountry(
+				country,
+				centerLocation.latitude!,
+				centerLocation.longitude!
+			);
+
+			// Initialize Google Maps with zoom restrictions for privacy
 			map = new google.maps.Map(mapElement, {
 				center: { lat: centerLocation.latitude!, lng: centerLocation.longitude! },
-				zoom: 11,
-				maxZoom: 18, // Establece el zoom máximo
-				minZoom: 5, // Opcional: también puedes establecer un zoom mínimo
+				zoom: zoomLevel,
+				maxZoom: 14, // Máximo zoom de ciudad - no mostrar direcciones exactas
+				minZoom: 8,
 				mapTypeId: google.maps.MapTypeId.ROADMAP,
-
-				mapTypeControl: true, // Selector de capas (Roadmap, Satellite, etc.)
-				streetViewControl: true,
-				fullscreenControl: true,
-
-				// Opcional: estilo del control de capas
+				mapTypeControl: true,
+				streetViewControl: false, // Deshabilitar Street View para privacidad
+				fullscreenControl: false,
 				mapTypeControlOptions: {
-					style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR, // o HORIZONTAL_BAR
+					style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
 					position: google.maps.ControlPosition.TOP_RIGHT
 				},
-
-				// Opcional: estilo del control de zoom
 				zoomControlOptions: {
 					position: google.maps.ControlPosition.RIGHT_CENTER
-				},
-
-				// Opcional: control de street view
-				streetViewControlOptions: {
-					position: google.maps.ControlPosition.RIGHT_TOP
 				},
 				mapId: import.meta.env.PROD ? import.meta.env.VITE_GOOGLE_MAPS_ID : 'DEMO_MAP_ID'
 			});
 
-			// Create markers for all tasks with locations
-			await createTaskMarkers();
+			// Load marker library
+			await loadMarkerLibrary();
 
-			// Fit bounds to show all markers if there are any
-			if (markers.length > 0) {
-				fitMapToMarkers();
-			}
+			// Create markers after map is initialized
+			setTimeout(() => {
+				createTaskMarkers();
+			}, 1000);
 		} catch (error) {
 			console.error('Error initializing Google Maps:', error);
 			throw error;
 		}
 	}
 
-	function getMapCenter(): Location {
-		// Find the first task with a valid location
-		const taskWithLocation = tasks.find(
-			(task: Task) =>
-				(task.pickupLocation?.latitude && task.pickupLocation?.longitude) ||
-				(task.dropOffLocation?.latitude && task.dropOffLocation?.longitude)
-		);
-
-		if (taskWithLocation?.pickupLocation?.latitude && taskWithLocation.pickupLocation.longitude) {
-			return taskWithLocation.pickupLocation;
-		} else if (
-			taskWithLocation?.dropOffLocation?.latitude &&
-			taskWithLocation.dropOffLocation.longitude
-		) {
-			return taskWithLocation.dropOffLocation;
-		}
-
-		return defaultLocation;
-	}
-
 	async function tryInitMap() {
 		try {
-			if (initRetryCount >= maxRetries) {
-				throw new Error('Failed to initialize map after multiple attempts');
+			// Only proceed if Google Maps is ready and mapElement exists
+			if (!googleMapsReady) {
+				throw new Error('Google Maps not ready');
 			}
 
-			// Only proceed if Google Maps is ready
-			if (!googleMapsReady) {
-				initRetryCount++;
-				// Wait a bit and try again
-				setTimeout(tryInitMap, 1000);
-				return;
+			if (!mapElement) {
+				throw new Error('Map element not found');
 			}
 
 			await initMap();
 			isMapLoaded = true;
+
+			// Hide loading after everything is ready
+			setTimeout(() => {
+				isLoading = false;
+			}, 1500);
 		} catch (err) {
 			console.error('Error initializing map:', err);
 			error = err instanceof Error ? err.message : 'Error initializing map';
 			hasError = true;
-		}
-	}
-
-	async function createTaskMarkers() {
-		if (!map || !googleMapsReady || !window.google?.maps) return;
-
-		// Clear existing markers and circles
-		clearMarkers();
-		clearCircles();
-
-		try {
-			const { AdvancedMarkerElement } = (await google.maps.importLibrary(
-				'marker'
-			)) as google.maps.MarkerLibrary;
-
-			// Agrupar tareas por ubicación para evitar superposiciones
-			const groupedTasks = groupTasksByLocation(tasks);
-
-			// Create markers for grouped tasks
-			for (const group of groupedTasks) {
-				const marker = await createTaskMarker(
-					group.latitude,
-					group.longitude,
-					group.tasks,
-					group.locationType
-				);
-				if (marker) markers.push(marker);
-			}
-		} catch (error) {
-			console.error('Error creating task markers:', error);
+			isLoading = false;
 		}
 	}
 
@@ -276,18 +521,38 @@
 		return groups;
 	}
 
+	async function createTaskMarkers() {
+		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return;
+
+		try {
+			// Agrupar tareas por ubicación para evitar superposiciones
+			const groupedTasks = groupTasksByLocation(tasks);
+
+			// Create markers for grouped tasks
+			for (const group of groupedTasks) {
+				const marker = await createTaskMarker(
+					group.latitude,
+					group.longitude,
+					group.tasks,
+					group.locationType
+				);
+				if (marker) markers.push(marker);
+			}
+		} catch (error) {
+			console.error('Error creating task markers:', error);
+		}
+	}
+
 	async function createTaskMarker(
 		lat: number,
 		lng: number,
 		tasks: Task[],
 		locationType: 'pickup' | 'dropoff'
 	): Promise<google.maps.marker.AdvancedMarkerElement | null> {
-		if (!map || !googleMapsReady || !window.google?.maps) return null;
+		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return null;
 
 		try {
-			const { AdvancedMarkerElement } = (await google.maps.importLibrary(
-				'marker'
-			)) as google.maps.MarkerLibrary;
+			const { AdvancedMarkerElement } = markerLibrary;
 
 			// Crear un contenedor personalizado para el marcador
 			const markerContainer = document.createElement('div');
@@ -297,8 +562,8 @@
 			// Usamos tu imagen personalizada original
 			const img = document.createElement('img');
 			img.src = '/map-pin.png';
-			img.style.width = '4rem'; // Tamaño optimizado
-			img.style.height = '4rem';
+			img.style.width = '3.5rem'; // Tamaño optimizado
+			img.style.height = '3.5rem';
 			img.style.display = 'block';
 			img.style.borderRadius = '50%'; // Hacer la imagen redonda
 
@@ -325,9 +590,6 @@
 				markerContainer.appendChild(taskCount);
 			}
 
-			// Agregar indicador de tipo de ubicación
-			const locationIndicator = document.createElement('div');
-
 			markerContainer.appendChild(img);
 
 			const marker = new AdvancedMarkerElement({
@@ -337,7 +599,7 @@
 				gmpDraggable: false
 			});
 
-			// 🖱️ Evento click en el marcador → ajusta zoom al círculo
+			// 🖱️ Evento click en el marcador → ajusta zoom al círculo con restricciones
 			marker.addListener('click', () => {
 				// Ocultar todos los círculos primero
 				hideAllCircles();
@@ -345,31 +607,31 @@
 				// Crear y mostrar el círculo para este marcador
 				showCircleForMarker(lat, lng, locationType);
 
-				// Hacer zoom al círculo
+				// Hacer zoom al círculo pero con restricción de zoom máximo
 				const position = { lat, lng };
 				const circle = circles.find(
 					(c) => c.getCenter()?.lat() === lat && c.getCenter()?.lng() === lng
 				);
 
 				if (circle) {
-					map!.fitBounds(circle.getBounds()!);
+					// Ajustar el zoom pero respetar el máximo de 14
+					const bounds = circle.getBounds()!;
+					map!.fitBounds(bounds);
+
+					// Asegurar que el zoom no exceda 14
+					const currentZoom = map!.getZoom() || 0;
+					if (currentZoom > 14) {
+						map!.setZoom(14);
+					}
+
 					// Pan inicial
 					map!.panTo(position);
 				}
 
-				// Emitir evento para que el componente padre sepa qué task fue seleccionada
+				// Emitir evento usando la nueva sintaxis de Svelte 5
 				// Si hay múltiples tareas, seleccionar la primera
 				const selectedTask = tasks[0];
-				dispatch('taskSelected', { task: selectedTask, locationType });
-
-				console.log(
-					'Task clicked:',
-					selectedTask.title,
-					'Location type:',
-					locationType,
-					'Total tasks at location:',
-					tasks.length
-				);
+				onTaskSelected?.({ task: selectedTask, locationType });
 			});
 
 			return marker;
@@ -393,7 +655,7 @@
 			fillOpacity: 0.1,
 			map,
 			center: position,
-			radius: serviceRadius * 50 // Convertir km a metros
+			radius: serviceRadius * 100 // Convertir km a metros
 		});
 
 		circles.push(circle);
@@ -420,38 +682,18 @@
 		circles = [];
 	}
 
-	function fitMapToMarkers() {
-		if (!map || markers.length === 0) return;
-
-		const bounds = new google.maps.LatLngBounds();
-		markers.forEach((marker) => {
-			if (marker.position) {
-				bounds.extend(marker.position);
-			}
-		});
-
-		// Add some padding to the bounds
-		map.fitBounds(bounds);
-
-		// Ensure minimum zoom level
-		google.maps.event.addListenerOnce(map, 'bounds_changed', () => {
-			if (map!.getZoom()! > 15) {
-				map!.setZoom(15);
-			}
-		});
-	}
-
 	// Función para actualizar markers cuando cambien las tasks
 	async function updateMarkers() {
 		if (map && isMapLoaded) {
+			// Limpiar markers existentes
+			clearMarkers();
+
+			// Crear nuevos markers
 			await createTaskMarkers();
-			if (markers.length > 0) {
-				fitMapToMarkers();
-			}
 		}
 	}
 
-	// Función para mostrar el círculo de una task específica
+	// Función para mostrar el círculo de una task específica con restricciones de zoom
 	function highlightTaskOnMap(task: Task) {
 		if (!map || !isMapLoaded) return;
 
@@ -462,7 +704,7 @@
 		if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
 			showCircleForMarker(task.pickupLocation.latitude, task.pickupLocation.longitude, 'pickup');
 
-			// Hacer zoom al círculo
+			// Hacer zoom al círculo con restricciones
 			const position = {
 				lat: task.pickupLocation.latitude,
 				lng: task.pickupLocation.longitude
@@ -475,6 +717,13 @@
 
 			if (circle) {
 				map.fitBounds(circle.getBounds()!);
+
+				// Asegurar que el zoom no exceda 14
+				const currentZoom = map.getZoom() || 0;
+				if (currentZoom > 14) {
+					map.setZoom(14);
+				}
+
 				map.panTo(position);
 			}
 			return;
@@ -484,7 +733,7 @@
 		if (task.dropOffLocation?.latitude && task.dropOffLocation.longitude) {
 			showCircleForMarker(task.dropOffLocation.latitude, task.dropOffLocation.longitude, 'dropoff');
 
-			// Hacer zoom al círculo
+			// Hacer zoom al círculo con restricciones
 			const position = {
 				lat: task.dropOffLocation.latitude,
 				lng: task.dropOffLocation.longitude
@@ -497,6 +746,13 @@
 
 			if (circle) {
 				map.fitBounds(circle.getBounds()!);
+
+				// Asegurar que el zoom no exceda 14
+				const currentZoom = map.getZoom() || 0;
+				if (currentZoom > 14) {
+					map.setZoom(14);
+				}
+
 				map.panTo(position);
 			}
 		}
@@ -532,16 +788,30 @@
 		}
 	});
 
+	// Effect to initialize map when component is ready
+	$effect(() => {
+		if (isComponentMounted && googleMapsReady && mapElement && !isMapLoaded && !hasError) {
+			// Use a small delay to ensure DOM is fully ready
+			setTimeout(() => {
+				tryInitMap();
+			}, 300);
+		}
+	});
+
 	onMount(async () => {
 		try {
-			// Load Google Maps API dynamically if not already loaded
-			await loadGoogleMapsScript();
+			// Mark component as mounted
+			isComponentMounted = true;
 
-			// Try to initialize the map
-			await tryInitMap();
+			// Get user location first - this is now the primary way to determine map center
+			userLocation = await getUserLocation();
+
+			// Load Google Maps script
+			await loadGoogleMapsScript();
 		} catch (err) {
 			console.error('Error loading Google Maps:', err);
 			error = err instanceof Error ? err.message : 'Error loading Google Maps';
+			isLoading = false;
 		}
 	});
 
@@ -557,14 +827,79 @@
 
 <div class="task-location-map w-full">
 	<!-- Map Container -->
-	<div class="map-container relative w-full max-h-[800px]" style="height: {height};">
+	<div bind:this={mapContainerDiv} class="map-container relative max-h-[800px] w-full" style="height: {height};">
 		<div bind:this={mapElement} class="h-full w-full overflow-hidden rounded-lg">
-			{#if !isMapLoaded}
+			{#if isLoading}
 				<div class="bg-base-200 flex h-full w-full items-center justify-center">
-					<span class="loading loading-spinner loading-lg"></span>
+					<div class="text-center">
+						<span class="loading loading-spinner loading-lg mb-2"></span>
+						<p class="text-base-content/70 text-sm">{$t('dashboard.bids.components.maps.task_location_map.loading_map')}</p>
+					</div>
+				</div>
+			{:else if hasError}
+				<div class="bg-base-200 flex h-full w-full items-center justify-center">
+					<div class="text-center">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="text-error mx-auto mb-2 h-12 w-12"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke="currentColor"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+							/>
+						</svg>
+						<p class="text-error text-sm">{$t('dashboard.bids.components.maps.task_location_map.error_loading_map')}</p>
+					</div>
 				</div>
 			{/if}
 		</div>
+
+		<!-- Fullscreen Button -->
+		{#if showFullscreen}
+			<button
+				onclick={toggleFullscreen}
+				class="{isFullscreen
+					? 'fixed bottom-4 left-4 z-[1000]'
+					: 'absolute bottom-4 left-4 z-20'} btn btn-circle btn-lg bg-base-100/90 hover:bg-base-100 shadow-md"
+				aria-label={isFullscreen
+					? $t('task.location_picker.exit_fullscreen')
+					: $t('task.location_picker.enter_fullscreen')}
+				title={isFullscreen
+					? $t('task.location_picker.exit_fullscreen')
+					: $t('task.location_picker.enter_fullscreen')}
+			>
+				{#if isFullscreen}
+					<!-- Exit fullscreen icon -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+						/>
+					</svg>
+				{:else}
+					<!-- Enter fullscreen icon -->
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="text-base-content h-5 w-5"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+					>
+						<path
+							d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"
+						/>
+					</svg>
+				{/if}
+			</button>
+		{/if}
 	</div>
 
 	<!-- Error Message -->
@@ -592,5 +927,4 @@
 	:global(.pac-container) {
 		z-index: 9999;
 	}
-	
 </style>

@@ -12,7 +12,9 @@
 		publishSkillsUpdate
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
+	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { nextStep, prevStep, currentStep, totalSteps } = $props<{
 		nextStep: () => void;
@@ -27,6 +29,7 @@
 	let profileDescription = $state('');
 	let skillsInput = $state('');
 	let skills = $state<Skill[]>([]);
+	let selectedSkills = $state<string[]>([]);
 
 	// Status indicators
 	let isLoading = $state(false);
@@ -102,7 +105,7 @@
 					}
 					// Handle skills update
 					else if (
-						event.kind === 30000 &&
+						event.kind === KINDS.PROFILE_SKILLS &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
 					) {
 						const skillsData = JSON.parse(event.content);
@@ -156,38 +159,53 @@
 		}
 	}
 
-	// Add skill tag
+	// Convert skills array to string array for SkillsMultiselect
+	$effect(() => {
+		selectedSkills = skills.map(skill => skill.name);
+	});
+
+	// Convert string array back to skills array
+	$effect(() => {
+		skills = selectedSkills.map(skillName => {
+			// Check if skill already exists to preserve other properties
+			const existingSkill = skills.find(skill => skill.name === skillName);
+			if (existingSkill) {
+				return existingSkill;
+			}
+			// Create new skill object
+			return {
+				name: skillName,
+				level: 1,
+				verificationStatus: 'unverified' as const,
+				endorsements: 0,
+				certifications: [],
+				id: crypto.randomUUID()
+			};
+		});
+	});
+
+	// Add skill tag (legacy function for compatibility)
 	function addSkill() {
 		if (
 			skillsInput &&
 			skillsInput.trim() &&
 			skillsInput.trim().length > 2 &&
-			!skills.some((skill) => skill.name === skillsInput.trim()) &&
-			skills.length < 20
+			!selectedSkills.includes(skillsInput.trim()) &&
+			selectedSkills.length < 20
 		) {
-			skills = [
-				...skills,
-				{
-					name: skillsInput.trim(),
-					level: 1,
-					verificationStatus: 'unverified',
-					endorsements: 0,
-					certifications: [],
-					id: crypto.randomUUID()
-				}
-			];
+			selectedSkills = [...selectedSkills, skillsInput.trim()];
 			skillsInput = '';
 		} else {
 			error = $t('onboarding_auth.form.skill_already_exists_or_too_short');
 		}
 	}
 
-	// Remove skill tag
+	// Remove skill tag (legacy function for compatibility)
 	function removeSkill(index: number) {
-		skills = skills.filter((_, i) => i !== index);
+		selectedSkills = selectedSkills.filter((_, i) => i !== index);
 	}
 
-	// Handle key press for skill tags
+	// Handle key press for skill tags (legacy function for compatibility)
 	function handleSkillKeypress(event: KeyboardEvent) {
 		if (event.key === 'Enter' || event.key === ',') {
 			event.preventDefault();
@@ -419,57 +437,14 @@
 				<div class="form-control mx-auto max-w-xl">
 					<label class="label" for="skills">
 						<span class="label-text">{$t('onboarding_auth.form.skills')}</span>
-						<span class="label-text-alt">{skills.length}/20</span>
+						<span class="label-text-alt">{selectedSkills.length}/20</span>
 					</label>
-					<div class="skills-input-group join w-full">
-						<input
-							type="text"
-							id="skills"
-							bind:value={skillsInput}
-							class="input input-bordered join-item flex-1"
-							style="border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important;"
-							placeholder={$t('onboarding_auth.form.add_skills')}
-							onkeydown={handleSkillKeypress}
-							disabled={saveForLater || skills.length >= 20}
-						/>
-						<button
-							type="button"
-							class="btn btn-neutral join-item"
-							onclick={addSkill}
-							disabled={saveForLater || !skillsInput || skills.length >= 20}
-						>
-							{$t('onboarding_auth.form.profile_setup.add')}
-						</button>
-					</div>
-					<div class="mt-2 flex flex-wrap gap-2">
-						{#each skills as skill, index}
-							<div class="badge badge-lg gap-1 bg-primary text-primary-content">
-								<span>
-									{skill.name}
-								</span>
-								<button
-									aria-label={$t('onboarding_auth.form.profile_setup.errors.remove_skill')}
-									type="button"
-									class="btn btn-ghost btn-xs p-0 text-primary-content"
-									onclick={() => removeSkill(index)}
-									disabled={saveForLater}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-3 w-3"
-										viewBox="0 0 20 20"
-										fill="currentColor"
-									>
-										<path
-											fill-rule="evenodd"
-											d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-											clip-rule="evenodd"
-										/>
-									</svg>
-								</button>
-							</div>
-						{/each}
-					</div>
+					<SkillsMultiselect
+						bind:selectedSkills={selectedSkills}
+						maxSelections={20}
+						placeholder={$t('onboarding_auth.form.add_skills')}
+						className="w-full"
+					/>
 				</div>
 
 				<!-- Save for Later Option -->
@@ -523,15 +498,3 @@
 	</div>
 {/if}
 
-<style>
-	/* Fix skills input styling to create seamless connection with Add button */
-	.skills-input-group .input.join-item {
-		border-top-right-radius: 0;
-		border-bottom-right-radius: 0;
-	}
-
-	.skills-input-group .btn.join-item {
-		border-top-left-radius: 0;
-		border-bottom-left-radius: 0;
-	}
-</style>

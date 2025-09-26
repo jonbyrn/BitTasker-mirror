@@ -1,6 +1,7 @@
 <script lang="ts">
   import { UpdateUserProfileStore } from '$houdini';
   import type { User } from '$houdini';
+  import { t } from 'svelte-i18n';
 
   let { user } = $props<{
     user: User | null | undefined;
@@ -50,7 +51,7 @@
       await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
     } catch (err) {
       console.error('Failed to generate suggestions:', err);
-      error = err instanceof Error ? err.message : 'Failed to generate suggestions';
+      error = err instanceof Error ? err.message : $t('profile.ai_assistant.failed_to_generate');
     } finally {
       isGenerating = false;
     }
@@ -78,7 +79,7 @@
       if (toast) toast.style.display = 'block';
     } catch (err) {
       console.error('Failed to apply suggestion:', err);
-      error = err instanceof Error ? err.message : 'Failed to apply suggestion';
+      error = err instanceof Error ? err.message : $t('profile.ai_assistant.failed_to_apply');
     } finally {
       isGenerating = false;
     }
@@ -88,9 +89,9 @@
 <div class="space-y-6">
   <div class="flex items-center justify-between">
     <div>
-      <h3 class="text-lg font-medium">AI Profile Assistant</h3>
+      <h3 class="text-lg font-medium">{$t('profile.ai_assistant.title')}</h3>
       <p class="text-base-content/70">
-        Get AI-powered suggestions to improve your profile
+        {$t('profile.ai_assistant.description')}
       </p>
     </div>
     <button
@@ -101,7 +102,7 @@
       {#if isGenerating}
         <span class="loading loading-spinner"></span>
       {:else}
-        Generate Suggestions
+        {$t('profile.ai_assistant.generate_suggestions')}
       {/if}
     </button>
   </div>
@@ -116,15 +117,15 @@
             <div class="grid gap-4 md:grid-cols-2">
               <!-- Current Content -->
               <div>
-                <h5 class="mb-2 font-medium text-base-content/70">Current</h5>
+                <h5 class="mb-2 font-medium text-base-content/70">{$t('profile.ai_assistant.current')}</h5>
                 <p class="rounded-lg bg-base-100 p-3">
-                  {current || 'Not set'}
+                  {current || $t('profile.ai_assistant.not_set')}
                 </p>
               </div>
 
               <!-- Suggested Content -->
               <div>
-                <h5 class="mb-2 font-medium text-primary">Suggested</h5>
+                <h5 class="mb-2 font-medium text-primary">{$t('profile.ai_assistant.suggested')}</h5>
                 <p class="rounded-lg bg-primary/10 p-3">
                   {suggestion}
                 </p>
@@ -133,7 +134,7 @@
 
             <div class="mt-4">
               <p class="text-sm text-base-content/70">
-                <span class="font-medium">Why?</span> {reason}
+                <span class="font-medium">{$t('profile.ai_assistant.why')}</span> {reason}
               </p>
             </div>
 
@@ -146,7 +147,7 @@
                 {#if isGenerating}
                   <span class="loading loading-spinner"></span>
                 {:else}
-                  Apply Suggestion
+                  {$t('profile.ai_assistant.apply_suggestion')}
                 {/if}
               </button>
             </div>
@@ -156,7 +157,7 @@
     </div>
   {:else if !isGenerating}
     <div class="alert">
-      <span>Click "Generate Suggestions" to get AI-powered recommendations for your profile.</span>
+      <span>{$t('profile.ai_assistant.click_to_generate')}</span>
     </div>
   {/if}
 
@@ -171,6 +172,6 @@
 <!-- Success Toast -->
 <div id="ai-toast-success" class="toast toast-end" style="display: none;">
   <div class="alert alert-outline alert-success">
-    <span>Suggestion applied successfully!</span>
+    <span>{$t('profile.ai_assistant.suggestion_applied')}</span>
   </div>
 </div> 

@@ -13,7 +13,7 @@
             "website_placeholder": "https://ejemplo.com",
             "description": "Descripción del Perfil",
             "description_placeholder": "Cuéntale a los clientes sobre tu experiencia profesional, especialidad y qué te hace único...",
-            "save": "Guardar Información Personal"
+            "save": "Guardar"
         },
         "skills": {
             "title": "Habilidades y Experiencia",
@@ -37,13 +37,31 @@
             "cert_upload": "Subir Certificado",
             "save": "Guardar Habilidades",
             "no_skills": "Aún no hay habilidades agregadas. Agrega algunas habilidades para mostrar tu experiencia.",
-            "save_success": "¡Habilidades guardadas exitosamente!"
+            "save_success": "¡Habilidades guardadas exitosamente!",
+            "skill_not_found": "Habilidad no encontrada",
+            "fill_certification_fields": "Por favor completa todos los campos de certificación",
+            "certification_added_success": "¡Certificación agregada exitosamente!",
+            "failed_to_add_certification": "Error al agregar certificación",
+            "skills_updated_success": "¡Habilidades actualizadas exitosamente!",
+            "failed_to_save_skills": "Error al guardar habilidades",
+            "certification_not_found": "Certificación no encontrada",
+            "certification_removed_success": "¡Certificación eliminada exitosamente!",
+            "failed_to_remove_certification": "Error al eliminar certificación",
+            "endorsements": "avalaciones",
+            "endorsement": "avalación"
         },
         "video": {
             "description": "Sube un video corto de introducción (máximo 3 minutos)",
             "upload_title": "Subir Video",
             "upload_desc": "Graba o sube un video corto de introducción",
-            "max_size": "Tamaño máximo del archivo: 100MB"
+            "max_size": "Tamaño máximo del archivo: 100MB",
+            "failed_to_connect": "Error al conectar con el relay de Nostr. Intenta de nuevo más tarde.",
+            "failed_to_upload": "Error al subir video",
+            "failed_to_access_camera": "Error al acceder a la cámara y micrófono",
+            "failed_to_save_recording": "Error al guardar grabación",
+            "failed_to_remove": "Error al eliminar video",
+            "stop_recording": "Detener Grabación",
+            "record_video": "Grabar Video"
         },
         "portfolio": {
             "title": "Portafolio",
@@ -62,7 +80,14 @@
             "completion_date": "Fecha de Finalización",
             "skills_used": "Habilidades Utilizadas",
             "add_images": "Agregar Imágenes",
-            "save": "Guardar Proyecto"
+            "save": "Guardar Proyecto",
+            "please_fill_required": "Por favor completa todos los campos requeridos y agrega al menos una imagen",
+            "item_updated_success": "¡Elemento del portafolio actualizado exitosamente!",
+            "item_added_success": "¡Elemento del portafolio agregado exitosamente!",
+            "failed_to_save": "Error al guardar elemento del portafolio",
+            "item_deleted_success": "¡Elemento del portafolio eliminado exitosamente!",
+            "item_not_found": "Elemento del portafolio no encontrado",
+            "failed_to_remove": "Error al eliminar elemento del portafolio"
         },
         "availability": {
             "timezone": "Tu Zona Horaria",
@@ -80,7 +105,6 @@
             "end_time": "Hora de Fin"
         },
         "services": {
-            "add_service": "Agregar Servicio",
             "edit_service": "Editar Servicio",
             "service_name": "Nombre del Servicio",
             "service_name_placeholder": "ej. Desarrollo de Sitio Web Básico",
@@ -91,7 +115,21 @@
             "delete_confirm": "¿Estás seguro de que quieres eliminar este servicio?",
             "custom_quote": "Permitir Solicitudes de Cotización Personalizada",
             "no_services": "Aún no hay servicios agregados. Agrega algunos servicios para comenzar a recibir reservas.",
-            "save": "Guardar Servicios"
+            "save": "Guardar Servicios",
+            "please_fill_required": "Por favor completa todos los campos requeridos",
+            "service_updated_success": "¡Servicio actualizado exitosamente!",
+            "service_added_success": "¡Servicio agregado exitosamente!",
+            "failed_to_save": "Error al guardar servicio",
+            "cannot_delete_no_id": "No se puede eliminar servicio: No se encontró ID",
+            "service_deleted_success": "¡Servicio eliminado exitosamente!",
+            "failed_to_remove": "Error al eliminar servicio",
+            "customizable": "Personalizable",
+            "update_service": "Actualizar Servicio",
+            "add_service": "Agregar Servicio",
+            "cancel": "Cancelar",
+            "minutes": "minutos",
+            "hour": "hora",
+            "hours": "horas"
         },
         "page": {
             "title": "Mi Perfil",
@@ -100,6 +138,9 @@
             "logout_profile": "Cerrar sesión",
             "completion": "Completado del Perfil",
             "completion_desc": "Completa tu perfil para aumentar la visibilidad y confianza",
+            "collapse": "Contraer",
+            "save_all_and_exit": "Guardar todo y Salir",
+            "saving": "Guardando...",
             "sections": {
                 "personal_info": "Información Personal",
                 "skills": "Habilidades y Experiencia",
@@ -131,5 +172,19 @@
         "rating": "Calificación",
         "responseRate": "Tasa de Respuesta",
         "onTimeRate": "Tasa de Puntualidad"
+    },
+    "ai_assistant": {
+        "title": "Asistente de Perfil con IA",
+        "description": "Obtén sugerencias impulsadas por IA para mejorar tu perfil",
+        "generate_suggestions": "Generar Sugerencias",
+        "current": "Actual",
+        "suggested": "Sugerido",
+        "why": "¿Por qué?",
+        "apply_suggestion": "Aplicar Sugerencia",
+        "not_set": "No establecido",
+        "click_to_generate": "Haz clic en \"Generar Sugerencias\" para obtener recomendaciones impulsadas por IA para tu perfil.",
+        "suggestion_applied": "¡Sugerencia aplicada exitosamente!",
+        "failed_to_generate": "Error al generar sugerencias",
+        "failed_to_apply": "Error al aplicar sugerencia"
     }
 }

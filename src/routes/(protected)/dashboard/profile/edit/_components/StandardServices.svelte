@@ -5,6 +5,9 @@
 	import { appStore } from '$lib/stores/app.store';
 	import { publishStandardServices, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import Input from '$lib/components/Input.svelte';
+	import { SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import cryptoPriceService from '$lib/api/services/crypto-price.service';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -22,6 +25,7 @@
 	let servicesForm = $state<HTMLDivElement | null>(null);
 	let currentEventId = $state<string | null>(null); // Track the current event ID
 	let isInitialLoading = $state(false);
+	let btcPrice = $state<number>(100000); // Default fallback price
 
 	// New service form state
 	let newService = $state<Partial<StandardService>>({
@@ -37,7 +41,7 @@
 	let isFormOpen = $derived(addingService || editingService);
 
 	// Available currencies
-	const currencies = ['BTC', 'USD'];
+	const currencies = ['USD', 'Sats'];
 
 	// Duration options (in minutes)
 	const durationOptions = [
@@ -53,12 +57,15 @@
 	let cleanup: (() => void) | null = null;
 
 	onMount(async () => {
+		// Fetch BTC price on mount
+		await fetchBtcPrice();
+		
 		cleanup = await subscribeToProfileUpdates(
 			async (event) => {
 				try {
 					isInitialLoading = true;
 					if (
-						event.kind === 30003 &&
+						event.kind === KINDS.PROFILE_STANDARD_SERVICES &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'standard-services')
 					) {
 						const servicesData = JSON.parse(event.content) as NostrStandardServices;
@@ -106,7 +113,7 @@
 	// Add or update service
 	async function handleSubmit() {
 		if (!newService.name || !newService.description || !newService.duration || !newService.price) {
-			error = 'Please fill in all required fields';
+			error = $t('profile.services.please_fill_required');
 			console.log('error', error);
 			return;
 		}
@@ -141,8 +148,8 @@
 
 			// Show success message
 			successMessage = editingService
-				? 'Service updated successfully!'
-				: 'Service added successfully!';
+				? $t('profile.services.service_updated_success')
+				: $t('profile.services.service_added_success');
 
 			setTimeout(() => (successMessage = ''), 2000);
 
@@ -150,7 +157,7 @@
 			resetForm();
 		} catch (err) {
 			console.error('Failed to save service:', err);
-			error = err instanceof Error ? err.message : 'Failed to save service';
+			error = err instanceof Error ? err.message : $t('profile.services.failed_to_save');
 		} finally {
 			isLoading = false;
 		}
@@ -159,10 +166,10 @@
 	// Remove service
 	async function removeService(service: StandardService) {
 		try {
-			if (!service.id) {
-				appStore.showErrorToast('Cannot delete service: No ID found');
-				return;
-			}
+		if (!service.id) {
+			appStore.showErrorToast($t('profile.services.cannot_delete_no_id'));
+			return;
+		}
 
 			isRemovingService = service.id;
 			error = '';
@@ -176,10 +183,10 @@
 			const tags = [['d', 'standard-services']];
 
 			await publishStandardServices(servicesData, tags);
-			appStore.showSuccessToast('Service deleted successfully!');
+			appStore.showSuccessToast($t('profile.services.service_deleted_success'));
 		} catch (err) {
 			console.error('Failed to remove service:', err);
-			error = err instanceof Error ? err.message : 'Failed to remove service';
+			error = err instanceof Error ? err.message : $t('profile.services.failed_to_remove');
 		} finally {
 			isRemovingService = null;
 		}
@@ -209,20 +216,45 @@
 
 	// Format price
 	function formatPrice(price: number, curr: string) {
+		if (curr === 'Sats') {
+			return `${price.toLocaleString('en-US')} sats`;
+		}
 		return new Intl.NumberFormat('en-US', {
 			style: 'currency',
 			currency: curr
 		}).format(price);
 	}
 
+	// Fetch BTC price on mount
+	async function fetchBtcPrice(): Promise<void> {
+		try {
+			btcPrice = await cryptoPriceService.getCurrentPrice('BTC');
+		} catch (error) {
+			console.error('Error fetching BTC price:', error);
+		}
+	}
+
+	// Convert Satoshis to USD using real-time BTC price
+	function satsToUsd(sats: number): number {
+		return (sats / SATS_PER_BTC) * btcPrice;
+	}
+
+	// Get price placeholder based on currency
+	function getPricePlaceholder(curr: string): string {
+		if (curr === 'Sats') {
+			return '5000';
+		}
+		return '5.55';
+	}
+
 	// Format duration
 	function formatDuration(minutes: number) {
-		if (minutes < 60) return `${minutes} minutes`;
+		if (minutes < 60) return `${minutes} ${$t('profile.services.minutes')}`;
 		const hours = Math.floor(minutes / 60);
 		const remainingMinutes = minutes % 60;
 		return remainingMinutes
 			? `${hours}h ${remainingMinutes}m`
-			: `${hours} hour${hours > 1 ? 's' : ''}`;
+			: `${hours} ${hours > 1 ? $t('profile.services.hours') : $t('profile.services.hour')}`;
 	}
 
 	// Track completion
@@ -230,6 +262,52 @@
 		const isComplete = services.length > 0;
 		onComplete(isComplete);
 	});
+
+	// Handle price input validation
+	function handlePriceInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		let value = target.value;
+
+		// For Satoshis, only allow whole numbers (no decimals)
+		if (newService.currency === 'Sats') {
+			// Remove any non-numeric characters
+			value = value.replace(/[^0-9]/g, '');
+			
+			// Ensure value is not negative
+			const numericValue = parseInt(value) || 0;
+			if (numericValue < 0) {
+				value = '0';
+			}
+		} else {
+			// For USD, allow decimals
+			// Remove any non-numeric characters except decimal point
+			value = value.replace(/[^0-9.]/g, '');
+
+			// Prevent multiple decimal points
+			const decimalCount = (value.match(/\./g) || []).length;
+			if (decimalCount > 1) {
+				value = value.replace(/\.(?=.*\.)/, '');
+			}
+
+			// Limit to 2 decimal places
+			if (value.includes('.')) {
+				const parts = value.split('.');
+				if (parts[1] && parts[1].length > 2) {
+					value = parts[0] + '.' + parts[1].substring(0, 2);
+				}
+			}
+
+			// Ensure value is not negative
+			const numericValue = parseFloat(value);
+			if (numericValue < 0) {
+				value = '0';
+			}
+		}
+
+		// Update the input value and the state
+		target.value = value;
+		newService.price = newService.currency === 'Sats' ? parseInt(value) || 0 : parseFloat(value) || 0;
+	}
 </script>
 
 {#if isInitialLoading}
@@ -393,24 +471,31 @@
 										{/each}
 									</select>
 									<input
-										type="number"
+										type="text"
 										id="servicePrice"
-										bind:value={newService.price}
+										value={newService.price?.toString() || ''}
 										required={true}
-										min="0"
-										step="0.01"
+										placeholder={getPricePlaceholder(newService.currency || 'USD')}
 										class="input input-bordered join-item w-full {!newService.price && error
 											? 'border-error'
 											: ''}"
+										oninput={handlePriceInput}
 									/>
 								</div>
+								{#if newService.currency === 'Sats' && newService.price && newService.price > 0}
+									<div class="label">
+										<span class="label-text-alt text-base-content/70">
+											≈ ${satsToUsd(newService.price).toFixed(2)} USD
+										</span>
+									</div>
+								{/if}
 							</div>
 						</div>
 
 						<!-- Customizable -->
 						<div class="form-control flex items-center justify-start">
 							<label class="label cursor-pointer">
-								<span class="label-text font-medium">Customizable</span>
+								<span class="label-text font-medium">{$t('profile.services.customizable')}</span>
 								<input
 									type="checkbox"
 									bind:checked={newService.isCustomizable}
@@ -436,7 +521,7 @@
 						<!-- Form Actions -->
 						<div class="flex justify-end gap-2">
 							{#if editingService}
-								<button class="btn btn-ghost" onclick={resetForm}> Cancel </button>
+								<button class="btn btn-ghost" onclick={resetForm}>{$t('profile.services.cancel')}</button>
 							{/if}
 							<button
 								class="btn btn-primary"
@@ -446,7 +531,7 @@
 								{#if isLoading}
 									<span class="loading loading-spinner"></span>
 								{/if}
-								{editingService ? 'Update Service' : 'Add Service'}
+								{editingService ? $t('profile.services.update_service') : $t('profile.services.add_service')}
 							</button>
 						</div>
 					</div>
@@ -509,7 +594,7 @@
 										{formatDuration(service.duration)}
 									</span>
 									{#if service.isCustomizable}
-										<span class="badge badge-secondary"> Customizable </span>
+										<span class="badge badge-secondary">{$t('profile.services.customizable')}</span>
 									{/if}
 								</div>
 							</div>

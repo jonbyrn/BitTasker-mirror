@@ -1,0 +1,118 @@
+<script lang="ts">
+	import Multiselect from 'svelte-multiselect';
+
+	let {
+		selectedSkills = $bindable([]),
+		maxSelections = 10,
+		placeholder = 'Add skills...',
+		className = '',
+		onChange = () => {}
+	} = $props();
+
+	// Handle skills change and call onChange callback
+	$effect(() => {
+		onChange(selectedSkills);
+	});
+</script>
+
+<div class="skills-multiselect {className}">
+	<Multiselect
+		allowUserOptions="append"
+		bind:selected={selectedSkills}
+		max={maxSelections}
+		{placeholder}
+		noMatchingOptionsMsg="No matching skills found"
+		createOptionMsg="Add new skill"
+		outerDivClass="skills-multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
+		ulSelectedClass="selected-options flex flex-wrap gap-2 p-0 m-0"
+		liSelectedClass="selected-option bg-primary text-primary-content rounded-full px-3 py-1 flex items-center gap-1 text-sm"
+		ulOptionsClass="skills-options bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto absolute top-full left-0 right-0 z-50 mt-1 transition-colors"
+		liOptionClass="skills-option p-3 cursor-pointer transition-colors text-base-content"
+		liActiveOptionClass="skills-option-active bg-primary text-primary-content"
+		maxSelectMsgClass="skills-max-select-message text-xs text-neutral ml-auto"
+		options={[]}
+	/>
+</div>
+
+<style>
+	:global(.skills-multiselect-wrapper) {
+		--sms-bg: var(--color-base-100);
+		--sms-text-color: var(--color-base-content);
+		--sms-border: var(--color-base-200);
+		--sms-border-radius: 0.5rem;
+		--sms-padding: 0.75rem;
+		--sms-font-size: 0.875rem;
+		--sms-active-color: var(--color-primary);
+		--sms-focus-border: 1px solid var(--color-primary);
+		--sms-selected-bg: var(--color-primary);
+		--sms-selected-text-color: var(--color-primary-content);
+		--sms-options-bg: var(--color-base-100);
+		--sms-options-max-height: 12rem;
+		--sms-options-border: 1px solid var(--color-base-200);
+		--sms-options-border-radius: 0.5rem;
+		--sms-options-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+		--sms-li-active-bg: var(--color-primary);
+		--sms-li-selected-bg: var(--color-primary);
+		--sms-li-selected-color: var(--color-primary-content);
+		--sms-placeholder-color: var(--color-neutral);
+		--sms-placeholder-opacity: 0.7;
+		--sms-remove-btn-hover-color: var(--color-primary-content);
+		--sms-remove-btn-hover-bg: rgba(0, 0, 0, 0.2);
+		padding: 8px !important;
+	}
+
+	:global(.skills-multiselect) {
+		border: 2px solid oklab(0.999994 0.0000455678 0.0000200868 / 0.2);
+		border-radius: 0.5rem !important;
+		transition: border-color 0.2s ease;
+	}
+
+	/* Light mode border color */
+	:global(:root[data-theme='light'] .skills-multiselect) {
+		border: 2px solid oklab(0.182191 0.0000082776 0.00000365078 / 0.2);
+	}
+
+	/* Active/focus state - primary color for both modes */
+	:global(.skills-multiselect:focus-within) {
+		border: 2px solid var(--color-primary) !important;
+	}
+	
+	/* Wrapper styling now handled by Tailwind classes */
+	:global(.skills-multiselect-wrapper:focus-within) {
+		border: var(--sms-focus-border);
+		outline: none;
+	}
+
+	/* Input styling now handled by Tailwind classes */
+	:global(.skills-multiselect-wrapper .multiselect-input) {
+		background: transparent;
+		border: none;
+		outline: none;
+		color: var(--sms-text-color);
+		padding: 0;
+		font-size: var(--sms-font-size);
+	}
+
+	:global(.skills-multiselect-wrapper .multiselect-input::placeholder) {
+		color: var(--sms-placeholder-color);
+		opacity: var(--sms-placeholder-opacity);
+	}
+
+	/* Selected options styling now handled by Tailwind classes */
+	/* Selected option styling now handled by Tailwind classes */
+	/* Remove button styling now handled by Tailwind classes */
+	/* Max select message styling now handled by Tailwind classes */
+
+	/* Hide dropdown menu completely */
+	:global(.skills-multiselect-wrapper .skills-options) {
+		display: none !important;
+	}
+
+	/* Dropdown is hidden, no need for light mode styling */
+
+	/* Option items styling now handled by Tailwind classes */
+	/* Active option styling now handled by Tailwind classes */
+	/* Selected option styling now handled by Tailwind classes */
+
+	/* Dropdown is hidden, no need for scrollbar styling */
+</style>

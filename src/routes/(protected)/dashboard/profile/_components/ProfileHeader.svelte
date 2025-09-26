@@ -56,12 +56,12 @@
 			<div class="mb-4 flex items-center gap-4 md:mb-0">
 				<Avatar name={userName} picture={userPicture()} size="xl" />
 				<div>
-					<div class="flex items-center gap-2">
-						<h3 class="">
+					<div class="flex flex-wrap items-center gap-2">
+						<h3 class="truncate">
 							{userName}
 						</h3>
 						{#if $profileStore.data.professionalTitle}
-							<div class="badge badge-primary">{$profileStore.data.professionalTitle}</div>
+							<div class="badge badge-primary whitespace-nowrap leading-tight break-words w-fit mb-2">{$profileStore.data.professionalTitle}</div>
 						{/if}
 					</div>
 					{#if $profileStore.data.website}

@@ -23,6 +23,7 @@
       "bids": "Bids",
       "bid_on_task": "Bid on this task",
       "bid_now": "Bid Now",
+      "bid_sent": "Bid Sent",
       "view_task": "View Task",
       "bidding_closed": "Bidding closed",
       "no_tasks_found": "No tasks found",
@@ -55,6 +56,8 @@
       "toggle_categories_section": "Toggle Categories filter section",
       "toggle_skills_section": "Toggle Skills filter section",
       "no_results_title": "No results found",
-      "no_results_message": "Try adjusting your filters or search criteria"
+      "no_results_message": "Try adjusting your filters or search criteria",
+      "view_list": "View List",
+      "view_map": "View Map"
     }
   }

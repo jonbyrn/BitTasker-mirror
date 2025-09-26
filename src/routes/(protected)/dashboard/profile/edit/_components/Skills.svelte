@@ -10,7 +10,8 @@
 		deleteNostrEvent
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
-	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import DateInput from '$lib/components/date/DateInput.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -23,8 +24,6 @@
 	let error = $state('');
 	let selectedSkill = $state<Skill | null>(null);
 	let isAddingCertificate = $state(false);
-	let isEditingCertificate = $state(false);
-	let editingCertificationId = $state<string | null>(null);
 	let isInitialLoading = $state(false);
 	let cleanup: (() => void) | null = null;
 	let certification = $state<{
@@ -45,7 +44,7 @@
 			(event) => {
 				try {
 					isInitialLoading = true;
-					if (event.kind === 30000 && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
+					if (event.kind === KINDS.PROFILE_SKILLS && event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')) {
 						// Handle skills update
 						const skillsData = JSON.parse(event.content);
 						if (Array.isArray(skillsData)) {
@@ -55,7 +54,7 @@
 							}));
 						}
 					} else if (
-						event.kind === 1063 &&
+						event.kind === KINDS.FILE_METADATA &&
 						event.tags.find((t) => t[0] === 'd' && t[1] === 'certification')
 					) {
 						// Handle certification
@@ -123,7 +122,7 @@
 		// Delete all certifications for this skill
 		const skillCerts = Object.values(certifications).filter((cert) => cert.skillId === skill.id);
 		for (const cert of skillCerts) {
-			await deleteNostrEvent(cert.eventId, '1063');
+			await deleteNostrEvent(cert.eventId, KINDS.FILE_METADATA.toString());
 			delete certifications[cert.eventId];
 		}
 
@@ -146,10 +145,10 @@
 	// Add certification to skill
 	async function addCertification() {
 		try {
-			if (!selectedSkill || !selectedSkill.id) {
-				error = 'Skill not found';
-				return;
-			}
+		if (!selectedSkill || !selectedSkill.id) {
+			error = $t('profile.skills.skill_not_found');
+			return;
+		}
 
 			if (
 				!certification.name ||
@@ -157,7 +156,7 @@
 				!certification.date ||
 				!certification.file
 			) {
-				error = 'Please fill in all certification fields';
+				error = $t('profile.skills.fill_certification_fields');
 				return;
 			}
 
@@ -165,7 +164,7 @@
 
 			const skillIndex = skills.findIndex((skill) => skill.id === selectedSkill?.id);
 			if (skillIndex === -1) {
-				error = 'Skill not found';
+				error = $t('profile.skills.skill_not_found');
 				return;
 			}
 
@@ -190,10 +189,10 @@
 			};
 			selectedSkill = null;
 			isAddingCertificate = false;
-			appStore.showSuccessToast('Certification added successfully!');
+			appStore.showSuccessToast($t('profile.skills.certification_added_success'));
 		} catch (err) {
 			console.error('Failed to add certification:', err);
-			error = err instanceof Error ? err.message : 'Failed to add certification';
+			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_add_certification');
 			appStore.showErrorToast(error);
 		} finally {
 			isLoading = false;
@@ -209,10 +208,10 @@
 			// Publish skills update
 			await publishSkillsUpdate(skills);
 
-			appStore.showSuccessToast('Skills updated successfully!');
+			appStore.showSuccessToast($t('profile.skills.skills_updated_success'));
 		} catch (err) {
 			console.error('Failed to save skills:', err);
-			error = err instanceof Error ? err.message : 'Failed to save skills';
+			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_save_skills');
 		} finally {
 			isLoading = false;
 		}
@@ -221,13 +220,13 @@
 	// Remove certification
 	async function removeCertification(certId: string) {
 		try {
-			const cert = certifications[certId];
-			if (!cert) {
-				throw new Error('Certification not found');
-			}
+		const cert = certifications[certId];
+		if (!cert) {
+			throw new Error($t('profile.skills.certification_not_found'));
+		}
 
 			// Delete the certification event
-			await deleteNostrEvent(cert.eventId, '1063');
+			await deleteNostrEvent(cert.eventId, KINDS.FILE_METADATA.toString());
 
 			// Remove from local state
 			delete certifications[certId];
@@ -237,10 +236,10 @@
 				certifications: skill.certifications.filter((id) => id !== certId)
 			}));
 
-			appStore.showSuccessToast('Certification removed successfully!');
+			appStore.showSuccessToast($t('profile.skills.certification_removed_success'));
 		} catch (err) {
 			console.error('Failed to remove certification:', err);
-			error = err instanceof Error ? err.message : 'Failed to remove certification';
+			error = err instanceof Error ? err.message : $t('profile.skills.failed_to_remove_certification');
 			appStore.showErrorToast(error);
 		}
 	}
@@ -313,8 +312,8 @@
 {:else}
 	<div class="space-y-6">
 		<!-- Add New Skill -->
-		<div class="grid gap-4">
-			<div class="form-control">
+		<div class=" gap-4">
+			<div class="form-control py-2">
 				<label class="label" for="newSkillName">
 					<span class="label-text font-medium">{$t('profile.skills.skill_name')}</span>
 				</label>
@@ -327,10 +326,14 @@
 				/>
 			</div>
 
-			<div class="form-control">
-				<label class="label" for="newSkillLevel">
+			<div class="form-control py-2">
+				<label class="label line-clamp-2 md:line-clamp-1" for="newSkillLevel">
 					<span class="label-text font-medium">{$t('profile.skills.proficiency')}</span>
-					<span class="label-text-alt">1 = {$t('profile.skills.proficiency_beginner')}, 5 = {$t('profile.skills.proficiency_expert')}</span>
+					<span class="label-text-alt block md:flex"
+						>1 = {$t('profile.skills.proficiency_beginner')}, 5 = {$t(
+							'profile.skills.proficiency_expert'
+						)}</span
+					>
 				</label>
 				<input
 					type="range"
@@ -340,7 +343,7 @@
 					max="5"
 					class="range range-primary range-xs w-full"
 				/>
-				<div class="flex w-full justify-between px-2 text-xs">
+				<div class="flex w-full justify-between text-xs">
 					<span>1</span>
 					<span>2</span>
 					<span>3</span>
@@ -349,9 +352,9 @@
 				</div>
 			</div>
 
-			<div class="form-control flex items-end">
+			<div class="flex justify-end">
 				<button
-					class="btn btn-primary w-full"
+					class="btn btn-primary"
 					onclick={addSkill}
 					disabled={!newSkillName.trim() || isLoading}
 				>
@@ -386,7 +389,9 @@
 
 								<!-- Skill Level -->
 								<div class="flex items-center gap-2">
-									<label class="pr-2 text-sm font-medium" for={`rating-${i}`}>{$t('profile.skills.proficiency')}</label>
+									<label class="pr-2 text-sm font-medium" for={`rating-${i}`}
+										>{$t('profile.skills.proficiency')}</label
+									>
 									<div class="rating rating-sm">
 										{#each Array(5) as _, j}
 											<input
@@ -401,9 +406,9 @@
 								</div>
 
 								<!-- Status and Endorsements -->
-								<div class="mt-2 flex items-center gap-2">
+								<div class="mt-2 flex flex-wrap items-center gap-2">
 									<span
-										class="badge {skill.verificationStatus === 'verified'
+										class="badge w-fit {skill.verificationStatus === 'verified'
 											? 'badge-success'
 											: skill.verificationStatus === 'pending'
 												? 'badge-warning'
@@ -411,8 +416,10 @@
 									>
 										{skill.verificationStatus}
 									</span>
-									<span class="badge badge-outline">
-										{skill.endorsements} endorsement{skill.endorsements !== 1 ? 's' : ''}
+									<span
+										class="badge badge-outline w-fit leading-tight break-words whitespace-nowrap"
+									>
+										{skill.endorsements} {skill.endorsements !== 1 ? $t('profile.skills.endorsements') : $t('profile.skills.endorsement')}
 									</span>
 								</div>
 
@@ -467,13 +474,16 @@
 
 										<!-- Issue Date -->
 										<div class="form-control">
-											<DatePicker
-												label={$t('profile.skills.cert_date')}
-												value={certification.date}
-												maxDate={new Date().toISOString()}
-												onChange={(value: string) => {
-													certification.date = value;
+											<DateInput
+												value={certification.date ? new Date(certification.date) : null}
+												onChange={(date: Date | null) => {
+													certification.date = date ? date.toISOString() : '';
 												}}
+												minDate={new Date()}
+												type="single"
+												labelKey="profile.skills.cert_date"
+												placeholderKey="profile.airdatepicker.select_date"
+												maxDate={undefined}
 											/>
 										</div>
 

@@ -1,25 +1,31 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { SearchTasksParams, Task } from '$lib/types/task.d';
 import { type Event, type Filter } from 'nostr-tools';
 import { browser } from '$app/environment';
 import { tasksStore } from '$lib/stores/task.store';
 import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
-import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
+// import { getDateRangeTags } from '$lib/utils/helpers/dateTier';
 import nostrEventsService from '$lib/api/services/nostr/events';
 import KINDS from '$lib/utils/constants/kinds';
-import { getNpub } from '$lib/utils/nostrKeys';
+import { 
+	indexTaskData, 
+	filterIndexedTasks, 
+	cleanupIndexedTasks, 
+	performanceMonitor,
+	type IndexedTask 
+} from '$lib/utils/task-indexing';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Memory cache
-const cache = new Map<string, { data: Task[]; timestamp: number }>();
+// Memory cache with indexed tasks for better performance
+const cache = new Map<string, { data: IndexedTask[]; timestamp: number }>();
 
 /**
  * Convert search params to Nostr filter
  */
 function createTaskFilter(params: SearchTasksParams): Filter {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Filter & { [key: string]: any } = {
         kinds: [KINDS.TASK_CREATION],
         limit: params.limit || BATCH_SIZE,
@@ -54,15 +60,15 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['S'] = params.status;
     }
 
-    // Category filter
-    if (params.categories && params.categories.length > 0) {
-        filter['c'] = params.categories;
-    }
+    // Category filter - REMOVED: Now handled in frontend filtering
+    // if (params.categories && params.categories.length > 0) {
+    //     filter['c'] = params.categories;
+    // }
 
-    // Skills filter
-    if (params.skills && params.skills.length > 0) {
-        filter['s'] = params.skills;
-    }
+    // Skills filter - REMOVED: Now handled in frontend filtering
+    // if (params.skills && params.skills.length > 0) {
+    //     filter['s'] = params.skills;
+    // }
 
     // Budget filters
     if (params.budget?.tier) {
@@ -75,19 +81,21 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter['t'] = [params.budget.type];
     }
 
-    // Date tier filtering
-    if (params.dateRange) {
-        const dateRangeTags = getDateRangeTags(params.dateRange?.end, params.dateRange?.start);
-        filter['M'] = dateRangeTags.months;
-        filter['D'] = dateRangeTags.days;
-    }
+    // Date range filtering - we'll handle this in frontend filtering
+    // since Nostr doesn't have native date range filtering
+    // if (params.dateRange) {
+    //     const dateRangeTags = getDateRangeTags(params.dateRange?.end, params.dateRange?.start);
+    //     filter['M'] = dateRangeTags.months;
+    //     filter['D'] = dateRangeTags.days;
+    // }
 
-    // Deadline filter using tier system (single date)
-    if (params.deadline) {
-        const dateRangeTags = getDateRangeTags(params.deadline);
-        filter['M'] = dateRangeTags.months;
-        filter['D'] = dateRangeTags.days;
-    }
+    // Deadline filtering - we'll handle this in frontend filtering
+    // since we need to compare actual deadline dates
+    // if (params.deadline) {
+    //     const dateRangeTags = getDateRangeTags(params.deadline);
+    //     filter['M'] = dateRangeTags.months;
+    //     filter['D'] = dateRangeTags.days;
+    // }
 
 
     // Task type filter (onsite or remote)
@@ -106,6 +114,8 @@ function createTaskFilter(params: SearchTasksParams): Filter {
         filter.search = params.search.trim();
     }
 
+    // Always filter to show only OPEN tasks
+    // Override any status filter to ensure we only show active tasks
     filter['S'] = [TaskStatusEnum.OPEN];
 
     return filter;
@@ -135,18 +145,28 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
         const cacheKey = JSON.stringify(filter);
         const cached = cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            const tasks = cached.data;
+            // Use optimized filtering with pre-indexed data
+            const { tasks: filteredTasks, metrics } = filterIndexedTasks(cached.data, params);
+            metrics.cacheHit = true;
+            performanceMonitor.addMetric(metrics);
+
+            // Convert back to regular Task objects for the store
+            const cleanTasks = cleanupIndexedTasks(filteredTasks);
+
             tasksStore.update(state => ({
                 ...state,
-                items: tasks, // Reemplazar en lugar de concatenar
+                items: cleanTasks,
                 loading: false,
                 currentPage: params.page || 1,
-                hasMore: tasks.length >= (params.limit || BATCH_SIZE),
+                hasMore: cleanTasks.length >= (params.limit || BATCH_SIZE),
             }));
+
+            console.debug(`[FindTasks] Cache hit - returned ${cleanTasks.length} tasks in ${metrics.filterTime.toFixed(2)}ms`);
+            
             return {
-                tasks,
-                total: tasks.length,
-                hasMore: tasks.length >= (params.limit || BATCH_SIZE)
+                tasks: cleanTasks,
+                total: cleanTasks.length,
+                hasMore: cleanTasks.length >= (params.limit || BATCH_SIZE)
             };
         }
 
@@ -156,27 +176,38 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
             const events = response.data || [];
             const total = events.length;
 
-            const npub = await getNpub();
-            
-            // TODO: To be removed and handled by the find-tasks page for better performance
-            const tasks = events.filter((event: Event) => event.pubkey !== npub).map((event: Event) => convertEventToTask(event));
+            // For public users, show all tasks without filtering by npub
+            // This avoids triggering biometric authentication for public users
+            const rawTasks = events.map((event: Event) => convertEventToTask(event));
 
-            // Update cache
-            cache.set(cacheKey, { data: tasks, timestamp: Date.now() });
+            // Pre-index tasks for optimized filtering
+            const indexedTasks = indexTaskData(rawTasks);
+
+            // Apply optimized frontend filtering
+            const { tasks: filteredTasks, metrics } = filterIndexedTasks(indexedTasks, params);
+            performanceMonitor.addMetric(metrics);
+
+            // Update cache with indexed data for faster subsequent operations
+            cache.set(cacheKey, { data: indexedTasks, timestamp: Date.now() });
+
+            // Convert back to regular Task objects for the store
+            const cleanTasks = cleanupIndexedTasks(filteredTasks);
 
             // Update store - REEMPLAZAR en lugar de concatenar
             tasksStore.update(state => ({
                 ...state,
-                items: params.page === 1 ? tasks : [...state.items, ...tasks], // Solo concatenar si no es la primera página
+                items: params.page === 1 ? cleanTasks : [...state.items, ...cleanTasks], // Solo concatenar si no es la primera página
                 loading: false,
                 currentPage: params.page || 1,
-                hasMore: tasks.length >= (params.limit || BATCH_SIZE),
+                hasMore: cleanTasks.length >= (params.limit || BATCH_SIZE),
             }));
 
+            console.debug(`[FindTasks] Fresh data - processed ${rawTasks.length} → ${cleanTasks.length} tasks (index: ${metrics.indexTime?.toFixed(2)}ms, filter: ${metrics.filterTime.toFixed(2)}ms)`);
+
             return {
-                tasks,
-                total,
-                hasMore: tasks.length >= (params.limit || BATCH_SIZE)
+                tasks: cleanTasks,
+                total: cleanTasks.length,
+                hasMore: cleanTasks.length >= (params.limit || BATCH_SIZE)
             };
         } catch (apiError) {
             console.error('API request failed - ', apiError);
@@ -203,12 +234,19 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
  */
 export function cleanup(): void {
     cache.clear();
+    performanceMonitor.clear();
+}
+
+/**
+ * Get performance metrics for task filtering operations
+ */
+export function getFilterPerformanceReport() {
+    return performanceMonitor.getPerformanceReport();
 }
 
 // Cleanup pool and subscriptions when browser closes
 if (browser) {
     window.addEventListener('beforeunload', () => {
-        console.log('Cleaning up Nostr connections');
         cache.clear();
     });
 }

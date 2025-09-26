@@ -62,4 +62,6 @@ export interface LocationProps {
 	location?: Location;
 	defaultLocation?: Location;
 	onLocationSelect: (location: Location) => void;
+	showMap?: boolean;
+	mapHeight?: string;
 }

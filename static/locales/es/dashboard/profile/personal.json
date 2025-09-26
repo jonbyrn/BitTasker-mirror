@@ -6,8 +6,12 @@
       "professionalTitle": "Título profesional",
       "website": "Sitio web",
       "profileDescription": "Descripción del perfil",
-      "savePersonalInfo": "Guardar información personal",
+      "savePersonalInfo": "Guardar",
       "add_images": "Agregar Imágenes",
-      "profileDescriptionPlaceholder": "Cuéntales a los clientes sobre tu experiencia profesional, tus habilidades y lo que te hace único..."
+      "profileDescriptionPlaceholder": "Cuéntales a los clientes sobre tu experiencia profesional, tus habilidades y lo que te hace único...",
+      "failed_to_connect": "Error al conectar con el relay de Nostr. Intenta de nuevo más tarde.",
+      "failed_to_update": "Error al actualizar perfil",
+      "professional_title_placeholder": "ej. Ingeniero de Software",
+      "website_placeholder": "https://ejemplo.com"
     }
   }

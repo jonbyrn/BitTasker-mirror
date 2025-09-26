@@ -10,8 +10,9 @@
 	} from '$lib/nostr/profile';
 	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
-	import Tags from '$lib/components/Tags.svelte';
-	import DatePicker from '$lib/components/date/DatePicker.svelte';
+	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
+	import DateInput from '$lib/components/date/DateInput.svelte';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{
 		onComplete: (completed: boolean) => void;
@@ -46,7 +47,7 @@
 			async (event) => {
 				try {
 					isInitialLoading = true;
-					if (event.kind === 30001) {
+					if (event.kind === KINDS.PROFILE_PORTFOLIO) {
 						const item = JSON.parse(event.content);
 						const identifier = event.tags[0][1];
 						if (!portfolioItems.some((item) => item?.tags?.[0]?.[1] === identifier)) {
@@ -59,7 +60,7 @@
 								portfolioItems[index] = { id: event.id, ...item, tags: event.tags };
 							}
 						}
-					} else if (event.kind === 30000) {
+					} else if (event.kind === KINDS.PROFILE_SKILLS) {
 						skills = JSON.parse(event.content);
 					}
 				} catch (err) {
@@ -123,7 +124,7 @@
 	// Add or update portfolio item
 	async function handleSubmit() {
 		if (!title || !description || !completionDate || images.length === 0) {
-			error = 'Please fill in all required fields and add at least one image';
+			error = $t('profile.portfolio.please_fill_required');
 			return;
 		}
 
@@ -155,8 +156,8 @@
 
 			// Show success message
 			successMessage = editingItem
-				? 'Portfolio item updated successfully!'
-				: 'Portfolio item added successfully!';
+				? $t('profile.portfolio.item_updated_success')
+				: $t('profile.portfolio.item_added_success');
 
 			setTimeout(() => (successMessage = ''), 2000);
 
@@ -164,7 +165,7 @@
 			resetForm();
 		} catch (err) {
 			console.error('Failed to save portfolio item:', err);
-			error = err instanceof Error ? err.message : 'Failed to save portfolio item';
+			error = err instanceof Error ? err.message : $t('profile.portfolio.failed_to_save');
 		} finally {
 			isLoading = false;
 		}
@@ -179,13 +180,13 @@
 			if (item.id) {
 				await deletePortfolioItem(item.id);
 				portfolioItems = portfolioItems.filter((i) => i.id !== item.id);
-				appStore.showSuccessToast('Portfolio item deleted successfully!');
+				appStore.showSuccessToast($t('profile.portfolio.item_deleted_success'));
 			} else {
-				appStore.showErrorToast('Portfolio item not found');
+				appStore.showErrorToast($t('profile.portfolio.item_not_found'));
 			}
 		} catch (err) {
 			console.error('Failed to remove portfolio item:', err);
-			error = err instanceof Error ? err.message : 'Failed to remove portfolio item';
+			error = err instanceof Error ? err.message : $t('profile.portfolio.failed_to_remove');
 		} finally {
 			isRemovingItem = null;
 		}
@@ -383,32 +384,17 @@
 						></textarea>
 					</div>
 
-					<!-- Category -->
-					<!-- <div class="form-control">
-							<label class="label" for="category">
-								<span class="label-text font-medium">Category</span>
-								<span class="label-text-alt">Required</span>
-							</label>
-							<select
-								id="category"
-								bind:value={category}
-								class="select select-bordered w-full"
-								required
-							>
-								<option value="">Select a category</option>
-								{#each $appStore.categories as cat}
-									<option value={cat.name}>{cat.name}</option>
-								{/each}
-							</select>
-						</div> -->
-
 					<!-- Completion Date -->
 					<div class="form-control">
-						<DatePicker
-							label={$t('profile.portfolio.completion_date')}
-							value={completionDate}
-							onChange={(value: string) => (completionDate = value)}
+						<DateInput
+							value={completionDate ? new Date(completionDate) : null}
+							onChange={(date: Date | null) => (completionDate = date ? date.toISOString() : '')}
+							type="single"
+							labelKey="profile.portfolio.completion_date"
+							placeholderKey="airdatepicker.select_date"
 							required
+							minDate={new Date()}
+							maxDate={undefined}
 						/>
 					</div>
 
@@ -418,13 +404,11 @@
 							<span class="label-text font-medium">{$t('profile.portfolio.skills_used')}</span>
 						</label>
 
-						<Tags
-							selectedTags={selectedSkills}
-							options={skills.map((skill) => ({
-								id: skill.id || '',
-								name: skill.name
-							}))}
-							onChange={(value: (string | number)[]) => (selectedSkills = value as string[])}
+						<SkillsMultiselect
+							bind:selectedSkills={selectedSkills}
+							maxSelections={10}
+							placeholder={$t('profile.portfolio.skills_used')}
+							className="w-full"
 						/>
 					</div>
 
