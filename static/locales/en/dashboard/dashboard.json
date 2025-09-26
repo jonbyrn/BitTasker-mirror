@@ -466,7 +466,7 @@
       },
       "actions": {
         "complete_task": "Mark Task Complete",
-        "accept_work": "Accept Work & Release Payment",
+        "accept_work": "Accept Work",
         "dispute_work": "Dispute Work",
         "propose_resolution": "Propose Resolution",
         "accept_proposal": "Accept Proposal",
@@ -477,6 +477,7 @@
         "resolution_form_title": "Propose Fund Distribution",
         "client_amount": "Tasker Amount (RBTC)",
         "freelancer_amount": "Taskee Amount (RBTC)",
+        "your_amount": "Your Amount",
         "total_amount": "Total Amount",
         "resolution_amounts_required": "Please specify amounts for both parties",
         "resolution_amounts_invalid": "Amounts must sum to the total contract amount",
