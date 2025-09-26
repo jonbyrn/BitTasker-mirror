@@ -6,7 +6,7 @@ import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers
 import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
-import { BSCPaymasterContract, BSC_PAYMASTER_CONFIGS, type PaymasterConfig } from '$lib/contracts/BSCPaymasterContract';
+import { BSCPaymasterContract, BSC_PAYMASTER_CONFIGS, type PaymasterConfig } from '$lib/utils/wallet/BSCPaymasterContract';
 
 // Unit display preferences
 export type BSCUnit = 'usdt' | 'wei';
