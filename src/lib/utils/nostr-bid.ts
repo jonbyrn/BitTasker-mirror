@@ -2,7 +2,7 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { BidMessage, NostrBid } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { sendDirectMessage, getMessageHistoryOptimized as getMessageHistory, getMessagedPeople } from './nostr-message';
+import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
 import { SimplePool } from 'nostr-tools/pool';
 import type {
 	NostrContract,
@@ -606,6 +606,7 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						let canAcceptProposal = false;
 						let canCancel = false;
 						let canResolveTimelock = false;
+						let disputeProposal = null;
 
 						try {
 							// Import escrow functions to check actual contract state
@@ -615,16 +616,22 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 							// Get actual escrow data from RSK contract
 							const escrowData = await escrow.getEscrow(contractData.escrowId);
-							const disputeProposal = await escrow.getDisputeProposal(contractData.escrowId);
 							const userAddress = get(rskAddress);
 
-							// console.log({ escrowData, disputeProposal, contractData });
+							// Only load dispute proposal if contract is in dispute
+							if (escrowData && escrowData.status === 1) { // EscrowStatus.InDispute
+								disputeProposal = await escrow.getDisputeProposal(contractData.escrowId);
+								// total amount
+								if (disputeProposal) {
+									const totalAmount = parseFloat(escrowData.baseAmount);
+									const freelancerAmount = parseFloat(disputeProposal.freelancerAmount);
+									disputeProposal.clientAmount = (totalAmount - freelancerAmount).toString();
+								}
+							}
 
 							console.log(`Contract ${contractData.escrowId}: RSK status = ${escrowData?.status} (${escrowData ? ['Funded', 'InDispute', 'DisputeResolved', 'DisputeUnresolved', 'Completed', 'Cancelled'][escrowData.status] || 'Unknown' : 'No Data'})`);
 
 							if (escrowData && userAddress) {
-								const userAddr = userAddress.toLowerCase();
-
 								// Import EscrowStatus for comparison
 								const { EscrowStatus } = await import('$lib/utils/enums/wallet.enum');
 
@@ -640,14 +647,13 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 									case EscrowStatus.InDispute: // 1
 										currentStatus = 'disputed';
 
-										// Can propose resolution if no active proposal exists
-										canPropose = !disputeProposal;
+										// Only taskee (freelancer) can propose resolution if no active proposal exists
+										canPropose = isFreelancer && !disputeProposal;
 
-										// Can accept proposal if:
+										// Only tasker (client) can accept proposal if:
 										// 1. Proposal exists
-										// 2. User is not the proposer
-										canAcceptProposal = !!disputeProposal &&
-											disputeProposal.proposer.toLowerCase() !== userAddr;
+										// 2. User is the client (not the proposer who is the freelancer)
+										canAcceptProposal = isClient && !!disputeProposal;
 
 										// Can resolve after timelock if timelock has expired
 										canResolveTimelock = Date.now() > (escrowData.timelockExpiry * 1000);
@@ -676,8 +682,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								canComplete = isFreelancer && currentStatus === 'active';
 								canAccept = isClient && currentStatus === 'completed';
 								canDispute = isClient && currentStatus === 'completed';
-								canPropose = currentStatus === 'disputed';
-								canAcceptProposal = currentStatus === 'disputed';
+								canPropose = isFreelancer && currentStatus === 'disputed';
+								canAcceptProposal = isClient && currentStatus === 'disputed';
 								canCancel = currentStatus === 'active';
 								canResolveTimelock = currentStatus === 'disputed';
 							}
@@ -687,14 +693,16 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							canComplete = isFreelancer && currentStatus === 'active';
 							canAccept = isClient && currentStatus === 'completed';
 							canDispute = isClient && currentStatus === 'completed';
-							canPropose = currentStatus === 'disputed';
-							canAcceptProposal = currentStatus === 'disputed';
+							canPropose = isFreelancer && currentStatus === 'disputed';
+							canAcceptProposal = isClient && currentStatus === 'disputed';
 							canCancel = currentStatus === 'active';
 							canResolveTimelock = currentStatus === 'disputed';
 						}
 
 						// NOW create the updated contract with RSK-synced status as the source of truth
 						const updatedContract = { ...contractData, status: currentStatus };
+
+						if (disputeProposal) updatedContract.disputeProposal = disputeProposal;
 
 						contracts.push({
 							contract: updatedContract,

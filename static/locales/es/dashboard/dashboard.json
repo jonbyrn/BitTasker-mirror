@@ -504,7 +504,14 @@
         "timelock_expired_message": "El período de timelock ha expirado. Por favor resuelve el contrato.",
         "current_proposal": "Propuesta Actual",
         "proposed_by": "Propuesto por",
-        "loading_proposal": "Cargando propuesta..."
+        "loading_proposal": "Cargando propuesta...",
+        "task_completing_message": "Completando tarea en progreso... Por favor espera la confirmación de blockchain.",
+        "task_accepting_message": "Aceptando tarea en progreso... Por favor espera la confirmación de blockchain.",
+        "escrow_cancelling_message": "Cancelando contrato en progreso... Por favor espera la confirmación de blockchain.",
+        "dispute_raising_message": "Presentando disputa en progreso... Por favor espera la confirmación de blockchain.",
+        "resolution_proposing_message": "Proponiendo resolución en progreso... Por favor espera la confirmación de blockchain.",
+        "proposal_accepting_message": "Aceptando propuesta en progreso... Por favor espera la confirmación de blockchain.",
+        "timelock_resolving_message": "Resolviendo después del timelock en progreso... Por favor espera la confirmación de blockchain."
       },
       "errors": {
         "unknown_error": "Ocurrió un error inesperado. Por favor inténtalo de nuevo.",

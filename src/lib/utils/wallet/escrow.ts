@@ -1,6 +1,9 @@
 import type { ContractTransactionResult, DisputeProposal, EscrowData, GasEstimation } from "$lib/types/wallet";
 import { rskAddress, getRSKWallet, getRSKProvider, walletStore } from "$lib/stores/wallet.store";
+import { t } from "svelte-i18n";
+import { get } from "svelte/store";
 import { derived } from 'svelte/store';
+import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
 import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/escrowContract";
@@ -188,19 +191,21 @@ async function loadEscrowDetails(escrowId: string): Promise<EscrowData | null> {
 async function getDisputeProposal(escrowId: string): Promise<DisputeProposal | null> {
     if (!contract) {
         await ensureEscrowReady();
-        console.log({ contract });
         if (!contract) return null;
     }
 
     try {
         const proposalData = await contract.getDisputeProposal(escrowId);
 
-        if (proposalData.proposer === ethers.ZeroAddress) return null;
+        // Check if proposal exists (proposer is not zero address)
+        if (!proposalData || proposalData.proposer === ethers.ZeroAddress) return null;
+
+        // Validate freelancerAmount is not null/undefined before formatting
+        if (proposalData.freelancerAmount == null) return null;
 
         const proposal: DisputeProposal = {
             escrowId,
             proposer: proposalData.proposer,
-            clientAmount: ethers.formatEther(proposalData.clientAmount),
             freelancerAmount: ethers.formatEther(proposalData.freelancerAmount),
             timestamp: Number(proposalData.timestamp),
             accepted: proposalData.accepted
@@ -359,7 +364,6 @@ async function createEscrow(
                             const freelancer = parsedLog.args[2];
                             const amount = parsedLog.args[3].toString();
 
-                            console.log('Extracted escrow ID from receipt:', escrowId);
                             result.escrowId = escrowId;
 
                             // Handle escrow created event through our event management system
@@ -395,7 +399,7 @@ async function createEscrow(
 }
 
 // Complete task
-async function completeTask(escrowId: string): Promise<ContractTransactionResult> {
+async function completeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -410,11 +414,33 @@ async function completeTask(escrowId: string): Promise<ContractTransactionResult
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.task_completing_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Task completion transaction confirmed:', receipt);
+
+                // Handle task completed event through our event management system
+                if (contractEventId) {
+                    const { handleTaskCompleted } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleTaskCompleted({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Task completion transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Task completion transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.task_completed_error'));
         });
 
         return result;
@@ -425,7 +451,7 @@ async function completeTask(escrowId: string): Promise<ContractTransactionResult
 }
 
 // Accept task
-async function acceptTask(escrowId: string): Promise<ContractTransactionResult> {
+async function acceptTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -440,11 +466,33 @@ async function acceptTask(escrowId: string): Promise<ContractTransactionResult> 
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.task_accepting_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Task acceptance transaction confirmed:', receipt);
+
+                // Handle task accepted event through our event management system
+                if (contractEventId) {
+                    const { handleTaskAccepted } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleTaskAccepted({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Task acceptance transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.payment_released_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Task acceptance transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.payment_released_error'));
         });
 
         return result;
@@ -455,7 +503,7 @@ async function acceptTask(escrowId: string): Promise<ContractTransactionResult> 
 }
 
 // Cancel escrow
-async function cancelEscrow(escrowId: string): Promise<ContractTransactionResult> {
+async function cancelEscrow(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -470,11 +518,33 @@ async function cancelEscrow(escrowId: string): Promise<ContractTransactionResult
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.escrow_cancelling_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Escrow cancellation transaction confirmed:', receipt);
+
+                // Handle escrow cancelled event through our event management system
+                if (contractEventId) {
+                    const { handleEscrowCancelled } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleEscrowCancelled({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Escrow cancellation transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.escrow_cancelled_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Escrow cancellation transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.escrow_cancelled_error'));
         });
 
         return result;
@@ -485,7 +555,7 @@ async function cancelEscrow(escrowId: string): Promise<ContractTransactionResult
 }
 
 // Dispute task
-async function disputeTask(escrowId: string): Promise<ContractTransactionResult> {
+async function disputeTask(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -500,11 +570,33 @@ async function disputeTask(escrowId: string): Promise<ContractTransactionResult>
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.dispute_raising_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Task dispute transaction confirmed:', receipt);
+
+                // Handle task disputed event through our event management system
+                if (contractEventId) {
+                    const { handleTaskDisputed } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleTaskDisputed({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Task dispute transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.dispute_raised_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Task dispute transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.dispute_raised_error'));
         });
 
         return result;
@@ -517,7 +609,10 @@ async function disputeTask(escrowId: string): Promise<ContractTransactionResult>
 // Propose resolution
 async function proposeResolution(
     escrowId: string,
-    freelancerAmount: string
+    freelancerAmount: string,
+    contractEventId?: string,
+    proposedClientAmount?: string,
+    proposedFreelancerAmount?: string
 ): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
@@ -541,11 +636,35 @@ async function proposeResolution(
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.resolution_proposing_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Resolution proposal transaction confirmed:', receipt);
+
+                // Handle resolution proposed event through our event management system
+                if (contractEventId && proposedClientAmount && proposedFreelancerAmount) {
+                    const { handleResolutionProposed } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleResolutionProposed({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId,
+                        proposedClientAmount,
+                        proposedFreelancerAmount
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Resolution proposal transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.resolution_proposed_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Resolution proposal transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.resolution_proposed_error'));
         });
 
         return result;
@@ -556,7 +675,7 @@ async function proposeResolution(
 }
 
 // Accept proposal
-async function acceptProposal(escrowId: string): Promise<ContractTransactionResult> {
+async function acceptProposal(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -571,11 +690,33 @@ async function acceptProposal(escrowId: string): Promise<ContractTransactionResu
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.proposal_accepting_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Proposal acceptance transaction confirmed:', receipt);
+
+                // Handle proposal accepted event through our event management system
+                if (contractEventId) {
+                    const { handleProposalAccepted } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleProposalAccepted({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Proposal acceptance transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.proposal_accepted_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Proposal acceptance transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.proposal_accepted_error'));
         });
 
         return result;
@@ -586,7 +727,7 @@ async function acceptProposal(escrowId: string): Promise<ContractTransactionResu
 }
 
 // Resolve after timelock
-async function resolveAfterTimelock(escrowId: string): Promise<ContractTransactionResult> {
+async function resolveAfterTimelock(escrowId: string, contractEventId?: string): Promise<ContractTransactionResult> {
     try {
         const { contract } = await ensureEscrowReady();
 
@@ -601,11 +742,33 @@ async function resolveAfterTimelock(escrowId: string): Promise<ContractTransacti
             status: 'pending'
         };
 
-        tx.wait().then((receipt: ethers.TransactionReceipt | null) => {
-            result.status = receipt ? 'confirmed' : 'failed';
-            if (receipt) result.gasUsed = receipt.gasUsed.toString();
-        }).catch(() => {
+        appStore.showInfoToast(get(t)('dashboard.contracts.actions.timelock_resolving_message'));
+
+        // Handle confirmation asynchronously using the same pattern as createEscrow
+        tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            if (receipt) {
+                result.status = 'confirmed';
+                result.gasUsed = receipt.gasUsed.toString();
+                console.log('Timelock resolution transaction confirmed:', receipt);
+
+                // Handle timelock resolved event through our event management system
+                if (contractEventId) {
+                    const { handleTimelockResolved } = await import('$lib/utils/wallet/escrowEvents');
+                    await handleTimelockResolved({
+                        escrowId,
+                        transactionHash: receipt.hash,
+                        contractEventId
+                    });
+                }
+            } else {
+                result.status = 'failed';
+                console.error('Timelock resolution transaction receipt is null');
+                appStore.showErrorToast(get(t)('dashboard.contracts.actions.timelock_resolved_error'));
+            }
+        }).catch((error: unknown) => {
+            console.error('Timelock resolution transaction failed:', error);
             result.status = 'failed';
+            appStore.showErrorToast(get(t)('dashboard.contracts.actions.timelock_resolved_error'));
         });
 
         return result;
@@ -743,8 +906,8 @@ export const rskDisputedEscrows = derived(walletStore, $store =>
 );
 
 export const rskResolvedEscrows = derived(walletStore, $store =>
-    ($store.rsk.escrows || []).filter(escrow => 
-        escrow.status === EscrowStatus.DisputeResolved || 
+    ($store.rsk.escrows || []).filter(escrow =>
+        escrow.status === EscrowStatus.DisputeResolved ||
         escrow.status === EscrowStatus.DisputeUnresolved
     )
 );
