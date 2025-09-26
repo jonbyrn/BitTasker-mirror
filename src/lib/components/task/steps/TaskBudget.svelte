@@ -87,35 +87,6 @@
 		attachmentsToRemove: Attachment[];
 	}>();
 
-	// MediaUploader reference for manual upload
-	let mediaUploaderRef: MediaUploader;
-	let selectedFiles = $state<File[]>([]);
-	let isUploadingFiles = $state(false);
-
-	// Handle file selection (before upload)
-	const handleFileSelect = (files: File[]) => {
-		selectedFiles = files;
-		console.log('Files selected:', files.map(f => f.name));
-	};
-
-	// Handle manual upload when user is ready
-	const handleManualUpload = async () => {
-		if (selectedFiles.length === 0) {
-			console.log('No files selected for upload');
-			return;
-		}
-
-		try {
-			isUploadingFiles = true;
-			await mediaUploaderRef.uploadFiles();
-			console.log('Files uploaded successfully');
-		} catch (error) {
-			console.error('Upload failed:', error);
-		} finally {
-			isUploadingFiles = false;
-		}
-	};
-
 	// Handle file upload results from MediaUploader
 	const handleUploadResults = (results: UploadResult[]) => {
 		// Convert UploadResult to Attachment format
@@ -318,7 +289,6 @@
 		</div>
 
 		<MediaUploader
-			bind:this={mediaUploaderRef}
 			id="attachments"
 			label={$t('task.attachments')}
 			allowedTypes={['image/*', 'video/*']}
@@ -334,8 +304,6 @@
 			useCloudflare={true}
 			generateVariants={true}
 			uploadFolder="tasks"
-			autoUpload={false}
-			onFileSelect={handleFileSelect}
 			onChange={handleUploadResults}
 			onRemove={handleFileRemove}
 		/>

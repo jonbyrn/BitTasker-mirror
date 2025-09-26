@@ -29,27 +29,6 @@ export interface UploadOptions {
  */
 class UploadService extends BaseApiService {
 	/**
-	 * Check if user is authenticated before upload
-	 * @returns Promise<boolean> indicating authentication status
-	 */
-	private async checkAuthentication(): Promise<boolean> {
-		try {
-			// Make a simple authenticated request to verify token validity
-			await this.get('/auth/verify');
-			return true;
-		} catch (error: any) {
-			if (error?.status === 401) {
-				console.error('User is not authenticated. Token may be missing or expired.');
-				return false;
-			}
-			
-			// For other errors, assume authentication is valid
-			console.warn('Authentication check failed with non-401 error, proceeding anyway:', error?.status);
-			return true;
-		}
-	}
-
-	/**
 	 * Upload a single file with optional Cloudflare integration
 	 * @param file The file to upload
 	 * @param options Upload options
@@ -60,12 +39,6 @@ class UploadService extends BaseApiService {
 		file: File, 
 		options: UploadOptions = {}
 	): Promise<UploadResult> {
-		// Authentication check removed - let the actual upload handle auth errors
-		// const isAuthenticated = await this.checkAuthentication();
-		// if (!isAuthenticated) {
-		//     throw new Error('Authentication failed. Please log in again.');
-		// }
-
 		const {
 			folder = 'uploads',
 			useCloudflare = true,
@@ -184,44 +157,25 @@ class UploadService extends BaseApiService {
 		const formData = new FormData();
 		formData.append('file', file);
 
-		try {
-			// Use the appropriate endpoint with folder query parameter
-			const response = await this.post<{ url: string; key: string }>(
-				`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`,
-				formData,
-				{
-					headers: {
-						'Content-Type': 'multipart/form-data'
-					}
+		// Use the appropriate endpoint with folder query parameter
+		const response = await this.post<{ url: string; key: string }>(
+			`${ENDPOINTS.UPLOADS.SINGLE}?folder=${folder}`,
+			formData,
+			{
+				headers: {
+					'Content-Type': 'multipart/form-data'
 				}
-			);
+			}
+		);
 
-			return {
-				url: response.data.url,
-				key: response.data.key,
-				type: metadata.type,
-				size: metadata.size,
-				originalSize: metadata.originalSize,
-				compressed: metadata.compressed || false
-			};
-		} catch (error: any) {
-			// Enhanced error handling for authentication issues
-			if (error?.status === 401) {
-				throw new Error('Authentication failed. Please log in again.');
-			}
-			if (error?.status === 403) {
-				throw new Error('Access denied. You do not have permission to upload files.');
-			}
-			if (error?.status === 413) {
-				throw new Error('File too large. Please choose a smaller file.');
-			}
-			if (error?.status >= 500) {
-				throw new Error('Server error. Please try again later.');
-			}
-			
-			// Re-throw the original error if it's not a known HTTP error
-			throw error;
-		}
+		return {
+			url: response.data.url,
+			key: response.data.key,
+			type: metadata.type,
+			size: metadata.size,
+			originalSize: metadata.originalSize,
+			compressed: metadata.compressed || false
+		};
 	}
 
 	/**

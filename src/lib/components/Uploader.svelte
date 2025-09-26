@@ -125,30 +125,10 @@
 		const selectedFiles = input.files;
 		if (!selectedFiles) return;
 
-		// Check if adding these files would exceed the maxFiles limit
 		if (files?.length + selectedFiles.length > maxFiles) {
 			error = $t('common.components.uploader.max_files_limit', { values: { maxFiles } });
 			onError?.(error);
 			return;
-		}
-
-		// Check if we're dealing with images and limit to 5
-		const isImageAllowed = allowedTypes.includes('image/*');
-		if (isImageAllowed) {
-			const currentImageCount = files?.filter(file => {
-				if (typeof file === 'string') {
-					return !isVideoURL(file);
-				}
-				return file.type.startsWith('image/');
-			}).length || 0;
-			
-			const newImageFiles = Array.from(selectedFiles).filter(file => file.type.startsWith('image/'));
-			
-			if (currentImageCount + newImageFiles.length > 5) {
-				error = 'You can only select up to 5 images';
-				onError?.(error);
-				return;
-			}
 		}
 
 		// Create a new array to collect the processed files
@@ -197,8 +177,8 @@
 <div class="space-y-4">
 	<div
 		class={maxFiles > 1
-? "grid w-full grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9"
-: 'h-full w-full'}
+			? 'grid w-full grid-cols-1 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+			: 'h-full w-full'}
 	>
 		{#each files as file, index}
 			<div class="relative {className}">
