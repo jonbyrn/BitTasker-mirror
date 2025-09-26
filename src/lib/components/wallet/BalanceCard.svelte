@@ -14,6 +14,8 @@
 	import type { WalletAsset } from '$lib/stores/wallet.store';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
+	import IconDownload from '~icons/mdi/download';
+	import IconUpload from '~icons/mdi/upload';
 
 	// Convert rBTC to sats using dynamic market rate or show separate balances on error
 	let totalUsdValue = $derived($totalBalances.usd);
@@ -118,27 +120,11 @@
 			class="btn btn-outline btn-primary"
 			onclick={() => walletManager.setActiveTab('receive')}
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="mr-2 h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-			</svg>
+			<IconDownload class="mr-2 h-5 w-5" />
 			{$t('wallet.receive')}
 		</button>
 		<button class="btn btn-outline btn-primary" onclick={() => walletManager.setActiveTab('send')}>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="mr-2 h-5 w-5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-			</svg>
+			<IconUpload class="mr-2 h-5 w-5" />
 			{$t('wallet.send_button')}
 		</button>
 	</div>
