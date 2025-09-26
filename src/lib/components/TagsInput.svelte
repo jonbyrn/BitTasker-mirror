@@ -146,13 +146,17 @@
 				: ''} {isInputFocused ? 'input-focused' : ''} {className}"
 		>
 			{#each tags as tag}
-				<span class="badge badge-primary py-3" role="listitem" aria-label="tag">
-					<span class="text-base font-normal">
+				<div class="badge badge-primary py-3 max-w-full" role="listitem" aria-label="tag">
+					<span
+						class="mb-[4px] text-base font-normal break-words leading-tight
+						       sm:truncate sm:line-clamp-1 sm:text-ellipsis sm:whitespace-nowrap
+						       line-clamp-2"
+					>
 						{tag}
 					</span>
 					<button
 						type="button"
-						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none"
+						class="btn btn-ghost btn-xs bg-none p-0 focus:bg-none flex-shrink-0 ml-1"
 						onclick={() => removeTag(tag)}
 						aria-label={$t('task.tags.remove_tag')}
 					>
@@ -171,7 +175,7 @@
 							/>
 						</svg>
 					</button>
-				</span>
+				</div>
 			{/each}
 
 			<input
@@ -184,12 +188,12 @@
 				onclick={handleClick}
 				onpaste={handlePaste}
 				onfocus={() => (isInputFocused = true)}
-				maxlength={maxCharLength} 
+				maxlength={maxCharLength}
 			/>
 		</div>
 
 		{#if inputValue}
-			<div class="text-xs text-base-content/60 mt-1">
+			<div class="text-base-content/60 mt-1 text-xs">
 				{inputValue.length}/{maxCharLength} {$t('task.tags.characters')}
 			</div>
 		{/if}
@@ -198,12 +202,12 @@
 			<ul
 				id="tags-dropdown-{id}"
 				tabindex="-1"
-				class="dropdown-content menu menu-vertical z-[9999] mt-1 max-h-60 rounded-box bg-base-200 p-2 shadow w-full"
+				class="dropdown-content menu menu-vertical rounded-2xl bg-base-300 z-[9999] mt-1 max-h-48 w-full p-2 shadow overflow-y-scroll overflow-x-hidden tags-dropdown-scrollable"
 				role="listbox"
 				aria-label={$t('task.tags.options')}
 			>
 				{#each filteredOptions as option, index}
-					<li>
+					<li class="w-full block">
 						<button
 							type="button"
 							tabindex="0"
@@ -211,9 +215,9 @@
 							onkeydown={(e) => e.key === 'Enter' && addTag(option)}
 							role="option"
 							aria-selected={filteredOptions[index] === inputValue}
-							class="w-full text-left p-2 hover:bg-base-300 rounded"
+							class="hover:bg-base-200 w-full rounded p-3 text-left min-h-[44px] block"
 						>
-							<span class="font-medium">{option}</span>
+							<span class="font-medium text-sm">{option}</span>
 						</button>
 					</li>
 				{/each}
@@ -225,3 +229,32 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	:global(.tags-dropdown-scrollable) {
+		scrollbar-width: thin;
+		scrollbar-color: #6b7280 #374151;
+		overflow-y: scroll !important;
+		overflow-x: hidden !important;
+		height: 12rem; /* 192px - same as max-h-48 */
+		max-height: 12rem;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar) {
+		width: 6px;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar-track) {
+		background: #374151;
+		border-radius: 3px;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar-thumb) {
+		background: #6b7280;
+		border-radius: 3px;
+	}
+	
+	:global(.tags-dropdown-scrollable::-webkit-scrollbar-thumb:hover) {
+		background: #9ca3af;
+	}
+</style>
