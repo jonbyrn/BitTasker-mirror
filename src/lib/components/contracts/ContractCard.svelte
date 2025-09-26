@@ -177,17 +177,17 @@
 		<!-- Actions Footer -->
 		{#if getAvailableActionsCount() > 0}
 			<div class="divider my-3"></div>
-			<div class="flex justify-end items-center gap-2">
+			<div class="flex justify-end items-center flex-wrap gap-2">
 				<ContractActions 
 					{contract} 
 					{onActionComplete}
-					containerClass="flex flex-row-reverse gap-2"
+					containerClass="flex flex-row-reverse flex-wrap gap-2 w-full sm:w-fit"
 					openDrawer={() => onclick?.()}
 					isInline={true}
 				/>
 				{#if onclick}
 					<button
-						class="btn btn-outline btn-sm"
+						class="btn btn-outline btn-sm w-full sm:w-fit"
 						onclick={() => onclick?.()}
 					>
 						<svg

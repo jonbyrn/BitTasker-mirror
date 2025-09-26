@@ -2,7 +2,7 @@ import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import type { BidMessage, NostrBid } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
-import { sendDirectMessage, getMessageHistoryOptimized as getMessageHistory, getMessagedPeopleOptimized as getMessagedPeople } from './nostr-message';
+import { sendDirectMessage, getMessageHistoryOptimized as getMessageHistory, getMessagedPeople } from './nostr-message';
 import { SimplePool } from 'nostr-tools/pool';
 import type {
 	NostrContract,
@@ -11,8 +11,7 @@ import type {
 	ContractStatusEvent,
 	CreateContractParams,
 	PublishStatusParams,
-	ContractFilter,
-	ContractStatus
+	ContractFilter
 } from '$lib/types/contract';
 
 /**
@@ -637,35 +636,35 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 										canComplete = isFreelancer;
 										canCancel = true; // Either party can cancel when funded
 										break;
-										
+
 									case EscrowStatus.InDispute: // 1
 										currentStatus = 'disputed';
-										
+
 										// Can propose resolution if no active proposal exists
 										canPropose = !disputeProposal;
-										
+
 										// Can accept proposal if:
 										// 1. Proposal exists
 										// 2. User is not the proposer
 										canAcceptProposal = !!disputeProposal &&
 											disputeProposal.proposer.toLowerCase() !== userAddr;
-										
+
 										// Can resolve after timelock if timelock has expired
 										canResolveTimelock = Date.now() > (escrowData.timelockExpiry * 1000);
 										break;
-										
+
 									case EscrowStatus.DisputeResolved: // 2
 									case EscrowStatus.DisputeUnresolved: // 3
 										currentStatus = 'resolved';
 										// TODO: No actions available for resolved disputes
 										break;
-										
+
 									case EscrowStatus.Completed: // 4
 										currentStatus = 'completed';
 										canAccept = isClient;
 										canDispute = isClient;
 										break;
-										
+
 									case EscrowStatus.Cancelled: // 5
 										currentStatus = 'cancelled';
 										// No actions available for cancelled contracts
