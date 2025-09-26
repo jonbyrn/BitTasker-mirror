@@ -12,6 +12,8 @@
 	import { onDestroy } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
+	import { TranslationStore } from '$lib/stores/translation.store';
+	import { TranslationService } from '$lib/services/translation.service';
 
 	// Props
 	let {
@@ -95,9 +97,32 @@
 	// Draft persistence key
 	const draftKey = $derived(() => `chat_draft_${currentUserHex()}_${recipientHex()}`);
 
+	// Track translated message IDs to prevent duplicate calls
+	// Note: translatedMessageIds is now managed by TranslationStore to avoid conflicts
+	
+	// Track previous message count for auto-scroll
+	let previousMessageCount = $state(0);
+	
+	// Track if user is at bottom for scroll-to-bottom button
+	let isAtBottom = $state(true);
+	
+	// Translation service instance
+	const translationService = new TranslationService();
+
+	// Preload translations for current conversation
+	$effect(() => {
+		if (messages.length > 0) {
+			const messageIds = messages.map(msg => msg.event.id);
+			TranslationStore.preloadConversationTranslations(messageIds);
+		}
+	});
+
 	// Load messages when recipient changes
 	$effect(() => {
 		if (recipientPubkey) {
+			// Clear processed message IDs when switching conversations
+			processedMessageIds.clear();
+			// TranslationStore handles message ID tracking internally
 			resetPagination();
 			loadMessages();
 			setupRealtimeListener();
@@ -123,6 +148,47 @@
 		};
 	});
 
+	// Track processed message IDs to avoid re-processing
+	let processedMessageIds = $state(new Set<string>());
+	
+	// Auto-translate only NEW messages when they arrive
+	$effect(() => {
+		const currentMessages = messages;
+		
+		if (currentMessages.length > 0) {
+			// Find only NEW messages that haven't been processed yet
+			const newMessages = currentMessages.filter(message => {
+				const messageId = message.event.id;
+				return !processedMessageIds.has(messageId);
+			});
+			
+			// Process new messages for translation
+			newMessages.forEach(async (message) => {
+				const messageId = message.event.id;
+				const isFromCurrentUser = message.senderPubkey === currentUserHex();
+				const hasText = message.plaintext.trim();
+				
+				// Mark as processed immediately to avoid duplicates
+				processedMessageIds.add(messageId);
+				
+				// Only translate incoming messages with text content
+				if (!isFromCurrentUser && hasText && hasText.length > 3) {
+					const isNotSystemMessage = !message.plaintext.startsWith('[') && !message.plaintext.startsWith('{');
+					
+					if (isNotSystemMessage) {
+						try {
+							// TranslationStore handles duplicate prevention internally
+							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
+							
+						} catch (error) {
+							console.error('Translation error for new message', messageId, ':', error);
+						}
+					}
+				}
+			});
+		}
+	});
+
 	// Auto-save draft when message text changes
 	$effect(() => {
 		if (newMessageText !== lastSavedDraft && recipientPubkey) {
@@ -140,16 +206,48 @@
 	// Auto-scroll to bottom when new messages arrive (but not when loading more)
 	$effect(() => {
 		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
-			scrollToBottom();
+			// Use setTimeout to ensure DOM is updated
+			setTimeout(() => {
+				scrollToBottom();
+			}, 100);
 		}
 	});
 
-	// Monitor scroll position for infinite scroll
+	// Auto-scroll when new messages are added (not just when array changes)
+	$effect(() => {
+		const currentMessageCount = messages.length;
+		const hasNewMessages = currentMessageCount > previousMessageCount;
+		
+		if (hasNewMessages && messagesContainer && !isLoadingMore) {
+			// Immediate scroll for new messages
+			setTimeout(() => {
+				scrollToBottomImmediate();
+			}, 50);
+		}
+		
+		previousMessageCount = currentMessageCount;
+	});
+
+	// Auto-scroll when translations complete
+	$effect(() => {
+		if (messages.length > 0 && messagesContainer && !isLoadingMore) {
+			// Scroll after a short delay to allow translations to render
+			setTimeout(() => {
+				scrollToBottom();
+			}, 500);
+		}
+	});
+
+	// Monitor scroll position for infinite scroll and bottom detection
 	$effect(() => {
 		if (messagesContainer) {
 			const handleScroll = () => {
-				const { scrollTop } = messagesContainer;
+				const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
 				isNearTop = scrollTop < SCROLL_THRESHOLD;
+				
+				// Check if user is at bottom (within 50px)
+				const isNearBottom = scrollTop + clientHeight >= scrollHeight - 50;
+				isAtBottom = isNearBottom;
 
 				// Trigger load more when near top and not already loading
 				if (isNearTop && hasMoreMessages && !isLoadingMore && !isLoadingMessages) {
@@ -528,6 +626,17 @@
 
 	function scrollToBottom() {
 		if (messagesContainer) {
+			// Use smooth scrolling for better UX
+			messagesContainer.scrollTo({
+				top: messagesContainer.scrollHeight,
+				behavior: 'smooth'
+			});
+		}
+	}
+
+	// Force scroll to bottom (immediate, no animation)
+	function scrollToBottomImmediate() {
+		if (messagesContainer) {
 			messagesContainer.scrollTop = messagesContainer.scrollHeight;
 		}
 	}
@@ -601,7 +710,7 @@
 	<!-- Messages Area - Scrollable -->
 	<div
 		bind:this={messagesContainer}
-		class="flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-6 py-4 min-h-0"
+		class="flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-6 py-4 min-h-0 relative"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -695,14 +804,7 @@
 					{@const isCurrentUserSender = message.senderPubkey === currentUserHex()}
 					{@const messageProfile = isCurrentUserSender ? currentUserProfile : recipientProfile}
 					
-					<!-- Debug logs -->
-					{console.log('MESSAGE DEBUG:', {
-						messageText: message.plaintext.substring(0, 20) + '...',
-						isCurrentUserSender,
-						recipientProfile,
-						currentUserProfile,
-						messageProfile
-					})}
+					<!-- Debug logs removed for performance -->
 					
 					<ChatMessage
 						{message}
@@ -717,6 +819,31 @@
 					/>
 				{/each}
 			{/if}
+		{/if}
+		
+		<!-- Scroll to Bottom Button -->
+		{#if !isAtBottom && messages.length > 0}
+			<button
+				class="btn btn-primary btn-circle fixed bottom-20 right-6 z-10 shadow-lg"
+				onclick={scrollToBottom}
+				aria-label="Scroll to bottom"
+				title="Scroll to latest message"
+			>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-5 w-5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M19 14l-7 7m0 0l-7-7m7 7V3"
+					/>
+				</svg>
+			</button>
 		{/if}
 	</div>
 

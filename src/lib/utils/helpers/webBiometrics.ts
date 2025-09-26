@@ -81,7 +81,7 @@ export async function verifyIdentity(
 
 		// Add manual timeout to prevent hanging
 		const timeoutPromise = new Promise<null>((_, reject) => {
-			setTimeout(() => reject(new Error('Authentication timeout')), 35000);
+			setTimeout(() => reject(new Error('La operación expiró o no fue permitida')), 35000);
 		});
 
 		const credential = await Promise.race([credentialPromise, timeoutPromise]);

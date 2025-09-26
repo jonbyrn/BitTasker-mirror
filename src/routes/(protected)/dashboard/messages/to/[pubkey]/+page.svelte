@@ -7,6 +7,7 @@
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 	import ChatView from '$lib/components/messages/ChatView.svelte';
 	import { t } from 'svelte-i18n';
+	import TranslationSettings from '$lib/components/translation/TranslationSettings.svelte';
 
 	// Get pubkey from URL
 	let recipientPubkey = $derived($page.params.pubkey);
@@ -174,6 +175,9 @@
 
 				<!-- Action Buttons -->
 				<div class="flex items-center gap-2 flex-shrink-0">
+					<!-- Translation Settings Button -->
+					<TranslationSettings />
+					
 					<!-- Copy Public Key Button -->
 					<button
 						class="btn btn-ghost btn-sm hover:bg-base-200 transition-colors relative"
