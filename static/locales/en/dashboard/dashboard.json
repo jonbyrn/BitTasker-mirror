@@ -321,14 +321,14 @@
             "end_date": "End Date",
             "clear_availability_filters": "Clear Availability Filters",
             "airdatepicker": {
-                "select_date": "Select a date",
-                "select_date_range": "Select date range",
-                "select_datetime": "Select date and time",
-                "select_time": "Select time",
-                "select_start_date": "Select start date",
-                "select_end_date": "Select end date",
-                "select_start_datetime": "Select start date and time",
-                "select_end_datetime": "Select end date and time"
+              "select_date": "Select a date",
+              "select_date_range": "Select date range",
+              "select_datetime": "Select date and time",
+              "select_time": "Select time",
+              "select_start_date": "Select start date",
+              "select_end_date": "Select end date",
+              "select_start_datetime": "Select start date and time",
+              "select_end_datetime": "Select end date and time"
             }
           },
           "price_range": {
@@ -506,7 +506,14 @@
         "timelock_expired_message": "The timelock period has expired. Please resolve the contract.",
         "current_proposal": "Current Proposal",
         "proposed_by": "Proposed by",
-        "loading_proposal": "Loading proposal..."
+        "loading_proposal": "Loading proposal...",
+        "task_completing_message": "Task completion in progress... Once confirmed, the task will be marked as completed.",
+        "task_accepting_message": "Task acceptance in progress... Once confirmed, the payment will be released to the taskee.",
+        "escrow_cancelling_message": "Contract cancellation in progress... Once confirmed, the contract will be cancelled.",
+        "dispute_raising_message": "Dispute raising in progress... Once confirmed, the dispute will be raised.",
+        "resolution_proposing_message": "Resolution proposal in progress... Once confirmed, the resolution proposal will be submitted.",
+        "proposal_accepting_message": "Proposal acceptance in progress... Once confirmed, the proposal will be accepted.",
+        "timelock_resolving_message": "Timelock resolution in progress... Once confirmed, the contract will be resolved."
       },
       "errors": {
         "unknown_error": "An unexpected error occurred. Please try again.",

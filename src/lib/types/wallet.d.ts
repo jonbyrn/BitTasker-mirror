@@ -50,7 +50,7 @@ export interface EscrowData {
 export interface DisputeProposal {
     escrowId: string;
     proposer: string;
-    clientAmount: string;
+    clientAmount?: string;
     freelancerAmount: string;
     timestamp: number;
     accepted: boolean;

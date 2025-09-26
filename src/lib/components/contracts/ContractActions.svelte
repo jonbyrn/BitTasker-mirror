@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { ContractWithEvents } from '$lib/types/contract';
-	import { publishContractStatus } from '$lib/utils/nostr-bid';
 	import { escrow } from '$lib/utils/wallet/escrow';
 	import { appStore } from '$lib/stores/app.store';
 	import { getErrorMessage } from '$lib/utils/wallet/contractErrorHandler';
@@ -26,21 +25,11 @@
 	let showResolutionForm = $state(false);
 	let proposedClientAmountUSD = $state('');
 	let proposedFreelancerAmountUSD = $state('');
-	let currentProposal = $state<{
-		clientAmount: string;
-		freelancerAmount: string;
-		proposer: string;
-	} | null>(null);
 	let btcPrice = $state<number>(63000); // Default fallback price
 
 	// Helper to set loading state
 	function setLoading(action: string, loading: boolean) {
 		isLoading = { ...isLoading, [action]: loading };
-	}
-
-	// Helper to handle action completion
-	function handleActionComplete() {
-		onActionComplete?.();
 	}
 
 	// Complete task (freelancer only)
@@ -49,20 +38,9 @@
 
 		setLoading('complete', true);
 		try {
-			// Call RSK escrow completeTask
-			const result = await escrow.completeTask(contract.contract.escrowId);
-
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'task-completed',
-				message: $t('dashboard.contracts.actions.task_completed_message'),
-				transactionHash: result.hash
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.task_completed_success'));
-			handleActionComplete();
+			// Call RSK escrow completeTask with contract event ID for proper nostr event publishing
+			await escrow.completeTask(contract.contract.escrowId, contract.contractEvent.id);
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error completing task:', error);
 			const errorMessage =
@@ -81,20 +59,9 @@
 
 		setLoading('accept', true);
 		try {
-			// Call RSK escrow acceptTask
-			const result = await escrow.acceptTask(contract.contract.escrowId);
-
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'payment-released',
-				message: $t('dashboard.contracts.actions.payment_released_message'),
-				transactionHash: result.hash
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.payment_released_success'));
-			handleActionComplete();
+			// Call RSK escrow acceptTask with contract event ID for proper nostr event publishing
+			await escrow.acceptTask(contract.contract.escrowId, contract.contractEvent.id);
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error accepting task:', error);
 			const errorMessage =
@@ -113,20 +80,9 @@
 
 		setLoading('dispute', true);
 		try {
-			// Call RSK escrow disputeTask
-			const result = await escrow.disputeTask(contract.contract.escrowId);
-
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'dispute-raised',
-				message: $t('dashboard.contracts.actions.dispute_raised_message'),
-				transactionHash: result.hash
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.dispute_raised_success'));
-			handleActionComplete();
+			// Call RSK escrow disputeTask with contract event ID for proper nostr event publishing
+			await escrow.disputeTask(contract.contract.escrowId, contract.contractEvent.id);
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error disputing task:', error);
 			const errorMessage =
@@ -142,51 +98,42 @@
 	// Propose resolution
 	async function proposeResolution() {
 		if (!contract.canPropose) return;
-		if (!proposedClientAmountUSD || !proposedFreelancerAmountUSD) {
+		if (!proposedFreelancerAmountUSD) {
 			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_required'));
 			return;
 		}
 
 		// Convert USD amounts to RBTC for validation and contract call
-		const clientAmountUSD = parseFloat(proposedClientAmountUSD);
 		const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD);
 		const totalAmountRBTC = parseFloat(contract.contract.amount);
 		const totalAmountUSD = totalAmountRBTC * btcPrice;
 
-		// Validate that USD amounts add up to total
-		if (Math.abs(clientAmountUSD + freelancerAmountUSD - totalAmountUSD) > 0.01) {
+		// Validate that freelancer amount is not greater than total
+		if (freelancerAmountUSD > totalAmountUSD) {
 			appStore.showErrorToast($t('dashboard.contracts.actions.resolution_amounts_invalid'));
 			return;
 		}
 
 		// Convert USD amounts to RBTC for contract call
 		const freelancerAmountRBTC = (freelancerAmountUSD / btcPrice).toFixed(8);
+		const clientAmountUSD = totalAmountUSD - freelancerAmountUSD;
 		const clientAmountRBTC = (clientAmountUSD / btcPrice).toFixed(8);
 
 		setLoading('propose', true);
 		try {
-			// Call RSK escrow proposeResolution with RBTC amount as string
-			const result = await escrow.proposeResolution(
+			// Call RSK escrow proposeResolution with contract event ID and amounts for proper nostr event publishing
+			await escrow.proposeResolution(
 				contract.contract.escrowId,
+				freelancerAmountRBTC,
+				contract.contractEvent.id,
+				clientAmountRBTC,
 				freelancerAmountRBTC
 			);
 
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'resolution-proposed',
-				message: $t('dashboard.contracts.actions.resolution_proposed_message'),
-				transactionHash: result.hash,
-				proposedClientAmount: clientAmountRBTC,
-				proposedFreelancerAmount: freelancerAmountRBTC
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.resolution_proposed_success'));
 			showResolutionForm = false;
 			proposedClientAmountUSD = '';
 			proposedFreelancerAmountUSD = '';
-			handleActionComplete();
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error proposing resolution:', error);
 			const errorMessage =
@@ -205,20 +152,9 @@
 
 		setLoading('acceptProposal', true);
 		try {
-			// Call RSK escrow acceptProposal
-			const result = await escrow.acceptProposal(contract.contract.escrowId);
-
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'proposal-accepted',
-				message: $t('dashboard.contracts.actions.proposal_accepted_message'),
-				transactionHash: result.hash
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.proposal_accepted_success'));
-			handleActionComplete();
+			// Call RSK escrow acceptProposal with contract event ID for proper nostr event publishing
+			await escrow.acceptProposal(contract.contract.escrowId, contract.contractEvent.id);
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error accepting proposal:', error);
 			const errorMessage =
@@ -237,20 +173,9 @@
 
 		setLoading('cancel', true);
 		try {
-			// Call RSK escrow cancelEscrow
-			const result = await escrow.cancelEscrow(contract.contract.escrowId);
-
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'escrow-cancelled',
-				message: $t('dashboard.contracts.actions.escrow_cancelled_message'),
-				transactionHash: result.hash
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.escrow_cancelled_success'));
-			handleActionComplete();
+			// Call RSK escrow cancelEscrow with contract event ID for proper nostr event publishing
+			await escrow.cancelEscrow(contract.contract.escrowId, contract.contractEvent.id);
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error cancelling escrow:', error);
 			const errorMessage =
@@ -269,20 +194,9 @@
 
 		setLoading('resolveTimelock', true);
 		try {
-			// Call RSK escrow resolveAfterTimelock
-			const result = await escrow.resolveAfterTimelock(contract.contract.escrowId);
-
-			// Publish status update to Nostr
-			await publishContractStatus({
-				contractEventId: contract.contractEvent.id,
-				escrowId: contract.contract.escrowId,
-				action: 'timelock-resolved',
-				message: $t('dashboard.contracts.actions.timelock_resolved_message'),
-				transactionHash: result.hash
-			});
-
-			appStore.showSuccessToast($t('dashboard.contracts.actions.timelock_resolved_success'));
-			handleActionComplete();
+			// Call RSK escrow resolveAfterTimelock with contract event ID for proper nostr event publishing
+			await escrow.resolveAfterTimelock(contract.contract.escrowId, contract.contractEvent.id);
+			onActionComplete?.();
 		} catch (error) {
 			console.error('Error resolving timelock:', error);
 			const errorMessage =
@@ -308,40 +222,18 @@
 		}
 	}
 
-	// Auto-calculate remaining amount in USD
+	// Auto-calculate client amount from freelancer amount in USD
 	$effect(() => {
-		if (proposedClientAmountUSD && contract.contract.amount && btcPrice > 0) {
-			const clientAmountUSD = parseFloat(proposedClientAmountUSD) || 0;
+		if (proposedFreelancerAmountUSD && contract.contract.amount && btcPrice > 0) {
+			const freelancerAmountUSD = parseFloat(proposedFreelancerAmountUSD) || 0;
 			const totalAmountRBTC = parseFloat(contract.contract.amount);
 			const totalAmountUSD = totalAmountRBTC * btcPrice;
-			const remainingUSD = totalAmountUSD - clientAmountUSD;
-			if (remainingUSD >= 0) {
-				proposedFreelancerAmountUSD = remainingUSD.toFixed(2);
+			const clientAmountUSD = totalAmountUSD - freelancerAmountUSD;
+			if (clientAmountUSD >= 0) {
+				proposedClientAmountUSD = clientAmountUSD.toFixed(2);
 			}
 		}
 	});
-
-	// Load current proposal when canAcceptProposal is true
-	$effect(() => {
-		if (contract.canAcceptProposal) {
-			loadCurrentProposal();
-		}
-	});
-
-	async function loadCurrentProposal() {
-		try {
-			const proposal = await escrow.getDisputeProposal(contract.contract.escrowId);
-			if (proposal) {
-				currentProposal = {
-					clientAmount: proposal.clientAmount,
-					freelancerAmount: proposal.freelancerAmount,
-					proposer: proposal.proposer
-				};
-			}
-		} catch (error) {
-			console.error('Failed to load current proposal:', error);
-		}
-	}
 </script>
 
 <div class={containerClass}>
@@ -459,39 +351,12 @@
 				{$t('dashboard.contracts.actions.propose_resolution')}
 			</button>
 		{:else if !isInline}
-			<div class="bg-base-300 space-y-3 rounded-lg p-3 col-span-2 w-full">
+			<div class="bg-base-300 col-span-2 w-full space-y-3 rounded-lg p-3">
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.resolution_form_title')}
 				</h5>
 
-				<div class="flex flex-col gap-2 space-y-3 sm:flex-row w-full">
-					<div class="w-full">
-						<label for="client amount" class="label label-text text-xs">
-							{contract.isClient
-								? $t('dashboard.contracts.actions.your_amount')
-								: $t('dashboard.contracts.actions.client_amount')}
-						</label>
-						<div class="flex gap-2">
-							<div class="relative flex-1">
-								<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
-									>$</span
-								>
-								<input
-									type="number"
-									step="0.01"
-									bind:value={proposedClientAmountUSD}
-									class="input input-bordered w-full pl-7"
-									placeholder="0.00"
-								/>
-							</div>
-							<div class="text-base-content/60 flex items-center text-xs">
-								({Math.round(
-									((parseFloat(proposedClientAmountUSD) || 0) / btcPrice) * 100_000_000
-								).toLocaleString()} Sats)
-							</div>
-						</div>
-					</div>
-
+				<div class="flex w-full flex-col gap-2 space-y-3 sm:flex-row">
 					<div class="w-full">
 						<label for="freelancer amount" class="label label-text text-xs">
 							{contract.isClient
@@ -518,6 +383,33 @@
 							</div>
 						</div>
 					</div>
+
+					<div class="w-full">
+						<label for="client amount" class="label label-text text-xs">
+							{contract.isClient
+								? $t('dashboard.contracts.actions.your_amount')
+								: $t('dashboard.contracts.actions.client_amount')} (Auto-calculated)
+						</label>
+						<div class="flex gap-2">
+							<div class="relative flex-1">
+								<span class="text-base-content/70 absolute top-1/2 left-3 z-9 -translate-y-1/2"
+									>$</span
+								>
+								<input
+									type="text"
+									value={proposedClientAmountUSD}
+									class="input input-bordered bg-base-200 w-full pl-7"
+									placeholder="0.00"
+									readonly
+								/>
+							</div>
+							<div class="text-base-content/60 flex items-center text-xs">
+								({Math.round(
+									((parseFloat(proposedClientAmountUSD) || 0) / btcPrice) * 100_000_000
+								).toLocaleString()} Sats)
+							</div>
+						</div>
+					</div>
 				</div>
 
 				<div class="text-base-content/60 text-xs">
@@ -528,7 +420,7 @@
 					).toLocaleString()} Sats)
 				</div>
 
-				<div class="flex flex-row-reverse place-self-end gap-2">
+				<div class="flex flex-row-reverse gap-2 place-self-end">
 					<button
 						class="btn btn-warning btn-sm text-black"
 						onclick={proposeResolution}
@@ -540,7 +432,10 @@
 							{$t('dashboard.contracts.actions.propose')}
 						{/if}
 					</button>
-					<button class="btn btn-ghost btn-outline btn-sm" onclick={() => (showResolutionForm = false)}>
+					<button
+						class="btn btn-ghost btn-outline btn-sm"
+						onclick={() => (showResolutionForm = false)}
+					>
 						{$t('dashboard.contracts.actions.cancel')}
 					</button>
 				</div>
@@ -550,45 +445,49 @@
 
 	<!-- Accept Proposal -->
 	{#if !isInline && contract.canAcceptProposal}
-		<div class="bg-base-300 space-y-3 rounded-lg p-3">
+		<div class="bg-base-300 w-full space-y-3 rounded-lg p-3">
 			<h5 class="text-sm font-medium">
 				{$t('dashboard.contracts.actions.current_proposal')}
 			</h5>
 
-			{#if currentProposal}
+			{#if contract.contract.disputeProposal}
 				<div class="flex flex-col gap-2 space-y-2 text-xs sm:flex-row">
-					<div>
+					<div class="w-full">
 						<span class="text-base-content/70">
 							{contract.isClient
 								? $t('dashboard.contracts.actions.your_amount')
 								: $t('dashboard.contracts.actions.client_amount')}:
 						</span>
 						<div class="font-semibold">
-							${(parseFloat(currentProposal.clientAmount) * btcPrice).toFixed(2)}
-							({Math.round(parseFloat(currentProposal.clientAmount) * 100_000_000).toLocaleString()}
+							${(parseFloat(contract.contract.disputeProposal.clientAmount) * btcPrice).toFixed(2)}
+							({Math.round(
+								parseFloat(contract.contract.disputeProposal.clientAmount) * 100_000_000
+							).toLocaleString()}
 							Sats)
 						</div>
 					</div>
-					<div>
+					<div class="w-full">
 						<span class="text-base-content/70">
 							{contract.isClient
 								? $t('dashboard.contracts.actions.freelancer_amount')
 								: $t('dashboard.contracts.actions.your_amount')}:
 						</span>
 						<div class="font-semibold">
-							${(parseFloat(currentProposal.freelancerAmount) * btcPrice).toFixed(2)}
+							${(parseFloat(contract.contract.disputeProposal.freelancerAmount) * btcPrice).toFixed(
+								2
+							)}
 							({Math.round(
-								parseFloat(currentProposal.freelancerAmount) * 100_000_000
+								parseFloat(contract.contract.disputeProposal.freelancerAmount) * 100_000_000
 							).toLocaleString()} Sats)
 						</div>
 					</div>
 				</div>
 
 				<div class="text-base-content/60 text-xs">
-					{$t('dashboard.contracts.actions.proposed_by')}: {currentProposal.proposer.slice(
-						0,
-						8
-					)}...{currentProposal.proposer.slice(-6)}
+					{$t('dashboard.contracts.actions.proposed_by')}:
+					{contract.contract.disputeProposal.proposer.slice(0, 8)}
+					...
+					{contract.contract.disputeProposal.proposer.slice(-6)}
 				</div>
 			{:else}
 				<div class="text-base-content/60 text-xs">
@@ -599,7 +498,7 @@
 			<button
 				class="btn btn-success btn-sm w-full"
 				onclick={acceptProposal}
-				disabled={isLoading.acceptProposal || !currentProposal}
+				disabled={isLoading.acceptProposal || !contract.contract.disputeProposal}
 			>
 				{#if isLoading.acceptProposal}
 					<span class="loading loading-spinner loading-xs"></span>
