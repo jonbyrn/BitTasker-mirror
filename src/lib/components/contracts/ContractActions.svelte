@@ -348,7 +348,7 @@
 	<!-- Complete Task (Freelancer) -->
 	{#if contract.canComplete}
 		<button
-			class="btn btn-success btn-sm {isInline ? 'w-fit' : 'w-full'}"
+			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
 			onclick={completeTask}
 			disabled={isLoading.complete}
 		>
@@ -376,7 +376,11 @@
 
 	<!-- Accept Task (Client) -->
 	{#if contract.canAccept}
-		<button class="btn btn-success btn-sm {isInline ? 'w-fit' : 'w-full'}" onclick={acceptTask} disabled={isLoading.accept}>
+		<button
+			class="btn btn-success btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			onclick={acceptTask}
+			disabled={isLoading.accept}
+		>
 			{#if isLoading.accept}
 				<span class="loading loading-spinner loading-xs"></span>
 			{:else}
@@ -401,7 +405,11 @@
 
 	<!-- Dispute Task (Client) -->
 	{#if contract.canDispute}
-		<button class="btn btn-error btn-sm {isInline ? 'w-fit' : 'w-full'}" onclick={disputeTask} disabled={isLoading.dispute}>
+		<button
+			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			onclick={disputeTask}
+			disabled={isLoading.dispute}
+		>
 			{#if isLoading.dispute}
 				<span class="loading loading-spinner loading-xs"></span>
 			{:else}
@@ -428,7 +436,7 @@
 	{#if contract.canPropose}
 		{#if !showResolutionForm}
 			<button
-				class="btn btn-warning btn-sm {isInline ? 'w-fit' : 'w-full'}"
+				class="btn btn-warning btn-sm text-black {isInline ? 'w-full sm:w-fit' : 'w-full'}"
 				onclick={() => {
 					showResolutionForm = true;
 					openDrawer();
@@ -451,13 +459,13 @@
 				{$t('dashboard.contracts.actions.propose_resolution')}
 			</button>
 		{:else if !isInline}
-			<div class="bg-base-300 space-y-3 rounded-lg p-3">
+			<div class="bg-base-300 space-y-3 rounded-lg p-3 col-span-2 w-full">
 				<h5 class="text-sm font-medium">
 					{$t('dashboard.contracts.actions.resolution_form_title')}
 				</h5>
 
-				<div class="flex flex-col gap-2 space-y-3 sm:flex-row">
-					<div>
+				<div class="flex flex-col gap-2 space-y-3 sm:flex-row w-full">
+					<div class="w-full">
 						<label for="client amount" class="label label-text text-xs">
 							{contract.isClient
 								? $t('dashboard.contracts.actions.your_amount')
@@ -484,7 +492,7 @@
 						</div>
 					</div>
 
-					<div>
+					<div class="w-full">
 						<label for="freelancer amount" class="label label-text text-xs">
 							{contract.isClient
 								? $t('dashboard.contracts.actions.freelancer_amount')
@@ -520,9 +528,9 @@
 					).toLocaleString()} Sats)
 				</div>
 
-				<div class="flex gap-2">
+				<div class="flex flex-row-reverse place-self-end gap-2">
 					<button
-						class="btn btn-warning btn-xs flex-1"
+						class="btn btn-warning btn-sm text-black"
 						onclick={proposeResolution}
 						disabled={isLoading.propose}
 					>
@@ -532,7 +540,7 @@
 							{$t('dashboard.contracts.actions.propose')}
 						{/if}
 					</button>
-					<button class="btn btn-ghost btn-xs" onclick={() => (showResolutionForm = false)}>
+					<button class="btn btn-ghost btn-outline btn-sm" onclick={() => (showResolutionForm = false)}>
 						{$t('dashboard.contracts.actions.cancel')}
 					</button>
 				</div>
@@ -618,7 +626,11 @@
 
 	<!-- Cancel Escrow -->
 	{#if contract.canCancel}
-		<button class="btn btn-error btn-sm {isInline ? 'w-fit' : 'w-full'}" onclick={cancelEscrow} disabled={isLoading.cancel}>
+		<button
+			class="btn btn-error btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
+			onclick={cancelEscrow}
+			disabled={isLoading.cancel}
+		>
 			{#if isLoading.cancel}
 				<span class="loading loading-spinner loading-xs"></span>
 			{:else}
@@ -655,7 +667,7 @@
 			{/if}
 
 			<button
-				class="btn btn-info btn-sm {isInline ? 'w-fit' : 'w-full'}"
+				class="btn btn-info btn-sm {isInline ? 'w-full sm:w-fit' : 'w-full'}"
 				onclick={resolveAfterTimelock}
 				disabled={isLoading.resolveTimelock}
 			>

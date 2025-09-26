@@ -464,7 +464,7 @@
       },
       "actions": {
         "complete_task": "Marcar Tarea como Completada",
-        "accept_work": "Aceptar Trabajo y Liberar Pago",
+        "accept_work": "Aceptar Trabajo",
         "dispute_work": "Disputar Trabajo",
         "propose_resolution": "Proponer Resolución",
         "accept_proposal": "Aceptar Propuesta",
@@ -475,6 +475,7 @@
         "resolution_form_title": "Proponer Distribución de Fondos",
         "client_amount": "Cantidad del Cliente (RBTC)",
         "freelancer_amount": "Cantidad del Taskee (RBTC)",
+        "your_amount": "Tu Cantidad",
         "total_amount": "Cantidad Total",
         "resolution_amounts_required": "Por favor especifica las cantidades para ambas partes",
         "resolution_amounts_invalid": "Las cantidades deben sumar el monto total del contrato",

@@ -292,7 +292,9 @@
 					<ContractActions
 						{contract}
 						onActionComplete={handleActionComplete}
-						containerClass="grid grid-cols-1 sm:grid-cols-2 gap-3"
+						containerClass={getAvailableActionsCount() > 1
+							? 'grid grid-cols-1 sm:grid-cols-2 gap-3'
+							: 'flex justify-center items-center'}
 					/>
 				</div>
 			</div>

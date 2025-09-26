@@ -148,8 +148,8 @@
 								<span class="font-medium">{$t('dashboard.contracts.timeline.proposed_split')}:</span>
 							</div>
 							<div class="pl-2">
-								<div>{$t('dashboard.contracts.timeline.client')}: {event.status.proposedClientAmount} RBTC</div>
-								<div>{$t('dashboard.contracts.timeline.freelancer')}: {event.status.proposedFreelancerAmount} RBTC</div>
+								<div>{$t('dashboard.client')}: {event.status.proposedClientAmount} RBTC</div>
+								<div>{$t('dashboard.freelancer')}: {event.status.proposedFreelancerAmount} RBTC</div>
 							</div>
 						</div>
 					{/if}
