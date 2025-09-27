@@ -4,7 +4,8 @@ import {
 	validateEmail,
 	validateName,
 	validatePassword,
-	validateNostrPrivateKey
+	validateNostrPrivateKey,
+	validateUsername
 } from '$lib/utils/helpers/validators';
 
 describe('Validators', () => {
@@ -161,6 +162,52 @@ describe('Validators', () => {
 			const result = validateNostrPrivateKey(invalidKey);
 			expect(result.isValid).toBe(false);
 			expect(result.error).toBe('Invalid characters in Nostr private key');
+		});
+	});
+
+	describe('validateUsername', () => {
+		it('should return valid result for valid usernames', () => {
+			const result = validateUsername('john');
+			expect(result.isValid).toBe(true);
+			expect(result.error).toBeUndefined();
+		});
+
+		it('should return valid result for usernames with numbers and dashes', () => {
+			const result = validateUsername('john-doe123');
+			expect(result.isValid).toBe(true);
+			expect(result.error).toBeUndefined();
+		});
+
+		it('should return error for empty username', () => {
+			const result = validateUsername('');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Username is required');
+		});
+
+		it('should return error for too short username', () => {
+			const result = validateUsername('ab');
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Username must be at least 3 characters long');
+		});
+
+		it('should return error for too long username', () => {
+			const longUsername = 'a'.repeat(65);
+			const result = validateUsername(longUsername);
+			expect(result.isValid).toBe(false);
+			expect(result.error).toBe('Username must be less than 64 characters long');
+		});
+
+		it('should return valid result for exactly 64 characters', () => {
+			const username64 = 'a'.repeat(64);
+			const result = validateUsername(username64);
+			expect(result.isValid).toBe(true);
+			expect(result.error).toBeUndefined();
+		});
+
+		it('should return valid result for exactly 3 characters', () => {
+			const result = validateUsername('abc');
+			expect(result.isValid).toBe(true);
+			expect(result.error).toBeUndefined();
 		});
 	});
 });
