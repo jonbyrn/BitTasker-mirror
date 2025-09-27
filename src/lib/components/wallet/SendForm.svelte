@@ -36,30 +36,52 @@
 	// Get current asset info
 	let currentAsset = $derived(availableAssets.find(asset => asset.assetId === selectedAsset));
 
-	// Validate form
-	let isFormValid = $derived(recipientAddress.trim() !== '' && 
-					 amount.trim() !== '' && 
-					 parseFloat(amount) > 0 && 
-					 currentAsset && 
-					 parseFloat(amount) <= currentAsset.balance);
+	// Enhanced form validation
+	let isFormValid = $derived(
+		recipientAddress.trim() !== '' && 
+		amount.trim() !== '' && 
+		parseFloat(amount) > 0 && 
+		currentAsset && 
+		parseFloat(amount) <= currentAsset.balance
+	);
+	
+	// Individual validation states for better UX
+	let hasValidAddress = $derived(recipientAddress.trim() !== '');
+	let hasValidAmount = $derived(amount.trim() !== '' && parseFloat(amount) > 0);
+	let hasSufficientBalance = $derived(currentAsset && parseFloat(amount) <= currentAsset.balance);
+	
+	// Validation error messages
+	let validationErrors = $derived.by(() => {
+		const errors = [];
+		if (!hasValidAddress) {
+			errors.push($t('wallet.validation.address_required'));
+		}
+		if (!hasValidAmount) {
+			errors.push($t('wallet.validation.amount_required'));
+		}
+		if (hasValidAmount && !hasSufficientBalance) {
+			errors.push($t('wallet.validation.insufficient_balance'));
+		}
+		return errors;
+	});
 
-	// Network options
-	const networkOptions = [
+	// Network options - reactive to locale changes
+	let networkOptions = $derived([
 		{
 			value: 'liquid',
-			label: 'Liquid Network',
-			description: 'Lightning, Bitcoin, L-BTC, USDT',
+			label: $t('wallet.liquid_network'),
+			description: $t('wallet.liquid_network_description'),
 			icon: '/images/chains/Liquid-Bitcoin.svg',
 			disabled: !$liquidConnection.connected
 		},
 		{
 			value: 'rsk',
-			label: 'Rootstock Network',
-			description: 'rBTC, Smart Contracts',
+			label: $t('wallet.rootstock_network'),
+			description: $t('wallet.rootstock_network_description'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			disabled: !$rskConnection.connected
 		}
-	];
+	]);
 
 	async function handleSend() {
 		if (!isFormValid || !currentAsset) return;
@@ -163,18 +185,95 @@
 			<label class="label" for="asset-select">
 				<span class="label-text font-medium">{$t('wallet.select_asset')}</span>
 			</label>
-			<select
-				id="asset-select"
-				bind:value={selectedAsset}
-				class="select select-bordered w-full"
-				disabled={availableAssets.length <= 1}
-			>
-				{#each availableAssets as asset}
-					<option value={asset.assetId}>
-						{asset.icon} {asset.ticker} - {asset.formattedBalance} {$t('wallet.available_balance')}
-					</option>
-				{/each}
-			</select>
+			<div class="dropdown dropdown-bottom w-full">
+				<div
+					tabindex="0"
+					role="button"
+					class="btn btn-outline w-full justify-between"
+				>
+					{#if currentAsset}
+						<div class="flex items-center gap-3 flex-1">
+							{#if currentAsset.icon.startsWith('/')}
+								<img src={currentAsset.icon} alt={currentAsset.name} class="h-6 w-6" />
+							{:else}
+								<span class="text-2xl">{currentAsset.icon}</span>
+							{/if}
+							<div class="text-left">
+								<span class="font-semibold">{currentAsset.ticker}</span>
+								<span class="text-xs opacity-70">({currentAsset.network})</span>
+							</div>
+						</div>
+						<div class="text-right">
+							<div class="font-medium">{currentAsset.formattedBalance}</div>
+						</div>
+					{:else}
+						<span>{$t('wallet.select_asset')}</span>
+					{/if}
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-5 w-5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 9l-7 7-7-7"
+						/>
+					</svg>
+				</div>
+
+				<ul
+					class="dropdown-content menu bg-base-100 rounded-box z-[1] mt-1 w-full border p-2 shadow"
+				>
+					{#each availableAssets as asset (asset.assetId)}
+						<li>
+							<button
+								class="hover:bg-base-200 flex items-center justify-between p-3 w-full {asset.assetId === selectedAsset ? 'bg-base-200' : ''}"
+								onclick={() => selectedAsset = asset.assetId}
+							>
+								<div class="flex items-center gap-3 flex-1">
+									{#if asset.icon.startsWith('/')}
+										<img src={asset.icon} alt={asset.name} class="h-6 w-6" />
+									{:else}
+										<span class="text-2xl">{asset.icon}</span>
+									{/if}
+									<div>
+										<div class="font-semibold">{asset.name}</div>
+										<div class="text-xs opacity-70">{asset.network} Network</div>
+									</div>
+								</div>
+
+								<div class="flex items-center gap-2">
+									<div class="text-right">
+										<div class="font-medium">{asset.formattedBalance}</div>
+										<div class="text-xs opacity-70">{asset.ticker}</div>
+									</div>
+									
+									{#if asset.assetId === selectedAsset}
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="text-primary h-5 w-5 flex-shrink-0"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+									{/if}
+								</div>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</div>
 		</div>
 	{/if}
 
@@ -189,7 +288,7 @@
 			placeholder={selectedNetwork === 'liquid' 
 				? $t('wallet.address_placeholder') 
 				: $t('wallet.rsk_address_placeholder')}
-			class="input input-bordered w-full"
+			class="input input-bordered w-full {!hasValidAddress && recipientAddress.trim() !== '' ? 'input-error' : ''}"
 			disabled={isLoading}
 		/>
 	</div>
@@ -200,13 +299,10 @@
 			<span class="label-text font-medium">
 				{$t('wallet.amount_btc')} ({currentAsset?.ticker || ''})
 			</span>
-			{#if currentAsset}
-				<span class="label-text-alt">
-					{$t('wallet.available_balance')}: {currentAsset.formattedBalance}
-				</span>
-			{/if}
 		</label>
-		<div class="join">
+		
+		<!-- Amount Input with Max Button -->
+		<div class="join w-full">
 			<input
 				id="amount"
 				bind:value={amount}
@@ -215,17 +311,27 @@
 				min="0"
 				max={currentAsset?.balance}
 				placeholder="0.00"
-				class="input input-bordered join-item flex-1"
+				class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount && amount.trim() !== '' ? 'input-error' : ''}"
+				style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
 				disabled={isLoading}
 			/>
 			<button
-				class="btn btn-outline join-item"
+				class="btn btn-primary join-item rounded-l-none"
 				onclick={handleMaxAmount}
 				disabled={isLoading || !currentAsset}
 			>
 				{$t('wallet.max')}
 			</button>
 		</div>
+		
+		<!-- Available Balance -->
+		{#if currentAsset}
+			<div class="label">
+				<span class="label-text-alt text-sm">
+					{$t('wallet.available_balance')}: {currentAsset.formattedBalance}
+				</span>
+			</div>
+		{/if}
 	</div>
 
 	<!-- Description -->
@@ -288,4 +394,21 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	/* Ensure the dropdown has proper z-index and styling */
+	.dropdown-content {
+		max-height: 300px;
+		overflow-y: auto;
+	}
+	
+	/* Make the Max button look integrated with the input */
+	.join .btn.join-item {
+		border-left: none;
+	}
+	
+	.join .input.join-item {
+		border-right: none;
+	}
+</style>
 

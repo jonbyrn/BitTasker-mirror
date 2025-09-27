@@ -204,12 +204,47 @@
 		</div>
 	</div>
 
-	<!-- QR Code Display -->
+	<!-- QR Code Display or Testnet Alert -->
 	<div class="card bg-base-100">
 		<div class="card-body items-center text-center">
 			<h3 class="card-title">Receive RBTC</h3>
 
-			{#if qrCodeDataUrl}
+			{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') === 'testnet'}
+				<!-- Testnet Alert -->
+				<div class="alert alert-warning w-full max-w-lg">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						class="h-6 w-6 shrink-0 stroke-current"
+						fill="none"
+						viewBox="0 0 24 24"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+						/>
+					</svg>
+					<div>
+						<div class="font-bold">⚠️ TESTNET MODE ACTIVE</div>
+						<div class="text-sm">
+							<strong>DO NOT send real assets!</strong> This app is currently running on Rootstock Testnet. Any funds sent to this wallet will be lost permanently as they are test tokens only.
+						</div>
+						<div class="mt-2 text-sm">
+							To get testnet rBTC for testing, visit the 
+							<a 
+								href="https://faucet.rootstock.io/" 
+								target="_blank" 
+								rel="noopener noreferrer"
+								class="link link-primary font-semibold"
+							>
+								Rootstock Testnet Faucet
+							</a>
+							and request testnet rBTC tokens.
+						</div>
+					</div>
+				</div>
+			{:else if qrCodeDataUrl}
 				<div class="rounded-lg bg-white p-4 shadow-inner">
 					<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-64 w-64" />
 				</div>

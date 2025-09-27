@@ -558,7 +558,7 @@
 				{/if}
 			</div>
 
-			<!-- QR Code Display -->
+			<!-- QR Code Display or Testnet Alert -->
 			<div class="flex flex-col items-center text-center">
 				<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
 

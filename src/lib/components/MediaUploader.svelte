@@ -25,7 +25,7 @@
 
 	let {
 		id = 'media-uploader',
-		label = $t('uploader.uploadImage'),
+		label = '',
 		maxFiles = 1,
 		maxDuration = 30, // In seconds
 		maxFileSize = 2, // In MB for compressed images
@@ -56,6 +56,11 @@
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let compressionInfo = $state<CompressionResult[]>([]);
 	let uploadResults = $state<UploadResult[]>([]);
+
+	// Reactive translation for label
+	$effect(() => {
+		label = $t('uploader.uploadImage');
+	});
 
 	// Helper function to detect if a URL is a video
 	function isVideoURL(url: string): boolean {
@@ -322,12 +327,20 @@
 		error = '';
 	}
 
+	// Get translation strings reactively
+	let imagesText = $state('');
+	let videosText = $state('');
+	$effect(() => {
+		imagesText = $t('common.components.media_uploader.images');
+		videosText = $t('common.components.media_uploader.videos');
+	});
+
 	// Get file type display text
 	let fileTypeText = $derived(
 		allowedTypes
 			.map((type) => {
-				if (type === 'image/*') return $t('common.components.media_uploader.images');
-				if (type === 'video/*') return $t('common.components.media_uploader.videos');
+				if (type === 'image/*') return imagesText;
+				if (type === 'video/*') return videosText;
 				return type.split('/')[1].toUpperCase();
 			})
 			.join(', ')

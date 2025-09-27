@@ -287,6 +287,11 @@
         "faucet_instruction": "Para obtener rBTC de testnet para pruebas, visita el",
         "faucet_link_text": "Faucet de Rootstock Testnet",
         "faucet_instruction_end": "y solicita tokens rBTC de testnet."
+      },
+      "validation": {
+        "address_required": "La dirección de destino es requerida",
+        "amount_required": "El monto es requerido",
+        "insufficient_balance": "Saldo insuficiente"
       }
     }
   }
