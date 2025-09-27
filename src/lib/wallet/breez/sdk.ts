@@ -1,4 +1,4 @@
-import init, {
+import {
 	connect,
 	defaultConfig,
 	setLogger,
@@ -8,7 +8,7 @@ import init, {
 	type LogEntry
 } from '@breeztech/breez-sdk-liquid/web';
 import { writable, get } from 'svelte/store';
-import { isWasmInitialized } from './wasmLoader';
+import { initWasm, isWasmInitialized } from './wasmLoader';
 import { getAssetId } from '$lib/utils/constants/assets';
 
 // Core SDK state
@@ -38,18 +38,6 @@ class ProductionLogger {
 }
 
 let productionLogger: ProductionLogger | null = null;
-
-/**
- * Initialize WASM module (must be called first in web environment)
- */
-export async function initializeWasm(): Promise<void> {
-	try {
-		await init();
-	} catch (error) {
-		console.error('Failed to initialize WASM:', error);
-		throw error;
-	}
-}
 
 /**
  * Get or create SDK configuration
@@ -105,7 +93,7 @@ export async function connectToBreezSdk(
 ): Promise<BindingLiquidSdk> {
 	// Ensure WASM is initialized first
 	if (!get(isWasmInitialized)) {
-		await initializeWasm();
+		await initWasm();
 	}
 
 	// Initialize production logging if not already done
