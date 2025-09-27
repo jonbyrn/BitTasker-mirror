@@ -322,12 +322,16 @@
 		error = '';
 	}
 
+	// Get translation strings outside of derived expressions
+	const imagesText = $t('common.components.media_uploader.images');
+	const videosText = $t('common.components.media_uploader.videos');
+
 	// Get file type display text
 	let fileTypeText = $derived(
 		allowedTypes
 			.map((type) => {
-				if (type === 'image/*') return $t('common.components.media_uploader.images');
-				if (type === 'video/*') return $t('common.components.media_uploader.videos');
+				if (type === 'image/*') return imagesText;
+				if (type === 'video/*') return videosText;
 				return type.split('/')[1].toUpperCase();
 			})
 			.join(', ')
