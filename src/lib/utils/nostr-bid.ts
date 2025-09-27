@@ -579,10 +579,11 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 						// Determine current status from latest status event
 						let currentStatus = contractData.status;
+						let latestNostrStatus = '';
 						if (statusEvents.length > 0) {
-							const latestStatus = statusEvents[statusEvents.length - 1];
+							latestNostrStatus = statusEvents[statusEvents.length - 1].status.action;
 							// Update status based on latest action
-							switch (latestStatus.status.action) {
+							switch (latestNostrStatus) {
 								case 'task-completed':
 									currentStatus = 'completed';
 									break;
@@ -635,12 +636,15 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 								// Import EscrowStatus for comparison
 								const { EscrowStatus } = await import('$lib/utils/enums/wallet.enum');
 
-								// RSK contract state is the ONLY source of truth
-								// Always sync Nostr status to match RSK and determine permissions accordingly
+								// RSK contract state is the source of truth, but Nostr status events provide additional context
+								// Use latest Nostr status event to determine if certain actions have been completed
 								switch (escrowData.status) {
 									case EscrowStatus.Funded: // 0
-										currentStatus = 'active';
-										canComplete = isFreelancer;
+										// Keep Nostr status if it's more specific, otherwise use 'active'
+										if (currentStatus !== 'completed' && currentStatus !== 'disputed') {
+											currentStatus = 'active';
+										}
+										canComplete = isFreelancer && latestNostrStatus !== 'task-completed';
 										canCancel = true; // Either party can cancel when funded
 										break;
 
@@ -666,9 +670,16 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 										break;
 
 									case EscrowStatus.Completed: // 4
-										currentStatus = 'completed';
-										canAccept = isClient;
-										canDispute = isClient;
+										// Check if payment was already released via Nostr event
+										if (latestNostrStatus === 'payment-released') {
+											currentStatus = 'resolved';
+											// No actions available when payment is released
+										} else {
+											currentStatus = 'completed';
+											// Only allow accept/dispute if payment hasn't been released yet
+											canAccept = isClient;
+											canDispute = isClient;
+										}
 										break;
 
 									case EscrowStatus.Cancelled: // 5
@@ -679,24 +690,38 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							} else {
 								// Fallback to Nostr status if RSK data unavailable
 								console.warn('RSK escrow data unavailable, falling back to Nostr status');
-								canComplete = isFreelancer && currentStatus === 'active';
-								canAccept = isClient && currentStatus === 'completed';
-								canDispute = isClient && currentStatus === 'completed';
+
+								// Use Nostr status with basic action logic
+								if (latestNostrStatus === 'payment-released') {
+									currentStatus = 'resolved';
+									// No actions available when payment is released
+								} else {
+									canComplete = isFreelancer && currentStatus === 'active' && latestNostrStatus !== 'task-completed';
+									canAccept = isClient && currentStatus === 'completed' && latestNostrStatus !== 'payment-released';
+									canDispute = isClient && currentStatus === 'completed' && latestNostrStatus !== 'payment-released';
+									canPropose = isFreelancer && currentStatus === 'disputed';
+									canAcceptProposal = isClient && currentStatus === 'disputed';
+									canCancel = currentStatus === 'active';
+									canResolveTimelock = currentStatus === 'disputed';
+								}
+							}
+						} catch (error) {
+							// If RSK check fails, fall back to Nostr status
+							console.warn('Failed to check RSK contract state, using Nostr status:', error);
+
+							// Use Nostr status with basic action logic
+							if (latestNostrStatus === 'payment-released') {
+								currentStatus = 'resolved';
+								// No actions available when payment is released
+							} else {
+								canComplete = isFreelancer && currentStatus === 'active' && latestNostrStatus !== 'task-completed';
+								canAccept = isClient && currentStatus === 'completed' && latestNostrStatus !== 'payment-released';
+								canDispute = isClient && currentStatus === 'completed' && latestNostrStatus !== 'payment-released';
 								canPropose = isFreelancer && currentStatus === 'disputed';
 								canAcceptProposal = isClient && currentStatus === 'disputed';
 								canCancel = currentStatus === 'active';
 								canResolveTimelock = currentStatus === 'disputed';
 							}
-						} catch (error) {
-							// If RSK check fails, fall back to Nostr status
-							console.warn('Failed to check RSK contract state, using Nostr status:', error);
-							canComplete = isFreelancer && currentStatus === 'active';
-							canAccept = isClient && currentStatus === 'completed';
-							canDispute = isClient && currentStatus === 'completed';
-							canPropose = isFreelancer && currentStatus === 'disputed';
-							canAcceptProposal = isClient && currentStatus === 'disputed';
-							canCancel = currentStatus === 'active';
-							canResolveTimelock = currentStatus === 'disputed';
 						}
 
 						// NOW create the updated contract with RSK-synced status as the source of truth
