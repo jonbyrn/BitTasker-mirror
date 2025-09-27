@@ -1,0 +1,29 @@
+{
+  "categories": {
+    "automotive": "Automotivo",
+    "business_support_administration": "Suporte Empresarial e Administração",
+    "cleaning_maintenance": "Limpeza e Manutenção",
+    "creative_design": "Criativo e Design",
+    "delivery_logistics": "Entrega e Logística",
+    "education_tutoring": "Educação e Tutoria",
+    "events_entertainment": "Eventos e Entretenimento",
+    "financial_legal_services": "Serviços Financeiros e Legais",
+    "food_catering": "Alimentação e Catering",
+    "handyman_services": "Serviços de Faz-tudo",
+    "health_wellness": "Saúde e Bem-estar",
+    "home_garden": "Casa e Jardim",
+    "it_technology": "TI e Tecnologia",
+    "marketing_sales": "Marketing e Vendas",
+    "moving_storage": "Mudança e Armazenamento",
+    "other": "Outros",
+    "personal_care": "Cuidados Pessoais",
+    "pet_care": "Cuidados com Animais",
+    "photography_videography": "Fotografia e Videografia",
+    "real_estate": "Imóveis",
+    "repair_maintenance": "Reparo e Manutenção",
+    "sports_fitness": "Esportes e Fitness",
+    "translation_writing": "Tradução e Redação",
+    "transportation": "Transporte",
+    "travel_tourism": "Viagem e Turismo"
+  }
+}

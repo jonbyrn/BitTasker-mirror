@@ -1,0 +1,537 @@
+{
+  "common": {
+    "or": "ou",
+    "processing": "Processando",
+    "loading": "Carregando...",
+    "close": "Fechar",
+    "edit": "Editar",
+    "remove": "Remover",
+    "cancel": "Cancelar",
+    "update": "Atualizar",
+    "add": "Adicionar",
+    "required": "Obrigatório",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "today": "Hoje",
+    "clear": "Limpar",
+    "slide": "Slide",
+    "view_all": "Ver Tudo",
+    "view_profile": "Ver Perfil",
+    "reviews": "avaliações",
+    "cta_title": "Pronto para Começar?",
+    "cta_description": "Junte-se ao BitTasker hoje e experimente uma melhor forma de encontrar trabalho ou contratar taskees qualificados. Nossa plataforma impulsionada por Bitcoin torna as transações seguras, sem fronteiras e eficientes.",
+    "create_account": "Criar Sua Conta",
+    "browse_faq": "Ver FAQ",
+    "connected": "Conectado",
+    "disconnected": "Desconectado",
+    "link": {
+      "security": "Segurança",
+      "privacy": "Privacidade",
+      "escrow": "Sistema de Garantia",
+      "taskee_principles": "Princípios para Taskees",
+      "community_guidelines": "Diretrizes da Comunidade"
+    },
+    "coming_soon": {
+      "title": "Em Breve",
+      "subtitle": "Esta funcionalidade está em desenvolvimento",
+      "description": "Estamos trabalhando duro para trazer algo incrível. Fique ligado!"
+    },
+    "components": {
+      "drawer": {
+        "close": "Fechar painel"
+      },
+      "gallery": {
+        "image_alt": "Imagem {index}"
+      },
+      "input": {
+        "options": "opções"
+      },
+      "location_picker": {
+        "enter_address": "Digite o endereço"
+      },
+      "location_autocomplete": {
+        "enter_address": "Digite o endereço",
+        "failed_suggestions": "Falha ao obter sugestões de endereço. Tente novamente.",
+        "no_places_found": "Nenhum local encontrado."
+      },
+      "logo": {
+        "alt": "Logo BitTasker"
+      },
+      "media_uploader": {
+        "remove_file": "Remover arquivo",
+        "preview": "Visualizar",
+        "images": "Imagens",
+        "videos": "Vídeos",
+        "compressing_images": "Comprimindo imagens...",
+        "uploading_files": "Enviando arquivos...",
+        "compression_success": "Imagens comprimidas com sucesso!",
+        "file_number": "Arquivo {index}",
+        "invalid_file_type_images_videos": "Apenas imagens e vídeos são permitidos",
+        "invalid_file_type_videos": "Apenas vídeos MP4, WebM e OGG são permitidos",
+        "file_size_limit": "O tamanho do arquivo deve ser menor que {maxSize}MB",
+        "video_duration_limit": "O vídeo deve ter {maxDuration} segundos ou menos",
+        "image_dimensions": "As dimensões da imagem devem ser {width}x{height}px",
+        "max_files_limit": "Máximo de {maxFiles} arquivos permitidos",
+        "upload_failed": "Falha no upload: {error}",
+        "compression_failed": "Falha ao comprimir imagem: {error}",
+        "invalid_image": "Arquivo de imagem inválido",
+        "failed_validate_video": "Falha ao validar duração do vídeo",
+        "failed_load_image": "Falha ao carregar imagem"
+      },
+      "modal": {
+        "close": "Fechar diálogo"
+      },
+      "qr_scanner": {
+        "scan_qr_code": "Escanear Código QR",
+        "close": "Fechar",
+        "toggle_torch": "Alternar Lanterna"
+      },
+      "tags": {
+        "select_tags": "Selecionar tags...",
+        "remove_tag": "Remover tag {tag}",
+        "available_tags": "Tags disponíveis"
+      },
+      "topbar": {
+        "logo_alt": "Logo BitTasker",
+        "close_menu": "Fechar menu",
+        "open_menu": "Abrir menu"
+      },
+      "uploader": {
+        "images": "Imagens",
+        "videos": "Vídeos",
+        "preview": "Visualizar",
+        "remove_file": "Remover arquivo",
+        "file_size_limit": "O tamanho do arquivo deve ser menor que {maxSize}MB",
+        "video_duration_limit": "O vídeo deve ter {maxDuration} segundos ou menos",
+        "image_dimensions": "As dimensões da imagem devem ser {width}x{height}px",
+        "max_files_limit": "Máximo de {maxFiles} arquivos permitidos"
+      },
+      "bidding": {
+        "counter_offer_history": {
+          "title": "Histórico de Negociação ({count})",
+          "no_offers": "Ainda não há contraofertas",
+          "estimated_completion": "Conclusão estimada:",
+          "you_proposed": "Você",
+          "they_proposed": "Eles",
+          "decline": "Recusar",
+          "accept": "Aceitar"
+        },
+        "counter_offer_item": {
+          "counter_from": "Contraoferta de {user}...",
+          "offered_price": "Preço oferecido:",
+          "delivery": "Entrega:"
+        },
+        "dashboard_bids": {
+          "avatar_alt": "Avatar",
+          "anonymous": "Anônimo",
+          "rating": "4.0"
+        },
+        "escrow_success": {
+          "title": "Resumo da Transação",
+          "close_dialog": "Fechar diálogo",
+          "success_title": "Garantia Financiada com Sucesso",
+          "success_message": "Seu contrato foi criado e financiado na blockchain.",
+          "payment_summary": "Resumo do Pagamento",
+          "bid_price": "Preço da Oferta",
+          "platform_fee": "Taxa da Plataforma",
+          "transaction_fee": "Taxa de Transação Est.",
+          "total_price": "Preço Total",
+          "blockchain_verification": "Verificação Blockchain",
+          "verification_message": "Sua transação foi confirmada na blockchain. Você pode verificá-la usando o explorador de blocos.",
+          "copy_hash": "Copiar hash da transação",
+          "view_explorer": "Ver no Explorador",
+          "gamification_title": "Continue subindo!",
+          "gamification_message": "Complete mais {tasks} tarefas até {date} para alcançar {tier}",
+          "go_dashboard": "Ir ao Painel",
+          "create_new_task": "Criar Nova Tarefa"
+        },
+        "external_wallet": {
+          "title": "Completar Pagamento",
+          "close_dialog": "Fechar diálogo",
+          "payment_methods": {
+            "bitcoin_lightning": "Bitcoin Lightning",
+            "lbtc": "L-BTC",
+            "usdt": "USDT",
+            "unknown": "Desconhecido"
+          },
+          "networks": {
+            "lightning": "Rede Lightning",
+            "liquid": "Rede Liquid",
+            "unknown": "Rede Desconhecida"
+          },
+          "instructions": {
+            "send_exactly": "Envie exatamente ${amount}",
+            "use_network": "Use a rede {network}",
+            "no_exchange": "Não envie de uma exchange"
+          },
+          "qr_alt": "Código QR de Pagamento",
+          "scan_qr": "Escaneie o código QR ou copie o endereço",
+          "payment_address": "Endereço de Pagamento",
+          "copy": "Copiar",
+          "copied": "Copiado!",
+          "cancel": "Cancelar",
+          "payment_sent": "Enviei o Pagamento"
+        },
+        "task_details": {
+          "close_dialog": "Fechar diálogo"
+        }
+      },
+      "nostr_key_import": {
+        "step_indicator": "Passo 2 de 7 - Opcional",
+        "title": "Importar Sua Chave Nostr (Opcional)",
+        "subtitle": "O que é uma chave Nostr?",
+        "description": "Uma chave privada Nostr (nsec…) é como sua chave privada Bitcoin: ela lhe dá propriedade de seus dados. <br /><br />Você pode importar uma chave existente, ou deixar-nos gerar uma para você.",
+        "features": {
+          "use_existing": "<strong>Usar existente</strong> — importe seu nsec para manter sua identidade",
+          "generate_new": "<strong>Gerar nova</strong> — criaremos uma chave segura se você não tiver uma",
+          "manage_anytime": "<strong>Gerenciar a qualquer momento</strong> — visualizar/exportar sua chave nas Configurações do App",
+          "stored_securely": "<strong>Armazenada com Segurança</strong> — criptografada em seu dispositivo para que não possamos vê-la"
+        },
+        "control_access": "Você controla o acesso. Mantenha sua chave segura.",
+        "import_checkbox": "Importar chave Nostr existente (nsec)",
+        "private_key_label": "Chave Privada (nsec)",
+        "private_key_placeholder": "Digite sua chave privada Nostr (nsec1...)",
+        "back": "Voltar",
+        "next": "Próximo"
+      },
+      "recommendations": {
+        "error": {
+          "load_failed": "Falha ao carregar recomendações. Tente novamente.",
+          "generate": "Gerar"
+        },
+        "feedback": {
+          "thanks_more": "Obrigado pelo feedback! Mostraremos mais tarefas como esta.",
+          "thanks_fewer": "Mostraremos menos tarefas como esta.",
+          "thanks_simple": "Obrigado pelo feedback!"
+        }
+      },
+      "devices": {
+        "platforms": {
+          "android": "Android",
+          "ios": "iOS",
+          "web": "Navegador Web",
+          "unknown": "Desconhecido"
+        },
+        "time_units": {
+          "minute": "minuto",
+          "minutes": "minutos",
+          "hour": "hora",
+          "hours": "horas",
+          "day": "dia",
+          "days": "dias"
+        }
+      },
+      "wallet": {
+        "payment_request_form": {
+          "description": "Gere endereços e faturas usando Breez SDK. Suporte para pagamentos Lightning, Bitcoin e multi-ativos Liquid.",
+          "payment_method": "Método de Pagamento",
+          "liquid_address": "Endereço Liquid",
+          "lightning_invoice": "⚡ Fatura Lightning",
+          "bitcoin_address": "₿ Endereço Bitcoin",
+          "bolt12_offer": "🔄 Oferta BOLT12",
+          "any_asset": "🎯 Qualquer Ativo (Universal)",
+          "liquid_bitcoin": "₿ L-BTC (Bitcoin Liquid)",
+          "tether_usd": "💵 USDt (Tether USD)",
+          "asset_type": "Tipo de Ativo",
+          "amount": "Valor ({unit}){required}",
+          "amount_required_placeholder": "Valor obrigatório",
+          "amount_optional_placeholder": "Deixe vazio para qualquer valor",
+          "liquid_address_tip": "💡 Endereços Liquid podem receber qualquer valor sem especificar antecipadamente",
+          "bolt12_warning": "⚠️ Ofertas BOLT12 ignoram entrada de valor - pagadores escolhem seu próprio valor",
+          "description_label": "Descrição (opcional)",
+          "description_placeholder": "Para que é este pagamento?",
+          "generating": "Gerando...",
+          "generate": "Gerar {method}",
+          "failed_to_load": "Falha ao carregar opções de pagamento. Tente novamente.",
+          "failed_to_generate": "Falha ao gerar solicitação de pagamento. Tente novamente.",
+          "amount_required": "Valor é obrigatório para {method}",
+          "amount_too_low": "Valor deve ser pelo menos {min} sats",
+          "amount_too_high": "Valor deve ser no máximo {max} sats",
+          "liquid_address_name": "Endereço Liquid",
+          "lightning_invoice_name": "Fatura Lightning",
+          "bitcoin_address_name": "Endereço Bitcoin",
+          "bolt12_offer_name": "Oferta BOLT12",
+          "address_name": "Endereço",
+          "liquid_address_desc": "Endereço universal para L-BTC, USDT e outros ativos Liquid. Nenhum valor obrigatório.",
+          "lightning_invoice_desc": "Pagamento Lightning instantâneo. Valor obrigatório, expira após uso.",
+          "bitcoin_address_desc": "Pagamento Bitcoin on-chain. Taxas mais altas, confirmação mais lenta.",
+          "bolt12_offer_desc": "Oferta Lightning reutilizável. Aceita qualquer valor, ignora entrada de valor.",
+          "any_asset_desc": "Aceitar qualquer ativo suportado (L-BTC, USDT, etc.)",
+          "liquid_bitcoin_desc": "Apenas Bitcoin Liquid",
+          "tether_usd_desc": "Apenas Tether USD no Liquid",
+          "multi_asset": "multi-ativo",
+          "default_description": "Pagamento {method}{asset}",
+          "address_copied": "Endereço copiado para a área de transferência",
+          "generated": "{method} Gerado ✅",
+          "share_with_payer": "Compartilhe este {type} com o pagador",
+          "address": "Endereço",
+          "invoice": "Fatura",
+          "method": "Método",
+          "asset": "Ativo",
+          "any_amount_accepted": "Qualquer valor aceito",
+          "payer_chooses_amount": "Pagador escolhe o valor",
+          "network_fee": "Taxa da Rede",
+          "click_to_copy": "Clique para copiar",
+          "click_to_copy_hint": "👆 Clique para copiar para a área de transferência",
+          "generate_new": "Gerar Novo",
+          "copy": "📋 Copiar"
+        },
+        "swap_dashboard": {
+          "title": "Painel de Trocas",
+          "refresh": "Atualizar",
+          "failed_to_load": "Falha ao carregar trocas",
+          "failed_refund": "Falha ao reembolsar troca",
+          "loading_swaps": "Carregando trocas...",
+          "active_swaps": "Trocas Ativas",
+          "no_active_swaps": "Nenhuma Troca Ativa",
+          "no_active_swaps_message": "Você não tem trocas ativas no momento",
+          "lightning_to_bitcoin": "Lightning → Bitcoin",
+          "lightning_to_bitcoin_desc": "Converter pagamentos Lightning para Bitcoin",
+          "bitcoin_to_lightning": "Bitcoin → Lightning",
+          "bitcoin_to_lightning_desc": "Converter Bitcoin para pagamentos Lightning",
+          "create_swap": "Criar Troca",
+          "recent_history": "Histórico Recente",
+          "type": "Tipo",
+          "amount": "Valor",
+          "status": "Status",
+          "date": "Data",
+          "refund": "Reembolso",
+          "waiting_payment": "Aguardando pagamento",
+          "transaction_mempool": "Transação na mempool"
+        },
+        "transaction_history": {
+          "title": "Histórico de Transações",
+          "loading": "Carregando transações...",
+          "error": "Falha ao carregar transações",
+          "retry": "Tentar Novamente",
+          "no_transactions": "Nenhuma transação encontrada",
+          "received": "Recebido",
+          "sent": "Enviado",
+          "date": "Data",
+          "address": "Endereço",
+          "status": "Status",
+          "network": "Rede",
+          "confirmed": "Confirmado",
+          "pending": "Pendente",
+          "failed": "Falhou"
+        },
+        "asset_selector": {
+          "no_assets": "Nenhum ativo disponível",
+          "select_asset": "Selecionar Ativo",
+          "network": "Rede",
+          "available_balance": "Saldo Disponível"
+        },
+        "balance_card": {
+          "total_balance": "Saldo Total",
+          "no_assets_found": "Nenhum Ativo Encontrado",
+          "no_assets_message": "Sua carteira ainda não tem ativos. Comece recebendo alguns pagamentos Bitcoin ou Lightning.",
+          "refresh_balances": "Atualizar Saldos"
+        },
+        "recent_transactions": {
+          "title": "Transações Recentes",
+          "received": "Recebido",
+          "sent": "Enviado",
+          "view_all": "Ver todas as transações",
+          "no_transactions": "Nenhuma transação encontrada."
+        },
+        "amount_input": {
+          "amount": "Valor",
+          "min_max": "Mín: {min} - Máx: {max}",
+          "loading_limits": "Carregando limites...",
+          "available_balance": "Saldo Disponível:",
+          "error": "Erro:",
+          "estimated_fees": "Taxas Estimadas:",
+          "max_sendable": "Máximo Enviável:",
+          "status": "Status:",
+          "insufficient_funds": "Fundos insuficientes"
+        },
+        "fee_selection": {
+          "transaction_speed": "Velocidade da Transação",
+          "speed_description": "Maior velocidade = Taxas mais altas",
+          "slow": "Lento",
+          "medium": "Médio",
+          "fast": "Rápido"
+        },
+        "passkey_verification": {
+          "title": "Verificação de Segurança Necessária",
+          "subtitle": "Confirme com sua chave de acesso ou biometria",
+          "operation": "Operação:",
+          "amount": "Valor:",
+          "destination": "Destino:",
+          "asset": "Ativo:",
+          "security_notice": "Aviso de Segurança",
+          "lightning_payment": "Este é um pagamento Lightning e será processado instantaneamente.",
+          "bitcoin_warning": "⚠️ Esta é uma transferência Bitcoin fora da plataforma. Os fundos sairão de sua carteira permanentemente.",
+          "liquid_warning": "⚠️ Esta é uma transferência Liquid fora da plataforma. Os fundos sairão de sua carteira permanentemente.",
+          "swap_message": "Isso iniciará uma troca entre diferentes tipos de ativos.",
+          "backup_message": "Isso criará um backup seguro dos dados de sua carteira.",
+          "default_message": "Esta operação requer verificação de segurança adicional.",
+          "cancel": "Cancelar",
+          "verifying": "Verificando...",
+          "verify_passkey": "Verificar com Chave de Acesso",
+          "transaction_prepared": "Transação Preparada",
+          "estimated_fee": "Taxa estimada: {fee} {asset}"
+        },
+        "recipient_input": {
+          "recipient": "Destinatário",
+          "placeholder": "Endereço, fatura Lightning ou endereço Lightning"
+        },
+        "send_form": {
+          "title": "Enviar Pagamento",
+          "select_asset": "Selecionar Ativo",
+          "description": "Descrição (opcional)",
+          "description_placeholder": "Para que é este pagamento?",
+          "processing": "Processando",
+          "processing_short": "Processando",
+          "send": "Enviar",
+          "activity": "Atividade",
+          "pending_payments": "Pagamentos Pendentes ({count})",
+          "pending_message": "Alguns pagamentos estão aguardando confirmação"
+        },
+        "create_wallet": {
+          "title": "Criar Nova Carteira",
+          "seed_warning": "Mantenha sua frase semente segura! Qualquer pessoa com sua frase semente pode acessar sua carteira e retirar seus fundos.",
+          "copy_instruction": "Copie a frase semente para sua área de transferência clicando no texto.",
+          "copied": "Copiado!",
+          "click_to_copy": "Clique para copiar",
+          "generate_seed": "Gerar Frase Semente",
+          "generating": "Gerando...",
+          "setting_up_passkey": "Configurando chave de acesso...",
+          "continue_to_wallet": "Continuar para a Carteira"
+        },
+        "import_wallet": {
+          "title": "Importar Carteira Existente",
+          "seed_instruction": "Digite sua frase semente de 12 ou 24 palavras",
+          "seed_placeholder": "Digite sua frase semente aqui...",
+          "import_wallet": "Importar Carteira",
+          "importing": "Importando...",
+          "invalid_seed": "Frase semente inválida. Verifique suas palavras e tente novamente.",
+          "import_success": "Carteira importada com sucesso!",
+          "continue_to_wallet": "Continuar para a Carteira"
+        }
+      },
+      "task": {
+        "boost": {
+          "title": "Impulsionar Sua Tarefa",
+          "description": "Gostaria de impulsionar sua tarefa para obter mais visibilidade e respostas mais rápidas?",
+          "info_message": "Impulsionar sua tarefa aumenta suas chances de encontrar o taskee certo mais rápido!",
+          "payment_options": "Opções de Pagamento"
+        },
+        "recurrence_pattern": {
+          "frequency_question": "Com que frequência esta tarefa deve se repetir?",
+          "daily": "Diário",
+          "weekly": "Semanal",
+          "biweekly": "A cada 2 semanas",
+          "monthly": "Mensal",
+          "custom": "Personalizado",
+          "repeat_every": "Repetir a cada",
+          "days": "dia(s)",
+          "weeks": "semana(s)",
+          "months": "mês(es)",
+          "on_these_days": "Nestes dias:",
+          "on_day": "No dia",
+          "of_the_month": "do mês",
+          "select_specific_days": "Selecionar dias específicos:",
+          "end_conditions": "Condições de Término",
+          "end_date_optional": "Data de Término (opcional)",
+          "maximum_occurrences": "Máximo de Ocorrências",
+          "tasks": "tarefas"
+        },
+        "recurring_tasks": {
+          "title": "Modelos de Tarefas Recorrentes",
+          "create_template": "Criar Modelo",
+          "update_recurrence_pattern": "Atualizar Padrão de Recorrência",
+          "updating_for": "Atualizando padrão de recorrência para:",
+          "close_dialog": "Fechar diálogo",
+          "save_changes": "Salvar Alterações",
+          "no_templates": "Você ainda não tem modelos de tarefas recorrentes",
+          "create_template_description": "Crie um modelo para automatizar suas tarefas regulares",
+          "create_template_button": "Criar Modelo",
+          "template_deleted": "Modelo excluído com sucesso",
+          "pattern_updated": "Padrão de recorrência atualizado com sucesso",
+          "failed_update_status": "Falha ao atualizar status do modelo. Tente novamente.",
+          "failed_delete": "Falha ao excluir modelo. Tente novamente.",
+          "failed_update_pattern": "Falha ao atualizar padrão de recorrência. Tente novamente."
+        },
+        "template_card": {
+          "confirm_deletion": "Confirmar Exclusão",
+          "delete_confirmation": "Tem certeza de que deseja excluir este modelo de tarefa recorrente? Todas as tarefas agendadas futuras serão canceladas.",
+          "template_information": "Informações do Modelo",
+          "description": "Descrição",
+          "created": "Criado",
+          "schedule": "Agendamento",
+          "frequency": "Frequência",
+          "end_date": "Data de Término",
+          "maximum_occurrences": "Máximo de Ocorrências",
+          "next_task": "Próxima Tarefa",
+          "task_details": "Detalhes da Tarefa",
+          "title": "Título",
+          "budget": "Orçamento",
+          "type": "Tipo",
+          "location": "Localização",
+          "required_skills": "Habilidades Necessárias",
+          "back": "Voltar",
+          "edit": "Editar",
+          "pause": "Pausar",
+          "resume": "Retomar",
+          "show_less": "Mostrar Menos",
+          "show_more": "Mostrar Mais",
+          "view_details": "Ver Detalhes",
+          "delete": "Excluir",
+          "online": "Online",
+          "in_person": "Presencial",
+          "unknown": "Desconhecido",
+          "not_scheduled": "Não agendado",
+          "every_day": "Todos os dias",
+          "every_week": "Toda semana",
+          "every_2_weeks": "A cada 2 semanas",
+          "monthly_on_day": "Mensalmente no dia",
+          "every_months_on_day": "A cada {interval} meses no dia {day}",
+          "every_months": "A cada {interval} meses",
+          "custom_schedule": "Agendamento personalizado"
+        },
+        "location_viewer": {
+          "loading_map": "Carregando mapa...",
+          "pickup_location": "Local de Coleta",
+          "task_location": "Local da Tarefa",
+          "dropoff_location": "Local de Entrega",
+          "pickup": "Coleta",
+          "drop_off": "Entrega",
+          "route": "Rota"
+        },
+        "review_location": {
+          "location_title": "Localização",
+          "remote_task": "Tarefa Remota",
+          "removal_delivery": "Mudança/Entrega",
+          "in_person_badge": "Presencial",
+          "remote_completion_message": "Esta tarefa pode ser concluída remotamente de qualquer lugar.",
+          "pickup_location_review": "Local de Coleta",
+          "dropoff_location_review": "Local de Entrega",
+          "zip_label": "CEP:",
+          "location_set": "Localização definida",
+          "location_not_available": "Informações de localização não estão disponíveis para esta tarefa."
+        },
+        "drawer": {
+          "title": "Detalhes da Tarefa",
+          "close": "Fechar",
+          "task_not_found": "Tarefa Não Encontrada",
+          "task_not_found_message": "A tarefa solicitada não pôde ser encontrada ou pode ter sido removida.",
+          "details": "Detalhes"
+        }
+      }
+    },
+    "airdatepicker": {
+      "select_date": "Selecionar uma data",
+      "select_date_range": "Selecionar intervalo de datas",
+      "select_datetime": "Selecionar data e hora",
+      "select_time": "Selecionar hora",
+      "select_start_date": "Selecionar data de início",
+      "select_end_date": "Selecionar data de término",
+      "select_start_datetime": "Selecionar data e hora de início",
+      "select_end_datetime": "Selecionar data e hora de término"
+    },
+    "layout": {
+      "github_aria": "GitHub"
+    }
+  }
+}

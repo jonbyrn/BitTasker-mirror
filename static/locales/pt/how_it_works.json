@@ -1,0 +1,44 @@
+{
+  "how_it_works": {
+    "title": "Como o BitTasker Funciona",
+    "subtitle": "Conectando pessoas que buscam serviços com profissionais qualificados",
+    "steps": {
+      "post": {
+        "title": "1. Publique uma Tarefa",
+        "description": "Descreva o trabalho que precisa ser feito, defina seu orçamento e publique para nossa comunidade de taskees qualificados."
+      },
+      "hire": {
+        "title": "2. Contrate o Melhor",
+        "description": "Revise propostas de taskees talentosos, compare preços e contrate o ajuste perfeito para seu projeto."
+      },
+      "pay": {
+        "title": "3. Pague com Segurança",
+        "description": "Uma vez que o trabalho esteja completo, pague com segurança usando Bitcoin ou métodos de pagamento tradicionais."
+      }
+    },
+    "features": {
+      "title": "Por que Escolher o BitTasker?",
+      "bitcoin": {
+        "title": "Pagamentos Bitcoin",
+        "description": "Pague e receba em Bitcoin, Lightning Network ou moedas tradicionais"
+      },
+      "decentralized": {
+        "title": "Descentralizado",
+        "description": "Construído no Nostr - você possui seus dados e identidade"
+      },
+      "global": {
+        "title": "Acesso Global",
+        "description": "Conecte-se com profissionais de todo o mundo"
+      },
+      "secure": {
+        "title": "Seguro",
+        "description": "Sistema de garantia protege tanto taskers quanto taskees"
+      }
+    },
+    "cta": {
+      "title": "Pronto para Começar?",
+      "description": "Junte-se a milhares de pessoas já usando o BitTasker",
+      "get_started": "Começar Agora"
+    }
+  }
+}

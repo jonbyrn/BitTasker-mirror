@@ -8,7 +8,8 @@
 
 	export const LANGUAGES = [
 		{ code: 'en', name: 'English' },
-		{ code: 'es', name: 'Español' }
+		{ code: 'es', name: 'Español' },
+		{ code: 'pt', name: 'Português' }
 	];
 
 	let {
@@ -23,7 +24,8 @@
 
 	const FLAG_IMAGES: Record<SupportedLanguage, string> = {
 		en: '/images/flags/us.webp',
-		es: '/images/flags/sv.webp'
+		es: '/images/flags/sv.webp',
+		pt: '/images/flags/pt.webp'
 	};
 
 	const handleLanguageChange = async (code: SupportedLanguage) => {
@@ -86,7 +88,7 @@
 		setTimeout(updateDropdownState, 0);
 	}
 
-	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish' };
+	const LOCALE_TO_LANGUAGE_KEY = { en: 'english', es: 'spanish', pt: 'portuguese' };
 
 	// Svelte 5 derived state for current language name
 	const currentLanguageName = $derived(() => {
@@ -109,13 +111,17 @@
 		class:tooltip-bottom={showTooltip}
 		data-tip={!isLanguageLoading ? ` ${currentLanguageName()}` : ''}
 	>
-		<img
-			src={FLAG_IMAGES[$locale as SupportedLanguage]}
-			alt={`${currentLanguageName()} flag`}
-			class="h-4.5 w-6 rounded-sm object-cover"
-			width="24"
-			height="18"
-		/>
+		{#if $locale === 'pt'}
+			<span class="text-lg">🇵🇹</span>
+		{:else}
+			<img
+				src={FLAG_IMAGES[$locale as SupportedLanguage]}
+				alt={`${currentLanguageName()} flag`}
+				class="h-4.5 w-6 rounded-sm object-cover"
+				width="24"
+				height="18"
+			/>
+		{/if}
 		{#if showLanguageCode}
 			{#if showLocaleCode}
 				<span class="font-medium uppercase">{$locale}</span>
@@ -141,13 +147,17 @@
 					onclick={() => handleLanguageChange(code as SupportedLanguage)}
 					class:bg-base-200={code === $locale}
 				>
-					<img
-						src={FLAG_IMAGES[code as SupportedLanguage]}
-						alt={`${name} flag`}
-						class="h-4.5 w-6 rounded-sm object-cover"
-						width="24"
-						height="18"
-					/>
+					{#if code === 'pt'}
+						<span class="text-lg">🇵🇹</span>
+					{:else}
+						<img
+							src={FLAG_IMAGES[code as SupportedLanguage]}
+							alt={`${name} flag`}
+							class="h-4.5 w-6 rounded-sm object-cover"
+							width="24"
+							height="18"
+						/>
+					{/if}
 					<span>{name}</span>
 					{#if showCheckmark && code === $locale}
 						<IconCheck class="text-primary ml-auto" width="16" />

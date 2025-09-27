@@ -1,0 +1,20 @@
+{
+  "onboarding": {
+    "welcome": {
+      "title": "Bem-vindo ao BitTasker",
+      "subtitle": "A força de trabalho descentralizada",
+      "description": "Contrate profissionais para qualquer tarefa. Pague com Bitcoin ou fiat. Construído no Nostr."
+    },
+    "steps": {
+      "account": "Conta",
+      "profile": "Perfil", 
+      "location": "Localização",
+      "completed": "Concluído"
+    },
+    "get_started": "Começar",
+    "skip": "Pular",
+    "next": "Próximo",
+    "back": "Voltar",
+    "complete": "Completar"
+  }
+}
