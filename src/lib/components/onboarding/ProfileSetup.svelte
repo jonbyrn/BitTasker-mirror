@@ -104,18 +104,20 @@
 						}
 					}
 					// Handle skills update
-					else if (
-						event.kind === KINDS.PROFILE_SKILLS &&
-						event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
-					) {
-						const skillsData = JSON.parse(event.content);
-						if (Array.isArray(skillsData)) {
-							skills = skillsData.map((skill) => ({
-								...skill,
-								id: skill.id
-							}));
-						}
+				else if (
+					event.kind === KINDS.PROFILE_SKILLS &&
+					event.tags.find((t) => t[0] === 'd' && t[1] === 'skills')
+				) {
+					const skillsData = JSON.parse(event.content);
+					if (Array.isArray(skillsData)) {
+						skills = skillsData.map((skill) => ({
+							...skill,
+							id: skill.id
+						}));
+						// Mirror arriving skills into selectedSkills once to initialize the UI
+						selectedSkills = skillsData.map((s) => s.name);
 					}
+				}
 				} catch (err) {
 					console.error('Failed to process profile update:', err);
 					error = $t('onboarding_auth.form.failed_process_profile_update');
@@ -140,7 +142,7 @@
 		if (selectedFile) {
 			try {
 				pictureLoading = true;
-				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, 'profile');
+				const uploadedFile = await uploadService.uploadSingleFile(selectedFile, { folder: 'profile' });
 				const uploadedPicture = {
 					url: uploadedFile.url,
 					type: selectedFile.type,
@@ -159,20 +161,20 @@
 		}
 	}
 
-	// Convert skills array to string array for SkillsMultiselect
-	$effect(() => {
-		selectedSkills = skills.map(skill => skill.name);
-	});
+	// Remove bidirectional ping-pong: selectedSkills will be initialized from subscription
 
-	// Convert string array back to skills array
+	// Convert string array back to skills array, guarded to avoid self-triggered loops
 	$effect(() => {
-		skills = selectedSkills.map(skillName => {
-			// Check if skill already exists to preserve other properties
-			const existingSkill = skills.find(skill => skill.name === skillName);
-			if (existingSkill) {
-				return existingSkill;
-			}
-			// Create new skill object
+		// If both arrays represent the same names (order-insensitive), skip
+		const currentNames = new Set(skills.map((s) => s.name));
+		const selectedNames = new Set(selectedSkills);
+		if (currentNames.size === selectedNames.size && [...currentNames].every((n) => selectedNames.has(n))) {
+			return;
+		}
+
+		skills = selectedSkills.map((skillName) => {
+			const existingSkill = skills.find((skill) => skill.name === skillName);
+			if (existingSkill) return existingSkill;
 			return {
 				name: skillName,
 				level: 1,

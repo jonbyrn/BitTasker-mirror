@@ -262,13 +262,10 @@
       "generate_address": "Generar Dirección",
       "method": "Método",
       "any_amount_accepted": "Cualquier cantidad aceptada",
-      "click_to_copy": "Clic para copiar",
       "generate_new": "Generar Nueva",
       "exchange_rate_unavailable": "Tipo de cambio no disponible - mostrando saldos separados",
       "no_assets": "Sin activos",
-      "liquid_network": "Red Liquid",
       "liquid_network_description": "Lightning, Bitcoin, L-BTC, USDT",
-      "rootstock_network": "Red Rootstock",
       "rootstock_network_description": "rBTC, Contratos Inteligentes",
       "amount_rbtc": "Monto (rBTC)",
       "optional": "Opcional",
@@ -290,6 +287,11 @@
         "faucet_instruction": "Para obtener rBTC de testnet para pruebas, visita el",
         "faucet_link_text": "Faucet de Rootstock Testnet",
         "faucet_instruction_end": "y solicita tokens rBTC de testnet."
+      },
+      "validation": {
+        "address_required": "La dirección de destino es requerida",
+        "amount_required": "El monto es requerido",
+        "insufficient_balance": "Saldo insuficiente"
       }
     }
   }

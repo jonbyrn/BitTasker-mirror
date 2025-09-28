@@ -131,7 +131,7 @@ const initialState: CombinedWalletState = {
 	rbtcToBtcRate: 1.0, // Default 1:1 when no rate available
 	rbtcRateError: false,
 
-	activeNetwork: 'liquid',
+	activeNetwork: 'rsk',
 	activeTab: 'balance',
 	selectedAsset: 'L-BTC'
 };

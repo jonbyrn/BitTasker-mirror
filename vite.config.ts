@@ -43,7 +43,9 @@ export default defineConfig({
         exclude: [
             'firebase',
             '@breeztech/breez-sdk-liquid/web',
-            '@breeztech/breez-sdk-liquid'
+            '@breeztech/breez-sdk-liquid',
+            '@capacitor/device',
+            '@capacitor/preferences'
         ]
     },
     resolve: {
