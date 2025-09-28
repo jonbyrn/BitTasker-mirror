@@ -310,6 +310,9 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 		// Get network config
 		const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const networkConfig = RSK_NETWORKS[network];
+		
+		// Log network for debugging (visible in production)
+		console.log(`🔗 RSK Network: ${network} (${networkConfig.name})`);
 
 		// Create provider
 		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
