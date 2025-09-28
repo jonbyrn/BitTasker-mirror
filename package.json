@@ -45,7 +45,6 @@
 		"@storybook/sveltekit": "^8.6.4",
 		"@storybook/test": "^8.6.4",
 		"@sveltejs/adapter-static": "^3.0.8",
-		"@sveltejs/kit": "^2.26.1",
 		"@sveltejs/vite-plugin-svelte": "^5.0.0",
 		"@tailwindcss/typography": "^0.5.16",
 		"@tailwindcss/vite": "^4.0.0",
@@ -86,6 +85,7 @@
 	},
 	"dependencies": {
 		"@breeztech/breez-sdk-liquid": "^0.10.3",
+		"@sveltejs/kit": "^2.26.1",
 		"@capacitor-mlkit/barcode-scanning": "^7.3.0",
 		"@capacitor/android": "^7.0.1",
 		"@capacitor/app": "^7.0.0",
