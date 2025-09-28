@@ -93,12 +93,12 @@ export function isValidAssetId(network: 'mainnet' | 'testnet', assetId: string):
 export function getCurrentNetwork(): 'mainnet' | 'testnet' {
 	// Check environment variable first
 	if (typeof import.meta !== 'undefined' && import.meta.env) {
-		const envNetwork = import.meta.env.WALLET_NETWORK;
+		const envNetwork = import.meta.env.VITE_RSK_NETWORK;
 		if (envNetwork) return envNetwork;
 	}
 	
-	// Default to mainnet for production
-	return 'mainnet';
+	// Default to testnet to match RSK network setting
+	return 'testnet';
 }
 
 /**
