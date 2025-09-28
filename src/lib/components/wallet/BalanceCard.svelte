@@ -131,6 +131,72 @@
 
 	<!-- Network Breakdown -->
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<!-- Rootstock Network Card -->
+		<div class="card bg-base-200 flex flex-col">
+			<div class="card-body flex flex-col flex-1">
+				<div class="mb-4 flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
+						<h4 class="font-semibold">{$t('wallet.rootstock_network')}</h4>
+					</div>
+					<div
+						class="badge {$rskConnection.connected
+							? 'badge-success'
+							: 'badge-error'} badge-sm text-xs"
+					>
+						{$rskConnection.connected ? 'Connected' : 'Disconnected'}
+					</div>
+				</div>
+
+				<div class="flex-1">
+					{#if $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc').length > 0}
+						<div class="space-y-2">
+							{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
+										<span class="font-medium">{asset.ticker}</span>
+									</div>
+									<div class="text-right">
+										<div class="font-semibold">{asset.formattedBalance}</div>
+										{#if asset.usdValue > 0}
+											<div class="text-xs opacity-70">
+												${asset.usdValue.toFixed(2)}
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="py-4 text-center opacity-70">
+							<p>{$t('wallet.no_assets_loaded')}</p>
+						</div>
+					{/if}
+				</div>
+
+				{#if $combinedWalletState.rsk.address}
+					<div class="mt-4">
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
+						<div class="relative">
+							<button
+								class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
+								onclick={copyRskAddress}
+								disabled={!$rskConnection.connected || !$combinedWalletState.rsk.address}
+							>
+								<code class="text-xs">
+									{walletManager.formatAddress($combinedWalletState.rsk.address)}
+								</code>
+							</button>
+							<div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+								<IconContentCopy class="h-4 w-4 opacity-70" />
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
+		</div>
+
 		<!-- Liquid Network Card -->
 		<div class="card bg-base-200 flex flex-col">
 			<div class="card-body flex flex-col flex-1">
@@ -189,72 +255,6 @@
 									{walletManager.formatAddress(
 										$combinedWalletState.liquid.walletInfo.walletInfo.pubkey
 									)}
-								</code>
-							</button>
-							<div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-								<IconContentCopy class="h-4 w-4 opacity-70" />
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Rootstock Network Card -->
-		<div class="card bg-base-200 flex flex-col">
-			<div class="card-body flex flex-col flex-1">
-				<div class="mb-4 flex items-center justify-between">
-					<div class="flex items-center gap-2">
-						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
-						<h4 class="font-semibold">{$t('wallet.rootstock_network')}</h4>
-					</div>
-					<div
-						class="badge {$rskConnection.connected
-							? 'badge-success'
-							: 'badge-error'} badge-sm text-xs"
-					>
-						{$rskConnection.connected ? 'Connected' : 'Disconnected'}
-					</div>
-				</div>
-
-				<div class="flex-1">
-					{#if $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc').length > 0}
-						<div class="space-y-2">
-							{#each $allAssets.filter((a: WalletAsset) => a.assetId === 'rbtc') as asset (asset.assetId)}
-								<div class="flex items-center justify-between">
-									<div class="flex items-center gap-2">
-										<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
-										<span class="font-medium">{asset.ticker}</span>
-									</div>
-									<div class="text-right">
-										<div class="font-semibold">{asset.formattedBalance}</div>
-										{#if asset.usdValue > 0}
-											<div class="text-xs opacity-70">
-												${asset.usdValue.toFixed(2)}
-											</div>
-										{/if}
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="py-4 text-center opacity-70">
-							<p>{$t('wallet.no_assets_loaded')}</p>
-						</div>
-					{/if}
-				</div>
-
-				{#if $combinedWalletState.rsk.address}
-					<div class="mt-4">
-						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
-						<div class="relative">
-							<button
-								class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
-								onclick={copyRskAddress}
-								disabled={!$rskConnection.connected || !$combinedWalletState.rsk.address}
-							>
-								<code class="text-xs">
-									{walletManager.formatAddress($combinedWalletState.rsk.address)}
 								</code>
 							</button>
 							<div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">

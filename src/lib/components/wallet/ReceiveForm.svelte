@@ -10,7 +10,7 @@
 	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
 
 	// Form state
-	let selectedNetwork = $state<'liquid' | 'rsk'>('liquid');
+	let selectedNetwork = $state<'liquid' | 'rsk'>('rsk');
 	let selectedAsset = $state<string>('L-BTC');
 	let paymentMethod = $state<
 		'liquidAddress' | 'bolt11Invoice' | 'bitcoinAddress' | 'bolt12Offer' | 'rskAddress'
@@ -71,18 +71,18 @@
 	// Network options - reactive to locale changes
 	let networkOptions = $derived([
 		{
-			value: 'liquid',
-			label: $t('wallet.liquid_network'),
-			description: $t('wallet.liquid_network_description'),
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			disabled: !$liquidConnection.connected
-		},
-		{
 			value: 'rsk',
 			label: $t('wallet.rootstock_network'),
 			description: $t('wallet.rootstock_network_description'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			disabled: !$rskConnection.connected
+		},
+		{
+			value: 'liquid',
+			label: $t('wallet.liquid_network'),
+			description: $t('wallet.liquid_network_description'),
+			icon: '/images/chains/Liquid-Bitcoin.svg',
+			disabled: !$liquidConnection.connected
 		}
 	]);
 
@@ -501,6 +501,7 @@
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rsk'}
+		{@const isRskTestnet = (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') === 'testnet'}
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<!-- Payment Request Form -->
 			<div class="space-y-4">
@@ -562,7 +563,33 @@
 			<div class="flex flex-col items-center text-center">
 				<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
 
-				{#if qrCodeDataUrl}
+				{#if isRskTestnet}
+					<!-- Abbreviated testnet warning shown instead of QR on testnet -->
+					<div class="alert alert-outline alert-warning w-full max-w-sm">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-6 w-6 shrink-0 stroke-current"
+							fill="none"
+							viewBox="0 0 24 24"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+							/>
+						</svg>
+						<div class="text-left">
+							<div class="font-bold text-warning text-center">{$t('wallet.testnet_warning.title')}</div>
+							<div class="text-sm"><strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong></div>
+							<div class="mt-2 text-xs">
+								{$t('wallet.testnet_warning.faucet_instruction')}
+								<a href="https://faucet.rootstock.io/" target="_blank" rel="noopener noreferrer" class="link link-primary font-semibold">{$t('wallet.testnet_warning.faucet_link_text')}</a>
+								&nbsp;{$t('wallet.testnet_warning.faucet_instruction_end')}
+							</div>
+						</div>
+					</div>
+				{:else if qrCodeDataUrl}
 					<div class="rounded-lg bg-white p-4 shadow-lg">
 						<img src={qrCodeDataUrl} alt="Payment QR Code" class="h-48 w-48" />
 					</div>

@@ -6,7 +6,7 @@
 	import type { WalletAsset } from '$lib/stores/wallet.store';
 
 	// Form state
-	let selectedNetwork = $state<'liquid' | 'rsk'>('liquid');
+	let selectedNetwork = $state<'liquid' | 'rsk'>('rsk');
 	let selectedAsset = $state<string>('L-BTC');
 	let recipientAddress = $state('');
 	let amount = $state('');
@@ -68,18 +68,18 @@
 	// Network options - reactive to locale changes
 	let networkOptions = $derived([
 		{
-			value: 'liquid',
-			label: $t('wallet.liquid_network'),
-			description: $t('wallet.liquid_network_description'),
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			disabled: !$liquidConnection.connected
-		},
-		{
 			value: 'rsk',
 			label: $t('wallet.rootstock_network'),
 			description: $t('wallet.rootstock_network_description'),
 			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
 			disabled: !$rskConnection.connected
+		},
+		{
+			value: 'liquid',
+			label: $t('wallet.liquid_network'),
+			description: $t('wallet.liquid_network_description'),
+			icon: '/images/chains/Liquid-Bitcoin.svg',
+			disabled: !$liquidConnection.connected
 		}
 	]);
 
