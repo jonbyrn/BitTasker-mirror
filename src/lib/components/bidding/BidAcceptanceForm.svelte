@@ -14,6 +14,7 @@
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
+	import { rskWalletStore } from '$lib/stores/rskWallet.store';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
 	// i18n imports
@@ -613,9 +614,8 @@
 			{/if}
 
 			<!-- Testnet Warning Alert -->
-			{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
-				{@const envNetwork = import.meta.env.VITE_RSK_NETWORK}
-				{@const debugLog = console.log(`🔍 BidAcceptance Testnet Debug - envNetwork: "${envNetwork}"`)}
+			{#if $rskWalletStore.network === 'testnet'}
+				{@const debugLog = console.log(`🔍 BidAcceptance Testnet Debug - rskWalletStore network: "${$rskWalletStore.network}"`)}
 				<div class="alert alert-outline alert-warning mb-6">
 					<div class="flex items-center">
 						<svg

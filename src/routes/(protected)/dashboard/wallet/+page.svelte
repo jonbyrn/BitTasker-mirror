@@ -14,6 +14,7 @@
 		rskConnection,
 		walletStore
 	} from '$lib/stores/wallet.store';
+	import { rskWalletStore } from '$lib/stores/rskWallet.store';
 	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import SendForm from '$lib/components/wallet/SendForm.svelte';
@@ -117,9 +118,8 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
-			{@const envNetwork = import.meta.env.VITE_RSK_NETWORK}
-			{@const debugLog = console.log(`🔍 Wallet Page Testnet Debug - envNetwork: "${envNetwork}"`)}
+		{#if $rskWalletStore.network === 'testnet'}
+			{@const debugLog = console.log(`🔍 Wallet Page Testnet Debug - rskWalletStore network: "${$rskWalletStore.network}"`)}
 			<div class="alert alert-outline alert-warning mb-6">
 				<div class="flex items-center">
 					<svg
