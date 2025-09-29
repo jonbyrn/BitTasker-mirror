@@ -5,6 +5,7 @@
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { locale, t } from 'svelte-i18n';
 	import IconCheck from '~icons/mdi/check-circle-outline';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let {
 		nextStep,
@@ -52,7 +53,7 @@
 	// Copy password function with success feedback
 	async function handleCopyPassword() {
 		try {
-			await navigator.clipboard.writeText(recoveryPassword);
+			copyToClipboard(recoveryPassword);
 			copySuccess = 'password';
 			setTimeout(() => {
 				copySuccess = '';

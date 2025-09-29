@@ -2,13 +2,14 @@
 	import { t } from 'svelte-i18n';
 	import type { WalletAsset } from '$lib/stores/wallet.store';
 	import { allAssets, liquidConnection, rskConnection, walletStore } from '$lib/stores/wallet.store';
-	import { IS_TESTNET } from '$lib/utils/network';
 	import { appStore } from '$lib/stores/app.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { prepareReceivePayment, receivePayment } from '$lib/wallet/breez/walletService';
 	import { getAssetId } from '$lib/utils/constants/assets';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
+
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
 	// Form state
 	let selectedNetwork = $state<'liquid' | 'rsk'>('rsk');
@@ -217,10 +218,6 @@
 			await copyToClipboard(generatedAddress);
 			appStore.showSuccessToast($t('wallet.address_copied'));
 		}
-	}
-
-	function toggleQr() {
-		showQr = !showQr;
 	}
 
 	// Auto-generate QR code for RSK when network is selected or parameters change
@@ -502,7 +499,6 @@
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rsk'}
-		{@const debugLog = console.log(`🔍 RSK Testnet Debug - IS_TESTNET: ${IS_TESTNET}`)}
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<!-- Payment Request Form -->
 			<div class="space-y-4">
@@ -564,7 +560,7 @@
 			<div class="flex flex-col items-center text-center">
 				<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
 
-				{#if IS_TESTNET}
+				{#if network === 'testnet'}
 					<!-- Abbreviated testnet warning shown instead of QR on testnet -->
 					<div class="alert alert-outline alert-warning w-full max-w-sm">
 						<svg

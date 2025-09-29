@@ -64,7 +64,7 @@
 	};
 </script>
 
-<div class="mx-auto h-full max-w-7xl px-4 py-6 md:px-0 md:py-0">
+<div class="mx-auto h-full max-w-7xl px-2 py-6 md:px-0 md:py-0">
 	<!-- Dashboard Header -->
 	<div class="mb-6 flex items-center justify-between">
 		<div>

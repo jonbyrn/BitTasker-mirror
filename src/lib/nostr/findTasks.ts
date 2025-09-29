@@ -14,6 +14,9 @@ import {
 	performanceMonitor,
 	type IndexedTask 
 } from '$lib/utils/task-indexing';
+import { getNpub } from '$lib/utils/nostrKeys';
+import { Preferences } from '@capacitor/preferences';
+import { StorageKeys } from '$lib/utils/constants/storage';
 
 // Constants
 const BATCH_SIZE = 20; // Default tasks limit per page
@@ -179,7 +182,8 @@ export async function findTasks(params: SearchTasksParams): Promise<{ tasks: Tas
 
             // For public users, show all tasks without filtering by npub
             // This avoids triggering biometric authentication for public users
-            const rawTasks = events.map((event: Event) => convertEventToTask(event));
+            const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
+            const rawTasks = events.map((event: Event) => convertEventToTask(event)).filter((task: Task) => task.npub !== npub);
 
             // Pre-index tasks for optimized filtering
             const indexedTasks = indexTaskData(rawTasks);
