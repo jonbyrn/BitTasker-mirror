@@ -375,14 +375,40 @@
 				throw new Error('Map element not found');
 			}
 
-			// Always use user location for initial map center
-			const centerLocation = userLocation || {
+		// Determine map center: first task pickup location > user location > default
+		let centerLocation: Location;
+		
+		if (tasks.length > 0) {
+			// Use first task's pickup location if available
+			const firstTask = tasks[0];
+			if (firstTask.pickupLocation?.latitude && firstTask.pickupLocation.longitude) {
+				centerLocation = {
+					displayName: firstTask.pickupLocation.displayName || 'Task Location',
+					latitude: firstTask.pickupLocation.latitude,
+					longitude: firstTask.pickupLocation.longitude,
+					zipCode: firstTask.pickupLocation.zipCode || '',
+					locationLoaded: true
+				};
+			} else {
+				// Fallback to user location or default
+				centerLocation = userLocation || {
+					displayName: 'Centroamérica',
+					latitude: 13.6929,
+					longitude: -89.2182,
+					zipCode: '',
+					locationLoaded: false
+				};
+			}
+		} else {
+			// Fallback to user location or default
+			centerLocation = userLocation || {
 				displayName: 'Centroamérica',
 				latitude: 13.6929,
 				longitude: -89.2182,
 				zipCode: '',
 				locationLoaded: false
 			};
+		}
 
 			// Get country and determine zoom level
 			const country = await getCountryFromCoordinates(
@@ -455,26 +481,26 @@
 		}
 	}
 
-	// Función para agrupar tareas por ubicación cercana
+	// Función para agrupar tareas por ubicación de recogida cercana
 	function groupTasksByLocation(tasks: Task[]) {
 		const groups: Array<{
 			latitude: number;
 			longitude: number;
 			tasks: Task[];
-			locationType: 'pickup' | 'dropoff';
+			locationType: 'pickup';
 		}> = [];
 
 		const processedLocations = new Set<string>();
 
 		for (const task of tasks) {
-			// Procesar pickup location
+			// Solo procesar pickup location
 			if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
 				const locationKey = `${task.pickupLocation.latitude.toFixed(4)},${task.pickupLocation.longitude.toFixed(4)}`;
 
 				if (!processedLocations.has(locationKey)) {
 					processedLocations.add(locationKey);
 
-					// Buscar tareas cercanas en la misma ubicación
+					// Buscar tareas cercanas en la misma ubicación de recogida
 					const nearbyTasks = tasks.filter(
 						(t) =>
 							t.pickupLocation?.latitude &&
@@ -488,31 +514,6 @@
 						longitude: task.pickupLocation.longitude,
 						tasks: nearbyTasks,
 						locationType: 'pickup'
-					});
-				}
-			}
-
-			// Procesar dropoff location
-			if (task.dropOffLocation?.latitude && task.dropOffLocation.longitude) {
-				const locationKey = `${task.dropOffLocation.latitude.toFixed(4)},${task.dropOffLocation.longitude.toFixed(4)}`;
-
-				if (!processedLocations.has(locationKey)) {
-					processedLocations.add(locationKey);
-
-					// Buscar tareas cercanas en la misma ubicación
-					const nearbyTasks = tasks.filter(
-						(t) =>
-							t.dropOffLocation?.latitude &&
-							t.dropOffLocation.longitude &&
-							Math.abs(t.dropOffLocation.latitude - task?.dropOffLocation?.latitude!) < 0.001 &&
-							Math.abs(t.dropOffLocation.longitude - task?.dropOffLocation?.longitude!) < 0.001
-					);
-
-					groups.push({
-						latitude: task.dropOffLocation.latitude,
-						longitude: task.dropOffLocation.longitude,
-						tasks: nearbyTasks,
-						locationType: 'dropoff'
 					});
 				}
 			}
@@ -547,7 +548,7 @@
 		lat: number,
 		lng: number,
 		tasks: Task[],
-		locationType: 'pickup' | 'dropoff'
+		locationType: 'pickup'
 	): Promise<google.maps.marker.AdvancedMarkerElement | null> {
 		if (!map || !googleMapsReady || !window.google?.maps || !markerLibrary) return null;
 
@@ -641,7 +642,7 @@
 		}
 	}
 
-	function showCircleForMarker(lat: number, lng: number, locationType: 'pickup' | 'dropoff') {
+	function showCircleForMarker(lat: number, lng: number, locationType: 'pickup') {
 		if (!map || !googleMapsReady || !window.google?.maps) return;
 
 		const position = { lat, lng };
@@ -700,7 +701,7 @@
 		// Ocultar todos los círculos primero
 		hideAllCircles();
 
-		// Buscar si la task tiene pickup location
+		// Solo mostrar pickup location
 		if (task.pickupLocation?.latitude && task.pickupLocation.longitude) {
 			showCircleForMarker(task.pickupLocation.latitude, task.pickupLocation.longitude, 'pickup');
 
@@ -713,35 +714,6 @@
 				(c) =>
 					c.getCenter()?.lat() === task.pickupLocation?.latitude &&
 					c.getCenter()?.lng() === task.pickupLocation?.longitude
-			);
-
-			if (circle) {
-				map.fitBounds(circle.getBounds()!);
-
-				// Asegurar que el zoom no exceda 14
-				const currentZoom = map.getZoom() || 0;
-				if (currentZoom > 14) {
-					map.setZoom(14);
-				}
-
-				map.panTo(position);
-			}
-			return;
-		}
-
-		// Si no tiene pickup, buscar dropoff location
-		if (task.dropOffLocation?.latitude && task.dropOffLocation.longitude) {
-			showCircleForMarker(task.dropOffLocation.latitude, task.dropOffLocation.longitude, 'dropoff');
-
-			// Hacer zoom al círculo con restricciones
-			const position = {
-				lat: task.dropOffLocation.latitude,
-				lng: task.dropOffLocation.longitude
-			};
-			const circle = circles.find(
-				(c) =>
-					c.getCenter()?.lat() === task.dropOffLocation?.latitude &&
-					c.getCenter()?.lng() === task.dropOffLocation?.longitude
 			);
 
 			if (circle) {

@@ -5,6 +5,7 @@
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { locale, t } from 'svelte-i18n';
 	import IconCheck from '~icons/mdi/check-circle-outline';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let {
 		nextStep,
@@ -38,6 +39,9 @@
 	let emailError = $state('');
 	let passwordError = $state('');
 
+	// Track last emitted recovery state to avoid redundant parent updates
+	let lastRecovery = { email: '', password: '', enabled: false };
+
 	// Generate password function
 	function handleGeneratePassword() {
 		const newPassword = generatePassword($locale || 'en');
@@ -49,7 +53,7 @@
 	// Copy password function with success feedback
 	async function handleCopyPassword() {
 		try {
-			await navigator.clipboard.writeText(recoveryPassword);
+			copyToClipboard(recoveryPassword);
 			copySuccess = 'password';
 			setTimeout(() => {
 				copySuccess = '';
@@ -66,7 +70,8 @@
 		}
 	});
 
-	function handleSubmit() {
+	function handleSubmit(event: SubmitEvent) {
+		event.preventDefault();
 		emailError = '';
 		passwordError = '';
 
@@ -100,21 +105,66 @@
 			}
 		}
 
-		// Update parent with recovery data
-		onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
+		// Update parent only when recovery is enabled
+		if (enableRecovery) {
+			onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
+		}
 		nextStep();
 	}
 
-	// Update parent when checkbox changes
+	// Update parent when recovery state changes, and clear fields when disabling
 	$effect(() => {
+		// When disabling recovery, clear fields and notify parent once on transition
 		if (!enableRecovery) {
-			recoveryEmail = '';
-			recoveryPassword = '';
-			confirmPassword = '';
-			emailError = '';
-			passwordError = '';
+			// If transitioning from enabled -> disabled, emit one update with cleared values
+			if (lastRecovery.enabled !== false) {
+				onRecoveryChange('', '', false);
+				lastRecovery = { email: '', password: '', enabled: false };
+			}
+
+			// Clear fields only if they are non-empty
+			let cleared = false;
+			if (recoveryEmail !== '') {
+				recoveryEmail = '';
+				cleared = true;
+			}
+			if (recoveryPassword !== '') {
+				recoveryPassword = '';
+				cleared = true;
+			}
+			if (confirmPassword !== '') {
+				confirmPassword = '';
+				cleared = true;
+			}
+			if (emailError !== '') {
+				emailError = '';
+				cleared = true;
+			}
+			if (passwordError !== '') {
+				passwordError = '';
+				cleared = true;
+			}
+
+			// If we just cleared fields, allow effect to run again with updated values
+			if (cleared) return;
 		}
-		onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
+
+		// Only notify parent when values actually change and recovery is enabled
+		if (enableRecovery) {
+			const changed =
+				recoveryEmail !== lastRecovery.email ||
+				recoveryPassword !== lastRecovery.password ||
+				enableRecovery !== lastRecovery.enabled;
+
+			if (changed) {
+				onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
+				lastRecovery = {
+					email: recoveryEmail,
+					password: recoveryPassword,
+					enabled: enableRecovery
+				};
+			}
+		}
 	});
 
 	// Focus email field when recovery is enabled

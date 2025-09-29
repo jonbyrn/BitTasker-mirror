@@ -21,13 +21,11 @@
 		onChange?: (results: UploadResult[]) => void;
 		onUploadProgress?: (completed: number, total: number, currentFile: string) => void;
 		onCompressionProgress?: (progress: { processed: number; total: number; currentFile: string }) => void;
-		onFileSelect?: (files: File[]) => void;
-		autoUpload?: boolean;
 	}
 
 	let {
 		id = 'media-uploader',
-		label = $t('uploader.uploadImage'),
+		label = '',
 		maxFiles = 1,
 		maxDuration = 30, // In seconds
 		maxFileSize = 2, // In MB for compressed images
@@ -48,9 +46,7 @@
 		onRemove = () => {},
 		onError = () => {},
 		onCompressionProgress = () => {},
-		onUploadProgress = () => {},
-		onFileSelect = () => {},
-		autoUpload = true
+		onUploadProgress = () => {}
 	}: MediaUploaderProps = $props();
 
 	// State
@@ -60,10 +56,8 @@
 	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
 	let compressionInfo = $state<CompressionResult[]>([]);
 	let uploadResults = $state<UploadResult[]>([]);
-	let selectedFiles = $state<File[]>([]);
-	let processedFiles = $state<File[]>([]);
-	let isDragOver = $state(false);
-	let dropZoneElement: HTMLDivElement;
+
+	// Label is now passed as a prop and doesn't need to be overridden
 
 	// Helper function to detect if a URL is a video
 	function isVideoURL(url: string): boolean {
@@ -224,55 +218,36 @@
 
 	async function handleFileChange(event: Event) {
 		const input = event.target as HTMLInputElement;
-		const newFiles = input.files;
-		if (!newFiles) return;
+		const selectedFiles = input.files;
+		if (!selectedFiles) return;
 
-		if (files?.length + newFiles.length > maxFiles) {
+		if (files?.length + selectedFiles.length > maxFiles) {
 			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles } });
 			onError?.(error);
 			return;
 		}
 
-		const newFilesArray = Array.from(newFiles);
-		
-		// Store selected files
-		selectedFiles = [...selectedFiles, ...newFilesArray];
-		
-		// Process files for validation and compression
-		await processSelectedFiles(newFilesArray);
-		
-		// Call onFileSelect callback
-		onFileSelect(selectedFiles);
-		
-		// If autoUpload is enabled, upload immediately
-		if (autoUpload) {
-			await uploadProcessedFiles();
-		}
-		
-		// Clear the input to allow selecting the same file again
-		input.value = '';
-	}
-
-	async function processSelectedFiles(filesToProcess: File[]) {
-		const hasImages = filesToProcess.some(file => file.type.startsWith('image/'));
+		// Set compression state
+		const selectedFilesArray = Array.from(selectedFiles);
+		const hasImages = selectedFilesArray.some(file => file.type.startsWith('image/'));
 		
 		if (hasImages && enableImageCompression) {
 			isCompressing = true;
-			compressionProgress = { processed: 0, total: filesToProcess.length, currentFile: '' };
+			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
 		}
 
 		// Process files sequentially to avoid memory issues with large files
-		const newProcessedFiles: File[] = [];
+		const processedFiles: File[] = [];
 		let hasErrors = false;
 
-		for (let i = 0; i < filesToProcess.length; i++) {
-			const file = filesToProcess[i];
+		for (let i = 0; i < selectedFilesArray.length; i++) {
+			const file = selectedFilesArray[i];
 			
 			// Update compression progress
 			if (hasImages && enableImageCompression) {
 				compressionProgress = { 
 					processed: i, 
-					total: filesToProcess.length, 
+					total: selectedFilesArray.length, 
 					currentFile: file.name 
 				};
 				onCompressionProgress(compressionProgress);
@@ -283,29 +258,20 @@
 				hasErrors = true;
 				break;
 			}
-			newProcessedFiles.push(processedFile);
+			processedFiles.push(processedFile);
 		}
 
 		// Finalize compression state
 		if (hasImages && enableImageCompression) {
 			isCompressing = false;
-			compressionProgress = { processed: filesToProcess.length, total: filesToProcess.length, currentFile: '' };
+			compressionProgress = { processed: selectedFilesArray.length, total: selectedFilesArray.length, currentFile: '' };
 		}
 
 		if (hasErrors) {
 			return;
 		}
 
-		// Store processed files
-		processedFiles = [...processedFiles, ...newProcessedFiles];
-		
-		// Update files array for preview
-		files = [...files, ...newProcessedFiles.map(file => URL.createObjectURL(file))];
-	}
-
-	async function uploadProcessedFiles() {
-		if (processedFiles.length === 0) return;
-
+		// Upload files
 		isUploading = true;
 		uploadProgress = { completed: 0, total: processedFiles.length, currentFile: '' };
 
@@ -317,7 +283,7 @@
 				generateVariants,
 				metadata: {
 					uploadedAt: new Date().toISOString(),
-					clientCompressed: enableImageCompression && processedFiles.some(file => file.type.startsWith('image/'))
+					clientCompressed: enableImageCompression && hasImages
 				}
 			};
 
@@ -345,69 +311,9 @@
 		}
 	}
 
-	// Expose upload method for external use
-	export async function uploadFiles() {
-		await uploadProcessedFiles();
-	}
-
-	// Drag and drop handlers
-	function handleDragOver(event: DragEvent) {
-		event.preventDefault();
-		isDragOver = true;
-	}
-
-	function handleDragLeave(event: DragEvent) {
-		event.preventDefault();
-		// Only set isDragOver to false if we're leaving the drop zone entirely
-		if (!dropZoneElement.contains(event.relatedTarget as Node)) {
-			isDragOver = false;
-		}
-	}
-
-	async function handleDrop(event: DragEvent) {
-		event.preventDefault();
-		isDragOver = false;
-
-		const droppedFiles = event.dataTransfer?.files;
-		if (!droppedFiles || droppedFiles.length === 0) return;
-
-		// Convert FileList to Array and process like regular file selection
-		const filesArray = Array.from(droppedFiles);
-		
-		if (files?.length + filesArray.length > maxFiles) {
-			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles } });
-			onError?.(error);
-			return;
-		}
-
-		// Store selected files
-		selectedFiles = [...selectedFiles, ...filesArray];
-		
-		// Process files for validation and compression
-		await processSelectedFiles(filesArray);
-		
-		// Call onFileSelect callback
-		onFileSelect(selectedFiles);
-		
-		// If autoUpload is enabled, upload immediately
-		if (autoUpload) {
-			uploadProcessedFiles();
-		}
-	}
-
 	function removeFile(index: number) {
 		const file = files[index];
 		files = files.filter((_, i) => i !== index);
-		
-		// Remove from selected files
-		if (selectedFiles[index]) {
-			selectedFiles = selectedFiles.filter((_, i) => i !== index);
-		}
-		
-		// Remove from processed files
-		if (processedFiles[index]) {
-			processedFiles = processedFiles.filter((_, i) => i !== index);
-		}
 		
 		// Remove from upload results if it's an UploadResult
 		if (uploadResults[index]) {
@@ -418,12 +324,20 @@
 		error = '';
 	}
 
+	// Get translation strings reactively
+	let imagesText = $state('');
+	let videosText = $state('');
+	$effect(() => {
+		imagesText = $t('common.components.media_uploader.images');
+		videosText = $t('common.components.media_uploader.videos');
+	});
+
 	// Get file type display text
 	let fileTypeText = $derived(
 		allowedTypes
 			.map((type) => {
-				if (type === 'image/*') return $t('common.components.media_uploader.images');
-				if (type === 'video/*') return $t('common.components.media_uploader.videos');
+				if (type === 'image/*') return imagesText;
+				if (type === 'video/*') return videosText;
 				return type.split('/')[1].toUpperCase();
 			})
 			.join(', ')
@@ -438,12 +352,6 @@
 		class={maxFiles > 1
 			? 'grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5'
 			: 'h-full w-full'}
-		bind:this={dropZoneElement}
-		ondragover={handleDragOver}
-		ondragleave={handleDragLeave}
-		ondrop={handleDrop}
-		role="region"
-		aria-label="File upload drop zone"
 	>
 		{#each files as file, index}
 			<div class="relative {className}">
@@ -487,55 +395,34 @@
 			</div>
 		{/each}
 
-		{#if files.length < maxFiles && !isUploading && !isCompressing}
+		{#if files.length < maxFiles && !isUploading}
 			<div class="relative overflow-hidden {className}">
 				<label
 					for="file-upload-{id}"
-					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50 transition-colors duration-200 {isDragOver ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}"
+					class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50"
 				>
 					<div class="flex flex-col items-center justify-center pt-5 pb-6">
-						{#if isDragOver}
-							<svg
-								class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8 text-blue-500"
-								aria-hidden="true"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 24 24"
-							>
-								<path
-									stroke="currentColor"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-								/>
-							</svg>
-							<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs text-blue-500">
-								<span class="font-semibold">Drop files here</span>
-							</p>
-						{:else}
-							<svg
-								class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
-								aria-hidden="true"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 20 16"
-							>
-								<path
-									stroke="currentColor"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-									stroke-width="2"
-									d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-								/>
-							</svg>
-							<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
-								<span class="font-semibold">{label}</span>
-							</p>
-							<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
-								{fileTypeText} (Max. {maxFileSize}MB{durationText})
-							</p>
-						{/if}
+						<svg
+							class="label label-text mb-1 sm:mb-2 h-4 w-4 sm:h-8 sm:w-8"
+							aria-hidden="true"
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 20 16"
+						>
+							<path
+								stroke="currentColor"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+							/>
+						</svg>
+						<p class="label label-text mb-1 sm:mb-2 text-[10px] sm:text-xs">
+							<span class="font-semibold">{label}</span>
+						</p>
+						<p class="label label-text text-center text-[8px] whitespace-normal sm:px-2">
+							{fileTypeText} (Max. {maxFileSize}MB{durationText})
+						</p>
 					</div>
 				</label>
 				<input

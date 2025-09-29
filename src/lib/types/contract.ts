@@ -1,5 +1,6 @@
 import type { Event as NostrEvent } from 'nostr-tools';
 import type { EscrowStatus } from '$lib/utils/enums/wallet.enum';
+import type { DisputeProposal } from './wallet';
 
 // Contract status actions that can be performed
 export type ContractAction = 
@@ -41,6 +42,8 @@ export interface NostrContract {
 	latestFreelancerStatusEventId?: string;
 	// Transaction hash from escrow creation
 	transactionHash?: string;
+	// Dispute proposal
+	disputeProposal?: DisputeProposal;
 }
 
 // Status update event data (both parties can publish as encrypted DMs)

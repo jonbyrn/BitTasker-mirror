@@ -79,12 +79,14 @@
 
 	// Sync selectedCategories with external category IDs
 	let lastExternalIds = $state<string[]>([]);
+	let isInternalUpdate = $state(false);
 	
 	$effect(() => {
 		try {
 			// Convert external IDs to full objects for display
 			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
 				lastExternalIds = [...externalCategoryIds];
+				isInternalUpdate = true;
 				
 				const fullObjects = externalCategoryIds.map((id: string) => {
 					const option = categoryOptions.find(opt => opt.value === id);
@@ -92,6 +94,7 @@
 				});
 				
 				selectedCategories = fullObjects;
+				isInternalUpdate = false;
 			}
 		} catch (error) {
 			console.error('Error syncing external category IDs:', error);
@@ -102,8 +105,8 @@
 	let lastSelectedCategories = $state<any[]>([]);
 	$effect(() => {
 		try {
-			// Only call onChange if the selection actually changed
-			if (JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
+			// Only call onChange if the selection actually changed and it's not an internal update
+			if (!isInternalUpdate && JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
 				lastSelectedCategories = [...selectedCategories];
 				
 				// Extract only the values (IDs) from the selected items
@@ -134,9 +137,9 @@
 			outerDivClass="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
 			ulSelectedClass="selected-categories flex flex-wrap gap-2 mb-2"
 			liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1"
-			ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 border-2 border-base-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-			liOptionClass="category-option p-3 cursor-pointer transition-colors border-b border-gray-700 last:border-b-0"
-			liActiveOptionClass="category-option-active bg-primary text-white"
+			ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+			liOptionClass="category-option p-3 cursor-pointer transition-colors"
+			liActiveOptionClass="category-option-active bg-primary text-primary-content"
 			maxSelectMsgClass="max-select-message text-xs text-neutral ml-auto"
 		/>
 	{:else}

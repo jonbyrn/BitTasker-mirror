@@ -91,8 +91,8 @@
 						</div>
 						<div class="badge {contract.isClient ? 'badge-primary' : 'badge-secondary'}">
 							{contract.isClient 
-								? $t('dashboard.contracts.role.client') 
-								: $t('dashboard.contracts.role.freelancer')}
+								? $t('dashboard.client') 
+								: $t('dashboard.freelancer')}
 						</div>
 					</div>
 				</div>

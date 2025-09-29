@@ -8,11 +8,9 @@ interface RequestConfig extends AxiosRequestConfig {
 }
 
 const createAxiosInstance = async (config: RequestConfig = {}) => {
-	const deviceId = await getDeviceIdentifier();
 	const instance = axios.create({
 		headers: {
-			'Content-Type': 'application/json',
-			'X-Device-ID': deviceId,
+			'Content-Type': 'application/json'
 		},
 		...config
 	});
@@ -23,6 +21,8 @@ const createAxiosInstance = async (config: RequestConfig = {}) => {
 			const { value: accessToken } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 			if (accessToken) {
 				config.headers['Authorization'] = `Bearer ${accessToken}`;
+				const deviceId = await getDeviceIdentifier();
+				config.headers['X-Device-ID'] = deviceId;
 			}
 			return config;
 		},

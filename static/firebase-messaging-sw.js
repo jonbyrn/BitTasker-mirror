@@ -37,7 +37,6 @@ async function initializeFirebase(config = {}) {
 		firebase.initializeApp(firebaseConfig);
 		messaging = firebase.messaging();
 
-		console.log('✅ Firebase initialized in service worker');
 	} catch (error) {
 		console.error('❌ Failed to initialize Firebase in service worker:', error);
 	}

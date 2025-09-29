@@ -18,6 +18,7 @@
 	} from '$lib/utils/helpers/webBiometrics';
 	import authService from '$lib/api/services/auth.service';
 	import { generatePassword } from '$lib/utils/helpers/password';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	const npub = page.params.npub;
 	
@@ -83,10 +84,9 @@
 		newPassword = generatePassword();
 	}
 
-	async function copyToClipboard(text: string) {
+	async function _copyToClipboard(text: string) {
 		try {
-			await navigator.clipboard.writeText(text);
-			// You could add a toast notification here if you want
+			copyToClipboard(text);
 		} catch (err) {
 			console.error('Failed to copy password:', err);
 		}

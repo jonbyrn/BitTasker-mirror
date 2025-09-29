@@ -143,13 +143,21 @@ export async function handleBiometricError(error: any, platform: BiometricPlatfo
 		}
 	}
 
-	// Handle specific error messages (common patterns across all platforms)
+		// Handle specific error messages (common patterns across all platforms)
 	if (error?.message) {
 		const message = error.message.toLowerCase();
 		
 		// Handle passkey account mismatch errors
 		if (message.includes('passkey mismatch')) {
 			return _('login.errors.passkey_mismatch');
+		}
+		
+		// Handle Spanish error messages
+		if (message.includes('la operación expiró') || message.includes('operación expiró') || message.includes('expiró')) {
+			return _('login.biometric_errors.timeout');
+		}
+		if (message.includes('no fue permitida') || message.includes('no permitida')) {
+			return _('login.biometric_errors.not_allowed');
 		}
 		
 		if (message.includes('timeout')) {

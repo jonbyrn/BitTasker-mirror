@@ -82,5 +82,9 @@ export function validateUsername(username: string): ValidationResult {
 		return { isValid: false, error: 'Username must be at least 3 characters long' };
 	}
 
+	if (username.length > 64) {
+		return { isValid: false, error: 'Username must be less than 64 characters long' };
+	}
+
 	return { isValid: true };
 }

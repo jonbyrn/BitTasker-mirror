@@ -14,7 +14,6 @@ export const load: LayoutLoad = async () => {
 		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
 		if (!token || token === null) {
-			console.log('No token exists, redirecting to auth');
 			throw redirect(303, '/auth/login');
 		} else {
 			await tryCatch(user.getUserData());

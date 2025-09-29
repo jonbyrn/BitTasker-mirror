@@ -5,12 +5,13 @@
 	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
-	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconMagnify from '~icons/mdi/magnify';
-	import IconHandshake from '~icons/mdi/handshake';
-	import IconWallet from '~icons/mdi/wallet';
+	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
+	import IconFileSign from '~icons/mdi/file-sign';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
-	import IconMessage from '~icons/mdi/message';
+	import IconChatOutline from '~icons/mdi/chat-outline';
 	import IconCog from '~icons/mdi/cog';
 
 	let { children } = $props();
@@ -22,12 +23,13 @@
 	function getIconComponent(iconName: string) {
 		const iconMap = {
 			'mdi:format-list-bulleted': IconFormatListBulleted,
-			'mdi:plus-circle': IconPlusCircle,
+			'mdi:plus-circle-outline': IconPlusCircleOutline,
 			'mdi:magnify': IconMagnify,
-			'mdi:handshake': IconHandshake,
-			'mdi:wallet': IconWallet,
+			'mdi:invoice-text-send-outline': IconInvoiceTextSendOutline,
+			'mdi:file-sign': IconFileSign,
+			'mdi:wallet-outline': IconWalletOutline,
 			'mdi:account': IconAccount,
-			'mdi:message': IconMessage,
+			'mdi:chat-outline': IconChatOutline,
 			'mdi:cog': IconCog
 		};
 		return iconMap[iconName as keyof typeof iconMap] || IconFormatListBulleted;
@@ -44,7 +46,16 @@
 
 	$effect(() => {
 		const section = page.url.pathname.split('/dashboard/')[1] || '';
-		activeSection = section;
+		const tabParam = page.url.searchParams.get('tab');
+		
+		// Handle special cases for tab-based navigation
+		if (tabParam === 'bids') {
+			activeSection = 'bids-sent';
+		} else if (tabParam === 'contracts') {
+			activeSection = 'contracts';
+		} else {
+			activeSection = section;
+		}
 	});
 </script>
 
@@ -70,29 +81,31 @@
 								<li class="my-1">
 									<a
 										data-sveltekit-reload="off"
-										href="/dashboard/{section.id}"
+										href={section.id === 'bids-sent' ? '/dashboard?tab=bids' : section.id === 'contracts' ? '/dashboard?tab=contracts' : `/dashboard/${section.id}`}
 										class:menu-active={activeSection === section.id}
 										class="flex items-center gap-3"
 									>
-										{#if section.icon === 'mdi:format-list-bulleted'}
-											<IconFormatListBulleted class="text-primary" />
-										{:else if section.icon === 'mdi:plus-circle'}
-											<IconPlusCircle class="text-primary" />
-										{:else if section.icon === 'mdi:magnify'}
-											<IconMagnify class="text-primary" />
-										{:else if section.icon === 'mdi:handshake'}
-											<IconHandshake class="text-primary" />
-										{:else if section.icon === 'mdi:wallet'}
-											<IconWallet class="text-primary" />
-										{:else if section.icon === 'mdi:account'}
-											<IconAccount class="text-primary" />
-										{:else if section.icon === 'mdi:message'}
-											<IconMessage class="text-primary" />
-										{:else if section.icon === 'mdi:cog'}
-											<IconCog class="text-primary" />
-										{:else}
-											<IconFormatListBulleted class="text-primary" />
-										{/if}
+									{#if section.icon === 'mdi:format-list-bulleted'}
+										<IconFormatListBulleted class="text-primary" />
+									{:else if section.icon === 'mdi:plus-circle-outline'}
+										<IconPlusCircleOutline class="text-primary" />
+									{:else if section.icon === 'mdi:magnify'}
+										<IconMagnify class="text-primary" />
+									{:else if section.icon === 'mdi:invoice-text-send-outline'}
+										<IconInvoiceTextSendOutline class="text-primary" />
+									{:else if section.icon === 'mdi:file-sign'}
+										<IconFileSign class="text-primary" />
+									{:else if section.icon === 'mdi:wallet-outline'}
+										<IconWalletOutline class="text-primary" />
+									{:else if section.icon === 'mdi:account'}
+										<IconAccount class="text-primary" />
+									{:else if section.icon === 'mdi:chat-outline'}
+										<IconChatOutline class="text-primary" />
+									{:else if section.icon === 'mdi:cog'}
+										<IconCog class="text-primary" />
+									{:else}
+										<IconFormatListBulleted class="text-primary" />
+									{/if}
 										{$t(section.label)}
 									</a>
 								</li>

@@ -845,7 +845,7 @@
 																{#each Array(5) as _, i}
 																	<svg
 																		xmlns="http://www.w3.org/2000/svg"
-																		class="h-3 w-3 {i < 4
+																		class="h-3 w-3 {i < ((task.creator as any)?.rating || 0)
 																			? 'text-yellow-400'
 																			: 'text-base-content/30'}"
 																		fill="currentColor"
@@ -856,7 +856,7 @@
 																		/>
 																	</svg>
 																{/each}
-																<span class="text-base-content/60 ml-1 text-xs">4.0</span>
+																<span class="text-base-content/60 ml-1 text-xs">{(task.creator as any)?.rating || 0}</span>
 															</div>
 														</div>
 													</div>

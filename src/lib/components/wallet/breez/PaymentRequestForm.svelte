@@ -16,6 +16,7 @@
 	import Input from '$lib/components/Input.svelte';
 	import { t } from 'svelte-i18n';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	// Payment method types supported by Breez SDK
 	type PaymentMethod = 'liquidAddress' | 'bolt11Invoice' | 'bitcoinAddress' | 'bolt12Offer';
@@ -260,7 +261,7 @@
 		});
 	}
 
-	function copyToClipboard() {
+	function _copyToClipboard() {
 		if (address) {
 			// For Bitcoin addresses, extract the raw address from BIP21 URI
 			let textToCopy = address;
@@ -269,7 +270,7 @@
 			} else if (paymentMethod === 'liquidAddress' && address.startsWith('liquidnetwork:')) {
 				textToCopy = address.replace('liquidnetwork:', '');
 			}
-			navigator.clipboard.writeText(textToCopy);
+			copyToClipboard(textToCopy);
 			appStore.showSuccessToast($t('common.components.wallet.payment_request_form.address_copied'));
 		}
 	}
@@ -572,7 +573,7 @@
 								<button
 									class="bg-base-300 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
 									title={$t('common.components.wallet.payment_request_form.click_to_copy')}
-									onclick={copyToClipboard}
+									onclick={_copyToClipboard}
 								>
 									<pre
 										class="text-xs break-all whitespace-pre-wrap transition-colors group-hover:text-amber-600">{getDisplayAddress()}</pre>
@@ -607,7 +608,7 @@
 						</button>
 						<button
 							class="btn btn-primary flex-1 border-none bg-amber-500 text-black hover:bg-amber-600"
-							onclick={copyToClipboard}
+							onclick={_copyToClipboard}
 						>
 							{$t('common.components.wallet.payment_request_form.copy')}
 						</button>

@@ -243,7 +243,10 @@
 									{#if bid.bid.paymentType === 'FIXED' && bid.bid.startDate && bid.bid.endDate}
 										<div>
 											<p class="text-sm font-medium">
-												{formatDateRangeReactive(new Date(bid.bid.startDate), new Date(bid.bid.endDate))}
+												{formatDateRangeReactive(
+													new Date(bid.bid.startDate),
+													new Date(bid.bid.endDate)
+												)}
 												{#if bid.bid.startTime && bid.bid.endTime}
 													<br />
 													<span class="text-base-content/70 text-xs">
@@ -334,14 +337,17 @@
 									<!-- Username and Review Stars -->
 									<div class="flex flex-col">
 										<span class="text-sm font-medium">
-											{bid.bid.creator?.username || $t('common.components.bidding.dashboard_bids.anonymous')}
+											{bid.bid.creator?.username ||
+												$t('common.components.bidding.dashboard_bids.anonymous')}
 										</span>
 										<!-- Review Stars -->
 										<div class="flex items-center">
 											{#each Array(5) as _, i}
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
-													class="h-3 w-3 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+													class="h-3 w-3 {i < (bid.bid.creator?.rating || 0)
+														? 'text-yellow-400'
+														: 'text-base-content/30'}"
 													fill="currentColor"
 													viewBox="0 0 24 24"
 												>
@@ -350,7 +356,9 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-1 text-xs">{$t('common.components.bidding.dashboard_bids.rating')}</span>
+											<span class="text-base-content/60 ml-1 text-xs">
+												{bid.bid.creator?.rating || 0}</span
+											>
 										</div>
 									</div>
 								</div>

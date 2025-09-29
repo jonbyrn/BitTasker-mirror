@@ -17,7 +17,6 @@
 	} from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
 
-
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
 	let btcPrice = $state<number>(100000); // Default fallback price
@@ -36,12 +35,9 @@
 			// Si ya existe un valor en amount, interpretarlo según la moneda
 			if ($store.task.budget.amount) {
 				if ($store.task.budget.currency === 'USD') {
-					// Si la moneda es USD, el amount ya es USD
 					usdAmount = $store.task.budget.amount;
 				} else {
-					// Si la moneda es SATS, convertir a USD
 					usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
-					// Actualizar la moneda a USD y el amount a USD
 					store.updateTask({
 						budget: { 
 							...$store.task.budget, 
@@ -62,12 +58,11 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			// Guardar directamente el valor USD en amount
 			store.updateTask({
 				budget: { 
 					...$store.task.budget, 
 					amount: usdValue,
-					currency: 'USD' // Asegurar que la moneda sea USD
+					currency: 'USD'
 				}
 			});
 			usdAmount = usdValue;
@@ -84,7 +79,6 @@
 	}
 
 	function cleanInput(value: string): string {
-		// Solo permite dígitos, comas y punto
 		return value.replace(/[^0-9.,]/g, '');
 	}
 
@@ -98,55 +92,11 @@
 		attachmentsToRemove: Attachment[];
 	}>();
 
-<<<<<<< Updated upstream
-	// MediaUploader reference for manual upload
-	let mediaUploaderRef: MediaUploader;
-	let selectedFiles = $state<File[]>([]);
-	let isUploadingFiles = $state(false);
-
-	// Handle file selection (before upload)
-	const handleFileSelect = (files: File[]) => {
-		selectedFiles = files;
-		console.log('Files selected:', files.map(f => f.name));
-	};
-
-	// Handle manual upload when user is ready
-	const handleManualUpload = async () => {
-		if (selectedFiles.length === 0) {
-			console.log('No files selected for upload');
-			return;
-		}
-
-		try {
-			isUploadingFiles = true;
-			await mediaUploaderRef.uploadFiles();
-			console.log('Files uploaded successfully');
-		} catch (error) {
-			console.error('Upload failed:', error);
-		} finally {
-			isUploadingFiles = false;
-		}
-	};
-
-	// Handle file upload results from MediaUploader
-	const handleUploadResults = (results: UploadResult[]) => {
-		// Convert UploadResult to Attachment format
-		const attachments: Attachment[] = results.map(result => ({
-			key: result.key,
-			url: result.url,
-			type: result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
-			alt: result.key, // Use key as alt for now
-			size: result.size,
-			cloudflareId: result.cloudflareId,
-			variants: result.variants
-		}));
-=======
 	// File handling functions
 	async function validateAndProcessFile(file: File): Promise<File | null> {
 		const allowedTypes = ['image/*', 'video/*'];
 		const isImageFile = file.type.startsWith('image/');
 		const isVideoFile = file.type.startsWith('video/');
->>>>>>> Stashed changes
 
 		if (!isImageFile && !isVideoFile) {
 			error = $t('common.components.media_uploader.invalid_file_type_images_videos');
@@ -240,7 +190,6 @@
 			return;
 		}
 
-		// Add files to store (deferred upload)
 		store.updateStore({ pendingFiles: [...(get(store).pendingFiles || []), ...processedFiles] });
 		error = '';
 	}
@@ -250,7 +199,6 @@
 		const file = allFiles[index];
 		
 		if (file && typeof file === 'object' && 'url' in file) {
-			// This is an uploaded attachment
 			const attachment = $store.task.attachments?.find((att) => att.url === file.url);
 			if (attachment) {
 				attachmentsToRemove = [...attachmentsToRemove, attachment];
@@ -260,7 +208,6 @@
 				}
 			}
 		} else {
-			// This is a pending file
 			const pendingIndex = index - ($store.task.attachments?.length || 0);
 			if (pendingIndex >= 0 && pendingIndex < (get(store).pendingFiles?.length || 0)) {
 				const newPendingFiles = [...(get(store).pendingFiles || [])];
@@ -270,7 +217,6 @@
 		}
 	}
 
-	// Function to upload pending files (called on final submit)
 	async function uploadPendingFiles(): Promise<Attachment[]> {
 		if (!get(store).pendingFiles || get(store).pendingFiles.length === 0) {
 			return [];
@@ -324,21 +270,15 @@
 		}
 	}
 
-	// Expose upload function for parent component
 	export { uploadPendingFiles };
 
-	// Helper functions for file display
 	function getFilePreview(file: File | Attachment | Blob): string {
 		if (file instanceof File || file instanceof Blob) {
-			const url = URL.createObjectURL(file);
-			console.log('Created object URL for file:', file instanceof File ? file.name : 'blob', url);
-			return url;
+			return URL.createObjectURL(file);
 		}
 		if (file && typeof file === 'object' && 'url' in file) {
-			console.log('Using existing URL for attachment:', file.url);
 			return file.url;
 		}
-		console.log('No preview URL found for file:', file);
 		return '';
 	}
 
@@ -352,19 +292,17 @@
 		return false;
 	}
 
-	// Get all files for display - make it reactive to store changes
 	let allFiles = $derived.by(() => {
 		const attachments = $store.task.attachments || [];
 		const pending = $store.pendingFiles || [];
-		const combined = [...attachments, ...pending];
-		console.log('All files for display:', combined);
-		return combined;
+		return [...attachments, ...pending];
 	});
 
 	onMount(() => {
 		fetchBtcPrice();
 	});
 </script>
+
 
 <div
 	class="space-y-4"
@@ -432,9 +370,9 @@
 		{#if errors.budget}
 			<span class="label-text-alt text-error">{errors.budget}</span>
 		{/if}
-			<span class="label-text-alt text-white/70 mt-1 block"
-				>{$t('task.btc_price')} ${btcPrice.toLocaleString()}</span
-			>
+		<span class="label-text-alt text-white/70 mt-1 block"
+			>{$t('task.btc_price')} ${Math.round(btcPrice).toLocaleString()}</span
+		>
 	</div>
 
 	{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
@@ -493,33 +431,6 @@
 			{$t('task.attachments_hint')}
 		  </label>
 		</div>
-<<<<<<< Updated upstream
-
-		<MediaUploader
-			bind:this={mediaUploaderRef}
-			id="attachments"
-			label={$t('task.attachments')}
-			allowedTypes={['image/*', 'video/*']}
-			files={uploaderFiles}
-			maxFiles={5}
-			maxFileSize={200}
-			maxDuration={30}
-			className="w-full h-full min-h-28"
-			enableImageCompression={true}
-			compressionQuality={0.8}
-			maxImageDimension={3840}
-			showCompressionInfo={false}
-			useCloudflare={true}
-			generateVariants={true}
-			uploadFolder="tasks"
-			autoUpload={false}
-			onFileSelect={handleFileSelect}
-			onChange={handleUploadResults}
-			onRemove={handleFileRemove}
-		/>
-	</div>
-
-=======
 	  
 		<!-- File Upload Grid -->
 		<div class="space-y-4">
@@ -643,5 +554,4 @@
 		</div>
 	  </div>
 	  
->>>>>>> Stashed changes
 </div>

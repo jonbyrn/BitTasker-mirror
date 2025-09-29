@@ -540,7 +540,7 @@
 											{#each Array(5) as _, i}
 												<svg
 													xmlns="http://www.w3.org/2000/svg"
-													class="h-4 w-4 {i < 4 ? 'text-yellow-400' : 'text-base-content/30'}"
+													class="h-4 w-4 {i < (task.creator?.rating || 0) ? 'text-yellow-400' : 'text-base-content/30'}"
 													fill="currentColor"
 													viewBox="0 0 24 24"
 												>
@@ -549,7 +549,7 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-2 text-sm">4.0</span>
+											<span class="text-base-content/60 ml-2 text-sm">{task.creator?.rating || 0}</span>
 										</div>
 										<p class="text-base-content/60 text-sm">
 											{$t('dashboard.task_details_by_task.member_since')}

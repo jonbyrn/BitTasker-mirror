@@ -21,9 +21,9 @@
 	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import IconDomain from '~icons/mdi/domain';
 	import IconEmailOutline from '~icons/mdi/email-outline';
-	import IconFileDocumentOutline from '~icons/mdi/file-document-outline';
+	import IconFileSign from '~icons/mdi/file-sign';
 	import IconFrequentlyAskedQuestions from '~icons/mdi/frequently-asked-questions';
-	import IconHandshake from '~icons/mdi/handshake';
+	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
 	import IconHelpCircleOutline from '~icons/mdi/help-circle-outline';
 	import IconHome from '~icons/mdi/home';
 	import IconInformationOutline from '~icons/mdi/information-outline';
@@ -31,12 +31,12 @@
 	import IconLogout from '~icons/mdi/logout';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconNewspaper from '~icons/mdi/newspaper';
-	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconShieldAccount from '~icons/mdi/shield-account';
 	import IconShieldCheck from '~icons/mdi/shield-check';
 	import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
-	import IconMessage from '~icons/mdi/message';
-	import IconWallet from '~icons/mdi/wallet';
+	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconCommentTextOutline from '~icons/mdi/comment-text-outline';
@@ -234,7 +234,8 @@
 			</button>
 		{/if}
 		{#if !$showBackButton && isLoggedIn}
-			<!-- Mobile logged in: Hamburger menu that animates to X --
+			<!-- Mobile logged in: Hamburger menu that anim
+ates to X --
 			<button
 				class="btn btn-ghost btn-circle relative md:hidden"
 				onclick={toggleDrawer}
@@ -276,12 +277,12 @@
 						>
 							<li>
 								<a href="/dashboard/messages" onclick={closeDropdowns}
-									><IconMessage class="text-primary" /> <span>{$t('navbar.messages')}</span></a
+									><IconChatOutline class="text-primary" /> <span>{$t('navbar.messages')}</span></a
 								>
 							</li>
 							<li>
 								<a href="/dashboard/wallet" onclick={closeDropdowns}
-									><IconWallet class="text-primary" /> <span>{$t('navbar.wallet')}</span></a
+									><IconWalletOutline class="text-primary" /> <span>{$t('navbar.wallet')}</span></a
 								>
 							</li>
 							<li>
@@ -326,8 +327,20 @@
 							</li>
 							<li>
 								<a href="/dashboard/create-task" onclick={closeDropdowns}
-									><IconPlusCircle class="text-primary" />
+									><IconPlusCircleOutline class="text-primary" />
 									<span>{$t('navbar.create_task')}</span></a
+								>
+							</li>
+							<li>
+								<a href="/dashboard?tab=bids" onclick={closeDropdowns}
+									><IconInvoiceTextSendOutline class="text-primary" />
+									<span>{$t('navbar.bids_sent')}</span></a
+								>
+							</li>
+							<li>
+								<a href="/dashboard?tab=contracts" onclick={closeDropdowns}
+									><IconFileSign class="text-primary" />
+									<span>{$t('navbar.contracts')}</span></a
 								>
 							</li>
 						</ul>
@@ -381,7 +394,7 @@
 							</li>
 							<li>
 								<a href="/terms" onclick={closeDropdowns}
-									><IconFileDocumentOutline class="text-primary" />
+									><IconFileSign class="text-primary" />
 									<span>{$t('navbar.terms_of_service')}</span></a
 								>
 							</li>
@@ -412,7 +425,7 @@
 						>
 							<li>
 								<a href="/dashboard/create-task" onclick={closeDropdowns}>
-									<IconPlusCircle class="text-primary" />
+									<IconPlusCircleOutline class="text-primary" />
 									<span>{$t('footer.post_task')}</span>
 								</a>
 							</li>
@@ -466,7 +479,7 @@
 							</li>
 							<li>
 								<a href="/tasker-principles" onclick={closeDropdowns}>
-									<IconHandshake class="text-primary" />
+									<IconInvoiceTextSendOutline class="text-primary" />
 									<span>{$t('footer.tasker_principles')}</span>
 								</a>
 							</li>
@@ -514,7 +527,7 @@
 							</li>
 							<li>
 								<a href="/terms" onclick={closeDropdowns}>
-									<IconFileDocumentOutline class="text-primary" />
+									<IconFileSign class="text-primary" />
 									<span>{$t('footer.terms')}</span>
 								</a>
 							</li>
@@ -574,7 +587,7 @@
 					</li>
 					<li>
 						<a href="/dashboard/messages" onclick={closeDropdowns}
-							><IconMessage class="text-primary" /> <span>{$t('navbar.messages')}</span></a
+							><IconChatOutline class="text-primary" /> <span>{$t('navbar.messages')}</span></a
 						>
 					</li>
 					<li>
@@ -628,7 +641,7 @@
 			</li>
 			<li>
 				<a href="/terms" onclick={closeDrawer} class="flex items-center gap-2">
-					<IconFileDocumentOutline />
+					<IconFileSign />
 					{$t('navbar.terms_and_conditions')}
 				</a>
 			</li>

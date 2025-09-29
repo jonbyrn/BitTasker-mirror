@@ -20,7 +20,6 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
 
 		// Send Firebase config to service worker
 		if (registration.active) {
-			console.log('Sending Firebase config to service worker');
 			registration.active.postMessage({
 				type: 'FIREBASE_CONFIG',
 				config: getFirebaseWebConfig()

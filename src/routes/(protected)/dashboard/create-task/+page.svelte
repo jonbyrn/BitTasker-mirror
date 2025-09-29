@@ -27,6 +27,7 @@
 	let direction: 'forward' | 'backward' = $state('forward');
 	let attachmentsToRemove = $state<Attachment[]>([]);
 	let taskBudgetRef = $state<any>(); // Reference to TaskBudget component
+	let taskBasicsRef: any = $state(null);
 	// Remover esta línea ya que signedEventId se usará como variable local
 	// let signedEventId = $state<string | null>(null);
 
@@ -221,6 +222,11 @@
 	};
 
 	const handleNext = async () => {
+		// Save current skill input if we're on the basics step
+		if ($store.currentStep === TaskStepEnum.BASICS && taskBasicsRef) {
+			taskBasicsRef.saveCurrentSkillInput();
+		}
+
 		if (!validateCurrentStep()) return;
 
 		// Proceed to next step immediately
@@ -346,7 +352,7 @@
 					</div>
 					
 					{#if $store.currentStep === TaskStepEnum.BASICS}
-						<TaskBasics {errors} {direction} />
+						<TaskBasics {errors} {direction} bind:this={taskBasicsRef} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
 						<TaskLocation {errors} {direction} />
 					{:else if $store.currentStep === TaskStepEnum.REVIEW}

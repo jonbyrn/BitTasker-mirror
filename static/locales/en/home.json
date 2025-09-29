@@ -80,7 +80,9 @@
         "logout": "Logout",
         "settings": "Settings",
         "feedback": "Feedback",
-        "bids": "My Bids"
+        "bids": "My Bids",
+        "bids_sent": "Bids Sent",
+        "contracts": "Contracts"
     },
     "homepage": {
         "title": "Hello, World!",

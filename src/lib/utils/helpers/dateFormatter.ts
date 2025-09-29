@@ -1,5 +1,5 @@
 /**
- * Format a date to a readable string
+ * Format a date to a readable string "Jul 17, 2025 12:00 PM"
  * @param date - The date to format
  * @returns Formatted date string in locale format
  */
