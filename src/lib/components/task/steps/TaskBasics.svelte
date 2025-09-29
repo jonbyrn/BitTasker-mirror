@@ -6,6 +6,7 @@
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { skillCategories } from '$lib/data/onboardingData';
 	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
 
@@ -57,6 +58,7 @@
 			console.error('Error handling category change:', error);
 		}
 	}
+
 </script>
 
 <div
@@ -68,6 +70,9 @@
 		x: direction === 'forward' ? 20 : -20
 	}}
 >
+	<!-- Dummy Data Button for Testing -->
+	
+
 	<div class="w-full">
 		<label for="title" class="label">
 			<span class="label-text">{$t('task.what_needed')}</span>

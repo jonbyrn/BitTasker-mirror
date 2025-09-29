@@ -177,16 +177,17 @@
 			</div>
 
 			<!-- Attachments -->
-			{#if $store.task.attachments && $store.task.attachments.length > 0}
+			{#if ($store.task.attachments && $store.task.attachments.length > 0) || ($store.pendingFiles && $store.pendingFiles.length > 0)}
 				<div>
 					<h4 class="mb-2 font-medium">{$t('task.attachments_review')}</h4>
-					<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-						{#each $store.task.attachments as attachment}
-							<div class="relative overflow-hidden rounded-lg">
+					<div class="grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+						<!-- Show uploaded attachments -->
+						{#each $store.task.attachments || [] as attachment}
+							<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
 								{#if attachment.type?.startsWith('video/')}
 									<video
 										src={attachment.url}
-										class="h-32 w-full object-cover"
+										class="h-full w-full cursor-pointer rounded-lg object-cover"
 										controls
 										muted={false}
 										autoplay={false}
@@ -198,7 +199,32 @@
 									<img
 										src={attachment.url}
 										alt={attachment.alt}
-										class="h-32 w-full object-cover"
+										class="h-full w-full rounded-lg object-cover"
+										loading="lazy"
+									/>
+								{/if}
+							</div>
+						{/each}
+						
+						<!-- Show pending files -->
+						{#each $store.pendingFiles || [] as file}
+							<div class="relative aspect-square h-20 w-20 sm:h-30 sm:w-30">
+								{#if file.type?.startsWith('video/')}
+									<video
+										src={URL.createObjectURL(file)}
+										class="h-full w-full cursor-pointer rounded-lg object-cover"
+										controls
+										muted={false}
+										autoplay={false}
+										loop={false}
+									>
+										<track kind="captions" />
+									</video>
+								{:else}
+									<img
+										src={URL.createObjectURL(file)}
+										alt={file.name || 'Preview'}
+										class="h-full w-full rounded-lg object-cover"
 										loading="lazy"
 									/>
 								{/if}
