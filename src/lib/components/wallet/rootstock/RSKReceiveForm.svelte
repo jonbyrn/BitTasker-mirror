@@ -209,7 +209,7 @@
 		<div class="card-body items-center text-center">
 			<h3 class="card-title">Receive RBTC</h3>
 
-			{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') === 'testnet'}
+			{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
 				<!-- Testnet Alert -->
 				<div class="alert alert-warning w-full max-w-lg">
 					<svg
