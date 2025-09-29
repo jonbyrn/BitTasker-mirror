@@ -226,9 +226,9 @@
 		{#if errors.budget}
 			<span class="label-text-alt text-error">{errors.budget}</span>
 		{/if}
-			<span class="label-text-alt text-white/70 mt-1 block"
-				>{$t('task.btc_price')} ${btcPrice.toLocaleString()}</span
-			>
+		<span class="label-text-alt text-white/70 mt-1 block"
+			>{$t('task.btc_price')} ${Math.round(btcPrice).toLocaleString()}</span
+		>
 	</div>
 
 	{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}

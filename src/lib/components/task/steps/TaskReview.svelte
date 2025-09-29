@@ -12,6 +12,9 @@
 	import { t } from 'svelte-i18n';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
+	import { formatStandardDate, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import Gallery from '$lib/components/Gallery.svelte';
+	import type { Attachment } from '$lib/types/task';
 
 	let { direction } = $props();
 
@@ -61,6 +64,57 @@
 	}
 
 	onMount(fetchBtcPrice);
+
+	// Helper function to format date without year for start dates in date ranges
+	function formatDateWithoutYear(date: Date): string {
+		try {
+			return new Intl.DateTimeFormat('en-US', {
+				month: 'short',
+				day: 'numeric'
+			}).format(date);
+		} catch (error) {
+			return 'Invalid date';
+		}
+	}
+
+	// Helper function to detect video files
+	function isVideoFile(url: string): boolean {
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+		const urlLower = url.toLowerCase();
+		return videoExtensions.some((ext) => urlLower.endsWith(ext));
+	}
+
+	// Helper function to prepare images for Gallery component
+	const prepareGalleryImages = async (attachments: Attachment[]) => {
+		const imagePromises = attachments
+			.filter((attachment) => !isVideoFile(attachment.url))
+			.map((attachment) => {
+				return new Promise((resolve) => {
+					const img = new Image();
+					img.onload = () => {
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: img.naturalWidth,
+							height: img.naturalHeight,
+							size: attachment.size
+						});
+					};
+					img.onerror = () => {
+						resolve({
+							url: attachment.url,
+							alt: attachment.alt || $t('dashboard.task_details_by_task.task_attachment'),
+							width: 0,
+							height: 0,
+							size: attachment.size
+						});
+					};
+					img.src = attachment.url;
+				});
+			});
+
+		return await Promise.all(imagePromises);
+	};
 </script>
 
 <div
@@ -73,142 +127,162 @@
 	}}
 >
 	<div class="card bg-base-200 shadow-sm">
-		<div class="card-body p-4">
-			<h4 class="mb-2 font-medium">{$t('task.basic_information')}</h4>
-			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-				<div>
-					<span class="font-medium">{$t('task.title')}</span>
-					<span>{$store.task.title}</span>
+		<div class="card-body p-6">
+			<h4 class="mb-6 text-lg font-semibold text-base-content">{$t('task.basic_information')}</h4>
+			
+			<!-- Task Details Grid -->
+			<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div class="space-y-1">
+					<span class="text-sm font-medium text-base-content/70">{$t('task.title')}</span>
+					<p class="text-base font-medium text-base-content">{$store.task.title}</p>
 				</div>
 
-				<div>
-					<span class="font-medium">{$t('task.task_type')}</span>
-					<span class="text-xs"
-						>{$store.task.taskType === TaskTypeEnum.IN_PERSON
-							? $t('task.in_person')
-							: $t('task.remote')}</span
-					>
+				<div class="space-y-1">
+					<span class="text-sm font-medium text-base-content/70">{$t('task.task_type')}</span>
+					<div class="flex items-center gap-2">
+						<span class="badge badge-primary badge-sm">
+							{$store.task.taskType === TaskTypeEnum.IN_PERSON
+								? $t('task.in_person')
+								: $t('task.remote')}
+						</span>
+					</div>
 				</div>
 
-				<div>
-					<span class="font-medium">{$t('task.timeline')}</span>
-					<span>
+				<div class="space-y-1 sm:col-span-2">
+					<span class="text-sm font-medium text-base-content/70">Timeline</span>
+					<div class="flex items-center gap-2">
 						{#if $store.task.dateRange}
-							{$t('task.from')}
-							{new Date($store.task.dateRange.start).toLocaleDateString()}
-							{$t('task.to')}
-							{new Date($store.task.dateRange.end).toLocaleDateString()}
+							<span class="text-base font-medium text-base-content">
+								{$t('task.complete_between')} {formatDateWithoutYear(new Date($store.task.dateRange.start))} {$t('task.and')} {formatStandardDateShort(new Date($store.task.dateRange.end))}
+							</span>
 						{:else if $store.task.deadline}
-							{$t('task.deadline_review')} {new Date($store.task.deadline).toLocaleDateString()}
+							<span class="text-base font-medium text-base-content">
+								{$t('task.complete_by')} {formatStandardDateShort(new Date($store.task.deadline))}
+							</span>
 						{/if}
-					</span>
+					</div>
 				</div>
 			</div>
 
-			<h4 class="mt-3 font-medium">{$t('task.categories')}</h4>
-			<div class="flex flex-wrap gap-2">
-				{#each translatedCategories as category}
-					<div class="badge badge-primary">{category}</div>
-				{/each}
+			<!-- Budget Section -->
+			<div class="mb-6">
+				<h5 class="mb-4 text-base font-semibold text-base-content">{$t('task.budget_details')}</h5>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div class="space-y-1">
+						<span class="text-sm font-medium text-base-content/70">{$t('task.budget_type')}</span>
+						<div class="flex items-center gap-2">
+							<span class="badge badge-outline badge-sm">
+								{$store.task.budget.type === BudgetTypeEnum.FIXED
+									? $t('task.budget_fixed')
+									: $t('task.budget_hourly')}
+							</span>
+							{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
+								<span class="text-sm text-base-content/70">
+									({$store.task.budget.estimatedHours} {$t('task.hours')})
+								</span>
+							{/if}
+						</div>
+					</div>
+
+					<div class="space-y-1">
+						<span class="text-sm font-medium text-base-content/70">{$t('task.budget_amount')}</span>
+						<div class="flex flex-col">
+							<span class="text-2xl font-bold text-primary">
+								${formatNumberWithTwoDecimals($store.task.budget.amount)}
+							</span>
+							<span class="text-sm text-base-content/60">
+								{satsFromUsd($store.task.budget.amount, btcPrice)} sats
+							</span>
+						</div>
+					</div>
+				</div>
 			</div>
 
-			<h4 class="mt-3 font-medium">{$t('task.skills')}</h4>
-			<div class="flex flex-wrap gap-2">
-				{#each $store.task.skills as skill}
-					<div class="badge badge-primary">{skill}</div>
-				{/each}
+			<!-- Description Section -->
+			<div>
+				<h5 class="mb-3 text-base font-semibold text-base-content">{$t('task.description_label')}</h5>
+				<div class="bg-base-100 rounded-lg border border-base-300 p-4">
+					<div class="max-h-32 overflow-y-auto">
+						<p class="text-sm leading-relaxed text-base-content">{$store.task.description}</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Categories and Skills section -->
+	<div class="card bg-base-200 shadow-sm">
+		<div class="card-body p-6">
+			<div class="mb-6">
+				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.categories')}</h4>
+				<div class="flex flex-wrap gap-2">
+					{#each translatedCategories as category}
+						<span class="badge badge-primary badge-sm">{category}</span>
+					{/each}
+				</div>
+			</div>
+
+			<div>
+				<h4 class="mb-3 text-base font-semibold text-base-content">{$t('task.skills')}</h4>
+				<div class="flex flex-wrap gap-2">
+					{#each $store.task.skills as skill}
+						<span class="badge badge-primary badge-sm">{skill}</span>
+					{/each}
+				</div>
 			</div>
 		</div>
 	</div>
 
 	<div class="card bg-base-200 shadow-sm">
-		<div class="card-body p-4">
+		<div class="card-body p-6">
 			<TaskReviewLocation task={$store.task} isRemovals={$store.isRemovals} />
 		</div>
 	</div>
 
-	<div class="card bg-base-200 shadow-sm">
-		<div class="card-body p-4">
-			<h4 class="mb-2 font-medium">{$t('task.budget_details')}</h4>
-
-			<!-- Budget Type and Amount in first row -->
-			<div class="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-				<div class="flex flex-col">
-					<span class="text-base-content/60 font-medium">{$t('task.budget_type')}</span>
-					<span>
-						{$store.task.budget.type === BudgetTypeEnum.FIXED
-							? $t('task.budget_fixed')
-							: $t('task.budget_hourly')}
-					</span>
-					<!-- Estimated Hours in second row (only for hourly) -->
-					{#if $store.task.budget.type === BudgetTypeEnum.HOURLY}
-						<div class="mt-3 mb-2">
-							<div class="flex flex-col">
-								<span class="text-base-content/60 font-medium"
-									>{$t('task.estimated_hours_review')}</span
-								>
-								<span>{$store.task.budget.estimatedHours}</span>
-							</div>
-						</div>
-					{/if}
-				</div>
-
-				<div>
-					<span class="text-base-content/60 font-medium">{$t('task.budget_amount')}</span>
-
-					<div class="text-lg font-bold">
-						${formatNumberWithTwoDecimals($store.task.budget.amount)}
-
-						<div class="text-base-content/60 text-sm">
-							{satsFromUsd($store.task.budget.amount, btcPrice)}
-						</div>
+	<!-- Attachments section -->
+	{#if $store.task.attachments && $store.task.attachments.length > 0}
+		<div class="card bg-base-200 shadow-sm">
+			<div class="card-body p-6">
+				<h4 class="mb-4 text-base font-semibold text-base-content">{$t('task.attachments_review')}</h4>
+				
+				<!-- Images using PhotoSwipe Gallery -->
+				{#if $store.task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
+					<div class="mb-4">
+						{#await prepareGalleryImages($store.task.attachments) then galleryImages}
+							<Gallery
+								galleryID="task-review-images-gallery"
+								images={galleryImages}
+								thumbnailSize="h-32 w-32"
+							/>
+						{/await}
 					</div>
-				</div>
-			</div>
+				{/if}
 
-			<!-- Description with fixed height and scroll -->
-			<div class="mb-4">
-				<h4 class="mb-2 font-medium">{$t('task.description_label')}</h4>
-				<div class="bg-base-100 rounded-md p-3">
-					<div class="max-h-[7rem] overflow-y-auto">
-						<p>{$store.task.description}</p>
-					</div>
-				</div>
-			</div>
-
-			<!-- Attachments -->
-			{#if $store.task.attachments && $store.task.attachments.length > 0}
-				<div>
-					<h4 class="mb-2 font-medium">{$t('task.attachments_review')}</h4>
+				<!-- Videos in grid layout -->
+				{#if $store.task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
 					<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-						{#each $store.task.attachments as attachment}
-							<div class="relative overflow-hidden rounded-lg">
-								{#if attachment.type?.startsWith('video/')}
-									<video
-										src={attachment.url}
-										class="h-32 w-full object-cover"
-										controls
-										muted={false}
-										autoplay={false}
-										loop={false}
-									>
-										<track kind="captions" />
-									</video>
-								{:else}
-									<img
-										src={attachment.url}
-										alt={attachment.alt}
-										class="h-32 w-full object-cover"
-										loading="lazy"
-									/>
-								{/if}
+						{#each $store.task.attachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
+							<div class="bg-base-200 overflow-hidden rounded-lg">
+								<video class="h-32 w-full object-cover" controls preload="metadata">
+									<source src={attachment.url} type="video/mp4" />
+									<track kind="captions" src="" label="English" />
+									{$t('dashboard.task_details_by_task.video_not_supported')}
+								</video>
+								<div class="p-3">
+									<p class="truncate text-sm font-medium">
+										{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+									</p>
+									<p class="text-base-content/60 text-xs">
+										{(attachment.size / 1024 / 1024).toFixed(2)} MB
+									</p>
+								</div>
 							</div>
 						{/each}
 					</div>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	{#if $store.recurringTask.isRecurring}
 		<div class="alert alert-info alert-outline">

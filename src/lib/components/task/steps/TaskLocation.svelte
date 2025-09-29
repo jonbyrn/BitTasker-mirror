@@ -55,6 +55,7 @@
 				<h5 class="text-md font-semibold text-primary">📍 {$t('task.start_location')}</h5>
 				<p class="text-sm text-base-content">{$t('task.pickup_location_description')}</p>
 			</div>
+			<p class="text-base-content mb-2">{$t('task.location_map_instruction')}</p>
 			<EnhancedLocationPicker
 				label={$t('task.pickup_location')}
 				placeholder={$t('task.address_placeholder')}
@@ -79,6 +80,7 @@
 				<h5 class="text-md font-semibold text-success">🏁 {$t('task.destination_location')}</h5>
 				<p class="text-sm text-base-content">{$t('task.dropoff_location_description')}</p>
 			</div>
+			<p class="text-sm text-base-content mb-2">{$t('task.location_map_instruction')}</p>
 			<EnhancedLocationPicker
 				label={$t('task.dropoff_location')}
 				placeholder={$t('task.address_placeholder')}
@@ -136,6 +138,7 @@
 
 		{#if $store.task?.taskType === TaskTypeEnum.IN_PERSON}
 			<div class="w-full">
+				<p class="text-sm text-base-content mb-2">{$t('task.location_map_instruction')}</p>
 				<EnhancedLocationPicker
 					label={$t('task.location')}
 					placeholder={$t('task.address_placeholder')}
