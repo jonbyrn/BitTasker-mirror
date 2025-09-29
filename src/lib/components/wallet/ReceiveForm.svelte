@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import type { WalletAsset } from '$lib/stores/wallet.store';
-	import { allAssets, liquidConnection, rskConnection } from '$lib/stores/wallet.store';
+	import { allAssets, liquidConnection, rskConnection, walletStore } from '$lib/stores/wallet.store';
+	import { rskWalletStore } from '$lib/stores/rskWallet.store';
 	import { appStore } from '$lib/stores/app.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
@@ -501,9 +502,8 @@
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rsk'}
-		{@const envNetwork = import.meta.env.VITE_RSK_NETWORK}
-		{@const isRskTestnet = (envNetwork as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
-		{@const debugLog = console.log(`🔍 RSK Testnet Debug - envNetwork: "${envNetwork}", isRskTestnet: ${isRskTestnet}`)}
+		{@const isRskTestnet = $rskWalletStore.network === 'testnet'}
+		{@const debugLog = console.log(`🔍 RSK Testnet Debug - rskWalletStore network: "${$rskWalletStore.network}", isRskTestnet: ${isRskTestnet}`)}
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<!-- Payment Request Form -->
 			<div class="space-y-4">
