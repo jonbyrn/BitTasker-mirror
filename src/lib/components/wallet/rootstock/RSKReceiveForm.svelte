@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { rskAddress, rskWalletStore } from '$lib/stores/rskWallet.store';
-	import { IS_TESTNET } from '$lib/utils/network';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';
 	import QRCode from 'qrcode';
 
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
+	
 	let qrCodeDataUrl = $state('');
 	let amount = $state('');
 	let label = $state('');
 	let message = $state('');
 	let qrCodeError = $state('');
+
 
 	async function generateQRCode() {
 		if (!$rskAddress) {
@@ -210,8 +212,7 @@
 		<div class="card-body items-center text-center">
 			<h3 class="card-title">Receive RBTC</h3>
 
-			{#if IS_TESTNET}
-				{@const debugLog = console.log(`🔍 RSKReceiveForm Testnet Debug - IS_TESTNET: ${IS_TESTNET}`)}
+			{#if network === 'testnet'}
 				<!-- Testnet Alert -->
 				<div class="alert alert-warning w-full max-w-lg">
 					<svg

@@ -8,6 +8,7 @@
 	import ChatView from '$lib/components/messages/ChatView.svelte';
 	import { t } from 'svelte-i18n';
 	import TranslationSettings from '$lib/components/translation/TranslationSettings.svelte';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	// Get pubkey from URL
 	let recipientPubkey = $derived($page.params.pubkey);
@@ -73,7 +74,7 @@
 
 	async function copyPubkey() {
 		try {
-			await navigator.clipboard.writeText(recipientPubkey);
+			copyToClipboard(recipientPubkey);
 			copySuccess = true;
 			setTimeout(() => {
 				copySuccess = false;

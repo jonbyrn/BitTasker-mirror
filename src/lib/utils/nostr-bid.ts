@@ -1,5 +1,5 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
-import type { BidMessage, NostrBid } from '$lib/types/bid';
+import type { BidMessage, NostrBid, NostrBidStatus } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
 import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
@@ -181,6 +181,62 @@ export function deduplicateBids(bids: BidMessage[]): BidMessage[] {
 }
 
 /**
+ * Get bid status messages from DMs
+ */
+async function getBidStatusMessages(taskId?: string): Promise<{ [bidId: string]: NostrBidStatus }> {
+	try {
+		// Get all people you've exchanged messages with
+		const messagedPeople = await getMessagedPeople();
+		const bidStatuses: { [bidId: string]: NostrBidStatus } = {};
+
+		// Fetch message histories for all conversations in parallel
+		const messageHistoryPromises = messagedPeople.map(async (person) => {
+			try {
+				return await getMessageHistory(person.pubkey, { limit: 100 });
+			} catch (err) {
+				return [];
+			}
+		});
+
+		const messageHistories = await Promise.all(messageHistoryPromises);
+
+		// Process all message histories to extract bid status messages
+		for (let i = 0; i < messagedPeople.length; i++) {
+			const messageHistory = messageHistories[i];
+
+			for (const message of messageHistory) {
+				try {
+					if (!message.plaintext || message.plaintext.trim() === '') {
+						continue;
+					}
+
+					const parsedContent = JSON.parse(message.plaintext);
+
+					// Check if it's a bid status message
+					if (parsedContent.messageType === 'bid-status') {
+						// If taskId is specified, filter by that task
+						if (!taskId || parsedContent.taskId === taskId) {
+							// Keep the latest status for each bid
+							const existingStatus = bidStatuses[parsedContent.bidId];
+							if (!existingStatus || parsedContent.timestamp > existingStatus.timestamp) {
+								bidStatuses[parsedContent.bidId] = parsedContent;
+							}
+						}
+					}
+				} catch (parseError) {
+					continue;
+				}
+			}
+		}
+
+		return bidStatuses;
+	} catch (error) {
+		console.error('Error getting bid status messages:', error);
+		return {};
+	}
+}
+
+/**
  * Get bids for a specific task with optimized processing
  */
 export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessage[]> {
@@ -197,11 +253,32 @@ export async function getBidsForTaskOptimized(taskId: string): Promise<BidMessag
 		// Get raw bids from DMs
 		const dmBids = await getBidsFromDMs(taskId);
 
+		// Get bid status messages
+		const bidStatuses = await getBidStatusMessages(taskId);
+
 		// Deduplicate efficiently
 		const deduplicatedBids = deduplicateBids(dmBids);
 
+		// Apply status updates to bids
+		const bidsWithStatus = deduplicatedBids.map(bidMessage => {
+			const status = bidStatuses[bidMessage.bid.bidId];
+			if (status) {
+				// Create updated bid with new status - NostrBid doesn't have a status field,
+				// so we add it for consistency with SimplifiedTaskBid
+				const updatedBid = {
+					...bidMessage.bid,
+					bidStatus: status.status === 'accepted' ? 'ACCEPTED' : 'REJECTED'
+				} as NostrBid & { bidStatus: string };
+				return {
+					...bidMessage,
+					bid: updatedBid
+				};
+			}
+			return bidMessage;
+		});
+
 		// Sort by timestamp (most recent first)
-		const sortedBids = deduplicatedBids.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
+		const sortedBids = bidsWithStatus.sort((a, b) => b.bid.timestamp - a.bid.timestamp);
 
 		// Cache the processed data
 		bidCache.setProcessedBidData(cacheKey, {
@@ -390,27 +467,53 @@ export async function getMyBids(): Promise<BidMessage[]> {
 	}
 }
 
+/**
+ * Send a bid status update (acceptance or rejection) via encrypted DM
+ */
+export async function sendBidStatusUpdate(
+	bidId: string,
+	taskId: string,
+	bidderPubkey: string,
+	status: 'accepted' | 'rejected',
+	message?: string,
+	escrowId?: string,
+	transactionHash?: string
+): Promise<void> {
+	try {
+		const statusData: NostrBidStatus = {
+			messageType: 'bid-status',
+			bidId,
+			taskId,
+			status,
+			message,
+			timestamp: Date.now(),
+			escrowId,
+			transactionHash
+		};
+
+		// Send as encrypted DM to the bidder with tags for filtering
+		const statusMessage = JSON.stringify(statusData);
+		await sendDirectMessage(statusMessage, bidderPubkey, undefined, [
+			['b', bidId], // b = bid-id for filtering
+			['t', taskId], // t = task-id for filtering
+			['s', status], // s = status for filtering
+			['type', 'bid-status'] // type tag for easy identification
+		]);
+
+		// Clear bid cache to ensure fresh data on next load
+		clearBidCache();
+
+		console.log(`Bid status update sent for bid ${bidId}: ${status}`);
+	} catch (error) {
+		console.error('Error sending bid status update:', error);
+		throw error;
+	}
+}
+
 // ============================================================================
 // CONTRACT MANAGEMENT FUNCTIONS
 // ============================================================================
 
-const DEFAULT_RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL];
-
-// Initialize pool for contract operations
-const pool = new SimplePool();
-
-/**
- * Query events using the pool
- */
-async function queryEvents(relayUrl: string, filters: Filter[]): Promise<NostrEvent[]> {
-	try {
-		const events = await pool.querySync([relayUrl], filters[0]);
-		return events || [];
-	} catch (error) {
-		console.warn(`Failed to query events from ${relayUrl}:`, error);
-		return [];
-	}
-}
 
 /**
  * Create a new contract event after escrow creation (as encrypted DM)

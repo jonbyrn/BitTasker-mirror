@@ -3,6 +3,8 @@
 	import { bscUsdtWalletStore, bscTokenBalances } from '$lib/stores/bscUsdtWallet.store';
 	import { BSC_NETWORKS } from '$lib/stores/bscUsdtWallet.store';
 	import QRCode from 'qrcode';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 
 	let selectedToken = $state('USDT');
 	let qrCodeDataUrl = $state('');
@@ -52,8 +54,8 @@
 	async function copyAddress() {
 		if ($bscUsdtWalletStore.address) {
 			try {
-				await navigator.clipboard.writeText($bscUsdtWalletStore.address);
-				// You could show a toast notification here
+				copyToClipboard($bscUsdtWalletStore.address);
+				appStore.showSuccessToast($t('wallet.address_copied'));
 			} catch (err) {
 				console.error('Failed to copy address:', err);
 			}
@@ -75,7 +77,8 @@
 				qrData = $bscUsdtWalletStore.address;
 			}
 
-			await navigator.clipboard.writeText(qrData);
+			copyToClipboard(qrData);
+			appStore.showSuccessToast($t('wallet.address_copied'));
 			// You could show a toast notification here
 		} catch (err) {
 			console.error('Failed to copy QR data:', err);

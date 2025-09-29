@@ -1,8 +1,13 @@
 <script lang="ts">
 	import type { Task } from '$lib/types/task';
-	import type { CounterOffer, SimplifiedTaskBid } from '$lib/types/bid';
+	import type { CounterOffer, SimplifiedTaskBid, NostrBid } from '$lib/types/bid';
 	import { t } from 'svelte-i18n';
-import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/utils/nostr-bid';
+	import { appStore } from '$lib/stores/app.store';
+	import {
+		getBidsForTaskOptimized,
+		clearBidCache,
+		sendBidStatusUpdate
+	} from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
@@ -72,31 +77,38 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 				const dmBids = await getBidsForTaskOptimized(task.id);
 
 				// Transform to SimplifiedTaskBid format (sync mapping)
-				bids = dmBids.map(({ bid }) => ({
-					id: bid.bidId,
-					taskId: bid.taskId,
-					bidderWalletAddress: bid.bidderWalletAddress || '',
-					amount: bid.amount,
-					currency: bid.currency,
-					paymentType: bid.paymentType,
-					hourlyRate: bid.hourlyRate ?? undefined,
-					estimatedHours: bid.estimatedHours ?? undefined,
-					description: bid.description,
-					estimatedDuration: bid.estimatedDuration,
-					proposedApproach: bid.proposedApproach,
-					coverLetter: bid.coverLetter,
-					status: 'PENDING',
-					createdAt: new Date(bid.timestamp).toISOString(),
-					startDateTime: bid.startDateTime,
-					endDateTime: bid.endDateTime,
-					userProfile: {
-						user: {
-							id: bid.bidderId || 'unknown',
-							name: bid.bidderName || 'Anonymous',
-							avatar: bid.bidderAvatar || ''
+				bids = dmBids.map(({ bid }) => {
+					// Check if bid has a status from bid status messages
+					const bidWithStatus = bid as NostrBid & { bidStatus?: string };
+					const status = bidWithStatus.bidStatus || 'PENDING';
+
+					return {
+						id: bid.bidId,
+						taskId: bid.taskId,
+						bidderWalletAddress: bid.bidderWalletAddress || '',
+						amount: bid.amount,
+						currency: bid.currency,
+						paymentType: bid.paymentType,
+						hourlyRate: bid.hourlyRate ?? undefined,
+						estimatedHours: bid.estimatedHours ?? undefined,
+						description: bid.description,
+						estimatedDuration: bid.estimatedDuration,
+						proposedApproach: bid.proposedApproach,
+						coverLetter: bid.coverLetter,
+						status: status as 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED',
+						createdAt: new Date(bid.timestamp).toISOString(),
+						startDateTime: bid.startDateTime,
+						endDateTime: bid.endDateTime,
+						userProfile: {
+							user: {
+								id: bid.bidderId || 'unknown',
+								name: bid.bidderName || 'Anonymous',
+								avatar: bid.bidderAvatar || '',
+								rating: 0 // Default rating
+							}
 						}
-					}
-				} as SimplifiedTaskBid));
+					} as SimplifiedTaskBid;
+				});
 			}
 		} catch (error) {
 			console.error('Failed to load task details:', error);
@@ -117,6 +129,12 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 	}
 
 	function handleAcceptBid(bid: SimplifiedTaskBid) {
+		// Check if this bid is already accepted or if another bid is already accepted
+		if (bid.status === 'ACCEPTED') {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_accepted'));
+			return;
+		}
+
 		bidToAccept = bid;
 		showAcceptanceForm = true;
 	}
@@ -141,13 +159,28 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 	}
 
 	async function handleRejectBid(bid: SimplifiedTaskBid) {
+		// Prevent rejecting bids that are already accepted or rejected
+		if (bid.status === 'ACCEPTED' || bid.status === 'REJECTED') {
+			appStore.showInfoToast($t('dashboard.bids.bid_acceptance.bid_already_rejected'));
+			return;
+		}
+
 		try {
-			await bidService.rejectBid(bid.id);
+			// Send bid rejection status via encrypted DM to the bidder
+			await sendBidStatusUpdate(
+				bid.id,
+				bid.taskId,
+				bid.userProfile?.user?.id || '', // bidder's pubkey
+				'rejected',
+				$t('dashboard.bids.bid_acceptance.bid_rejected_message') // Optional rejection message
+			);
+
 			// Clear bid cache and refresh task to update status and bids
 			clearBidCache();
 			await loadTaskDetails(page.params.taskId as string);
 		} catch (error) {
 			console.error('Error rejecting bid:', error);
+			appStore.showErrorToast($t('dashboard.bids.bid_acceptance.bid_rejected_error'));
 		}
 	}
 
@@ -165,15 +198,6 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 	}
 
 	onMount(async () => {
-		try {
-			const { Preferences } = await import('@capacitor/preferences');
-			const { StorageKeys } = await import('$lib/utils/constants/storage');
-			const { value } = await Preferences.get({ key: StorageKeys.NPUB });
-			console.log('[BidsPage] Cached NPUB at mount:', value ? value.substring(0, 16) + '...' : '(none)');
-		} catch (e) {
-			console.log('[BidsPage] Unable to read cached NPUB:', e);
-		}
-		console.log('[BidsPage] Starting loadTaskDetails and fetchBtcPrice');
 		await loadTaskDetails(page.params.taskId as string);
 		await fetchBtcPrice();
 	});
@@ -337,14 +361,27 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 										<p class="truncate text-base font-semibold sm:text-lg">
 											{bid.userProfile?.user?.name || $t('task.drawer.anonymous')}
 										</p>
+										<!-- Bid Status Badge -->
+										{#if bid.status === 'ACCEPTED'}
+											<div class="badge badge-success badge-sm">
+												{$t('dashboard.bids.bid_acceptance.accepted')}
+											</div>
+										{:else if bid.status === 'REJECTED'}
+											<div class="badge badge-error badge-sm">
+												{$t('dashboard.bids.bid_acceptance.rejected')}
+											</div>
+										{:else if bid.status === 'PENDING'}
+											<div class="badge badge-warning badge-sm">
+												{$t('dashboard.bids.bid_acceptance.pending')}
+											</div>
+										{/if}
 										<button
 											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
 											onclick={() =>
 												window.open(
 													`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`,
 													'_blank'
-												)
-											}
+												)}
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
@@ -358,7 +395,7 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 													stroke-linejoin="round"
 													stroke-width="2"
 													d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-													/>
+												/>
 											</svg>
 											<span class="">{$t('dashboard.bids.bid_acceptance.see_profile')}</span>
 										</button>
@@ -439,9 +476,11 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 							</button>
 
 							<div class="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
+								<!-- Reject Button -->
 								<button
 									class="btn btn-error btn-outline btn-sm flex-1 py-1 sm:flex-none"
 									onclick={() => handleRejectBid(bid)}
+									disabled={bid.status === 'ACCEPTED' || bid.status === 'REJECTED'}
 								>
 									<svg
 										xmlns="http://www.w3.org/2000/svg"
@@ -457,48 +496,76 @@ import { getBidsForTaskOptimized, clearBidCache, cachedSatsFromUsd } from '$lib/
 											d="M6 18L18 6M6 6l12 12"
 										/>
 									</svg>
-									{$t('dashboard.bids.bid_acceptance.decline')}
+									{#if bid.status === 'REJECTED'}
+										{$t('dashboard.bids.bid_acceptance.rejected')}
+									{:else}
+										{$t('dashboard.bids.bid_acceptance.decline')}
+									{/if}
 								</button>
 								<!-- <button
-									class="btn btn-info btn-outline btn-sm flex-1 py-1 sm:flex-none"
-									onclick={() => handleCounterOffer(bid)}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
+                                    class="btn btn-info btn-outline btn-sm flex-1 py-1 sm:flex-none"
+                                    onclick={() => handleCounterOffer(bid)}
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-4 w-4"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                                        />
+                                    </svg>
+                                    {$t('dashboard.bids.bid_acceptance.counter')}
+                                </button> -->
+
+								<!-- Accept Button -->
+								{#if bid.status === 'ACCEPTED'}
+									<button class="btn btn-success btn-sm flex-1 py-1 sm:flex-none" disabled={true}>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+										{$t('dashboard.bids.bid_acceptance.accepted')}
+									</button>
+								{:else}
+									<button
+										class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
+										onclick={() => handleAcceptBid(bid)}
+										disabled={bid.status === 'REJECTED' ||
+											bids.some((b) => b.status === 'ACCEPTED')}
 									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-										/>
-									</svg>
-									{$t('dashboard.bids.bid_acceptance.counter')}
-								</button> -->
-								<button
-									class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
-									onclick={() => handleAcceptBid(bid)}
-								>
-									<svg
-										xmlns="http://www.w3.org/2000/svg"
-										class="h-4 w-4"
-										fill="none"
-										viewBox="0 0 24 24"
-										stroke="currentColor"
-									>
-										<path
-											stroke-linecap="round"
-											stroke-linejoin="round"
-											stroke-width="2"
-											d="M5 13l4 4L19 7"
-										/>
-									</svg>
-									{$t('dashboard.bids.bid_acceptance.accept')}
-								</button>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											class="h-4 w-4"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M5 13l4 4L19 7"
+											/>
+										</svg>
+										{$t('dashboard.bids.bid_acceptance.accept')}
+									</button>
+								{/if}
 							</div>
 						</div>
 

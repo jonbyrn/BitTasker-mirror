@@ -14,12 +14,15 @@
 		rskConnection,
 		walletStore
 	} from '$lib/stores/wallet.store';
-	import { IS_TESTNET } from '$lib/utils/network';
 	import { initWasm, isWasmInitialized } from '$lib/wallet/breez/wasmLoader';
 	import BalanceCard from '$lib/components/wallet/BalanceCard.svelte';
 	import SendForm from '$lib/components/wallet/SendForm.svelte';
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
+
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
 	onMount(async () => {
 		// Initialize WASM first, then both wallets
@@ -118,8 +121,7 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if IS_TESTNET}
-			{@const debugLog = console.log(`🔍 Wallet Page Testnet Debug - IS_TESTNET: ${IS_TESTNET}`)}
+		{#if network === 'testnet'}
 			<div class="alert alert-outline alert-warning mb-6">
 				<div class="flex items-center">
 					<svg
@@ -154,8 +156,8 @@
 									<button
 										class="btn btn-sm btn-outline"
 										onclick={() => {
-											navigator.clipboard.writeText($rskConnection.address);
-											// You could add a toast notification here
+											copyToClipboard($rskConnection.address || '');
+											appStore.showSuccessToast($t('wallet.address_copied'));
 										}}
 										title={$t('wallet.testnet_warning.copy_address')}
 										aria-label={$t('wallet.testnet_warning.copy_address')}

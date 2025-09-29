@@ -3,6 +3,7 @@
 	import { ethers } from 'ethers';
 	import { bscUsdtWalletStore, bscTransactions, bscUsdtWallet } from '$lib/stores/bscUsdtWallet.store';
 	import { BSC_NETWORKS } from '$lib/stores/bscUsdtWallet.store';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let selectedFilter = $state('all');
 	let isLoading = $state(false);
@@ -102,8 +103,7 @@
 	// Copy transaction hash
 	async function copyTxHash(txHash: string) {
 		try {
-			await navigator.clipboard.writeText(txHash);
-			// You could show a toast notification here
+			copyToClipboard(txHash);
 		} catch (err) {
 			console.error('Failed to copy transaction hash:', err);
 		}

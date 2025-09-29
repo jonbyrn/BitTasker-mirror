@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import QRCode from 'qrcode';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let {
 		npub,
@@ -102,9 +103,9 @@
 		generateQrCode();
 	});
 
-	async function copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
+	async function _copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
 		try {
-			await navigator.clipboard.writeText(text);
+			copyToClipboard(text);
 			copySuccess = type;
 			setTimeout(() => {
 				copySuccess = '';
@@ -158,7 +159,7 @@
 						/>
 						<button
 							class="btn btn-square btn-outline"
-							onclick={() => copyToClipboard(npub, 'npub')}
+							onclick={() => _copyToClipboard(npub, 'npub')}
 							disabled={!npub}
 						>
 							{#if copySuccess === 'npub'}
@@ -264,7 +265,7 @@
 						{#if authMethod !== 'alby'}
 							<button
 								class="btn btn-square btn-outline"
-								onclick={() => copyToClipboard(nsec, 'nsec')}
+								onclick={() => _copyToClipboard(nsec, 'nsec')}
 								disabled={!nsec}
 							>
 								{#if copySuccess === 'nsec'}

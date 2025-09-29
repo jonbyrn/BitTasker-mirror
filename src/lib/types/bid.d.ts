@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Freelancer } from './freelancer';
+import type { Event as NostrEvent } from 'nostr-tools';
 
 // Legacy bid types
 export type PaymentType = 'FIXED' | 'HOURLY';
@@ -307,4 +308,23 @@ export interface SimplifiedTaskBid {
 			avatar: string;
 		};
 	};
+}
+
+// Bid status message types for Nostr communication
+export interface NostrBidStatus {
+	messageType: 'bid-status';
+	bidId: string;
+	taskId: string;
+	status: 'accepted' | 'rejected';
+	message?: string;
+	timestamp: number;
+	// For accepted bids, include escrow details
+	escrowId?: string;
+	transactionHash?: string;
+}
+
+export interface BidStatusMessage {
+	status: NostrBidStatus;
+	senderPubkey: string;
+	event: NostrEvent;
 }
