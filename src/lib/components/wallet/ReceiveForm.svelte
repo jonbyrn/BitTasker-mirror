@@ -501,7 +501,7 @@
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rsk'}
-		{@const isRskTestnet = (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') === 'testnet'}
+		{@const isRskTestnet = (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<!-- Payment Request Form -->
 			<div class="space-y-4">

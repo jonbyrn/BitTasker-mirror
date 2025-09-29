@@ -117,7 +117,7 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
+		{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
 			<div class="alert alert-outline alert-warning mb-6">
 				<div class="flex items-center">
 					<svg
