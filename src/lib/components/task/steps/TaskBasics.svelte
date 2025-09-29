@@ -12,6 +12,7 @@
 	// Use category IDs directly - CategoryMultiselect now handles translation internally
 	let selectedCategoryIds = $state([] as string[]);
 	let lastCategories = $state([]) as string[];
+	let isUpdatingFromStore = $state(false);
 
 	$effect(() => {
 		try {
@@ -22,7 +23,9 @@
 				typeof cat === 'string' ? cat : (cat as any).id
 			);
 			if (JSON.stringify(categoryIds) !== JSON.stringify(selectedCategoryIds)) {
+				isUpdatingFromStore = true;
 				selectedCategoryIds = [...categoryIds];
+				isUpdatingFromStore = false;
 			}
 		} catch (error) {
 			console.error('Error syncing category IDs:', error);
@@ -32,6 +35,9 @@
 	// Handle category changes - now CategoryMultiselect returns IDs directly
 	function handleCategoryChange(selectedItems: string[]) {
 		try {
+			// Prevent circular updates
+			if (isUpdatingFromStore) return;
+			
 			// Convert IDs to full category objects
 			const categoryObjects = selectedItems
 				.map((categoryId) => {

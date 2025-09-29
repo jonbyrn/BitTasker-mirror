@@ -79,12 +79,14 @@
 
 	// Sync selectedCategories with external category IDs
 	let lastExternalIds = $state<string[]>([]);
+	let isInternalUpdate = $state(false);
 	
 	$effect(() => {
 		try {
 			// Convert external IDs to full objects for display
 			if (JSON.stringify(externalCategoryIds) !== JSON.stringify(lastExternalIds)) {
 				lastExternalIds = [...externalCategoryIds];
+				isInternalUpdate = true;
 				
 				const fullObjects = externalCategoryIds.map((id: string) => {
 					const option = categoryOptions.find(opt => opt.value === id);
@@ -92,6 +94,7 @@
 				});
 				
 				selectedCategories = fullObjects;
+				isInternalUpdate = false;
 			}
 		} catch (error) {
 			console.error('Error syncing external category IDs:', error);
@@ -102,8 +105,8 @@
 	let lastSelectedCategories = $state<any[]>([]);
 	$effect(() => {
 		try {
-			// Only call onChange if the selection actually changed
-			if (JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
+			// Only call onChange if the selection actually changed and it's not an internal update
+			if (!isInternalUpdate && JSON.stringify(selectedCategories) !== JSON.stringify(lastSelectedCategories)) {
 				lastSelectedCategories = [...selectedCategories];
 				
 				// Extract only the values (IDs) from the selected items
