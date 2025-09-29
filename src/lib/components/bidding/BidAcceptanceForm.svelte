@@ -10,7 +10,7 @@
 		getFeePercentageDisplay,
 		formatRBTCAmount
 	} from '$lib/utils/wallet/escrowBid';
-	import { formatTimestamp } from '$lib/utils/helpers/dateFormatter';
+	import { formatTimestamp, formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
@@ -166,7 +166,7 @@
 	}
 
 	function getTotalWithGasFee(): number {
-		return parseFloat(bidEscrowDetails.totalAmount) * props.btcPrice + getEstimatedGasFee();
+		return parseFloat(bidEscrowDetails.totalAmount) * props.btcPrice;
 	}
 </script>
 
@@ -354,7 +354,7 @@
 
 								<div class="flex items-center justify-between">
 									<div class="flex items-center gap-1">
-										<span class="text-xs font-medium"
+										<span class="text-xs font-medium italic"
 											>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
 										>
 										<div
@@ -377,7 +377,7 @@
 											</svg>
 										</div>
 									</div>
-									<span class="text-xs font-bold">${getEstimatedGasFee().toFixed(2)}</span>
+									<span class="text-xs font-bold italic">${getEstimatedGasFee().toFixed(2)}</span>
 								</div>
 
 								<div class="border-base-200 border-t pt-2">
@@ -414,7 +414,7 @@
 							>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
 						>
 						<span class="text-base-content/80"
-							>{formatTimestamp(bidEscrowDetails.estimatedStartTime)}</span
+							>{formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime))}</span
 						>
 					</div>
 					<div class="flex items-center justify-between text-xs">
@@ -422,7 +422,7 @@
 							>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
 						>
 						<span class="text-base-content/80"
-							>{formatTimestamp(bidEscrowDetails.estimatedCompletionTime)}</span
+							>{formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime))}</span
 						>
 					</div>
 					<div class="flex items-center justify-between text-xs">
