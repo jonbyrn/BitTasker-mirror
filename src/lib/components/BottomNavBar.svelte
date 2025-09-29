@@ -19,22 +19,22 @@
 	import IconBriefcaseOutline from '~icons/mdi/briefcase-outline';
 	import IconMagnify from '~icons/mdi/magnify';
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
-	import IconPlusCircle from '~icons/mdi/plus-circle';
+	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconAccountCircle from '~icons/mdi/account-circle';
-	import IconMessage from '~icons/mdi/message';
-	import IconWallet from '~icons/mdi/wallet';
+	import IconChatOutline from '~icons/mdi/chat-outline';
+	import IconWalletOutline from '~icons/mdi/wallet-outline';
 	import IconAccount from '~icons/mdi/account';
 	import IconCog from '~icons/mdi/cog';
 	import IconLogin from '~icons/mdi/login';
 	import IconAccountPlus from '~icons/mdi/account-plus';
 	import IconHome from '~icons/mdi/home';
-	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
 	import IconCurrencyUsd from '~icons/mdi/currency-usd';
 	import IconShieldCheckOutline from '~icons/mdi/shield-check-outline';
 	import IconAccountHardHat from '~icons/mdi/account-hard-hat';
 	import IconCurrencyBtc from '~icons/mdi/currency-btc';
 	import IconAccountGroup from '~icons/mdi/account-group';
-	import IconHandshake from '~icons/mdi/handshake';
+	import IconInvoiceTextSendOutline from '~icons/mdi/invoice-text-send-outline';
+	import IconFileSign from '~icons/mdi/file-sign';
 	import IconDomain from '~icons/mdi/domain';
 	import IconShieldCheck from '~icons/mdi/shield-check';
 	import IconBriefcaseSearch from '~icons/mdi/briefcase-search';
@@ -412,8 +412,20 @@
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/create-task" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconPlusCircle class="text-primary" />
+									<IconPlusCircleOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.create_task')}</span>
+								</a>
+							</li>
+							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+								<a href="/dashboard/bids-sent" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<IconInvoiceTextSendOutline class="text-primary" />
+									<span class="font-medium">{$t('navbar.bids_sent')}</span>
+								</a>
+							</li>
+							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
+								<a href="/dashboard/contracts" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+									<IconFileSign class="text-primary" />
+									<span class="font-medium">{$t('navbar.contracts')}</span>
 								</a>
 							</li>
 						{/if}
@@ -442,14 +454,14 @@
 						{#if isTaskersOpen}
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/messages" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconMessage class="text-primary" />
+									<IconChatOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.messages')}</span>
 								</a>
 							</li>
 
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/dashboard/wallet" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconWallet class="text-primary" />
+									<IconWalletOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.wallet')}</span>
 								</a>
 							</li>
@@ -594,7 +606,7 @@
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
 								<a href="/tasker-principles" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
-									<IconHandshake class="text-primary" />
+									<IconInvoiceTextSendOutline class="text-primary" />
 									<span class="font-medium">{$t('footer.tasker_principles')}</span>
 								</a>
 							</li>
@@ -707,7 +719,7 @@
 				: ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconPlusCircle class="text-primary-content" />
+			<IconPlusCircleOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.new_task')}</span>
 		</a>
 
@@ -746,7 +758,7 @@
 				: ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconWallet class="text-primary-content" />
+			<IconWalletOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.wallet')}</span>
 		</a>
 
@@ -759,7 +771,7 @@
 				: ''}"
 			data-sveltekit-reload="off"
 		>
-			<IconMessage class="text-primary-content" />
+			<IconChatOutline class="text-primary-content" />
 			<span class="dock-label font-medium">{$t('navbar.messages')}</span>
 		</a>
 	</div>
