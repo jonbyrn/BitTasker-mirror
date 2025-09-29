@@ -614,6 +614,8 @@
 
 			<!-- Testnet Warning Alert -->
 			{#if (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet' === 'testnet'}
+				{@const envNetwork = import.meta.env.VITE_RSK_NETWORK}
+				{@const debugLog = console.log(`🔍 BidAcceptance Testnet Debug - envNetwork: "${envNetwork}"`)}
 				<div class="alert alert-outline alert-warning mb-6">
 					<div class="flex items-center">
 						<svg
