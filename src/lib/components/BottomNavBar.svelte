@@ -417,13 +417,13 @@
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/bids-sent" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard?tab=bids" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconInvoiceTextSendOutline class="text-primary" />
 									<span class="font-medium">{$t('navbar.bids_sent')}</span>
 								</a>
 							</li>
 							<li transition:slide={{ duration: 500, axis: 'y', easing: backOut }}>
-								<a href="/dashboard/contracts" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
+								<a href="/dashboard?tab=contracts" onclick={closeMenu} class="min-h-[44px] py-2 pl-6">
 									<IconFileSign class="text-primary" />
 									<span class="font-medium">{$t('navbar.contracts')}</span>
 								</a>

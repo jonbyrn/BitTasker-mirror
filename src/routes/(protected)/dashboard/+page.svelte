@@ -38,6 +38,17 @@
 		}
 	});
 
+	// Watch for URL changes and update active tab
+	$effect(() => {
+		const tabParam = page.url.searchParams.get('tab');
+		if (tabParam && availableTabs.some((tab) => tab.id === tabParam)) {
+			activeTab = tabParam;
+		} else if (!tabParam) {
+			// No tab parameter means default to 'tasks' tab
+			activeTab = 'tasks';
+		}
+	});
+
 	// Update URL when tab changes
 	function updateUrlParam(tabId: string) {
 		const url = new URL(window.location.href);
