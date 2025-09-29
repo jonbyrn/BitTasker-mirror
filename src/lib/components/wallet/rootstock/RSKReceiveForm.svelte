@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { rskAddress, rskWalletStore } from '$lib/stores/rskWallet.store';
-	import { walletStore } from '$lib/stores/wallet.store';
+	import { IS_TESTNET } from '$lib/utils/network';
 	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { onMount } from 'svelte';
@@ -210,8 +210,8 @@
 		<div class="card-body items-center text-center">
 			<h3 class="card-title">Receive RBTC</h3>
 
-			{#if $rskWalletStore.network === 'testnet'}
-				{@const debugLog = console.log(`🔍 RSKReceiveForm Testnet Debug - rskWalletStore network: "${$rskWalletStore.network}"`)}
+			{#if IS_TESTNET}
+				{@const debugLog = console.log(`🔍 RSKReceiveForm Testnet Debug - IS_TESTNET: ${IS_TESTNET}`)}
 				<!-- Testnet Alert -->
 				<div class="alert alert-warning w-full max-w-lg">
 					<svg

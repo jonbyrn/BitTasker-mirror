@@ -2,7 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import type { WalletAsset } from '$lib/stores/wallet.store';
 	import { allAssets, liquidConnection, rskConnection, walletStore } from '$lib/stores/wallet.store';
-	import { rskWalletStore } from '$lib/stores/rskWallet.store';
+	import { IS_TESTNET } from '$lib/utils/network';
 	import { appStore } from '$lib/stores/app.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
@@ -502,8 +502,7 @@
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
 	{#if selectedNetwork === 'rsk'}
-		{@const isRskTestnet = $rskWalletStore.network === 'testnet'}
-		{@const debugLog = console.log(`🔍 RSK Testnet Debug - rskWalletStore network: "${$rskWalletStore.network}", isRskTestnet: ${isRskTestnet}`)}
+		{@const debugLog = console.log(`🔍 RSK Testnet Debug - IS_TESTNET: ${IS_TESTNET}`)}
 		<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 			<!-- Payment Request Form -->
 			<div class="space-y-4">
@@ -565,7 +564,7 @@
 			<div class="flex flex-col items-center text-center">
 				<h4 class="mb-4 font-semibold">{$t('wallet.receive_rbtc')}</h4>
 
-				{#if isRskTestnet}
+				{#if IS_TESTNET}
 					<!-- Abbreviated testnet warning shown instead of QR on testnet -->
 					<div class="alert alert-outline alert-warning w-full max-w-sm">
 						<svg
