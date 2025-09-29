@@ -9,6 +9,9 @@ import { packKeys, unPackKeys, generateWebChallenge } from '$lib/utils/helpers/e
 import { handleBiometricError } from './biometricErrorHandler';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '../constants/storage';
+import { authState } from '$lib/stores/auth.store';
+import { appStore } from '$lib/stores/app.store';
+import { goto } from '$app/navigation';
 import authService from '$lib/api/services/auth.service';
 
 // Define WebAuthn specific options type that extends BiometricVerifyOptions
@@ -195,9 +198,9 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		const publicKey = unpackedKeys.publicKey;
 		const exportedKey = unpackedKeys.exportedKey;
 
-		if(checkNpub) {
+		if (checkNpub) {
 			const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-			if(npub !== publicKey) {
+			if (npub !== publicKey) {
 				throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
 			}
 		}
@@ -205,17 +208,17 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		const deviceId = await getDeviceIdentifier();
 
 		const deviceName = await createUserDeviceShortName(publicKey);
-		
+
 		// Try to get master key encrypted data first, fallback to legacy
 		try {
-			const { masterKeyData, legacyEncryptedData, isLegacyFormat } = 
+			const { masterKeyData, legacyEncryptedData, isLegacyFormat } =
 				await authService.getMasterKeyEncryptedData(publicKey, deviceId, credential.id, deviceName);
 
 			if (!isLegacyFormat && masterKeyData) {
 				// New master key format
 				return {
 					username: publicKey,
-					password: JSON.stringify({ 
+					password: JSON.stringify({
 						key: masterKeyData.exportedMasterKey, // TODO: To be replaced with exportedKey once all legacy users update their passkeys
 						masterKeyData: masterKeyData,
 						// Legacy compatibility fields for backward compatibility
@@ -231,12 +234,12 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 				// Legacy format
 				return {
 					username: publicKey,
-					password: JSON.stringify({ 
-						key: exportedKey, 
-						data: legacyEncryptedData.encryptedPrivateKey, 
-						iv: legacyEncryptedData.iv, 
-						authTag: legacyEncryptedData.authTag, 
-						salt: legacyEncryptedData.salt 
+					password: JSON.stringify({
+						key: exportedKey,
+						data: legacyEncryptedData.encryptedPrivateKey,
+						iv: legacyEncryptedData.iv,
+						authTag: legacyEncryptedData.authTag,
+						salt: legacyEncryptedData.salt
 					}),
 					server: deviceId,
 					isLegacyFormat: true
@@ -262,6 +265,11 @@ export async function getWebBiometricData(checkNpub: boolean = false): Promise<C
 		}
 	} catch (err) {
 		console.error('Failed to get biometric data:', err);
+		if (err instanceof Error && err.message.includes('device has been revoked')) {
+			appStore.showInfoToast('Your device access has been revoked');
+			await authState.logout();
+			goto('/auth/login');
+		}
 		throw new Error(await handleBiometricError(err, 'web'));
 	}
 }
