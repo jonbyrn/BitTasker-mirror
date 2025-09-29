@@ -7,6 +7,9 @@ import { Webauthn, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCr
 import { createDisplayName, createUserDeviceShortName, createUserFriendlyName, getDeviceIdentifier } from '$lib/utils/helpers/deviceIdentity';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '../constants/storage';
+import { appStore } from '$lib/stores/app.store';
+import { authState } from '$lib/stores/auth.store';
+import { goto } from '$app/navigation';
 import authService from '$lib/api/services/auth.service';
 
 const BIOMETRIC_VERIFY_OPTIONS: BiometricVerifyOptions = {
@@ -164,9 +167,9 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 			const publicKey = unpackedKeys.publicKey;
 			const exportedKey = unpackedKeys.exportedKey;
 
-			if(checkNpub) {
+			if (checkNpub) {
 				const { value: npub } = await Preferences.get({ key: StorageKeys.NPUB });
-				if(npub !== publicKey) {
+				if (npub !== publicKey) {
 					throw new Error("Passkey mismatch: Please select the correct one linked to this account.");
 				}
 			}
@@ -297,6 +300,11 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 	} catch (err) {
 		const platform = authMethod === 'passkey' ? 'mobile-webauthn' : 'mobile-native';
 		console.error('Failed to get biometric data:', err);
+		if (err instanceof Error && err.message.includes('device has been revoked')) {
+			appStore.showInfoToast('Your device access has been revoked');
+			await authState.logout();
+			goto('/auth/login');
+		}
 		throw new Error(await handleBiometricError(err, platform));
 	}
 }

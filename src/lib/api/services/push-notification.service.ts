@@ -183,7 +183,6 @@ class PushNotificationService {
 
 		// Handle device revocation notification first
 		if (data.type === 'device_revoked') {
-			console.log('🚨 Device revocation notification received');
 			await this.handleDeviceRevocation(data);
 			return; // Exit early, don't navigate anywhere
 		}
@@ -221,8 +220,6 @@ class PushNotificationService {
 	 * Handle device revocation notification - immediately log out the user
 	 */
 	private async handleDeviceRevocation(data: any): Promise<void> {
-		console.log('🚨 Processing device revocation:', data);
-
 		// Show toast notification
 		appStore.showInfoToast(data.message || 'Your device access has been revoked');
 
@@ -646,6 +643,7 @@ class PushNotificationService {
 	// Public method to revoke a specific device
 	public async revokeDevice(deviceId: string, message?: string) {
 		try {
+			console.log({ deviceId, curr: this.currentDeviceId })
 			const result = await this.revokeDeviceStore.mutate({
 				deviceId
 			});
@@ -658,7 +656,12 @@ class PushNotificationService {
 
 			// Then, send push notification to the revoked device to force logout
 			try {
-				await this.sendNotification('Device Access Revoked', message || 'Your device access has been revoked for security reasons. You will be logged out immediately.');
+				const notificationData = {
+					title: 'Device Access Revoked',
+					body: message || 'Your device access has been revoked for security reasons. You will be logged out immediately.',
+					deviceId
+				}
+				await this.sendNotification(notificationData);
 			} catch (notificationError) {
 				console.warn('Error sending revocation notification:', notificationError);
 				// Continue - the device revocation was successful even if notification failed
@@ -685,14 +688,14 @@ class PushNotificationService {
 		}
 	}
 
-	// Public method to send test notification
-	public async sendNotification(title: string, body: string) {
+	// Public method to send notification
+	public async sendNotification({ title, body, deviceId }: { title: string, body: string, deviceId: string }) {
 		try {
 			const result = await this.sendNotificationStore.mutate({
 				input: {
 					title,
 					body,
-					deviceId: this.currentDeviceId,
+					deviceId,
 					type: 'device_revoked'
 				}
 			});
@@ -703,7 +706,7 @@ class PushNotificationService {
 
 			return result.data?.sendNotification;
 		} catch (error) {
-			console.error('Error sending test notification:', error);
+			console.error('Error sending notification:', error);
 			throw error;
 		}
 	}
@@ -778,7 +781,12 @@ class PushNotificationService {
 
 			if (Capacitor.isNativePlatform()) {
 				// For native platforms, we'll use the sendNotification mutation
-				await this.sendNotification('Test Notification', 'This is a test notification from BitTasker');
+				const notificationData = {
+					title: 'Test Notification',
+					body: 'This is a test notification from BitTasker',
+					deviceId: this.currentDeviceId!
+				}
+				await this.sendNotification(notificationData);
 			} else {
 				// For web, show a local notification
 				if (Notification.permission === 'granted') {
