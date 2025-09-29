@@ -332,13 +332,13 @@ ates to X --
 								>
 							</li>
 							<li>
-								<a href="/dashboard/bids-sent" onclick={closeDropdowns}
+								<a href="/dashboard?tab=bids" onclick={closeDropdowns}
 									><IconInvoiceTextSendOutline class="text-primary" />
 									<span>{$t('navbar.bids_sent')}</span></a
 								>
 							</li>
 							<li>
-								<a href="/dashboard/contracts" onclick={closeDropdowns}
+								<a href="/dashboard?tab=contracts" onclick={closeDropdowns}
 									><IconFileSign class="text-primary" />
 									<span>{$t('navbar.contracts')}</span></a
 								>

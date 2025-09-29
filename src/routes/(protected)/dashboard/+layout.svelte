@@ -46,7 +46,16 @@
 
 	$effect(() => {
 		const section = page.url.pathname.split('/dashboard/')[1] || '';
-		activeSection = section;
+		const tabParam = page.url.searchParams.get('tab');
+		
+		// Handle special cases for tab-based navigation
+		if (tabParam === 'bids') {
+			activeSection = 'bids-sent';
+		} else if (tabParam === 'contracts') {
+			activeSection = 'contracts';
+		} else {
+			activeSection = section;
+		}
 	});
 </script>
 
@@ -72,7 +81,7 @@
 								<li class="my-1">
 									<a
 										data-sveltekit-reload="off"
-										href="/dashboard/{section.id}"
+										href={section.id === 'bids-sent' ? '/dashboard?tab=bids' : section.id === 'contracts' ? '/dashboard?tab=contracts' : `/dashboard/${section.id}`}
 										class:menu-active={activeSection === section.id}
 										class="flex items-center gap-3"
 									>
