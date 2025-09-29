@@ -141,12 +141,24 @@ export function extractContractError(error: unknown): ContractError {
 		};
 	}
 
-	if (errorLower.includes('gas') || errorLower.includes('out of gas')) {
+	// Check for specific contract revert messages first
+	if (errorLower.includes('only parties')) {
 		return {
-			userMessage: _('dashboard.contracts.errors.gas_error'),
+			userMessage: _('dashboard.contracts.errors.unauthorized_caller'),
 			technicalMessage: errorMessage,
-			errorCode: 'GAS_ERROR'
+			errorCode: 'UNAUTHORIZED_CALLER'
 		};
+	}
+
+	if (errorLower.includes('gas') || errorLower.includes('out of gas')) {
+		// Avoid false positives - check if it's actually a gas issue, not just containing "gas" in action/data
+		if (errorLower.includes('out of gas') || errorLower.includes('gas limit') || errorLower.includes('insufficient gas')) {
+			return {
+				userMessage: _('dashboard.contracts.errors.gas_error'),
+				technicalMessage: errorMessage,
+				errorCode: 'GAS_ERROR'
+			};
+		}
 	}
 
 	if (errorLower.includes('network') || errorLower.includes('connection')) {

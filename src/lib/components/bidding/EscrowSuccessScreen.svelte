@@ -4,6 +4,8 @@
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { t } from 'svelte-i18n';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 
 	// Props
 	const props = $props<{
@@ -60,8 +62,8 @@
 
 	// Copy transaction hash to clipboard
 	function copyTransactionHash() {
-		navigator.clipboard.writeText(transactionHash);
-		// You could add a toast notification here
+		copyToClipboard(transactionHash);
+		appStore.showSuccessToast($t('wallet.address_copied'));
 	}
 </script>
 

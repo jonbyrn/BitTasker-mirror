@@ -11,7 +11,7 @@
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
-	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 
 	// Props
@@ -25,11 +25,6 @@
 	let activeFilter = $state<TaskFilterCategory>('bids_received');
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let isDropdownOpen = $state<boolean>(false);
-
-	// Reactive date formatting functions using Svelte 5 runes
-	function formatDateReactive(date: Date) {
-		return formatStandardDate(date, $locale || 'en');
-	}
 
 	function formatDateTimeReactive(date: Date) {
 		return formatStandardDateTime(date, $locale || 'en');

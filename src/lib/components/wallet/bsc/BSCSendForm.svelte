@@ -2,6 +2,8 @@
 	import { t } from 'svelte-i18n';
 	import { bscUsdtWalletStore, bscUsdtWallet, bscCanPayFeesInUsdt } from '$lib/stores/bscUsdtWallet.store';
 	import { BSC_NETWORKS } from '$lib/stores/bscUsdtWallet.store';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 
 	let recipientAddress = $state('');
 	let amount = $state('');
@@ -100,8 +102,8 @@
 	async function copyAddress() {
 		if ($bscUsdtWalletStore.address) {
 			try {
-				await navigator.clipboard.writeText($bscUsdtWalletStore.address);
-				// You could show a toast notification here
+				copyToClipboard($bscUsdtWalletStore.address);
+				appStore.showSuccessToast($t('wallet.address_copied'));
 			} catch (err) {
 				console.error('Failed to copy address:', err);
 			}

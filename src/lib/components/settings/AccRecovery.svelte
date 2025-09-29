@@ -4,6 +4,7 @@
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
 	import { nip19 } from 'nostr-tools';
 	import authService from '$lib/api/services/auth.service';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let {
 		nsec,
@@ -27,9 +28,9 @@
 	let passwordError = $state('');
 	let copySuccess = $state('');
 
-	async function copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
+	async function _copyToClipboard(text: string, type: 'npub' | 'nsec' | 'recovery' | 'confirm') {
 		try {
-			await navigator.clipboard.writeText(text);
+			copyToClipboard(text);
 			copySuccess = type;
 			setTimeout(() => {
 				copySuccess = '';
@@ -185,7 +186,7 @@
 						<button
 							type="button"
 							class="absolute inset-y-0 right-0 flex items-center pr-3"
-							onclick={() => copyToClipboard(recoveryPassword, 'recovery')}
+							onclick={() => _copyToClipboard(recoveryPassword, 'recovery')}
 							disabled={!recoveryPassword || recoveryLoading}
 							title="Copy password to clipboard"
 						>
@@ -291,7 +292,7 @@
 						<button
 							type="button"
 							class="absolute inset-y-0 right-0 flex items-center pr-3"
-							onclick={() => copyToClipboard(confirmRecoveryPassword, 'confirm')}
+							onclick={() => _copyToClipboard(confirmRecoveryPassword, 'confirm')}
 							disabled={!confirmRecoveryPassword || recoveryLoading}
 							title="Copy password to clipboard"
 						>

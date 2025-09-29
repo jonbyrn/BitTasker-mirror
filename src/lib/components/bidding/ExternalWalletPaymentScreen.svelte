@@ -2,6 +2,8 @@
 	import type { TaskBid } from '$lib/types/bid';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { t } from 'svelte-i18n';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 
 	// Props
 	const props = $props<{
@@ -60,7 +62,8 @@
 	// Copy address to clipboard
 	async function copyAddress() {
 		try {
-			await navigator.clipboard.writeText(props.escrowDetails.address);
+			copyToClipboard(props.escrowDetails.address);
+			appStore.showSuccessToast($t('wallet.address_copied'));
 			copied = true;
 			setTimeout(() => {
 				copied = false;

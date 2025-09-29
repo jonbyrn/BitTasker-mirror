@@ -9,7 +9,7 @@ const initialState: RSKWalletState = {
     isConnected: false,
     isConnecting: false,
     error: null,
-    network: import.meta.env.VITE_RSK_NETWORK,
+    network: import.meta.env.VITE_RSK_NETWORK || 'testnet',
     address: null,
     balance: '0',
     formattedBalance: '0.00',

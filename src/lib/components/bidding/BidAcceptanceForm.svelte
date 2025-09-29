@@ -10,17 +10,21 @@
 		getFeePercentageDisplay,
 		formatRBTCAmount
 	} from '$lib/utils/wallet/escrowBid';
-	import { formatTimestamp, formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
+	import { formatStandardDateTime } from '$lib/utils/helpers/dateFormatter';
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { IS_TESTNET } from '$lib/utils/network';
+	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
 	// i18n imports
-	import { loadNamespace } from '$lib/i18n/i18n';
+	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
+
+	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
 	// Props
 	const props = $props<{
@@ -40,11 +44,9 @@
 	let escrowDetails = $state<any>(null);
 
 	// Ensure wallet translations are loaded
-	$effect(() => {
-		if (browser && $locale) {
-			loadNamespace($locale, 'dashboard/wallet');
-		}
-	});
+	if (browser && $locale) {
+		loadNamespace($locale as SupportedLanguage, 'dashboard/wallet');
+	}
 
 	// Calculate escrow details from bid
 	let bidEscrowDetails = $derived(calculateBidEscrowDetails(props.bid, props.task, props.btcPrice));
@@ -89,6 +91,18 @@
 					transactionResult: result.transactionResult,
 					escrowDetails: bidEscrowDetails
 				};
+
+				// TODO: Handle case where escrow contract creation fails and bid status is accepted anyway
+				// Send bid acceptance status via encrypted DM to the bidder
+				await sendBidStatusUpdate(
+					props.bid.id,
+					props.bid.taskId,
+					props.bid.userProfile?.user?.id || '', // bidder's pubkey
+					'accepted',
+					$t('dashboard.bids.bid_acceptance.bid_accepted_message'), // Optional acceptance message
+					result.transactionResult?.hash, // escrowId will be derived from transaction
+					result.transactionResult?.hash // transaction hash
+				);
 
 				currentScreen = 'success';
 			} else {
@@ -614,8 +628,7 @@
 			{/if}
 
 			<!-- Testnet Warning Alert -->
-			{#if IS_TESTNET}
-				{@const debugLog = console.log(`🔍 BidAcceptance Testnet Debug - IS_TESTNET: ${IS_TESTNET}`)}
+			{#if network === 'testnet'}
 				<div class="alert alert-outline alert-warning mb-6">
 					<div class="flex items-center">
 						<svg
@@ -632,15 +645,20 @@
 							/>
 						</svg>
 						<div class="flex-1">
-							<div class="font-bold text-warning text-center">{$t('wallet.testnet_warning.title')}</div>
-							<div class="text-sm">
-								<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong> {$t('wallet.testnet_warning.description')}
+							<div class="text-warning text-center font-bold">
+								{$t('wallet.testnet_warning.title')}
 							</div>
-							
+							<div class="text-sm">
+								<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
+								{$t('wallet.testnet_warning.description')}
+							</div>
+
 							<!-- User's Testnet Address -->
 							{#if $walletStore.rsk.address}
-								<div class="mt-3 p-3 bg-base-200 rounded-lg">
-									<div class="text-sm font-medium mb-2">{$t('wallet.testnet_warning.your_address')}</div>
+								<div class="bg-base-200 mt-3 rounded-lg p-3">
+									<div class="mb-2 text-sm font-medium">
+										{$t('wallet.testnet_warning.your_address')}
+									</div>
 									<div class="flex items-center gap-2">
 										<input
 											type="text"
@@ -651,8 +669,8 @@
 										<button
 											class="btn btn-sm btn-outline"
 											onclick={() => {
-												navigator.clipboard.writeText($walletStore.rsk.address);
-												// You could add a toast notification here
+												copyToClipboard($walletStore.rsk.address || '');
+												appStore.showSuccessToast($t('wallet.address_copied'));
 											}}
 											title={$t('wallet.testnet_warning.copy_address')}
 											aria-label={$t('wallet.testnet_warning.copy_address')}
@@ -662,12 +680,12 @@
 									</div>
 								</div>
 							{/if}
-							
+
 							<div class="mt-2 text-sm">
-								{$t('wallet.testnet_warning.faucet_instruction')} 
-								<a 
-									href="https://faucet.rootstock.io/" 
-									target="_blank" 
+								{$t('wallet.testnet_warning.faucet_instruction')}
+								<a
+									href="https://faucet.rootstock.io/"
+									target="_blank"
 									rel="noopener noreferrer"
 									class="link link-primary font-semibold"
 								>
