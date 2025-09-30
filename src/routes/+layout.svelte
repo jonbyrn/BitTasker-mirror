@@ -310,7 +310,7 @@
 						<h4 class="text-base-content mb-4 text-lg font-bold">{$t('footer.company_name')}</h4>
 						<p class="mb-4">{$t('footer.company_description')}</p>
 						<!-- Social media icons -->
-						<div class="flex flex-col space-y-2 lg:space-y-2">
+						<div class="flex flex-col space-y-6 lg:space-y-2">
 							<!-- First row: Primal, Twitter, Facebook, Instagram, YouTube -->
 							<div class="col-span-2 md:col-span3 lg:col-span-1 flex lg:space-x-4 space-x-8 justify-center lg:justify-start">
 								<a
@@ -366,7 +366,7 @@
 								</a>
 							</div>
 							<!-- Second row: LinkedIn, Reddit, TikTok, Rumble -->
-							<div class="flex space-x-4 lg:space-x-4 justify-center lg:justify-start">
+							<div class="flex space-x-8 lg:space-x-4 justify-center lg:justify-start">
 								<a
 									href="https://www.linkedin.com/company/bittasker/"
 									class="hover:text-primary text-lg transition-colors duration-300 ease-in-out"
