@@ -1,7 +1,7 @@
 import type { Event as NostrEvent, Filter } from 'nostr-tools';
 import { SimplePool } from 'nostr-tools/pool';
 import { getNostrKeyPair } from '$lib/utils/nostrKeys';
-import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
+import { finalizeEvent, getPublicKey, validateEvent } from 'nostr-tools/pure';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from './constants/storage';
 
@@ -13,7 +13,7 @@ const pool = new SimplePool();
  * @param metadata - The metadata for the event
  * @returns The signed event
  */
-export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {        
+export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<NostrEvent> {
     const initialEvent = {
         created_at: metadata.created_at || Math.floor(Date.now() / 1000),
         kind: metadata.kind!,
@@ -56,7 +56,7 @@ export async function getSignedEvent(metadata: Partial<NostrEvent>): Promise<Nos
             ...initialEvent,
             pubkey: npub
         };
-        
+
         // Finalize the event (calculate id and sign)
         const signedEvent = finalizeEvent(event, nsec);
 
@@ -110,4 +110,25 @@ export function subscribeToEvents(relayUrl: string, filters: Filter[], onEvent: 
     return () => {
         sub.close();
     };
+}
+
+/**
+ * Get the npub from an encoded nsec
+ * When the nsec is encoded, it's in bech32 format (nsec1...), so we need to decode it first
+ * @param encodedNsec 
+ * @returns 
+ */
+export function getNpubFromEncodedNsec(encodedNsec: string): string {
+    const { nip19 } = require('nostr-tools');
+    const { getPublicKey } = require('nostr-tools/pure');
+    // Decode the nsec
+    const { data: privateKeyHex } = nip19.decode(encodedNsec);
+
+    // Convert hex to bytes and then get public key
+    const publicKeyHex = getPublicKey(privateKeyHex as Uint8Array);
+
+    // Encode as npub
+    const encodedNpub = nip19.npubEncode(publicKeyHex);
+
+    return encodedNpub;
 }
