@@ -10,8 +10,6 @@ import {
 	importKey,
 	exportKey
 } from '$lib/utils/helpers/crypto';
-import { getPublicKey } from 'nostr-tools/pure';
-import { nip19 } from 'nostr-tools';
 import { DERIVATION_CONTEXTS } from '$lib/utils/consts';
 
 export async function encryptNsec(
@@ -216,17 +214,6 @@ export async function decryptRecoveryNsec(
 	}
 }
 
-export async function generateLoginChallenge() {
-	const array = randomBytes(32);
-	const challenge = Array.from(array)
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
-	return {
-		challenge,
-		message: `Sign this message to login: ${challenge}`
-	};
-}
-
 export async function signLoginChallenge(challenge: string, privateKey: string): Promise<string> {
 	// Convert hex private key to Uint8Array
 	const privateKeyBytes = new Uint8Array(
@@ -246,25 +233,6 @@ export async function signLoginChallenge(challenge: string, privateKey: string):
 }
 
 // TODO: ADD TESTS
-/**
- * Get the npub from an encoded nsec
- * When the nsec is encoded, it's in bech32 format (nsec1...), so we need to decode it first
- * @param encodedNsec 
- * @returns 
- */
-export function getNpubFromEncodedNsec(encodedNsec: string): string {
-	// Decode the nsec
-	const { data: privateKeyHex } = nip19.decode(encodedNsec);
-
-	// Convert hex to bytes and then get public key
-	const publicKeyHex = getPublicKey(privateKeyHex as Uint8Array);
-
-	// Encode as npub
-	const encodedNpub = nip19.npubEncode(publicKeyHex);
-
-	return encodedNpub;
-}
-
 /**
  * Encrypt both Nostr nsec and wallet mnemonic with a single master password using key derivation
  * @param nsec Nostr private key

@@ -19,6 +19,7 @@
 	import authService from '$lib/api/services/auth.service';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 
 	const npub = page.params.npub;
 	
@@ -82,14 +83,6 @@
 
 	function regeneratePassword() {
 		newPassword = generatePassword();
-	}
-
-	async function _copyToClipboard(text: string) {
-		try {
-			copyToClipboard(text);
-		} catch (err) {
-			console.error('Failed to copy password:', err);
-		}
 	}
 
 	async function decryptPrivateKey(event: Event) {
@@ -160,7 +153,6 @@
 			// Encrypt private key with new password
 			const { encrypted: secondaryEncrypted } = await encryptRecoveryNsec(privateKey, newPassword);
 
-			// Complete recovery
 			if (!npub) {
 				error = $t('recovery_npub.errors.invalid_link');
 				return;
@@ -180,11 +172,9 @@
 
 			// Invalidate all other devices for security
 			try {
-				const invalidationResult = await authService.invalidateAllDevices(npub);
-				console.log(`Invalidated ${invalidationResult.invalidatedDevices} devices`);
+				await authService.invalidateAllDevices(npub);
 			} catch (invalidationError) {
-				console.warn('Failed to invalidate devices:', invalidationError);
-				// Don't fail the entire recovery for this, but log it
+				appStore.showErrorToast($t('recovery_npub.errors.invalidate_devices_failed'));
 			}
 
 			// Check available authentication methods
