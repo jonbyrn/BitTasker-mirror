@@ -47,7 +47,8 @@ const getInitialState = () => ({
 	uniqueId: '',
 	isRemovals: false,
 	currentStep: TaskStepEnum.BASICS,
-	isEditing: false
+	isEditing: false,
+	pendingFiles: [] as File[] // Store pending files for deferred upload
 });
 
 const getInitialRecurringTask = () => ({
@@ -172,6 +173,15 @@ function createTaskStore() {
 		saveDraft();
 	};
 
+	// Update store data (for non-task fields like pendingFiles)
+	const updateStore = (updates: Partial<typeof initialState>) => {
+		store.update((state) => ({
+			...state,
+			...updates
+		}));
+		saveDraft();
+	};
+
 	// Setup recurring task
 	const setupRecurringTask = (isRecurring: boolean) => {
 		store.update((state) => ({
@@ -213,6 +223,7 @@ function createTaskStore() {
 		previousStep,
 		setStep,
 		updateTask,
+		updateStore,
 		setupRecurringTask,
 		updateRecurringDetails,
 		updateRecurrencePattern,

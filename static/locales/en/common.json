@@ -76,7 +76,8 @@
                 "compression_failed": "Failed to compress image: {error}",
                 "invalid_image": "Invalid image file",
                 "failed_validate_video": "Failed to validate video duration",
-                "failed_load_image": "Failed to load image"
+                "failed_load_image": "Failed to load image",
+                "max_size":"Max. {maxSize}MB"
             },
             "modal": {
                 "close": "Close dialog"

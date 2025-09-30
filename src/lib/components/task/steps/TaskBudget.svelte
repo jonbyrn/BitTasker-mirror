@@ -2,19 +2,31 @@
 	import { onMount } from 'svelte';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	import MediaUploader from '$lib/components/MediaUploader.svelte';
 	import type { UploadResult } from '$lib/api/services/upload.service';
 	import type { Attachment } from '$lib/types/task';
 	import { BudgetTypeEnum } from '$lib/utils/enums/task.enum';
 	import { taskStore as store } from '$lib/stores/task.store';
+	import { get } from 'svelte/store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import { formatNumberForInput, SATS_PER_BTC } from '$lib/utils/helpers/crypto';
+	import uploadService from '$lib/api/services/upload.service';
+	import { 
+		compressImage, 
+		validateImageFile, 
+		type CompressionResult 
+	} from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
-
 
 	// BTC to USD conversion state
 	let usdAmount = $state<number>(0);
 	let btcPrice = $state<number>(100000); // Default fallback price
+
+	// File upload state
+	let isUploading = $state(false);
+	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
+	let isCompressing = $state(false);
+	let compressionProgress = $state({ processed: 0, total: 0, currentFile: '' });
+	let error = $state('');
 
 	async function fetchBtcPrice(): Promise<void> {
 		try {
@@ -23,12 +35,9 @@
 			// Si ya existe un valor en amount, interpretarlo según la moneda
 			if ($store.task.budget.amount) {
 				if ($store.task.budget.currency === 'USD') {
-					// Si la moneda es USD, el amount ya es USD
 					usdAmount = $store.task.budget.amount;
 				} else {
-					// Si la moneda es SATS, convertir a USD
 					usdAmount = ($store.task.budget.amount / SATS_PER_BTC) * btcPrice;
-					// Actualizar la moneda a USD y el amount a USD
 					store.updateTask({
 						budget: { 
 							...$store.task.budget, 
@@ -49,12 +58,11 @@
 
 		const usdValue = parseFloat(input.replace(/,/g, ''));
 		if (!isNaN(usdValue)) {
-			// Guardar directamente el valor USD en amount
 			store.updateTask({
 				budget: { 
 					...$store.task.budget, 
 					amount: usdValue,
-					currency: 'USD' // Asegurar que la moneda sea USD
+					currency: 'USD'
 				}
 			});
 			usdAmount = usdValue;
@@ -71,94 +79,230 @@
 	}
 
 	function cleanInput(value: string): string {
-		// Solo permite dígitos, comas y punto
 		return value.replace(/[^0-9.,]/g, '');
 	}
 
 	let {
 		errors,
 		direction,
-		newFiles = $bindable(),
 		attachmentsToRemove = $bindable()
 	} = $props<{
 		errors: Record<string, string>;
 		direction: 'forward' | 'backward';
-		newFiles: File[];
 		attachmentsToRemove: Attachment[];
 	}>();
 
-	// Handle file upload results from MediaUploader
-	const handleUploadResults = (results: UploadResult[]) => {
-		// Convert UploadResult to Attachment format
-		const attachments: Attachment[] = results.map(result => ({
-			key: result.key,
-			url: result.url,
-			type: result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
-			alt: result.key, // Use key as alt for now
-			size: result.size,
-			cloudflareId: result.cloudflareId,
-			variants: result.variants
-		}));
+	// File handling functions
+	async function validateAndProcessFile(file: File): Promise<File | null> {
+		const allowedTypes = ['image/*', 'video/*'];
+		const isImageFile = file.type.startsWith('image/');
+		const isVideoFile = file.type.startsWith('video/');
 
-		// Add to existing attachments
-		$store.task.attachments = [...($store.task.attachments || []), ...attachments];
+		if (!isImageFile && !isVideoFile) {
+			error = $t('common.components.media_uploader.invalid_file_type_images_videos');
+			return null;
+		}
+
+		// Process image files with compression
+		if (isImageFile) {
+			const validation = validateImageFile(file);
+			if (!validation.isValid) {
+				error = validation.error || $t('common.components.media_uploader.invalid_image');
+				return null;
+			}
+
+			try {
+				const compressionResult = await compressImage(file, {
+					maxSizeMB: 200,
+					maxWidthOrHeight: 3840,
+					quality: 0.8,
+					fileType: 'image/webp'
+				});
+				return compressionResult.file;
+			} catch (err) {
+				console.error('Compression failed:', err);
+				error = $t('common.components.media_uploader.compression_failed');
+				return null;
+			}
+		}
+
+		// Validate video files
+		if (isVideoFile) {
+			const fileSizeMB = file.size / (1024 * 1024);
+			if (fileSizeMB > 200) {
+				error = $t('common.components.media_uploader.file_too_large', { 
+					values: { maxSize: 200, actualSize: fileSizeMB.toFixed(2) } 
+				});
+				return null;
+			}
+		}
+
+		return file;
+	}
+
+	async function handleFileChange(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const selectedFiles = input.files;
+		if (!selectedFiles) return;
+
+		const totalFiles = ($store.task.attachments?.length || 0) + (get(store).pendingFiles?.length || 0);
+		if (totalFiles + selectedFiles.length > 5) {
+			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles: 5 } });
+			return;
+		}
+
+		const selectedFilesArray = Array.from(selectedFiles);
+		const hasImages = selectedFilesArray.some(file => file.type.startsWith('image/'));
 		
-		// Clear newFiles since they've been uploaded
-		newFiles = [];
-	};
+		if (hasImages) {
+			isCompressing = true;
+			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
+		}
 
-	// Handle file removal for both new and existing files
-	const handleFileRemove = (index: number, file?: File | string | UploadResult) => {
-		if (typeof file === 'string') {
-			// Find the attachment to remove and schedule it for deletion
-			const attachment = $store.task.attachments?.find((att) => att.url === file);
+		const processedFiles: File[] = [];
+		let hasErrors = false;
+
+		for (let i = 0; i < selectedFilesArray.length; i++) {
+			const file = selectedFilesArray[i];
+			
+			if (hasImages) {
+				compressionProgress = { 
+					processed: i, 
+					total: selectedFilesArray.length, 
+					currentFile: file.name 
+				};
+			}
+
+			const processedFile = await validateAndProcessFile(file);
+			if (!processedFile) {
+				hasErrors = true;
+				break;
+			}
+			processedFiles.push(processedFile);
+		}
+
+		if (hasImages) {
+			isCompressing = false;
+			compressionProgress = { processed: selectedFilesArray.length, total: selectedFilesArray.length, currentFile: '' };
+		}
+
+		if (hasErrors) {
+			return;
+		}
+
+		store.updateStore({ pendingFiles: [...(get(store).pendingFiles || []), ...processedFiles] });
+		error = '';
+	}
+
+	function removeFile(index: number) {
+		const allFiles = [...($store.task.attachments || []), ...(get(store).pendingFiles || [])];
+		const file = allFiles[index];
+		
+		if (file && typeof file === 'object' && 'url' in file) {
+			const attachment = $store.task.attachments?.find((att) => att.url === file.url);
 			if (attachment) {
 				attachmentsToRemove = [...attachmentsToRemove, attachment];
-				// Remove from store
-				const attachmentIndex = $store.task.attachments?.findIndex((att) => att.url === file);
-				if (attachmentIndex !== undefined && attachmentIndex >= 0) {
-					$store.task.attachments?.splice(attachmentIndex, 1);
-				}
-			}
-		} else if (file instanceof File) {
-			// Remove from new files
-			const newFileIndex = newFiles.findIndex((f: File) => f === file);
-			if (newFileIndex >= 0) {
-				newFiles.splice(newFileIndex, 1);
-				newFiles = [...newFiles]; // Trigger reactivity
-			}
-		} else if (file && typeof file === 'object' && 'key' in file) {
-			// UploadResult - find in attachments and remove
-			const attachment = $store.task.attachments?.find((att) => att.key === file.key);
-			if (attachment) {
-				attachmentsToRemove = [...attachmentsToRemove, attachment];
-				const attachmentIndex = $store.task.attachments?.findIndex((att) => att.key === file.key);
+				const attachmentIndex = $store.task.attachments?.findIndex((att) => att.url === file.url);
 				if (attachmentIndex !== undefined && attachmentIndex >= 0) {
 					$store.task.attachments?.splice(attachmentIndex, 1);
 				}
 			}
 		} else {
-			// Fallback: remove by index from attachments
-			if ($store.task.attachments && index < $store.task.attachments.length) {
-				const attachment = $store.task.attachments[index];
-				attachmentsToRemove = [...attachmentsToRemove, attachment];
-				$store.task.attachments.splice(index, 1);
+			const pendingIndex = index - ($store.task.attachments?.length || 0);
+			if (pendingIndex >= 0 && pendingIndex < (get(store).pendingFiles?.length || 0)) {
+				const newPendingFiles = [...(get(store).pendingFiles || [])];
+				newPendingFiles.splice(pendingIndex, 1);
+				store.updateStore({ pendingFiles: newPendingFiles });
 			}
 		}
-	};
+	}
 
-	// Combine saved attachments (as URLs) with new files for the Uploader
-	let uploaderFiles = $derived(
-		(() => {
-			const savedAttachments = $store.task.attachments?.map((file) => file.url) || [];
-			return [...savedAttachments, ...newFiles];
-		})()
-	);
+	async function uploadPendingFiles(): Promise<Attachment[]> {
+		if (!get(store).pendingFiles || get(store).pendingFiles.length === 0) {
+			return [];
+		}
+
+		isUploading = true;
+		uploadProgress = { completed: 0, total: get(store).pendingFiles.length, currentFile: '' };
+
+		try {
+			const uploadOptions = {
+				folder: 'tasks',
+				useCloudflare: true,
+				enableCompression: false,
+				generateVariants: true,
+				metadata: {
+					uploadedAt: new Date().toISOString(),
+					clientCompressed: true
+				}
+			};
+
+			const results = await uploadService.uploadMultipleFiles(
+				get(store).pendingFiles, 
+				uploadOptions,
+				(completed, total, currentFile) => {
+					uploadProgress = { completed, total, currentFile };
+				}
+			);
+
+			const attachments: Attachment[] = results.map(result => ({
+				key: result.key,
+				url: result.url,
+				type: result.type === 'image' ? 'image/*' : result.type === 'video' ? 'video/*' : 'document',
+				alt: result.key,
+				size: result.size,
+				cloudflareId: result.cloudflareId,
+				variants: result.variants
+			}));
+
+			$store.task.attachments = [...($store.task.attachments || []), ...attachments];
+			store.updateStore({ pendingFiles: [] });
+
+			return attachments;
+
+		} catch (err) {
+			console.error('Upload failed:', err);
+			error = $t('common.components.media_uploader.upload_failed', { values: { error: (err as Error).message } });
+			throw err;
+		} finally {
+			isUploading = false;
+			uploadProgress = { completed: 0, total: 0, currentFile: '' };
+		}
+	}
+
+	export { uploadPendingFiles };
+
+	function getFilePreview(file: File | Attachment | Blob): string {
+		if (file instanceof File || file instanceof Blob) {
+			return URL.createObjectURL(file);
+		}
+		if (file && typeof file === 'object' && 'url' in file) {
+			return file.url;
+		}
+		return '';
+	}
+
+	function isVideoFile(file: File | Attachment | Blob): boolean {
+		if (file instanceof File || file instanceof Blob) {
+			return file.type.startsWith('video/');
+		}
+		if (file && typeof file === 'object' && 'type' in file) {
+			return file.type.startsWith('video/');
+		}
+		return false;
+	}
+
+	let allFiles = $derived.by(() => {
+		const attachments = $store.task.attachments || [];
+		const pending = $store.pendingFiles || [];
+		return [...attachments, ...pending];
+	});
 
 	onMount(() => {
 		fetchBtcPrice();
 	});
 </script>
+
 
 <div
 	class="space-y-4"
@@ -280,33 +424,134 @@
 
 	<div class="w-full">
 		<div class="my-5">
-			<label for="attachments" class="label block text-lg font-semibold text-white">
-				{$t('task.attachments_label')}
-			</label>
-			<label for="attachments" class="label-text-alt block text-white/70">
-				{$t('task.attachments_hint')}
-			</label>
+		  <label for="attachments" class="label block text-lg font-semibold text-white">
+			{$t('task.attachments_label')}
+		  </label>
+		  <label for="attachments" class="label-text-alt block text-white/70">
+			{$t('task.attachments_hint')}
+		  </label>
 		</div>
-
-		<MediaUploader
-			id="attachments"
-			label={$t('task.attachments')}
-			allowedTypes={['image/*', 'video/*']}
-			files={uploaderFiles}
-			maxFiles={5}
-			maxFileSize={200}
-			maxDuration={30}
-			className="w-full h-full min-h-28"
-			enableImageCompression={true}
-			compressionQuality={0.8}
-			maxImageDimension={3840}
-			showCompressionInfo={false}
-			useCloudflare={true}
-			generateVariants={true}
-			uploadFolder="tasks"
-			onChange={handleUploadResults}
-			onRemove={handleFileRemove}
-		/>
-	</div>
-
+	  
+		<!-- File Upload Grid -->
+		<div class="space-y-4">
+			<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6 justify-start sm:gap-36">
+				{#each allFiles as file, index}
+			  <div class="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
+				{#if isVideoFile(file)}
+				  <video
+					src={getFilePreview(file)}
+					class="h-full w-full rounded-lg object-cover cursor-pointer"
+					controls
+					muted={false}
+					autoplay={false}
+					loop={false}
+				  >
+					<track kind="captions" />
+				  </video>
+				{:else}
+				  <img
+					src={getFilePreview(file)}
+					alt={$t('common.components.media_uploader.preview')}
+					class="h-full w-full rounded-lg object-cover"
+				  />
+				{/if}
+	  
+				<button
+				  aria-label={$t('common.components.media_uploader.remove_file')}
+				  type="button"
+				  class="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
+				  onclick={() => removeFile(index)}
+				>
+				  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+					<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+				  </svg>
+				</button>
+			  </div>
+			{/each}
+	  
+			{#if allFiles.length < 5 && !isUploading}
+			  <!-- Upload Button -->
+			  <div class="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
+				<label
+				  for="file-upload-attachments"
+				  class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50 p-2 text-center hover:bg-base-300 transition"
+				>
+				  <svg
+					class="mb-1 sm:mb-2 h-6 w-6 sm:h-8 sm:w-8"
+					aria-hidden="true"
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 20 16"
+				  >
+					<path
+					  stroke="currentColor"
+					  stroke-linecap="round"
+					  stroke-linejoin="round"
+					  stroke-width="2"
+					  d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+					/>
+				  </svg>
+				  <p class="mb-1 text-xs sm:text-sm font-semibold">{$t('task.attachments')}</p>
+				  <p class="text-[8px] sm:text-xs">
+					{$t('common.components.media_uploader.images')}, {$t('common.components.media_uploader.videos')} (Max. 0.5 minutes)
+				  </p>
+				  <p class="text-[8px] sm:text-xs text-center whitespace-normal sm:px-1">
+					{$t('common.components.media_uploader.max_size', { values: { maxSize: 200 } })}
+				  </p>
+				  <input
+					id="file-upload-attachments"
+					type="file"
+					class="hidden"
+					accept="image/*,video/*"
+					multiple
+					onchange={handleFileChange}
+				  />
+				</label>
+			  </div>
+			{/if}
+		  </div>
+	  
+		  <!-- Error -->
+		  {#if error}
+			<div class="text-sm text-error">{error}</div>
+		  {/if}
+	  
+		  <!-- Compression Progress -->
+		  {#if isCompressing}
+			<div class="space-y-2">
+			  <div class="text-sm text-info">
+				{$t('common.components.media_uploader.compressing')} {compressionProgress.currentFile}
+			  </div>
+			  <div class="w-full bg-gray-200 rounded-full h-2">
+				<div
+				  class="bg-info h-2 rounded-full transition-all duration-300"
+				  style="width: {(compressionProgress.processed / compressionProgress.total) * 100}%"
+				></div>
+			  </div>
+			  <div class="text-xs text-gray-500">
+				{compressionProgress.processed} / {compressionProgress.total}
+			  </div>
+			</div>
+		  {/if}
+	  
+		  <!-- Uploading Progress -->
+		  {#if isUploading}
+			<div class="space-y-2">
+			  <div class="text-sm text-info">
+				{$t('common.components.media_uploader.uploading')} {uploadProgress.currentFile}
+			  </div>
+			  <div class="w-full bg-gray-200 rounded-full h-2">
+				<div
+				  class="bg-info h-2 rounded-full transition-all duration-300"
+				  style="width: {(uploadProgress.completed / uploadProgress.total) * 100}%"
+				></div>
+			  </div>
+			  <div class="text-xs text-gray-500">
+				{uploadProgress.completed} / {uploadProgress.total}
+			  </div>
+			</div>
+		  {/if}
+		</div>
+	  </div>
+	  
 </div>
