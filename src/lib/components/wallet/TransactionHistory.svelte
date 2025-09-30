@@ -226,6 +226,10 @@
 		return network === 'liquid' ? '/images/chains/Liquid-Bitcoin.svg' : '/images/chains/Bitcoin-Rootstock-logo.webp';
 	}
 
+	function getNetworkDisplayName(network: string): string {
+		return network === 'liquid' ? 'Liquid Bitcoin' : 'Rootstock Bitcoin';
+	}
+
 	function getTypeIcon(type: string): string {
 		return type === 'receive' ? '↓' : '↑';
 	}
@@ -323,15 +327,15 @@
 				class="tab {selectedFilter === 'liquid' ? 'tab-active' : ''} whitespace-nowrap"
 				onclick={() => {selectedFilter = 'liquid'; currentPage = 0;}}
 			>
-				<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid" class="h-4 w-4 inline mr-1" />
-				Liquid ({transactions.filter(tx => tx.network === 'liquid').length})
+				<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid Bitcoin" class="h-4 w-4 inline mr-1" />
+				Liquid Bitcoin ({transactions.filter(tx => tx.network === 'liquid').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'rsk' ? 'tab-active' : ''} whitespace-nowrap"
 				onclick={() => {selectedFilter = 'rsk'; currentPage = 0;}}
 			>
-				<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="RSK" class="h-4 w-4 inline mr-1" />
-				RSK ({transactions.filter(tx => tx.network === 'rsk').length})
+				<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-4 w-4 inline mr-1" />
+				Rootstock Bitcoin ({transactions.filter(tx => tx.network === 'rsk').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap"
@@ -439,7 +443,7 @@
 											{tx.type === 'send' ? $t('wallet.sent') : $t('wallet.received')}
 										</span>
 										<div class="badge badge-outline badge-sm text-xs">
-											{tx.network.toUpperCase()}
+											{getNetworkDisplayName(tx.network)}
 										</div>
 										<div class="badge {getStatusBadgeClass(tx.status)} badge-sm text-xs">
 											{getTranslatedStatus(tx.status)}
@@ -519,7 +523,7 @@
 							<!-- Badges Row -->
 							<div class="flex items-center gap-2">
 								<div class="badge badge-outline badge-sm text-xs">
-									{tx.network.toUpperCase()}
+									{getNetworkDisplayName(tx.network)}
 								</div>
 								<div class="badge {getStatusBadgeClass(tx.status)} badge-sm text-xs">
 									{getTranslatedStatus(tx.status)}

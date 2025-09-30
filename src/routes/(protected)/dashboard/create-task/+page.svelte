@@ -25,8 +25,8 @@
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
-	let newFiles = $state<File[]>([]);
 	let attachmentsToRemove = $state<Attachment[]>([]);
+	let taskBudgetRef = $state<any>(); // Reference to TaskBudget component
 	let taskBasicsRef: any = $state(null);
 	// Remover esta línea ya que signedEventId se usará como variable local
 	// let signedEventId = $state<string | null>(null);
@@ -229,34 +229,6 @@
 
 		if (!validateCurrentStep()) return;
 
-		// Start image upload in the background if we're in the budget step
-		if ($store.currentStep === TaskStepEnum.BUDGET) {
-			if (newFiles.length !== 0) {
-				if (($store.task.attachments?.length || 0) + newFiles.length > 5) {
-					appStore.showErrorToast($t('task.upload.too_many_files'));
-					return;
-				}
-
-				// Show upload started toast
-				appStore.showInfoToast($t('task.upload.background_uploading'));
-
-				// Start upload in background
-				uploadFiles(newFiles)
-					.then((uploadedFiles) => {
-						$store.task.attachments = [...($store.task.attachments || []), ...uploadedFiles];
-						newFiles = [];
-						store.saveDraft();
-						appStore.showSuccessToast($t('task.upload.files_uploaded'));
-					})
-					.catch((error) => {
-						console.error('Failed to upload files:', error);
-						appStore.showErrorToast($t('task.upload.upload_failed'));
-					});
-			}
-
-			handleRemoveAttachment();
-		}
-
 		// Proceed to next step immediately
 		store.nextStep();
 		store.saveDraft();
@@ -270,6 +242,17 @@
 
 		try {
 			isSubmitting = true;
+
+			if (taskBudgetRef && taskBudgetRef.uploadPendingFiles) {
+				try {
+					appStore.showInfoToast($t('task.upload.uploading_files'));
+					const uploadedAttachments = await taskBudgetRef.uploadPendingFiles();
+					appStore.showSuccessToast($t('task.upload.files_uploaded'));
+				} catch (uploadError) {
+					appStore.showErrorToast($t('task.upload.upload_failed'));
+					throw uploadError;
+				}
+			}
 
 			const task: TaskBody = {
 				title: $store.task.title,
@@ -363,12 +346,15 @@
 				</div>
 			{:else}
 				<div class="space-y-6">
+					<!-- Always mount TaskBudget component to keep taskBudgetRef available -->
+					<div class:hidden={$store.currentStep !== TaskStepEnum.BUDGET}>
+						<TaskBudget {errors} {direction} bind:attachmentsToRemove bind:this={taskBudgetRef} />
+					</div>
+					
 					{#if $store.currentStep === TaskStepEnum.BASICS}
 						<TaskBasics {errors} {direction} bind:this={taskBasicsRef} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
 						<TaskLocation {errors} {direction} />
-					{:else if $store.currentStep === TaskStepEnum.BUDGET}
-						<TaskBudget {errors} {direction} bind:newFiles bind:attachmentsToRemove />
 					{:else if $store.currentStep === TaskStepEnum.REVIEW}
 						<TaskReview {direction} />
 					{:else if $store.currentStep === TaskStepEnum.RECURRING}

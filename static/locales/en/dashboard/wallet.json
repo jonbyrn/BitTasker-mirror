@@ -269,7 +269,7 @@
       "liquid_network": "Liquid Network",
       "liquid_network_description": "L-BTC, USDT",
       "rootstock_network": "Rootstock Network",
-      "rootstock_network_description": "rBTC, Smart Contracts",
+      "rootstock_network_description": "rBTC",
       "amount_rbtc": "Amount (rBTC)",
       "optional": "Optional",
       "description": "Description",
