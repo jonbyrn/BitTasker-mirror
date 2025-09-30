@@ -269,7 +269,7 @@
       "liquid_network": "Red Liquid",
       "liquid_network_description": "L-BTC, USDT",
       "rootstock_network": "Red Rootstock",
-      "rootstock_network_description": "rBTC, Contratos Inteligentes",
+      "rootstock_network_description": "rBTC",
       "amount_rbtc": "Monto (rBTC)",
       "optional": "Opcional",
       "description": "Descripción",
