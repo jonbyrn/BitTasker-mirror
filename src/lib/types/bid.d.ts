@@ -226,6 +226,7 @@ export interface NostrBid {
 	taskCreatorUsername?: string;
 	taskCreatorAvatar?: string;
 	taskCreatorPubkey?: string;
+	taskCreatorRating?: number;
 	// Bidder information
 	bidderId?: string;
 	bidderName?: string;
