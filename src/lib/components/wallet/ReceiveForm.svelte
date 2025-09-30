@@ -333,84 +333,45 @@
 
 	<!-- Payment Method Selection (for Liquid only) -->
 	{#if selectedNetwork === 'liquid'}
-		<div class="form-control">
-			<label class="label" for="payment-method">
-				<span class="label-text font-medium"
-					>{$t('common.components.wallet.payment_request_form.payment_method')}</span
+		{#if network === 'testnet'}
+			<!-- Coming Soon message for Liquid on testnet -->
+			<div class="alert alert-outline alert-info">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
 				>
-			</label>
-			<div class="dropdown dropdown-bottom w-full">
-				<div tabindex="0" role="button" class="btn btn-outline w-full justify-between">
-					<div class="flex items-center gap-2">
-						{#if selectedPaymentMethod?.icon}
-							<img
-								src={selectedPaymentMethod.icon}
-								alt={selectedPaymentMethod.label}
-								class="h-5 w-5"
-							/>
-						{/if}
-						<span class="font-medium">{selectedPaymentMethod?.label}</span>
-					</div>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-4 w-4 opacity-70"
-						viewBox="0 0 20 20"
-						fill="currentColor"
-						><path
-							fill-rule="evenodd"
-							d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"
-							clip-rule="evenodd"
-						/></svg
-					>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<div>
+					<div class="font-bold">Coming Soon</div>
+					<div class="text-sm">Liquid Network features are not available on testnet.</div>
 				</div>
-				<ul class="dropdown-content menu bg-base-100 rounded-box w-full p-2 shadow">
-					{#each paymentMethodOptions as method}
-						<li>
-							<button
-								class="flex w-full items-center justify-start gap-2"
-								onclick={() => {
-									paymentMethod = method.value as typeof paymentMethod;
-								}}
-							>
-								{#if method.icon}
-									<img src={method.icon} alt={method.label} class="h-5 w-5" />
-								{/if}
-								<span class="font-medium">{method.label}</span>
-							</button>
-						</li>
-					{/each}
-				</ul>
 			</div>
-			{#if selectedPaymentMethod?.description}
-				<div class="label">
-					<span class="label-text-alt">{selectedPaymentMethod.description}</span>
-				</div>
-			{/if}
-		</div>
-	{/if}
-
-	<!-- Asset Selection (for Liquid only) -->
-	{#if selectedNetwork === 'liquid' && availableAssets.length > 0}
-		<div class="form-control">
-			<label class="label" for="asset-select">
-				<span class="label-text font-medium">{$t('wallet.select_asset')}</span>
-			</label>
-			<div class="dropdown dropdown-bottom w-full">
-				<!-- Custom dropdown to allow icons inside options -->
+		{:else}
+			<div class="form-control">
+				<label class="label" for="payment-method">
+					<span class="label-text font-medium"
+						>{$t('common.components.wallet.payment_request_form.payment_method')}</span
+					>
+				</label>
 				<div class="dropdown dropdown-bottom w-full">
 					<div tabindex="0" role="button" class="btn btn-outline w-full justify-between">
 						<div class="flex items-center gap-2">
-							{#if selectedAssetDetails?.icon && selectedAssetDetails.icon.startsWith('/')}
+							{#if selectedPaymentMethod?.icon}
 								<img
-									src={selectedAssetDetails.icon}
-									alt={selectedAssetDetails.ticker}
+									src={selectedPaymentMethod.icon}
+									alt={selectedPaymentMethod.label}
 									class="h-5 w-5"
 								/>
-							{:else}
-								<span class="text-lg">{selectedAssetDetails?.icon}</span>
 							{/if}
-							<span class="font-medium">{selectedAssetDetails?.ticker}</span>
-							<span class="opacity-70">- {selectedAssetDetails?.name}</span>
+							<span class="font-medium">{selectedPaymentMethod?.label}</span>
 						</div>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
@@ -424,77 +385,145 @@
 							/></svg
 						>
 					</div>
-					<ul
-						class="dropdown-content menu bg-base-100 rounded-box max-h-64 w-full overflow-auto p-2 shadow"
-					>
-						{#each availableAssets as asset}
+					<ul class="dropdown-content menu bg-base-100 rounded-box w-full p-2 shadow">
+						{#each paymentMethodOptions as method}
 							<li>
 								<button
-									class="flex items-center gap-2"
+									class="flex w-full items-center justify-start gap-2"
 									onclick={() => {
-										selectedAsset = asset.assetId;
+										paymentMethod = method.value as typeof paymentMethod;
 									}}
 								>
-									{#if asset.icon && asset.icon.startsWith('/')}
-										<img src={asset.icon} alt={asset.ticker} class="h-5 w-5" />
-									{:else}
-										<span class="text-lg">{asset.icon}</span>
+									{#if method.icon}
+										<img src={method.icon} alt={method.label} class="h-5 w-5" />
 									{/if}
-									<span class="font-medium">{asset.ticker}</span>
-									<span class="opacity-70">- {asset.name}</span>
+									<span class="font-medium">{method.label}</span>
 								</button>
 							</li>
 						{/each}
 					</ul>
 				</div>
+				{#if selectedPaymentMethod?.description}
+					<div class="label">
+						<span class="label-text-alt">{selectedPaymentMethod.description}</span>
+					</div>
+				{/if}
 			</div>
-		</div>
+		{/if}
+	{/if}
+
+	<!-- Asset Selection (for Liquid only) -->
+	{#if selectedNetwork === 'liquid' && availableAssets.length > 0}
+		{#if network !== 'testnet'}
+			<div class="form-control">
+				<label class="label" for="asset-select">
+					<span class="label-text font-medium">{$t('wallet.select_asset')}</span>
+				</label>
+				<div class="dropdown dropdown-bottom w-full">
+					<!-- Custom dropdown to allow icons inside options -->
+					<div class="dropdown dropdown-bottom w-full">
+						<div tabindex="0" role="button" class="btn btn-outline w-full justify-between">
+							<div class="flex items-center gap-2">
+								{#if selectedAssetDetails?.icon && selectedAssetDetails.icon.startsWith('/')}
+									<img
+										src={selectedAssetDetails.icon}
+										alt={selectedAssetDetails.ticker}
+										class="h-5 w-5"
+									/>
+								{:else}
+									<span class="text-lg">{selectedAssetDetails?.icon}</span>
+								{/if}
+								<span class="font-medium">{selectedAssetDetails?.ticker}</span>
+								<span class="opacity-70">- {selectedAssetDetails?.name}</span>
+							</div>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								class="h-4 w-4 opacity-70"
+								viewBox="0 0 20 20"
+								fill="currentColor"
+								><path
+									fill-rule="evenodd"
+									d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"
+									clip-rule="evenodd"
+								/></svg
+							>
+						</div>
+						<ul
+							class="dropdown-content menu bg-base-100 rounded-box max-h-64 w-full overflow-auto p-2 shadow"
+						>
+							{#each availableAssets as asset}
+								<li>
+									<button
+										class="flex items-center gap-2"
+										onclick={() => {
+											selectedAsset = asset.assetId;
+										}}
+									>
+										{#if asset.icon && asset.icon.startsWith('/')}
+											<img src={asset.icon} alt={asset.ticker} class="h-5 w-5" />
+										{:else}
+											<span class="text-lg">{asset.icon}</span>
+										{/if}
+										<span class="font-medium">{asset.ticker}</span>
+										<span class="opacity-70">- {asset.name}</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</div>
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Amount (optional) - Only for Liquid -->
 	{#if selectedNetwork === 'liquid' && paymentMethod !== 'bolt12Offer'}
-		<div class="form-control">
-			<label class="label" for="amount">
-				<span class="label-text font-medium">
-					{$t('common.components.wallet.payment_request_form.amount')} ({availableAssets.find(
-						(a) => a.assetId === selectedAsset
-					)?.ticker || ''})
-				</span>
-				<span class="label-text-alt">
-					{$t('wallet.amount_optional')}
-				</span>
-			</label>
-			<input
-				id="amount"
-				bind:value={amount}
-				type="number"
-				step="any"
-				min="0"
-				placeholder={$t(
-					'common.components.wallet.payment_request_form.amount_optional_placeholder'
-				)}
-				class="input input-bordered w-full"
-				disabled={isLoading}
-			/>
-		</div>
+		{#if network !== 'testnet'}
+			<div class="form-control">
+				<label class="label" for="amount">
+					<span class="label-text font-medium">
+						{$t('common.components.wallet.payment_request_form.amount')} ({availableAssets.find(
+							(a) => a.assetId === selectedAsset
+						)?.ticker || ''})
+					</span>
+					<span class="label-text-alt">
+						{$t('wallet.amount_optional')}
+					</span>
+				</label>
+				<input
+					id="amount"
+					bind:value={amount}
+					type="number"
+					step="any"
+					min="0"
+					placeholder={$t(
+						'common.components.wallet.payment_request_form.amount_optional_placeholder'
+					)}
+					class="input input-bordered w-full"
+					disabled={isLoading}
+				/>
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Description - Only for Liquid -->
 	{#if selectedNetwork === 'liquid'}
-		<div class="form-control">
-			<label class="label" for="description">
-				<span class="label-text font-medium"
-					>{$t('common.components.wallet.payment_request_form.description_label')}</span
-				>
-			</label>
-			<input
-				id="description"
-				bind:value={liquidDescription}
-				placeholder={$t('common.components.wallet.payment_request_form.description_placeholder')}
-				class="input input-bordered w-full"
-				disabled={isLoading}
-			/>
-		</div>
+		{#if network !== 'testnet'}
+			<div class="form-control">
+				<label class="label" for="description">
+					<span class="label-text font-medium"
+						>{$t('common.components.wallet.payment_request_form.description_label')}</span
+					>
+				</label>
+				<input
+					id="description"
+					bind:value={liquidDescription}
+					placeholder={$t('common.components.wallet.payment_request_form.description_placeholder')}
+					class="input input-bordered w-full"
+					disabled={isLoading}
+				/>
+			</div>
+		{/if}
 	{/if}
 
 	<!-- RSK Default Layout - show form and QR side by side by default -->
@@ -651,113 +680,138 @@
 
 	<!-- Generate Button (only for liquid) -->
 	{#if selectedNetwork === 'liquid'}
-		<button class="btn btn-primary w-full" onclick={generatePaymentRequest} disabled={isLoading}>
-			{#if isLoading}
-				<span class="loading loading-spinner loading-sm"></span>
-				{$t('wallet.generating')}
-			{:else}
-				{$t('wallet.generate_address')}
-			{/if}
-		</button>
+		{#if network !== 'testnet'}
+			<button class="btn btn-primary w-full" onclick={generatePaymentRequest} disabled={isLoading}>
+				{#if isLoading}
+					<span class="loading loading-spinner loading-sm"></span>
+					{$t('wallet.generating')}
+				{:else}
+					{$t('wallet.generate_address')}
+				{/if}
+			</button>
+		{/if}
 	{/if}
 
 	<!-- Generated Address/Invoice -->
 	{#if generatedAddress}
-		<div class="space-y-4">
-			<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
-				<div class="w-full space-y-4 sm:w-1/2">
-					<!-- Payment Details -->
-					<div class="bg-base-200 rounded-lg p-4">
-						<div class="grid grid-cols-1 gap-3">
-							<div class="flex items-center justify-between">
-								<span class="text-base-content/70 font-medium">{$t('wallet.method')}</span>
-								<span class="font-bold">
-									{selectedNetwork === 'liquid'
-										? paymentMethodOptions.find((m) => m.value === paymentMethod)?.label
-										: $t('wallet.rsk_address')}
-								</span>
-							</div>
-
-							{#if amount}
+		{#if selectedNetwork === 'liquid' && network === 'testnet'}
+			<!-- Coming Soon message for generated address on testnet -->
+			<div class="alert alert-outline alert-info">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					class="h-6 w-6 shrink-0 stroke-current"
+					fill="none"
+					viewBox="0 0 24 24"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				<div>
+					<div class="font-bold">Coming Soon</div>
+					<div class="text-sm">Liquid Network features are not available on testnet.</div>
+				</div>
+			</div>
+		{:else}
+			<div class="space-y-4">
+				<div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
+					<div class="w-full space-y-4 sm:w-1/2">
+						<!-- Payment Details -->
+						<div class="bg-base-200 rounded-lg p-4">
+							<div class="grid grid-cols-1 gap-3">
 								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">{$t('wallet.amount')}</span>
-									<span class="text-success font-bold">
-										{amount}
-										{availableAssets.find((a) => a.assetId === selectedAsset)?.ticker ||
-											selectedAsset}
+									<span class="text-base-content/70 font-medium">{$t('wallet.method')}</span>
+									<span class="font-bold">
+										{selectedNetwork === 'liquid'
+											? paymentMethodOptions.find((m) => m.value === paymentMethod)?.label
+											: $t('wallet.rsk_address')}
 									</span>
 								</div>
-							{:else}
-								<div class="flex items-center justify-between">
-									<span class="text-base-content/70 font-medium">{$t('wallet.amount')}</span>
-									<span class="text-primary font-bold">{$t('wallet.any_amount_accepted')}</span>
-								</div>
-							{/if}
 
-							{#if description}
-								<div class="flex items-start justify-between">
-									<span class="text-base-content/70 font-medium"
-										>{$t('common.components.wallet.payment_request_form.description_label')}</span
-									>
-									<span class="max-w-48 text-right text-sm break-words">{description}</span>
-								</div>
-							{/if}
+								{#if amount}
+									<div class="flex items-center justify-between">
+										<span class="text-base-content/70 font-medium">{$t('wallet.amount')}</span>
+										<span class="text-success font-bold">
+											{amount}
+											{availableAssets.find((a) => a.assetId === selectedAsset)?.ticker ||
+												selectedAsset}
+										</span>
+									</div>
+								{:else}
+									<div class="flex items-center justify-between">
+										<span class="text-base-content/70 font-medium">{$t('wallet.amount')}</span>
+										<span class="text-primary font-bold">{$t('wallet.any_amount_accepted')}</span>
+									</div>
+								{/if}
+
+								{#if description}
+									<div class="flex items-start justify-between">
+										<span class="text-base-content/70 font-medium"
+											>{$t('common.components.wallet.payment_request_form.description_label')}</span
+										>
+										<span class="max-w-48 text-right text-sm break-words">{description}</span>
+									</div>
+								{/if}
+							</div>
+						</div>
+
+						<!-- Address Display -->
+						<div class="space-y-2">
+							<div class="text-base-content/70 font-medium">
+								{selectedNetwork === 'liquid' ? $t('wallet.address') : $t('wallet.rsk_address')}
+							</div>
+							<button
+								class="bg-base-200 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
+								title={$t('wallet.click_to_copy')}
+								onclick={copyAddress}
+							>
+								<pre
+									class="group-hover:text-primary text-xs break-all whitespace-pre-wrap transition-colors">{generatedAddress}</pre>
+							</button>
+							<p class="text-base-content/50 text-center text-xs">
+								{$t('wallet.click_to_copy')}
+							</p>
 						</div>
 					</div>
 
-					<!-- Address Display -->
-					<div class="space-y-2">
-						<div class="text-base-content/70 font-medium">
-							{selectedNetwork === 'liquid' ? $t('wallet.address') : $t('wallet.rsk_address')}
+					<!-- QR Code -->
+					{#if qrCodeDataUrl}
+						<div class="w-full flex-shrink-0 text-center sm:w-1/2">
+							<div class="mx-auto flex w-fit justify-center rounded-lg bg-white p-4 shadow-lg">
+								<img
+									src={qrCodeDataUrl}
+									alt="Payment QR Code"
+									class="h-full max-h-48 w-full max-w-48 lg:max-h-64 lg:max-w-64"
+								/>
+							</div>
 						</div>
-						<button
-							class="bg-base-200 hover:bg-base-100 border-base-300 group w-full rounded-lg border px-4 py-3 text-left transition-colors duration-200"
-							title={$t('wallet.click_to_copy')}
-							onclick={copyAddress}
-						>
-							<pre
-								class="group-hover:text-primary text-xs break-all whitespace-pre-wrap transition-colors">{generatedAddress}</pre>
-						</button>
-						<p class="text-base-content/50 text-center text-xs">
-							{$t('wallet.click_to_copy')}
-						</p>
-					</div>
+					{/if}
 				</div>
 
-				<!-- QR Code -->
-				{#if qrCodeDataUrl}
-					<div class="w-full flex-shrink-0 text-center sm:w-1/2">
-						<div class="mx-auto flex w-fit justify-center rounded-lg bg-white p-4 shadow-lg">
-							<img
-								src={qrCodeDataUrl}
-								alt="Payment QR Code"
-								class="h-full max-h-48 w-full max-w-48 lg:max-h-64 lg:max-w-64"
-							/>
-						</div>
-					</div>
-				{/if}
+				<!-- Actions -->
+				<div class="flex gap-3 pt-4">
+					<button
+						class="btn btn-outline border-primary text-primary hover:bg-primary flex-1 hover:text-white"
+						onclick={() => {
+							generatedAddress = null;
+							qrCodeDataUrl = null;
+							amount = '';
+							liquidDescription = '';
+							rskDescription = '';
+							errorMessage = null;
+						}}
+					>
+						{$t('wallet.generate_new')}
+					</button>
+					<button class="btn btn-primary flex-1" onclick={copyAddress}>
+						{$t('wallet.copy_address')}
+					</button>
+				</div>
 			</div>
-
-			<!-- Actions -->
-			<div class="flex gap-3 pt-4">
-				<button
-					class="btn btn-outline border-primary text-primary hover:bg-primary flex-1 hover:text-white"
-					onclick={() => {
-						generatedAddress = null;
-						qrCodeDataUrl = null;
-						amount = '';
-						liquidDescription = '';
-						rskDescription = '';
-						errorMessage = null;
-					}}
-				>
-					{$t('wallet.generate_new')}
-				</button>
-				<button class="btn btn-primary flex-1" onclick={copyAddress}>
-					{$t('wallet.copy_address')}
-				</button>
-			</div>
-		</div>
+		{/if}
 	{/if}
 
 	<!-- RSK Network Info -->
