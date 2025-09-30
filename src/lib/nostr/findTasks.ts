@@ -14,7 +14,6 @@ import {
 	performanceMonitor,
 	type IndexedTask 
 } from '$lib/utils/task-indexing';
-import { getNpub } from '$lib/utils/nostrKeys';
 import { Preferences } from '@capacitor/preferences';
 import { StorageKeys } from '$lib/utils/constants/storage';
 
