@@ -137,7 +137,7 @@
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
-						<h4 class="font-semibold">{$t('wallet.rootstock_network')}</h4>
+						<h4 class="font-semibold">Rootstock Bitcoin</h4>
 					</div>
 					<div
 						class="badge {$rskConnection.connected
@@ -198,22 +198,20 @@
 		</div>
 
 		<!-- Liquid Network Card -->
-		<div class="card bg-base-200 flex flex-col">
+		<div class="card bg-base-200 flex flex-col opacity-50">
 			<div class="card-body flex flex-col flex-1">
 				<div class="mb-4 flex items-center justify-between">
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid Network" class="h-6 w-6" />
-						<h4 class="font-semibold">{$t('wallet.liquid_network')}</h4>
+						<h4 class="font-semibold text-base-content/70">Liquid Bitcoin</h4>
 					</div>
-					<div
-						class="badge {$liquidConnection.connected
-							? 'badge-success'
-							: 'badge-error'} badge-sm text-xs"
-					>
-						{$liquidConnection.connected ? 'Connected' : 'Disconnected'}
+					<div class="badge badge-ghost badge-sm text-xs">
+						Coming Soon
 					</div>
 				</div>
 
+				<!-- Original Liquid content - commented out for coming soon display -->
+				<!--
 				<div class="flex-1">
 					{#if $allAssets.filter((a: WalletAsset) => a.network === 'Liquid').length > 0}
 						<div class="space-y-2">
@@ -263,6 +261,82 @@
 						</div>
 					</div>
 				{/if}
+				-->
+
+				<!-- Coming Soon display -->
+				<div class="flex-1 flex flex-col">
+					<div class="flex items-center gap-2">
+						<img src="/images/chains/Liquid-Bitcoin.svg" alt="L-BTC" class="h-5 w-5 opacity-50" />
+						<span class="font-medium text-base-content/50">L-BTC</span>
+					</div>
+					<div class="flex-1"></div>
+					<div class="mt-4 text-center">
+						<p class="font-bold text-base-content/50">Coming Soon</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Additional Coming Soon Networks -->
+	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<!-- Bitcoin Network Card -->
+		<div class="card bg-base-200 flex flex-col opacity-50">
+			<div class="card-body flex flex-col flex-1">
+				<div class="mb-4 flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-6 w-6" />
+						<h4 class="font-semibold text-base-content/70">Bitcoin</h4>
+					</div>
+					<div class="badge badge-ghost badge-sm text-xs">
+						Coming Soon
+					</div>
+				</div>
+
+				<div class="flex-1 flex flex-col">
+					<div class="space-y-2">
+						<div class="flex items-center gap-2">
+							<img src="/images/chains/Bitcoin.svg" alt="BTC" class="h-5 w-5 opacity-50" />
+							<span class="font-medium text-base-content/50">BTC</span>
+						</div>
+						<div class="flex items-center gap-2">
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-500 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+							</svg>
+							<span class="font-medium text-base-content/50">Lightning</span>
+						</div>
+					</div>
+					<div class="flex-1"></div>
+					<div class="mt-4 text-center">
+						<p class="font-bold text-base-content/50">Coming Soon</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- USD Network Card -->
+		<div class="card bg-base-200 flex flex-col opacity-50">
+			<div class="card-body flex flex-col flex-1">
+				<div class="mb-4 flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-6 w-6" />
+						<h4 class="font-semibold text-base-content/70">USD</h4>
+					</div>
+					<div class="badge badge-ghost badge-sm text-xs">
+						Coming Soon
+					</div>
+				</div>
+
+				<div class="flex-1 flex flex-col">
+					<div class="flex items-center gap-2">
+						<img src="/images/chains/Tether-USD.svg" alt="USDT" class="h-5 w-5 opacity-50" />
+						<span class="font-medium text-base-content/50">USDT</span>
+					</div>
+					<div class="flex-1"></div>
+					<div class="mt-4 text-center">
+						<p class="font-bold text-base-content/50">Coming Soon</p>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

@@ -229,8 +229,56 @@
 			</button>
 		</div>
 	{:else if task}
-		<!-- Bid form only -->
+		<!-- Task details and bid form -->
 		<div class="p-6">
+			<!-- Task Details Section -->
+			<div class="mb-8">
+				<h2 class="mb-4 text-xl font-semibold">{$t('bids.task_details.task_info')}</h2>
+				
+				<!-- Task Title -->
+				<div class="mb-4">
+					<h3 class="text-lg font-medium">{task.title}</h3>
+				</div>
+				
+				<!-- Task Description -->
+				<div class="mb-6">
+					<p class="text-base-content/80">{task.description}</p>
+				</div>
+				
+				<!-- Task Attachments -->
+				{#if task.attachments && task.attachments.length > 0}
+					<div class="mb-6">
+						<h4 class="mb-3 text-md font-medium">{$t('task.attachments_review')}</h4>
+						<div class="grid w-fit grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">
+							{#each task.attachments as attachment}
+								<div class="relative aspect-square h-20 w-20 sm:h-24 sm:w-24">
+									{#if attachment.type?.startsWith('video/')}
+										<video
+											src={attachment.url}
+											class="h-full w-full cursor-pointer rounded-lg object-cover"
+											controls
+											muted={false}
+											autoplay={false}
+											loop={false}
+										>
+											<track kind="captions" />
+										</video>
+									{:else}
+										<img
+											src={attachment.url}
+											alt={attachment.alt}
+											class="h-full w-full rounded-lg object-cover"
+											loading="lazy"
+										/>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</div>
+			
+			<!-- Bid Form Section -->
 			{#if task.id && task.status === TaskStatusEnum.OPEN}
 				<BidCreationForm
 					taskId={task.id}

@@ -47,6 +47,7 @@
             "loading": "Loading...",
             "bid_submitted": "Bid Submitted",
             "task_details": "Task Details",
+            "task_info": "Task Information",
             "task_not_found": "Task Not Found",
             "close": "Close",
             "try_again": "Try Again",

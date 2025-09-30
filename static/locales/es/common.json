@@ -76,7 +76,8 @@
         "compression_failed": "Error al comprimir imagen: {error}",
         "invalid_image": "Archivo de imagen inválido",
         "failed_validate_video": "Error al validar duración del video",
-        "failed_load_image": "Error al cargar imagen"
+        "failed_load_image": "Error al cargar imagen",
+        "max_size": "Máx. {maxSize} MB"
       },
       "modal": {
         "close": "Cerrar diálogo"
