@@ -1,0 +1,29 @@
+{
+	"404": {
+		"title": "Página No Encontrada",
+		"description": "La página que buscas no existe o ha sido movida. ¡Te ayudamos a volver al camino correcto!"
+	},
+	"400": {
+		"title": "Solicitud Incorrecta",
+		"description": "Hubo un problema con tu solicitud. Por favor, revisa tu entrada e inténtalo de nuevo."
+	},
+	"500": {
+		"title": "Error del Servidor",
+		"description": "Algo salió mal de nuestro lado. Estamos trabajando para solucionar este problema. Por favor, inténtalo más tarde."
+	},
+	"generic": {
+		"title": "¡Ups! Algo salió mal",
+		"description": "Ocurrió un error inesperado. No te preocupes, nuestro equipo ha sido notificado y estamos trabajando en ello."
+	},
+	"actions": {
+		"go_home": "Ir al Inicio",
+		"go_back": "Volver",
+		"retry": "Intentar de Nuevo"
+	},
+	"help": {
+		"title": "¿Necesitas ayuda?",
+		"contact_support": "Contactar Soporte",
+		"help_center": "Centro de Ayuda",
+		"status_page": "Estado del Sitio"
+	}
+}

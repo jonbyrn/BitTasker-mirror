@@ -57,10 +57,7 @@
 	let compressionInfo = $state<CompressionResult[]>([]);
 	let uploadResults = $state<UploadResult[]>([]);
 
-	// Reactive translation for label
-	$effect(() => {
-		label = $t('uploader.uploadImage');
-	});
+	// Label is now passed as a prop and doesn't need to be overridden
 
 	// Helper function to detect if a URL is a video
 	function isVideoURL(url: string): boolean {

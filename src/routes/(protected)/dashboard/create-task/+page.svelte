@@ -27,6 +27,7 @@
 	let direction: 'forward' | 'backward' = $state('forward');
 	let newFiles = $state<File[]>([]);
 	let attachmentsToRemove = $state<Attachment[]>([]);
+	let taskBasicsRef: any = $state(null);
 	// Remover esta línea ya que signedEventId se usará como variable local
 	// let signedEventId = $state<string | null>(null);
 
@@ -221,6 +222,11 @@
 	};
 
 	const handleNext = async () => {
+		// Save current skill input if we're on the basics step
+		if ($store.currentStep === TaskStepEnum.BASICS && taskBasicsRef) {
+			taskBasicsRef.saveCurrentSkillInput();
+		}
+
 		if (!validateCurrentStep()) return;
 
 		// Start image upload in the background if we're in the budget step
@@ -358,7 +364,7 @@
 			{:else}
 				<div class="space-y-6">
 					{#if $store.currentStep === TaskStepEnum.BASICS}
-						<TaskBasics {errors} {direction} />
+						<TaskBasics {errors} {direction} bind:this={taskBasicsRef} />
 					{:else if $store.currentStep === TaskStepEnum.LOCATION}
 						<TaskLocation {errors} {direction} />
 					{:else if $store.currentStep === TaskStepEnum.BUDGET}

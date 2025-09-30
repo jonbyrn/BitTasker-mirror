@@ -12,6 +12,18 @@
 	// Use category IDs directly - CategoryMultiselect now handles translation internally
 	let selectedCategoryIds = $state([] as string[]);
 	let lastCategories = $state([]) as string[];
+	let isUpdatingFromStore = $state(false);
+	let skillsMultiselectRef: any = $state(null);
+
+	// Set default deadline to today when component loads if no deadline is set
+	$effect(() => {
+		if (!$store.task.deadline && !$store.task.dateRange) {
+			const today = new Date();
+			store.updateTask({
+				deadline: today.toISOString()
+			});
+		}
+	});
 
 	$effect(() => {
 		try {
@@ -22,7 +34,9 @@
 				typeof cat === 'string' ? cat : (cat as any).id
 			);
 			if (JSON.stringify(categoryIds) !== JSON.stringify(selectedCategoryIds)) {
+				isUpdatingFromStore = true;
 				selectedCategoryIds = [...categoryIds];
+				isUpdatingFromStore = false;
 			}
 		} catch (error) {
 			console.error('Error syncing category IDs:', error);
@@ -32,6 +46,9 @@
 	// Handle category changes - now CategoryMultiselect returns IDs directly
 	function handleCategoryChange(selectedItems: string[]) {
 		try {
+			// Prevent circular updates
+			if (isUpdatingFromStore) return;
+			
 			// Convert IDs to full category objects
 			const categoryObjects = selectedItems
 				.map((categoryId) => {
@@ -55,6 +72,13 @@
 
 		} catch (error) {
 			console.error('Error handling category change:', error);
+		}
+	}
+
+	// Function to save current input as a skill (called from parent component)
+	export function saveCurrentSkillInput() {
+		if (skillsMultiselectRef) {
+			skillsMultiselectRef.saveInputAsSkill();
 		}
 	}
 </script>
@@ -93,11 +117,10 @@
 			<button
 				class="btn {$store.task.dateRange ? 'btn-outline' : 'btn-primary'}"
 				onclick={() => {
-					const tomorrow = new Date();
-					tomorrow.setDate(tomorrow.getDate() + 1);
+					const today = new Date();
 
 					store.updateTask({
-						deadline: tomorrow.toISOString(),
+						deadline: today.toISOString(),
 						dateRange: undefined
 					});
 				}}
@@ -174,7 +197,6 @@
 			<DateInput
 				bind:value={$store.task.deadline}
 				type="single"
-				labelKey="task.deadline"
 				placeholderKey="task.deadline"
 				maxDate={undefined}
 				minDate={new Date().toISOString()}
@@ -212,6 +234,7 @@
 			maxSelections={10}
 			placeholder="Add skills..."
 			className="w-full"
+			bind:this={skillsMultiselectRef}
 		/>
 		{#if errors.skill}
 			<span class="label-text-alt text-error">{errors.skill}</span>

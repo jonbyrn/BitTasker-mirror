@@ -1,37 +1,85 @@
 <script lang="ts">
 	import Multiselect from 'svelte-multiselect';
+	import { tick } from 'svelte';
 
 	let {
 		selectedSkills = $bindable([]),
 		maxSelections = 10,
 		placeholder = 'Add skills...',
 		className = '',
-		onChange = () => {}
+		onChange = () => {},
+		onBlur = () => {}
 	} = $props();
+
+	let multiselectRef: any = $state(null);
+	let currentInputValue = $state('');
+	let forceRerender = $state(0);
 
 	// Handle skills change and call onChange callback
 	$effect(() => {
 		onChange(selectedSkills);
 	});
+
+	// Function to save current input as a skill
+	function saveCurrentInput() {
+		if (currentInputValue.trim()) {
+			const newSkill = currentInputValue.trim();
+			// Check if skill already exists
+			const skillExists = selectedSkills.some(skill => 
+				(typeof skill === 'string' && skill === newSkill) ||
+				(skill && typeof skill === 'object' && skill.value === newSkill)
+			);
+			
+			if (!skillExists && selectedSkills.length < maxSelections) {
+				selectedSkills = [...selectedSkills, newSkill];
+				currentInputValue = '';
+				
+				// Force component re-render to clear input field
+				forceRerender++;
+			}
+		}
+	}
+
+	// Handle blur event
+	function handleBlur() {
+		saveCurrentInput();
+		onBlur();
+	}
+
+	// Handle input change to track current value
+	function handleInput(event: Event) {
+		const target = event.target as HTMLInputElement;
+		currentInputValue = target.value;
+	}
+
+	// Expose saveCurrentInput function for external use (e.g., from next button)
+	export function saveInputAsSkill() {
+		saveCurrentInput();
+	}
 </script>
 
 <div class="skills-multiselect {className}">
-	<Multiselect
-		allowUserOptions="append"
-		bind:selected={selectedSkills}
-		max={maxSelections}
-		{placeholder}
-		noMatchingOptionsMsg="No matching skills found"
-		createOptionMsg="Add new skill"
-		outerDivClass="skills-multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
-		ulSelectedClass="selected-options flex flex-wrap gap-2 p-0 m-0"
-		liSelectedClass="selected-option bg-primary text-primary-content rounded-full px-3 py-1 flex items-center gap-1 text-sm"
-		ulOptionsClass="skills-options bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto absolute top-full left-0 right-0 z-50 mt-1 transition-colors"
-		liOptionClass="skills-option p-3 cursor-pointer transition-colors text-base-content"
-		liActiveOptionClass="skills-option-active bg-primary text-primary-content"
-		maxSelectMsgClass="skills-max-select-message text-xs text-neutral ml-auto"
-		options={[]}
-	/>
+	{#key forceRerender}
+		<Multiselect
+			allowUserOptions="append"
+			bind:selected={selectedSkills}
+			max={maxSelections}
+			{placeholder}
+			noMatchingOptionsMsg="No matching skills found"
+			createOptionMsg="Add new skill"
+			outerDivClass="skills-multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors"
+			ulSelectedClass="selected-options flex flex-wrap gap-2 p-0 m-0"
+			liSelectedClass="selected-option bg-primary text-primary-content rounded-full px-3 py-1 flex items-center gap-1 text-sm"
+			ulOptionsClass="skills-options bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto absolute top-full left-0 right-0 z-50 mt-1 transition-colors"
+			liOptionClass="skills-option p-3 cursor-pointer transition-colors text-base-content"
+			liActiveOptionClass="skills-option-active bg-primary text-primary-content"
+			maxSelectMsgClass="skills-max-select-message text-xs text-neutral ml-auto"
+			options={[]}
+			onblur={handleBlur}
+			oninput={handleInput}
+			bind:this={multiselectRef}
+		/>
+	{/key}
 </div>
 
 <style>
