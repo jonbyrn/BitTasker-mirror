@@ -105,7 +105,7 @@
 		<meta name="robots" content="noindex, nofollow" />
 	</svelte:head>
 
-<div class="min-h-screen bg-base-200 flex items-center justify-center p-4">
+<div class="bg-base-200 flex items-center justify-center p-4 my-8">
 	<div class="max-w-2xl w-full">
 		<!-- Error Card -->
 		<div class="card bg-base-100 shadow-xl">
