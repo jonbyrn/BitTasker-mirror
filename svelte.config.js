@@ -15,7 +15,7 @@ const config = {
         // Configure the adapter with fallback for SPA navigation
         adapter: adapter({
 			// Single-page app mode with fallback
-			// fallback: 'index.html', // Stop cloudflare from serving HTML for JavaScript chunk requests
+			fallback: 'index.html',
 			// Path to build output
 			pages: 'build',
 			assets: 'build',
