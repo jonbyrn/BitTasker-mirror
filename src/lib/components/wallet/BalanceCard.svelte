@@ -143,7 +143,7 @@
 						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
 						<h4 class="font-semibold">Rootstock Bitcoin</h4>
 						<button class="btn btn-ghost btn-xs p-1" onclick={() => (document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click()}>
-							<IconHelpCircle class="h-4 w-4 text-base-content/70 hover:text-base-content" />
+							<IconHelpCircle class="h-5 w-5 text-base-content/70 hover:text-base-content" />
 						</button>
 					</div>
 					<div
