@@ -30,6 +30,7 @@ export interface NostrLoginData {
 	iterations?: number;
 	authMethod?: 'passkey' | 'alby';
 	deviceId?: string;
+	masterKeyData?: MasterKeyEncryptedData;
 }
 
 interface NostrKeyData {
