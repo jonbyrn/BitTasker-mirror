@@ -5,50 +5,155 @@
 	import { appStore } from '$lib/stores/app.store';
 	import type { WalletAsset } from '$lib/stores/wallet.store';
 
+	// Extended asset type that includes Lightning Bitcoin
+	type ExtendedAsset = WalletAsset | {
+		assetId: string;
+		name: string;
+		ticker: string;
+		network: string;
+		balance: number;
+		formattedBalance: string;
+		icon: string | null;
+	};
+
 	// Form state
-	let selectedNetwork = $state<'liquid' | 'rsk'>('rsk');
-	let selectedAsset = $state<string>('L-BTC');
+	let selectedAsset = $state<'bitcoin' | 'usd'>('bitcoin');
+	let selectedNetwork = $state<string>('rootstock-bitcoin');
 	let recipientAddress = $state('');
 	let amount = $state('');
 	let description = $state('');
 	let isLoading = $state(false);
 	let errorMessage = $state<string | null>(null);
 	let feeEstimate = $state<number | null>(null);
+	let dropdownKey = $state(0);
 
-	// Available assets based on selected network
-	let availableAssets = $derived(
-		$allAssets.filter(asset => {
-			if (selectedNetwork === 'liquid') {
-				return asset.network === 'Liquid' || asset.network === 'Bitcoin';
-			} else {
-				return asset.network === 'RSK';
-			}
-		})
-	);
+	// Asset options (Bitcoin and USD)
+	let assetOptions = $derived([
+		{
+			value: 'bitcoin',
+			label: 'Bitcoin',
+			description: 'Bitcoin and Bitcoin-based networks',
+			icon: '/images/chains/Bitcoin.svg',
+			disabled: false
+		},
+		{
+			value: 'usd',
+			label: 'USD',
+			description: 'USD-pegged stablecoins',
+			icon: '/images/chains/Tether-USD.svg',
+			disabled: false
+		}
+	]);
 
-	// Auto-select first available asset when network changes
-	$effect(() => {
-		if (availableAssets.length > 0 && !availableAssets.find(a => a.assetId === selectedAsset)) {
-			selectedAsset = availableAssets[0].assetId;
+	// Network options based on selected asset
+	let networkOptions = $derived(() => {
+		if (selectedAsset === 'bitcoin') {
+			return [
+				{
+					value: 'rootstock-bitcoin',
+					label: 'Rootstock Bitcoin',
+					description: 'rBTC on Rootstock network',
+					icon: '/images/chains/Bitcoin-Rootstock-logo.webp'
+				},
+				{
+					value: 'lightning-bitcoin',
+					label: 'Lightning Bitcoin',
+					description: 'Lightning Network payments',
+					icon: null // Will use lightning icon
+				},
+				{
+					value: 'liquid-bitcoin',
+					label: 'Liquid Bitcoin',
+					description: 'L-BTC on Liquid network',
+					icon: '/images/chains/Liquid-Bitcoin.svg'
+				},
+				{
+					value: 'bitcoin',
+					label: 'Bitcoin',
+					description: 'Native Bitcoin network',
+					icon: '/images/chains/Bitcoin.svg'
+				}
+			];
+		} else {
+			return [
+				{
+					value: 'liquid-usdt',
+					label: 'Liquid USDT',
+					description: 'USDT on Liquid network',
+					icon: '/images/chains/Tether-USD.svg'
+				}
+			];
 		}
 	});
 
-	// Get current asset info
-	let currentAsset = $derived(availableAssets.find(asset => asset.assetId === selectedAsset));
+	// Get selected network info
+	let selectedNetworkInfo = $derived(
+		networkOptions().find(network => network.value === selectedNetwork)
+	);
+
+	// Available assets based on selected network
+	let availableAssets = $derived(() => {
+		if (selectedAsset === 'bitcoin') {
+			if (selectedNetwork === 'rootstock-bitcoin') {
+				return $allAssets.filter(asset => asset.network === 'RSK');
+			} else if (selectedNetwork === 'liquid-bitcoin') {
+				return $allAssets.filter(asset => asset.network === 'Liquid' || asset.network === 'Bitcoin');
+			} else if (selectedNetwork === 'lightning-bitcoin') {
+				// For Lightning Bitcoin, show Rootstock balance since it will be swapped
+				const rskAssets = $allAssets.filter(asset => asset.network === 'RSK');
+				const lightningAsset: ExtendedAsset = {
+					assetId: 'lightning-bitcoin',
+					name: 'Lightning Bitcoin',
+					ticker: 'BTC',
+					network: 'Lightning',
+					balance: rskAssets.length > 0 ? rskAssets[0].balance : 0,
+					formattedBalance: rskAssets.length > 0 ? rskAssets[0].formattedBalance : '0.00 BTC',
+					icon: null
+				};
+				return [lightningAsset];
+			} else if (selectedNetwork === 'bitcoin') {
+				return $allAssets.filter(asset => asset.network === 'Bitcoin');
+			}
+		} else if (selectedAsset === 'usd') {
+			return $allAssets.filter(asset => asset.network === 'Liquid' && asset.ticker === 'USDT');
+		}
+		return [];
+	});
+
+	// Auto-select first available network when asset changes
+	$effect(() => {
+		const networks = networkOptions();
+		if (networks.length > 0 && !networks.find(n => n.value === selectedNetwork)) {
+			selectedNetwork = networks[0].value;
+		}
+	});
+
+	// Get current asset info based on selected network
+	let currentAsset = $derived(() => {
+		const assets = availableAssets();
+		if (assets.length > 0) {
+			return assets[0]; // Return the first (and typically only) asset for the selected network
+		}
+		return null;
+	});
+
+	function closeNetworkDropdown() {
+		dropdownKey++;
+	}
 
 	// Enhanced form validation
 	let isFormValid = $derived(
 		recipientAddress.trim() !== '' && 
 		amount.trim() !== '' && 
 		parseFloat(amount) > 0 && 
-		currentAsset && 
-		parseFloat(amount) <= currentAsset.balance
+		currentAsset() && 
+		parseFloat(amount) <= currentAsset().balance
 	);
 	
 	// Individual validation states for better UX
 	let hasValidAddress = $derived(recipientAddress.trim() !== '');
 	let hasValidAmount = $derived(amount.trim() !== '' && parseFloat(amount) > 0);
-	let hasSufficientBalance = $derived(currentAsset && parseFloat(amount) <= currentAsset.balance);
+	let hasSufficientBalance = $derived(currentAsset() && parseFloat(amount) <= currentAsset().balance);
 	
 	// Validation error messages
 	let validationErrors = $derived.by(() => {
@@ -65,23 +170,6 @@
 		return errors;
 	});
 
-	// Network options - reactive to locale changes
-	let networkOptions = $derived([
-		{
-			value: 'rsk',
-			label: $t('wallet.rootstock_network'),
-			description: $t('wallet.rootstock_network_description'),
-			icon: '/images/chains/Bitcoin-Rootstock-logo.webp',
-			disabled: !$rskConnection.connected
-		},
-		{
-			value: 'liquid',
-			label: $t('wallet.liquid_network'),
-			description: $t('wallet.liquid_network_description'),
-			icon: '/images/chains/Liquid-Bitcoin.svg',
-			disabled: !$liquidConnection.connected
-		}
-	]);
 
 	async function handleSend() {
 		if (!isFormValid || !currentAsset) return;
@@ -90,10 +178,14 @@
 		errorMessage = null;
 
 		try {
-			if (selectedNetwork === 'rsk') {
+			if (selectedNetwork === 'rootstock-bitcoin') {
 				await walletManager.sendRBTC(recipientAddress, amount);
+			} else if (selectedNetwork === 'liquid-bitcoin' || selectedNetwork === 'bitcoin') {
+				throw new Error('Liquid and Bitcoin transactions not yet implemented');
+			} else if (selectedNetwork === 'lightning-bitcoin') {
+				throw new Error('Lightning Bitcoin transactions not yet implemented');
 			} else {
-				throw new Error('Liquid transactions not yet implemented');
+				throw new Error('Transaction type not yet implemented');
 			}
 
 			// Reset form on success
@@ -139,34 +231,34 @@
 		</div>
 	{/if}
 
-	<!-- Network Selection -->
+	<!-- Asset Selection -->
 	<div class="form-control">
-		<label class="label" for="network-select">
-			<span class="label-text font-medium">{$t('wallet.select_network')}</span>
+		<label class="label" for="asset-select">
+			<span class="label-text font-medium">Select Asset</span>
 		</label>
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-			{#each networkOptions as network}
+			{#each assetOptions as asset}
 				<label class="cursor-pointer">
 					<input
 						type="radio"
-						bind:group={selectedNetwork}
-						value={network.value}
-						disabled={network.disabled}
+						bind:group={selectedAsset}
+						value={asset.value}
+						disabled={asset.disabled}
 						class="sr-only"
 					/>
-					<div class="card {selectedNetwork === network.value ? 'border-primary border-2' : 'border border-base-300'} {network.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'} transition-colors">
+					<div class="card {selectedAsset === asset.value ? 'border-primary border-2' : 'border border-base-300'} {asset.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-primary/50'} transition-colors">
 						<div class="card-body p-4">
 							<div class="flex items-center gap-3">
-								{#if network.icon.startsWith('/')}
-									<img src={network.icon} alt="Network icon" class="h-8 w-8" />
+								{#if asset.icon.startsWith('/')}
+									<img src={asset.icon} alt="Asset icon" class="h-8 w-8" />
 								{:else}
-									<span class="text-2xl">{network.icon}</span>
+									<span class="text-2xl">{asset.icon}</span>
 								{/if}
 								<div class="flex-1">
-									<div class="font-semibold">{network.label}</div>
-									<div class="text-sm opacity-70">{network.description}</div>
+									<div class="font-semibold">{asset.label}</div>
+									<div class="text-sm opacity-70">{asset.description}</div>
 								</div>
-								{#if selectedNetwork === network.value}
+								{#if selectedAsset === asset.value}
 									<div class="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
 										<div class="w-2 h-2 rounded-full bg-white"></div>
 									</div>
@@ -179,83 +271,82 @@
 		</div>
 	</div>
 
-	<!-- Asset Selection -->
-	{#if availableAssets.length > 0}
+	<!-- Coming Soon Alert for USD -->
+	{#if selectedAsset === 'usd'}
+		<div class="alert alert-outline alert-info">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<div>
+				<div class="font-bold">Coming Soon</div>
+				<div class="text-sm">USD sending functionality is not yet available.</div>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Network Selection -->
+	{#if selectedAsset === 'bitcoin'}
 		<div class="form-control">
-			<label class="label" for="asset-select">
-				<span class="label-text font-medium">{$t('wallet.select_asset')}</span>
+			<label class="label" for="network-select">
+				<span class="label-text font-medium">Select Network</span>
 			</label>
-			<div class="dropdown dropdown-bottom w-full">
-				<div
-					tabindex="0"
-					role="button"
-					class="btn btn-outline w-full justify-between"
-				>
-					{#if currentAsset}
-						<div class="flex items-center gap-3 flex-1">
-							{#if currentAsset.icon.startsWith('/')}
-								<img src={currentAsset.icon} alt={currentAsset.name} class="h-6 w-6" />
-							{:else}
-								<span class="text-2xl">{currentAsset.icon}</span>
+			{#key dropdownKey}
+				<div class="dropdown dropdown-bottom w-full">
+					<div tabindex="0" role="button" class="btn btn-outline w-full justify-between">
+						<div class="flex items-center gap-2">
+							{#if selectedNetworkInfo?.icon}
+								<img
+									src={selectedNetworkInfo.icon}
+									alt={selectedNetworkInfo.label}
+									class="h-5 w-5"
+								/>
+							{:else if selectedNetworkInfo?.value === 'lightning-bitcoin'}
+								<svg
+									xmlns="http://www.w3.org/2000/svg"
+									class="h-5 w-5 text-yellow-500"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+								>
+									<path
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 10V3L4 14h7v7l9-11h-7z"
+									/>
+								</svg>
 							{/if}
-							<div class="text-left">
-								<span class="font-semibold">{currentAsset.ticker}</span>
-								<span class="text-xs opacity-70">({currentAsset.network})</span>
-							</div>
+							<span class="font-medium">{selectedNetworkInfo?.label}</span>
 						</div>
-						<div class="text-right">
-							<div class="font-medium">{currentAsset.formattedBalance}</div>
-						</div>
-					{:else}
-						<span>{$t('wallet.select_asset')}</span>
-					{/if}
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						class="h-5 w-5"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M19 9l-7 7-7-7"
-						/>
-					</svg>
-				</div>
-
-				<ul
-					class="dropdown-content menu bg-base-100 rounded-box z-[1] mt-1 w-full border p-2 shadow"
-				>
-					{#each availableAssets as asset (asset.assetId)}
-						<li>
-							<button
-								class="hover:bg-base-200 flex items-center justify-between p-3 w-full {asset.assetId === selectedAsset ? 'bg-base-200' : ''}"
-								onclick={() => selectedAsset = asset.assetId}
-							>
-								<div class="flex items-center gap-3 flex-1">
-									{#if asset.icon.startsWith('/')}
-										<img src={asset.icon} alt={asset.name} class="h-6 w-6" />
-									{:else}
-										<span class="text-2xl">{asset.icon}</span>
-									{/if}
-									<div>
-										<div class="font-semibold">{asset.name}</div>
-										<div class="text-xs opacity-70">{asset.network} Network</div>
-									</div>
-								</div>
-
-								<div class="flex items-center gap-2">
-									<div class="text-right">
-										<div class="font-medium">{asset.formattedBalance}</div>
-										<div class="text-xs opacity-70">{asset.ticker}</div>
-									</div>
-									
-									{#if asset.assetId === selectedAsset}
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							class="h-4 w-4 opacity-70"
+							viewBox="0 0 20 20"
+							fill="currentColor"
+						>
+							<path
+								fill-rule="evenodd"
+								d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.25 8.29a.75.75 0 01-.02-1.08z"
+								clip-rule="evenodd"
+							/>
+						</svg>
+					</div>
+					<ul class="dropdown-content menu bg-base-100 rounded-box w-full p-2 shadow">
+						{#each networkOptions() as network}
+							<li>
+								<button
+									class="flex w-full items-center justify-start gap-2"
+									onclick={() => {
+										selectedNetwork = network.value;
+										closeNetworkDropdown();
+									}}
+								>
+									{#if network.icon}
+										<img src={network.icon} alt={network.label} class="h-5 w-5" />
+									{:else if network.value === 'lightning-bitcoin'}
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
-											class="text-primary h-5 w-5 flex-shrink-0"
+											class="h-5 w-5 text-yellow-500"
 											fill="none"
 											viewBox="0 0 24 24"
 											stroke="currentColor"
@@ -264,40 +355,92 @@
 												stroke-linecap="round"
 												stroke-linejoin="round"
 												stroke-width="2"
-												d="M5 13l4 4L19 7"
+												d="M13 10V3L4 14h7v7l9-11h-7z"
 											/>
 										</svg>
 									{/if}
-								</div>
-							</button>
-						</li>
-					{/each}
-				</ul>
+									<span class="font-medium">{network.label}</span>
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/key}
+			{#if selectedNetworkInfo?.description}
+				<div class="label">
+					<span class="label-text-alt">{selectedNetworkInfo.description}</span>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Coming Soon Alerts -->
+	{#if selectedNetwork === 'liquid-bitcoin' || selectedNetwork === 'bitcoin'}
+		<div class="alert alert-outline alert-info">
+			<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+			</svg>
+			<div>
+				<div class="font-bold">Coming Soon</div>
+				<div class="text-sm">This network is not yet available for sending.</div>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Recipient Address -->
-	<div class="form-control">
-		<label class="label" for="recipient-address">
-			<span class="label-text font-medium">{$t('wallet.recipient_address')}</span>
-		</label>
-		<input
-			id="recipient-address"
-			bind:value={recipientAddress}
-			placeholder={selectedNetwork === 'liquid' 
-				? $t('wallet.address_placeholder') 
-				: $t('wallet.rsk_address_placeholder')}
-			class="input input-bordered w-full {!hasValidAddress && recipientAddress.trim() !== '' ? 'input-error' : ''}"
-			disabled={isLoading}
-		/>
-	</div>
+	<!-- Available Balance Display -->
+	{#if availableAssets().length > 0}
+		{#if selectedNetwork === 'rootstock-bitcoin'}
+			<div class="alert alert-outline alert-success">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				</svg>
+				<div>
+					<div class="font-bold">Available Balance</div>
+					<div class="text-sm">{availableAssets()[0]?.formattedBalance || '0.00'} rBTC</div>
+				</div>
+			</div>
+		{:else if selectedNetwork === 'lightning-bitcoin'}
+			<div class="alert alert-outline alert-success">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				</svg>
+				<div>
+					<div class="font-bold">Available Balance</div>
+					<div class="text-sm">{availableAssets()[0]?.formattedBalance || '0.00'} rBTC</div>
+				</div>
+			</div>
+		{/if}
+	{/if}
+
+	<!-- Input Fields - Hidden for Coming Soon networks -->
+	{#if selectedAsset !== 'usd' && selectedNetwork !== 'liquid-bitcoin' && selectedNetwork !== 'bitcoin'}
+		<!-- Recipient Address -->
+		<div class="form-control">
+			<label class="label" for="recipient-address">
+				<span class="label-text font-medium">{$t('wallet.recipient_address')}</span>
+			</label>
+			<input
+				id="recipient-address"
+				bind:value={recipientAddress}
+				placeholder={selectedNetwork === 'lightning-bitcoin'
+					? 'Lightning invoice or Lightning address'
+					: selectedNetwork === 'liquid-bitcoin'
+						? 'Liquid address'
+						: selectedNetwork === 'bitcoin'
+							? 'Bitcoin address'
+							: selectedNetwork === 'liquid-usdt'
+								? 'Liquid USDT address'
+								: 'Rootstock address (0x...)'}
+				class="input input-bordered w-full {!hasValidAddress && recipientAddress.trim() !== '' ? 'input-error' : ''}"
+				disabled={isLoading}
+			/>
+		</div>
 
 	<!-- Amount -->
 	<div class="form-control">
 		<label class="label" for="amount">
 			<span class="label-text font-medium">
-				{$t('wallet.amount_btc')} ({currentAsset?.ticker || ''})
+				Amount ({currentAsset()?.ticker || 'BTC'})
 			</span>
 		</label>
 		
@@ -309,7 +452,7 @@
 				type="number"
 				step="any"
 				min="0"
-				max={currentAsset?.balance}
+				max={currentAsset()?.balance}
 				placeholder="0.00"
 				class="input input-bordered join-item flex-1 rounded-r-none {!hasValidAmount && amount.trim() !== '' ? 'input-error' : ''}"
 				style="border-radius: 0.5rem 0 0 0.5rem !important; border-right-color: var(--color-primary) !important;"
@@ -318,20 +461,11 @@
 			<button
 				class="btn btn-primary join-item rounded-l-none"
 				onclick={handleMaxAmount}
-				disabled={isLoading || !currentAsset}
+				disabled={isLoading || !currentAsset()}
 			>
 				{$t('wallet.max')}
 			</button>
 		</div>
-		
-		<!-- Available Balance -->
-		{#if currentAsset}
-			<div class="label">
-				<span class="label-text-alt text-sm">
-					{$t('wallet.available_balance')}: {currentAsset.formattedBalance}
-				</span>
-			</div>
-		{/if}
 	</div>
 
 	<!-- Description -->
@@ -381,18 +515,33 @@
 			<span class="loading loading-spinner loading-sm"></span>
 			{$t('wallet.send.processing')}
 		{:else}
-			{$t('wallet.send_bitcoin')}
+			{selectedNetwork === 'lightning-bitcoin' 
+				? 'Send Lightning Bitcoin' 
+				: selectedNetwork === 'liquid-bitcoin'
+					? 'Send Liquid Bitcoin'
+					: selectedNetwork === 'bitcoin'
+						? 'Send Bitcoin'
+						: selectedNetwork === 'liquid-usdt'
+							? 'Send USDT'
+							: 'Send rBTC'}
 		{/if}
 	</button>
 
 	<!-- Network Status Info -->
 	<div class="text-center text-sm opacity-70">
-		{#if selectedNetwork === 'liquid'}
-			<p>{$t('wallet.liquid_info')}</p>
+		{#if selectedNetwork === 'lightning-bitcoin'}
+			<p>Lightning Bitcoin payments will be converted to Rootstock for our escrow system.</p>
+		{:else if selectedNetwork === 'liquid-bitcoin'}
+			<p>Liquid Bitcoin transactions on the Liquid Network.</p>
+		{:else if selectedNetwork === 'bitcoin'}
+			<p>Native Bitcoin transactions on the Bitcoin network.</p>
+		{:else if selectedNetwork === 'liquid-usdt'}
+			<p>USDT transactions on the Liquid Network.</p>
 		{:else}
-			<p>{$t('wallet.rsk_info')}</p>
+			<p>Rootstock Bitcoin transactions with smart contract compatibility.</p>
 		{/if}
 	</div>
+	{/if}
 </div>
 
 <style>
