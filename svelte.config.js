@@ -22,7 +22,7 @@ const config = {
 			// Precompress only when explicitly enabled
 			precompress: process.env.PRECOMPRESS === '1',
 			// Make all paths strict
-			strict: true
+			strict: false
 		}),
 
         alias: {
