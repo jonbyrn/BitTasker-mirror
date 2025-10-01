@@ -15,14 +15,12 @@
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
 	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
-	// Icon imports for unplugin-icons
-	import IconContentCopy from '~icons/mdi/content-copy';
-	// i18n imports
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import IconContentCopy from '~icons/mdi/content-copy';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
@@ -427,17 +425,19 @@
 						<span class="text-base-content/60"
 							>{$t('dashboard.bids.bid_acceptance.estimated_start')}</span
 						>
-						<span class="text-base-content/80"
-							>{formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime))}</span
-						>
+						<span class="text-base-content/80">
+							<!-- Convert seconds to milliseconds -->
+							{formatStandardDateTime(new Date(bidEscrowDetails.estimatedStartTime * 1000))}
+						</span>
 					</div>
 					<div class="flex items-center justify-between text-xs">
 						<span class="text-base-content/60"
 							>{$t('dashboard.bids.bid_acceptance.estimated_completion')}</span
 						>
-						<span class="text-base-content/80"
-							>{formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime))}</span
-						>
+						<span class="text-base-content/80">
+							<!-- Convert seconds to milliseconds -->
+							{formatStandardDateTime(new Date(bidEscrowDetails.estimatedCompletionTime * 1000))}
+						</span>
 					</div>
 					<div class="flex items-center justify-between text-xs">
 						<span class="text-base-content/60"
@@ -445,8 +445,8 @@
 						>
 						<span class="text-base-content/80"
 							>{formatDuration(
-								bidEscrowDetails.estimatedStartTime,
-								bidEscrowDetails.estimatedCompletionTime
+								bidEscrowDetails.estimatedStartTime * 1000,
+								bidEscrowDetails.estimatedCompletionTime * 1000
 							)}</span
 						>
 					</div>
