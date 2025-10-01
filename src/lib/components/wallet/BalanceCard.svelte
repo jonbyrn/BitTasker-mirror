@@ -16,6 +16,10 @@
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
 	import IconUpload from '~icons/mdi/upload';
+	import IconHelpCircle from '~icons/mdi/help-circle';
+	
+	// Import HelpModal component
+	import HelpModal from './HelpModal.svelte';
 
 	// Convert rBTC to sats using dynamic market rate or show separate balances on error
 	let totalUsdValue = $derived($totalBalances.usd);
@@ -138,6 +142,9 @@
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-6 w-6" />
 						<h4 class="font-semibold">Rootstock Bitcoin</h4>
+						<button class="btn btn-ghost btn-xs p-1" onclick={() => (document.querySelector('[data-help-modal]') as HTMLButtonElement)?.click()}>
+							<IconHelpCircle class="h-4 w-4 text-base-content/70 hover:text-base-content" />
+						</button>
 					</div>
 					<div
 						class="badge {$rskConnection.connected
@@ -204,9 +211,6 @@
 					<div class="flex items-center gap-2">
 						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid Network" class="h-6 w-6" />
 						<h4 class="font-semibold text-base-content/70">Liquid Bitcoin</h4>
-					</div>
-					<div class="badge badge-ghost badge-sm text-xs">
-						Coming Soon
 					</div>
 				</div>
 
@@ -288,9 +292,6 @@
 						<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-6 w-6" />
 						<h4 class="font-semibold text-base-content/70">Bitcoin</h4>
 					</div>
-					<div class="badge badge-ghost badge-sm text-xs">
-						Coming Soon
-					</div>
 				</div>
 
 				<div class="flex-1 flex flex-col">
@@ -322,9 +323,6 @@
 						<img src="/images/chains/Tether-USD.svg" alt="USD" class="h-6 w-6" />
 						<h4 class="font-semibold text-base-content/70">USD</h4>
 					</div>
-					<div class="badge badge-ghost badge-sm text-xs">
-						Coming Soon
-					</div>
 				</div>
 
 				<div class="flex-1 flex flex-col">
@@ -338,6 +336,13 @@
 					</div>
 				</div>
 			</div>
+		</div>
+	</div>
+
+	<!-- Learn More Section -->
+	<div class="mt-6 flex justify-center">
+		<div class="text-sm text-base-content/70">
+			<HelpModal />
 		</div>
 	</div>
 
