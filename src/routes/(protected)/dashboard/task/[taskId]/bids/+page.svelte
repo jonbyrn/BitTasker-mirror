@@ -7,9 +7,7 @@
 		getBidsForTaskOptimized,
 		clearBidCache,
 		sendBidStatusUpdate,
-
 		cachedSatsFromUsd
-
 	} from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
@@ -20,6 +18,7 @@
 	import bidService from '$lib/api/services/bid.service';
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
+	import Drawer from '$lib/components/Drawer.svelte';
 
 	// State
 	let task = $state<Task | null>(null);
@@ -205,6 +204,11 @@
 		await loadTaskDetails(page.params.taskId as string);
 		await fetchBtcPrice();
 	});
+
+	function handleCloseBid() {
+		showAcceptanceForm = false;
+		bidToAccept = null;
+	}
 </script>
 
 <div class="mx-auto max-w-7xl py-4 sm:p-0">
@@ -382,8 +386,9 @@
 										<button
 											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
 											onclick={() =>
-												goto(`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`)
-											}
+												goto(
+													`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`
+												)}
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
@@ -423,7 +428,9 @@
 													/>
 												</svg>
 											{/each}
-											<span class="text-base-content/60 ml-1 text-xs sm:text-sm">{bid.userProfile?.user?.rating || 0}</span>
+											<span class="text-base-content/60 ml-1 text-xs sm:text-sm"
+												>{bid.userProfile?.user?.rating || 0}</span
+											>
 										</div>
 									</div>
 								</div>
@@ -435,7 +442,7 @@
 									${formatNumberWithTwoDecimals(bid.amount)}
 								</div>
 								<div class="sm:text-md text-base-content/60 text-sm font-bold">
-									{cachedSatsFromUsd(bid.amount, btcPrice)} Sats	
+									{cachedSatsFromUsd(bid.amount, btcPrice)} Sats
 								</div>
 								<div class="text-base-content/50 mt-1 text-xs">
 									{bid.paymentType} • {bid.estimatedDuration}
@@ -548,8 +555,7 @@
 									<button
 										class="btn btn-primary btn-sm flex-1 py-1 sm:flex-none"
 										onclick={() => handleAcceptBid(bid)}
-										disabled={bid.status === 'REJECTED' ||
-											bids.some((b) => b.status === 'ACCEPTED')}
+										disabled={bid.status === 'REJECTED'}
 									>
 										<svg
 											xmlns="http://www.w3.org/2000/svg"
@@ -699,21 +705,16 @@
 	</div>
 {/if}
 
-{#if showAcceptanceForm && bidToAccept}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-		<div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto">
-			{#if task}
-				<BidAcceptanceForm
-					bid={bidToAccept}
-					{task}
-					{btcPrice}
-					taskTitle={task.title || ''}
-					onCancel={() => {
-						showAcceptanceForm = false;
-						bidToAccept = null;
-					}}
-				/>
-			{/if}
-		</div>
-	</div>
-{/if}
+<Drawer
+	isOpen={showAcceptanceForm}
+	title={$t('dashboard.bids.bid_acceptance.accept_bid')}
+	onClose={handleCloseBid}
+	position="right"
+	isScrollable={true}
+>
+	{#snippet children()}
+		{#if showAcceptanceForm && bidToAccept && task}
+			<BidAcceptanceForm bid={bidToAccept} {task} {btcPrice} onCancel={handleCloseBid} />
+		{/if}
+	{/snippet}
+</Drawer>
