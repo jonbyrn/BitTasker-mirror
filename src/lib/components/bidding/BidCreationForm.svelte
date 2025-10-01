@@ -332,7 +332,7 @@
 				description,
 				estimatedDuration: bidType === 'FIXED' ? formatDurationForDisplay() : estimatedDuration,
 				proposedApproach,
-				coverLetter: description,
+				coverLetter: coverLetter,
 				timestamp: Date.now(),
 				bidId: crypto.randomUUID(),
 

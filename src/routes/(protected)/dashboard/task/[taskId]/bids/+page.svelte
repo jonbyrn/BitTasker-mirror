@@ -6,10 +6,14 @@
 	import {
 		getBidsForTaskOptimized,
 		clearBidCache,
-		sendBidStatusUpdate
+		sendBidStatusUpdate,
+
+		cachedSatsFromUsd
+
 	} from '$lib/utils/nostr-bid';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
 	import nostrEventsService from '$lib/api/services/nostr/events';
@@ -318,9 +322,9 @@
 				/>
 			</svg>
 			<h3 class="mt-4 text-xl font-semibold">{$t('task.drawer.no_bids')}</h3>
-			<p class="text-base-content/60 mt-2">
+			<!-- <p class="text-base-content/60 mt-2">
 				{isOwner ? $t('task.drawer.no_bids_owner') : $t('task.drawer.no_bids_provider')}
-			</p>
+			</p> -->
 		</div>
 	{:else}
 		<div class="space-y-4">
@@ -378,10 +382,8 @@
 										<button
 											class="btn btn-ghost btn-xs text-primary hover:bg-primary/10"
 											onclick={() =>
-												window.open(
-													`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`,
-													'_blank'
-												)}
+												goto(`/dashboard/taskees/profile/${bid.userProfile?.user?.id || 'unknown'}`)
+											}
 										>
 											<svg
 												xmlns="http://www.w3.org/2000/svg"
@@ -433,7 +435,7 @@
 									${formatNumberWithTwoDecimals(bid.amount)}
 								</div>
 								<div class="sm:text-md text-base-content/60 text-sm font-bold">
-									{bid.amount}
+									{cachedSatsFromUsd(bid.amount, btcPrice)} Sats	
 								</div>
 								<div class="text-base-content/50 mt-1 text-xs">
 									{bid.paymentType} • {bid.estimatedDuration}
