@@ -219,50 +219,28 @@
 
 			// Use legacy login first to check if user exists and get isNewUser flag
 			// TODO: To be removed once all users are migrated to master key format
-			let { encrypted, salt, exportedKey, iterations } = await encryptNsec(nsec, deviceId);
+
+			const walletMnemonic = generateMnemonic();
+			let masterKeyData: MasterKeyEncryptedData = await encryptMasterKeyData(
+				nsec,
+				walletMnemonic,
+				deviceId
+			);
 
 			// Login with nostr, register user if it does not exist
 			const res = await authService.loginWithNostr({
 				event: signedEvent,
 				challenge,
-				encryptedPrivateKey: encrypted.data,
-				iv: encrypted.iv,
-				authTag: encrypted.authTag,
-				salt,
-				iterations,
 				authMethod: 'passkey',
-				deviceId
+				deviceId,
+				masterKeyData
 			});
 
 			if (res.access_token) {
 				const deviceName = await createUserDeviceShortName(npub);
-				let credentialId = '',
-					masterKeyData: MasterKeyEncryptedData | null = null;
+				let credentialId = '';
 
-				// Generate wallet mnemonic for both new and existing users
-				const walletMnemonic = generateMnemonic();
-
-				masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
-
-				if (res.isNewUser && !res.user.nostrKey?.masterKeyEncrypted) {
-					// Create master key encrypted data with correct deviceId
-
-					// Store master key data in biometrics
-					if (authMethods.biometric) {
-						credentialId = await setBiometricKey(
-							npub,
-							masterKeyData.exportedMasterKey,
-							'biometrics',
-							deviceName
-						);
-					} else {
-						credentialId = await setWebBiometricKey(
-							npub,
-							masterKeyData.exportedMasterKey,
-							deviceName
-						);
-					}
-				} else {
+				if (!res.isNewUser) {
 					if (
 						res.user.nostrKey &&
 						res.user.nostrKey?.keyDerivationMethod === 'master-key' &&
@@ -291,24 +269,24 @@
 							);
 						}
 					} else {
-						// Encrypt the private key with device ID as the password
-						({ encrypted, salt, exportedKey, iterations } = await encryptNsec(
-							nsec,
-							res.user.nostrKey?.deviceId!,
-							100000,
-							res.user.nostrKey?.salt
-						));
-
-						const deviceName = await createUserDeviceShortName(npub);
-
-						if (authMethods.biometric) {
-							credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
-						} else {
-							credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
-						}
-
 						await authService.migrateToMasterKey(npub, deviceId, masterKeyData);
 					}
+				}
+
+				// Store master key data in biometrics
+				if (authMethods.biometric) {
+					credentialId = await setBiometricKey(
+						npub,
+						masterKeyData.exportedMasterKey,
+						'biometrics',
+						deviceName
+					);
+				} else {
+					credentialId = await setWebBiometricKey(
+						npub,
+						masterKeyData.exportedMasterKey,
+						deviceName
+					);
 				}
 
 				if (!credentialId) throw new Error('Failed to set biometric key');
@@ -317,23 +295,15 @@
 
 				const biometricData = {
 					username: npub,
-					password: masterKeyData
-						? JSON.stringify({
-								key: masterKeyData.exportedMasterKey,
-								masterKeyData: masterKeyData, // Store full master key structure
-								// Legacy compatibility fields
-								data: masterKeyData.nostr.encrypted.data,
-								iv: masterKeyData.nostr.encrypted.iv,
-								authTag: masterKeyData.nostr.encrypted.authTag,
-								salt: masterKeyData.nostr.salt
-							})
-						: JSON.stringify({
-								key: exportedKey,
-								data: encrypted.data,
-								iv: encrypted.iv,
-								authTag: encrypted.authTag,
-								salt: salt
-							}),
+					password: JSON.stringify({
+						key: masterKeyData.exportedMasterKey,
+						masterKeyData: masterKeyData,
+						// Legacy compatibility fields
+						data: masterKeyData.nostr.encrypted.data,
+						iv: masterKeyData.nostr.encrypted.iv,
+						authTag: masterKeyData.nostr.encrypted.authTag,
+						salt: masterKeyData.nostr.salt
+					}),
 					server: res.user.nostrKey?.deviceId!,
 					isLegacyFormat: masterKeyData ? false : true
 				};
