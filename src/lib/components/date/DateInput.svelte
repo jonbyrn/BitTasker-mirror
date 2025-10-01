@@ -114,56 +114,76 @@
     }
   }
   
-  // Round time to the nearest step interval
-  function roundTimeToStep(timeValue: string, stepMinutes: number): string {
-    if (type === 'time') {
-      // Handle time input (HH:MM format)
-      const timeParts = timeValue.split(':');
-      if (timeParts.length !== 2) return timeValue;
-      
-      const hours = parseInt(timeParts[0], 10);
-      const minutes = parseInt(timeParts[1], 10);
-      
-      if (isNaN(hours) || isNaN(minutes)) return timeValue;
-      
-      const roundedMinutes = Math.round(minutes / stepMinutes) * stepMinutes;
-      
-      if (roundedMinutes >= 60) {
-        const newHours = (hours + 1) % 24;
-        const newMinutes = 0;
-        return `${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
-      }
-      
-      return `${hours.toString().padStart(2, '0')}:${roundedMinutes.toString().padStart(2, '0')}`;
-    } else if (type === 'datetime') {
-      // Handle datetime input (YYYY-MM-DDTHH:MM format)
-      const [datePart, timePart] = timeValue.split('T');
-      if (!timePart) return timeValue;
-      
-      const timeParts = timePart.split(':');
-      if (timeParts.length !== 2) return timeValue;
-      
-      const hours = parseInt(timeParts[0], 10);
-      const minutes = parseInt(timeParts[1], 10);
-      
-      if (isNaN(hours) || isNaN(minutes)) return timeValue;
-      
-      const roundedMinutes = Math.round(minutes / stepMinutes) * stepMinutes;
-      
-      let newHours = hours;
-      let newMinutes = roundedMinutes;
-      
-      if (roundedMinutes >= 60) {
-        newHours = (hours + 1) % 24;
-        newMinutes = 0;
-      }
-      
-      return `${datePart}T${newHours.toString().padStart(2, '0')}:${newMinutes.toString().padStart(2, '0')}`;
+ // Round time UP to the nearest step interval
+ function roundTimeToStep(timeValue: string, stepMinutes: number): string {
+  const now = new Date();
+
+  if (type === 'time') {
+    const timeParts = timeValue.split(':');
+    if (timeParts.length !== 2) return timeValue;
+
+    let hours = parseInt(timeParts[0], 10);
+    let minutes = parseInt(timeParts[1], 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return timeValue;
+
+    // Build a Date for today with user input
+    let candidate = new Date(now);
+    candidate.setHours(hours, minutes, 0, 0);
+
+    // Round UP based on user-entered minutes
+    let roundedMinutes = Math.ceil(minutes / stepMinutes) * stepMinutes;
+    if (roundedMinutes >= 60) {
+      hours = (hours + 1) % 24;
+      roundedMinutes = 0;
     }
-    
-    return timeValue;
-  }
+    candidate.setHours(hours, roundedMinutes, 0, 0);
+
+    // Ensure candidate is not before "now"
+    if (candidate < now) {
+      const nextStep = new Date(now.getTime() + stepMinutes * 60000);
+      nextStep.setMinutes(Math.ceil(nextStep.getMinutes() / stepMinutes) * stepMinutes, 0, 0);
+      candidate = nextStep;
+    }
+
+    return `${candidate.getHours().toString().padStart(2, '0')}:${candidate.getMinutes().toString().padStart(2, '0')}`;
+  } 
   
+  else if (type === 'datetime') {
+    const [datePart, timePart] = timeValue.split('T');
+    if (!timePart) return timeValue;
+
+    const timeParts = timePart.split(':');
+    if (timeParts.length !== 2) return timeValue;
+
+    let hours = parseInt(timeParts[0], 10);
+    let minutes = parseInt(timeParts[1], 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return timeValue;
+
+    let candidate = new Date(`${datePart}T${timePart}`);
+
+    // Round UP
+    let roundedMinutes = Math.ceil(minutes / stepMinutes) * stepMinutes;
+    if (roundedMinutes >= 60) {
+      hours = (hours + 1) % 24;
+      roundedMinutes = 0;
+    }
+    candidate.setHours(hours, roundedMinutes, 0, 0);
+
+    // Ensure candidate is not before "now"
+    const now = new Date();
+    if (candidate < now) {
+      const nextStep = new Date(now.getTime() + stepMinutes * 60000);
+      nextStep.setMinutes(Math.ceil(nextStep.getMinutes() / stepMinutes) * stepMinutes, 0, 0);
+      candidate = nextStep;
+    }
+
+    return `${datePart}T${candidate.getHours().toString().padStart(2, '0')}:${candidate.getMinutes().toString().padStart(2, '0')}`;
+  }
+
+  return timeValue;
+}
   // Get input type based on component type
   function getInputType() {
     switch (type) {
