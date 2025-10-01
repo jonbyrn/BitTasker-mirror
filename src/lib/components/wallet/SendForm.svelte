@@ -147,13 +147,13 @@
 		amount.trim() !== '' && 
 		parseFloat(amount) > 0 && 
 		currentAsset() && 
-		parseFloat(amount) <= currentAsset().balance
+		parseFloat(amount) <= (currentAsset()?.balance || 0)
 	);
 	
 	// Individual validation states for better UX
 	let hasValidAddress = $derived(recipientAddress.trim() !== '');
 	let hasValidAmount = $derived(amount.trim() !== '' && parseFloat(amount) > 0);
-	let hasSufficientBalance = $derived(currentAsset() && parseFloat(amount) <= currentAsset().balance);
+	let hasSufficientBalance = $derived(currentAsset() && parseFloat(amount) <= (currentAsset()?.balance || 0));
 	
 	// Validation error messages
 	let validationErrors = $derived.by(() => {
@@ -202,9 +202,9 @@
 	}
 
 	function handleMaxAmount() {
-		if (currentAsset) {
+		if (currentAsset()) {
 			// Subtract estimated fees
-			const maxAmount = Math.max(0, currentAsset.balance - (feeEstimate || 0.001));
+			const maxAmount = Math.max(0, (currentAsset()?.balance || 0) - (feeEstimate || 0.001));
 			amount = maxAmount.toString();
 		}
 	}
@@ -527,20 +527,6 @@
 		{/if}
 	</button>
 
-	<!-- Network Status Info -->
-	<div class="text-center text-sm opacity-70">
-		{#if selectedNetwork === 'lightning-bitcoin'}
-			<p>Lightning Bitcoin payments will be converted to Rootstock for our escrow system.</p>
-		{:else if selectedNetwork === 'liquid-bitcoin'}
-			<p>Liquid Bitcoin transactions on the Liquid Network.</p>
-		{:else if selectedNetwork === 'bitcoin'}
-			<p>Native Bitcoin transactions on the Bitcoin network.</p>
-		{:else if selectedNetwork === 'liquid-usdt'}
-			<p>USDT transactions on the Liquid Network.</p>
-		{:else}
-			<p>Rootstock Bitcoin transactions with smart contract compatibility.</p>
-		{/if}
-	</div>
 	{/if}
 </div>
 

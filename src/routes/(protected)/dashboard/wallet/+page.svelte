@@ -19,6 +19,7 @@
 	import SendForm from '$lib/components/wallet/SendForm.svelte';
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
+	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 
@@ -44,7 +45,10 @@
 <div class="bg-base-100 mx-auto max-w-4xl rounded-lg p-6 shadow-lg">
 	<div transition:fly={{ y: 20, duration: 300, easing: linear }}>
 		<div class="mb-6 flex items-center justify-between">
-			<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
+			<div class="flex items-center gap-4">
+				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
+				<HelpModal />
+			</div>
 			<div class="flex gap-2">
 				<!-- Breez Status Indicator -->
 				<div class="tooltip" data-tip="Breez Liquid Wallet">
