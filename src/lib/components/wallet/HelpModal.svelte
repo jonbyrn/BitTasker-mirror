@@ -2,10 +2,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	// Icon imports for unplugin-icons
-	import IconCurrencyUsd from '~icons/mdi/currency-usd';
+	import IconSwapHorizontalCircleOutline from '~icons/mdi/swap-horizontal-circle-outline';
 	import IconShieldCheck from '~icons/mdi/shield-check';
 	import IconLightningBolt from '~icons/mdi/lightning-bolt';
-	import IconClockOutline from '~icons/mdi/clock-outline';
+	import IconLockClock from '~icons/mdi/lock-clock';
+	import IconHelpCircle from '~icons/mdi/help-circle';
 
 	const dispatch = createEventDispatcher();
 
@@ -45,14 +46,12 @@
 
 <!-- Help Button -->
 <button
-	class="btn btn-ghost btn-sm gap-2"
+	class="btn btn-ghost gap-2"
 	onclick={openModal}
 	title="Learn about your Bitcoin wallet"
 	data-help-modal
 >
-	<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-	</svg>
+	<IconHelpCircle class="h-5 w-5" />
 	Learn More
 </button>
 
@@ -96,11 +95,11 @@
 				<div class="space-y-6">
 					<!-- Hero Section -->
 					<div class="text-center">
-						<div class="mb-4 flex justify-center">
-							<div class="bg-primary/10 rounded-full p-4">
-								<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-16 w-16" />
-							</div>
+					<div class="mb-4 flex justify-center">
+						<div class="bg-primary/10 rounded-full p-4 bitcoin-pulse">
+							<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-16 w-16" />
 						</div>
+					</div>
 						<h3 class="text-xl font-bold text-base-content mb-2">Your Bitcoin-Powered Wallet</h3>
 						<p class="text-base-content/70 text-lg">Send, receive, and manage Bitcoin across multiple networks with complete control of your funds.</p>
 					</div>
@@ -109,8 +108,8 @@
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<div class="card bg-base-200 h-full">
 							<div class="card-body p-4 flex flex-col h-full">
-								<div class="flex items-center gap-3 mb-3">
-									<IconCurrencyUsd class="h-6 w-6 text-primary" />
+								<div class="flex items-center gap-3 mb-3 h-12">
+									<IconSwapHorizontalCircleOutline class="h-8 w-8 text-primary" />
 									<h4 class="card-title text-base">Multi-Network Support</h4>
 								</div>
 								<div class="flex-1"></div>
@@ -120,8 +119,8 @@
 
 						<div class="card bg-base-200 h-full">
 							<div class="card-body p-4 flex flex-col h-full">
-								<div class="flex items-center gap-3 mb-3">
-									<IconShieldCheck class="h-6 w-6 text-primary" />
+								<div class="flex items-center gap-3 mb-3 h-12">
+									<IconShieldCheck class="h-8 w-8 text-primary" />
 									<h4 class="card-title text-base">Non-Custodial Security</h4>
 								</div>
 								<div class="flex-1"></div>
@@ -131,8 +130,8 @@
 
 						<div class="card bg-base-200 h-full">
 							<div class="card-body p-4 flex flex-col h-full">
-								<div class="flex items-center gap-3 mb-3">
-									<IconLightningBolt class="h-6 w-6 text-primary" />
+								<div class="flex items-center gap-3 mb-3 h-12">
+									<IconLightningBolt class="h-8 w-8 text-primary" />
 									<h4 class="card-title text-base">Lightning-Fast Payments</h4>
 								</div>
 								<div class="flex-1"></div>
@@ -142,8 +141,8 @@
 
 						<div class="card bg-base-200 h-full">
 							<div class="card-body p-4 flex flex-col h-full">
-								<div class="flex items-center gap-3 mb-3">
-									<IconClockOutline class="h-6 w-6 text-primary" />
+								<div class="flex items-center gap-3 mb-3 h-12">
+									<IconLockClock class="h-8 w-8 text-primary" />
 									<h4 class="card-title text-base">Smart Escrow</h4>
 								</div>
 								<div class="flex-1"></div>
@@ -326,3 +325,18 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.bitcoin-pulse {
+		animation: bitcoin-pulse 2s ease-in-out infinite;
+	}
+
+	@keyframes bitcoin-pulse {
+		0%, 100% {
+			transform: scale(1);
+		}
+		50% {
+			transform: scale(1.05);
+		}
+	}
+</style>
