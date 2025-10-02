@@ -3,8 +3,12 @@
 	import { publishMultipleImages, subscribeToProfileUpdates } from '$lib/nostr/profile';
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { onDestroy, onMount } from 'svelte';
-	import Uploader from '$lib/components/Uploader.svelte';
 	import uploadService from '$lib/api/services/upload.service';
+	import { 
+		compressImage, 
+		validateImageFile, 
+		type CompressionResult 
+	} from '$lib/utils/imageCompression';
 	import { t } from 'svelte-i18n';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
@@ -16,11 +20,21 @@
 	let profileDescription = $state('');
 	let website = $state('');
 	let pictures = $state<(NostrProfileImage | File)[]>([]);
+	let pendingFiles = $state<File[]>([]);
 	let isLoading = $state(false);
 	let error = $state('');
 	let imageEventId = $state<string | null>(null); // Track the current image event ID
 	let imagesToDelete = $state<string[]>([]);
 	let cleanup: (() => void) | null = null;
+
+	// File upload state
+	let isUploading = $state(false);
+	let uploadProgress = $state({ completed: 0, total: 0, currentFile: '' });
+	let isCompressing = $state(false);
+	let compressionProgress = $state({ processed: 0, total: 0, currentFile: '' });
+
+	// Combined files for display
+	let allFiles = $derived([...pictures, ...pendingFiles]);
 
 	// Subscribe to profile updates
 	onMount(async () => {
@@ -76,10 +90,171 @@
 		onComplete(isComplete);
 	});
 
+	// File handling functions
+	async function validateAndProcessFile(file: File): Promise<File | null> {
+		try {
+			// Validate file
+			const validationResult = validateImageFile(file);
+
+			if (!validationResult.isValid) {
+				error = validationResult.error || $t('common.components.media_uploader.invalid_file');
+				return null;
+			}
+
+			// Compress image if it's an image file
+			if (file.type.startsWith('image/')) {
+				const compressionResult = await compressImage(file, {
+					maxSizeMB: 2,
+					maxWidthOrHeight: 1920,
+					initialQuality: 0.8
+				});
+
+				return compressionResult.file;
+			}
+
+			return file;
+		} catch (err) {
+			console.error('File processing error:', err);
+			error = $t('common.components.media_uploader.processing_error');
+			return null;
+		}
+	}
+
+	async function handleFileChange(event: Event) {
+		const input = event.target as HTMLInputElement;
+		const selectedFiles = input.files;
+		if (!selectedFiles) return;
+
+		const totalFiles = allFiles.length;
+		if (totalFiles + selectedFiles.length > 5) {
+			error = $t('common.components.media_uploader.max_files_limit', { values: { maxFiles: 5 } });
+			return;
+		}
+
+		const selectedFilesArray = Array.from(selectedFiles);
+		const hasImages = selectedFilesArray.some(file => file.type.startsWith('image/'));
+		
+		if (hasImages) {
+			isCompressing = true;
+			compressionProgress = { processed: 0, total: selectedFilesArray.length, currentFile: '' };
+		}
+
+		const processedFiles: File[] = [];
+		let hasErrors = false;
+
+		for (let i = 0; i < selectedFilesArray.length; i++) {
+			const file = selectedFilesArray[i];
+			
+			if (hasImages) {
+				compressionProgress = { 
+					processed: i, 
+					total: selectedFilesArray.length, 
+					currentFile: file.name 
+				};
+			}
+
+			const processedFile = await validateAndProcessFile(file);
+			if (!processedFile) {
+				hasErrors = true;
+				break;
+			}
+			processedFiles.push(processedFile);
+		}
+
+		if (hasImages) {
+			isCompressing = false;
+			compressionProgress = { processed: selectedFilesArray.length, total: selectedFilesArray.length, currentFile: '' };
+		}
+
+		if (hasErrors) {
+			return;
+		}
+
+		pendingFiles = [...pendingFiles, ...processedFiles];
+		error = '';
+	}
+
+	function removeFile(index: number) {
+		const fileToRemove = allFiles[index];
+		
+		if (fileToRemove instanceof File) {
+			// Remove from pending files
+			const fileIndex = pendingFiles.indexOf(fileToRemove);
+			if (fileIndex !== -1) {
+				pendingFiles = pendingFiles.filter((_, i) => i !== fileIndex);
+			}
+		} else {
+			// Remove from existing pictures and mark for deletion
+			imagesToDelete.push(fileToRemove.key);
+			pictures = pictures.filter((_, i) => i !== index);
+		}
+	}
+
+	async function uploadPendingFiles(): Promise<NostrProfileImage[]> {
+		if (pendingFiles.length === 0) {
+			return [];
+		}
+
+		isUploading = true;
+		uploadProgress = { completed: 0, total: pendingFiles.length, currentFile: '' };
+
+		try {
+			const uploadOptions = {
+				folder: 'profile',
+				useCloudflare: true,
+				enableCompression: false,
+				generateVariants: true,
+				metadata: {
+					uploadedAt: new Date().toISOString(),
+					clientCompressed: true
+				}
+			};
+
+			const results = await uploadService.uploadMultipleFiles(
+				pendingFiles, 
+				uploadOptions,
+				(completed, total, currentFile) => {
+					uploadProgress = { completed, total, currentFile };
+				}
+			);
+
+			const uploadedImages: NostrProfileImage[] = results.map(result => ({
+				key: result.key,
+				url: result.url,
+				type: result.type === 'image' ? 'image/*' : 'image/jpeg',
+				alt: result.key,
+				size: result.size
+			}));
+
+			pictures = [...pictures, ...uploadedImages];
+			pendingFiles = [];
+
+			return uploadedImages;
+
+		} catch (err) {
+			console.error('Upload failed:', err);
+			error = $t('common.components.media_uploader.upload_failed', { values: { error: (err as Error).message } });
+			throw err;
+		} finally {
+			isUploading = false;
+			uploadProgress = { completed: 0, total: 0, currentFile: '' };
+		}
+	}
+
+	function getFilePreview(file: File | NostrProfileImage | Blob): string {
+		if (file instanceof File || file instanceof Blob) {
+			return URL.createObjectURL(file);
+		}
+		if (file && typeof file === 'object' && 'url' in file) {
+			return file.url;
+		}
+		return '';
+	}
+
 	const uploadImages = async (pictures: (NostrProfileImage | File)[]) => {
 		const uploadPromises = pictures.map(async (picture) => {
 			if (picture instanceof File) {
-				const uploadResult = await uploadService.uploadSingleFile(picture, 'profile');
+				const uploadResult = await uploadService.uploadSingleFile(picture, { folder: 'profile' });
 				return {
 					key: uploadResult.key,
 					url: uploadResult.url,
@@ -101,19 +276,18 @@
 		error = '';
 
 		try {
-			const imagesToUpload = pictures.filter((picture) => {
-				return picture instanceof File;
-			});
-			const otherImages = pictures.filter((picture) => {
+			// Upload any pending files first
+			if (pendingFiles.length > 0) {
+				await uploadPendingFiles();
+			}
+
+			// Get all existing images (no File objects should remain at this point)
+			const existingImages = pictures.filter((picture) => {
 				return !(picture instanceof File);
-			});
-
-			const uploadedPictures = await uploadImages(imagesToUpload);
-
-			const images = [...(otherImages as NostrProfileImage[]), ...uploadedPictures];
+			}) as NostrProfileImage[];
 
 			// Publish new images event, passing the existing event ID if we have one
-			await publishMultipleImages(images, imageEventId, 'profile-images');
+			await publishMultipleImages(existingImages, imageEventId, 'profile-images');
 
 			// Prepare profile data
 			const profileData: NostrProfile = {
@@ -137,25 +311,6 @@
 		}
 	}
 
-	// Handle image upload
-	async function handleImageUpload(files: (File | NostrProfileImage)[]) {
-		const newFiles = files.filter((file) => {
-			if (!pictures.includes(file)) {
-				return file instanceof File;
-			}
-			return false;
-		});
-		if (newFiles.length > 0) {
-			pictures = [...pictures, ...newFiles];
-		}
-	}
-
-	function removePicture(index: number) {
-		if (!(pictures[index] instanceof File)) {
-			imagesToDelete.push(pictures[index].key);
-		}
-		pictures = pictures.filter((_, i) => i !== index);
-	}
 </script>
 
 {#if isInitialLoading}
@@ -209,16 +364,88 @@
 				</span>
 			</div>
 
-			<!-- Upload new pictures -->
-			<div class="border-base-300 rounded-lg border p-1">
-				<Uploader
-					id="profilePictures"
-					label={$t('profile_personal.add_images')}
-					files={pictures.map((pic) => (pic instanceof File ? pic : pic.url))}
-					maxFiles={5}
-					onChange={handleImageUpload}
-					onRemove={removePicture}
-				/>
+			<!-- File Upload Grid -->
+			<div class="space-y-4">
+				<div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-6 justify-start sm:gap-36">
+					{#each allFiles as file, index}
+						<div class="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
+							<img
+								src={getFilePreview(file)}
+								alt={$t('common.components.media_uploader.preview')}
+								class="h-full w-full rounded-lg object-cover"
+							/>
+							<button
+								aria-label={$t('common.components.media_uploader.remove_file')}
+								type="button"
+								class="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-white p-1 text-black shadow-md hover:bg-gray-100"
+								onclick={() => removeFile(index)}
+							>
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+								</svg>
+							</button>
+						</div>
+					{/each}
+
+					{#if allFiles.length < 5 && !isUploading}
+						<!-- Upload Button -->
+						<div class="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32">
+							<label
+								for="file-upload-profile-pictures"
+								class="bg-base-200 flex h-full w-full cursor-pointer flex-col items-center justify-center rounded-lg border border-white/50 p-2 text-center hover:bg-base-300 transition"
+							>
+								<svg
+									class="mb-1 sm:mb-2 h-6 w-6 sm:h-8 sm:w-8"
+									aria-hidden="true"
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 20 16"
+								>
+									<path
+										stroke="currentColor"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										stroke-width="2"
+										d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+									/>
+								</svg>
+								<p class="mb-1 text-xs sm:text-sm font-semibold">{$t('profile_personal.add_images')}</p>
+								<p class="text-[8px] sm:text-xs">
+									{$t('common.components.media_uploader.images')} (Max. 2MB)
+								</p>
+								<input
+									id="file-upload-profile-pictures"
+									type="file"
+									class="hidden"
+									accept="image/*"
+									multiple
+									onchange={handleFileChange}
+								/>
+							</label>
+						</div>
+					{/if}
+				</div>
+
+				<!-- Error -->
+				{#if error}
+					<div class="text-sm text-error">{error}</div>
+				{/if}
+
+				<!-- Compression Progress -->
+				{#if isCompressing}
+					<div class="text-sm text-info">
+						{$t('common.components.media_uploader.compressing')}: {compressionProgress.currentFile}
+						({compressionProgress.processed}/{compressionProgress.total})
+					</div>
+				{/if}
+
+				<!-- Upload Progress -->
+				{#if isUploading}
+					<div class="text-sm text-info">
+						{$t('common.components.media_uploader.uploading')}: {uploadProgress.currentFile}
+						({uploadProgress.completed}/{uploadProgress.total})
+					</div>
+				{/if}
 			</div>
 		</div>
 
