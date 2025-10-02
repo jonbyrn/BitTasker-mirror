@@ -227,6 +227,11 @@
     {#if page.url.pathname !== '/'}
 	    {@html `<script type="application/ld+json">${JSON.stringify(breadcrumbList)}</script>`}
     {/if}
+    
+    <!-- Analytics tracking - only load in production -->
+    {#if import.meta.env.CF_PAGES_BRANCH === 'main' || import.meta.env.CF_PAGES_BRANCH === 'master' || import.meta.env.CF_PAGES_BRANCH === 'production'}
+        <script defer src="https://analyze.bittasker.com/script.js" data-website-id="60d3abf1-1032-4652-8b01-612280814595"></script>
+    {/if}
 </svelte:head>
 
 <svelte:window bind:innerHeight={height} />
