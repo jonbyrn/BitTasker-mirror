@@ -241,45 +241,49 @@
 
 	<!-- Attachments section -->
 	{#if $store.task.attachments && $store.task.attachments.length > 0}
-		<div class="card bg-base-200 shadow-sm">
-			<div class="card-body p-6">
-				<h4 class="mb-4 text-base font-semibold text-base-content">{$t('task.attachments_review')}</h4>
-				
-				<!-- Images using PhotoSwipe Gallery -->
-				{#if $store.task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-					<div class="mb-4">
-						{#await prepareGalleryImages($store.task.attachments) then galleryImages}
-							<Gallery
-								galleryID="task-review-images-gallery"
-								images={galleryImages}
-								thumbnailSize="h-32 w-32"
-							/>
-						{/await}
-					</div>
-				{/if}
+		<div class="mb-20 sm:mb-0">
+			<small class="text-base-content/60 mb-1 text-sm">
+				{$t('dashboard.task_details_by_task.attachments')}
+			</small>
 
-				<!-- Videos in grid layout -->
-				{#if $store.task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
-					<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-						{#each $store.task.attachments.filter((att: Attachment) => isVideoFile(att.url)) as attachment}
-							<div class="bg-base-200 overflow-hidden rounded-lg">
-								<video class="h-32 w-full object-cover" controls preload="metadata">
-									<source src={attachment.url} type="video/mp4" />
-									<track kind="captions" src="" label="English" />
-									{$t('dashboard.task_details_by_task.video_not_supported')}
-								</video>
-								<div class="p-3">
-									<p class="truncate text-sm font-medium">
-										{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
-									</p>
-									<p class="text-base-content/60 text-xs">
-										{(attachment.size / 1024 / 1024).toFixed(2)} MB
-									</p>
-								</div>
+			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+				{#each $store.task.attachments as attachment, i}
+					{#if isVideoFile(attachment.url)}
+						<!-- Video -->
+						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
+							<video class="h-32 w-full object-cover" controls preload="metadata">
+								<source src={attachment.url} type="video/mp4" />
+								<track kind="captions" src="" label="English" />
+								{$t('dashboard.task_details_by_task.video_not_supported')}
+							</video>
+							<div class="p-3">
+								<p class="truncate text-sm font-medium">
+									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+								</p>
+								<p class="text-base-content/60 text-xs">
+									{(attachment.size / 1024 / 1024).toFixed(2)} MB
+								</p>
 							</div>
-						{/each}
-					</div>
-				{/if}
+						</div>
+					{:else}
+						<!-- Image -->
+						<div class="overflow-hidden rounded-lg pb-4 bg-base-200">
+							<img
+								src={attachment.url}
+								alt={attachment?.alt || 'Attachment'}
+								class="h-32 w-full object-cover"
+							/>
+							<div class="p-3">
+								<p class="truncate text-sm font-medium">
+									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+								</p>
+								<p class="text-base-content/60 text-xs">
+									{(attachment.size / 1024 / 1024).toFixed(2)} MB
+								</p>
+							</div>
+						</div>
+					{/if}
+				{/each}
 			</div>
 		</div>
 	{/if}

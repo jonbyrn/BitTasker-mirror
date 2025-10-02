@@ -168,7 +168,10 @@
 					{$t('dashboard.task_details_by_task.date_range')}
 				</small>
 				<p class="font-semibold">
-					{formatStandardDateShort(new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(new Date(task.dateRange.end), $locale || 'en')}
+					{formatStandardDateShort(new Date(task.dateRange.start), $locale || 'en')} - {formatStandardDateShort(
+						new Date(task.dateRange.end),
+						$locale || 'en'
+					)}
 				</p>
 			</div>
 		{/if}
@@ -293,24 +296,11 @@
 				{$t('dashboard.task_details_by_task.attachments')}
 			</small>
 
-			<!-- Images using PhotoSwipe Gallery -->
-			{#if task.attachments.filter((att: Attachment) => !isVideoFile(att.url)).length > 0}
-				<div class="mb-4">
-					{#await prepareGalleryImages(task.attachments) then galleryImages}
-						<Gallery
-							galleryID="task-tab-images-gallery"
-							images={galleryImages}
-							thumbnailSize="h-32 w-32"
-						/>
-					{/await}
-				</div>
-			{/if}
-
-			<!-- Videos in grid layout -->
-			{#if task.attachments.filter((att: Attachment) => isVideoFile(att.url)).length > 0}
-				<div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-					{#each task.attachments.filter( (att: Attachment) => isVideoFile(att.url) ) as attachment, i}
-						<div class="bg-base-200 overflow-hidden rounded-lg">
+			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+				{#each task.attachments as attachment, i}
+					{#if isVideoFile(attachment.url)}
+						<!-- Video -->
+						<div class="bg-base-200 overflow-hidden rounded-lg pb-4">
 							<video class="h-32 w-full object-cover" controls preload="metadata">
 								<source src={attachment.url} type="video/mp4" />
 								<track kind="captions" src="" label="English" />
@@ -325,13 +315,30 @@
 								</p>
 							</div>
 						</div>
-					{/each}
-				</div>
-			{/if}
+					{:else}
+						<!-- Image -->
+						<div class="overflow-hidden rounded-lg pb-4 bg-base-200">
+							<img
+								src={attachment.url}
+								alt={attachment?.alt || 'Attachment'}
+								class="h-32 w-full object-cover"
+							/>
+							<div class="p-3">
+								<p class="truncate text-sm font-medium">
+									{attachment?.alt || $t('dashboard.task_details_by_task.attachment')}
+								</p>
+								<p class="text-base-content/60 text-xs">
+									{(attachment.size / 1024 / 1024).toFixed(2)} MB
+								</p>
+							</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
 		</div>
 	{/if}
 
-	<div class="mb-20 md:mb-5 flex justify-end gap-2">
+	<div class="mb-20 flex justify-end gap-2 md:mb-5">
 		{#if isOwner && task.status === TaskStatusEnum.OPEN}
 			<button class="btn btn-primary btn-sm" onclick={handleEditTask}>
 				<svg
