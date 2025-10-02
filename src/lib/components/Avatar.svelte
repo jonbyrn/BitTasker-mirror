@@ -32,7 +32,7 @@
 
 	// Reactive derived values that update when stores change
 	let userName = $derived(props.name || $profileStore.data?.name || $user.name || '');
-	let userPicture = $derived(props.picture || $user.picture || $profileStore.data?.picture || null);
+	let userPicture = $derived(props.picture || null);
 
 	// Update userData when derived values change
 	$effect(() => {
@@ -42,28 +42,13 @@
 		};
 	});
 
-	// Lazy load user data only when component mounts (user is authenticated)
-	onMount(async () => {
-		try {
-			// Only load user data if we're authenticated
-			const { authState } = await import('$lib/stores/auth.store');
-			const authStateValue = get(authState);
-			if (authStateValue.isAuthenticated) {
-				// Lazy load user store only when needed
-				const { user } = await import('$lib/stores/user.store');
-				const userValue = get(user);
-				
-				// Update userData with user store values
-				userData = {
-					name: userValue?.name || userName,
-					picture: userValue?.picture || userPicture
-				};
-			}
-		} catch (error) {
-			console.error('Failed to load user data:', error);
-		} finally {
-			isLoading = false;
-		}
+	// Initialize userData immediately with props
+	onMount(() => {
+		userData = {
+			name: userName,
+			picture: userPicture
+		};
+		isLoading = false;
 	});
 
 	// Get user initials for badge
