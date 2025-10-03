@@ -4,21 +4,25 @@
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { locale, t } from 'svelte-i18n';
-	import IconCheck from '~icons/mdi/check-circle-outline';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { getAllKeys } from '$lib/utils/nostrKeys';
+	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
+	import { nip19 } from 'nostr-tools';
+	import IconCheck from '~icons/mdi/check-circle-outline';
+	import type { AccountRecoveryData } from '$lib/types/auth';
+	import authService from '$lib/api/services/auth.service';
+	import { appStore } from '$lib/stores/app.store';
 
 	let {
 		nextStep,
 		prevStep,
 		currentStep,
-		totalSteps,
-		onRecoveryChange
+		totalSteps
 	}: {
 		nextStep: () => void;
 		prevStep: () => void;
 		currentStep: number;
 		totalSteps: number;
-		onRecoveryChange: (email: string, password: string, enabled: boolean) => void;
 	} = $props();
 
 	// User data
@@ -70,46 +74,95 @@
 		}
 	});
 
-	function handleSubmit(event: SubmitEvent) {
+	async function handleSubmit(event: SubmitEvent) {
 		event.preventDefault();
 		emailError = '';
 		passwordError = '';
 
+		if (!enableRecovery) {
+			nextStep();
+			return;
+		}
+
 		// Validate recovery fields if enabled
-		if (enableRecovery) {
-			if (!recoveryEmail) {
-				emailError = $t('onboarding_auth.form.recovery_setup.errors.email_required');
-				return;
-			}
-
-			const emailValidation = validateEmail(recoveryEmail);
-			if (!emailValidation.isValid) {
-				emailError = emailValidation.error!;
-				return;
-			}
-
-			if (!recoveryPassword) {
-				passwordError = $t('onboarding_auth.form.recovery_setup.errors.password_required');
-				return;
-			}
-
-			if (recoveryPassword !== confirmPassword) {
-				passwordError = $t('onboarding_auth.form.recovery_setup.errors.passwords_mismatch');
-				return;
-			}
-
-			const passwordValidation = validatePassword(recoveryPassword);
-			if (!passwordValidation.isValid) {
-				passwordError = passwordValidation.error!;
-				return;
-			}
+		if (!recoveryEmail) {
+			emailError = $t('onboarding_auth.form.recovery_setup.errors.email_required');
+			return;
 		}
 
-		// Update parent only when recovery is enabled
-		if (enableRecovery) {
-			onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
+		const emailValidation = validateEmail(recoveryEmail);
+		if (!emailValidation.isValid) {
+			emailError = emailValidation.error!;
+			return;
 		}
-		nextStep();
+
+		if (!recoveryPassword) {
+			passwordError = $t('onboarding_auth.form.recovery_setup.errors.password_required');
+			return;
+		}
+
+		if (recoveryPassword !== confirmPassword) {
+			passwordError = $t('onboarding_auth.form.recovery_setup.errors.passwords_mismatch');
+			return;
+		}
+
+		const passwordValidation = validatePassword(recoveryPassword);
+		if (!passwordValidation.isValid) {
+			passwordError = passwordValidation.error!;
+			return;
+		}
+
+		try {
+			const allKeys = await getAllKeys();
+			let nsec = '';
+
+			// Convert the private key (Uint8Array) to nsec format
+			if (allKeys.nsec && allKeys.nsec instanceof Uint8Array) {
+				try {
+					nsec = nip19.nsecEncode(allKeys.nsec);
+				} catch (err) {
+					console.error('Error encoding nsec:', err);
+					throw new Error($t('onboarding_auth.form.recovery_setup.errors.encoding_nsec'));
+				}
+			} else {
+				nsec = $t('onboarding_auth.form.recovery_setup.errors.invalid_private_key');
+			}
+
+			const recoveryData = await encryptMasterKeyData(nsec, allKeys.mnemonic, recoveryPassword);
+
+			const data: AccountRecoveryData = {
+				publicKey: allKeys.npub,
+				recoveryData: {
+					nostr: recoveryData.nostr,
+					wallet: recoveryData.wallet,
+					masterSalt: recoveryData.masterSalt
+				},
+				email: recoveryEmail
+			};
+
+			await authService.setupAccountRecoveryPassword(data).catch((err) => {
+				console.error('Failed to setup account recovery:', err);
+				throw new Error(
+					err instanceof Error
+						? err.message
+						: $t('onboarding_auth.form.recovery_setup.errors.setup_failed')
+				);
+			});
+		} catch (err) {
+			console.error('Failed to setup account recovery:', err);
+			appStore.showErrorToast(
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.recovery_setup.errors.setup_failed')
+			);
+			throw new Error(
+				err instanceof Error
+					? err.message
+					: $t('onboarding_auth.form.recovery_setup.errors.setup_failed')
+			);
+		} finally {
+			nextStep();
+		}
 	}
 
 	// Update parent when recovery state changes, and clear fields when disabling
@@ -118,7 +171,6 @@
 		if (!enableRecovery) {
 			// If transitioning from enabled -> disabled, emit one update with cleared values
 			if (lastRecovery.enabled !== false) {
-				onRecoveryChange('', '', false);
 				lastRecovery = { email: '', password: '', enabled: false };
 			}
 
@@ -157,7 +209,6 @@
 				enableRecovery !== lastRecovery.enabled;
 
 			if (changed) {
-				onRecoveryChange(recoveryEmail, recoveryPassword, enableRecovery);
 				lastRecovery = {
 					email: recoveryEmail,
 					password: recoveryPassword,
@@ -180,7 +231,10 @@
 		<!-- Educational Header -->
 		<div class="education-header mb-6 text-center">
 			<div class="step-indicator text-primary mb-2 text-end text-sm font-medium">
-				{$t('onboarding_auth.form.recovery_setup.step')} {currentStep + 1} {$t('onboarding_auth.form.recovery_setup.of')} {totalSteps} — {$t('onboarding_auth.form.recovery_setup.optional')}
+				{$t('onboarding_auth.form.recovery_setup.step')}
+				{currentStep + 1}
+				{$t('onboarding_auth.form.recovery_setup.of')}
+				{totalSteps} — {$t('onboarding_auth.form.recovery_setup.optional')}
 			</div>
 			<h3 class="step-title mt-4 mb-3">{$t('onboarding_auth.form.recovery_setup.title')}</h3>
 			<h5 class="mb-3">{$t('onboarding_auth.form.recovery_setup.subtitle')}</h5>
@@ -202,12 +256,14 @@
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span>{@html $t('onboarding_auth.form.recovery_setup.features.optional')}</span>
 				</div>
-				<div class="feature-item flex items-center justify-start gap-2 text-lg mb-6">
+				<div class="feature-item mb-6 flex items-center justify-start gap-2 text-lg">
 					<IconCheck class="text-primary min-w-[1.5em]" />
 					<span>{@html $t('onboarding_auth.form.recovery_setup.features.private')}</span>
 				</div>
 
-				<p class="text-primary mb-6 text-lg text-center">{$t('onboarding_auth.form.recovery_setup.highly_recommended')}</p>
+				<p class="text-primary mb-6 text-center text-lg">
+					{$t('onboarding_auth.form.recovery_setup.highly_recommended')}
+				</p>
 			</div>
 		</div>
 
@@ -216,7 +272,9 @@
 			<div class="form-control mx-auto max-w-lg">
 				<label class="label flex cursor-pointer items-center justify-start gap-2">
 					<input type="checkbox" bind:checked={enableRecovery} class="checkbox checkbox-sm" />
-					<span class="label-text">{$t('onboarding_auth.form.recovery_setup.create_recovery_password')}</span>
+					<span class="label-text"
+						>{$t('onboarding_auth.form.recovery_setup.create_recovery_password')}</span
+					>
 				</label>
 			</div>
 
@@ -226,7 +284,9 @@
 					<div class="form-control mx-auto max-w-lg">
 						<label class="label" for="email">
 							<div class="flex items-center gap-2">
-								<span class="label-text">{$t('onboarding_auth.form.recovery_setup.recovery_email')}</span>
+								<span class="label-text"
+									>{$t('onboarding_auth.form.recovery_setup.recovery_email')}</span
+								>
 							</div>
 						</label>
 						<input
@@ -248,7 +308,9 @@
 					<!-- Recovery Password Field -->
 					<div class="form-control mx-auto max-w-lg">
 						<label aria-label="Recovery Password" class="label" for="password">
-							<span class="label-text">{$t('onboarding_auth.form.recovery_setup.recovery_password')}</span>
+							<span class="label-text"
+								>{$t('onboarding_auth.form.recovery_setup.recovery_password')}</span
+							>
 						</label>
 
 						<!-- Password Input with Eye Icon and Generate Button in same row -->
@@ -267,8 +329,12 @@
 									type="button"
 									class="text-base-content/70 hover:text-base-content absolute inset-y-0 right-0 flex items-center pr-3"
 									onclick={() => (showPassword = !showPassword)}
-									title={showPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
-									aria-label={showPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
+									title={showPassword
+										? $t('onboarding_auth.form.recovery_setup.hide_password')
+										: $t('onboarding_auth.form.recovery_setup.show_password')}
+									aria-label={showPassword
+										? $t('onboarding_auth.form.recovery_setup.hide_password')
+										: $t('onboarding_auth.form.recovery_setup.show_password')}
 								>
 									{#if showPassword}
 										<svg
@@ -315,8 +381,12 @@
 								type="button"
 								class="btn btn-outline btn-sm"
 								onclick={handleGeneratePassword}
-								title={$t('onboarding_auth.form.recovery_setup.generate_password', { locale: $locale === 'es' ? 'Spanish' : 'English' })}
-								aria-label={$t('onboarding_auth.form.recovery_setup.generate_password', { locale: $locale === 'es' ? 'Spanish' : 'English' })}
+								title={$t('onboarding_auth.form.recovery_setup.generate_password', {
+									locale: $locale === 'es' ? 'Spanish' : 'English'
+								})}
+								aria-label={$t('onboarding_auth.form.recovery_setup.generate_password', {
+									locale: $locale === 'es' ? 'Spanish' : 'English'
+								})}
 							>
 								<svg
 									xmlns="http://www.w3.org/2000/svg"
@@ -339,7 +409,9 @@
 					<!-- Confirm Password Field -->
 					<div class="form-control mx-auto max-w-lg">
 						<label class="label" for="confirmPassword">
-							<span class="label-text">{$t('onboarding_auth.form.recovery_setup.confirm_recovery_password')}</span>
+							<span class="label-text"
+								>{$t('onboarding_auth.form.recovery_setup.confirm_recovery_password')}</span
+							>
 						</label>
 
 						<!-- Confirm Password Input with Eye Icon and Copy Button in same row -->
@@ -350,7 +422,9 @@
 									id="confirmPassword"
 									bind:value={confirmPassword}
 									class="input input-bordered w-full pr-12 {passwordError ? 'input-error' : ''}"
-									placeholder={$t('onboarding_auth.form.recovery_setup.confirm_password_placeholder')}
+									placeholder={$t(
+										'onboarding_auth.form.recovery_setup.confirm_password_placeholder'
+									)}
 									required={enableRecovery}
 								/>
 								<!-- Eye Icon -->
@@ -358,8 +432,12 @@
 									type="button"
 									class="text-base-content/70 hover:text-base-content absolute inset-y-0 right-0 flex items-center pr-3"
 									onclick={() => (showConfirmPassword = !showConfirmPassword)}
-									title={showConfirmPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
-									aria-label={showConfirmPassword ? $t('onboarding_auth.form.recovery_setup.hide_password') : $t('onboarding_auth.form.recovery_setup.show_password')}
+									title={showConfirmPassword
+										? $t('onboarding_auth.form.recovery_setup.hide_password')
+										: $t('onboarding_auth.form.recovery_setup.show_password')}
+									aria-label={showConfirmPassword
+										? $t('onboarding_auth.form.recovery_setup.hide_password')
+										: $t('onboarding_auth.form.recovery_setup.show_password')}
 								>
 									{#if showConfirmPassword}
 										<svg
@@ -455,8 +533,12 @@
 
 			<!-- Form Actions -->
 			<div class="mt-8 flex justify-between">
-				<button type="button" class="btn btn-outline" onclick={prevStep}>{$t('onboarding_auth.form.recovery_setup.back')}</button>
-				<button type="submit" class="btn btn-primary">{$t('onboarding_auth.form.recovery_setup.next')}</button>
+				<button type="button" class="btn btn-outline" onclick={prevStep}
+					>{$t('onboarding_auth.form.recovery_setup.back')}</button
+				>
+				<button type="submit" class="btn btn-primary"
+					>{$t('onboarding_auth.form.recovery_setup.next')}</button
+				>
 			</div>
 		</form>
 	</div>

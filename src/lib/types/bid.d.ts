@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Freelancer } from './freelancer';
 import type { Event as NostrEvent } from 'nostr-tools';
+import type { Location } from './task';
 
 // Legacy bid types
 export type PaymentType = 'FIXED' | 'HOURLY';
@@ -86,8 +86,8 @@ export interface UserProfileOutput {
 }
 
 export interface TaskBid extends Bid {
-	dropOffLocation: any;
-	pickupLocation: any;
+	dropOffLocation: Location;
+	pickupLocation: Location;
 	freelancerId: number;
 	bidderWalletAddress: string;
 	clientViewed: boolean;

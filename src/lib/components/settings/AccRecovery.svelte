@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { encryptRecoveryNsec } from '$lib/utils/helpers/auth';
+	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
 	import { nip19 } from 'nostr-tools';
 	import authService from '$lib/api/services/auth.service';
@@ -9,10 +9,12 @@
 	let {
 		nsec,
 		npub,
+		mnemonic,
 		authMethod
 	}: {
 		nsec: string;
 		npub: string;
+		mnemonic: string;
 		authMethod: string;
 	} = $props();
 
@@ -91,15 +93,23 @@
 				throw new Error($t('settings.error.invalidNostrKeys'));
 			}
 
+			if (!mnemonic) {
+				throw new Error($t('settings.error.noMnemonic'));
+			}
+
 			// Extract hex format from npub for API (remove npub prefix and decode)
 			const { data: publicKeyHex } = nip19.decode(npub);
 
 			// Encrypt the nsec with the recovery password
-			const { encrypted } = await encryptRecoveryNsec(nsec, recoveryPassword);
+			const recoveryData = await encryptMasterKeyData(nsec, mnemonic, recoveryPassword);
 
 			const data = {
 				publicKey: publicKeyHex as string,
-				recoveryPrivateKey: encrypted,
+				recoveryData: {
+					nostr: recoveryData.nostr,
+					wallet: recoveryData.wallet,
+					masterSalt: recoveryData.masterSalt
+				},
 				email: recoveryEmail
 			};
 

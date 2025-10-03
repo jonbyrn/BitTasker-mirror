@@ -1,11 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-	encryptNsec,
 	decryptNsecWithBiometrics,
-	decryptNsecWithPassword,
 	signLoginChallenge,
 	encryptMasterKeyData,
-	decryptNostrFromMasterKey,
+	decryptNsecFromMasterKey,
 	decryptWalletFromMasterKey,
 	isMasterKeyEncryptedData
 } from '$lib/utils/helpers/auth';
@@ -28,19 +26,6 @@ describe('Nostr Key Encryption', () => {
 		key: 'mockKeyData',
 		salt: 'mockSaltData'
 	};
-
-	it('should encrypt Nostr private key with password', async () => {
-		const result = await encryptNsec(mockNostrPrivateKey, mockRecoveryPassword);
-
-		expect(result).toHaveProperty('encrypted');
-		expect(result).toHaveProperty('salt');
-		expect(result).toHaveProperty('exportedKey');
-		expect(result).toHaveProperty('iterations');
-		expect(result.encrypted).toHaveProperty('data');
-		expect(result.encrypted).toHaveProperty('iv');
-		expect(result.encrypted).toHaveProperty('authTag');
-		expect(typeof result.salt).toBe('string');
-	});
 
 	it('should decrypt private key with biometrics', async () => {
 		// Mock implementation for decryptNsecWithBiometrics
@@ -74,43 +59,6 @@ describe('Nostr Key Encryption', () => {
 		importKeySpy.mockRestore();
 	});
 
-	it('should decrypt private key with password', async () => {
-		const mockEncryptParams = {
-			encryptedPrivateKey: 'mockEncryptedData',
-			iv: 'mockIvData',
-			authTag: 'mockAuthTagData',
-			password: mockRecoveryPassword,
-			salt: 'mockSaltData',
-			iterations: 100000
-		};
-
-		// Mock the dependency functions
-		const deriveKeySpy = vi
-			.spyOn(await import('$lib/utils/helpers/crypto'), 'deriveKeyFromPassword')
-			.mockResolvedValue({} as CryptoKey);
-
-		const decryptSpy = vi
-			.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt')
-			.mockResolvedValue(mockNostrPrivateKey);
-
-		const decryptedKey = await decryptNsecWithPassword(mockEncryptParams);
-
-		expect(decryptedKey).toBe(mockNostrPrivateKey);
-		expect(deriveKeySpy).toHaveBeenCalled();
-		expect(decryptSpy).toHaveBeenCalledWith(
-			expect.objectContaining({
-				data: mockEncryptParams.encryptedPrivateKey,
-				iv: mockEncryptParams.iv,
-				authTag: mockEncryptParams.authTag
-			}),
-			expect.anything()
-		);
-
-		// Restore original implementations
-		deriveKeySpy.mockRestore();
-		decryptSpy.mockRestore();
-	});
-
 	it('should sign a login challenge with a private key', async () => {
 		const challenge = {
 			challenge: 'abcdef1234567890',
@@ -121,30 +69,6 @@ describe('Nostr Key Encryption', () => {
 
 		expect(typeof signature).toBe('string');
 		expect(signature.length).toBeGreaterThan(0);
-	});
-
-	it('should fail to decrypt with wrong password', async () => {
-		const mockEncryptParams = {
-			encryptedPrivateKey: 'mockEncryptedData',
-			iv: 'mockIvData',
-			authTag: 'mockAuthTagData',
-			password: 'wrongPassword',
-			salt: 'mockSaltData',
-			iterations: 100000
-		};
-
-		// Mock to throw an error on decrypt
-		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'deriveKeyFromPassword').mockResolvedValue(
-			{} as CryptoKey
-		);
-
-		vi.spyOn(await import('$lib/utils/helpers/crypto'), 'decrypt').mockRejectedValue(
-			new Error('Decryption failed')
-		);
-
-		await expect(decryptNsecWithPassword(mockEncryptParams)).rejects.toThrow(
-			'Failed to decrypt with password'
-		);
 	});
 });
 
@@ -176,7 +100,7 @@ describe('Master Key System', () => {
 	it('should decrypt nsec from master key data', async () => {
 		const masterKeyData = await encryptMasterKeyData(mockNostrPrivateKey, mockWalletMnemonic, mockDeviceId);
 		
-		const decryptedNsec = await decryptNostrFromMasterKey(masterKeyData, masterKeyData.exportedMasterKey);
+		const decryptedNsec = await decryptNsecFromMasterKey(masterKeyData, masterKeyData.exportedMasterKey);
 		
 		expect(decryptedNsec).toBe(mockNostrPrivateKey);
 	});

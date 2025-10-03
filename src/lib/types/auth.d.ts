@@ -211,28 +211,22 @@ export interface AuthState {
 
 export interface AccountRecoveryData {
 	publicKey: string;
-	recoveryPrivateKey: string;
+	recoveryData: Partial<MasterKeyEncryptedData>;
 	email?: string;
 }
 
 export interface NostrRecoveryCompleteData {
 	publicKey: string;
 	otp: string;
-	encryptedPrivateKey: string;
-	iv: string;
-	salt: string;
-	authTag: string;
-	iterations: number;
+	recoveryData: Partial<MasterKeyEncryptedData>;
+	encryptedMasterKeyData: MasterKeyEncryptedData;
 	deviceId: string;
-	recoveryPrivateKey: string;
 }
 
 export interface NostrRecoveryData {
-	recoveryPrivateKey: string;
-	iv: string;
-	salt: string;
-	authTag: string;
-	iterations: number;
+	nostr: ContextEncryption;
+	wallet: ContextEncryption;
+	masterSalt: string;
 }
 
 

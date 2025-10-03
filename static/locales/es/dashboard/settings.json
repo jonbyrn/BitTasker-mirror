@@ -65,8 +65,9 @@
         "invalidPublicKey": "Formato de clave pública inválido de Alby.",
         "invalidKeyFormat": "Formato de clave pública inválido",
         "encodingNsec": "Error al formatear la clave privada",
-        "invalidPrivateKey": "Datos de clave privada inválidos",
+        "invalidPrivateKey": "Formato de clave privada inválido",
         "invalidNostrKeys": "Claves Nostr inválidas. Por favor actualiza e intenta de nuevo.",
+        "noMnemonic": "No se encontró la frase mnemónica. Por favor actualiza e intenta de nuevo.",
         "recoverySetup": "Error al configurar la recuperación de cuenta. Por favor intenta de nuevo."
       },
       "validation": {

@@ -36,9 +36,7 @@
 	}
 </script>
 
-<div
-	class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4"
->
+<div class="bg-base-200 flex flex-grow flex-col items-center justify-center gap-4 px-4">
 	<div class="card bg-base-100 w-full max-w-md shadow-xl">
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_send.title')}</h2>
@@ -69,24 +67,26 @@
 
 			{#if success}
 				<div class="alert alert-success alert-outline mb-4">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						class="h-6 w-6 shrink-0 stroke-current"
-						><path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						></path></svg
-					>
-					<div>
-						<h3 class="font-bold">{$t('recovery_send.success_title')}</h3>
+					<div class="space-y-4">
+						<div class="flex justify-start items-center gap-2">
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								class="h-6 w-6 shrink-0 stroke-current"
+								><path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+								></path></svg
+							>
+							<h4 class="font-bold">{$t('recovery_send.success_title')}</h4>
+						</div>
 						<p class="text-sm">
 							{@html $t('recovery_send.success_message', { values: { email } })}
 						</p>
-						<div class="mt-3 text-xs text-base-content/70">
+						<div class="text-base-content/70 mt-3 text-xs">
 							<p>{$t('recovery_send.success_tips.check_spam')}</p>
 							<p>{$t('recovery_send.success_tips.expires')}</p>
 							<p>{$t('recovery_send.success_tips.redirect')}</p>
