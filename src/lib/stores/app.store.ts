@@ -26,7 +26,7 @@ const createAppStore = () => {
 
 	let toastId = 0;
 
-	const addToast = (toast: Omit<Toast, 'id'>) => {
+	const addToast = (toast: Omit<Toast, 'id'>, timeout: number) => {
 		const id = toastId++;
 		update((state) => ({
 			...state,
@@ -39,21 +39,21 @@ const createAppStore = () => {
 				...state,
 				toasts: state.toasts.filter((t) => t.id !== id)
 			}));
-		}, 3000);
+		}, timeout);
 	};
 
 	return {
 		subscribe,
 		set,
 		update,
-		showSuccessToast: (message: string) => {
-			addToast({ type: 'success', message });
+		showSuccessToast: (message: string, timeout: number = 3000) => {
+			addToast({ type: 'success', message }, timeout);
 		},
-		showErrorToast: (message: string) => {
-			addToast({ type: 'error', message });
+		showErrorToast: (message: string, timeout: number = 3000) => {
+			addToast({ type: 'error', message }, timeout);
 		},
-		showInfoToast: (message: string) => {
-			addToast({ type: 'info', message });
+		showInfoToast: (message: string, timeout: number = 3000) => {
+			addToast({ type: 'info', message }, timeout);
 		}
 	};
 };

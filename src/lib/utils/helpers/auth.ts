@@ -1,4 +1,4 @@
-import type { EncryptedData, MasterKeyEncryptedData } from '$lib/types/auth';
+import type { MasterKeyEncryptedData, ContextEncryption } from '$lib/types/auth';
 import { schnorr } from '@noble/curves/secp256k1';
 import { utf8ToBytes, randomBytes } from '@noble/hashes/utils';
 import { base64ToBytes, bytesToBase64 } from '$lib/utils/helpers/encoding';
@@ -12,32 +12,11 @@ import {
 } from '$lib/utils/helpers/crypto';
 import { DERIVATION_CONTEXTS } from '$lib/utils/consts';
 
-export async function encryptNsec(
-	nsec: string,
-	password: string,
-	iterations: number = 100000,
-	_salt?: string
-): Promise<{ encrypted: EncryptedData; salt: string; exportedKey: string; iterations: number }> {
-	// Generate a random salt for recovery password
-	const salt = _salt ? base64ToBytes(_salt) : randomBytes(16);
-
-	// Derive key from recovery password
-	const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
-
-	// Encrypt with recovery password key
-	const encrypted = await encrypt(nsec, derivedKey);
-
-	// Export the derived key
-	const exportedKey = await exportKey(derivedKey);
-
-	return {
-		encrypted,
-		salt: bytesToBase64(salt),
-		exportedKey,
-		iterations
-	};
-}
-
+/**
+ * Decrypt Nostr private key from biometric data
+ * @param encryptedData Encrypted data string from biometrics
+ * @returns Promise<string> Decrypted Nostr private key
+ */
 export async function decryptNsecWithBiometrics(encryptedData: string): Promise<string> {
 	try {
 		// Parse the stored encryption data
@@ -77,7 +56,7 @@ export async function decryptNsecWithBiometrics(encryptedData: string): Promise<
 
 /**
  * Decrypt wallet mnemonic from biometric data
- * @param encryptedData Encrypted data from biometrics
+ * @param encryptedData Encrypted data string from biometrics
  * @returns Promise<string> Decrypted wallet mnemonic
  */
 export async function decryptWalletMnemonicWithBiometrics(encryptedData: string): Promise<string> {
@@ -104,116 +83,12 @@ export async function decryptWalletMnemonicWithBiometrics(encryptedData: string)
 	}
 }
 
-export async function decryptNsecWithPassword({
-	encryptedPrivateKey,
-	iv,
-	authTag,
-	password,
-	salt,
-	iterations
-}: {
-	encryptedPrivateKey: string;
-	iv: string;
-	authTag: string;
-	password: string;
-	salt: string;
-	iterations: number;
-}): Promise<string> {
-	try {
-		// Derive encryption key from password
-		const saltBytes = base64ToBytes(salt);
-		const encryptionKey = await deriveKeyFromPassword(password, saltBytes, iterations);
-
-		// Decrypt private key using AES-GCM
-		return await decrypt(
-			{
-				data: encryptedPrivateKey,
-				iv,
-				authTag
-			},
-			encryptionKey
-		);
-	} catch (err) {
-		throw new Error(
-			'Failed to decrypt with password: ' + (err instanceof Error ? err.message : 'Unknown error')
-		);
-	}
-}
-
-export async function encryptRecoveryNsec(
-	nsec: string,
-	password: string,
-	iterations: number = 100000,
-	_salt?: string
-): Promise<{ encrypted: string; exportedKey: string }> {
-	// Generate a random salt for recovery password
-	const salt = _salt ? base64ToBytes(_salt) : randomBytes(16);
-
-	// Derive key from recovery password
-	const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
-
-	// Encrypt with recovery password key
-	const encryptedData = await encrypt(nsec, derivedKey);
-
-	// Export the derived key
-	const exportedKey = await exportKey(derivedKey);
-
-	// Format: salt:iterations:iv:authTag:ciphertext (all base64 encoded except iterations)
-	const encryptedString = [
-		bytesToBase64(salt),
-		iterations.toString(),
-		encryptedData.iv,
-		encryptedData.authTag,
-		encryptedData.data
-	].join(':');
-
-	return {
-		encrypted: encryptedString,
-		exportedKey
-	};
-}
-
-export async function decryptRecoveryNsec(
-	encryptedString: string,
-	password: string
-): Promise<string> {
-	try {
-		// Parse the encrypted string format: salt:iterations:iv:authTag:ciphertext
-		const parts = encryptedString.split(':');
-		if (parts.length !== 5) {
-			throw new Error('Invalid encrypted string format');
-		}
-
-		const [saltB64, iterationsStr, iv, authTag, data] = parts;
-
-		// Convert back to proper types
-		const salt = base64ToBytes(saltB64);
-		const iterations = parseInt(iterationsStr);
-
-		// Validate iterations
-		if (isNaN(iterations) || iterations <= 0) {
-			throw new Error('Invalid iterations value');
-		}
-
-		// Derive the same key from password
-		const derivedKey = await deriveKeyFromPassword(password, salt, iterations);
-
-		// Reconstruct the EncryptedData object
-		const encryptedData = {
-			data,
-			iv,
-			authTag
-		};
-
-		// Decrypt the nsec
-		const decryptedNsec = await decrypt(encryptedData, derivedKey);
-
-		return decryptedNsec;
-	} catch (error) {
-		throw new Error(`Failed to decrypt recovery nsec: ${error instanceof Error ? error.message : 'Unknown error'}`);
-	}
-}
-
+/**
+ * Sign login challenge with Nostr private key
+ * @param challenge Login challenge
+ * @param privateKey Nostr private key
+ * @returns Promise<string> Signed challenge
+ */
 export async function signLoginChallenge(challenge: string, privateKey: string): Promise<string> {
 	// Convert hex private key to Uint8Array
 	const privateKeyBytes = new Uint8Array(
@@ -297,7 +172,7 @@ export async function encryptMasterKeyData(
  * @param exportedMasterKey Exported master key from passkey
  * @returns Promise<string> Decrypted Nostr nsec
  */
-export async function decryptNostrFromMasterKey(
+export async function decryptNsecFromMasterKey(
 	masterKeyData: MasterKeyEncryptedData,
 	exportedMasterKey: string
 ): Promise<string> {
@@ -360,7 +235,7 @@ export async function decryptMasterKeyDataFromBiometrics(
 
 		// Decrypt both in parallel for efficiency
 		const [nsec, mnemonic] = await Promise.all([
-			decryptNostrFromMasterKey(masterKeyData, exportedMasterKey),
+			decryptNsecFromMasterKey(masterKeyData, exportedMasterKey),
 			decryptWalletFromMasterKey(masterKeyData, exportedMasterKey)
 		]);
 
@@ -391,6 +266,50 @@ export function isMasterKeyEncryptedData(encryptedData: any): encryptedData is M
 		);
 	} catch {
 		return false;
+	}
+}
+
+/**
+ * Decrypt both Nostr nsec and wallet mnemonic from master key data using password
+ * @param recoveryData Recovery data containing nostr and wallet encrypted contexts plus master salt
+ * @param password Recovery password
+ * @returns Promise<{nsec: string, mnemonic: string}> Both decrypted values
+ */
+export async function decryptMasterKeyWithPassword(
+	recoveryData: { nostr: ContextEncryption; wallet: ContextEncryption; masterSalt: string },
+	password: string
+): Promise<{ nsec: string; mnemonic: string }> {
+	try {
+		// Get master salt and iterations from nostr context (they should be the same)
+		const masterSalt = base64ToBytes(recoveryData.masterSalt);
+		const iterations = recoveryData.nostr.iterations;
+
+		// Validate iterations
+		if (isNaN(iterations) || iterations <= 0) {
+			throw new Error('Invalid iterations value');
+		}
+
+		// Derive master key from password and master salt
+		const masterKey = await deriveKeyFromPassword(password, masterSalt, iterations);
+
+		// Get context salts
+		const nostrSalt = base64ToBytes(recoveryData.nostr.salt);
+		const walletSalt = base64ToBytes(recoveryData.wallet.salt);
+
+		// Derive context-specific keys using the same method as encryption
+		const nostrKey = await deriveContextKey(masterKey, DERIVATION_CONTEXTS.NOSTR, nostrSalt);
+		const walletKey = await deriveContextKey(masterKey, DERIVATION_CONTEXTS.WALLET, walletSalt);
+
+		// Decrypt both pieces of data in parallel
+		const [nsec, mnemonic] = await Promise.all([
+			decrypt(recoveryData.nostr.encrypted, nostrKey),
+			decrypt(recoveryData.wallet.encrypted, walletKey)
+		]);
+
+		return { nsec, mnemonic };
+	} catch (error) {
+		console.error('Failed to decrypt master key with password:', error);
+		throw new Error(`Failed to decrypt master key with password`);
 	}
 }
 

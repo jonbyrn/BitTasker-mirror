@@ -14,7 +14,6 @@
 	import { validateNostrPrivateKey } from '$lib/utils/helpers/validators';
 	import {
 		decryptNsecWithBiometrics,
-		encryptNsec,
 		encryptMasterKeyData,
 		signLoginChallenge
 	} from '$lib/utils/helpers/auth';
@@ -309,7 +308,7 @@
 				};
 
 				authState
-					.setupAuthData(res.access_token, 'nsec', npub, res.user, biometricData, false)
+					.setupAuthData(res.access_token, 'biometrics', npub, res.user, biometricData, false)
 					.then(() => {
 						if (res.isNewUser) goto('/auth/onboarding');
 						else goto('/dashboard/find-tasks');
