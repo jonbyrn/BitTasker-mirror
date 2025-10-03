@@ -3,6 +3,7 @@
 	import { t } from 'svelte-i18n';
 	import { getNpub } from '$lib/utils/nostrKeys';
 	import TaskTab from './details/TaskTab.svelte';
+	import TranslatableTask from './TranslatableTask.svelte';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -83,9 +84,13 @@
 		<!-- Header -->
 		<div class="bg-base-200 sticky top-0 z-10 p-4">
 			<div class="flex items-center justify-between">
-				<h4 class="line-clamp-2 font-bold">
-					{props.task ? props.task.title : $t('dashboard.task_details_by_task.title')}
-				</h4>
+				<div class="line-clamp-2 font-bold">
+					{#if props.task}
+						<TranslatableTask task={props.task} showDescription={false} showToggle={false} titleClass="font-bold" />
+					{:else}
+						{$t('dashboard.task_details_by_task.title')}
+					{/if}
+				</div>
 				<button
 					class="btn btn-ghost btn-circle"
 					onclick={handleClose}

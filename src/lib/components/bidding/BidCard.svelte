@@ -3,6 +3,7 @@
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import { timeAgo } from '$lib/utils/helpers/dateFormatter';
 	import { t } from 'svelte-i18n';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 
 	// Props using Svelte 5 runes syntax
 	const props = $props<{
@@ -69,7 +70,14 @@
 		{/if}
 
 		<!-- Bid Description Preview -->
-		<p class="mt-3 line-clamp-2 text-sm">{props.bid.description}</p>
+		<div class="mt-3">
+			<TranslatableBidContent 
+				content={props.bid.description} 
+				contentType="description"
+				showToggle={false}
+				fallbackClass="line-clamp-2 text-sm"
+			/>
+		</div>
 
 		<!-- Action Buttons -->
 		<div class="card-actions mt-4 justify-end">

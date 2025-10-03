@@ -16,6 +16,7 @@
 	import { goto } from '$app/navigation';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	
 	// Import performance testing helper in development
 	import '$lib/utils/performance-testing-helper';
@@ -692,9 +693,9 @@
 													class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
 												>
 													<!-- Left: Title and Sats -->
-													<small class="card-title line-clamp-2 text-lg">
-														{task.title}
-													</small>
+													<div class="line-clamp-2 ">
+														<TranslatableTask {task} titleClass="line-clamp-2" />
+													</div>
 												</div>
 
 												<!-- Schedule and Sats Row -->

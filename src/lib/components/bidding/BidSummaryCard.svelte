@@ -3,6 +3,7 @@
 	import { formatCurrency } from '$lib/utils/helpers/currencyFormatter';
 	import type { MyBids$result } from '$houdini';
 	import { t } from 'svelte-i18n';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 
 	const props = $props<{
 		bid:
@@ -76,7 +77,14 @@
 		</div>
 
 		{#if props.bid.description}
-			<p class="mt-2 line-clamp-2 text-sm">{props.bid.description}</p>
+			<div class="mt-2">
+				<TranslatableBidContent 
+					content={props.bid.description} 
+					contentType="description"
+					showToggle={false}
+					fallbackClass="line-clamp-2 text-sm"
+				/>
+			</div>
 		{/if}
 
 		<div class="card-actions mt-3 justify-end">

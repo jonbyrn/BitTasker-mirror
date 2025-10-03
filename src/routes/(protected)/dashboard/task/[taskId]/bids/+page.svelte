@@ -19,6 +19,7 @@
 	import BidAcceptanceForm from '$lib/components/bidding/BidAcceptanceForm.svelte';
 	import CounterOfferForm from '$lib/components/bidding/CounterOfferForm.svelte';
 	import Drawer from '$lib/components/Drawer.svelte';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 
 	// State
 	let task = $state<Task | null>(null);
@@ -603,9 +604,10 @@
 											{$t('bids.your_description')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<p class="text-base-content/80 text-sm leading-relaxed">
-												{bid.description}
-											</p>
+											<TranslatableBidContent 
+												content={bid.description} 
+												contentType="description"
+											/>
 										</div>
 									</div>
 								{/if}
@@ -617,9 +619,10 @@
 											{$t('bids.your_approach')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<p class="text-base-content/80 text-sm leading-relaxed">
-												{bid.proposedApproach}
-											</p>
+											<TranslatableBidContent 
+												content={bid.proposedApproach} 
+												contentType="proposedApproach"
+											/>
 										</div>
 									</div>
 								{/if}
@@ -631,9 +634,10 @@
 											{$t('bids.your_cover_letter')}
 										</p>
 										<div class="bg-base-200 rounded-lg p-3">
-											<p class="text-base-content/80 text-sm leading-relaxed">
-												{bid.coverLetter}
-											</p>
+											<TranslatableBidContent 
+												content={bid.coverLetter} 
+												contentType="coverLetter"
+											/>
 										</div>
 									</div>
 								{/if}
