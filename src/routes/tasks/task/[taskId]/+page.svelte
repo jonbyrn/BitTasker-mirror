@@ -13,6 +13,7 @@
 	import { formatStandardDate, formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -261,15 +262,17 @@
 						<!-- Header row with title and posted date -->
 						<div class="mb-6 flex flex-row items-start justify-between gap-3">
 							<div class="">
-								<small class="card-title line-clamp-2 pb-1 text-lg">
-									{task.title}
-								</small>
+								<div class="card-title line-clamp-2 pb-1 text-lg">
+									<TranslatableTask {task} />
+								</div>
 								<div class="text-base-content/60 text-start">
-									{#if showFullDescription}
-										{task.description}
-									{:else}
-										{getTruncatedDescription(task.description)}
-									{/if}
+									<TranslatableTask 
+										{task} 
+										showTitle={false} 
+										showDescription={true} 
+										showToggle={false}
+										descriptionClass="text-base-content/60 text-start"
+									/>
 
 									{#if task.description.length > 200}
 										<button class="btn btn-xs hover:text-primary-focus" onclick={toggleDescription}>

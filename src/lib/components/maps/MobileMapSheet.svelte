@@ -3,6 +3,7 @@
 	import type { Task } from '$lib/types/task.d';
 	import TaskLocationMap from '$lib/components/maps/TaskLocationMap.svelte';
 	import { t } from 'svelte-i18n';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
 	const {
 		tasks,
@@ -136,9 +137,8 @@
 			{tasks}
 			{selectedTask}
 			height="100vh"
-			on:taskSelected={(event) => {
-				const task = event.detail.task as Task;
-				scrollToTaskCard(task.id);
+			onTaskSelected={(event) => {
+				scrollToTaskCard(event.task.id);
 			}}
 		/>
 	</div>
@@ -175,7 +175,13 @@
 						>
 							<div class="card-body p-4">
 								<div class="mb-1 flex items-start justify-between gap-3">
-									<small class="card-title line-clamp-2 text-base">{task.title}</small>
+									<div class="card-title line-clamp-2 text-base">
+										<TranslatableTask 
+											{task} 
+											titleClass="card-title text-base line-clamp-2"
+											descriptionClass="text-sm text-base-content/80 line-clamp-2"
+										/>
+									</div>
 									<div class="text-right">
 										<div class="text-sm font-bold">
 											${formatNumberWithTwoDecimals(task.budget.amount)}

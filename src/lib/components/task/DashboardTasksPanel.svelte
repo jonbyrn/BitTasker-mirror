@@ -13,6 +13,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
+	import TranslatableTask from './TranslatableTask.svelte';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -603,18 +604,11 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex flex-col justify-between gap-2">
-							<small class="card-title line-clamp-1 text-lg">
-								<a
-									href="/dashboard/task/{task.id}"
-									class="hover:text-primary transition-colors"
-									onclick={(e) => e.stopPropagation()}
-								>
-									{task.title}
-								</a>
-							</small>
-							<div class="text-base-content/60 line-clamp-2">
-								{task.description}
-							</div>
+							<TranslatableTask 
+								{task} 
+								titleClass="card-title text-lg line-clamp-2"
+								descriptionClass="text-sm text-base-content/80 line-clamp-2"
+							/>
 						</div>
 
 						<div class="flex w-full items-center justify-between">

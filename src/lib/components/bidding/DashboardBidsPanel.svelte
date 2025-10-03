@@ -8,6 +8,8 @@
 	import { formatTimeLarge, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { locale } from 'svelte-i18n';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 
 	// State
 	let myBids = $state<any[]>([]);
@@ -214,15 +216,19 @@
 						<!-- Top Row: Title + Price -->
 						<div class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<!-- Left: Title -->
-							<small class="card-title line-clamp-2 text-lg">
+							<div class="card-title line-clamp-2 text-lg">
 								<a
 									href="/dashboard/task/{bid.bid.task?.id || bid.bid.taskId}"
 									class="hover:text-primary transition-colors"
 									onclick={(e) => e.stopPropagation()}
 								>
-									{bid.bid.taskTitle || $t('bids.unknown_task')}
+									{#if bid.bid.task}
+										<TranslatableTask task={bid.bid.task} />
+									{:else}
+										{bid.bid.taskTitle || $t('bids.unknown_task')}
+									{/if}
 								</a>
-							</small>
+							</div>
 						</div>
 
 						<!-- Schedule and Sats Row -->
@@ -471,9 +477,10 @@
 												{$t('bids.your_description')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<p class="text-base-content/80 text-sm leading-relaxed">
-													{bid.bid.description}
-												</p>
+												<TranslatableBidContent 
+													content={bid.bid.description} 
+													contentType="description"
+												/>
 											</div>
 										</div>
 									{/if}
@@ -484,9 +491,10 @@
 												{$t('bids.your_approach')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<p class="text-base-content/80 text-sm leading-relaxed">
-													{bid.bid.proposedApproach}
-												</p>
+												<TranslatableBidContent 
+													content={bid.bid.proposedApproach} 
+													contentType="proposedApproach"
+												/>
 											</div>
 										</div>
 									{/if}
@@ -497,9 +505,10 @@
 												{$t('bids.your_cover_letter')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<p class="text-base-content/80 text-sm leading-relaxed">
-													{bid.bid.coverLetter}
-												</p>
+												<TranslatableBidContent 
+													content={bid.bid.coverLetter} 
+													contentType="coverLetter"
+												/>
 											</div>
 										</div>
 									{/if}
