@@ -4,7 +4,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { appStore } from '$lib/stores/app.store';
 	import { authState } from '$lib/stores/auth.store';
-	import { encryptRecoveryNsec, encryptMasterKeyData } from '$lib/utils/helpers/auth';
+	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { bytesToHex } from '$lib/utils/helpers/encoding';
 	import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 	import { generateMnemonic } from 'bip39';
@@ -59,7 +59,7 @@
 	/**
 	 * Register a new user with master key biometric authentication (Nostr + Wallet)
 	 */
-	async function register(username: string, npub: string, nsec: string) {
+	async function register(username: string, npub: string, nsec: string, mnemonic: string) {
 		try {
 			const deviceId = await getDeviceIdentifier();
 
@@ -68,12 +68,9 @@
 				throw new Error('Buffer is not defined');
 			}
 
-			// Generate wallet mnemonic
-			const walletMnemonic = generateMnemonic();
-
 			// Create master key encryption for both Nostr and wallet
-			const masterKeyData = await encryptMasterKeyData(nsec, walletMnemonic, deviceId);
-			
+			const masterKeyData = await encryptMasterKeyData(nsec, mnemonic, deviceId);
+
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
 
@@ -97,16 +94,18 @@
 			}
 
 			// Register with server using master key GraphQL mutation
-			await authService.registerWithMasterKey({
-				username,
-				publicKey: npub,
-				masterKeyData: masterKeyData,
-				authMethod: 'passkey',
-				deviceId
-			}).then(async () => {
-				// Register passkey device
-				await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
-			});
+			await authService
+				.registerWithMasterKey({
+					username,
+					publicKey: npub,
+					masterKeyData: masterKeyData,
+					authMethod: 'passkey',
+					deviceId
+				})
+				.then(async () => {
+					// Register passkey device
+					await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
+				});
 
 			const response = await authService.loginWithPasskey(npub, deviceId);
 			if (response && response.access_token) {
@@ -144,13 +143,23 @@
 		}
 	}
 
-	async function setupAccRecovery(npub: string, nsec: string, password: string, email: string) {
+	async function setupAccRecovery(
+		npub: string,
+		nsec: string,
+		walletMnemonic: string,
+		password: string,
+		email: string
+	) {
 		try {
-			const { encrypted } = await encryptRecoveryNsec(nsec, password);
+			const recoveryData = await encryptMasterKeyData(nsec, walletMnemonic, password);
 
 			const data: AccountRecoveryData = {
 				publicKey: npub,
-				recoveryPrivateKey: encrypted,
+				recoveryData: {
+					nostr: recoveryData.nostr,
+					wallet: recoveryData.wallet,
+					masterSalt: recoveryData.masterSalt
+				},
 				email
 			};
 
@@ -167,8 +176,8 @@
 			isLoading = true;
 			error = '';
 
-			let pubKey: string;
-			let privKey: string;
+			let npub: string;
+			let nsec: string;
 
 			// Use existing key or generate new one
 			if (userData.hasNostrKey && userData.nsec) {
@@ -178,20 +187,23 @@
 					throw new Error('Invalid nsec format');
 				}
 				// Convert Uint8Array to hex
-				privKey = bytesToHex(data);
+				nsec = bytesToHex(data);
 				// Get public key
-				pubKey = getPublicKey(data);
+				npub = getPublicKey(data);
 			} else {
 				// Generate key pair
-				({ npub: pubKey, nsec: privKey } = await generateKeyPair());
+				({ npub, nsec } = await generateKeyPair());
 			}
 
+			// Generate wallet mnemonic
+			const walletMnemonic = generateMnemonic();
+
 			// Register with passkey
-			await register(userData.username, pubKey, privKey);
+			await register(userData.username, npub, nsec, walletMnemonic);
 
 			// Setup recovery if enabled
 			if (userData.hasRecovery && userData.recoveryEmail && userData.recoveryPassword) {
-				await setupAccRecovery(pubKey, privKey, userData.recoveryPassword, userData.recoveryEmail);
+				await setupAccRecovery(npub, nsec, walletMnemonic, userData.recoveryPassword, userData.recoveryEmail);
 			}
 
 			isSetupComplete = true;
