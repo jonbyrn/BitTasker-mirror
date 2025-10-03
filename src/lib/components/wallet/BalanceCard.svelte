@@ -5,6 +5,7 @@
 		totalBalances,
 		liquidConnection,
 		rskConnection,
+		bscConnection,
 		walletManager,
 		combinedWalletState,
 		walletStore
@@ -25,6 +26,8 @@
 	let totalUsdValue = $derived($totalBalances.usd);
 	let liquidSats = $derived($totalBalances.sats);
 	let rbtcBalance = $derived($totalBalances.rbtc);
+	let usdtBalance = $derived($totalBalances.usdt);
+	let bnbBalance = $derived($totalBalances.bnb);
 	let hasRbtcRateError = $derived($walletStore.rbtcRateError);
 	let rbtcRate = $derived($walletStore.rbtcToBtcRate);
 
@@ -49,6 +52,14 @@
 		const rskAddr = $combinedWalletState.rsk.address;
 		if (rskAddr) {
 			await copyToClipboard(rskAddr);
+			appStore.showSuccessToast($t('wallet.address_copied'));
+		}
+	}
+
+	async function copyBscAddress() {
+		const bscAddr = $combinedWalletState.bsc.address;
+		if (bscAddr) {
+			await copyToClipboard(bscAddr);
 			appStore.showSuccessToast($t('wallet.address_copied'));
 		}
 	}
@@ -102,7 +113,23 @@
 									</div>
 								{/if}
 							{/if}
-							{#if liquidSats === 0 && rbtcBalance === 0}
+							{#if usdtBalance > 0}
+								<div>
+									<span class="text-2xl font-bold text-white">
+										{usdtBalance.toFixed(2)}
+									</span>
+									<span class="ml-2 text-sm text-white opacity-90">USDT</span>
+								</div>
+							{/if}
+							{#if bnbBalance > 0}
+								<div>
+									<span class="text-2xl font-bold text-white">
+										{bnbBalance.toFixed(6)}
+									</span>
+									<span class="ml-2 text-sm text-white opacity-90">BNB</span>
+								</div>
+							{/if}
+							{#if liquidSats === 0 && rbtcBalance === 0 && usdtBalance === 0 && bnbBalance === 0}
 								<p class="text-2xl font-bold text-white opacity-70">{$t('wallet.no_assets')}</p>
 							{/if}
 						</div>
@@ -278,6 +305,71 @@
 						<p class="font-bold text-base-content/50">Coming Soon</p>
 					</div>
 				</div>
+			</div>
+		</div>
+		<!-- BSC Network Card -->
+		<div class="card bg-base-200 flex flex-col">
+			<div class="card-body flex flex-col flex-1">
+				<div class="mb-4 flex items-center justify-between">
+					<div class="flex items-center gap-2">
+						<img src="/images/chains/Binance-logo.svg" alt="Binance Smart Chain" class="h-6 w-6" />
+						<h4 class="font-semibold">Binance Smart Chain</h4>
+					</div>
+					<div
+						class="badge {$bscConnection.connected
+							? 'badge-success'
+							: 'badge-error'} badge-sm text-xs"
+					>
+						{$bscConnection.connected ? 'Connected' : 'Disconnected'}
+					</div>
+				</div>
+
+				<div class="flex-1">
+					{#if $allAssets.filter((a: WalletAsset) => a.network === 'BSC').length > 0}
+						<div class="space-y-2">
+							{#each $allAssets.filter((a: WalletAsset) => a.network === 'BSC') as asset (asset.assetId)}
+								<div class="flex items-center justify-between">
+									<div class="flex items-center gap-2">
+										<img src={asset.icon} alt={asset.name} class="h-5 w-5" />
+										<span class="font-medium">{asset.ticker}</span>
+									</div>
+									<div class="text-right">
+										<div class="font-semibold">{asset.formattedBalance}</div>
+										{#if asset.usdValue > 0}
+											<div class="text-xs opacity-70">
+												${asset.usdValue.toFixed(2)}
+											</div>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="py-4 text-center opacity-70">
+							<p>{$t('wallet.no_assets_loaded')}</p>
+						</div>
+					{/if}
+				</div>
+
+				{#if $combinedWalletState.bsc.address}
+					<div class="mt-4">
+						<div class="mb-1 text-xs opacity-70">{$t('wallet.address')}</div>
+						<div class="relative">
+							<button
+								class="bg-base-300 hover:bg-base-100 w-full cursor-pointer rounded px-3 py-2 pr-10 text-left transition-colors"
+								onclick={copyBscAddress}
+								disabled={!$bscConnection.connected || !$combinedWalletState.bsc.address}
+							>
+								<code class="text-xs">
+									{walletManager.formatAddress($combinedWalletState.bsc.address)}
+								</code>
+							</button>
+							<div class="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+								<IconContentCopy class="h-4 w-4 opacity-70" />
+							</div>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>

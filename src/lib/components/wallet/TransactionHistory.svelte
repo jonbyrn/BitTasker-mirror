@@ -10,7 +10,7 @@
 	interface Transaction {
 		id: string;
 		type: 'send' | 'receive';
-		network: 'liquid' | 'rsk';
+		network: 'liquid' | 'rsk' | 'bsc';
 		asset: string;
 		amount: number;
 		formattedAmount: string;
@@ -26,14 +26,14 @@
 	let transactions = $state<Transaction[]>([]);
 	let isLoading = $state(true);
 	let error = $state<string | null>(null);
-	let selectedFilter = $state<'all' | 'liquid' | 'rsk' | 'send' | 'receive'>('all');
+	let selectedFilter = $state<'all' | 'liquid' | 'rsk' | 'bsc' | 'send' | 'receive'>('all');
 	let currentPage = $state(0);
 	let itemsPerPage = 20;
 
 	// Filtered transactions
 	let filteredTransactions = $derived(transactions.filter(tx => {
 		if (selectedFilter === 'all') return true;
-		if (selectedFilter === 'liquid' || selectedFilter === 'rsk') {
+		if (selectedFilter === 'liquid' || selectedFilter === 'rsk' || selectedFilter === 'bsc') {
 			return tx.network === selectedFilter;
 		}
 		if (selectedFilter === 'send' || selectedFilter === 'receive') {
@@ -111,6 +111,49 @@
 						txHash: payment.txId,
 						description: getBreezTransactionDescription(payment),
 						fee: payment.feesSat
+					});
+				} else if ('tokenSymbol' in tx || 'gasUsed' in tx) {
+					// It's a BSC Transaction (check if it has BSC-specific properties)
+					const bscTx = tx as any;
+					let asset = 'BNB';
+					let amount = 0;
+					let formattedAmount = '';
+					
+					if (bscTx.tokenSymbol) {
+						// Token transaction
+						asset = bscTx.tokenSymbol;
+						amount = parseFloat(ethers.formatUnits(bscTx.value, 18));
+						formattedAmount = `${amount.toFixed(6)} ${bscTx.tokenSymbol}`;
+					} else {
+						// BNB transaction
+						amount = parseFloat(ethers.formatEther(bscTx.value));
+						formattedAmount = `${amount.toFixed(6)} BNB`;
+					}
+				
+					// Calculate fee if available
+					let fee: number | undefined;
+					if (bscTx.gasUsed && bscTx.gasUsed !== '0' && bscTx.gasPrice && bscTx.gasPrice !== '0') {
+						try {
+							const feeWei = BigInt(bscTx.gasUsed) * BigInt(bscTx.gasPrice);
+							fee = parseFloat(ethers.formatEther(feeWei));
+						} catch (error) {
+							console.warn('Failed to calculate BSC transaction fee:', error);
+						}
+					}
+
+					convertedTransactions.push({
+						id: bscTx.hash || `bsc-${bscTx.timestamp}-${bscTx.value}`,
+						type: bscTx.type as 'send' | 'receive',
+						network: 'bsc' as const,
+						asset,
+						amount,
+						formattedAmount,
+						address: bscTx.to,
+						timestamp: bscTx.timestamp,
+						status: bscTx.status as 'confirmed' | 'pending' | 'failed',
+						txHash: bscTx.hash,
+						description: getBSCTransactionDescription(bscTx),
+						fee
 					});
 				} else {
 					// It's an RSK Transaction
@@ -196,6 +239,17 @@
 		return 'RSK transaction';
 	}
 
+	function getBSCTransactionDescription(tx: any): string {
+		if (tx.type === 'send') {
+			return tx.tokenSymbol ? `BSC ${tx.tokenSymbol} sent` : 'BSC BNB sent';
+		} else if (tx.type === 'receive') {
+			return tx.tokenSymbol ? `BSC ${tx.tokenSymbol} received` : 'BSC BNB received';
+		} else if (tx.type === 'contract') {
+			return 'BSC smart contract interaction';
+		}
+		return 'BSC transaction';
+	}
+
 	function getTranslatedStatus(status: string): string {
 		switch (status) {
 			case 'confirmed':
@@ -223,11 +277,29 @@
 	}
 
 	function getNetworkIcon(network: string): string {
-		return network === 'liquid' ? '/images/chains/Liquid-Bitcoin.svg' : '/images/chains/Bitcoin-Rootstock-logo.webp';
+		switch (network) {
+			case 'liquid':
+				return '/images/chains/Liquid-Bitcoin.svg';
+			case 'rsk':
+				return '/images/chains/Bitcoin-Rootstock-logo.webp';
+			case 'bsc':
+				return '/images/chains/Binance-logo.svg';
+			default:
+				return '/images/chains/Bitcoin.svg';
+		}
 	}
 
 	function getNetworkDisplayName(network: string): string {
-		return network === 'liquid' ? 'Liquid Bitcoin' : 'Rootstock Bitcoin';
+		switch (network) {
+			case 'liquid':
+				return 'Liquid Bitcoin';
+			case 'rsk':
+				return 'Rootstock Bitcoin';
+			case 'bsc':
+				return 'Binance Smart Chain';
+			default:
+				return 'Unknown Network';
+		}
 	}
 
 	function getTypeIcon(type: string): string {
@@ -257,6 +329,14 @@
 				explorerUrl = `https://rootstock.blockscout.com/tx/${txHash}`;
 			} else {
 				explorerUrl = `https://rootstock-testnet.blockscout.com/tx/${txHash}`;
+			}
+		} else if (network === 'bsc') {
+			// Use BSC explorer based on network
+			const bscNetwork = import.meta.env.VITE_BSC_NETWORK || 'testnet';
+			if (bscNetwork === 'mainnet') {
+				explorerUrl = `https://bscscan.com/tx/${txHash}`;
+			} else {
+				explorerUrl = `https://testnet.bscscan.com/tx/${txHash}`;
 			}
 		}
 		
@@ -336,6 +416,13 @@
 			>
 				<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="Rootstock Bitcoin" class="h-4 w-4 inline mr-1" />
 				Rootstock Bitcoin ({transactions.filter(tx => tx.network === 'rsk').length})
+			</button>
+			<button
+				class="tab {selectedFilter === 'bsc' ? 'tab-active' : ''} whitespace-nowrap"
+				onclick={() => {selectedFilter = 'bsc'; currentPage = 0;}}
+			>
+				<img src="/images/chains/Binance-logo.svg" alt="Binance Smart Chain" class="h-4 w-4 inline mr-1" />
+				BSC ({transactions.filter(tx => tx.network === 'bsc').length})
 			</button>
 			<button
 				class="tab {selectedFilter === 'send' ? 'tab-active' : ''} whitespace-nowrap"
