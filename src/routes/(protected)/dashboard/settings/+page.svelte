@@ -3,7 +3,7 @@
 	import { nip19 } from 'nostr-tools';
 	import { t } from 'svelte-i18n';
 	import { Preferences } from '@capacitor/preferences';
-	import { getNostrKeyPair } from '$lib/utils/nostrKeys';
+	import { getAllKeys } from '$lib/utils/nostrKeys';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import NostrNsec from '$lib/components/settings/NostrNsec.svelte';
 	import AccRecovery from '$lib/components/settings/AccRecovery.svelte';
@@ -15,6 +15,7 @@
 	let error = $state('');
 	let npub = $state('');
 	let nsec = $state('');
+	let mnemonic = $state('');
 	let authMethod = $state('');
 
 	onMount(async () => {
@@ -63,22 +64,22 @@
 				}
 			} else {
 				// Handle passkey/biometric authentication
-				const keyPair = await getNostrKeyPair();
+				const allKeys = await getAllKeys();
 
 				// Check if the public key is already in npub format
-				if (keyPair.npub.startsWith('npub')) {
-					npub = keyPair.npub;
-				} else if (/^[0-9a-fA-F]{64}$/.test(keyPair.npub)) {
+				if (allKeys.npub.startsWith('npub')) {
+					npub = allKeys.npub;
+				} else if (/^[0-9a-fA-F]{64}$/.test(allKeys.npub)) {
 					// It's a hex string, convert to npub format
-					npub = nip19.npubEncode(keyPair.npub);
+					npub = nip19.npubEncode(allKeys.npub);
 				} else {
 					throw new Error($t('settings.error.invalidKeyFormat'));
 				}
 
 				// Convert the private key (Uint8Array) to nsec format
-				if (keyPair.nsec && keyPair.nsec instanceof Uint8Array) {
+				if (allKeys.nsec && allKeys.nsec instanceof Uint8Array) {
 					try {
-						nsec = nip19.nsecEncode(keyPair.nsec);
+						nsec = nip19.nsecEncode(allKeys.nsec);
 					} catch (err) {
 						console.error('Error encoding nsec:', err);
 						nsec = $t('settings.error.encodingNsec');
@@ -86,6 +87,9 @@
 				} else {
 					nsec = $t('settings.error.invalidPrivateKey');
 				}
+
+				// Set mnemonic
+				mnemonic = allKeys.mnemonic;
 			}
 		} catch (err) {
 			console.error('Error loading keys:', err);
@@ -136,7 +140,7 @@
 	{:else}
 		<NostrNsec {npub} {nsec} {authMethod} />
 		<Devices {npub} />
-		<AccRecovery {nsec} {npub} {authMethod} />
+		<AccRecovery {nsec} {npub} {mnemonic} {authMethod} />
 		<PasskeySync {authMethod} />
 		<AccActions />
 	{/if}

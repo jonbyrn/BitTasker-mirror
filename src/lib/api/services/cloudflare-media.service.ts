@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Cloudflare Media Service
  * Handles integration with Cloudflare Images and Stream for optimized media processing and delivery
