@@ -56,17 +56,6 @@
 		onboardingData.username = username;
 		onboardingData.usernameAvailable = isAvailable;
 	};
-
-	// const handleNostrKeyChange = (nsec: string, hasKey: boolean) => {
-	// 	onboardingData.nsec = nsec;
-	// 	onboardingData.hasNostrKey = hasKey;
-	// };
-
-	const handleRecoveryChange = (email: string, password: string, enabled: boolean) => {
-		onboardingData.recoveryEmail = email;
-		onboardingData.recoveryPassword = password;
-		onboardingData.hasRecovery = enabled;
-	};
 </script>
 
 <div class="flex w-full flex-grow flex-col items-center px-4 py-8" use:autoLoadTranslations>
@@ -100,7 +89,7 @@
 			</div>
 		{:else if currentStep === 2}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
-				<RecoverySetup {nextStep} {prevStep} {currentStep} {totalSteps} onRecoveryChange={handleRecoveryChange} />
+				<RecoverySetup {nextStep} {prevStep} {currentStep} {totalSteps} />
 			</div>
 		{:else if currentStep === 3}
 			<div in:fly={{ duration: 200, x: direction === 'forward' ? 20 : -20, easing: linear }}>
