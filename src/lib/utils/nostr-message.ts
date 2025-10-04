@@ -400,6 +400,211 @@ export async function fetchProfileMetadata(
 	}
 }
 
+/**
+ * Fetch comprehensive profile data for other users (similar to profileStore but for external users)
+ */
+export async function fetchComprehensiveProfile(pubkey: string): Promise<{
+	name?: string;
+	about?: string;
+	picture?: string;
+	pictures?: Array<{ url: string; type: string; alt: string; key?: string; isPrimary?: boolean }>;
+	website?: string;
+	professionalTitle?: string;
+	skills?: Array<string | {
+		name: string;
+		level: number;
+		verificationStatus?: string;
+		endorsements?: number;
+		certifications?: any[];
+	}>;
+	portfolio?: Array<{
+		id: string;
+		title: string;
+		description: string;
+		images: any[];
+		completionDate: string;
+		skills: string[];
+	}>;
+	availability?: {
+		timeSlots: any[];
+		timezone: string;
+		noticeHours: number;
+		maxBookingsPerDay: number;
+		breakBetweenBookings: number;
+	};
+	reviews?: Array<{ id: string; from: string; rating: number; text: string; date: string }>;
+	certifications?: Array<{
+		name: string;
+		issuer: string;
+		date: string;
+		verified: boolean;
+		fileUrl: string;
+	}>;
+	createdAt?: string;
+}> {
+	try {
+		// Fetch all profile-related events
+		const filter: Filter = {
+			kinds: [
+				0, // Metadata
+				KINDS.FILE_METADATA, // Certifications
+				30063, // Profile images
+				10002, // Relay list
+				KINDS.PROFILE_SKILLS, // Skills (30000)
+				KINDS.PROFILE_PORTFOLIO, // Portfolio (30001)
+				KINDS.PROFILE_AVAILABILITY, // Availability (30002)
+				KINDS.PROFILE_REVIEWS // Reviews (30004)
+			],
+			authors: [pubkey],
+			limit: 50 // Increased limit to get all profile events
+		};
+
+		const events = await withRetry(() => queryMultipleRelays(DEFAULT_RELAYS, filter));
+
+		// Initialize profile data
+		const profileData: any = {
+			name: '',
+			about: '',
+			picture: '',
+			pictures: [],
+			website: '',
+			professionalTitle: '',
+			skills: [],
+			portfolio: [],
+			availability: {
+				timeSlots: [],
+				timezone: '',
+				noticeHours: 24,
+				maxBookingsPerDay: 5,
+				breakBetweenBookings: 60
+			},
+			reviews: [],
+			certifications: []
+		};
+
+		// Sort events by created_at (newest first)
+		const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
+
+		for (const event of sortedEvents) {
+			try {
+				const content = JSON.parse(event.content);
+
+				switch (event.kind) {
+					case 0: // Metadata
+						if (content.display_name || content.name) {
+							profileData.name = content.display_name || content.name;
+						}
+						if (content.about) {
+							profileData.about = content.about;
+						}
+						if (content.website) {
+							profileData.website = content.website;
+						}
+						if (content.professionalTitle) {
+							profileData.professionalTitle = content.professionalTitle;
+						}
+						if (content.picture) {
+							profileData.picture = content.picture;
+						}
+						if (event.created_at) {
+							profileData.createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
+						}
+						break;
+
+					case 30063: { // Profile images
+						const dTag = event.tags.find((t) => t[0] === 'd');
+						if (dTag && dTag[1] === 'profile-images') {
+							if (Array.isArray(content)) {
+								profileData.pictures = content.map((img: any) => ({
+									url: img.url,
+									type: img.type || 'image/jpeg',
+									alt: img.alt || '',
+									key: img.key,
+									isPrimary: img.isPrimary || false
+								}));
+								// Use first image as primary picture if no picture set
+								if (!profileData.picture && content.length > 0) {
+									profileData.picture = content[0].url;
+								}
+							}
+						}
+						break;
+					}
+
+					case KINDS.PROFILE_SKILLS: // Skills (30000)
+						if (Array.isArray(content)) {
+							profileData.skills = content.map((skill: any) => {
+								// Handle both string format and object format
+								if (typeof skill === 'string') {
+									return skill;
+								} else {
+									return {
+										name: skill.name,
+										level: skill.level,
+										verificationStatus: skill.verificationStatus,
+										endorsements: skill.endorsements,
+										certifications: skill.certifications || []
+									};
+								}
+							});
+						}
+						break;
+
+					case KINDS.PROFILE_PORTFOLIO: // Portfolio (30001)
+						profileData.portfolio.push({
+							id: event.id,
+							title: content.title,
+							description: content.description,
+							images: content.images,
+							completionDate: content.completionDate,
+							skills: content.skills
+						});
+						break;
+
+					case KINDS.PROFILE_AVAILABILITY: // Availability (30002)
+						profileData.availability = {
+							timeSlots: content.timeSlots || [],
+							timezone: content.timezone || '',
+							noticeHours: content.noticeHours || 24,
+							maxBookingsPerDay: content.maxBookingsPerDay || 5,
+							breakBetweenBookings: content.breakBetweenBookings || 60
+						};
+						break;
+
+					case KINDS.PROFILE_REVIEWS: // Reviews (30004)
+						if (Array.isArray(content)) {
+							profileData.reviews = content.map((review: any) => ({
+								id: review.id,
+								from: review.from,
+								rating: review.rating,
+								text: review.text,
+								date: review.date
+							}));
+						}
+						break;
+
+					case KINDS.FILE_METADATA: // Certifications
+						profileData.certifications.push({
+							name: content.name,
+							issuer: content.issuer,
+							date: content.date,
+							verified: content.verified,
+							fileUrl: content.fileUrl
+						});
+						break;
+				}
+			} catch (e) {
+				console.error('Failed to parse event content:', e);
+			}
+		}
+
+		return profileData;
+	} catch (error) {
+		console.error('💥 Failed to fetch comprehensive profile for', pubkey, ':', error);
+		return {};
+	}
+}
+
 // --- High-level API ---
 
 /**
@@ -704,9 +909,7 @@ export async function getMessageHistoryOptimized(
 		if (!npub) {
 			npub = await getNpub();
 		}
-		const selfHex = npub.startsWith('npub')
-			? (nip19.decode(npub).data as string)
-			: npub;
+		const selfHex = npub.startsWith('npub') ? (nip19.decode(npub).data as string) : npub;
 
 		// Convert withPubkey to hex if it's in npub format
 		const withHex = withPubkey.startsWith('npub')
@@ -723,10 +926,11 @@ export async function getMessageHistoryOptimized(
 		};
 
 		// Fetch encrypted events off main thread using a worker to avoid prompt blocking
-		const t0 = performance.now();
 		const workerPromise = new Promise<NostrEvent[]>((resolve, reject) => {
 			try {
-				const worker = new Worker(new URL('$lib/workers/nostrDM.worker.ts', import.meta.url), { type: 'module' });
+				const worker = new Worker(new URL('$lib/workers/nostrDM.worker.ts', import.meta.url), {
+					type: 'module'
+				});
 				worker.onmessage = (e: MessageEvent<any>) => {
 					if (e.data?.type === 'fetched') {
 						resolve(e.data.payload.events || []);
@@ -741,20 +945,15 @@ export async function getMessageHistoryOptimized(
 			}
 		});
 		// Start auth concurrently (do not await yet) so the prompt can show while worker runs
-		const authStart = performance.now();
 		const authPromise = getAuthOnce();
 
 		// Wait for worker results first
 		const events = await workerPromise;
-		const t1 = performance.now();
 
 		// Now prompt for auth and decrypt in batch (deferred until after fetch completes)
-		const tAuth0 = performance.now();
 		const { nsec } = await authPromise;
 		const privkey = bytesToHex(nsec);
-		const tAuth1 = performance.now();
 
-		const tDec0 = performance.now();
 		const decrypted = await Promise.all(
 			events.map(async (event, index) => {
 				try {
@@ -768,7 +967,6 @@ export async function getMessageHistoryOptimized(
 				}
 			})
 		);
-		const tDec1 = performance.now();
 
 		return decrypted.filter(Boolean) as {
 			plaintext: string;
@@ -1034,7 +1232,10 @@ export async function getMessagedPeopleOptimized(): Promise<
 		// Fetch profiles (no decryption) in parallel
 		const results = await Promise.all(
 			Array.from(peopleMap.entries()).map(async ([pubkey, lastEvent]) => {
-				let profile = { name: undefined as string | undefined, picture: undefined as string | undefined };
+				let profile = {
+					name: undefined as string | undefined,
+					picture: undefined as string | undefined
+				};
 				try {
 					const fetchedProfile = await fetchProfileMetadata(pubkey);
 					profile = { name: fetchedProfile.name, picture: fetchedProfile.picture };

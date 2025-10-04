@@ -4,10 +4,10 @@
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store.js';
 	import { profileStore } from '$lib/stores/profile.store';
-	import ProfileHeader from './_components/ProfileHeader.svelte';
-	import ProfileStats from './_components/ProfileStats.svelte';
-	import ProfileInfoSection from './_components/ProfileInfoSection.svelte';
-	import ProfileSidebar from './_components/ProfileSidebar.svelte';
+	import ProfileHeader from '$lib/components/profile/ProfileHeader.svelte';
+	import ProfileStats from '$lib/components/profile/ProfileStats.svelte';
+	import ProfileInfoSection from '$lib/components/profile/ProfileInfoSection.svelte';
+	import ProfileSidebar from '$lib/components/profile/ProfileSidebar.svelte';
 
 	// Format date (passed to children)
 	function formatDate(dateString: string) {
@@ -21,12 +21,6 @@
 		const now = new Date();
 		return now.getFullYear() - then.getFullYear();
 	}
-
-	// Logout (passed to children)
-	const logout = async () => {
-		await authState.logout();
-		goto('/');
-	};
 
 	// Initialize profile store
 	onMount(() => {
@@ -45,7 +39,7 @@
 		<p class="text-base-content/70">{$t('profile.page.description')}</p>
 	</div>
 	<div class="bg-base-100 rounded-xl p-6 shadow-lg">
-		<ProfileHeader {logout} />
+		<ProfileHeader />
 
 		<ProfileStats stats={$profileStore.stats} />
 
