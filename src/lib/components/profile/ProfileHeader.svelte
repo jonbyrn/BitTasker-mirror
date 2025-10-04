@@ -1,14 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import Avatar from '$lib/components/Avatar.svelte';
 	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
 	import { t } from 'svelte-i18n';
-
-	let { logout } = $props<{
-		logout: () => void;
-	}>();
+	import Avatar from '$lib/components/Avatar.svelte';
 
 	// Initialize user store when component mounts
 	onMount(async () => {
