@@ -141,13 +141,36 @@ export async function subscribeToProfileUpdates(
  */
 export async function publishProfileMetadata(
     metadata: NostrProfile,
+    existingMetadata: NostrProfile = {},
     relays = RELAYS
 ): Promise<NostrEvent> {
+    // Merge new metadata with existing, giving priority to new values
+    // Only override fields that are explicitly provided (not undefined/null/empty)
+    const mergedMetadata: NostrProfile = { ...existingMetadata };
+    
+    // Update fields that are provided in the new metadata
+    if (metadata.name !== undefined) mergedMetadata.name = metadata.name;
+    if (metadata.display_name !== undefined) mergedMetadata.display_name = metadata.display_name;
+    if (metadata.about !== undefined) mergedMetadata.about = metadata.about;
+    if (metadata.picture !== undefined) mergedMetadata.picture = metadata.picture;
+    if (metadata.banner !== undefined) mergedMetadata.banner = metadata.banner;
+    if (metadata.website !== undefined) mergedMetadata.website = metadata.website;
+    if (metadata.nip05 !== undefined) mergedMetadata.nip05 = metadata.nip05;
+    if (metadata.lud16 !== undefined) mergedMetadata.lud16 = metadata.lud16;
+    if (metadata.lud06 !== undefined) mergedMetadata.lud06 = metadata.lud06;
+    if (metadata.professionalTitle !== undefined) mergedMetadata.professionalTitle = metadata.professionalTitle;
+    if (metadata.location !== undefined) mergedMetadata.location = metadata.location;
+    
+    // Handle legacy pictures field (should not be included in kind 0 events)
+    if (metadata.pictures !== undefined) {
+        delete mergedMetadata.pictures;
+    }
+
     // Create metadata event
     const event: Partial<NostrEvent> = {
         kind: 0,
         created_at: Math.floor(Date.now() / 1000),
-        content: JSON.stringify(metadata),
+        content: JSON.stringify(mergedMetadata),
         tags: []
     };
 
@@ -311,7 +334,9 @@ export async function uploadCertification(
 ): Promise<string> {
     try {
         // Upload file
-        const uploadResult = await uploadService.uploadSingleFile(certification.file, 'certifications');
+        const uploadResult = await uploadService.uploadSingleFile(certification.file, {
+            folder: 'certifications'
+        });
 
         // Create certification file event (kind 1063 for file metadata)
         const certEvent = {

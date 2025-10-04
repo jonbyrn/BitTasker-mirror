@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { goto } from '$app/navigation';
-	import PersonalInfo from './_components/PersonalInfo.svelte';
-	import Skills from './_components/Skills.svelte';
-	import Portfolio from './_components/Portfolio.svelte';
-	import VideoIntro from './_components/VideoIntro.svelte';
-	import Availability from './_components/Availability.svelte';
-	import StandardServices from './_components/StandardServices.svelte';
+	import PersonalInfo from '$lib/components/profile/edit/PersonalInfo.svelte';
+	import Skills from '$lib/components/profile/edit/Skills.svelte';
+	import Portfolio from '$lib/components/profile/edit/Portfolio.svelte';
+	import VideoIntro from '$lib/components/profile/edit/VideoIntro.svelte';
+	import Availability from '$lib/components/profile/edit/Availability.svelte';
+	import StandardServices from '$lib/components/profile/edit/StandardServices.svelte';
 
 	let completedSections = $state({
 		personalInfo: false,
