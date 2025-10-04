@@ -10,7 +10,7 @@
 		createUserDeviceShortName,
 		getDeviceIdentifier
 	} from '$lib/utils/helpers/deviceIdentity';
-	import { decryptRecoveryNsec, encryptNsec, encryptRecoveryNsec } from '$lib/utils/helpers/auth';
+	import { decryptMasterKeyWithPassword, encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { checkBiometricAvailability, setBiometricKey } from '$lib/utils/helpers/biometrics';
 	import {
 		checkWebBiometricAvailability,
@@ -20,14 +20,16 @@
 	import { generatePassword } from '$lib/utils/helpers/password';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
+	import { RevokeAllDevicesStore } from '$houdini';
 
 	const npub = page.params.npub;
-	
+
 	let recoveryCode = $state<string>('');
 	let currentPassword = $state<string>('');
 	let newPassword = $state<string>('');
 	let confirmPassword = $state<string>('');
-	let privateKey = $state<string>('');
+	let nsec = $state<string>('');
+	let mnemonic = $state<string>('');
 	let isLoading = $state(false);
 	let error = $state<string>('');
 	let passwordError = $state<string>('');
@@ -35,7 +37,6 @@
 	let recoveryData = $state<NostrRecoveryData>();
 	let showCurrentPassword = $state(false);
 	let showNewPassword = $state(false);
-	let recoverySuccess = $state(false);
 	let authMethods = $state({
 		biometric: false,
 		webAuthn: false
@@ -51,33 +52,29 @@
 			error = $t('recovery_npub.errors.no_public_key');
 			return;
 		}
-		
+
 		try {
-			// Check if user came from email verification
-			const urlParams = new URLSearchParams(window.location.search);
-			const verified = urlParams.get('verified');
-			
-			if (verified !== 'true') {
-				// User hasn't verified their email, redirect to recovery initiation
-				goto('/auth/recover/send');
-				return;
-			}
-			
 			// Fetch recovery data for this npub
 			recoveryData = await authService.getNostrRecoveryData(npub);
-			
+
 			// Check if recovery data is valid
-			if (!recoveryData || !recoveryData.recoveryPrivateKey) {
-				error = $t('recovery_npub.errors.no_recovery_data');
-				return;
+			if (
+				!recoveryData ||
+				!recoveryData.nostr ||
+				!recoveryData.wallet ||
+				!recoveryData.masterSalt
+			) {
+				throw new Error($t('recovery_npub.errors.no_recovery_data'));
 			}
-			
+
 			authMethods.biometric = await checkBiometricAvailability();
 			authMethods.webAuthn = await checkWebBiometricAvailability();
 			newPassword = generatePassword();
 		} catch (err: any) {
-			console.error('Failed to fetch recovery data:', err);
-			error = err.message || $t('recovery_npub.errors.decrypt_failed');
+			const message =
+				err instanceof Error ? err.message : $t('recovery_npub.errors.no_recovery_data');
+			appStore.showErrorToast(message, 4000);
+			return goto('/auth/login');
 		}
 	});
 
@@ -85,7 +82,7 @@
 		newPassword = generatePassword();
 	}
 
-	async function decryptPrivateKey(event: Event) {
+	async function decryptAccountKeys(event: Event) {
 		event.preventDefault();
 
 		try {
@@ -98,21 +95,16 @@
 			}
 
 			// Check if recovery data has the required fields
-			if (!recoveryData.recoveryPrivateKey) {
+			if (!recoveryData.nostr || !recoveryData.wallet || !recoveryData.masterSalt) {
 				error = $t('recovery_npub.errors.no_recovery_data_available');
 				return;
 			}
 
 			// Decrypt private key with current password
-			try {
-				privateKey = await decryptRecoveryNsec(recoveryData.recoveryPrivateKey, currentPassword);
-				step = 2;
-			} catch (err: any) {
-				console.error('Detailed decryption error:', err);
-				error = err.message || $t('recovery_npub.errors.invalid_password');
-			}
+			({ nsec, mnemonic } = await decryptMasterKeyWithPassword(recoveryData, currentPassword));
+			step = 2;
 		} catch (err: any) {
-			error = err.message || $t('recovery_npub.errors.decrypt_failed');
+			error = $t('recovery_npub.errors.decrypt_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -143,39 +135,36 @@
 			}
 
 			const deviceId = await getDeviceIdentifier();
-			const {
-				encrypted: primaryEncrypted,
-				salt: primarySalt,
-				exportedKey: exportedKey,
-				iterations: primaryIterations
-			} = await encryptNsec(privateKey, deviceId);
 
-			// Encrypt private key with new password
-			const { encrypted: secondaryEncrypted } = await encryptRecoveryNsec(privateKey, newPassword);
+			// Encrypt with device ID for biometric storage
+			const masterKeyData = await encryptMasterKeyData(nsec, mnemonic, deviceId);
 
+			// Encrypt private key with new password for recovery
+			const recoveryData = await encryptMasterKeyData(nsec, mnemonic, newPassword);
+
+			// Complete recovery
 			if (!npub) {
 				error = $t('recovery_npub.errors.invalid_link');
 				return;
 			}
-			
+
 			const recoveryResponse = await authService.completeNostrRecovery({
 				publicKey: npub,
 				otp: recoveryCode,
-				recoveryPrivateKey: secondaryEncrypted,
-				encryptedPrivateKey: primaryEncrypted.data,
-				iv: primaryEncrypted.iv,
-				authTag: primaryEncrypted.authTag,
-				salt: primarySalt,
-				iterations: primaryIterations,
+				recoveryData: {
+					nostr: recoveryData.nostr,
+					wallet: recoveryData.wallet,
+					masterSalt: recoveryData.masterSalt
+				},
+				encryptedMasterKeyData: masterKeyData,
 				deviceId
 			});
 
-			// Invalidate all other devices for security
-			try {
-				await authService.invalidateAllDevices(npub);
-			} catch (invalidationError) {
-				appStore.showErrorToast($t('recovery_npub.errors.invalidate_devices_failed'));
-			}
+			// TODO: revoke all devices access except the one being used for recovery
+			/* const revokeStore = new RevokeAllDevicesStore();
+			await revokeStore.mutate({
+					
+			}); */
 
 			// Check available authentication methods
 			const isMobileBiometrics = await checkBiometricAvailability();
@@ -185,9 +174,14 @@
 			// Register device with server
 			let credentialId = '';
 			if (isMobileBiometrics) {
-				credentialId = await setBiometricKey(npub, exportedKey, 'biometrics', deviceName);
+				credentialId = await setBiometricKey(
+					npub,
+					masterKeyData.exportedMasterKey,
+					'biometrics',
+					deviceName
+				);
 			} else {
-				credentialId = await setWebBiometricKey(npub, exportedKey, deviceName);
+				credentialId = await setWebBiometricKey(npub, masterKeyData.exportedMasterKey, deviceName);
 			}
 
 			if (!credentialId) {
@@ -196,46 +190,29 @@
 
 			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
-			// Use the recovery response instead of logging in again
-			if (recoveryResponse && recoveryResponse.access_token) {
+			const response = await authService.loginWithPasskey(npub, deviceId);
+			console.log({ response, recoveryResponse });
+			if (response && response.access_token) {
 				const biometricData = {
 					username: npub,
 					password: JSON.stringify({
-						key: exportedKey,
-						data: primaryEncrypted.data,
-						iv: primaryEncrypted.iv,
-						authTag: primaryEncrypted.authTag,
-						salt: primarySalt
+						masterKeyData,
+						key: masterKeyData.exportedMasterKey
 					}),
 					server: deviceId,
-					isLegacyFormat: true
+					isLegacyFormat: false
 				};
 				authState.setupAuthData(
-					recoveryResponse.access_token,
+					response.access_token,
 					'biometrics',
 					npub,
-					recoveryResponse.user,
+					response.user,
 					biometricData,
-					false
+					true
 				);
-				
-				// Show success message and redirect
-				recoverySuccess = true;
-				setTimeout(() => {
-					goto('/dashboard/find-tasks');
-				}, 2000);
 			}
 		} catch (err: any) {
-			console.error('Recovery completion failed:', err);
-			if (err.message?.includes('Invalid password')) {
-				error = $t('recovery_npub.errors.invalid_recovery_password');
-			} else if (err.message?.includes('device')) {
-				error = $t('recovery_npub.errors.device_registration_failed');
-			} else if (err.message?.includes('invalidate')) {
-				error = $t('recovery_npub.errors.invalidation_failed');
-			} else {
-				error = err.message || $t('recovery_npub.errors.recovery_failed');
-			}
+			error = err.message || $t('recovery_npub.errors.recovery_failed');
 		} finally {
 			isLoading = false;
 		}
@@ -249,18 +226,8 @@
 		<div class="card-body">
 			<h2 class="card-title mb-6 justify-center text-2xl font-bold">{$t('recovery_npub.title')}</h2>
 
-			{#if recoverySuccess}
-				<div class="alert alert-success mb-6">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-					</svg>
-					<div>
-						<h3 class="font-bold">{$t('recovery_npub.success_title')}</h3>
-						<p class="text-sm">{$t('recovery_npub.success_message')}</p>
-					</div>
-				</div>
-			{:else if step === 1}
-				<form onsubmit={decryptPrivateKey} class="space-y-4">
+			{#if step === 1}
+				<form onsubmit={decryptAccountKeys} class="space-y-4">
 					<div class="form-control">
 						<label class="label" for="currentPassword">
 							<span class="label-text">{$t('recovery_npub.current_password_label')}</span>
@@ -427,10 +394,12 @@
 									</svg>
 								</button>
 								<!-- Show/Hide Button -->
-								<button 
-									type="button" 
+								<button
+									type="button"
 									onclick={() => (showNewPassword = !showNewPassword)}
-									aria-label={showNewPassword ? $t('recovery_npub.hide_password_title') : $t('recovery_npub.show_password_title')}
+									aria-label={showNewPassword
+										? $t('recovery_npub.hide_password_title')
+										: $t('recovery_npub.show_password_title')}
 								>
 									{#if showNewPassword}
 										<svg
@@ -522,24 +491,16 @@
 						<div class="space-y-1 text-sm">
 							<p class="font-medium">{$t('recovery_npub.password_requirements_title')}</p>
 							<div class="flex flex-wrap gap-x-4 gap-y-1">
-								<span
-									class={newPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}
-								>
+								<span class={newPassword.length >= 8 ? 'text-success' : 'text-base-content/60'}>
 									{$t('recovery_npub.password_requirements.min_length')}
 								</span>
-								<span
-									class={/[A-Z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
-								>
+								<span class={/[A-Z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}>
 									{$t('recovery_npub.password_requirements.uppercase')}
 								</span>
-								<span
-									class={/[a-z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
-								>
+								<span class={/[a-z]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}>
 									{$t('recovery_npub.password_requirements.lowercase')}
 								</span>
-								<span
-									class={/[0-9]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}
-								>
+								<span class={/[0-9]/.test(newPassword) ? 'text-success' : 'text-base-content/60'}>
 									{$t('recovery_npub.password_requirements.numbers')}
 								</span>
 								<span

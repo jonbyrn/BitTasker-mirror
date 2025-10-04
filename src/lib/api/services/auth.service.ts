@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type {
 	AccountRecoveryData,
 	NostrLoginData,
@@ -365,32 +363,7 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery response
 	 */
 	async initiateNostrRecovery(email: string): Promise<void> {
-		try {
-			// Use Firebase function instead of REST API
-			const { getFunctions, httpsCallable } = await import('firebase/functions');
-			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
-			const { initializeApp } = await import('firebase/app');
-			
-			const firebaseConfig = getFirebaseWebConfig();
-			const app = initializeApp(firebaseConfig);
-			const functions = getFunctions(app);
-			
-			const initiateRecovery = httpsCallable(functions, 'initiateNostrRecovery');
-			const result = await initiateRecovery({ email });
-			
-			// Generate a secure verification token (email will be stored server-side)
-			const verificationToken = `recovery_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-			
-			// Send the verification email using Firebase function
-			const sendEmail = httpsCallable(functions, 'sendRecoveryVerificationEmail');
-			await sendEmail({
-				email,
-				verificationToken: verificationToken
-			});
-		} catch (error: any) {
-			console.error('Failed to initiate recovery:', error);
-			throw new Error(error?.message || 'Failed to initiate recovery');
-		}
+		await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_INITIATE, { email });
 	}
 
 	/**
@@ -401,55 +374,8 @@ export class AuthService extends BaseApiService {
 	 * @returns Promise with recovery data
 	 */
 	async getNostrRecoveryData(npub: string): Promise<NostrRecoveryData> {
-		try {
-			// Use Firebase function instead of REST API
-			const { getFunctions, httpsCallable } = await import('firebase/functions');
-			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
-			const { initializeApp } = await import('firebase/app');
-			
-			const firebaseConfig = getFirebaseWebConfig();
-			const app = initializeApp(firebaseConfig);
-			const functions = getFunctions(app);
-			
-			const getRecoveryData = httpsCallable(functions, 'getRecoveryData');
-			const result = await getRecoveryData({ publicKey: npub });
-			
-			// Check if result exists and has the expected structure
-			if (!result || !result.data) {
-				throw new Error('No response received from recovery data service');
-			}
-			
-			const response = result.data as any;
-			
-			// Handle the actual response structure: { success: true, data: {...} }
-			if (response.success && response.data) {
-				return response.data;
-			}
-			
-			// Check if the response has the expected nested structure (legacy)
-			if (response.result && response.result.data) {
-				return response.result.data;
-			}
-			
-			// Check if the response is directly the data we need
-			if (response.encryptedPrivateKey || response.publicKey) {
-				return response;
-			}
-			
-			// If neither structure matches, log the actual response for debugging
-			console.error('Unexpected response structure:', response);
-			throw new Error('Unexpected response format from recovery data service');
-			
-		} catch (error: any) {
-			console.error('Failed to get recovery data:', error);
-			
-			// Handle Firebase function errors specifically
-			if (error?.code) {
-				throw new Error(`Firebase function error: ${error.message || error.code}`);
-			}
-			
-			throw new Error(error?.message || 'Failed to get recovery data');
-		}
+		const response = await this.get(ENDPOINTS.AUTH.NOSTR_RECOVERY_DATA(npub));
+		return response.data;
 	}
 
 	/**
@@ -460,26 +386,9 @@ export class AuthService extends BaseApiService {
 	 * @response 404 - User not found
 	 * @returns Promise with recovery response
 	 */
-	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<{ access_token: string; user: any }> {
-		try {
-			// Use Firebase function instead of REST API
-			const { getFunctions, httpsCallable } = await import('firebase/functions');
-			const { getFirebaseWebConfig } = await import('$lib/utils/helpers/fcm');
-			const { initializeApp } = await import('firebase/app');
-			
-			const firebaseConfig = getFirebaseWebConfig();
-			const app = initializeApp(firebaseConfig);
-			const functions = getFunctions(app);
-			
-			const completeRecovery = httpsCallable(functions, 'completeNostrRecovery');
-			const result = await completeRecovery(data);
-			
-			const response = result.data as { result: { access_token: string; user: any } };
-			return response.result;
-		} catch (error: any) {
-			console.error('Failed to complete recovery:', error);
-			throw new Error(error?.message || 'Failed to complete recovery');
-		}
+	async completeNostrRecovery(data: NostrRecoveryCompleteData): Promise<void> {
+		const response = await this.post(ENDPOINTS.AUTH.NOSTR_RECOVERY_COMPLETE, data);
+		return response.data;
 	}
 
 	/**

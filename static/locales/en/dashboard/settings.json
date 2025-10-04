@@ -65,8 +65,9 @@
         "invalidPublicKey": "Invalid public key format from Alby.",
         "invalidKeyFormat": "Invalid public key format",
         "encodingNsec": "Error formatting private key",
-        "invalidPrivateKey": "Invalid private key data",
+        "invalidPrivateKey": "Invalid private key format",
         "invalidNostrKeys": "Invalid Nostr keys. Please refresh and try again.",
+        "noMnemonic": "No mnemonic found. Please refresh and try again.",
         "recoverySetup": "Failed to setup account recovery. Please try again."
       },
       "validation": {

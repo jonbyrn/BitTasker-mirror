@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { TaskBid } from './bid';
 import type { Event as NostrEvent } from 'nostr-tools';
 import { BudgetTypeEnum, TaskTypeEnum, TaskStatusEnum } from '$lib/utils/enums/task.enum';
@@ -55,7 +54,7 @@ export interface TaskBody {
 }
 
 export interface Task {
-	estimatedHours: any;
+	estimatedHours: number;
 	id: string;
 	npub: string;
 	status: TaskStatusEnum;
