@@ -233,6 +233,7 @@ export async function acceptBidAndCreateEscrow(
 		console.log({transactionResult})
 
 		// Register pending contract creation with our event management system
+		console.log('📋 [EscrowBid] Registering pending contract...');
 		registerPendingContractByTxHash({
 			taskId: task.id,
 			taskTitle: task.title,
