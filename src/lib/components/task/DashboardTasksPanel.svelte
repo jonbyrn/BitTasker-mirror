@@ -604,13 +604,15 @@
 					<div class="card-body">
 						<div class="flex flex-col justify-between gap-2">
 							<small class="card-title line-clamp-1 text-lg">
-								<a
-									href="/dashboard/task/{task.id}"
-									class="hover:text-primary transition-colors"
-									onclick={(e) => e.stopPropagation()}
+								<button
+									class="hover:text-primary cursor-pointer transition-colors text-left"
+									onclick={(e) => {
+										e.stopPropagation();
+										goto(`/dashboard/task/${task.id}`);
+									}}
 								>
 									{task.title}
-								</a>
+								</button>
 							</small>
 							<div class="text-base-content/60 line-clamp-2">
 								{task.description}

@@ -47,7 +47,6 @@
 		try {
 			loading = true;
 			const bids = await getMyBids();
-			console.log('bids', bids);
 			myBids = bids;
 		} catch (err) {
 			console.error('Error loading bids:', err);
@@ -215,13 +214,15 @@
 						<div class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<!-- Left: Title -->
 							<small class="card-title line-clamp-2 text-lg">
-								<a
-									href="/dashboard/task/{bid.bid.task?.id || bid.bid.taskId}"
-									class="hover:text-primary transition-colors"
-									onclick={(e) => e.stopPropagation()}
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`);
+									}}
+									class="hover:text-primary cursor-pointer transition-colors"
 								>
 									{bid.bid.taskTitle || $t('bids.unknown_task')}
-								</a>
+								</button>
 							</small>
 						</div>
 
