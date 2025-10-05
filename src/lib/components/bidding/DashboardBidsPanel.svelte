@@ -49,7 +49,6 @@
 		try {
 			loading = true;
 			const bids = await getMyBids();
-			console.log('bids', bids);
 			myBids = bids;
 		} catch (err) {
 			console.error('Error loading bids:', err);
@@ -216,19 +215,17 @@
 						<!-- Top Row: Title + Price -->
 						<div class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<!-- Left: Title -->
-							<div class="card-title line-clamp-2 text-lg">
-								<a
-									href="/dashboard/task/{bid.bid.task?.id || bid.bid.taskId}"
-									class="hover:text-primary transition-colors"
-									onclick={(e) => e.stopPropagation()}
+							<small class="card-title line-clamp-2 text-lg">
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`);
+									}}
+									class="hover:text-primary cursor-pointer transition-colors"
 								>
-									{#if bid.bid.task}
-										<TranslatableTask task={bid.bid.task} />
-									{:else}
-										{bid.bid.taskTitle || $t('bids.unknown_task')}
-									{/if}
-								</a>
-							</div>
+									{bid.bid.taskTitle || $t('bids.unknown_task')}
+								</button>
+							</small>
 						</div>
 
 						<!-- Schedule and Sats Row -->

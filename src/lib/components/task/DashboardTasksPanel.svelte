@@ -604,11 +604,20 @@
 				<div class="bg-base-100 rounded-xl shadow-md transition-shadow hover:shadow-lg">
 					<div class="card-body">
 						<div class="flex flex-col justify-between gap-2">
-							<TranslatableTask 
-								{task} 
-								titleClass="card-title text-lg line-clamp-2"
-								descriptionClass="text-sm text-base-content/80 line-clamp-2"
-							/>
+							<small class="card-title line-clamp-1 text-lg">
+								<button
+									class="hover:text-primary cursor-pointer transition-colors text-left"
+									onclick={(e) => {
+										e.stopPropagation();
+										goto(`/dashboard/task/${task.id}`);
+									}}
+								>
+									{task.title}
+								</button>
+							</small>
+							<div class="text-base-content/60 line-clamp-2">
+								{task.description}
+							</div>
 						</div>
 
 						<div class="flex w-full items-center justify-between">
