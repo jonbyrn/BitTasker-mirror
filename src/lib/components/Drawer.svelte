@@ -92,14 +92,14 @@
 		<!-- Header -->
 		<div
 			class="sticky top-0 z-10 flex items-center justify-between p-4 {props.title
-				? 'bg-base-200 border-b'
+				? 'bg-base-200'
 				: ''}"
 		>
-			<h2 id="drawer-title" class="text-xl font-bold">
+			<h4 id="drawer-title" class="text-xl font-bold">
 				{#if props.title}
 					{props.title}
 				{/if}
-			</h2>
+			</h4>
 			<button
 				class="btn btn-ghost btn-circle"
 				onclick={props.onClose}

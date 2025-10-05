@@ -74,7 +74,7 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 ">
 	{#if loading}
 		<div class="space-y-4">
 			{#each Array(1) as _}
@@ -159,7 +159,7 @@
 		</div>
 	{:else if error}
 		<!-- Error State -->
-		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
+		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md ">
 			<svg
 				class="mx-auto mb-4 h-12 w-12 text-red-400"
 				fill="none"

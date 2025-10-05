@@ -33,38 +33,19 @@
 
 		<!-- Skills Section -->
 		<div class="mb-8">
-			<h3 class="mb-4 text-xl font-semibold">{$t('profile.skills.title')}</h3>
+			<h3 class="mb-6 text-xl font-semibold">{$t('profile.skills.title')}</h3>
 			{#if $profileStore.data.skills && $profileStore.data.skills.length > 0}
-				<div class="grid gap-4 md:grid-cols-2">
+				<div class="flex flex-wrap gap-2">
 					{#each $profileStore.data.skills as skill}
-						<div class="flex w-full flex-wrap items-center justify-between">
-							<div class="flex items-center gap-2">
-								<span>{skill.name}</span>
-								<small
-									class="badge badge-sm pb-[2px] {skill.verificationStatus === 'verified'
-										? 'badge-success'
-										: skill.verificationStatus === 'pending'
-											? 'badge-warning'
-											: 'badge-ghost badge-outline'}"
-								>
-									{skill.verificationStatus}
-								</small>
-							</div>
-							<div class="rating rating-sm w-full">
-								{#each Array(5) as _, i}
-									<input
-										type="radio"
-										class="mask mask-star-2 bg-orange-400"
-										checked={i + 1 === skill.level}
-										disabled
-									/>
-								{/each}
-							</div>
+						<div class="border-primary text-primary rounded-full border px-3 py-1 text-sm">
+							{typeof skill === 'string' ? skill : skill.name}
 						</div>
 					{/each}
 				</div>
 			{:else}
-				<p class="alert alert-outline rounded-xl">{$t('profile.noSkills')}</p>
+				<div class="alert alert-outline rounded-xl">
+					<span>{$t('profile.noSkills')}</span>
+				</div>
 			{/if}
 		</div>
 

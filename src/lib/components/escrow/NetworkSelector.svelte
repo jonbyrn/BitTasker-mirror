@@ -4,6 +4,7 @@
 	import { walletStore } from '$lib/stores/wallet.store';
 	import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
 	import { get } from 'svelte/store';
+	import { t } from 'svelte-i18n';
 
 	interface NetworkOption {
 		network: EscrowNetwork;
@@ -47,6 +48,11 @@
 			const networkOptions: NetworkOption[] = [];
 
 			for (const { network, environment, config } of networks) {
+				// Disable mainnet for now - only show testnet
+				if (environment === 'mainnet') {
+					continue;
+				}
+
 				const available = checkNetworkAvailability(network, environment);
 				
 				networkOptions.push({
@@ -88,13 +94,9 @@
 	// Get network description
 	function getNetworkDescription(network: EscrowNetwork, environment: NetworkEnvironment): string {
 		if (network === 'RSK') {
-			return environment === 'testnet' 
-				? 'Lower fees, Bitcoin security, testnet environment'
-				: 'Lower fees, Bitcoin security, mainnet environment';
+			return $t('common.components.network_selector.rsk_description');
 		} else if (network === 'BSC') {
-			return environment === 'testnet'
-				? 'Higher liquidity, Ethereum compatibility, testnet environment'
-				: 'Higher liquidity, Ethereum compatibility, mainnet environment';
+			return $t('common.components.network_selector.bsc_description');
 		}
 		return '';
 	}
@@ -107,9 +109,9 @@
 <div class="space-y-4">
 	<!-- Network Selection Header -->
 	<div class="space-y-2">
-		<h3 class="text-lg font-semibold">Choose Escrow Network</h3>
+		<h3 class="text-lg font-semibold">{$t('common.components.network_selector.title')}</h3>
 		<p class="text-sm text-base-content/70">
-			Select the blockchain network for your escrow contract. Each network has different characteristics:
+			{$t('common.components.network_selector.subtitle')}
 		</p>
 	</div>
 
@@ -150,12 +152,13 @@
 									<div class="flex-1">
 										<div class="flex items-center space-x-2">
 											<h4 class="font-semibold">{networkOption.name}</h4>
-											{#if networkOption.recommended}
+											<!-- All badges hidden for now -->
+											<!-- {#if networkOption.recommended}
 												<span class="badge badge-primary badge-sm">Recommended</span>
-											{/if}
-											{#if !networkOption.available}
+											{/if} -->
+											<!-- {#if !networkOption.available}
 												<span class="badge badge-error badge-sm">Wallet Not Connected</span>
-											{/if}
+											{/if} -->
 										</div>
 										<p class="text-sm text-base-content/70">
 											{getNetworkDescription(networkOption.network, networkOption.environment)}
@@ -192,43 +195,43 @@
 		<div class="collapse collapse-arrow bg-base-200">
 			<input type="checkbox" />
 			<div class="collapse-title text-sm font-medium">
-				Network Comparison
+				{$t('common.components.network_selector.comparison_title')}
 			</div>
 			<div class="collapse-content">
 				<div class="overflow-x-auto">
 					<table class="table table-sm">
 						<thead>
 							<tr>
-								<th>Feature</th>
+								<th>{$t('common.components.network_selector.feature')}</th>
 								<th>RSK</th>
 								<th>BSC</th>
 							</tr>
 						</thead>
 						<tbody>
 							<tr>
-								<td>Gas Fees</td>
-								<td>Lower (~$0.01-0.05)</td>
-								<td>Higher (~$0.10-0.50)</td>
+								<td>{$t('common.components.network_selector.gas_fees')}</td>
+								<td>{$t('common.components.network_selector.gas_fees_lower')}</td>
+								<td>{$t('common.components.network_selector.gas_fees_higher')}</td>
 							</tr>
 							<tr>
-								<td>Native Token</td>
-								<td>RBTC (Bitcoin-pegged)</td>
-								<td>BNB</td>
+								<td>{$t('common.components.network_selector.native_token')}</td>
+								<td>{$t('common.components.network_selector.rbtc')}</td>
+								<td>{$t('common.components.network_selector.bnb')}</td>
 							</tr>
 							<tr>
-								<td>Security</td>
-								<td>Bitcoin merge-mining</td>
-								<td>BNB staking</td>
+								<td>{$t('common.components.network_selector.security')}</td>
+								<td>{$t('common.components.network_selector.bitcoin_merge_mining')}</td>
+								<td>{$t('common.components.network_selector.bnb_staking')}</td>
 							</tr>
 							<tr>
-								<td>Ecosystem</td>
-								<td>Bitcoin-focused</td>
-								<td>Ethereum-compatible</td>
+								<td>{$t('common.components.network_selector.ecosystem')}</td>
+								<td>{$t('common.components.network_selector.bitcoin_focused')}</td>
+								<td>{$t('common.components.network_selector.ethereum_compatible')}</td>
 							</tr>
 							<tr>
-								<td>Liquidity</td>
-								<td>Lower</td>
-								<td>Higher</td>
+								<td>{$t('common.components.network_selector.liquidity')}</td>
+								<td>{$t('common.components.network_selector.liquidity_lower')}</td>
+								<td>{$t('common.components.network_selector.liquidity_higher')}</td>
 							</tr>
 						</tbody>
 					</table>
@@ -243,7 +246,7 @@
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 				</svg>
 				<div>
-					<div class="font-semibold">Selected: {formatNetworkName(selectedNetwork, selectedEnvironment)}</div>
+					<div class="font-semibold">{$t('common.components.network_selector.selected')}: {formatNetworkName(selectedNetwork, selectedEnvironment)}</div>
 					<div class="text-sm">{getNetworkDescription(selectedNetwork, selectedEnvironment)}</div>
 				</div>
 			</div>
