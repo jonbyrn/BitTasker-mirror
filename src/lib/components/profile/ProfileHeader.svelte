@@ -65,10 +65,14 @@
 						{/if}
 					</div>
 					<!-- Edit Profile Button - Desktop only -->
+<<<<<<< HEAD
 					<button
 						class="btn btn-primary hidden md:inline-flex"
 						onclick={() => goto('/dashboard/profile/edit')}
 					>
+=======
+					<button class="btn btn-primary hidden md:inline-flex" onclick={() => goto('/dashboard/profile/edit')}>
+>>>>>>> 1b5a2191 (Refactor profile components for improved layout and responsiveness)
 						{$t('profile.page.edit_profile')}
 					</button>
 				</div>
