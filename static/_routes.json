@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "description": "This file is used by Cloudflare Pages to determine which routes should be handled by the SvelteKit app vs served as static files",
   "include": [
     "/*"
   ],
@@ -22,6 +23,8 @@
     "/images/*",
     "/illustrations/*",
     "/currency-symbols/*",
-    "/locales/*"
+    "/locales/*",
+    "/_app/immutable/*",
+    "/build/*"
   ]
 }
