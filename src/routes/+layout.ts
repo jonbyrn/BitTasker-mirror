@@ -4,7 +4,7 @@ import { loadPageTranslations } from '$lib/i18n/routeTranslations';
 import { initializeStatusBar } from '$lib/utils/helpers/statusBar';
 import type { LayoutLoad } from './$types';
 
-export const prerender = true;
+export const prerender = false;
 export const ssr = false;
 export const csr = true;
 
