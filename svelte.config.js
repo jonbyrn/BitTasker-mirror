@@ -21,15 +21,9 @@ const config = {
 			assets: 'build',
 			// Precompress only when explicitly enabled
 			precompress: process.env.PRECOMPRESS === '1',
-			// Make all paths strict
+			// Make all paths strict - false allows fallback for dynamic routes
 			strict: false
 		}),
-
-		// Configure paths to use absolute paths instead of relative
-		paths: {
-			base: '',
-			relative: false
-		},
 
         alias: {
             $houdini: ".houdini/"
