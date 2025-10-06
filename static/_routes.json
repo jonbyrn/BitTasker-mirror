@@ -22,8 +22,6 @@
     "/images/*",
     "/illustrations/*",
     "/currency-symbols/*",
-    "/locales/*",
-    "/_app/*",
-    "/build/*"
+    "/locales/*"
   ]
 }

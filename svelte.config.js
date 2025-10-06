@@ -25,6 +25,12 @@ const config = {
 			strict: false
 		}),
 
+		// Configure paths to use absolute paths instead of relative
+		paths: {
+			base: '',
+			relative: false
+		},
+
         alias: {
             $houdini: ".houdini/"
         }

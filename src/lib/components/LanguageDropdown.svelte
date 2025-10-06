@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { _, locale } from 'svelte-i18n';
+	import { t, locale } from 'svelte-i18n';
 	import { switchLanguage, isI18nLoading, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { preloadPageTranslations } from '$lib/i18n/routeTranslations';
 	import { page } from '$app/state';
@@ -92,7 +92,7 @@
 	const currentLanguageName = $derived(() => {
 		const currentLocale = $locale as SupportedLanguage;
 		const key = LOCALE_TO_LANGUAGE_KEY[currentLocale] || currentLocale;
-		return $_('navbar.language.' + key) || '';
+		return $t('navbar.language.' + key) || '';
 	});
 
 	// Show loading state for language switching
