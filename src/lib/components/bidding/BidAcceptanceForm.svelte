@@ -316,7 +316,7 @@
 										>{$t('dashboard.bids.bid_acceptance.base_amount')}</span
 									>
 									<div
-										class="tooltip tooltip-right"
+										class="tooltip tooltip-top"
 										data-tip={$t('dashboard.bids.bid_acceptance.base_amount_tooltip')}
 									>
 										<svg
@@ -354,7 +354,7 @@
 										})}</span
 									>
 									<div
-										class="tooltip tooltip-right"
+										class="tooltip tooltip-top"
 										data-tip={$t('dashboard.bids.bid_acceptance.fee_tooltip')}
 									>
 										<svg
@@ -386,7 +386,7 @@
 										>{$t('dashboard.bids.bid_acceptance.estimated_gas_fee')}</span
 									>
 									<div
-										class="tooltip tooltip-right"
+										class="tooltip tooltip-top"
 										data-tip={$t('dashboard.bids.bid_acceptance.gas_fee_tooltip')}
 									>
 										<svg
@@ -730,7 +730,7 @@
 
 		<!-- Submit Buttons -->
 		<div
-			class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col-reverse justify-end gap-3 py-4 sm:flex-row md:py-2"
+			class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col-reverse justify-end gap-3 py-4 pb-8 sm:flex-row md:py-2 mb-8"
 		>
 			<button
 				type="button"
@@ -938,3 +938,11 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	:global(.tooltip-top::before) {
+		max-width: 200px;
+		white-space: normal;
+		word-wrap: break-word;
+	}
+</style>

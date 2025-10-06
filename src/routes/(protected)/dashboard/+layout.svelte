@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { sections } from '$lib/utils/consts';
 	import { t } from 'svelte-i18n';
+	import WarningProvider from '$lib/components/WarningProvider.svelte';
 	// Icon imports for unplugin-icons
 	import IconFormatListBulleted from '~icons/mdi/format-list-bulleted';
 	import IconPlusCircleOutline from '~icons/mdi/plus-circle-outline';
@@ -69,7 +70,8 @@
 
 <svelte:window bind:innerWidth={width} />
 
-<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
+<WarningProvider>
+	<div class="bg-base-200 mx-auto flex h-full w-full flex-row gap-8 px-2 md:py-4">
 	{#if $devicePlatform !== 'ios' && $devicePlatform !== 'android' && width >= 1200}
 		<!-- Fixed Sidebar - Solo en desktop -->
 		<div class="w-full flex-shrink-0 md:w-64">
@@ -121,4 +123,5 @@
 	<div class="min-h-0 w-full flex-1">
 		{@render children()}
 	</div>
-</div>
+	</div>
+</WarningProvider>

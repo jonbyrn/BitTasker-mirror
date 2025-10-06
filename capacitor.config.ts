@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard';
 import { loadEnv } from 'vite';
 
 // Load environment variables
@@ -11,7 +12,7 @@ const config: CapacitorConfig = {
 	webDir: 'build',
 	server: {
 		// Load server URL from environment variable, fallback to dev URL
-		url: env.VITE_CLIENT_URL || 'https://master.bittasker.com',
+		url: env.VITE_CLIENT_URL || 'https://bittasker.com',
 		cleartext: true,
 		androidScheme: 'https',
 	},
@@ -28,18 +29,9 @@ const config: CapacitorConfig = {
 			style: 'DEFAULT',
 			backgroundColor: '#00000000'
 		},
-		SocialLogin: {
-			google: {
-				clientId: env.VITE_GOOGLE_CLIENT_ID,
-				serverClientId: env.VITE_GOOGLE_CLIENT_ID,
-				redirectUrl: env.VITE_GOOGLE_REDIRECT_URI,
-				scopes: ['profile', 'email'],
-				responseType: 'token'
-			}
-		},
 		Keyboard: {
-			resize: 'body',
-			style: 'DARK',
+			resize: KeyboardResize.Body,
+			style: KeyboardStyle.Dark,
 			resizeOnFullScreen: true
 		},
 		SplashScreen: {
@@ -49,6 +41,15 @@ const config: CapacitorConfig = {
 		PushNotifications: {
 			presentationOptions: ['badge', 'sound', 'alert']
 		}
+		/* SocialLogin: {
+			google: {
+				clientId: env.VITE_GOOGLE_CLIENT_ID,
+				serverClientId: env.VITE_GOOGLE_CLIENT_ID,
+				redirectUrl: env.VITE_GOOGLE_REDIRECT_URI,
+				scopes: ['profile', 'email'],
+				responseType: 'token'
+			}
+		}, */
 	}
 };
 

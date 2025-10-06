@@ -47,7 +47,6 @@
 		try {
 			loading = true;
 			const bids = await getMyBids();
-			console.log('bids', bids);
 			myBids = bids;
 		} catch (err) {
 			console.error('Error loading bids:', err);
@@ -75,7 +74,7 @@
 	}
 </script>
 
-<div class="space-y-6">
+<div class="space-y-6 ">
 	{#if loading}
 		<div class="space-y-4">
 			{#each Array(1) as _}
@@ -160,7 +159,7 @@
 		</div>
 	{:else if error}
 		<!-- Error State -->
-		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
+		<div class="bg-base-100 rounded-xl py-12 text-center shadow-md ">
 			<svg
 				class="mx-auto mb-4 h-12 w-12 text-red-400"
 				fill="none"
@@ -215,13 +214,15 @@
 						<div class="mb-1 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 							<!-- Left: Title -->
 							<small class="card-title line-clamp-2 text-lg">
-								<a
-									href="/dashboard/task/{bid.bid.task?.id || bid.bid.taskId}"
-									class="hover:text-primary transition-colors"
-									onclick={(e) => e.stopPropagation()}
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										goto(`/dashboard/task/${bid.bid.task?.id || bid.bid.taskId}`);
+									}}
+									class="hover:text-primary cursor-pointer transition-colors"
 								>
 									{bid.bid.taskTitle || $t('bids.unknown_task')}
-								</a>
+								</button>
 							</small>
 						</div>
 

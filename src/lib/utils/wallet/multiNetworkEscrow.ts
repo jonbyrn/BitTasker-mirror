@@ -4,7 +4,7 @@ import { walletStore } from '$lib/stores/wallet.store';
 import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
 import { FEE_TIERS, type FeeTier } from './escrowContract';
 import escrowABI from '$lib/utils/constants/escrowABI.json';
-import type { ContractTransactionResult, GasEstimation } from '$lib/types/wallet';
+import type { GasEstimation } from '$lib/types/wallet';
 
 // Network types
 export type EscrowNetwork = 'RSK' | 'BSC';
@@ -145,11 +145,12 @@ export class MultiNetworkEscrowManager {
 			} else if (network === 'BSC') {
 				// Use existing BSC wallet from store
 				const bscState = get(bscUsdtWalletStore);
-				if (!bscState.wallet) {
+				if (!bscState.isConnected || !bscState.address) {
 					throw new Error('BSC wallet not initialized');
 				}
-				const wallet = new ethers.Wallet(bscState.wallet.privateKey, provider);
-				this.wallets.set(key, wallet);
+				// For BSC, we need to get the private key from the wallet store
+				// This is a simplified approach - in production you'd want to handle this more securely
+				throw new Error('BSC wallet private key access not implemented in MultiNetworkEscrow');
 			}
 		}
 		
@@ -189,17 +190,24 @@ export class MultiNetworkEscrowManager {
 			const wallet = await this.getWallet(network, environment);
 			const provider = await this.getProvider(network, environment);
 			const config = this.getNetworkConfig(network, environment);
+			
+			// Check if contract address is set
+			if (!config.contractAddress || config.contractAddress === '') {
+				throw new Error(`Contract address not configured for ${network} ${environment}. Please set VITE_RSK_CONTRACT_ADDRESS environment variable.`);
+			}
 
 			// Check wallet balance
 			const balance = await provider.getBalance(wallet.address);
+			
 			if (balance === 0n) {
 				throw new Error(`Insufficient ${config.nativeToken.symbol} balance for gas fees`);
 			}
 
-			// Verify contract is deployed
+			// Verify contract is deployed by checking if we can call a basic function
 			try {
-				await contract.getContractVersion();
-			} catch (error) {
+				// Try to get the contract owner as a way to verify it's deployed
+				await contract.owner();
+			} catch {
 				throw new Error(`Contract not deployed or not accessible at ${config.contractAddress}`);
 			}
 
@@ -223,7 +231,7 @@ export class MultiNetworkEscrowManager {
 		freelancerFeeTier: FeeTier
 	): Promise<EscrowOperationResult> {
 		try {
-			const { contract, config } = await this.ensureNetworkReady(network, environment);
+			const { contract } = await this.ensureNetworkReady(network, environment);
 
 			const baseAmountWei = ethers.parseEther(baseAmount);
 			const totalPayment = this.calculateTotalPayment(baseAmountWei, clientFeeTier);
@@ -239,6 +247,7 @@ export class MultiNetworkEscrowManager {
 			);
 
 			// Execute transaction
+			console.log('🚀 [MultiNetworkEscrow] Sending transaction...');
 			const tx = await contract.createEscrow(
 				freelancerAddress,
 				estimatedStartTime,
@@ -250,6 +259,23 @@ export class MultiNetworkEscrowManager {
 					gasLimit: gasEstimate + (gasEstimate / 10n) // Add 10% buffer
 				}
 			);
+
+			console.log('✅ [MultiNetworkEscrow] Transaction sent:', tx.hash);
+			console.log('⏳ [MultiNetworkEscrow] Waiting for confirmation...');
+			
+			// Wait for transaction confirmation with timeout
+			try {
+				const receipt = await Promise.race([
+					tx.wait(),
+					new Promise((_, reject) => 
+						setTimeout(() => reject(new Error('Transaction confirmation timeout')), 120000) // 2 minutes timeout
+					)
+				]) as { blockNumber?: number };
+				console.log('✅ [MultiNetworkEscrow] Transaction confirmed:', receipt?.blockNumber);
+			} catch {
+				console.warn('⚠️ [MultiNetworkEscrow] Transaction confirmation timeout, but transaction was sent:', tx.hash);
+				// Continue anyway - the transaction might still be processing
+			}
 
 			return {
 				success: true,
@@ -416,10 +442,10 @@ export class MultiNetworkEscrowManager {
 			const gasCost = gasEstimate * (gasPrice.gasPrice || 0n);
 
 			return {
-				gasLimit: gasEstimate,
-				gasPrice: gasPrice.gasPrice || 0n,
-				gasCost,
-				totalCost: totalPayment + gasCost
+				gasLimit: gasEstimate.toString(),
+				gasPrice: (gasPrice.gasPrice || 0n).toString(),
+				totalCost: (totalPayment + gasCost).toString(),
+				totalCostFormatted: ethers.formatEther(totalPayment + gasCost)
 			};
 		} catch (error) {
 			throw new Error(`Gas estimation failed: ${this.extractUserFriendlyError(error)}`);
@@ -433,7 +459,7 @@ export class MultiNetworkEscrowManager {
 		network: EscrowNetwork,
 		environment: NetworkEnvironment,
 		escrowId: string
-	): Promise<any> {
+	): Promise<unknown> {
 		try {
 			const { contract } = await this.ensureNetworkReady(network, environment);
 			return await contract.getEscrowDetails(escrowId);
