@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "include": [
+    "/*"
+  ],
+  "exclude": [
+    "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/manifest.json",
+    "/site.webmanifest",
+    "/apple-touch-icon.png",
+    "/favicon-96x96.png",
+    "/favicon.svg",
+    "/web-app-manifest-192x192.png",
+    "/web-app-manifest-512x512.png",
+    "/logo.svg",
+    "/logo_compact.svg",
+    "/map-pin.png",
+    "/bittasker_logo.webp",
+    "/firebase-messaging-sw.js",
+    "/images/*",
+    "/illustrations/*",
+    "/currency-symbols/*",
+    "/locales/*",
+    "/_app/*",
+    "/build/*"
+  ]
+}
