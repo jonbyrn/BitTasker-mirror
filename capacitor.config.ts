@@ -11,7 +11,7 @@ const config: CapacitorConfig = {
 	webDir: 'build',
 	server: {
 		// Load server URL from environment variable, fallback to dev URL
-		url: env.VITE_CLIENT_URL || 'https://master.bittasker.com',
+		url: env.VITE_CLIENT_URL || 'https://bittasker.com',
 		cleartext: true,
 		androidScheme: 'https',
 	},
