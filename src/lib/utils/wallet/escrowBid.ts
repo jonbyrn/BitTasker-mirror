@@ -204,7 +204,7 @@ export async function acceptBidAndCreateEscrow(
 			};
 		}
 
-		if (network === 'BSC' && !bscState.connected) {
+		if (network === 'BSC' && !bscState.isConnected) {
 			return {
 				success: false,
 				error: 'BSC wallet not connected. Please connect your wallet first.'
@@ -239,6 +239,7 @@ export async function acceptBidAndCreateEscrow(
 		}
 
 		// Register pending contract creation with our event management system
+		console.log('📋 [EscrowBid] Registering pending contract...');
 		registerPendingContractByTxHash({
 			taskId: task.id,
 			taskTitle: task.title,
@@ -247,10 +248,9 @@ export async function acceptBidAndCreateEscrow(
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: escrowDetails.estimatedStartTime,
 			estimatedCompletionTime: escrowDetails.estimatedCompletionTime,
-			transactionHash: result.transactionHash!,
-			network,
-			environment
+			transactionHash: result.transactionHash!
 		});
+		console.log('✅ [EscrowBid] Pending contract registered');
 
 		return {
 			success: true,

@@ -1,17 +1,13 @@
 /**
  * Unified Wallet Store
- * 
+ *
  * This store combines both Breez (Liquid) and RSK wallet functionality
  * into a single, centralized implementation without importing from the separate stores.
  */
 
 import { writable, derived, get } from 'svelte/store';
 import { ethers } from 'ethers';
-import type {
-	GetInfoResponse,
-	Rate,
-	Payment
-} from '@breeztech/breez-sdk-liquid/web';
+import type { GetInfoResponse, Rate, Payment } from '@breeztech/breez-sdk-liquid/web';
 import type { RSKTransaction, EscrowData } from '$lib/types/wallet';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
 import { RSK_NETWORKS, type RSKNetwork } from '$lib/utils/wallet/escrowContract';
@@ -32,7 +28,12 @@ import {
 } from '$lib/wallet/breez/walletService';
 import cryptoPriceService from '$lib/api/services/crypto-price.service';
 // Import BSC USDT wallet
-import { bscUsdtWallet, bscUsdtWalletStore, type BSCTransaction, type BSCNetwork } from './bscUsdtWallet.store';
+import {
+	bscUsdtWallet,
+	bscUsdtWalletStore,
+	type BSCTransaction,
+	type BSCNetwork
+} from './bscUsdtWallet.store';
 
 // Wallet asset interface
 export interface WalletAsset extends IAssetMetadata {
@@ -176,26 +177,22 @@ const initialState: CombinedWalletState = {
 export const walletStore = writable(initialState);
 
 // Internal state for event listeners
-let eventListeners: (() => void)[] = [];
-let refreshIntervals: NodeJS.Timeout[] = [];
+const eventListeners: (() => void)[] = [];
+const refreshIntervals: NodeJS.Timeout[] = [];
 
 // Helper functions (simplified implementations)
 async function loadAllData(): Promise<void> {
 	try {
-		await Promise.allSettled([
-			loadAssets(),
-			loadFiatRates(),
-			loadRbtcExchangeRate()
-		]);
+		await Promise.allSettled([loadAssets(), loadFiatRates(), loadRbtcExchangeRate()]);
 	} catch (error) {
 		console.error('Failed to load wallet data:', error);
 	}
 }
 
-function setupRSKEventListeners(provider: ethers.JsonRpcProvider, wallet: ethers.Wallet): void {
+function setupRSKEventListeners(provider: ethers.JsonRpcProvider): void {
 	// Listen for new blocks
 	const blockListener = (blockNumber: number) => {
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			rsk: { ...state.rsk, blockNumber }
 		}));
@@ -209,7 +206,7 @@ function setupRSKEventListeners(provider: ethers.JsonRpcProvider, wallet: ethers
  * Initialize Liquid, RSK, and BSC wallets
  */
 export async function initializeWallet(): Promise<void> {
-	walletStore.update(state => ({
+	walletStore.update((state) => ({
 		...state,
 		isInitializing: true,
 		isConnecting: true,
@@ -252,7 +249,7 @@ export async function initializeWallet(): Promise<void> {
 			errors.push(`BSC: ${bscResult.reason?.message || 'Unknown error'}`);
 		}
 
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			isInitializing: false,
 			isConnecting: false,
@@ -266,10 +263,9 @@ export async function initializeWallet(): Promise<void> {
 			await loadAllData();
 			await loadTransactions();
 		}
-
 	} catch (error) {
 		console.error('Failed to initialize wallets:', error);
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			isInitializing: false,
 			isConnecting: false,
@@ -286,14 +282,14 @@ export async function initializeWallet(): Promise<void> {
  */
 async function initializeLiquidWallet(mnemonic: string): Promise<void> {
 	try {
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			liquid: { ...state.liquid, connecting: true, error: null }
 		}));
 
 		// Check if already connected
 		if (get(isConnectedStore)) {
-			walletStore.update(state => ({
+			walletStore.update((state) => ({
 				...state,
 				liquid: { ...state.liquid, connected: true, connecting: false }
 			}));
@@ -306,7 +302,7 @@ async function initializeLiquidWallet(mnemonic: string): Promise<void> {
 		// Get wallet info
 		const walletInfo = await getWalletInfo();
 
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			liquid: {
 				...state.liquid,
@@ -316,10 +312,9 @@ async function initializeLiquidWallet(mnemonic: string): Promise<void> {
 				walletInfo
 			}
 		}));
-
 	} catch (error) {
 		console.error('Liquid wallet initialization failed:', error);
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			liquid: {
 				...state.liquid,
@@ -344,7 +339,7 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 			}
 		}
 
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			rsk: { ...state.rsk, connecting: true, error: null }
 		}));
@@ -352,9 +347,6 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 		// Get network config
 		const network: RSKNetwork = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const networkConfig = RSK_NETWORKS[network];
-		
-		// Log network for debugging (visible in production)
-		console.log(`🔗 RSK Network: ${network} (${networkConfig.name})`);
 
 		// Create provider
 		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
@@ -363,12 +355,21 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 		const hdNode = ethers.HDNodeWallet.fromPhrase(mnemonic, undefined, "m/44'/137'/0'/0/0");
 		const wallet = new ethers.Wallet(hdNode.privateKey, provider);
 
+		// Test RPC connection first
+		try {
+			await provider.getBlockNumber();
+		} catch (rpcError) {
+			throw new Error(
+				`RPC connection failed: ${rpcError instanceof Error ? rpcError.message : 'Unknown error'}`
+			);
+		}
+
 		// Get initial balance and block number
 		const balance = await provider.getBalance(wallet.address);
 		const blockNumber = await provider.getBlockNumber();
 		const formattedBalance = ethers.formatEther(balance);
 
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			rsk: {
 				...state.rsk,
@@ -385,10 +386,10 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 		}));
 
 		// Set up RSK event listeners
-		setupRSKEventListeners(provider, wallet);
+		setupRSKEventListeners(provider);
 	} catch (error) {
 		console.error('RSK wallet initialization failed:', error);
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			rsk: {
 				...state.rsk,
@@ -405,7 +406,7 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
  */
 async function initializeBSCWallet(): Promise<void> {
 	try {
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			bsc: { ...state.bsc, connecting: true, error: null }
 		}));
@@ -416,7 +417,7 @@ async function initializeBSCWallet(): Promise<void> {
 		// Get the BSC wallet state
 		const bscState = get(bscUsdtWalletStore);
 
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			bsc: {
 				...state.bsc,
@@ -434,10 +435,9 @@ async function initializeBSCWallet(): Promise<void> {
 				canPayFeesInUsdt: bscState.canPayFeesInUsdt
 			}
 		}));
-
 	} catch (error) {
 		console.error('BSC wallet initialization failed:', error);
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			bsc: {
 				...state.bsc,
@@ -464,15 +464,14 @@ async function loadRSKTransactions(): Promise<RSKTransaction[]> {
 		const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
 		// Use RSK Explorer API to get transaction history
-		const explorerApiUrl = network === 'mainnet'
-			? 'https://rootstock.blockscout.com/api'
-			: 'https://rootstock-testnet.blockscout.com/api';
+		const explorerApiUrl =
+			network === 'mainnet'
+				? 'https://rootstock.blockscout.com/api'
+				: 'https://rootstock-testnet.blockscout.com/api';
 
 		try {
 			// Fetch transactions from RSK Explorer API
-			const response = await fetch(
-				`${explorerApiUrl}/v2/addresses/${address}/transactions`
-			);
+			const response = await fetch(`${explorerApiUrl}/v2/addresses/${address}/transactions`);
 
 			if (!response.ok) {
 				throw new Error(`API responded with status: ${response.status}`);
@@ -481,7 +480,8 @@ async function loadRSKTransactions(): Promise<RSKTransaction[]> {
 			const data = await response.json();
 
 			if (data.items && Array.isArray(data.items)) {
-				for (const tx of data.items.slice(0, 50)) { // Limit to 50 most recent
+				for (const tx of data.items.slice(0, 50)) {
+					// Limit to 50 most recent
 					const transaction: RSKTransaction = {
 						hash: tx.hash,
 						from: tx.from.hash,
@@ -498,7 +498,6 @@ async function loadRSKTransactions(): Promise<RSKTransaction[]> {
 					transactions.push(transaction);
 				}
 			}
-
 		} catch (apiError) {
 			console.error('Failed to fetch from explorer API:', apiError);
 
@@ -661,7 +660,7 @@ export async function loadTransactions(): Promise<void> {
 			return bTime - aTime;
 		});
 
-		walletStore.update(state => ({ ...state, transactions: sortedTransactions }));
+		walletStore.update((state) => ({ ...state, transactions: sortedTransactions }));
 	} catch (error) {
 		console.error('Failed to load transactions:', error);
 	}
@@ -701,7 +700,9 @@ export async function loadAssets(): Promise<void> {
 				const usdtAssetId = getAssetId('USDT');
 				const usdtMetadata = getAssetMetadata(currentNetwork, usdtAssetId);
 				if (usdtMetadata) {
-					const usdtBalance = info?.walletInfo?.assetBalances?.find(ab => ab.assetId === usdtAssetId)?.balanceSat || 0;
+					const usdtBalance =
+						info?.walletInfo?.assetBalances?.find((ab) => ab.assetId === usdtAssetId)?.balanceSat ||
+						0;
 					const balanceInUsdt = usdtBalance / Math.pow(10, usdtMetadata.precision);
 					assets.push({
 						...usdtMetadata,
@@ -721,7 +722,7 @@ export async function loadAssets(): Promise<void> {
 			try {
 				const balance = await state.rsk.provider.getBalance(state.rsk.wallet.address);
 				const rbtcValue = parseFloat(ethers.formatEther(balance));
-				const btcPrice = state.fiatRates.find(rate => rate.coin === 'BTC')?.value || 0;
+				const btcPrice = state.fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
 
 				assets.push({
 					assetId: 'rbtc',
@@ -743,8 +744,8 @@ export async function loadAssets(): Promise<void> {
 		if (state.bsc.connected) {
 			try {
 				const bscState = get(bscUsdtWalletStore);
-				const btcPrice = state.fiatRates.find(rate => rate.coin === 'BTC')?.value || 0;
-				const usdPrice = state.fiatRates.find(rate => rate.coin === 'USD')?.value || 1;
+				const btcPrice = state.fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
+				const usdPrice = state.fiatRates.find((rate) => rate.coin === 'USD')?.value || 1;
 
 				// BNB asset
 				const bnbBalance = parseFloat(bscState.formattedBnbBalance);
@@ -780,13 +781,21 @@ export async function loadAssets(): Promise<void> {
 
 		const totalBalances = {
 			usd: assets.reduce((sum, asset) => sum + asset.usdValue, 0),
-			sats: assets.filter(a => a.ticker === 'L-BTC').reduce((sum, asset) => sum + asset.balance, 0),
-			rbtc: assets.filter(a => a.network === 'RSK').reduce((sum, asset) => sum + asset.balance, 0),
-			usdt: assets.filter(a => a.network === 'BSC' && a.ticker === 'USDT').reduce((sum, asset) => sum + asset.balance, 0),
-			bnb: assets.filter(a => a.network === 'BSC' && a.ticker === 'BNB').reduce((sum, asset) => sum + asset.balance, 0)
+			sats: assets
+				.filter((a) => a.ticker === 'L-BTC')
+				.reduce((sum, asset) => sum + asset.balance, 0),
+			rbtc: assets
+				.filter((a) => a.network === 'RSK')
+				.reduce((sum, asset) => sum + asset.balance, 0),
+			usdt: assets
+				.filter((a) => a.network === 'BSC' && a.ticker === 'USDT')
+				.reduce((sum, asset) => sum + asset.balance, 0),
+			bnb: assets
+				.filter((a) => a.network === 'BSC' && a.ticker === 'BNB')
+				.reduce((sum, asset) => sum + asset.balance, 0)
 		};
 
-		walletStore.update(state => ({ ...state, assets, totalBalances }));
+		walletStore.update((state) => ({ ...state, assets, totalBalances }));
 	} catch (error) {
 		console.error('Failed to load assets:', error);
 	}
@@ -798,7 +807,7 @@ export async function loadAssets(): Promise<void> {
 export async function loadFiatRates(): Promise<void> {
 	try {
 		const rates = await fetchFiatRates();
-		walletStore.update(state => ({ ...state, fiatRates: rates }));
+		walletStore.update((state) => ({ ...state, fiatRates: rates }));
 	} catch (error) {
 		console.error('Failed to load fiat rates:', error);
 	}
@@ -810,7 +819,7 @@ export async function loadFiatRates(): Promise<void> {
 export async function loadRbtcExchangeRate(): Promise<void> {
 	try {
 		const rate = await cryptoPriceService.getExchangeRate('RBTC', 'BTC');
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			rbtcToBtcRate: rate,
 			rbtcRateError: false
@@ -818,7 +827,7 @@ export async function loadRbtcExchangeRate(): Promise<void> {
 	} catch (error) {
 		console.error('Failed to load rBTC exchange rate:', error);
 		// Set error flag so UI can handle appropriately
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			rbtcToBtcRate: 1.0, // Use 1:1 as safe fallback
 			rbtcRateError: true
@@ -856,7 +865,7 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 		};
 
 		// Add pending transaction to the combined transactions
-		walletStore.update(storeState => ({
+		walletStore.update((storeState) => ({
 			...storeState,
 			transactions: [pendingTx, ...storeState.transactions]
 		}));
@@ -872,9 +881,10 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 		await loadTransactions();
 
 		return tx.hash;
-
 	} catch (error) {
-		throw new Error(`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`Transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
@@ -884,9 +894,9 @@ export async function sendRBTC(to: string, amount: string): Promise<string> {
 function updateRSKTransactionStatus(hash: string, receipt: ethers.TransactionReceipt | null): void {
 	if (!receipt) return;
 
-	walletStore.update(state => {
+	walletStore.update((state) => {
 		// Remove the pending transaction and add the confirmed one
-		const updatedTransactions = state.transactions.map(tx => {
+		const updatedTransactions = state.transactions.map((tx) => {
 			if ('hash' in tx && tx.hash === hash) {
 				// Update the RSK transaction
 				return {
@@ -912,15 +922,15 @@ function updateRSKTransactionStatus(hash: string, receipt: ethers.TransactionRec
  * UI State Management
  */
 export function setActiveNetwork(network: 'liquid' | 'rsk' | 'bsc'): void {
-	walletStore.update(state => ({ ...state, activeNetwork: network }));
+	walletStore.update((state) => ({ ...state, activeNetwork: network }));
 }
 
 export function setActiveTab(tab: 'balance' | 'send' | 'receive' | 'transactions'): void {
-	walletStore.update(state => ({ ...state, activeTab: tab }));
+	walletStore.update((state) => ({ ...state, activeTab: tab }));
 }
 
 export function setSelectedAsset(asset: string): void {
-	walletStore.update(state => ({ ...state, selectedAsset: asset }));
+	walletStore.update((state) => ({ ...state, selectedAsset: asset }));
 }
 
 /**
@@ -928,7 +938,7 @@ export function setSelectedAsset(asset: string): void {
  */
 export async function switchToBSCNetwork(network: BSCNetwork): Promise<void> {
 	try {
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			bsc: { ...state.bsc, connecting: true, error: null }
 		}));
@@ -938,7 +948,7 @@ export async function switchToBSCNetwork(network: BSCNetwork): Promise<void> {
 
 		// Update unified wallet state with new BSC state
 		const bscState = get(bscUsdtWalletStore);
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			bsc: {
 				...state.bsc,
@@ -960,10 +970,9 @@ export async function switchToBSCNetwork(network: BSCNetwork): Promise<void> {
 		// Refresh assets and transactions
 		await loadAssets();
 		await loadTransactions();
-
 	} catch (error) {
 		console.error('Failed to switch BSC network:', error);
-		walletStore.update(state => ({
+		walletStore.update((state) => ({
 			...state,
 			bsc: {
 				...state.bsc,
@@ -978,17 +987,23 @@ export async function switchToBSCNetwork(network: BSCNetwork): Promise<void> {
 /**
  * Send BSC USDT transaction
  */
-export async function sendBSCUSDT(to: string, amount: string, payFeesInUsdt: boolean = false): Promise<string> {
+export async function sendBSCUSDT(
+	to: string,
+	amount: string,
+	payFeesInUsdt: boolean = false
+): Promise<string> {
 	try {
 		const txHash = await bscUsdtWallet.sendUSDT(to, amount, payFeesInUsdt);
-		
+
 		// Refresh assets and transactions
 		await loadAssets();
 		await loadTransactions();
-		
+
 		return txHash;
 	} catch (error) {
-		throw new Error(`BSC USDT transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`BSC USDT transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
@@ -998,21 +1013,27 @@ export async function sendBSCUSDT(to: string, amount: string, payFeesInUsdt: boo
 export async function sendBSCBNB(to: string, amount: string): Promise<string> {
 	try {
 		const txHash = await bscUsdtWallet.sendBNB(to, amount);
-		
+
 		// Refresh assets and transactions
 		await loadAssets();
 		await loadTransactions();
-		
+
 		return txHash;
 	} catch (error) {
-		throw new Error(`BSC BNB transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		throw new Error(
+			`BSC BNB transaction failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 	}
 }
 
 /**
  * Estimate BSC USDT gas
  */
-export async function estimateBSCUSDTGas(to: string, amount: string, payFeesInUsdt: boolean = false) {
+export async function estimateBSCUSDTGas(
+	to: string,
+	amount: string,
+	payFeesInUsdt: boolean = false
+) {
 	return await bscUsdtWallet.estimateUSDTGas(to, amount, payFeesInUsdt);
 }
 
@@ -1027,21 +1048,21 @@ export async function estimateBSCBNBGas(to: string, amount: string) {
  * Cleanup
  */
 export async function cleanup(): Promise<void> {
-	refreshIntervals.forEach(interval => clearInterval(interval));
-	eventListeners.forEach(cleanup => cleanup());
+	refreshIntervals.forEach((interval) => clearInterval(interval));
+	eventListeners.forEach((cleanup) => cleanup());
 	await disconnect();
 	await bscUsdtWallet.cleanup();
 	walletStore.set(initialState);
 }
 
 // Derived stores for easy access
-export const liquidConnection = derived(walletStore, $store => $store.liquid);
-export const rskConnection = derived(walletStore, $store => $store.rsk);
-export const bscConnection = derived(walletStore, $store => $store.bsc);
-export const combinedWalletState = derived(walletStore, $store => $store);
-export const allAssets = derived(walletStore, $store => $store.assets);
-export const totalBalances = derived(walletStore, $store => $store.totalBalances);
-export const rbtcToBtcRate = derived(walletStore, $store => $store.rbtcToBtcRate);
+export const liquidConnection = derived(walletStore, ($store) => $store.liquid);
+export const rskConnection = derived(walletStore, ($store) => $store.rsk);
+export const bscConnection = derived(walletStore, ($store) => $store.bsc);
+export const combinedWalletState = derived(walletStore, ($store) => $store);
+export const allAssets = derived(walletStore, ($store) => $store.assets);
+export const totalBalances = derived(walletStore, ($store) => $store.totalBalances);
+export const rbtcToBtcRate = derived(walletStore, ($store) => $store.rbtcToBtcRate);
 
 /**
  * Utility functions
@@ -1054,7 +1075,11 @@ export function formatUsd(amount: number): string {
 	return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
-export function formatAddress(address: string | null, startChars: number = 6, endChars: number = 4): string {
+export function formatAddress(
+	address: string | null,
+	startChars: number = 6,
+	endChars: number = 4
+): string {
 	if (!address) return '';
 	if (address.length <= startChars + endChars) return address;
 	return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
@@ -1079,7 +1104,7 @@ export function getRSKProvider(): ethers.JsonRpcProvider | null {
 /**
  * Get RSK address
  */
-export const rskAddress = derived(walletStore, $store => $store.rsk.address);
+export const rskAddress = derived(walletStore, ($store) => $store.rsk.address);
 
 // Main wallet manager
 export const walletManager = {

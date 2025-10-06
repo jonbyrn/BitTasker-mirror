@@ -23,6 +23,7 @@ export const StorageKeys = {
 	LAST_SYNC: 'bittasker_last_sync',
 	APP_VERSION: 'bittasker_app_version',
 	DEVICE_UNIQUE_ID: 'device_unique_id',
+	WARNING_ACKNOWLEDGED: 'bittasker_warning_acknowledged',
 
 	NPUB: 'npub',
 	AUTH_METHOD: 'auth_method' // alby | passkey | biometrics

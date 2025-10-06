@@ -211,7 +211,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl py-4 sm:p-0">
+<div class="mx-auto px-2 md:px-0 py-4">
 	<div class="mb-4 sm:mb-6">
 		<h3 class="text-xl font-bold sm:text-2xl">{$t('task.drawer.bids_received')}</h3>
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
@@ -452,7 +452,7 @@
 
 						<!-- Bid description -->
 						<div class="mb-4">
-							<p class="text-base-content/80 line-clamp-2">{bid.description}</p>
+							<p class="text-base-content/80">{bid.description}</p>
 						</div>
 
 						<!-- Action buttons - always visible -->
@@ -707,7 +707,7 @@
 
 <Drawer
 	isOpen={showAcceptanceForm}
-	title={$t('dashboard.bids.bid_acceptance.accept_bid')}
+	title={$t('dashboard.bids.bid_acceptance.accept_bid_fund_contract')}
 	onClose={handleCloseBid}
 	position="right"
 	isScrollable={true}
