@@ -23,8 +23,6 @@
     "/images/*",
     "/illustrations/*",
     "/currency-symbols/*",
-    "/locales/*",
-    "/_app/immutable/*",
-    "/build/*"
+    "/locales/*"
   ]
 }
