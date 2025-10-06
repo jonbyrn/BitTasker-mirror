@@ -735,18 +735,10 @@ export async function loadAssets(): Promise<void> {
 
 		const totalBalances = {
 			usd: assets.reduce((sum, asset) => sum + asset.usdValue, 0),
-			sats: assets
-				.filter((a) => a.ticker === 'L-BTC')
-				.reduce((sum, asset) => sum + asset.balance, 0),
-			rbtc: assets
-				.filter((a) => a.network === 'RSK')
-				.reduce((sum, asset) => sum + asset.balance, 0),
-			usdt: assets
-				.filter((a) => a.network === 'BSC' && a.ticker === 'USDT')
-				.reduce((sum, asset) => sum + asset.balance, 0),
-			bnb: assets
-				.filter((a) => a.network === 'BSC' && a.ticker === 'BNB')
-				.reduce((sum, asset) => sum + asset.balance, 0)
+			sats: assets.filter(a => a.ticker === 'L-BTC').reduce((sum, asset) => sum + asset.balance, 0),
+			rbtc: assets.filter(a => a.network === 'RSK').reduce((sum, asset) => sum + asset.balance, 0),
+			usdt: assets.filter(a => a.network === 'BSC' && a.ticker === 'USDT').reduce((sum, asset) => sum + asset.balance, 0),
+			bnb: 0 // BNB removed from balance calculations
 		};
 
 		walletStore.update((state) => ({ ...state, assets, totalBalances }));
