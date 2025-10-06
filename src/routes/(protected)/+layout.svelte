@@ -14,6 +14,6 @@
 {:else}
 	<!-- This shouldn't be seen since the +layout.ts should redirect -->
 	<div class="flex h-full w-full flex-col items-center justify-center">
-		<p>{$t('auth.redirecting_to_login')}</p>
+		<p>{$t('common.redirecting_to_login')}</p>
 	</div>
 {/if}

@@ -14,6 +14,7 @@
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
+	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 
 	// Props
 	let {
@@ -541,7 +542,7 @@
 		fetchProfileMetadata(currentUserHex())
 			.then((profile) => {
 				currentUserProfile = {
-					name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
+					name: $databaseUserStore.data?.username || profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
 					picture: profile.picture
 				};
 			})
@@ -554,7 +555,7 @@
 			// Only update if we get valid profile data
 			if (profile && (profile.name || profile.picture)) {
 				currentUserProfile = {
-					name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
+					name: $databaseUserStore.data?.username || profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
 					picture: profile.picture
 				};
 			}

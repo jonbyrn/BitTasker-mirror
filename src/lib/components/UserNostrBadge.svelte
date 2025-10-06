@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
+	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 
 	const {
 		pubkey,
@@ -60,8 +61,10 @@
 		}
 	}
 
-	// Get display name
+	// Get display name - prioritize username from database over name
 	function getDisplayName(): string {
+		// First check if this is the current user and we have database data
+		if ($databaseUserStore.data?.username) return $databaseUserStore.data.username;
 		if (profile?.name) return profile.name;
 		// Return shortened pubkey as fallback
 		return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
