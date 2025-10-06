@@ -746,19 +746,19 @@ export async function loadAssets(): Promise<void> {
 				const btcPrice = state.fiatRates.find(rate => rate.coin === 'BTC')?.value || 0;
 				const usdPrice = state.fiatRates.find(rate => rate.coin === 'USD')?.value || 1;
 
-				// BNB asset
-				const bnbBalance = parseFloat(bscState.formattedBnbBalance);
-				assets.push({
-					assetId: 'bnb',
-					name: 'Binance Coin',
-					ticker: 'BNB',
-					precision: 18,
-					icon: '/images/chains/Binance-logo.svg',
-					balance: bnbBalance,
-					usdValue: bnbBalance * btcPrice, // Using BTC price as approximation
-					formattedBalance: bnbBalance.toFixed(6),
-					network: 'BSC'
-				});
+				// BNB asset - removed completely
+				// const bnbBalance = parseFloat(bscState.formattedBnbBalance);
+				// assets.push({
+				// 	assetId: 'bnb',
+				// 	name: 'Binance Coin',
+				// 	ticker: 'BNB',
+				// 	precision: 18,
+				// 	icon: '/images/chains/Binance-logo.svg',
+				// 	balance: bnbBalance,
+				// 	usdValue: bnbBalance * btcPrice, // Using BTC price as approximation
+				// 	formattedBalance: bnbBalance.toFixed(6),
+				// 	network: 'BSC'
+				// });
 
 				// USDT asset on BSC
 				const usdtBalance = parseFloat(bscState.formattedUsdtBalance);
@@ -783,7 +783,7 @@ export async function loadAssets(): Promise<void> {
 			sats: assets.filter(a => a.ticker === 'L-BTC').reduce((sum, asset) => sum + asset.balance, 0),
 			rbtc: assets.filter(a => a.network === 'RSK').reduce((sum, asset) => sum + asset.balance, 0),
 			usdt: assets.filter(a => a.network === 'BSC' && a.ticker === 'USDT').reduce((sum, asset) => sum + asset.balance, 0),
-			bnb: assets.filter(a => a.network === 'BSC' && a.ticker === 'BNB').reduce((sum, asset) => sum + asset.balance, 0)
+			bnb: 0 // BNB removed from balance calculations
 		};
 
 		walletStore.update(state => ({ ...state, assets, totalBalances }));

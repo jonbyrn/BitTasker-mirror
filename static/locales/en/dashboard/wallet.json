@@ -295,6 +295,19 @@
         "address_required": "Recipient address is required",
         "amount_required": "Amount is required",
         "insufficient_balance": "Insufficient balance"
-      }
+      },
+      "sats": "Sats",
+      "rbtc": "rBTC",
+      "usdt": "USDT",
+      "usd": "USD",
+      "btc": "BTC",
+      "lbtc": "L-BTC",
+      "lightning": "Lightning",
+      "bitcoin": "Bitcoin",
+      "rootstock_bitcoin": "Rootstock Bitcoin",
+      "usdt_liquid": "USDT (Liquid)",
+      "usdt_binance_chain": "USDT (Binance Chain)",
+      "coming_soon": "Coming Soon",
+      "retry": "Retry"
     }
   }
