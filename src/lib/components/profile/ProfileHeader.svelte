@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
+	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 	import { t } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
 
@@ -10,13 +11,14 @@
 	onMount(async () => {
 		try {
 			await user.getUserData();
+			await databaseUserStore.init();
 		} catch (error) {
 			console.error('Failed to initialize user store:', error);
 		}
 	});
 
-	// Derived values for reactive updates
-	let userName = $derived($profileStore.data?.name || $user.name || 'Anonymous');
+	// Derived values for reactive updates - prioritize username from database over name
+	let userName = $derived($databaseUserStore.data?.username || $profileStore.data?.name || $user.name || 'Anonymous');
 
 	// Get the first image from pictures array, or fallback to user.picture or profileStore.data.picture
 	let userPicture = $derived(() => {

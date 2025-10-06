@@ -340,13 +340,13 @@
 
 		try {
 			const profiles: { pubkey: string; profile: { name?: string; picture?: string } }[] = [];
+			const profileMap = new Map<string, { name?: string; picture?: string }>();
 			const relayUrl = import.meta.env.VITE_NOSTR_RELAY_URL;
 
 			if (!relayUrl) {
 				throw new Error('No relay URL configured');
 			}
 
-			console.log('Searching for username:', username);
 
 			// Search for profile events with matching names
 			const filter: Filter = {
@@ -354,11 +354,19 @@
 				limit: 50 // Increase limit to get more results
 			};
 
+			// Also search for image events (kind 30063) to get profile pictures
+			const imageFilter: Filter = {
+				kinds: [30063], // Image events
+				'#d': ['profile-images'], // Profile images tag
+				limit: 50
+			};
+
 			let eventCount = 0;
 			const maxEvents = 100; // Limit total events processed
 			let searchCompleted = false;
 
-			const unsubscribe = subscribeToEvents(relayUrl, [filter], (event: NostrEvent) => {
+			// First, search for profile events
+			const unsubscribeProfiles = subscribeToEvents(relayUrl, [filter], (event: NostrEvent) => {
 				if (searchCompleted) return;
 
 				eventCount++;
@@ -366,7 +374,7 @@
 				// Stop processing if we've seen too many events
 				if (eventCount > maxEvents) {
 					searchCompleted = true;
-					unsubscribe();
+					unsubscribeProfiles();
 					return;
 				}
 
@@ -381,30 +389,54 @@
 						// More flexible matching - check if search term is contained in name
 						// or if name starts with search term
 						if (profileName.includes(searchTerm) || profileName.startsWith(searchTerm)) {
-							console.log('Found matching profile:', profileData.name, 'for search:', username);
 
-							profiles.push({
-								pubkey: event.pubkey,
-								profile: {
-									name: profileData.name,
-									picture: profileData.picture
-								}
+							// Store profile data in map
+							profileMap.set(event.pubkey, {
+								name: profileData.name,
+								picture: profileData.picture || profileData.banner // Try banner if no picture
 							});
 
 							// Update results immediately as we find them
-							usernameSearchResults = [...profiles.slice(0, 5)];
+							usernameSearchResults = Array.from(profileMap.entries()).map(([pubkey, profile]) => ({
+								pubkey,
+								profile
+							})).slice(0, 5);
 							
 							// Stop searching if we have enough results
-							if (profiles.length >= 5) {
+							if (profileMap.size >= 5) {
 								searchCompleted = true;
-								unsubscribe();
+								unsubscribeProfiles();
 								isUsernameSearching = false;
 							}
 						}
 					}
 				} catch (err) {
 					// Skip invalid profile data
-					console.log('Invalid profile data for event:', event.id);
+				}
+			});
+
+			// Also search for image events to get profile pictures
+			const unsubscribeImages = subscribeToEvents(relayUrl, [imageFilter], (event: NostrEvent) => {
+				if (searchCompleted) return;
+
+				try {
+					const imageData = JSON.parse(event.content);
+					
+					// If we have a profile for this pubkey, add the image
+					if (profileMap.has(event.pubkey) && imageData.length > 0) {
+						const profile = profileMap.get(event.pubkey);
+						if (profile && !profile.picture) {
+							profile.picture = imageData[0].url;
+							
+							// Update results with the new image
+							usernameSearchResults = Array.from(profileMap.entries()).map(([pubkey, profile]) => ({
+								pubkey,
+								profile
+							})).slice(0, 5);
+						}
+					}
+				} catch (err) {
+					// Skip invalid image data
 				}
 			});
 
@@ -412,20 +444,19 @@
 			await new Promise((resolve) => {
 				const timeoutId = setTimeout(() => {
 					searchCompleted = true;
-					unsubscribe();
-					console.log(
-						`Search completed. Processed ${eventCount} events, found ${profiles.length} matches`
-					);
+					unsubscribeProfiles();
+					unsubscribeImages();
 					resolve(undefined);
 				}, 2000); // Reduced to 2 second search duration
 				
 				// Also resolve if we have enough results
 				const checkResults = setInterval(() => {
-					if (searchCompleted || profiles.length >= 3) {
+					if (searchCompleted || profileMap.size >= 3) {
 						clearTimeout(timeoutId);
 						clearInterval(checkResults);
 						searchCompleted = true;
-						unsubscribe();
+						unsubscribeProfiles();
+						unsubscribeImages();
 						isUsernameSearching = false;
 						resolve(undefined);
 					}
@@ -433,9 +464,12 @@
 			});
 
 			// Final update of results
-			usernameSearchResults = profiles.slice(0, 5);
+			usernameSearchResults = Array.from(profileMap.entries()).map(([pubkey, profile]) => ({
+				pubkey,
+				profile
+			})).slice(0, 5);
 
-			if (profiles.length === 0) {
+			if (profileMap.size === 0) {
 				usernameSearchError = 'No users found with that name';
 			}
 		} catch (err) {
