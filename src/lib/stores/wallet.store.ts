@@ -747,19 +747,19 @@ export async function loadAssets(): Promise<void> {
 				const btcPrice = state.fiatRates.find((rate) => rate.coin === 'BTC')?.value || 0;
 				const usdPrice = state.fiatRates.find((rate) => rate.coin === 'USD')?.value || 1;
 
-				// BNB asset
-				const bnbBalance = parseFloat(bscState.formattedBnbBalance);
-				assets.push({
-					assetId: 'bnb',
-					name: 'Binance Coin',
-					ticker: 'BNB',
-					precision: 18,
-					icon: '/images/chains/Binance-logo.svg',
-					balance: bnbBalance,
-					usdValue: bnbBalance * btcPrice, // Using BTC price as approximation
-					formattedBalance: bnbBalance.toFixed(6),
-					network: 'BSC'
-				});
+				// BNB asset - removed completely
+				// const bnbBalance = parseFloat(bscState.formattedBnbBalance);
+				// assets.push({
+				// 	assetId: 'bnb',
+				// 	name: 'Binance Coin',
+				// 	ticker: 'BNB',
+				// 	precision: 18,
+				// 	icon: '/images/chains/Binance-logo.svg',
+				// 	balance: bnbBalance,
+				// 	usdValue: bnbBalance * btcPrice, // Using BTC price as approximation
+				// 	formattedBalance: bnbBalance.toFixed(6),
+				// 	network: 'BSC'
+				// });
 
 				// USDT asset on BSC
 				const usdtBalance = parseFloat(bscState.formattedUsdtBalance);
