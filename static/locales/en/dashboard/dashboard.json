@@ -1,5 +1,19 @@
 {
   "dashboard": {
+    "task": {
+      "deadline": {
+        "label": "Deadline"
+      },
+      "dateRange": {
+        "label": "Date Range"
+      },
+      "location": {
+        "details": "Location Details"
+      },
+      "type": {
+        "remote": "Remote"
+      }
+    },
     "title": "My Dashboard",
     "description": "Manage your tasks and bids.",
     "titl": "Dashboard",
