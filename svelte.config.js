@@ -26,6 +26,11 @@ const config = {
 			strict: false
 		}),
 
+		// Disable relative paths for Cloudflare Pages
+		paths: {
+			relative: false // Force absolute paths
+		},
+
         alias: {
             $houdini: ".houdini/"
         }
