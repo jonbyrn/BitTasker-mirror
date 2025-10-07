@@ -1,5 +1,6 @@
 {
     "common": {
+        "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
         "loading": "Loading...",
@@ -112,10 +113,10 @@
             },
             "warning_popup": {
                 "title": "Beta Warning",
-                "message": "This is currently in beta, please dont rely on it for serious business.",
-                "feedback_text": "If you find some bugs or have suggestions, please consider open an issue on",
-                "feedback_link": "our repo",
-                "feedback_suffix": "describing your problem.",
+                "message": "This app is currently in beta, please don't rely on it for serious business.",
+                "feedback_text": "If you find any bugs or have suggestions, please",
+                "feedback_link": "let us know!",
+                "feedback_suffix": "Thanks for trying BitTasker!",
                 "acknowledge_button": "I understand"
             },
             "network_selector": {

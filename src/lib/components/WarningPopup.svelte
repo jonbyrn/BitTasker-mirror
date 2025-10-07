@@ -121,7 +121,7 @@
 
 			<!-- Action Buttons -->
 			<div class="border-base-300 flex gap-3  pt-6">
-				<button
+				<!-- <button
 					type="button"
 					class="btn btn-ghost flex-1"
 					onclick={handleAcknowledge}
@@ -135,7 +135,7 @@
 						/>
 					</svg>
 					{$t('common.cancel')}
-				</button>
+				</button> -->
 				<button
 					type="button"
 					class="btn btn-primary flex-1"
