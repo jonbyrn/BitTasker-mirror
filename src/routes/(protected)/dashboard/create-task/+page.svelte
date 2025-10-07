@@ -24,6 +24,7 @@
 	let errors = $state<Record<string, string>>({});
 	let isSubmitting = $state(false);
 	let isLoading = $state(false);
+	let isEditDataLoaded = $state(false);
 	let direction: 'forward' | 'backward' = $state('forward');
 	let attachmentsToRemove = $state<Attachment[]>([]);
 	let taskBudgetRef = $state<any>(); // Reference to TaskBudget component
@@ -90,9 +91,12 @@
 			if (isEditing) {
 				// Load the draft for editing
 				await store.loadDraft();
+				// Mark that edit data is loaded
+				isEditDataLoaded = true;
 			} else {
 				// Clear any existing draft for new task creation
 				await store.clearDraft();
+				isEditDataLoaded = true;
 			}
 		} catch (error) {
 			console.error('Error loading draft:', error);
@@ -340,7 +344,7 @@
 				</div>
 			</div>
 
-			{#if isLoading}
+			{#if isLoading || !isEditDataLoaded}
 				<div class="flex justify-center">
 					<span class="loading loading-spinner loading-lg"></span>
 				</div>
