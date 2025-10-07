@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
+	import { goto } from '$app/navigation';
 	import { setCookie } from '$lib/utils/helpers/cookies';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
@@ -39,8 +40,8 @@
 	}
 
 	function handleFeedbackClick() {
-		// Open feedback page in new tab
-		window.open('https://bittasker.com/feedback', '_blank');
+		// Navigate to feedback page using SvelteKit router
+		goto('/feedback');
 	}
 </script>
 
