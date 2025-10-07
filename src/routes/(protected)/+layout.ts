@@ -11,22 +11,14 @@ import { pushNotificationService } from '$lib/api/services/push-notification.ser
 export const load: LayoutLoad = async () => {
 	// Only check authentication on the client side
 	if (browser) {
-		authState.setLoading(true);
+		const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
 
-		try {
-			const { value: token } = await Preferences.get({ key: StorageKeys.ACCESS_TOKEN });
-
-			if (!token || token === null) {
-				throw redirect(303, '/auth/login');
-			} else {
-				await tryCatch(user.getUserData());
-				authState.login();
-				await tryCatch(pushNotificationService.init());
-			}
-		} catch (error) {
-			authState.setLoading(false);
-			authState.setError(error instanceof Error ? error.message : 'Failed to load user data');
+		if (!token || token === null) {
 			throw redirect(303, '/auth/login');
+		} else {
+			await tryCatch(user.getUserData());
+			authState.login();
+			await tryCatch(pushNotificationService.init());
 		}
 	}
 };
