@@ -26,6 +26,10 @@ const config = {
 			strict: false
 		}),
 
+		prerender: {
+			entries: ['*']
+		},
+
         alias: {
             $houdini: ".houdini/"
         }
