@@ -1,2 +1,0 @@
-# Fallback for SPA routing - serve index.html for all non-static routes
-/*    /index.html   200
