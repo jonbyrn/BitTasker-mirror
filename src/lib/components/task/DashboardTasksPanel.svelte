@@ -639,14 +639,14 @@
 								<div class="flex flex-col">
 									{#if task.deadline}
 										<small class="text-base-content/60 text-xs">
-											{$t('task.deadline.label')}
+											{$t('dashboard.task.deadline.label')}
 										</small>
 										<span class="text-sm font-medium">
 											{formatDateTimeReactive(new Date(task.deadline))}
 										</span>
 									{:else if task.dateRange}
 										<small class="text-base-content/60 text-xs">
-											{$t('task.dateRange.label')}
+											{$t('dashboard.task.dateRange.label')}
 										</small>
 										<span class="text-sm font-medium">
 											{formatDateRangeReactive(new Date(task.dateRange.start), new Date(task.dateRange.end))}
@@ -689,14 +689,14 @@
 								/>
 							</svg>
 							<div class="flex min-w-0 flex-1 flex-col">
-								<small class="text-base-content/60 text-xs">{$t('task.location.details')}</small>
+								<small class="text-base-content/60 text-xs">{$t('dashboard.task.location.details')}</small>
 								<span class="line-clamp-2 text-sm font-medium">
 									{#if task.dropOffLocation?.displayName}
 										{task.dropOffLocation.displayName}
 									{:else if task.pickupLocation?.displayName}
 										{task.pickupLocation.displayName}
 									{:else}
-										{$t('task.type.remote')}
+										{$t('dashboard.task.type.remote')}
 									{/if}
 								</span>
 							</div>
