@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
-	import { getCookie } from '$lib/utils/helpers/cookies';
-	import { StorageKeys } from '$lib/utils/constants/storage';
 	import WarningPopup from './WarningPopup.svelte';
 
 	interface Props {
@@ -20,19 +18,9 @@
 			return;
 		}
 
-		try {
-			// Check if user has already acknowledged the warning
-			const hasAcknowledged = await getCookie(StorageKeys.WARNING_ACKNOWLEDGED);
-			
-			// Show warning if user hasn't acknowledged it yet
-			showWarning = !hasAcknowledged;
-		} catch (error) {
-			console.error('Error checking warning acknowledgment:', error);
-			// If there's an error, don't show the warning to avoid blocking the user
-			showWarning = false;
-		} finally {
-			isLoaded = true;
-		}
+		// Always show warning on every login
+		showWarning = true;
+		isLoaded = true;
 	});
 
 	function handleWarningClose() {
