@@ -6,7 +6,7 @@ export const darkMode = writable<boolean>(true);
 
 // Defer theme initialization to prevent blocking main thread
 const initializeTheme = () => {
-	if ('requestIdleCallback' in window) {
+	if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
 		requestIdleCallback(async () => {
 			const { value: savedDarkMode } = await Preferences.get({ key: StorageKeys.THEME });
 			if (savedDarkMode) {
@@ -29,7 +29,7 @@ initializeTheme();
 export async function setDarkMode(isDarkMode: boolean) {
 	// Defer the Preferences.set call to prevent blocking
 	const deferSet = () => {
-		if ('requestIdleCallback' in window) {
+		if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
 			requestIdleCallback(async () => {
 				await Preferences.set({
 					key: StorageKeys.THEME,

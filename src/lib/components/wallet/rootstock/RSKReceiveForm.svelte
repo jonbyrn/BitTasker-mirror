@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { rskAddress, rskWalletStore } from '$lib/stores/rskWallet.store';
-	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
+	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { onMount } from 'svelte';
 	import { appStore } from '$lib/stores/app.store';

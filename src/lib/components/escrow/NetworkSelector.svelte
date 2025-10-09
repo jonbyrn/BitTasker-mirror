@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { multiNetworkEscrow, getAvailableNetworks, formatNetworkName, type EscrowNetwork, type NetworkEnvironment } from '$lib/utils/wallet/multiNetworkEscrow';
+	import {
+		getAvailableNetworks,
+		formatNetworkName,
+		type EscrowNetwork,
+		type NetworkEnvironment
+	} from '$lib/utils/wallet/multiNetworkEscrow';
 	import { walletStore } from '$lib/stores/wallet.store';
-	import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
 	import { get } from 'svelte/store';
 	import { t } from 'svelte-i18n';
 
@@ -15,7 +19,11 @@
 		recommended?: boolean;
 	}
 
-	let { selectedNetwork = $bindable('RSK'), selectedEnvironment = $bindable('testnet'), onNetworkChange } = $props<{
+	let {
+		selectedNetwork = $bindable('RSK'),
+		selectedEnvironment = 'testnet',
+		onNetworkChange
+	} = $props<{
 		selectedNetwork?: EscrowNetwork;
 		selectedEnvironment?: NetworkEnvironment;
 		onNetworkChange?: (network: EscrowNetwork, environment: NetworkEnvironment) => void;
@@ -26,14 +34,15 @@
 	let error = $state('');
 
 	// Network availability check
-	function checkNetworkAvailability(network: EscrowNetwork, environment: NetworkEnvironment): boolean {
+	function checkNetworkAvailability(
+		network: EscrowNetwork
+	): boolean {
 		const walletState = get(walletStore);
-		const bscState = get(bscUsdtWalletStore);
 
 		if (network === 'RSK') {
 			return walletState.rsk.connected;
-		} else 		if (network === 'BSC') {
-			return bscState.isConnected;
+		} else if (network === 'BSC') {
+			return walletState.bsc.connected;
 		}
 		return false;
 	}
@@ -53,8 +62,8 @@
 					continue;
 				}
 
-				const available = checkNetworkAvailability(network, environment);
-				
+				const available = checkNetworkAvailability(network);
+
 				networkOptions.push({
 					network,
 					environment,
@@ -110,7 +119,7 @@
 	<!-- Network Selection Header -->
 	<div class="space-y-2">
 		<h3 class="text-lg font-semibold">{$t('common.components.network_selector.title')}</h3>
-		<p class="text-sm text-base-content/70">
+		<p class="text-base-content/70 text-sm">
 			{$t('common.components.network_selector.subtitle')}
 		</p>
 	</div>
@@ -118,8 +127,18 @@
 	<!-- Error Display -->
 	{#if error}
 		<div class="alert alert-error">
-			<svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+			<svg
+				xmlns="http://www.w3.org/2000/svg"
+				class="h-6 w-6 shrink-0 stroke-current"
+				fill="none"
+				viewBox="0 0 24 24"
+			>
+				<path
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					stroke-width="2"
+					d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+				/>
 			</svg>
 			<span>{error}</span>
 		</div>
@@ -137,14 +156,23 @@
 		<div class="space-y-3">
 			{#each availableNetworks as networkOption}
 				<label class="cursor-pointer">
-					<div class="card bg-base-100 border-2 transition-all duration-200 hover:shadow-md {selectedNetwork === networkOption.network && selectedEnvironment === networkOption.environment ? 'border-primary' : 'border-base-300'}">
+					<div
+						class="card bg-base-100 border-2 transition-all duration-200 hover:shadow-md {selectedNetwork ===
+							networkOption.network && selectedEnvironment === networkOption.environment
+							? 'border-primary'
+							: 'border-base-300'}"
+					>
 						<div class="card-body p-4">
 							<div class="flex items-center justify-between">
 								<div class="flex items-center space-x-3">
 									<!-- Network Icon -->
 									<div class="avatar">
-										<div class="w-10 h-10 rounded-full">
-											<img src={getNetworkIcon(networkOption.network)} alt={networkOption.name} class="w-full h-full object-contain" />
+										<div class="h-10 w-10 rounded-full">
+											<img
+												src={getNetworkIcon(networkOption.network)}
+												alt={networkOption.name}
+												class="h-full w-full object-contain"
+											/>
 										</div>
 									</div>
 
@@ -160,7 +188,7 @@
 												<span class="badge badge-error badge-sm">Wallet Not Connected</span>
 											{/if} -->
 										</div>
-										<p class="text-sm text-base-content/70">
+										<p class="text-base-content/70 text-sm">
 											{getNetworkDescription(networkOption.network, networkOption.environment)}
 										</p>
 									</div>
@@ -172,16 +200,18 @@
 										type="radio"
 										name="escrowNetwork"
 										class="radio radio-primary"
-										checked={selectedNetwork === networkOption.network && selectedEnvironment === networkOption.environment}
+										checked={selectedNetwork === networkOption.network &&
+											selectedEnvironment === networkOption.environment}
 										disabled={!networkOption.available}
-										onchange={() => handleNetworkChange(networkOption.network, networkOption.environment)}
+										onchange={() =>
+											handleNetworkChange(networkOption.network, networkOption.environment)}
 									/>
 								</div>
 							</div>
 
 							<!-- Additional Info -->
 							{#if networkOption.gasEstimate}
-								<div class="mt-2 text-xs text-base-content/60">
+								<div class="text-base-content/60 mt-2 text-xs">
 									Estimated gas: {networkOption.gasEstimate}
 								</div>
 							{/if}
@@ -192,14 +222,14 @@
 		</div>
 
 		<!-- Network Comparison -->
-		<div class="collapse collapse-arrow bg-base-200">
+		<div class="collapse-arrow bg-base-200 collapse">
 			<input type="checkbox" />
 			<div class="collapse-title text-sm font-medium">
 				{$t('common.components.network_selector.comparison_title')}
 			</div>
 			<div class="collapse-content">
 				<div class="overflow-x-auto">
-					<table class="table table-sm">
+					<table class="table-sm table">
 						<thead>
 							<tr>
 								<th>{$t('common.components.network_selector.feature')}</th>
@@ -242,11 +272,26 @@
 		<!-- Selected Network Summary -->
 		{#if selectedNetwork && selectedEnvironment}
 			<div class="alert alert-info">
-				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					fill="none"
+					viewBox="0 0 24 24"
+					class="h-6 w-6 shrink-0 stroke-current"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					></path>
 				</svg>
 				<div>
-					<div class="font-semibold">{$t('common.components.network_selector.selected')}: {formatNetworkName(selectedNetwork, selectedEnvironment)}</div>
+					<div class="font-semibold">
+						{$t('common.components.network_selector.selected')}: {formatNetworkName(
+							selectedNetwork,
+							selectedEnvironment
+						)}
+					</div>
 					<div class="text-sm">{getNetworkDescription(selectedNetwork, selectedEnvironment)}</div>
 				</div>
 			</div>

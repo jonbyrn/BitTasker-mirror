@@ -14,22 +14,21 @@
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
 	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import IconContentCopy from '~icons/mdi/content-copy';
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
+	import IconContentCopy from '~icons/mdi/content-copy';
 	import NetworkSelector from '$lib/components/escrow/NetworkSelector.svelte';
-	import type { EscrowNetwork, NetworkEnvironment } from '$lib/utils/wallet/multiNetworkEscrow';
 
 	// Network selection state
-	let selectedEscrowNetwork: EscrowNetwork = $state('RSK');
-	let selectedEscrowEnvironment: NetworkEnvironment = $state('testnet');
+	let selectedWallet: 'RSK' | 'BSC' = $state('RSK');
+	const rskNetwork = import.meta.env.VITE_RSK_NETWORK;
+	const bscNetwork = import.meta.env.VITE_BSC_NETWORK;
 
 	// Props
 	const props = $props<{
@@ -95,11 +94,10 @@
 		try {
 			// Accept bid and create escrow
 			const result = await acceptBidAndCreateEscrow(
-				props.bid, 
-				props.task, 
-				props.btcPrice, 
-				selectedEscrowNetwork, 
-				selectedEscrowEnvironment
+				props.bid,
+				props.task,
+				props.btcPrice,
+				selectedWallet
 			);
 
 			if (result.success) {
@@ -650,7 +648,7 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if selectedEscrowEnvironment === 'testnet'}
+		{#if (selectedWallet === 'RSK' && rskNetwork === 'testnet') || (selectedWallet === 'BSC' && bscNetwork === 'testnet')}
 			<div class="alert alert-outline alert-warning mb-6">
 				<div class="flex items-center">
 					<svg
@@ -722,15 +720,15 @@
 
 		<!-- Network Selection -->
 		<div class="px-6 pb-4">
-			<NetworkSelector 
-				bind:selectedNetwork={selectedEscrowNetwork}
-				bind:selectedEnvironment={selectedEscrowEnvironment}
+			<NetworkSelector
+				bind:selectedNetwork={selectedWallet}
+				selectedEnvironment={selectedWallet === 'RSK' ? rskNetwork : bscNetwork}
 			/>
 		</div>
 
 		<!-- Submit Buttons -->
 		<div
-			class="bg-base-100 border-base-300 sticky bottom-0 flex w-full flex-col-reverse justify-end gap-3 py-4 pb-8 sm:flex-row md:py-2 mb-8"
+			class="bg-base-100 border-base-300 sticky bottom-0 mb-8 flex w-full flex-col-reverse justify-end gap-3 py-4 pb-8 sm:flex-row md:py-2"
 		>
 			<button
 				type="button"
@@ -760,8 +758,8 @@
 				disabled={isSubmitting ||
 					validationErrors.length > 0 ||
 					balanceErrors.length > 0 ||
-					(selectedEscrowNetwork === 'RSK' && !$walletStore.rsk.connected) ||
-					(selectedEscrowNetwork === 'BSC' && !$bscUsdtWalletStore.isConnected)}
+					(selectedWallet === 'RSK' && !$walletStore.rsk.connected) ||
+					(selectedWallet === 'BSC' && !$walletStore.bsc.connected)}
 				onclick={handleSubmit}
 			>
 				{#if isSubmitting}
