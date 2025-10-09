@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
-	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 
 	const {
 		npub,

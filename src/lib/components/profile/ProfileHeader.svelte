@@ -3,7 +3,6 @@
 	import { onMount } from 'svelte';
 	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
-	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 	import { t } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
 
@@ -11,7 +10,6 @@
 	onMount(async () => {
 		try {
 			await user.getUserData();
-			await databaseUserStore.init();
 		} catch (error) {
 			console.error('Failed to initialize user store:', error);
 		}
