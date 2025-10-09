@@ -125,7 +125,6 @@
 				</div>
 			</div>
 		{/if}
-		-->
 
 		<!-- Testnet Warning Alert -->
 		{#if network === 'testnet'}
