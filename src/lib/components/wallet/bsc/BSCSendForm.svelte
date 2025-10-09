@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { bscUsdtWalletStore, bscUsdtWallet, bscCanPayFeesInUsdt } from '$lib/stores/bscUsdtWallet.store';
-	import { BSC_NETWORKS } from '$lib/stores/bscUsdtWallet.store';
+	import { BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
 
