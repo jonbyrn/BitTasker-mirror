@@ -2,7 +2,7 @@
 	import { t } from 'svelte-i18n';
 	import { ethers } from 'ethers';
 	import { bscUsdtWalletStore, bscTransactions, bscUsdtWallet } from '$lib/stores/bscUsdtWallet.store';
-	import { BSC_NETWORKS } from '$lib/stores/bscUsdtWallet.store';
+	import { BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 
 	let selectedFilter = $state('all');
