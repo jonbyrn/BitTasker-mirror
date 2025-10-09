@@ -1,10 +1,16 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { bscUsdtWalletStore, bscUsdtBalance, bscBnbBalance, bscTokenBalances, bscCanPayFeesInUsdt } from '$lib/stores/bscUsdtWallet.store';
-	import { BSC_NETWORKS } from '$lib/stores/bscUsdtWallet.store';
+	import { 
+		bscConnection, 
+		bscUsdtBalance, 
+		bscBnbBalance, 
+		bscTokenBalances, 
+		bscCanPayFeesInUsdt 
+	} from '$lib/stores/wallet.store';
+	import { getBSCNetworkConfig } from '$lib/utils/wallet/networkConfig';
 
 	// Get current network info
-	const networkInfo = $derived(BSC_NETWORKS[$bscUsdtWalletStore.network]);
+	const networkInfo = $derived(getBSCNetworkConfig(import.meta.env.VITE_BSC_NETWORK));
 	const usdtToken = $derived(networkInfo.tokens.find(token => token.symbol === 'USDT' || token.symbol === 'tUSDT'));
 	const usdtBalance = $derived($bscTokenBalances.find(balance => 
 		balance.token.symbol === 'USDT' || balance.token.symbol === 'tUSDT'
@@ -78,7 +84,7 @@
 		<div class="mt-4">
 			<div class="text-xs opacity-80 mb-1">{$t('wallet.bsc.wallet_address')}</div>
 			<div class="text-xs font-mono break-all bg-black bg-opacity-20 p-2 rounded">
-				{$bscUsdtWalletStore.address || $t('wallet.bsc.not_connected')}
+				{$bscConnection.address || $t('wallet.bsc.not_connected')}
 			</div>
 		</div>
 

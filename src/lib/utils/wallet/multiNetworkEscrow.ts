@@ -1,8 +1,7 @@
 import { ethers } from 'ethers';
 import { get } from 'svelte/store';
 import { walletStore } from '$lib/stores/wallet.store';
-import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
-import { FEE_TIERS, type FeeTier } from './escrowContract';
+import { FEE_TIERS, type FeeTier, RSK_NETWORKS, BSC_NETWORKS } from '$lib/utils/wallet/networkConfig';
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 import type { GasEstimation } from '$lib/types/wallet';
 
@@ -25,61 +24,42 @@ export interface NetworkConfig {
 	gasPrice?: bigint;
 }
 
-// Escrow network configurations
-export const ESCROW_NETWORKS: Record<EscrowNetwork, Record<NetworkEnvironment, NetworkConfig>> = {
-	RSK: {
-		mainnet: {
-			name: 'RSK Mainnet',
-			chainId: 30,
-			rpcUrl: 'https://public-node.rsk.co',
-			explorerUrl: 'https://explorer.rsk.co',
-			contractAddress: import.meta.env.VITE_RSK_CONTRACT_ADDRESS || '',
+// Helper function to get escrow network config from centralized configs
+function getEscrowNetworkConfig(network: EscrowNetwork, environment: NetworkEnvironment): NetworkConfig {
+	const contractAddress = network === 'RSK' 
+		? import.meta.env.VITE_RSK_CONTRACT_ADDRESS || ''
+		: import.meta.env.VITE_BSC_CONTRACT_ADDRESS || '';
+
+	if (network === 'RSK') {
+		const rskConfig = RSK_NETWORKS[environment];
+		return {
+			name: rskConfig.name,
+			chainId: rskConfig.chainId,
+			rpcUrl: rskConfig.rpcUrl,
+			explorerUrl: rskConfig.explorerUrl,
+			contractAddress,
 			nativeToken: {
-				name: 'Smart Bitcoin',
-				symbol: 'RBTC',
-				decimals: 18
+				name: rskConfig.currency.name,
+				symbol: rskConfig.currency.symbol,
+				decimals: rskConfig.currency.decimals
 			}
-		},
-		testnet: {
-			name: 'RSK Testnet',
-			chainId: 31,
-			rpcUrl: 'https://public-node.testnet.rsk.co',
-			explorerUrl: 'https://explorer.testnet.rsk.co',
-			contractAddress: import.meta.env.VITE_RSK_CONTRACT_ADDRESS || '',
+		};
+	} else {
+		const bscConfig = BSC_NETWORKS[environment];
+		return {
+			name: bscConfig.name,
+			chainId: bscConfig.chainId,
+			rpcUrl: bscConfig.rpcUrl,
+			explorerUrl: bscConfig.explorerUrl,
+			contractAddress,
 			nativeToken: {
-				name: 'Testnet Smart Bitcoin',
-				symbol: 'tRBTC',
-				decimals: 18
+				name: bscConfig.currency.name,
+				symbol: bscConfig.currency.symbol,
+				decimals: bscConfig.currency.decimals
 			}
-		}
-	},
-	BSC: {
-		mainnet: {
-			name: 'BSC Mainnet',
-			chainId: 56,
-			rpcUrl: 'https://bsc-dataseed.binance.org',
-			explorerUrl: 'https://bscscan.com',
-			contractAddress: import.meta.env.VITE_BSC_CONTRACT_ADDRESS || '',
-			nativeToken: {
-				name: 'Binance Coin',
-				symbol: 'BNB',
-				decimals: 18
-			}
-		},
-		testnet: {
-			name: 'BSC Testnet',
-			chainId: 97,
-			rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-			explorerUrl: 'https://testnet.bscscan.com',
-			contractAddress: import.meta.env.VITE_BSC_CONTRACT_ADDRESS || '',
-			nativeToken: {
-				name: 'Testnet Binance Coin',
-				symbol: 'tBNB',
-				decimals: 18
-			}
-		}
+		};
 	}
-};
+}
 
 // Escrow operation result
 export interface EscrowOperationResult {
@@ -100,14 +80,7 @@ export class MultiNetworkEscrowManager {
 	 * Get network configuration
 	 */
 	getNetworkConfig(network: EscrowNetwork, environment: NetworkEnvironment): NetworkConfig {
-		const config = ESCROW_NETWORKS[network]?.[environment];
-		if (!config) {
-			throw new Error(`Network configuration not found for ${network} ${environment}`);
-		}
-		if (!config.contractAddress) {
-			throw new Error(`Contract address not configured for ${network} ${environment}`);
-		}
-		return config;
+		return getEscrowNetworkConfig(network, environment);
 	}
 
 	/**
@@ -134,24 +107,23 @@ export class MultiNetworkEscrowManager {
 		if (!this.wallets.has(key)) {
 			const provider = await this.getProvider(network, environment);
 			
-			if (network === 'RSK') {
-				// Use existing RSK wallet from store
-				const walletState = get(walletStore);
-				if (!walletState.rsk.wallet) {
-					throw new Error('RSK wallet not initialized');
-				}
-				const wallet = new ethers.Wallet(walletState.rsk.wallet.privateKey, provider);
-				this.wallets.set(key, wallet);
-			} else if (network === 'BSC') {
-				// Use existing BSC wallet from store
-				const bscState = get(bscUsdtWalletStore);
-				if (!bscState.isConnected || !bscState.address) {
-					throw new Error('BSC wallet not initialized');
-				}
-				// For BSC, we need to get the private key from the wallet store
-				// This is a simplified approach - in production you'd want to handle this more securely
-				throw new Error('BSC wallet private key access not implemented in MultiNetworkEscrow');
+		if (network === 'RSK') {
+			// Use existing RSK wallet from store
+			const walletState = get(walletStore);
+			if (!walletState.rsk.wallet) {
+				throw new Error('RSK wallet not initialized');
 			}
+			const wallet = new ethers.Wallet(walletState.rsk.wallet.privateKey, provider);
+			this.wallets.set(key, wallet);
+		} else if (network === 'BSC') {
+			// Use existing BSC wallet from unified store
+			const walletState = get(walletStore);
+			if (!walletState.bsc.wallet) {
+				throw new Error('BSC wallet not initialized');
+			}
+			const wallet = new ethers.Wallet(walletState.bsc.wallet.privateKey, provider);
+			this.wallets.set(key, wallet);
+		}
 		}
 		
 		return this.wallets.get(key)!;
@@ -531,15 +503,29 @@ export const multiNetworkEscrow = new MultiNetworkEscrowManager();
 export function getAvailableNetworks(): Array<{ network: EscrowNetwork; environment: NetworkEnvironment; config: NetworkConfig }> {
 	const networks: Array<{ network: EscrowNetwork; environment: NetworkEnvironment; config: NetworkConfig }> = [];
 	
-	for (const [network, environments] of Object.entries(ESCROW_NETWORKS)) {
-		for (const [environment, config] of Object.entries(environments)) {
-			if (config.contractAddress) {
-				networks.push({
-					network: network as EscrowNetwork,
-					environment: environment as NetworkEnvironment,
-					config
-				});
-			}
+	// Add RSK networks
+	const rskEnvironments: NetworkEnvironment[] = ['mainnet', 'testnet'];
+	for (const environment of rskEnvironments) {
+		const config = getEscrowNetworkConfig('RSK', environment);
+		if (config.contractAddress) {
+			networks.push({
+				network: 'RSK',
+				environment,
+				config
+			});
+		}
+	}
+	
+	// Add BSC networks
+	const bscEnvironments: NetworkEnvironment[] = ['mainnet', 'testnet'];
+	for (const environment of bscEnvironments) {
+		const config = getEscrowNetworkConfig('BSC', environment);
+		if (config.contractAddress) {
+			networks.push({
+				network: 'BSC',
+				environment,
+				config
+			});
 		}
 	}
 	
@@ -547,11 +533,11 @@ export function getAvailableNetworks(): Array<{ network: EscrowNetwork; environm
 }
 
 export function formatNetworkName(network: EscrowNetwork, environment: NetworkEnvironment): string {
-	const config = ESCROW_NETWORKS[network]?.[environment];
+	const config = getEscrowNetworkConfig(network, environment);
 	return config ? `${config.name}` : `${network} ${environment}`;
 }
 
 export function getExplorerUrl(network: EscrowNetwork, environment: NetworkEnvironment, txHash: string): string {
-	const config = ESCROW_NETWORKS[network]?.[environment];
+	const config = getEscrowNetworkConfig(network, environment);
 	return config ? `${config.explorerUrl}/tx/${txHash}` : '';
 }

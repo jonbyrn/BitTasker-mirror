@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import type { WalletAsset } from '$lib/stores/wallet.store';
-	import { allAssets, liquidConnection, rskConnection, walletStore } from '$lib/stores/wallet.store';
+	import { allAssets, rskConnection } from '$lib/stores/wallet.store';
 	import { appStore } from '$lib/stores/app.store';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 	import { prepareReceivePayment, receivePayment } from '$lib/wallet/breez/walletService';
 	import { getAssetId } from '$lib/utils/constants/assets';
-	import { RSK_NETWORKS } from '$lib/utils/wallet/escrowContract';
+	import { RSK_NETWORKS } from '$lib/utils/wallet/networkConfig';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import generateQrCodeUrl from '$lib/utils/helpers/generateQrCodeUrl';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 

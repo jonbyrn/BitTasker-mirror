@@ -1,10 +1,14 @@
-import type { RSKNetwork } from "$lib/utils/wallet/escrowContract";
+import type { RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
+import type { Payment, GetInfoResponse, Rate } from '@breeztech/breez-sdk-liquid/web';
+import type { ethers } from 'ethers';
 
 export type RSKUnit = 'rbtc' | 'wei';
+export type BSCUnit = 'usdt' | 'wei';
+export type NetworkType = 'mainnet' | 'testnet';
 
-// ERC-20 Token Configuration
-export interface RSKToken {
+// ERC-20 Token Configuration for all networks (RSK, BSC)
+export interface ERC20Token {
     address: string;
     symbol: string;
     name: string;
@@ -12,8 +16,17 @@ export interface RSKToken {
     logoUrl?: string;
 }
 
+// Paymaster configuration interface
+export interface PaymasterConfig {
+    address: string;
+    usdtTokenAddress: string;
+    minDeposit: bigint; // Minimum BNB deposit required
+    maxGasPrice: bigint; // Maximum gas price in wei
+    usdtPriceOracle: string; // Price oracle address for USDT/BNB
+}
+
 // Transaction types
-export interface RSKTransaction {
+export interface Transaction {
     hash: string;
     from: string;
     to: string;
@@ -24,6 +37,8 @@ export interface RSKTransaction {
     timestamp: number;
     status: 'pending' | 'confirmed' | 'failed';
     type: 'send' | 'receive' | 'contract';
+    network: 'rsk' | 'bsc'; // Explicitly identify the network
+    tokenSymbol?: string; // Optional for token transactions (BSC USDT)
 }
 
 // Enhanced Escrow types
@@ -62,6 +77,7 @@ export interface GasEstimation {
     gasPrice: string;
     totalCost: string;
     totalCostFormatted: string;
+    usdtCost?: string; // Cost in USDT if paying fees in USDT
 }
 
 // Contract transaction result
@@ -74,12 +90,38 @@ export interface ContractTransactionResult {
 
 // Token balance interface
 export interface TokenBalance {
-    token: RSKToken;
+    token: ERC20Token;
     balance: bigint;
     formattedBalance: string;
+    usdValue?: number;
 }
 
-// Store state interface
+// Contract configuration interface
+export interface ContractConfig {
+    address: string;
+    abi: any[];
+    network: NetworkType;
+}
+
+// Asset metadata
+export interface AssetMetadata {
+	assetId: string;
+	name: string;
+	ticker: string;
+	precision: number;
+	icon: string;
+	fiatId?: string; // For assets that can pay fees
+}
+
+// Wallet asset interface
+export interface WalletAsset extends AssetMetadata {
+    balance: number;
+    usdValue: number;
+    formattedBalance: string;
+    network: 'Liquid' | 'Bitcoin' | 'RSK' | 'BSC';
+}
+
+// RSK Wallet State interface
 export interface RSKWalletState {
     // Connection
     isConnected: boolean;
@@ -98,8 +140,8 @@ export interface RSKWalletState {
     tokenBalances: TokenBalance[];
 
     // Transactions
-    transactions: RSKTransaction[];
-    pendingTransactions: RSKTransaction[];
+    transactions: Transaction[];
+    pendingTransactions: Transaction[];
 
     // Escrows
     escrows: EscrowData[];
@@ -111,9 +153,104 @@ export interface RSKWalletState {
     contractConfig: ContractConfig | null;
 }
 
-// Contract configuration interface
-export interface ContractConfig {
-	address: string;
-	abi: any[];
-	network: 'mainnet' | 'testnet';
+// BSC Wallet State interface
+export interface BSCWalletState {
+    // Connection
+    isConnected: boolean;
+    isConnecting: boolean;
+    error: string | null;
+    network: NetworkType;
+
+    // Wallet
+    address: string | null;
+    bnbBalance: string;
+    formattedBnbBalance: string;
+    blockNumber: number | null;
+
+    // Tokens
+    tokenBalances: TokenBalance[];
+    usdtBalance: string;
+    formattedUsdtBalance: string;
+
+    // Transactions
+    transactions: Transaction[];
+    pendingTransactions: Transaction[];
+
+    // EIP-7702 Support
+    paymasterConnected: boolean;
+    paymasterAddress: string | null;
+    canPayFeesInUsdt: boolean;
+}
+
+// Combined wallet state
+export interface CombinedWalletState {
+    // Connection status
+    isInitializing: boolean;
+    isConnected: boolean;
+    isConnecting: boolean;
+    hasAnyConnection: boolean;
+    error: string | null;
+
+    // Network states
+    liquid: {
+        connected: boolean;
+        connecting: boolean;
+        error: string | null;
+        walletInfo: GetInfoResponse | null;
+    };
+
+    rsk: {
+        connected: boolean;
+        connecting: boolean;
+        error: string | null;
+        address: string | null;
+        balance: string;
+        formattedBalance: string;
+        blockNumber: number | null;
+        provider: ethers.JsonRpcProvider | null;
+        wallet: ethers.Wallet | null;
+        contractAddress?: string;
+        contractConnected?: boolean;
+        escrows?: EscrowData[];
+    };
+
+    bsc: {
+        connected: boolean;
+        connecting: boolean;
+        error: string | null;
+        address: string | null;
+        bnbBalance: string;
+        formattedBnbBalance: string;
+        usdtBalance: string;
+        formattedUsdtBalance: string;
+        blockNumber: number | null;
+        provider: ethers.JsonRpcProvider | null;
+        wallet: ethers.Wallet | null;
+        usdtContract: ethers.Contract | null;
+        paymasterContract: any | null; // BSCPaymasterContract type
+        paymasterConnected: boolean;
+        paymasterAddress: string | null;
+        canPayFeesInUsdt: boolean;
+    };
+
+    // Combined data
+    assets: WalletAsset[];
+    transactions: (Payment | Transaction)[];
+    fiatRates: Rate[];
+    totalBalances: {
+        usd: number;
+        sats: number;
+        rbtc: number;
+        usdt: number;
+        bnb: number;
+    };
+
+    // Exchange rates
+    rbtcToBtcRate: number;
+    rbtcRateError: boolean;
+
+    // UI state
+    activeNetwork: 'liquid' | 'rsk' | 'bsc';
+    activeTab: 'balance' | 'send' | 'receive' | 'transactions';
+    selectedAsset: string;
 }

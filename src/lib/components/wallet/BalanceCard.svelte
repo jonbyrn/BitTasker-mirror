@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { WalletAsset } from '$lib/types/wallet';
 	import { t } from 'svelte-i18n';
 	import {
 		allAssets,
@@ -12,7 +13,6 @@
 	} from '$lib/stores/wallet.store';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
 	import { appStore } from '$lib/stores/app.store';
-	import type { WalletAsset } from '$lib/stores/wallet.store';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import IconDownload from '~icons/mdi/download';
@@ -302,20 +302,17 @@
 					<h4 class="font-semibold">Liquid</h4>
 				</div>
 				<!-- Connection status badge - commented out -->
-				<!--
-				<div
+				<!-- <div
 					class="badge {$liquidConnection.connected
 						? 'badge-success'
 						: 'badge-error'} badge-sm text-xs"
 				>
 					{$liquidConnection.connected ? 'Connected' : 'Disconnected'}
-				</div>
-				-->
+				</div> -->
 			</div>
 
 			<!-- Original Liquid content - commented out for coming soon display -->
-			<!--
-			<div class="flex-1">
+			<!-- <div class="flex-1">
 				{#if $allAssets.filter((a: WalletAsset) => a.network === 'Liquid').length > 0}
 					<div class="space-y-2">
 						{#each $allAssets.filter((a: WalletAsset) => a.network === 'Liquid') as asset (asset.assetId)}
@@ -363,8 +360,7 @@
 						</div>
 					</div>
 				</div>
-			{/if}
-			-->
+			{/if} -->
 
 			<!-- Liquid USDT display -->
 			<div class="flex-1 flex flex-col">

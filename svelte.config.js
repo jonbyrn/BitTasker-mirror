@@ -12,8 +12,8 @@ const config = {
 	},
 
 	kit: {
-        // Configure the adapter with fallback for SPA navigation
-        adapter: adapter({
+		// Configure the adapter with fallback for SPA navigation
+		adapter: adapter({
 			// Single-page app mode with fallback
 			// Use the conventional name for Cloudflare Pages
 			fallback: '404.html',
@@ -26,15 +26,10 @@ const config = {
 			strict: false
 		}),
 
-		// Disable relative paths for Cloudflare Pages
-		paths: {
-			relative: false // Force absolute paths
-		},
-
-        alias: {
-            $houdini: ".houdini/"
-        }
-    }
+		alias: {
+			$houdini: ".houdini/"
+		}
+	}
 };
 
 export default config;

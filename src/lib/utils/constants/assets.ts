@@ -3,6 +3,8 @@
  * These are well-known asset IDs that never change on the Liquid Network
  */
 
+import type { AssetMetadata } from "$lib/types/wallet";
+
 export const LIQUID_ASSET_IDS = {
 	mainnet: {
 		// L-BTC (Liquid Bitcoin) - the native asset of Liquid Network
@@ -19,15 +21,6 @@ export const LIQUID_ASSET_IDS = {
 		// Add more testnet assets as needed
 	}
 } as const;
-
-export interface AssetMetadata {
-	assetId: string;
-	name: string;
-	ticker: string;
-	precision: number;
-	icon: string;
-	fiatId?: string; // For assets that can pay fees
-}
 
 export const ASSET_METADATA: Record<'mainnet' | 'testnet', Record<string, AssetMetadata>> = {
 	mainnet: {
