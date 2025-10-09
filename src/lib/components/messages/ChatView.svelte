@@ -14,13 +14,12 @@
 	import EmojiPicker from '$lib/components/EmojiPicker.svelte';
 	import { TranslationStore } from '$lib/stores/translation.store';
 	import { TranslationService } from '$lib/services/translation.service';
-	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 
 	// Props
 	let {
 		recipientPubkey,
 		currentUserPubkey,
-		initialProfile,
+		initialProfile
 	}: {
 		recipientPubkey: string;
 		currentUserPubkey: string;
@@ -100,20 +99,20 @@
 
 	// Track translated message IDs to prevent duplicate calls
 	// Note: translatedMessageIds is now managed by TranslationStore to avoid conflicts
-	
+
 	// Track previous message count for auto-scroll
 	let previousMessageCount = $state(0);
-	
+
 	// Track if user is at bottom for scroll-to-bottom button
 	let isAtBottom = $state(true);
-	
+
 	// Translation service instance
 	const translationService = new TranslationService();
 
 	// Preload translations for current conversation
 	$effect(() => {
 		if (messages.length > 0) {
-			const messageIds = messages.map(msg => msg.event.id);
+			const messageIds = messages.map((msg) => msg.event.id);
 			TranslationStore.preloadConversationTranslations(messageIds);
 		}
 	});
@@ -151,36 +150,36 @@
 
 	// Track processed message IDs to avoid re-processing
 	let processedMessageIds = $state(new Set<string>());
-	
+
 	// Auto-translate only NEW messages when they arrive
 	$effect(() => {
 		const currentMessages = messages;
-		
+
 		if (currentMessages.length > 0) {
 			// Find only NEW messages that haven't been processed yet
-			const newMessages = currentMessages.filter(message => {
+			const newMessages = currentMessages.filter((message) => {
 				const messageId = message.event.id;
 				return !processedMessageIds.has(messageId);
 			});
-			
+
 			// Process new messages for translation
 			newMessages.forEach(async (message) => {
 				const messageId = message.event.id;
 				const isFromCurrentUser = message.senderPubkey === currentUserHex();
 				const hasText = message.plaintext.trim();
-				
+
 				// Mark as processed immediately to avoid duplicates
 				processedMessageIds.add(messageId);
-				
+
 				// Only translate incoming messages with text content
 				if (!isFromCurrentUser && hasText && hasText.length > 3) {
-					const isNotSystemMessage = !message.plaintext.startsWith('[') && !message.plaintext.startsWith('{');
-					
+					const isNotSystemMessage =
+						!message.plaintext.startsWith('[') && !message.plaintext.startsWith('{');
+
 					if (isNotSystemMessage) {
 						try {
 							// TranslationStore handles duplicate prevention internally
 							const result = await TranslationStore.translateMessage(messageId, message.plaintext);
-							
 						} catch (error) {
 							console.error('Translation error for new message', messageId, ':', error);
 						}
@@ -218,14 +217,14 @@
 	$effect(() => {
 		const currentMessageCount = messages.length;
 		const hasNewMessages = currentMessageCount > previousMessageCount;
-		
+
 		if (hasNewMessages && messagesContainer && !isLoadingMore) {
 			// Immediate scroll for new messages
 			setTimeout(() => {
 				scrollToBottomImmediate();
 			}, 50);
 		}
-		
+
 		previousMessageCount = currentMessageCount;
 	});
 
@@ -245,7 +244,7 @@
 			const handleScroll = () => {
 				const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
 				isNearTop = scrollTop < SCROLL_THRESHOLD;
-				
+
 				// Check if user is at bottom (within 50px)
 				const isNearBottom = scrollTop + clientHeight >= scrollHeight - 50;
 				isAtBottom = isNearBottom;
@@ -364,7 +363,6 @@
 			const messageHistory = await getMessageHistory(recipientHex(), {
 				limit: MESSAGES_PER_PAGE
 			});
-
 
 			// Sort messages by timestamp (oldest first)
 			const sortedMessages = messageHistory.sort((a, b) => a.event.created_at - b.event.created_at);
@@ -542,7 +540,7 @@
 		fetchProfileMetadata(currentUserHex())
 			.then((profile) => {
 				currentUserProfile = {
-					name: $databaseUserStore.data?.username || profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
+					name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
 					picture: profile.picture
 				};
 			})
@@ -555,7 +553,7 @@
 			// Only update if we get valid profile data
 			if (profile && (profile.name || profile.picture)) {
 				currentUserProfile = {
-					name: $databaseUserStore.data?.username || profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
+					name: profile.name || $t('dashboard.bids.components.messages.chat_message.you'),
 					picture: profile.picture
 				};
 			}
@@ -707,11 +705,11 @@
 	}
 </script>
 
-<div class="flex flex-col h-full">
+<div class="flex h-full flex-col">
 	<!-- Messages Area - Scrollable -->
 	<div
 		bind:this={messagesContainer}
-		class="flex-1 space-y-2 overflow-y-auto overflow-x-hidden px-6 py-4 min-h-0 relative"
+		class="relative min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-6 py-4"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -804,15 +802,15 @@
 				{#each messages as message}
 					{@const isCurrentUserSender = message.senderPubkey === currentUserHex()}
 					{@const messageProfile = isCurrentUserSender ? currentUserProfile : recipientProfile}
-					
+
 					<!-- Debug logs removed for performance -->
-					
+
 					<ChatMessage
 						{message}
 						isSender={isCurrentUserSender}
 						profile={messageProfile}
-						currentUserProfile={currentUserProfile}
-						recipientProfile={recipientProfile}
+						{currentUserProfile}
+						{recipientProfile}
 						onReply={startReply}
 						currentUserId={currentUserHex()}
 						onReactionAdd={handleReactionAdd}
@@ -821,11 +819,11 @@
 				{/each}
 			{/if}
 		{/if}
-		
+
 		<!-- Scroll to Bottom Button -->
 		{#if !isAtBottom && messages.length > 0}
 			<button
-				class="btn btn-primary btn-circle fixed bottom-20 right-6 z-10 shadow-lg"
+				class="btn btn-primary btn-circle fixed right-6 bottom-20 z-10 shadow-lg"
 				onclick={scrollToBottom}
 				aria-label="Scroll to bottom"
 				title="Scroll to latest message"
@@ -849,7 +847,7 @@
 	</div>
 
 	<!-- Message Input Area - Fixed at bottom -->
-	<div class="border-base-300/20 flex-shrink-0 border-t px-6 py-4 bg-base-100">
+	<div class="border-base-300/20 bg-base-100 flex-shrink-0 border-t px-6 py-4">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">
@@ -892,14 +890,14 @@
 
 		<form onsubmit={handleSubmit} class="relative">
 			<div
-				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 sm:p-3 transition-all duration-200"
+				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 transition-all duration-200 sm:p-3"
 			>
 				<!-- Emoji Button -->
 				<button
 					type="button"
 					bind:this={emojiButtonRef}
-					class="btn btn-ghost btn-sm h-8 min-h-0 w-8 sm:h-9 sm:w-9 p-0 hover:bg-base-300 transition-colors flex-shrink-0"
-					onclick={() => showEmojiPicker = !showEmojiPicker}
+					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 min-h-0 w-8 flex-shrink-0 p-0 transition-colors sm:h-9 sm:w-9"
+					onclick={() => (showEmojiPicker = !showEmojiPicker)}
 					title="Add emoji"
 					aria-label="Add emoji"
 				>
@@ -927,7 +925,7 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 sm:p-3 text-sm sm:text-base leading-5 focus:ring-0 focus:outline-none"
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 text-sm leading-5 focus:ring-0 focus:outline-none sm:p-3 sm:text-base"
 						placeholder={$t(
 							'dashboard.bids.components.messages.chat_view.type_message_placeholder'
 						)}

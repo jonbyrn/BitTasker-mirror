@@ -3,7 +3,6 @@
 	import { onMount } from 'svelte';
 	import { profileStore } from '$lib/stores/profile.store';
 	import { user } from '$lib/stores/user.store';
-	import { databaseUserStore } from '$lib/stores/databaseUser.store';
 	import { t } from 'svelte-i18n';
 	import Avatar from '$lib/components/Avatar.svelte';
 
@@ -11,14 +10,13 @@
 	onMount(async () => {
 		try {
 			await user.getUserData();
-			await databaseUserStore.init();
 		} catch (error) {
 			console.error('Failed to initialize user store:', error);
 		}
 	});
 
 	// Derived values for reactive updates - prioritize username from database over name
-	let userName = $derived($databaseUserStore.data?.username || $profileStore.data?.name || $user.name || 'Anonymous');
+	let userName = $derived($profileStore.data?.name || $user.name || 'Anonymous');
 
 	// Get the first image from pictures array, or fallback to user.picture or profileStore.data.picture
 	let userPicture = $derived(() => {
@@ -59,11 +57,18 @@
 							{userName}
 						</h3>
 						{#if $profileStore.data.professionalTitle}
-							<div class="badge badge-primary whitespace-nowrap leading-tight break-words w-fit mb-2">{$profileStore.data.professionalTitle}</div>
+							<div
+								class="badge badge-primary mb-2 w-fit leading-tight break-words whitespace-nowrap"
+							>
+								{$profileStore.data.professionalTitle}
+							</div>
 						{/if}
 					</div>
 					<!-- Edit Profile Button - Desktop only -->
-					<button class="btn btn-primary hidden md:inline-flex" onclick={() => goto('/dashboard/profile/edit')}>
+					<button
+						class="btn btn-primary hidden md:inline-flex"
+						onclick={() => goto('/dashboard/profile/edit')}
+					>
 						{$t('profile.page.edit_profile')}
 					</button>
 				</div>
