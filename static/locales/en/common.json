@@ -113,7 +113,7 @@
             },
             "warning_popup": {
                 "title": "Beta Warning",
-                "message": "This app is currently in beta, please don't rely on it for serious business.",
+                "message": "This app is currently in beta, please don't rely on it for serious business but we will be live soon and will activate your live Wallets. Feel free to use the platform with your testnet Wallet (Learn more)",
                 "feedback_text": "If you find any bugs or have suggestions, please",
                 "feedback_link": "let us know!",
                 "feedback_suffix": "Thanks for trying BitTasker!",
