@@ -14,7 +14,6 @@
 	import { goto } from '$app/navigation';
 	import { contractCreationStore } from '$lib/utils/wallet/escrowEvents';
 	import { walletStore, walletManager } from '$lib/stores/wallet.store';
-	import { sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 	import { loadNamespace, type SupportedLanguage } from '$lib/i18n/i18n';
 	import { locale } from 'svelte-i18n';
 	import { browser } from '$app/environment';
@@ -105,18 +104,6 @@
 					transactionResult: result.transactionResult,
 					escrowDetails: bidEscrowDetails
 				};
-
-				// TODO: Handle case where escrow contract creation fails and bid status is accepted anyway
-				// Send bid acceptance status via encrypted DM to the bidder
-				await sendBidStatusUpdate(
-					props.bid.id,
-					props.bid.taskId,
-					props.bid.userProfile?.user?.id || '', // bidder's pubkey
-					'accepted',
-					$t('dashboard.bids.bid_acceptance.bid_accepted_message'), // Optional acceptance message
-					result.transactionResult?.hash, // escrowId will be derived from transaction
-					result.transactionResult?.hash // transaction hash
-				);
 
 				currentScreen = 'success';
 			} else {

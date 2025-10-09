@@ -8,6 +8,7 @@ import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
 import { escrow } from './escrow';
+import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -215,7 +216,7 @@ export async function acceptBidAndCreateEscrow(
 			} catch (error) {
 				return {
 					success: false,
-					error: extractUserFriendlyError(error)
+					error: extractContractError(error).userMessage
 				};
 			}
 		}
@@ -235,6 +236,7 @@ export async function acceptBidAndCreateEscrow(
 		registerPendingContractByTxHash({
 			taskId: task.id,
 			taskTitle: task.title,
+			bidId: bid.id,
 			taskDescription: task.description,
 			freelancerPubkey: bid.userProfile?.user?.id || '',
 			amount: escrowDetails.baseAmount,
@@ -253,65 +255,9 @@ export async function acceptBidAndCreateEscrow(
 		console.error('Failed to accept bid and create escrow:', error);
 		return {
 			success: false,
-			error: extractUserFriendlyError(error)
+			error: extractContractError(error).userMessage
 		};
 	}
-}
-
-/**
- * Extract user-friendly error message from blockchain/wallet errors
- */
-function extractUserFriendlyError(error: unknown): string {
-	if (!(error instanceof Error)) {
-		return 'An unknown error occurred';
-	}
-
-	const errorMessage = error.message.toLowerCase();
-
-	// Insufficient funds errors
-	if (errorMessage.includes('insufficient funds')) {
-		if (errorMessage.includes('intrinsic transaction cost') || errorMessage.includes('gas')) {
-			return 'Insufficient RBTC balance to pay for transaction fees. Please add more RBTC to your wallet.';
-		}
-		return 'Insufficient funds in your wallet. Please add more RBTC.';
-	}
-
-	// Gas related errors
-	if (errorMessage.includes('gas') || errorMessage.includes('out of gas')) {
-		return 'Transaction failed due to insufficient gas. Please try again with higher gas settings.';
-	}
-
-	// Network errors
-	if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-		return 'Network connection error. Please check your internet connection and try again.';
-	}
-
-	// User rejection
-	if (errorMessage.includes('user rejected') || errorMessage.includes('user denied')) {
-		return 'Transaction was cancelled by user.';
-	}
-
-	// Contract errors
-	if (errorMessage.includes('revert') || errorMessage.includes('execution reverted')) {
-		return 'Smart contract rejected the transaction. Please verify the transaction details.';
-	}
-
-	// Wallet connection errors
-	if (errorMessage.includes('wallet') || errorMessage.includes('provider')) {
-		return 'Wallet connection error. Please reconnect your wallet and try again.';
-	}
-
-	// Nonce errors
-	if (errorMessage.includes('nonce')) {
-		return 'Transaction nonce error. Please try again in a moment.';
-	}
-
-	// For any other error, return a cleaned version or generic message
-	if (error.message.length > 100) {
-		return 'Transaction failed. Please check your wallet balance and network connection.';
-	}
-
-	return error.message;
 }
 
 /**
