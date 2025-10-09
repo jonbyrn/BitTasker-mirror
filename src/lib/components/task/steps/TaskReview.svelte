@@ -191,7 +191,7 @@
 								${formatNumberWithTwoDecimals($store.task.budget.amount)}
 							</span>
 							<span class="text-sm text-base-content/60">
-								{satsFromUsd($store.task.budget.amount, btcPrice)} sats
+								{satsFromUsd($store.task.budget.amount, btcPrice)}
 							</span>
 						</div>
 					</div>
