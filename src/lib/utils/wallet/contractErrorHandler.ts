@@ -125,9 +125,10 @@ export function extractContractError(error: unknown): ContractError {
 		};
 	}
 
-	// Wallet and transaction errors
-	if (errorLower.includes('insufficient funds')) {
-		if (errorLower.includes('intrinsic transaction cost') || errorLower.includes('gas')) {
+	// Wallet and transaction errors - check before generic wallet errors
+	if (errorLower.includes('insufficient balance') || errorLower.includes('insufficient funds')) {
+		// Check if this is specifically about transaction fees or gas
+		if (errorLower.includes('transaction fees') || errorLower.includes('transaction cost') || errorLower.includes('pay for gas')) {
 			return {
 				userMessage: _('dashboard.contracts.errors.insufficient_gas'),
 				technicalMessage: errorMessage,
