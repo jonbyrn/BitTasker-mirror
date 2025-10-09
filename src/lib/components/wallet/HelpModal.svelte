@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import { fly, fade } from 'svelte/transition';
+	import { fly, fade, scale } from 'svelte/transition';
+	import { t } from 'svelte-i18n';
 	// Icon imports for unplugin-icons
 	import IconSwapHorizontalCircleOutline from '~icons/mdi/swap-horizontal-circle-outline';
 	import IconShieldCheck from '~icons/mdi/shield-check';
@@ -10,8 +11,22 @@
 
 	const dispatch = createEventDispatcher();
 
+	interface Props {
+		onClose?: () => void;
+		showButton?: boolean;
+	}
+
+	let { onClose, showButton = true }: Props = $props();
+
 	let isOpen = $state(false);
 	let openFaqIndex = $state<number>(-1);
+
+	// Auto-open modal when showButton is false
+	$effect(() => {
+		if (!showButton) {
+			isOpen = true;
+		}
+	});
 
 	function openModal() {
 		isOpen = true;
@@ -19,6 +34,9 @@
 
 	function closeModal() {
 		isOpen = false;
+		if (onClose) {
+			onClose();
+		}
 	}
 
 	function toggleFaq(index: number) {
@@ -45,54 +63,44 @@
 <svelte:window on:keydown={handleKeydown} />
 
 <!-- Help Button -->
-<button
-	class="btn btn-ghost gap-2"
-	onclick={openModal}
-	title="Learn about your Bitcoin wallet"
-	data-help-modal
->
-	<IconHelpCircle class="h-5 w-5" />
-	Learn More
-</button>
+{#if showButton}
+	<button
+		class="btn btn-ghost gap-2"
+		onclick={openModal}
+		title="Learn about your Bitcoin wallet"
+		data-help-modal
+	>
+		<IconHelpCircle class="h-5 w-5" />
+		Learn More
+	</button>
+{/if}
 
 <!-- Modal -->
+<input
+	type="checkbox"
+	class="modal-toggle"
+	checked={isOpen}
+	style="display:none"
+	readonly
+	aria-label={$t('common.components.wallet_help_modal.title')}
+/>
 {#if isOpen}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4"
-		onclick={handleBackdropClick}
-		onkeydown={(e) => e.key === 'Enter' && handleBackdropClick(e)}
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="modal-title"
-		tabindex="-1"
-		transition:fade={{ duration: 200 }}
-	>
-		<div
-			class="bg-base-100 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg shadow-xl"
-			role="document"
-			transition:fly={{ y: 20, duration: 300 }}
-		>
+	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
+		<div class="modal-box max-w-4xl max-h-[90vh] flex flex-col" transition:fly={{ y: 20, duration: 300 }}>
 			<!-- Modal Header -->
-			<div class="border-b border-base-300 bg-base-200 px-6 py-4">
-				<div class="flex items-center justify-between">
-					<h2 id="modal-title" class="text-xl font-bold text-base-content">
-						Your Bitcoin Wallet
-					</h2>
-					<button
-						class="btn btn-ghost btn-sm btn-circle"
-						onclick={closeModal}
-						aria-label="Close modal"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
+			<div class="mb-6">
+				<div class="mb-2 flex items-center gap-3">
+					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
+						<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-6 w-6" />
+					</div>
+					<div>
+						<h4 class="text-sm font-semibold">{$t('common.components.wallet_help_modal.title')}</h4>
+					</div>
 				</div>
 			</div>
 
 			<!-- Modal Content -->
-			<div class="px-6 py-6">
-				<div class="space-y-6">
+			<div class="space-y-6 overflow-y-auto flex-1">
 					<!-- Hero Section -->
 					<div class="text-center">
 					<div class="mb-4 flex justify-center">
@@ -100,8 +108,8 @@
 							<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-16 w-16" />
 						</div>
 					</div>
-						<h3 class="text-xl font-bold text-base-content mb-2">Your Bitcoin-Powered Wallet</h3>
-						<p class="text-base-content/70 text-lg">Send, receive, and manage Bitcoin across multiple networks with complete control of your funds.</p>
+						<h3 class="text-xl font-bold text-base-content mb-2">{$t('common.components.wallet_help_modal.hero_title')}</h3>
+						<p class="text-base-content/70 text-lg">{$t('common.components.wallet_help_modal.hero_description')}</p>
 					</div>
 
 					<!-- Key Features -->
@@ -110,10 +118,10 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconSwapHorizontalCircleOutline class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">Multi-Network Support</h4>
+									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.multi_network_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
-								<p class="text-sm text-base-content/80">Pay and receive with Bitcoin, Lightning, Liquid, Rootstock, and USDT - all in one wallet.</p>
+								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.multi_network_description')}</p>
 							</div>
 						</div>
 
@@ -121,10 +129,10 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconShieldCheck class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">Non-Custodial Security</h4>
+									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.security_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
-								<p class="text-sm text-base-content/80">You control your keys. Your funds are never held by BitTasker - only you can move your Bitcoin.</p>
+								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.security_description')}</p>
 							</div>
 						</div>
 
@@ -132,10 +140,10 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconLightningBolt class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">Lightning-Fast Payments</h4>
+									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.lightning_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
-								<p class="text-sm text-base-content/80">Instant Bitcoin payments with Lightning Network. No waiting, no delays, just peer-to-peer speed.</p>
+								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.lightning_description')}</p>
 							</div>
 						</div>
 
@@ -143,10 +151,10 @@
 							<div class="card-body p-4 flex flex-col h-full">
 								<div class="flex items-center gap-3 mb-3 h-12">
 									<IconLockClock class="h-8 w-8 text-primary" />
-									<h4 class="card-title text-base">Smart Escrow</h4>
+									<h4 class="card-title text-base">{$t('common.components.wallet_help_modal.escrow_title')}</h4>
 								</div>
 								<div class="flex-1"></div>
-								<p class="text-sm text-base-content/80">Automatic fund protection with time-locks. Get paid when work is done, refund if it's not.</p>
+								<p class="text-sm text-base-content/80">{$t('common.components.wallet_help_modal.escrow_description')}</p>
 							</div>
 						</div>
 					</div>
@@ -159,28 +167,28 @@
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
 								</svg>
-								How Your Wallet Works
+								{$t('common.components.wallet_help_modal.how_it_works_title')}
 							</h4>
 							<div class="space-y-3">
 								<div class="flex items-center gap-3">
 									<div class="bg-primary text-primary-content flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-full text-xs font-medium">1</div>
 									<div>
-										<h5 class="font-medium text-sm">Automatic Network Conversion</h5>
-										<p class="text-xs text-base-content/70">Pay your way using atomic swaps and your preferred network.</p>
+										<h5 class="font-medium text-sm">{$t('common.components.wallet_help_modal.step1_title')}</h5>
+										<p class="text-xs text-base-content/70">{$t('common.components.wallet_help_modal.step1_description')}</p>
 									</div>
 								</div>
 								<div class="flex items-center gap-3">
 									<div class="bg-primary text-primary-content flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-full text-xs font-medium">2</div>
 									<div>
-										<h5 class="font-medium text-sm">Secure Non-Custodial Payments</h5>
-										<p class="text-xs text-base-content/70">Your funds are protected by advanced cryptography. Only you and the other party can release payments.</p>
+										<h5 class="font-medium text-sm">{$t('common.components.wallet_help_modal.step2_title')}</h5>
+										<p class="text-xs text-base-content/70">{$t('common.components.wallet_help_modal.step2_description')}</p>
 									</div>
 								</div>
 								<div class="flex items-center gap-3">
 									<div class="bg-primary text-primary-content flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-full text-xs font-medium">3</div>
 									<div>
-										<h5 class="font-medium text-sm">Instant Cash-Out Options</h5>
-										<p class="text-xs text-base-content/70">Convert your earnings to any supported format - Lightning, Bitcoin, Liquid, or USDT - whenever you want.</p>
+										<h5 class="font-medium text-sm">{$t('common.components.wallet_help_modal.step3_title')}</h5>
+										<p class="text-xs text-base-content/70">{$t('common.components.wallet_help_modal.step3_description')}</p>
 									</div>
 								</div>
 							</div>
@@ -193,8 +201,8 @@
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 						</svg>
 						<div>
-							<h4 class="font-bold text-base-content">Why This Matters</h4>
-							<p class="text-sm">Traditional platforms hold your money and take fees. BitTasker puts you in control with Bitcoin's security and Lightning's speed.</p>
+							<h4 class="font-bold text-base-content">{$t('common.components.wallet_help_modal.benefits_title')}</h4>
+							<p class="text-sm">{$t('common.components.wallet_help_modal.benefits_description')}</p>
 						</div>
 					</div>
 
@@ -205,7 +213,7 @@
 								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
-								Frequently Asked Questions
+								{$t('common.components.wallet_help_modal.faq_title')}
 							</h4>
 
 							<div class="space-y-2">
@@ -216,19 +224,19 @@
 										class="collapse-title text-left text-base font-medium"
 										onclick={() => toggleFaq(0)}
 									>
-										What is Rootstock Bitcoin?
+										{$t('common.components.wallet_help_modal.faq_rsk_title')}
 									</button>
 									<div class="collapse-content">
 										<div class="space-y-3">
 											<p class="text-sm text-base-content/80">
-												Rootstock Bitcoin (rBTC) is a Bitcoin sidechain that maintains a 1:1 peg with Bitcoin while enabling smart contracts and faster transactions. It's secured by Bitcoin miners through merge-mining, making it one of the most secure Bitcoin sidechains available.
+												{$t('common.components.wallet_help_modal.faq_rsk_description')}
 											</p>
 											<ul class="list-disc list-inside space-y-1 text-xs text-base-content/70">
-												<li><strong>Bitcoin Security:</strong> Secured by Bitcoin miners through merge-mining</li>
-												<li><strong>Smart Contracts:</strong> Full EVM compatibility for programmable escrow</li>
-												<li><strong>Fast Settlement:</strong> ~30-second block times for quick confirmations</li>
-												<li><strong>Low Fees:</strong> Predictable, low-cost transaction fees</li>
-												<li><strong>Bitcoin Peg:</strong> 1:1 rBTC to BTC ratio maintained through a Proof of Work Peg</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_rsk_security')}</strong> {$t('common.components.wallet_help_modal.faq_rsk_security_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_rsk_contracts')}</strong> {$t('common.components.wallet_help_modal.faq_rsk_contracts_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_rsk_settlement')}</strong> {$t('common.components.wallet_help_modal.faq_rsk_settlement_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_rsk_fees')}</strong> {$t('common.components.wallet_help_modal.faq_rsk_fees_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_rsk_peg')}</strong> {$t('common.components.wallet_help_modal.faq_rsk_peg_desc')}</li>
 											</ul>
 										</div>
 									</div>
@@ -241,19 +249,19 @@
 										class="collapse-title text-left text-base font-medium"
 										onclick={() => toggleFaq(1)}
 									>
-										What is Liquid Bitcoin?
+										{$t('common.components.wallet_help_modal.faq_liquid_title')}
 									</button>
 									<div class="collapse-content">
 										<div class="space-y-3">
 											<p class="text-sm text-base-content/80">
-												Liquid Bitcoin (L-BTC) is a Bitcoin sidechain designed for fast settlements and enhanced functionality. It provides faster transaction confirmations and additional features while maintaining Bitcoin's security model through federation.
+												{$t('common.components.wallet_help_modal.faq_liquid_description')}
 											</p>
 											<ul class="list-disc list-inside space-y-1 text-xs text-base-content/70">
-												<li><strong>Fast Settlement:</strong> 1-minute block times for quick transaction confirmations</li>
-												<li><strong>Enhanced Scripting:</strong> Advanced Bitcoin script capabilities for complex escrow</li>
-												<li><strong>Multi-Asset Support:</strong> Native support for multiple digital assets</li>
-												<li><strong>Bitcoin Peg:</strong> 1:1 L-BTC to BTC ratio through federated peg</li>
-												<li><strong>Low Fees:</strong> Predictable transaction costs for all job sizes</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_liquid_settlement')}</strong> {$t('common.components.wallet_help_modal.faq_liquid_settlement_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_liquid_scripting')}</strong> {$t('common.components.wallet_help_modal.faq_liquid_scripting_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_liquid_assets')}</strong> {$t('common.components.wallet_help_modal.faq_liquid_assets_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_liquid_peg')}</strong> {$t('common.components.wallet_help_modal.faq_liquid_peg_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_liquid_fees')}</strong> {$t('common.components.wallet_help_modal.faq_liquid_fees_desc')}</li>
 											</ul>
 										</div>
 									</div>
@@ -266,19 +274,19 @@
 										class="collapse-title text-left text-base font-medium"
 										onclick={() => toggleFaq(2)}
 									>
-										Can I use Lightning Bitcoin?
+										{$t('common.components.wallet_help_modal.faq_lightning_title')}
 									</button>
 									<div class="collapse-content">
 										<div class="space-y-3">
 											<p class="text-sm text-base-content/80">
-												Yes! You can deposit and withdraw using Lightning Bitcoin for instant, low-cost payments. However, for escrow purposes, we automatically convert Lightning payments to Liquid or Rootstock to ensure secure, non-custodial fund protection.
+												{$t('common.components.wallet_help_modal.faq_lightning_description')}
 											</p>
 											<ul class="list-disc list-inside space-y-1 text-xs text-base-content/70">
-												<li><strong>Instant Deposits:</strong> Send Lightning payments that are instantly available</li>
-												<li><strong>Low Fees:</strong> Pay minimal fees for Lightning transactions</li>
-												<li><strong>Automatic Conversion:</strong> Lightning funds are swapped to L-BTC or rBTC for escrow</li>
-												<li><strong>Instant Withdrawals:</strong> Convert escrow funds back to Lightning any time</li>
-												<li><strong>Wide Adoption:</strong> Lightning is one of the most widely adopted Bitcoin sidechains</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_lightning_deposits')}</strong> {$t('common.components.wallet_help_modal.faq_lightning_deposits_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_lightning_fees')}</strong> {$t('common.components.wallet_help_modal.faq_lightning_fees_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_lightning_conversion')}</strong> {$t('common.components.wallet_help_modal.faq_lightning_conversion_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_lightning_withdrawals')}</strong> {$t('common.components.wallet_help_modal.faq_lightning_withdrawals_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_lightning_adoption')}</strong> {$t('common.components.wallet_help_modal.faq_lightning_adoption_desc')}</li>
 											</ul>
 										</div>
 									</div>
@@ -291,19 +299,19 @@
 										class="collapse-title text-left text-base font-medium"
 										onclick={() => toggleFaq(3)}
 									>
-										Why doesn't BitTasker just use Lightning for escrow?
+										{$t('common.components.wallet_help_modal.faq_escrow_title')}
 									</button>
 									<div class="collapse-content">
 										<div class="space-y-3">
 											<p class="text-sm text-base-content/80">
-												While Lightning excels at instant payments, creating user-friendly, non-custodial escrow on Lightning is still technically complex. We use Liquid and Rootstock for escrow because they provide the security, privacy, and reliability needed for protecting your funds.
+												{$t('common.components.wallet_help_modal.faq_escrow_description')}
 											</p>
 											<ul class="list-disc list-inside space-y-1 text-xs text-base-content/70">
-												<li><strong>Channel Limitations:</strong> Limited number of open channels per node for escrow contracts</li>
-												<li><strong>Time Constraints:</strong> Escrow contracts limited to hours, not days or weeks</li>
-												<li><strong>No Smart Contracts:</strong> Lightning lacks programmable escrow functionality</li>
-												<li><strong>No Multisig Support:</strong> Cannot implement secure multi-signature escrow</li>
-												<li><strong>Node Risks:</strong> Risk of fund loss if Lightning nodes close or go offline</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_escrow_channels')}</strong> {$t('common.components.wallet_help_modal.faq_escrow_channels_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_escrow_time')}</strong> {$t('common.components.wallet_help_modal.faq_escrow_time_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_escrow_contracts')}</strong> {$t('common.components.wallet_help_modal.faq_escrow_contracts_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_escrow_multisig')}</strong> {$t('common.components.wallet_help_modal.faq_escrow_multisig_desc')}</li>
+												<li><strong>{$t('common.components.wallet_help_modal.faq_escrow_risks')}</strong> {$t('common.components.wallet_help_modal.faq_escrow_risks_desc')}</li>
 											</ul>
 										</div>
 									</div>
@@ -312,17 +320,27 @@
 						</div>
 					</div>
 				</div>
-			</div>
 
-			<!-- Modal Footer -->
-			<div class="border-t border-base-300 bg-base-200 px-6 py-4">
-				<div class="flex justify-end">
-					<button class="btn btn-primary" onclick={closeModal}>
-						Start Using Wallet
-					</button>
-				</div>
+			<!-- Action Buttons - Fixed at bottom -->
+			<div class="border-t border-base-300 bg-base-100 flex gap-3 pt-4 mt-4 flex-shrink-0">
+				<button
+					type="button"
+					class="btn btn-primary flex-1"
+					onclick={closeModal}
+				>
+					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+					{$t('common.components.wallet_help_modal.start_using_button')}
+				</button>
 			</div>
 		</div>
+		<button class="modal-backdrop" onclick={closeModal} aria-label="Close modal"></button>
 	</div>
 {/if}
 
