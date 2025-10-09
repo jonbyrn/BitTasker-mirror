@@ -1,15 +1,18 @@
 import type { ContractTransactionResult, DisputeProposal, EscrowData, GasEstimation } from "$lib/types/wallet";
-import { rskAddress, getRSKWallet, getRSKProvider, walletStore } from "$lib/stores/wallet.store";
+import { getProvider, getWallet, rskAddress, walletStore } from "$lib/stores/wallet.store";
 import { t } from "svelte-i18n";
 import { get } from "svelte/store";
 import { derived } from 'svelte/store';
 import { appStore } from "$lib/stores/app.store";
 import { ethers } from 'ethers';
 import { EscrowStatus } from "$lib/utils/enums/wallet.enum";
-import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/escrowContract";
+import { FEE_TIERS, type FeeTier, type RSKNetwork } from "$lib/utils/wallet/networkConfig";
 import escrowABI from '$lib/utils/constants/escrowABI.json';
 
 let contract: ethers.Contract | null = null;
+
+const getRSKWallet = () => getWallet('rsk');
+const getRSKProvider = () => getProvider('rsk');
 
 /**
  * Simple initialization check for escrow operations
@@ -296,8 +299,6 @@ async function createEscrow(
         const baseAmountWei = ethers.parseEther(baseAmount);
         const totalPayment = calculateTotalPayment(baseAmountWei, clientFeeTier);
 
-        // Note: We'll get the actual escrow ID from the transaction receipt
-
         // Estimate gas first
         const gasEstimate = await contract.createEscrow.estimateGas(
             freelancerAddress,
@@ -325,9 +326,11 @@ async function createEscrow(
             hash: tx.hash,
             status: 'pending'
         };
+        console.log({result})
 
         // Handle confirmation asynchronously and create Nostr contract directly
         tx.wait().then(async (receipt: ethers.TransactionReceipt | null) => {
+            console.log({receipt})
             if (receipt) {
                 result.status = 'confirmed';
                 result.gasUsed = receipt.gasUsed.toString();

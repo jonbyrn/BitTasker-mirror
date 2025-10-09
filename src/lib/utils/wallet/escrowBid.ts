@@ -1,15 +1,13 @@
 import type { Task } from '$lib/types/task';
 import type { SimplifiedTaskBid } from '$lib/types/bid';
 import type { ContractTransactionResult } from '$lib/types/wallet';
-import type { FeeTier } from '$lib/utils/wallet/escrowContract';
-import { FEE_TIERS } from '$lib/utils/wallet/escrowContract';
-import { escrow } from '$lib/utils/wallet/escrow';
+import type { FeeTier } from '$lib/utils/wallet/networkConfig';
+import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
 import { walletStore } from '$lib/stores/wallet.store';
-import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
-import { multiNetworkEscrow, type EscrowNetwork, type NetworkEnvironment } from './multiNetworkEscrow';
+import { escrow } from './escrow';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -177,8 +175,7 @@ export async function acceptBidAndCreateEscrow(
 	bid: SimplifiedTaskBid,
 	task: Task,
 	btcPrice: number,
-	network: EscrowNetwork = 'RSK',
-	environment: NetworkEnvironment = 'testnet'
+	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
 	try {
 		// Calculate escrow details
@@ -195,7 +192,6 @@ export async function acceptBidAndCreateEscrow(
 
 		// Check if wallet is connected for the selected network
 		const walletState = get(walletStore);
-		const bscState = get(bscUsdtWalletStore);
 
 		if (network === 'RSK' && !walletState.rsk.connected) {
 			return {
@@ -204,25 +200,28 @@ export async function acceptBidAndCreateEscrow(
 			};
 		}
 
-		if (network === 'BSC' && !bscState.isConnected) {
+		if (network === 'BSC' && !walletState.bsc.connected) {
 			return {
 				success: false,
 				error: 'BSC wallet not connected. Please connect your wallet first.'
 			};
 		}
 
-		// Validate freelancer address format
-		if (!ethers.isAddress(escrowDetails.freelancerAddress)) {
-			return {
-				success: false,
-				error: 'Invalid freelancer address format.'
-			};
+		// Connect to escrow contract if not already connected
+		if (!walletState.rsk.contractConnected) {
+			try {
+				const { ensureEscrowReady } = await import('$lib/utils/wallet/escrow');
+				await ensureEscrowReady();
+			} catch (error) {
+				return {
+					success: false,
+					error: extractUserFriendlyError(error)
+				};
+			}
 		}
 
 		// Create the escrow using multi-network manager
-		const result = await multiNetworkEscrow.createEscrow(
-			network,
-			environment,
+		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
 			escrowDetails.estimatedStartTime,
@@ -230,16 +229,9 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.clientFeeTier,
 			escrowDetails.freelancerFeeTier
 		);
-
-		if (!result.success) {
-			return {
-				success: false,
-				error: result.error || 'Failed to create escrow contract'
-			};
-		}
+		console.log({transactionResult})
 
 		// Register pending contract creation with our event management system
-		console.log('📋 [EscrowBid] Registering pending contract...');
 		registerPendingContractByTxHash({
 			taskId: task.id,
 			taskTitle: task.title,
@@ -248,16 +240,13 @@ export async function acceptBidAndCreateEscrow(
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: escrowDetails.estimatedStartTime,
 			estimatedCompletionTime: escrowDetails.estimatedCompletionTime,
-			transactionHash: result.transactionHash!
+			transactionHash: transactionResult.hash
 		});
 		console.log('✅ [EscrowBid] Pending contract registered');
 
 		return {
 			success: true,
-			transactionResult: {
-				hash: result.transactionHash!,
-				status: 'pending'
-			}
+			transactionResult
 		};
 
 	} catch (error) {
