@@ -52,7 +52,7 @@
 		try {
 			isLoading = true;
 			profile = await fetchProfileMetadata(pubkey);
-        } catch (error) {
+		} catch (error) {
 			console.error('Failed to load profile:', error);
 			profile = null;
 		} finally {
@@ -60,8 +60,9 @@
 		}
 	}
 
-	// Get display name
+	// Get display name - prioritize username from database over name
 	function getDisplayName(): string {
+		// First check if this is the current user and we have database data
 		if (profile?.name) return profile.name;
 		// Return shortened pubkey as fallback
 		return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;

@@ -1,8 +1,8 @@
-import type { RSKTransaction, RSKUnit, RSKWalletState } from '$lib/types/wallet';
+import type { Transaction as RSKTransaction, RSKUnit, RSKWalletState } from '$lib/types/wallet';
 import { ethers } from 'ethers';
 import { writable, derived, get } from 'svelte/store';
 import { getMnemonic } from '$lib/utils/helpers/mnemonic';
-import { RSK_NETWORKS, type RSKNetwork } from '$lib/utils/wallet/escrowContract';
+import { RSK_NETWORKS, type RSKNetwork } from '$lib/utils/wallet/networkConfig';
 
 // Initial state
 const initialState: RSKWalletState = {

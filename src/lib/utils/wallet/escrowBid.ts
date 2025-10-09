@@ -1,15 +1,14 @@
 import type { Task } from '$lib/types/task';
 import type { SimplifiedTaskBid } from '$lib/types/bid';
 import type { ContractTransactionResult } from '$lib/types/wallet';
-import type { FeeTier } from '$lib/utils/wallet/escrowContract';
-import { FEE_TIERS } from '$lib/utils/wallet/escrowContract';
-import { escrow } from '$lib/utils/wallet/escrow';
+import type { FeeTier } from '$lib/utils/wallet/networkConfig';
+import { FEE_TIERS } from '$lib/utils/wallet/networkConfig';
 import { walletStore } from '$lib/stores/wallet.store';
-import { bscUsdtWalletStore } from '$lib/stores/bscUsdtWallet.store';
 import { get } from 'svelte/store';
 import { ethers } from 'ethers';
 import { registerPendingContractByTxHash } from '$lib/utils/wallet/escrowEvents';
-import { multiNetworkEscrow, type EscrowNetwork, type NetworkEnvironment } from './multiNetworkEscrow';
+import { escrow } from './escrow';
+import { extractContractError } from '$lib/utils/wallet/contractErrorHandler';
 
 export interface BidEscrowDetails {
 	freelancerAddress: string;
@@ -177,8 +176,7 @@ export async function acceptBidAndCreateEscrow(
 	bid: SimplifiedTaskBid,
 	task: Task,
 	btcPrice: number,
-	network: EscrowNetwork = 'RSK',
-	environment: NetworkEnvironment = 'testnet'
+	network: 'RSK' | 'BSC' = 'RSK'
 ): Promise<BidAcceptanceResult> {
 	try {
 		// Calculate escrow details
@@ -195,7 +193,6 @@ export async function acceptBidAndCreateEscrow(
 
 		// Check if wallet is connected for the selected network
 		const walletState = get(walletStore);
-		const bscState = get(bscUsdtWalletStore);
 
 		if (network === 'RSK' && !walletState.rsk.connected) {
 			return {
@@ -204,25 +201,28 @@ export async function acceptBidAndCreateEscrow(
 			};
 		}
 
-		if (network === 'BSC' && !bscState.connected) {
+		if (network === 'BSC' && !walletState.bsc.connected) {
 			return {
 				success: false,
 				error: 'BSC wallet not connected. Please connect your wallet first.'
 			};
 		}
 
-		// Validate freelancer address format
-		if (!ethers.isAddress(escrowDetails.freelancerAddress)) {
-			return {
-				success: false,
-				error: 'Invalid freelancer address format.'
-			};
+		// Connect to escrow contract if not already connected
+		if (!walletState.rsk.contractConnected) {
+			try {
+				const { ensureEscrowReady } = await import('$lib/utils/wallet/escrow');
+				await ensureEscrowReady();
+			} catch (error) {
+				return {
+					success: false,
+					error: extractContractError(error).userMessage
+				};
+			}
 		}
 
 		// Create the escrow using multi-network manager
-		const result = await multiNetworkEscrow.createEscrow(
-			network,
-			environment,
+		const transactionResult = await escrow.createEscrow(
 			escrowDetails.freelancerAddress,
 			escrowDetails.baseAmount,
 			escrowDetails.estimatedStartTime,
@@ -230,99 +230,34 @@ export async function acceptBidAndCreateEscrow(
 			escrowDetails.clientFeeTier,
 			escrowDetails.freelancerFeeTier
 		);
-
-		if (!result.success) {
-			return {
-				success: false,
-				error: result.error || 'Failed to create escrow contract'
-			};
-		}
+		console.log({transactionResult})
 
 		// Register pending contract creation with our event management system
 		registerPendingContractByTxHash({
 			taskId: task.id,
 			taskTitle: task.title,
+			bidId: bid.id,
 			taskDescription: task.description,
 			freelancerPubkey: bid.userProfile?.user?.id || '',
 			amount: escrowDetails.baseAmount,
 			estimatedStartTime: escrowDetails.estimatedStartTime,
 			estimatedCompletionTime: escrowDetails.estimatedCompletionTime,
-			transactionHash: result.transactionHash!,
-			network,
-			environment
+			transactionHash: transactionResult.hash
 		});
+		console.log('✅ [EscrowBid] Pending contract registered');
 
 		return {
 			success: true,
-			transactionResult: {
-				hash: result.transactionHash!,
-				status: 'pending'
-			}
+			transactionResult
 		};
 
 	} catch (error) {
 		console.error('Failed to accept bid and create escrow:', error);
 		return {
 			success: false,
-			error: extractUserFriendlyError(error)
+			error: extractContractError(error).userMessage
 		};
 	}
-}
-
-/**
- * Extract user-friendly error message from blockchain/wallet errors
- */
-function extractUserFriendlyError(error: unknown): string {
-	if (!(error instanceof Error)) {
-		return 'An unknown error occurred';
-	}
-
-	const errorMessage = error.message.toLowerCase();
-
-	// Insufficient funds errors
-	if (errorMessage.includes('insufficient funds')) {
-		if (errorMessage.includes('intrinsic transaction cost') || errorMessage.includes('gas')) {
-			return 'Insufficient RBTC balance to pay for transaction fees. Please add more RBTC to your wallet.';
-		}
-		return 'Insufficient funds in your wallet. Please add more RBTC.';
-	}
-
-	// Gas related errors
-	if (errorMessage.includes('gas') || errorMessage.includes('out of gas')) {
-		return 'Transaction failed due to insufficient gas. Please try again with higher gas settings.';
-	}
-
-	// Network errors
-	if (errorMessage.includes('network') || errorMessage.includes('connection')) {
-		return 'Network connection error. Please check your internet connection and try again.';
-	}
-
-	// User rejection
-	if (errorMessage.includes('user rejected') || errorMessage.includes('user denied')) {
-		return 'Transaction was cancelled by user.';
-	}
-
-	// Contract errors
-	if (errorMessage.includes('revert') || errorMessage.includes('execution reverted')) {
-		return 'Smart contract rejected the transaction. Please verify the transaction details.';
-	}
-
-	// Wallet connection errors
-	if (errorMessage.includes('wallet') || errorMessage.includes('provider')) {
-		return 'Wallet connection error. Please reconnect your wallet and try again.';
-	}
-
-	// Nonce errors
-	if (errorMessage.includes('nonce')) {
-		return 'Transaction nonce error. Please try again in a moment.';
-	}
-
-	// For any other error, return a cleaned version or generic message
-	if (error.message.length > 100) {
-		return 'Transaction failed. Please check your wallet balance and network connection.';
-	}
-
-	return error.message;
 }
 
 /**

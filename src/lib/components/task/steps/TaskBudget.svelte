@@ -298,6 +298,13 @@
 		return [...attachments, ...pending];
 	});
 
+	// Sync usdAmount with store when component loads
+	$effect(() => {
+		if ($store.task.budget.amount) {
+			usdAmount = $store.task.budget.amount;
+		}
+	});
+
 	onMount(() => {
 		fetchBtcPrice();
 	});

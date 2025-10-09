@@ -53,6 +53,7 @@
 			try {
 				// Initialize user store
 				await user.getUserData();
+				// Initialize database user store
 				// Initialize profile store if not already done
 				if (!$profileStore.data) {
 					profileStore.init();
@@ -66,8 +67,7 @@
 		deferNonCriticalOperations();
 	});
 
-	// Derived values for avatar
-	let userName = $derived($profileStore.data?.name || $user.name || '');
+	// Derived values for avatar - prioritize username from database
 	let userPicture = $derived(() => {
 		// First priority: first image from pictures array
 		if ($profileStore.data?.pictures && $profileStore.data.pictures.length > 0) {
@@ -566,7 +566,7 @@ ates to X --
 			<details class="dropdown dropdown-end">
 				<summary class="btn btn-ghost" onclick={handleDropdownClick}>
 					<Avatar 
-						name={userName} 
+						name={$user.picture}
 						picture={userPicture()} 
 						size="sm" 
 					/>

@@ -1,5 +1,19 @@
 {
   "dashboard": {
+    "task": {
+      "deadline": {
+        "label": "Fecha Límite"
+      },
+      "dateRange": {
+        "label": "Rango de Fechas"
+      }
+      ,"location": {
+        "details": "Detalles de Ubicación"
+      }
+      ,"type": {
+        "remote": "Remoto"
+      }
+    },
     "title": "Mi Panel",
     "description": "Gestiona tus tareas y ofertas.",
     "titl": "Panel",

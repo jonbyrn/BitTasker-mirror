@@ -2,7 +2,7 @@ import type { ethers } from 'ethers';
 import type { CreateContractParams } from '$lib/types/contract';
 import { writable } from 'svelte/store';
 import { appStore } from '$lib/stores/app.store';
-import { createContract } from '$lib/utils/nostr-bid';
+import { createContract, sendBidStatusUpdate } from '$lib/utils/nostr-bid';
 import { rskWalletStore, getRSKWallet, getEventListeners } from '$lib/stores/rskWallet.store';
 import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 import { t } from 'svelte-i18n';
@@ -35,6 +35,7 @@ interface PendingContractCreation {
 	escrowId: string;
 	taskId: string;
 	taskTitle: string;
+	bidId: string;
 	taskDescription: string;
 	freelancerPubkey: string;
 	amount: string;
@@ -65,13 +66,13 @@ export function registerPendingContract(params: PendingContractCreation): void {
 /**
  * Handle escrow created event - called from contract event listener
  */
-export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {	
+export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<void> {
 	// Update the store
 	escrowCreatedStore.set(event);
-	
+
 	// Check if we have a pending contract for this escrow (by escrow ID or transaction hash)
 	let pendingContract = pendingContracts.get(event.escrowId);
-	
+
 	// If not found by escrow ID, try to find by transaction hash
 	if (!pendingContract) {
 		for (const [txHash, contract] of pendingContractsByTxHash.entries()) {
@@ -84,10 +85,10 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 			}
 		}
 	}
-	
+
 	if (pendingContract) {
 		console.log('Found pending contract, creating Nostr contract...');
-		
+
 		try {
 			// Create the contract parameters
 			const contractParams: CreateContractParams = {
@@ -104,35 +105,46 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
 
 			console.log('Creating Nostr contract with params:', contractParams);
 			await createContract(contractParams);
-			
+
 			// Update contract creation store
 			contractCreationStore.set({
 				escrowId: event.escrowId,
 				contractEventId: `contract-${event.escrowId}` // Use escrow ID as reference
 			});
-			
-			// Show success toast
-			appStore.showSuccessToast(
-				`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`
+
+			// Publish bid acceptance status via encrypted DM nostr event
+			await sendBidStatusUpdate(
+				pendingContract.bidId,
+				pendingContract.taskId,
+				pendingContract.freelancerPubkey,
+				'accepted',
+				_('dashboard.bids.bid_acceptance.bid_accepted_message'),
+				event.escrowId,
+				event.transactionHash
 			);
-			
+			console.log('✅ Bid status update sent successfully after contract creation');
+
+
+			// Show success toast
+			appStore.showSuccessToast(`Contract created successfully! Escrow ID: ${event.escrowId.slice(0, 8)}...`);
+
 			// Clean up pending contract
 			pendingContracts.delete(event.escrowId);
-			
+
 		} catch (error) {
 			console.error('Failed to create Nostr contract:', error);
-			
+
 			// Update contract creation store with error
 			contractCreationStore.set({
 				escrowId: event.escrowId,
 				error: error instanceof Error ? error.message : 'Unknown error'
 			});
-			
+
 			// Show error toast
 			appStore.showErrorToast(
 				`Failed to create contract: ${error instanceof Error ? error.message : 'Unknown error'}`
 			);
-			
+
 			// Don't clean up pending contract in case of error - might want to retry
 		}
 	} else {
@@ -145,11 +157,11 @@ export async function handleEscrowCreated(event: EscrowCreatedEvent): Promise<vo
  */
 export async function handleTaskCompleted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling task completed event:', event);
-	
+
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Completed);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -158,9 +170,9 @@ export async function handleTaskCompleted(event: { escrowId: string; transaction
 			message: _('dashboard.contracts.actions.task_completed_message'),
 			transactionHash: event.transactionHash
 		});
-		
+
 		// Show success toast
-		appStore.showSuccessToast(_('dashboard.contracts.actions.task_completed_success'));	
+		appStore.showSuccessToast(_('dashboard.contracts.actions.task_completed_success'));
 	} catch (error) {
 		console.error('Failed to handle task completed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.task_completed_error'));
@@ -172,11 +184,11 @@ export async function handleTaskCompleted(event: { escrowId: string; transaction
  */
 export async function handleTaskAccepted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling task accepted event:', event);
-	
+
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -185,10 +197,10 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
 			message: _('dashboard.contracts.actions.payment_released_message'),
 			transactionHash: event.transactionHash
 		});
-		
+
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.payment_released_success'));
-		
+
 	} catch (error) {
 		console.error('Failed to handle task accepted event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.payment_released_error'));
@@ -200,11 +212,11 @@ export async function handleTaskAccepted(event: { escrowId: string; transactionH
  */
 export async function handleTaskDisputed(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling task disputed event:', event);
-	
+
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -213,10 +225,10 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
 			message: _('dashboard.contracts.actions.dispute_raised_message'),
 			transactionHash: event.transactionHash
 		});
-		
+
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.dispute_raised_success'));
-		
+
 	} catch (error) {
 		console.error('Failed to handle task disputed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.dispute_raised_error'));
@@ -228,11 +240,11 @@ export async function handleTaskDisputed(event: { escrowId: string; transactionH
  */
 export async function handleResolutionProposed(event: { escrowId: string; transactionHash: string; contractEventId: string; proposedClientAmount: string; proposedFreelancerAmount: string }): Promise<void> {
 	console.log('Handling resolution proposed event:', event);
-	
+
 	try {
 		// Update escrow status (should already be InDispute, but ensure it's set)
 		updateEscrowStatus(event.escrowId, EscrowStatus.InDispute);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -243,10 +255,10 @@ export async function handleResolutionProposed(event: { escrowId: string; transa
 			proposedClientAmount: event.proposedClientAmount,
 			proposedFreelancerAmount: event.proposedFreelancerAmount
 		});
-		
+
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.resolution_proposed_success'));
-		
+
 	} catch (error) {
 		console.error('Failed to handle resolution proposed event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.resolution_proposed_error'));
@@ -258,11 +270,11 @@ export async function handleResolutionProposed(event: { escrowId: string; transa
  */
 export async function handleProposalAccepted(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling proposal accepted event:', event);
-	
+
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -271,10 +283,10 @@ export async function handleProposalAccepted(event: { escrowId: string; transact
 			message: _('dashboard.contracts.actions.proposal_accepted_message'),
 			transactionHash: event.transactionHash
 		});
-		
+
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.proposal_accepted_success'));
-		
+
 	} catch (error) {
 		console.error('Failed to handle proposal accepted event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.proposal_accepted_error'));
@@ -286,11 +298,11 @@ export async function handleProposalAccepted(event: { escrowId: string; transact
  */
 export async function handleEscrowCancelled(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling escrow cancelled event:', event);
-	
+
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.Cancelled);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -299,10 +311,10 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
 			message: _('dashboard.contracts.actions.escrow_cancelled_message'),
 			transactionHash: event.transactionHash
 		});
-		
+
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.escrow_cancelled_success'));
-		
+
 	} catch (error) {
 		console.error('Failed to handle escrow cancelled event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.escrow_cancelled_error'));
@@ -314,11 +326,11 @@ export async function handleEscrowCancelled(event: { escrowId: string; transacti
  */
 export async function handleTimelockResolved(event: { escrowId: string; transactionHash: string; contractEventId: string }): Promise<void> {
 	console.log('Handling timelock resolved event:', event);
-	
+
 	try {
 		// Update escrow status
 		updateEscrowStatus(event.escrowId, EscrowStatus.DisputeResolved);
-		
+
 		// Publish status update to Nostr
 		await publishContractStatus({
 			contractEventId: event.contractEventId,
@@ -327,10 +339,10 @@ export async function handleTimelockResolved(event: { escrowId: string; transact
 			message: _('dashboard.contracts.actions.timelock_resolved_message'),
 			transactionHash: event.transactionHash
 		});
-		
+
 		// Show success toast
 		appStore.showSuccessToast(_('dashboard.contracts.actions.timelock_resolved_success'));
-		
+
 	} catch (error) {
 		console.error('Failed to handle timelock resolved event:', error);
 		appStore.showErrorToast(_('dashboard.contracts.actions.timelock_resolved_error'));
@@ -342,7 +354,7 @@ export async function handleTimelockResolved(event: { escrowId: string; transact
  */
 export function handleEscrowStatusUpdate(escrowId: string, status: string, eventType: string): void {
 	console.log(`Escrow ${escrowId} status updated:`, { status, eventType });
-	
+
 	// Show appropriate toast based on event type
 	switch (eventType) {
 		case 'TaskCompleted':
@@ -485,7 +497,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskCompleted event received:', escrowIdStr);
 			updateEscrowStatus(escrowIdStr, EscrowStatus.Completed);
-			
+
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'completed', 'TaskCompleted');
 		};
@@ -495,7 +507,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskAccepted event received:', escrowIdStr);
 			updateEscrowStatus(escrowIdStr, EscrowStatus.DisputeResolved);
-			
+
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'TaskAccepted');
 		};
@@ -505,7 +517,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			const escrowIdStr = escrowId.toString();
 			console.log('TaskDisputed event received:', escrowIdStr, disputer);
 			updateEscrowStatus(escrowIdStr, EscrowStatus.InDispute);
-			
+
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'disputed', 'TaskDisputed');
 		};
@@ -522,7 +534,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 					}));
 				}
 			}).catch(console.error);
-			
+
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'dispute_proposed', 'DisputeProposed');
 		};
@@ -537,7 +549,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 				...state,
 				disputeProposals: state.disputeProposals.filter(p => p.escrowId !== escrowIdStr)
 			}));
-			
+
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'resolved', 'DisputeResolved');
 		};
@@ -547,7 +559,7 @@ export function setupContractEventListeners(contract: ethers.Contract): void {
 			const escrowIdStr = escrowId.toString();
 			console.log('EscrowCancelled event received:', escrowIdStr);
 			updateEscrowStatus(escrowIdStr, EscrowStatus.Cancelled);
-			
+
 			// Handle through event management system
 			handleEscrowStatusUpdate(escrowIdStr, 'cancelled', 'EscrowCancelled');
 		};

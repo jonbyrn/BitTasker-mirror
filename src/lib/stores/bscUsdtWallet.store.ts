@@ -1,181 +1,35 @@
+/**
+ * BSC USDT Wallet Store
+ * 
+ * Manages BSC wallet functionality following the same patterns as the main wallet store.
+ * Handles USDT transactions, BNB transfers, and EIP-7702 paymaster integration.
+ * 
+ * @deprecated This store is no longer used. Use wallet.store instead.
+ */
+
 import { writable, derived, get } from 'svelte/store';
 import { ethers } from 'ethers';
-import { decryptWalletMnemonicWithBiometrics } from '$lib/utils/helpers/auth';
-import { appStore } from '$lib/stores/app.store';
-import { checkBiometricAvailability, getBiometricData } from '$lib/utils/helpers/biometrics';
-import { getWebBiometricData } from '$lib/utils/helpers/webBiometrics';
-import { Preferences } from '@capacitor/preferences';
-import { StorageKeys } from '$lib/utils/constants/storage';
-import { BSCPaymasterContract, BSC_PAYMASTER_CONFIGS, type PaymasterConfig } from '$lib/utils/wallet/BSCPaymasterContract';
+import { BSCPaymasterContract } from '$lib/utils/wallet/BSCPaymasterContract';
+import {
+	ERC20_ABI,
+	BSC_NETWORKS,
+	getBSCPaymasterConfig,
+	getUSDTToken,
+} from '$lib/utils/wallet/networkConfig';
+import type {
+	BSCUnit,
+	Transaction,
+	TokenBalance,
+	BSCWalletState,
+	GasEstimation,
+    NetworkType
+} from '$lib/types/wallet';
 
 // Unit display preferences
-export type BSCUnit = 'usdt' | 'wei';
 export const bscUnitPreference = writable<BSCUnit>('usdt');
 
-// ERC-20 Token Configuration
-export interface BSCToken {
-    address: string;
-    symbol: string;
-    name: string;
-    decimals: number;
-    logoUrl?: string;
-}
-
-// ERC-20 ABI (minimal for basic operations)
-const ERC20_ABI = [
-    'function name() view returns (string)',
-    'function symbol() view returns (string)',
-    'function decimals() view returns (uint8)',
-    'function totalSupply() view returns (uint256)',
-    'function balanceOf(address owner) view returns (uint256)',
-    'function transfer(address to, uint256 amount) returns (bool)',
-    'function transferFrom(address from, address to, uint256 amount) returns (bool)',
-    'function approve(address spender, uint256 amount) returns (bool)',
-    'function allowance(address owner, address spender) view returns (uint256)',
-    'event Transfer(address indexed from, address indexed to, uint256 value)',
-    'event Approval(address indexed owner, address indexed spender, uint256 value)'
-];
-
-// EIP-7702 Paymaster ABI for gas fee abstraction
-const PAYMASTER_ABI = [
-    'function payForTransaction(address user, bytes calldata transaction) external payable',
-    'function validatePaymasterUserOp(UserOperation userOp, bytes32 userOpHash, uint256 maxCost) external view returns (bytes memory context, uint256 validationData)',
-    'function postOp(PostOpMode mode, bytes calldata context, uint256 actualGasCost) external',
-    'function deposit() external payable',
-    'function withdrawTo(address payable withdrawAddress, uint256 withdrawAmount) external',
-    'function getDeposit() external view returns (uint256)'
-];
-
-// BSC Network Configuration
-export const BSC_NETWORKS = {
-    mainnet: {
-        name: 'BSC Mainnet',
-        chainId: 56,
-        rpcUrl: 'https://bsc-dataseed1.binance.org',
-        explorerUrl: 'https://bscscan.com',
-        currency: {
-            name: 'BNB',
-            symbol: 'BNB',
-            decimals: 18
-        },
-        tokens: [
-            {
-                address: '0x55d398326f99059fF775485246999027B3197955', // USDT on BSC
-                symbol: 'USDT',
-                name: 'Tether USD',
-                decimals: 18
-            },
-            {
-                address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // USDC on BSC
-                symbol: 'USDC',
-                name: 'USD Coin',
-                decimals: 18
-            },
-            {
-                address: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c', // WBNB on BSC
-                symbol: 'WBNB',
-                name: 'Wrapped BNB',
-                decimals: 18
-            }
-        ] as BSCToken[],
-        // EIP-7702 Paymaster contract address
-        paymasterAddress: BSC_PAYMASTER_CONFIGS.mainnet.address
-    },
-    testnet: {
-        name: 'BSC Testnet',
-        chainId: 97,
-        rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-        explorerUrl: 'https://testnet.bscscan.com',
-        currency: {
-            name: 'tBNB',
-            symbol: 'tBNB',
-            decimals: 18
-        },
-        tokens: [
-            {
-                address: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd', // Testnet USDT on BSC
-                symbol: 'tUSDT',
-                name: 'Testnet Tether USD',
-                decimals: 18
-            },
-            {
-                address: '0x64544969ed7EBf5f083679233325356EbE738930', // Testnet USDC on BSC
-                symbol: 'tUSDC',
-                name: 'Testnet USD Coin',
-                decimals: 18
-            }
-        ] as BSCToken[],
-        // EIP-7702 Paymaster contract address
-        paymasterAddress: BSC_PAYMASTER_CONFIGS.testnet.address
-    }
-} as const;
-
-export type BSCNetwork = keyof typeof BSC_NETWORKS;
-
-// Transaction types
-export interface BSCTransaction {
-    hash: string;
-    from: string;
-    to: string;
-    value: string;
-    gasUsed: string;
-    gasPrice: string;
-    blockNumber: number;
-    timestamp: number;
-    status: 'pending' | 'confirmed' | 'failed';
-    type: 'send' | 'receive' | 'contract';
-    tokenSymbol?: string;
-    tokenAddress?: string;
-}
-
-// Gas estimation result
-export interface GasEstimation {
-    gasLimit: string;
-    gasPrice: string;
-    totalCost: string;
-    totalCostFormatted: string;
-    usdtCost?: string; // Cost in USDT if paying fees in USDT
-}
-
-// Token balance interface
-export interface TokenBalance {
-    token: BSCToken;
-    balance: bigint;
-    formattedBalance: string;
-    usdValue?: number;
-}
-
-// Store state interface
-interface BSCUsdtWalletState {
-    // Connection
-    isConnected: boolean;
-    isConnecting: boolean;
-    error: string | null;
-    network: BSCNetwork;
-
-    // Wallet
-    address: string | null;
-    bnbBalance: string;
-    formattedBnbBalance: string;
-    blockNumber: number | null;
-
-    // Tokens
-    tokenBalances: TokenBalance[];
-    usdtBalance: string;
-    formattedUsdtBalance: string;
-
-    // Transactions
-    transactions: BSCTransaction[];
-    pendingTransactions: BSCTransaction[];
-
-    // EIP-7702 Support
-    paymasterConnected: boolean;
-    paymasterAddress: string | null;
-    canPayFeesInUsdt: boolean;
-}
-
 // Initial state
-const initialState: BSCUsdtWalletState = {
+const initialState: BSCWalletState = {
     isConnected: false,
     isConnecting: false,
     error: null,
@@ -204,38 +58,49 @@ let usdtContract: ethers.Contract | null = null;
 let paymasterContract: BSCPaymasterContract | null = null;
 let eventListeners: (() => void)[] = [];
 
-// Helper function to get mnemonic using the same logic as wallet.store.ts
-async function getMnemonic(): Promise<string> {
+
+// Initialize the BSC USDT wallet
+async function initialize(mnemonic: string): Promise<void> {
     try {
-        // Check if we have biometric data with master key format
-        const currentState = get(appStore);
-        if (!currentState.biometricData) {
-            const biometricsAvailable = await checkBiometricAvailability();
-            let biometricData = null;
-            if (biometricsAvailable) {
-                const { value: authMethod } = await Preferences.get({ key: StorageKeys.AUTH_METHOD });
-                biometricData = await getBiometricData(authMethod as 'biometrics' | 'passkey', true);
-            } else {
-                biometricData = await getWebBiometricData(true);
-            }
+        bscUsdtWalletStore.update(state => ({
+            ...state,
+            isConnecting: true,
+            error: null
+        }));
 
-            if (!biometricData) throw new Error('No biometric data found');
-            return await decryptWalletMnemonicWithBiometrics(biometricData.password);
-        } else {
-            return await decryptWalletMnemonicWithBiometrics(currentState.biometricData.password);
-        }
-    } catch (error) {
-        throw new Error(error instanceof Error ? error.message : 'Failed to get mnemonic');
-    }
-}
+        // Get current network from store
+        const currentState = get(bscUsdtWalletStore);
 
-// Initialize wallet from mnemonic
-async function initializeWalletFromMnemonic(): Promise<void> {
-    try {
-        const mnemonic = await getMnemonic();
-
-        if (!mnemonic) {
-            throw new Error('No wallet mnemonic found. Please set up your wallet first.');
+        // Initialize provider
+        const networkConfig = BSC_NETWORKS[currentState.network];
+        
+        // Create provider with static network to avoid auto-detection
+        const network = ethers.Network.from({
+            name: networkConfig.name.toLowerCase().replace(' ', '-'),
+            chainId: networkConfig.chainId
+        });
+        
+        provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl, network);
+        
+        // Test connection with timeout to avoid infinite retry loops
+        const connectionTimeout = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Connection timeout')), 8000)
+        );
+        
+        try {
+            // Test basic connectivity without triggering network auto-detection
+            await Promise.race([
+                provider.send('eth_chainId', []),
+                connectionTimeout
+            ]);
+            console.log('BSC provider connected successfully to chain:', networkConfig.chainId);
+        } catch (error) {
+            console.warn('BSC provider connection failed, but continuing with initialization:', error);
+            // Set error state but don't throw - allow wallet to continue with limited functionality
+            bscUsdtWalletStore.update(state => ({
+                ...state,
+                error: 'Network connection failed. Some features may be unavailable.'
+            }));
         }
 
         // Create wallet from mnemonic with BSC derivation path: m/44'/60'/0'/0/0 (Ethereum standard)
@@ -248,50 +113,23 @@ async function initializeWalletFromMnemonic(): Promise<void> {
             address: wallet!.address
         }));
 
-    } catch (error) {
-        throw new Error(`Failed to initialize wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-}
-
-// Initialize the BSC USDT wallet
-async function initialize(): Promise<void> {
-    try {
-        console.log('BSC Wallet: Starting initialization...');
-        bscUsdtWalletStore.update(state => ({
-            ...state,
-            isConnecting: true,
-            error: null
-        }));
-
-        // Get current network from store
-        const currentState = get(bscUsdtWalletStore);
-        console.log('BSC Wallet: Current network:', currentState.network);
-
-        // Initialize provider
-        const networkConfig = BSC_NETWORKS[currentState.network];
-        provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
-        console.log('BSC Wallet: Provider initialized');
-
-        // Initialize wallet from existing mnemonic
-        console.log('BSC Wallet: Initializing wallet from mnemonic...');
-        await initializeWalletFromMnemonic();
-        console.log('BSC Wallet: Wallet initialized, address:', wallet?.address);
-
         // Initialize USDT contract
-        const usdtToken = networkConfig.tokens.find(token => token.symbol === 'USDT' || token.symbol === 'tUSDT');
+        const usdtToken = getUSDTToken(currentState.network);
         if (usdtToken) {
             usdtContract = new ethers.Contract(usdtToken.address, ERC20_ABI, wallet);
         }
 
         // Initialize paymaster contract if available
-        if (networkConfig.paymasterAddress && networkConfig.paymasterAddress !== '0x0000000000000000000000000000000000000000') {
-            const paymasterConfig = BSC_PAYMASTER_CONFIGS[currentState.network];
-            paymasterContract = new BSCPaymasterContract(
-                networkConfig.paymasterAddress,
-                provider,
-                wallet,
-                paymasterConfig
-            );
+        const paymasterConfig = getBSCPaymasterConfig(currentState.network);
+        if (paymasterConfig.address && paymasterConfig.address !== '0x0000000000000000000000000000000000000000') {
+            if (wallet) {
+                paymasterContract = new BSCPaymasterContract(
+                    paymasterConfig.address,
+                    provider,
+                    wallet,
+                    paymasterConfig
+                );
+            }
             await checkPaymasterConnection();
         }
 
@@ -322,7 +160,7 @@ async function initialize(): Promise<void> {
 }
 
 // Switch network
-async function switchNetwork(network: BSCNetwork): Promise<void> {
+async function switchNetwork(network: NetworkType, mnemonic: string): Promise<void> {
     try {
         bscUsdtWalletStore.update(state => ({
             ...state,
@@ -334,7 +172,7 @@ async function switchNetwork(network: BSCNetwork): Promise<void> {
         cleanup();
 
         // Reinitialize with new network
-        await initialize();
+        await initialize(mnemonic);
 
     } catch (error) {
         console.error('Network switch failed:', error);
@@ -352,11 +190,13 @@ async function checkPaymasterConnection(): Promise<void> {
 
     try {
         const status = await paymasterContract.getStatus();
+        const currentState = get(bscUsdtWalletStore);
+        const paymasterConfig = getBSCPaymasterConfig(currentState.network);
 
         bscUsdtWalletStore.update(state => ({
             ...state,
             paymasterConnected: status.hasDeposit,
-            paymasterAddress: paymasterContract?.contract.target as string,
+            paymasterAddress: paymasterContract ? paymasterConfig.address : null,
             canPayFeesInUsdt: status.canPayInUsdt
         }));
 
@@ -391,12 +231,13 @@ async function sendUSDT(to: string, amount: string, payFeesInUsdt: boolean = fal
             const gasEstimate = await usdtContract.transfer.estimateGas(to, parsedAmount);
             const gasPrice = await provider!.getFeeData();
             const gasCost = gasEstimate * (gasPrice.gasPrice || BigInt(0));
-            
+
             // Convert gas cost to USDT
             const usdtCost = await paymasterContract.convertUsdtToBnb(gasCost);
-            
+
             // Pay for transaction with USDT
-            const transactionData = usdtContract.transfer.interface.encodeFunctionData('transfer', [to, parsedAmount]);
+            const contractInterface = usdtContract.interface;
+            const transactionData = contractInterface.encodeFunctionData('transfer', [to, parsedAmount]);
             return await paymasterContract.payForTransactionWithUsdt(transactionData, usdtCost);
         } else {
             // Standard USDT transfer
@@ -404,7 +245,7 @@ async function sendUSDT(to: string, amount: string, payFeesInUsdt: boolean = fal
         }
 
         // Add to pending transactions
-        const pendingTx: BSCTransaction = {
+        const pendingTx: Transaction = {
             hash: tx.hash,
             from: wallet.address,
             to,
@@ -415,8 +256,8 @@ async function sendUSDT(to: string, amount: string, payFeesInUsdt: boolean = fal
             timestamp: Date.now(),
             status: 'pending',
             type: 'send',
-            tokenSymbol: 'USDT',
-            tokenAddress: usdtContract.target as string
+            network: 'bsc',
+            tokenSymbol: 'USDT'
         };
 
         bscUsdtWalletStore.update(state => ({
@@ -452,7 +293,7 @@ async function sendBNB(to: string, amount: string): Promise<string> {
         });
 
         // Add to pending transactions
-        const pendingTx: BSCTransaction = {
+        const pendingTx: Transaction = {
             hash: tx.hash,
             from: wallet.address,
             to,
@@ -462,7 +303,8 @@ async function sendBNB(to: string, amount: string): Promise<string> {
             blockNumber: 0,
             timestamp: Date.now(),
             status: 'pending',
-            type: 'send'
+            type: 'send',
+            network: 'bsc'
         };
 
         bscUsdtWalletStore.update(state => ({
@@ -554,13 +396,29 @@ async function updateBalances(): Promise<void> {
     if (!wallet || !provider || !usdtContract) return;
 
     try {
-        // Update BNB balance
-        const bnbBalance = await provider.getBalance(wallet.address);
+        // Add timeout for balance operations
+        const balanceTimeout = new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Balance update timeout')), 5000)
+        );
+
+        // Update BNB balance with timeout
+        const bnbBalance = await Promise.race([
+            provider.getBalance(wallet.address),
+            balanceTimeout
+        ]) as bigint;
         const formattedBnb = ethers.formatEther(bnbBalance);
 
-        // Update USDT balance
-        const usdtBalance = await usdtContract.balanceOf(wallet.address);
-        const decimals = await usdtContract.decimals();
+        // Update USDT balance with timeout
+        const usdtBalancePromise = Promise.all([
+            usdtContract.balanceOf(wallet.address),
+            usdtContract.decimals()
+        ]);
+        
+        const [usdtBalance, decimals] = await Promise.race([
+            usdtBalancePromise,
+            balanceTimeout
+        ]) as [bigint, number];
+        
         const formattedUsdt = ethers.formatUnits(usdtBalance, decimals);
 
         bscUsdtWalletStore.update(state => ({
@@ -573,6 +431,11 @@ async function updateBalances(): Promise<void> {
 
     } catch (error) {
         console.error('Failed to update balances:', error);
+        // Don't retry automatically to avoid infinite loops
+        bscUsdtWalletStore.update(state => ({
+            ...state,
+            error: 'Failed to update balances. Please check your network connection.'
+        }));
     }
 }
 
@@ -601,7 +464,7 @@ async function loadTransactionHistory(): Promise<void> {
     }
 
     try {
-        const transactions: BSCTransaction[] = [];
+        const transactions: Transaction[] = [];
         const address = wallet.address.toLowerCase();
         const network = get(bscUsdtWalletStore).network;
 
@@ -609,13 +472,13 @@ async function loadTransactionHistory(): Promise<void> {
 
         // Get BSCScan API key from environment
         const apiKey = import.meta.env.VITE_BSCSCAN_API_KEY;
-        
+
         // If no API key is configured, show pending transactions only
         if (!apiKey || apiKey === 'YourBSCScanAPIKey') {
             console.warn('BSCScan API key not configured. Only pending transactions will be shown.');
-            
+
             // Add test transactions for debugging
-            const testTransactions: BSCTransaction[] = [
+            const testTransactions: Transaction[] = [
                 {
                     hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
                     from: address,
@@ -626,7 +489,8 @@ async function loadTransactionHistory(): Promise<void> {
                     blockNumber: 12345,
                     timestamp: Date.now() - 3600000, // 1 hour ago
                     status: 'confirmed',
-                    type: 'send'
+                    type: 'send',
+                    network: 'bsc'
                 },
                 {
                     hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
@@ -638,7 +502,8 @@ async function loadTransactionHistory(): Promise<void> {
                     blockNumber: 12346,
                     timestamp: Date.now() - 7200000, // 2 hours ago
                     status: 'confirmed',
-                    type: 'receive'
+                    type: 'receive',
+                    network: 'bsc'
                 },
                 {
                     hash: '0x9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba',
@@ -651,11 +516,11 @@ async function loadTransactionHistory(): Promise<void> {
                     timestamp: Date.now() - 10800000, // 3 hours ago
                     status: 'confirmed',
                     type: 'receive',
-                    tokenSymbol: 'USDT',
-                    tokenAddress: '0x55d398326f99059fF775485246999027B3197955'
+                    network: 'bsc',
+                    tokenSymbol: 'USDT'
                 }
             ];
-            
+
             bscUsdtWalletStore.update(state => ({
                 ...state,
                 transactions: [...testTransactions, ...state.pendingTransactions]
@@ -672,7 +537,7 @@ async function loadTransactionHistory(): Promise<void> {
             // Fetch BNB transactions
             const bnbUrl = `${explorerApiUrl}?module=account&action=txlist&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`;
             console.log('Fetching BNB transactions from:', bnbUrl);
-            
+
             const bnbResponse = await fetch(bnbUrl);
 
             if (bnbResponse.ok) {
@@ -685,7 +550,7 @@ async function loadTransactionHistory(): Promise<void> {
                         // Determine transaction type based on user's address
                         const isFromUser = tx.from.toLowerCase() === address;
                         const isToUser = tx.to && tx.to.toLowerCase() === address;
-                        
+
                         let transactionType: 'send' | 'receive' | 'contract';
                         if (isFromUser && isToUser) {
                             // Self-transaction (sending to self)
@@ -701,7 +566,7 @@ async function loadTransactionHistory(): Promise<void> {
                             transactionType = 'contract';
                         }
 
-                        const transaction: BSCTransaction = {
+                        const transaction: Transaction = {
                             hash: tx.hash,
                             from: tx.from,
                             to: tx.to || '0x0000000000000000000000000000000000000000',
@@ -711,7 +576,8 @@ async function loadTransactionHistory(): Promise<void> {
                             blockNumber: parseInt(tx.blockNumber) || 0,
                             timestamp: parseInt(tx.timeStamp) * 1000,
                             status: tx.isError === '0' ? 'confirmed' : 'failed',
-                            type: transactionType
+                            type: transactionType,
+                            network: 'bsc'
                         };
 
                         transactions.push(transaction);
@@ -720,9 +586,8 @@ async function loadTransactionHistory(): Promise<void> {
             }
 
             // Fetch USDT token transactions
-            const networkConfig = BSC_NETWORKS[network];
-            const usdtToken = networkConfig.tokens.find(token => token.symbol === 'USDT' || token.symbol === 'tUSDT');
-            
+            const usdtToken = getUSDTToken(network);
+
             if (usdtToken) {
                 const usdtResponse = await fetch(
                     `${explorerApiUrl}?module=account&action=tokentx&contractaddress=${usdtToken.address}&address=${address}&startblock=0&endblock=99999999&sort=desc&apikey=${apiKey}`
@@ -736,7 +601,7 @@ async function loadTransactionHistory(): Promise<void> {
                             // Determine transaction type based on user's address
                             const isFromUser = tx.from.toLowerCase() === address;
                             const isToUser = tx.to && tx.to.toLowerCase() === address;
-                            
+
                             let transactionType: 'send' | 'receive' | 'contract';
                             if (isFromUser && isToUser) {
                                 // Self-transaction (sending to self)
@@ -752,7 +617,7 @@ async function loadTransactionHistory(): Promise<void> {
                                 transactionType = 'contract';
                             }
 
-                            const transaction: BSCTransaction = {
+                            const transaction: Transaction = {
                                 hash: tx.hash,
                                 from: tx.from,
                                 to: tx.to || '0x0000000000000000000000000000000000000000',
@@ -763,8 +628,8 @@ async function loadTransactionHistory(): Promise<void> {
                                 timestamp: parseInt(tx.timeStamp) * 1000,
                                 status: tx.isError === '0' ? 'confirmed' : 'failed',
                                 type: transactionType,
-                                tokenSymbol: usdtToken.symbol,
-                                tokenAddress: usdtToken.address
+                                network: 'bsc',
+                                tokenSymbol: 'USDT'
                             };
 
                             transactions.push(transaction);
@@ -785,7 +650,7 @@ async function loadTransactionHistory(): Promise<void> {
 
         // Sort transactions by timestamp and remove duplicates
         const uniqueTransactions = transactions
-            .filter((tx, index, self) => 
+            .filter((tx, index, self) =>
                 index === self.findIndex(t => t.hash === tx.hash)
             )
             .sort((a, b) => b.timestamp - a.timestamp)
@@ -812,7 +677,7 @@ function updateTransactionStatus(hash: string, receipt: ethers.TransactionReceip
         const pendingTransactions = state.pendingTransactions.filter(tx => tx.hash !== hash);
 
         // Add to confirmed transactions
-        const confirmedTx: BSCTransaction = {
+        const confirmedTx: Transaction = {
             hash,
             from: receipt.from,
             to: receipt.to || '',
@@ -822,7 +687,8 @@ function updateTransactionStatus(hash: string, receipt: ethers.TransactionReceip
             blockNumber: receipt.blockNumber,
             timestamp: Date.now(),
             status: receipt.status === 1 ? 'confirmed' : 'failed',
-            type: 'send'
+            type: 'send',
+            network: 'bsc'
         };
 
         return {
@@ -843,6 +709,7 @@ async function loadTokenBalances(): Promise<void> {
     try {
         const network = get(bscUsdtWalletStore).network;
         const networkConfig = BSC_NETWORKS[network];
+
         const tokenBalances: TokenBalance[] = [];
 
         for (const token of networkConfig.tokens) {
@@ -935,7 +802,7 @@ async function depositToPaymaster(amount: string): Promise<string> {
     if (!paymasterContract) {
         throw new Error('Paymaster not initialized');
     }
-    
+
     try {
         const amountWei = ethers.parseEther(amount);
         return await paymasterContract.deposit(amountWei);
@@ -948,7 +815,7 @@ async function withdrawFromPaymaster(amount: string): Promise<string> {
     if (!paymasterContract) {
         throw new Error('Paymaster not initialized');
     }
-    
+
     try {
         const amountWei = ethers.parseEther(amount);
         return await paymasterContract.withdraw(amountWei);
@@ -973,7 +840,7 @@ async function getPaymasterStatus(): Promise<{
             minDeposit: '0'
         };
     }
-    
+
     try {
         const status = await paymasterContract.getStatus();
         return {
@@ -1007,7 +874,7 @@ export const bscUsdtWallet = {
     refreshTransactions: loadTransactionHistory,
     cleanup,
     checkPaymasterConnection,
-    
+
     // Paymaster management
     depositToPaymaster,
     withdrawFromPaymaster,
@@ -1049,13 +916,6 @@ export function parseBSCAmount(amount: string, fromUnit: BSCUnit): string {
         console.error('Error parsing BSC amount:', error);
         return amount;
     }
-}
-
-export function getUnitLabel(unit: BSCUnit, network: string): string {
-    if (unit === 'wei') {
-        return 'wei';
-    }
-    return 'USDT';
 }
 
 // Enhanced balance derived store with unit formatting

@@ -12,23 +12,24 @@ const config = {
 	},
 
 	kit: {
-        // Configure the adapter with fallback for SPA navigation
-        adapter: adapter({
+		// Configure the adapter with fallback for SPA navigation
+		adapter: adapter({
 			// Single-page app mode with fallback
-			fallback: 'index.html',
+			// Use the conventional name for Cloudflare Pages
+			fallback: '404.html',
 			// Path to build output
 			pages: 'build',
 			assets: 'build',
 			// Precompress only when explicitly enabled
 			precompress: process.env.PRECOMPRESS === '1',
-			// Make all paths strict
+			// Make all paths strict - false allows fallback for dynamic routes
 			strict: false
 		}),
 
-        alias: {
-            $houdini: ".houdini/"
-        }
-    }
+		alias: {
+			$houdini: ".houdini/"
+		}
+	}
 };
 
 export default config;

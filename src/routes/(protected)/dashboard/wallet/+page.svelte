@@ -5,6 +5,8 @@
 	import { t } from 'svelte-i18n';
 	import { linear } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
+	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { appStore } from '$lib/stores/app.store';
 	// Icon imports for unplugin-icons
 	import IconContentCopy from '~icons/mdi/content-copy';
 	import {
@@ -20,8 +22,6 @@
 	import ReceiveForm from '$lib/components/wallet/ReceiveForm.svelte';
 	import TransactionHistory from '$lib/components/wallet/TransactionHistory.svelte';
 	import HelpModal from '$lib/components/wallet/HelpModal.svelte';
-	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
-	import { appStore } from '$lib/stores/app.store';
 
 	const network = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 
@@ -49,15 +49,15 @@
 				<h2 class="text-3xl font-bold">{$t('wallet.title')}</h2>
 				<HelpModal />
 			</div>
+			<!-- Network status badges - commented out -->
+			<!--
 			<div class="flex gap-2">
-				<!-- Breez Status Indicator -->
 				<div class="tooltip" data-tip="Breez Liquid Wallet">
 					<div class="badge {$liquidConnection.connected ? 'badge-success' : 'badge-error'} gap-2">
 						<img src="/images/chains/Liquid-Bitcoin.svg" alt="Liquid" class="h-4 w-4" />
 						Liquid
 					</div>
 				</div>
-				<!-- RSK Status Indicator -->
 				<div class="tooltip" data-tip="Rootstock Wallet">
 					<div class="badge {$rskConnection.connected ? 'badge-success' : 'badge-error'} gap-2">
 						<img src="/images/chains/Bitcoin-Rootstock-logo.webp" alt="RSK" class="h-4 w-4" />
@@ -65,9 +65,11 @@
 					</div>
 				</div>
 			</div>
+			-->
 		</div>
 
-		<!-- Connection Status -->
+		<!-- Connection Status - commented out -->
+
 		{#if $combinedWalletState.isInitializing}
 			<div class="alert alert-outlinealert-info mb-6">
 				<div class="flex items-center">
@@ -142,14 +144,19 @@
 						/>
 					</svg>
 					<div class="flex-1">
-						<div class="font-bold text-warning text-center">{$t('wallet.testnet_warning.title')}</div>
+						<div class="text-warning text-center font-bold">
+							{$t('wallet.testnet_warning.title')}
+						</div>
 						<div class="text-sm">
-							<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong> {$t('wallet.testnet_warning.description')}
+							<strong>{$t('wallet.testnet_warning.do_not_send_real_assets')}</strong>
+							{$t('wallet.testnet_warning.description')}
 						</div>
 						<!-- User's Testnet Address -->
 						{#if $rskConnection.address}
-							<div class="mt-3 p-3 bg-base-200 rounded-lg">
-								<div class="text-sm font-medium mb-2">{$t('wallet.testnet_warning.your_address')}</div>
+							<div class="bg-base-200 mt-3 rounded-lg p-3">
+								<div class="mb-2 text-sm font-medium">
+									{$t('wallet.testnet_warning.your_address')}
+								</div>
 								<div class="flex items-center gap-2">
 									<input
 										type="text"
@@ -171,12 +178,12 @@
 								</div>
 							</div>
 						{/if}
-						
+
 						<div class="mt-2 text-sm">
-							{$t('wallet.testnet_warning.faucet_instruction')} 
-							<a 
-								href="https://faucet.rootstock.io/" 
-								target="_blank" 
+							{$t('wallet.testnet_warning.faucet_instruction')}
+							<a
+								href="https://faucet.rootstock.io/"
+								target="_blank"
 								rel="noopener noreferrer"
 								class="link link-primary font-semibold"
 							>
@@ -191,7 +198,7 @@
 
 		{#if $combinedWalletState.hasAnyConnection || !hasErrors}
 			<!-- Tab Navigation -->
-			<div class="tabs tabs-bordered w-full mb-6">
+			<div class="tabs tabs-bordered mb-6 w-full">
 				<button
 					class="tab {$combinedWalletState.activeTab === 'balance' ? 'active-tab' : ''}"
 					onclick={() => walletManager.setActiveTab('balance')}

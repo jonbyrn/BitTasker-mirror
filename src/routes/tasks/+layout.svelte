@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
 
 	let { children } = $props();

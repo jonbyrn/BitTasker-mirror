@@ -1,9 +1,8 @@
-import type { Event as NostrEvent, Filter } from 'nostr-tools';
+import type { Event as NostrEvent } from 'nostr-tools';
 import type { BidMessage, NostrBid, NostrBidStatus } from '$lib/types/bid';
 import { nip19 } from 'nostr-tools';
 import { getNpub } from './nostrKeys';
 import { sendDirectMessage, getMessageHistory, getMessagedPeople } from './nostr-message';
-import { SimplePool } from 'nostr-tools/pool';
 import type {
 	NostrContract,
 	NostrContractStatus,
@@ -13,6 +12,10 @@ import type {
 	PublishStatusParams,
 	ContractFilter
 } from '$lib/types/contract';
+import { get } from 'svelte/store';
+import { rskAddress } from '$lib/stores/wallet.store';
+import { escrow } from '$lib/utils/wallet/escrow';
+import { EscrowStatus } from '$lib/utils/enums/wallet.enum';
 
 /**
  * Enhanced cache utility for bid data with different cache types
@@ -713,11 +716,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 						let disputeProposal = null;
 
 						try {
-							// Import escrow functions to check actual contract state
-							const { escrow } = await import('$lib/utils/wallet/escrow');
-							const { rskAddress } = await import('$lib/stores/wallet.store');
-							const { get } = await import('svelte/store');
-
 							// Get actual escrow data from RSK contract
 							const escrowData = await escrow.getEscrow(contractData.escrowId);
 							const userAddress = get(rskAddress);
@@ -736,9 +734,6 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 							console.log(`Contract ${contractData.escrowId}: RSK status = ${escrowData?.status} (${escrowData ? ['Funded', 'InDispute', 'DisputeResolved', 'DisputeUnresolved', 'Completed', 'Cancelled'][escrowData.status] || 'Unknown' : 'No Data'})`);
 
 							if (escrowData && userAddress) {
-								// Import EscrowStatus for comparison
-								const { EscrowStatus } = await import('$lib/utils/enums/wallet.enum');
-
 								// RSK contract state is the source of truth, but Nostr status events provide additional context
 								// Use latest Nostr status event to determine if certain actions have been completed
 								switch (escrowData.status) {

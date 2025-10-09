@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { addMessages, init, locale, getLocaleFromNavigator } from 'svelte-i18n';
 import { browser } from '$app/environment';
 import { get, writable } from 'svelte/store';
@@ -144,6 +145,11 @@ export function getNamespacesForRoute(route: string): string[] {
 	if (route.includes('/onboarding')) namespaces.push('onboarding');
 	if (route.includes('/how-it-works')) namespaces.push('how_it_works');
 	if (route.includes('/auth')) namespaces.push('auth');
+	
+	// Protected routes (routes that require authentication)
+	if (route.includes('(protected)')) {
+		namespaces.push('auth');
+	}
 
 	// Company pages (route groups don't show in URL, so check actual paths)
 	if (route.includes('/about')) namespaces.push('company/about');
