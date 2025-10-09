@@ -5,6 +5,7 @@
 	import { setCookie } from '$lib/utils/helpers/cookies';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
+	import HelpModal from './wallet/HelpModal.svelte';
 
 	interface Props {
 		onClose?: () => void;
@@ -13,6 +14,7 @@
 	let { onClose }: Props = $props();
 
 	let isVisible = $state(false);
+	let showHelpModal = $state(false);
 
 	onMount(() => {
 		// Show the popup after a brief delay for better UX
@@ -32,7 +34,7 @@
 
 		// Close the popup
 		isVisible = false;
-		
+
 		// Call the onClose callback if provided
 		if (onClose) {
 			onClose();
@@ -42,6 +44,14 @@
 	function handleFeedbackClick() {
 		// Navigate to feedback page using SvelteKit router
 		goto('/feedback');
+	}
+
+	function handleLearnMoreClick() {
+		showHelpModal = true;
+	}
+
+	function handleHelpModalClose() {
+		showHelpModal = false;
 	}
 </script>
 
@@ -61,12 +71,7 @@
 			<div class="mb-6">
 				<div class="mb-2 flex items-center gap-3">
 					<div class="bg-warning/10 flex h-10 w-10 items-center justify-center rounded-full">
-						<svg
-							class="text-warning h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
+						<svg class="text-warning h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
 								stroke-linejoin="round"
@@ -84,20 +89,22 @@
 			<!-- Content -->
 			<div class="space-y-4">
 				<!-- Warning Message -->
-				<div class="rounded-lg bg-warning/10 p-4">
+				<div class="bg-warning/10 rounded-lg p-4">
 					<p class="font-mono text-sm">
 						{$t('common.components.warning_popup.message')}
+						<button
+							class="text-primary hover:text-primary-focus cursor-pointer underline"
+							onclick={handleLearnMoreClick}
+						>
+							{$t('common.components.warning_popup.learn_more')}
+						</button>
 					</p>
 				</div>
 
 				<!-- Feedback Information -->
 				<div class="flex items-start gap-2">
 					<div class="flex h-5 w-5 items-center justify-center rounded-full">
-						<svg
-							class="h-3 w-3 text-info"
-							fill="currentColor"
-							viewBox="0 0 20 20"
-						>
+						<svg class="text-info h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
 							<path
 								fill-rule="evenodd"
 								d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
@@ -105,11 +112,11 @@
 							/>
 						</svg>
 					</div>
-					<div class="text-sm text-base-content/70">
+					<div class="text-base-content/70 text-sm">
 						<p>
 							{$t('common.components.warning_popup.feedback_text')}
 							<button
-								class="text-primary cursor-pointer hover:text-primary-focus"
+								class="text-primary hover:text-primary-focus cursor-pointer"
 								onclick={handleFeedbackClick}
 							>
 								{$t('common.components.warning_popup.feedback_link')}
@@ -121,7 +128,7 @@
 			</div>
 
 			<!-- Action Buttons -->
-			<div class="border-base-300 flex gap-3  pt-6">
+			<div class="border-base-300 flex gap-3 pt-6">
 				<!-- <button
 					type="button"
 					class="btn btn-ghost flex-1"
@@ -137,11 +144,7 @@
 					</svg>
 					{$t('common.cancel')}
 				</button> -->
-				<button
-					type="button"
-					class="btn btn-primary flex-1"
-					onclick={handleAcknowledge}
-				>
+				<button type="button" class="btn btn-primary flex-1" onclick={handleAcknowledge}>
 					<svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -154,6 +157,15 @@
 				</button>
 			</div>
 		</div>
-		<button class="modal-backdrop" onclick={handleAcknowledge} aria-label={$t('common.components.warning_popup.title')}></button>
+		<button
+			class="modal-backdrop"
+			onclick={handleAcknowledge}
+			aria-label={$t('common.components.warning_popup.title')}
+		></button>
 	</div>
+{/if}
+
+<!-- Help Modal -->
+{#if showHelpModal}
+	<HelpModal onClose={handleHelpModalClose} showButton={false} />
 {/if}
