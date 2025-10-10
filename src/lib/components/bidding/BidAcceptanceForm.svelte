@@ -22,13 +22,6 @@
 	import { fly } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import IconContentCopy from '~icons/mdi/content-copy';
-	import NetworkSelector from '$lib/components/escrow/NetworkSelector.svelte';
-
-	// Network selection state
-	let selectedWallet: 'RSK' | 'BSC' = $state('RSK');
-	const rskNetwork = import.meta.env.VITE_RSK_NETWORK;
-	const bscNetwork = import.meta.env.VITE_BSC_NETWORK;
-
 	// Props
 	const props = $props<{
 		bid: SimplifiedTaskBid;
@@ -96,7 +89,7 @@
 				props.bid,
 				props.task,
 				props.btcPrice,
-				selectedWallet
+				'RSK' // Always use RSK network
 			);
 
 			if (result.success) {
@@ -165,6 +158,13 @@
 		// Convert total amount (including gas fee) to sats
 		const totalRBTC = getTotalWithGasFee() / props.btcPrice;
 		return formatSatsAmount(totalRBTC);
+	}
+
+	function formatRBTCToSats(rbtcBalance: string): string {
+		// Convert rBTC balance to sats (1 rBTC = 100,000,000 sats)
+		const rbtcAmount = parseFloat(rbtcBalance) || 0;
+		const sats = Math.round(rbtcAmount * 100000000);
+		return new Intl.NumberFormat('en-US').format(sats);
 	}
 
 	function getEstimatedGasFee(): number {
@@ -635,7 +635,7 @@
 		{/if}
 
 		<!-- Testnet Warning Alert -->
-		{#if (selectedWallet === 'RSK' && rskNetwork === 'testnet') || (selectedWallet === 'BSC' && bscNetwork === 'testnet')}
+		{#if import.meta.env.VITE_RSK_NETWORK === 'testnet'}
 			<div class="alert alert-outline alert-warning mb-6">
 				<div class="flex items-center">
 					<svg
@@ -705,12 +705,39 @@
 			</div>
 		{/if}
 
-		<!-- Network Selection -->
-		<div class="px-6 pb-4">
-			<NetworkSelector
-				bind:selectedNetwork={selectedWallet}
-				selectedEnvironment={selectedWallet === 'RSK' ? rskNetwork : bscNetwork}
-			/>
+		<!-- rBTC Balance Display -->
+		<div class="pb-4">
+			<div class="card bg-base-100 border-2 border-primary">
+				<div class="card-body p-4">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center space-x-3">
+							<!-- Bitcoin Icon -->
+							<div class="avatar">
+								<div class="h-10 w-10 rounded-full">
+									<img
+										src="/images/chains/Bitcoin.svg"
+										alt="rBTC"
+										class="h-full w-full object-contain"
+									/>
+								</div>
+							</div>
+
+							<!-- Balance Info -->
+							<div class="flex-1">
+								<div class="flex items-center space-x-2">
+									<h4 class="font-semibold">Available rBTC Balance</h4>
+								</div>
+								<p class="text-base-content/70 text-sm">
+									{$walletStore.rsk.formattedBalance} rBTC
+								</p>
+								<p class="text-primary font-bold text-lg">
+									{formatRBTCToSats($walletStore.rsk.balance)} sats
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<!-- Submit Buttons -->
@@ -745,8 +772,7 @@
 				disabled={isSubmitting ||
 					validationErrors.length > 0 ||
 					balanceErrors.length > 0 ||
-					(selectedWallet === 'RSK' && !$walletStore.rsk.connected) ||
-					(selectedWallet === 'BSC' && !$walletStore.bsc.connected)}
+					!$walletStore.rsk.connected}
 				onclick={handleSubmit}
 			>
 				{#if isSubmitting}
