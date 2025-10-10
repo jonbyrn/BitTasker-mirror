@@ -1,4 +1,5 @@
 node_modules
+workers-site/node_modules
 
 # Output
 .vite-inspect
