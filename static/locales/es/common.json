@@ -451,12 +451,14 @@
           "pending": "Pendiente",
           "failed": "Fallido"
         },
-        "asset_selector": {
-          "no_assets": "No hay activos disponibles",
-          "select_asset": "Seleccionar Activo",
-          "network": "Red",
-          "available_balance": "Saldo Disponible"
-        },
+                "asset_selector": {
+                    "no_assets": "No hay activos disponibles",
+                    "select_asset": "Seleccionar Activo",
+                    "network": "Red",
+                    "available_balance": "Saldo Disponible",
+                    "available_rbtc_balance": "Saldo rBTC Disponible",
+                    "sats": "Sats"
+                },
         "balance_card": {
           "total_balance": "Saldo Total",
           "no_assets_found": "No se Encontraron Activos",

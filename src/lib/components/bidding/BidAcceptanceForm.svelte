@@ -160,9 +160,9 @@
 		return formatSatsAmount(totalRBTC);
 	}
 
-	function formatRBTCToSats(rbtcBalance: string): string {
+	function formatRBTCToSats(rbtcFormattedBalance: string): string {
 		// Convert rBTC balance to sats (1 rBTC = 100,000,000 sats)
-		const rbtcAmount = parseFloat(rbtcBalance) || 0;
+		const rbtcAmount = parseFloat(rbtcFormattedBalance) || 0;
 		const sats = Math.round(rbtcAmount * 100000000);
 		return new Intl.NumberFormat('en-US').format(sats);
 	}
@@ -711,11 +711,11 @@
 				<div class="card-body p-4">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center space-x-3">
-							<!-- Bitcoin Icon -->
+							<!-- Rootstock Bitcoin Icon -->
 							<div class="avatar">
 								<div class="h-10 w-10 rounded-full">
 									<img
-										src="/images/chains/Bitcoin.svg"
+										src="/images/chains/Bitcoin-Rootstock-logo.webp"
 										alt="rBTC"
 										class="h-full w-full object-contain"
 									/>
@@ -725,13 +725,13 @@
 							<!-- Balance Info -->
 							<div class="flex-1">
 								<div class="flex items-center space-x-2">
-									<h4 class="font-semibold">Available rBTC Balance</h4>
+									<h4 class="font-semibold">{$t('common.components.wallet.asset_selector.available_rbtc_balance')}</h4>
 								</div>
 								<p class="text-base-content/70 text-sm">
 									{$walletStore.rsk.formattedBalance} rBTC
 								</p>
 								<p class="text-primary font-bold text-lg">
-									{formatRBTCToSats($walletStore.rsk.balance)} sats
+									{formatRBTCToSats($walletStore.rsk.formattedBalance)} {$t('common.components.wallet.asset_selector.sats')}
 								</p>
 							</div>
 						</div>

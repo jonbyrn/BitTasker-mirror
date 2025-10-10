@@ -455,7 +455,9 @@
                     "no_assets": "No assets available",
                     "select_asset": "Select Asset",
                     "network": "Network",
-                    "available_balance": "Available Balance"
+                    "available_balance": "Available Balance",
+                    "available_rbtc_balance": "Available rBTC Balance",
+                    "sats": "Sats"
                 },
                 "balance_card": {
                     "total_balance": "Total Balance",
