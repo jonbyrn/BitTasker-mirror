@@ -1,8 +1,29 @@
-name = "bittasker"
+name = "bittasker-dev-worker"
+main = "workers-site/index.js"
 compatibility_date = "2025-10-07"
+
+# Logs are enabled for troubleshooting purposes
+[observability.logs]
+enabled = true
 
 [site]
 bucket = "./build"
 
+# ============================================
+# STAGING Environment (default)
+# ============================================
+# Worker: bittasker-dev-worker
+# Deploy with: npm run deploy:workers
+[vars]
+# VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
+
+# ============================================
+# PRODUCTION Environment
+# ============================================
+# Worker: bittasker-prod-worker
+# Deploy with: npm run deploy:workers:production
 [env.production]
-route = "bittasker.com/*"
+name = "bittasker-prod-worker"
+
+[env.production.vars]
+# VITE_CLIENT_URL = "https://bittasker.com/"

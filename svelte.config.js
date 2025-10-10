@@ -15,8 +15,7 @@ const config = {
 		// Configure the adapter with fallback for SPA navigation
 		adapter: adapter({
 			// Single-page app mode with fallback
-			// Use the conventional name for Cloudflare Pages
-			fallback: '404.html',
+			fallback: 'index.html',
 			// Path to build output
 			pages: 'build',
 			assets: 'build',
