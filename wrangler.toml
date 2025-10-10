@@ -15,7 +15,11 @@ bucket = "./build"
 # Worker: bittasker-dev-worker
 # Deploy with: npm run deploy:workers
 [vars]
-# VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
+VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
+VITE_NOSTR_RELAY_URL="wss://relay.bittasker.hedgehackers.finance"
+VITE_NOSTR_RELAY_NESTJS="https://relay.bittasker.com"
+VITE_RSK_NETWORK="testnet"
+VITE_BSC_NETWORK="testnet"
 
 # ============================================
 # PRODUCTION Environment
@@ -26,4 +30,8 @@ bucket = "./build"
 name = "bittasker-prod-worker"
 
 [env.production.vars]
-# VITE_CLIENT_URL = "https://bittasker.com/"
+VITE_CLIENT_URL = "https://bittasker.com/"
+VITE_NOSTR_RELAY_URL="wss://relay1.bittasker.com"
+VITE_NOSTR_RELAY_NESTJS="https://relay2.bittasker.com"
+VITE_RSK_NETWORK="testnet"
+VITE_BSC_NETWORK="testnet"
