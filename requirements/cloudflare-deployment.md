@@ -7,7 +7,7 @@ This project uses **Cloudflare Workers Sites** to serve a static SvelteKit appli
 ### Why Workers Sites?
 
 - ✅ **Capacitor Compatibility**: Required for mobile app builds
-- ✅ **Client-Side Routing**: SPA routing with fallback to `404.html`
+- ✅ **Client-Side Routing**: SPA routing with fallback to `index.html`
 - ✅ **Full Control**: Custom Worker logic for serving static assets
 - ✅ **Dynamic Routes**: Client-side routing handles all dynamic routes
 
@@ -18,7 +18,6 @@ SvelteKit (adapter-static) → Build → Cloudflare Workers Sites → Edge Netwo
                               ↓
                           ./build/
                             ├── index.html
-                            ├── 404.html (SPA fallback)
                             ├── _app/
                             └── ...
 ```
@@ -35,14 +34,14 @@ Main configuration for Cloudflare Workers:
 ### `workers-site/index.js`
 Worker script that:
 - Serves static files from KV storage
-- Handles SPA routing (fallback to `404.html`)
+- Handles SPA routing (fallback to `index.html`)
 - Adds security headers
 - Implements caching strategies
 
 ### `svelte.config.js`
 SvelteKit configuration:
 - Uses `adapter-static` for static builds
-- Sets `fallback: '404.html'` for SPA routing
+- Sets `fallback: 'index.html'` for SPA routing
 - Outputs to `./build` directory
 
 ## Deployment
@@ -146,7 +145,7 @@ done
 
 1. **User navigates to** `/dashboard/task/123`
 2. **Worker checks** if `/dashboard/task/123` exists as a static file
-3. **Not found** → Worker serves `404.html` with status 200
+3. **Not found** → Worker serves `index.html` with status 200
 4. **SvelteKit client-side router** takes over and renders the correct page
 5. **Result**: Dynamic route works seamlessly
 
@@ -184,9 +183,9 @@ wrangler dev --env production
 
 ## Troubleshooting
 
-### Issue: Dynamic routes return 404
+### Issue: Dynamic routes return index
 
-**Solution**: Ensure `404.html` exists in your build output and `svelte.config.js` has `fallback: '404.html'`.
+**Solution**: Ensure `index.html` exists in your build output and `svelte.config.js` has `fallback: 'index.html'`.
 
 ### Issue: Environment variables not available
 

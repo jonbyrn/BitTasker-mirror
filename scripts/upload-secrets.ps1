@@ -15,12 +15,9 @@ Write-Host "🚀 Uploading build-time environment variables for: $Environment" -
 Write-Host ""
 
 # Complete list of environment variables
-# Note: VITE_CLIENT_URL is excluded as it's defined in wrangler.toml
 $Variables = @(
     "VITE_API_URL",
     "PUBLIC_GRAPHQL_ENDPOINT",
-    "VITE_NOSTR_RELAY_URL",
-    "VITE_NOSTR_RELAY_NESTJS",
     "PUBLIC_GOOGLE_CLIENT_ID",
     "PUBLIC_GOOGLE_IOS_CLIENT_ID",
     "PUBLIC_GOOGLE_REDIRECT_URI",
@@ -41,9 +38,7 @@ $Variables = @(
     "VITE_FIREBASE_VAPID_KEY",
     "VITE_BREEZ_API_KEY",
     "VITE_RSK_CONTRACT_ADDRESS",
-    "VITE_RSK_NETWORK",
-    "VITE_BSCSCAN_API_KEY",
-    "VITE_BSC_NETWORK"
+    "VITE_BSCSCAN_API_KEY"
 )
 
 # Load .env file
