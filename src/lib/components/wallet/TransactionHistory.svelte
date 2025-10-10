@@ -600,9 +600,6 @@
 
 									<div class="space-y-1 text-sm opacity-70">
 										<div>{formatTimestamp(tx.timestamp)}</div>
-										{#if tx.address}
-											<div>{$t('wallet.address')}: {formatAddress(tx.address)}</div>
-										{/if}
 										{#if tx.description}
 											<div>{tx.description}</div>
 										{/if}
@@ -686,9 +683,6 @@
 							<!-- Details -->
 							<div class="space-y-1 text-sm opacity-70">
 								<div>{formatTimestamp(tx.timestamp)}</div>
-								{#if tx.address}
-									<div>{$t('wallet.address')}: {formatAddress(tx.address)}</div>
-								{/if}
 								{#if tx.description}
 									<div>{tx.description}</div>
 								{/if}

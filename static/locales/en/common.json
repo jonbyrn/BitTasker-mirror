@@ -1,5 +1,6 @@
 {
     "common": {
+        "back": "Back to Task",
         "redirecting_to_login": "Redirecting to login...",
         "or": "or",
         "processing": "Processing",
