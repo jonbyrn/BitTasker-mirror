@@ -33,7 +33,7 @@ VITE_BSC_NETWORK = "testnet"
 name = "bittasker-prod-worker"
 
 [env.production.vars]
-VITE_CLIENT_URL = "https://bittasker.com/"
+VITE_CLIENT_URL = "https://worker.prod.bittasker.com/"
 VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
 VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
 VITE_RSK_NETWORK = "testnet"
