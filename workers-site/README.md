@@ -15,21 +15,29 @@ This project uses Cloudflare Workers Sites (not Pages) because:
 The Worker (`index.js`) does the following:
 
 1. **Serves Static Assets**: Uses `@cloudflare/kv-asset-handler` to serve files from the `./build` directory
-2. **SPA Fallback**: When a route is not found and it's an HTML request, it serves `404.html` with a 200 status
-3. **Security Headers**: Adds security headers to all responses
-4. **Caching**: Implements edge and browser caching for better performance
+2. **SPA Fallback**: When a route is not found, it serves `index.html` to enable client-side routing
+3. **Caching**: Implements edge and browser caching for better performance
+
+## Dependencies
+
+Dependencies for the worker are managed in the root `package.json` file:
+- `@cloudflare/kv-asset-handler`: Handles serving static assets from KV storage
 
 ## Deployment
 
-### Development Environment (worker.dev.bittasker.com)
+### Development/Staging Environment
 ```bash
 npm run deploy:workers
 ```
+Deploys to: `worker.dev.bittasker.com` (worker: `bittasker-dev-worker`)
 
-### Production Environment (bittasker.com)
+### Production Environment
 ```bash
 npm run deploy:workers:production
 ```
+Deploys to: `bittasker.com` (worker: `bittasker-prod-worker`)
+
+**Note:** The deploy commands explicitly specify the environment using `--env=""` (for default) or `--env production` to avoid deployment ambiguity.
 
 ## Environment Variables
 
