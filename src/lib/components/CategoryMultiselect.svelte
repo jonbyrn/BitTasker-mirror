@@ -138,12 +138,12 @@
 			ulSelectedClass="selected-categories flex flex-wrap gap-2 mb-2"
 			liSelectedClass="selected-category-item bg-primary text-primary-content px-2 py-1 rounded-md text-sm font-medium flex items-center gap-1"
 			ulOptionsClass="category-options absolute top-full left-0 right-0 z-50 mt-1 bg-base-100 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-			liOptionClass="category-option p-3 cursor-pointer transition-colors"
+			liOptionClass="category-option my-2 cursor-pointer transition-colors"
 			liActiveOptionClass="category-option-active bg-primary text-primary-content"
 			maxSelectMsgClass="max-select-message text-xs text-neutral ml-auto"
 		/>
 	{:else}
-		<div class="multiselect-wrapper flex flex-wrap items-center gap-2 p-3 min-h-10 text-sm bg-base-100 text-base-content transition-colors">
+		<div class="multiselect-wrapper flex flex-wrap items-center gap-2 min-h-10 text-sm bg-base-100 text-base-content transition-colors">
 			<span class="text-neutral opacity-70">{placeholder}</span>
 		</div>
 	{/if}
@@ -271,7 +271,10 @@
 		border: 2px solid oklab(0.182191 0.0000082776 0.00000365078 / 0.2);
 	}
 
-	/* Option styling is now handled by Tailwind classes */
+	/* Option styling with custom padding */
+	:global(.multiselect-wrapper .category-option) {
+		padding: 8px !important;
+	}
 
 	/* Custom scrollbar for the options dropdown - matches site theme */
 	:global(.multiselect-wrapper .category-options) {
@@ -280,7 +283,7 @@
 	}
 
 	:global(.multiselect-wrapper .category-options::-webkit-scrollbar) {
-		width: 6px;
+		width: 8px;
 	}
 
 	:global(.multiselect-wrapper .category-options::-webkit-scrollbar-track) {

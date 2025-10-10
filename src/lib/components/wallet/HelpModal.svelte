@@ -86,21 +86,28 @@
 />
 {#if isOpen}
 	<div class="modal modal-open" transition:fade={{ duration: 200 }}>
-		<div class="modal-box max-w-4xl max-h-[90vh] flex flex-col" transition:fly={{ y: 20, duration: 300 }}>
+		<div class="modal-box max-w-4xl max-h-[75vh] flex flex-col p-0" transition:fly={{ y: 20, duration: 300 }}>
 			<!-- Modal Header -->
-			<div class="mb-6">
-				<div class="mb-2 flex items-center gap-3">
+			<div class="flex items-center justify-between bg-base-300 px-4 py-3 rounded-t-lg">
+				<div class="flex items-center gap-3">
 					<div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
 						<img src="/images/chains/Bitcoin.svg" alt="Bitcoin" class="h-6 w-6" />
 					</div>
-					<div>
-						<h4 class="text-sm font-semibold">{$t('common.components.wallet_help_modal.title')}</h4>
-					</div>
+					<h4 class="text-lg font-bold">{$t('common.components.wallet_help_modal.title')}</h4>
 				</div>
+				<button 
+					class="btn btn-sm btn-circle btn-ghost hover:bg-white/20"
+					onclick={closeModal}
+					aria-label={$t('common.components.modal.close')}
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
 			</div>
 
 			<!-- Modal Content -->
-			<div class="space-y-6 overflow-y-auto flex-1">
+			<div class="space-y-6 overflow-y-auto flex-1 p-6">
 					<!-- Hero Section -->
 					<div class="text-center">
 					<div class="mb-4 flex justify-center">
@@ -322,7 +329,7 @@
 				</div>
 
 			<!-- Action Buttons - Fixed at bottom -->
-			<div class="border-t border-base-300 bg-base-100 flex gap-3 pt-4 mt-4 flex-shrink-0">
+			<div class="border-t border-base-300 bg-base-100 flex gap-3 p-4 flex-shrink-0">
 				<button
 					type="button"
 					class="btn btn-primary flex-1"

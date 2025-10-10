@@ -6,7 +6,6 @@
 	import CategoryMultiselect from '$lib/components/CategoryMultiselect.svelte';
 	import SkillsMultiselect from '$lib/components/SkillsMultiselect.svelte';
 	import { TASK_CATEGORIES } from '$lib/utils/constants/categories';
-	import { skillCategories } from '$lib/data/onboardingData';
 	import { t } from 'svelte-i18n';
 	let { errors, direction } = $props();
 
