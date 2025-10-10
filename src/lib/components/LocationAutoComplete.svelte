@@ -44,8 +44,9 @@
 
 			const request = {
 				input: searchInput.value,
-				language: 'en-US',
+				language: 'es', // Usar español para mejor resultados en El Salvador
 				sessionToken: token
+				// Removemos la restricción de país que estaba causando problemas
 			};
 
 			const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
@@ -72,16 +73,18 @@
 	async function selectPrediction(prediction: google.maps.places.PlacePrediction) {
 		let place = prediction.toPlace();
 		await place.fetchFields({
-			fields: ['displayName', 'formattedAddress', 'location'] as GooglePlaceFields[]
+			fields: ['displayName', 'formattedAddress', 'location', 'addressComponents'] as GooglePlaceFields[]
 		});
 
-		const displayName = place.displayName;
 		const lat = place.location?.lat();
 		const lng = place.location?.lng();
 
-		if (!displayName || !lat || !lng) return;
+		if (!lat || !lng) return;
 
-		location.displayName = prediction.text.text.toString();
+		// Usar directamente el texto de la predicción seleccionada
+		const displayName = prediction.text.text.toString();
+
+		location.displayName = displayName;
 		location.latitude = lat;
 		location.longitude = lng;
 		location.locationLoaded = true;

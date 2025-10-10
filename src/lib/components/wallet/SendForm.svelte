@@ -390,23 +390,23 @@
 	<!-- Available Balance Display -->
 	{#if availableAssets().length > 0}
 		{#if selectedNetwork === 'rootstock-bitcoin'}
-			<div class="alert alert-outline alert-success">
-				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+			<div class="alert alert-outline bg-base-200 border-base-300">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6 text-base-content">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 				</svg>
 				<div>
-					<div class="font-bold">Available Balance</div>
-					<div class="text-sm">{availableAssets()[0]?.formattedBalance || '0.00'} rBTC</div>
+					<div class="font-bold text-base-content">Available Balance</div>
+					<div class="text-sm text-base-content/70">{availableAssets()[0]?.formattedBalance || '0.00'} rBTC</div>
 				</div>
 			</div>
 		{:else if selectedNetwork === 'lightning-bitcoin'}
-			<div class="alert alert-outline alert-success">
-				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6">
+			<div class="alert alert-outline bg-base-200 border-base-300">
+				<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6 text-base-content">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 				</svg>
 				<div>
-					<div class="font-bold">Available Balance</div>
-					<div class="text-sm">{availableAssets()[0]?.formattedBalance || '0.00'} rBTC</div>
+					<div class="font-bold text-base-content">Available Balance</div>
+					<div class="text-sm text-base-content/70">{availableAssets()[0]?.formattedBalance || '0.00'} rBTC</div>
 				</div>
 			</div>
 		{/if}
