@@ -25,6 +25,11 @@ const config = {
 			strict: false
 		}),
 
+		paths: {
+			// Use absolute paths for assets (critical for SPA on Cloudflare Pages)
+			relative: false
+		},
+
 		alias: {
 			$houdini: ".houdini/"
 		}

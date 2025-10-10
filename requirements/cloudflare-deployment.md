@@ -52,13 +52,15 @@ SvelteKit configuration:
 2. **Wrangler CLI**: Already installed in this project
 3. **Authentication**: Run `wrangler login` to authenticate
 
-### Deploy to Development
+### Deploy to Development (Staging)
 
 ```bash
 npm run deploy:workers
 ```
 
-This deploys to: `worker.dev.bittasker.com`
+This deploys the **default/top-level environment** (staging) to: `worker.dev.bittasker.com`
+- Worker name: `bittasker-dev-worker`
+- Uses top-level `[vars]` configuration
 
 ### Deploy to Production
 
@@ -66,7 +68,11 @@ This deploys to: `worker.dev.bittasker.com`
 npm run deploy:workers:production
 ```
 
-This deploys to: `bittasker.com`
+This deploys the **production environment** to: `bittasker.com`
+- Worker name: `bittasker-prod-worker`
+- Uses `[env.production.vars]` configuration
+
+**Note:** The deploy commands now explicitly specify the environment using `--env` flag to avoid ambiguity warnings.
 
 ## Environment Variables
 
