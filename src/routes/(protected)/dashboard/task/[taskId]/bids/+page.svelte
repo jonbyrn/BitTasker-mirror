@@ -205,6 +205,9 @@
 		await fetchBtcPrice();
 	});
 
+	// Get task ID from page params
+	let taskId = $derived(page.params.taskId);
+
 	function handleCloseBid() {
 		showAcceptanceForm = false;
 		bidToAccept = null;
@@ -217,6 +220,17 @@
 		<p class="text-base-content/70 mt-2 text-sm sm:text-base">
 			{$t('task.drawer.bids_description')}
 		</p>
+		<div class="mt-3">
+			<button 
+				onclick={() => goto(`/dashboard/task/${taskId}`)}
+				class="btn btn-ghost btn-sm"
+			>
+				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+				</svg>
+				{$t('common.back')} 
+			</button>
+		</div>
 	</div>
 	{#if loading}
 		<div class="space-y-4">

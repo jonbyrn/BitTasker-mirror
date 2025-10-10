@@ -1,13 +1,11 @@
 <script lang="ts">
-	import Logo from '$lib/components/Logo.svelte';
+	import type { LiveTask } from '$lib/types/homepage';
 	import { t } from 'svelte-i18n';
 	import { onMount, onDestroy } from 'svelte';
-	import { featuredTaskees } from '$lib/utils/constants/homepage.constants';
 	import { FeaturedTasksService } from '$lib/services/featuredTasks.service';
-	import type { LiveTask } from '$lib/types/homepage';
+	import Logo from '$lib/components/Logo.svelte';
 	import LiveTaskCard from '$lib/components/homepage/LiveTaskCard.svelte';
-	import TaskeeCard from '$lib/components/homepage/TaskeeCard.svelte';
-
+	
 	// Define feature types for type safety
 	type FeatureId = 'nostr' | 'bitcoin' | 'payments' | 'escrow';
 

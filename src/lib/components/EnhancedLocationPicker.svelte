@@ -340,7 +340,10 @@
 				const geocoder = new Geocoder();
 
 				const result = await geocoder.geocode({
-					location: { lat, lng }
+					location: { lat, lng },
+					// Agregar opciones para mejorar la precisión
+					language: 'es', // Usar español para mejor resultados en El Salvador
+					region: 'SV' // Especificar El Salvador como región
 				});
 
 				if (result.results[0]) {
@@ -352,6 +355,9 @@
 					// Extraer ciudad y estado
 					let city = '';
 					let stateRegion = '';
+					let country = '';
+					let neighborhood = '';
+					let sublocality = '';
 
 					addressComponents.forEach((component) => {
 						const types = component.types;
@@ -359,12 +365,42 @@
 							city = component.long_name;
 						} else if (types.includes('administrative_area_level_1')) {
 							stateRegion = component.long_name;
+						} else if (types.includes('country')) {
+							country = component.long_name;
+						} else if (types.includes('neighborhood')) {
+							neighborhood = component.long_name;
+						} else if (types.includes('sublocality')) {
+							sublocality = component.long_name;
 						}
 					});
 
 					let displayName = '';
 
-					displayName = `${city}, ${stateRegion}`;
+					// Construir displayName de manera más robusta con más opciones
+					if (neighborhood && stateRegion) {
+						displayName = `${neighborhood}, ${stateRegion}`;
+					} else if (sublocality && stateRegion) {
+						displayName = `${sublocality}, ${stateRegion}`;
+					} else if (city && stateRegion) {
+						displayName = `${city}, ${stateRegion}`;
+					} else if (city && country) {
+						displayName = `${city}, ${country}`;
+					} else if (stateRegion && country) {
+						displayName = `${stateRegion}, ${country}`;
+					} else if (neighborhood) {
+						displayName = neighborhood;
+					} else if (sublocality) {
+						displayName = sublocality;
+					} else if (city) {
+						displayName = city;
+					} else if (stateRegion) {
+						displayName = stateRegion;
+					} else if (country) {
+						displayName = country;
+					} else {
+						// Fallback: usar la dirección formateada completa
+						displayName = result.results[0].formatted_address;
+					}
 
 					// Update location state
 					const newLocation = {
@@ -512,8 +548,9 @@
 
 			const request = {
 				input: searchInput.value,
-				language: 'en-US',
+				language: 'es', // Usar español para mejor resultados en El Salvador
 				sessionToken: token
+				// Removemos la restricción de país que estaba causando problemas
 			};
 
 			const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
@@ -541,21 +578,44 @@
 
 		let place = prediction.toPlace();
 		await place.fetchFields({
-			fields: ['displayName', 'formattedAddress', 'location']
+			fields: ['displayName', 'formattedAddress', 'location', 'addressComponents']
 		});
 
-		const displayName = place.displayName;
 		const lat = place.location?.lat();
 		const lng = place.location?.lng();
 
-		if (!displayName || !isValidCoordinate(lat!, lng!	)) return;
+		if (!isValidCoordinate(lat!, lng!)) return;
 
-		// Update location
-		updateLocationWithCoordinates(lat!, lng!);
+		// Usar directamente el texto de la predicción seleccionada
+		const displayName = prediction.text.text.toString();
+
+		// Update location state directamente sin geocodificación inversa
+		const newLocation = {
+			...currentLocation,
+			displayName: displayName,
+			latitude: lat || null,
+			longitude: lng || null,
+			zipCode: '',
+			locationLoaded: true
+		};
+
+		currentLocation = newLocation;
+
+		// Update input value
+		if (searchInput) {
+			searchInput.value = newLocation.displayName;
+		}
+
+		// Call callback
+		if (onLocationSelect) {
+			onLocationSelect(newLocation);
+		}
+
+		// Update marker and circle
+		createMarkerAndCircle(lat!, lng!);
 
 		// Clear predictions
 		showOptions = false;
-		searchInput.value = displayName;
 	}
 
 	// Fullscreen functionality

@@ -15,8 +15,7 @@ const config = {
 		// Configure the adapter with fallback for SPA navigation
 		adapter: adapter({
 			// Single-page app mode with fallback
-			// Use the conventional name for Cloudflare Pages
-			fallback: '404.html',
+			fallback: 'index.html',
 			// Path to build output
 			pages: 'build',
 			assets: 'build',
@@ -25,6 +24,11 @@ const config = {
 			// Make all paths strict - false allows fallback for dynamic routes
 			strict: false
 		}),
+
+		paths: {
+			// Use absolute paths for assets (critical for SPA on Cloudflare Pages)
+			relative: false
+		},
 
 		alias: {
 			$houdini: ".houdini/"

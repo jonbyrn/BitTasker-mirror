@@ -1,8 +1,40 @@
-name = "bittasker"
+name = "bittasker-dev-worker"
+main = "workers-site/index.js"
 compatibility_date = "2025-10-07"
+
+# Logs are enabled for troubleshooting purposes
+[observability.logs]
+enabled = true
 
 [site]
 bucket = "./build"
 
+# ============================================
+# STAGING Environment (default)
+# ============================================
+# Worker: bittasker-dev-worker
+# Deploy with: npm run deploy:workers
+[env.staging]
+name = "bittasker-dev-worker"
+
+[env.staging.vars]
+VITE_CLIENT_URL = "https://worker.dev.bittasker.com/"
+VITE_NOSTR_RELAY_URL = "wss://relay.bittasker.hedgehackers.finance"
+VITE_NOSTR_RELAY_NESTJS = "https://relay.bittasker.com"
+VITE_RSK_NETWORK = "testnet"
+VITE_BSC_NETWORK = "testnet"
+
+# ============================================
+# PRODUCTION Environment
+# ============================================
+# Worker: bittasker-prod-worker
+# Deploy with: npm run deploy:workers:production
 [env.production]
-route = "bittasker.com/*"
+name = "bittasker-prod-worker"
+
+[env.production.vars]
+VITE_CLIENT_URL = "https://bittasker.com/"
+VITE_NOSTR_RELAY_URL = "wss://relay1.bittasker.com"
+VITE_NOSTR_RELAY_NESTJS = "https://relay2.bittasker.com"
+VITE_RSK_NETWORK = "testnet"
+VITE_BSC_NETWORK = "testnet"

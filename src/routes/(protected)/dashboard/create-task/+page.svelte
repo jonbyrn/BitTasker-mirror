@@ -249,9 +249,12 @@
 
 			if (taskBudgetRef && taskBudgetRef.uploadPendingFiles) {
 				try {
-					appStore.showInfoToast($t('task.upload.uploading_files'));
 					const uploadedAttachments = await taskBudgetRef.uploadPendingFiles();
-					appStore.showSuccessToast($t('task.upload.files_uploaded'));
+					// Solo mostrar mensajes si realmente se subieron archivos
+					if (uploadedAttachments.length > 0) {
+						appStore.showInfoToast($t('task.upload.uploading_files'));
+						appStore.showSuccessToast($t('task.upload.files_uploaded'));
+					}
 				} catch (uploadError) {
 					appStore.showErrorToast($t('task.upload.upload_failed'));
 					throw uploadError;
