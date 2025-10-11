@@ -297,10 +297,10 @@ export async function fetchProfileMetadata(
 ): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
 		// First check cache
-		const cachedProfile = await profileCache.getProfile(pubkey);
-		if (cachedProfile) {
-			return cachedProfile;
-		}
+		// const cachedProfile = await profileCache.getProfile(pubkey);
+		// if (cachedProfile) {
+		// 	return cachedProfile;
+		// }
 
 		// If not in cache, fetch from relays
 		const filter: Filter = {

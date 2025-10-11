@@ -68,7 +68,6 @@
 			// Get transactions from the combined store and convert them to our interface
 			const storeTransactions = $combinedWalletState.transactions;
 			const convertedTransactions: Transaction[] = [];
-			console.log({ storeTransactions });
 
 			for (const tx of storeTransactions) {
 				// Check if it's a Breez Payment (Liquid) or a blockchain Transaction (RSK/BSC)
