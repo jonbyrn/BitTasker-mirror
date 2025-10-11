@@ -132,7 +132,7 @@
 					{contract.isClient ? $t('dashboard.freelancer') : $t('dashboard.client')}
 				</div>
 				<UserProfile
-					pubkey={contract.isClient
+					npub={contract.isClient
 						? contract.contract.freelancerPubkey
 						: contract.contract.clientPubkey}
 					size="sm"

@@ -227,7 +227,7 @@ export async function publishMultipleImages(images: NostrProfileImage[], eventId
     try {
         // Always use kind 30063 for replaceable events
         const event: Partial<NostrEvent> = {
-            kind: 30063, // Replaceable event for profile images
+            kind: KINDS.PROFILE_IMAGES, // Replaceable event for profile images
             created_at: Math.floor(Date.now() / 1000),
             tags: [
                 ['d', identifier] // Identifier for this replaceable event
