@@ -211,7 +211,7 @@ export function subscribeToProfileUpdates(
 			const pubkeyHex = pubkey.startsWith('npub') ? (nip19.decode(pubkey).data as string) : pubkey;
 
 			const filter: Filter = {
-				kinds: [0, KINDS.FILE_METADATA, 30063], // Profile metadata, file metadata, and profile images
+				kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES], // Profile metadata, file metadata, and profile images
 				authors: [pubkeyHex]
 			};
 			let profile: { name?: string; picture?: string } = {};
@@ -221,7 +221,7 @@ export function subscribeToProfileUpdates(
 					// Create a new profile object for each update to ensure reactivity
 					const updatedProfile: { name?: string; picture?: string } = { ...profile };
 
-					if (event.kind === 0 && event.content) {
+					if (event.kind === KINDS.PROFILE_METADATA && event.content) {
 						try {
 							const content = JSON.parse(event.content);
 							// Map displayName to name if name is not available
@@ -230,7 +230,7 @@ export function subscribeToProfileUpdates(
 						} catch (e) {
 							console.error('❌ Failed to parse profile metadata in subscription:', e);
 						}
-					} else if (event.kind === 30063) {
+					} else if (event.kind === KINDS.PROFILE_IMAGES) {
 						// Handle kind 30063 (profile images) - same as fetchProfileMetadata
 						const dTag = event.tags.find((t) => t[0] === 'd');
 
@@ -297,14 +297,14 @@ export async function fetchProfileMetadata(
 ): Promise<{ name?: string; picture?: string; createdAt?: string }> {
 	try {
 		// First check cache
-		const cachedProfile = await profileCache.getProfile(pubkey);
-		if (cachedProfile) {
-			return cachedProfile;
-		}
+		// const cachedProfile = await profileCache.getProfile(pubkey);
+		// if (cachedProfile) {
+		// 	return cachedProfile;
+		// }
 
 		// If not in cache, fetch from relays
 		const filter: Filter = {
-			kinds: [0, KINDS.FILE_METADATA, 30063, 10002], // Profile metadata, file metadata, profile images, and NIP-65 relay list
+			kinds: [KINDS.PROFILE_METADATA, KINDS.FILE_METADATA, KINDS.PROFILE_IMAGES, KINDS.NIP_65_RELAY_LIST], // Profile metadata, file metadata, profile images, and NIP-65 relay list
 			authors: [pubkey],
 			limit: 20 // Increased limit to get more profile events
 		};
@@ -319,14 +319,12 @@ export async function fetchProfileMetadata(
 		const sortedEvents = events.sort((a, b) => b.created_at - a.created_at);
 
 		for (const event of sortedEvents) {
-			if (event.kind === 0 && event.content) {
+			if (event.kind === KINDS.PROFILE_METADATA && event.content) {
 				try {
 					const content = JSON.parse(event.content);
 
 					// Map displayName to name if name is not available
-					if ((content.name || content.displayName) && !name) {
-						name = content.display_name || content.displayName || content.name;
-					}
+						name = content?.display_name || content?.displayName || content?.name;
 
 					if (event.created_at) {
 						createdAt = formatStandardDateShort(new Date(event.created_at * 1000));
@@ -347,7 +345,26 @@ export async function fetchProfileMetadata(
 				} catch (e) {
 					console.error('❌ Failed to parse profile metadata:', e);
 				}
-			} else if (event.kind === 30063) {
+			} else if (!picture && event.kind === KINDS.FILE_METADATA) {
+				const urlTag = event.tags.find((t) => t[0] === 'url');
+				const altTag = event.tags.find((t) => t[0] === 'alt');
+				const mTag = event.tags.find((t) => t[0] === 'm'); // MIME type
+
+				if (urlTag && urlTag[1]) {
+					// Check if this is likely a profile picture
+					const alt = altTag && altTag[1] ? altTag[1].toLowerCase() : '';
+					const mime = mTag && mTag[1] ? mTag[1].toLowerCase() : '';
+
+					if (
+						alt.includes('profile') ||
+						alt.includes('avatar') ||
+						mime.startsWith('image/') ||
+						urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
+					) {
+						picture = urlTag[1];
+					}
+				}
+			} else if (!picture && event.kind === KINDS.PROFILE_IMAGES) {
 				// Handle kind 30063 (profile images) - same technique as profile page
 				const dTag = event.tags.find((t) => t[0] === 'd');
 
@@ -362,25 +379,6 @@ export async function fetchProfileMetadata(
 						}
 					} catch (e) {
 						console.error('❌ Failed to parse profile images content:', e);
-					}
-				}
-			} else if (event.kind === KINDS.FILE_METADATA) {
-				const urlTag = event.tags.find((t) => t[0] === 'url');
-				const altTag = event.tags.find((t) => t[0] === 'alt');
-				const mTag = event.tags.find((t) => t[0] === 'm'); // MIME type
-
-				if (urlTag && urlTag[1] && !picture) {
-					// Check if this is likely a profile picture
-					const alt = altTag && altTag[1] ? altTag[1].toLowerCase() : '';
-					const mime = mTag && mTag[1] ? mTag[1].toLowerCase() : '';
-
-					if (
-						alt.includes('profile') ||
-						alt.includes('avatar') ||
-						mime.startsWith('image/') ||
-						urlTag[1].match(/\.(jpg|jpeg|png|gif|webp)$/i)
-					) {
-						picture = urlTag[1];
 					}
 				}
 			}
@@ -446,10 +444,10 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 		// Fetch all profile-related events
 		const filter: Filter = {
 			kinds: [
-				0, // Metadata
+				KINDS.PROFILE_METADATA, // Metadata
 				KINDS.FILE_METADATA, // Certifications
-				30063, // Profile images
-				10002, // Relay list
+				KINDS.PROFILE_IMAGES, // Profile images
+				KINDS.NIP_65_RELAY_LIST, // Relay list
 				KINDS.PROFILE_SKILLS, // Skills (30000)
 				KINDS.PROFILE_PORTFOLIO, // Portfolio (30001)
 				KINDS.PROFILE_AVAILABILITY, // Availability (30002)
@@ -490,7 +488,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 				const content = JSON.parse(event.content);
 
 				switch (event.kind) {
-					case 0: // Metadata
+					case KINDS.PROFILE_METADATA: // Metadata
 						if (content.display_name || content.name) {
 							profileData.name = content.display_name || content.name;
 						}
@@ -511,7 +509,7 @@ export async function fetchComprehensiveProfile(pubkey: string): Promise<{
 						}
 						break;
 
-					case 30063: { // Profile images
+					case KINDS.PROFILE_IMAGES: { // Profile images
 						const dTag = event.tags.find((t) => t[0] === 'd');
 						if (dTag && dTag[1] === 'profile-images') {
 							if (Array.isArray(content)) {

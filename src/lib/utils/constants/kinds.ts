@@ -8,6 +8,7 @@ const KINDS = {
     PROFILE_LOCATION: 30005,
     
     FILE_METADATA: 1063,
+    PROFILE_IMAGES: 30063,
 
     TASK_CREATION: 31000,
     SAVED_SEARCHES: 31001, // NIP-51 List for saved searches
@@ -19,6 +20,8 @@ const KINDS = {
     // Contract Management System
     CONTRACT: 30006, // Parameterized replaceable - client creates/updates contract
     CONTRACT_STATUS: 31006, // Regular event - both parties can publish status updates
+
+    NIP_65_RELAY_LIST: 10002,
 }
 
 export default KINDS;
