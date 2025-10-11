@@ -84,7 +84,14 @@
       "task_completed": "Task completed",
       "bidding_closed": "Bidding closed",
       "bid_sent": "Bid sent",
-      "bid_already_sent": "Bid already sent"
+      "bid_already_sent": "Bid already sent",
+      "share": "Share",
+      "share_task": "Share this task",
+      "login_required": "Login Required",
+      "login_to_bid": "Please log in to bid on this task",
+      "login": "Login",
+      "page_title": "Task Details - BitTasker",
+      "page_description": "Here you can see the details of the task."
     },
     "taskees": {
       "title": "Professionals",
