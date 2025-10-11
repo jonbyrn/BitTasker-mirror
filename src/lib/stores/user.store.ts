@@ -2,6 +2,7 @@ import type { UserData } from '$lib/types/auth';
 import { writable } from 'svelte/store';
 import { SimplePool } from 'nostr-tools';
 import { getNpub } from '$lib/utils/nostrKeys';
+import KINDS from '$lib/utils/constants/kinds';
 
 // Define relay URLs with fallbacks
 const RELAYS = [import.meta.env.VITE_NOSTR_RELAY_URL].filter(Boolean); // Remove any undefined values
@@ -45,12 +46,12 @@ const createUserStore = () => {
 			// Fetch both metadata (kind 0) and images (kind 30063)
 			const metadataFilter = {
 				authors: [npub],
-				kinds: [0]
+				kinds: [KINDS.PROFILE_METADATA]
 			};
 
 			const imagesFilter = {
 				authors: [npub],
-				kinds: [30063],
+				kinds: [KINDS.PROFILE_IMAGES],
 				'#d': ['profile-images']
 			};
 
@@ -61,7 +62,7 @@ const createUserStore = () => {
 
 			// Process metadata events
 			metadataEvents.forEach((event) => {
-				if (event.kind === 0) {
+				if (event.kind === KINDS.PROFILE_METADATA) {
 					const content = JSON.parse(event.content);
 					update((state) => ({
 						...state,
@@ -73,7 +74,7 @@ const createUserStore = () => {
 
 			// Process image events to get profile picture
 			imageEvents.forEach((event) => {
-				if (event.kind === 30063) {
+				if (event.kind === KINDS.PROFILE_IMAGES) {
 					try {
 						const images = JSON.parse(event.content);
 						if (Array.isArray(images) && images.length > 0) {

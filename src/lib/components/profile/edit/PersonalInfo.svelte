@@ -6,6 +6,7 @@
 	import { publishProfileMetadata } from '$lib/nostr/profile';
 	import { compressImage, validateImageFile } from '$lib/utils/imageCompression';
 	import uploadService from '$lib/api/services/upload.service';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	let { onComplete } = $props<{ onComplete: (completed: boolean) => void }>();
 
@@ -43,7 +44,7 @@
 			async (event) => {
 				try {
 					// Handle profile metadata update
-					if (event.kind === 0) {
+					if (event.kind === KINDS.PROFILE_METADATA) {
 						const metadata = JSON.parse(event.content);
 						// Update existing metadata store
 						existingMetadata = { ...existingMetadata, ...metadata };
@@ -56,7 +57,7 @@
 						website = metadata.website || website;
 					}
 					// Handle image metadata update
-					else if (event.kind === 30063) {
+					else if (event.kind === KINDS.PROFILE_IMAGES) {
 						imageEventId = event.id; // Store the event ID
 						const images = JSON.parse(event.content);
 						if (images.length > 0) {

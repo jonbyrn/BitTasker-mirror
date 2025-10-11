@@ -2,12 +2,12 @@
 	import { fetchProfileMetadata } from '$lib/utils/nostr-message';
 
 	const {
-		pubkey,
+		npub,
 		showReviews = true,
 		showMemberSince = true,
 		size = 'md'
 	} = $props<{
-		pubkey: string;
+		npub: string;
 		showReviews?: boolean;
 		showMemberSince?: boolean;
 		size?: 'sm' | 'md' | 'lg';
@@ -43,7 +43,7 @@
 
 	// Load profile on mount
 	$effect(() => {
-		if (pubkey) {
+		if (npub) {
 			loadProfile();
 		}
 	});
@@ -51,7 +51,7 @@
 	async function loadProfile() {
 		try {
 			isLoading = true;
-			profile = await fetchProfileMetadata(pubkey);
+			profile = await fetchProfileMetadata(npub);
 		} catch (error) {
 			console.error('Failed to load profile:', error);
 			profile = null;
@@ -64,8 +64,8 @@
 	function getDisplayName(): string {
 		// First check if this is the current user and we have database data
 		if (profile?.name) return profile.name;
-		// Return shortened pubkey as fallback
-		return `${pubkey.slice(0, 8)}...${pubkey.slice(-4)}`;
+		// Return shortened npub as fallback
+		return `${npub.slice(0, 8)}...${npub.slice(-4)}`;
 	}
 </script>
 

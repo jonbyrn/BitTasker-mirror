@@ -15,6 +15,7 @@
 	import { conversationManager } from '$lib/utils/conversation-manager';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import { t } from 'svelte-i18n';
+	import KINDS from '$lib/utils/constants/kinds';
 
 	// State
 	let conversations = $state<
@@ -356,7 +357,7 @@
 
 			// Also search for image events (kind 30063) to get profile pictures
 			const imageFilter: Filter = {
-				kinds: [30063], // Image events
+				kinds: [KINDS.PROFILE_IMAGES], // Image events
 				'#d': ['profile-images'], // Profile images tag
 				limit: 50
 			};
