@@ -769,11 +769,8 @@ export async function getUserContracts(filter?: ContractFilter): Promise<Contrac
 
 									case EscrowStatus.Completed: // 4
 										// Check if payment was already released via Nostr event
-										if (latestNostrStatus === 'payment-released') {
-											currentStatus = 'resolved';
-											// No actions available when payment is released
-										} else {
-											currentStatus = 'completed';
+										currentStatus = 'completed';
+										if (latestNostrStatus !== 'payment-released') {
 											// Only allow accept/dispute if payment hasn't been released yet
 											canAccept = isClient;
 											canDispute = isClient;

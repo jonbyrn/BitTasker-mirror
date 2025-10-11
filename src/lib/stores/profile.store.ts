@@ -75,7 +75,7 @@ function createProfileStore() {
 
                                 // Handle different event kinds
                                 switch (event.kind) {
-                                    case 0: // Metadata
+                                    case KINDS.PROFILE_METADATA: // Metadata
                                         return {
                                             ...state,
                                             data: {
@@ -87,7 +87,7 @@ function createProfileStore() {
                                                 picture: content.picture || ''
                                             }
                                         };
-                                    case 30063: // Images
+                                    case KINDS.PROFILE_IMAGES: // Images
                                         return {
                                             ...state,
                                             data: {

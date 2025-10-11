@@ -88,7 +88,7 @@
 						}
 					}
 					// Handle image metadata update
-					else if (event.kind === 30063) {
+					else if (event.kind === KINDS.PROFILE_IMAGES) {
 						imageEventId = event.id;
 						const images = JSON.parse(event.content);
 						if (images.length > 0) {
