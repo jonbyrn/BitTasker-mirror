@@ -467,12 +467,7 @@
 
 						<!-- Bid description -->
 						<div class="mb-4">
-							<TranslatableBidContent 
-								content={bid.description} 
-								contentType="description"
-								showToggle={false}
-								fallbackClass="text-base-content/80 line-clamp-2"
-							/>
+							<p class="text-base-content/80">{bid.description}</p>
 						</div>
 
 						<!-- Action buttons - always visible -->
