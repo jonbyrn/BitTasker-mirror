@@ -13,7 +13,7 @@
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
-	import TranslatableTask from './TranslatableTask.svelte';
+	import { nip19 } from 'nostr-tools';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -69,7 +69,18 @@
 			throw new Error('No public key found');
 		}
 
-		const cacheKey = `tasks-${npub}`;
+		// Convert npub to hex if needed
+		let pubkeyHex = npub;
+		if (npub.startsWith('npub')) {
+			try {
+				pubkeyHex = nip19.decode(npub).data as string;
+			} catch (error) {
+				console.error('Error decoding npub:', error);
+				throw new Error('Invalid npub format');
+			}
+		}
+
+		const cacheKey = `tasks-${pubkeyHex}`;
 		const cached = nostrCache.get(cacheKey);
 
 		// Return cached data if still valid
@@ -77,11 +88,14 @@
 			return cached.data;
 		}
 
-		// Fetch fresh data
+		// Fetch fresh data using hex pubkey
+		console.log('🔍 Fetching tasks for pubkey:', pubkeyHex);
 		const { data: events } = await nostrEventsService.findEvents({
 			kinds: [KINDS.TASK_CREATION],
-			authors: [npub]
+			authors: [pubkeyHex]
 		});
+
+		console.log('📋 Found events:', events.length);
 
 		const tasks = events.map((event) => {
 			const content = JSON.parse(event.content);
@@ -91,6 +105,8 @@
 				author: event.pubkey
 			};
 		});
+
+		console.log('✅ Processed tasks:', tasks.length);
 
 		// Cache the results
 		nostrCache.set(cacheKey, { data: tasks, timestamp: Date.now() });

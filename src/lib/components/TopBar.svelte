@@ -9,6 +9,7 @@
 	import Avatar from '$lib/components/Avatar.svelte';
 	import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
 	import DarkModeToggle from '$lib/components/DarkModeToggle.svelte';
+	import NotificationCenter from '$lib/components/notifications/NotificationCenter.svelte';
 	// Icon imports for unplugin-icons
 	import IconAccountCircle from '~icons/mdi/account-circle';
 	import IconAccountGroup from '~icons/mdi/account-group';
@@ -557,11 +558,14 @@ ates to X --
 			<DarkModeToggle />
 			<!-- <LanguageDropdown onLanguageChange={closeDropdowns} /> -->
 		</div>
-		<!-- login/signup or avatar -->
+		<!-- login/signup or notification + avatar -->
 		{#if !isLoggedIn}
 			<a href="/auth/login" class="btn btn-sm sm:btn-md btn-secondary">{$t('navbar.login')}</a>
 			<a href="/auth/signup" class="btn btn-sm sm:btn-md btn-primary">{$t('navbar.signup')}</a>
 		{:else}
+			<!-- Notification Button -->
+			<NotificationCenter />
+			
 			<!-- Avatar Dropdown -->
 			<details class="dropdown dropdown-end">
 				<summary class="btn btn-ghost" onclick={handleDropdownClick}>

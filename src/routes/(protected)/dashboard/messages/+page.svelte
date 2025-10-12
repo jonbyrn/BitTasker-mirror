@@ -79,35 +79,53 @@
 			// Obtener conversaciones pero excluir las que solo contengan bids
 			const people = await getMessagedPeople();
 
-			// Filtrar conversaciones que NO sean solo de bids
-			const filteredConversations = [];
-
-			for (const person of people) {
+			// Process conversations in parallel for better performance
+			const conversationPromises = people.map(async (person) => {
 				try {
-					// Obtener historial de mensajes con esta persona
-					const messageHistory = await getMessageHistory(person.pubkey, { limit: 50 });
+					// Obtener historial de mensajes con esta persona (limit to 10 for performance)
+					const messageHistory = await getMessageHistory(person.pubkey, { limit: 10 });
 
-					// Verificar si hay mensajes que NO sean bids
-					const hasNonBidMessages = messageHistory.some((message) => {
-						try {
-							const parsedContent = JSON.parse(message.plaintext);
-							// Incluir conversación si tiene al menos un mensaje que NO sea bid
-							return parsedContent.messageType !== 'bid';
-						} catch {
-							// Si no se puede parsear, es un mensaje normal (incluir)
-							return true;
-						}
+					// Verificar si hay mensajes que NO sean JSON (system messages)
+					const hasNonJsonMessages = messageHistory.some((message) => {
+						const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
+						return !isJsonMessage;
 					});
 
-					// Solo incluir conversaciones que tengan mensajes normales
-					if (hasNonBidMessages) {
-						filteredConversations.push(person);
+					// Solo incluir conversaciones que tengan mensajes normales (no JSON)
+					if (hasNonJsonMessages) {
+						// Find the most recent non-JSON message for preview
+						const lastNonJsonMessage = messageHistory
+							.filter(message => {
+								const isJsonMessage = message.plaintext.startsWith('[') || message.plaintext.startsWith('{');
+								return !isJsonMessage;
+							})
+							.sort((a, b) => b.event.created_at - a.event.created_at)[0];
+
+						// Update the person's lastEvent with the filtered content
+						if (lastNonJsonMessage) {
+							return {
+								...person,
+								lastEvent: {
+									...person.lastEvent,
+									content: lastNonJsonMessage.plaintext,
+									created_at: lastNonJsonMessage.event.created_at
+								}
+							};
+						} else {
+							return person;
+						}
 					}
+					// Don't include conversations with only JSON messages - return undefined to filter out
+					return undefined;
 				} catch (err) {
 					// Si hay error, incluir la conversación por seguridad
-					filteredConversations.push(person);
+					return person;
 				}
-			}
+			});
+
+			// Wait for all conversations to be processed
+			const conversationResults = await Promise.all(conversationPromises);
+			const filteredConversations = conversationResults.filter((conversation): conversation is NonNullable<typeof conversation> => conversation !== undefined);
 
 			// Ordenar conversaciones del más reciente al más antiguo
 			conversations = filteredConversations.sort((a, b) => {
@@ -153,6 +171,12 @@
 		conversationListUnsubscribe = listenForIncomingMessages(async (msg) => {
 			const { plaintext, senderPubkey, event } = msg;
 
+			// Filter out JSON messages (system messages) - they should be handled by notifications
+			const isJsonMessage = plaintext.startsWith('[') || plaintext.startsWith('{');
+			if (isJsonMessage) {
+				return; // Skip JSON messages in conversation list
+			}
+
 			// Find or create conversation for this message
 			const existingConversationIndex = conversations.findIndex((c) => c.pubkey === senderPubkey);
 
@@ -160,7 +184,7 @@
 				// Update existing conversation
 				const existingConversation = conversations[existingConversationIndex];
 
-				// Only update if this message is newer
+				// Only update if this message is newer and not JSON
 				if (event.created_at > existingConversation.lastEvent.created_at) {
 					const updatedConversation = {
 						...existingConversation,
