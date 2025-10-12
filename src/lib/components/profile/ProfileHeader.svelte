@@ -16,11 +16,7 @@
 	});
 
 	// Derived values for reactive updates - prioritize username from database over name
-<<<<<<< HEAD
 	let userName = $derived($profileStore.data?.name || $user.name || 'Anonymous');
-=======
-	let userName = $derived($databaseUserStore.data?.username || $profileStore.data?.name || $user.name || 'Anonymous');
->>>>>>> cf8fd76f (Enhance user experience by integrating database user store for improved username retrieval across components)
 
 	// Get the first image from pictures array, or fallback to user.picture or profileStore.data.picture
 	let userPicture = $derived(() => {
@@ -69,14 +65,10 @@
 						{/if}
 					</div>
 					<!-- Edit Profile Button - Desktop only -->
-<<<<<<< HEAD
 					<button
 						class="btn btn-primary hidden md:inline-flex"
 						onclick={() => goto('/dashboard/profile/edit')}
 					>
-=======
-					<button class="btn btn-primary hidden md:inline-flex" onclick={() => goto('/dashboard/profile/edit')}>
->>>>>>> 1b5a2191 (Refactor profile components for improved layout and responsiveness)
 						{$t('profile.page.edit_profile')}
 					</button>
 				</div>
