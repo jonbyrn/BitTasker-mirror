@@ -335,14 +335,7 @@ async function initializeRSKWallet(mnemonic?: string): Promise<void> {
 		// Get network config
 		const network: NetworkType = import.meta.env.VITE_RSK_NETWORK || 'testnet';
 		const networkConfig = RSK_NETWORKS[network];
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> dev
 
-=======
-		
->>>>>>> 1b5a2191 (Refactor profile components for improved layout and responsiveness)
 		// Create provider
 		const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
 
@@ -738,10 +731,18 @@ export async function loadAssets(): Promise<void> {
 
 		const totalBalances = {
 			usd: assets.reduce((sum, asset) => sum + asset.usdValue, 0),
-			sats: assets.filter(a => a.ticker === 'L-BTC').reduce((sum, asset) => sum + asset.balance, 0),
-			rbtc: assets.filter(a => a.network === 'RSK').reduce((sum, asset) => sum + asset.balance, 0),
-			usdt: assets.filter(a => a.network === 'BSC' && a.ticker === 'USDT').reduce((sum, asset) => sum + asset.balance, 0),
-			bnb: 0 // BNB removed from balance calculations
+			sats: assets
+				.filter((a) => a.ticker === 'L-BTC')
+				.reduce((sum, asset) => sum + asset.balance, 0),
+			rbtc: assets
+				.filter((a) => a.network === 'RSK')
+				.reduce((sum, asset) => sum + asset.balance, 0),
+			usdt: assets
+				.filter((a) => a.network === 'BSC' && a.ticker === 'USDT')
+				.reduce((sum, asset) => sum + asset.balance, 0),
+			bnb: assets
+				.filter((a) => a.network === 'BSC' && a.ticker === 'BNB')
+				.reduce((sum, asset) => sum + asset.balance, 0)
 		};
 
 		walletStore.update((state) => ({ ...state, assets, totalBalances }));
