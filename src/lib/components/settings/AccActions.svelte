@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
 	import { authState } from '$lib/stores/auth.store';
+	import { goto } from '$app/navigation';
 
 	async function logout() {
 		await authState.logout();
+		goto('/');
 	}
 </script>
 
