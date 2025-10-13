@@ -2,8 +2,8 @@
 # PowerShell version for Windows
 #
 # Usage:
-#   .\scripts\upload-secrets.ps1 staging
-#   .\scripts\upload-secrets.ps1 production
+#   pwsh -File scripts/upload-secrets.ps1 staging
+#   pwsh -File scripts/upload-secrets.ps1 production
 
 param(
     [Parameter(Position=0)]

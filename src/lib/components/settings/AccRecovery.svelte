@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { t } from 'svelte-i18n';
-	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
-	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
 	import { nip19 } from 'nostr-tools';
-	import authService from '$lib/api/services/auth.service';
+	import { encryptMasterKeyData } from '$lib/utils/helpers/auth';
 	import { copyToClipboard } from '$lib/utils/helpers/clipboard';
+	import { validateEmail, validatePassword } from '$lib/utils/helpers/validators';
+	import authService from '$lib/api/services/auth.service';
 
 	let {
 		nsec,
