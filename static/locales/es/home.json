@@ -69,7 +69,7 @@
         "tooltip": {
             "dark_mode": "Modo Oscuro",
             "light_mode": "Modo Claro",
-            "language": "Idioma: {{name}}"
+            "language": "Idioma: {name}"
         },
         "login": "Iniciar",
         "signup": "Crear",
@@ -86,8 +86,8 @@
     },
     "homepage": {
         "title": "¡Hola Mundo!",
-        "welcome": "Hola, <strong>{{name}}</strong>, ¿cómo estás?",
-        "time": "La hora actual es: {{time}}",
+        "welcome": "Hola, <strong>{name}</strong>, ¿cómo estás?",
+        "time": "La hora actual es: {time}",
         "hero": {
             "title": "BitTasker",
             "description": "El primer mercado freelance impulsado por Bitcoin. Conecta con talentosos taskees y paga de forma segura con Bitcoin.",

@@ -90,7 +90,7 @@
           "webauthn": "WebAuthn no está disponible en este navegador.",
           "keys": "No se pudieron recuperar las claves biométricas para la configuración del passkey."
         },
-        "provider": "Esto usará {{provider}} para la autenticación",
+        "provider": "Esto usará {provider} para la autenticación",
         "notice": {
           "title": "Sobre Passkeys:",
           "description": "Los passkeys te permiten autenticarte utilizando los mismos datos biométricos en diferentes navegadores y dispositivos. Una vez configurado, puedes usar este passkey para iniciar sesión desde otros dispositivos."
@@ -130,7 +130,7 @@
         "revokeModal": {
           "title": "Revocar Acceso del Dispositivo",
           "confirmTitle": "¿Estás seguro?",
-          "confirmMessage": "Esto revocará permanentemente el acceso para \"{{deviceName}}\".",
+          "confirmMessage": "Esto revocará permanentemente el acceso para \"{deviceName}\".",
           "warning": "Este dispositivo ya no podrá acceder a tu cuenta y necesitará re-autenticarse.",
           "confirm": "Revocar Acceso"
         }

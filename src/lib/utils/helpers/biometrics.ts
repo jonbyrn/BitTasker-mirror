@@ -182,14 +182,27 @@ export async function getBiometricData(authMethod: 'biometrics' | 'passkey' = 'b
 				if (!isLegacyFormat && masterKeyData) {
 					return {
 						username: publicKey,
-						password: JSON.stringify({ key: exportedKey, data: masterKeyData.nostr.encrypted.data, iv: masterKeyData.nostr.encrypted.iv, authTag: masterKeyData.nostr.encrypted.authTag, salt: masterKeyData.nostr.salt }),
+						password: JSON.stringify({
+							key: exportedKey,
+							masterKeyData: masterKeyData,
+							data: masterKeyData.nostr.encrypted.data,
+							iv: masterKeyData.nostr.encrypted.iv,
+							authTag: masterKeyData.nostr.encrypted.authTag,
+							salt: masterKeyData.nostr.salt
+						}),
 						server: deviceId,
 						isLegacyFormat: false
 					};
 				} else if (isLegacyFormat && legacyEncryptedData) {
 					return {
 						username: publicKey,
-						password: JSON.stringify({ key: exportedKey, data: legacyEncryptedData.encryptedPrivateKey, iv: legacyEncryptedData.iv, authTag: legacyEncryptedData.authTag, salt: legacyEncryptedData.salt }),
+						password: JSON.stringify({
+							key: exportedKey,
+							data: legacyEncryptedData.encryptedPrivateKey,
+							iv: legacyEncryptedData.iv,
+							authTag: legacyEncryptedData.authTag,
+							salt: legacyEncryptedData.salt
+						}),
 						server: deviceId,
 						isLegacyFormat: true
 					};

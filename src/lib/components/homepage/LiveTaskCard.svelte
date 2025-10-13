@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { LiveTask } from '$lib/types/homepage';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 
 	let { task } = $props<{
 		task: LiveTask;
@@ -43,7 +44,9 @@
 	{/if}
 	<div class="card-body flex-1 flex flex-col">
 		<div class="h-14 mb-2"> <!-- Fixed height container for title -->
-			<h6 class="card-title text-lg line-clamp-2 min-h-[3.5rem]">{task.title}</h6>
+			<div class="card-title text-lg line-clamp-2 min-h-[3.5rem]">
+				<TranslatableTask task={task} showDescription={false} showToggle={false} titleClass="card-title text-lg line-clamp-2 min-h-[3.5rem]" />
+			</div>
 		</div>
 		<div class="flex items-center justify-between">
 			<span class="text-lg font-bold text-accent">${task.budget}</span>

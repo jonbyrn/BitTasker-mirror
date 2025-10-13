@@ -6,7 +6,6 @@
 	import { t } from 'svelte-i18n';
 	import { autoLoadTranslations } from '$lib/i18n/routeTranslations';
 	import UsernameSetup from '$lib/components/onboarding/UsernameSetup.svelte';
-	// import NostrKeyImport from '$lib/components/onboarding/NostrKeyImport.svelte';
 	import RecoverySetup from '$lib/components/onboarding/RecoverySetup.svelte';
 	import PasskeySetup from '$lib/components/onboarding/PasskeySetup.svelte';
 	import ProfileSetup from '$lib/components/onboarding/ProfileSetup.svelte';
@@ -15,9 +14,10 @@
 
 	let { data } = $props();
 	
+	const totalSteps = 6;
+
 	let currentStep = $state(data.currentStep ?? 0);
 	let direction = $state<'forward' | 'backward'>('forward');
-	const totalSteps = 6; // Updated from 7 to 6 after removing NostrKeyImport
 
 	// Onboarding state management
 	let onboardingData = $state({

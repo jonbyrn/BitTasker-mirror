@@ -152,7 +152,7 @@ messageTranslations.subscribe((translations) => {
 });
 
 // Derived store for current user language
-const currentUserLanguage = writable<string>('en');
+export const currentUserLanguage = writable<string>('en');
 locale.subscribe(($locale) => {
 	currentUserLanguage.set($locale || 'en');
 });

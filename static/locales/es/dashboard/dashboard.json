@@ -84,7 +84,14 @@
       "task_completed": "Tarea completada",
       "bidding_closed": "Ofertas cerradas",
       "bid_sent": "Oferta enviada",
-      "bid_already_sent": "Oferta ya enviada"
+      "bid_already_sent": "Oferta ya enviada",
+      "share": "Compartir",
+      "share_task": "Compartir esta tarea",
+      "login_required": "Inicio de sesión requerido",
+      "login_to_bid": "Inicia sesión para poder ofertar en esta tarea",
+      "login": "Iniciar Sesión",
+      "page_title": "Detalles de la Tarea - BitTasker",
+      "page_description": "Aquí puedes ver los detalles de la tarea."
     },
     "taskees": {
       "title": "Profesionales",

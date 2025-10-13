@@ -234,3 +234,15 @@ export interface NostrFilter {
 	search?: string; // NIP-50 search
 	[key: string]: string[] | number[] | string | number | undefined; // Allow for custom filter attributes
 }
+
+// Translation-related interfaces
+export interface TaskTranslation {
+	taskId: string;
+	originalTitle: string;
+	translatedTitle: string;
+	originalDescription: string;
+	translatedDescription: string;
+	targetLanguage: string;
+	sourceLanguage: string | undefined;
+	timestamp: number;
+}

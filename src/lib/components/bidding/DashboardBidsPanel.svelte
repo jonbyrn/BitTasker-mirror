@@ -8,6 +8,8 @@
 	import { formatTimeLarge, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { locale } from 'svelte-i18n';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
+	import TranslatableBidContent from '$lib/components/bidding/TranslatableBidContent.svelte';
 
 	// State
 	let myBids = $state<any[]>([]);
@@ -472,9 +474,10 @@
 												{$t('bids.your_description')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<p class="text-base-content/80 text-sm leading-relaxed">
-													{bid.bid.description}
-												</p>
+												<TranslatableBidContent 
+													content={bid.bid.description} 
+													contentType="description"
+												/>
 											</div>
 										</div>
 									{/if}
@@ -485,9 +488,10 @@
 												{$t('bids.your_approach')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<p class="text-base-content/80 text-sm leading-relaxed">
-													{bid.bid.proposedApproach}
-												</p>
+												<TranslatableBidContent 
+													content={bid.bid.proposedApproach} 
+													contentType="proposedApproach"
+												/>
 											</div>
 										</div>
 									{/if}
@@ -498,9 +502,10 @@
 												{$t('bids.your_cover_letter')}
 											</p>
 											<div class="bg-base-200 rounded-lg p-3">
-												<p class="text-base-content/80 text-sm leading-relaxed">
-													{bid.bid.coverLetter}
-												</p>
+												<TranslatableBidContent 
+													content={bid.bid.coverLetter} 
+													contentType="coverLetter"
+												/>
 											</div>
 										</div>
 									{/if}

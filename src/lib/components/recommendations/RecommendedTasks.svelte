@@ -9,6 +9,7 @@
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import { getRecommendedTasks, updatePreferencesFromFeedback } from '$lib/nostr/recommendations';
 	import { t } from 'svelte-i18n';
+	import TranslatableTask from '$lib/components/task/TranslatableTask.svelte';
 	let { onSelectTask } = $props<{
 		onSelectTask: (task: Task) => void;
 	}>();
@@ -160,7 +161,9 @@
 				<!-- Task info -->
 				<div class="card-body">
 					<div class="flex items-start justify-between">
-						<h3 class="card-title text-lg">{item.task.title}</h3>
+						<div class="card-title text-lg">
+							<TranslatableTask task={item.task} showDescription={false} showToggle={false} titleClass="card-title text-lg" />
+						</div>
 						{#if item.task.isBoosted}
 							<div class="badge badge-secondary">{$t('recommend.featured')}</div>
 						{/if}

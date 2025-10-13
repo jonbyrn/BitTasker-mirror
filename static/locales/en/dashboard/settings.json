@@ -90,7 +90,7 @@
           "webauthn": "WebAuthn is not available in this browser.",
           "keys": "Unable to retrieve biometric keys for passkey setup."
         },
-        "provider": "This will use {{provider}} for authentication",
+        "provider": "This will use {provider} for authentication",
         "notice": {
           "title": "About Passkeys:",
           "description": "Passkeys allow you to authenticate using the same biometric data across different browsers and devices. Once set up, you can use this passkey to log in from other devices."

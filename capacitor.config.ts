@@ -36,7 +36,7 @@ const config: CapacitorConfig = {
 		},
 		SplashScreen: {
 			androidSplashResourceName: 'splash',
-			androidScaleType: 'CENTER',
+			androidScaleType: 'FIT_CENTER'
 		},
 		PushNotifications: {
 			presentationOptions: ['badge', 'sound', 'alert']
