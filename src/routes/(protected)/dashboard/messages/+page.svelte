@@ -538,7 +538,7 @@
 	}
 </script>
 
-<div class="mx-auto max-w-7xl p-4 md:p-0">
+<div class="mx-auto max-w-7xl p-2 md:p-4 lg:p-0">
 	<!-- Header -->
 	<div class="mb-6 flex flex-shrink-0 items-center justify-between">
 		<div class="min-w-0 flex-1 space-y-1">
@@ -930,11 +930,11 @@
 	</style>
 
 	<!-- Main Content - Conversation List Only -->
-	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl p-4 shadow-lg">
+	<div class="bg-base-100 flex-1 overflow-hidden rounded-2xl p-2 shadow-lg sm:p-4">
 		<div class="card-body flex h-full flex-col overflow-hidden p-0">
 			<!-- Search Input -->
 			{#if conversations.length > 0}
-				<div class="border-base-300/20 flex-shrink-0 border-b p-4 pb-3">
+				<div class="border-base-300/20 flex-shrink-0 border-b p-3 pb-2 sm:p-4 sm:pb-3">
 					<div class="relative">
 						<input
 							type="text"
@@ -1047,7 +1047,7 @@
 					<div class="divide-base-300/20 divide-y">
 						{#each filteredConversations as conversation}
 							<button
-								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-4 px-6 py-4 transition-colors"
+								class="hover:bg-base-200/50 active:bg-base-200 flex w-full items-center gap-3 px-4 py-3 transition-colors sm:gap-4 sm:px-6 sm:py-4"
 								onclick={() => selectConversation(conversation.pubkey)}
 							>
 								<!-- Avatar -->
