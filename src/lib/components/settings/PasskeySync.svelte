@@ -2,14 +2,14 @@
 	import { onMount } from 'svelte';
 	import { t } from 'svelte-i18n';
 	import { appStore } from '$lib/stores/app.store';
-	import authService from '$lib/api/services/auth.service';
+	import { checkBiometricAvailability } from '$lib/utils/helpers/biometrics';
 	import { getBiometricData, setBiometricKey } from '$lib/utils/helpers/biometrics';
+	import { getWebAuthnProviderDescription } from '$lib/utils/helpers/webBiometrics';
 	import {
 		getDeviceIdentifier,
 		createUserDeviceShortName
 	} from '$lib/utils/helpers/deviceIdentity';
-	import { getWebAuthnProviderDescription } from '$lib/utils/helpers/webBiometrics';
-	import { checkBiometricAvailability } from '$lib/utils/helpers/biometrics';
+	import authService from '$lib/api/services/auth.service';
 
 	let { authMethod }: { authMethod: string } = $props();
 
@@ -40,20 +40,25 @@
 			}
 
 			// Parse the biometric data to get the keys
-			const { key: exportedKey } = JSON.parse(biometricData.password);
-			const publicKey = biometricData.username;
+			const { masterKeyData } = JSON.parse(biometricData.password);
+			const npub = biometricData.username;
 
 			// Create a custom name for the passkey
 			const deviceId = await getDeviceIdentifier();
-			const deviceName = await createUserDeviceShortName(publicKey);
+			const deviceName = await createUserDeviceShortName(npub);
 
 			// Set up the WebAuthn passkey using the existing keys
-			const credentialId = await setBiometricKey(publicKey, exportedKey, 'passkey', deviceName);
+			const credentialId = await setBiometricKey(
+				npub,
+				masterKeyData.exportedMasterKey,
+				'passkey',
+				deviceName
+			);
 			// Device credential id will be updated in backend, so we need to register a new native passkey
-			await setBiometricKey(publicKey, exportedKey, 'biometrics', deviceName, credentialId);
+			await setBiometricKey(npub, masterKeyData.exportedMasterKey, 'biometrics', deviceName, credentialId);
 
 			// Register the passkey device with the backend
-			await authService.registerPasskeyDevice(publicKey, deviceId, deviceName, credentialId);
+			await authService.registerPasskeyDevice(npub, deviceId, deviceName, credentialId);
 
 			passkeySuccess = $t('settings.passkey.success');
 			hasPasskey = true;
@@ -133,7 +138,7 @@
 
 			{#if passkeyProvider}
 				<p class="text-info mb-4 text-sm">
-					{$t('settings.passkey.provider')}: {passkeyProvider}
+					{$t('settings.passkey.provider', { values: { provider: passkeyProvider } })}
 				</p>
 			{/if}
 
@@ -181,7 +186,7 @@
 								/>
 							</svg>
 						{/if}
-						{$t('settings.passkey.test')}
+						{$t('settings.passkey.test-label')}
 					</button>
 				{/if}
 			</div>

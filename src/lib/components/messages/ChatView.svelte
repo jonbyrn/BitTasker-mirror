@@ -709,7 +709,7 @@
 	<!-- Messages Area - Scrollable -->
 	<div
 		bind:this={messagesContainer}
-		class="relative min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-6 py-4"
+		class="relative min-h-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-6"
 		role="log"
 		aria-live="polite"
 		aria-label={$t('dashboard.bids.components.messages.chat_view.chat_messages_aria')}
@@ -823,7 +823,7 @@
 		<!-- Scroll to Bottom Button -->
 		{#if !isAtBottom && messages.length > 0}
 			<button
-				class="btn btn-primary btn-circle fixed right-6 bottom-20 z-10 shadow-lg"
+				class="btn btn-primary btn-circle fixed right-4 bottom-16 sm:right-6 sm:bottom-20 z-10 shadow-lg"
 				onclick={scrollToBottom}
 				aria-label="Scroll to bottom"
 				title="Scroll to latest message"
@@ -847,7 +847,7 @@
 	</div>
 
 	<!-- Message Input Area - Fixed at bottom -->
-	<div class="border-base-300/20 bg-base-100 flex-shrink-0 border-t px-6 py-4">
+	<div class="border-base-300/20 bg-base-100 flex-shrink-0 border-t px-4 py-3 sm:px-6 sm:py-4">
 		<!-- Reply Indicator -->
 		{#if replyingToMessage}
 			<div class="bg-base-200/50 border-base-300/30 mb-3 rounded-lg border p-3">
@@ -888,15 +888,15 @@
 			</div>
 		{/if}
 
-		<form onsubmit={handleSubmit} class="relative">
+		<form onsubmit={handleSubmit} class="relative w-full">
 			<div
-				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 transition-all duration-200 sm:p-3"
+				class="bg-base-200/50 border-base-300/30 focus-within:border-primary/50 focus-within:bg-base-100 flex items-end gap-2 rounded-lg border p-2 transition-all duration-200 sm:p-3 w-full"
 			>
 				<!-- Emoji Button -->
 				<button
 					type="button"
 					bind:this={emojiButtonRef}
-					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 min-h-0 w-8 flex-shrink-0 p-0 transition-colors sm:h-9 sm:w-9"
+					class="btn btn-ghost btn-sm hover:bg-base-300 h-8 min-h-0 w-8 flex-shrink-0 p-0 transition-colors sm:h-10 sm:w-10"
 					onclick={() => (showEmojiPicker = !showEmojiPicker)}
 					title="Add emoji"
 					aria-label="Add emoji"
@@ -925,7 +925,7 @@
 						bind:value={newMessageText}
 						onkeydown={handleKeyPress}
 						oninput={handleInputChange}
-						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-2 text-sm leading-5 focus:ring-0 focus:outline-none sm:p-3 sm:text-base"
+						class="textarea placeholder-base-content/50 min-h-0 w-full resize-none border-0 bg-transparent p-1 text-sm leading-5 focus:ring-0 focus:outline-none sm:p-2 sm:text-base"
 						placeholder={$t(
 							'dashboard.bids.components.messages.chat_view.type_message_placeholder'
 						)}
@@ -939,7 +939,7 @@
 				<!-- Send Button -->
 				<button
 					type="submit"
-					class="btn btn-primary btn-sm h-10 w-10 flex-shrink-0 rounded-full shadow-md transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+					class="btn btn-primary btn-sm h-10 w-10 flex-shrink-0 rounded-full shadow-md transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
 					disabled={!newMessageText.trim() || isSendingMessage}
 					title={$t('dashboard.bids.components.messages.chat_view.send_message')}
 				>
@@ -948,7 +948,7 @@
 					{:else}
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
-							class="h-10 w-10"
+							class="h-4 w-4 sm:h-5 sm:w-5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"

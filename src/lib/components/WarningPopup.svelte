@@ -2,10 +2,10 @@
 	import { onMount } from 'svelte';
 	import { fade, scale } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { setCookie } from '$lib/utils/helpers/cookies';
 	import { StorageKeys } from '$lib/utils/constants/storage';
 	import { t } from 'svelte-i18n';
 	import HelpModal from './wallet/HelpModal.svelte';
+	import { Preferences } from '@capacitor/preferences';
 
 	interface Props {
 		onClose?: () => void;
@@ -16,29 +16,26 @@
 	let isVisible = $state(false);
 	let showHelpModal = $state(false);
 
-	onMount(() => {
-		// Show the popup after a brief delay for better UX
-		setTimeout(() => {
+	onMount(async () => {
+		const hasAcknowledged = await Preferences.get({
+			key: StorageKeys.WARNING_ACKNOWLEDGED
+		});
+		if (!hasAcknowledged.value) {
 			isVisible = true;
-		}, 100);
+			return;
+		}
 	});
 
 	async function handleAcknowledge() {
-		// Set cookie to remember user has seen the warning
-		await setCookie(StorageKeys.WARNING_ACKNOWLEDGED, 'true', {
-			expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
-			path: '/',
-			secure: true,
-			sameSite: 'lax'
+		await Preferences.set({
+			key: StorageKeys.WARNING_ACKNOWLEDGED,
+			value: 'true'
+		}).then(() => {
+			isVisible = false;
+			if (onClose) {
+				onClose();
+			}
 		});
-
-		// Close the popup
-		isVisible = false;
-
-		// Call the onClose callback if provided
-		if (onClose) {
-			onClose();
-		}
 	}
 
 	function handleFeedbackClick() {

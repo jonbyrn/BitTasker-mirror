@@ -69,7 +69,7 @@
         "tooltip": {
             "dark_mode": "Dark Mode",
             "light_mode": "Light Mode",
-            "language": "Language: {{name}}"
+            "language": "Language: {name}"
         },
         "login": "Login",
         "signup": "Sign Up",
@@ -86,8 +86,8 @@
     },
     "homepage": {
         "title": "Hello, World!",
-        "welcome": "Hi <strong>{{name}}</strong>, how are you?",
-        "time": "The current time is: {{time}}",
+        "welcome": "Hi <strong>{name}</strong>, how are you?",
+        "time": "The current time is: {time}",
         "hero": {
             "title": "BitTasker",
             "description": "The first Bitcoin-powered freelance marketplace. Connect with talented taskees and pay securely with Bitcoin.",

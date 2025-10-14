@@ -32,7 +32,6 @@ export default defineConfig({
     optimizeDeps: {
         include: [
             'date-fns',
-            'zod',
             'axios',
             'swiper',
             'buffer',
