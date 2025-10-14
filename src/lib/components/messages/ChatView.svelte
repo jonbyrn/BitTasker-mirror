@@ -939,7 +939,7 @@
 				<!-- Send Button -->
 				<button
 					type="submit"
-					class="btn btn-primary btn-sm h-8 w-8 flex-shrink-0 rounded-full shadow-md transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
+					class="btn btn-primary btn-sm h-10 w-10 flex-shrink-0 rounded-full shadow-md transition-all duration-200 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
 					disabled={!newMessageText.trim() || isSendingMessage}
 					title={$t('dashboard.bids.components.messages.chat_view.send_message')}
 				>
