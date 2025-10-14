@@ -1,0 +1,519 @@
+---
+description: UI/UX patterns, DaisyUI components, Tailwind CSS, and design system guidelines
+globs: ["**/*.svelte", "src/lib/components/**/*", "**/*.css"]
+alwaysApply: true
+---
+
+# Overview
+
+BitTasker's design system is built on a foundation of **DaisyUI components** with **Tailwind CSS** as the styling engine, ensuring consistency, accessibility, and maintainability across the entire platform. The system prioritizes **DaisyUI components** for all UI elements when feasible, falling back to custom Tailwind classes only when no suitable DaisyUI component exists.
+
+## Design System Philosophy
+
+### Component-First Approach
+
+- **DaisyUI First**: Always use DaisyUI components when available
+- **Custom Fallback**: Use Tailwind utilities when DaisyUI doesn't provide a suitable component
+- **Consistent Theming**: Global theme settings ensure visual consistency across all components
+- **Semantic Colors**: Use semantic color names that automatically adapt to light/dark themes
+- **Accessibility**: Built-in accessibility features through DaisyUI's ARIA-compliant components
+
+### Theme Architecture
+
+- **Global Theme Settings**: Centralized theme configuration in Tailwind config
+- **Automatic Adaptation**: Components automatically adapt to light/dark mode
+- **Bitcoin Branding**: Primary colors reflect Bitcoin orange (#FF9315) theme
+- **Semantic Naming**: Use semantic color names (`primary`, `secondary`, `success`, `error`) instead of specific colors
+
+### Development Guidelines
+
+- **Component Consistency**: All similar UI elements use the same DaisyUI components
+- **Theme Awareness**: Components automatically respect global theme settings
+- **Mobile-First Design**: Prioritize mobile experience as most users will be on mobile devices
+- **Responsive Design**: Mobile-first approach with consistent breakpoints
+- **Performance**: Optimized bundle size through component reuse and tree shaking
+
+## UI/UX Patterns
+
+## Design System
+
+### Brand Colors
+
+**ALWAYS use DaisyUI color classes instead of custom hex values. DaisyUI provides semantic color names that automatically adapt to themes.**
+
+#### Primary Colors (Use DaisyUI classes)
+
+- **Primary**: `btn-primary`, `text-primary`, `bg-primary` (Bitcoin orange theme)
+- **Secondary**: `btn-secondary`, `text-secondary`, `bg-secondary` (Dark theme)
+- **Accent**: `btn-accent`, `text-accent`, `bg-accent` (Emerald green)
+- **Neutral**: `btn-neutral`, `text-neutral`, `bg-neutral` (Gray)
+
+#### Semantic Colors (Use DaisyUI classes)
+
+- **Success**: `btn-success`, `text-success`, `bg-success`, `alert-success`
+- **Warning**: `btn-warning`, `text-warning`, `bg-warning`, `alert-warning`
+- **Error**: `btn-error`, `text-error`, `bg-error`, `alert-error`
+- **Info**: `btn-info`, `text-info`, `bg-info`, `alert-info`
+
+#### Color Usage Guidelines
+
+- **NEVER use custom hex colors** - always use DaisyUI semantic classes
+- **Use semantic color names** - `success`, `error`, `warning`, `info` instead of specific colors
+- **Leverage DaisyUI themes** - colors automatically adapt to light/dark modes
+- **Use color utilities** - `text-primary`, `bg-secondary`, `border-accent`
+
+### DaisyUI Theme Configuration
+
+**Configure DaisyUI themes in your Tailwind config to use Bitcoin orange as primary:**
+
+```javascript
+// tailwind.config.js
+module.exports = {
+  daisyui: {
+    themes: [
+      {
+        light: {
+          "primary": "#FF9315", // Bitcoin orange
+          "secondary": "#1f2937", // Dark gray
+          "accent": "#10b981", // Emerald green
+          "neutral": "#6b7280", // Gray
+          "base-100": "#ffffff",
+          "base-200": "#f9fafb",
+          "base-300": "#f3f4f6",
+        },
+        dark: {
+          "primary": "#FF9315", // Bitcoin orange
+          "secondary": "#374151", // Lighter gray for dark mode
+          "accent": "#10b981", // Emerald green
+          "neutral": "#4b5563", // Lighter gray for dark mode
+          "base-100": "#111827",
+          "base-200": "#1f2937",
+          "base-300": "#374151",
+        }
+      }
+    ]
+  }
+}
+```
+
+### AI Development Guidelines
+
+**When creating UI components, ALWAYS:**
+
+1. **Use DaisyUI components** instead of custom CSS
+2. **Prefer semantic color names** (`btn-primary`, `text-success`)
+3. **Use DaisyUI component classes** (`btn`, `card`, `modal`, `alert`)
+4. **Leverage theme variables** for consistent styling
+5. **Test in both light and dark modes** using DaisyUI theme switching
+6. **Use `alert-outline` modifier** for all alert components to maintain visual consistency
+7. **Avoid using custom CSS unless absolutely necessary** and use tailwind classes for any custom styling needs
+8. **Test major UI changes** in the Cursor browser interface, taking screenshots on both desktop and mobile to ensure consistent interface across devices
+
+### Common DaisyUI Color Patterns
+
+```svelte
+<!-- Status indicators -->
+<div class="badge badge-success">Completed</div>
+<div class="badge badge-warning">Pending</div>
+<div class="badge badge-error">Failed</div>
+
+<!-- Form validation -->
+<input class="input input-bordered input-success" placeholder="Valid input" />
+<input class="input input-bordered input-error" placeholder="Invalid input" />
+
+<!-- Alert messages - ALWAYS use alert-outline for consistency -->
+<div class="alert alert-outline alert-success">
+  <span>Task completed successfully!</span>
+</div>
+<div class="alert alert-outline alert-error">
+  <span>Payment failed. Please try again.</span>
+</div>
+
+<!-- Progress indicators -->
+<div class="progress progress-primary w-56"></div>
+<div class="progress progress-success w-56"></div>
+
+<!-- Button states -->
+<button class="btn btn-primary">Primary Action</button>
+<button class="btn btn-success">Success Action</button>
+<button class="btn btn-error">Danger Action</button>
+```
+
+### Typography
+
+- **Font Family**: Inter, system-ui, sans-serif
+- **Headings**: font-bold, tracking-tight
+- **Body**: font-normal, leading-relaxed
+- **Code**: font-mono, text-sm
+
+**IMPORTANT**: Headings are defined globally to remain consistent across the app. Avoid applying additional classes to heading elements (`h1`, `h2`, `h3`, etc.) unless absolutely necessary. Use semantic heading levels instead of custom styling to maintain typography hierarchy and consistency.
+
+## DaisyUI Components
+
+### Button Patterns
+
+```svelte
+<!-- Primary Button -->
+<button class="btn btn-primary">Primary Action</button>
+
+<!-- Secondary Button -->
+<button class="btn btn-secondary">Secondary Action</button>
+
+<!-- Ghost Button -->
+<button class="btn btn-ghost">Ghost Action</button>
+
+<!-- Loading Button -->
+<button class="btn btn-primary loading">Loading...</button>
+
+<!-- Button Sizes -->
+<button class="btn btn-primary btn-sm">Small</button>
+<button class="btn btn-primary">Normal</button>
+<button class="btn btn-primary btn-lg">Large</button>
+```
+
+### Form Patterns
+
+```svelte
+<!-- Input Field -->
+<div class="form-control">
+  <label class="label">
+    <span class="label-text">Email</span>
+  </label>
+  <input type="email" class="input input-bordered" placeholder="Enter email" />
+</div>
+
+<!-- Textarea -->
+<div class="form-control">
+  <label class="label">
+    <span class="label-text">Message</span>
+  </label>
+  <textarea class="textarea textarea-bordered" placeholder="Enter message"></textarea>
+</div>
+
+<!-- Select -->
+<div class="form-control">
+  <label class="label">
+    <span class="label-text">Category</span>
+  </label>
+  <select class="select select-bordered">
+    <option disabled selected>Choose category</option>
+    <option>Option 1</option>
+    <option>Option 2</option>
+  </select>
+</div>
+```
+
+### Card Patterns
+
+```svelte
+<!-- Basic Card -->
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h2 class="card-title">Card Title</h2>
+    <p>Card description</p>
+    <div class="card-actions justify-end">
+      <button class="btn btn-primary">Action</button>
+    </div>
+  </div>
+</div>
+
+<!-- Card with Image -->
+<div class="card bg-base-100 shadow-xl">
+  <figure><img src="/image.jpg" alt="Card image" /></figure>
+  <div class="card-body">
+    <h2 class="card-title">Card Title</h2>
+    <p>Card description</p>
+  </div>
+</div>
+```
+
+### Navigation Patterns
+
+```svelte
+<!-- Navbar -->
+<div class="navbar bg-base-100">
+  <div class="navbar-start">
+    <div class="dropdown">
+      <div tabindex="0" role="button" class="btn btn-ghost lg:hidden">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16"></path>
+        </svg>
+      </div>
+      <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+        <li><a>Home</a></li>
+        <li><a>About</a></li>
+        <li><a>Contact</a></li>
+      </ul>
+    </div>
+    <a class="btn btn-ghost text-xl">BitTasker</a>
+  </div>
+  <div class="navbar-center hidden lg:flex">
+    <ul class="menu menu-horizontal px-1">
+      <li><a>Home</a></li>
+      <li><a>About</a></li>
+      <li><a>Contact</a></li>
+    </ul>
+  </div>
+  <div class="navbar-end">
+    <button class="btn btn-primary">Get Started</button>
+  </div>
+</div>
+```
+
+## Tailwind CSS Patterns
+
+### Layout Patterns
+
+```svelte
+<!-- Container -->
+<div class="container mx-auto px-4">
+  <!-- Content -->
+</div>
+
+<!-- Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <!-- Grid items -->
+</div>
+
+<!-- Flex Layout -->
+<div class="flex flex-col md:flex-row gap-4">
+  <!-- Flex items -->
+</div>
+```
+
+### Spacing Patterns
+
+```svelte
+<!-- Padding -->
+<div class="p-4">Padding all sides</div>
+<div class="px-4 py-2">Horizontal and vertical padding</div>
+
+<!-- Margin -->
+<div class="m-4">Margin all sides</div>
+<div class="mx-auto">Center horizontally</div>
+
+<!-- Gap -->
+<div class="flex gap-4">Flex with gap</div>
+<div class="grid gap-6">Grid with gap</div>
+```
+
+### Responsive Patterns
+
+```svelte
+<!-- Mobile First -->
+<div class="text-sm md:text-base lg:text-lg">
+  Responsive text
+</div>
+
+<!-- Hide/Show -->
+<div class="hidden md:block">
+  Hidden on mobile, visible on desktop
+</div>
+
+<div class="block md:hidden">
+  Visible on mobile, hidden on desktop
+</div>
+```
+
+## Dark/Light Mode
+
+### Theme Toggle
+
+```svelte
+<script>
+  import { theme } from '$lib/stores/theme';
+  
+  function toggleTheme() {
+    theme.update(current => current === 'light' ? 'dark' : 'light');
+  }
+</script>
+
+<button onclick={toggleTheme} class="btn btn-ghost">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Sun/Moon icon -->
+  </svg>
+</button>
+```
+
+### Theme Classes
+
+```svelte
+<!-- Theme-aware components -->
+<div class="bg-base-100 text-base-content">
+  <!-- Automatically adapts to theme -->
+</div>
+
+<!-- Custom theme colors -->
+<div class="bg-primary text-primary-content">
+  <!-- Uses theme primary color -->
+</div>
+```
+
+## Component Patterns
+
+### Loading States
+
+```svelte
+<!-- Loading Spinner -->
+<div class="flex justify-center items-center">
+  <span class="loading loading-spinner loading-md"></span>
+</div>
+
+<!-- Skeleton Loading -->
+<div class="animate-pulse">
+  <div class="h-4 bg-base-300 rounded w-3/4 mb-2"></div>
+  <div class="h-4 bg-base-300 rounded w-1/2"></div>
+</div>
+```
+
+### Error States
+
+```svelte
+<!-- Error Alert -->
+<div class="alert alert-error">
+  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+  </svg>
+  <span>Error message</span>
+</div>
+```
+
+### Success States
+
+```svelte
+<!-- Success Alert -->
+<div class="alert alert-success">
+  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+  </svg>
+  <span>Success message</span>
+</div>
+```
+
+## Accessibility Patterns
+
+### ARIA Labels
+
+```svelte
+<!-- Button with ARIA label -->
+<button class="btn btn-primary" aria-label="Close dialog">
+  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+  </svg>
+</button>
+
+<!-- Form with proper labels -->
+<div class="form-control">
+  <label for="email" class="label">
+    <span class="label-text">Email Address</span>
+  </label>
+  <input id="email" type="email" class="input input-bordered" aria-describedby="email-help" />
+  <div id="email-help" class="label">
+    <span class="label-text-alt">We'll never share your email</span>
+  </div>
+</div>
+```
+
+### Focus Management
+
+```svelte
+<!-- Focus trap for modals -->
+<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <h3 id="modal-title" class="font-bold text-lg">Modal Title</h3>
+    <p class="py-4">Modal content</p>
+    <div class="modal-action">
+      <button class="btn btn-primary">Confirm</button>
+      <button class="btn btn-ghost">Cancel</button>
+    </div>
+  </div>
+</div>
+```
+
+## Animation Patterns
+
+### Transitions
+
+```svelte
+<!-- Fade transition -->
+<div class="transition-opacity duration-300" class:opacity-0={!visible} class:opacity-100={visible}>
+  Content
+</div>
+
+<!-- Slide transition -->
+<div class="transition-transform duration-300" class:translate-x-full={!visible} class:translate-x-0={visible}>
+  Content
+</div>
+```
+
+### Hover Effects
+
+```svelte
+<!-- Card hover effect -->
+<div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow duration-300">
+  <!-- Card content -->
+</div>
+
+<!-- Button hover effect -->
+<button class="btn btn-primary hover:btn-secondary transition-colors duration-200">
+  Button
+</button>
+```
+
+## Mobile-First Patterns
+
+### Touch Targets
+
+```svelte
+<!-- Minimum 44px touch targets -->
+<button class="btn btn-primary min-h-[44px] min-w-[44px]">
+  Touch Target
+</button>
+```
+
+### Mobile Navigation
+
+```svelte
+<!-- Bottom navigation for mobile -->
+<div class="btm-nav lg:hidden">
+  <button class="active">
+    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+      <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
+    </svg>
+    <span class="btm-nav-label">Home</span>
+  </button>
+  <button>
+    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+    </svg>
+    <span class="btm-nav-label">Tasks</span>
+  </button>
+</div>
+```
+
+## Performance Patterns
+
+### Lazy Loading
+
+```svelte
+<!-- Lazy load images -->
+<img src="/image.jpg" loading="lazy" alt="Description" />
+
+<!-- Lazy load components -->
+{#if visible}
+  <LazyComponent />
+{/if}
+```
+
+### Optimized Images
+
+```svelte
+<!-- Responsive images -->
+<img 
+  src="/image-400.jpg" 
+  srcset="/image-400.jpg 400w, /image-800.jpg 800w, /image-1200.jpg 1200w"
+  sizes="(max-width: 400px) 400px, (max-width: 800px) 800px, 1200px"
+  alt="Description"
+  class="w-full h-auto"
+/>
+```

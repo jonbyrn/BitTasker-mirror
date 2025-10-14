@@ -1,0 +1,424 @@
+---
+description: Testing strategy, tools, and quality standards for BitTasker
+globs: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*"]
+alwaysApply: false
+---
+
+# Testing Strategy
+
+## Testing Infrastructure
+
+### Unit Testing
+
+- **Framework**: Vitest for fast, ESM-native unit testing
+- **Coverage**: C8/V8 engine for coverage reporting
+- **Target**: Minimum 80% code coverage for core modules
+- **Focus**: Business logic, utilities, and pure functions
+
+### Component Testing
+
+- **Framework**: Testing Library for Svelte component testing
+- **Scope**: UI components, user interactions, and component behavior
+- **Mocking**: External dependencies and API calls
+- **Accessibility**: ARIA labels, keyboard navigation, screen reader compatibility
+
+### Integration Testing
+
+- **Framework**: Playwright for browser-based integration tests
+- **Scope**: Component interactions, data flow, and API integration
+- **Environment**: Test database and mock services
+- **Coverage**: Critical user workflows and business processes
+
+### E2E Testing
+
+- **Framework**: Playwright for cross-browser end-to-end testing
+- **Scope**: Complete user journeys from start to finish
+- **Browsers**: Chromium, Firefox, WebKit
+- **Devices**: Desktop, tablet, mobile viewports
+
+### Performance Testing
+
+- **Tool**: Lighthouse CI for performance metrics
+- **Metrics**: Core Web Vitals, bundle size, loading times
+- **Thresholds**: Performance budgets and regression detection
+- **Monitoring**: Continuous performance tracking
+
+### Security Testing
+
+- **Tool**: OWASP ZAP for automated security scanning
+- **Scope**: Vulnerability detection, security headers, input validation
+- **Frequency**: Pre-deployment and scheduled scans
+- **Reporting**: Security audit reports and remediation guidance
+
+### Visual Testing
+
+- **Tool**: Storybook and Chromatic for visual regression testing
+- **Scope**: Component appearance, responsive design, theme consistency
+- **Coverage**: All UI components and design system elements
+- **Automation**: Automated visual diff detection
+
+## Test Data Generation
+
+### Faker.js Integration
+
+```typescript
+import { faker } from '@faker-js/faker';
+
+// Generate test users
+const generateTestUser = () => ({
+  id: faker.string.uuid(),
+  email: faker.internet.email(),
+  name: faker.person.fullName(),
+  location: {
+    address: faker.location.streetAddress(),
+    coordinates: [faker.location.longitude(), faker.location.latitude()],
+    radius: faker.number.int({ min: 1, max: 50 })
+  }
+});
+
+// Generate test tasks
+const generateTestTask = () => ({
+  id: faker.string.uuid(),
+  title: faker.lorem.sentence(),
+  description: faker.lorem.paragraphs(3),
+  category: faker.helpers.arrayElement(['cleaning', 'repair', 'delivery']),
+  budget: {
+    min: faker.number.int({ min: 10, max: 100 }),
+    max: faker.number.int({ min: 100, max: 1000 }),
+    currency: 'USD'
+  }
+});
+```
+
+## Testing Patterns
+
+### Unit Test Patterns
+
+```typescript
+// Pure function testing
+describe('calculateTotal', () => {
+  it('should return 0 for empty array', () => {
+    expect(calculateTotal([])).toBe(0);
+  });
+
+  it('should sum all item prices', () => {
+    const items = [{ price: 10 }, { price: 20 }, { price: 30 }];
+    expect(calculateTotal(items)).toBe(60);
+  });
+
+  it('should handle negative prices', () => {
+    const items = [{ price: 10 }, { price: -5 }, { price: 20 }];
+    expect(calculateTotal(items)).toBe(25);
+  });
+});
+```
+
+### Component Test Patterns
+
+```typescript
+import { render, screen, fireEvent } from '@testing-library/svelte';
+import { vi } from 'vitest';
+import Button from './Button.svelte';
+
+describe('Button Component', () => {
+  it('should render with correct text', () => {
+    render(Button, { props: { children: 'Click me' } });
+    expect(screen.getByText('Click me')).toBeInTheDocument();
+  });
+
+  it('should call onClick when clicked', async () => {
+    const handleClick = vi.fn();
+    render(Button, { props: { onClick: handleClick } });
+    
+    await fireEvent.click(screen.getByRole('button'));
+    expect(handleClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('should be accessible', () => {
+    render(Button, { props: { children: 'Accessible button' } });
+    const button = screen.getByRole('button');
+    expect(button).toHaveAttribute('type', 'button');
+  });
+});
+```
+
+### Integration Test Patterns
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Task Creation Flow', () => {
+  test('should create a new task successfully', async ({ page }) => {
+    // Navigate to task creation
+    await page.goto('/tasks/create');
+    
+    // Fill out the form
+    await page.fill('[data-testid="task-title"]', 'Test Task');
+    await page.fill('[data-testid="task-description"]', 'Test Description');
+    await page.selectOption('[data-testid="task-category"]', 'cleaning');
+    
+    // Submit the form
+    await page.click('[data-testid="submit-button"]');
+    
+    // Verify success
+    await expect(page.locator('[data-testid="success-message"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/tasks\/\d+/);
+  });
+});
+```
+
+## CI/CD Pipeline
+
+### Build Automation
+
+- **Gitea Actions**: Automated build and test execution
+- **Pre-commit Hooks**: Lint checks and unit tests before commit
+- **Branch Protection**: Mandatory test passing before merge
+- **Quality Gates**: Coverage thresholds and performance benchmarks
+
+### Test Execution
+
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run unit tests
+        run: npm run test:unit
+      
+      - name: Run component tests
+        run: npm run test:component
+      
+      - name: Run E2E tests
+        run: npm run test:e2e
+      
+      - name: Run security tests
+        run: npm run test:security
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+```
+
+### Test Parallelization
+
+- **Unit Tests**: Parallel execution by file
+- **Component Tests**: Parallel execution by component
+- **E2E Tests**: Parallel execution by browser
+- **Performance Tests**: Parallel execution by metric
+
+## Quality Standards
+
+### Coverage Requirements
+
+- **Core Modules**: 90% minimum coverage
+- **Business Logic**: 95% minimum coverage
+- **UI Components**: 80% minimum coverage
+- **Utilities**: 100% minimum coverage
+
+### Performance Benchmarks
+
+- **First Contentful Paint**: < 1.5s
+- **Largest Contentful Paint**: < 2.5s
+- **Cumulative Layout Shift**: < 0.1
+- **First Input Delay**: < 100ms
+- **Bundle Size**: < 500KB gzipped
+
+### Security Standards
+
+- **OWASP Top 10**: Zero critical vulnerabilities
+- **Dependency Scanning**: No known vulnerabilities
+- **Input Validation**: 100% coverage for user inputs
+- **Authentication**: All endpoints protected
+
+## Test Environment Management
+
+### Environment Setup
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/lib/tests/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      thresholds: {
+        global: {
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80
+        }
+      }
+    }
+  }
+});
+```
+
+### Mock Services
+
+```typescript
+// src/lib/tests/mocks/api.ts
+import { vi } from 'vitest';
+
+export const mockApi = {
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn()
+};
+
+// Mock Nostr
+export const mockNostr = {
+  generateSecretKey: vi.fn(() => 'mock-secret-key'),
+  getPublicKey: vi.fn(() => 'mock-public-key'),
+  finalizeEvent: vi.fn((event) => ({ ...event, id: 'mock-id', sig: 'mock-sig' }))
+};
+```
+
+## Test Data Management
+
+### Test Database
+
+```typescript
+// Test database setup
+const setupTestDatabase = async () => {
+  // Create test database
+  // Seed with test data
+  // Clean up after tests
+};
+
+const cleanupTestDatabase = async () => {
+  // Drop test database
+  // Clean up test data
+};
+```
+
+### Fixtures
+
+```typescript
+// src/lib/tests/fixtures/users.ts
+export const testUsers = {
+  hirer: {
+    id: 'hirer-1',
+    email: 'hirer@test.com',
+    name: 'Test Hirer',
+    type: 'hirer'
+  },
+  doer: {
+    id: 'doer-1',
+    email: 'doer@test.com',
+    name: 'Test Doer',
+    type: 'doer'
+  }
+};
+
+export const testTasks = {
+  cleaning: {
+    id: 'task-1',
+    title: 'House Cleaning',
+    description: 'Deep clean entire house',
+    category: 'cleaning',
+    budget: { min: 50, max: 100, currency: 'USD' }
+  }
+};
+```
+
+## Accessibility Testing
+
+### Automated Testing
+
+```typescript
+// Accessibility test patterns
+import { axe, toHaveNoViolations } from 'jest-axe';
+
+expect.extend(toHaveNoViolations);
+
+test('should not have accessibility violations', async () => {
+  const { container } = render(Component);
+  const results = await axe(container);
+  expect(results).toHaveNoViolations();
+});
+```
+
+### Manual Testing Checklist
+
+- [ ] Keyboard navigation works
+- [ ] Screen reader compatibility
+- [ ] Color contrast compliance
+- [ ] Focus indicators visible
+- [ ] ARIA labels present
+- [ ] Alternative text for images
+- [ ] Form labels associated
+- [ ] Error messages accessible
+
+## Performance Testing Strategy
+
+### Lighthouse CI
+
+```typescript
+// lighthouse.config.js
+module.exports = {
+  ci: {
+    collect: {
+      url: ['http://localhost:3000'],
+      numberOfRuns: 3
+    },
+    assert: {
+      assertions: {
+        'categories:performance': ['error', { minScore: 0.9 }],
+        'categories:accessibility': ['error', { minScore: 0.9 }],
+        'categories:best-practices': ['error', { minScore: 0.9 }],
+        'categories:seo': ['error', { minScore: 0.9 }]
+      }
+    }
+  }
+};
+```
+
+### Bundle Analysis
+
+```typescript
+// Bundle size monitoring
+const bundleAnalyzer = require('webpack-bundle-analyzer');
+
+module.exports = {
+  plugins: [
+    new bundleAnalyzer.BundleAnalyzerPlugin({
+      analyzerMode: 'static',
+      openAnalyzer: false
+    })
+  ]
+};
+```
+
+## Test Reporting
+
+### Coverage Reports
+
+- **HTML Reports**: Detailed coverage with line-by-line analysis
+- **JSON Reports**: Machine-readable coverage data
+- **Threshold Enforcement**: Build failure on coverage drop
+- **Trend Analysis**: Coverage trends over time
+
+### Test Results
+
+- **JUnit XML**: Standard test result format
+- **Allure Reports**: Rich test reporting with screenshots
+- **Slack Integration**: Test result notifications
+- **Dashboard**: Real-time test metrics and trends

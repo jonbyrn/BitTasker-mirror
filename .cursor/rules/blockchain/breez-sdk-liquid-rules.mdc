@@ -1,5 +1,7 @@
 ---
-alwaysApply: true
+description: Breez SDK Liquid implementation for Lightning and Bitcoin payments
+globs: ["**/wallet/**/*", "**/integrations/breez/**/*"]
+alwaysApply: false
 ---
 
 # Breez SDK - Nodeless (Liquid Implementation) - LLM Reference Guide
@@ -45,19 +47,23 @@ The Breez SDK - Nodeless uses submarine swaps and reverse submarine swaps to sen
 ### Supported Platforms
 
 #### iOS
+
 Swift Package Manager or CocoaPods integration:
 
 **Swift Package Manager:**
-```
+
+```text
 https://github.com/breez/breez-sdk-liquid-swift.git
 ```
 
 **Package.swift:**
+
 ```swift
 .package(url: "https://github.com/breez/breez-sdk-liquid-swift.git", from: "<version>")
 ```
 
 **Podfile:**
+
 ```ruby
 target '<YourApp>' do
   use_frameworks!
@@ -66,7 +72,9 @@ end
 ```
 
 #### Android
+
 Add to Gradle dependencies:
+
 ```gradle
 repositories {
   maven {
@@ -80,6 +88,7 @@ dependencies {
 ```
 
 #### JavaScript/Node.js
+
 ```bash
 npm install @breeztech/breez-sdk-liquid
 # or
@@ -89,6 +98,7 @@ yarn add @breeztech/breez-sdk-liquid
 Note: Node.js minimum supported version is v22.
 
 #### React Native
+
 ```bash
 npm install @breeztech/react-native-breez-sdk-liquid
 # or  
@@ -96,16 +106,19 @@ yarn add @breeztech/react-native-breez-sdk-liquid
 ```
 
 #### Go
+
 ```bash
 go get github.com/breez/breez-sdk-liquid-go
 ```
 
 #### C#
+
 ```bash
 dotnet add package Breez.Sdk.Liquid
 ```
 
 #### Rust
+
 ```toml
 [dependencies]
 breez-sdk-liquid = { git = "https://github.com/breez/breez-sdk-liquid", tag = "0.8.0" }
@@ -115,6 +128,7 @@ secp256k1-zkp = { git = "https://github.com/breez/rust-secp256k1-zkp.git", rev =
 ```
 
 #### Flutter/Dart
+
 ```yaml
 dependencies:
   breez_liquid:
@@ -127,6 +141,7 @@ dependencies:
 ```
 
 #### Python
+
 ```bash
 pip install breez_sdk_liquid
 ```
@@ -135,7 +150,7 @@ pip install breez_sdk_liquid
 
 ### Prerequisites
 
-The Nodeless Breez API key must be set for the SDK to work. You can request one for free by filling the form at: https://breez.technology/request-api-key/#contact-us-form-sdk
+The Nodeless Breez API key must be set for the SDK to work. You can request one for free by filling the form at: <https://breez.technology/request-api-key/#contact-us-form-sdk>
 
 **Note:** This is not the same as the Native (Greenlight) Breez API key, so it can't be reused.
 
@@ -143,7 +158,7 @@ The Nodeless Breez API key must be set for the SDK to work. You can request one 
 
 1. **Installing the SDK**
 2. **Connecting**
-3. **Fetching the balance** 
+3. **Fetching the balance**
 4. **Listening to events**
 5. **Adding logging**
 
@@ -310,7 +325,7 @@ const prepareResponse = await sdk.prepareSendPayment({
 })
 ```
 
-### Sending Payments
+### Sending Lightning Payments
 
 ```javascript
 const optionalPayerNote = '<payer note>'
@@ -336,7 +351,7 @@ const payment = sendResponse.payment
 
 ## Receiving Payments
 
-### Lightning Payment Limits
+### Lightning Network Payment Limits
 
 ```javascript
 // Fetch the Receive lightning limits
@@ -598,12 +613,14 @@ if (input.type === 'lnUrlAuth') {
 The SDK includes metadata for L-BTC and Tether USD by default:
 
 #### Mainnet
+
 | Name | Ticker | Asset ID | Precision |
 |------|--------|----------|-----------|
 | Bitcoin | BTC | 6f0279e9ed041c3d710a9f57d0c02928416460c4b722ae3457a11eec381c526d | 8 |
 | Tether USD | USDt | ce091c998b83c78bb71a632313ba3760f1763d9cfcffae02258ffa9865a37bd2 | 8 |
 
 #### Testnet
+
 | Name | Ticker | Asset ID | Precision |
 |------|--------|----------|-----------|
 | Testnet Bitcoin | BTC | 144c654344aa716d6f3abcc1ca90e5641e4e2a7f633bc09fe3baf64585819a49 | 8 |
@@ -858,6 +875,7 @@ await sdk.unregisterWebhook()
 The Notification Plugin handles several notification types for offline payments:
 
 #### Swap Updates
+
 ```json
 {
     "event": "swap.update",
@@ -869,6 +887,7 @@ The Notification Plugin handles several notification types for offline payments:
 ```
 
 #### BOLT12 Invoice Requests
+
 ```json
 {
     "event": "invoice.request",
@@ -880,6 +899,7 @@ The Notification Plugin handles several notification types for offline payments:
 ```
 
 #### LNURL-Pay Info Requests
+
 ```json
 {
     "template": "lnurlpay_info",
@@ -891,6 +911,7 @@ The Notification Plugin handles several notification types for offline payments:
 ```
 
 #### LNURL-Pay Invoice Requests
+
 ```json
 {
     "template": "lnurlpay_invoice",
@@ -908,30 +929,34 @@ The Notification Plugin handles several notification types for offline payments:
 
 The Breez SDK charges small base fees for end-users:
 
-#### Sending Lightning Payments
+#### Lightning Payment Fees
+
 - **Lockup Transaction Fee:** ~34 sats (0.1 sat/discount vbyte)
 - **Claim Transaction Fee:** ~19 sats (0.1 sat/discount vbyte)  
 - **Swap Service Fee:** 0.1% fee on the amount sent
 
 #### Receiving Lightning Payments
+
 - **Lockup Transaction Fee:** ~27 sats (0.1 sat/discount vbyte)
 - **Claim Transaction Fee:** ~20 sats (0.1 sat/discount vbyte)
 - **Swap Service Fee:** 0.25% fee on the amount received
 
 #### Sending to BTC Address
+
 - **L-BTC Lockup Transaction Fee:** ~34 sats (0.1 sat/discount vbyte)
 - **BTC Lockup Transaction Fee:** Based on current Bitcoin mempool usage
 - **Swap Service Fee:** 0.1% fee on the amount sent
 - **BTC Claim Transaction Fee:** Based on current Bitcoin mempool usage
 
 #### Receiving from BTC Address
+
 - **L-BTC Claim Transaction Fee:** ~20 sats (0.1 sat/discount vbyte)
 - **BTC Claim Transaction Fee:** Based on Bitcoin mempool usage at swap time
 - **Swapper Service Fee:** 0.1% fee on the amount received
 
 ### Partner Fees
 
-Partners can set additional fees through the Partners Portal (https://partners.breez.technology/):
+Partners can set additional fees through the Partners Portal (<https://partners.breez.technology/>):
 
 1. Navigate to the **Settings** page
 2. Set your desired **Additional Fee Percentage**
@@ -972,21 +997,22 @@ Partner fees are calculated as a percentage of the transaction amount and added 
 ### Magic Routing Hints (MRH)
 
 When a Lightning invoice contains a Magic Routing Hint, payments are made via direct Liquid transaction instead of a swap, resulting in:
+
 - Lower fees for the payer
 - Faster transaction times
 - Direct Liquid-to-Liquid transfers
 
 ## Resources and Links
 
-- **Main Repository:** https://github.com/breez/breez-sdk-liquid
-- **Documentation:** https://sdk-doc-liquid.breez.technology/
-- **API Documentation:** https://breez.github.io/breez-sdk-liquid/
-- **Request API Key:** https://breez.technology/request-api-key/#contact-us-form-sdk
-- **Partners Portal:** https://partners.breez.technology/
-- **Support:** 
-  - Telegram: https://t.me/breezsdk
-  - Email: contact@breez.technology
-- **Reference Implementation:** Misty Breez (https://github.com/breez/misty-breez/)
+- **Main Repository:** <https://github.com/breez/breez-sdk-liquid>
+- **Documentation:** <https://sdk-doc-liquid.breez.technology/>
+- **API Documentation:** <https://breez.github.io/breez-sdk-liquid/>
+- **Request API Key:** <https://breez.technology/request-api-key/#contact-us-form-sdk>
+- **Partners Portal:** <https://partners.breez.technology/>
+- **Support:**
+  - Telegram: <https://t.me/breezsdk>
+  - Email: <contact@breez.technology>
+- **Reference Implementation:** Misty Breez (<https://github.com/breez/misty-breez/>)
 
 ## Supported LUD Specifications
 
@@ -999,4 +1025,4 @@ When a Lightning invoice contains a Magic Routing Hint, payments are made via di
 - **LUD-17:** Support for lnurlp/lnurlw/keyauth prefix with non-bech32-encoded LNURL URLs
 - **LUD-21:** Verify base spec
 
-The Breez SDK - Nodeless (Liquid Implementation) provides a comprehensive, self-custodial solution for Lightning and Bitcoin payments with multi-asset support on the Liquid Network. The SDK handles the complexity of submarine swaps, fee estimation, and state management while providing developers with a simple API for integration. 
+The Breez SDK - Nodeless (Liquid Implementation) provides a comprehensive, self-custodial solution for Lightning and Bitcoin payments with multi-asset support on the Liquid Network. The SDK handles the complexity of submarine swaps, fee estimation, and state management while providing developers with a simple API for integration.

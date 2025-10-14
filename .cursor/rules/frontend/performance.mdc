@@ -1,0 +1,616 @@
+---
+description: Performance optimization patterns, bundle optimization, and runtime performance best practices
+globs: ["**/*.svelte", "**/*.ts", "**/*.js", "vite.config.ts", "svelte.config.js"]
+alwaysApply: false
+---
+
+# Performance Rules
+
+## Overview
+
+BitTasker prioritizes performance across web and mobile platforms. This document outlines optimization patterns, bundle strategies, and runtime performance best practices using Vite 6.0+, SvelteKit 2.0+, and modern web technologies.
+
+## Core Principles
+
+### Performance-First Development
+
+- **Measure before optimizing** - use performance tools to identify bottlenecks
+- **Optimize for mobile first** - mobile devices have limited resources
+- **Implement progressive loading** - load critical content first
+- **Use modern web standards** - leverage native browser optimizations
+
+### Bundle Optimization
+
+- **Tree shaking** - eliminate unused code
+- **Code splitting** - load only necessary code
+- **Asset optimization** - compress and optimize resources
+- **Lazy loading** - defer non-critical resources
+
+## Vite Configuration Optimization
+
+### Base Vite Configuration
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { sveltekit } from '@sveltejs/kit/vite';
+
+export default defineConfig({
+  plugins: [sveltekit()],
+  
+  build: {
+    // Bundle optimization
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-svelte': ['svelte', '@sveltejs/kit'],
+          'vendor-ui': ['daisyui', 'tailwindcss'],
+          'vendor-crypto': ['@noble/ed25519', '@noble/secp256k1'],
+          'vendor-blockchain': ['@breez-sdk/connector', 'nostr-tools']
+        }
+      }
+    },
+    
+    // Asset optimization
+    assetsInlineLimit: 4096, // Inline small assets
+    chunkSizeWarningLimit: 1000,
+    
+    // Source maps for production debugging
+    sourcemap: true,
+    
+    // Minification
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true
+      }
+    }
+  },
+  
+  // Development optimizations
+  server: {
+    fs: {
+      allow: ['..']
+    }
+  },
+  
+  // Dependency optimization
+  optimizeDeps: {
+    include: [
+      'svelte',
+      '@sveltejs/kit',
+      'daisyui',
+      'tailwindcss'
+    ],
+    exclude: [
+      '@capacitor/core',
+      '@capacitor/device'
+    ]
+  }
+});
+```
+
+### Advanced Bundle Splitting
+
+```typescript
+// Advanced chunk splitting strategy
+export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Core framework
+          if (id.includes('svelte') || id.includes('@sveltejs')) {
+            return 'svelte-core';
+          }
+          
+          // UI components
+          if (id.includes('daisyui') || id.includes('tailwindcss')) {
+            return 'ui-components';
+          }
+          
+          // Blockchain libraries
+          if (id.includes('@breez-sdk') || id.includes('nostr-tools')) {
+            return 'blockchain';
+          }
+          
+          // Crypto libraries
+          if (id.includes('@noble/') || id.includes('crypto')) {
+            return 'crypto';
+          }
+          
+          // Capacitor plugins
+          if (id.includes('@capacitor/')) {
+            return 'capacitor';
+          }
+          
+          // Large dependencies
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        }
+      }
+    }
+  }
+});
+```
+
+## Code Splitting Patterns
+
+### Route-Based Code Splitting
+
+```typescript
+// Lazy load route components
+const routes = {
+  '/dashboard': () => import('./routes/dashboard/+page.svelte'),
+  '/tasks': () => import('./routes/tasks/+page.svelte'),
+  '/wallet': () => import('./routes/wallet/+page.svelte'),
+  '/messages': () => import('./routes/messages/+page.svelte')
+};
+
+// Dynamic route loading
+export async function load({ params }) {
+  const component = await routes[params.route];
+  return { component };
+}
+```
+
+### Component Lazy Loading
+
+```svelte
+<script>
+  import { onMount } from 'svelte';
+  
+  let HeavyComponent = null;
+  let isLoading = $state(false);
+  
+  onMount(async () => {
+    // Only load on mobile or when needed
+    if (window.innerWidth < 768) {
+      isLoading = true;
+      const module = await import('./HeavyComponent.svelte');
+      HeavyComponent = module.default;
+      isLoading = false;
+    }
+  });
+</script>
+
+{#if isLoading}
+  <div class="loading loading-spinner"></div>
+{:else if HeavyComponent}
+  <svelte:component this={HeavyComponent} />
+{/if}
+```
+
+### Dynamic Import Patterns
+
+```typescript
+// Conditional loading based on platform
+export async function loadCapacitorPlugin(pluginName: string) {
+  if (typeof window !== 'undefined' && 'Capacitor' in window) {
+    try {
+      const plugin = await import(`@capacitor/${pluginName}`);
+      return plugin;
+    } catch (error) {
+      console.warn(`Plugin ${pluginName} not available:`, error);
+      return null;
+    }
+  }
+  return null;
+}
+
+// Lazy load based on user interaction
+export function createLazyLoader<T>(
+  importFn: () => Promise<T>,
+  condition: () => boolean
+) {
+  let loaded = false;
+  let promise: Promise<T> | null = null;
+  
+  return {
+    load: async (): Promise<T> => {
+      if (loaded) return promise;
+      if (!condition()) return null;
+      
+      promise = importFn();
+      loaded = true;
+      return promise;
+    }
+  };
+}
+```
+
+## Asset Optimization
+
+### Image Optimization
+
+```typescript
+// Image optimization utility
+export function optimizeImage(src: string, options: {
+  width?: number;
+  height?: number;
+  quality?: number;
+  format?: 'webp' | 'avif' | 'jpeg' | 'png';
+}) {
+  const { width, height, quality = 80, format = 'webp' } = options;
+  
+  // Use responsive images
+  const srcSet = [
+    `${src}?w=400&q=${quality}&f=${format} 400w`,
+    `${src}?w=800&q=${quality}&f=${format} 800w`,
+    `${src}?w=1200&q=${quality}&f=${format} 1200w`
+  ].join(', ');
+  
+  return {
+    src: `${src}?w=${width || 800}&q=${quality}&f=${format}`,
+    srcSet,
+    sizes: '(max-width: 400px) 400px, (max-width: 800px) 800px, 1200px'
+  };
+}
+```
+
+### Font Optimization
+
+```css
+/* Font loading optimization */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap; /* Optimize font loading */
+  src: url('/fonts/inter-regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/inter-bold.woff2') format('woff2');
+}
+
+/* Preload critical fonts */
+<link rel="preload" href="/fonts/inter-regular.woff2" as="font" type="font/woff2" crossorigin>
+```
+
+### Asset Preloading
+
+```svelte
+<script>
+  import { onMount } from 'svelte';
+  
+  onMount(() => {
+    // Preload critical assets
+    const criticalAssets = [
+      '/images/logo.svg',
+      '/fonts/inter-regular.woff2',
+      '/icons/bitcoin.svg'
+    ];
+    
+    criticalAssets.forEach(asset => {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.href = asset;
+      link.as = asset.endsWith('.woff2') ? 'font' : 'image';
+      if (asset.endsWith('.woff2')) {
+        link.crossOrigin = 'anonymous';
+      }
+      document.head.appendChild(link);
+    });
+  });
+</script>
+```
+
+## Runtime Performance
+
+### Virtual Scrolling
+
+```svelte
+<script>
+  import { onMount } from 'svelte';
+  
+  let container = $state();
+  let items = $state([]);
+  let visibleItems = $state([]);
+  let scrollTop = $state(0);
+  let itemHeight = 60;
+  let containerHeight = 400;
+  
+  $effect(() => {
+    if (!container) return;
+    
+    const startIndex = Math.floor(scrollTop / itemHeight);
+    const endIndex = Math.min(
+      startIndex + Math.ceil(containerHeight / itemHeight) + 1,
+      items.length
+    );
+    
+    visibleItems = items.slice(startIndex, endIndex);
+  });
+  
+  function handleScroll(event) {
+    scrollTop = event.target.scrollTop;
+  }
+</script>
+
+<div 
+  bind:this={container}
+  class="virtual-scroll-container"
+  style="height: {containerHeight}px; overflow-y: auto;"
+  onscroll={handleScroll}
+>
+  <div style="height: {items.length * itemHeight}px; position: relative;">
+    {#each visibleItems as item, index}
+      <div 
+        class="virtual-item"
+        style="position: absolute; top: {(startIndex + index) * itemHeight}px; height: {itemHeight}px;"
+      >
+        {item.content}
+      </div>
+    {/each}
+  </div>
+</div>
+```
+
+### Debounced Operations
+
+```typescript
+// Debounced search
+export function createDebouncedSearch<T>(
+  searchFn: (query: string) => Promise<T[]>,
+  delay: number = 300
+) {
+  let timeoutId: number | null = null;
+  let currentQuery = '';
+  
+  return {
+    search: async (query: string): Promise<T[]> => {
+      currentQuery = query;
+      
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      return new Promise((resolve) => {
+        timeoutId = setTimeout(async () => {
+          if (currentQuery === query) {
+            const results = await searchFn(query);
+            resolve(results);
+          }
+        }, delay);
+      });
+    }
+  };
+}
+```
+
+### Memoization Patterns
+
+```typescript
+// Memoization for expensive computations
+const memoCache = new Map<string, any>();
+
+export function memoize<T extends (...args: any[]) => any>(
+  fn: T,
+  keyGenerator?: (...args: Parameters<T>) => string
+): T {
+  return ((...args: Parameters<T>) => {
+    const key = keyGenerator ? keyGenerator(...args) : JSON.stringify(args);
+    
+    if (memoCache.has(key)) {
+      return memoCache.get(key);
+    }
+    
+    const result = fn(...args);
+    memoCache.set(key, result);
+    return result;
+  }) as T;
+}
+
+// Usage
+const expensiveCalculation = memoize((data: any[]) => {
+  return data.reduce((acc, item) => acc + item.value, 0);
+});
+```
+
+## Mobile Performance
+
+### Touch Optimization
+
+```svelte
+<script>
+  let touchStartTime = 0;
+  let touchStartY = 0;
+  
+  function handleTouchStart(event) {
+    touchStartTime = Date.now();
+    touchStartY = event.touches[0].clientY;
+  }
+  
+  function handleTouchEnd(event) {
+    const touchDuration = Date.now() - touchStartTime;
+    const touchDistance = Math.abs(event.changedTouches[0].clientY - touchStartY);
+    
+    // Optimize for quick taps
+    if (touchDuration < 200 && touchDistance < 10) {
+      // Handle tap
+    }
+  }
+</script>
+
+<div 
+  ontouchstart={handleTouchStart}
+  ontouchend={handleTouchEnd}
+  style="touch-action: manipulation;"
+>
+  <!-- Content -->
+</div>
+```
+
+### Battery Optimization
+
+```typescript
+// Reduce animations on low battery
+export function useBatteryOptimization() {
+  let prefersReducedMotion = false;
+  let isLowBattery = false;
+  
+  if (typeof window !== 'undefined') {
+    // Check for reduced motion preference
+    prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    
+    // Check battery status if available
+    if ('getBattery' in navigator) {
+      navigator.getBattery().then(battery => {
+        isLowBattery = battery.level < 0.2;
+      });
+    }
+  }
+  
+  return {
+    shouldReduceAnimations: prefersReducedMotion || isLowBattery,
+    shouldThrottleUpdates: isLowBattery
+  };
+}
+```
+
+## Performance Monitoring
+
+### Performance Metrics
+
+```typescript
+// Performance monitoring
+export class PerformanceMonitor {
+  private metrics: Map<string, number[]> = new Map();
+  
+  startTiming(name: string) {
+    performance.mark(`${name}-start`);
+  }
+  
+  endTiming(name: string) {
+    performance.mark(`${name}-end`);
+    performance.measure(name, `${name}-start`, `${name}-end`);
+    
+    const measure = performance.getEntriesByName(name)[0];
+    if (measure) {
+      this.recordMetric(name, measure.duration);
+    }
+  }
+  
+  recordMetric(name: string, value: number) {
+    if (!this.metrics.has(name)) {
+      this.metrics.set(name, []);
+    }
+    this.metrics.get(name)!.push(value);
+  }
+  
+  getAverageTime(name: string): number {
+    const values = this.metrics.get(name) || [];
+    return values.reduce((sum, val) => sum + val, 0) / values.length;
+  }
+  
+  reportMetrics() {
+    const report = {};
+    for (const [name, values] of this.metrics) {
+      report[name] = {
+        average: this.getAverageTime(name),
+        count: values.length,
+        min: Math.min(...values),
+        max: Math.max(...values)
+      };
+    }
+    console.log('Performance Metrics:', report);
+  }
+}
+```
+
+### Bundle Analysis
+
+```typescript
+// Bundle size monitoring
+export function analyzeBundleSize() {
+  if (typeof window !== 'undefined') {
+    // Monitor resource loading
+    const observer = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        if (entry.entryType === 'resource') {
+          console.log(`Resource loaded: ${entry.name}, size: ${entry.transferSize} bytes`);
+        }
+      }
+    });
+    
+    observer.observe({ entryTypes: ['resource'] });
+  }
+}
+```
+
+## Best Practices
+
+### 1. Bundle Optimization
+
+- **Use tree shaking** to eliminate unused code
+- **Implement code splitting** for route-based loading
+- **Optimize assets** with compression and modern formats
+- **Monitor bundle size** with build analysis tools
+
+### 2. Runtime Performance
+
+- **Use virtual scrolling** for large lists
+- **Implement debouncing** for user interactions
+- **Memoize expensive computations** to avoid recalculation
+- **Optimize animations** for 60fps performance
+
+### 3. Mobile Optimization
+
+- **Reduce JavaScript execution** on mobile devices
+- **Optimize touch interactions** for better responsiveness
+- **Use hardware acceleration** for animations
+- **Implement battery-aware optimizations**
+
+### 4. Asset Management
+
+- **Use modern image formats** (WebP, AVIF)
+- **Implement responsive images** with srcset
+- **Preload critical resources** for faster loading
+- **Compress assets** without quality loss
+
+### 5. Monitoring
+
+- **Track performance metrics** in production
+- **Monitor bundle size** over time
+- **Use performance budgets** to prevent regressions
+- **Implement error tracking** for performance issues
+
+## Performance Budgets
+
+```typescript
+// Performance budget configuration
+export const performanceBudgets = {
+  // Bundle size limits
+  bundleSize: {
+    initial: 250 * 1024, // 250KB
+    total: 1024 * 1024,  // 1MB
+    perRoute: 100 * 1024 // 100KB per route
+  },
+  
+  // Runtime performance
+  runtime: {
+    firstContentfulPaint: 1500, // 1.5s
+    largestContentfulPaint: 2500, // 2.5s
+    cumulativeLayoutShift: 0.1,
+    firstInputDelay: 100 // 100ms
+  },
+  
+  // Asset limits
+  assets: {
+    imageMaxSize: 200 * 1024, // 200KB
+    fontMaxSize: 50 * 1024,    // 50KB
+    scriptMaxSize: 100 * 1024  // 100KB
+  }
+};
+```
+
+This comprehensive performance guide ensures optimal performance across web and mobile platforms using modern optimization techniques and monitoring strategies.

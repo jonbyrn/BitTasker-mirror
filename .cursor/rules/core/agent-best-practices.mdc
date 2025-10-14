@@ -1,0 +1,318 @@
+---
+description: Agent guidelines for producing high-quality, tested, on-brand code with minimal human intervention
+globs: []
+alwaysApply: true
+---
+
+# Agent Best Practices
+
+Focus on producing accurate results that are in line with the project, are functional, and without errors.  Linter errors should be resolved, major UI changes should be tested with Cursor's built in browser testing functionality, code should be pretty, etc.
+
+If you stop, continue automatically.
+
+## Code Generation Workflow
+
+### 1. Planning Phase
+
+- Understand requirements completely
+- Identify affected files and components
+- Plan implementation approach
+- Consider edge cases and error handling
+- Search for documentation online and review prior to implementing complex or uncommon functionality, or when working with new software versions
+
+### 2. Implementation Phase
+
+- Write clean, type-safe code
+- Follow project naming conventions
+- Maintain consistent formatting
+- Add proper error handling
+- Include JSDoc for complex functions
+
+### 3. Testing Phase (REQUIRED)
+
+#### For Component Changes
+
+- Use Cursor browser testing (@<https://cursor.com/docs/agent/browser#browser>)
+- Visually verify component rendering
+- Test all interactive elements
+- Verify responsive design
+- Check dark/light mode compatibility
+- Validate brand colors (#FF9315 for primary)
+
+#### For Logic Changes
+
+- Run unit tests: `npm run test:unit`
+- Check for TypeScript errors: `npm run check`
+- Verify linting: `npm run lint`
+
+#### For Large Changes
+
+- Use browser testing to validate UI changes
+- Test user flows end-to-end
+- Verify no regressions in existing functionality
+- Check console for errors
+- Test on multiple viewports
+
+### 4. Validation Phase
+
+- Read linter errors and fix them
+- Run type checker and resolve issues
+- Test the actual functionality
+- Verify visual appearance matches requirements
+- Ensure accessibility standards
+
+### 5. Iteration Phase
+
+- Fix any errors discovered
+- Improve based on visual review
+- Optimize performance if needed
+- Refine until production-ready
+
+## Quality Standards
+
+### Code Quality
+
+- Type-safe with proper TypeScript types
+- No `any` types without justification
+- Proper error handling with try-catch
+- Pure functions when possible
+- Immutable data patterns
+
+### UI Quality
+
+- Follows DaisyUI patterns
+- Uses Tailwind CSS correctly
+- Responsive on all screen sizes
+- Accessible (ARIA labels, keyboard navigation)
+- Matches brand guidelines
+
+### Testing Requirements
+
+- All new features must be tested
+- Visual verification for UI changes
+- Console should be error-free
+- No TypeScript errors
+- Passes linting
+
+## Browser Testing Guidelines
+
+### When to Use Browser Testing
+
+- New components or pages
+- UI layout changes
+- Interactive features
+- Form submissions
+- Navigation changes
+- Styling updates
+- Large refactors
+
+### How to Use Browser Testing
+
+1. Start development server if needed
+2. Use @<https://cursor.com/docs/agent/browser#browser>
+3. Navigate to affected pages
+4. Test all interactive elements
+5. Verify visual appearance
+6. Check responsive behavior
+7. Test edge cases
+8. Validate error states
+
+### What to Check
+
+- Visual appearance matches design
+- All interactive elements work
+- No console errors
+- Proper responsive behavior
+- Loading states work correctly
+- Error messages are clear
+- Navigation flows correctly
+- Forms validate properly
+
+## Self-Validation Checklist
+
+Before completing any task:
+
+- [ ] Code compiles without TypeScript errors
+- [ ] Linting passes with no warnings
+- [ ] Unit tests pass (if applicable)
+- [ ] Visual review completed via browser testing (for UI changes)
+- [ ] No console errors when testing
+- [ ] Responsive design works on mobile/tablet/desktop
+- [ ] Dark and light modes both work
+- [ ] Accessibility requirements met
+- [ ] Brand colors and styling consistent
+- [ ] Error handling implemented
+- [ ] Edge cases considered
+
+## Error Handling
+
+### When Errors Occur
+
+1. Read error messages carefully
+2. Identify root cause
+3. Fix the underlying issue
+4. Test the fix
+5. Verify no new errors introduced
+
+### Common Error Patterns
+
+- Missing imports → Add proper imports
+- Type errors → Fix type definitions
+- Runtime errors → Add error handling
+- Styling issues → Check Tailwind classes
+- Component errors → Verify props and state
+
+## Iterative Improvement
+
+### Continuous Enhancement
+
+- Always test your changes
+- Fix issues immediately
+- Don't wait for human feedback
+- Use browser testing proactively
+- Verify quality at each step
+
+### Quality Over Speed
+
+- Take time to do it right
+- Test thoroughly before completing
+- Fix all errors found
+- Ensure production-ready code
+- Minimize need for human intervention
+
+## Brand Consistency
+
+### Visual Standards
+
+- Primary color: #FF9315 (Bitcoin orange)
+- Use DaisyUI components consistently
+- Follow Tailwind CSS patterns
+- Maintain responsive design principles
+- Ensure dark/light mode compatibility
+
+### Code Standards
+
+- Follow Svelte 5 patterns with runes
+- Use TypeScript for type safety
+- Implement proper error handling
+- Follow functional programming principles
+- Maintain clean, readable code
+
+## Performance Standards
+
+### Optimization Requirements
+
+- Lazy load components when possible
+- Optimize images and assets
+- Minimize bundle size
+- Use efficient algorithms
+- Cache expensive computations
+
+### Monitoring
+
+- Check for console errors
+- Verify loading performance
+- Test on different devices
+- Monitor memory usage
+- Ensure smooth animations
+
+## Accessibility Standards
+
+### Requirements
+
+- ARIA labels for interactive elements
+- Keyboard navigation support
+- Screen reader compatibility
+- Color contrast compliance
+- Focus management
+
+### Testing
+
+- Test with keyboard only
+- Verify screen reader compatibility
+- Check color contrast ratios
+- Validate focus indicators
+- Test with different zoom levels
+
+## Documentation Standards
+
+### Code Documentation
+
+- JSDoc for complex functions
+- Clear variable names
+- Comment complex logic
+- Document API interfaces
+- Explain business logic
+
+### User-Facing Documentation
+
+- Clear error messages
+- Helpful loading states
+- Intuitive user flows
+- Consistent terminology
+- Accessible help text
+
+## Security Standards
+
+### Data Protection
+
+- Encrypt sensitive data
+- Validate all inputs
+- Sanitize user content
+- Use secure storage
+- Implement proper authentication
+
+### Privacy
+
+- Minimize data collection
+- Secure data transmission
+- Implement data retention policies
+- Provide user control
+- Follow privacy best practices
+
+## Testing Standards
+
+### Unit Testing
+
+- Test all public functions
+- Cover edge cases
+- Mock external dependencies
+- Use descriptive test names
+- Maintain high coverage
+
+### Integration Testing
+
+- Test component interactions
+- Verify data flow
+- Test error scenarios
+- Validate user workflows
+- Check performance
+
+### E2E Testing
+
+- Test complete user journeys
+- Verify cross-browser compatibility
+- Test responsive design
+- Validate accessibility
+- Check performance metrics
+
+## Deployment Standards
+
+### Pre-deployment Checklist
+
+- [ ] All tests pass
+- [ ] No TypeScript errors
+- [ ] Linting passes
+- [ ] Visual review completed
+- [ ] Performance validated
+- [ ] Accessibility verified
+- [ ] Security reviewed
+- [ ] Documentation updated
+
+### Quality Gates
+
+- Code review standards
+- Automated testing
+- Performance benchmarks
+- Security scanning
+- Accessibility audit

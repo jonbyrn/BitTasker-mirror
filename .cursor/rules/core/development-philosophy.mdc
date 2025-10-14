@@ -1,0 +1,219 @@
+---
+description: Core development philosophy, coding patterns, and best practices for BitTasker
+globs: []
+alwaysApply: true
+---
+
+# Development Philosophy
+
+## Design Philosophy
+
+- Minimalistic and modern UI
+- Mobile-first responsive design
+- Use latest version of Daisy UI, Tailwind CSS for styling
+- Always use SvelteKit 5 with Runes
+- In Svelte 5 there is no `on:click` event - it's changed to `onclick`. Same goes for other `on:` events
+- In Svelte 5 `createEventDispatcher` is deprecated, pass functions as props to the component
+- Always use `$state()` to create reactive variables
+- With this same codebase we will support multiple platforms including Android, iOS, and Web
+- We will also use Storybook for component development
+- Prefer Functional Programming over OOP
+- Pure functions and immutable data structures
+- Separation of concerns and single responsibility principle
+- Client-side e2e using Web Crypto API
+
+## Code Style
+
+- Use TypeScript for type safety
+- Use proper type assertions for external data
+- Implement proper error handling
+- Export interfaces for public types
+- Prefer const over let
+- Use early returns to reduce nesting
+- Document complex functions with JSDoc
+- Test both success and failure cases
+- Mock external dependencies (e.g., NativeBiometric)
+- Use descriptive test names
+- Pure functions
+- Immutable data
+- No side effects in business logic
+- Composition over inheritance
+
+## Imports Order
+
+1. Types imports
+2. Named imports
+3. Default imports
+
+## Functional Programming Principles
+
+### Pure Functions
+
+- Functions that always return the same output for the same input
+- No side effects (no mutations, no external dependencies)
+- Easy to test and reason about
+
+```typescript
+// Good: Pure function
+function calculateTotal(items: Item[]): number {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+
+// Bad: Impure function
+let total = 0;
+function calculateTotal(items: Item[]) {
+  total = items.reduce((sum, item) => sum + item.price, 0);
+  console.log(total); // Side effect
+  return total;
+}
+```
+
+### Immutable Data
+
+- Never mutate existing data structures
+- Always return new data structures
+- Use spread operator, map, filter, reduce
+
+```typescript
+// Good: Immutable
+const newItems = items.map(item => ({ ...item, price: item.price * 1.1 }));
+
+// Bad: Mutable
+items.forEach(item => {
+  item.price *= 1.1; // Mutates original
+});
+```
+
+### Composition over Inheritance
+
+- Build complex functionality by combining simple functions
+- Avoid deep inheritance hierarchies
+- Use higher-order functions
+
+```typescript
+// Good: Composition
+const processUser = compose(
+  validateUser,
+  enrichUserData,
+  saveUser
+);
+
+// Bad: Inheritance
+class UserProcessor extends BaseProcessor {
+  // Complex inheritance chain
+}
+```
+
+## Error Handling
+
+### Try-Catch Patterns
+
+```typescript
+async function fetchUserData(id: string): Promise<User | null> {
+  try {
+    const response = await api.getUser(id);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch user:', error);
+    return null;
+  }
+}
+```
+
+### Result Pattern
+
+```typescript
+type Result<T, E = Error> = 
+  | { success: true; data: T }
+  | { success: false; error: E };
+
+function parseUser(input: unknown): Result<User> {
+  try {
+    const user = userSchema.parse(input);
+    return { success: true, data: user };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+```
+
+## Testing Philosophy
+
+### Test-Driven Development
+
+- Write tests before implementation
+- Red-Green-Refactor cycle
+- Focus on behavior, not implementation
+
+### Test Categories
+
+1. **Unit Tests**: Test individual functions in isolation
+2. **Integration Tests**: Test component interactions
+3. **E2E Tests**: Test complete user workflows
+
+### Test Quality
+
+- Descriptive test names
+- Arrange-Act-Assert pattern
+- Mock external dependencies
+- Test edge cases and error conditions
+
+```typescript
+// Good test example
+describe('calculateTotal', () => {
+  it('should return 0 for empty array', () => {
+    const result = calculateTotal([]);
+    expect(result).toBe(0);
+  });
+
+  it('should sum all item prices', () => {
+    const items = [
+      { price: 10 },
+      { price: 20 },
+      { price: 30 }
+    ];
+    const result = calculateTotal(items);
+    expect(result).toBe(60);
+  });
+});
+```
+
+## Performance Principles
+
+### Lazy Loading
+
+- Load components and data only when needed
+- Use dynamic imports for code splitting
+- Implement virtual scrolling for large lists
+
+### Memoization
+
+- Cache expensive computations
+- Use Svelte's `$derived` for reactive computations
+- Avoid unnecessary re-renders
+
+### Bundle Optimization
+
+- Tree-shake unused code
+- Use proper imports
+- Optimize images and assets
+
+## Security Principles
+
+### Input Validation
+
+- Validate all user inputs
+- Use Zod schemas for runtime validation
+- Sanitize data before processing
+
+### Error Boundaries
+
+- Catch and handle errors gracefully
+- Provide meaningful error messages
+- Log errors for debugging
+
+### Data Protection
+
+- Encrypt sensitive data
+- Use secure storage for keys
+- Implement proper access controls

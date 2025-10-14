@@ -1,0 +1,404 @@
+---
+description: Translation system guidelines for internationalization and localization
+globs: ["**/*.svelte", "**/*.ts", "**/locales/**/*"]
+alwaysApply: true
+---
+
+# Translation System Rules
+
+## Overview
+
+BitTasker uses svelte-i18n for internationalization with automatic translation capabilities. **ALWAYS translate new text content** and follow these patterns for consistent multilingual support.
+
+## Core Principles
+
+### 1. **ALWAYS Translate New Text**
+
+- **NEVER hardcode text strings** in components
+- **ALWAYS use translation keys** for all user-facing text
+- **ALWAYS add translations** for new features
+- **ALWAYS test** in both English and Spanish
+- **ALWAYS** ensure translated text is reactive
+
+### 2. **Translation Key Patterns**
+
+```typescript
+// ✅ CORRECT - Use descriptive, hierarchical keys
+$t('dashboard.tasks.create.title')
+$t('auth.login.form.email_label')
+$t('common.buttons.save')
+
+// ❌ WRONG - Don't use generic or unclear keys
+$t('title')
+$t('button')
+$t('text')
+```
+
+### 3. **Namespace Organization**
+
+```text
+locales/
+├── en/
+│   ├── common.json          # Shared UI elements
+│   ├── auth.json           # Authentication
+│   ├── dashboard/          # Dashboard features
+│   │   ├── dashboard.json
+│   │   ├── tasks/
+│   │   ├── bids/
+│   │   └── wallet/
+│   ├── company/            # Company pages
+│   └── taskees/            # Taskee-specific content
+└── es/                     # Spanish translations
+    └── [same structure]
+```
+
+## Implementation Patterns
+
+### 1. **Basic Translation Usage**
+
+```svelte
+<script>
+  import { t } from 'svelte-i18n';
+</script>
+
+<!-- ✅ CORRECT -->
+<h1>{$t('dashboard.tasks.create.title')}</h1>
+<button class="btn btn-primary">{$t('common.buttons.create')}</button>
+
+<!-- ❌ WRONG -->
+<h1>Create Task</h1>
+<button class="btn btn-primary">Create</button>
+```
+
+### 2. **Translation with Variables**
+
+```svelte
+<script>
+  import { t } from 'svelte-i18n';
+  
+  let taskCount = $state(5);
+  let userName = $state('John');
+</script>
+
+<!-- ✅ CORRECT -->
+<p>{$t('dashboard.tasks.count', { count: taskCount })}</p>
+<p>{$t('dashboard.welcome.message', { name: userName })}</p>
+```
+
+### 3. **Conditional Translations**
+
+```svelte
+<script>
+  import { t } from 'svelte-i18n';
+  
+  let isCompleted = $state(false);
+</script>
+
+<!-- ✅ CORRECT -->
+<span class="badge" class:badge-success={isCompleted} class:badge-warning={!isCompleted}>
+  {$t(isCompleted ? 'common.status.completed' : 'common.status.pending')}
+</span>
+```
+
+### 4. **Form Validation Messages**
+
+```svelte
+<script>
+  import { t } from 'svelte-i18n';
+  
+  let email = $state('');
+  let emailError = $state('');
+</script>
+
+<input 
+  type="email" 
+  bind:value={email}
+  class="input" 
+  class:input-error={emailError}
+  placeholder={$t('auth.login.form.email_placeholder')}
+/>
+{#if emailError}
+  <div class="text-error text-sm">{$t('auth.login.form.email_error')}</div>
+{/if}
+```
+
+## Translation File Structure
+
+### 1. **Common Translations** (`common.json`)
+
+```json
+{
+  "common": {
+    "buttons": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "create": "Create",
+      "update": "Update"
+    },
+    "status": {
+      "completed": "Completed",
+      "pending": "Pending",
+      "failed": "Failed",
+      "loading": "Loading..."
+    },
+    "validation": {
+      "required": "This field is required",
+      "email_invalid": "Please enter a valid email address",
+      "password_min_length": "Password must be at least 8 characters"
+    }
+  }
+}
+```
+
+### 2. **Feature-Specific Translations** (`dashboard/tasks/create.json`)
+
+```json
+{
+  "dashboard": {
+    "tasks": {
+      "create": {
+        "title": "Create New Task",
+        "form": {
+          "title_label": "Task Title",
+          "title_placeholder": "Enter task title...",
+          "description_label": "Description",
+          "description_placeholder": "Describe your task...",
+          "budget_label": "Budget",
+          "budget_placeholder": "Enter budget amount"
+        },
+        "validation": {
+          "title_required": "Task title is required",
+          "description_required": "Task description is required",
+          "budget_required": "Budget is required"
+        }
+      }
+    }
+  }
+}
+```
+
+## Automatic Translation System
+
+### 1. **Message Translation** (Chat/Messages)
+
+```svelte
+<script>
+  import { TranslationStore } from '$lib/stores/translation.store';
+  
+  let message = $state('');
+  let messageId = $state('');
+  
+  // Auto-translate incoming messages
+  onMount(async () => {
+    if (message.trim()) {
+      await TranslationStore.translateMessage(messageId, message);
+    }
+  });
+</script>
+
+<div class="message">
+  {TranslationStore.getDisplayText(messageId, message)}
+</div>
+```
+
+### 2. **Translation Settings Component**
+
+```svelte
+<script>
+  import TranslationSettings from '$lib/components/translation/TranslationSettings.svelte';
+</script>
+
+<!-- Include translation settings in chat/messaging components -->
+<TranslationSettings />
+```
+
+## Route-Based Translation Loading
+
+### 1. **Automatic Route Translation Loading**
+
+```svelte
+<script>
+  import { loadPageTranslations } from '$lib/i18n/routeTranslations';
+  import { onMount } from 'svelte';
+  
+  onMount(async () => {
+    await loadPageTranslations();
+  });
+</script>
+```
+
+### 2. **Preload Translations for Navigation**
+
+```svelte
+<script>
+  import { preloadPageTranslations } from '$lib/i18n/routeTranslations';
+  
+  function navigateToTasks() {
+    // Preload translations before navigation
+    preloadPageTranslations('/dashboard/tasks');
+    goto('/dashboard/tasks');
+  }
+</script>
+```
+
+## Language Switching
+
+### 1. **Language Dropdown Component**
+
+```svelte
+<script>
+  import LanguageDropdown from '$lib/components/LanguageDropdown.svelte';
+</script>
+
+<!-- Include in header/navigation -->
+<LanguageDropdown 
+  showTooltip={true}
+  showLanguageCode={true}
+  onLanguageChange={(code) => console.log('Language changed to:', code)}
+/>
+```
+
+### 2. **Manual Language Switching**
+
+```svelte
+<script>
+  import { switchLanguage, type SupportedLanguage } from '$lib/i18n/i18n';
+  
+  async function changeLanguage(lang: SupportedLanguage) {
+    await switchLanguage(lang);
+  }
+</script>
+
+<button onclick={() => changeLanguage('es')}>Español</button>
+<button onclick={() => changeLanguage('en')}>English</button>
+```
+
+## Best Practices
+
+### 1. **Translation Key Naming**
+
+- Use **descriptive, hierarchical keys**: `dashboard.tasks.create.title`
+- Group related translations: `auth.login.form.*`
+- Use **consistent naming patterns**: `buttons.*`, `labels.*`, `messages.*`
+- Avoid **generic keys**: `title`, `button`, `text`
+
+### 2. **Content Guidelines**
+
+- **Keep translations concise** but clear
+- **Use consistent terminology** across the app
+- **Include context** in translation keys when needed
+- **Test translations** in both languages
+
+### 3. **Technical Guidelines**
+
+- **Always use `$t()` function** for translations
+- **Never hardcode text** in components
+- **Load route-specific translations** when needed
+- **Handle translation loading states** gracefully
+- **Optimize bundle size** by loading only relevant translation files to enable tree shaking and avoid loading huge translation files on every page
+
+### 4. **Error Handling**
+
+```svelte
+<script>
+  import { t } from 'svelte-i18n';
+  import { isI18nLoading } from '$lib/i18n/i18n';
+</script>
+
+{#if $isI18nLoading}
+  <div class="loading loading-spinner"></div>
+{:else}
+  <h1>{$t('dashboard.title')}</h1>
+{/if}
+```
+
+## AI Development Guidelines
+
+### **When Creating New Components:**
+
+1. **ALWAYS use `$t()` for all text content**
+2. **ALWAYS add translation keys to appropriate JSON files**
+3. **ALWAYS test in both English and Spanish**
+4. **ALWAYS use descriptive, hierarchical key names**
+5. **ALWAYS load route-specific translations when needed**
+
+### **When Adding New Features:**
+
+1. **Identify all text content** that needs translation
+2. **Create appropriate translation keys** in JSON files
+3. **Add both English and Spanish translations**
+4. **Update route translation mapping** if needed
+5. **Test language switching** functionality
+
+### **When Modifying Existing Components:**
+
+1. **Replace hardcoded text** with translation keys
+2. **Update translation files** with new keys
+3. **Maintain consistent key naming** patterns
+4. **Test existing translations** still work
+
+## Common Patterns
+
+### **Button Translations**
+
+```svelte
+<button class="btn btn-primary">{$t('common.buttons.save')}</button>
+<button class="btn btn-secondary">{$t('common.buttons.cancel')}</button>
+<button class="btn btn-error">{$t('common.buttons.delete')}</button>
+```
+
+### **Form Field Translations**
+
+```svelte
+<label class="label">
+  <span class="label-text">{$t('auth.login.form.email_label')}</span>
+</label>
+<input 
+  type="email" 
+  class="input input-bordered"
+  placeholder={$t('auth.login.form.email_placeholder')}
+/>
+```
+
+### **Status Messages**
+
+```svelte
+<div class="alert alert-success">
+  <span>{$t('dashboard.tasks.create.success_message')}</span>
+</div>
+<div class="alert alert-error">
+  <span>{$t('dashboard.tasks.create.error_message')}</span>
+</div>
+```
+
+### **Navigation Items**
+
+```svelte
+<nav class="menu">
+  <a href="/dashboard" class="menu-item">{$t('navigation.dashboard')}</a>
+  <a href="/tasks" class="menu-item">{$t('navigation.tasks')}</a>
+  <a href="/messages" class="menu-item">{$t('navigation.messages')}</a>
+</nav>
+```
+
+## Troubleshooting
+
+### **Common Issues:**
+
+1. **Missing translations** - Check JSON files have the keys
+2. **Translation not loading** - Verify route translation loading
+3. **Language not switching** - Check language switching implementation
+4. **Auto-translation not working** - Verify TranslationStore setup
+
+### **Debug Translation Loading:**
+
+```javascript
+// Check if translations are loaded
+console.log('Current locale:', $locale);
+console.log('Available locales:', $locales);
+console.log('Translation loading:', $isI18nLoading);
+```
+
+Remember: **ALWAYS translate new text content** and follow these patterns for consistent multilingual support across BitTasker.

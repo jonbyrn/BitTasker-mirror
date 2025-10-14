@@ -1,0 +1,543 @@
+---
+description: Capacitor mobile development patterns, plugin usage, and cross-platform best practices
+globs: ["**/capacitor/**/*", "**/mobile/**/*", "**/ios/**/*", "**/android/**/*"]
+alwaysApply: false
+---
+
+# Mobile Development Rules
+
+## Overview
+
+BitTasker uses Capacitor 7.0+ for cross-platform mobile development, enabling a single codebase for iOS, Android, and Web platforms. This document outlines patterns, best practices, and guidelines for mobile-specific development.
+
+## Core Principles
+
+### Platform Detection
+
+- **Always check platform capabilities** before using native features
+- **Use progressive enhancement** - web-first with mobile enhancements
+- **Implement graceful fallbacks** for unsupported features
+- **Test on actual devices** - simulators don't catch all issues
+
+### Capacitor Plugin Usage
+
+- **Check plugin availability** before calling native methods
+- **Handle plugin initialization errors** gracefully
+- **Use proper TypeScript types** for plugin interfaces
+- **Implement proper cleanup** for event listeners and subscriptions
+
+## Platform Detection Patterns
+
+### Basic Platform Detection
+
+```typescript
+import { Capacitor } from '@capacitor/core';
+
+// Check if running on native platform
+const isNative = Capacitor.isNativePlatform();
+
+// Get specific platform
+const platform = Capacitor.getPlatform(); // 'ios', 'android', 'web'
+
+// Platform-specific code
+if (platform === 'ios') {
+  // iOS-specific implementation
+} else if (platform === 'android') {
+  // Android-specific implementation
+} else {
+  // Web fallback
+}
+```
+
+### Advanced Platform Detection
+
+```typescript
+import { Device } from '@capacitor/device';
+
+const getDeviceInfo = async () => {
+  try {
+    const info = await Device.getInfo();
+    return {
+      platform: info.platform,
+      model: info.model,
+      osVersion: info.osVersion,
+      isVirtual: info.isVirtual,
+      manufacturer: info.manufacturer
+    };
+  } catch (error) {
+    console.warn('Device info not available:', error);
+    return null;
+  }
+};
+```
+
+## Plugin Integration Patterns
+
+### Safe Plugin Usage
+
+```typescript
+// Always check plugin availability
+const usePlugin = async (pluginName: string, method: string) => {
+  try {
+    const plugin = await import(`@capacitor/${pluginName}`);
+    if (plugin && plugin[method]) {
+      return plugin[method];
+    }
+    throw new Error(`Plugin ${pluginName} not available`);
+  } catch (error) {
+    console.warn(`Plugin ${pluginName} not available:`, error);
+    return null;
+  }
+};
+
+// Example: Safe biometric usage
+const useBiometric = async () => {
+  const { NativeBiometric } = await import('capacitor-native-biometric');
+  
+  try {
+    const isAvailable = await NativeBiometric.isAvailable();
+    if (isAvailable) {
+      return NativeBiometric;
+    }
+  } catch (error) {
+    console.warn('Biometric not available:', error);
+  }
+  
+  return null;
+};
+```
+
+### Plugin State Management
+
+```typescript
+// Create reactive plugin state
+import { writable } from 'svelte/store';
+
+interface PluginState {
+  isAvailable: boolean;
+  isInitialized: boolean;
+  error: string | null;
+}
+
+const createPluginStore = (pluginName: string) => {
+  const initialState: PluginState = {
+    isAvailable: false,
+    isInitialized: false,
+    error: null
+  };
+
+  const { subscribe, set, update } = writable(initialState);
+
+  const initialize = async () => {
+    try {
+      // Plugin-specific initialization
+      update(state => ({ ...state, isInitialized: true, error: null }));
+    } catch (error) {
+      update(state => ({ 
+        ...state, 
+        error: error.message,
+        isInitialized: false 
+      }));
+    }
+  };
+
+  return {
+    subscribe,
+    initialize
+  };
+};
+```
+
+## Native Feature Integration
+
+### Biometric Authentication
+
+```typescript
+import { NativeBiometric } from 'capacitor-native-biometric';
+
+class BiometricService {
+  private isAvailable: boolean = false;
+
+  async initialize() {
+    try {
+      this.isAvailable = await NativeBiometric.isAvailable();
+      return this.isAvailable;
+    } catch (error) {
+      console.warn('Biometric initialization failed:', error);
+      return false;
+    }
+  }
+
+  async authenticate(reason: string = 'Authenticate to continue') {
+    if (!this.isAvailable) {
+      throw new Error('Biometric authentication not available');
+    }
+
+    try {
+      await NativeBiometric.verifyIdentity({
+        reason,
+        title: 'Biometric Authentication',
+        subtitle: 'Use your biometric to continue',
+        description: 'Use your fingerprint or face to authenticate'
+      });
+      return true;
+    } catch (error) {
+      if (error.message === 'User cancelled') {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async storeCredentials(username: string, password: string) {
+    if (!this.isAvailable) {
+      throw new Error('Biometric storage not available');
+    }
+
+    await NativeBiometric.setCredentials({
+      username,
+      password,
+      server: 'bittasker'
+    });
+  }
+}
+```
+
+### Push Notifications
+
+```typescript
+import { PushNotifications } from '@capacitor/push-notifications';
+
+class NotificationService {
+  async initialize() {
+    // Request permissions
+    const permStatus = await PushNotifications.requestPermissions();
+    
+    if (permStatus.receive === 'granted') {
+      // Register with Apple / Google to get push tokens
+      await PushNotifications.register();
+    }
+
+    // Listen for registration
+    PushNotifications.addListener('registration', (token) => {
+      console.log('Registration token: ', token.value);
+      // Send token to server
+      this.sendTokenToServer(token.value);
+    });
+
+    // Listen for push notifications
+    PushNotifications.addListener('pushNotificationReceived', (notification) => {
+      console.log('Push notification received: ', notification);
+      // Handle notification display
+    });
+
+    // Listen for notification actions
+    PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+      console.log('Push notification action performed', notification);
+      // Handle notification tap
+    });
+  }
+
+  private async sendTokenToServer(token: string) {
+    // Send token to your server
+    // Implementation depends on your backend
+  }
+}
+```
+
+### Geolocation
+
+```typescript
+import { Geolocation } from '@capacitor/geolocation';
+
+class LocationService {
+  async getCurrentPosition(): Promise<GeolocationPosition | null> {
+    try {
+      const coordinates = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000
+      });
+      
+      return coordinates;
+    } catch (error) {
+      console.warn('Geolocation error:', error);
+      return null;
+    }
+  }
+
+  async watchPosition(callback: (position: GeolocationPosition) => void) {
+    const watchId = await Geolocation.watchPosition({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000
+    }, callback);
+
+    return () => {
+      Geolocation.clearWatch({ id: watchId });
+    };
+  }
+}
+```
+
+## UI/UX Mobile Patterns
+
+### Responsive Design
+
+```svelte
+<script>
+  import { Capacitor } from '@capacitor/core';
+  
+  let isNative = $state(false);
+  let isIOS = $state(false);
+  let isAndroid = $state(false);
+
+  onMount(() => {
+    isNative = Capacitor.isNativePlatform();
+    isIOS = Capacitor.getPlatform() === 'ios';
+    isAndroid = Capacitor.getPlatform() === 'android';
+  });
+</script>
+
+<!-- Platform-specific styling -->
+<div 
+  class="container"
+  class:ios={isIOS}
+  class:android={isAndroid}
+  class:native={isNative}
+>
+  <!-- Content -->
+</div>
+
+<style>
+  .container {
+    /* Base styles */
+  }
+  
+  .ios {
+    /* iOS-specific styles */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .android {
+    /* Android-specific styles */
+  }
+  
+  .native {
+    /* Native app specific styles */
+  }
+</style>
+```
+
+### Safe Area Handling
+
+```svelte
+<script>
+  import { StatusBar } from '@capacitor/status-bar';
+  
+  onMount(async () => {
+    if (Capacitor.isNativePlatform()) {
+      // Set status bar style
+      await StatusBar.setStyle({ style: 'DARK' });
+      await StatusBar.setBackgroundColor({ color: '#000000' });
+    }
+  });
+</script>
+
+<div class="safe-area">
+  <!-- Content with safe area padding -->
+</div>
+
+<style>
+  .safe-area {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+</style>
+```
+
+## Performance Optimization
+
+### Lazy Loading for Mobile
+
+```typescript
+// Lazy load heavy components on mobile
+const loadHeavyComponent = async () => {
+  if (Capacitor.isNativePlatform()) {
+    // Use dynamic import for mobile
+    const { HeavyComponent } = await import('./HeavyComponent.svelte');
+    return HeavyComponent;
+  }
+  // Use regular import for web
+  return (await import('./HeavyComponent.svelte')).default;
+};
+```
+
+### Memory Management
+
+```typescript
+// Clean up resources properly
+class MobileResourceManager {
+  private listeners: (() => void)[] = [];
+  private timers: number[] = [];
+
+  addListener(cleanup: () => void) {
+    this.listeners.push(cleanup);
+  }
+
+  addTimer(timer: number) {
+    this.timers.push(timer);
+  }
+
+  cleanup() {
+    // Clean up listeners
+    this.listeners.forEach(cleanup => cleanup());
+    this.listeners = [];
+
+    // Clear timers
+    this.timers.forEach(timer => clearTimeout(timer));
+    this.timers = [];
+  }
+}
+```
+
+## Error Handling
+
+### Mobile-Specific Error Handling
+
+```typescript
+class MobileErrorHandler {
+  static handlePluginError(error: any, pluginName: string) {
+    if (error.code === 'PLUGIN_NOT_AVAILABLE') {
+      console.warn(`${pluginName} plugin not available on this platform`);
+      return { handled: true, userMessage: 'Feature not available on this device' };
+    }
+    
+    if (error.code === 'PERMISSION_DENIED') {
+      console.warn(`${pluginName} permission denied`);
+      return { handled: true, userMessage: 'Permission required for this feature' };
+    }
+    
+    return { handled: false, userMessage: 'An error occurred' };
+  }
+}
+```
+
+## Testing Mobile Features
+
+### Mock Capacitor Plugins
+
+```typescript
+// Mock plugins for testing
+const mockCapacitor = {
+  isNativePlatform: () => true,
+  getPlatform: () => 'ios',
+  plugins: {
+    NativeBiometric: {
+      isAvailable: () => Promise.resolve(true),
+      verifyIdentity: () => Promise.resolve()
+    }
+  }
+};
+
+// Use in tests
+vi.mock('@capacitor/core', () => mockCapacitor);
+```
+
+## Best Practices
+
+### 1. Plugin Management
+
+- **Always check availability** before using plugins
+- **Handle initialization errors** gracefully
+- **Clean up resources** when components unmount
+- **Use TypeScript** for better type safety
+
+### 2. Performance
+
+- **Lazy load heavy components** on mobile
+- **Optimize images** for mobile screens
+- **Use native animations** when possible
+- **Minimize bundle size** with tree shaking
+
+### 3. User Experience
+
+- **Respect platform conventions** (iOS vs Android)
+- **Handle safe areas** properly
+- **Provide loading states** for async operations
+- **Implement proper error messages**
+
+### 4. Security
+
+- **Validate plugin inputs** before calling native methods
+- **Handle sensitive data** securely
+- **Use biometric authentication** when available
+- **Implement proper key management**
+
+### 5. Testing
+
+- **Mock plugins** in unit tests
+- **Test on real devices** for integration tests
+- **Use platform-specific test suites**
+- **Test error scenarios** thoroughly
+
+## Common Patterns
+
+### Plugin Wrapper Pattern
+
+```typescript
+// Create wrapper for complex plugins
+class PluginWrapper {
+  private plugin: any;
+  private isAvailable: boolean = false;
+
+  constructor(pluginName: string) {
+    this.initializePlugin(pluginName);
+  }
+
+  private async initializePlugin(pluginName: string) {
+    try {
+      this.plugin = await import(`@capacitor/${pluginName}`);
+      this.isAvailable = true;
+    } catch (error) {
+      console.warn(`Plugin ${pluginName} not available:`, error);
+    }
+  }
+
+  async callMethod(method: string, ...args: any[]) {
+    if (!this.isAvailable || !this.plugin[method]) {
+      throw new Error(`Method ${method} not available`);
+    }
+    
+    return this.plugin[method](...args);
+  }
+}
+```
+
+### Platform-Specific Components
+
+```svelte
+<!-- PlatformWrapper.svelte -->
+<script>
+  import { Capacitor } from '@capacitor/core';
+  
+  let { children, ios, android, web } = $props();
+  
+  const platform = Capacitor.getPlatform();
+  
+  $: platformContent = platform === 'ios' ? ios : 
+                      platform === 'android' ? android : 
+                      web;
+</script>
+
+{#if platformContent}
+  {@render platformContent()}
+{:else}
+  {@render children()}
+{/if}
+```
+
+This comprehensive mobile development guide ensures consistent, performant, and maintainable mobile applications across iOS, Android, and Web platforms using Capacitor 7.0+.
