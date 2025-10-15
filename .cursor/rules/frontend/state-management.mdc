@@ -1,0 +1,584 @@
+---
+description: Svelte 5 state management patterns, store composition, and reactive data flow
+globs: ["**/stores/**/*", "**/state/**/*"]
+alwaysApply: false
+---
+
+# State Management Rules
+
+## Overview
+
+BitTasker uses Svelte 5 runes and Svelte stores for state management, providing reactive, composable, and performant state handling across the application. This document outlines patterns and best practices for state management.
+
+## Core Principles
+
+### Runes-First Approach
+
+- **Use `$state()` for reactive state** - replaces `let` declarations
+- **Use `$derived()` for computed values** - replaces `$:` reactive statements
+- **Use `$effect()` for side effects** - replaces `$:` effect blocks
+- **Use `$props()` for component props** - replaces `export let`
+
+### Store Composition
+
+- **Compose stores from smaller stores** for better organization
+- **Use derived stores** for computed state
+- **Implement proper cleanup** for subscriptions
+- **Handle async state** with proper loading/error states
+
+## Store Patterns
+
+### Basic Store Pattern
+
+```typescript
+import { writable, derived } from 'svelte/store';
+
+// Simple writable store
+export const count = writable(0);
+
+// Derived store
+export const doubled = derived(count, $count => $count * 2);
+
+// Store with methods
+function createCounterStore() {
+  const { subscribe, set, update } = writable(0);
+
+  return {
+    subscribe,
+    increment: () => update(n => n + 1),
+    decrement: () => update(n => n - 1),
+    reset: () => set(0)
+  };
+}
+
+export const counter = createCounterStore();
+```
+
+### Complex Store Pattern
+
+```typescript
+// Multi-state store with async operations
+interface UserState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+  lastUpdated: Date | null;
+}
+
+function createUserStore() {
+  const { subscribe, set, update } = writable<UserState>({
+    user: null,
+    loading: false,
+    error: null,
+    lastUpdated: null
+  });
+
+  return {
+    subscribe,
+    
+    async loadUser(userId: string) {
+      update(state => ({ ...state, loading: true, error: null }));
+      
+      try {
+        const user = await fetchUser(userId);
+        update(state => ({ 
+          ...state, 
+          user, 
+          loading: false, 
+          lastUpdated: new Date() 
+        }));
+      } catch (error) {
+        update(state => ({ 
+          ...state, 
+          loading: false, 
+          error: error.message 
+        }));
+      }
+    },
+
+    updateUser(updates: Partial<User>) {
+      update(state => ({
+        ...state,
+        user: state.user ? { ...state.user, ...updates } : null
+      }));
+    },
+
+    clearError() {
+      update(state => ({ ...state, error: null }));
+    },
+
+    reset() {
+      set({
+        user: null,
+        loading: false,
+        error: null,
+        lastUpdated: null
+      });
+    }
+  };
+}
+
+export const userStore = createUserStore();
+```
+
+## Runes Integration
+
+### Component State with Runes
+
+```svelte
+<script>
+  import { userStore } from '$lib/stores/user.store';
+  
+  // Local state with runes
+  let searchQuery = $state('');
+  let isSearching = $state(false);
+  
+  // Derived state
+  let filteredUsers = $derived(() => {
+    if (!searchQuery) return [];
+    return users.filter(user => 
+      user.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+  
+  // Effect for side effects
+  $effect(() => {
+    if (searchQuery.length > 2) {
+      isSearching = true;
+      // Perform search
+    }
+  });
+  
+  // Store subscription
+  $effect(() => {
+    const unsubscribe = userStore.subscribe(user => {
+      // Handle user state changes
+    });
+    
+    return unsubscribe;
+  });
+</script>
+```
+
+### Store-to-Runes Bridge
+
+```typescript
+// Bridge between stores and runes
+function useStore<T>(store: Readable<T>) {
+  let value = $state<T | undefined>(undefined);
+  
+  $effect(() => {
+    const unsubscribe = store.subscribe(v => value = v);
+    return unsubscribe;
+  });
+  
+  return value;
+}
+
+// Usage in component
+<script>
+  import { userStore } from '$lib/stores/user.store';
+  
+  let user = useStore(userStore);
+  let isLoading = $derived(() => user?.loading ?? false);
+</script>
+```
+
+## Store Composition Patterns
+
+### Combining Multiple Stores
+
+```typescript
+// Combine related stores
+function createAppStore() {
+  const user = writable<User | null>(null);
+  const theme = writable<'light' | 'dark'>('light');
+  const notifications = writable<Notification[]>([]);
+  
+  // Derived store combining multiple sources
+  const appState = derived(
+    [user, theme, notifications],
+    ([$user, $theme, $notifications]) => ({
+      isAuthenticated: !!$user,
+      user: $user,
+      theme: $theme,
+      notificationCount: $notifications.length,
+      hasUnreadNotifications: $notifications.some(n => !n.read)
+    })
+  );
+  
+  return {
+    user: { subscribe: user.subscribe },
+    theme: { subscribe: theme.subscribe },
+    notifications: { subscribe: notifications.subscribe },
+    appState: { subscribe: appState.subscribe },
+    
+    // Actions
+    setUser: user.set,
+    setTheme: theme.set,
+    addNotification: (notification: Notification) => {
+      notifications.update(n => [...n, notification]);
+    },
+    markNotificationRead: (id: string) => {
+      notifications.update(n => 
+        n.map(notif => notif.id === id ? { ...notif, read: true } : notif)
+      );
+    }
+  };
+}
+
+export const appStore = createAppStore();
+```
+
+### Hierarchical Store Pattern
+
+```typescript
+// Parent store managing child stores
+function createWalletStore() {
+  const liquid = createLiquidStore();
+  const rsk = createRSKStore();
+  const bsc = createBSCStore();
+  
+  // Combined state
+  const combinedState = derived(
+    [liquid.state, rsk.state, bsc.state],
+    ([$liquid, $rsk, $bsc]) => ({
+      liquid: $liquid,
+      rsk: $rsk,
+      bsc: $bsc,
+      hasAnyConnection: $liquid.connected || $rsk.connected || $bsc.connected,
+      totalBalance: $liquid.balance + $rsk.balance + $bsc.balance
+    })
+  );
+  
+  return {
+    liquid,
+    rsk,
+    bsc,
+    state: { subscribe: combinedState.subscribe },
+    
+    async connectAll() {
+      await Promise.all([
+        liquid.connect(),
+        rsk.connect(),
+        bsc.connect()
+      ]);
+    },
+    
+    async disconnectAll() {
+      await Promise.all([
+        liquid.disconnect(),
+        rsk.disconnect(),
+        bsc.disconnect()
+      ]);
+    }
+  };
+}
+```
+
+## Async State Management
+
+### Loading States Pattern
+
+```typescript
+interface AsyncState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+}
+
+function createAsyncStore<T>() {
+  const { subscribe, set, update } = writable<AsyncState<T>>({
+    data: null,
+    loading: false,
+    error: null
+  });
+  
+  return {
+    subscribe,
+    
+    async execute(asyncFn: () => Promise<T>) {
+      update(state => ({ ...state, loading: true, error: null }));
+      
+      try {
+        const data = await asyncFn();
+        update(state => ({ ...state, data, loading: false }));
+        return data;
+      } catch (error) {
+        update(state => ({ 
+          ...state, 
+          loading: false, 
+          error: error.message 
+        }));
+        throw error;
+      }
+    },
+    
+    reset() {
+      set({ data: null, loading: false, error: null });
+    }
+  };
+}
+```
+
+### Cache Pattern
+
+```typescript
+function createCacheStore<T>(key: string) {
+  const cache = new Map<string, { data: T; timestamp: number }>();
+  const ttl = 5 * 60 * 1000; // 5 minutes
+  
+  return {
+    get(id: string): T | null {
+      const cached = cache.get(id);
+      if (cached && Date.now() - cached.timestamp < ttl) {
+        return cached.data;
+      }
+      return null;
+    },
+    
+    set(id: string, data: T) {
+      cache.set(id, { data, timestamp: Date.now() });
+    },
+    
+    clear() {
+      cache.clear();
+    },
+    
+    invalidate(id: string) {
+      cache.delete(id);
+    }
+  };
+}
+```
+
+## Store Testing Patterns
+
+### Mock Store for Testing
+
+```typescript
+// Mock store for testing
+function createMockStore<T>(initialValue: T) {
+  let value = initialValue;
+  const subscribers = new Set<(value: T) => void>();
+  
+  return {
+    subscribe: (callback: (value: T) => void) => {
+      subscribers.add(callback);
+      callback(value);
+      
+      return () => subscribers.delete(callback);
+    },
+    
+    set: (newValue: T) => {
+      value = newValue;
+      subscribers.forEach(callback => callback(value));
+    },
+    
+    update: (updater: (value: T) => T) => {
+      value = updater(value);
+      subscribers.forEach(callback => callback(value));
+    },
+    
+    // Test helpers
+    getValue: () => value,
+    getSubscriberCount: () => subscribers.size
+  };
+}
+```
+
+### Store Test Utilities
+
+```typescript
+// Test utilities for stores
+export async function waitForStoreUpdate<T>(
+  store: Readable<T>, 
+  predicate: (value: T) => boolean,
+  timeout = 1000
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Store update timeout'));
+    }, timeout);
+    
+    const unsubscribe = store.subscribe(value => {
+      if (predicate(value)) {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(value);
+      }
+    });
+  });
+}
+
+// Usage in tests
+test('store updates correctly', async () => {
+  const store = createTestStore();
+  
+  store.setValue('new value');
+  
+  const result = await waitForStoreUpdate(
+    store, 
+    value => value === 'new value'
+  );
+  
+  expect(result).toBe('new value');
+});
+```
+
+## Performance Optimization
+
+### Store Subscription Management
+
+```typescript
+// Automatic cleanup for store subscriptions
+function useStoreWithCleanup<T>(store: Readable<T>) {
+  let value = $state<T | undefined>(undefined);
+  let unsubscribe: (() => void) | null = null;
+  
+  $effect(() => {
+    // Clean up previous subscription
+    if (unsubscribe) {
+      unsubscribe();
+    }
+    
+    // Create new subscription
+    unsubscribe = store.subscribe(v => value = v);
+    
+    // Cleanup on effect cleanup
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+  });
+  
+  return value;
+}
+```
+
+### Debounced Store Updates
+
+```typescript
+function createDebouncedStore<T>(
+  source: Readable<T>, 
+  delay: number = 300
+) {
+  let timeoutId: number | null = null;
+  let latestValue: T;
+  
+  const { subscribe, set } = writable<T | undefined>(undefined);
+  
+  source.subscribe(value => {
+    latestValue = value;
+    
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    timeoutId = setTimeout(() => {
+      set(latestValue);
+      timeoutId = null;
+    }, delay);
+  });
+  
+  return { subscribe };
+}
+```
+
+## Best Practices
+
+### 1. Store Design
+
+- **Keep stores focused** on a single domain
+- **Use composition** for complex state
+- **Implement proper cleanup** for subscriptions
+- **Handle async operations** with loading states
+
+### 2. Performance
+
+- **Minimize store subscriptions** in components
+- **Use derived stores** for computed values
+- **Implement proper memoization** for expensive computations
+- **Clean up subscriptions** to prevent memory leaks
+
+### 3. Testing
+
+- **Mock stores** in unit tests
+- **Test store state changes** thoroughly
+- **Use test utilities** for async operations
+- **Test error scenarios** and edge cases
+
+### 4. Type Safety
+
+- **Use TypeScript interfaces** for store state
+- **Implement proper type guards** for runtime validation
+- **Use generic types** for reusable store patterns
+- **Validate store state** at runtime when needed
+
+### 5. Error Handling
+
+- **Handle store errors** gracefully
+- **Implement retry logic** for failed operations
+- **Provide user feedback** for error states
+- **Log errors** for debugging
+
+## Common Anti-Patterns
+
+### ❌ Don't: Mutate Store State Directly
+
+```typescript
+// Bad: Direct mutation
+store.update(state => {
+  state.user.name = 'New Name'; // Mutates original state
+  return state;
+});
+
+// Good: Immutable updates
+store.update(state => ({
+  ...state,
+  user: { ...state.user, name: 'New Name' }
+}));
+```
+
+### ❌ Don't: Subscribe Without Cleanup
+
+```typescript
+// Bad: Memory leak
+onMount(() => {
+  const unsubscribe = store.subscribe(value => {
+    // Handle value
+  });
+  // Missing cleanup!
+});
+
+// Good: Proper cleanup
+onMount(() => {
+  const unsubscribe = store.subscribe(value => {
+    // Handle value
+  });
+  
+  return unsubscribe; // Cleanup on unmount
+});
+```
+
+### ❌ Don't: Store Everything in One Store
+
+```typescript
+// Bad: Monolithic store
+const appStore = writable({
+  user: null,
+  tasks: [],
+  notifications: [],
+  settings: {},
+  // ... everything
+});
+
+// Good: Composed stores
+const userStore = createUserStore();
+const taskStore = createTaskStore();
+const notificationStore = createNotificationStore();
+```
+
+This comprehensive state management guide ensures consistent, performant, and maintainable state handling across the BitTasker application using Svelte 5 runes and store patterns.

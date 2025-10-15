@@ -1,0 +1,749 @@
+---
+description: Centralized error handling patterns, error boundaries, and user feedback systems
+globs: ["**/*.svelte", "**/*.ts", "**/*.js", "**/error/**/*", "**/utils/**/*"]
+alwaysApply: false
+---
+
+# Error Handling Rules
+
+## Overview
+
+BitTasker implements comprehensive error handling across all layers of the application, from user interface to blockchain operations. This document outlines centralized error management patterns, error boundaries, and user feedback systems.
+
+## Core Principles
+
+### Error-First Design
+
+- **Expect errors** - design for failure scenarios
+- **Graceful degradation** - maintain functionality when possible
+- **User-friendly messages** - provide actionable feedback
+- **Comprehensive logging** - capture context for debugging
+
+### Error Classification
+
+- **User Errors**: Invalid input, permission denied, validation failures
+- **System Errors**: Network failures, service unavailability, timeouts
+- **Application Errors**: Logic errors, state inconsistencies, bugs
+- **External Errors**: Third-party service failures, blockchain network issues
+
+## Error Types and Interfaces
+
+### Error Type Definitions
+
+```typescript
+// Base error interface
+interface BaseError {
+  code: string;
+  message: string;
+  timestamp: Date;
+  context?: Record<string, any>;
+  stack?: string;
+}
+
+// User errors
+interface UserError extends BaseError {
+  type: 'USER_ERROR';
+  field?: string;
+  validation?: Record<string, string>;
+}
+
+// System errors
+interface SystemError extends BaseError {
+  type: 'SYSTEM_ERROR';
+  service?: string;
+  retryable: boolean;
+  statusCode?: number;
+}
+
+// Application errors
+interface ApplicationError extends BaseError {
+  type: 'APPLICATION_ERROR';
+  component?: string;
+  action?: string;
+}
+
+// External errors
+interface ExternalError extends BaseError {
+  type: 'EXTERNAL_ERROR';
+  service: string;
+  endpoint?: string;
+  retryable: boolean;
+}
+
+type AppError = UserError | SystemError | ApplicationError | ExternalError;
+```
+
+### Error Codes
+
+```typescript
+// Error code constants
+export const ERROR_CODES = {
+  // User errors
+  VALIDATION_FAILED: 'VALIDATION_FAILED',
+  PERMISSION_DENIED: 'PERMISSION_DENIED',
+  AUTHENTICATION_REQUIRED: 'AUTHENTICATION_REQUIRED',
+  INVALID_INPUT: 'INVALID_INPUT',
+  
+  // System errors
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
+  TIMEOUT: 'TIMEOUT',
+  RATE_LIMITED: 'RATE_LIMITED',
+  
+  // Application errors
+  STATE_INCONSISTENCY: 'STATE_INCONSISTENCY',
+  COMPONENT_ERROR: 'COMPONENT_ERROR',
+  STORE_ERROR: 'STORE_ERROR',
+  
+  // External errors
+  BLOCKCHAIN_ERROR: 'BLOCKCHAIN_ERROR',
+  LIGHTNING_ERROR: 'LIGHTNING_ERROR',
+  NOSTR_ERROR: 'NOSTR_ERROR',
+  CAPACITOR_ERROR: 'CAPACITOR_ERROR'
+} as const;
+```
+
+## Centralized Error Management
+
+### Error Store
+
+```typescript
+// Error store for centralized error management
+interface ErrorState {
+  errors: AppError[];
+  isError: boolean;
+  lastError: AppError | null;
+  errorCount: number;
+}
+
+function createErrorStore() {
+  const { subscribe, set, update } = writable<ErrorState>({
+    errors: [],
+    isError: false,
+    lastError: null,
+    errorCount: 0
+  });
+
+  return {
+    subscribe,
+    
+    addError(error: AppError) {
+      update(state => ({
+        ...state,
+        errors: [...state.errors, error],
+        isError: true,
+        lastError: error,
+        errorCount: state.errorCount + 1
+      }));
+    },
+    
+    clearErrors() {
+      set({
+        errors: [],
+        isError: false,
+        lastError: null,
+        errorCount: 0
+      });
+    },
+    
+    removeError(errorId: string) {
+      update(state => ({
+        ...state,
+        errors: state.errors.filter(error => error.code !== errorId),
+        isError: state.errors.length > 1,
+        lastError: state.errors.length > 1 ? state.errors[state.errors.length - 2] : null
+      }));
+    },
+    
+    getErrorsByType(type: string) {
+      return get(this).errors.filter(error => error.type === type);
+    }
+  };
+}
+
+export const errorStore = createErrorStore();
+```
+
+### Error Factory
+
+```typescript
+// Error factory for creating consistent errors
+export class ErrorFactory {
+  static createUserError(
+    code: string,
+    message: string,
+    field?: string,
+    validation?: Record<string, string>
+  ): UserError {
+    return {
+      type: 'USER_ERROR',
+      code,
+      message,
+      field,
+      validation,
+      timestamp: new Date(),
+      stack: new Error().stack
+    };
+  }
+  
+  static createSystemError(
+    code: string,
+    message: string,
+    service?: string,
+    retryable: boolean = true,
+    statusCode?: number
+  ): SystemError {
+    return {
+      type: 'SYSTEM_ERROR',
+      code,
+      message,
+      service,
+      retryable,
+      statusCode,
+      timestamp: new Date(),
+      stack: new Error().stack
+    };
+  }
+  
+  static createApplicationError(
+    code: string,
+    message: string,
+    component?: string,
+    action?: string
+  ): ApplicationError {
+    return {
+      type: 'APPLICATION_ERROR',
+      code,
+      message,
+      component,
+      action,
+      timestamp: new Date(),
+      stack: new Error().stack
+    };
+  }
+  
+  static createExternalError(
+    code: string,
+    message: string,
+    service: string,
+    endpoint?: string,
+    retryable: boolean = true
+  ): ExternalError {
+    return {
+      type: 'EXTERNAL_ERROR',
+      code,
+      message,
+      service,
+      endpoint,
+      retryable,
+      timestamp: new Date(),
+      stack: new Error().stack
+    };
+  }
+}
+```
+
+## Error Boundaries
+
+### Svelte Error Boundary
+
+```svelte
+<!-- ErrorBoundary.svelte -->
+<script>
+  import { onMount } from 'svelte';
+  import { errorStore } from '$lib/stores/error.store';
+  
+  let { children, fallback, onError } = $props();
+  let hasError = $state(false);
+  let error = $state(null);
+  
+  onMount(() => {
+    // Global error handler
+    const handleError = (event: ErrorEvent) => {
+      hasError = true;
+      error = event.error;
+      
+      // Log error
+      errorStore.addError(ErrorFactory.createApplicationError(
+        'COMPONENT_ERROR',
+        event.error.message,
+        'ErrorBoundary',
+        'render'
+      ));
+      
+      // Call error handler
+      if (onError) {
+        onError(event.error);
+      }
+      
+      // Prevent default error handling
+      event.preventDefault();
+    };
+    
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleError);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleError);
+    };
+  });
+  
+  function retry() {
+    hasError = false;
+    error = null;
+  }
+</script>
+
+{#if hasError}
+  {#if fallback}
+    {@render fallback(error)}
+  {:else}
+    <div class="error-boundary">
+      <div class="alert alert-error">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        <div>
+          <h3 class="font-bold">Something went wrong</h3>
+          <div class="text-xs">{error?.message}</div>
+        </div>
+        <button class="btn btn-sm btn-ghost" onclick={retry}>Retry</button>
+      </div>
+    </div>
+  {/if}
+{:else}
+  {@render children()}
+{/if}
+```
+
+### Async Error Boundary
+
+```typescript
+// Async error boundary for promises
+export function withAsyncErrorBoundary<T>(
+  asyncFn: () => Promise<T>,
+  errorHandler?: (error: Error) => void
+): Promise<T> {
+  return asyncFn().catch(error => {
+    // Log error
+    errorStore.addError(ErrorFactory.createApplicationError(
+      'ASYNC_ERROR',
+      error.message,
+      'AsyncBoundary',
+      'execute'
+    ));
+    
+    // Call error handler
+    if (errorHandler) {
+      errorHandler(error);
+    }
+    
+    // Re-throw error
+    throw error;
+  });
+}
+```
+
+## Error Handling Patterns
+
+### API Error Handling
+
+```typescript
+// API error handling
+export class APIErrorHandler {
+  static async handleResponse(response: Response): Promise<any> {
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      
+      const error = ErrorFactory.createSystemError(
+        errorData.code || 'API_ERROR',
+        errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+        'API',
+        true,
+        response.status
+      );
+      
+      errorStore.addError(error);
+      throw error;
+    }
+    
+    return response.json();
+  }
+  
+  static async fetchWithErrorHandling(url: string, options?: RequestInit): Promise<any> {
+    try {
+      const response = await fetch(url, options);
+      return await this.handleResponse(response);
+    } catch (error) {
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        const networkError = ErrorFactory.createSystemError(
+          'NETWORK_ERROR',
+          'Network request failed',
+          'API',
+          true
+        );
+        errorStore.addError(networkError);
+        throw networkError;
+      }
+      throw error;
+    }
+  }
+}
+```
+
+### Store Error Handling
+
+```typescript
+// Store error handling
+export function withErrorHandling<T>(
+  storeMethod: () => Promise<T>,
+  errorContext: string
+): Promise<T> {
+  return storeMethod().catch(error => {
+    const storeError = ErrorFactory.createApplicationError(
+      'STORE_ERROR',
+      error.message,
+      errorContext,
+      'store_operation'
+    );
+    
+    errorStore.addError(storeError);
+    throw storeError;
+  });
+}
+
+// Usage in store
+export const userStore = {
+  async loadUser(userId: string) {
+    return withErrorHandling(
+      () => fetchUser(userId),
+      'userStore.loadUser'
+    );
+  }
+};
+```
+
+### Blockchain Error Handling
+
+```typescript
+// Blockchain error handling
+export class BlockchainErrorHandler {
+  static handleBitcoinError(error: any): AppError {
+    if (error.code === 'INSUFFICIENT_FUNDS') {
+      return ErrorFactory.createExternalError(
+        'INSUFFICIENT_FUNDS',
+        'Insufficient Bitcoin balance for transaction',
+        'Bitcoin',
+        'transaction',
+        false
+      );
+    }
+    
+    if (error.code === 'NETWORK_ERROR') {
+      return ErrorFactory.createExternalError(
+        'BLOCKCHAIN_NETWORK_ERROR',
+        'Bitcoin network connection failed',
+        'Bitcoin',
+        'network',
+        true
+      );
+    }
+    
+    return ErrorFactory.createExternalError(
+      'BLOCKCHAIN_ERROR',
+      error.message || 'Unknown blockchain error',
+      'Bitcoin',
+      'transaction',
+      true
+    );
+  }
+  
+  static handleLightningError(error: any): AppError {
+    if (error.code === 'INVOICE_EXPIRED') {
+      return ErrorFactory.createExternalError(
+        'INVOICE_EXPIRED',
+        'Lightning invoice has expired',
+        'Lightning',
+        'invoice',
+        false
+      );
+    }
+    
+    return ErrorFactory.createExternalError(
+      'LIGHTNING_ERROR',
+      error.message || 'Unknown Lightning error',
+      'Lightning',
+      'payment',
+      true
+    );
+  }
+}
+```
+
+## User Feedback Systems
+
+### Error Display Component
+
+```svelte
+<!-- ErrorDisplay.svelte -->
+<script>
+  import { errorStore } from '$lib/stores/error.store';
+  import { ERROR_CODES } from '$lib/utils/errorCodes';
+  
+  let { showUserErrors = true, showSystemErrors = false } = $props();
+  
+  $: errors = $errorStore.errors.filter(error => {
+    if (showUserErrors && error.type === 'USER_ERROR') return true;
+    if (showSystemErrors && error.type === 'SYSTEM_ERROR') return true;
+    return false;
+  });
+  
+  function dismissError(errorCode: string) {
+    errorStore.removeError(errorCode);
+  }
+  
+  function getErrorMessage(error: AppError): string {
+    switch (error.code) {
+      case ERROR_CODES.VALIDATION_FAILED:
+        return 'Please check your input and try again';
+      case ERROR_CODES.PERMISSION_DENIED:
+        return 'You do not have permission to perform this action';
+      case ERROR_CODES.NETWORK_ERROR:
+        return 'Network connection failed. Please check your internet connection';
+      case ERROR_CODES.SERVICE_UNAVAILABLE:
+        return 'Service temporarily unavailable. Please try again later';
+      default:
+        return error.message;
+    }
+  }
+</script>
+
+{#each errors as error (error.code)}
+  <div class="alert alert-error alert-outline">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+    </svg>
+    <div>
+      <h3 class="font-bold">Error</h3>
+      <div class="text-xs">{getErrorMessage(error)}</div>
+    </div>
+    <button 
+      class="btn btn-sm btn-ghost" 
+      onclick={() => dismissError(error.code)}
+    >
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+      </svg>
+    </button>
+  </div>
+{/each}
+```
+
+### Loading States with Error Handling
+
+```svelte
+<!-- AsyncComponent.svelte -->
+<script>
+  import { errorStore } from '$lib/stores/error.store';
+  
+  let { asyncOperation } = $props();
+  
+  let data = $state(null);
+  let loading = $state(false);
+  let error = $state(null);
+  
+  async function execute() {
+    loading = true;
+    error = null;
+    
+    try {
+      data = await asyncOperation();
+    } catch (err) {
+      error = err;
+      errorStore.addError(err);
+    } finally {
+      loading = false;
+    }
+  }
+  
+  // Auto-execute on mount
+  onMount(execute);
+</script>
+
+{#if loading}
+  <div class="loading loading-spinner loading-md"></div>
+{:else if error}
+  <div class="alert alert-error">
+    <span>{error.message}</span>
+    <button class="btn btn-sm" onclick={execute}>Retry</button>
+  </div>
+{:else if data}
+  <!-- Render data -->
+  <div>{data}</div>
+{/if}
+```
+
+## Error Recovery Patterns
+
+### Retry Logic
+
+```typescript
+// Retry logic for recoverable errors
+export class RetryHandler {
+  static async withRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        
+        // Check if error is retryable
+        if (error.retryable === false) {
+          throw error;
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, attempt)));
+      }
+    }
+    
+    throw lastError;
+  }
+}
+```
+
+### Fallback Strategies
+
+```typescript
+// Fallback strategies for service failures
+export class FallbackHandler {
+  static async withFallback<T>(
+    primaryOperation: () => Promise<T>,
+    fallbackOperation: () => Promise<T>
+  ): Promise<T> {
+    try {
+      return await primaryOperation();
+    } catch (error) {
+      console.warn('Primary operation failed, using fallback:', error);
+      return await fallbackOperation();
+    }
+  }
+  
+  static async withCacheFallback<T>(
+    operation: () => Promise<T>,
+    cacheKey: string,
+    ttl: number = 300000 // 5 minutes
+  ): Promise<T> {
+    try {
+      const result = await operation();
+      // Cache result
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: result,
+        timestamp: Date.now()
+      }));
+      return result;
+    } catch (error) {
+      // Try cache
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < ttl) {
+          return data;
+        }
+      }
+      throw error;
+    }
+  }
+}
+```
+
+## Error Logging and Monitoring
+
+### Error Logger
+
+```typescript
+// Error logging service
+export class ErrorLogger {
+  static logError(error: AppError, context?: Record<string, any>) {
+    const logEntry = {
+      ...error,
+      context,
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Console logging for development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error logged:', logEntry);
+    }
+    
+    // Send to external service in production
+    if (process.env.NODE_ENV === 'production') {
+      this.sendToExternalService(logEntry);
+    }
+  }
+  
+  private static async sendToExternalService(logEntry: any) {
+    try {
+      await fetch('/api/errors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logEntry)
+      });
+    } catch (error) {
+      console.error('Failed to send error log:', error);
+    }
+  }
+}
+```
+
+## Best Practices
+
+### 1. Error Design
+
+- **Classify errors properly** by type and severity
+- **Provide actionable messages** for users
+- **Implement graceful degradation** when possible
+- **Log errors with context** for debugging
+
+### 2. User Experience
+
+- **Show errors at the right level** (component, page, global)
+- **Provide retry mechanisms** for recoverable errors
+- **Use consistent error UI** across the application
+- **Implement error boundaries** to prevent crashes
+
+### 3. Development
+
+- **Test error scenarios** thoroughly
+- **Mock external services** for error testing
+- **Implement proper error types** with TypeScript
+- **Use error boundaries** to isolate failures
+
+### 4. Monitoring
+
+- **Track error rates** and patterns
+- **Set up alerts** for critical errors
+- **Monitor error recovery** success rates
+- **Analyze error trends** for improvements
+
+### 5. Security
+
+- **Sanitize error messages** to prevent information leakage
+- **Log security-related errors** separately
+- **Implement rate limiting** for error reporting
+- **Protect sensitive data** in error logs
+
+This comprehensive error handling system ensures robust error management across all layers of the BitTasker application, providing excellent user experience and maintainability.

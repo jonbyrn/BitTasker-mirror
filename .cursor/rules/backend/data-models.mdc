@@ -1,0 +1,485 @@
+---
+description: Data models and type definitions for BitTasker entities
+globs: ["**/types/**/*", "**/models/**/*"]
+alwaysApply: false
+---
+
+# Data Models
+
+## Core Entities
+
+### User
+
+```typescript
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  profilePicture?: string;
+  bio?: string;
+  location?: {
+    address: string;
+    coordinates: [number, number];
+    radius: number;
+  };
+  preferences: {
+    language: string;
+    currency: string;
+    notifications: boolean;
+    theme: 'light' | 'dark';
+  };
+  authentication: {
+    nostrPublicKey: string;
+    nostrPrivateKey: string; // encrypted
+    backupPhrase: string; // encrypted
+  };
+  wallet: {
+    bitcoinAddress: string;
+    lightningAddress?: string;
+    liquidAddress?: string;
+    whitelistedAddresses: string[];
+  };
+  gamification: {
+    level: number;
+    experience: number;
+    badges: string[];
+    streak: number;
+  };
+  verification: {
+    emailVerified: boolean;
+    phoneVerified: boolean;
+    identityVerified: boolean;
+    skillsVerified: string[];
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Task
+
+```typescript
+interface Task {
+  id: string;
+  hirerId: string;
+  title: string;
+  description: string;
+  category: string;
+  skills: string[];
+  location: {
+    type: 'physical' | 'remote';
+    address?: string;
+    coordinates?: [number, number];
+    radius?: number;
+  };
+  budget: {
+    min: number;
+    max: number;
+    currency: string;
+    bitcoinAmount?: number;
+  };
+  timeline: {
+    startDate: Date;
+    endDate: Date;
+    estimatedHours?: number;
+  };
+  status: 'draft' | 'open' | 'in_progress' | 'completed' | 'cancelled';
+  attachments: {
+    id: string;
+    url: string;
+    type: string;
+    size: number;
+  }[];
+  boosting: {
+    enabled: boolean;
+    amount: number;
+    currency: string;
+  };
+  bids: Bid[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Bid
+
+```typescript
+interface Bid {
+  id: string;
+  taskId: string;
+  doerId: string;
+  price: number;
+  currency: string;
+  bitcoinAmount?: number;
+  estimatedHours: number;
+  proposedApproach: string;
+  timeline: {
+    startDate: Date;
+    endDate: Date;
+  };
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  attachments: {
+    id: string;
+    url: string;
+    type: string;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Calendar/Schedule
+
+```typescript
+interface Schedule {
+  id: string;
+  userId: string;
+  type: 'availability' | 'booking';
+  title: string;
+  description?: string;
+  startTime: Date;
+  endTime: Date;
+  recurring?: {
+    pattern: 'daily' | 'weekly' | 'monthly';
+    interval: number;
+    endDate?: Date;
+  };
+  status: 'available' | 'booked' | 'blocked';
+  taskId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Transaction
+
+```typescript
+interface Transaction {
+  id: string;
+  type: 'payment' | 'withdrawal' | 'refund' | 'fee';
+  fromUserId: string;
+  toUserId?: string;
+  amount: number;
+  currency: string;
+  bitcoinAmount?: number;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  paymentMethod: 'bitcoin' | 'lightning' | 'liquid' | 'fiat';
+  transactionHash?: string;
+  fee: {
+    amount: number;
+    currency: string;
+    type: 'platform' | 'network' | 'processing';
+  };
+  escrow?: {
+    amount: number;
+    currency: string;
+    releaseConditions: string[];
+    releasedAt?: Date;
+  };
+  whitelistedAddresses?: string[];
+  withdrawalNotifications?: {
+    sent: boolean;
+    sentAt?: Date;
+    reminderSent: boolean;
+    reminderSentAt?: Date;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Review
+
+```typescript
+interface Review {
+  id: string;
+  taskId: string;
+  reviewerId: string;
+  revieweeId: string;
+  rating: {
+    overall: number; // 1-5
+    communication: number;
+    quality: number;
+    timeliness: number;
+    professionalism: number;
+  };
+  feedback: string;
+  response?: string;
+  dispute?: {
+    reason: string;
+    status: 'open' | 'resolved' | 'dismissed';
+    resolution?: string;
+  };
+  isVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+## Supporting Entities
+
+### Category
+
+```typescript
+interface Category {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  parentId?: string;
+  children: Category[];
+  skills: string[];
+  averagePrice: {
+    min: number;
+    max: number;
+    currency: string;
+  };
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Skill
+
+```typescript
+interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  verificationRequired: boolean;
+  verificationMethods: string[];
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Message
+
+```typescript
+interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  type: 'text' | 'image' | 'file' | 'system';
+  attachments?: {
+    id: string;
+    url: string;
+    type: string;
+    size: number;
+  }[];
+  isEncrypted: boolean;
+  translatedContent?: {
+    language: string;
+    content: string;
+  };
+  readAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Conversation
+
+```typescript
+interface Conversation {
+  id: string;
+  type: 'task' | 'direct';
+  participants: string[];
+  taskId?: string;
+  lastMessage?: Message;
+  isEncrypted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
+### Notification
+
+```typescript
+interface Notification {
+  id: string;
+  userId: string;
+  type: 'task' | 'bid' | 'message' | 'payment' | 'system';
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  isRead: boolean;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  channels: ('push' | 'email' | 'in_app')[];
+  sentAt?: Date;
+  readAt?: Date;
+  createdAt: Date;
+}
+```
+
+## Type Definitions
+
+### Common Types
+
+```typescript
+// Location types
+type Location = {
+  type: 'physical' | 'remote';
+  address?: string;
+  coordinates?: [number, number];
+  radius?: number;
+};
+
+// Currency types - matches actual project implementation
+type Currency = 'USD' | 'BTC' | 'L-BTC' | 'LN' | 'USDt' | 'RBTC' | 'tRBTC';
+
+// Status types - matches actual TaskStatusEnum implementation
+type TaskStatus = 'OPEN' | 'BID_ACCEPTED' | 'ESCROW_FUNDED' | 'IN_PROGRESS' | 'RESCOPED' | 'RESCOPE_ACCEPTED' | 'COMPLETED' | 'CANCELLED' | 'REFUNDED' | 'DISPUTED' | 'DISPUTE_PROPOSAL';
+type BidStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN' | 'COUNTERED';
+type TransactionStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
+
+// Contract status types - matches actual contract implementation
+type ContractStatus = 'active' | 'completed' | 'disputed' | 'resolved' | 'cancelled';
+
+// Payment types - matches actual Breez SDK implementation
+type PaymentMethod = 'liquidAddress' | 'bolt11Invoice' | 'bitcoinAddress' | 'bolt12Offer';
+type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
+
+// Asset types - matches Liquid Network implementation
+type AssetType = 'L-BTC' | 'USDt' | 'any';
+
+// Verification types
+type VerificationStatus = 'pending' | 'verified' | 'rejected' | 'expired';
+type VerificationType = 'email' | 'phone' | 'identity' | 'skill' | 'address';
+```
+
+### API Response Types
+
+```typescript
+// Generic API response
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, any>;
+  };
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    hasMore?: boolean;
+  };
+}
+
+// Paginated response
+interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+```
+
+### Validation Schemas
+
+```typescript
+// Zod schemas for validation
+import { z } from 'zod';
+
+const userSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  profilePicture: z.string().url().optional(),
+  bio: z.string().max(500).optional(),
+  location: z.object({
+    address: z.string(),
+    coordinates: z.tuple([z.number(), z.number()]),
+    radius: z.number().min(0).max(100)
+  }).optional(),
+  preferences: z.object({
+    language: z.string().length(2),
+    currency: z.enum(['USD', 'EUR', 'GBP', 'BTC', 'L-BTC', 'USDT']),
+    notifications: z.boolean(),
+    theme: z.enum(['light', 'dark'])
+  }),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+
+const taskSchema = z.object({
+  id: z.string().uuid(),
+  hirerId: z.string().uuid(),
+  title: z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+  category: z.string(),
+  skills: z.array(z.string()),
+  location: z.object({
+    type: z.enum(['physical', 'remote']),
+    address: z.string().optional(),
+    coordinates: z.tuple([z.number(), z.number()]).optional(),
+    radius: z.number().min(0).max(100).optional()
+  }),
+  budget: z.object({
+    min: z.number().min(0),
+    max: z.number().min(0),
+    currency: z.enum(['USD', 'EUR', 'GBP', 'BTC', 'L-BTC', 'USDT']),
+    bitcoinAmount: z.number().min(0).optional()
+  }),
+  timeline: z.object({
+    startDate: z.date(),
+    endDate: z.date(),
+    estimatedHours: z.number().min(0).optional()
+  }),
+  status: z.enum(['draft', 'open', 'in_progress', 'completed', 'cancelled']),
+  createdAt: z.date(),
+  updatedAt: z.date()
+});
+```
+
+## Database Relationships
+
+### Entity Relationships
+
+- User → Tasks (1:many)
+- User → Bids (1:many)
+- User → Reviews (1:many)
+- Task → Bids (1:many)
+- Task → Reviews (1:many)
+- User → Messages (1:many)
+- User → Notifications (1:many)
+- User → Schedules (1:many)
+- Task → Transactions (1:many)
+
+### Indexes
+
+```sql
+-- User indexes
+CREATE INDEX idx_user_email ON users(email);
+CREATE INDEX idx_user_nostr_key ON users(nostr_public_key);
+CREATE INDEX idx_user_location ON users USING GIST(location_coordinates);
+
+-- Task indexes
+CREATE INDEX idx_task_hire ON tasks(hirer_id);
+CREATE INDEX idx_task_category ON tasks(category);
+CREATE INDEX idx_task_status ON tasks(status);
+CREATE INDEX idx_task_location ON tasks USING GIST(location_coordinates);
+CREATE INDEX idx_task_created ON tasks(created_at);
+
+-- Bid indexes
+CREATE INDEX idx_bid_task ON bids(task_id);
+CREATE INDEX idx_bid_doer ON bids(doer_id);
+CREATE INDEX idx_bid_status ON bids(status);
+
+-- Transaction indexes
+CREATE INDEX idx_transaction_from ON transactions(from_user_id);
+CREATE INDEX idx_transaction_to ON transactions(to_user_id);
+CREATE INDEX idx_transaction_status ON transactions(status);
+CREATE INDEX idx_transaction_hash ON transactions(transaction_hash);
+```

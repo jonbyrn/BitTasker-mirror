@@ -1,16 +1,18 @@
 ---
-description: Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines for the package.
-globs: 
+description: Nostr protocol integration, event handling, relay management, and identity system
+globs: ["**/nostr/**/*", "**/integrations/nostr/**/*"]
 alwaysApply: false
 ---
 # Nostr Tools Documentation
 
 ## Overview
+
 Nostr Tools is a comprehensive JavaScript/TypeScript library for working with the Nostr protocol. This document provides technical specifications and usage guidelines for the package.
 
 ## Core Components
 
 ### Event Structure
+
 ```typescript
 interface Event {
   id: string;      // Event ID (32-bytes lowercase hex) - computed from the event data
@@ -26,6 +28,7 @@ interface Event {
 ### Event Creation Process
 
 When creating a new event, you only need to provide the following fields:
+
 ```typescript
 const eventTemplate = {
   kind: number,
@@ -49,6 +52,7 @@ The `id` and `sig` fields are automatically computed when you call `finalizeEven
    - Format: 64-bytes lowercase hex string
 
 Example:
+
 ```typescript
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure';
 
@@ -76,6 +80,7 @@ console.log(signedEvent.sig);  // e.g., "79e85af3cd6c43324975466d32f91f291e10af0
 Event tags are a fundamental feature that provide additional metadata and create relationships between events, users, and other entities. They are stored in the `tags` field as an array of arrays.
 
 #### Tag Structure
+
 ```typescript
 tags: [
   [tagName, ...values],
@@ -84,30 +89,37 @@ tags: [
 ```
 
 Where:
+
 - `tagName`: A single letter or word identifying the tag type
 - `values`: One or more values associated with the tag
 
 #### Common Tag Types
 
 1. **"e" - Event Reference**
+
    ```typescript
    ["e", eventId, relayURL?, marker?, eventAuthor?]
    ```
+
    - Used to reference other events
    - Markers can be: "reply", "root", "mention"
    - Example: `["e", "1234...", "wss://relay.example.com", "reply"]`
 
 2. **"p" - Profile Reference**
+
    ```typescript
    ["p", pubkey, relayURL?]
    ```
+
    - References a user's public key
    - Example: `["p", "abcd...", "wss://relay.example.com"]`
 
 3. **"d" - Identifier Tag**
+
    ```typescript
    ["d", identifier]
    ```
+
    - Used in parameterized replaceable events
    - Example: `["d", "my-custom-identifier"]`
 
@@ -117,6 +129,7 @@ Where:
    - `["published_at", "1234567890"]`
 
 5. **Media-related Tags** (NIP-94)
+
    ```typescript
    [
      ["url", fileUrl],
@@ -131,6 +144,7 @@ Where:
    ```
 
 6. **Zap-related Tags** (NIP-57)
+
    ```typescript
    [
      ["amount", "1000"],
@@ -142,6 +156,7 @@ Where:
 #### Tag Usage Examples
 
 1. **Creating a Reply**
+
 ```typescript
 const replyEvent = {
   kind: 1,
@@ -154,7 +169,8 @@ const replyEvent = {
 };
 ```
 
-2. **File Metadata**
+#### File Metadata
+
 ```typescript
 const fileEvent = {
   kind: 1063,
@@ -169,7 +185,8 @@ const fileEvent = {
 };
 ```
 
-3. **Classified Listing** (NIP-99)
+#### Classified Listing (NIP-99)
+
 ```typescript
 const listingEvent = {
   kind: 30402,
@@ -188,6 +205,7 @@ const listingEvent = {
 ### Event Kinds
 
 #### Regular Events (Stored by Relays)
+
 - `0`: Metadata (Profile)
 - `1`: Text Note
 - `2`: Recommend Relay
@@ -202,6 +220,7 @@ const listingEvent = {
 - `16`: Generic Repost
 
 #### Channel Events
+
 - `40`: Channel Creation
 - `41`: Channel Metadata
 - `42`: Channel Message
@@ -209,6 +228,7 @@ const listingEvent = {
 - `44`: Channel Mute User
 
 #### Special Purpose Events
+
 - `1040`: OpenTimestamps
 - `1059`: Gift Wrap
 - `1063`: File Metadata
@@ -218,18 +238,21 @@ const listingEvent = {
 - `1985`: Label
 
 #### Community and Job Events
+
 - `4550`: Community Post Approval
 - `5999`: Job Request
 - `6999`: Job Result
 - `7000`: Job Feedback
 
 #### Zap and Financial Events
+
 - `9041`: Zap Goal
 - `9734`: Zap Request
 - `9735`: Zap
 - `9802`: Highlights
 
 #### Lists and Preferences
+
 - `10000`: Mutelist
 - `10001`: Pinlist
 - `10002`: Relay List
@@ -244,6 +267,7 @@ const listingEvent = {
 - `10096`: File Server Preference
 
 #### Lightning and Wallet Integration
+
 - `13194`: NWC Wallet Info
 - `21000`: Lightning PubRPC
 - `22242`: Client Auth
@@ -253,6 +277,7 @@ const listingEvent = {
 - `27235`: HTTP Auth
 
 #### Parameterized Replaceable Events (30000-34550)
+
 - `30000`: Followsets
 - `30001`: Genericlists
 - `30002`: Relaysets
@@ -282,6 +307,7 @@ const listingEvent = {
 ### Core Functions
 
 #### Event Creation and Signing
+
 ```typescript
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { finalizeEvent, validateEvent } from 'nostr-tools/pure';
@@ -312,6 +338,7 @@ const isValid = validateEvent(signedEvent);
 ### Relay Management
 
 #### SimplePool Usage
+
 ```typescript
 import { SimplePool } from 'nostr-tools/pool';
 import type { Event, Filter } from 'nostr-tools';
@@ -350,6 +377,7 @@ The library supports various NIPs including:
    - Handling user metadata
 
 3. **NIP-04: Encrypted Direct Messages**
+
    ```typescript
    import { encrypt, decrypt } from 'nostr-tools/nip04';
    
@@ -361,6 +389,7 @@ The library supports various NIPs including:
    ```
 
 4. **NIP-05: DNS-based Verification**
+
    ```typescript
    import { nip05 } from 'nostr-tools';
    
@@ -369,6 +398,7 @@ The library supports various NIPs including:
    ```
 
 5. **NIP-06: Key Generation**
+
    ```typescript
    import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
    
@@ -377,6 +407,7 @@ The library supports various NIPs including:
    ```
 
 6. **NIP-07: Browser Extension Integration**
+
    ```typescript
    // Check if extension is available
    if (window.nostr) {
@@ -386,6 +417,7 @@ The library supports various NIPs including:
    ```
 
 7. **NIP-19: Bech32-Encoded Entities**
+
    ```typescript
    import { nip19 } from 'nostr-tools';
    
@@ -398,6 +430,7 @@ The library supports various NIPs including:
    ```
 
 8. **NIP-57: Lightning Zaps**
+
    ```typescript
    import { nip57 } from 'nostr-tools';
    
@@ -417,6 +450,7 @@ The library supports various NIPs including:
 ### Advanced Features
 
 #### Event Classification
+
 ```typescript
 import { classifyKind, isRegularKind, isReplaceableKind, isEphemeralKind, isAddressableKind } from 'nostr-tools/kinds';
 
@@ -430,6 +464,7 @@ console.log(isAddressableKind(kind)); // false
 ```
 
 #### Event References
+
 ```typescript
 import { parseReferences } from 'nostr-tools';
 
@@ -471,6 +506,7 @@ const references = parseReferences(event);
    - Include only relevant tags to keep event size minimal
 
 ### Error Handling
+
 ```typescript
 try {
   const pubs = pool.publish(['wss://relay.example.com'], event);
@@ -485,6 +521,7 @@ try {
 ```
 
 ### Utility Functions
+
 ```typescript
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import { nip19 } from 'nostr-tools';
@@ -501,7 +538,9 @@ const nsec = nip19.nsecEncode(privateKey);
 ## Integration with BitTasker
 
 ### Profile Updates
+
 For profile updates in BitTasker, we use kind 0 events with additional custom fields:
+
 ```typescript
 interface BitTaskerProfile extends ProfileMetadata {
   professionalTitle?: string;
@@ -525,6 +564,7 @@ interface BitTaskerProfile extends ProfileMetadata {
 ```
 
 ### Event Publishing Flow
+
 1. Create event content
 2. Sign event
 3. Publish to relay
@@ -532,6 +572,7 @@ interface BitTaskerProfile extends ProfileMetadata {
 5. Update UI
 
 ### Example Implementation
+
 ```typescript
 import { SimplePool } from 'nostr-tools/pool';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
@@ -584,7 +625,8 @@ export async function publishProfileUpdate(
    };
    ```
 
-3. **Link to Profile**
+1. **Link to Profile**
+
    ```typescript
    const event = {
      kind: 0,
@@ -601,9 +643,11 @@ export async function publishProfileUpdate(
    ```
 
 #### 2. Multiple Images
+
 For handling multiple images:
 
 1. **Create Separate Events**
+
    ```typescript
    const images = [
      {url: "image1.jpg", alt: "Main profile"},
@@ -625,6 +669,7 @@ For handling multiple images:
    ```
 
 2. **Reference in Profile**
+
    ```typescript
    const profileEvent = {
      kind: 0,
@@ -639,6 +684,7 @@ For handling multiple images:
    ```
 
 #### 3. Best Practices
+
 1. **Image Optimization**
    - Compress images before upload
    - Generate multiple resolutions
@@ -658,6 +704,7 @@ For handling multiple images:
    - Preload primary image
 
 4. **Error Handling**
+
    ```typescript
    async function uploadImage(file) {
      try {
@@ -733,7 +780,7 @@ const events = await pool.querySync(
 )
 ```
 
-#### publish(relays: string[], event: Event): Promise<void>
+#### publish(relays: string\[\], event: Event): Promise&lt;void&gt;
 
 Publish an event to multiple relays.
 
@@ -775,7 +822,7 @@ pool.close(['wss://relay.example.com'])
 pool.close()
 ```
 
-### Error Handling
+### Pool Error Handling
 
 It's recommended to wrap pool operations in try-catch blocks:
 
@@ -830,7 +877,7 @@ interface Event {
 }
 ```
 
-### Best Practices
+### Pool Best Practices
 
 1. Always reuse the same SimplePool instance when possible
 2. Close connections when they're no longer needed
@@ -839,4 +886,4 @@ interface Event {
 5. Consider using multiple relays for redundancy
 6. Use appropriate timeouts for queries and subscriptions
 7. Use querySync instead of deprecated list method for fetching events
-8. Don't pass configuration options to SimplePool constructor (v2.13.0+) 
+8. Don't pass configuration options to SimplePool constructor (v2.13.0+)
