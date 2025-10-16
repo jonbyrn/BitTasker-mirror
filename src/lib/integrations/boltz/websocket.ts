@@ -44,7 +44,9 @@ export class BoltzWebSocket {
 				};
 
 				this.ws.onmessage = (event) => {
-					this.handleMessage(JSON.parse(event.data));
+					const data = JSON.parse(event.data);
+					console.log('📨 Boltz WebSocket message:', data);
+					this.handleMessage(data);
 				};
 
 				this.ws.onclose = () => {
@@ -68,6 +70,7 @@ export class BoltzWebSocket {
 	 */
 	subscribeToSwap(swapId: string, callback: (event: SwapEvent) => void): void {
 		if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+			console.error('❌ WebSocket not connected, cannot subscribe to swap:', swapId);
 			throw new Error('WebSocket not connected');
 		}
 
@@ -75,6 +78,7 @@ export class BoltzWebSocket {
 		this.callbacks.set(swapId, callback);
 
 		// Send subscription message as per Boltz API documentation
+		console.log('📡 Subscribing to swap updates:', swapId);
 		this.send({
 			op: 'subscribe',
 			channel: 'swap.update',
@@ -216,10 +220,24 @@ export class BoltzWebSocket {
 	}
 }
 
-// Singleton instance
-export const boltzWebSocket = new BoltzWebSocket();
+// Singleton instance - use environment-specific endpoint
+const getWebSocketEndpoint = (): string => {
+	// Match the network detection from reverseSwapService
+	const network = (import.meta.env.VITE_RSK_NETWORK as 'mainnet' | 'testnet') || 'testnet';
+	
+	if (network === 'testnet') {
+		// For regtest/testnet, use localhost WebSocket
+		return 'ws://localhost:9001/v2/ws';
+	}
+	
+	// Production mainnet
+	return 'wss://api.boltz.exchange/v2/ws';
+};
+
+export const boltzWebSocket = new BoltzWebSocket(getWebSocketEndpoint());
 
 // Auto-connect when module is imported
 if (typeof window !== 'undefined') {
+	console.log('🔌 Connecting to Boltz WebSocket:', getWebSocketEndpoint());
 	boltzWebSocket.connect().catch(console.error);
 }

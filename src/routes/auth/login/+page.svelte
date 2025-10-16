@@ -132,7 +132,6 @@
 				biometricData = await getWebBiometricData();
 			}
 
-
 			if (biometricData) {
 				await login(biometricData, deviceId, authMethod);
 			} else {

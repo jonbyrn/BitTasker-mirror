@@ -2,6 +2,10 @@
  * Boltz Exchange REST API Client
  * Production-ready implementation based on official Boltz documentation
  * 
+ * IMPORTANT: For RBTC (Rootstock) swaps, this client is only used for API calls.
+ * RBTC uses EVM smart contracts (EtherSwap), not Bitcoin scripts or Taproot.
+ * The Taproot/script methods below are for Bitcoin UTXO swaps only.
+ * 
  * PRODUCTION FEATURES IMPLEMENTED:
  * ✅ Uses boltz-core's optimized swapScript() and reverseSwapScript() functions
  * ✅ Supports both P2WSH (legacy) and Taproot-based swaps for better privacy
@@ -20,6 +24,11 @@
  * ✅ Proper fee estimation and transaction broadcasting
  * ✅ Swap monitoring with configurable polling intervals
  * 
+ * BITCOIN UTXO FEATURES (not used for RBTC):
+ * ⚠️ Taproot/MuSig2 support (framework only - needs full boltz-core integration)
+ * ⚠️ P2WSH script construction (legacy Bitcoin swaps)
+ * ⚠️ HTLC claim/refund transactions
+ * 
  * PRODUCTION SAFETY FEATURES:
  * 🔒 Proper timelock validation (minimum 1 hour in future)
  * 🔒 Key format validation (33/65 byte public keys)
@@ -27,7 +36,6 @@
  * 🔒 Fee validation to prevent dust outputs
  * 🔒 Network-specific configuration validation
  * 🔒 Rate limiting to prevent API abuse
- * 🔒 Request timeout and retry handling
  * 🔒 Comprehensive error types for debugging
  * 
  * EMERGENCY RECOVERY:
@@ -185,6 +193,9 @@ export class BoltzClient {
 	 * Create Taproot-based swap script using boltz-core functions
 	 * Implements MuSig2 aggregated keys as per Boltz documentation
 	 * Boltz's public key always comes first in aggregation
+	 * 
+	 * NOTE: This is only used for Bitcoin UTXO swaps.
+	 * EVM chains (RBTC, ETH) use smart contracts instead.
 	 */
 	private createTaprootSwapScript(params: {
 		preimageHash: string;
@@ -216,27 +227,28 @@ export class BoltzClient {
 			timelock
 		);
 
-		// Create proper Taproot tree structure (simplified for now)
-		// Note: This is a simplified implementation - full boltz-core integration would require
-		// proper tree serialization matching their exact API
+		// Create Taproot tree structure
+		// TODO: For production Taproot swaps, use boltz-core's SwapTreeSerializer
 		const tree = {
 			claimLeaf: { output: claimScript, version: 192 },
 			refundLeaf: { output: refundScript, version: 192 }
 		};
 
 		// Create MuSig2 aggregated key (Boltz public key comes first per documentation)
+		// For production, use boltz-core's Musig class with proper nonce aggregation
 		let aggregatedKey: Buffer;
 		let musig: any = null;
 
 		if (boltzPublicKey) {
-			// Note: This is simplified - real MuSig2 aggregation would require proper API
-			aggregatedKey = boltzPublicKey; // Simplified for now
+			// In production, use: new Musig(zkp, keys, randomBytes(32), [boltzPublicKey, claimPublicKey])
+			aggregatedKey = boltzPublicKey;
 		} else {
 			// Fallback for when Boltz key is not available yet
 			aggregatedKey = claimPublicKey;
 		}
 
-		// Use aggregated key directly (simplified implementation)
+		// Tweak the aggregated key with the Taptree
+		// In production, use: TaprootUtils.tweakMusig(musig, tree)
 		const tweakedPublicKey = aggregatedKey;
 
 		// Create P2TR address
@@ -768,14 +780,18 @@ export class BoltzClient {
 
 	/**
 	 * Get swap status by ID
+	 * According to Boltz API v2 docs, there's no dedicated status endpoint.
+	 * Status updates should be received via WebSocket subscription.
+	 * This is a fallback that tries common endpoint patterns.
 	 */
-	async getSwapStatus(swapId: string): Promise<SwapStatus> {
+	async getSwapStatus(swapId: string, isReverse: boolean = false): Promise<SwapStatus> {
 		if (!swapId || swapId.trim() === '') {
 			throw new Error('Swap ID is required');
 		}
 
 		try {
-			const response = await this.request('GET', `/v2/swap/${swapId}/status`);
+			// Try the generic swap endpoint first (most likely to work)
+			const response = await this.request('GET', `/v2/swap/${swapId}`);
 			
 			// Validate response has required status field
 			if (!response.status) {

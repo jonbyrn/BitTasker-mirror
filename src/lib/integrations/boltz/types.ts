@@ -93,10 +93,15 @@ export type SwapStatusType =
 	| 'invoice.paid'
 	| 'invoice.failedToPay'
 	| 'invoice.pending'
+	| 'invoice.settled'
+	| 'invoice.expired'
 	| 'transaction.mempool'
 	| 'transaction.confirmed'
 	| 'transaction.lockupFailed'
 	| 'transaction.refunded'
+	| 'transaction.failed'
+	| 'transaction.claim.pending'
+	| 'transaction.claim.failed'
 	| 'swap.refunded';
 
 export interface RefundSwapRequest {
