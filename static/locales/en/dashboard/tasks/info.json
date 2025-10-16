@@ -30,6 +30,8 @@
         "view_bids": "View Bids",
         "mark_as_done": "Mark as Done",
         "rescope": "Rescope",
+        "edit": "Edit",
+        "delete": "Delete",
         "delete_task": "Delete Task",
         "dispute_task": "Dispute Task"
       },

@@ -43,7 +43,7 @@
 			// Check if current user is the task owner
 			if (props.task) {
 				getNpub().then((npub) => {
-					isOwner = props.task.author === npub;
+					isOwner = props.task.npub === npub;
 				});
 			}
 		} else {

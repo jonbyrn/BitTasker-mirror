@@ -1,6 +1,7 @@
 {
   "common": {
     "back": "Volver a la tarea",
+    "back_to_tasks": "Regresar",
     "redirecting_to_login": "Redirigiendo al inicio de sesión...",  
     "or": "O",
     "processing": "Procesando",

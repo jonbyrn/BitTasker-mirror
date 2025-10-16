@@ -2,18 +2,17 @@
 	import type { Task } from '$lib/types/task';
 	import { t } from 'svelte-i18n';
 	import { onMount } from 'svelte';
-	import { getNpub } from '$lib/utils/nostrKeys';
 	import { myTasksStore } from '$lib/stores/task.store';
 	import { TaskStatusEnum } from '$lib/utils/enums/task.enum';
 	import cryptoPriceService from '$lib/api/services/crypto-price.service';
-	import nostrEventsService from '$lib/api/services/nostr/events';
-	import KINDS from '$lib/utils/constants/kinds';
 	import { satsFromUsd } from '$lib/utils/helpers/crypto';
 	import { goto } from '$app/navigation';
 	import { formatNumberWithTwoDecimals } from '$lib/stores/breezWallet.store';
 	import { formatStandardDateTime, formatStandardDateShort } from '$lib/utils/helpers/dateFormatter';
 	import { locale } from 'svelte-i18n';
-	import { nip19 } from 'nostr-tools';
+	import { browser } from '$app/environment';
+	import { onDestroy } from 'svelte';
+	import { findMyTasks } from '$lib/nostr/findMyTasks';
 
 	// Props
 	const { openTaskDrawer } = $props<{
@@ -27,6 +26,11 @@
 	let btcPrice = $state<number>(63000); // Default fallback price
 	let isDropdownOpen = $state<boolean>(false);
 
+	// Infinite scroll variables
+	let infiniteScrollObserver: IntersectionObserver | null = null;
+	// svelte-ignore non_reactive_update
+		let scrollTarget: HTMLElement | null = null;
+
 	function formatDateTimeReactive(date: Date) {
 		return formatStandardDateTime(date, $locale || 'en');
 	}
@@ -36,10 +40,6 @@
 		const end = formatStandardDateShort(endDate, $locale || 'en');
 		return `${start} - ${end}`;
 	}
-
-	// Nostr caching
-	const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-	let nostrCache = $state<Map<string, { data: any; timestamp: number }>>(new Map());
 
 	// Filter options - reactive to language changes
 	const filterOptions = $derived([
@@ -58,59 +58,6 @@
 			console.error('Error fetching BTC price:', error);
 			// Keep using fallback price
 		}
-	}
-
-	/**
-	 * Get cached tasks or fetch from Nostr
-	 */
-	async function getCachedTasks(): Promise<Task[]> {
-		const npub = await getNpub();
-		if (!npub) {
-			throw new Error('No public key found');
-		}
-
-		// Convert npub to hex if needed
-		let pubkeyHex = npub;
-		if (npub.startsWith('npub')) {
-			try {
-				pubkeyHex = nip19.decode(npub).data as string;
-			} catch (error) {
-				console.error('Error decoding npub:', error);
-				throw new Error('Invalid npub format');
-			}
-		}
-
-		const cacheKey = `tasks-${pubkeyHex}`;
-		const cached = nostrCache.get(cacheKey);
-
-		// Return cached data if still valid
-		if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-			return cached.data;
-		}
-
-		// Fetch fresh data using hex pubkey
-		console.log('🔍 Fetching tasks for pubkey:', pubkeyHex);
-		const { data: events } = await nostrEventsService.findEvents({
-			kinds: [KINDS.TASK_CREATION],
-			authors: [pubkeyHex]
-		});
-
-		console.log('📋 Found events:', events.length);
-
-		const tasks = events.map((event) => {
-			const content = JSON.parse(event.content);
-			return {
-				...content,
-				id: event.id,
-				author: event.pubkey
-			};
-		});
-
-		console.log('✅ Processed tasks:', tasks.length);
-
-		// Cache the results
-		nostrCache.set(cacheKey, { data: tasks, timestamp: Date.now() });
-		return tasks;
 	}
 
 	/**
@@ -256,6 +203,60 @@
 		isDropdownOpen = false;
 	}
 
+	/**
+	 * Load more my tasks (for infinite scroll)
+	 */
+	async function loadMoreMyTasks() {
+		if ($myTasksStore.hasMore && !$myTasksStore.loading) {
+			const nextPage = $myTasksStore.currentPage + 1;
+			const lastItem = $myTasksStore.items[$myTasksStore.items.length - 1];
+
+			// Subtract 1 second from the last item's timestamp to exclude it from the next batch
+			const untilTimestamp = lastItem.createdAt - 1;
+
+			await findMyTasks({
+				page: nextPage,
+				limit: 20,
+				until: untilTimestamp
+			});
+		}
+	}
+
+	/**
+	 * Setup intersection observer for infinite scroll
+	 */
+	function setupInfiniteScroll() {
+		if (!browser) return;
+
+		if ('IntersectionObserver' in window) {
+			infiniteScrollObserver = new IntersectionObserver(
+				(entries) => {
+					if (entries[0].isIntersecting && $myTasksStore.hasMore && !$myTasksStore.loading) {
+						loadMoreMyTasks();
+					}
+				},
+				{ rootMargin: '200px' }
+			);
+
+			if (scrollTarget) {
+				infiniteScrollObserver.observe(scrollTarget);
+			}
+		}
+	}
+
+	/**
+	 * Cleanup infinite scroll observer
+	 */
+	function cleanupInfiniteScroll() {
+		if (infiniteScrollObserver && scrollTarget) {
+			infiniteScrollObserver.unobserve(scrollTarget);
+		}
+		if (infiniteScrollObserver) {
+			infiniteScrollObserver.disconnect();
+			infiniteScrollObserver = null;
+		}
+	}
+
 	// Reactive statement to get filtered tasks
 	const filteredTasks = $derived(
 		$myTasksStore.items ? getFilteredTasks($myTasksStore.items, activeFilter) : []
@@ -267,18 +268,12 @@
 
 		// Load tasks and BTC price asynchronously
 		(async () => {
-			$myTasksStore.loading = true;
-			$myTasksStore.error = null;
-
 			try {
-				// Load tasks (with caching)
-				const tasks = await getCachedTasks();
-				$myTasksStore.items = tasks;
+				// Load first page of tasks
+				await findMyTasks({ page: 1, limit: 20 });
 			} catch (err) {
 				console.error('Error loading tasks:', err);
 				$myTasksStore.error = $t('task.error.loading');
-			} finally {
-				$myTasksStore.loading = false;
 			}
 
 			// Fetch BTC price in background (non-blocking)
@@ -297,10 +292,22 @@
 			}
 		})();
 
+		// Setup infinite scroll - waiting for DOM to be ready
+		setTimeout(() => {
+			setupInfiniteScroll();
+		}, 1000);
+
 		// Cleanup on unmount
 		return () => {
 			document.removeEventListener('click', handleClickOutside);
 		};
+	});
+
+	// Cleanup on component destroy
+	onDestroy(() => {
+		if (browser) {
+			cleanupInfiniteScroll();
+		}
 	});
 </script>
 
@@ -839,6 +846,17 @@
 				</div>
 			{/if}
 		{/each}
+		
+		<!-- Infinite scroll trigger -->
+		{#if $myTasksStore.hasMore}
+			<div bind:this={scrollTarget} class="h-4 w-full">
+				{#if $myTasksStore.loading}
+					<div class="flex justify-center py-4">
+						<span class="loading loading-spinner loading-md"></span>
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {:else if !$myTasksStore.loading && !$myTasksStore.error}
 	<div class="bg-base-100 rounded-xl py-12 text-center shadow-md">
